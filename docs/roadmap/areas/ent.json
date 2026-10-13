@@ -5421,17 +5421,15 @@
     {
       "id": "X7.1",
       "epic": "X7",
-      "title": "Consultant directory: photo, skills, experience summary (consented), availability, marketing status, assigned marketer, license status, resume completeness",
+      "title": "Consultant directory API: org_member × consultant_profile × consent projection × open assignment × license × readiness; scope-aware (ASSIGNED/TEAM/ORG); filters; precomputed resume summary",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
-        "API",
-        "Web"
+        "API"
       ],
       "deps": [
         "X7.2",
-        "X4.7",
-        "X2.15"
+        "X4.7"
       ],
       "persona": "Org Admin / Marketer / Marketing Manager",
       "objective": "One list that answers 'who can we market, who is ready, who is mine' with consent made visible.",
@@ -5440,12 +5438,10 @@
       "functional": [
         "GET /consultants joins org_member × consultant_profile × data_share projection × open org_assignment × consultant_license × readiness per 30 §2; filters q/availability/marketing/marketer/license/readiness; paged.",
         "Scope: ASSIGNED for marketers, TEAM for managers, ORG for admins/HR/TA; consent projection per ShareField (experience summary only at FULL; readiness band at SUMMARY).",
-        "Directory never calls ResumeAccessService per row; resume_summary_json is precomputed (X7.7 fills it; until then null → 'Not computed yet')."
+        "Directory never calls ResumeAccessService per row; resume_summary_json is precomputed (X7.7 fills it; until then null → 'Not computed yet').",
+        "The Consultants page is X7.8."
       ],
-      "ui": [
-        "Consultants page (38 §2.1 at 390/1440): cards with ConsentChip, availability dot, bench aging, ReadinessRing, assigned marketer chips, license chips; EmptyState texts from 38 §6; 'Ask Anika' with cooldown.",
-        "Add ConsentChip and ReadinessRing primitives to packages/ui (tests) before use."
-      ],
+      "ui": [],
       "backend": [
         "service/org/ConsultantDirectoryService (query + projection); ConsultantRowDTO; ScopeEvaluator used for the row filter."
       ],
@@ -5461,19 +5457,77 @@
       "entitlements": [],
       "ac": [
         "A marketer sees only consultants with an open act-for assignment to them; a direct GET on another marketer's consultant → 404.",
-        "A consultant at SUMMARY shows readiness band and counts but no experience summary; at FULL naming the viewer the summary appears and a SHARE_READ_FULL audit row is written once per page view.",
-        "Filters compose and page; 390 has no horizontal scroll; 1440 shows the three-pane layout.",
+        "A consultant at SUMMARY shows readiness band and counts but no experience summary; at FULL naming the viewer the summary appears and a SHARE_READ_FULL audit row is written once per list call.",
+        "Filters compose and page (server-side, 50 per page); the row DTO never contains a field outside ShareField.project (projection test).",
         "'Ask Anika' is disabled for org.consent.request_cooldown_days after a request (server-enforced)."
       ],
       "tests": [
-        "ConsultantDirectoryServiceTest (scope, projection, filters), ConsentRequestCooldownTest, OrgIsolationIT lines, Playwright consultants.spec.ts (390/1440)."
+        "ConsultantDirectoryServiceTest (scope, projection, filters)",
+        "ConsentRequestCooldownTest",
+        "OrgIsolationIT lines"
       ],
-      "tech": "Projection through ShareField.project so a new field cannot leak; ShareMatrixTest unchanged (no new ShareField in this story).",
-      "complexity": "L",
+      "tech": "Projection through ShareField.project so a new field cannot leak; ShareMatrixTest unchanged (no new ShareField in this story). Split by Session E (09 \"Planned story work\"): X7.1 = API; X7.8 = page.",
+      "complexity": "M",
       "dod": "Directory live for all roles with consent-honest blanks; tracker Completed.",
       "design": "docs/enterprise-v2/30-resume-management.md",
       "evidence": [],
       "critical": true
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "38 §2.1 wireframes at 390/1440; EmptyState texts from 38 §6; tenant tokens; no horizontal scroll at 390."
+      ],
+      "db": [],
+      "entitlements": [],
+      "evidence": [],
+      "critical": false,
+      "genz": "Who's ready, who's on the bench, who hasn't shared yet.",
+      "id": "X7.8",
+      "epic": "X7",
+      "size": "M",
+      "owners": [
+        "Web"
+      ],
+      "deps": [
+        "X7.1",
+        "X2.16",
+        "X2.15"
+      ],
+      "title": "Consultants page (/w/admin/consultants, /w/marketing/talent, /w/hr/consultants read-only): cards with ConsentChip, availability dot, bench aging, ReadinessRing, marketer and license chips; filters; consultant detail with the consent-honest blanks and \"Ask Anika\"",
+      "persona": "Org Admin / Marketer / Marketing Manager / HR (summary only)",
+      "objective": "Everyone sees the consultants they are allowed to see with honest blanks where consent is missing, and asking for more is one tap with a cooldown.",
+      "story": "As a marketer, I want my assigned talent in one list with readiness, availability and license at a glance so that I know who to market today.",
+      "functional": [
+        "ConsultantDirectory (web/src/components/ent/talent): cards < md / three-pane ≥ md per 38 §2.1; FilterBar (q, availability, marketing status, marketer, license, readiness); ConsentChip, ReadinessRing, StatePill, PersonCell from X2.15; bench-aging text; \"Ask Anika\" (consent request) disabled during the cooldown with the date.",
+        "Detail (/consultants/{memberId}): profile overlay (X7.2), consented experience summary or the blank with the reason, resumes tab (X7.9), assignments chips (X4.13), license chips (X6.2 when billing is on), readiness checklist (X7.7 when it lands; \"Not computed yet\" otherwise).",
+        "Mounted in ADMIN (scope ORG), MARKETING (ASSIGNED, titled \"My Assigned Talent\"), MARKETING_MGMT (TEAM) and HR (ORG, summary columns only)."
+      ],
+      "backend": [
+        "— (X7.1)"
+      ],
+      "apis": [
+        "Consumes GET /api/orgs/{orgId}/consultants, …/{memberId}, POST …/consultants/{memberId}/consent-request"
+      ],
+      "permissions": [
+        "consultants.view (scope per workspace); member.act_for for the marketer lens"
+      ],
+      "ac": [
+        "A marketer sees only their assigned consultants; the admin sees all; HR sees summary columns and no experience text (projection test on the DOM).",
+        "A consultant at SUMMARY shows the readiness band and counts with the blank \"Anika hasn't shared details\"; at FULL naming the viewer the summary appears.",
+        "\"Ask Anika\" is disabled with the date for org.consent.request_cooldown_days after a request.",
+        "390 cards and 1440 three-pane snapshots; axe clean; filters are URL-synced."
+      ],
+      "tests": [
+        "web consultants.test.tsx (projection, filters, cooldown)",
+        "Playwright consultants.spec.ts (390/1440)"
+      ],
+      "tech": "Split from X7.1 by Session E. 38 §2.1, 30 §2; ConsentChip/ReadinessRing are X2.15 primitives (not added here).",
+      "dod": "Directory live for all roles with consent-honest blanks; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
       "id": "X7.2",
@@ -5541,12 +5595,11 @@
     {
       "id": "X7.3",
       "epic": "X7",
-      "title": "Resumes page for the org: org_resume links, named/primary per org, versions, approval status, visibility, view/download/print by permission, audit",
+      "title": "Org resume links API: org_resume table, PERSONAL_SHARED sync from consent, visibility/primary/edit_allowed, reads through ResumeAccessService (Via.ORG) with view audit, PDF/text routes by permission",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
-        "API",
-        "Web"
+        "API"
       ],
       "deps": [
         "X7.1"
@@ -5559,12 +5612,10 @@
         "org_resume per 30 §3 with kinds PERSONAL_SHARED|ORG_MANAGED, approval_status, approved_version_no, visibility ORG|ASSIGNED|PRIVATE, primary_for_org (one per member), edit_allowed, ended_at/end_reason.",
         "OrgResumeLinkService.syncPersonal creates PERSONAL_SHARED links for non-archived resumes with share_with_org=TRUE when FULL is granted and on ResumeLifecycle events; ends links on archive/unshare/consent drop/leave.",
         "Reads go through ResumeAccessService.access → Via.ORG (FULL) and record ResumeViewEvent(ORG) + SHARE_READ_FULL; visibility ORG + org_feature_consent('consent.resume_view_org') is the second qualifying path inside OrgShareResumeSharing.",
-        "Print = web print stylesheet over the doc; download = rendered PDF only (409 PDF_NOT_READY passthrough); original upload is owner-only."
+        "Print = web print stylesheet over the doc; download = rendered PDF only (409 PDF_NOT_READY passthrough); original upload is owner-only.",
+        "The Org Resumes page and the consultant-side \"Shared with Acme\" section are X7.9."
       ],
-      "ui": [
-        "Org Resumes page (list by consultant: display name, kind chip, approval Badge, version no, visibility, primary star, last marketer edit) + consultant Resumes tab; Menu for versions (named rows) per Notion-style; PDF/print actions by permission; 390/1440 per 38 §1.",
-        "Consultant side (user app Resumes → 'Shared with Acme' section): per-link visibility Select, edit_allowed Switch, primary toggle."
-      ],
+      "ui": [],
       "backend": [
         "domain/org/OrgResume + repository; OrgResumeLinkService; OrgShareResumeSharing extended with the visibility-ORG path; ActForResumeService facade (reads only in this story)."
       ],
@@ -5585,10 +5636,13 @@
         "Every document/PDF read writes ResumeViewEvent(viewer_kind=ORG) and SHARE_READ_FULL; print uses no new endpoint."
       ],
       "tests": [
-        "OrgResumeLinkServiceTest, ResumeAccessOrgIT (extended), ResumeViewAuditTest, OrgIsolationIT lines, Playwright org-resumes.spec.ts."
+        "OrgResumeLinkServiceTest",
+        "ResumeAccessOrgIT (extended)",
+        "ResumeViewAuditTest",
+        "OrgIsolationIT lines"
       ],
-      "tech": "Do not add columns to resume; ResumeAccessService.access keeps its signature — extend OrgShareResumeSharing only.",
-      "complexity": "L",
+      "tech": "Do not add columns to resume; ResumeAccessService.access keeps its signature — extend OrgShareResumeSharing only. Split by Session E (09 \"Planned story work\"): X7.3 = API; X7.9 = pages.",
+      "complexity": "M",
       "dod": "Org Resumes page works on real links; no content copied; tracker Completed.",
       "design": "docs/enterprise-v2/30-resume-management.md",
       "evidence": [],
@@ -5596,6 +5650,61 @@
       "relates": [
         "O8.4"
       ]
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "38 §1 at 390/1440; Menu for versions; no download of the original upload (owner-only) — the action is absent, not disabled."
+      ],
+      "db": [],
+      "entitlements": [],
+      "evidence": [],
+      "critical": false,
+      "genz": "Share the file, keep the keys.",
+      "id": "X7.9",
+      "epic": "X7",
+      "size": "M",
+      "owners": [
+        "Web"
+      ],
+      "deps": [
+        "X7.3",
+        "X7.8",
+        "X2.15"
+      ],
+      "title": "Org Resumes page (/w/admin/resumes, /w/marketing/resumes) + consultant Resumes tab + consultant-side \"Shared with Acme\" controls (visibility, edit_allowed, primary)",
+      "persona": "Marketer / Org Admin; the consultant who controls what is shared",
+      "objective": "The org sees the resumes it was given and nothing else; the consultant keeps the switches.",
+      "story": "As a consultant, I want to decide which of my resumes Acme can see, whether Sarah may edit them and which one is primary so that sharing never means losing control.",
+      "functional": [
+        "Org Resumes page: list by consultant (display name, kind chip PERSONAL_SHARED/ORG_MANAGED, approval Badge, version no, visibility, primary star, last marketer edit); versions Menu (named rows, Notion-style); View (doc), PDF, Print (print stylesheet) by permission; 403 CONSENT_REQUIRED renders the consent card; mounted in ADMIN (ORG) and MARKETING (ASSIGNED).",
+        "Consultant side (user app Resumes → \"Shared with Acme\" section, and /w/consultant/resumes on tenant hosts): per-link visibility Select (ORG/ASSIGNED/PRIVATE), edit_allowed Switch, primary toggle — autosave with inline ✓ and undo."
+      ],
+      "backend": [
+        "— (X7.3)"
+      ],
+      "apis": [
+        "Consumes GET /api/orgs/{orgId}/resumes, …/consultants/{memberId}/resumes, …/resumes/{id}/doc|pdf|versions; GET/PATCH /api/me/orgs/{orgId}/resumes[/{orgResumeId}]"
+      ],
+      "permissions": [
+        "resumes.view_for (ORG/ASSIGNED); consultant routes self"
+      ],
+      "ac": [
+        "An ORG_ADMIN sees link metadata but opening /doc without FULL shows the consent card (no content); a marketer with FULL sees the document and a SHARE_READ_FULL audit row is written.",
+        "Flipping visibility to PRIVATE on the consultant side hides the link from the org page on the next load; setting another primary flips the star.",
+        "Print opens the browser print dialog over the doc (no new endpoint); PDF shows \"Preparing\" on 409 PDF_NOT_READY and retries.",
+        "Playwright: share → appears → edit_allowed off → marketer edit button absent (390/1440)."
+      ],
+      "tests": [
+        "web org-resumes.test.tsx, shared-with-org.test.tsx",
+        "Playwright org-resumes.spec.ts"
+      ],
+      "tech": "Split from X7.3 by Session E. 30 §3/§9, 38 §1.",
+      "dod": "Org Resumes page works on real links; no content copied; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
       "id": "X7.4",
@@ -5609,7 +5718,8 @@
       ],
       "deps": [
         "X7.3",
-        "X7.6"
+        "X7.6",
+        "X7.9"
       ],
       "persona": "Consultant / Marketer",
       "objective": "Nothing a marketer wrote is used until the consultant approves that exact version.",
@@ -5657,9 +5767,9 @@
     {
       "id": "X7.5",
       "epic": "X7",
-      "title": "Marketer-made resumes via the builder in act-for mode (FULL consent + resumes.edit_for), versions with reason, AI tailoring charged to the consultant's entitlement (or org pool)",
+      "title": "Marketer-made resumes via the builder in act-for mode (FULL consent + resumes.edit_for): ActForResumeService write facade, ORG_MANAGED create, versions with reason, lock rules, builder route on the tenant host",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
         "API",
         "Web"
@@ -5675,20 +5785,20 @@
       "functional": [
         "Act-for BFF routes under /api/orgs/{orgId}/consultants/{memberId}/resumes/{resumeId}/doc delegating to ResumeDocService.save with byLogin=marketer; versions reason=MARKETER, name 'Edit by <marketer>', never trimmed.",
         "Create ORG_MANAGED: builder create path under the consultant's user with created_by_login=marketer, source COPY of the approved primary or BLANK, role TAILORED; link kind ORG_MANAGED, status DRAFT; first edit of a PERSONAL_SHARED link promotes it.",
-        "AI (rewrite/summary/suggest/tailor) with @RequiresFeature(resume.optimization|ai.resume_tailoring, PATH_MEMBER) and AiCallContext(actor, beneficiary, orgId, featureKey, usageEventId); rate limits count against the actor, budget against the beneficiary (30 §6, 37 #3/#5).",
-        "Edits blocked while PENDING_APPROVAL (409 RESUME_LOCKED); any edit on APPROVED → STALE."
+        "Edits blocked while PENDING_APPROVAL (409 RESUME_LOCKED); any edit on APPROVED → STALE.",
+        "AI endpoints in act-for mode (rewrite/summary/suggest/tailor with beneficiary charging) are X7.10; the builder's AI panel stays hidden in act-for mode until then."
       ],
       "ui": [
-        "Web route /w/marketing/resumes/{orgResumeId}/edit on the tenant host ((tenant)/_t/w/[workspace]/resumes/[orgResumeId]/edit, 09 row 1) mounting the existing builder with mode='act-for': banner, AiDisclosure 'charged to Anika's license', SaveStatusChip; AI panel hidden when the beneficiary lacks the feature (402 → chip)."
+        "Web route /w/marketing/resumes/{orgResumeId}/edit on the tenant host (file (tenant)/%5Ft/w/[workspace]/resumes/[orgResumeId]/edit/page.tsx, 09 row 1) mounting the existing builder with mode='act-for': banner, AiDisclosure 'charged to Anika's license', SaveStatusChip; AI panel hidden in act-for mode until X7.10."
       ],
       "backend": [
-        "ActForResumeService (write facade; the only org path into Resume*Service writes); ResumeAiService entry points accept beneficiaryLogin; AiRouter AiCallContext (from X5 metering story) consumed."
+        "ActForResumeService (write facade; the only org path into Resume*Service writes)"
       ],
       "db": [
         "None (uses X7.3 + Session C's ai_call columns)."
       ],
       "apis": [
-        "PUT …/resumes/{resumeId}/doc · POST …/resumes · POST …/resumes/{resumeId}/ai/{rewrite|summary|suggest|tailor} (30 §9)."
+        "PUT …/resumes/{resumeId}/doc · POST …/resumes (30 §9)"
       ],
       "permissions": [
         "resumes.edit_for (ASSIGNED) + step 9 act-for assignment + step 10 FULL naming the actor and org_feature_consent('consent.resume_edit') or link edit_allowed."
@@ -5699,14 +5809,16 @@
       "ac": [
         "A marketer save creates resume_doc_version(reason=MARKETER, created_by_login=marketer) and audit MARKETER_RESUME_EDIT with beneficiary_login; the consultant's own autosave path is unchanged (regression test on /api/profile/resumes).",
         "Without FULL naming the marketer → 404; with FULL but no edit consent → 403 CONSENT_REQUIRED; with both → 200.",
-        "AI tailor: usage_event(actor=sarah, member=anika) and ai_call(login=sarah, beneficiary_login=anika, feature_key) written; a failed provider call books the failure to anika with actor sarah.",
         "The marketer cannot create share links or read the original upload for the consultant (routes absent; MarketerVerbsTest)."
       ],
       "tests": [
-        "ActForBuilderIT, ActForAiChargingTest, MarketerVerbsTest, PersonalBuilderRegressionIT, Playwright act-for-builder.spec.ts."
+        "ActForBuilderIT",
+        "MarketerVerbsTest",
+        "PersonalBuilderRegressionIT",
+        "Playwright act-for-builder.spec.ts"
       ],
-      "tech": "Never fork the builder; pass mode and beneficiary through props; the BFF swaps the API base path only.",
-      "complexity": "L",
+      "tech": "Never fork the builder; pass mode and beneficiary through props; the BFF swaps the API base path only. Split by Session E (09 \"Planned story work\"): X7.5 = act-for writes + builder route; X7.10 = act-for AI.",
+      "complexity": "M",
       "dod": "Marketer can build/edit with full attribution and correct charging; tracker Completed.",
       "design": "docs/enterprise-v2/30-resume-management.md",
       "evidence": [],
@@ -5714,6 +5826,70 @@
       "relates": [
         "O10.4"
       ]
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "Same builder AI panel; the disclosure line is always visible in act-for mode; 390/1440."
+      ],
+      "db": [
+        "None (uses X5.8's ai_call columns)."
+      ],
+      "entitlements": [
+        "resume.optimization, ai.resume_tailoring (beneficiary = the consultant)"
+      ],
+      "evidence": [],
+      "critical": false,
+      "genz": "Her license, your keyboard, one receipt.",
+      "id": "X7.10",
+      "epic": "X7",
+      "size": "M",
+      "owners": [
+        "API",
+        "Web"
+      ],
+      "deps": [
+        "X7.5",
+        "X5.16",
+        "X5.8",
+        "X7.6"
+      ],
+      "title": "Act-for AI in the builder: rewrite/summary/suggest/tailor with @RequiresFeature(resume.optimization | ai.resume_tailoring, PATH_MEMBER), AiCallContext(actor, beneficiary), consent kinds, charging to the consultant's entitlement (or org pool), AI panel + disclosure in act-for mode",
+      "persona": "Marketer tailoring an assigned consultant's resume; the consultant whose license pays",
+      "objective": "Sarah can use AI on Anika's resume only when Acme allows it, Anika holds the feature and consented, and usage is booked to Anika with Sarah as the actor (requirement §20).",
+      "story": "As a marketer, I want to tailor Anika's resume to a requirement with AI so that submissions are sharper, while the ledger shows exactly who did what for whom.",
+      "functional": [
+        "POST …/consultants/{memberId}/resumes/{resumeId}/ai/{rewrite|summary|suggest|tailor} with @RequiresFeature(key, PATH_MEMBER): rewrite/suggest/summary → resume.optimization (consent.ai_optimization), tailor → ai.resume_tailoring (consent.ai_tailoring); AiCallContext(actorLogin=marketer, beneficiaryLogin=consultant, orgId, featureKey, usageEventId); rate limits count against the actor, AI budget and allowance against the beneficiary (30 §6, 37 #3/#5, ORG_POOL when the feature is pooled).",
+        "ResumeAiService entry points accept beneficiaryLogin; outputs are drafts applied only on the marketer's explicit accept (42 T48: no auto-apply); inputs pass SensitivePatterns.redact.",
+        "Web: AI panel in act-for mode with AiDisclosure \"charged to Anika's license\"; hidden with a 402 chip (\"AI tailoring isn't on Anika's license\") or a consent chip (403 CONSENT_REQUIRED → \"Ask Anika\") — both from X2.15 primitives."
+      ],
+      "backend": [
+        "ResumeAiService (beneficiary overloads), ActForResumeAiResource, AiRouter.generate(…, ctx) consumer"
+      ],
+      "apis": [
+        "POST …/consultants/{memberId}/resumes/{resumeId}/ai/{rewrite|summary|suggest|tailor} (Idempotency-Key)"
+      ],
+      "permissions": [
+        "member.act_for (ASSIGNED) + resumes.edit_for; consent kinds per 21 §2.5"
+      ],
+      "ac": [
+        "AI tailor: usage_event(actor=sarah, member=anika, feature=ai.resume_tailoring) and ai_call(login=sarah, beneficiary_login=anika, feature_key) written; a failed provider call books the failure to anika with actor sarah and releases the reservation.",
+        "Without the feature on Anika's license → 402 FEATURE_NOT_LICENSED and the panel shows the chip; without consent.ai_tailoring → 403 CONSENT_REQUIRED and the \"Ask Anika\" chip; the consultant's own AI path is unchanged (regression on /api/profile/resumes/*/ai).",
+        "A pooled feature (ORG_POOL) decrements the org counter with beneficiary = Anika still recorded.",
+        "Prompt-injection fixture in the resume text produces a draft only; nothing is applied without accept (PromptInjectionDraftOnlyTest)."
+      ],
+      "tests": [
+        "ActForAiChargingTest",
+        "ActForResumeAiResourceIT",
+        "PromptInjectionDraftOnlyTest",
+        "Playwright act-for-ai.spec.ts"
+      ],
+      "tech": "Split from X7.5 by Session E. 30 §6, 37 #3/#5, 24 §8 worked example, 09 rows 9–12.",
+      "dod": "Ledger rows correct for actor/beneficiary; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
       "id": "X7.6",
@@ -5843,7 +6019,9 @@
         "X8.10",
         "X7.1",
         "X2",
-        "X2.15"
+        "X2.15",
+        "X7.8",
+        "X8.13"
       ],
       "persona": "Marketer",
       "objective": "The marketer's home: their consultants, what needs them, and the switcher every other page keys off.",
@@ -5952,16 +6130,17 @@
     {
       "id": "X8.3",
       "epic": "X8",
-      "title": "AI matching for a consultant (opportunity_match with score/reason, beneficiary entitlement ai.job_matching, actor recorded)",
+      "title": "AI matching for a consultant (on demand): OrgMatchService.matchOne with AiCallContext, opportunity_match SUGGESTED rows (score/reason/model), rule-only fallback, beneficiary entitlement ai.job_matching, batch-size reservation",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
-        "API",
-        "Web"
+        "API"
       ],
       "deps": [
         "X8.2",
-        "X5"
+        "X5.16",
+        "X5.8",
+        "X8.13"
       ],
       "persona": "Marketer",
       "objective": "Score the org's opportunities for a consultant with the existing matching pipeline, charged to the consultant's license and attributed to the marketer.",
@@ -5969,15 +6148,13 @@
       "genz": "Scored for Anika, on Anika's plan, by Sarah. All three on the receipt.",
       "functional": [
         "OrgMatchService.matchOne(orgId, memberId, actor): candidates = open job_opportunity rows (bank + requirements) ∪ JobPrefilter.select over fresh postings; one AiTask.JOBS call via the decide→generate→record sequence with AiCallContext(actor, beneficiary); writes opportunity_match SUGGESTED rows (source SUGGESTED_AI, score, reason ≤ 300, model); rule-only fallback (SUGGESTED_RULE, JobRanker) when the feature is not licensed.",
-        "EntitlementService.check(actor=marketer, beneficiary=consultant, ai.job_matching, 1) per run; OrgMatchJob nightly for consultants with marketing_status ACTIVE and the feature (explicit check; idempotency key per day).",
-        "Requires FULL (reads bio/resume) → otherwise CONSENT_REQUIRED and the rule fallback uses only consultant_profile skills.",
-        "Metering per 37 #1 as resolved in 09 row 9: feature ai.job_matching, unit matches; a run reserves enterprise.matching.batch_size (default 20) units for the consultant and commits the scored count; AI calls pass X5.8's AiCallContext (beneficiary = consultant)."
+        "EntitlementService.check(actor=marketer, beneficiary=consultant, ai.job_matching, batch) per run through @RequiresFeature(PATH_MEMBER) on the run endpoint; FULL required (reads bio/resume) → otherwise CONSENT_REQUIRED and the rule fallback uses only consultant_profile skills.",
+        "Metering per 37 #1 as resolved in 09 row 9: feature ai.job_matching, unit matches; a run reserves enterprise.matching.batch_size (default 20) units for the consultant and commits the scored count; AI calls pass X5.8's AiCallContext (beneficiary = consultant).",
+        "The nightly job and the Job Matches tab are X8.11."
       ],
-      "ui": [
-        "Job Matches tab per 38 §2.2 with AiDisclosure; 402 chip 'AI matching isn't on Anika's license'; SwipeCard select/dismiss at 390."
-      ],
+      "ui": [],
       "backend": [
-        "service/org/pipeline/OrgMatchService + OrgMatchJob; prompt reuse of JobMatchService.buildPrompt (make package-visible or extract JobsPrompt)."
+        "service/org/pipeline/OrgMatchService; prompt reuse of JobMatchService.buildPrompt (make package-visible or extract JobsPrompt)."
       ],
       "db": [
         "None beyond X8.10."
@@ -5992,33 +6169,95 @@
         "ai.job_matching — actor marketer, beneficiary consultant, 1 matching_run (37 #1); AiCallContext recorded."
       ],
       "ac": [
-        "With the feature licensed: one usage_event(actor=sarah, member=anika, feature=ai.job_matching) and one ai_call with beneficiary_login=anika per run; without: 402 on the handler and SUGGESTED_RULE rows from the job (no AI call).",
+        "With the feature licensed: one usage_event(actor=sarah, member=anika, feature=ai.job_matching) and one ai_call with beneficiary_login=anika per run; without: 402 on the handler and the fallback endpoint writes SUGGESTED_RULE rows (no AI call).",
         "The same (opportunity, consultant) pair never produces two rows (unique key; rerun updates score/reason).",
-        "Consent revoked → the nightly job skips the consultant and logs CONSENT_REQUIRED (no 403 leak to anyone)."
+        "Consent revoked → the run → 403 CONSENT_REQUIRED and no AI call."
       ],
       "tests": [
-        "OrgMatchServiceTest, OrgMatchJobTest (idempotency, skip rules), EntitlementHookTest for #1, Playwright matches.spec.ts."
+        "OrgMatchServiceTest",
+        "EntitlementHookTest for #1",
+        "OrgMatchResourceIT"
       ],
-      "tech": "Scheduler path must call EntitlementService.check explicitly (no handler); keep the prompt identical to the personal one so quality stays comparable.",
-      "complexity": "L",
+      "tech": "Scheduler path must call EntitlementService.check explicitly (no handler); keep the prompt identical to the personal one so quality stays comparable. Split by Session E (09 \"Planned story work\"): X8.3 = service + run endpoint; X8.11 = nightly job + UI.",
+      "complexity": "M",
       "dod": "AI matching live with correct actor/beneficiary ledger rows; tracker Completed.",
       "design": "docs/enterprise-v2/31-talent-marketing.md",
       "evidence": [],
       "critical": true
     },
     {
-      "id": "X8.4",
-      "epic": "X8",
-      "title": "Opportunity assignment: assign/withdraw, batch assign with default/override approved resume, one notification, duplicate guard",
       "status": "not_started",
-      "size": "L",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "38 §2.2 at 390 (SwipeCard) / 1440 (table); AiDisclosure always visible; tenant tokens."
+      ],
+      "db": [
+        "None beyond X8.10."
+      ],
+      "entitlements": [
+        "ai.job_matching (beneficiary = the consultant)"
+      ],
+      "evidence": [],
+      "critical": false,
+      "genz": "Overnight picks, morning swipes.",
+      "id": "X8.11",
+      "epic": "X8",
+      "size": "M",
       "owners": [
         "API",
         "Web"
       ],
       "deps": [
         "X8.3",
-        "X7.4"
+        "X8.1"
+      ],
+      "title": "OrgMatchJob nightly (consultants with marketing_status ACTIVE and the feature; explicit entitlement check; idempotent per day; consent-skip) + Job Matches tab with AiDisclosure, 402/consent chips, SwipeCard select/dismiss",
+      "persona": "Marketer reviewing suggestions each morning; the system overnight",
+      "objective": "Suggestions arrive by themselves for licensed, consenting consultants and are reviewed in a list that says plainly what the AI saw.",
+      "story": "As a marketer, I want fresh matches for each of my consultants every morning with the reason the model gave so that I can assign the good ones in minutes.",
+      "functional": [
+        "OrgMatchJob (02:00 org-local, ShedLock-ready, per-org loop with checks_per_run caps — 42 T65): for each consultant with marketing_status ACTIVE, FULL to at least one open assignee and the feature licensed → EntitlementService.check explicitly (scheduler path, no handler) → OrgMatchService.matchOne; idempotency key match:{org}:{member}:{date}; CONSENT_REQUIRED/402 → skip + log, never a notification to the consultant about the refusal.",
+        "Job Matches tab (/w/marketing/talent/{memberId}/matches, 38 §2.2): list of SUGGESTED rows (score, reason ≤ 300 chars, source AI/RULE chip, AiDisclosure); select → assign bar (X8.12); dismiss (POST …/matches/{id}/dismiss) with undo; SwipeCard at 390; 402 chip \"AI matching isn't on Anika's license\" with the run button disabled; \"Run matching now\" (POST …/matches/run) with the batch-size note."
+      ],
+      "backend": [
+        "service/org/pipeline/OrgMatchJob; web/rest/org/OrgMatchResource (dismiss, list)"
+      ],
+      "apis": [
+        "GET /api/orgs/{orgId}/matches?consultant=&status= · POST /matches/{id}/dismiss · POST …/consultants/{memberId}/matches/run (X8.3)"
+      ],
+      "permissions": [
+        "opportunities.manage (ASSIGNED); member.act_for"
+      ],
+      "ac": [
+        "The job runs once per consultant per day (second run same day is a no-op by key); a consultant whose consent was revoked is skipped with a log line and no notification.",
+        "With the feature licensed: one usage_event(actor=system, member=anika, feature=ai.job_matching) per nightly run with quantity = scored count; without it no AI call and no rows.",
+        "Dismiss hides the row with undo (8 s); the same (opportunity, consultant) pair never produces two rows.",
+        "Playwright: run now → rows appear with reasons → swipe-dismiss at 390 → select at 1440."
+      ],
+      "tests": [
+        "OrgMatchJobTest (idempotency, skip rules, per-org caps)",
+        "web matches.test.tsx",
+        "Playwright matches.spec.ts"
+      ],
+      "tech": "Split from X8.3 by Session E. 37 #1, 09 row 9, 31 §4; scheduler must call EntitlementService.check explicitly.",
+      "dod": "AI matching live with correct ledger rows; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
+    },
+    {
+      "id": "X8.4",
+      "epic": "X8",
+      "title": "Opportunity assignment API: SUGGESTED/—→ASSIGNED and →WITHDRAWN transitions with ApprovalGate, open-matches cap, DuplicateGuard, BoardPolicy and manager-approval hold; batch assign with default/override approved resume, one notification per batch; marketing.assisted_applications metering",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X8.3",
+        "X7.4",
+        "X8.11"
       ],
       "persona": "Marketer",
       "objective": "Turn suggestions into assignments the consultant sees, with the approved resume pinned and one notification per batch.",
@@ -6028,11 +6267,10 @@
         "Transitions SUGGESTED/—→ASSIGNED, →WITHDRAWN per 31 §4 registered; guards: ApprovalGate on the chosen org_resume (pins resume_version_no), org.pipeline.open_matches_max cap (409 ASSIGNMENT_CAP; key renamed per 09 row 7), DuplicateGuard rules 2 and 5 (existing application → link instead), BoardPolicy; manager approval hold when org.pipeline.manager_approval applies.",
         "Batch endpoint creates N matches in one transaction with groupKey batch:{uuid} → exactly one ORG_OPPORTUNITY notification; opportunity → ASSIGNED.",
         "Feature marketing.assisted_applications consumed once per batch (37 #7).",
-        "Metering per 37 #7 as resolved in 09 row 9: marketing.assisted_applications, unit preparations — quantity = N for a batch of N match rows, 1 per submission packet (DRAFT), 0 (access check) for record/follow-ups/reads."
+        "Metering per 37 #7 as resolved in 09 row 9: marketing.assisted_applications, unit preparations — quantity = N for a batch of N match rows, 1 per submission packet (DRAFT), 0 (access check) for record/follow-ups/reads.",
+        "The assign bar, resume picker and Opportunities Kanban are X8.12."
       ],
-      "ui": [
-        "Assign bar per 38 §2.2 (useBottomBar), resume picker (APPROVED only; STALE disabled with reason), note; Opportunities Kanban per 38 §2.3 (Suggested/Assigned columns live)."
-      ],
+      "ui": [],
       "backend": [
         "OpportunityMatchService.assign(batch)/withdraw; transitions registered; BatchNotification."
       ],
@@ -6055,10 +6293,14 @@
         "With manager approval ALWAYS the rows stay SUGGESTED with approval PENDING and appear in the manager's queue."
       ],
       "tests": [
-        "OpportunityMatchServiceTest, BatchAssignNotificationTest, ApprovalGateTest (reuse), DuplicateGuardTest rules 2/5, Playwright assign.spec.ts."
+        "OpportunityMatchServiceTest",
+        "BatchAssignNotificationTest",
+        "ApprovalGateTest (reuse)",
+        "DuplicateGuardTest rules 2/5",
+        "OpportunityMatchResourceIT"
       ],
-      "tech": "Registry-driven; no status writes outside PipelineService.",
-      "complexity": "L",
+      "tech": "Registry-driven; no status writes outside PipelineService. Split by Session E (09 \"Planned story work\"): X8.4 = API; X8.12 = UI.",
+      "complexity": "M",
       "dod": "Assignment flow complete through the engine; tracker Completed.",
       "design": "docs/enterprise-v2/31-talent-marketing.md",
       "evidence": [],
@@ -6066,6 +6308,64 @@
       "relates": [
         "O10.5"
       ]
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "390: list with the sticky bottom bar; 1440: Kanban; 44 px targets; tenant tokens."
+      ],
+      "db": [],
+      "entitlements": [
+        "marketing.assisted_applications (actor = the marketer, via the API)"
+      ],
+      "evidence": [],
+      "critical": false,
+      "genz": "Pick, pin the resume, send once.",
+      "id": "X8.12",
+      "epic": "X8",
+      "size": "M",
+      "owners": [
+        "Web"
+      ],
+      "deps": [
+        "X8.4",
+        "X8.11",
+        "X2.15"
+      ],
+      "title": "Assign bar (useBottomBar) with APPROVED-only resume picker, overrides and note; Opportunities Kanban (Suggested / Assigned / Accepted / In progress / Closed) with drag-to-assign and withdraw; duplicate and cap warnings inline; board-policy badge",
+      "persona": "Marketer assigning opportunities to assigned talent",
+      "objective": "Assigning fourteen jobs with the right approved resume is one bar and one confirm, and every guard the API enforces is visible before the click.",
+      "story": "As a marketer, I want to select the matches I like, pick Anika's approved resume and assign them in one go so that she gets one tidy notification, not fourteen.",
+      "functional": [
+        "Assign bar per 38 §2.2: selection count, default resume picker (APPROVED only; STALE disabled with the reason; \"no approved resume\" → link to X7.4), per-row override, note, Assign → POST …/matches batch; 409 RESUME_NOT_APPROVED/ASSIGNMENT_CAP/DUPLICATE_WARNING rendered inline with \"confirm duplicate\" when allowed; board-policy badge on cards whose board forbids agency applications (31 §9: APPLY_SELF only).",
+        "Opportunities Kanban per 38 §2.3 (KanbanBoard primitive): columns from the match status; drag Suggested → Assigned opens the bar; Withdraw with reason (ReasonSheet) and undo; manager-approval hold shows \"Waiting for approval\" chip when org.pipeline.manager_approval applies.",
+        "Mounted in MARKETING (ASSIGNED) and MARKETING_MGMT Pipeline page (TEAM, read + approve link)."
+      ],
+      "backend": [
+        "— (X8.4)"
+      ],
+      "apis": [
+        "Consumes POST /api/orgs/{orgId}/matches, POST /matches/{id}/withdraw, GET /matches, GET /pipeline?scope=team"
+      ],
+      "permissions": [
+        "opportunities.manage (ASSIGNED/TEAM); pipeline.view"
+      ],
+      "ac": [
+        "Assigning 14 selected matches with a default resume creates 14 ASSIGNED cards and the toast says \"Anika will get one notification\"; a STALE resume cannot be picked (disabled with reason).",
+        "Cap exceeded → inline 409 with the cap value and a link to the consultant's open matches; duplicate → warning with \"assign anyway\" when confirmDuplicate is allowed.",
+        "With manager approval ALWAYS the cards show the \"Waiting for approval\" chip in the Suggested column and appear on the manager's Approvals page (X8.5).",
+        "Playwright: select → assign → Kanban moves → withdraw with reason → undo (390/1440)."
+      ],
+      "tests": [
+        "web assign-bar.test.tsx, kanban.test.tsx",
+        "Playwright assign.spec.ts"
+      ],
+      "tech": "Split from X8.4 by Session E. 38 §2.2–§2.3; KanbanBoard from X2.15.",
+      "dod": "Assignment flow complete end to end in the UI; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
       "id": "X8.5",
@@ -6078,7 +6378,8 @@
         "Web"
       ],
       "deps": [
-        "X8.4"
+        "X8.4",
+        "X8.12"
       ],
       "persona": "Consultant / Marketer / Marketing Manager",
       "objective": "The consultant's decisions and authorization scope become explicit states the marketer and manager can see.",
@@ -6125,7 +6426,7 @@
     {
       "id": "X8.6",
       "epic": "X8",
-      "title": "Follow-ups and tasks: due dates, reminders, activity feed, status updates on matches/submissions",
+      "title": "Follow-ups, tasks and escalations: due dates, reminders, activity feed, status updates on matches/submissions; Escalations page for Marketing Managers",
       "status": "not_started",
       "size": "M",
       "owners": [
@@ -6143,7 +6444,8 @@
         "pipeline_task CRUD per 31 §12 with auto-suggested follow-ups (org.pipeline.followup_days); FollowUpReminderJob daily (ORG_OPPORTUNITY digest) with alerts.advanced limit check for the richer digest (37 #11).",
         "Activity feed = pipeline_event by actor; status updates = transitions IN_PROGRESS→CLOSED_* by marketer with followups.manage.",
         "Ghost rule: OpportunityFreshnessJob closes IN_PROGRESS rows with no event for 2×org.pipeline.no_response_days.",
-        "Registers the DashboardWidgetProvider bean(s) marketing.activity7d for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService."
+        "Registers the DashboardWidgetProvider bean(s) marketing.activity7d for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService.",
+        "Escalations (requirement §25 Marketing Manager · 16 §5.3): pipeline_task.kind gains ESCALATION (additive enum value); a marketer raises one from a match/submission/task (\"Escalate to my manager\" with reason) → assignee = the open MANAGER assignment for the consultant (else the team lead); EscalationsPage /w/marketing-mgmt/escalations (escalations.manage, TEAM scope): open/resolved, SLA age, resolve with note, reassign; ORG_APPROVAL notification kind reused with subkind ESCALATION; dashboard tile \"escalations open\" for managers."
       ],
       "ui": [
         "Follow-ups page (Today/Overdue/This week), Tasks sheet, Activities feed (TimelineFeed) per 38 §2.4; undo Toast on Done."
@@ -6155,20 +6457,24 @@
         "pipeline_task created in X8.10; index (org_id, assignee_member_id, status, due_at)."
       ],
       "apis": [
-        "GET/POST/PATCH /api/orgs/{orgId}/pipeline/tasks[/{id}] · POST /tasks/{id}/done|snooze · GET /pipeline/activities?actor=me · POST /matches/{id}/status {to, reason}."
+        "GET/POST/PATCH /api/orgs/{orgId}/pipeline/tasks[/{id}] · POST /tasks/{id}/done|snooze · GET /pipeline/activities?actor=me · POST /matches/{id}/status {to, reason}.",
+        "POST /api/orgs/{orgId}/pipeline/tasks/{id}/escalate {reason} · GET /pipeline/escalations?scope=team · POST /pipeline/escalations/{id}/resolve {note}"
       ],
       "permissions": [
-        "followups.manage (ASSIGNED); pipeline.view."
+        "followups.manage (ASSIGNED); pipeline.view.",
+        "escalations.manage (TEAM) for managers; followups.manage for raising"
       ],
       "entitlements": [
         "alerts.advanced — actor = beneficiary = marketer, limit check only (37 #11)."
       ],
       "ac": [
         "A SUBMITTED record with no change for 7 days produces one suggested task; done/undo works within 8 s; reminders deduped per day.",
-        "Without alerts.advanced the marketer still gets the basic in-app daily count; with it, the grouped digest email."
+        "Without alerts.advanced the marketer still gets the basic in-app daily count; with it, the grouped digest email.",
+        "A marketer escalates a stuck submission → the manager's Escalations page lists it with the age; resolving writes the note to the task, a pipeline_event and one notification to the marketer; a marketer cannot open /w/marketing-mgmt/escalations (not-part-of-your-role)."
       ],
       "tests": [
-        "PipelineTaskServiceTest, FollowUpReminderJobTest, GhostRuleTest, Playwright followups.spec.ts."
+        "PipelineTaskServiceTest, FollowUpReminderJobTest, GhostRuleTest, Playwright followups.spec.ts.",
+        "EscalationFlowTest, Playwright escalations.spec.ts."
       ],
       "tech": "Tasks are org rows about pipeline objects, never about the consultant's private application.",
       "complexity": "M",
@@ -6339,9 +6645,9 @@
     {
       "id": "X8.10",
       "epic": "X8",
-      "title": "Pipeline schema (_ent_pipeline.xml), PipelineTransitions registry, pipeline_event, PipelineService.transition, ORG_* notification kinds",
+      "title": "Pipeline schema: 20261022010000_ent_pipeline.xml (job_opportunity, opportunity_match, candidate_submission, pipeline_application_link, interview_slot, offer, placement, placement_extension, pipeline_event, pipeline_task, client_*), entities + repositories with OrgIsolationIT lines, purge job",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
         "API"
       ],
@@ -6355,15 +6661,13 @@
       "genz": "One engine, every state machine. The doc is the test.",
       "functional": [
         "Tables: job_opportunity (31 §3), opportunity_match (31 §4), candidate_submission (31 §5), pipeline_application_link (32 §2), interview_slot (33 §2), offer (31 §7), placement + placement_extension (35 §2), pipeline_event, pipeline_task (31 §12), client_account/client_contact/client_relationship/client_requirement (34 §1–2) — all org_id-first, generated live keys as specified.",
-        "PipelineTransitions registry (data) + PipelineService.transition(entity, id, to, actor, body) with AuthorizationService, guards, effects, pipeline_event, audit, after-commit notifications; 409 PIPELINE_TRANSITION on illegal moves.",
-        "Every ORG_* NotificationKind is already registered by X2.10 with NOTIFY_DEFAULTS per 31 §11 (09 row 18); this story adds only the messages.properties keys notif.org.* and publishes ORG_OPPORTUNITY, ORG_AUTHORIZATION, ORG_APPROVAL, ORG_INTERVIEW, ORG_OFFER, ORG_PLACEMENT, ORG_HR, ORG_FINANCE.",
-        "PipelineStateMachineTest renders the registry and diffs it against the tables in 31/33/35 (and 34 §2, 36 §2) — ShareMatrixTest pattern."
+        "Entities and repositories (each with a REPOSITORY_CHECKS line in OrgIsolationIT); PipelineEventPurgeJob (36 months, setting); notif.org.* messages keys. The transition registry and PipelineService are X8.13."
       ],
       "ui": [
         "None."
       ],
       "backend": [
-        "domain/org/pipeline/* entities + repositories (each with a REPOSITORY_CHECKS line in OrgIsolationIT); service/org/pipeline/{PipelineTransitions, PipelineService, PipelineEventService, Guards, Effects}; NotificationKind additions."
+        "domain/org/pipeline/* entities + repositories; PipelineEventPurgeJob; messages.properties keys"
       ],
       "db": [
         "Changelog 20261022010000_ent_pipeline.xml (additive): all tables above with indexes from the docs; retention of pipeline_event 36 months via a *PurgeJob per 03 §6."
@@ -6377,26 +6681,89 @@
       "entitlements": [],
       "ac": [
         "Changelog runs clean on empty DB and on the previous changelog (Liquibase test pattern); every table has org_id first in its primary index.",
-        "PipelineStateMachineTest passes and fails when a doc table row is edited (proven by a deliberate mismatch in a unit test fixture).",
-        "An illegal transition returns 409 with {entity, from, to}; a legal one writes exactly one pipeline_event and one audit row and publishes notifications after commit (rollback → none).",
+        "Every repository has a REPOSITORY_CHECKS line and TenantRepositoryContractTest passes for the new tables; composite tenant FKs per 41 R3 verified by CompositeTenantFkTest.",
         "NotificationKind.parse handles the new kinds; notification_preference matrix defaults apply."
       ],
       "tests": [
-        "PipelineStateMachineTest, PipelineServiceTest, PipelineEventPurgeJobTest, LiquibaseChangelogTest, NotificationKindDefaultsTest."
+        "LiquibaseChangelogTest",
+        "TenantRepositoryContractTest (new tables)",
+        "CompositeTenantFkTest",
+        "PipelineEventPurgeJobTest",
+        "NotificationKindDefaultsTest"
       ],
-      "tech": "Transition registry shape: Transition(entity, from, to, actorKind, permissionKey, guards[], effects[], notifications[]). Keep guards pure and effects idempotent.",
-      "complexity": "L",
+      "tech": "Transition registry shape: Transition(entity, from, to, actorKind, permissionKey, guards[], effects[], notifications[]). Keep guards pure and effects idempotent. Split by Session E (09 \"Planned story work\"): X8.10 = schema; X8.13 = engine.",
+      "complexity": "M",
       "dod": "Engine and schema in; later stories only register transitions; tracker Completed.",
       "design": "docs/enterprise-v2/31-talent-marketing.md",
       "evidence": [],
       "critical": true
     },
     {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [],
+      "db": [
+        "None (X8.10)."
+      ],
+      "entitlements": [
+        "Per transition row where a feature is consumed (X8.4, X10.3)"
+      ],
+      "evidence": [],
+      "critical": false,
+      "genz": "One engine, every state change.",
+      "id": "X8.13",
+      "epic": "X8",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X8.10",
+        "X1.7",
+        "X4.7"
+      ],
+      "title": "Pipeline engine: PipelineTransitions registry (data) + PipelineService.transition(entity, id, to, actor, body) with AuthorizationService, guards, effects, pipeline_event, audit, after-commit notifications, ModuleGate; PipelineStateMachineTest doc-sync",
+      "persona": "Every later pipeline story (X8.4–X10.4) as the consumer",
+      "objective": "There is exactly one way to move a pipeline object between states, and the registry is provably equal to the state-machine tables in docs 31/33/35.",
+      "story": "As a developer, I want to register a transition with its guards and effects and get authorization, history, audit and notifications for free so that no status is ever written by hand.",
+      "functional": [
+        "Transition(entity, from, to, actorKind, permissionKey, guards[], effects[], notifications[]) registry as data (31 §2–§6, 33 §3, 35 §3, 34 §2, 36 §2 rows); PipelineService.transition: AuthorizationService (11-step; step 6 ModuleGate module.talent_marketing for MARKETER/MANAGER actor kinds — 09 row 13), guards (pure), effects (idempotent), pipeline_event row, org audit row, notifications published after commit via @TransactionalEventListener; 409 PIPELINE_TRANSITION {entity, from, to} on illegal moves.",
+        "OffboardingHook \"Pipeline\" (X4.4 chain): open matches → WITHDRAWN reason CONSULTANT_LEFT.",
+        "PipelineStateMachineTest renders the registry and diffs it against the doc tables (ShareMatrixTest pattern) — a doc edit without a registry change fails."
+      ],
+      "backend": [
+        "service/org/pipeline/{PipelineTransitions, PipelineService, PipelineEventService, Guards, Effects, PipelineOffboardingHook}"
+      ],
+      "apis": [
+        "None public in this story (engine only); no dev transition endpoint — use service tests."
+      ],
+      "permissions": [
+        "Per transition row (registry); ModuleGate at step 6"
+      ],
+      "ac": [
+        "An illegal transition returns 409 with {entity, from, to}; a legal one writes exactly one pipeline_event and one audit row and publishes notifications after commit (rollback → none).",
+        "A MARKETER transition with module.talent_marketing off for the org → 409 MODULE_OFF before any guard runs.",
+        "PipelineStateMachineTest passes and fails when a doc table row is edited (proven by a deliberate mismatch fixture).",
+        "The offboarding hook withdraws open matches with CONSULTANT_LEFT and leaves history intact."
+      ],
+      "tests": [
+        "PipelineStateMachineTest",
+        "PipelineServiceTest",
+        "PipelineModuleGateTest",
+        "PipelineOffboardingHookTest"
+      ],
+      "tech": "Split from X8.10 by Session E. Keep guards pure and effects idempotent; registry shape as above.",
+      "dod": "Engine in; later stories only register transitions; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
+    },
+    {
       "id": "X9.1",
       "epic": "X9",
-      "title": "Consultant workspace: Home, My Profile, My Resumes, Job Matches, Assigned Opportunities, Applications, Interviews, Offers, Placements, My Available Features, Notifications",
+      "title": "Consultant workspace shell: nav per 38 §3; My Profile, My Resumes, Job Matches, Assigned Opportunities, Applications, Interviews, Offers, Placements, My Available Features and Notifications embedded on tenant hosts; org lens on the tracker",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
         "Web",
         "API"
@@ -6412,39 +6779,103 @@
       "genz": "Your app, Acme's colours, nothing taken from you.",
       "functional": [
         "Workspace key CONSULTANT with nav per 38 §3; pages embed the existing user-area routes (tracker, resumes, interviews, job matches) inside the enterprise shell on tenant hosts; org-specific lists from /api/me/orgs/{orgId}/** (32 §1).",
-        "Home composition: needs-you (resume approvals, slot confirmations, offers), assigned opportunities, counts; SpeechBubble only when something is new.",
-        "My Available Features = Session C's entitlement view embedded."
+        "My Available Features = Session C's entitlement view embedded.",
+        "Notifications page = the existing notifications UI inside the shell (org kinds included); Home and the consultant Settings page are X9.11."
       ],
       "ui": [
         "38 §3.1 Home at 390/1440; EmptyState texts; the existing tracker gets a 'From Acme' filter preset (application.source='org' or linked)."
       ],
       "backend": [
-        "ConsultantHomeService (counts + needs-you); user-area routes unchanged."
+        "— (user-area routes unchanged; /api/me/orgs/{orgId}/** lists from 32 §1)"
       ],
       "db": [
         "None."
       ],
       "apis": [
-        "GET /api/me/orgs/{orgId}/home."
+        "GET /api/me/orgs/{orgId}/opportunities · /applications · /interviews · /offers · /placements (32 §1)"
       ],
       "permissions": [
         "self.* (OWN); the shell derives nav from the CONSULTANT template."
       ],
       "entitlements": [],
       "ac": [
-        "A consultant on acme.localhost lands on Home with the org brand and sees only their own data; a non-consultant member gets the 'not part of your role' state.",
+        "A consultant on acme.localhost opens /w/consultant/* pages with the org brand and sees only their own data; a non-consultant member gets the 'not part of your role' state.",
         "The personal workspace is unchanged (PersonalSubscriptionUnchangedIT + Playwright regression of /applications).",
         "390: every tile reachable without horizontal scroll."
       ],
       "tests": [
-        "ConsultantHomeServiceTest, Playwright consultant-workspace.spec.ts."
+        "web consultant-workspace.test.tsx (nav, embeds)",
+        "Playwright consultant-workspace.spec.ts",
+        "PersonalSubscriptionUnchangedIT regression run"
       ],
-      "tech": "Reuse user-area components; the org lens is routing + branding, not new CRUD.",
-      "complexity": "L",
+      "tech": "Reuse user-area components; the org lens is routing + branding, not new CRUD. Split by Session E (09 \"Planned story work\"): X9.1 = shell + embedded pages; X9.11 = Home + Settings.",
+      "complexity": "M",
       "dod": "Consultant workspace live; tracker Completed.",
       "design": "docs/enterprise-v2/32-applications.md",
       "evidence": [],
       "critical": true
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "38 §3.1 at 390/1440; autosave toggles with inline ✓; one mascot max."
+      ],
+      "db": [
+        "notification_preference.org_id BIGINT NULL (additive; NULL = personal)"
+      ],
+      "entitlements": [],
+      "evidence": [],
+      "critical": false,
+      "genz": "What needs you, then everything else.",
+      "id": "X9.11",
+      "epic": "X9",
+      "size": "M",
+      "owners": [
+        "Web",
+        "API"
+      ],
+      "deps": [
+        "X9.1",
+        "X2.8",
+        "X2.15"
+      ],
+      "title": "Consultant Home (/w/consultant): needs-you (resume approvals, slot confirmations, offers, consent requests), assigned opportunities, counts, SpeechBubble only when new; Consultant Settings page (org-scoped preferences: notification kinds per org, calendar include_company, Autopilot opt-in placeholder, \"What Acme can see\" summary)",
+      "persona": "Consultant / Talent on a tenant host",
+      "objective": "The consultant sees what needs them first and controls the few org-scoped settings that exist in one place — without a second account or a duplicated profile.",
+      "story": "As Anika, I want to open Acme's portal and immediately see the resume Sarah wants approved and the interview slot to confirm, and decide what Acme may see about me, so that nothing waits on me unknowingly.",
+      "functional": [
+        "ConsultantHomeService → GET /api/me/orgs/{orgId}/home: needsYou[] (resume approvals X7.4, slot confirmations X9.5, offers X9.8, consent requests X7.6, authorization requests X8.5 — each with a deep link), assignedOpportunities (open matches), counts (applications in flight, interviews upcoming, placements), newSince (for the SpeechBubble).",
+        "Home page per 38 §3.1: needs-you list first, then opportunities, then counts; MascotPose greet with SpeechBubble only when newSince > 0; empty states from 38 §6; 390/1440.",
+        "Settings page /w/consultant/settings (requirement §25): per-org notification kinds (ORG_* toggles, writes notification_preference with org scope), calendar.include_company (X9.5 .ics), \"Let Acme's assigned jobs feed my Autopilot\" (disabled with \"coming later\" until X12.2/D2 is answered), \"What Acme can see\" read-only summary from the consent projection with a link to the share screen; basic profile fields are NOT here (link to /me — 13)."
+      ],
+      "backend": [
+        "service/ent/ConsultantHomeService; web/rest/ent/MeOrgHomeResource; notification_preference org-scoped rows (additive column org_id NULL on notification_preference in 20261023010000_ent_applications.xml)"
+      ],
+      "apis": [
+        "GET /api/me/orgs/{orgId}/home",
+        "GET/PATCH /api/me/orgs/{orgId}/settings"
+      ],
+      "permissions": [
+        "self (membership CONSULTANT role or any member — the page shows what applies)"
+      ],
+      "ac": [
+        "A consultant with one pending resume approval and one slot to confirm sees two needs-you rows with deep links; after acting, the rows disappear on reload and the SpeechBubble no longer shows.",
+        "Toggling ORG_INTERVIEW email off for acme leaves the personal INTERVIEW preference untouched (two rows; PersonalSubscriptionUnchangedIT-style assertion).",
+        "The Autopilot opt-in renders disabled with the \"coming later\" note (D2 default); the \"What Acme can see\" summary equals the ShareField projection for the viewer (projection test).",
+        "A non-consultant member opening /w/consultant gets the not-part-of-your-role state; 390: every tile reachable without horizontal scroll."
+      ],
+      "tests": [
+        "ConsultantHomeServiceTest",
+        "MeOrgSettingsResourceIT",
+        "web consultant-home.test.tsx, consultant-settings.test.tsx",
+        "Playwright consultant-home.spec.ts (390/1440)"
+      ],
+      "tech": "Split from X9.1 by Session E (doc 45: Settings page gap). 38 §3, 32 §1, 13 (no profile duplication).",
+      "dod": "Consultant lands on Home with needs-you first; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
       "id": "X9.2",
@@ -6458,7 +6889,8 @@
         "Ext"
       ],
       "deps": [
-        "X9.1"
+        "X9.1",
+        "X9.11"
       ],
       "persona": "Consultant / Marketer",
       "objective": "Close the loop: the consultant applies in their own session and the org learns it from submit-detect, never from a marketer click.",
@@ -6619,7 +7051,8 @@
       ],
       "deps": [
         "X9.2",
-        "X8.10"
+        "X8.10",
+        "X8.13"
       ],
       "persona": "Marketer / Consultant",
       "objective": "Coordinate interviews on the org side while the consultant's calendar stays their own.",
@@ -6827,11 +7260,10 @@
     {
       "id": "X9.9",
       "epic": "X9",
-      "title": "Extension workspace selector: GET /api/profile/version workspaces[], X-Kiwiply-Workspace header, per-workspace mirror partition, 'Pro via Acme' only inside the org workspace",
+      "title": "Extension workspace API: GET /api/profile/version workspaces[] + hints, WorkspaceHeaderFilter validating X-Kiwiply-Workspace against ACTIVE membership (404), workspace-aware /api/profile/** reads, plan resolution per ADR-018, opportunities/from-extension endpoint",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
-        "Ext",
         "API"
       ],
       "deps": [
@@ -6844,14 +7276,12 @@
       "genz": "One extension, two hats, nothing mixed.",
       "functional": [
         "ProfileVersion response gains workspaces[] and hints (additive); WorkspaceHeaderFilter validates X-Kiwiply-Workspace against ACTIVE membership (404 otherwise) and sets TenantContext for workspace-aware /api/profile/** reads; plan resolution per ADR-018 (no stacking).",
-        "Extension: workspace chip in the drawer; storage.js partitions ACCOUNT_KEYS by workspace prefix; clearAccountData clears all; TrackingProvider gains listWorkspaces/setWorkspace/assignedJobs/saveForConsultant; marketer-only 'Save for consultant…' drawer action (creates job_opportunity + draft match via POST /api/orgs/{orgId}/opportunities/from-extension).",
-        "no_submit.test.js: autofill always uses the signed-in user's own profile; BLOCK_RE unchanged; no click on submit-class controls in fixtures."
+        "POST /api/orgs/{orgId}/opportunities/from-extension {consultantMemberId, url, title, company} creates a job_opportunity + draft match (marketer act-for; duplicate guard; BoardPolicy).",
+        "The extension-side changes are X9.12."
       ],
-      "ui": [
-        "Drawer header chip (Personal / Acme) using the drawer's existing design tokens; assigned jobs list in the drawer's Jobs tab when in an org workspace."
-      ],
+      "ui": [],
       "backend": [
-        "WorkspaceHeaderFilter, ProfileVersion extension, OpportunityService.fromExtension; extension modules per 32 §5."
+        "WorkspaceHeaderFilter, ProfileVersion extension, OpportunityService.fromExtension"
       ],
       "db": [
         "None."
@@ -6867,15 +7297,17 @@
       ],
       "ac": [
         "A forged workspace header → 404 before any data; without the header the personal plan applies (PersonalSubscriptionUnchangedIT extended).",
-        "Switching workspaces swaps resumes/assigned jobs/plan and keeps learned answers; account change wipes all partitions (account_clear.test.js extended).",
-        "In a marketer session the drawer never loads a consultant's bio (jsdom test) and only 'Save for consultant…' is offered.",
-        "Versions bumped in wxt.config.ts and package.json; rules version untouched."
+        "With a valid header, /api/profile/version returns the org workspace's resumes/assigned jobs/plan (\"Pro via Acme\" only inside the org workspace; never stacked).",
+        "from-extension creates the opportunity and a draft match for the consultant; a second save of the same URL → 409 OPPORTUNITY_EXISTS."
       ],
       "tests": [
-        "WorkspaceHeaderFilterIT, extension workspace.test.js, no_submit.test.js, account_clear.test.js (extended), Playwright e2e-e.spec.ts (personal compatibility)."
+        "WorkspaceHeaderFilterIT",
+        "ProfileVersionWorkspacesIT",
+        "OpportunityFromExtensionIT",
+        "PersonalSubscriptionUnchangedIT (extended)"
       ],
-      "tech": "Token stays user-only (no tid for extension tokens); the header is the only workspace signal; /connect stays on kiwiply.com.",
-      "complexity": "L",
+      "tech": "Token stays user-only (no tid for extension tokens); the header is the only workspace signal; /connect stays on kiwiply.com. Split by Session E (09 \"Planned story work\"): X9.9 = API; X9.12 = extension.",
+      "complexity": "M",
       "dod": "Extension workspace-aware and still single-account; tracker Completed.",
       "design": "docs/enterprise-v2/32-applications.md",
       "evidence": [],
@@ -6884,6 +7316,63 @@
         "O3.4",
         "O10.7"
       ]
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "Drawer chip + Jobs tab list; 44 px targets; no new engine deps."
+      ],
+      "db": [],
+      "entitlements": [
+        "Plan resolution per ADR-018 (no stacking) — shown as \"Pro via Acme\" only inside the workspace"
+      ],
+      "evidence": [],
+      "critical": false,
+      "genz": "Same extension, right hat.",
+      "id": "X9.12",
+      "epic": "X9",
+      "size": "M",
+      "owners": [
+        "Ext"
+      ],
+      "deps": [
+        "X9.9"
+      ],
+      "title": "Extension side: workspace chip in the drawer, storage partition per workspace, TrackingProvider listWorkspaces/setWorkspace/assignedJobs/saveForConsultant, assigned jobs in the Jobs tab, marketer \"Save for consultant…\" action, no_submit + account_clear tests, version bump",
+      "persona": "Consultant using the extension inside Acme's workspace; marketer saving a job for a consultant",
+      "objective": "The single-account extension becomes workspace-aware without a second login, never mixes personal and org data, and never autofills with anyone but the signed-in user's own profile.",
+      "story": "As Anika, I want to switch the drawer to Acme and see the jobs Sarah assigned me so that I can apply from my own browser with my own profile.",
+      "functional": [
+        "Drawer header chip (Personal / Acme) using the drawer's existing tokens; `src/lib/tracking.js` TrackingProvider gains listWorkspaces/setWorkspace/assignedJobs/saveForConsultant (canonical DTOs only; the seam stays the single backend path); every org-workspace call sends X-Kiwiply-Workspace.",
+        "storage.js partitions ACCOUNT_KEYS by workspace prefix (learned answers stay global per 32 §5); clearAccountData clears all partitions; the local store stays a read-only mirror (pull-only).",
+        "Jobs tab lists assigned jobs when in an org workspace (match_id carried on the item; opening a job starts the normal fill with the user's own profile); marketer session: no consultant bio is ever loaded — only \"Save for consultant…\" (POST from-extension) is offered.",
+        "no_submit.test.js: BLOCK_RE unchanged; no click on submit-class controls in fixtures; autofill always uses the signed-in user's profile. Versions bumped in wxt.config.ts and package.json; rules version untouched."
+      ],
+      "backend": [
+        "— (X9.9)"
+      ],
+      "apis": [
+        "Consumes GET /api/profile/version (workspaces), POST /api/orgs/{orgId}/opportunities/from-extension; header X-Kiwiply-Workspace"
+      ],
+      "permissions": [
+        "Membership-validated header (API); marketer act-for for Save for consultant"
+      ],
+      "ac": [
+        "Switching workspaces swaps resumes/assigned jobs/plan and keeps learned answers; account change wipes all partitions (account_clear.test.js extended).",
+        "In a marketer session the drawer never loads a consultant's bio (jsdom test) and only \"Save for consultant…\" is offered.",
+        "no_submit.test.js green; `npm test` green; build produces .output/chrome-mv3 with the bumped version.",
+        "Playwright e2e-e.spec.ts (personal compatibility): personal workspace behaviour byte-identical with the chip on Personal."
+      ],
+      "tests": [
+        "extension workspace.test.js, no_submit.test.js, account_clear.test.js (extended), tracking.test.js",
+        "Playwright e2e-e.spec.ts"
+      ],
+      "tech": "Split from X9.9 by Session E. 32 §5, ADR-018, escalation E6 (a); engine stays vanilla JS on window.JAF; /connect stays on kiwiply.com.",
+      "dod": "Extension workspace-aware and still single-account; versions bumped; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
       "id": "X9.10",
@@ -6897,7 +7386,8 @@
       ],
       "deps": [
         "X9.9",
-        "X9.8"
+        "X9.8",
+        "X9.12"
       ],
       "persona": "QA",
       "objective": "Prove scenarios D and E end to end on the mock tenants.",
@@ -6939,27 +7429,26 @@
     {
       "id": "X10.1",
       "epic": "X10",
-      "title": "Client accounts, contacts, relationships (vendor chains) CRUD with PII scanner",
+      "title": "Client model API: client_account / client_contact / client_relationship (vendor chains) CRUD, archive, DO_NOT_WORK, work-email rule, cycle refusal, @NoSensitiveText on every String field, audit",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
-        "API",
-        "Web"
+        "API"
       ],
       "deps": [
         "X8.10",
-        "X11.7"
+        "X11.7",
+        "X8.13"
       ],
       "persona": "Account Manager",
       "objective": "One client model with edges, scanned on every field.",
       "story": "As an account manager, I want to manage clients, vendors, primes and partners with their contacts and how they relate (who subcontracts to whom), so that requirements and placements always point at real relationships.",
       "genz": "Clients, vendors and who-feeds-whom. Clean and scanned.",
       "functional": [
-        "client_account/client_contact/client_relationship per 34 §1 (tables from X8.10) with CRUD, archive, DO_NOT_WORK reason, work-email rule (422 WORK_EMAIL_REQUIRED), cycle refusal (422 RELATIONSHIP_CYCLE), @NoSensitiveText on every String field."
+        "client_account/client_contact/client_relationship per 34 §1 (tables from X8.10) with CRUD, archive, DO_NOT_WORK reason, work-email rule (422 WORK_EMAIL_REQUIRED), cycle refusal (422 RELATIONSHIP_CYCLE), @NoSensitiveText on every String field.",
+        "The Clients pages are X10.9."
       ],
-      "ui": [
-        "Clients list + account page per 38 §5 (Tabs: Contacts, Relationships as nested chips, Requirements, Placements); SideSheets with autosave; 390/1440."
-      ],
+      "ui": [],
       "backend": [
         "ClientService, ClientRelationshipGraph; DTOs annotated."
       ],
@@ -6979,14 +7468,73 @@
         "All routes in OrgIsolationIT; mutations audited CLIENT_*."
       ],
       "tests": [
-        "ClientServiceTest, ClientRelationshipGraphTest, ContactWorkEmailTest, SensitiveTextCoverageTest (package), Playwright clients.spec.ts."
+        "ClientServiceTest",
+        "ClientRelationshipGraphTest",
+        "ContactWorkEmailTest",
+        "SensitiveTextCoverageTest (package)",
+        "ClientResourceIT + OrgIsolationIT lines"
       ],
-      "tech": "Keep ops_client_id/ops_vendor_id nullable; the bridge (X10.8) fills them.",
-      "complexity": "L",
+      "tech": "Keep ops_client_id/ops_vendor_id nullable; the bridge (X10.8) fills them. Split by Session E (09 \"Planned story work\"): X10.1 = API; X10.9 = pages.",
+      "complexity": "M",
       "dod": "Client model live; tracker Completed.",
       "design": "docs/enterprise-v2/34-clients.md",
       "evidence": [],
       "critical": true
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "38 §5 at 390/1440; relationship chips are keyboard-navigable; tenant tokens."
+      ],
+      "db": [],
+      "entitlements": [],
+      "evidence": [],
+      "critical": false,
+      "genz": "Who buys, who brokers, who answers the phone.",
+      "id": "X10.9",
+      "epic": "X10",
+      "size": "M",
+      "owners": [
+        "Web"
+      ],
+      "deps": [
+        "X10.1",
+        "X2.16",
+        "X2.15"
+      ],
+      "title": "Clients pages (/w/accounts/clients, /w/admin/clients): list with filters, account page with Contacts / Relationships (nested vendor chips) / Requirements / Placements tabs, SideSheets with autosave, DO_NOT_WORK banner, MSA/SOW labels and dates only (D3)",
+      "persona": "Account Manager / Org Admin",
+      "objective": "Clients, vendors and the chains between them are readable at a glance and editable without a Save button, with no document store and no sensitive text.",
+      "story": "As an account manager, I want Acme's clients, their vendors and contacts on one page so that I know who to call about a requirement.",
+      "functional": [
+        "Clients list (FilterBar: q, kind CLIENT/VENDOR/END_CLIENT, status, owner) with cards < md; account page per 38 §5 with Tabs (Contacts, Relationships as nested chips showing the chain, Requirements (X10.2 when it lands), Placements (X10.10)); SideSheets with autosave (inline ✓, undo); archive with ConfirmTypedSheet; DO_NOT_WORK banner with reason; SensitiveTextField for notes (X2.15) showing the 422 SENSITIVE_CONTENT reason inline.",
+        "MSA/SOW: labels + dates only (msa_label, msa_expires_on, payment_terms_label) with the empty-state line \"Contracts live in your DMS\" (escalation D3)."
+      ],
+      "backend": [
+        "— (X10.1)"
+      ],
+      "apis": [
+        "Consumes 34 §6 client/contact/relationship routes"
+      ],
+      "permissions": [
+        "clients.view / clients.manage (ORG)"
+      ],
+      "ac": [
+        "Creating a contact with a gmail.com address shows the WORK_EMAIL_REQUIRED message inline; a note containing an EIN shows SENSITIVE_CONTENT and is not saved.",
+        "A relationship that would form a cycle is refused inline; nested chips render a 3-level chain correctly.",
+        "Archive hides the client from pickers but the page remains reachable with the archived badge.",
+        "Playwright: create client → contact → relationship → archive at 390/1440; axe clean."
+      ],
+      "tests": [
+        "web clients.test.tsx",
+        "Playwright clients.spec.ts"
+      ],
+      "tech": "Split from X10.1 by Session E. 34 §1/§5, 38 §5; escalation D3.",
+      "dod": "Client pages live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
       "id": "X10.2",
@@ -6999,7 +7547,8 @@
         "Web"
       ],
       "deps": [
-        "X10.1"
+        "X10.1",
+        "X10.9"
       ],
       "persona": "Account Manager / Marketer",
       "objective": "Requirements with their own lifecycle that automatically become opportunities.",
@@ -7099,12 +7648,11 @@
     {
       "id": "X10.4",
       "epic": "X10",
-      "title": "Offers → placements lifecycle: pending start, active, extension, redeployment, ended/terminated; bill-to account",
+      "title": "Placement lifecycle API: PENDING_START/ACTIVE/ON_HOLD/EXTENDED/ENDED/TERMINATED machine, placement_extension log, redeployment chain, availability effects, requirement filled count, PlacementStartJob/EndNudgeJob, bill-to account, DTO redaction, dashboard widget bean",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
-        "API",
-        "Web"
+        "API"
       ],
       "deps": [
         "X9.8",
@@ -7116,11 +7664,10 @@
       "genz": "From yes to Monday to renewal, one record.",
       "functional": [
         "placement machine per 35 §3 registered (PENDING_START/ACTIVE/ON_HOLD/EXTENDED chip/ENDED/TERMINATED), placement_extension log, redeployment chain, effects on consultant_profile (ON_PROJECT/PAUSED; back to ACTIVE only on consultant confirm), requirement filled count, PlacementStartJob/EndNudgeJob; bill_to_client_id; DTO redaction of bill rate.",
-        "Registers the DashboardWidgetProvider bean(s) placements for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService."
+        "Registers the DashboardWidgetProvider bean(s) placements for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService.",
+        "The Placements board/list and sheets are X10.10."
       ],
-      "ui": [
-        "Placements board per 38 §5.1 (1440) and list (390); Extend/End/Terminate SideSheets; redeploy Menu."
-      ],
+      "ui": [],
       "backend": [
         "PlacementService + transitions + jobs; redaction mapper."
       ],
@@ -7140,14 +7687,74 @@
         "bill_rate_minor never in consultant/marketer DTOs."
       ],
       "tests": [
-        "PlacementStateTest, PlacementChainTest, PlacementAvailabilityEffectsTest, PlacementDtoRedactionTest, Playwright placements.spec.ts."
+        "PlacementStateTest",
+        "PlacementChainTest",
+        "PlacementAvailabilityEffectsTest",
+        "PlacementDtoRedactionTest",
+        "PlacementResourceIT + OrgIsolationIT lines"
       ],
-      "tech": "Extension is an event on the same row; redeployment is a new row — keep that distinction in code names.",
-      "complexity": "L",
+      "tech": "Extension is an event on the same row; redeployment is a new row — keep that distinction in code names. Split by Session E (09 \"Planned story work\"): X10.4 = API; X10.10 = UI.",
+      "complexity": "M",
       "dod": "Placement lifecycle complete; tracker Completed.",
       "design": "docs/enterprise-v2/35-placements.md",
       "evidence": [],
       "critical": true
+    },
+    {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "38 §5.1 at 390/1440; bill rate never rendered for marketer/consultant DTOs (the field is absent, not hidden)."
+      ],
+      "db": [],
+      "entitlements": [],
+      "evidence": [],
+      "critical": false,
+      "genz": "Started, extended, redeployed — one timeline.",
+      "id": "X10.10",
+      "epic": "X10",
+      "size": "M",
+      "owners": [
+        "Web"
+      ],
+      "deps": [
+        "X10.4",
+        "X10.9",
+        "X2.15"
+      ],
+      "title": "Placements board (1440) and list (390) with Extend / End / Terminate SideSheets, redeploy Menu, extension history, rate bands for marketers and numbers for finance/AM (D6), celebrate pose on first ACTIVE",
+      "persona": "Account Manager / Org Admin / Finance (numbers) / Marketer (bands)",
+      "objective": "Placements are tracked distinctly from applications, extended or redeployed without losing the chain, and money is shown to exactly the roles allowed to see it.",
+      "story": "As an account manager, I want to extend Anika's placement by three months and see the chain of her engagements so that renewals never slip.",
+      "functional": [
+        "PlacementsPage: KanbanBoard by status at ≥ md, list at < md; card = consultant, client (bill-to), dates, status StatePill, rate (MoneyText band mode for marketers; numbers for finance.view/AM — D6); Extend (dates-only → placement_extension; changed rates → new offer flow link), End (end date + reason), Terminate (ReasonSheet, typed confirm), Redeploy (Menu → new chained placement with the bench gap shown); extension history drawer (TimelineFeed).",
+        "Mounted in ACCOUNTS, ADMIN, FINANCE (read + rates) and MARKETING_MGMT (bands); consultant-side declaration is X10.6.",
+        "First placement ACTIVE for the org → MascotPose celebrate toast once (session dedupe)."
+      ],
+      "backend": [
+        "— (X10.4)"
+      ],
+      "apis": [
+        "Consumes 35 §6 placement routes"
+      ],
+      "permissions": [
+        "placements.view / placements.manage; finance.view for rate numbers"
+      ],
+      "ac": [
+        "Dates-only extension logs a placement_extension row and the drawer shows it; a rate change routes to the offer flow with the explanation.",
+        "A marketer sees \"Band B\" where the AM sees the numbers (DOM assertion per role); bill_rate_minor is absent from the marketer response.",
+        "Redeploy creates a chained card and the bench gap text; Terminate requires typing the consultant's name.",
+        "Playwright: extend → end → redeploy at 390/1440; celebrate toast fires once."
+      ],
+      "tests": [
+        "web placements.test.tsx (role views, redaction)",
+        "Playwright placements.spec.ts"
+      ],
+      "tech": "Split from X10.4 by Session E. 35 §2–§4, 38 §5.1; escalation D6.",
+      "dod": "Placement UI complete; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
       "id": "X10.5",
@@ -7161,7 +7768,9 @@
       "deps": [
         "X10.4",
         "X10.6",
-        "X2.15"
+        "X2.15",
+        "X10.9",
+        "X10.10"
       ],
       "persona": "Account Manager",
       "objective": "Assemble the AM pages into one workspace with the consent projection applied.",
@@ -7210,7 +7819,8 @@
         "API"
       ],
       "deps": [
-        "X10.4"
+        "X10.4",
+        "X10.10"
       ],
       "persona": "Consultant",
       "objective": "Let the consultant say 'I started' and celebrate once, honestly.",
@@ -7459,9 +8069,9 @@
     {
       "id": "X11.3",
       "epic": "X11",
-      "title": "HR workspace: Employees, Onboarding, Documents (policies only), Compliance, Lifecycle, Offboarding, Reports",
+      "title": "HR workspace: Home tiles, Employees (HR columns), Onboarding board, Policies (the requirement's \"Documents\", D7), Compliance, Lifecycle timeline, Offboarding, Reports",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
         "Web",
         "API"
@@ -7475,43 +8085,110 @@
       "story": "As HR, I want a workspace with Home, Employees, Onboarding, Policies, Compliance, Lifecycle, Offboarding and Reports, and as Talent Acquisition I want talent pools of invited/existing members, so that people operations run in one place.",
       "genz": "People ops, one place, no vault.",
       "functional": [
-        "Workspace key HR with nav per 36 §3; Home tiles; talent_pool/talent_pool_member for TA (members or invites only; no external CV storage — escalation D5); HR reports (headcount, onboarding_time, ack_rate, compliance_open)."
+        "Workspace key HR with nav per 36 §3; HrHomeService (onboarding in progress, overdue tasks, policies pending ack, offboarding); pages over X11.1/X11.2/X4.4 data; HR reports (headcount by department/type, onboarding_time, ack_rate, compliance_open) via HrReportService; Policies nav label with the E2 empty state. Talent Acquisition pages are X11.8."
       ],
       "ui": [
-        "38 §5 HR pages at 390/1440; Policies nav label and empty state; TA pools as ChipInput lists."
+        "38 §5 HR pages at 390/1440; Policies nav label and empty state (\"Kiwiply keeps no identity documents. Policies you publish live here.\")."
       ],
       "backend": [
-        "HrHomeService; TalentPoolService; HrReportService."
+        "HrHomeService; HrReportService"
       ],
       "db": [
-        "_ent_hr_finance.xml changeSet 4: talent_pool, talent_pool_member."
+        "None (X11.1/X11.2 tables)."
       ],
       "apis": [
-        "GET /api/orgs/{orgId}/hr/home · talent pool CRUD · GET /hr/reports."
+        "GET /api/orgs/{orgId}/hr/home · GET /hr/reports"
       ],
       "permissions": [
         "HR_SPECIALIST / TALENT_ACQUISITION template keys."
       ],
       "entitlements": [],
       "ac": [
-        "HR pages never render consultant career data (no resumes.* route reachable → 404 states); TA pools accept only member/invite ids; reports compute on fixtures."
+        "HR pages never render consultant career data (no resumes.* route reachable → 404 states); reports compute on fixtures; the Policies empty state explains the absence of identity documents.",
+        "HR_SPECIALIST lands on /w/hr; an ORG_ADMIN without HR sees the read-only summary tile page at /w/admin/hr (hr.view)."
       ],
       "tests": [
-        "Playwright hr.spec.ts; TalentPoolServiceTest; HrReportServiceTest."
+        "Playwright hr.spec.ts",
+        "HrHomeServiceTest",
+        "HrReportServiceTest"
       ],
-      "tech": "Reuse X4.3 Employees list with HR columns.",
-      "complexity": "L",
+      "tech": "Reuse X4.3 Employees list with HR columns. Split by Session E (09 \"Planned story work\"): X11.3 = HR workspace; X11.8 = Talent Acquisition.",
+      "complexity": "M",
       "dod": "HR workspace live; tracker Completed.",
       "design": "docs/enterprise-v2/36-hr-and-finance.md",
       "evidence": [],
       "critical": false
     },
     {
+      "status": "not_started",
+      "relates": [],
+      "supersedes": [],
+      "ui": [
+        "38 §5 HR style at 390/1440; ChipInput for skills; no file inputs anywhere on these pages (lint assertion)."
+      ],
+      "db": [
+        "talent_pool, talent_pool_member (additive, Phase-11 bucket second file)."
+      ],
+      "entitlements": [],
+      "evidence": [],
+      "critical": false,
+      "genz": "Pools of people, not piles of PDFs.",
+      "id": "X11.8",
+      "epic": "X11",
+      "size": "M",
+      "owners": [
+        "API",
+        "Web"
+      ],
+      "deps": [
+        "X11.3",
+        "X4.12",
+        "X1.15"
+      ],
+      "title": "Talent Acquisition: talent_pool / talent_pool_member tables (members or invites only — D5), TalentPoolService, Candidates page (invited + screening members with onboarding coordination) and Talent pools page (/w/hr/candidates, /w/hr/talent-pools) under candidates.manage / talent_pools.manage",
+      "persona": "Talent Acquisition Specialist",
+      "objective": "Sourcing and screening work with people who have been invited — their resume is their own once they join — and talent pools organise them without a CV store Kiwiply would have to protect.",
+      "story": "As a TA specialist, I want to invite candidates, group them into pools by skill and track their screening and onboarding so that the bench grows without emailing spreadsheets.",
+      "functional": [
+        "Tables in 20261025020000_ent_hr_finance_ta.xml (Phase-11 bucket): talent_pool (org_id, name, skills_json, owner_member_id, archived_at) and talent_pool_member (org_id, pool_id, member_id NULL, invite_id NULL — exactly one; added_by, added_at; UNIQUE (pool_id, member_id), (pool_id, invite_id)); composite tenant FKs (41 R3).",
+        "TalentPoolService: CRUD, add/remove by member or invite id, archive; when an invite is accepted the row re-points from invite_id to member_id (join event); never stores external files or free-text CVs (SensitiveTextField on notes; no upload control).",
+        "Candidates page: Employees list preset status=INVITED|SCREENING (candidate = INVITED seat or member with employment_record stage SCREENING — X11.1), columns pool, source, invited by, screening task state (hr_task template \"screening\"), onboarding coordination (link to the member's onboarding checklist X11.2); actions: invite (X1.15 body with roles ⊆ ceiling), add to pool, start screening checklist, mark hired (→ onboarding).",
+        "Talent pools page: pools as cards with skills ChipInput and counts; pool detail = member/invite list with add/remove; \"Invite to pool\" shortcut.",
+        "Template TALENT_ACQUISITION (05 §3): members.invite, candidates.manage, talent_pools.manage, consultants.view (summary), onboarding.coordinate — registered in EntPermissions if missing."
+      ],
+      "backend": [
+        "service/ent/hr/TalentPoolService, CandidateQueryService; web/rest/ent/TalentPoolResource, CandidatesResource"
+      ],
+      "apis": [
+        "GET/POST/PATCH/DELETE /api/orgs/{orgId}/hr/talent-pools[/{id}] · POST …/talent-pools/{id}/members {memberId | inviteId} · DELETE …/members/{rowId}",
+        "GET /api/orgs/{orgId}/hr/candidates (preset filter over members) · POST …/candidates/{memberId}/screening"
+      ],
+      "permissions": [
+        "candidates.manage, talent_pools.manage, members.invite (ORG); onboarding.coordinate"
+      ],
+      "ac": [
+        "Adding a pool member with neither memberId nor inviteId, or both → 422; a pool row for an invite re-points to the member on acceptance (join event test).",
+        "The Candidates page lists INVITED seats and SCREENING members only; no resume route is reachable from it (404 states); no file input exists on TA pages (DOM assertion).",
+        "A TA specialist can invite with roles within their ceiling and start a screening checklist; \"mark hired\" moves the employment_record to ONBOARDING and the member appears on the Onboarding board.",
+        "All routes in OrgIsolationIT; Playwright: invite → pool → screening → hired at 390/1440."
+      ],
+      "tests": [
+        "TalentPoolServiceTest",
+        "CandidatesResourceIT + TalentPoolResourceIT (+ registry lines)",
+        "web candidates.test.tsx, talent-pools.test.tsx",
+        "Playwright talent-acquisition.spec.ts"
+      ],
+      "tech": "Split from X11.3 by Session E (doc 45 gap: TA pages). 36 §3 TA paragraph, 16 §5.5 row, 05 §3 template; escalation D5 (a).",
+      "dod": "TA workflow live with zero external-CV storage; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
+    },
+    {
       "id": "X11.4",
       "epic": "X11",
-      "title": "Finance workspace over product H: Consultant Subscriptions (read), Billing, Invoices, Placements (rates), Timesheets, Approvals, Payments (status records), Reports",
+      "title": "Finance workspace: Home tiles (AnimatedNumber) deep-linking into the billing pages, Consultant Subscriptions (read), Billing, Invoices, Placements (rates), finance reports, disclaimer line",
       "status": "not_started",
-      "size": "L",
+      "size": "M",
       "owners": [
         "Web",
         "API"
@@ -7526,10 +8203,10 @@
       "story": "As finance, I want one workspace with licenses cost, Kiwiply billing, client invoices (records), placements, timesheets and approvals, payments (records) and reports, so that every money record is one click away and nothing in it can move money.",
       "genz": "Every money record, one click. Zero money movement.",
       "functional": [
-        "Workspace key FINANCE with nav per 36 §4; Home tiles (AnimatedNumber) deep-linking into Session C billing pages and H pages (embedded); disclaimer line; finance reports (licenses_cost, placements_margin, invoices_outstanding, payments_recorded)."
+        "Workspace key FINANCE with nav per 36 §4; FinanceHomeService (licenses cost this period, invoices outstanding, placements active with margin, payments recorded) deep-linking into X6.1/X6.4 (embedded read views under finance.view) and X11.5 placement rates; FinanceReportService (licenses_cost, placements_margin, invoices_outstanding, payments_recorded); disclaimer line \"Kiwiply records money; it never moves it\" on every finance page. Timesheets / Approvals / Payments (product H embedding) are X11.9."
       ],
       "ui": [
-        "38 §5 finance home; H's week view/approver inbox embedded unchanged (H2.4/H3.6); EmptyState for Payments from 38 §6."
+        "38 §5 finance home at 390/1440; EmptyState for Payments from 38 §6 until X11.9."
       ],
       "backend": [
         "FinanceHomeService; FinanceReportService."
@@ -7538,24 +8215,91 @@
         "None."
       ],
       "apis": [
-        "GET /api/orgs/{orgId}/finance/overview · /finance/reports."
+        "GET /api/orgs/{orgId}/finance/overview · /finance/reports"
       ],
       "permissions": [
         "FINANCE_SPECIALIST template keys (finance.*, billing.*, licenses.view, usage.view, ops.*)."
       ],
       "entitlements": [],
       "ac": [
-        "Home tiles reconcile with their source pages on fixtures; no button on any finance page triggers a payment (lint + FinanceVerbsTest); H pages render inside the shell at 390."
+        "Home tiles reconcile with their source pages on fixtures; no button on any finance page triggers a payment (lint + FinanceVerbsTest); FINANCE_SPECIALIST lands on /w/finance; Consultant Subscriptions is read-only for finance.view and editable only with licenses.manage."
       ],
       "tests": [
-        "Playwright finance.spec.ts; FinanceHomeServiceTest."
+        "Playwright finance.spec.ts",
+        "FinanceHomeServiceTest",
+        "FinanceReportServiceTest",
+        "FinanceVerbsTest"
       ],
-      "tech": "If H pages are not built yet, show the 'Turn on Timesheets' card and keep tiles computed from what exists.",
-      "complexity": "L",
+      "tech": "If H pages are not built yet, show the 'Turn on Timesheets' card and keep tiles computed from what exists. Split by Session E (09 \"Planned story work\"): X11.4 = finance workspace; X11.9 = product-H embedding.",
+      "complexity": "M",
       "dod": "Finance workspace live; tracker Completed.",
       "design": "docs/enterprise-v2/36-hr-and-finance.md",
       "evidence": [],
       "critical": false
+    },
+    {
+      "status": "not_started",
+      "relates": [
+        "H2.4",
+        "H3.6",
+        "H6.1"
+      ],
+      "supersedes": [],
+      "ui": [
+        "Embedded H views at 390 inside the shell (bottom bar inset respected); EmptyState copy from 38 §6."
+      ],
+      "db": [
+        "None (X10.8 bridge)."
+      ],
+      "entitlements": [],
+      "evidence": [],
+      "critical": false,
+      "genz": "Same timesheets, your brand.",
+      "id": "X11.9",
+      "epic": "X11",
+      "size": "M",
+      "owners": [
+        "Web",
+        "API"
+      ],
+      "deps": [
+        "X11.4",
+        "X10.8"
+      ],
+      "title": "Product H embedding in the Finance workspace: Timesheets (week view), Approvals (approver inbox), Payments (status records) and invoice records rendered inside the enterprise shell on tenant hosts via the ops_* bridge; \"Turn on Timesheets\" card when H is off; FinanceVerbsTest over the embedded pages",
+      "persona": "Finance Specialist; approvers",
+      "objective": "Timesheets, approvals and payment records that product H already owns appear inside the org's branded workspace without a second product, and still never move money.",
+      "story": "As a finance specialist, I want this week's timesheets, the approvals waiting on me and the payment records on Acme's portal so that I work in one place.",
+      "functional": [
+        "Pages /w/finance/timesheets, /w/finance/approvals, /w/finance/payments, /w/finance/invoices mount H's existing components (H2.4 week view, H3.6 approver inbox, H6.x invoice/payment record lists) inside EnterpriseShell on tenant hosts; data from /ops/** (product H, unchanged) scoped by the X10.8 bridge (ops_placement.pipeline_placement_id); tenant theme tokens applied through the shell wrapper (no H restyle).",
+        "When H is not enabled for the org (ops.* setting / flag), the pages render the \"Turn on Timesheets\" card (admin-config, never hard-coded pricing — CLAUDE.md) and the Finance home tiles compute from what exists.",
+        "FinanceVerbsTest extended: no control on any embedded page issues a payment, transfer or bank action; NoSensitiveText coverage on the bridge DTOs."
+      ],
+      "backend": [
+        "FinanceEmbedResource (read scoping helpers over /ops/** for the tenant context) — no new ops_* writes"
+      ],
+      "apis": [
+        "Consumes /ops/** (product H) with TenantContext; GET /api/orgs/{orgId}/finance/embed-config"
+      ],
+      "permissions": [
+        "finance.view ⇒ ops.finance read; finance.manage ⇒ ops.finance + ops.placements write (36 §4); approvals per H"
+      ],
+      "ac": [
+        "With H on: the week view, approver inbox and payment records render inside the shell at 390 and 1440 with Acme's tokens; approving a timesheet works exactly as on kiwiply.com (H test reused).",
+        "With H off: the \"Turn on Timesheets\" card shows and no /ops/** call is made (network assertion).",
+        "A member of beta opening acme's finance URLs → 404 states; /ops/** calls carry the tenant and refuse mismatches (OrgIsolationIT lines for the embed routes).",
+        "FinanceVerbsTest green over the embedded pages."
+      ],
+      "tests": [
+        "FinanceEmbedResourceIT",
+        "web finance-embed.test.tsx",
+        "Playwright finance-h.spec.ts (390/1440)",
+        "FinanceVerbsTest (extended)"
+      ],
+      "tech": "Split from X11.4 by Session E. 36 §4, 35 §5 bridge; product H stays the owner of money records (E2).",
+      "dod": "H pages live in the Finance workspace; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
+      "complexity": "M",
+      "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
       "id": "X11.5",
@@ -7624,7 +8368,9 @@
       ],
       "deps": [
         "X11.3",
-        "X11.4"
+        "X11.4",
+        "X11.9",
+        "X11.8"
       ],
       "persona": "HR / Finance",
       "objective": "Exports with redaction and audit; retention jobs per the locked periods.",
