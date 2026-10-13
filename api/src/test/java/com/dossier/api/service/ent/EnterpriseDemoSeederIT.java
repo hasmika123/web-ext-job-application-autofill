@@ -119,7 +119,7 @@ class EnterpriseDemoSeederIT {
 
         OrgBranding b = brandings.findByOrgId(acme.getId()).orElseThrow();
         assertThat(b.getPublishedAt()).isNotNull();
-        assertThat(b.getPrimaryColor()).isEqualTo("#0f766e");
+        assertThat(b.getPrimaryColor()).isEqualTo("#1d5bd8");
         assertThat(b.getSecondaryColor()).isEqualTo("#f59e0b");
         assertThat(b.getWelcomeTitle()).isEqualTo("Welcome to Acme Staffing");
         assertThat(b.getSupportEmail()).isEqualTo("support@acme.example.com");
