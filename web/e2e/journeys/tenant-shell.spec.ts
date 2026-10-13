@@ -50,7 +50,7 @@ test.describe("desktop 1440", () => {
     for (const href of new Set(hrefs.map((h) => h.split("#")[0]))) {
       const res = await page.goto(`${base}${href}`);
       expect(res?.status(), href).toBe(200);
-      await expect(page.locator("[data-coming-soon], [data-branding-page], [data-invitations-page], [data-dashboard]").first(), href).toBeVisible();
+      await expect(page.locator("[data-coming-soon], [data-branding-page], [data-invitations-page], [data-dashboard], [data-employees-page]").first(), href).toBeVisible();
     }
   });
 

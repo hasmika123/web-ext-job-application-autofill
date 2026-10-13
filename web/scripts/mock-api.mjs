@@ -21,6 +21,7 @@ import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset 
 import { createBrandingMock } from "./mock-branding.mjs";
 import { createInvitationsMock } from "./mock-invitations.mjs";
 import { createDashboardMock } from "./mock-dashboard.mjs";
+import { createMembersMock } from "./mock-members.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -260,6 +261,8 @@ const handleInvitations = createInvitationsMock({
 });
 /* ── Organization dashboard mock (X2.17: GET .../dashboard + alert dismiss for the acme/beta tenant members; scripts/mock-dashboard.mjs) ── */
 const handleDashboard = createDashboardMock({ json, subOf: bearerSub });
+/* Employees mock (X4.12: members list, tiles, detail, bulk, lifecycle for Acme; scripts/mock-members.mjs) */
+const handleMembers = createMembersMock({ json, subOf: bearerSub });
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
 const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
 /* ── Job search mock (APP-E2E U4.0: search, suggest, detail, save, hide; scripts/mock-jobs.mjs) ── */
@@ -1982,6 +1985,7 @@ const server = http.createServer((req, res) => {
   if (handleBranding(req, res, path, method)) return;
   if (ENTERPRISE_ENABLED && handleInvitations(req, res, path, method)) return;
   if (handleDashboard(req, res, path, method)) return;
+  if (handleMembers(req, res, path, method)) return;
   if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
   if (handleAi(req, res, path, method)) return;

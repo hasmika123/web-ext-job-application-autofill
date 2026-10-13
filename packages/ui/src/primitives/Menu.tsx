@@ -93,7 +93,7 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
     window.addEventListener("resize", close);
     // Focus the first enabled item on open.
     const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])');
-    first?.focus();
+    first?.focus({ preventScroll: true }); // a scroll event closes the menu, and focusing the (not yet placed) first item would scroll the page
     return () => {
       document.removeEventListener("mousedown", onDocMouseDown);
       window.removeEventListener("scroll", close, true);
