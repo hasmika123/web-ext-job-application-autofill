@@ -18,11 +18,11 @@ parallel design sessions (docs 10–16, 20–29, 17 + 30–38). **`ev2-design-e`
 | Task | State | Where |
 |---|---|---|
 | 0 Merge B/C/D, regenerate roadmap | **done** | three merge commits; `08-decisions-for-user.md` restructured (Answered table → open items → B/C/D blocks) |
-| 1 Cross-session consistency pass | **partial** — every mismatch is *decided* in `docs/enterprise-v2/09-consistency-decisions.md` (20 rows + planned story work) but **not yet applied** to docs 05/11/12/14/15/16/20/21/24/25/28/30–38 or to `ent.json`/`07-backlog.md` | apply row by row; X1.4 must be amended (row 15) before `ev2-build-p1` reaches it |
-| 2 CLAUDE.md E3 change (+ Go-to-market line, Enterprise V2 locked bullet, ROADMAP.md note at the org price table ≈ line 1134) | **not started** | text is in the Session E brief |
+| 1 Cross-session consistency pass | **done** — all 20 rows of `docs/enterprise-v2/09-consistency-decisions.md` applied to the docs and to `ent.json`/`07-backlog.md` (✅ + commit per row in 09; "Decisions made while applying" recorded there). **X1.4 is amended** (`(tenant)/_t/**` + `proxy.ts` rewrite) — `ev2-build-p1` must build the amended spec | new stories X1.13, X2.15; X4.10 finalised; story review (Task 4) still pending |
+| 2 CLAUDE.md E3 change (+ Go-to-market line, Enterprise V2 locked bullet, ROADMAP.md note at the org price table) | **done** | `CLAUDE.md` Organizations bullet rewritten (E3), Go-to-market consultancies line, new "Enterprise V2 (locked 2026-10-12)" bullet; `ROADMAP.md` "Prices — organizations" carries the superseded note |
 | 3 Docs 40–44 (API, DB, threat model, testing, deployment) | **not started** | README still lists them as 40/41/42 — rename to 40–44 |
 | 4 Story review: X4.10 + X12.* full spec, X1.13/X2.15 new, 26 L→S/M splits, global build order in 06 + tracker | **not started** (plan in 09 "Planned story work") | render stories into `07-backlog.md` in the X1 section format |
-| 5 This START HERE (next Sonnet stories, open escalations) | **partial** (this table) | after X1.3: X1.4 (amended), X1.5, X1.6, X1.7 in that order; X1.10/X1.12 parallel |
+| 5 This START HERE (next Sonnet stories, open escalations) | **partial** (this table) | after X1.3: X1.4 (amended), X1.5, X1.6, X1.7 in that order; X1.10/X1.12/X1.13 parallel |
 
 **Open escalations needing the user (material only):** E4 role ceiling, E8 break-glass, E9 coupons, E10 subdomain approval,
 E12 ops endpoints (fix story X1.13 planned), B1 ask-token via query param, C1 enterprise credits, C3 Stripe Tax, C5 preset

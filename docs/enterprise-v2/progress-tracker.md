@@ -19,7 +19,7 @@
 | X1.1 Enterprise flags + EnterpriseEnabledFilter | Not Started | Sonnet (API) | — | first task; see HANDOFF START HERE |
 | X1.2 Tenancy schema | Not Started | Sonnet (API) | — | additive changelog `*_ent_tenancy.xml` |
 | X1.3 TenantResolver + public tenant + ask endpoint | Not Started | Sonnet (API) | — | |
-| X1.4 Web host resolution + (tenant) group + tenant-404 | Not Started | Sonnet (Web) | — | |
+| X1.4 Web host resolution + (tenant)/_t group + proxy rewrite + tenant-404 | Not Started | Sonnet (Web) | — | **amended by Session E (09 row 15)** — build the `_t` tree + rewrite from the start |
 | X1.5 Tenant-bound sessions (tid) | Not Started | Sonnet (API+Web) | — | |
 | X1.6 Roles as data + backfill + dual-write | Not Started | Sonnet (API) | — | parallel with X1.3–X1.5 after X1.2 |
 | X1.7 Scope model + AuthorizationService skeleton | Not Started | Sonnet (API) | — | |
@@ -28,6 +28,7 @@
 | X1.10 Tenant context in logs/audit/async | Not Started | Sonnet (API) | — | |
 | X1.11 Platform admin Organizations & hostnames | Not Started | Sonnet (API+Web) | — | admin page kit |
 | X1.12 Mock tenants + fixtures + demo seeder | Not Started | Sonnet (Web+API) | — | needed by X1.9 Playwright |
+| X1.13 Ops endpoints hardening (E12) | Not Started | Sonnet (API) | — | new (Session E, 09 row 19); any time after X1.3 |
 
 ## Phase 2 — Branded login and dashboard shell (Session B, specified 2026-10-12; build order)
 
@@ -35,6 +36,7 @@
 |---|---|---|---|---|
 | X2.1 Consolidate parked web helpers into lib/ent | Not Started | Sonnet (Web) | — | first; no feature work |
 | X2.8 MascotPose + pose map | Not Started | Sonnet (UI) | — | parallel after X2.1 |
+| X2.15 Enterprise UI kit in packages/ui | Not Started | Sonnet (UI) | — | new (Session E, 09 row 14); before X2.2 and every C/D UI story |
 | X2.12 BrandingTheme + theme-tenant.css + hex lint | Not Started | Sonnet (API+UI) | — | parallel after X2.1 |
 | X2.13 Public tenant assets + favicon/title | Not Started | Sonnet (API+Web) | — | parallel after X2.1 |
 | X2.2 EnterpriseShell + /api/me/tenant + workspaces + switcher | Not Started | Sonnet (Web+API+UI) | — | promotes the admin kit to packages/ui |
@@ -73,7 +75,7 @@
 | X4.4 Employee lifecycle + offboarding wizard | Not Started | Sonnet (API+Web) | — | hooks for D (assignments) and C (licenses) |
 | X4.9 Org audit log viewer + exports hub | Not Started | Sonnet (API+Web) | — | |
 | X4.7, X4.8 | Not Started | D (design pending) | — | assignments, workload |
-| X4.10 | Not Started | E (finalise) | — | org_member_role authoritative |
+| X4.10 org_member_role authoritative | Not Started | Sonnet (API) | — | finalised by Session E (09 row 17); closes Phase 4 |
 
 ## Phases 5–12
 Epic-level only until the owning follow-up session writes the stories (see `README.md`). Add rows
@@ -213,4 +215,5 @@ here when a story is specified; never add a row without an id in `ent.json`.
 - 2026-10-12 — Phase 0 complete on `enterprise-v2` (Fable). Roadmap area `ent` registered, 109 stories, 0 dangling ids.
 - 2026-10-12 — Session B (Fable, branch `ev2-design-b`): docs 10–16, stories X2.1–X2.14 / X3.1–X3.8 / X4.1–X4.6 / X4.9 fully specified (112 stories, 0 dangling), escalations B1–B8, E1/E2/E3/E5 recorded as answered.
 - 2026-10-12 — Session C (Fable, `ev2-design-c`): docs 20–29, stories X5.1–X5.12 and X6.1–X6.12 fully specified (+X5.11, X5.12, X6.12 new), escalations C1–C10, E1/E2/E3/E5 recorded as answered; 112 stories, 0 dangling ids.
+- 2026-10-12 — Session E (Fable, `ev2-design-e`) Task 1+2: `09-consistency-decisions.md` applied row by row to docs 05/06/11/12/14–17/20/21/23–26/28/30–38 and to `ent.json`/`07-backlog.md` (X1.4 amended to `(tenant)/_t` + proxy rewrite; new X1.13, X2.15; X4.10 finalised; Liquibase buckets; `ORG_*` kinds up front in X2.10); CLAUDE.md E3 + Enterprise V2 bullet; ROADMAP.md org price note. 0 dangling ids.
 - 2026-10-12 — Session D (Fable, `ev2-design-d`): assignments, org resumes, talent-marketing state machines, applications, interviews, clients, placements, HR & finance designed (`17`, `30`–`38`); 44 stories specified (X4.7–4.8, X7–X11 incl. new X8.10, X10.8, X11.7); escalations D1–D7; E1/E2/E3/E5 recorded answered. Roadmap: 112 stories, 0 dangling ids.
