@@ -7,14 +7,18 @@ import {
   ChevronRightIcon,
   ClipboardCheckIcon,
   CopyIcon,
-  DataTable,
   Dialog,
   ErrorState,
   EyeIcon,
   HistoryDrawer,
   Input,
   KeyIcon,
-  LayersIcon,
+  Menu,
+  MoreHorizontalIcon,
+  FileTextIcon,
+  GearIcon,
+  ZapIcon,
+  useNarrow,
   LockIcon,
   PencilIcon,
   PlusIcon,
@@ -29,7 +33,6 @@ import {
   UsersIcon,
   cn,
   useToast,
-  type DataTableColumn,
   type HistoryLoader,
   type MenuEntry,
 } from "@kiwiply/ui";
@@ -60,7 +63,8 @@ import RoleEditor from "./RoleEditor";
 import RoleIcon from "./RoleIcon";
 
 const PAGE_SIZE = 15; // config-literal-ok: rows per page of the roles table (UI pagination, not a limit)
-const DONUT = ["var(--brand-700)", "var(--brand-400)", "var(--brand-2-700)", "var(--brand-2-400)", "var(--brand-200)"]; // config-literal-ok: theme scale steps, never a hex
+const DONUT = ["var(--brand-solid, var(--color-accent))", "var(--color-v2-teal)", "var(--color-v2-amber)", "var(--color-v2-violet)", "var(--color-v2-pink)"]; // config-literal-ok: the board's five category hues (primary + fixed families), never a hex
+const CARD = "rounded-[18px] border border-line/70 bg-paper shadow-[0_1px_3px_rgba(16,40,90,0.05),0_6px_18px_rgba(16,40,90,0.04)]"; // config-literal-ok: the boards' soft card
 
 type Load<T> = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; data: T };
 
@@ -92,6 +96,7 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
   const [seed, setSeed] = useState<CreateSeed | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const narrow = useNarrow();
   const [banner, setBanner] = useState<string | null>(null);
   const historyTrigger = useRef<HTMLElement | null>(null);
 
@@ -217,54 +222,6 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
     [orgId],
   );
 
-  /* ── the table ───────────────────────────────────────────────────────────── */
-
-  const columns: DataTableColumn<RoleRow>[] = [
-    {
-      key: "name",
-      header: "Role name",
-      primary: true,
-      render: (r) => (
-        <span className="flex min-w-0 items-center gap-3">
-          <RoleIcon role={r} />
-          <span className="min-w-0 max-w-[200px] lg:max-w-[230px]">
-            <span className="block truncate text-[14px] font-semibold text-ink">{r.name}</span>
-            {r.description && <span className="block truncate text-[12.5px] font-normal text-muted" title={r.description}>{r.description}</span>}
-          </span>
-        </span>
-      ),
-    },
-    {
-      key: "scope",
-      header: "Scope",
-      render: (r) => (
-        <span data-scope-pill={r.scopeLabel} className={cn("inline-flex rounded-full px-2.5 py-[3px] text-[12px] font-semibold", r.system ? "bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]" : "bg-brown-soft text-brown-deep")}>
-          {r.scopeLabel}
-        </span>
-      ),
-    },
-    {
-      key: "users",
-      header: "Assigned users",
-      render: (r) => (
-        <span data-assigned-users={r.assignedUsers} className="inline-flex items-center gap-1.5 tabular-nums text-ink-soft">
-          <UsersIcon size={15} aria-hidden /> {r.assignedUsers}
-        </span>
-      ),
-    },
-    {
-      key: "status",
-      className: "hidden lg:table-cell",
-      header: "Status",
-      render: (r) => (
-        <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-ink">
-          <span aria-hidden className="h-2 w-2 rounded-full bg-accent" />
-          {r.status === "ACTIVE" ? "Active" : r.status}
-        </span>
-      ),
-    },
-  ];
-
   /* ── render ──────────────────────────────────────────────────────────────── */
 
   if (overview.status === "error") {
@@ -284,10 +241,10 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
 
       {/* KPI tiles: real numbers only (no trend lines: there is no history to draw) */}
       <section aria-label="Role totals" className="order-1 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:order-none">
-        <Kpi icon={<UsersIcon size={22} />} label="Total Roles" value={data?.totalRoles} note={data ? `${data.systemRoleCount} system · ${data.customRoleCount} custom` : undefined} />
-        <Kpi icon={<ClipboardCheckIcon size={22} />} label="Active Users" value={data?.activeUsers} note="with at least one role" />
-        <Kpi icon={<LockIcon size={22} />} label="Permission Sets" value={data?.permissionSetCount} note={data ? `${data.totalPermissionKeys} permissions in all` : undefined} />
-        <Kpi icon={<KeyIcon size={22} />} label="Custom Roles" value={data?.customRoleCount} note="made by your team" />
+        <Kpi tone="violet" icon={<UsersIcon size={24} />} label="Total Roles" value={data?.totalRoles} note={data ? `${data.systemRoleCount} system · ${data.customRoleCount} custom` : undefined} />
+        <Kpi tone="green" icon={<ClipboardCheckIcon size={24} />} label="Active Users" value={data?.activeUsers} note="with at least one role" />
+        <Kpi tone="blue" icon={<LockIcon size={24} />} label="Permission Sets" value={data?.permissionSetCount} note={data ? `${data.totalPermissionKeys} permissions in all` : undefined} />
+        <Kpi tone="amber" icon={<KeyIcon size={24} />} label="Custom Roles" value={data?.customRoleCount} note="made by your team" />
       </section>
 
       {/* tabs + table */}
@@ -302,7 +259,7 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
           </p>
         )}
         <Tabs value={tab} onValueChange={setTab} variant="underline">
-          <TabList aria-label="Roles and permission sets">
+          <TabList aria-label="Roles and permission sets" className="inline-flex w-auto rounded-t-[14px] border border-b-0 border-line/70 bg-paper/80 px-2">
             <Tab value="roles">
               <UsersIcon size={16} aria-hidden /> Roles
             </Tab>
@@ -311,26 +268,21 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
             </Tab>
           </TabList>
           <TabPanel value="roles" className="pt-4">
-            <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-3 sm:p-4">
-              <div className="mb-3">
-                <h2 className="text-[16px] font-bold text-ink">Role Templates &amp; Custom Roles</h2>
-                <p className="text-[13px] text-muted">Manage role assignments and access levels across {orgName}.</p>
+            <div className={cn(CARD, "p-3 sm:p-5")}>
+              <div className="mb-3 flex items-start gap-3">
+                <UsersIcon size={22} aria-hidden className="mt-0.5 flex-none text-[var(--brand-solid,var(--color-accent))]" />
+                <div className="min-w-0">
+                <h2 className="text-[17px] font-bold leading-tight text-ink">Role Templates &amp; Custom Roles</h2>
+                <p className="mt-0.5 text-[13.5px] text-muted">Manage role assignments and access levels across {orgName}.</p>
+                </div>
               </div>
-              <DataTable<RoleRow>
-                label="Roles"
-                what="the roles"
-                columns={columns}
-                rows={shown}
-                rowKey={(r) => String(r.id)}
+              <RolesTable
+                narrow={narrow}
                 loading={overview.status === "loading"}
-                hasFilters={query.trim() !== ""}
-                empty={
-                  <div className="py-6 text-center text-[13.5px] text-muted">
-                    {query.trim() ? "No roles match your search." : "No roles yet."}
-                  </div>
-                }
-                onRowClick={(r) => setEditing(r.id)}
-                rowActions={menuFor}
+                rows={shown}
+                empty={query.trim() ? "No roles match your search." : "No roles yet."}
+                onOpen={(r) => setEditing(r.id)}
+                menuFor={menuFor}
                 page={Math.min(page, pageCount)}
                 pageCount={pageCount}
                 onPage={setPage}
@@ -346,33 +298,33 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
       </div>
       <div data-roles-side className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-5">
       {/* controls */}
-      <div className="order-2 flex flex-col gap-2 sm:flex-row sm:items-center xl:order-2">
+      <div className={cn(CARD, "order-2 flex flex-col gap-2 p-2 sm:flex-row sm:items-center xl:order-2")}>
         <div className="relative min-w-0 flex-1">
           <SearchIcon size={16} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <Input type="search" aria-label="Search roles" placeholder="Search roles..." value={query} onChange={(e) => {
               setQuery(e.target.value);
               setPage(1);
-            }} className="pl-9" data-role-search />
+            }} className="rounded-xl pl-9" data-role-search />
         </div>
         {canManage && (
-          <Button onClick={startCreate} data-create-role-button className="min-h-11 sm:min-h-0">
+          <Button onClick={startCreate} data-create-role-button className="min-h-11 rounded-xl px-4 text-[14.5px] font-bold sm:min-h-[42px]">
             <PlusIcon size={16} aria-hidden /> Create Role
           </Button>
         )}
       </div>
 
       {/* the bee's help card (the page's one mascot: the sidebar's drops its own) */}
-      <section aria-label="Help with roles" data-roles-help className="order-6 overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper xl:order-1">
-        <div className="flex justify-center bg-[var(--brand-subtle,var(--color-accent-soft))] pt-3">
+      <section aria-label="Help with roles" data-roles-help className={cn(CARD, "order-6 overflow-hidden xl:order-1")}>
+        <div className="flex justify-center bg-[linear-gradient(180deg,var(--brand-subtle,var(--color-accent-soft)),color-mix(in_srgb,var(--color-v2-amber-soft)_70%,white))] pt-3">
           <EnterpriseMascot pose="thinking" size="md" />
         </div>
         <div className="p-4">
-          <h2 className="text-[16px] font-bold text-ink">Need help setting up roles?</h2>
-          <p className="mt-1 text-[13px] leading-snug text-muted">I can help you understand permissions, create custom roles, or review access for your team.</p>
+          <h2 className="text-[18px] font-bold text-ink">Need help setting up roles?</h2>
+          <p className="mt-1.5 text-[14px] leading-snug text-ink-soft">I can help you understand permissions, create custom roles, or review access for your team.</p>
           <button
             type="button"
             onClick={() => setHelpOpen(true)}
-            className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-paper px-3 text-left text-[13.5px] font-semibold text-[var(--brand-text,var(--color-accent-deep))] hover:bg-[var(--brand-subtle,var(--color-accent-soft))]"
+            className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-[var(--brand-subtle,var(--color-accent-soft))]/50 px-3 text-left text-[14.5px] font-semibold text-[var(--brand-text,var(--color-accent-deep))] hover:bg-[var(--brand-subtle,var(--color-accent-soft))]"
           >
             <SparklesIcon size={16} aria-hidden className="flex-none" />
             <span className="min-w-0 flex-1 truncate">Ask a question...</span>
@@ -382,32 +334,32 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
       </section>
 
       {/* permission overview */}
-      <section aria-label="Permission overview" data-permission-overview className="rounded-[var(--radius-lg)] border border-line bg-paper p-4 order-4 xl:order-3">
-        <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink">
-          <ShieldCheckIcon size={18} aria-hidden className="text-[var(--brand-text,var(--color-accent-deep))]" /> Permission Overview
+      <section aria-label="Permission overview" data-permission-overview className={cn(CARD, "p-4 order-4 xl:order-3")}>
+        <h2 className="flex items-center gap-2 text-[17px] font-bold text-ink">
+          <ShieldCheckIcon size={20} aria-hidden className="text-[var(--brand-solid,var(--color-accent))]" /> Permission Overview
         </h2>
         <div className="mt-3 flex flex-col items-center gap-4 sm:flex-row xl:flex-col 2xl:flex-row">
           <div
             role="img"
             aria-label={slices.map((s) => `${s.label}: ${s.keys}`).join(", ") || "No permissions"}
             data-donut
-            className="relative grid h-36 w-36 flex-none place-items-center rounded-full"
-            style={{ background: donutGradient(slices, DONUT) }}
+            className="relative grid h-[150px] w-[150px] flex-none place-items-center rounded-full"
+            style={{ background: donutGradient(slices, DONUT, 0.8) }}
           >
-            <div className="grid h-[98px] w-[98px] place-items-center rounded-full bg-paper text-center">
+            <div className="grid h-[92px] w-[92px] place-items-center rounded-full bg-paper text-center">
               <div>
-                <p className="text-[24px] font-bold leading-none text-ink">{data?.totalPermissionKeys ?? "–"}</p>
+                <p className="text-[26px] font-extrabold leading-none text-ink">{data?.totalPermissionKeys ?? "–"}</p>
                 <p className="mt-0.5 text-[11px] leading-tight text-muted">Permissions</p>
               </div>
             </div>
           </div>
-          <ul className="w-full min-w-0 flex-1 text-[13px]">
+          <ul className="w-full min-w-0 flex-1 text-[13.5px]">
             {slices.map((s, i) => (
-              <li key={s.category} data-slice={s.category} className="flex items-center gap-2 py-1">
-                <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: DONUT[i % DONUT.length] }} />
-                <span className="min-w-0 flex-1 truncate text-ink">{s.label}</span>
-                <span className="tabular-nums text-ink-soft">{s.keys}</span>
-                <span className="w-10 text-right tabular-nums text-muted">{s.percent}%</span>
+              <li key={s.category} data-slice={s.category} className="flex items-center gap-2.5 py-[5px]">
+                <span aria-hidden className="h-3 w-3 flex-none rounded-full" style={{ background: DONUT[i % DONUT.length] }} />
+                <span className="min-w-0 flex-1 truncate text-ink-soft">{s.label}</span>
+                <span className="font-bold tabular-nums text-ink">{s.keys}</span>
+                <span className="w-10 text-right tabular-nums text-ink-soft">{s.percent}%</span>
               </li>
             ))}
           </ul>
@@ -415,19 +367,20 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
       </section>
 
       {/* quick actions */}
-      <section aria-label="Quick actions" data-quick-actions className="rounded-[var(--radius-lg)] border border-line bg-paper p-4 order-5 xl:order-4">
-        <h2 className="flex items-center gap-2 text-[15px] font-bold text-ink">
-          <SparklesIcon size={18} aria-hidden className="text-[var(--brand-text,var(--color-accent-deep))]" /> Quick Actions
+      <section aria-label="Quick actions" data-quick-actions className={cn(CARD, "p-4 order-5 xl:order-4")}>
+        <h2 className="flex items-center gap-2 text-[17px] font-bold text-ink">
+          <ZapIcon size={20} aria-hidden className="text-[var(--brand-solid,var(--color-accent))]" /> Quick Actions
         </h2>
-        <ul className="mt-2 flex flex-col gap-1.5">
-          {canManage && <Quick id="create" icon={<PlusIcon size={18} />} label="Create New Role" note="Define a custom role with specific permissions" onClick={startCreate} />}
-          {canManage && <Quick id="duplicate" icon={<CopyIcon size={18} />} label="Duplicate Role" note="Create a copy of an existing role" onClick={() => startDuplicate()} />}
-          <Quick id="assign" icon={<UsersIcon size={18} />} label="Manage Role Assignments" note="Assign or remove users from roles" onClick={() => router.push(`/w/${workspace}/employees`)} />
-          <Quick id="sets" icon={<LayersIcon size={18} />} label="View Permission Sets" note="See how permissions are grouped" onClick={() => setTab("sets")} />
+        <ul className="mt-3 flex flex-col gap-2">
+          {canManage && <Quick id="create" tone="blue" icon={<PlusIcon size={18} />} label="Create New Role" note="Define a custom role with specific permissions" onClick={startCreate} />}
+          {canManage && <Quick id="duplicate" tone="violet" icon={<FileTextIcon size={18} />} label="Duplicate Role" note="Create a copy of an existing role" onClick={() => startDuplicate()} />}
+          <Quick id="assign" tone="green" icon={<UsersIcon size={18} />} label="Manage Role Assignments" note="Assign or remove users from roles" onClick={() => router.push(`/w/${workspace}/employees`)} />
+          <Quick id="sets" tone="accent" icon={<ShieldCheckIcon size={18} />} label="View Permission Sets" note="See how permissions are grouped" onClick={() => setTab("sets")} />
           {canManage && (
             <Quick
               id="audit"
-              icon={<ShieldCheckIcon size={18} />}
+              tone="violet"
+              icon={<GearIcon size={18} />}
               label="Audit Role Changes"
               note="View history of role and permission changes"
               onClick={(e) => {
@@ -474,38 +427,52 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
   );
 }
 
-function Kpi({ icon, label, value, note }: { icon: ReactNode; label: string; value?: number; note?: string }) {
+const KPI_TONES = {
+  violet: "bg-v2-violet-soft text-v2-violet-ink",
+  green: "bg-v2-green-soft text-v2-green-ink",
+  amber: "bg-v2-amber-soft text-v2-amber-ink",
+  blue: "bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]",
+} as const;
+
+function Kpi({ icon, label, value, note, tone }: { icon: ReactNode; label: string; value?: number; note?: string; tone: keyof typeof KPI_TONES }) {
   return (
-    <div data-kpi={label} className="rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-4">
-      <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]">
+    <div data-kpi={label} className={cn(CARD, "p-4 sm:p-[18px]")}>
+      <span aria-hidden className={cn("grid h-[52px] w-[52px] place-items-center rounded-[14px]", KPI_TONES[tone])}>
         {icon}
       </span>
-      <p className="mt-3 text-[14px] font-semibold text-ink">{label}</p>
-      <p data-kpi-value className="mt-0.5 text-[30px] font-bold leading-none tabular-nums text-ink">
+      <p className="mt-3 text-[16px] font-semibold text-ink">{label}</p>
+      <p data-kpi-value className="mt-1 text-[34px] font-extrabold leading-none tabular-nums text-ink">
         {value ?? "–"}
       </p>
-      {note && <p className="mt-1.5 text-[12px] text-muted">{note}</p>}
+      {note && <p className="mt-2.5 text-[13px] text-muted">{note}</p>}
     </div>
   );
 }
 
-function Quick({ id, icon, label, note, onClick }: { id: string; icon: ReactNode; label: string; note: string; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
+const QUICK_TONES = {
+  blue: "bg-[var(--brand-solid,var(--color-accent))] text-[var(--on-brand,#fff)]",
+  violet: "bg-v2-violet-soft text-v2-violet-ink",
+  green: "bg-v2-green-soft text-v2-green-ink",
+  accent: "bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]",
+} as const;
+
+function Quick({ id, icon, label, note, onClick, tone }: { tone: keyof typeof QUICK_TONES; id: string; icon: ReactNode; label: string; note: string; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void }) {
   return (
     <li>
       <button
         type="button"
         data-quick={id}
         onClick={onClick}
-        className="group flex min-h-14 w-full items-center gap-3 rounded-xl border border-line bg-paper px-3 py-2 text-left transition-colors hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="group flex min-h-[58px] w-full items-center gap-3 rounded-[14px] border border-line/70 bg-paper px-2.5 py-2 text-left shadow-[0_1px_2px_rgba(16,40,90,0.04)] transition-colors hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
-        <span aria-hidden className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]">
+        <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-[11px]", QUICK_TONES[tone])}>
           {icon}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14px] font-semibold text-ink">{label}</span>
-          <span className="block truncate text-[12px] text-muted">{note}</span>
+          <span className="block truncate text-[14.5px] font-semibold text-ink">{label}</span>
+          <span className="block truncate text-[12.5px] text-muted">{note}</span>
         </span>
-        <ChevronRightIcon size={16} aria-hidden className="flex-none text-muted transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+        <ChevronRightIcon size={16} aria-hidden className="flex-none text-[var(--brand-solid,var(--color-accent))] transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
       </button>
     </li>
   );
@@ -579,5 +546,198 @@ function HelpDialog({ open, onClose, orgName, supportEmail }: { open: boolean; o
         ))}
       </ul>
     </Dialog>
+  );
+}
+
+
+/* ── the roles table (the board's: tinted header band, hairline rows, pills, a bordered "..." button) ─────────────────── */
+
+const PILL = "inline-flex rounded-full px-3.5 py-1 text-[13.5px] font-medium";
+
+function ScopePill({ r }: { r: RoleRow }) {
+  return (
+    <span data-scope-pill={r.scopeLabel} className={cn(PILL, r.system ? "bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]" : "bg-v2-violet-soft text-v2-violet-ink")}>
+      {r.scopeLabel}
+    </span>
+  );
+}
+
+function StatusPill({ r }: { r: RoleRow }) {
+  return (
+    <span className={cn(PILL, "items-center gap-1.5 bg-v2-green-soft text-v2-green-ink")}>
+      <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-v2-green" />
+      {r.status === "ACTIVE" ? "Active" : r.status}
+    </span>
+  );
+}
+
+function Assigned({ r }: { r: RoleRow }) {
+  return (
+    <span data-assigned-users={r.assignedUsers} className="inline-flex items-center gap-2 tabular-nums text-ink-soft">
+      <UsersIcon size={17} aria-hidden className="text-[var(--brand-solid,var(--color-accent))]" /> {r.assignedUsers}
+    </span>
+  );
+}
+
+function RowMenu({ items }: { items: MenuEntry[] }) {
+  return (
+    <Menu
+      trigger={
+        <button type="button" aria-label="Row actions" title="Row actions" className="grid h-10 w-10 place-items-center rounded-xl border border-line/80 bg-paper text-ink hover:bg-paper-2">
+          <MoreHorizontalIcon size={18} aria-hidden />
+        </button>
+      }
+      items={items}
+    />
+  );
+}
+
+function RoleName({ r }: { r: RoleRow }) {
+  return (
+    <span className="flex min-w-0 items-center gap-3">
+      <RoleIcon role={r} />
+      <span className="min-w-0 max-w-[230px] lg:max-w-[260px]">
+        <span className="block truncate text-[15px] font-semibold text-ink">{r.name}</span>
+        {r.description && (
+          <span className="block truncate text-[13px] font-normal text-muted" title={r.description}>
+            {r.description}
+          </span>
+        )}
+      </span>
+    </span>
+  );
+}
+
+function RolesTable({
+  narrow,
+  loading,
+  rows,
+  empty,
+  onOpen,
+  menuFor,
+  page,
+  pageCount,
+  onPage,
+}: {
+  narrow: boolean;
+  loading: boolean;
+  rows: RoleRow[];
+  empty: string;
+  onOpen: (r: RoleRow) => void;
+  menuFor: (r: RoleRow) => MenuEntry[];
+  page: number;
+  pageCount: number;
+  onPage: (p: number) => void;
+}) {
+  if (loading) return <div role="status" aria-label="Loading roles" className="h-64 animate-pulse rounded-xl bg-paper-2" />;
+  if (rows.length === 0) return <div className="py-6 text-center text-[13.5px] text-muted">{empty}</div>;
+  const pager =
+    pageCount > 1 ? (
+      <nav aria-label="Pagination" className="flex items-center justify-end gap-2 pt-3 text-[13px] text-ink-soft">
+        <button type="button" aria-label="Previous page" disabled={page <= 1} onClick={() => onPage(page - 1)} className="rounded-lg border border-line px-2.5 py-1 disabled:opacity-40">
+          Previous
+        </button>
+        <span className="tabular-nums">
+          Page {page} of {pageCount}
+        </span>
+        <button type="button" aria-label="Next page" disabled={page >= pageCount} onClick={() => onPage(page + 1)} className="rounded-lg border border-line px-2.5 py-1 disabled:opacity-40">
+          Next
+        </button>
+      </nav>
+    ) : null;
+  if (narrow) {
+    return (
+      <div>
+        <ul aria-label="Roles" className="space-y-2.5">
+          {rows.map((r) => (
+            <li key={r.id} className="rounded-[14px] border border-line/70 bg-paper">
+              <div className="flex items-start gap-2 p-3">
+                <button type="button" onClick={() => onOpen(r)} className="min-h-11 min-w-0 flex-1 text-left">
+                  <RoleName r={r} />
+                </button>
+                <RowMenu items={menuFor(r)} />
+              </div>
+              <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 border-t border-line/60 px-3 py-2.5 text-[13px]">
+                <dt className="text-muted">Scope</dt>
+                <dd>
+                  <ScopePill r={r} />
+                </dd>
+                <dt className="text-muted">Assigned users</dt>
+                <dd>
+                  <Assigned r={r} />
+                </dd>
+                <dt className="text-muted">Status</dt>
+                <dd>
+                  <StatusPill r={r} />
+                </dd>
+              </dl>
+            </li>
+          ))}
+        </ul>
+        {pager}
+      </div>
+    );
+  }
+  const th = "px-3 py-3 text-[14px] font-semibold text-ink";
+  const td = "border-b border-line/50 px-3";
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <table aria-label="Roles" className="w-full border-separate border-spacing-0 text-left text-[14px]">
+          <thead>
+            <tr className="bg-[color-mix(in_srgb,var(--brand-subtle,var(--color-accent-soft))_65%,white)]">
+              <th scope="col" className={cn(th, "rounded-l-xl pl-4")}>
+                Role Name
+              </th>
+              <th scope="col" className={th}>
+                Scope
+              </th>
+              <th scope="col" className={th}>
+                Assigned Users
+              </th>
+              <th scope="col" className={cn(th, "hidden lg:table-cell")}>
+                Status
+              </th>
+              <th scope="col" className={cn(th, "rounded-r-xl text-center")}>
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr
+                key={r.id}
+                tabIndex={0}
+                onClick={() => onOpen(r)}
+                onKeyDown={(e) => {
+                  if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                    e.preventDefault();
+                    onOpen(r);
+                  }
+                }}
+                className="cursor-pointer hover:bg-paper-2/50 focus-visible:outline-2 focus-visible:-outline-offset-2"
+              >
+                <td className="border-b border-line/50 py-2.5 pl-3 pr-3">
+                  <RoleName r={r} />
+                </td>
+                <td className={td}>
+                  <ScopePill r={r} />
+                </td>
+                <td className={td}>
+                  <Assigned r={r} />
+                </td>
+                <td className={cn(td, "hidden lg:table-cell")}>
+                  <StatusPill r={r} />
+                </td>
+                <td className={cn(td, "text-center")} onClick={(e) => e.stopPropagation()}>
+                  <RowMenu items={menuFor(r)} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {pager}
+    </div>
   );
 }

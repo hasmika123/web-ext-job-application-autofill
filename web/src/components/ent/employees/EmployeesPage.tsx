@@ -121,6 +121,13 @@ export default function EmployeesPage({ orgId, orgName, workspace, selfMemberId,
     setScheduled(r.ok ? r.data.items : []);
   }, [orgId]);
 
+  /* The Roles page's "Assign users" lands here as `?role=<id>` (the API's own name `roleId` works too): start filtered to that role. */
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const id = (p.get("role") ?? p.get("roleId") ?? "").trim();
+    if (/^\d+$/.test(id)) setQuery((q) => (q.roleId === id ? q : { ...q, roleId: id, page: 0 }));
+  }, []);
+
   useEffect(() => {
     void loadList(query, false);
   }, [query, loadList]);
