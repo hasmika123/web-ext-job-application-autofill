@@ -64,8 +64,8 @@ test.describe("consultant home (real stack)", () => {
   test("beta.localhost cannot read Acme's consultant data", async ({ page }) => {
     await signInAs(page, "Anika Rao");
     const org = await page.evaluate(async () => ((await (await fetch("/api/me/tenant")).json()) as { org: { id: number } }).org.id);
-    const res = await page.request.get(`http://beta.localhost:${port}/api/orgs/${org}/me-workspace/home`);
-    expect([401, 403, 404]).toContain(res.status());
+    const res = await page.goto(`http://beta.localhost:${port}/api/orgs/${org}/me-workspace/home`); // the browser resolves *.localhost, Node's client does not
+    expect([401, 403, 404]).toContain(res?.status());
     await page.goto(`http://beta.localhost:${port}/w/consultant`);
     await expect(page.locator("[data-consultant-home]")).toHaveCount(0);
   });

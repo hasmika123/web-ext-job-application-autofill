@@ -464,9 +464,9 @@ function ResumeStrength({ view }: { view: HomeView }) {
   const verdict = pct >= 75 ? "Your resume is looking good!" : pct >= 50 ? "Your resume is getting there." : "Your resume needs attention.";
   return (
     <Card id="home-resume" title="Resume Strength" icon={FileTextIcon}>
-      <div className="grid items-center gap-4 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]">
+      <div className="grid items-center gap-4 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)] 2xl:grid-cols-1 2xl:justify-items-center min-[1800px]:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]">
         <div className="mx-auto">
-          <DonutChart label={`Resume strength ${pct}%`} size={132} total={pct} totalLabel="" slices={[{ key: "done", label: "Complete", value: pct }, { key: "left", label: "Remaining", value: 100 - pct }]} />
+          <DonutChart label={`Resume strength ${pct}%`} size={132} legend={false} total={pct} totalSuffix="%" slices={[{ key: "done", label: "Complete", value: pct, color: "var(--color-v2-green-ink)" }, { key: "left", label: "Remaining", value: 100 - pct, color: "transparent" }]} />
         </div>
         <div className="min-w-0">
           <p className="text-[14px] font-bold text-ink">{verdict}</p>
@@ -558,7 +558,8 @@ function TodaysFocus({ view }: { view: HomeView }) {
   const [done, setDone] = useState<Set<string>>(() => new Set());
   const d = view.todaysFocus.date ? shortDate(view.todaysFocus.date) : "";
   return (
-    <Card id="home-focus" title="Today's Focus" icon={CalendarIcon} extra={d ? <span className="flex-none text-[12.5px] font-medium text-muted">{d}</span> : null}>
+    <Card id="home-focus" title="Today's Focus" icon={CalendarIcon}>
+      {d ? <p className="-mt-1 mb-2 text-[12.5px] font-medium text-muted">{d}</p> : null}
       {view.todaysFocus.items.length === 0 ? (
         <Empty>Nothing urgent today.</Empty>
       ) : (
@@ -615,7 +616,8 @@ function QuickActions() {
 function MarketerMessages({ view }: { view: HomeView }) {
   const m = view.marketerMessages;
   return (
-    <Card id="home-messages" title="Messages from My Marketer" icon={UsersIcon} tone="green" viewAll={`${BASE}/marketer`} extra={m.sample ? <SampleMark /> : null}>
+    <Card id="home-messages" title="Marketer Messages" icon={UsersIcon} tone="green" viewAll={`${BASE}/marketer`}>
+      {m.sample ? <p className="-mt-1 mb-1"><SampleMark /></p> : null}
       {m.items.length === 0 ? <Empty>No messages yet. Your marketer&apos;s notes will appear here.</Empty> : (
         <ul className="space-y-3">
           {m.items.map((x, i) => (
@@ -661,7 +663,7 @@ export default function ConsultantHomePage({ orgId, firstName: first }: HomePage
 
           {view ? (
             <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.62fr)]">
-              <div className="grid min-w-0 content-start gap-4 sm:gap-5 xl:col-span-2 xl:grid-cols-2">
+              <div className="grid min-w-0 content-start gap-4 sm:gap-5 xl:col-span-2 2xl:grid-cols-2">
                 <RecommendedMatches view={view} />
                 <AssignedOpportunities view={view} />
                 <MyApplications view={view} />
