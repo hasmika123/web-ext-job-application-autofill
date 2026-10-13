@@ -134,6 +134,7 @@ class OrgGroupEnterpriseIT {
         r.setGrantedAt(Instant.now());
         memberRoleRepo.saveAndFlush(r);
         m.setPrimaryRoleId(def.getId());
+        m.setRole(com.dossier.api.service.ent.LegacyRoleMirror.forRole(def).orElse(OrgRole.MEMBER));
         members.saveAndFlush(m);
     }
 
@@ -184,6 +185,10 @@ class OrgGroupEnterpriseIT {
         return r.getResponse().getHeader("ETag");
     }
 
+    private MockHttpServletRequestBuilder move(String uri) {
+        return post(uri).header("Idempotency-Key", java.util.UUID.randomUUID().toString());
+    }
+
     private OrgMember person(Organization o, String login) {
         return fx.active(o, login, OrgRole.MEMBER);
     }
@@ -213,7 +218,7 @@ class OrgGroupEnterpriseIT {
         OrgMember p1 = person(a, "ge-p-1");
         long dept = create("ge-a-owner", a, "{\"name\":\"Delivery\",\"kind\":\"DEPARTMENT\",\"leadMemberId\":" + lead.getId() + ",\"icon\":\"briefcase\",\"color\":\"primary\"}");
         long team = create("ge-a-owner", a, "{\"name\":\"Bench NY\",\"kind\":\"TEAM\",\"parentGroupId\":" + dept + "}");
-        status(call("ge-a-owner", post(url(a) + "/" + team + "/members").content(ids(p1))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + team + "/members").content(ids(p1))), 200);
 
         MvcResult list = call("ge-a-owner", get(url(a)));
         status(list, 200);
@@ -242,7 +247,7 @@ class OrgGroupEnterpriseIT {
         OrgMember m1 = person(a, "ge-m-1");
         OrgMember m2 = person(a, "ge-m-2");
         OrgMember m3 = person(a, "ge-m-3");
-        MvcResult moved = call("ge-a-owner", post(url(a) + "/" + team + "/members").content(ids(m1, m2, m3)));
+        MvcResult moved = call("ge-a-owner", move(url(a) + "/" + team + "/members").content(ids(m1, m2, m3)));
         status(moved, 200);
         assertThat(body(moved).path("moved").asInt()).isEqualTo(3);
         for (OrgMember m : List.of(m1, m2, m3)) {
@@ -269,14 +274,14 @@ class OrgGroupEnterpriseIT {
         long other = create("ge-a-owner", a, "{\"name\":\"Elsewhere\"}");
         List<OrgMember> seven = new ArrayList<>();
         for (int i = 0; i < 7; i++) seven.add(person(a, "ge-s-" + i));
-        status(call("ge-a-owner", post(url(a) + "/" + team + "/members").content(ids(seven.toArray(new OrgMember[0])))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + team + "/members").content(ids(seven.toArray(new OrgMember[0])))), 200);
 
         MvcResult refused = call("ge-a-owner", delete(url(a) + "/" + team), etagOf("ge-a-owner", a, team));
         code(refused, 409, "GROUP_NOT_EMPTY");
         assertThat(body(refused).path("count").asInt()).isEqualTo(7);
         assertThat(groups.findByOrgIdAndId(a.getId(), team)).isPresent();
 
-        status(call("ge-a-owner", post(url(a) + "/" + other + "/members").content(ids(seven.toArray(new OrgMember[0])))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + other + "/members").content(ids(seven.toArray(new OrgMember[0])))), 200);
         long before = auditCount(a);
         status(call("ge-a-owner", delete(url(a) + "/" + team), etagOf("ge-a-owner", a, team)), 204);
         OrgAuditEvent row = OrgAuditAsserts.assertOneNewRow(audit, a.getId(), before, OrgAuditService.GROUP_DELETE);
@@ -338,8 +343,8 @@ class OrgGroupEnterpriseIT {
         long hidden = create("ge-a-owner", a, "{\"name\":\"Hidden dept\",\"kind\":\"DEPARTMENT\"}");
         OrgMember teammate = person(a, "ge-teammate");
         OrgMember stranger = person(a, "ge-stranger");
-        status(call("ge-a-owner", post(url(a) + "/" + mine + "/members").content(ids(teammate))), 200);
-        status(call("ge-a-owner", post(url(a) + "/" + hidden + "/members").content(ids(stranger))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + mine + "/members").content(ids(teammate))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + hidden + "/members").content(ids(stranger))), 200);
 
         MvcResult list = call("ge-a-manager", get(url(a)));
         status(list, 200);
@@ -372,7 +377,7 @@ class OrgGroupEnterpriseIT {
         generic404(call("ge-a-owner", get(url(a) + "/" + foreignDept)), "foreign detail");
         generic404(call("ge-a-owner", patch(url(a) + "/" + foreignDept).content("{\"name\":\"Mine\"}"), "W/\"0\""), "foreign patch");
         generic404(call("ge-a-owner", delete(url(a) + "/" + foreignDept), "W/\"0\""), "foreign delete");
-        generic404(call("ge-a-owner", post(url(a) + "/" + foreignDept + "/members").content(ids(mineMember))), "foreign move target");
+        generic404(call("ge-a-owner", move(url(a) + "/" + foreignDept + "/members").content(ids(mineMember))), "foreign move target");
         generic404(call("ge-a-owner", get(url(b))), "the other organization's list");
 
         // a foreign parent and a foreign lead read exactly like a missing one
@@ -387,7 +392,7 @@ class OrgGroupEnterpriseIT {
         code(call("ge-a-owner", patch(url(a) + "/" + mine).content("{\"leadMemberId\":" + foreignMember.getId() + "}"), etagOf("ge-a-owner", a, mine)), 422, "LEAD_NOT_ACTIVE");
 
         // a foreign member id in a move is a skipped row and the person is untouched
-        MvcResult moved = call("ge-a-owner", post(url(a) + "/" + mine + "/members").content(ids(foreignMember, mineMember)));
+        MvcResult moved = call("ge-a-owner", move(url(a) + "/" + mine + "/members").content(ids(foreignMember, mineMember)));
         status(moved, 200);
         JsonNode rowsOut = body(moved).path("results");
         assertThat(rowsOut.get(0).path("status").asText()).isEqualTo("SKIPPED");
@@ -453,9 +458,9 @@ class OrgGroupEnterpriseIT {
         OrgMember ok = person(a, "ge-mv-ok");
         OrgMember again = person(a, "ge-mv-again");
         OrgMember left = fx.seat(a, "ge-mv-left", OrgRole.MEMBER, OrgMemberStatus.LEFT);
-        status(call("ge-a-owner", post(url(a) + "/" + team + "/members").content(ids(again))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + team + "/members").content(ids(again))), 200);
         long before = auditCount(a);
-        MvcResult r = call("ge-a-owner", post(url(a) + "/" + team + "/members").content("{\"memberIds\":[" + ok.getId() + "," + again.getId() + "," + left.getId() + ",99999999," + ok.getId() + "]}"));
+        MvcResult r = call("ge-a-owner", move(url(a) + "/" + team + "/members").content("{\"memberIds\":[" + ok.getId() + "," + again.getId() + "," + left.getId() + ",99999999," + ok.getId() + "]}"));
         status(r, 200);
         JsonNode out = body(r);
         assertThat(out.path("moved").asInt()).isEqualTo(1);
@@ -464,10 +469,10 @@ class OrgGroupEnterpriseIT {
         assertThat(out.path("results").size()).as("duplicate ids collapse").isEqualTo(4);
         OrgAuditAsserts.assertOneNewRow(audit, a.getId(), before, OrgAuditService.GROUP_MOVE);
         // validation
-        code(call("ge-a-owner", post(url(a) + "/" + team + "/members").content("{\"memberIds\":[]}")), 422, "ORG_INVALID");
+        code(call("ge-a-owner", move(url(a) + "/" + team + "/members").content("{\"memberIds\":[]}")), 422, "ORG_INVALID");
         List<String> many = new ArrayList<>();
         for (int i = 0; i < 501; i++) many.add(String.valueOf(i + 1));
-        code(call("ge-a-owner", post(url(a) + "/" + team + "/members").content("{\"memberIds\":[" + String.join(",", many) + "]}")), 422, "ORG_INVALID");
+        code(call("ge-a-owner", move(url(a) + "/" + team + "/members").content("{\"memberIds\":[" + String.join(",", many) + "]}")), 422, "ORG_INVALID");
     }
 
     @Test
@@ -476,8 +481,8 @@ class OrgGroupEnterpriseIT {
         long d2 = create("ge-a-owner", a, "{\"name\":\"D2\",\"kind\":\"DEPARTMENT\"}");
         long team = create("ge-a-owner", a, "{\"name\":\"In D1\",\"parentGroupId\":" + d1 + "}");
         OrgMember m = person(a, "ge-switch");
-        status(call("ge-a-owner", post(url(a) + "/" + team + "/members").content(ids(m))), 200);
-        status(call("ge-a-owner", post(url(a) + "/" + d2 + "/members").content(ids(m))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + team + "/members").content(ids(m))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + d2 + "/members").content(ids(m))), 200);
         OrgMember r = reload(m);
         assertThat(r.getDepartmentGroupId()).isEqualTo(d2);
         assertThat(r.getTeamGroupId()).as("their team is in the other department").isNull();
@@ -502,7 +507,7 @@ class OrgGroupEnterpriseIT {
         assertThat(edit.getDetails()).isEqualTo("fields=status,icon,color");
         assertThat(edit.getRisk()).isEqualTo("LOW");
         // an inactive group takes nobody
-        code(call("ge-a-owner", post(url(a) + "/" + id + "/members").content(ids(lead))), 409, "GROUP_INACTIVE");
+        code(call("ge-a-owner", move(url(a) + "/" + id + "/members").content(ids(lead))), 409, "GROUP_INACTIVE");
         // closed pickers
         code(call("ge-a-owner", patch(url(a) + "/" + id).content("{\"icon\":\"skull\"}"), etagOf("ge-a-owner", a, id)), 422, "ORG_INVALID");
         code(call("ge-a-owner", patch(url(a) + "/" + id).content("{\"color\":\"#ff0000\"}"), etagOf("ge-a-owner", a, id)), 422, "ORG_INVALID");
@@ -524,8 +529,8 @@ class OrgGroupEnterpriseIT {
         OrgMember p1 = person(a, "ge-dir-1");
         OrgMember p2 = person(a, "ge-dir-2");
         OrgMember p3 = person(a, "ge-dir-3");
-        status(call("ge-a-owner", post(url(a) + "/" + east + "/members").content(ids(p1, p2))), 200);
-        status(call("ge-a-owner", post(url(a) + "/" + marketing + "/members").content(ids(p3))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + east + "/members").content(ids(p1, p2))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + marketing + "/members").content(ids(p3))), 200);
 
         JsonNode all = body(call("ge-a-owner", get(url(a) + "/directory?size=2&page=0&sort=name")));
         assertThat(all.path("total").asInt()).isEqualTo(5);
@@ -574,7 +579,7 @@ class OrgGroupEnterpriseIT {
         OrgMember lead = person(a, "ge-det-lead");
         OrgMember p = person(a, "ge-det-p");
         long team = create("ge-a-owner", a, "{\"name\":\"Detail\",\"leadMemberId\":" + lead.getId() + "}");
-        status(call("ge-a-owner", post(url(a) + "/" + team + "/members").content(ids(p, lead))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + team + "/members").content(ids(p, lead))), 200);
         JsonNode d = body(call("ge-a-owner", get(url(a) + "/" + team)));
         assertThat(d.path("membersTotal").asInt()).isEqualTo(2);
         assertThat(d.path("members").get(0).path("lead").asBoolean()).isTrue();
@@ -594,8 +599,8 @@ class OrgGroupEnterpriseIT {
         long dept = create("ge-a-owner", a, "{\"name\":\"Delivery\",\"kind\":\"DEPARTMENT\",\"leadMemberId\":" + deptLead.getId() + "}");
         long team = create("ge-a-owner", a, "{\"name\":\"Bench\",\"parentGroupId\":" + dept + ",\"leadMemberId\":" + iyer.getId() + "}");
         long sibling = create("ge-a-owner", a, "{\"name\":\"Mobile\",\"parentGroupId\":" + dept + "}");
-        status(call("ge-a-owner", post(url(a) + "/" + team + "/members").content(ids(mate, aManager))), 200);
-        status(call("ge-a-owner", post(url(a) + "/" + sibling + "/members").content(ids(inSiblingTeam))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + team + "/members").content(ids(mate, aManager))), 200);
+        status(call("ge-a-owner", move(url(a) + "/" + sibling + "/members").content(ids(inSiblingTeam))), 200);
         em.flush();
         em.clear();
 

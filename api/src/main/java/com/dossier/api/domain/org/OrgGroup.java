@@ -37,10 +37,6 @@ public class OrgGroup implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
-    /** The department a TEAM sits under (X4.5); null for a department, a cohort and a team with no department. */
-    @Column(name = "parent_group_id")
-    private Long parentGroupId;
-
     /** The member who leads the group (X4.5); counts as a member of it for TEAM / DEPARTMENT scope. */
     @Column(name = "lead_member_id")
     private Long leadMemberId;
@@ -74,8 +70,6 @@ public class OrgGroup implements Serializable {
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
-    public Long getParentGroupId() { return parentGroupId; }
-    public void setParentGroupId(Long parentGroupId) { this.parentGroupId = parentGroupId; }
     public Long getLeadMemberId() { return leadMemberId; }
     public void setLeadMemberId(Long leadMemberId) { this.leadMemberId = leadMemberId; }
     public long getVersion() { return version; }

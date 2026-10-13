@@ -473,6 +473,7 @@ class OrgIsolationIT {
             return MockMvcRequestBuilders.multipart(HttpMethod.valueOf(route.method()), uri).file(new MockMultipartFile("file", "logo.png", "image/png", samplePng()));
         }
         MockHttpServletRequestBuilder req = MockMvcRequestBuilders.request(HttpMethod.valueOf(route.method()), uri).contentType(MediaType.APPLICATION_JSON);
+        if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
         if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard"))) {

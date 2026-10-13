@@ -303,6 +303,15 @@ public class OrgGroupService {
         return new OrgGroupViews.MoveResult(g.getId(), moved, unchanged, skipped, rows);
     }
 
+    /** The permission wall of {@link #moveMembers}, run before the Idempotency-Key is looked at: closed org, unknown or unseen group, no right to manage it (all the generic 404 / 409). */
+    @Transactional(readOnly = true)
+    public void gateMove(OrgMembership me, Long groupId) {
+        requireOpen(me);
+        OrgGroupSnapshot.View view = snapshot.load(me.orgId());
+        OrgGroup g = visibleGroup(me, view, groupId);
+        requireManageFor(me, view, g.getKind(), g.getParentGroupId(), g);
+    }
+
     /** Takes one person out of the group (the "no team" move). A no-op when they are not in it. */
     @Transactional
     public void removeMember(OrgMembership me, Long groupId, Long memberId) {

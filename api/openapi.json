@@ -18,14 +18,14 @@
     "name" : "billing",
     "description" : "The current user's plan. Stripe is the source of truth; this reads our mirror of it."
   }, {
+    "name" : "org-invitations",
+    "description" : "Invitations of an organization: list, counts, activity, invite, resend, revoke."
+  }, {
     "name" : "demo",
     "description" : "Public demo accounts (only while an admin has switched them on)."
   }, {
     "name" : "tenant",
     "description" : "Public tenant branding for the host a visitor arrived on."
-  }, {
-    "name" : "members",
-    "description" : "Employees: the directory, KPI tiles, detail sheet, single edits, bulk actions and the lifecycle."
   }, {
     "name" : "resume-tailor",
     "description" : "Reword a resume for one job and save it as a new version (Pro)."
@@ -41,6 +41,9 @@
   }, {
     "name" : "job-fit",
     "description" : "One resume against one job: match, missing keywords, red flags (Pro)."
+  }, {
+    "name" : "org-members",
+    "description" : "Seats of an organization: invites, and the consent-scoped list."
   }, {
     "name" : "inbox",
     "description" : "Connect a dedicated Gmail so applications update themselves (Pro)."
@@ -89,6 +92,9 @@
   }, {
     "name" : "account-deletion",
     "description" : "Self-service GDPR/CCPA account and data deletion."
+  }, {
+    "name" : "org-join",
+    "description" : "Join an organization from an invite or a join code."
   }, {
     "name" : "applications-sync",
     "description" : "User-scoped application tracker: the authenticated user's applications."
@@ -4260,12 +4266,12 @@
         }
       }
     },
-    "/api/orgs/{orgId}/members/{memberId}/suspend" : {
+    "/api/orgs/{orgId}/members/{memberId}/resend" : {
       "post" : {
-        "tags" : [ "members" ],
-        "summary" : "Suspend an employee",
-        "description" : "members.suspend. Body: reason (10 to 500 characters, required). ACTIVE to SUSPENDED; the seat and records stay, the person is refused at the next call and refresh. 409 SELF, 409 INVALID_TRANSITION {from,to,allowed}, 409 LAST_ADMIN, 422 ROLE_CEILING (reason TARGET_RANK). Audit MEMBER_SUSPEND, risk HIGH. Idempotency-Key optional.",
-        "operationId" : "suspend",
+        "tags" : [ "org-members" ],
+        "summary" : "Send an invite again",
+        "description" : "Rotates the one-time link (the old one stops working) and emails the new one. Limited per invite per week.",
+        "operationId" : "resend",
         "parameters" : [ {
           "name" : "memberId",
           "in" : "path",
@@ -4274,30 +4280,14 @@
             "type" : "integer",
             "format" : "int64"
           }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
         } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReasonRequest"
-              }
-            }
-          }
-        },
         "responses" : {
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/LifecycleResult"
+                  "$ref" : "#/components/schemas/Invited"
                 }
               }
             }
@@ -4305,90 +4295,202 @@
         }
       }
     },
-    "/api/orgs/{orgId}/members/{memberId}/reinstate" : {
+    "/api/orgs/{orgId}/members/invite" : {
       "post" : {
-        "tags" : [ "members" ],
-        "summary" : "Reinstate a suspended employee",
-        "description" : "members.suspend. Body: reason (optional). SUSPENDED to ACTIVE. 409 INVALID_TRANSITION otherwise. Audit MEMBER_REINSTATE, risk MEDIUM. Idempotency-Key optional.",
-        "operationId" : "reinstate",
+        "tags" : [ "org-members" ],
+        "summary" : "Invite people by email",
+        "description" : "Up to the configured number of addresses per call. Returns who was invited, which entries were refused and which addresses already hold a seat. 409 SEAT_STATE while the org is not active (admins only before then), 422 ORG_LIMIT_REACHED over a configured cap.",
+        "operationId" : "invite",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrgInviteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgInviteResultDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/invitations" : {
+      "get" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "List invitations",
+        "description" : "Newest first. Filters: status (PENDING, ACCEPTED, EXPIRED, REVOKED), roleId, departmentGroupId, an invited-on range (from inclusive, to exclusive, ISO instants) and q (email or name contains). A caller whose invite right is limited to members sees only the invitations they sent.",
+        "operationId" : "list_3",
         "parameters" : [ {
-          "name" : "memberId",
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "REVOKED" ]
+          }
+        }, {
+          "name" : "roleId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "departmentGroupId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "invitedAt,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InvitationPage"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Invite one or many people",
+        "description" : "One address with an optional fullName, or a pasted list (up to the configured batch size). Same roles and placement for all. Returns one row per entry (INVITED, INVALID, DUPLICATE, ALREADY_MEMBER); the link is only ever emailed. 422 ROLE_CEILING when a role gives more access than the caller holds.",
+        "operationId" : "invite_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrgInviteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgInviteResultDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/invitations/{invitationId}/revoke" : {
+      "post" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Revoke a pending invitation",
+        "description" : "The link stops working at once and the address can be invited again. 404 for an invitation that is not pending.",
+        "operationId" : "revoke",
+        "parameters" : [ {
+          "name" : "invitationId",
           "in" : "path",
           "required" : true,
           "schema" : {
             "type" : "integer",
             "format" : "int64"
           }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
         } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/ReasonRequest"
-              }
-            }
-          }
-        },
         "responses" : {
           "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/LifecycleResult"
-                }
-              }
-            }
+            "description" : "OK"
           }
         }
       }
     },
-    "/api/orgs/{orgId}/members/{memberId}/offboard" : {
+    "/api/orgs/{orgId}/invitations/{invitationId}/resend" : {
       "post" : {
-        "tags" : [ "members" ],
-        "summary" : "Offboard an employee",
-        "description" : "members.remove. Body: reason (10 to 500 characters), confirm (the person's name as the board shows it; 422 CONFIRM_MISMATCH), effectiveAt (absent or past = now; a future instant schedules the last day), reassignments[] (recorded for the assignments module). ACTIVE or SUSPENDED to REMOVED: the ordered offboarding hooks run, role rows end, records are kept. 409 SELF, OWNER_MUST_TRANSFER, LAST_ADMIN, INVALID_TRANSITION, OFFBOARDING_PENDING; 422 ROLE_CEILING. Audit MEMBER_REMOVE (risk HIGH) or MEMBER_OFFBOARD_SCHEDULED. Idempotency-Key required.",
-        "operationId" : "offboard",
+        "tags" : [ "org-invitations" ],
+        "summary" : "Send an invitation again",
+        "description" : "Rotates the one-time link (the old one stops working), extends the expiry, and revives an expired invitation. Limited per invitation per week.",
+        "operationId" : "resend_1",
         "parameters" : [ {
-          "name" : "memberId",
+          "name" : "invitationId",
           "in" : "path",
           "required" : true,
           "schema" : {
             "type" : "integer",
             "format" : "int64"
           }
-        }, {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
         } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/OffboardRequest"
-              }
-            }
-          },
-          "required" : true
-        },
         "responses" : {
           "200" : {
             "description" : "OK",
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/LifecycleResult"
+                  "$ref" : "#/components/schemas/Invited"
                 }
               }
             }
@@ -4396,25 +4498,17 @@
         }
       }
     },
-    "/api/orgs/{orgId}/members/bulk/status" : {
+    "/api/orgs/{orgId}/invitations/bulk/revoke" : {
       "post" : {
-        "tags" : [ "members" ],
-        "summary" : "Suspend or reinstate many employees",
-        "description" : "members.suspend. Body: memberIds, action (SUSPEND or REINSTATE), reason (10 to 500 characters, required to suspend: 422 without). The caller (SELF), the last owner or administrator (LAST_ADMIN) and anyone above the caller's rank are skipped with a reason. One MEMBER_SUSPEND/MEMBER_REINSTATE row per changed member plus one MEMBER_BULK row. Idempotency-Key required.",
-        "operationId" : "status",
-        "parameters" : [ {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
+        "tags" : [ "org-invitations" ],
+        "summary" : "Revoke several invitations",
+        "description" : "At most 100 ids. One result per id.",
+        "operationId" : "bulkRevoke",
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/BulkStatusRequest"
+                "$ref" : "#/components/schemas/IdsRequest"
               }
             }
           },
@@ -4426,7 +4520,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/BulkResult"
+                  "$ref" : "#/components/schemas/InvitationBulkResult"
                 }
               }
             }
@@ -4434,25 +4528,17 @@
         }
       }
     },
-    "/api/orgs/{orgId}/members/bulk/roles" : {
+    "/api/orgs/{orgId}/invitations/bulk/resend" : {
       "post" : {
-        "tags" : [ "members" ],
-        "summary" : "Add and remove roles on many employees",
-        "description" : "members.role.set at ORG scope, within the caller's ceiling. Body: memberIds (1 to 500), add[], remove[], primaryRoleId. Each member keeps their primary role when it survives; a member who would lose the last administrator is skipped (LAST_ADMIN), as is the caller (SELF) and any role beyond the ceiling (ROLE_CEILING). One ROLE_ASSIGN/ROLE_REVOKE audit row per changed member plus one MEMBER_BULK row. Idempotency-Key required.",
-        "operationId" : "roles",
-        "parameters" : [ {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
+        "tags" : [ "org-invitations" ],
+        "summary" : "Resend several invitations",
+        "description" : "At most 100 ids. One result per id: an invitation that cannot be re-sent fails alone with its code.",
+        "operationId" : "bulkResend",
         "requestBody" : {
           "content" : {
             "application/json" : {
               "schema" : {
-                "$ref" : "#/components/schemas/BulkRolesRequest"
+                "$ref" : "#/components/schemas/IdsRequest"
               }
             }
           },
@@ -4464,83 +4550,7 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/BulkResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/orgs/{orgId}/members/bulk/manager" : {
-      "post" : {
-        "tags" : [ "members" ],
-        "summary" : "Set the reporting manager of many employees",
-        "description" : "members.manager.set. Body: memberIds, managerMemberId (null clears). A manager who must be active and never a loop: MANAGER_CYCLE and MANAGER_INVALID skip the member. One MEMBER_MANAGER row per changed member plus one MEMBER_BULK row. Idempotency-Key required.",
-        "operationId" : "manager",
-        "parameters" : [ {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/BulkManagerRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/BulkResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/orgs/{orgId}/members/bulk/groups" : {
-      "post" : {
-        "tags" : [ "members" ],
-        "summary" : "Move many employees to a department and team",
-        "description" : "members.group.set. Body: memberIds, departmentGroupId, teamGroupId (a null clears; a team alone brings its department). 422 TEAM_NOT_IN_DEPARTMENT for a team outside the department (skipped per member); a group of another organization is NOT_FOUND per member. One MEMBER_GROUP row per changed member plus one MEMBER_BULK row. Idempotency-Key required.",
-        "operationId" : "groups",
-        "parameters" : [ {
-          "name" : "Idempotency-Key",
-          "in" : "header",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/BulkGroupsRequest"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/BulkResult"
+                  "$ref" : "#/components/schemas/InvitationBulkResult"
                 }
               }
             }
@@ -4551,7 +4561,7 @@
     "/api/orgs/{orgId}/groups" : {
       "get" : {
         "tags" : [ "org-group-resource" ],
-        "operationId" : "list_3",
+        "operationId" : "list_4",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -4861,6 +4871,108 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/join/{token}/accept" : {
+      "post" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Accept an emailed invite",
+        "description" : "Signed in. Becomes a member and records the consent choice (NONE or SUMMARY) with the text version. 409 ALREADY_MEMBER, INVITE_EXPIRED or SEAT_STATE.",
+        "operationId" : "acceptInvite",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JoinAcceptRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/join/code/{code}" : {
+      "get" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Preview a shared join link",
+        "description" : "No authentication. 404 for an unknown or revoked code, 409 INVITE_EXPIRED when it has expired or has no places left.",
+        "operationId" : "previewCode",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Join with a shared code",
+        "description" : "Signed in. Same as accepting an invite, for a join link a cohort shares. Members only.",
+        "operationId" : "acceptCode",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JoinAcceptRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
           }
         }
       }
@@ -6496,7 +6608,7 @@
     "/api/admin/users/{login}/sessions/{familyId}/revoke" : {
       "post" : {
         "tags" : [ "admin-session-resource" ],
-        "operationId" : "revoke",
+        "operationId" : "revoke_1",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -6747,7 +6859,7 @@
     "/api/admin/job-sources" : {
       "get" : {
         "tags" : [ "admin-job-source-resource" ],
-        "operationId" : "list_4",
+        "operationId" : "list_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -7174,7 +7286,7 @@
         "tags" : [ "resume-builder" ],
         "summary" : "Revoke a grant or link",
         "description" : "Idempotent: 204 whether or not it was already revoked. 404 if the resume or the grant is not yours.",
-        "operationId" : "revoke_1",
+        "operationId" : "revoke_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -7254,7 +7366,7 @@
         "tags" : [ "onboarding" ],
         "summary" : "Onboarding status",
         "description" : "NONE / DRAFT / FINISHED, the persona, the draft summary (its state only with ?include=state), the dashboard card decision and the completeness thresholds. A dismissed card that comes back is counted once per showing.",
-        "operationId" : "status_1",
+        "operationId" : "status",
         "parameters" : [ {
           "name" : "include",
           "in" : "query",
@@ -7448,80 +7560,6 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/RoleDetail"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/orgs/{orgId}/members/{memberId}" : {
-      "get" : {
-        "tags" : [ "members" ],
-        "summary" : "One employee: the detail sheet",
-        "description" : "Seat, roles, department, team, manager, direct reports, consent scope, what the caller may do with this seat (actions), and recent audit rows about the person (with audit.view or hr.view). phone, location and timezone are null: the platform stores none of them for a member. Never exposes a resume or an application. ETag = the version PATCH expects as If-Match. 404 outside the caller's scope.",
-        "operationId" : "get_5",
-        "parameters" : [ {
-          "name" : "memberId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Detail"
-                }
-              }
-            }
-          }
-        }
-      },
-      "patch" : {
-        "tags" : [ "members" ],
-        "summary" : "Edit one employee",
-        "description" : "Body: any of title, departmentGroupId, teamGroupId, managerMemberId (a JSON null clears it); any other key is 422. Title, department and team need members.group.set, the manager needs members.manager.set, each at a scope covering the person. If-Match (the sheet's ETag) is required: 428 without, 412 when stale. 422 TEAM_NOT_IN_DEPARTMENT, MANAGER_CYCLE, MANAGER_INVALID; a group or manager of another organization is the generic 404. One audit row per changed field family; a request that changes nothing writes none. Answers the new detail.",
-        "operationId" : "patch_3",
-        "parameters" : [ {
-          "name" : "memberId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "If-Match",
-          "in" : "header",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "type" : "object",
-                "additionalProperties" : { }
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Detail"
                 }
               }
             }
@@ -8518,7 +8556,7 @@
       "get" : {
         "tags" : [ "job-matches" ],
         "summary" : "Today's matches and the switch",
-        "operationId" : "list_5",
+        "operationId" : "list_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -8646,7 +8684,7 @@
         "tags" : [ "field-cache-sync" ],
         "summary" : "List my field cache",
         "description" : "All learned field answers owned by the current user.",
-        "operationId" : "list_6",
+        "operationId" : "list_7",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -8825,198 +8863,11 @@
         }
       }
     },
-    "/api/orgs/{orgId}/members" : {
+    "/api/orgs/{orgId}/invitations/counts" : {
       "get" : {
-        "tags" : [ "members" ],
-        "summary" : "List employees",
-        "description" : "Paged, server-driven table of the Employees board. Needs a people permission (member.view_summary, hr.view or one of the members.* keys); the rows are only the seats inside the widest scope the caller holds it at. Query: q (name, email, title, role or department/team name; 2 to 80 characters), status (repeatable or comma separated: INVITED, ACTIVE, SUSPENDED, LEFT, REMOVED; default INVITED, ACTIVE, SUSPENDED), roleId, departmentId, teamId, managerId, sort=field,dir (repeatable; name, joined, status, lastActive; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 25). Answers a PageDTO and X-Total-Count. A row seen only through a summary scope carries no work email, manager or consent (summaryOnly = true).",
-        "operationId" : "list_7",
-        "parameters" : [ {
-          "name" : "q",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "status",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          }
-        }, {
-          "name" : "roleId",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "departmentId",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "teamId",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "managerId",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }, {
-          "name" : "size",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/Page"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/orgs/{orgId}/members/{memberId}/offboard-preview" : {
-      "get" : {
-        "tags" : [ "members" ],
-        "summary" : "What offboarding this employee will do",
-        "description" : "members.remove. The wizard's first step: blockers (SELF, OWNER_MUST_TRANSFER, LAST_ADMIN, ROLE_CEILING, INVALID_TRANSITION), the lines of every offboarding hook in the order they run (sessions, assignments, consent...), the roles that end, the consent that ends, what is kept, and the licence notice. Reads only.",
-        "operationId" : "preview",
-        "parameters" : [ {
-          "name" : "memberId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/OffboardPreview"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/orgs/{orgId}/members/{memberId}/activity" : {
-      "get" : {
-        "tags" : [ "members" ],
-        "summary" : "Audit rows about an employee (direction=on) or done by them (direction=by)",
-        "description" : "Needs audit.view or hr.view at a scope covering the person. Paged (page from 0, size 1 to 100), newest first.",
-        "operationId" : "activity_1",
-        "parameters" : [ {
-          "name" : "memberId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }, {
-          "name" : "direction",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "name" : "page",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }, {
-          "name" : "size",
-          "in" : "query",
-          "required" : false,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ActivityPage"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/orgs/{orgId}/members/offboarding" : {
-      "get" : {
-        "tags" : [ "members" ],
-        "summary" : "Scheduled last days",
-        "description" : "members.remove. The pending offboardings of the people the caller may offboard, soonest first.",
-        "operationId" : "scheduled",
-        "responses" : {
-          "200" : {
-            "description" : "OK",
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ScheduledList"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/orgs/{orgId}/members/counts" : {
-      "get" : {
-        "tags" : [ "members" ],
-        "summary" : "The KPI tiles of the Employees board",
-        "description" : "Total, active, invited, suspended, departments and teams, each with the figure one month ago and the delta rebuilt from real history (seat timestamps and the audit trail). previous and the deltas are null when that history does not exist (an organization younger than a month, a seat that ended with no time recorded, a suspension nobody audited): never estimated.",
+        "tags" : [ "org-invitations" ],
+        "summary" : "Invitation counters",
+        "description" : "Pending, accepted, expired and revoked, each with the change against the month before (invitations sent in the last 30 days minus the 30 days before).",
         "operationId" : "counts",
         "responses" : {
           "200" : {
@@ -9024,7 +8875,40 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/Counts"
+                  "$ref" : "#/components/schemas/InvitationCounts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/invitations/activity" : {
+      "get" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Recent invitation activity",
+        "description" : "The latest invited, accepted, revoked and expired events, newest first.",
+        "operationId" : "activity_1",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 10
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/InvitationActivity"
+                  }
                 }
               }
             }
@@ -9036,7 +8920,7 @@
       "get" : {
         "tags" : [ "org-branding" ],
         "summary" : "Published values, the draft, its version and the publish history",
-        "operationId" : "get_6",
+        "operationId" : "get_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9137,12 +9021,40 @@
         }
       }
     },
+    "/api/join/{token}" : {
+      "get" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Preview an emailed invite",
+        "description" : "No authentication. 404 for anything that is not a live invite, 409 INVITE_EXPIRED once it has run out, 429 over the rate limit.",
+        "operationId" : "previewInvite",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/jobs/{id}" : {
       "get" : {
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_7",
+        "operationId" : "get_6",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -10529,7 +10441,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_8",
+        "operationId" : "get_7",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -11093,28 +11005,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/orgs/{orgId}/members/offboarding/{offboardingId}" : {
-      "delete" : {
-        "tags" : [ "members" ],
-        "summary" : "Cancel a scheduled last day",
-        "description" : "members.remove. 404 for another organization's row; 409 when it already ran or was cancelled. Audit MEMBER_OFFBOARD_CANCELLED.",
-        "operationId" : "cancel",
-        "parameters" : [ {
-          "name" : "offboardingId",
-          "in" : "path",
-          "required" : true,
-          "schema" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "description" : "OK"
           }
         }
       }
@@ -13649,181 +13539,58 @@
           }
         }
       },
-      "ReasonRequest" : {
-        "type" : "object",
-        "properties" : {
-          "reason" : {
-            "type" : "string"
-          }
-        }
-      },
-      "HookLine" : {
-        "type" : "object",
-        "properties" : {
-          "hook" : {
-            "type" : "string"
-          },
-          "kind" : {
-            "type" : "string"
-          },
-          "text" : {
-            "type" : "string"
-          },
-          "data" : {
-            "type" : "object",
-            "additionalProperties" : { }
-          }
-        }
-      },
-      "LifecycleResult" : {
+      "Invited" : {
         "type" : "object",
         "properties" : {
           "memberId" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "action" : {
+          "email" : {
             "type" : "string"
           },
-          "previousStatus" : {
+          "name" : {
             "type" : "string"
           },
-          "status" : {
-            "type" : "string"
+          "role" : {
+            "type" : "string",
+            "enum" : [ "OWNER", "ADMIN", "STAFF", "MEMBER", "MARKETER", "FINANCE", "COACH" ]
           },
-          "scheduled" : {
-            "$ref" : "#/components/schemas/ScheduledOffboarding"
-          },
-          "lines" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/HookLine"
-            }
-          }
-        }
-      },
-      "ScheduledOffboarding" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "effectiveAt" : {
+          "expiresAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "reason" : {
-            "type" : "string"
+          "roleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "OrgInviteRequest" : {
+        "type" : "object",
+        "properties" : {
+          "emails" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           },
-          "createdAt" : {
+          "role" : {
             "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
-      "OffboardRequest" : {
-        "type" : "object",
-        "properties" : {
-          "reason" : {
-            "type" : "string"
+            "enum" : [ "OWNER", "ADMIN", "STAFF", "MEMBER", "MARKETER", "FINANCE", "COACH" ]
           },
-          "effectiveAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "confirm" : {
-            "type" : "string"
-          },
-          "reassignments" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Reassignment"
-            }
-          }
-        }
-      },
-      "Reassignment" : {
-        "type" : "object",
-        "properties" : {
-          "consultantMemberId" : {
+          "groupId" : {
             "type" : "integer",
             "format" : "int64"
           },
-          "newAssigneeMemberId" : {
+          "supportOwnerMemberId" : {
             "type" : "integer",
             "format" : "int64"
-          }
-        }
-      },
-      "BulkStatusRequest" : {
-        "type" : "object",
-        "properties" : {
-          "memberIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "integer",
-              "format" : "int64"
-            }
           },
-          "action" : {
-            "type" : "string"
-          },
-          "reason" : {
-            "type" : "string"
-          }
-        }
-      },
-      "BulkRolesRequest" : {
-        "type" : "object",
-        "properties" : {
-          "memberIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "integer",
-              "format" : "int64"
-            }
-          },
-          "add" : {
-            "type" : "array",
-            "items" : {
-              "type" : "integer",
-              "format" : "int64"
-            }
-          },
-          "remove" : {
-            "type" : "array",
-            "items" : {
-              "type" : "integer",
-              "format" : "int64"
-            }
-          },
-          "primaryRoleId" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
-      "BulkManagerRequest" : {
-        "type" : "object",
-        "properties" : {
-          "memberIds" : {
-            "type" : "array",
-            "items" : {
-              "type" : "integer",
-              "format" : "int64"
-            }
-          },
-          "managerMemberId" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
-      "BulkGroupsRequest" : {
-        "type" : "object",
-        "properties" : {
-          "memberIds" : {
+          "roleIds" : {
             "type" : "array",
             "items" : {
               "type" : "integer",
@@ -13837,6 +13604,119 @@
           "teamGroupId" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "managerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "fullName" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Invalid" : {
+        "type" : "object",
+        "properties" : {
+          "entry" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InviteRowResult" : {
+        "type" : "object",
+        "properties" : {
+          "entry" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "OrgInviteResultDTO" : {
+        "type" : "object",
+        "properties" : {
+          "batchId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "invited" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Invited"
+            }
+          },
+          "invalid" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Invalid"
+            }
+          },
+          "alreadyMember" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InviteRowResult"
+            }
+          }
+        }
+      },
+      "IdsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "ids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "InvitationBulkItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InvitationBulkResult" : {
+        "type" : "object",
+        "properties" : {
+          "results" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InvitationBulkItem"
+            }
           }
         }
       },
@@ -13964,6 +13844,18 @@
             "type" : "string"
           },
           "source" : {
+            "type" : "string"
+          }
+        }
+      },
+      "JoinAcceptRequest" : {
+        "type" : "object",
+        "properties" : {
+          "shareScope" : {
+            "type" : "string",
+            "enum" : [ "NONE", "SUMMARY", "FULL" ]
+          },
+          "consentVersion" : {
             "type" : "string"
           }
         }
@@ -14505,217 +14397,6 @@
           },
           "settings" : {
             "$ref" : "#/components/schemas/JsonNode"
-          }
-        }
-      },
-      "Actions" : {
-        "type" : "object",
-        "properties" : {
-          "edit" : {
-            "type" : "boolean"
-          },
-          "manageRoles" : {
-            "type" : "boolean"
-          },
-          "suspend" : {
-            "type" : "boolean"
-          },
-          "reinstate" : {
-            "type" : "boolean"
-          },
-          "offboard" : {
-            "type" : "boolean"
-          },
-          "viewActivity" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "ActivityItem" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "at" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "actor" : {
-            "$ref" : "#/components/schemas/PersonRef"
-          },
-          "action" : {
-            "type" : "string"
-          },
-          "risk" : {
-            "type" : "string"
-          },
-          "targetType" : {
-            "type" : "string"
-          },
-          "summary" : {
-            "type" : "string"
-          }
-        }
-      },
-      "Detail" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "initials" : {
-            "type" : "string"
-          },
-          "workEmail" : {
-            "type" : "string"
-          },
-          "phone" : {
-            "type" : "string"
-          },
-          "location" : {
-            "type" : "string"
-          },
-          "timezone" : {
-            "type" : "string"
-          },
-          "avatarUrl" : {
-            "type" : "string"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "statusSince" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "title" : {
-            "type" : "string"
-          },
-          "roles" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/RoleRef"
-            }
-          },
-          "primaryRoleKey" : {
-            "type" : "string"
-          },
-          "department" : {
-            "$ref" : "#/components/schemas/GroupRef"
-          },
-          "team" : {
-            "$ref" : "#/components/schemas/GroupRef"
-          },
-          "manager" : {
-            "$ref" : "#/components/schemas/PersonRef"
-          },
-          "directReports" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/PersonRef"
-            }
-          },
-          "joinedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "lastActiveAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "leftAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "consentScope" : {
-            "type" : "string"
-          },
-          "consentFullTo" : {
-            "$ref" : "#/components/schemas/PersonRef"
-          },
-          "invite" : {
-            "$ref" : "#/components/schemas/InviteMeta"
-          },
-          "scheduledOffboarding" : {
-            "$ref" : "#/components/schemas/ScheduledOffboarding"
-          },
-          "actions" : {
-            "$ref" : "#/components/schemas/Actions"
-          },
-          "recentActivity" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/ActivityItem"
-            }
-          },
-          "summaryOnly" : {
-            "type" : "boolean"
-          },
-          "version" : {
-            "type" : "string"
-          }
-        }
-      },
-      "GroupRef" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
-            "type" : "string"
-          }
-        }
-      },
-      "InviteMeta" : {
-        "type" : "object",
-        "properties" : {
-          "expiresAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "expired" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "PersonRef" : {
-        "type" : "object",
-        "properties" : {
-          "memberId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "avatarUrl" : {
-            "type" : "string"
-          }
-        }
-      },
-      "RoleRef" : {
-        "type" : "object",
-        "properties" : {
-          "roleId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "key" : {
-            "type" : "string"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "primary" : {
-            "type" : "boolean"
           }
         }
       },
@@ -16446,157 +16127,85 @@
           }
         }
       },
-      "Page" : {
-        "type" : "object",
-        "properties" : {
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Row"
-            }
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "size" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "total" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "hasNext" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "Row" : {
+      "InvitationDTO" : {
         "type" : "object",
         "properties" : {
           "id" : {
             "type" : "integer",
             "format" : "int64"
           },
+          "email" : {
+            "type" : "string"
+          },
           "name" : {
             "type" : "string"
           },
-          "initials" : {
-            "type" : "string"
-          },
-          "workEmail" : {
-            "type" : "string"
-          },
-          "avatarUrl" : {
-            "type" : "string"
-          },
           "status" : {
-            "type" : "string"
-          },
-          "title" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "REVOKED" ]
           },
           "roles" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/RoleRef"
+              "$ref" : "#/components/schemas/InvitationRoleRef"
             }
           },
           "department" : {
-            "$ref" : "#/components/schemas/GroupRef"
+            "$ref" : "#/components/schemas/InvitationGroupRef"
           },
           "team" : {
-            "$ref" : "#/components/schemas/GroupRef"
+            "$ref" : "#/components/schemas/InvitationGroupRef"
           },
           "manager" : {
-            "$ref" : "#/components/schemas/PersonRef"
+            "$ref" : "#/components/schemas/InvitationPersonRef"
           },
-          "joinedAt" : {
+          "invitedBy" : {
+            "$ref" : "#/components/schemas/InvitationPersonRef"
+          },
+          "invitedAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "lastActiveAt" : {
+          "expiresAt" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "consentScope" : {
-            "type" : "string"
+          "acceptedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           },
-          "invite" : {
-            "$ref" : "#/components/schemas/InviteMeta"
+          "endedAt" : {
+            "type" : "string",
+            "format" : "date-time"
           },
-          "summaryOnly" : {
-            "type" : "boolean"
-          }
-        }
-      },
-      "Blocker" : {
-        "type" : "object",
-        "properties" : {
-          "code" : {
-            "type" : "string"
+          "resendCount" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "message" : {
             "type" : "string"
           }
         }
       },
-      "OffboardPreview" : {
+      "InvitationGroupRef" : {
         "type" : "object",
         "properties" : {
-          "memberId" : {
+          "id" : {
             "type" : "integer",
             "format" : "int64"
           },
           "name" : {
             "type" : "string"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "blockers" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Blocker"
-            }
-          },
-          "lines" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/HookLine"
-            }
-          },
-          "rolesEnded" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "consentScope" : {
-            "type" : "string"
-          },
-          "recordsKept" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "licenseNotice" : {
-            "type" : "string"
           }
         }
       },
-      "ActivityPage" : {
+      "InvitationPage" : {
         "type" : "object",
         "properties" : {
-          "direction" : {
-            "type" : "string"
-          },
           "items" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/ActivityItem"
+              "$ref" : "#/components/schemas/InvitationDTO"
             }
           },
           "page" : {
@@ -16610,98 +16219,93 @@
           "total" : {
             "type" : "integer",
             "format" : "int64"
-          },
-          "hasNext" : {
-            "type" : "boolean"
           }
         }
       },
-      "Scheduled" : {
+      "InvitationPersonRef" : {
         "type" : "object",
         "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
           "memberId" : {
             "type" : "integer",
             "format" : "int64"
           },
           "name" : {
             "type" : "string"
-          },
-          "effectiveAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "reason" : {
-            "type" : "string"
-          },
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
           }
         }
       },
-      "ScheduledList" : {
+      "InvitationRoleRef" : {
         "type" : "object",
         "properties" : {
-          "items" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "primary" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "InvitationCounts" : {
+        "type" : "object",
+        "properties" : {
+          "counts" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/Scheduled"
+              "$ref" : "#/components/schemas/InvitationStatusCount"
             }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
-      "Counts" : {
+      "InvitationStatusCount" : {
         "type" : "object",
         "properties" : {
-          "asOf" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "REVOKED" ]
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deltaLastMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "InvitationActivity" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "at" : {
             "type" : "string",
             "format" : "date-time"
           },
-          "scope" : {
+          "invitationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "email" : {
             "type" : "string"
           },
-          "total" : {
-            "$ref" : "#/components/schemas/Tile"
+          "name" : {
+            "type" : "string"
           },
-          "active" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "invited" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "suspended" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "departments" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "teams" : {
-            "$ref" : "#/components/schemas/Tile"
-          }
-        }
-      },
-      "Tile" : {
-        "type" : "object",
-        "properties" : {
-          "value" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "previous" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "delta" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "deltaPercent" : {
-            "type" : "number",
-            "format" : "double"
+          "actor" : {
+            "$ref" : "#/components/schemas/InvitationPersonRef"
           }
         }
       },
@@ -17438,6 +17042,48 @@
           }
         }
       },
+      "Detail" : {
+        "type" : "object",
+        "properties" : {
+          "customer" : {
+            "$ref" : "#/components/schemas/Customer"
+          },
+          "timeline" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TimelineEntry"
+            }
+          }
+        }
+      },
+      "TimelineEntry" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "body" : {
+            "type" : "string"
+          },
+          "amountCents" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "failed" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "AdminAuditEventDTO" : {
         "type" : "object",
         "properties" : {
@@ -17868,6 +17514,14 @@
           "percentOfProBudget" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "ReasonRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
           }
         }
       }

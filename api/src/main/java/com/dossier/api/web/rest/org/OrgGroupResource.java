@@ -6,11 +6,13 @@ import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.dto.org.OrgGroupDTO;
 import com.dossier.api.service.dto.org.OrgGroupRequest;
 import com.dossier.api.service.dto.org.OrgGroupViews;
+import com.dossier.api.service.ent.IdempotencyService;
 import com.dossier.api.service.org.OrgGroupDirectoryService;
 import com.dossier.api.service.org.OrgGroupService;
 import com.dossier.api.service.org.OrgMembership;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -45,8 +47,10 @@ public class OrgGroupResource {
     private final OrgGroupService groupService;
     private final OrgGroupDirectoryService directory;
     private final DemoGuard demoGuard;
+    private final IdempotencyService idempotency;
 
-    public OrgGroupResource(OrgGroupService groupService, OrgGroupDirectoryService directory, DemoGuard demoGuard) {
+    public OrgGroupResource(OrgGroupService groupService, OrgGroupDirectoryService directory, DemoGuard demoGuard, IdempotencyService idempotency) {
+        this.idempotency = idempotency;
         this.groupService = groupService;
         this.directory = directory;
         this.demoGuard = demoGuard;
@@ -151,17 +155,25 @@ public class OrgGroupResource {
 
     @Operation(
         summary = "Move people into a group (one or many)",
-        description = "groups.manage. Body {memberIds[] (at most 500)}. One result row per id: MOVED, UNCHANGED, or SKIPPED NOT_FOUND (not a live seat of this organization or not one the caller may touch). A team move also sets the team's department."
+        description = "groups.manage. Body {memberIds[] (at most 500)}; Idempotency-Key required. One result row per id: MOVED, UNCHANGED, or SKIPPED NOT_FOUND (not a live seat of this organization or not one the caller may touch). A team move also sets the team's department."
     )
     @PostMapping("/{groupId}/members")
     @OrgPermissionRequired(OrgPermission.GROUPS_MANAGE)
-    public OrgGroupViews.MoveResult moveMembers(
+    public ResponseEntity<OrgGroupViews.MoveResult> moveMembers(
         @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
         @PathVariable Long groupId,
-        @RequestBody OrgGroupViews.MoveRequest request
+        @RequestHeader(value = "Idempotency-Key", required = false) String key,
+        @RequestBody OrgGroupViews.MoveRequest request,
+        HttpServletRequest http
     ) {
         demoGuard.assertNotDemo();
-        return groupService.moveMembers(me, groupId, request);
+        groupService.gateMove(me, groupId); // the permission wall first: an unauthorised caller never learns about the header
+        IdempotencyService.Outcome<OrgGroupViews.MoveResult> out = idempotency.execute(
+            me, key, true, "POST", http.getRequestURI(), request, 200, OrgGroupViews.MoveResult.class, () -> groupService.moveMembers(me, groupId, request)
+        );
+        ResponseEntity.BodyBuilder ok = ResponseEntity.status(out.status());
+        if (out.replayed()) ok.header("Idempotent-Replayed", "true");
+        return ok.body(out.body());
     }
 
     @Operation(summary = "Take one person out of a group", description = "groups.manage. Idempotent: 204 whether or not they were in it; 404 for a person who is not a live seat of this organization or not in the caller's scope.")
