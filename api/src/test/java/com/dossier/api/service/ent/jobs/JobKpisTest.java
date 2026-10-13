@@ -71,7 +71,8 @@ class JobKpisTest {
         assertThat(t.assigned().previous()).isEqualTo(1);
         assertThat(t.assigned().delta()).isEqualTo(1);
         assertThat(t.assigned().series().get(7)).isEqualTo(2L);
-        assertThat(t.assigned().series().get(0)).as("8 weeks ago only the oldest was assigned").isEqualTo(1L);
+        assertThat(t.assigned().series().get(0)).as("seven weeks back nothing was assigned yet").isEqualTo(0L);
+        assertThat(t.assigned().series().get(1)).as("six weeks back the oldest (45 days ago) had been").isEqualTo(1L);
     }
 
     @Test
