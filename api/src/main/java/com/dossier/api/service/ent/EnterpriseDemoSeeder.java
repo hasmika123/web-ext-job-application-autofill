@@ -26,10 +26,13 @@ import com.dossier.api.repository.ent.OrgBrandingRepository;
 import com.dossier.api.repository.ent.OrgHostnameRepository;
 import com.dossier.api.repository.ent.OrgMemberRoleRepository;
 import com.dossier.api.repository.ent.OrgRoleRepository;
+import com.dossier.api.domain.org.OrgAuditEvent;
+import com.dossier.api.repository.org.OrgAuditEventRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.ResumeBuilderSettings;
+import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.service.storage.OrgStorageKeys;
@@ -59,6 +62,7 @@ import java.util.UUID;
 import javax.imageio.ImageIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
@@ -188,6 +192,10 @@ public class EnterpriseDemoSeeder {
     private final boolean demoEnabled;
     private final boolean enterpriseSeed;
 
+    /** Optional so the gate test can build the seeder by hand; the dashboard's Recent Activity feed reads what this writes. */
+    @Autowired(required = false)
+    private OrgAuditEventRepository auditRows;
+
     public EnterpriseDemoSeeder(
         OrganizationRepository orgs,
         OrgMemberRepository members,
@@ -286,6 +294,7 @@ public class EnterpriseDemoSeeder {
                 index++;
             }
             seatsByOrg.put(t.orgKey(), seats);
+            seedActivity(org, t, now);
         }
 
         assign(seatsByOrg.get("acme"), "sarah", "anika", AssignmentKind.PRIMARY, now, counts);
@@ -299,6 +308,39 @@ public class EnterpriseDemoSeeder {
         resolver.invalidate();
         LOG.info("Enterprise demo seeded: {} orgs, {} users, {} seats, {} role rows, {} assignments created", orgIds.size(), counts[0], counts[1], counts[2], counts[3]);
         return new Result(true, null, orgIds.size(), counts[0], counts[1], counts[2], counts[3]);
+    }
+
+    /**
+     * A believable audit trail for the dashboard's Recent Activity feed: what an admin of this fictional organization did while
+     * setting it up (rows dated back from today). Only when the organization has none yet, so a second run adds nothing and real
+     * activity is never mixed with seeded rows. Details are left out: the feed shows who, what and to whom.
+     */
+    private void seedActivity(Organization org, Tenant t, Instant now) {
+        if (auditRows == null || auditRows.countByOrgId(org.getId()) > 0) return;
+        String admin = t.people().get(0).login(t.orgKey());
+        record(org, admin, OrgAuditService.ORG_CREATE, OrgAuditService.TARGET_ORG, null, now.minus(60, ChronoUnit.DAYS));
+        record(org, admin, OrgAuditService.BRANDING_PUBLISH, OrgAuditService.TARGET_BRANDING, null, now.minus(59, ChronoUnit.DAYS));
+        if (!t.orgKey().equals("acme")) return;
+        String omar = t.people().get(1).login(t.orgKey());
+        record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, t.people().get(2).login(t.orgKey()), now.minus(45, ChronoUnit.DAYS));
+        record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, t.people().get(3).login(t.orgKey()), now.minus(40, ChronoUnit.DAYS));
+        record(org, admin, OrgAuditService.MEMBER_ROLE, OrgAuditService.TARGET_MEMBER, omar, now.minus(30, ChronoUnit.DAYS));
+        record(org, admin, OrgAuditService.ASSIGNMENT_CREATE, OrgAuditService.TARGET_MEMBER, t.people().get(2).login(t.orgKey()), now.minus(28, ChronoUnit.DAYS));
+        record(org, omar, OrgAuditService.ASSIGNMENT_CREATE, OrgAuditService.TARGET_MEMBER, t.people().get(3).login(t.orgKey()), now.minus(27, ChronoUnit.DAYS));
+        record(org, admin, OrgAuditService.MEMBER_SUSPEND, OrgAuditService.TARGET_MEMBER, t.people().get(9).login(t.orgKey()), now.minus(6, ChronoUnit.DAYS));
+        record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, null, now.minus(2, ChronoUnit.DAYS));
+    }
+
+    private void record(Organization org, String actorLogin, String action, String targetType, String targetLogin, Instant at) {
+        OrgAuditEvent e = new OrgAuditEvent();
+        e.setOrgId(org.getId());
+        e.setActorLogin(actorLogin);
+        e.setActorRole("ADMIN");
+        e.setAction(action);
+        e.setTargetType(targetType);
+        e.setTargetLogin(targetLogin);
+        e.setCreatedAt(at);
+        auditRows.save(e);
     }
 
     // ---- pieces ---------------------------------------------------------------------------------------------------
