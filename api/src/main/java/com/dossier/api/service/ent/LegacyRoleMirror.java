@@ -46,4 +46,17 @@ public final class LegacyRoleMirror {
             default -> Optional.empty();
         };
     }
+
+    /**
+     * X1.14: the enum a role row mirrors to when it is a seat's PRIMARY role. A system template or a role cloned from one mirrors
+     * like that template; a blank organization role (no template) mirrors to MEMBER, the narrowest value, because the enum only
+     * labels the seat for legacy callers and never decides a permission once roles are read from data. Empty only when the role
+     * names a template this code does not know (the reader then trusts the enum).
+     */
+    public static Optional<OrgRole> forRole(com.dossier.api.domain.ent.OrgRoleDefinition role) {
+        if (role == null) return Optional.empty();
+        if (role.getTemplateKey() != null) return toEnum(role.getTemplateKey());
+        if (role.isSystem()) return toEnum(role.getRoleKey());
+        return Optional.of(OrgRole.MEMBER);
+    }
 }

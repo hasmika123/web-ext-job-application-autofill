@@ -3,6 +3,7 @@ package com.dossier.api.repository.ent;
 import com.dossier.api.domain.ent.OrgRoleDefinition;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.repository.query.Param;
@@ -34,4 +35,18 @@ public interface OrgRoleRepository extends Repository<OrgRoleDefinition, Long> {
 
     @Query("select r from OrgRoleDefinition r where r.orgId is null order by r.id asc")
     List<OrgRoleDefinition> findSystemRoles();
+
+    /** X1.14: an organization's OWN role (never a system template). */
+    @Query("select r from OrgRoleDefinition r where r.orgId = :orgId and r.id = :id")
+    Optional<OrgRoleDefinition> findOwnedByOrgIdAndId(@Param("orgId") Long orgId, @Param("id") Long id);
+
+    @Query("select count(r) from OrgRoleDefinition r where r.orgId = :orgId")
+    long countOwnedByOrgId(@Param("orgId") Long orgId);
+
+    @Query("select r.roleKey from OrgRoleDefinition r where r.orgId = :orgId")
+    List<String> findOwnedRoleKeysByOrgId(@Param("orgId") Long orgId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from OrgRoleDefinition r where r.orgId = :orgId and r.id = :id")
+    int deleteOwnedByOrgIdAndId(@Param("orgId") Long orgId, @Param("id") Long id);
 }

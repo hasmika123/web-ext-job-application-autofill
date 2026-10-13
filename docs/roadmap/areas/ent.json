@@ -483,7 +483,7 @@
       "critical": true
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [
         "X4.10"
       ],

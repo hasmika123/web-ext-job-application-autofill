@@ -95,7 +95,7 @@ public class OrgRoleService {
         }
         OrgRoleDefinition primary = defs.get(primaries.get(0).getRoleId());
         String template = primary.getTemplateKey() != null ? primary.getTemplateKey() : primary.getRoleKey();
-        Optional<com.dossier.api.domain.enumeration.OrgRole> mirrored = LegacyRoleMirror.toEnum(template);
+        Optional<com.dossier.api.domain.enumeration.OrgRole> mirrored = LegacyRoleMirror.forRole(primary); // X1.14: a blank org role mirrors MEMBER
         if (mirrored.isEmpty() || mirrored.get() != seat.getRole()) {
             LOG.warn("org {} member {}: primary role {} does not mirror the legacy role {}; reading the legacy role", orgId, seat.getId(), template, seat.getRole());
             return Optional.empty();
