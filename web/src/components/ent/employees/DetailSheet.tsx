@@ -18,6 +18,7 @@ import {
   PhoneIcon,
   RestoreIcon,
   Select,
+  KeyIcon,
   ShieldIcon,
   SideSheet,
   Skeleton,
@@ -28,6 +29,7 @@ import {
   TrashIcon,
   UserIcon,
   UsersIcon,
+  XIcon,
   ZapIcon,
 } from "@kiwiply/ui";
 import { formatDate, joinedText, relativeTime, type GroupOption, type MemberDetail, type PatchBody, type PersonRef, type RoleOption } from "@/lib/ent/members";
@@ -68,8 +70,8 @@ export interface DetailSheetProps {
 
 function Field({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[1.25rem_5.5rem_1fr] items-center gap-x-2 py-1.5 text-[13.5px]">
-      <span aria-hidden className="text-muted">{icon}</span>
+    <div className="grid grid-cols-[1.5rem_5rem_1fr] items-center gap-x-2.5 py-[7px] text-[14px]">
+      <span aria-hidden className="text-ink-soft">{icon}</span>
       <dt className="text-ink-soft">{label}</dt>
       <dd className="min-w-0 text-ink">{children}</dd>
     </div>
@@ -150,9 +152,9 @@ export function TitleField({ detail, canEdit, save, inputRef }: { detail: Member
         placeholder="Add a job title"
         aria-label="Job title"
         aria-invalid={status === "error" ? true : undefined}
-        className="h-9"
+        className="!h-7 !border-transparent !bg-transparent !px-0 !text-[14px] !shadow-none hover:!bg-paper-2 focus:!bg-paper focus:!px-2"
       />
-      <p className="mt-0.5 min-h-4 text-[12px]" aria-live="polite" data-title-status={status}>
+      <p className="text-[12px] empty:hidden" aria-live="polite" data-title-status={status}>
         {status === "saving" && <span className="text-muted">Saving{"…"}</span>}
         {status === "saved" && <span className="text-accent-deep">Saved {"✓"}</span>}
         {status === "error" && (
@@ -166,6 +168,8 @@ export function TitleField({ detail, canEdit, save, inputRef }: { detail: Member
 }
 
 const NONE = "__none";
+const GHOST = "!min-h-0 !h-7 !border-transparent !bg-transparent !pl-0 !pr-6 !text-[14px] !shadow-none hover:!bg-paper-2 hover:!pl-2";
+const TAB_CLS = "!text-[14px] !font-medium aria-selected:!text-accent aria-selected:!border-accent";
 
 function Overview({ detail, save, onSaved, groups, loadManagers, onCancelScheduled, titleRef }: { detail: MemberDetail; save: (b: PatchBody) => Promise<SaveResult>; onSaved: (d: MemberDetail) => void; groups: GroupOption[]; loadManagers: () => Promise<PersonRef[]>; onCancelScheduled: DetailSheetProps["onCancelScheduled"]; titleRef: RefObject<HTMLInputElement | null> }) {
   const canEdit = detail.actions.edit;
@@ -193,41 +197,41 @@ function Overview({ detail, save, onSaved, groups, loadManagers, onCancelSchedul
 
   return (
     <div data-tab-panel="overview">
-      <dl className="divide-y divide-line/50">
-        <Field icon={<PencilIcon size={15} />} label="Job title">
-          <TitleField detail={detail} canEdit={canEdit} save={save} inputRef={titleRef} />
-        </Field>
-        <Field icon={<BuildingIcon size={15} />} label="Department">
+      <dl>
+        <Field icon={<BuildingIcon size={18} />} label="Department">
           {canEdit ? (
-            <Select aria-label="Department" value={detail.department ? String(detail.department.id) : NONE} onChange={(v) => void patch({ departmentGroupId: v === NONE ? null : Number(v) })} options={[{ value: NONE, label: "No department" }, ...depts.map((g) => ({ value: String(g.id), label: g.name }))]} />
+            <Select className={GHOST} aria-label="Department" value={detail.department ? String(detail.department.id) : NONE} onChange={(v) => void patch({ departmentGroupId: v === NONE ? null : Number(v) })} options={[{ value: NONE, label: "No department" }, ...depts.map((g) => ({ value: String(g.id), label: g.name }))]} />
           ) : (
             detail.department?.name ?? <span className="text-muted">None</span>
           )}
         </Field>
-        <Field icon={<UsersIcon size={15} />} label="Team">
+        <Field icon={<UsersIcon size={18} />} label="Team">
           {canEdit ? (
-            <Select aria-label="Team" value={detail.team ? String(detail.team.id) : NONE} onChange={(v) => void patch({ teamGroupId: v === NONE ? null : Number(v) })} options={[{ value: NONE, label: "No team" }, ...teams.map((g) => ({ value: String(g.id), label: g.name }))]} />
+            <Select className={GHOST} aria-label="Team" value={detail.team ? String(detail.team.id) : NONE} onChange={(v) => void patch({ teamGroupId: v === NONE ? null : Number(v) })} options={[{ value: NONE, label: "No team" }, ...teams.map((g) => ({ value: String(g.id), label: g.name }))]} />
           ) : (
             detail.team?.name ?? <span className="text-muted">None</span>
           )}
         </Field>
-        <Field icon={<UserIcon size={15} />} label="Manager">
+        <Field icon={<UserIcon size={18} />} label="Manager">
           {canEdit ? (
-            <Select aria-label="Manager" value={detail.manager ? String(detail.manager.memberId) : NONE} onChange={(v) => void patch({ managerMemberId: v === NONE ? null : Number(v) })} options={mgrOptions} />
+            <Select className={GHOST} aria-label="Manager" value={detail.manager ? String(detail.manager.memberId) : NONE} onChange={(v) => void patch({ managerMemberId: v === NONE ? null : Number(v) })} options={mgrOptions} />
           ) : detail.manager ? (
-            <span className="flex items-center gap-2">
-              <MemberAvatar name={detail.manager.name} size={22} src={detail.manager.avatarUrl} />
+            <span className="flex items-center gap-2.5 font-semibold">
+              <MemberAvatar name={detail.manager.name} size={30} src={detail.manager.avatarUrl} />
               {detail.manager.name}
             </span>
           ) : (
             <span className="text-muted">{detail.summaryOnly ? "Not shared" : "None"}</span>
           )}
         </Field>
-        <Field icon={<CalendarIcon size={15} />} label="Joined">
-          {joinedText(detail.joinedAt) || <span className="text-muted">Not yet</span>}
+        <Field icon={<CalendarIcon size={18} />} label="Joined">
+          <span className="text-[13px]">{joinedText(detail.joinedAt) || <span className="text-muted">Not yet</span>}</span>
+        </Field>
+        <Field icon={<PencilIcon size={18} />} label="Job title">
+          <TitleField detail={detail} canEdit={canEdit} save={save} inputRef={titleRef} />
         </Field>
         {detail.lastActiveAt && (
-          <Field icon={<ClockIcon size={15} />} label="Last active">
+          <Field icon={<ClockIcon size={18} />} label="Last active">
             {relativeTime(detail.lastActiveAt)}
           </Field>
         )}
@@ -272,17 +276,19 @@ function Overview({ detail, save, onSaved, groups, loadManagers, onCancelSchedul
 function QuickActions({ detail, onEdit, onRoles, onFlow }: { detail: MemberDetail; onEdit: () => void; onRoles: () => void; onFlow: DetailSheetProps["onFlow"] }) {
   const a = detail.actions;
   const left = detail.status === "LEFT" || detail.status === "REMOVED" || detail.status === "ERASED";
-  const rows: { key: string; label: string; icon: ReactNode; run: () => void; danger?: boolean }[] = [];
-  if (a.edit && !left) rows.push({ key: "edit", label: "Edit Employee", icon: <PencilIcon size={16} />, run: onEdit });
-  if (a.manageRoles && !left) rows.push({ key: "roles", label: "Manage Roles & Permissions", icon: <ShieldIcon size={16} />, run: onRoles });
-  if (a.suspend && detail.status === "ACTIVE") rows.push({ key: "suspend", label: "Suspend Employee", icon: <MinusCircleIcon size={16} />, run: () => onFlow("suspend", detail), danger: true });
-  if (a.reinstate && detail.status === "SUSPENDED") rows.push({ key: "reinstate", label: "Reinstate Employee", icon: <RestoreIcon size={16} />, run: () => onFlow("reinstate", detail) });
-  if (a.offboard && (detail.status === "ACTIVE" || detail.status === "SUSPENDED")) rows.push({ key: "offboard", label: "Delete Employee", icon: <TrashIcon size={16} />, run: () => onFlow("offboard", detail), danger: true });
+  const rows: { key: string; label: string; icon: ReactNode; run?: () => void; danger?: boolean; soon?: boolean }[] = [];
+  if (a.edit && !left) rows.push({ key: "edit", label: "Edit Employee", icon: <PencilIcon size={18} />, run: onEdit });
+  if (a.manageRoles && !left) rows.push({ key: "roles", label: "Manage Roles & Permissions", icon: <ShieldIcon size={18} />, run: onRoles });
+  // On the board; the API has no employee password reset yet (people reset their own password from the sign-in page), so it is drawn honestly disabled.
+  if (a.edit && !left) rows.push({ key: "reset", label: "Reset Password", icon: <KeyIcon size={18} />, soon: true });
+  if (a.suspend && detail.status === "ACTIVE") rows.push({ key: "suspend", label: "Suspend Employee", icon: <MinusCircleIcon size={18} />, run: () => onFlow("suspend", detail), danger: true });
+  if (a.reinstate && detail.status === "SUSPENDED") rows.push({ key: "reinstate", label: "Reinstate Employee", icon: <RestoreIcon size={18} />, run: () => onFlow("reinstate", detail) });
+  if (a.offboard && (detail.status === "ACTIVE" || detail.status === "SUSPENDED")) rows.push({ key: "offboard", label: "Delete Employee", icon: <TrashIcon size={18} />, run: () => onFlow("offboard", detail), danger: true });
   if (rows.length === 0) return null;
   return (
-    <section aria-label="Quick actions" className="mt-5" data-quick-actions>
-      <h3 className="mb-2 flex items-center gap-1.5 text-[13.5px] font-bold text-ink">
-        <ZapIcon aria-hidden size={15} className="text-accent" /> Quick Actions
+    <section aria-label="Quick actions" className="mt-4 border-t border-line/60 pt-3.5" data-quick-actions>
+      <h3 className="mb-2.5 flex items-center gap-2 text-[14.5px] font-bold text-ink">
+        <ZapIcon aria-hidden size={17} className="text-accent" /> Quick Actions
       </h3>
       <ul className="space-y-1.5">
         {rows.map((r) => (
@@ -290,8 +296,10 @@ function QuickActions({ detail, onEdit, onRoles, onFlow }: { detail: MemberDetai
             <button
               type="button"
               data-quick-action={r.key}
+              disabled={r.soon}
+              title={r.soon ? "On the way: employees reset their own password from the sign-in page for now." : undefined}
               onClick={r.run}
-              className={`flex min-h-11 w-full items-center gap-2.5 rounded-lg border border-line px-3 text-left text-[13.5px] font-medium hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-accent ${r.danger ? "text-danger-text" : "text-ink"}`}
+              className={`flex h-10 w-full items-center gap-3 rounded-[10px] border px-3 text-left text-[14px] font-medium focus-visible:outline-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-60 ${r.danger ? "border-v2-coral/25 bg-v2-coral-soft/40 text-v2-coral-ink hover:bg-v2-coral-soft" : "border-line bg-paper text-ink-soft hover:bg-paper-2"}`}
             >
               <span aria-hidden>{r.icon}</span>
               {r.label}
@@ -315,6 +323,7 @@ function Loading() {
 
 /** The sheet itself: pushes the table aside on a wide screen, floats over it on a tablet and rises from the bottom on a phone. */
 export default function DetailSheet(p: DetailSheetProps) {
+  const docked = p.mode === "push";
   const open = p.memberId !== null;
   const { state, save, replace, reload } = useMemberDetail(p.orgId, p.memberId, p.reloadToken);
   const titleRef = useRef<HTMLInputElement>(null);
@@ -337,46 +346,52 @@ export default function DetailSheet(p: DetailSheetProps) {
     const d = state.detail;
     return (
       <div data-detail-body data-member-id={d.id}>
-        <div className="flex items-start gap-3">
-          <MemberAvatar name={d.name} size={56} src={d.avatarUrl} />
-          <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex items-start gap-3.5">
+          <MemberAvatar name={d.name} size={docked ? 64 : 56} src={d.avatarUrl} />
+          <div className="min-w-0 flex-1 space-y-2">
+            {docked && (
+              <div className="flex items-center gap-2 pr-7">
+                <h2 className="min-w-0 truncate text-[19px] font-extrabold leading-tight text-ink" data-detail-name>{d.name}</h2>
+                <MemberStatusPill status={d.status} className="flex-none" />
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-1.5">
-              <MemberStatusPill status={d.status} />
+              {!docked && <MemberStatusPill status={d.status} />}
               <RoleChips roles={d.roles} max={3} />
             </div>
-            <ul className="space-y-0.5 text-[13px] text-ink-soft" data-contact>
-              {d.workEmail && (
-                <li className="flex min-w-0 items-center gap-1.5">
-                  <MailIcon aria-hidden size={14} className="flex-none text-muted" />
-                  <span className="truncate">{d.workEmail}</span>
-                </li>
-              )}
-              {d.phone && (
-                <li className="flex items-center gap-1.5">
-                  <PhoneIcon aria-hidden size={14} className="flex-none text-muted" />
-                  {d.phone}
-                </li>
-              )}
-              {d.location && (
-                <li className="flex items-center gap-1.5">
-                  <MapPinIcon aria-hidden size={14} className="flex-none text-muted" />
-                  {d.location}
-                </li>
-              )}
-              {d.timezone && (
-                <li className="flex items-center gap-1.5">
-                  <ClockIcon aria-hidden size={14} className="flex-none text-muted" />
-                  {d.timezone}
-                </li>
-              )}
-            </ul>
           </div>
         </div>
+        <ul className="mt-3 space-y-1.5 text-[13.5px] text-ink-soft" data-contact>
+          {d.workEmail && (
+            <li className="flex min-w-0 items-center gap-3">
+              <MailIcon aria-hidden size={16} className="flex-none text-ink-soft" />
+              <span className="truncate">{d.workEmail}</span>
+            </li>
+          )}
+          {d.phone && (
+            <li className="flex items-center gap-3">
+              <PhoneIcon aria-hidden size={16} className="flex-none text-ink-soft" />
+              {d.phone}
+            </li>
+          )}
+          {d.location && (
+            <li className="flex items-center gap-3">
+              <MapPinIcon aria-hidden size={16} className="flex-none text-ink-soft" />
+              {d.location}
+            </li>
+          )}
+          {d.timezone && (
+            <li className="flex items-center gap-3">
+              <ClockIcon aria-hidden size={16} className="flex-none text-ink-soft" />
+              {d.timezone}
+            </li>
+          )}
+        </ul>
         <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DetailTab)} variant="underline" className="mt-4">
-          <TabList aria-label="Employee details">
-            <Tab value="overview">Overview</Tab>
-            <Tab value="access">Access &amp; Roles</Tab>
-            <Tab value="activity">Activity</Tab>
+          <TabList aria-label="Employee details" className="justify-between">
+            <Tab value="overview" className={TAB_CLS}>Overview</Tab>
+            <Tab value="access" className={TAB_CLS}>Access &amp; Roles</Tab>
+            <Tab value="activity" className={TAB_CLS}>Activity</Tab>
           </TabList>
           <TabPanel value="overview" className="pt-3">
             <Overview detail={d} save={saveAndNote} onSaved={replace} groups={p.groups} loadManagers={p.loadManagers} onCancelScheduled={p.onCancelScheduled} titleRef={titleRef} />
@@ -422,13 +437,41 @@ export default function DetailSheet(p: DetailSheetProps) {
       </BottomSheet>
     );
   }
-  const sheet = (
-    <SideSheet id="ent-employee-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 400 : 480} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
+  if (p.mode === "push") {
+    return (
+      <aside
+        id="ent-employee-sheet"
+        role="region"
+        aria-label={title}
+        data-mode="push"
+        data-state={open ? "open" : "closed"}
+        aria-hidden={open ? undefined : true}
+        hidden={!open}
+        tabIndex={-1}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && !e.defaultPrevented) {
+            e.stopPropagation();
+            p.onClose();
+          }
+        }}
+        className="sticky top-4 ml-4 max-h-[calc(100dvh-2rem)] w-[316px] shrink-0 self-start overflow-y-auto rounded-2xl border border-line bg-paper p-4 shadow-[0_1px_3px_rgba(16,24,64,.06)]"
+      >
+        <button
+          type="button"
+          data-sheet-close
+          onClick={() => p.onClose()}
+          aria-label={`Close ${title}`}
+          className="absolute right-3.5 top-3.5 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-accent"
+        >
+          <XIcon size={18} />
+        </button>
+        {body}
+      </aside>
+    );
+  }
+  return (
+    <SideSheet id="ent-employee-sheet" side="right" mode={p.mode} width={480} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
       {body}
     </SideSheet>
   );
-  if (p.mode === "push") {
-    return <div className={`sticky top-4 h-[calc(100dvh-7rem)] shrink-0 self-start ${open ? "ml-4" : ""}`}>{sheet}</div>;
-  }
-  return sheet;
 }

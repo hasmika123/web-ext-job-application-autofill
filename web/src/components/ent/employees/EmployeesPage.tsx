@@ -389,34 +389,42 @@ export default function EmployeesPage({ orgId, orgName, workspace, selfMemberId,
   return (
     <div ref={root} data-employees-page>
       <PageHeader title="Employees" subtitle="Manage your organization's employees, roles, and access permissions." />
-      <div className="flex items-start">
-        <div className="min-w-0 flex-1 space-y-4">
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {scheduled.length > 0 && (
+      <div className="space-y-4">
+        <KpiTiles
+          compact={sheetOpen && mode === "push"}
+          counts={counts.data}
+          loading={counts.status === "loading"}
+          error={counts.status === "error"}
+          action={
+            canInvite ? (
+              <Link href={inviteHref} className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-accent px-4 text-[14px] font-semibold text-on-accent shadow-sm hover:brightness-95" data-add-employee>
+                <PlusIcon size={16} aria-hidden /> Add Employee
+              </Link>
+            ) : undefined
+          }
+        />
+        <div className="flex items-start">
+        <div className="min-w-0 flex-1 space-y-3 rounded-2xl border border-line bg-paper p-3 shadow-[0_1px_3px_rgba(16,24,64,.06)]">
+          {scheduled.length > 0 && (
+            <div className="flex justify-end">
               <Button type="button" variant="ghost" size="sm" onClick={() => setQueueOpen(true)} data-scheduled-button>
                 Scheduled last days ({scheduled.length})
               </Button>
-            )}
-            {canInvite && (
-              <Link href={inviteHref} className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius)] bg-accent px-5 text-sm font-semibold text-on-accent hover:brightness-95 sm:min-h-0 sm:py-[11px]" data-add-employee>
-                <PlusIcon size={16} aria-hidden /> Add Employee
-              </Link>
-            )}
-          </div>
-
-          <KpiTiles compact={sheetOpen && mode === "push"} counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
+            </div>
+          )}
 
           <div className="space-y-2">
             <FilterBar
               compact
+              className="flex-nowrap max-sm:flex-wrap [&>div:first-child]:sm:!w-auto [&>div:first-child]:sm:min-w-0 [&>div:first-child]:sm:flex-1 [&>div:first-child_input]:!rounded-[10px] [&>div:first-child_input]:!border-brand-border [&>div:first-child_input]:!bg-accent-soft/40 [&>div:not(:first-child)]:sm:!w-auto [&>div:not(:first-child)]:sm:min-w-[7.5rem] [&_button[aria-haspopup]]:!rounded-[10px] [&_button[aria-haspopup]]:!pl-3 [&_button[aria-haspopup]]:!pr-8 [&_button[aria-haspopup]]:!text-[13.5px]"
               query={query.q}
               onQueryChange={(q) => change({ q })}
               values={filterValues}
               onFilterChange={onFilter}
-              search={{ placeholder: "Search by name, email, role, or department", label: "Search employees" }}
+              search={{ placeholder: "Search employees by name, email, role, or department...", label: "Search employees" }}
               filters={filters}
               actions={
-                <Button type="button" variant="ghost" size="sm" aria-expanded={moreOpen} onClick={() => { setMoreOpen((o) => !o); void loadManagers(); }} data-more-filters>
+                <Button type="button" variant="ghost" size="sm" className="!h-10 !rounded-[10px] border border-line !px-3 !text-[13.5px] !font-medium" aria-expanded={moreOpen} onClick={() => { setMoreOpen((o) => !o); void loadManagers(); }} data-more-filters>
                   <FilterIcon size={15} aria-hidden /> More Filters{query.managerId ? " (1)" : ""}
                 </Button>
               }
@@ -493,7 +501,7 @@ export default function EmployeesPage({ orgId, orgName, workspace, selfMemberId,
               }
             />
           )}
-          {list.status === "ok" && rows.length > 0 && !onlyOwner && !sheetOpen && <HelpBeeCard orgName={orgName} supportEmail={supportEmail} />}
+          {list.status === "ok" && rows.length > 0 && !onlyOwner && !(sheetOpen && mode === "push") && <HelpBeeCard orgName={orgName} supportEmail={supportEmail} />}
         </div>
 
         <DetailSheet
@@ -512,7 +520,9 @@ export default function EmployeesPage({ orgId, orgName, workspace, selfMemberId,
           reloadToken={reloadToken}
           tab={tab}
           onTab={setTab}
+          footer={<HelpBeeCard compact orgName={orgName} supportEmail={supportEmail} />}
         />
+        </div>
       </div>
 
       <RolesDialog open={bulkDialog === "roles"} onClose={() => setBulkDialog(null)} count={selected.size} roles={roles} onApply={(add, remove) => runBulk("roles", { add, remove }, "updated roles for")} />
