@@ -1,7 +1,6 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
-import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ResumeAccessException;
 import com.dossier.api.service.ResumeAccessService;
 import com.dossier.api.service.ResumeAccessService.PdfFile;
@@ -38,11 +37,9 @@ import org.springframework.web.server.ResponseStatusException;
 public class ResumeAccessResource {
 
     private final ResumeAccessService accessService;
-    private final DemoGuard demoGuard;
 
-    public ResumeAccessResource(ResumeAccessService accessService, DemoGuard demoGuard) {
+    public ResumeAccessResource(ResumeAccessService accessService) {
         this.accessService = accessService;
-        this.demoGuard = demoGuard;
     }
 
     /** Body of {@code POST /{id}/access}. */
@@ -75,7 +72,6 @@ public class ResumeAccessResource {
     )
     @PostMapping("/{id}/access")
     public ResponseEntity<AccessGrantDTO> grant(@PathVariable("id") Long id, @RequestBody(required = false) GrantVM vm) {
-        demoGuard.assertNotDemo();
         GrantVM body = vm == null ? new GrantVM(null, null, null, null) : vm;
         return ResponseEntity.status(HttpStatus.CREATED).body(accessService.grantUser(id, body.email(), body.role(), body.expiresAt(), body.label()));
     }
@@ -86,7 +82,6 @@ public class ResumeAccessResource {
     )
     @PostMapping("/{id}/access/link")
     public ResponseEntity<AccessGrantDTO> link(@PathVariable("id") Long id, @RequestBody(required = false) LinkVM vm) {
-        demoGuard.assertNotDemo();
         LinkVM body = vm == null ? new LinkVM(null, null, null) : vm;
         return ResponseEntity.status(HttpStatus.CREATED).body(accessService.createLink(id, body.expiresAt(), body.label(), body.allowDownload()));
     }
@@ -100,7 +95,6 @@ public class ResumeAccessResource {
     )
     @PatchMapping("/{id}/access/{accessId}")
     public AccessGrantDTO patchLink(@PathVariable("id") Long id, @PathVariable("accessId") Long accessId, @RequestBody(required = false) LinkPatchVM vm) {
-        demoGuard.assertNotDemo();
         if (vm == null || vm.allowDownload() == null) throw ResumeAccessException.invalid("$.allowDownload", "must be true or false");
         return accessService.setLinkDownload(id, accessId, vm.allowDownload());
     }
@@ -108,7 +102,6 @@ public class ResumeAccessResource {
     @Operation(summary = "Revoke a grant or link",description = "Idempotent: 204 whether or not it was already revoked. 404 if the resume or the grant is not yours.")
     @DeleteMapping("/{id}/access/{accessId}")
     public ResponseEntity<Void> revoke(@PathVariable("id") Long id, @PathVariable("accessId") Long accessId) {
-        demoGuard.assertNotDemo();
         accessService.revoke(id, accessId);
         return ResponseEntity.noContent().build();
     }

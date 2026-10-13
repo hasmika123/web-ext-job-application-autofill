@@ -26,7 +26,7 @@ export default function AccountMenu({
   /** First name only: the chip reads "Hi, <First>". */
   name: string;
   isPro: boolean;
-  /** A public demo account: shows a Demo badge and a "changes aren't saved" line. */
+  /** A public demo account: shows a Demo badge and a read-only note. */
   demo?: boolean;
   /** The API's org feature flag (`/api/config/public`): the "Kiwiply for Organizations" entry is hidden while it is off. */
   orgsEnabled?: boolean;

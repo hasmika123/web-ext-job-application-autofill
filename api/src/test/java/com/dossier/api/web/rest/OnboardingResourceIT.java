@@ -422,14 +422,16 @@ class OnboardingResourceIT {
     }
 
     @Test
-    void demoLoginsCannotWrite() throws Exception {
+    void demoLoginsMayUseTheSandbox() throws Exception {
         for (var request : java.util.List.of(
             put(URL + "/draft").contentType(MediaType.APPLICATION_JSON).content(draftBody("source", null, "{}", null, false)),
             delete(URL + "/draft"),
             patch(URL).contentType(MediaType.APPLICATION_JSON).content("{\"persona\":\"student\"}"),
             post(URL + "/finish")
         )) {
-            mockMvc.perform(request.with(user("demo"))).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("DEMO_READ_ONLY"));
+            // Sandbox (DemoGuard): onboarding is open to the shared demo accounts; never a DEMO_READ_ONLY refusal.
+            String body = mockMvc.perform(request.with(user("demo"))).andReturn().getResponse().getContentAsString();
+            org.assertj.core.api.Assertions.assertThat(body).doesNotContain("DEMO_READ_ONLY");
         }
     }
 

@@ -3,7 +3,6 @@ package com.dossier.api.web.rest;
 import com.dossier.api.domain.Application;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.security.SecurityUtils;
-import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.service.storage.FileStorage.StoredFile;
 import com.dossier.api.service.storage.StorageKeys;
@@ -36,22 +35,18 @@ public class ApplicationAttachmentResource {
     private final ApplicationRepository applicationRepository;
     private final FileStorage storageService;
 
-    private final DemoGuard demoGuard;
 
     public ApplicationAttachmentResource(
         ApplicationRepository applicationRepository,
-        FileStorage storageService,
-        DemoGuard demoGuard
+        FileStorage storageService
     ) {
         this.applicationRepository = applicationRepository;
         this.storageService = storageService;
-        this.demoGuard = demoGuard;
     }
 
     @PostMapping
     @Transactional
     public ResponseEntity<Void> upload(@PathVariable("id") Long id, @RequestParam("file") MultipartFile file) throws IOException {
-        demoGuard.assertNotDemo();
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No file provided");
         }
@@ -99,7 +94,6 @@ public class ApplicationAttachmentResource {
     @DeleteMapping
     @Transactional
     public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
-        demoGuard.assertNotDemo();
         Application app = ownedOr404(id);
         String key = app.getAttachmentObjectKey();
         if (key != null && !key.isBlank()) {

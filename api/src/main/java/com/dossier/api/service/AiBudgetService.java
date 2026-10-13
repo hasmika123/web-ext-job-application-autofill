@@ -80,6 +80,7 @@ public class AiBudgetService {
     private final SubscriptionRepository subscriptions;
     private final StripeProperties stripe;
     private final int freeMonthlyQuota;
+    private final DemoAiCap demoCap;
 
     public AiBudgetService(
         AiPolicy policy,
@@ -90,6 +91,7 @@ public class AiBudgetService {
         AiMeteringService metering,
         SubscriptionRepository subscriptions,
         StripeProperties stripe,
+        DemoAiCap demoCap,
         @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota
     ) {
         this.policy = policy;
@@ -101,6 +103,7 @@ public class AiBudgetService {
         this.subscriptions = subscriptions;
         this.stripe = stripe;
         this.freeMonthlyQuota = freeMonthlyQuota;
+        this.demoCap = demoCap;
     }
 
     /** The meter for Settings and the extension: use in the current window, and when it resets. */
@@ -158,6 +161,11 @@ public class AiBudgetService {
         Instant resets = resetsAt(now);
         if (!runtime.taskEnabled(task)) {
             return new Decision(Verdict.TASK_DISABLED, null, false, 0, 0, resets, false);
+        }
+
+        // The shared demo accounts get a small daily cap on top of whatever the plan or an override allows.
+        if (demoCap.reached(login, now)) {
+            return new Decision(Verdict.EXHAUSTED, null, true, 100, 100, demoCap.resetsAt(now), false);
         }
 
         Optional<Window> window = window(login, now);

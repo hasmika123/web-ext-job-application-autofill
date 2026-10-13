@@ -3,7 +3,6 @@ package com.dossier.api.web.rest;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.security.SecurityUtils;
-import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ResumeBuilderSettingKeys;
 import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.ResumeDocService;
@@ -39,27 +38,23 @@ public class ResumeFileResource {
     private final ResumeRepository resumeRepository;
     private final FileStorage storageService;
 
-    private final DemoGuard demoGuard;
     private final ResumeBuilderSettings settings;
     private final ResumeDocService resumeDocService;
 
     public ResumeFileResource(
         ResumeRepository resumeRepository,
         FileStorage storageService,
-        DemoGuard demoGuard,
         ResumeBuilderSettings settings,
         ResumeDocService resumeDocService
     ) {
         this.resumeDocService = resumeDocService;
         this.resumeRepository = resumeRepository;
         this.storageService = storageService;
-        this.demoGuard = demoGuard;
         this.settings = settings;
     }
 
     @PostMapping
     public ResponseEntity<Void> upload(@PathVariable("id") Long id, @RequestParam("file") MultipartFile file) throws IOException {
-        demoGuard.assertNotDemo();
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No file provided");
         }
@@ -124,7 +119,6 @@ public class ResumeFileResource {
 
     @DeleteMapping
     public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
-        demoGuard.assertNotDemo();
         Resume resume = ownedResumeOr404(id);
         String key = resume.getr2ObjectKey();
         if (key != null && !key.isBlank()) {

@@ -1,7 +1,6 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
-import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.dto.OnboardingDTOs.DraftRequest;
 import com.dossier.api.service.dto.OnboardingDTOs.DraftSavedDTO;
 import com.dossier.api.service.dto.OnboardingDTOs.FinishDTO;
@@ -19,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 /**
  * Onboarding v2 (R1.8, ONBOARDING-V2-DESIGN 9): the resumable setup draft, the persona and card markers, and
  * finish, under {@code /api/profile/onboarding}. Everything belongs to the signed-in user (no ids in any path).
- * Writes are refused for the shared demo logins ({@link DemoGuard}); the status {@code GET} is not.
+ * Demo accounts may use it (sandbox, see {@code DemoGuard}): their data is wiped on reset.
  *
  * <p>Refusals carry a {@code code}: 409 {@code DRAFT_CONFLICT {serverUpdatedAt}}, 413 {@code DRAFT_TOO_LARGE {max}},
  * 422 {@code DRAFT_INVALID {path}}, 422 {@code SENSITIVE_CONTENT {path, class}} (a value the product never collects),
@@ -34,11 +33,9 @@ public class OnboardingResource {
     private static final Logger LOG = LoggerFactory.getLogger(OnboardingResource.class);
 
     private final OnboardingService onboardingService;
-    private final DemoGuard demoGuard;
 
-    public OnboardingResource(OnboardingService onboardingService, DemoGuard demoGuard) {
+    public OnboardingResource(OnboardingService onboardingService) {
         this.onboardingService = onboardingService;
-        this.demoGuard = demoGuard;
     }
 
     @Operation(
@@ -57,7 +54,6 @@ public class OnboardingResource {
     )
     @PutMapping("/draft")
     public DraftSavedDTO putDraft(@RequestBody DraftRequest body) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to save the onboarding draft");
         return onboardingService.putDraft(body);
     }
@@ -65,7 +61,6 @@ public class OnboardingResource {
     @Operation(summary = "Start over", description = "Deletes the draft. The persona and everything already confirmed in the profile stay.")
     @DeleteMapping("/draft")
     public ResponseEntity<Void> deleteDraft() {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to delete the onboarding draft");
         onboardingService.deleteDraft();
         return ResponseEntity.noContent().build();
@@ -77,7 +72,6 @@ public class OnboardingResource {
     )
     @PatchMapping
     public StatusDTO patch(@RequestBody PatchRequest body) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to patch the onboarding markers");
         return onboardingService.patch(body);
     }
@@ -88,7 +82,6 @@ public class OnboardingResource {
     )
     @PostMapping("/finish")
     public FinishDTO finish() {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to finish onboarding");
         return onboardingService.finish();
     }

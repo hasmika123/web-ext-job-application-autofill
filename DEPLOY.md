@@ -1025,9 +1025,22 @@ organization admin), that anyone can open from the login page without signing up
   `demo` / `demo@kiwiply.com` login both return 403 `DEMO_DISABLED`.
 - **`DEMO_PASSWORD`** (optional env): the stored password of the two accounts. Leave it **blank** in
   production: the API then uses a random password per boot, so the only way in is the one-click button.
-- **Read-only:** a demo session gets 403 `DEMO_READ_ONLY` ("This is a demo account - changes aren't saved")
-  on profile save, password change, account delete/export, billing, inbox connect/disconnect, resume
-  upload/delete and the AI resume parse. The application board (status changes, notes) stays live.
+- **Sandbox, not read-only (`DemoGuard`):** demo accounts may use the **Resume Builder and the profile**
+  (built resumes, doc edits, versions, share links, resume files, profile items, onboarding, application
+  attachments, `POST /api/ai/draft` and the Resume Builder AI). Those endpoints do not call the guard.
+  A demo session still gets 403 `DEMO_READ_ONLY` ("This is a demo account - changes aren't saved") on
+  account save / password change, account delete / export, billing, inbox connect / disconnect,
+  notification preferences, every `/api/orgs/**` write and the AI resume parse. The application board stays live.
+  - `DEMO_ALLOW_WRITES` (default `false`, `dossier.demo.allow-writes`): a global **dev** override that lifts
+    the remaining blocks too. Never set it in production (it is not in `docker-compose.prod.yml`).
+  - `DEMO_RESET_CRON` (default `0 0 4 * * *`, UTC; empty = off, `dossier.demo.reset-cron`): nightly reset of
+    the demo accounts to the seed. It runs the same reset as the admin button, and also erases the builder
+    documents, versions, AI proposals, share links and stored files the demo accounts made. It is scoped to
+    the two demo user ids; real users' data is never touched. Only runs while `DEMO_ENABLED` is true.
+  - `DEMO_AI_CALLS_PER_DAY` (default `10`, `dossier.demo.ai-calls-per-day`; `0` = no AI for demo): a per-account,
+    per-UTC-day cap on successful AI calls, applied inside `AiBudgetService.decide` on top of the normal plan
+    and budget. The demo accounts are Free, so they still get `PRO_REQUIRED` for most AI tasks unless an admin
+    gives `demo` an AI quota override on the admin AI page (the override's budget then also applies).
 - **Reset:** "Reset demo data" on the admin card (a data operation, still in admin and audited as
   `DEMO_RESET`; disabled while the demo is off) wipes both accounts' rows and re-seeds the job seeker
   (Priya Sharma, 8 applications, 2 resumes with no file behind them). Do it whenever visitors have left the
@@ -1040,7 +1053,7 @@ organization admin), that anyone can open from the login page without signing up
   `ORGS_ENABLED` defaults to false and the profile check refuses regardless.
 - **Local demo (no API, no database):** `npm ci` at the repo root, then `npm run dev:demo -w web`. It starts
   `web/scripts/mock-api.mjs` (a stand-in for the Spring API on `:8080`, demo switched on unless `MOCK_DEMO_ENABLED=false`, fixed data for
-  Priya Sharma and the org admin, every write refused with `DEMO_READ_ONLY`) and `next dev` pointed at it.
+  Priya Sharma and the org admin, writes refused with `DEMO_READ_ONLY` except the Resume Builder and profile sandbox) and `next dev` pointed at it.
   Open http://localhost:3000/login, pick an account, press "Open demo". Change the mock's port with
   `MOCK_API_PORT` (the script wires `DOSSIER_API_URL` for you). It is a separate script, not part of the
   Next bundle, and refuses to start under `NODE_ENV=production`; production takes its demo state from

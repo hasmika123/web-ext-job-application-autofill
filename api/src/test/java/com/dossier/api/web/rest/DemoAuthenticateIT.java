@@ -206,7 +206,7 @@ class DemoAuthenticateIT {
     }
 
     @Test
-    void aDemoSessionIsReadOnlyForAccountBillingAndProfile() throws Exception {
+    void aDemoSessionIsReadOnlyForAccountBillingAndInbox() throws Exception {
         setEnabled(true);
         String token = accessTokenFor("demo");
         String auth = "Bearer " + token;
@@ -226,15 +226,6 @@ class DemoAuthenticateIT {
                     .header("Authorization", auth)
                     .contentType(MediaType.APPLICATION_JSON)
                     .content("{\"currentPassword\":\"a\",\"newPassword\":\"b-long-enough\"}")
-            )
-            .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.code").value("DEMO_READ_ONLY"));
-        mockMvc
-            .perform(
-                put("/api/profile")
-                    .header("Authorization", auth)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"payload\":\"{}\"}")
             )
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("DEMO_READ_ONLY"));

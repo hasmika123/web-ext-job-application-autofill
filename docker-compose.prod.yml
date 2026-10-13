@@ -141,6 +141,9 @@ services:
       # boot, so only the one-click login works.
       - DEMO_ENABLED=${DEMO_ENABLED:-false}
       - DEMO_PASSWORD=${DEMO_PASSWORD:-}
+      # Demo sandbox: nightly reset cron (UTC; set DEMO_RESET_CRON= to empty to turn it off) and the daily AI-call cap per demo account.
+      - DEMO_RESET_CRON=${DEMO_RESET_CRON-0 0 4 * * *}
+      - DEMO_AI_CALLS_PER_DAY=${DEMO_AI_CALLS_PER_DAY:-10}
       # Organization features (E2E-O1.9): OFF in production (default false). An admin-stored
       # `feature.orgs.enabled` setting overrides this; while off, /api/orgs/** answers 404.
       - ORGS_ENABLED=${ORGS_ENABLED:-false}

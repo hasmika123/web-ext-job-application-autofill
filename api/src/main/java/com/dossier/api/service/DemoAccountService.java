@@ -116,6 +116,7 @@ public class DemoAccountService {
     private final TrackerDataService trackerData;
     private final com.dossier.api.service.jobs.DemoJobSeeder jobSeeder;
     private final DemoOrgSeeder orgSeeder;
+    private final ResumeBuilderDataService resumeBuilderData;
     private final ObjectMapper objectMapper;
 
     private final String demoPassword;
@@ -146,6 +147,7 @@ public class DemoAccountService {
         TrackerDataService trackerData,
         com.dossier.api.service.jobs.DemoJobSeeder jobSeeder,
         DemoOrgSeeder orgSeeder,
+        ResumeBuilderDataService resumeBuilderData,
         ObjectMapper objectMapper,
         @Value("${dossier.demo.password:kiwiply-demo}") String demoPassword,
         @Value("${dossier.demo.enabled:false}") boolean enabled
@@ -173,6 +175,7 @@ public class DemoAccountService {
         this.trackerData = trackerData;
         this.jobSeeder = jobSeeder;
         this.orgSeeder = orgSeeder;
+        this.resumeBuilderData = resumeBuilderData;
         this.objectMapper = objectMapper;
         // A blank DEMO_PASSWORD (the production default) means "no usable password": a random one per boot,
         // so the only way into a demo account is the one-click login, never a typed password.
@@ -188,6 +191,11 @@ public class DemoAccountService {
 
     /** True when {@code login} is one of the fixed demo logins (case-insensitive). */
     public boolean isDemo(String login) {
+        return isDemoLogin(login);
+    }
+
+    /** Static form of {@link #isDemo}, for beans that must not depend on this service (it would be a cycle). */
+    public static boolean isDemoLogin(String login) {
         if (login == null) {
             return false;
         }
@@ -326,6 +334,11 @@ public class DemoAccountService {
         // Applications reference resumes, so they go first (their events, notes and interviews before them).
         trackerData.deleteAllForUser(id);
         applicationRepository.deleteAll(applicationRepository.findByUserId(id));
+        // Everything the sandbox lets a visitor make (Resume Builder docs, versions, AI proposals, share links and
+        // their view events, profile items, onboarding draft, and every file under the user's storage prefixes).
+        // Scoped to this demo user id only; before the resumes, like account deletion.
+        resumeBuilderData.deleteAllForUser(id);
+        resumeBuilderData.deleteSharingAsViewer(user.getLogin());
         List<Resume> resumes = resumeRepository.findByUserId(id);
         for (Resume resume : resumes) {
             String key = resume.getr2ObjectKey();
