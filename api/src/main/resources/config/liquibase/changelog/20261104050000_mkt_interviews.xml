@@ -5,8 +5,98 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-        Marketing workspace (interviews) tables. Owned by the interviews page ONLY; empty until that page adds its own changeSets.
+        Marketing workspace (interviews) tables. Owned by the interviews page ONLY.
         Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
-        table names prefixed mkt_). Never edit another page's changelog.
+        table names prefixed mkt_). They hang off talent_interview (the interview slot) and never change its meaning:
+          mkt_interview_meta      what the board needs beyond the slot: type, recruiter, coordination status, feedback due, reschedules
+          mkt_interview_prep_item the Preparation Checklist, created lazily (six default items) the first time an interview's list is read
+          mkt_interview_feedback  what the marketer recorded after the interview
+          mkt_interview_event     append-only record of what the marketer did (reschedule proposed, slot confirmed, reminder requested, feedback)
+        E1: these rows RECORD and PROPOSE; the consultant confirms and attends. No sensitive PII (names live in the existing tables).
     -->
+
+    <!-- Tenant-FK target: talent_interview had no (org_id, id) unique key yet; additive and harmless. -->
+    <changeSet id="mkt-interviews-0-uk_talent_interview_org_id" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="talent_interview" indexName="uk_talent_interview_org_id"/></not></preConditions>
+        <addUniqueConstraint tableName="talent_interview" columnNames="org_id, id" constraintName="uk_talent_interview_org_id"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="mkt-interviews-1-mkt_interview_meta" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_interview_meta"/></not></preConditions>
+        <createTable tableName="mkt_interview_meta">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_type" type="varchar(20)" defaultValue="VIDEO"><constraints nullable="false"/></column>
+            <column name="recruiter_name" type="varchar(120)"/>
+            <column name="coordination_status" type="varchar(30)" defaultValue="SCHEDULED"><constraints nullable="false"/></column>
+            <column name="feedback_due_at" type="${datetimeType}"/>
+            <column name="reschedule_count" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="proposed_for" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_interview_meta" baseColumnNames="org_id" constraintName="fk_mkt_interview_meta_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_interview_meta" baseColumnNames="org_id, interview_id" constraintName="fk_mkt_interview_meta_interview" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_interview_meta" columnNames="org_id, interview_id" constraintName="uk_mkt_interview_meta_interview"/>
+        <addUniqueConstraint tableName="mkt_interview_meta" columnNames="org_id, id" constraintName="uk_mkt_interview_meta_org_id"/>
+        <createIndex tableName="mkt_interview_meta" indexName="ix_mkt_interview_meta_status"><column name="org_id"/><column name="coordination_status"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="mkt-interviews-2-mkt_interview_prep_item" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_interview_prep_item"/></not></preConditions>
+        <createTable tableName="mkt_interview_prep_item">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="done" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="done_at" type="${datetimeType}"/>
+            <column name="position" type="smallint"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_interview_prep_item" baseColumnNames="org_id" constraintName="fk_mkt_interview_prep_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_interview_prep_item" baseColumnNames="org_id, interview_id" constraintName="fk_mkt_interview_prep_interview" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_interview_prep_item" columnNames="org_id, interview_id, position" constraintName="uk_mkt_interview_prep_position"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="mkt-interviews-3-mkt_interview_feedback" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_interview_feedback"/></not></preConditions>
+        <createTable tableName="mkt_interview_feedback">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="recorded_by_member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="outcome" type="varchar(20)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(2000)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_interview_feedback" baseColumnNames="org_id" constraintName="fk_mkt_interview_feedback_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_interview_feedback" baseColumnNames="org_id, interview_id" constraintName="fk_mkt_interview_feedback_interview" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_interview_feedback" baseColumnNames="org_id, recorded_by_member_id" constraintName="fk_mkt_interview_feedback_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="mkt_interview_feedback" indexName="ix_mkt_interview_feedback_interview"><column name="org_id"/><column name="interview_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="mkt-interviews-4-mkt_interview_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_interview_event"/></not></preConditions>
+        <createTable tableName="mkt_interview_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(400)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_interview_event" baseColumnNames="org_id" constraintName="fk_mkt_interview_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_interview_event" baseColumnNames="org_id, interview_id" constraintName="fk_mkt_interview_event_interview" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_interview_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_mkt_interview_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="mkt_interview_event" indexName="ix_mkt_interview_event_kind"><column name="org_id"/><column name="kind"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="mkt_interview_event" indexName="ix_mkt_interview_event_interview"><column name="org_id"/><column name="interview_id"/></createIndex>
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>
