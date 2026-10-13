@@ -21,16 +21,10 @@ export { KanbanBoard, WorkloadColumn, TimelineFeed, mergeTimeline, capacityDots 
 export type { KanbanBoardProps, KanbanColumn, WorkloadColumnProps, WorkloadItem, TimelineFeedProps, TimelineEvent, TimelineSource } from "./boards";
 export { FunnelChart, SourceLogo, funnelWidths, FUNNEL_COLORS } from "./funnel";
 export type { FunnelStage } from "./funnel";
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 export { StackedBarChart, stackTotals } from "./stacked-bars";
 export type { StackedBarChartProps, StackedSeries } from "./stacked-bars";
 export { DatabaseIcon, FolderIcon } from "./stream-icons";
 export type { StreamIconProps } from "./stream-icons";
-=======
 export { HourglassIcon, TeamsIcon } from "./followup-icons";
->>>>>>> mkt-followups
-=======
 export { CodeBracketsIcon } from "./interviewIcons";
->>>>>>> mkt-interviews
