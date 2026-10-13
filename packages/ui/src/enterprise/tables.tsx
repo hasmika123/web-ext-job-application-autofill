@@ -11,7 +11,7 @@ import { TableSkeleton } from "../primitives/ListSkeleton";
 import Menu from "../primitives/Menu";
 import type { MenuEntry } from "../primitives/Menu";
 import Select from "../primitives/Select";
-import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, MoreVerticalIcon, SearchIcon } from "../primitives/icons";
+import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, MoreHorizontalIcon, MoreVerticalIcon, SearchIcon } from "../primitives/icons";
 import { cn } from "../primitives/cn";
 import { useNarrow } from "./sheets";
 
@@ -179,6 +179,10 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   /** The row's actions menu (a kebab); omit for none. */
   rowActions?: (row: T) => MenuEntry[];
+  /** Visible text for the actions column header (default: screen-reader only). */
+  actionsHeader?: ReactNode;
+  /** Kebab orientation of the row menu (default vertical). */
+  actionsIcon?: "vertical" | "horizontal";
   sort?: { key: string; dir: SortDir } | null;
   onSort?: (key: string) => void;
   /** 1-based page and how many there are; the pager shows when more than one. */
@@ -228,6 +232,8 @@ export function DataTable<T>({
   hasFilters,
   onRowClick,
   rowActions,
+  actionsHeader,
+  actionsIcon = "vertical",
   sort,
   onSort,
   page = 1,
@@ -319,8 +325,8 @@ export function DataTable<T>({
                 );
               })}
               {rowActions && (
-                <th scope="col" className="w-10 px-2">
-                  <span className="sr-only">Actions</span>
+                <th scope="col" className={cn("px-2", actionsHeader ? "w-20 text-center" : "w-10")}>
+                  <span className={actionsHeader ? undefined : "sr-only"}>{actionsHeader ?? "Actions"}</span>
                 </th>
               )}
             </tr>
@@ -340,11 +346,11 @@ export function DataTable<T>({
                   </td>
                 ))}
                 {rowActions && (
-                  <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className={cn("px-2", actionsHeader ? "text-center" : "text-right")} onClick={(e) => e.stopPropagation()}>
                     <Menu
                       trigger={
                         <IconButton aria-label="Row actions" title="Row actions">
-                          <MoreVerticalIcon size={16} />
+                          {actionsIcon === "horizontal" ? <MoreHorizontalIcon size={16} /> : <MoreVerticalIcon size={16} />}
                         </IconButton>
                       }
                       items={rowActions(row)}

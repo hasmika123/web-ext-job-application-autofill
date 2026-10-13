@@ -1,32 +1,34 @@
 "use client";
 
 import { useState } from "react";
-import { SparklesIcon } from "@kiwiply/ui";
+import { ChevronRightIcon, SparklesIcon } from "@kiwiply/ui";
 import { HelpPanel } from "@/components/ent/shell/HelpCard";
-import { EnterpriseMascot } from "@/lib/ent/mascot";
+import { ENT_MASCOT_BASE } from "@/lib/ent/mascot";
 
 /** "Need help with invitations?": the bee, one line of what it can help with, and "Ask a question..." (opens the shell's help panel). */
 export default function HelpInvitesCard({ orgName, supportEmail, bee }: { orgName: string; supportEmail?: string | null; bee: boolean }) {
   const [open, setOpen] = useState(false);
   return (
-    <section aria-labelledby="inv-help-h" data-invitation-help className="flex min-w-0 items-center gap-4 overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper p-4 sm:p-5">
+    <section aria-labelledby="inv-help-h" data-invitation-help className="inv-card flex min-w-0 items-center gap-4 overflow-hidden p-4 sm:p-5">
       {bee && (
-        <div className="hidden flex-none rounded-2xl bg-accent-soft px-3 pt-3 sm:block">
-          <EnterpriseMascot pose="greet" size="lg" />
+        <div aria-hidden className="hidden h-[190px] w-[200px] flex-none items-end justify-center overflow-hidden rounded-2xl bg-gradient-to-b from-accent-soft to-paper sm:flex xl:w-[250px]">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a fixed static bee plate */}
+          <img src={`${ENT_MASCOT_BASE}/typing.png`} alt="" width={182} height={199} className="h-[176px] w-auto" />
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <h2 id="inv-help-h" className="text-[17px] font-bold text-ink">
+        <h2 id="inv-help-h" className="text-[19px] font-bold leading-tight text-ink">
           Need help with invitations?
         </h2>
-        <p className="mt-1 text-[13px] leading-snug text-muted">I can help you invite team members, resend invitations, manage permissions, or answer any questions about user access.</p>
+        <p className="mt-2 text-[14.5px] leading-snug text-ink-soft">I can help you invite team members, resend invitations, manage permissions, or answer any questions about user access.</p>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-xl border border-line bg-accent-soft/50 px-3 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:min-h-10"
+          className="mt-4 flex min-h-11 w-full items-center gap-2.5 rounded-xl border border-accent/25 bg-accent-soft/60 px-3.5 text-left text-[15px] font-semibold text-accent-deep hover:bg-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:min-h-11"
         >
-          <SparklesIcon aria-hidden size={16} className="flex-none" />
+          <SparklesIcon aria-hidden size={20} className="flex-none text-accent" />
           <span className="min-w-0 flex-1 truncate">Ask a question...</span>
+          <ChevronRightIcon aria-hidden size={18} className="flex-none text-accent" />
         </button>
       </div>
       <HelpPanel open={open} onClose={() => setOpen(false)} orgName={orgName} supportEmail={supportEmail} />
