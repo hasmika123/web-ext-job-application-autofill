@@ -32,7 +32,7 @@ const TILES: TileDef[] = [
  */
 export default function KpiTiles({ counts, loading, error, action }: { counts: MemberCounts | null; loading: boolean; error: boolean; compact?: boolean; action?: ReactNode }) {
   return (
-    <ul aria-label="Employee figures" className="grid grid-cols-2 gap-3.5 md:grid-cols-3 xl:grid-cols-6" data-kpi-tiles>
+    <ul aria-label="Employee figures" className="grid grid-cols-2 gap-3.5 md:grid-cols-3 xl:grid-cols-[repeat(5,minmax(0,1fr))_minmax(0,1.35fr)]" data-kpi-tiles>
       {TILES.map((t) => {
         const tile: Tile | null = counts ? counts[t.key] : null;
         const delta = tileDelta(tile);

@@ -409,7 +409,7 @@ export default function EmployeesPage({ orgId, orgName, workspace, selfMemberId,
           <div className="space-y-2">
             <FilterBar
               compact
-              className="flex-nowrap max-sm:flex-wrap [&>div:first-child]:sm:!w-auto [&>div:first-child]:sm:min-w-0 [&>div:first-child]:sm:flex-1 [&>div:first-child_input]:!rounded-[10px] [&>div:first-child_input]:!border-brand-border [&>div:first-child_input]:!bg-accent-soft/40 [&>div:not(:first-child)]:sm:!w-[9.75rem] [&_button[aria-haspopup]]:!rounded-[10px]"
+              className="flex-nowrap max-sm:flex-wrap [&>div:first-child]:sm:!w-auto [&>div:first-child]:sm:min-w-0 [&>div:first-child]:sm:flex-1 [&>div:first-child_input]:!rounded-[10px] [&>div:first-child_input]:!border-brand-border [&>div:first-child_input]:!bg-accent-soft/40 [&>div:not(:first-child)]:sm:!w-auto [&>div:not(:first-child)]:sm:min-w-[7.5rem] [&_button[aria-haspopup]]:!rounded-[10px] [&_button[aria-haspopup]]:!pl-3 [&_button[aria-haspopup]]:!pr-8 [&_button[aria-haspopup]]:!text-[13.5px]"
               query={query.q}
               onQueryChange={(q) => change({ q })}
               values={filterValues}
@@ -417,7 +417,7 @@ export default function EmployeesPage({ orgId, orgName, workspace, selfMemberId,
               search={{ placeholder: "Search employees by name, email, role, or department...", label: "Search employees" }}
               filters={filters}
               actions={
-                <Button type="button" variant="ghost" size="sm" className="!h-10 !rounded-[10px] border border-line !px-4 !text-[14px] !font-medium" aria-expanded={moreOpen} onClick={() => { setMoreOpen((o) => !o); void loadManagers(); }} data-more-filters>
+                <Button type="button" variant="ghost" size="sm" className="!h-10 !rounded-[10px] border border-line !px-3 !text-[13.5px] !font-medium" aria-expanded={moreOpen} onClick={() => { setMoreOpen((o) => !o); void loadManagers(); }} data-more-filters>
                   <FilterIcon size={15} aria-hidden /> More Filters{query.managerId ? " (1)" : ""}
                 </Button>
               }

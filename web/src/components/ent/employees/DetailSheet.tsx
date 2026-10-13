@@ -70,7 +70,7 @@ export interface DetailSheetProps {
 
 function Field({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[1.5rem_5.25rem_1fr] items-center gap-x-2.5 py-[7px] text-[14px]">
+    <div className="grid grid-cols-[1.5rem_5rem_1fr] items-center gap-x-2.5 py-[7px] text-[14px]">
       <span aria-hidden className="text-ink-soft">{icon}</span>
       <dt className="text-ink-soft">{label}</dt>
       <dd className="min-w-0 text-ink">{children}</dd>
@@ -152,9 +152,9 @@ export function TitleField({ detail, canEdit, save, inputRef }: { detail: Member
         placeholder="Add a job title"
         aria-label="Job title"
         aria-invalid={status === "error" ? true : undefined}
-        className="h-9"
+        className="!h-7 !border-transparent !bg-transparent !px-0 !text-[14px] !shadow-none hover:!bg-paper-2 focus:!bg-paper focus:!px-2"
       />
-      <p className="mt-0.5 min-h-4 text-[12px]" aria-live="polite" data-title-status={status}>
+      <p className="text-[12px] empty:hidden" aria-live="polite" data-title-status={status}>
         {status === "saving" && <span className="text-muted">Saving{"…"}</span>}
         {status === "saved" && <span className="text-accent-deep">Saved {"✓"}</span>}
         {status === "error" && (
@@ -168,6 +168,7 @@ export function TitleField({ detail, canEdit, save, inputRef }: { detail: Member
 }
 
 const NONE = "__none";
+const GHOST = "!min-h-0 !h-7 !border-transparent !bg-transparent !pl-0 !pr-6 !text-[14px] !shadow-none hover:!bg-paper-2 hover:!pl-2";
 const TAB_CLS = "!text-[14px] !font-medium aria-selected:!text-accent aria-selected:!border-accent";
 
 function Overview({ detail, save, onSaved, groups, loadManagers, onCancelScheduled, titleRef }: { detail: MemberDetail; save: (b: PatchBody) => Promise<SaveResult>; onSaved: (d: MemberDetail) => void; groups: GroupOption[]; loadManagers: () => Promise<PersonRef[]>; onCancelScheduled: DetailSheetProps["onCancelScheduled"]; titleRef: RefObject<HTMLInputElement | null> }) {
@@ -197,26 +198,23 @@ function Overview({ detail, save, onSaved, groups, loadManagers, onCancelSchedul
   return (
     <div data-tab-panel="overview">
       <dl>
-        <Field icon={<PencilIcon size={18} />} label="Job title">
-          <TitleField detail={detail} canEdit={canEdit} save={save} inputRef={titleRef} />
-        </Field>
         <Field icon={<BuildingIcon size={18} />} label="Department">
           {canEdit ? (
-            <Select aria-label="Department" value={detail.department ? String(detail.department.id) : NONE} onChange={(v) => void patch({ departmentGroupId: v === NONE ? null : Number(v) })} options={[{ value: NONE, label: "No department" }, ...depts.map((g) => ({ value: String(g.id), label: g.name }))]} />
+            <Select className={GHOST} aria-label="Department" value={detail.department ? String(detail.department.id) : NONE} onChange={(v) => void patch({ departmentGroupId: v === NONE ? null : Number(v) })} options={[{ value: NONE, label: "No department" }, ...depts.map((g) => ({ value: String(g.id), label: g.name }))]} />
           ) : (
             detail.department?.name ?? <span className="text-muted">None</span>
           )}
         </Field>
         <Field icon={<UsersIcon size={18} />} label="Team">
           {canEdit ? (
-            <Select aria-label="Team" value={detail.team ? String(detail.team.id) : NONE} onChange={(v) => void patch({ teamGroupId: v === NONE ? null : Number(v) })} options={[{ value: NONE, label: "No team" }, ...teams.map((g) => ({ value: String(g.id), label: g.name }))]} />
+            <Select className={GHOST} aria-label="Team" value={detail.team ? String(detail.team.id) : NONE} onChange={(v) => void patch({ teamGroupId: v === NONE ? null : Number(v) })} options={[{ value: NONE, label: "No team" }, ...teams.map((g) => ({ value: String(g.id), label: g.name }))]} />
           ) : (
             detail.team?.name ?? <span className="text-muted">None</span>
           )}
         </Field>
         <Field icon={<UserIcon size={18} />} label="Manager">
           {canEdit ? (
-            <Select aria-label="Manager" value={detail.manager ? String(detail.manager.memberId) : NONE} onChange={(v) => void patch({ managerMemberId: v === NONE ? null : Number(v) })} options={mgrOptions} />
+            <Select className={GHOST} aria-label="Manager" value={detail.manager ? String(detail.manager.memberId) : NONE} onChange={(v) => void patch({ managerMemberId: v === NONE ? null : Number(v) })} options={mgrOptions} />
           ) : detail.manager ? (
             <span className="flex items-center gap-2.5 font-semibold">
               <MemberAvatar name={detail.manager.name} size={30} src={detail.manager.avatarUrl} />
@@ -227,7 +225,10 @@ function Overview({ detail, save, onSaved, groups, loadManagers, onCancelSchedul
           )}
         </Field>
         <Field icon={<CalendarIcon size={18} />} label="Joined">
-          {joinedText(detail.joinedAt) || <span className="text-muted">Not yet</span>}
+          <span className="text-[13px]">{joinedText(detail.joinedAt) || <span className="text-muted">Not yet</span>}</span>
+        </Field>
+        <Field icon={<PencilIcon size={18} />} label="Job title">
+          <TitleField detail={detail} canEdit={canEdit} save={save} inputRef={titleRef} />
         </Field>
         {detail.lastActiveAt && (
           <Field icon={<ClockIcon size={18} />} label="Last active">
@@ -453,7 +454,7 @@ export default function DetailSheet(p: DetailSheetProps) {
             p.onClose();
           }
         }}
-        className="sticky top-4 ml-4 max-h-[calc(100dvh-2rem)] w-[336px] shrink-0 self-start overflow-y-auto rounded-2xl border border-line bg-paper p-4 shadow-[0_1px_3px_rgba(16,24,64,.06)]"
+        className="sticky top-4 ml-4 max-h-[calc(100dvh-2rem)] w-[316px] shrink-0 self-start overflow-y-auto rounded-2xl border border-line bg-paper p-4 shadow-[0_1px_3px_rgba(16,24,64,.06)]"
       >
         <button
           type="button"

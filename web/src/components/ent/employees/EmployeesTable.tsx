@@ -21,7 +21,7 @@ export interface TableProps {
   compact?: boolean;
 }
 
-const HEAD = "px-3 py-3 text-left text-[13px] font-bold text-ink";
+const HEAD = "px-2.5 py-3 text-left text-[13px] font-bold text-ink";
 
 function SortHead({ label, k, sort, onSort, className }: { label: string; k: SortKey; sort: TableProps["sort"]; onSort: TableProps["onSort"]; className?: string }) {
   const active = sort.key === k;
@@ -107,21 +107,21 @@ export function EmployeesTable(p: TableProps) {
 
   return (
     <div className="overflow-x-auto rounded-xl border border-line bg-paper">
-      <table aria-label="Employees" className="w-full border-collapse text-[14px]" data-employee-table>
+      <table aria-label="Employees" className="w-full border-collapse text-[13.5px]" data-employee-table>
         <thead className="border-b border-line bg-paper">
           <tr>
-            <th scope="col" className="w-11 px-3 py-3">
+            <th scope="col" className="w-10 px-2.5 py-3">
               <Check checked={allOn} indeterminate={someOn} onChange={p.onTogglePage} label="Select all employees on this page" />
             </th>
             <SortHead label="Employee" k="name" sort={p.sort} onSort={p.onSort} />
             <th scope="col" className={HEAD}>Role</th>
             <th scope="col" className={`${HEAD} hidden lg:table-cell`}>Department</th>
             <th scope="col" className={`${HEAD} hidden xl:table-cell`}>Team</th>
-            <th scope="col" className={`${HEAD} hidden lg:table-cell`}>Manager</th>
+            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>Manager</th>
             <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} />
             <SortHead label="Joined" k="joined" sort={p.sort} onSort={p.onSort} className="hidden md:table-cell" />
             <SortHead label="Last active" k="lastActive" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden 2xl:table-cell"} />
-            <th scope="col" className="w-20 px-2 py-3 text-center text-[13px] font-bold text-ink">
+            <th scope="col" className="w-16 px-1 py-3 text-center text-[13px] font-bold text-ink">
               Actions
             </th>
           </tr>
@@ -144,25 +144,25 @@ export function EmployeesTable(p: TableProps) {
                 }}
                 className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open || p.selected.has(r.id) ? "bg-accent-soft/70" : "hover:bg-paper-2/60"}`}
               >
-                <td className="w-11 px-3 py-[7px]">
+                <td className="w-10 px-2.5 py-[6px]">
                   <Check checked={p.selected.has(r.id)} onChange={() => p.onToggle(r.id)} label={`Select ${r.name}`} />
                 </td>
-                <td className="min-w-[12rem] px-3 py-[7px]">
-                  <PersonCell name={r.name} avatarName={r.name} src={r.avatarUrl} sub={subOf(r)} size={40} />
+                <td className="min-w-[10rem] px-2.5 py-[6px]">
+                  <PersonCell name={r.name} avatarName={r.name} src={r.avatarUrl} sub={subOf(r)} size={38} />
                 </td>
-                <td className="max-w-[14rem] px-3 py-[7px]">
-                  <RoleChips roles={r.roles} max={1} />
+                <td className="max-w-[11.5rem] overflow-hidden whitespace-nowrap px-2.5 py-[6px]">
+                  <RoleChips roles={r.roles} max={1} className="!flex-nowrap" />
                 </td>
-                <td className={`max-w-[10rem] truncate px-3 py-[7px] text-ink-soft hidden lg:table-cell`}>{r.department?.name ?? "—"}</td>
-                <td className={`max-w-[10rem] truncate px-3 py-[7px] text-ink-soft hidden xl:table-cell`}>{r.team?.name ?? "—"}</td>
-                <td className="hidden px-3 py-[7px] lg:table-cell">
+                <td className={`max-w-[10rem] truncate px-2.5 py-[6px] text-ink-soft hidden lg:table-cell`}>{r.department?.name ?? "—"}</td>
+                <td className={`max-w-[10rem] truncate px-2.5 py-[6px] text-ink-soft hidden xl:table-cell`}>{r.team?.name ?? "—"}</td>
+                <td className={`px-2.5 py-[6px] ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>
                   <ManagerCell manager={r.manager} />
                 </td>
-                <td className="px-3 py-[7px]">
+                <td className="px-2.5 py-[6px]">
                   <MemberStatusPill status={r.status} />
                 </td>
-                <td className="hidden whitespace-nowrap px-3 py-[7px] text-ink-soft md:table-cell">{formatDate(r.joinedAt) || "—"}</td>
-                <td className={`whitespace-nowrap px-3 py-[7px] text-ink-soft ${p.compact ? "hidden" : "hidden 2xl:table-cell"}`}>{r.lastActiveAt ? relativeTime(r.lastActiveAt) : "—"}</td>
+                <td className="hidden whitespace-nowrap px-2.5 py-[6px] text-ink-soft md:table-cell">{formatDate(r.joinedAt) || "—"}</td>
+                <td className={`whitespace-nowrap px-2.5 py-[6px] text-ink-soft ${p.compact ? "hidden" : "hidden 2xl:table-cell"}`}>{r.lastActiveAt ? relativeTime(r.lastActiveAt) : "—"}</td>
                 <td className="px-2 text-center" onClick={(e) => e.stopPropagation()}>
                   <Kebab items={p.rowMenu(r)} />
                 </td>
