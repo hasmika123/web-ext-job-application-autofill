@@ -1,0 +1,248 @@
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+import { Button, MemberAvatar, Select, SheetFrame, Skeleton, cn } from "@kiwiply/ui";
+import { relativeTime } from "@/lib/ent/dashboard";
+import {
+  INTEREST_LABELS, fetchDetail, fetchOptions, fetchReady, matchTone, nextActionText,
+  type Detail, type JobOption, type Opportunity, type Option,
+} from "@/lib/ent/marketer-ws/opportunities";
+import { INTEREST_TONE, ResumeBadge } from "./bits";
+
+/**
+ * The dialogs of the Opportunities board. E1: every button here prepares or requests; nothing answers for a consultant or submits for one.
+ * The caller (the page) owns the network calls so the toast and the reload stay in one place.
+ */
+
+const Section = ({ title, children }: { title: string; children: ReactNode }) => (
+  <section className="mt-4">
+    <h3 className="mb-1.5 text-[12.5px] font-semibold uppercase tracking-wide text-muted">{title}</h3>
+    {children}
+  </section>
+);
+
+const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
+  <div className="min-w-0">
+    <dt className="text-[12px] text-muted">{label}</dt>
+    <dd className="truncate text-[13.5px] font-semibold text-ink">{children}</dd>
+  </div>
+);
+
+/** Review (the marketer looks the opportunity over) and Compare (the same consultant's other open opportunities). */
+export function DetailDialog({ orgId, id, mode, onClose, onReview, busy }: { orgId: number; id: number | null; mode: "REVIEW" | "COMPARE"; onClose: () => void; onReview: (id: number) => void; busy: boolean }) {
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (id === null) return;
+    let live = true;
+    void fetchDetail(orgId, id).then((d) => {
+      if (!live) return;
+      setDetail(d);
+      setFailed(d === null);
+    });
+    return () => {
+      live = false;
+      setDetail(null);
+      setFailed(false);
+    };
+  }, [orgId, id]);
+  const o = detail?.item;
+  const alts = detail?.alternatives ?? [];
+  const evts = detail?.events ?? [];
+  const [now] = useState(() => Date.now());
+  return (
+    <SheetFrame id="opp-detail" open={id !== null} onClose={onClose} title={mode === "COMPARE" ? "Compare opportunities" : "Review opportunity"}>
+      <div data-opp-dialog={mode.toLowerCase()} className="min-w-0">
+        {failed ? (
+          <p className="py-6 text-center text-[13.5px] text-muted">This opportunity couldn&apos;t be loaded. It may have been closed.</p>
+        ) : !o ? (
+          <div aria-busy="true" className="flex flex-col gap-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-24 w-full" /></div>
+        ) : (
+          <>
+            <p className="flex items-center gap-2.5 text-[15px] font-bold text-ink">
+              <MemberAvatar name={o.consultant.name} src={o.consultant.avatarUrl} size={36} />
+              <span className="min-w-0 truncate">{o.consultant.name}</span>
+            </p>
+            <p className="mt-1 text-[13.5px] text-ink-soft">{o.jobTitle} at {o.client}{o.location ? ` - ${o.location}` : ""}</p>
+            <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
+              <Fact label="Match score"><MatchChip pct={o.matchScore} /></Fact>
+              <Fact label="Consultant interest"><span className={cn("inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[12.5px]", INTEREST_TONE[o.interest].pill)}><span aria-hidden className={cn("h-2 w-2 rounded-full", INTEREST_TONE[o.interest].dot)} />{INTEREST_LABELS[o.interest]}</span></Fact>
+              <Fact label="Resume"><ResumeBadge state={o.resumeStatus} /></Fact>
+              <Fact label="Owner">{o.owner?.name ?? "-"}</Fact>
+              <Fact label="Next action">{nextActionText(o.nextActionAt, now)}</Fact>
+              <Fact label="Status">{o.status === "ASSIGNED" ? "Assigned" : "Suggested"}</Fact>
+            </dl>
+            {o.reason ? <p className="mt-3 text-[13px] text-muted">Why it matches: {o.reason}</p> : null}
+
+            {mode === "COMPARE" || alts.length > 0 ? (
+              <Section title={`${o.consultant.name}'s other open opportunities`}>
+                {alts.length === 0 ? (
+                  <p className="text-[13.5px] text-muted">No other open opportunities for this consultant.</p>
+                ) : (
+                  <ul className="flex flex-col">
+                    {alts.map((a) => (
+                      <li key={a.id} data-compare-row={a.id} className="flex items-center gap-2 border-b border-line py-1.5 text-[13px] last:border-0">
+                        <span className="min-w-0 flex-1 truncate"><b className="text-ink">{a.jobTitle}</b> <span className="text-muted">{a.client}</span></span>
+                        <MatchChip pct={a.matchScore} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Section>
+            ) : null}
+
+            <Section title="Timeline">
+              {evts.length === 0 ? (
+                <p className="text-[13.5px] text-muted">Nothing has happened on this opportunity yet.</p>
+              ) : (
+                <ul className="flex flex-col">
+                  {evts.map((e) => (
+                    <li key={e.id} className="flex items-baseline gap-2 border-b border-line py-1.5 text-[13px] last:border-0">
+                      <span className="min-w-0 flex-1 truncate text-ink">{e.consultant} {e.text}</span>
+                      <span className="flex-none text-[12px] text-muted">{relativeTime(e.at, now)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
+              <Button size="sm" disabled={busy} onClick={() => onReview(o.id)}>Mark as reviewed</Button>
+            </div>
+          </>
+        )}
+      </div>
+    </SheetFrame>
+  );
+}
+
+export function MatchChip({ pct }: { pct: number }) {
+  return <span className={cn("inline-block rounded-full px-2.5 py-0.5 text-[12px] font-bold", matchTone(pct) === "green" ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-amber-soft text-v2-amber-ink")}>{pct}%</span>;
+}
+
+/** Add Opportunity: a consultant (in the caller's scope) and an open job become a SUGGESTED opportunity. */
+export function AddDialog({ orgId, open, onClose, onCreate, busy }: { orgId: number; open: boolean; onClose: () => void; onCreate: (consultantId: number, requirementId: number) => void; busy: boolean }) {
+  const [opts, setOpts] = useState<{ consultants: Option[]; jobs: JobOption[] } | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [consultant, setConsultant] = useState("");
+  const [job, setJob] = useState("");
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    void fetchOptions(orgId).then((o) => {
+      if (!live) return;
+      setOpts(o);
+      setFailed(o === null);
+    });
+    return () => {
+      live = false;
+      setOpts(null);
+      setFailed(false);
+      setConsultant("");
+      setJob("");
+    };
+  }, [orgId, open]);
+  return (
+    <SheetFrame id="opp-add" open={open} onClose={onClose} title="Add opportunity">
+      <div data-opp-dialog="add" className="min-w-0">
+        {failed ? (
+          <p className="py-6 text-center text-[13.5px] text-muted">The consultants and jobs couldn&apos;t be loaded.</p>
+        ) : !opts ? (
+          <div aria-busy="true" className="flex flex-col gap-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
+        ) : (
+          <>
+            <p className="mb-3 text-[13px] text-muted">The consultant is not contacted until you assign it. Suggested opportunities start with no answer from the consultant.</p>
+            <label className="mb-1 block text-[13px] font-semibold text-ink-soft" htmlFor="opp-add-consultant">Consultant</label>
+            <Select id="opp-add-consultant" aria-label="Consultant" value={consultant} onChange={setConsultant} placeholder="Choose a consultant" options={opts.consultants.map((c) => ({ value: String(c.id), label: c.name }))} />
+            <label className="mb-1 mt-3 block text-[13px] font-semibold text-ink-soft" htmlFor="opp-add-job">Job</label>
+            <Select id="opp-add-job" aria-label="Job" value={job} onChange={setJob} placeholder="Choose an open job" options={opts.jobs.map((j) => ({ value: String(j.id), label: `${j.title} - ${j.client}` }))} />
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+              <Button size="sm" disabled={busy || !consultant || !job} onClick={() => onCreate(Number(consultant), Number(job))}>Add opportunity</Button>
+            </div>
+          </>
+        )}
+      </div>
+    </SheetFrame>
+  );
+}
+
+/** Bulk Assign: the ready opportunities (suggested, resume up to date), each can be ticked off. Assigning asks the consultant; it never answers for them. */
+export function BulkDialog({ orgId, open, onClose, onAssign, busy }: { orgId: number; open: boolean; onClose: () => void; onAssign: (ids: number[]) => void; busy: boolean }) {
+  const [rows, setRows] = useState<Opportunity[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (!open) return;
+    let live = true;
+    void fetchReady(orgId).then((r) => {
+      if (!live) return;
+      setRows(r);
+      setFailed(r === null);
+      setPicked(new Set((r ?? []).map((x) => x.id)));
+    });
+    return () => {
+      live = false;
+      setRows(null);
+      setFailed(false);
+    };
+  }, [orgId, open]);
+  const toggle = (id: number) => setPicked((p) => {
+    const n = new Set(p);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    return n;
+  });
+  return (
+    <SheetFrame id="opp-bulk" open={open} onClose={onClose} title="Bulk assign opportunities">
+      <div data-opp-dialog="bulk" className="min-w-0">
+        {failed ? (
+          <p className="py-6 text-center text-[13.5px] text-muted">The ready opportunities couldn&apos;t be loaded.</p>
+        ) : !rows ? (
+          <div aria-busy="true" className="flex flex-col gap-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
+        ) : rows.length === 0 ? (
+          <p className="py-6 text-center text-[13.5px] text-muted">Nothing is ready to assign yet.</p>
+        ) : (
+          <>
+            <p className="mb-2 text-[13px] text-muted">Each consultant is asked for their interest once assigned. Nothing is submitted for them.</p>
+            <ul className="max-h-[50vh] overflow-y-auto">
+              {rows.map((r) => (
+                <li key={r.id} className="border-b border-line last:border-0">
+                  <label className="flex cursor-pointer items-center gap-2.5 py-2 text-[13px]">
+                    <input type="checkbox" checked={picked.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Assign ${r.jobTitle} to ${r.consultant.name}`} className="h-4 w-4 flex-none rounded border-line" />
+                    <span className="min-w-0 flex-1 truncate"><b className="text-ink">{r.consultant.name}</b> <span className="text-ink-soft">{r.jobTitle}, {r.client}</span></span>
+                    <MatchChip pct={r.matchScore} />
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+              <Button size="sm" disabled={busy || picked.size === 0} onClick={() => onAssign([...picked])}>Assign {picked.size}</Button>
+            </div>
+          </>
+        )}
+      </div>
+    </SheetFrame>
+  );
+}
+
+/** Send Opportunity Notifications: ask everyone who has not answered. A request only. */
+export function NotifyDialog({ open, count, onClose, onSend, busy }: { open: boolean; count: number; onClose: () => void; onSend: () => void; busy: boolean }) {
+  return (
+    <SheetFrame id="opp-notify" open={open} onClose={onClose} title="Send opportunity notifications">
+      <div data-opp-dialog="notify" className="min-w-0">
+        <p className="text-[13.5px] text-ink-soft">
+          {count > 0
+            ? `${count} assigned ${count === 1 ? "opportunity is" : "opportunities are"} waiting for the consultant's answer. Ask them for their interest now? They answer on their own workspace; consultants asked in the last 24 hours are skipped.`
+            : "No assigned opportunity is waiting for a consultant's answer."}
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" disabled={busy || count === 0} onClick={onSend}>Send requests</Button>
+        </div>
+      </div>
+    </SheetFrame>
+  );
+}
