@@ -200,7 +200,8 @@ public class DemoAccountService {
             return false;
         }
         String lower = login.trim().toLowerCase(Locale.ENGLISH);
-        return ACCOUNTS.stream().anyMatch(a -> a.login().equals(lower));
+        // X1.12: the Enterprise V2 demo members (seeded only when ENT_DEMO_SEED is on) live in their own login namespace
+        return lower.startsWith(com.dossier.api.service.ent.EnterpriseDemoSeeder.LOGIN_PREFIX) || ACCOUNTS.stream().anyMatch(a -> a.login().equals(lower));
     }
 
     /**
