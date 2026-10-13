@@ -2526,10 +2526,10 @@ Owned elsewhere (titles only here):
 ### X5 — Phase 5 — Subscription foundation (fully specified, Session C)
 _Catalog (shared with personal plans), feature definitions and dependencies, base license + add-ons, pricing engine with contracts, entitlement evaluation, usage ledger, org modules, bulk operations, personal-subscription regression suite. Design: docs 20–25, 27, 29._
 
-Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X5.7 → X5.6 → X5.11 → X5.8 → X5.12 → X5.9 → X5.10.
+Build order (dependencies first; L stories split by Session E): X5.1 → X5.2 → X5.3 → X5.13 → X5.5 → X5.15 → X5.4 → X5.14 → X5.7 → X5.6 → X5.16 → X5.11 → X5.8 → X5.12 → X5.9 → X5.10.
 
-### X5.1 — Catalog tables (product, product_price, product_entitlement, bundle_item, catalog_publish) with effective dates, catalog_version and the new kinds; admin Catalog page read/write for platform admins
-- **Epic:** X5 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X1.1, X1.11 · **Relates:** A3.1, A3.5, A3.7
+### X5.1 — Catalog tables (product, product_price, product_entitlement, bundle_item, catalog_publish) with effective dates, catalog_version and the enterprise kinds; CatalogService + admin catalog API; enterprise rows seeded with no prices
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.1, X1.11 · **Relates:** A3.1, A3.5, A3.7
 - **Persona:** Platform admin
 - **Objective:** One catalog for personal plans and enterprise licenses, with immutable effective-dated prices and a monotonic version, editable from admin.
 - **Story:** As a platform admin, I want products and prices to live in the database with effective dates and versions so that enterprise licenses and personal plans share one priced catalog that never changes under a contract.
@@ -2539,11 +2539,10 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - Prices are immutable: publish = new row + catalog_publish row in one transaction; retire sets active=false, retired_at, effective_until; ORG + QUARTER refused (E17); one active row per (product, audience, interval, currency).
 - Publishing creates the Stripe Price through StripeGateway with idempotency key price-{id}; with Stripe off, publish is refused 503 BILLING_DISABLED except in LOCAL mode (dossier.catalog.local-publish=true for dev/CI) where stripe_price_id = "local_{id}".
 - Seed: FREE/PRO/AUTOPILOT personal products from today's config (A3.5 behaviour), ORG_SETUP_FEE, ORG_BASE_LICENSE, one FEATURE product per 21 §3 key, MOD_TALENT_MARKETING — all enterprise rows WITHOUT prices (E3 answered: nothing is sellable until admin publishes).
-- Admin Catalog page (admin page kit, A3.4 layout) lists products/prices/versions; price editor with the live margin guard (Phase 18 §10) for SUBSCRIPTION/SERVICE/FEE kinds; ORG kinds get their formulas in X5.3.
+- The admin Catalog page is X5.13; this story exposes the admin API only.
 
 **UI requirements**
-- web/src/app/(admin)/admin/pricing/page.tsx with AdminHero + AdminTabs (Catalog, Publish, Change history); AdminTable rows with margin column; ReasonSheet on publish/retire; ConfirmTypedSheet typing the version number on publish.
-- 390: tabs scroll, tables become card lists (useNarrow).
+- —
 
 **Backend requirements**
 - service/catalog/CatalogService (products, prices, publish, retire, versions)
@@ -2584,11 +2583,49 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - CatalogResourceIT (reason sheet, 409, 422, drafts hidden)
 - CatalogSeedTest (isPro behaviour for fixture users identical before/after seed — A3.5 migration test)
 - PublicCatalogIT (unchanged)
-- web: pricing page render + guard debounce test
 
-- **Tech notes:** Do not fork the Phase 18 design; X5.1 supersedes A3.1 (A3.5/A3.7 remain admin stories that reuse these tables). amount_minor not amount_cents. Keep StripeGateway the only com.stripe importer.
+- **Tech notes:** Do not fork the Phase 18 design; X5.1 supersedes A3.1 (A3.5/A3.7 remain admin stories that reuse these tables). amount_minor not amount_cents. Keep StripeGateway the only com.stripe importer. Split by Session E: X5.1 = tables + service + API; X5.13 = page.
 - **Definition of Done:** Catalog page lists seeded products with no enterprise prices; CI green; progress-tracker row updated. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.13 — Admin Catalog page (admin page kit): products/prices/versions tabs, price editor with the live margin guard, ReasonSheet on publish/retire, typed version confirm, change history
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X5.1, X5.3 · **Relates:** A3.4
+- **Persona:** Kiwiply platform admin
+- **Objective:** The catalog can be read and priced from the admin console with the margin floors visible before publish, so no price is ever typed into code.
+- **Story:** As a platform admin, I want to see every product and price, add a price and watch the margin guard before I publish so that pricing is a console action with a reason, not a deploy.
 
+**Functional requirements**
+- web/src/app/(admin)/admin/pricing/page.tsx with AdminHero + AdminTabs (Catalog, Publish, Change history); AdminTable rows with the margin column (live from X5.3 MarginCalculator for every kind); price editor (amount_minor, currency, interval, audience, effective_from) with the guard result inline (≥ 80 % subscriptions / ≥ 20 % services; ORG kinds via X5.3 formulas); ReasonSheet on publish/retire; ConfirmTypedSheet typing the version number on publish; drafts vs active vs retired badges.
+- 390: tabs scroll, tables become card lists (useNarrow); autosave on draft fields, publish is the explicit action.
+
+**UI requirements**
+- Admin kit only (AdminTable/AdminFilterBar/ReasonSheet/ConfirmTypedSheet); no new primitives without adding them to the kit first.
+
+**Backend requirements**
+- — (X5.1 API; X5.3 margin endpoint)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes /api/admin/catalog/** (X5.1), POST /api/admin/catalog/margin-preview (X5.3)
+
+**Permissions**
+- ROLE_ADMIN + catalog.manage admin permission
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- The page lists seeded enterprise products with zero price rows and sellable=false badges; adding an ORG_BASE_LICENSE price below the floor shows the guard refusal before Publish is enabled.
+- Publish requires typing the next version ("v18") and a reason; the Change history tab shows the publish with before/after and the actor.
+- Retiring a price shows it as retired (still readable by id) and the public catalog test stays unchanged.
+- 390 and 1440 kit snapshots; axe clean.
+
+**Test cases**
+- web pricing page render + guard debounce test (kit-test-utils)
+- Playwright catalog-admin.spec (publish with typed version, 390/1440)
+
+- **Tech notes:** Split from X5.1 by Session E. A3.4 layout; Phase 18 §10 margin guard UX; X6.9 extends this page with Features/Presets/Tiers, X6.16 with Discounts/Contracts.
+- **Definition of Done:** Admin can publish the first enterprise price from the page; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X5.2 — feature_definition, feature_definition_limit, feature_dependency, license_preset, volume_tier tables + admin editors; initial feature keys, dependencies and presets seeded inactive with no prices
 - **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X5.1 · **Relates:** O3.1 · **Supersedes:** O3.1
 - **Persona:** Platform admin
@@ -2693,8 +2730,8 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - **Tech notes:** No floating point: percentages are basis points; margins returned as bp integers and formatted in the web.
 - **Definition of Done:** Guard visible in all three editors; override audited. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 
-### X5.5 — PricingEngine (list → contract → one discount → volume tier → effective, half-even per unit), org_contract/org_contract_price/contract_event/org_discount tables, ContractService, QuoteService with inputs_hash and 15-min expiry, golden and property tests
-- **Epic:** X5 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X5.3 · **Relates:** E2E-A5.1
+### X5.5 — PricingEngine (list → contract → one discount → volume tier → effective, half-even per unit) + QuoteService with inputs_hash and 15-min expiry; golden tables G1–G14 and property tests
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.3 · **Relates:** E2E-A5.1
 - **Persona:** Platform admin / Org admin
 - **Objective:** One pure pricing function with exact precedence and rounding, contracts and discounts as data, and authoritative quotes that cannot go stale.
 - **Story:** As an org admin, I want every price I see to be computed by the backend from the catalog, my contract and any discount in a fixed order so that the number on the quote is the number on the invoice.
@@ -2702,8 +2739,8 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 **Functional requirements**
 - Minor.mulDivHalfEven and the per-unit precedence of 22 §3 (contract REPLACES/REDUCES; promo only if no non-stackable contract; tier only if volume_applies or uncontracted org; clamp ≥ 0).
 - Totals per 22 §4; proration per 22 §6 (Kiwiply authority; confirm ≤ quote); inputs_hash per 22 §7; LicenseQuoteDTO with every field of 22 §8; license_quote persistence (20 §2.3) with status OPEN/APPLIED/EXPIRED/SUPERSEDED and QuotePurgeJob.
-- Contracts and discounts per 23 (one ACTIVE per org, versions, two-person rule, floor + reason, ContractLifecycleJob, org_discount best-of selection with tie-break).
 - Golden tables G1–G14 and property tests 1–7 of 22 §9–10 as code.
+- Contract and discount tables/services are X5.15; until it lands the engine takes PricingInputs with empty contract/discount sets (golden tables that need contracts run against in-memory inputs).
 
 **UI requirements**
 - None (platform admin contract pages are X6.9).
@@ -2711,16 +2748,12 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 **Backend requirements**
 - service/ent/pricing/Minor, PricingEngine, PricingInputs, PricingInputsLoader, QuoteHasher
 - service/ent/pricing/QuoteService
-- service/ent/contracts/ContractService, ContractLifecycleJob, OrgDiscountService
-- web/rest/admin/AdminContractResource (API only; UI in X6.9)
 
 **Database changes**
-- Liquibase 20261019020000_ent_contracts.xml: org_contract, org_contract_price (with version_from INT NOT NULL, version_to INT NULL — a price row is closed, never edited; a quote pinned at contract version v reads rows with version_from ≤ v < COALESCE(version_to, ∞); 23 §2.2, 41 §3.3), contract_event, org_discount, org_discount_redemption; license_quote lives in X5.4's changelog (QuoteService writes it once X5.4 lands; until then the engine returns DTOs only — X5.5 tests run in memory).
+- None in this story (license_quote is X5.4's changelog; org_contract* and org_discount* are X5.15's).
 
 **APIs**
-- GET/POST/PUT /api/admin/contracts, POST /{id}/approve|activate|end|cancel, GET /{id}/events
-- GET/POST/PUT /api/admin/org-discounts, POST /{id}/archive
-- GET /api/admin/orgs/{orgId}/pricing-preview
+- No public routes; QuoteService is consumed by X5.4 (quotes) and X6.3 (UI).
 
 **Permissions**
 - ROLE_ADMIN + contracts.manage; every write HIGH with reason; org side read-only (no write endpoints under /api/orgs/** — asserted).
@@ -2732,41 +2765,82 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - PricingEngineGoldenTest reproduces every value in 22 §9 (G1 7992; G2 7392/600; G3 7192/800; G4 7467/525; G5 = G2; G6 6867/1125; G7 7592/400; G8 7094; G9 6835 and 7192; G10 rounding rows; G11 386/1062/1448/11437 and confirm 380/1044; G12 currency cases; G13 4294 and 425 ¢; G14 dependency outcomes).
 - Property tests 22 §10 pass (1 000 random inputs each).
 - Confirm with a changed catalog_version/contract_version/inputs → 409 QUOTE_STALE with reason; after 15 minutes → 410 QUOTE_EXPIRED.
-- A second ACTIVE contract overlapping → 409 CONTRACT_OVERLAP; a row with both overrides → 422; currency mismatch → 422.
-- Amending an ACTIVE contract (version v → v+1) closes the replaced price rows with version_to = v+1 and inserts new rows with version_from = v+1; a quote pinned at v still prices with the old rows and a re-quote prices with the new ones (ContractPriceVersionTest); any UPDATE of override_amount_minor/override_pct_off_bp on an existing row is refused (ImmutableContractPriceIT).
 
 **Test cases**
 - MinorTest
 - PricingEngineGoldenTest
 - PricingEnginePropertyTest
 - QuoteHasherTest
+- QuoteServiceTest (expiry, stale, supersede)
+
+- **Tech notes:** PricingEngine takes a PricingInputs value object; no repositories inside. Basis points everywhere; never BigDecimal/double. Promo "best" = largest reduction on the org's current recurring total, tie → lowest id. Split by Session E: X5.5 = engine + quotes; X5.15 = contracts/discounts (09 planned the split as "contracts/discounts/QuoteService"; QuoteService stays with the engine because confirm-freshness is an engine concern).
+- **Definition of Done:** Golden tests green and checked in with the exact tables. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.15 — Contracts and discounts: org_contract / org_contract_price (version_from/version_to) / contract_event / org_discount / org_discount_redemption tables, ContractService with the two-person rule and floor check, ContractLifecycleJob, OrgDiscountService best-of selection, admin contract API
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.5, X1.11
+- **Persona:** Kiwiply platform admin (sales/finance); the pricing engine as the consumer
+- **Objective:** Negotiated prices and promotions are data with immutable history that the engine reads at the pinned contract version, never a code change.
+- **Story:** As a platform admin, I want to record Acme's negotiated base price and a 10 % launch discount with an approver so that every quote and invoice for Acme reflects the deal exactly and auditable.
+
+**Functional requirements**
+- Tables per 23 §2.1–§2.4 in 20261019020000_ent_contracts.xml: org_contract (one ACTIVE per org via generated active_key; status DRAFT|APPROVED|ACTIVE|ENDED|CANCELLED; version), org_contract_price (version_from/version_to; override_amount_minor XOR override_pct_off_bp; min_quantity; allowance_override; pool_mode_override; floor check with override_reason), contract_event (every transition and row add/remove with before/after JSON), org_discount (promotional, ends_at ≤ 12 months, stackable flag), org_discount_redemption.
+- ContractService: create/amend (version+1 closes replaced price rows), approve (two-person rule: approver ≠ author, both ROLE_ADMIN with contracts.manage), activate, end, cancel; validation 23 §3 (overlap 409 CONTRACT_OVERLAP, both overrides 422, currency mismatch 422, floor → HIGH audit CONTRACT_BELOW_FLOOR with reason); ContractLifecycleJob (daily: ACTIVE → ENDED at ends_at, renewal drafts, ORG_BILLING notification 30/7 days before end).
+- OrgDiscountService: best-of selection among eligible discounts (largest reduction on the org's current recurring total, tie → lowest id); never stacks with a non-stackable contract (22 §3).
+- PricingInputsLoader (X5.5) reads the ACTIVE contract rows at the quote's pinned contract_version.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/ent/contracts/ContractService, ContractLifecycleJob, OrgDiscountService; web/rest/admin/AdminContractResource, AdminOrgDiscountResource; repository/ent/*
+
+**Database changes**
+- Liquibase 20261019020000_ent_contracts.xml: org_contract, org_contract_price, contract_event, org_discount, org_discount_redemption; composite tenant FKs per 41 R3.
+
+**APIs**
+- GET/POST/PUT /api/admin/contracts, POST /{id}/approve|activate|end|cancel, GET /{id}/events
+- GET/POST/PUT /api/admin/org-discounts, POST /{id}/archive
+- GET /api/admin/orgs/{orgId}/pricing-preview
+
+**Permissions**
+- ROLE_ADMIN + contracts.manage; ReasonSheet on every write; two-person rule on approve
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- A second ACTIVE contract overlapping → 409 CONTRACT_OVERLAP; a row with both overrides → 422; currency mismatch → 422; approve by the author → 422 TWO_PERSON_RULE.
+- Amending an ACTIVE contract (v → v+1) closes the replaced price rows with version_to = v+1 and inserts new rows with version_from = v+1; a quote pinned at v still prices with the old rows and a re-quote prices with the new ones (ContractPriceVersionTest); any UPDATE of override_amount_minor/override_pct_off_bp on an existing row is refused (ImmutableContractPriceIT).
+- A below-floor override without a reason → 422; with a reason → saved and audited HIGH CONTRACT_BELOW_FLOOR.
+- Golden tables G2–G7 (contract and discount cases of 22 §9) pass end to end through PricingInputsLoader with persisted rows.
+- The org sees only its contract name and the "contract pricing applied" markers (23 §4) — never another org's rows (OrgIsolationIT).
+
+**Test cases**
 - ContractServiceTest
 - ContractLifecycleJobTest
 - OrgDiscountTest
 - AdminContractResourceIT
 - ContractPriceVersionTest
 - ImmutableContractPriceIT
+- PricingInputsLoaderIT (G2–G7)
 
-- **Tech notes:** PricingEngine takes a PricingInputs value object; no repositories inside. Basis points everywhere; never BigDecimal/double. Promo "best" = largest reduction on the org's current recurring total, tie → lowest id.
-- **Definition of Done:** Golden tests green and checked in with the exact tables. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-### X5.4 — consultant_license + license_feature + license_quote + license_change tables and LicenseService (quote → confirm; assign, add/remove features, upgrade, schedule downgrade, suspend, cancel, reactivate; presets; dependencies) — API only, Stripe off (LocalBillingApplier)
-- **Epic:** X5 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X5.5, X1.7, X1.8 · **Relates:** O3.2 · **Supersedes:** O3.2
+- **Tech notes:** Split from X5.5 by Session E. 23 (all), 22 §3, 41 §3.3; escalations C6 (min commitment informational), E9 (Stripe representation is X6.7's coupon).
+- **Definition of Done:** Admin API can take a contract from draft to active with a second approver; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.4 — consultant_license + license_feature + license_quote + license_change tables and LicenseService (quote → confirm; assign, add/remove features, upgrade, schedule downgrade; presets; dependencies; org-effective catalog) — API only, applier interface with a no-op LOCAL stub
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.5, X1.7, X1.8, X5.15 · **Supersedes:** O3.2 · **Relates:** O3.2
 - **Persona:** Org admin
 - **Objective:** Per-consultant base + feature licenses tied to the membership, every change through a quote and a change row, with effective dates and no silent paid additions.
 - **Story:** As an org admin, I want to give each consultant a base license and exactly the features they need, see the price before I confirm, and schedule removals for period end so that nobody pays for time they did not use or gets a feature they did not agree to.
 
 **Functional requirements**
 - Tables per 20 §2.1–2.4 with the one-live-license and one-live-feature rules; LicenseService per 20 §4 rules 1–11 (org state, membership PENDING for INVITED, eligibility, dependency semantics 21 §4, stackable caps, currency, freshness, idempotent confirm, atomic change rows, audit, notifications).
-- Lifecycle per 27 §2–§3 implemented in Kiwiply rows; LicenseLifecycleJob (PENDING promotion, period-end flips, SUSPENDED expiry).
-- LocalBillingApplier (26 §11) applies batches immediately when Stripe is off and writes org_subscription/org_subscription_item mirror rows with source=LOCAL and calendar-month periods; paid_through_at = period end.
-- Shortcut endpoints suspend/reactivate/cancel create + confirm a one-line quote.
 - Org-effective catalog endpoint (sellable flags, effective unit prices with applied markers, presets, dependencies, contract name).
+- LicenseChangeApplier interface defined here with NoopApplier (LOCAL profile) so confirm is testable without Stripe; LocalBillingApplier mirrors, the lifecycle job and the suspend/reactivate/cancel shortcuts are X5.14.
 
 **UI requirements**
 - None (pages in X6.1–X6.3).
 
 **Backend requirements**
-- service/ent/licenses/LicenseService, LicenseChangeApplier (interface) + LocalBillingApplier, LicenseLifecycleJob, LicenseRules
+- service/ent/licenses/LicenseService, LicenseChangeApplier (interface) + NoopApplier, LicenseRules
 - domain/ConsultantLicense, LicenseFeature, LicenseQuote, LicenseChange
 - web/rest/org/OrgLicenseResource
 - service/ent/OrgStateRules
@@ -2782,7 +2856,6 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - POST /api/orgs/{orgId}/licenses/quotes
 - POST /api/orgs/{orgId}/licenses/quotes/{quoteId}/confirm (Idempotency-Key)
 - DELETE /api/orgs/{orgId}/licenses/changes/{changeId}
-- POST /api/orgs/{orgId}/licenses/{id}/suspend|reactivate|cancel
 - GET /api/orgs/{orgId}/members/{memberId}/entitlements
 
 **Permissions**
@@ -2793,23 +2866,63 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 
 **Acceptance criteria**
 - E2E-C API path: base + ai.job_matching + ai.resume_tailoring for a member → quote shows 2797 at draft prices → confirm → license ACTIVE with two live features; a second confirm with the same Idempotency-Key returns the same batch and creates nothing.
-- Removing a feature sets ends_at = period end and the feature row stays live until then; cancelling the pending change restores it; after the job runs at ends_at the row is not live.
+- Removing a feature sets ends_at = period end and the feature row stays live until then; cancelling the pending change restores it (the period-end job is X5.14).
 - A quote with a paid TECHNICAL dependency missing → 422 DEPENDENCY_REQUIRED; a COMMERCIAL dependency → requiresConfirmation[] and confirm without confirmedCommercialDeps → 422 DEPENDENCY_UNCONFIRMED.
-- INVITED member → license PENDING; accepting the invite promotes it to ACTIVE.
-- Member leaves → license ENDED(MEMBER_LEFT) now and features off now.
+- INVITED member → license PENDING (promotion on accept is X5.14).
 - Org PAST_DUE → quotes may only remove/cancel (PAST_DUE_REMOVE_ONLY); SUSPENDED → 409 ORG_STATE.
-- Every route returns 404 to a member of another org (OrgIsolationIT) and 402 bodies never name another tenant.
 
 **Test cases**
 - LicenseServiceTest (20 §9 list)
-- LicenseLifecycleJobTest
-- LocalBillingApplierTest
 - LicenseResourceIT + OrgIsolationIT registry rows + CrossTenantSweepIT rows
 - QuoteConfirmIT (stale/expired/idempotent)
 
-- **Tech notes:** license_feature liveness is service-maintained (live BOOLEAN + live_seq) because MySQL generated columns cannot use NOW(). Confirm writes Kiwiply rows first, then calls the applier (26 §4 step 6 rationale). Entitlement is effective at commit.
+- **Tech notes:** license_feature liveness is service-maintained (live BOOLEAN + live_seq) because MySQL generated columns cannot use NOW(). Confirm writes Kiwiply rows first, then calls the applier (26 §4 step 6 rationale). Entitlement is effective at commit. Split by Session E: X5.4 = tables + service + confirm; X5.14 = lifecycle job, LOCAL mirrors, shortcuts.
 - **Definition of Done:** E2E-C API scenario passes with Stripe off. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.14 — License lifecycle: LicenseLifecycleJob (PENDING promotion on invite accept, period-end flips, SUSPENDED expiry, MEMBER_LEFT via OffboardingHook), LocalBillingApplier writing org_subscription mirrors with source=LOCAL, suspend/reactivate/cancel shortcut endpoints
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.4
+- **Persona:** Org Admin (via the API); the system over time
+- **Objective:** Licenses move through their states on their own clock and the dev/CI "billing off" path produces the same mirror rows Stripe would, so pages and tests work without a key.
+- **Story:** As an org admin, I want a removed feature to stop exactly at period end and a suspended consultant to lose features now so that what I confirmed is what happens.
 
+**Functional requirements**
+- LicenseLifecycleJob (every 15 min, ShedLock-ready): PENDING → ACTIVE when the member accepts the invite (also triggered by the join event); features with ends_at ≤ now → live=false; CANCEL_AT_PERIOD_END licenses → ENDED at ends_at; SUSPENDED licenses older than org.licenses.suspended_max_days (default 90) → ENDED(SUSPENDED_EXPIRED); state machine per 27 §2–§3 row by row.
+- OffboardingHook (X4.4 chain, order "Licenses"): seat removal/leave/erase → license ENDED(MEMBER_LEFT) now, features off now, applier decrement now, no proration (09 row 4).
+- LocalBillingApplier (26 §11): when Stripe is off (dossier.orgs.dev-activate / LOCAL mode) applies batches immediately and writes org_subscription/org_subscription_item mirror rows with source=LOCAL and calendar-month periods; paid_through_at = period end; never creates a Stripe object.
+- Shortcut endpoints suspend/reactivate/cancel create + confirm a one-line quote with the same idempotency and audit as a normal confirm (C2: suspension = no credit; reactivation inside the paid period is free).
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/ent/licenses/LicenseLifecycleJob, LocalBillingApplier, LicenseOffboardingHook; web/rest/org/OrgLicenseResource (shortcuts)
+
+**Database changes**
+- None (tables from X5.4; org_subscription/org_subscription_item created in X5.4's changelog).
+
+**APIs**
+- POST /api/orgs/{orgId}/licenses/{id}/suspend | reactivate | cancel (licenses.manage; Idempotency-Key)
+
+**Permissions**
+- licenses.manage (ORG)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Removing a feature sets ends_at = period end; after the job runs at ends_at the row is not live and EntitlementService refuses the feature (402 FEATURE_NOT_LICENSED).
+- INVITED member → license PENDING; accepting the invite promotes it to ACTIVE within one job run (and immediately via the join event).
+- Member leaves → license ENDED(MEMBER_LEFT) now, features off now, LOCAL mirror quantity decremented, no proration row.
+- Suspend → features off now, quantity drops next period only (no credit); reactivate within the paid period → ACTIVE with no new charge; after it → a new quote is required (409 REACTIVATE_REQUIRES_QUOTE).
+- With Stripe off, GET …/billing/overview (X6.1) reads LOCAL mirror rows and shows calendar-month periods; PersonalSubscriptionUnchangedIT is untouched by any of this.
+
+**Test cases**
+- LicenseLifecycleJobTest (clock-driven table)
+- LocalBillingApplierTest
+- LicenseShortcutResourceIT
+- OffboardingHookLicensesTest
+
+- **Tech notes:** Split from X5.4 by Session E. 27 §2–§3, 26 §11, 20 §4 rules; escalations C2, C7, C9.
+- **Definition of Done:** E2E-C API scenario (X5.10) passes with Stripe off; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X5.7 — usage_event ledger + usage_counter: reserve/commit/release with idempotency keys, TTL and extension, UsageSweeperJob, allowance resolution (per-consultant / ORG_POOL, contract overrides, DAY and PERIOD limits), period keys, overage hooks, admin credits
 - **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.4
 - **Persona:** Org admin / Consultant
@@ -2866,17 +2979,16 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - **Tech notes:** Reservation runs REQUIRES_NEW; the handler's advice commits/releases; async workers use the job id as attempt id. Never un-commit; corrections are credit rows.
 - **Definition of Done:** Ledger invariants proven by tests; purge job registered. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 
-### X5.6 — EntitlementService.check/require with EntitlementContext (PERSONAL | ORG) and the 11-step order composed over AuthorizationService; @RequiresFeature + interceptor + UsageCommitAdvice; EntitlementException → 402/403/404/409 reason codes; AuthzCoverageTest
-- **Epic:** X5 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X5.7, X1.7, X4.7 · **Supersedes:** O3.3 · **Relates:** O3.3, O3.5, A3.2
+### X5.6 — EntitlementService.check/require with EntitlementContext (PERSONAL | ORG) and the 11-step order composed over AuthorizationService; reason codes; ConsentGate interface + ConsentKinds; entitlementsOf()/has()
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.7, X1.7, X4.7 · **Supersedes:** O3.3 · **Relates:** O3.3, O3.5, A3.2
 - **Persona:** Consultant / Marketer
 - **Objective:** One server-side entitlement check with a fixed evaluation order, actor/beneficiary recording and workspace-scoped resolution that never stacks personal and org benefits.
 - **Story:** As a marketer acting for a consultant, I want the server to decide in one place whether I may use a licensed feature for them — permission, assignment, license, allowance, consent, subscription state — so that the UI only reflects decisions and nothing leaks across tenants.
 
 **Functional requirements**
-- Contexts and resolution per 24 §1; request/decision records §2; the order and contracts §3 (delegating 1–6, 9–10 to AuthorizationService); reason codes and HTTP mapping §4; annotation, interceptor extension and UsageCommitAdvice §5; service shape §6 (no decision cache; 60 s catalog cache keyed by catalog_version); entitlement_decision_log sampled; entitlementsOf() for "My Available Features"; has() for menus/extension.
-- AuthzCoverageTest reflection gate.
+- Contexts and resolution per 24 §1; request/decision records §2; the order and contracts §3 (delegating 1–6, 9–10 to AuthorizationService); reason codes and HTTP mapping §4; service shape §6 (no decision cache; 60 s catalog cache keyed by catalog_version); entitlement_decision_log sampled; entitlementsOf() for "My Available Features"; has() for menus/extension.
 - ConsentGate interface (step 10, 24 §3; 09 row 10): allows(beneficiary, actor, consentKind) — default implementation in this story handles consent.act_for only (= the data_share FULL pairing naming the actor) and answers CONSENT_REQUIRED for any other kind; X7.6 replaces it with the org_feature_consent implementation. ConsentKinds constants (consent.act_for, consent.resume_edit, consent.resume_view_org, consent.ai_tailoring, consent.ai_optimization, consent.marketing_assist) live here.
-- @RequiresFeature uses the one Beneficiary enum from X1.7 {NONE, SELF, PATH_MEMBER, BODY_MEMBER, QUERY_MEMBER}; there is no @ActFor annotation (09 row 12). QUERY_MEMBER reads ?for= / ?memberId=.
+- The @RequiresFeature annotation, interceptor, UsageCommitAdvice, HTTP mapping of EntitlementException and AuthzCoverageTest are X5.16; this story is the service and its contracts (callable from code).
 
 **UI requirements**
 - None (402/403 handling cards are in X6.3/X6.5 and the consultant workspace X9.1).
@@ -2884,9 +2996,6 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 **Backend requirements**
 - service/EntitlementService (extend; existing methods untouched)
 - service/ent/entitlement/EntitlementContext, EntitlementRequest, EntitlementDecision, ReasonCode, EntitlementException, EntitlementRequests
-- web/rest/org/RequiresFeature, config/OrgPermissionInterceptor (extend), aop/UsageCommitAdvice
-- web/rest/errors/ExceptionTranslator (reason codes)
-- test/AuthzCoverageTest
 
 **Database changes**
 - Optional entitlement_decision_log (90-day purge) in the usage changelog.
@@ -2907,19 +3016,61 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - PAST_DUE before paid_through_at → allowed; after → 402 SUBSCRIPTION_STATE{PAST_DUE_LAPSED}.
 - CANCEL_AT_PERIOD_END keeps the feature until ends_at.
 - INTEGRATION dependency unsatisfied → 409 INTEGRATION_REQUIRED.
-- Missing Idempotency-Key on a consuming handler → 400 IDEMPOTENCY_KEY_REQUIRED.
-- AuthzCoverageTest fails for a handler under /api/orgs/** that names a feature key without @RequiresFeature or an explicit-check listing.
 - The worked example of 24 §8 passes end to end (with X7.6 consent stubbed as data_share FULL until X7.6 lands).
 
 **Test cases**
-- EntitlementServiceCheckTest
-- RequiresFeatureInterceptorIT
-- AuthzCoverageTest
-- ExceptionTranslatorTest additions
+- EntitlementServiceCheckTest (one test per step)
+- ConsentGateDefaultTest
 - existing EntitlementServiceTest unchanged and green
 
-- **Tech notes:** Step 10 reads org_feature_consent only when the table exists (X7.6, Session D) — until then data_share FULL naming the actor is the whole consent check; keep the call behind a ConsentGate interface so X7.6 plugs in without touching check().
+- **Tech notes:** Step 10 reads org_feature_consent only when the table exists (X7.6, Session D) — until then data_share FULL naming the actor is the whole consent check; keep the call behind a ConsentGate interface so X7.6 plugs in without touching check(). Split by Session E: X5.6 = service; X5.16 = annotation/interceptor/coverage gate (05 §6, 24 §5 already name X5.16).
 - **Definition of Done:** check() is the only gate for every feature named in 24 §7; coverage test in CI. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.16 — @RequiresFeature(beneficiary = NONE|SELF|PATH_MEMBER|BODY_MEMBER|QUERY_MEMBER) + OrgPermissionInterceptor extension + UsageCommitAdvice + EntitlementException → 402/403/404/409 reason codes + AuthzCoverageTest reflection gate
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.6, X1.7
+- **Persona:** Backend developer adding any feature-gated handler; the consultant hit by a 402
+- **Objective:** Every feature-consuming handler is gated declaratively, usage is reserved before and committed after the handler, and a forgotten annotation fails CI.
+- **Story:** As a developer, I want to annotate a handler with the feature and the beneficiary so that the 11-step check, the reservation and the 402 body happen without hand-written code.
+
+**Functional requirements**
+- @RequiresFeature(key, beneficiary) using the one Beneficiary enum from X1.7 (no @ActFor); the interceptor resolves the beneficiary member (path/body/query ?for=/?memberId=), builds EntitlementRequest and calls EntitlementService.require before the handler; a consuming handler must carry Idempotency-Key (400 IDEMPOTENCY_KEY_REQUIRED).
+- UsageCommitAdvice: reservation from step 8 is committed on 2xx (quantity from the handler's UsageOutcome attribute, default 1) and released on exception or non-2xx; a refusal at step 9/10 releases the reservation made at 8.
+- ExceptionTranslator maps EntitlementException reason codes to 402 (FEATURE_NOT_LICENSED, SUBSCRIPTION_STATE, ALLOWANCE_EXHAUSTED, PRO_REQUIRED for PERSONAL), 403 (CONSENT_REQUIRED only), 404 (membership/assignment), 409 (INTEGRATION_REQUIRED, MODULE_OFF) with the Problem body of 40 §4 — never naming another tenant.
+- AuthzCoverageTest: reflection over /api/orgs/** and /api/me/orgs/** handlers — any handler referencing a FeatureKeys constant without @RequiresFeature or an explicit-check listing fails; the OpenAPI customizer emits x-feature from the annotation (40 §10).
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- web/rest/org/RequiresFeature, config/OrgPermissionInterceptor (extend), aop/UsageCommitAdvice, web/rest/errors/ExceptionTranslator (reason codes), test/AuthzCoverageTest, OpenApiFeatureCustomizer
+
+**Database changes**
+- —
+
+**APIs**
+- No new routes; every gated route gains x-feature in openapi.json
+
+**Permissions**
+- Composed: permission check (X1.7) then entitlement (X5.6)
+
+**Feature entitlements**
+- All of 24 §7 once their stories land
+
+**Acceptance criteria**
+- A handler annotated SELF for ai.resume_tailoring called by a consultant without the feature → 402 FEATURE_NOT_LICENSED with the catalog hint; by a marketer with PATH_MEMBER for an assigned consultant who has the feature and FULL pairing → 200 and one committed usage_event; without pairing → 403 CONSENT_REQUIRED and the reservation released.
+- Missing Idempotency-Key on a consuming handler → 400 IDEMPOTENCY_KEY_REQUIRED; a retry with the same key returns the same result and commits nothing twice.
+- INTEGRATION dependency unsatisfied → 409 INTEGRATION_REQUIRED; MODULE_OFF → 409.
+- AuthzCoverageTest fails for a handler under /api/orgs/** that names a feature key without @RequiresFeature or an explicit-check listing (negative fixture handler in the test module).
+- openapi.json carries x-feature for every annotated route (OpenApiAuthzExtensionsIT).
+
+**Test cases**
+- RequiresFeatureInterceptorIT
+- UsageCommitAdviceTest
+- ExceptionTranslatorTest additions
+- AuthzCoverageTest
+- OpenApiAuthzExtensionsIT
+
+- **Tech notes:** Split from X5.6 by Session E. 24 §4–§5, 05 §6, 09 row 12. Beneficiary resolution must not read any repository other than membership (statement inspector).
+- **Definition of Done:** Coverage gate in CI; X5.8 migrates the eight isPro callers onto the annotation. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X5.11 — Org modules: org_module_license (FLAT / PER_ROLE quantity), the marketer seat as module.talent_marketing per MARKETING_SPECIALIST, quantity follows role grants through a quote, step 6 MODULE_OFF reads it
 - **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.4, X1.14
 - **Persona:** Org admin
@@ -2968,7 +3119,7 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - **Tech notes:** Quantity maintenance must be transactional with the role grant; if the quote/confirm is skipped (e.g. OWNER grants without the UI), the role grant is refused 409 MODULE_QUOTE_REQUIRED.
 - **Definition of Done:** Marketer seat billable per role; nothing granted silently. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X5.8 — Migrate the eight isPro callers to EntitlementService.require with context-aware feature keys (PersonalFeatureMap keeps PRO_REQUIRED byte-identical); ai_call gains org_id/beneficiary_login/feature_key/usage_event_id; AiBudgetService.decide(AiBudgetWindow) for the beneficiary's org window (feature AI budgets + extra credits, admin override)
-- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.6
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.16
 - **Persona:** Consultant / Marketer
 - **Objective:** Every protected feature goes through one check; the AI cost budget is a second guard keyed by beneficiary and org; personal behaviour unchanged to the byte.
 - **Story:** As a consultant using an org feature, I want my org AI budget and allowances to apply in the org workspace and my own plan in my personal workspace, never mixed, so that billing stays separate.
@@ -3104,7 +3255,7 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - **Definition of Done:** CI job wired as required; progress-tracker updated. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 
 ### X5.10 — E2E-C API-level scenario test (activate base → add two features → quote → confirm → entitlements effective, others unavailable) + Phase 5 exit gate (flag.enterprise.billing API-on)
-- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.9, X5.12, X5.11
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.9, X5.12, X5.11, X5.14
 - **Persona:** QA
 - **Objective:** Close Phase 5 with the full §32-C scenario at API level and every billing gate green with Stripe off.
 - **Story:** As QA, I want one scenario test that walks E2E-C through the API so that Phase 6 can build the UI on a proven backend.
@@ -3140,14 +3291,13 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 
 - **Tech notes:** Uses the acme/beta fixtures from X1.12 and draft prices published in LOCAL mode by the test.
 - **Definition of Done:** Phase 5 gate passed. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
 ### X6 — Phase 6 — Billing and license UI, Stripe org billing (fully specified, Session C)
 _Setup fee and billing account, StripeGateway growth, webhook mirrors, change applier with Kiwiply prorations and coupons, reconciler and dunning, the six billing pages, Platform Pricing Admin, admin billing operations, test-clock runbook. Design: docs 26–28._
 
-Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → X6.2 → X6.3 → X6.4 → X6.5 → X6.9 → X6.10 → X6.11.
+Build order (dependencies first; L stories split by Session E): X6.12 → X6.6 → X6.14 → X6.7 → X6.15 → X6.8 → X6.1 → X6.2 → X6.3 → X6.13 → X6.4 → X6.5 → X6.9 → X6.16 → X6.10 → X6.17 → X6.11.
 
 ### X6.12 — org_billing_account + Stripe org customer + setup fee (one-time Checkout or send_invoice Stripe Invoice) for enterprise orgs — adopts the O4.1/O4.2 design; currency fixed at account creation
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X5.4 · **Relates:** O4.1, O4.2
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X5.4, X5.14 · **Relates:** O4.1, O4.2
 - **Persona:** Org owner
 - **Objective:** A billing account per org with one Stripe customer, the setup fee as the activation gate, and a fixed currency, before any license is billed.
 - **Story:** As an org owner, I want to pay the one-time setup fee by card or bank transfer and have my organisation activate on payment so that licensing can begin.
@@ -3194,17 +3344,15 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** Never reuse the OWNER's personal customer. Stripe Tax ID collection stays off (locked).
 - **Definition of Done:** An enterprise org can be activated by paying the fee in Stripe test mode. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
-### X6.6 — StripeGateway extension (org subscription with items, setItemQuantities proration none, cancel-at-period-end, amount-off coupons, invoice items, create+finalize invoice, upcoming preview, invoices list, refund, credit, test clocks) + StripeWebhookEvent org fields + OrgBillingWebhookHandler writing org_subscription/items/invoice/lines/discount mirrors with scope routing
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X6.12 · **Relates:** O4.3 · **Supersedes:** O4.3
+### X6.6 — StripeGateway extension for org billing: subscription with items, setItemQuantities (proration none), cancel-at-period-end, amount-off coupons, invoice items, create+finalize invoice, upcoming preview, invoices list, refund, credit, test clocks; StripeWebhookEvent org fields
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.12 · **Supersedes:** O4.3 · **Relates:** O4.3
 - **Persona:** Finance
 - **Objective:** Grow the one Stripe seam for org billing and route org webhooks to a handler that is the only writer of the org mirrors, leaving the personal path untouched.
 - **Story:** As Finance, I want invoices, items and subscription state mirrored from Stripe so that the billing pages show what Stripe will charge, never what we guessed.
 
 **Functional requirements**
 - 26 §3 methods with IdempotencyKey on every write; live-key refusal for test clocks; StripeWebhookEvent new fields (personal fields unchanged).
-- 26 §7 routing (scope metadata or customer lookup → org handler; else personal path verbatim), event table effects, stale-event ordering, taggedForAnotherApp kept.
-- Mirrors: org_subscription (+ Stripe columns), org_subscription_item, org_invoice, org_invoice_line snapshots, org_stripe_discount.
+- Webhook routing, OrgBillingWebhookHandler and the org_* mirrors are X6.14.
 
 **UI requirements**
 - None.
@@ -3212,15 +3360,12 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 **Backend requirements**
 - service/billing/StripeGateway + StripeGatewayImpl (grow)
 - service/billing/StripeWebhookEvent (grow)
-- service/billing/BillingWebhookService (route)
-- service/ent/billing/OrgBillingWebhookHandler
-- domain/OrgSubscription, OrgSubscriptionItem, OrgInvoice, OrgInvoiceLine, OrgStripeDiscount
 
 **Database changes**
-- Additive columns on org_subscription/org_subscription_item (stripe ids, source STRIPE|LOCAL, discount) if not present from X5.4.
+- —
 
 **APIs**
-- POST /api/billing/webhook (existing endpoint; new routing)
+- No new HTTP routes (gateway methods only).
 
 **Permissions**
 - Webhook permitAll + signature (existing).
@@ -3229,42 +3374,81 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - —
 
 **Acceptance criteria**
-- Every §7 row of 26 behaves as specified in OrgBillingWebhookHandlerTest; a personal event never touches org_* and an org event never touches subscription (PersonalSubscriptionUnchangedIT E9/E10).
-- invoice.paid sets paid_through_at = period_end and flips PAST_DUE → ACTIVE; unpaid/canceled → SUSPENDED and licenses ENDED(ORG_SUSPENDED).
 - Every gateway write passes its idempotency key (recorded-fixture IT).
 - createTestClock with sk_live_ → StripeGatewayException before any call.
+- Every 26 §3 method is covered by a recorded-fixture test and refuses to run without an idempotency key.
+
+**Test cases**
+- StripeGatewayImplIT (fixtures)
+- StripeWebhookEventTest (new fields; personal fields unchanged)
+
+- **Tech notes:** StripeGatewayImpl remains the only com.stripe importer; one update call for all item quantity changes; percent_off never used. Split by Session E: X6.6 = gateway; X6.14 = handler + mirrors.
+- **Definition of Done:** Mirrors written only by the handler (WriterRegistryTest extended to org_* tables). Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.14 — Org webhook routing + OrgBillingWebhookHandler writing org_subscription/org_subscription_item/org_invoice/org_invoice_line/org_stripe_discount mirrors with scope routing, stale-event ordering and the personal path untouched
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.6, X5.4
+- **Persona:** The billing system; Finance Specialist reading invoices
+- **Objective:** Stripe stays the truth and only webhooks write the org mirrors, exactly as the personal subscription already works, with no event ever crossing between the two.
+- **Story:** As the system, I want every org Stripe event to land in the right org's mirror rows in order so that pages and the reconciler read a faithful copy.
+
+**Functional requirements**
+- 26 §7 routing in BillingWebhookService: scope metadata (kiwiply_scope=org, org_id) or customer lookup → OrgBillingWebhookHandler; else the personal path verbatim; taggedForAnotherApp kept; stale-event ordering by created/sequence; idempotent by event id (stripe_event table, org_id nullable attribution — 41 R2a).
+- OrgBillingWebhookHandler event table effects (26 §7): subscription.created/updated → org_subscription + items; invoice.created/finalized/paid/payment_failed/voided → org_invoice + org_invoice_line snapshots (unit list price, discount, quantity, feature key); invoice.paid sets paid_through_at = period_end and flips PAST_DUE → ACTIVE; unpaid/canceled → SUSPENDED and licenses ENDED(ORG_SUSPENDED) through LicenseService; customer.discount.* → org_stripe_discount.
+- Mirrors are written only by this handler and LocalBillingApplier (WriterRegistryTest extended to org_* tables).
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/billing/BillingWebhookService (route), service/ent/billing/OrgBillingWebhookHandler, domain/OrgInvoice, OrgInvoiceLine, OrgStripeDiscount
+
+**Database changes**
+- Liquibase 20261020020000_ent_org_billing_mirrors.xml: org_invoice, org_invoice_line, org_stripe_discount; additive Stripe columns on org_subscription/org_subscription_item (stripe ids, source STRIPE|LOCAL, discount) if not present from X5.4.
+
+**APIs**
+- POST /api/billing/webhook (existing endpoint; new routing)
+
+**Permissions**
+- Webhook signature only (existing)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Every §7 row of 26 behaves as specified in OrgBillingWebhookHandlerTest; a personal event never touches org_* and an org event never touches subscription (PersonalSubscriptionUnchangedIT E9/E10).
+- invoice.paid sets paid_through_at = period_end and flips PAST_DUE → ACTIVE; unpaid/canceled → SUSPENDED and licenses ENDED(ORG_SUSPENDED).
+- An out-of-order older subscription.updated after a newer one is ignored (stale ordering test); a replayed event id is a no-op.
+- org_invoice_line snapshots carry the list price, discount and feature key so a later price change never alters an issued invoice's mirror (snapshot test).
 
 **Test cases**
 - OrgBillingWebhookHandlerTest
 - BillingWebhookRoutingTest
-- StripeGatewayImplIT (fixtures)
-- OrgBillingWebhookIT
+- OrgBillingWebhookIT (SEC-27)
+- WriterRegistryTest (org_* tables)
 
-- **Tech notes:** StripeGatewayImpl remains the only com.stripe importer; one update call for all item quantity changes; percent_off never used.
-- **Definition of Done:** Mirrors written only by the handler (WriterRegistryTest extended to org_* tables). Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
-### X6.7 — LicenseChangeApplier (Stripe mode): target item set → one update with proration none, Kiwiply proration invoice items, amount-off coupon re-size, last-item cancel-at-period-end, failure → FAILED + LicenseChangeRetryJob with the same keys; COMPUTED_INVOICE mode (OrgInvoiceComposer) + BillingModeGuard; STRIPE_ITEM_LIMIT and REPRICE
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X6.6 · **Relates:** O4.4 · **Supersedes:** O4.4
+- **Tech notes:** Split from X6.6 by Session E. 26 §7, 27 §2; ADR-017/020; stripe_event attribution column per 41 R2a.
+- **Definition of Done:** Mirrors written only by the handler/LOCAL applier; PersonalSubscriptionUnchangedIT green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.7 — LicenseChangeApplier (Stripe mode): target item set → one update with proration none, Kiwiply proration invoice items, amount-off coupon re-size, last-item cancel-at-period-end, failure → FAILED + LicenseChangeRetryJob with the same keys, batch invariants
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.14 · **Supersedes:** O4.4 · **Relates:** O4.4
 - **Persona:** Org admin
 - **Objective:** Confirmed license changes reach Stripe exactly once, with Kiwiply-computed prorations and discounts that reproduce the quote to the minor unit, and a fallback when the 20-item cap bites.
 - **Story:** As an org admin, I want the amount I confirmed to be the amount Stripe invoices, with additions prorated today and removals at period end, so that the quote is the truth.
 
 **Functional requirements**
-- 26 §4 steps 1–6; §5 coupon rules; §6 item limit (quote warning ≥ 18, 409 > 20, REPRICE lines, admin mode switch, OrgInvoiceComposer per period with send_invoice, BillingModeGuard alert); §8 keys; 27 §2 Stripe column implemented row by row.
+- 26 §4 steps 1–6; §5 coupon rules (OrgDiscountSync); §8 idempotency keys; 27 §2 Stripe column implemented row by row for add/remove/upgrade/downgrade/cancel/reactivate.
 - Invariant checks after every batch (Σ qty × list = Σ list lines; coupon = discount_total).
+- Period rollover, the item limit/REPRICE path, COMPUTED_INVOICE mode and the admin mode switch are X6.15.
 
 **UI requirements**
 - None (errors surfaced by X6.3).
 
 **Backend requirements**
-- service/ent/billing/StripeLicenseChangeApplier, LicenseChangeRetryJob, OrgDiscountSync, OrgPeriodRolloverJob, OrgInvoiceComposer, BillingModeGuard
-- web/rest/admin/AdminOrgBillingResource (mode switch)
+- service/ent/billing/StripeLicenseChangeApplier, LicenseChangeRetryJob, OrgDiscountSync
 
 **Database changes**
-- license_change.stripe_ref/stripe_idempotency_key used; org_billing_account.billing_mode.
+- license_change.stripe_ref/stripe_idempotency_key used.
 
 **APIs**
-- PUT /api/admin/orgs/{id}/billing/mode {mode, reason}
+- No new routes.
 
 **Permissions**
 - Applier runs as the confirm actor; mode switch platform admin HIGH.
@@ -3276,22 +3460,64 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - G1 confirm → subscription with 6 items and quantities per 22 §9 G1; G2 contract → coupon amount_off 600; G11 batch → RT/preset proration invoice items 380/1044 at confirm time, INT item deleted, 7 items.
 - Gateway failure at step 3 → batch FAILED, Kiwiply rows applied, retry job replays with identical keys and converges (recorded fixture proves no duplicate invoice item).
 - Last license cancelled → cancel_at_period_end=true; new license before period end → cancel flag cleared + item added.
-- 21 items would result → 409 STRIPE_ITEM_LIMIT listing retired prices; REPRICE line moves them; admin switch to COMPUTED_INVOICE → next period invoice composed with lines equal to PricingEngine output.
-- Coupon re-sized at invoice.upcoming when a tier/contract changes for the next period.
 
 **Test cases**
 - LicenseChangeApplierTest
 - LicenseChangeRetryJobTest
 - OrgDiscountSyncTest
-- OrgInvoiceComposerTest
-- BillingModeGuardTest
 - ApplierInvariantsPropertyTest
 
-- **Tech notes:** proration_behavior=none on every Stripe call; Kiwiply is the proration authority (22 §6). Refinement of ADR-017 ordering recorded in 26 §4 step 6.
+- **Tech notes:** proration_behavior=none on every Stripe call; Kiwiply is the proration authority (22 §6). Refinement of ADR-017 ordering recorded in 26 §4 step 6. Split by Session E: X6.7 = applier; X6.15 = rollover/limits/computed invoices.
 - **Definition of Done:** Test-clock scenario in 26 §10 steps 1–2 reproducible in Stripe test mode. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.15 — OrgPeriodRolloverJob (coupon re-size at invoice.upcoming, scheduled removals), Stripe item limit (warning ≥ 18, 409 STRIPE_ITEM_LIMIT > 20, REPRICE lines), COMPUTED_INVOICE mode with OrgInvoiceComposer (send_invoice) + BillingModeGuard, admin billing-mode switch
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.7, X6.14
+- **Persona:** The billing system; platform admin switching a large org's mode
+- **Objective:** Period boundaries and Stripe's 20-item cap never corrupt an org's bill: coupons are re-sized before the invoice, and an org that outgrows subscription items moves to Kiwiply-computed invoices without losing anything.
+- **Story:** As the system, I want each period's invoice to equal the pricing engine's output to the minor unit, whichever Stripe representation the org is on.
 
+**Functional requirements**
+- OrgPeriodRolloverJob: on invoice.upcoming (webhook) or 24 h before period end, recompute the org's coupon amount from PricingEngine (tier/contract changes), apply scheduled removals (ends_at = period end → quantity decrement, proration none; C9), close CANCEL_AT_PERIOD_END licenses.
+- Item limit (26 §6): quote warning at ≥ 18 distinct Stripe prices, 409 STRIPE_ITEM_LIMIT at > 20 listing retired prices; REPRICE line type moves retired prices onto the current ones in one update; admin mode switch to COMPUTED_INVOICE.
+- COMPUTED_INVOICE mode: OrgInvoiceComposer builds one Stripe Invoice per period (send_invoice, lines = PricingEngine output incl. discount line, metadata scope=org) through the gateway; no subscription items; BillingModeGuard alerts when an org's mode and its Stripe objects disagree (admin attention row).
+- PUT /api/admin/orgs/{id}/billing/mode {mode, reason} (ROLE_ADMIN, ReasonSheet, HIGH audit) with a dry-run diff of the next invoice under both modes.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/ent/billing/OrgPeriodRolloverJob, OrgInvoiceComposer, BillingModeGuard; web/rest/admin/AdminOrgBillingResource (mode switch)
+
+**Database changes**
+- org_billing_account.billing_mode (from X6.12) used; org_invoice.composed BOOLEAN additive.
+
+**APIs**
+- PUT /api/admin/orgs/{id}/billing/mode {mode, reason}
+- GET /api/admin/orgs/{id}/billing/mode/preview
+
+**Permissions**
+- ROLE_ADMIN + billing.ops
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- 21 items would result → 409 STRIPE_ITEM_LIMIT listing retired prices; a REPRICE line moves them and the quote succeeds with ≤ 20 items.
+- Admin switch to COMPUTED_INVOICE → the next period invoice is composed with lines equal to PricingEngine output to the minor unit (golden G11 under both modes); switching back re-creates subscription items with proration none.
+- Coupon re-sized at invoice.upcoming when a tier/contract changes for the next period (test clock fixture).
+- A scheduled removal with ends_at at period end is applied by the rollover, never earlier; the consultant keeps the feature until then (EntitlementService check at T-1 min and T+1 min).
+- BillingModeGuard raises an admin attention row when an org in COMPUTED_INVOICE still has subscription items (fixture).
+
+**Test cases**
+- OrgPeriodRolloverJobTest
+- OrgInvoiceComposerTest (golden under both modes)
+- BillingModeGuardTest
+- AdminOrgBillingModeResourceIT
+- StripeItemLimitTest
+
+- **Tech notes:** Split from X6.7 by Session E. 26 §5–§6, 27 §2; ADR-020 fallback; escalations C9/C10.
+- **Definition of Done:** Test-clock scenario 26 §10 through a period rollover reproducible in Stripe test mode. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X6.8 — OrgSeatReconciler nightly + billing_drift + admin attention; dunning (PAST_DUE banner, DunningReminderJob, paid_through lapse → SUBSCRIPTION_STATE, SUSPENDED → licenses end, reactivation on payment with new rows); notifications and emails
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.7 · **Relates:** O4.8 · **Supersedes:** O4.8
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.15 · **Supersedes:** O4.8 · **Relates:** O4.8
 - **Persona:** Finance / Platform admin
 - **Objective:** Detect drift between Kiwiply and Stripe without ever auto-fixing money, and run the grace/dunning rules exactly.
 - **Story:** As Finance, I want a clear warning when an invoice fails and nothing switched off until the period I paid for ends, and as a platform admin I want to know when Stripe and Kiwiply disagree.
@@ -3333,7 +3559,6 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** ShedLock-ready job names; MDC tenant per org iteration (X1.10).
 - **Definition of Done:** Drift visible in admin; dunning path proven with the LOCAL and Stripe fixtures. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
 ### X6.1 — Subscription Overview page: consultants/licensed/unlicensed tiles, monthly recurring, estimated next invoice (prorations, tax note), billing status + PAST_DUE banner, pending changes with undo, feature-usage top 5, contract summary — 390 and 1440
 - **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.7, X2.16, X2.17, X2.15
 - **Persona:** Org admin / Finance
@@ -3378,17 +3603,17 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** The page never adds two amounts; every number is a DTO field.
 - **Definition of Done:** Page live behind flag.enterprise.billing UI-on for acme. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-### X6.2 — Consultant Licenses page: cards (390) / table (1440), filters, search, sort, status and pending-change chips, per-row actions, bulk bar → one BULK quote, unlicensed consultants with a License CTA
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** Web · **Deps:** X6.1, X5.12, X2.15 · **Supersedes:** O5.5 · **Relates:** O5.5
+### X6.2 — Consultant Licenses page: cards (390) / table (1440), filters, search, sort, status and pending-change chips, per-row actions, unlicensed consultants with a License CTA
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X6.1, X5.12, X2.15 · **Supersedes:** O5.5 · **Relates:** O5.5
 - **Persona:** Org admin
 - **Objective:** Find any consultant's license state and change many at once, with next effective change visible.
 - **Story:** As an org admin, I want a list of consultants with their features, price and next change, filterable by team and feature, with bulk actions, so that managing 50 licenses is quick.
 
 **Functional requirements**
-- 28 §2 layouts, filters, sort, search (300 ms), row actions by state (27 §3), bulk selection bar producing a BULK quote and opening the confirm flow (X6.3 bulk mode), pending chips (dashed removal / dotted add).
+- 28 §2 layouts, filters, sort, search (300 ms), row actions by state (27 §3); the bulk selection bar is X6.13, pending chips (dashed removal / dotted add).
 
 **UI requirements**
-- web/src/app/(tenant)/admin/licenses/page.tsx; FeatureChip, StatePill from packages/ui (X2.15); MemberAvatar from Session B.
+- web/src/app/(tenant)/%5Ft/w/admin/licenses/page.tsx; FeatureChip, StatePill from packages/ui (X2.15); MemberAvatar from Session B.
 
 **Backend requirements**
 - Uses X5.4/X5.12 endpoints; list endpoint gains sort/filter params if missing.
@@ -3397,7 +3622,7 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - None.
 
 **APIs**
-- GET /api/orgs/{orgId}/licenses (filters/sort), POST …/licenses/bulk/quotes
+- GET /api/orgs/{orgId}/licenses (filters/sort)
 
 **Permissions**
 - licenses.view for the list; actions hidden without licenses.manage (server still enforces).
@@ -3408,7 +3633,6 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 **Acceptance criteria**
 - Fixture rows render exactly as 28 §2 (Anika $27.97 ACTIVE, Priya with "−Interview Dec 5", Dev $14.99, Lin no license).
 - Filter feature=Interview Prep + status=pending → Priya only.
-- Selecting 3 + Apply preset → one quote with 3 member lines → confirm flow.
 - 390 cards and 1440 table snapshots; keyboard navigation of row actions.
 - A member of beta opening acme's URL sees the shell's not-part-of-your-role state (404), no redirect.
 
@@ -3418,18 +3642,18 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** Server-side pagination (page size 50); never load all licenses client-side.
 - **Definition of Done:** Page live for acme behind the flag. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-### X6.3 — Configure Consultant License: summary, base, feature picker with prices/allowances/dependency hints, presets, stackable quantity, debounced backend quotes, QuoteSummary impact preview, cost-confirmation sheet for COMMERCIAL deps, confirm with countdown, error handling (stale, item limit, unconfirmed deps), bulk mode
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** Web · **Deps:** X6.2, X2.15
+### X6.3 — Configure Consultant License: summary, base, feature picker with prices/allowances/dependency hints, presets, stackable quantity, debounced backend quotes, QuoteSummary impact preview, confirm with countdown, error handling (stale, item limit, unconfirmed deps)
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X6.2, X2.15
 - **Persona:** Org admin
 - **Objective:** The E2E-C surface: pick features, see the authoritative impact preview, confirm — never a silently added paid feature.
 - **Story:** As an org admin configuring Anika, I want to tick features and see the exact new monthly price, today's prorated charge and the next invoice before I confirm, and be asked explicitly when a feature needs another paid one.
 
 **Functional requirements**
-- 28 §3, §7, §9; quote on every change (400 ms debounce) rendering LicenseQuoteDTO fields only; countdown + auto re-quote; confirm sheet with final numbers; success toast with undo for removals; errors per 28 §3; bulk mode with per-member accordion.
+- 28 §3, §7, §9; quote on every change (400 ms debounce) rendering LicenseQuoteDTO fields only; countdown + auto re-quote; confirm sheet with final numbers; success toast with undo for removals; errors per 28 §3; COMMERCIAL dependencies render as a disabled tick with "needs confirmation" until X6.13 ships the cost-confirmation sheet (the API already refuses DEPENDENCY_UNCONFIRMED).
 - Consultant-side 402 cards reuse the same chip components (X9.1 consumes).
 
 **UI requirements**
-- web/src/app/(tenant)/admin/licenses/[memberId]/page.tsx; packages/ui QuoteSummary, CostConfirmSheet, AllowanceMeter, FeatureChip; Stepper on 390, two-pane on 1440; useBottomBar sticky bar.
+- web/src/app/(tenant)/%5Ft/w/admin/licenses/[memberId]/page.tsx; web composites QuoteSummary (X2.15 primitives AllowanceMeter, FeatureChip, PriceDelta, MoneyText); Stepper on 390, two-pane on 1440; useBottomBar sticky bar.
 
 **Backend requirements**
 - None new (X5.4/X5.5/X5.12).
@@ -3448,20 +3672,61 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 **Acceptance criteria**
 - E2E-C UI journey: base → AI Job Matching → AI Resume Tailoring → per-line prices shown → preview totals equal the mock quote ($27.97) → confirm → consultant page shows the two chips → Interview Prep unavailable (402 card).
-- Ticking Autopilot prepare opens the cost-confirmation sheet naming AI Job Matching and the combined amount; Cancel leaves both unticked; Accept re-quotes with both.
 - Unticking an active feature shows "works until Dec 5 · no refund".
 - QUOTE_STALE → inline refresh; STRIPE_ITEM_LIMIT → retired-prices card with Refresh prices.
 - Quote expiry → countdown hits 0 → automatic re-quote; confirm disabled while pending.
 - No client-side arithmetic (lint rule: no `+`/`*` on *Minor fields; test asserts the formatter is the only consumer).
 
 **Test cases**
-- Playwright configure.spec (390/1440, bulk mode)
-- component tests for QuoteSummary and CostConfirmSheet with every DTO field
+- Playwright configure.spec (390/1440)
+- component tests for QuoteSummary with every DTO field
 
 - **Tech notes:** Debounce + cancel in-flight quote requests; render only the latest inputsHash.
 - **Definition of Done:** E2E-C UI green over the mock. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.13 — Cost-confirmation sheet for COMMERCIAL dependencies (full cost impact, explicit accept) + bulk mode: selection bar on the Licenses page → one BULK quote → per-member accordion confirm, line errors, CSV import entry
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X6.2, X6.3, X5.12, X2.15
+- **Persona:** Organization Admin licensing many consultants
+- **Objective:** A paid feature is never added silently, and licensing twenty consultants is one quote and one confirmation.
+- **Story:** As an org admin, I want to apply the "Full Career Support" preset to the whole Boston team in one go and be told plainly when a tick pulls in another paid feature so that the invoice never surprises me.
+
+**Functional requirements**
+- CostConfirmSheet (web/src/components/ent/billing): opens when the quote returns requiresConfirmation[] — names the dependency, its price and the combined delta; Cancel leaves both unticked; Accept re-quotes with confirmedCommercialDeps and the summary shows both lines (28 §4; requirement §16 "never silently add").
+- Bulk mode: Licenses page selection bar (X6.2) with Apply preset / Add feature / Remove feature / Suspend / Cancel / Reactivate → POST …/licenses/bulk/quotes (X5.12) → bulk confirm page with a per-member accordion (each line's delta, dependency confirmations, line errors such as INVITED/NOT_ELIGIBLE shown inline and skippable), one confirm with countdown, per-line results toast with Undo for removals; CSV import entry (X5.12) with a dry-run preview.
+- Filters (team/department/role/unlicensed) can seed the selection ("Select all 14 unlicensed") — resolved at quote time by the API.
+
+**UI requirements**
+- Sheet on 390 (bottom), dialog on 1440; accordion rows 44 px; no client-side arithmetic (lint rule from X6.3).
+
+**Backend requirements**
+- — (X5.12)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes POST …/licenses/bulk/quotes, POST …/quotes/{id}/confirm, POST …/licenses/bulk/import (dry-run + apply)
+
+**Permissions**
+- licenses.manage (ORG)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Ticking Autopilot prepare opens the cost-confirmation sheet naming AI Job Matching and the combined amount; Cancel leaves both unticked; Accept re-quotes with both and the preview shows two lines (E2E-C variant).
+- Selecting 3 + Apply preset → one quote with 3 member lines → confirm → 3 licenses ACTIVE; one INVITED member in the selection shows "billed while waiting on the invite" (C7) and is included.
+- A line error (NOT_ELIGIBLE) is shown inline; confirming applies the other lines (per-line results); Undo reverses removals within 10 s.
+- CSV dry-run lists accepted/rejected rows before anything is quoted; 501 rows → 422 BULK_TOO_LARGE.
+- Playwright bulk journey at 390/1440; axe clean.
+
+**Test cases**
+- Playwright licenses-bulk.spec (390/1440)
+- CostConfirmSheet component tests with every requiresConfirmation shape
+
+- **Tech notes:** Split from X6.2/X6.3 by Session E (09). 28 §2 bulk bar, §4 sheet, §9 errors; 21 §4 dependency semantics.
+- **Definition of Done:** E2E-C dependency variant green over the mock; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X6.4 — Billing & Invoices page: Account (status, currency, payment method via Stripe portal, tax status), Invoices with line snapshots and PDF links, Contract summary (+ server-generated PDF), Billing contacts (autosave), credits rows; setup-fee card when unpaid
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.6, X6.12, X2.15 · **Supersedes:** O4.6 · **Relates:** O4.6
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.14, X6.12, X2.15 · **Supersedes:** O4.6 · **Relates:** O4.6
 - **Persona:** Finance
 - **Objective:** Everything Finance needs about the account, contract and invoices without Stripe access.
 - **Story:** As Finance, I want to see and download every invoice with its lines, our contract terms and the payment method, so that I can reconcile without asking anyone.
@@ -3545,17 +3810,17 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** Never show dollars to org users for AI; percent only.
 - **Definition of Done:** Both pages live behind the flag. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-### X6.9 — Platform Pricing Admin (admin page kit): Catalog, Features, Presets, Volume tiers, Discounts, Contracts (rows editor + history), Publish (diff + margin re-check + typed version confirm), Change history
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** Web, API · **Deps:** X5.2, X5.5, X1.11 · **Relates:** A3.4
+### X6.9 — Platform Pricing Admin (admin page kit): Features, Presets, Volume tiers tabs + Publish (diff + margin re-check + typed version confirm) + Change history on the X5.13 Catalog page
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X5.13, X5.2, X5.3 · **Relates:** A3.4
 - **Persona:** Platform admin
 - **Objective:** Every commercial knob — prices, allowances, dependencies, presets, tiers, discounts, contracts, publication — editable from admin with the guard and audit in front of it.
 - **Story:** As a platform admin, I want one pricing console where I publish versions, negotiate contracts and see every change, so that nothing commercial is ever a code change.
 
 **Functional requirements**
-- 28 §6; every tab over X5.1/X5.2/X5.3/X5.5 endpoints; ReasonSheet on every write; ConfirmTypedSheet typing the version on publish; HistoryDrawer from catalog_change/contract_event; 390 behaviour via useNarrow.
+- 28 §6 tabs Features, Presets, Volume tiers over X5.2/X5.3 endpoints added to the X5.13 page; Publish tab shows the diff of the draft set with each affected preset/tier margin result; ReasonSheet on every write; ConfirmTypedSheet typing the version; HistoryDrawer from catalog_change; 390 behaviour via useNarrow. Discounts and Contracts tabs are X6.16.
 
 **UI requirements**
-- web/src/app/(admin)/admin/pricing/** (extends X5.1 page) and /admin/contracts/**; admin kit only.
+- web/src/app/(admin)/admin/pricing/** (extends X5.13); admin kit only.
 
 **Backend requirements**
 - None new beyond X5.* (contract approve/activate endpoints exist).
@@ -3564,7 +3829,7 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - None.
 
 **APIs**
-- the /api/admin/catalog/** and /api/admin/contracts/** set
+- the /api/admin/catalog/** and /api/admin/features|presets|volume-tiers/** set
 
 **Permissions**
 - ROLE_ADMIN; contracts.manage; HIGH re-auth on publish/override/contract activation.
@@ -3574,8 +3839,7 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 **Acceptance criteria**
 - Publishing a draft set shows the diff with each affected preset/tier margin result and requires typing "v18"; the publish creates catalog_publish 18.
-- Contract editor refuses a second active contract, shows the floor result per row and records the approver (two-person rule).
-- Discounts tab requires ends_at ≤ 12 months.
+- Dependency editor refuses a cycle with the path shown; preset editor shows the "above individual" check result live.
 - Change history lists before/after JSON with the actor and reason.
 - 390 and 1440 kit snapshots.
 
@@ -3583,11 +3847,50 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - Playwright pricing-admin.spec
 - component tests with kit-test-utils
 
-- **Tech notes:** Reuse AdminTable/AdminFilterBar/ReasonSheet; no new admin primitives without adding them to the kit first.
+- **Tech notes:** Reuse AdminTable/AdminFilterBar/ReasonSheet; no new admin primitives without adding them to the kit first. Split by Session E: X6.9 = catalog-side tabs; X6.16 = commercial tabs.
 - **Definition of Done:** Admin can take the enterprise catalog from "no prices" to a published version without engineering. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.16 — Platform Pricing Admin — Discounts and Contracts tabs (Commercial Agreements): contract rows editor with floor results, versions and history, two-person approve, discounts with best-of preview, org pricing preview
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X6.9, X5.15
+- **Persona:** Kiwiply platform admin (sales/finance)
+- **Objective:** Commercial agreements are managed from the console with the same guard rails the API enforces, and sales can preview an org's effective prices before activating a deal.
+- **Story:** As a platform admin, I want to draft Acme's contract, see the floor result per row, send it to a second admin to approve and preview Acme's new quote so that a deal is live without engineering.
 
+**Functional requirements**
+- Contracts tab (/admin/contracts/**): list with status/version; editor = header (org, dates, min committed licenses informational — C6, volume_applies, stackable) + price rows editor (product, override amount XOR pct, min quantity, allowance/pool overrides) showing the floor result per row and requiring override_reason below floor; Approve (disabled for the author — two-person rule), Activate, End, Cancel with ReasonSheet; versions + HistoryDrawer from contract_event; "Preview Acme's pricing" panel from GET /api/admin/orgs/{id}/pricing-preview.
+- Discounts tab: org_discount editor (amount/pct, ends_at ≤ 12 months, stackable, eligibility), best-of preview for a chosen org, archive.
+
+**UI requirements**
+- Admin kit only; 390 via useNarrow (rows become cards).
+
+**Backend requirements**
+- — (X5.15)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes /api/admin/contracts/**, /api/admin/org-discounts/**, /api/admin/orgs/{id}/pricing-preview
+
+**Permissions**
+- ROLE_ADMIN + contracts.manage
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Contract editor refuses a second active contract (409 shown inline), shows the floor result per row, requires a reason below floor and records the approver ≠ author (the author's Approve button is disabled with the rule text).
+- Discounts tab requires ends_at ≤ 12 months and shows which discount the engine would pick for the org.
+- Pricing preview for acme matches PricingEngineGoldenTest G2 values after activating the fixture contract.
+- 390 and 1440 kit snapshots; axe clean.
+
+**Test cases**
+- Playwright contracts-admin.spec (draft → approve by second admin → activate → preview)
+- component tests with kit-test-utils
+
+- **Tech notes:** Split from X6.9 by Session E. 28 §6, 23 §5; escalations C5/C6.
+- **Definition of Done:** A contract can go draft → active from the console with a second approver; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X6.10 — Platform admin org billing operations: setup-fee status, invoices, items vs licenses with drift resolution, billing mode switch, suspend/reactivate with reason, AI budget override per license, credits (flag enterprise.billing.credits, two-person rule), duplicate-setup-fee refund, test-clock controls in test mode
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.8, X6.9 · **Relates:** A14.2
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.8, X6.9, X6.16 · **Relates:** A14.2
 - **Persona:** Platform admin
 - **Objective:** Support tooling for enterprise billing without touching money automatically.
 - **Story:** As a platform admin handling a support ticket, I want to see an org's billing state next to its licenses and resolve drift or apply an approved credit with a reason, so that every money action is deliberate and audited.
@@ -3632,9 +3935,58 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** No refunds for subscriptions, ever (locked); credits only via escalation C1's flag.
 - **Definition of Done:** Support can handle the enterprise billing scenarios of 26 §9 and 27 §7 from admin. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.17 — Platform admin break-glass (E8): POST /api/admin/orgs/{id}/break-glass {reason, mfa} → 15-min read grant over an allow-listed projection, step-up MFA, HIGH ADMIN_READ audit written into the tenant's own log, OWNER notification, platform Security page (grant log)
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.11, X1.10, X4.9 · **Relates:** E8
+- **Persona:** Kiwiply platform admin handling a support case; the org OWNER who must see it
+- **Objective:** Privileged access to customer data exists only as a time-boxed, reasoned, MFA-confirmed grant that the customer can see in their own audit log — never a silent read.
+- **Story:** As a platform admin, I want to open a 15-minute window into Acme's licenses with a typed reason so that I can resolve a billing ticket while Acme's owner sees exactly what I looked at.
 
+**Functional requirements**
+- POST /api/admin/orgs/{id}/break-glass {reason (≥ 20 chars), mfaCode} → break_glass_grant row (admin_login, org_id, reason, expires_at = now + enterprise.breakglass.minutes (default 15), projections[]) after AdminMfaService step-up (401 STEP_UP_REQUIRED without a fresh code); one active grant per admin+org; revoke endpoint; grants expire by clock.
+- Projections allow-listed in BreakGlassProjections: org summary, member list (names, roles, status), licenses + usage counters, hostnames, the org audit tail — never resume text, consent-protected career data, rates, notes, inbox content (a projection outside the list is a compile-time error: enum).
+- Every read through a grant writes a HIGH ADMIN_READ org_audit_event into the tenant's log (actor = the admin, details = projection + reason + grant id) and an AdminAuditEvent; OWNER notified ORG_MEMBERSHIP "Kiwiply support accessed your workspace" when enterprise.breakglass.notify_owner (default true); security mailbox alert per grant.
+- Without a grant, /api/admin/orgs/{id}/** returns the counts-only detail of X1.11 — admin is not a membership path (404 on /api/orgs/**, AdminHostGuardIT unchanged).
+- Web: /admin/organizations/[id] gains "Request access" (ReasonSheet + MFA code) → a banner with the countdown and the allow-listed tabs; /admin/security (platform Security page, 16 §5.9): break-glass grant log (who, org, reason, projections read, expiry), filters, CSV export (audited); links to the admin audit.
+
+**UI requirements**
+- Admin kit; the grant banner is impossible to miss (tenant name + countdown); ReasonSheet requires 20+ chars; MFA code field; 390 cards.
+
+**Backend requirements**
+- service/admin/BreakGlassService, BreakGlassProjections (enum), web/rest/admin/AdminBreakGlassResource, AdminOrgReadResource (projection reads), EnterpriseSettingKeys.Ops (breakglass.*)
+
+**Database changes**
+- Liquibase 20261020030000_ent_break_glass.xml (Phase-6 bucket; 41 row 6 planned `…020000` which is taken by X6.14 — renumbered): break_glass_grant (id, admin_login, org_id, reason, projections_json, created_at, expires_at, revoked_at); index (org_id, expires_at).
+
+**APIs**
+- POST /api/admin/orgs/{id}/break-glass {reason, mfaCode} → 201 {grantId, expiresAt} | 401 STEP_UP_REQUIRED | 422
+- DELETE /api/admin/orgs/{id}/break-glass/{grantId}
+- GET /api/admin/orgs/{id}/read/{projection} (grant required → 403 BREAK_GLASS_REQUIRED without one)
+- GET /api/admin/security/break-glass (log, filters, export)
+
+**Permissions**
+- ROLE_ADMIN + support.access admin permission; step-up MFA
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Without a grant, GET /api/admin/orgs/{acme}/read/licenses → 403 BREAK_GLASS_REQUIRED; with a grant → 200 and one HIGH ADMIN_READ row in acme's org_audit_event visible on acme's /w/admin/audit (X4.9) to its OWNER/ORG_ADMIN.
+- A grant request without a fresh MFA code → 401 STEP_UP_REQUIRED; reason shorter than 20 chars → 422; after 15 minutes the read → 403 again.
+- A projection not in the enum cannot be requested (compile-time); the resume-text route does not exist under /api/admin (route table test).
+- OWNER receives exactly one notification per grant (dedupe grant:{id}); the security mailbox gets the alert.
+- The platform Security page lists the grant with projections read; exporting it writes an AdminAuditEvent EXPORT.
+
+**Test cases**
+- BreakGlassServiceTest
+- AdminBreakGlassResourceIT (SEC-48)
+- BreakGlassProjectionsTest (route table)
+- AdminHostGuardIT unchanged
+- web admin-security.test.tsx, Playwright admin-break-glass.spec (390/1440)
+
+- **Tech notes:** New in Task 2 (doc 45 gap): E8 had a default but no story; 42 §3.9 T9 and 40 §12 name the endpoint. Reuse AdminMfaService; settings enterprise.breakglass.minutes (INT 15), enterprise.breakglass.notify_owner (BOOL true). Until this story lands, no admin tenant-data read endpoint exists (E8 default).
+- **Definition of Done:** openapi regenerated; CI green; 42 §3.9 row T9 points here; 08 E8 consequence updated. Plus the common DoD in `06-phase-plan.md` §5.
 ### X6.11 — Stripe test-clock QA runbook (scenario C through dunning with recorded object ids) + E2E-C Playwright journey over the mock at 390/1440 + Phase 6 exit gate
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** QA, Web · **Deps:** X6.3, X6.4, X6.5, X6.8, X6.10
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** QA, Web · **Deps:** X6.3, X6.4, X6.5, X6.8, X6.10, X6.13
 - **Persona:** QA
 - **Objective:** Prove the Stripe path in test mode end to end and the UI journey over the mock, then close Phase 6.
 - **Story:** As QA, I want a repeatable test-clock script and a Playwright journey so that every release can re-prove billing without a real charge.
@@ -3670,7 +4022,6 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** Test mode only; the runbook starts with a key check that refuses sk_live_.
 - **Definition of Done:** Phase 6 gate passed. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
 ### X7 — Phase 7 — Consultant and resume management (fully specified, Session D)
 _Consultant directory and profile overlay, org-managed resume links with approval and visibility, readiness, per-feature consent._
 
