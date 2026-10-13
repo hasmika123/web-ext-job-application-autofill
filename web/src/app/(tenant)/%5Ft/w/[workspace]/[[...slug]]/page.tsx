@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import DashboardPage from "@/components/ent/dashboard/DashboardPage";
+import MarketingHomePage from "@/components/ent/marketer-ws/MarketingHomePage";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
 import { firstNameOf } from "@/lib/ent/dashboard";
 import { getTenantSession } from "@/lib/ent/tenant-session";
@@ -45,6 +46,12 @@ export default async function WorkspaceCatchAll({ params }: { params: Promise<{ 
         invitationsHref={hrefOf("invitations")}
       />
     );
+  }
+  if (hit.kind === "page" && workspace === "marketing" && (slug ?? []).length === 0 && can(me, "consultants.view") && me.org.id) {
+    // Marketing Home (marketer workspace): the board for a Marketing Specialist's assigned consultants.
+    const nav = me.workspaces.find((w) => w.key === "marketing")?.nav ?? [];
+    const hrefs = Object.fromEntries(nav.map((n) => [n.key, n.href]));
+    return <MarketingHomePage orgId={me.org.id} orgName={me.org.displayName} firstName={firstNameOf(me.person.name)} hrefs={hrefs} />;
   }
   if (hit.kind === "page") return <ComingSoon title={hit.title} />;
   const other = me.workspaces.find((w) => w.home === me.landing) ?? me.workspaces[0];

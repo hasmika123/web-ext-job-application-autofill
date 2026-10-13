@@ -19,3 +19,5 @@ export { ConsentChip, ReadinessRing, SensitiveTextField, SENSITIVE_422_MESSAGE, 
 export type { ConsentChipProps, ConsentLevel, ReadinessRingProps, SensitiveTextFieldProps } from "./talent";
 export { KanbanBoard, WorkloadColumn, TimelineFeed, mergeTimeline, capacityDots } from "./boards";
 export type { KanbanBoardProps, KanbanColumn, WorkloadColumnProps, WorkloadItem, TimelineFeedProps, TimelineEvent, TimelineSource } from "./boards";
+export { FunnelChart, SourceLogo, funnelWidths, FUNNEL_COLORS } from "./funnel";
+export type { FunnelStage } from "./funnel";
