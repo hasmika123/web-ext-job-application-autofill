@@ -29,6 +29,7 @@
     </changeSet>
 
     <changeSet id="20261018010000-2" author="dossier">
+        <validCheckSum>ANY</validCheckSum>
         <preConditions onFail="MARK_RAN">
             <not><columnExists tableName="org_member" columnName="department_group_id"/></not>
         </preConditions>
@@ -43,30 +44,10 @@
             constraintName="fk_member_team" referencedTableName="org_group" referencedColumnNames="id" onDelete="SET NULL"/>
         <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="manager_member_id"
             constraintName="fk_member_manager" referencedTableName="org_member" referencedColumnNames="id" onDelete="SET NULL"/>
-        <createIndex tableName="org_member" indexName="ix_member_org_department">
-            <column name="org_id"/>
-            <column name="status"/>
-            <column name="department_group_id"/>
-        </createIndex>
-        <createIndex tableName="org_member" indexName="ix_member_org_team">
-            <column name="org_id"/>
-            <column name="team_group_id"/>
-        </createIndex>
-        <createIndex tableName="org_member" indexName="ix_member_org_manager">
-            <column name="org_id"/>
-            <column name="manager_member_id"/>
-        </createIndex>
-        <rollback>
-            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_manager"/>
-            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_team"/>
-            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_department"/>
-            <dropIndex tableName="org_member" indexName="ix_member_org_manager"/>
-            <dropIndex tableName="org_member" indexName="ix_member_org_team"/>
-            <dropIndex tableName="org_member" indexName="ix_member_org_department"/>
-            <dropColumn tableName="org_member" columnName="manager_member_id"/>
-            <dropColumn tableName="org_member" columnName="team_group_id"/>
-            <dropColumn tableName="org_member" columnName="department_group_id"/>
-        </rollback>
+        <!-- The three indexes moved to changeset -9 and the rollback is empty: on every real database the columns and their foreign keys come
+             from 20261015040000_ent_invites (earlier in the changelog), this changeset is MARK_RAN there, and a rollback that dropped them here
+             failed ("Can't DROP 'fk_member_team'"). ent_invites' own rollback drops the columns. -->
+        <rollback/>
     </changeSet>
 
     <changeSet id="20261018010000-3" author="dossier">
@@ -213,5 +194,34 @@
         <rollback>
             <dropTable tableName="idempotency_record"/>
         </rollback>
+    </changeSet>
+
+    <!-- The org_member indexes the Employees board filters by. Own changeset (they were skipped whenever -2 was MARK_RAN), one per index. -->
+    <changeSet id="20261018010000-9" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_member" indexName="ix_member_org_department"/></not></preConditions>
+        <createIndex tableName="org_member" indexName="ix_member_org_department">
+            <column name="org_id"/>
+            <column name="status"/>
+            <column name="department_group_id"/>
+        </createIndex>
+        <rollback><dropIndex tableName="org_member" indexName="ix_member_org_department"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-10" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_member" indexName="ix_member_org_team"/></not></preConditions>
+        <createIndex tableName="org_member" indexName="ix_member_org_team">
+            <column name="org_id"/>
+            <column name="team_group_id"/>
+        </createIndex>
+        <rollback><dropIndex tableName="org_member" indexName="ix_member_org_team"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-11" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_member" indexName="ix_member_org_manager"/></not></preConditions>
+        <createIndex tableName="org_member" indexName="ix_member_org_manager">
+            <column name="org_id"/>
+            <column name="manager_member_id"/>
+        </createIndex>
+        <rollback><dropIndex tableName="org_member" indexName="ix_member_org_manager"/></rollback>
     </changeSet>
 </databaseChangeLog>

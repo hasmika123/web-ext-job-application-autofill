@@ -164,6 +164,12 @@ class EntRolesMigrationIT {
                     assertThat(columnExists(conn, scratch, "org_member", "invite_message")).as("ent_invites rolled back with it").isFalse();
                     assertThat(columnExists(conn, scratch, "org_member", "invite_role_ids_json")).isFalse();
                     assertThat(columnExists(conn, scratch, "org_member", "manager_member_id")).isFalse();
+                    // X4.3's ent_employees follows ent_invites and had a rollback that failed on a database where ent_invites owns the columns: it is rolled back too
+                    assertThat(tableExists(conn, scratch, "org_member_offboarding")).as("ent_employees' tables rolled back").isFalse();
+                    assertThat(tableExists(conn, scratch, "idempotency_record")).isFalse();
+                    assertThat(columnExists(conn, scratch, "org_member", "title")).isFalse();
+                    assertThat(columnExists(conn, scratch, "org_member", "last_active_at")).isFalse();
+                    assertThat(scalar(conn, "SELECT COUNT(*) FROM DATABASECHANGELOG WHERE id LIKE '20261015030000-%' OR id LIKE '20261015040000-%' OR id LIKE '20261016%' OR id LIKE '20261018%'")).as("every changeset after the roles changelog is out of the history").isEqualTo("0");
                     assertThat(columnExists(conn, scratch, "org_member", "invite_sent_at")).as("branch B's invite columns are an earlier changelog and stay").isTrue();
                     // Not asserted: applying ent_authz AGAIN right after this rollback. Observed in this harness (one JVM, a second Liquibase object on a
                     // fresh connection): the update reports the changeset as run but leaves no table and no history row. Unexplained; production runs the
