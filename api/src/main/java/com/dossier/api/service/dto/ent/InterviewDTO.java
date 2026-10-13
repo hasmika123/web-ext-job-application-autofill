@@ -14,7 +14,7 @@ public final class InterviewDTO {
 
     private InterviewDTO() {}
 
-    public record PersonRef(Long id, String name, String initials, String subtitle) {}
+    public record PersonRef(Long id, String name, String initials, String subtitle, String status) {}
 
     public record ClientRef(Long id, String name, String initials, String industry) {}
 
@@ -59,7 +59,9 @@ public final class InterviewDTO {
 
     public record Option(String value, String label) {}
 
-    public record Filters(List<Option> clients, List<Option> consultants, List<Option> rounds, List<Option> statuses, List<Option> modes) {}
+    public record Limits(int maxInterviewers, int maxDurationMinutes, int undoMinutes) {}
+
+    public record Filters(List<Option> clients, List<Option> consultants, List<Option> rounds, List<Option> statuses, List<Option> modes, Limits limits) {}
 
     public record PickerItem(Long id, String label, String sub, Long clientId) {}
 

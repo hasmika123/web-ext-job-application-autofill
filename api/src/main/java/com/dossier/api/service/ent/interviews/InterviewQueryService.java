@@ -328,7 +328,7 @@ public class InterviewQueryService {
     }
 
     static InterviewDTO.PersonRef consultantRef(ConsultantProfile c) {
-        return new InterviewDTO.PersonRef(c.getId(), c.getDisplayName(), ApplicationNames.initials(c.getDisplayName()), c.getJobTitle());
+        return new InterviewDTO.PersonRef(c.getId(), c.getDisplayName(), ApplicationNames.initials(c.getDisplayName()), c.getJobTitle(), c.getStatus());
     }
 
     static InterviewDTO.ClientRef clientRef(ClientAccount cl) {
@@ -495,7 +495,8 @@ public class InterviewQueryService {
         Where w = scoped(me, null);
         List<InterviewDTO.Option> statuses = InterviewStatuses.ORDER.stream().map(s -> new InterviewDTO.Option(s, InterviewStatuses.label(s))).toList();
         List<InterviewDTO.Option> modes = InterviewStatuses.MODES.stream().map(s -> new InterviewDTO.Option(s, InterviewStatuses.MODE_LABELS.get(s))).toList();
-        if (w == null) return new InterviewDTO.Filters(List.of(), List.of(), List.of(), statuses, modes);
+        InterviewDTO.Limits limits = new InterviewDTO.Limits(settings.maxInterviewers(me.orgId()), settings.maxDurationMinutes(me.orgId()), settings.undoMinutes(me.orgId()));
+        if (w == null) return new InterviewDTO.Filters(List.of(), List.of(), List.of(), statuses, modes, limits);
         List<Object[]> cls = query("select distinct cl.id, cl.name" + FROM + w.sql + " order by cl.name", w).getResultList();
         List<Object[]> cons = query("select distinct c.id, c.displayName" + FROM + w.sql + " order by c.displayName", w).getResultList();
         List<String> rounds = query("select distinct i.roundLabel" + FROM + w.sql + " and i.roundLabel is not null order by i.roundLabel", w).getResultList();
@@ -504,7 +505,8 @@ public class InterviewQueryService {
             cons.stream().map(c -> new InterviewDTO.Option(String.valueOf(c[0]), (String) c[1])).toList(),
             rounds.stream().map(x -> new InterviewDTO.Option(x, x)).toList(),
             statuses,
-            modes
+            modes,
+            limits
         );
     }
 

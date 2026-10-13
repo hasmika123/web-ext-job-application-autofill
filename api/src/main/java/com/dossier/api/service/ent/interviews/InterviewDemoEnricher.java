@@ -120,6 +120,11 @@ public class InterviewDemoEnricher {
 
     /** Enriches the interviews of one organization that have no history yet; returns how many. */
     public int enrich(Long orgId) {
+        // an interview cannot have been created in the future (the foundation's seed backdates by days from the interview, which for an upcoming one lands ahead of now)
+        Instant stamp = Instant.now();
+        em.createQuery("update TalentInterview i set i.createdAt = :now, i.updatedAt = i.updatedAt where i.orgId = :o and i.createdAt > :now").setParameter("now", stamp).setParameter("o", orgId).executeUpdate();
+        em.createQuery("update TalentInterviewEvent e set e.occurredAt = :now where e.orgId = :o and e.eventType = 'CREATED' and e.occurredAt > :now").setParameter("now", stamp).setParameter("o", orgId).executeUpdate();
+        em.clear();
         List<TalentInterview> all = interviews.findByOrgId(orgId);
         if (all.isEmpty()) return 0;
         Map<Long, TalentApplication> apps = new HashMap<>();
