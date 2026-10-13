@@ -97,8 +97,8 @@ function Loading() {
 
 function Fact({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <li className="flex items-center gap-2.5 text-[12.5px] leading-tight text-[#46527e]">
-      <span aria-hidden className="flex-none text-[#2a3667]">
+    <li className="flex items-center gap-2.5 text-[12.5px] leading-tight text-ink-soft">
+      <span aria-hidden className="flex-none text-[var(--ent-nav-text)]">
         {icon}
       </span>
       <span className="min-w-0 truncate">{children}</span>
@@ -131,8 +131,8 @@ function ContactRowView({ c, canManage, onLeft }: { c: Contact; canManage: boole
     <li data-contact-row={c.id} className="flex items-center gap-2.5 py-1.5">
       <MemberAvatar name={c.name} size={34} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[12.5px] font-semibold leading-tight text-[var(--ent-title,#0b1445)]">{c.name}</p>
-        <p className="truncate text-[12px] leading-tight text-[#46527e]" title={c.role ? (ROLE_LABEL[c.role] ?? c.role) : undefined}>
+        <p className="truncate text-[12.5px] font-semibold leading-tight text-[var(--ent-title)]">{c.name}</p>
+        <p className="truncate text-[12px] leading-tight text-ink-soft" title={c.role ? (ROLE_LABEL[c.role] ?? c.role) : undefined}>
           {c.title ?? (c.role ? ROLE_LABEL[c.role] : "")}
         </p>
       </div>
@@ -186,16 +186,16 @@ function Notes({ d, orgId, replace, onChanged, expanded, onExpand }: { d: Client
           ) : undefined
         }
       />
-      {shown.length === 0 && !composing && <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-[#46527e]">No notes yet. Write down what you learn about this relationship.</p>}
+      {shown.length === 0 && !composing && <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-ink-soft">No notes yet. Write down what you learn about this relationship.</p>}
       <ul className="mt-2 space-y-2">
         {shown.map((n) => (
-          <li key={n.id} data-note className="flex gap-3 rounded-xl border border-[var(--ent-table-line,#edf1f7)] bg-white p-2.5">
-            <span aria-hidden className="mt-0.5 flex-none text-[var(--ent-kpi-orange-fg,#f28c1c)]">
+          <li key={n.id} data-note className="flex gap-3 rounded-xl border border-[var(--ent-table-line)] bg-white p-2.5">
+            <span aria-hidden className="mt-0.5 flex-none text-[var(--ent-kpi-orange-fg)]">
               <FileTextIcon size={22} />
             </span>
             <div className="min-w-0">
-              <p className="whitespace-pre-line text-[12.5px] leading-snug text-[#2a3667]">{n.body}</p>
-              <p className="mt-1 text-[11.5px] text-[#7683a8]">
+              <p className="whitespace-pre-line text-[12.5px] leading-snug text-[var(--ent-nav-text)]">{n.body}</p>
+              <p className="mt-1 text-[11.5px] text-muted">
                 {dayText(n.at)}
                 {n.author ? ` by ${n.author}` : ""}
               </p>
@@ -232,7 +232,7 @@ function Overview({ d, p, replace, save, editing, notesOpen, onNotesOpen, onLeft
     <div className="space-y-4" data-overview>
       <section aria-label="About">
         <SectionHead title="About" />
-        <p className="mt-1 whitespace-pre-line text-[12.5px] leading-[1.45] text-[#46527e]" data-about>
+        <p className="mt-1 whitespace-pre-line text-[12.5px] leading-[1.45] text-ink-soft" data-about>
           {d.about || "No description yet."}
         </p>
         <ul className="mt-2.5 space-y-2" data-facts>
@@ -244,11 +244,11 @@ function Overview({ d, p, replace, save, editing, notesOpen, onNotesOpen, onLeft
         </ul>
       </section>
 
-      <hr className="border-[var(--ent-table-line,#edf1f7)]" />
+      <hr className="border-[var(--ent-table-line)]" />
       <section aria-label="Key contacts" data-key-contacts>
         <SectionHead title="Key Contacts" action={d.contactCount > 3 || d.contactCount > 0 ? <LinkButton onClick={() => p.onTab("contacts")} label="View all contacts">View All</LinkButton> : undefined} />
         {d.contacts.length === 0 ? (
-          <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-[#46527e]">No contacts yet.</p>
+          <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-ink-soft">No contacts yet.</p>
         ) : (
           <ul className="mt-1.5">
             {d.contacts.slice(0, 3).map((c) => (
@@ -258,51 +258,51 @@ function Overview({ d, p, replace, save, editing, notesOpen, onNotesOpen, onLeft
         )}
       </section>
 
-      <hr className="border-[var(--ent-table-line,#edf1f7)]" />
+      <hr className="border-[var(--ent-table-line)]" />
       <section aria-label="Recent requirements" data-recent-requirements>
         <SectionHead title="Recent Requirements" action={d.requirementCount > 0 ? <LinkButton onClick={() => p.onTab("requirements")} label="View all requirements">View All</LinkButton> : undefined} />
         {d.requirements.length === 0 ? (
-          <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-[#46527e]">No requirements yet.</p>
+          <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-ink-soft">No requirements yet.</p>
         ) : (
           <ul className="mt-2 space-y-1.5">
             {d.requirements.slice(0, 3).map((r) => (
               <li key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 text-[12.5px]">
-                <span className="truncate text-[#2a3667]">{r.title}</span>
+                <span className="truncate text-[var(--ent-nav-text)]">{r.title}</span>
                 <Pill tone={REQUIREMENT_TONE[r.status] ?? "grey"} className="!px-3 !py-1 !text-[12px] !font-medium">
                   {REQUIREMENT_STATUS_LABEL[r.status] ?? r.status}
                 </Pill>
-                <span className="w-[86px] text-right text-[12px] text-[#46527e]">{dayText(r.postedAt)}</span>
+                <span className="w-[86px] text-right text-[12px] text-ink-soft">{dayText(r.postedAt)}</span>
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <hr className="border-[var(--ent-table-line,#edf1f7)]" />
+      <hr className="border-[var(--ent-table-line)]" />
       <section aria-label="Recent submissions" data-recent-submissions>
         <SectionHead title="Recent Submissions" action={subsHref ? <LinkButton href={subsHref} label="View all submissions">View All</LinkButton> : undefined} />
         {d.submissions.length === 0 ? (
-          <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-[#46527e]">No one has been submitted to this client yet.</p>
+          <p className="mt-2 rounded-xl bg-paper-2 p-2.5 text-[12.5px] text-ink-soft">No one has been submitted to this client yet.</p>
         ) : (
           <ul className="mt-2 space-y-2">
             {d.submissions.slice(0, 3).map((s) => (
               <li key={s.applicationId} className="grid grid-cols-[34px_minmax(0,1fr)_auto_auto] items-center gap-2.5">
                 <MemberAvatar name={s.consultantName} size={30} />
                 <div className="min-w-0">
-                  <p className="truncate text-[12.5px] font-semibold leading-tight text-[var(--ent-title,#0b1445)]">{s.consultantName}</p>
-                  <p className="truncate text-[11.5px] leading-tight text-[#7683a8]">{s.jobTitle}</p>
+                  <p className="truncate text-[12.5px] font-semibold leading-tight text-[var(--ent-title)]">{s.consultantName}</p>
+                  <p className="truncate text-[11.5px] leading-tight text-muted">{s.jobTitle}</p>
                 </div>
                 <Pill tone={STAGE_TONE[s.stage] ?? "grey"} className="!px-2.5 !py-1 !text-[11.5px] !font-medium">
                   {STAGE_PILL[s.stage] ?? s.stage}
                 </Pill>
-                <span className="w-[62px] text-right text-[11.5px] text-[#46527e]">{relativeTime(s.at)}</span>
+                <span className="w-[62px] text-right text-[11.5px] text-ink-soft">{relativeTime(s.at)}</span>
               </li>
             ))}
           </ul>
         )}
       </section>
 
-      <hr className="border-[var(--ent-table-line,#edf1f7)]" />
+      <hr className="border-[var(--ent-table-line)]" />
       <Notes d={d} orgId={p.orgId} replace={replace} onChanged={p.onChanged} expanded={notesOpen} onExpand={onNotesOpen} />
     </div>
   );
@@ -312,9 +312,9 @@ function ContactsTab({ d, onLeft, onAdd }: { d: ClientDetail; onLeft: (c: Contac
   return (
     <div data-contacts-tab className="space-y-2">
       {d.contacts.length === 0 ? (
-        <p className="rounded-xl bg-paper-2 p-3 text-[12.5px] text-[#46527e]">No contacts yet. Add the people you work with at {d.name}.</p>
+        <p className="rounded-xl bg-paper-2 p-3 text-[12.5px] text-ink-soft">No contacts yet. Add the people you work with at {d.name}.</p>
       ) : (
-        <ul className="divide-y divide-[var(--ent-table-line,#edf1f7)]">
+        <ul className="divide-y divide-[var(--ent-table-line)]">
           {d.contacts.map((c) => (
             <ContactRowView key={c.id} c={c} canManage={d.access.canManage} onLeft={onLeft} />
           ))}
@@ -330,16 +330,16 @@ function ContactsTab({ d, onLeft, onAdd }: { d: ClientDetail; onLeft: (c: Contac
 }
 
 function RequirementsTab({ d, jobsHref }: { d: ClientDetail; jobsHref: string | null }) {
-  if (d.requirements.length === 0) return <p className="rounded-xl bg-paper-2 p-3 text-[12.5px] text-[#46527e]">No requirements yet.</p>;
+  if (d.requirements.length === 0) return <p className="rounded-xl bg-paper-2 p-3 text-[12.5px] text-ink-soft">No requirements yet.</p>;
   return (
-    <ul className="divide-y divide-[var(--ent-table-line,#edf1f7)]" data-requirements-tab>
+    <ul className="divide-y divide-[var(--ent-table-line)]" data-requirements-tab>
       {d.requirements.map((r) => {
         const href = hrefWith(jobsHref, `job=${r.id}`);
         const inner = (
           <>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12.5px] font-semibold text-[var(--ent-title,#0b1445)]">{r.title}</p>
-              <p className="truncate text-[11.5px] text-[#7683a8]">
+              <p className="truncate text-[12.5px] font-semibold text-[var(--ent-title)]">{r.title}</p>
+              <p className="truncate text-[11.5px] text-muted">
                 {r.filled}/{r.positions} filled · {r.submissions} {r.submissions === 1 ? "submission" : "submissions"} · {dayText(r.postedAt)}
               </p>
             </div>
@@ -441,12 +441,12 @@ export default function ClientDrawer(p: ClientDrawerProps) {
     return (
       <div data-detail-body data-client-id={d.id}>
         <div className="flex items-start gap-3.5" data-client-head>
-          <span className="grid h-[68px] w-[68px] flex-none place-items-center rounded-2xl bg-[color-mix(in_srgb,var(--ent-kpi-indigo-bg,#eceafd)_70%,#fff)]">
+          <span className="grid h-[68px] w-[68px] flex-none place-items-center rounded-2xl bg-[var(--ent-kpi-indigo-bg)]">
             <CompanyTile name={d.name} size={56} />
           </span>
           <div className="min-w-0 flex-1 pt-0.5">
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <h2 className="truncate text-[17px] font-bold leading-tight text-[var(--ent-title,#0b1445)]" data-client-title>
+              <h2 className="truncate text-[17px] font-bold leading-tight text-[var(--ent-title)]" data-client-title>
                 {d.name}
               </h2>
               {d.access.canManage ? (
@@ -467,25 +467,25 @@ export default function ClientDrawer(p: ClientDrawerProps) {
                 </Pill>
               )}
             </div>
-            {d.industry && <p className="mt-0.5 text-[12.5px] text-[#46527e]">{d.industry}</p>}
+            {d.industry && <p className="mt-0.5 text-[12.5px] text-ink-soft">{d.industry}</p>}
             {d.website &&
               (site ? (
                 <a href={site} target="_blank" rel="noopener noreferrer" className="mt-0.5 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-accent hover:underline">
                   {siteText(d.website)} <ExternalLinkIcon size={13} aria-hidden />
                 </a>
               ) : (
-                <p className="text-[12.5px] text-[#46527e]">{siteText(d.website)}</p>
+                <p className="text-[12.5px] text-ink-soft">{siteText(d.website)}</p>
               ))}
           </div>
           {p.mode === "push" && (
-            <button type="button" onClick={p.onClose} aria-label="Close client details" className="grid h-8 w-8 flex-none place-items-center rounded-lg text-[#2a3667] hover:bg-paper-2">
+            <button type="button" onClick={p.onClose} aria-label="Close client details" className="grid h-8 w-8 flex-none place-items-center rounded-lg text-[var(--ent-nav-text)] hover:bg-paper-2">
               <XIcon size={18} aria-hidden />
             </button>
           )}
         </div>
 
-        <p className="mt-2 text-[12px] leading-snug text-[#46527e]" data-health-reason>
-          <span className="font-semibold text-[#2a3667]">{d.health.level === "HEALTHY" ? "Healthy" : d.health.level === "AT_RISK" ? "At risk" : "Neutral"}:</span> {d.health.reason}
+        <p className="mt-2 text-[12px] leading-snug text-ink-soft" data-health-reason>
+          <span className="font-semibold text-[var(--ent-nav-text)]">{d.health.level === "HEALTHY" ? "Healthy" : d.health.level === "AT_RISK" ? "At risk" : "Neutral"}:</span> {d.health.reason}
         </p>
 
         <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DrawerTab)} variant="underline" className="mt-3">
@@ -520,12 +520,12 @@ export default function ClientDrawer(p: ClientDrawerProps) {
             </Button>
           )}
           {d.access.canCreateRequirement && (
-            <Button type="button" variant="ghost" className={`!min-h-10 !rounded-[10px] !border-[#bcd2f2] !bg-white !text-[13px] !text-accent-deep ${d.access.canManage ? "" : "col-span-2"}`} onClick={() => p.onCreateRequirement(d)} data-create-requirement>
+            <Button type="button" variant="ghost" className={`!min-h-10 !rounded-[10px] !border-[var(--ent-control-border)] !bg-white !text-[13px] !text-accent-deep ${d.access.canManage ? "" : "col-span-2"}`} onClick={() => p.onCreateRequirement(d)} data-create-requirement>
               <FileTextIcon size={16} aria-hidden /> Create Requirement
             </Button>
           )}
           {placementsHref && (
-            <a href={placementsHref} data-view-placements className="col-span-2 inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[#bcd2f2] bg-white text-[13px] font-medium text-accent-deep hover:bg-accent-soft">
+            <a href={placementsHref} data-view-placements className="col-span-2 inline-flex min-h-10 items-center justify-center gap-2 rounded-[10px] border border-[var(--ent-control-border)] bg-white text-[13px] font-medium text-accent-deep hover:bg-accent-soft">
               <BriefcaseIcon size={16} aria-hidden /> View Placements
             </a>
           )}

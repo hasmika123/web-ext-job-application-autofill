@@ -316,7 +316,6 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
   const sortValue = `${query.sort.key},${query.sort.dir}`;
   const moreCount = (query.status ? 1 : 0) + (query.sizeBand ? 1 : 0) + (query.managerId ? 1 : 0);
   const noClientsAtAll = list.status === "ok" && rows.length === 0 && !filtersOn && summary.status === "ok";
-  const drawerOpen = openId !== null;
   const docked = mode === "push";
   const lastPage = Math.max(0, Math.ceil(total / query.size) - 1);
 
@@ -330,7 +329,7 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
 
   const searchBox = (
     <div className="relative min-w-0 flex-1 basis-56">
-      <SearchIcon aria-hidden size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#2a3667]" />
+      <SearchIcon aria-hidden size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ent-nav-text)]" />
       <Input
         type="search"
         value={searchText}
@@ -343,7 +342,7 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
             change({ q: searchText });
           } else if (e.key === "Escape" && searchText !== "") setSearchText("");
         }}
-        className="min-h-9 !rounded-[10px] !bg-[var(--ent-field-bg,#f4f8fe)] pl-9 !text-[12.5px] sm:!min-h-9"
+        className="min-h-9 !rounded-[10px] !bg-[var(--ent-field-bg)] pl-9 !text-[12.5px] sm:!min-h-9"
       />
     </div>
   );
@@ -376,7 +375,7 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
                   <Select className="!min-h-9 !rounded-[10px] !pl-3 !pr-7 !text-[12.5px] sm:!min-h-9" aria-label={fs.label} value={query[fs.name]} onChange={(v) => change({ [fs.name]: v } as Partial<ClientQuery>)} options={[{ value: "", label: fs.all }, ...fs.options]} />
                 </div>
               ))}
-              <Button type="button" variant="ghost" size="sm" className="min-h-9 flex-none !rounded-[10px] !border !border-[#dde5f1] bg-white !px-3.5 !text-[12.5px] !font-medium" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
+              <Button type="button" variant="ghost" size="sm" className="min-h-9 flex-none !rounded-[10px] !border !border-[var(--ent-control-border)] bg-white !px-3.5 !text-[12.5px] !font-medium" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
                 <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
               </Button>
               {filtersOn && (
@@ -405,7 +404,7 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
 
       {query.tab === "directory" && (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[12.5px] text-[#46527e]">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[12.5px] text-ink-soft">
             <p aria-live="polite" data-count>
               {list.status === "ok" ? showingText(total, query.page, query.size, rows.length) : " "}
             </p>
@@ -425,19 +424,19 @@ export default function ClientsPage({ orgId, orgName, hrefs, supportEmail }: Cli
                   />
                 </div>
               </label>
-              <div role="group" aria-label="View" className="inline-flex overflow-hidden rounded-[10px] border border-[#dde5f1] bg-white">
-                <button type="button" aria-label="List view" aria-pressed={query.view === "list"} onClick={() => setQuery((q) => ({ ...q, view: "list" }))} className={`grid h-9 w-9 place-items-center ${query.view === "list" ? "bg-accent-soft text-accent-deep" : "text-[#46527e] hover:bg-paper-2"}`}>
+              <div role="group" aria-label="View" className="inline-flex overflow-hidden rounded-[10px] border border-[var(--ent-control-border)] bg-white">
+                <button type="button" aria-label="List view" aria-pressed={query.view === "list"} onClick={() => setQuery((q) => ({ ...q, view: "list" }))} className={`grid h-9 w-9 place-items-center ${query.view === "list" ? "bg-accent-soft text-accent-deep" : "text-ink-soft hover:bg-paper-2"}`}>
                   <ListIcon size={17} aria-hidden />
                 </button>
-                <button type="button" aria-label="Grid view" aria-pressed={query.view === "grid"} onClick={() => setQuery((q) => ({ ...q, view: "grid" }))} className={`grid h-9 w-9 place-items-center ${query.view === "grid" ? "bg-accent-soft text-accent-deep" : "text-[#46527e] hover:bg-paper-2"}`}>
+                <button type="button" aria-label="Grid view" aria-pressed={query.view === "grid"} onClick={() => setQuery((q) => ({ ...q, view: "grid" }))} className={`grid h-9 w-9 place-items-center ${query.view === "grid" ? "bg-accent-soft text-accent-deep" : "text-ink-soft hover:bg-paper-2"}`}>
                   <GridIcon size={17} aria-hidden />
                 </button>
               </div>
               <div className="inline-flex gap-1.5">
-                <button type="button" aria-label="Previous page" disabled={query.page <= 0} onClick={() => change({ page: query.page - 1 })} className="grid h-9 w-9 place-items-center rounded-[10px] border border-[#dde5f1] bg-white text-[#46527e] hover:bg-paper-2 disabled:opacity-40">
+                <button type="button" aria-label="Previous page" disabled={query.page <= 0} onClick={() => change({ page: query.page - 1 })} className="grid h-9 w-9 place-items-center rounded-[10px] border border-[var(--ent-control-border)] bg-white text-ink-soft hover:bg-paper-2 disabled:opacity-40">
                   <ChevronLeftIcon size={16} aria-hidden />
                 </button>
-                <button type="button" aria-label="Next page" disabled={query.page >= lastPage} onClick={() => change({ page: query.page + 1 })} className="grid h-9 w-9 place-items-center rounded-[10px] border border-[#dde5f1] bg-white text-accent-deep hover:bg-paper-2 disabled:opacity-40">
+                <button type="button" aria-label="Next page" disabled={query.page >= lastPage} onClick={() => change({ page: query.page + 1 })} className="grid h-9 w-9 place-items-center rounded-[10px] border border-[var(--ent-control-border)] bg-white text-accent-deep hover:bg-paper-2 disabled:opacity-40">
                   <ChevronRightIcon size={16} aria-hidden />
                 </button>
               </div>

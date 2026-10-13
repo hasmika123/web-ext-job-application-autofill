@@ -17,16 +17,16 @@ export default function HelpBeeCard({ orgName, supportEmail }: { orgName: string
   return (
     <section aria-label="Help" data-help-bee className="ent-card flex h-full flex-col overflow-hidden !rounded-[14px] p-[3px]">
       <ClaimsMascot />
-      <div aria-hidden className="relative grid h-[84px] flex-none place-items-end overflow-hidden rounded-[12px] bg-[linear-gradient(120deg,var(--ent-kpi-orange-bg,#fdefd9),var(--ent-kpi-blue-bg,#e1eeff)_55%,var(--ent-kpi-green-bg,#dff7ea))]">
+      <div aria-hidden className="relative grid h-[84px] flex-none place-items-end overflow-hidden rounded-[12px] bg-[linear-gradient(120deg,var(--ent-kpi-orange-bg),var(--ent-kpi-blue-bg)_55%,var(--ent-kpi-green-bg))]">
         <EnterpriseMascot pose="greet" size="md" className="translate-y-1" />
       </div>
       <div className="flex min-h-0 flex-1 flex-col px-3 pb-2.5 pt-2.5">
-        <h2 className="text-[14.5px] font-bold leading-tight text-[var(--ent-title,#0b1445)]">Need help with client management?</h2>
-        <p className="mt-1.5 text-[12px] leading-[1.35] text-[#46527e]">I can help you manage client companies, contacts, requirements, and track your client relationships.</p>
+        <h2 className="text-[14.5px] font-bold leading-tight text-[var(--ent-title)]">Need help with client management?</h2>
+        <p className="mt-1.5 text-[12px] leading-[1.35] text-ink-soft">I can help you manage client companies, contacts, requirements, and track your client relationships.</p>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="mt-auto flex min-h-9 w-full items-center gap-2 rounded-[10px] border border-[#cfe0f7] bg-[#f4f8ff] px-3 text-[13px] font-medium text-accent-deep hover:bg-accent-soft"
+          className="mt-auto flex min-h-9 w-full items-center gap-2 rounded-[10px] border border-[var(--ent-control-border)] bg-[var(--ent-field-bg)] px-3 text-[13px] font-medium text-accent-deep hover:bg-accent-soft"
         >
           <SparklesIcon size={16} aria-hidden /> <span className="flex-1 text-left">Ask a question...</span> <ChevronRightIcon size={15} aria-hidden />
         </button>

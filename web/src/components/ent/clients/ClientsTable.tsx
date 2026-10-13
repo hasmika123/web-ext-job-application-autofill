@@ -36,7 +36,7 @@ function Manager({ row }: { row: ClientRow }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
       <MemberAvatar name={row.manager.name} size={32} />
-      <span className="truncate text-[12.5px] text-[#2a3667]">{row.manager.name}</span>
+      <span className="truncate text-[12.5px] text-[var(--ent-nav-text)]">{row.manager.name}</span>
     </span>
   );
 }
@@ -73,7 +73,7 @@ export function ClientsTable({ rows, selected, onToggle, onTogglePage, openId, o
               <div className="flex items-center gap-3">
                 <CompanyTile name={r.name} size={40} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14.5px] font-semibold text-[var(--ent-title,#0b1445)]">{r.name}</p>
+                  <p className="truncate text-[14.5px] font-semibold text-[var(--ent-title)]">{r.name}</p>
                   <p className="truncate text-[12.5px] text-muted">{r.industry ?? ""}</p>
                 </div>
                 <HealthPill level={r.health.level} />
@@ -117,14 +117,14 @@ export function ClientsTable({ rows, selected, onToggle, onTogglePage, openId, o
             <col style={{ width: "6%" }} />
           </colgroup>
           <thead>
-            <tr className="h-[46px] bg-[color-mix(in_srgb,var(--brand-50,#f2f7ff)_100%,#ffffff)]">
+            <tr className="h-[46px] bg-paper-2">
               <th scope="col" className="pl-3.5">
                 <Check checked={allOn} indeterminate={someOn} onChange={onTogglePage} label="Select all clients on this page" />
               </th>
               {COLS.map((c) => {
                 const active = c.key !== null && sort.key === c.key;
                 return (
-                  <th key={c.label} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined} className={`px-1.5 text-[12.5px] font-semibold leading-[1.15] text-[var(--ent-title,#0b1445)] ${c.className}`}>
+                  <th key={c.label} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined} className={`px-1.5 text-[12.5px] font-semibold leading-[1.15] text-[var(--ent-title)] ${c.className}`}>
                     {c.key ? (
                       <button type="button" onClick={() => onSort(nextSort(sort, c.key as SortKey))} className="inline-flex items-center gap-1 text-left font-semibold hover:text-accent-deep" data-sort={c.key}>
                         {c.lines ? (
@@ -162,7 +162,7 @@ export function ClientsTable({ rows, selected, onToggle, onTogglePage, openId, o
                       onOpen(r);
                     }
                   }}
-                  className={`h-[47.5px] cursor-pointer border-t border-[var(--ent-table-line,#edf1f7)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open || selected.has(r.id) ? "bg-accent-soft/50" : "hover:bg-paper-2/60"}`}
+                  className={`h-[47.5px] cursor-pointer border-t border-[var(--ent-table-line)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open || selected.has(r.id) ? "bg-accent-soft/50" : "hover:bg-paper-2/60"}`}
                 >
                   <td className="pl-3.5">
                     <Check checked={selected.has(r.id)} onChange={() => onToggle(r.id)} label={`Select ${r.name}`} />
@@ -170,16 +170,16 @@ export function ClientsTable({ rows, selected, onToggle, onTogglePage, openId, o
                   <td className="px-1.5">
                     <span className="flex min-w-0 items-center gap-2.5">
                       <CompanyTile name={r.name} size={38} />
-                      <span className="truncate text-[12.5px] font-semibold text-[var(--ent-title,#0b1445)]" data-client-name>
+                      <span className="truncate text-[12.5px] font-semibold text-[var(--ent-title)]" data-client-name>
                         {r.name}
                       </span>
                     </span>
                   </td>
-                  <td className="truncate px-1.5 text-[11.5px] text-[#46527e]">{r.industry ?? ""}</td>
+                  <td className="truncate px-1.5 text-[11.5px] text-ink-soft">{r.industry ?? ""}</td>
                   <td className="px-1.5 text-[12.5px] font-medium tabular-nums text-accent-deep" data-open-requirements>
                     {r.openRequirements}
                   </td>
-                  <td className="px-1.5 text-[12.5px] tabular-nums text-[#46527e]" data-active-consultants>
+                  <td className="px-1.5 text-[12.5px] tabular-nums text-ink-soft" data-active-consultants>
                     {r.activeConsultants}
                   </td>
                   <td className="px-1.5">
@@ -188,7 +188,7 @@ export function ClientsTable({ rows, selected, onToggle, onTogglePage, openId, o
                   <td className="px-1.5">
                     <HealthPill level={r.health.level} />
                   </td>
-                  <td className="whitespace-nowrap px-1.5 text-[12px] text-[#46527e]" data-last-activity>
+                  <td className="whitespace-nowrap px-1.5 text-[12px] text-ink-soft" data-last-activity>
                     {dayText(r.lastActivityAt)}
                   </td>
                   <td className="px-1.5 text-center" onClick={(e) => e.stopPropagation()}>
@@ -226,8 +226,8 @@ export function ClientsGrid({ rows, openId, onOpen, rowMenu }: { rows: ClientRow
           <div className="flex items-start gap-3">
             <CompanyTile name={r.name} size={42} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-semibold text-[var(--ent-title,#0b1445)]">{r.name}</p>
-              <p className="truncate text-[12px] text-[#46527e]">{r.industry ?? ""}</p>
+              <p className="truncate text-[14px] font-semibold text-[var(--ent-title)]">{r.name}</p>
+              <p className="truncate text-[12px] text-ink-soft">{r.industry ?? ""}</p>
             </div>
             <span onClick={(e) => e.stopPropagation()}>
               <Kebab items={rowMenu(r)} label={`Actions for ${r.name}`} />
@@ -235,20 +235,20 @@ export function ClientsGrid({ rows, openId, onOpen, rowMenu }: { rows: ClientRow
           </div>
           <div className="mt-3 flex items-center justify-between">
             <HealthPill level={r.health.level} />
-            <span className="text-[12px] text-[#46527e]">{dayText(r.lastActivityAt)}</span>
+            <span className="text-[12px] text-ink-soft">{dayText(r.lastActivityAt)}</span>
           </div>
-          <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--ent-table-line,#edf1f7)] pt-3 text-[12px]">
+          <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-[var(--ent-table-line)] pt-3 text-[12px]">
             <div>
               <dt className="text-muted">Open requirements</dt>
               <dd className="text-[16px] font-semibold text-accent-deep tabular-nums">{r.openRequirements}</dd>
             </div>
             <div>
               <dt className="text-muted">Active consultants</dt>
-              <dd className="text-[16px] font-semibold text-[#46527e] tabular-nums">{r.activeConsultants}</dd>
+              <dd className="text-[16px] font-semibold text-ink-soft tabular-nums">{r.activeConsultants}</dd>
             </div>
           </dl>
           {r.manager && (
-            <p className="mt-2.5 flex items-center gap-2 text-[12px] text-[#46527e]">
+            <p className="mt-2.5 flex items-center gap-2 text-[12px] text-ink-soft">
               <MemberAvatar name={r.manager.name} size={22} /> {r.manager.name}
             </p>
           )}
@@ -258,13 +258,13 @@ export function ClientsGrid({ rows, openId, onOpen, rowMenu }: { rows: ClientRow
   );
 }
 
-const pageBtn = "grid h-8 min-w-8 place-items-center rounded-lg border border-[#dbe5f3] bg-white px-2 text-[12.5px] font-medium text-[#2a3667] hover:bg-paper-2 disabled:opacity-40";
+const pageBtn = "grid h-8 min-w-8 place-items-center rounded-lg border border-[var(--ent-control-border)] bg-white px-2 text-[12.5px] font-medium text-[var(--ent-nav-text)] hover:bg-paper-2 disabled:opacity-40";
 
 /** "1-10 of 86 clients", the page numbers and the page size: the board's footer. */
 export function Pagination({ page, size, total, shown, onPage, onSize, noun = "client" }: { page: number; size: number; total: number; shown: number; onPage: (p: number) => void; onSize: (s: number) => void; noun?: string }) {
   const count = pagesOf(total, size);
   return (
-    <div className="mt-3 flex flex-col gap-2 text-[12.5px] text-[#46527e] sm:flex-row sm:items-center sm:justify-between" data-pagination>
+    <div className="mt-3 flex flex-col gap-2 text-[12.5px] text-ink-soft sm:flex-row sm:items-center sm:justify-between" data-pagination>
       <p aria-live="polite" data-showing>
         {showingText(total, page, size, shown, noun)}
       </p>

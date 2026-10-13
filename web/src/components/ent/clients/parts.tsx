@@ -8,14 +8,14 @@ import { HEALTH_LABEL, HEALTH_TONE, tileInitials, tileTone, type TileTone } from
  * stable for a name; the solid colours are the boards' fixed icon palette (`--ent-kpi-<tone>-fg`), never the tenant's brand colours.
  */
 const TONE_VAR: Record<TileTone, string> = {
-  violet: "var(--ent-kpi-violet-fg, #7a4cf0)",
-  blue: "var(--ent-kpi-blue-fg, #2b72f0)",
-  pink: "var(--ent-kpi-pink-fg, #e8366a)",
-  ink: "var(--ent-title, #0b1445)",
-  orange: "var(--ent-kpi-orange-fg, #f28c1c)",
-  green: "var(--ent-kpi-green-fg, #1aa565)",
-  indigo: "var(--ent-kpi-indigo-fg, #5b46d6)",
-  teal: "var(--ent-pill-green-fg, #0c7c4d)",
+  violet: "var(--ent-kpi-violet-fg)",
+  blue: "var(--ent-kpi-blue-fg)",
+  pink: "var(--ent-kpi-pink-fg)",
+  ink: "var(--ent-title)",
+  orange: "var(--ent-kpi-orange-fg)",
+  green: "var(--ent-kpi-green-fg)",
+  indigo: "var(--ent-kpi-indigo-fg)",
+  teal: "var(--ent-pill-green-fg)",
 };
 
 export function CompanyTile({ name, size = 38 }: { name: string; size?: number }) {
@@ -54,7 +54,7 @@ export function HealthPill({ level, className = "" }: { level: string; className
 export function SectionHead({ title, action }: { title: string; action?: ReactNode }) {
   return (
     <div className="flex items-center justify-between">
-      <h3 className="text-[14px] font-bold leading-tight text-[var(--ent-title,#0b1445)]">{title}</h3>
+      <h3 className="text-[14px] font-bold leading-tight text-[var(--ent-title)]">{title}</h3>
       {action}
     </div>
   );

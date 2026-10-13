@@ -277,12 +277,19 @@ export function siteHref(url: string | null | undefined): string | null {
   return url && /^https?:\/\//i.test(url) ? url : null;
 }
 
-/** Initials of a company or person for the tile (no logos or photos exist). One word keeps its first letter, as the board's "T". */
+const SUFFIXES = new Set(["inc", "co", "corp", "corporation", "ltd", "llc", "plc", "group", "systems", "solutions", "labs", "lab", "company", "holdings", "partners", "internal", "&"]);
+
+/**
+ * Initials of a company for the tile (no logos exist). A trailing legal or generic word is not part of the mark: "TechCorp Inc." is a "T",
+ * "Global Finance Co." a "GF", "Retail Solutions" an "R" (the board's tiles). A person's name keeps its two initials (`words = 2`, any suffix kept).
+ */
 export function tileInitials(name: string, words = 2): string {
   const w = name.replace(/[^\p{L}\p{N}\s&.-]/gu, "").trim().split(/\s+/).filter(Boolean);
   if (w.length === 0) return "?";
-  if (w.length === 1) return w[0][0].toUpperCase();
-  return w.slice(0, words).map((x) => x[0]).join("").toUpperCase();
+  const core = [...w];
+  while (core.length > 1 && SUFFIXES.has(core[core.length - 1].replace(/\.$/, "").toLowerCase())) core.pop();
+  if (core.length === 1) return core[0][0].toUpperCase();
+  return core.slice(0, words).map((x) => x[0]).join("").toUpperCase();
 }
 
 /** The colour family of a company tile: one of six, stable for a given name. */
