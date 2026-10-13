@@ -166,6 +166,11 @@ class EnterpriseDemoSeederIT {
         List<OrgMember> invited = members.findByOrgIdAndInviteEmailAndStatusIn(acme.getId(), "nina.vogel@acme.example.com", List.of(OrgMemberStatus.INVITED));
         assertThat(invited).hasSize(1);
         assertThat(invited.get(0).getUserId()).isNull();
+        // the Invitations page lists the seat: a send time, the name it was sent to, and Sarah as the sender (never a token)
+        assertThat(invited.get(0).getInviteSentAt()).isNotNull();
+        assertThat(invited.get(0).getInviteName()).isEqualTo("Nina Vogel");
+        assertThat(invited.get(0).getInvitedByMemberId()).isEqualTo(seatOf(acme, "acme", "sarah").getId());
+        assertThat(invited.get(0).getInviteTokenHash()).isNull();
         assertThat(members.countByOrgIdAndStatus(acme.getId(), OrgMemberStatus.ACTIVE)).isEqualTo(9);
         assertThat(members.countByOrgIdAndStatus(beta().getId(), OrgMemberStatus.ACTIVE)).isEqualTo(1);
     }

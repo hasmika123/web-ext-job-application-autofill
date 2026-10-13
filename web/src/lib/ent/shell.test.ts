@@ -72,8 +72,8 @@ describe("the active item", () => {
     expect(activeKey(admin, "/w/admin/employees/42")).toBe("employees");
     expect(activeKey(admin, "/w/admin/unknown-page")).toBeNull();
   });
-  it("tells Employees from Invitations by the query string", () => {
-    expect(activeKey(admin, "/w/admin/employees", "status=invited")).toBe("invitations");
+  it("tells Employees from Invitations by their own pages", () => {
+    expect(activeKey(admin, "/w/admin/invitations", "")).toBe("invitations");
     expect(activeKey(admin, "/w/admin/employees", "")).toBe("employees");
   });
   it("titles a page by its menu label until the page supplies its own", () => {

@@ -5,18 +5,11 @@ import { Dialog, ExternalLinkIcon, HelpCircleIcon, IconButton, SparklesIcon, Too
 import { EnterpriseMascot } from "@/lib/ent/mascot";
 import { helpLinks } from "@/lib/ent/shell";
 
-/**
- * "Need help?" (16 s2.1): the enterprise bee, a one-line offer and "Ask a question...". There is no assistant behind it yet, so the
- * button opens a small help panel that says so and offers the organization's support email and the Kiwiply help centre.
- * `bee=false` (the page already shows a bee, or the rail is collapsed) keeps the card text-only.
- */
-export default function HelpCard({ firstName, orgName, supportEmail, bee = true, collapsed = false }: { firstName: string; orgName: string; supportEmail?: string | null; bee?: boolean; collapsed?: boolean }) {
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
+/** The help panel the "Ask a question..." buttons open (the sidebar's card and any page's own card share it). */
+export function HelpPanel({ open, onClose, orgName, supportEmail }: { open: boolean; onClose: () => void; orgName: string; supportEmail?: string | null }) {
   const links = helpLinks(supportEmail);
-
-  const panel = (
-    <Dialog open={open} onClose={() => setOpen(false)} title="Need help?" description={`Questions about ${orgName}? Here is where to go.`}>
+  return (
+    <Dialog open={open} onClose={onClose} title="Need help?" description={`Questions about ${orgName}? Here is where to go.`}>
       <p className="text-[13.5px] leading-relaxed text-muted">
         The question assistant isn&apos;t switched on yet, so there is nothing to type into here. Until it is, these reach a person.
       </p>
@@ -36,6 +29,18 @@ export default function HelpCard({ firstName, orgName, supportEmail, bee = true,
       </ul>
     </Dialog>
   );
+}
+
+/**
+ * "Need help?" (16 s2.1): the enterprise bee, a one-line offer and "Ask a question...". There is no assistant behind it yet, so the
+ * button opens a small help panel that says so and offers the organization's support email and the Kiwiply help centre.
+ * `bee=false` (the page already shows a bee, or the rail is collapsed) keeps the card text-only.
+ */
+export default function HelpCard({ firstName, orgName, supportEmail, bee = true, collapsed = false }: { firstName: string; orgName: string; supportEmail?: string | null; bee?: boolean; collapsed?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+
+  const panel = <HelpPanel open={open} onClose={() => setOpen(false)} orgName={orgName} supportEmail={supportEmail} />;
 
   if (collapsed)
     return (

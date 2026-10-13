@@ -143,7 +143,10 @@ export function FilterBar({ query, onQueryChange, values, onFilterChange, search
 
 export interface DataTableColumn<T> {
   key: string;
-  header: string;
+  /** The header text, or a node (a "select all" checkbox); a node needs `headerLabel` for the card layout's label. */
+  header: ReactNode;
+  /** Plain-text name of a node `header` (read by screen readers; the card layout's label). */
+  headerLabel?: string;
   /** Cell renderer; defaults to `String(row[key])`. */
   render?: (row: T, index: number) => ReactNode;
   className?: string;
@@ -272,7 +275,7 @@ export function DataTable<T>({
               <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-line/60 px-3 py-2.5 text-[13px]">
                 {rest.map((c) => (
                   <div key={c.key} className="contents">
-                    <dt className="text-muted">{c.header}</dt>
+                    <dt className="text-muted">{c.headerLabel ?? c.header}</dt>
                     <dd className="min-w-0 truncate text-ink">{cell(c, row, i)}</dd>
                   </div>
                 ))}
