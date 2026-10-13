@@ -11,8 +11,12 @@ export interface SwitcherProps {
   onChoose(row: SwitcherRow): void;
   /** Pin a workspace as the one that opens first (local until X4.2's endpoint exists). */
   onPrefer(row: SwitcherRow): void;
-  /** "sidebar": the chip under the logo (menu on a desktop). "bar": the phone top-bar chip (bottom sheet). */
-  variant: "sidebar" | "bar";
+  /**
+   * "panel": no trigger of its own - a floating menu under the header, opened from the account menu's "Switch workspace" (the boards
+   * have no workspace chip in the sidebar). "sidebar": the old chip under the logo (kept for a surface that wants it). "bar": the
+   * phone top-bar chip (bottom sheet).
+   */
+  variant: "panel" | "sidebar" | "bar";
   collapsed?: boolean;
   currentLabel: string;
 }
@@ -20,7 +24,10 @@ export interface SwitcherProps {
 function Rows({ rows, onChoose, onPrefer, autoFocus }: Pick<SwitcherProps, "rows" | "onChoose" | "onPrefer"> & { autoFocus?: boolean }) {
   const list = useRef<HTMLUListElement>(null);
   useEffect(() => {
-    if (autoFocus) list.current?.querySelector<HTMLElement>('[role="menuitemradio"]')?.focus();
+    if (!autoFocus) return;
+    // a beat later, so the menu that opened this one has finished handing focus back to its trigger
+    const t = setTimeout(() => list.current?.querySelector<HTMLElement>('[role="menuitemradio"]')?.focus(), 60);
+    return () => clearTimeout(t);
   }, [autoFocus]);
   const move = (e: KeyboardEvent<HTMLUListElement>) => {
     const items = Array.from(list.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? []);
@@ -78,7 +85,7 @@ export default function WorkspaceSwitcher({ rows, open, onOpenChange, onChoose, 
   const btn = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!open || variant !== "sidebar") return;
+    if (!open || variant === "bar") return;
     const onDown = (e: MouseEvent) => {
       if (!root.current?.contains(e.target as Node)) onOpenChange(false);
     };
@@ -95,6 +102,16 @@ export default function WorkspaceSwitcher({ rows, open, onOpenChange, onChoose, 
       document.removeEventListener("keydown", onKey);
     };
   }, [open, variant, onOpenChange]);
+
+  if (variant === "panel") {
+    if (!open) return null;
+    return (
+      <div ref={root} data-workspace-switcher="panel" className="fixed right-4 top-[84px] z-50 w-[min(320px,calc(100vw-2rem))] rounded-xl border border-line bg-paper p-1.5 shadow-[var(--shadow-lg,0_12px_40px_rgb(0_0_0/0.14))] lg:right-8">
+        <p className="px-3 pb-1 pt-1.5 text-[11px] font-bold uppercase tracking-wide text-muted">Your workspaces</p>
+        <Rows rows={rows} onChoose={onChoose} onPrefer={onPrefer} autoFocus />
+      </div>
+    );
+  }
 
   if (variant === "bar") {
     return (

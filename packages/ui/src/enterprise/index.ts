@@ -19,3 +19,5 @@ export { ConsentChip, ReadinessRing, SensitiveTextField, SENSITIVE_422_MESSAGE, 
 export type { ConsentChipProps, ConsentLevel, ReadinessRingProps, SensitiveTextFieldProps } from "./talent";
 export { KanbanBoard, WorkloadColumn, TimelineFeed, mergeTimeline, capacityDots } from "./boards";
 export type { KanbanBoardProps, KanbanColumn, WorkloadColumnProps, WorkloadItem, TimelineFeedProps, TimelineEvent, TimelineSource } from "./boards";
+export { KpiTile, KPI_TONES, kpiLine } from "./KpiTile";
+export type { KpiTileProps, KpiTone, KpiDelta } from "./KpiTile";

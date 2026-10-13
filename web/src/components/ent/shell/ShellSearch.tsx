@@ -76,7 +76,7 @@ export default function ShellSearch({
   const active = hits[index];
   return (
     <div ref={root} className={cn("relative w-full", className)} data-shell-search>
-      <div className="flex h-12 items-center gap-2.5 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft/40 px-3.5 transition-colors focus-within:border-accent focus-within:bg-paper">
+      <div className="ent-search flex items-center gap-2.5 px-3.5 transition-colors focus-within:border-accent focus-within:bg-paper">
         <SearchIcon size={18} className="flex-none text-accent" />
         <input
           id={inputId}
@@ -98,9 +98,8 @@ export default function ShellSearch({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKey}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink-soft focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          className="min-w-0 flex-1 bg-transparent text-[length:inherit] text-ink placeholder:text-[#5b6896] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
         />
-        <kbd className="hidden flex-none rounded-md border border-line bg-paper px-1.5 py-0.5 font-body text-[11px] font-semibold text-muted 2xl:inline">Ctrl K</kbd>
       </div>
       {open ? (
         <div className="absolute inset-x-0 top-[calc(100%+6px)] z-50 overflow-hidden rounded-xl border border-line bg-paper shadow-[var(--shadow-lg,0_12px_40px_rgb(0_0_0/0.14))]">

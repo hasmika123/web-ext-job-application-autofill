@@ -8,10 +8,13 @@ import { cn } from "../primitives/cn";
  *
  *   <StatePill domain="billing" state="PAST_DUE" />        // red "Past due"
  *
+ * Tones: green, amber, red, purple, blue, grey (+ two outlined billing tones). Inside a tenant page the colours are the boards'
+ * pill tokens (`--ent-pill-*`, theme-tenant.css): a soft tint, bold coloured text, no border.
+ *
  * An unknown state (or domain) renders the neutral grey tone and warns once in development; it never throws.
  * Registering two maps under one domain key throws at module load, so a copy-paste can not silently win.
  */
-export type StateTone = "green" | "amber" | "red" | "grey" | "amber-outline" | "grey-outline";
+export type StateTone = "green" | "amber" | "red" | "purple" | "blue" | "grey" | "amber-outline" | "grey-outline";
 
 export type StateMap = Readonly<Record<string, StateTone>>;
 
@@ -67,6 +70,8 @@ const TONE_CLASS: Record<StateTone, string> = {
   green: "bg-accent-soft text-accent-deep border-transparent",
   amber: "bg-brown-soft text-brown-deep border-transparent",
   red: "bg-danger/10 text-danger-text border-transparent",
+  purple: "bg-v2-violet-soft text-v2-violet-ink border-transparent",
+  blue: "bg-v2-blue-soft text-v2-blue-ink border-transparent",
   grey: "bg-paper-2 text-ink-soft border-transparent",
   "amber-outline": "bg-transparent text-brown-deep border-brown",
   "grey-outline": "bg-transparent text-ink-soft border-line",
