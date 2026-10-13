@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  * permission keys they hold and the scope each is held at (a people key at TEAM scope lists only that team); a caller with no people key, a member of
  * another organization and a row outside the scope all get the same generic 404, so nothing here says "forbidden".
  */
-@RestController
+@RestController("entOrgMemberResource") // the invitation framework's controller (web.rest.org) has the plain bean name
 @RequestMapping("/api/orgs/{orgId}/members")
 @Tag(name = "members", description = "Employees: the directory, KPI tiles, detail sheet, single edits, bulk actions and the lifecycle.")
 public class OrgMemberResource {
