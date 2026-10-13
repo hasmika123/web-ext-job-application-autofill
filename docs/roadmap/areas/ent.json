@@ -3,7 +3,7 @@
   "name": "Enterprise V2 — multi-tenant portals, roles, consultant licensing, talent marketing",
   "prefix": "X",
   "summary": "Hostname tenancy, branded login-first portals, configurable multi-role permissions, base-license + feature add-on subscriptions, and the talent-marketing pipeline on the shared deployment. Design: docs/enterprise-v2/.",
-  "updated": "2026-10-12",
+  "updated": "2026-10-13",
   "epics": [
     {
       "id": "X0",
@@ -187,7 +187,7 @@
       "id": "X1.2",
       "epic": "X1",
       "title": "Tenancy schema: org_hostname, org_branding, org_setting, organization subdomain/config_version, audit columns, OrgType STAFFING/PROFESSIONAL_SERVICES",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 tenancy schema, X1.2 (docs/enterprise-v2/03-domain-model.md section 2.1; ADR-001, ADR-003, ADR-023).
+
+        Additive only: three new tables (org_hostname, org_branding, org_setting), four new nullable-or-defaulted columns on
+        organization, three on org_audit_event, and one in-place WIDENING of organization.type (see changeset 5). Nothing is
+        renamed, dropped or moved, so every changeset runs clean on an empty database and on one at the previous changelog
+        (20261013050000_job_posting_search), and flipping flag.enterprise off leaves the data inert. No backfill is needed:
+        every new column is nullable or has a default that means "behaves as before" (subdomain_enabled = false,
+        config_version = 0), and no organization gets a hostname until an admin gives it one. Each changeset carries a
+        precondition (MARK_RAN) so a re-run, or a database that already has the object, is a no-op.
+
+        org_hostname carries two STORED generated columns that make the "one live claim" rules a database fact:
+          live_hostname_key = hostname            while status <> 'REMOVED'  -> a hostname has at most one live claim (any org)
+          primary_org_key   = org_id              while is_primary and status <> 'REMOVED' -> one primary hostname per org
+        A REMOVED row keeps its history but frees the name, so a removed hostname can be claimed again, and by then it is
+        a fresh row that has to pass ownership verification from scratch (ADR-002/003). Hostnames are lower-cased and
+        punycoded by the application on write (domain.ent.HostNames).
+    -->
+
+    <changeSet id="20261015010000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_hostname"/></not>
+        </preConditions>
+        <createTable tableName="org_hostname">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="hostname" type="varchar(253)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(20)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_primary" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="verification_method" type="varchar(20)"/>
+            <column name="verification_token" type="char(32)"/>
+            <column name="verified_at" type="${datetimeType}"/>
+            <column name="activated_at" type="${datetimeType}"/>
+            <column name="suspended_at" type="${datetimeType}"/>
+            <column name="removed_at" type="${datetimeType}"/>
+            <column name="last_check_at" type="${datetimeType}"/>
+            <column name="last_check_result" type="varchar(200)"/>
+            <column name="cert_state" type="varchar(20)" defaultValue="NONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <!-- Generated columns: Liquibase has no portable syntax for them, so plain MySQL DDL. -->
+        <sql dbms="mysql">
+            ALTER TABLE org_hostname ADD COLUMN live_hostname_key VARCHAR(253)
+                GENERATED ALWAYS AS (IF(status &lt;&gt; 'REMOVED', hostname, NULL)) STORED
+        </sql>
+        <sql dbms="mysql">
+            ALTER TABLE org_hostname ADD COLUMN primary_org_key BIGINT
+                GENERATED ALWAYS AS (IF(is_primary AND status &lt;&gt; 'REMOVED', org_id, NULL)) STORED
+        </sql>
+        <createIndex tableName="org_hostname" indexName="uk_org_hostname_live" unique="true">
+            <column name="live_hostname_key"/>
+        </createIndex>
+        <createIndex tableName="org_hostname" indexName="uk_org_hostname_primary" unique="true">
+            <column name="primary_org_key"/>
+        </createIndex>
+        <createIndex tableName="org_hostname" indexName="ix_org_hostname_host_status">
+            <column name="hostname"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="org_hostname" indexName="ix_org_hostname_org_status">
+            <column name="org_id"/>
+            <column name="status"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_hostname" baseColumnNames="org_id"
+            constraintName="fk_org_hostname_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_hostname" baseColumnNames="created_by_member_id"
+            constraintName="fk_org_hostname_member" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="20261015010000-2" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_branding"/></not>
+        </preConditions>
+        <createTable tableName="org_branding">
+            <column name="org_id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="logo_key" type="varchar(255)"/>
+            <column name="favicon_key" type="varchar(255)"/>
+            <column name="login_banner_key" type="varchar(255)"/>
+            <column name="primary_color" type="char(7)"/>
+            <column name="secondary_color" type="char(7)"/>
+            <column name="accent_color" type="char(7)"/>
+            <column name="theme" type="varchar(10)" defaultValue="SYSTEM">
+                <constraints nullable="false"/>
+            </column>
+            <column name="welcome_title" type="varchar(120)"/>
+            <column name="welcome_message" type="varchar(500)"/>
+            <column name="terminology_json" type="json"/>
+            <column name="nav_prefs_json" type="json"/>
+            <column name="draft_json" type="json"/>
+            <column name="published_at" type="${datetimeType}"/>
+            <column name="updated_by_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="org_branding" baseColumnNames="org_id"
+            constraintName="fk_org_branding_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_branding" baseColumnNames="updated_by_member_id"
+            constraintName="fk_org_branding_member" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="20261015010000-3" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_setting"/></not>
+        </preConditions>
+        <createTable tableName="org_setting">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="setting_key" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="value_json" type="json">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_by" type="varchar(50)"/>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="org_setting" columnNames="org_id, setting_key" constraintName="uk_org_setting_key"/>
+        <addForeignKeyConstraint baseTableName="org_setting" baseColumnNames="org_id"
+            constraintName="fk_org_setting_org" referencedTableName="organization" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="20261015010000-4" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="organization" columnName="subdomain"/></not>
+            <not><columnExists tableName="organization" columnName="subdomain_enabled"/></not>
+            <not><columnExists tableName="organization" columnName="config_version"/></not>
+            <not><columnExists tableName="organization" columnName="display_name"/></not>
+        </preConditions>
+        <addColumn tableName="organization">
+            <column name="subdomain" type="varchar(63)"/>
+            <column name="subdomain_enabled" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="config_version" type="int" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="display_name" type="varchar(120)"/>
+        </addColumn>
+        <addUniqueConstraint tableName="organization" columnNames="subdomain" constraintName="uk_org_subdomain"/>
+    </changeSet>
+
+    <!--
+        organization.type is VARCHAR(20) and the new value PROFESSIONAL_SERVICES is 21 characters. Widening a column in place
+        loses no data and changes no existing value; it is the only way to store the new enum value (the story's own list),
+        so it is the one deliberate exception to "no column type changes" in ADR-023. MySQL MODIFY resets nullability, so
+        NOT NULL is restated (Liquibase's modifyDataType would silently drop it).
+    -->
+    <changeSet id="20261015010000-5" author="dossier" dbms="mysql">
+        <sql>ALTER TABLE organization MODIFY COLUMN type VARCHAR(40) NOT NULL</sql>
+    </changeSet>
+
+    <changeSet id="20261015010000-6" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_audit_event" columnName="hostname_id"/></not>
+            <not><columnExists tableName="org_audit_event" columnName="beneficiary_login"/></not>
+            <not><columnExists tableName="org_audit_event" columnName="risk"/></not>
+        </preConditions>
+        <addColumn tableName="org_audit_event">
+            <column name="hostname_id" type="bigint"/>
+            <column name="beneficiary_login" type="varchar(50)"/>
+            <column name="risk" type="varchar(10)" defaultValue="LOW">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="org_audit_event" baseColumnNames="hostname_id"
+            constraintName="fk_org_audit_hostname" referencedTableName="org_hostname" referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

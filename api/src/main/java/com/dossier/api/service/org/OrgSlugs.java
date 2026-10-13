@@ -23,7 +23,9 @@ public final class OrgSlugs {
     static final Set<String> RESERVED = Set.of(
         "admin", "api", "app", "www", "join", "new", "mine", "org", "orgs", "organization", "organizations", "kiwiply", "support", "help",
         "login", "signup", "register", "dashboard", "settings", "billing", "status", "blog", "docs", "careers", "pricing", "demo",
-        "demo-bootcamp" // the slug of the seeded demo organization (DemoOrgSeeder)
+        "demo-bootcamp", // the slug of the seeded demo organization (DemoOrgSeeder)
+        // Enterprise V2 (X1.2, 04-tenancy-and-security.md section 2.2): labels that must never be a tenant subdomain
+        "mail", "edge", "static", "cdn", "dev", "staging", "connect"
     );
 
     private OrgSlugs() {}

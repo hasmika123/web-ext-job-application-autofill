@@ -17,7 +17,7 @@
 | Story | Status | Owner | Evidence | Notes |
 |---|---|---|---|---|
 | X1.1 Enterprise flags + EnterpriseEnabledFilter | Completed | Sonnet (API) | `service/settings/EnterpriseSettingKeys`, `service/ent/EnterpriseFeatureFlag`, `config/EnterpriseEnabledFilter` (+ `OrgWebConfiguration`, per-org wall in `OrgPermissionInterceptor`); tests `EnterpriseFeatureFlagTest` (12), `EnterpriseEnabledFilterTest` (6), `EnterpriseEnabledFilterIT` (4), `OrgPermissionInterceptorTest` (+4), `SettingDefinitionsTest` (+3); commit `ev2-x1.1` | allow list is exclusive and `on:false` is a kill switch (Log) |
-| X1.2 Tenancy schema | Not Started | Sonnet (API) | — | additive changelog `*_ent_tenancy.xml` |
+| X1.2 Tenancy schema | Completed | Sonnet (API) | `changelog/20261015010000_ent_tenancy.xml`; `domain/ent/{OrgHostname,OrgBranding,OrgSetting,HostNames}`, `repository/ent/*`, `service/ent/{OrgSubdomains,OrgTenancyService}`; tests `EntTenancyMigrationIT` (upgrade from the previous changelog), `EntTenancySchemaIT` (14), `EntRepositoryContractTest` (4), `OrgTenancyServiceIT` (5), `HostNamesTest`, `OrgSubdomainsTest`; commit `ev2-x1.2` | `organization.type` widened to VARCHAR(40) (the one non-additive-in-form change; Log) |
 | X1.3 TenantResolver + public tenant + ask endpoint | Not Started | Sonnet (API) | — | |
 | X1.4 Web host resolution + (tenant) group + tenant-404 | Not Started | Sonnet (Web) | — | |
 | X1.5 Tenant-bound sessions (tid) | Not Started | Sonnet (API+Web) | — | |
@@ -56,3 +56,4 @@ here when a story is specified; never add a row without an id in `ent.json`.
 ## Log
 - 2026-10-12 — Phase 0 complete on `enterprise-v2` (Fable). Roadmap area `ent` registered, 109 stories, 0 dangling ids.
 - 2026-10-12 — X1.1 Completed on `ev2-build-p1` (Sonnet). `flag.enterprise` + six sub-flags + hosts/domains/billing keys in the registry (`EnterpriseSettingKeys`); `EnterpriseFeatureFlag` (`on:false` kills > deny > exclusive allow list > pct > on; fails closed); `EnterpriseEnabledFilter` (404 for `/api/public/tenant`, `/api/ent/**`, `/api/orgs/*/enterprise/**`); per-org wall in `OrgPermissionInterceptor`.
+- 2026-10-12 — X1.2 Completed on `ev2-build-p1` (Sonnet). Tables `org_hostname` (generated unique `live_hostname_key` / `primary_org_key`), `org_branding`, `org_setting`; `organization` +subdomain/subdomain_enabled/config_version/display_name; `org_audit_event` +hostname_id/beneficiary_login/risk; `OrgType` +STAFFING/PROFESSIONAL_SERVICES (needed `organization.type` widened 20 -> 40, a deliberate exception to ADR-023's "no column type changes"); reserved subdomain labels added to `OrgSlugs`; `OrgTenancyService.setSubdomain` is the single writer. No backfill was needed. `api/openapi.json` regenerated (OrgType enum).

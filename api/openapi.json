@@ -12205,7 +12205,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "COMPANY", "SCHOOL", "BOOTCAMP", "OUTPLACEMENT", "CONSULTANCY", "COACH" ]
+            "enum" : [ "COMPANY", "SCHOOL", "BOOTCAMP", "OUTPLACEMENT", "CONSULTANCY", "STAFFING", "PROFESSIONAL_SERVICES", "COACH" ]
           },
           "slug" : {
             "type" : "string"
@@ -12252,7 +12252,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "COMPANY", "SCHOOL", "BOOTCAMP", "OUTPLACEMENT", "CONSULTANCY", "COACH" ]
+            "enum" : [ "COMPANY", "SCHOOL", "BOOTCAMP", "OUTPLACEMENT", "CONSULTANCY", "STAFFING", "PROFESSIONAL_SERVICES", "COACH" ]
           },
           "status" : {
             "type" : "string",

@@ -59,6 +59,9 @@ public class OrgAuditService {
     public static final String GROUP_UPDATE = "GROUP_UPDATE";
     public static final String GROUP_DELETE = "GROUP_DELETE";
 
+    // --- Enterprise V2 tenancy (X1.2): hostnames and branding add their own keys in their stories ---
+    public static final String ORG_SUBDOMAIN_SET = "ORG_SUBDOMAIN_SET";
+
     // --- Target kinds ---
     public static final String TARGET_ORG = "ORG";
     public static final String TARGET_MEMBER = "MEMBER";
