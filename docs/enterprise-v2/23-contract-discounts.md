@@ -38,6 +38,7 @@
 | column | notes |
 |---|---|
 | id, contract_id, org_id | |
+| version_from INT NOT NULL, version_to INT NULL | **effective-dated by contract version** (41 §3.3, Task 3): a row applies at contract version *v* when `version_from ≤ v < COALESCE(version_to, ∞)`. An amendment (version *v*→*v+1*) **closes** the rows it replaces (`version_to = v+1`) and inserts new ones (`version_from = v+1`); money columns are never UPDATEd, so a quote pinned at `contract_version = v` re-reads exactly the rows it priced with (`ContractPriceVersionTest`, `ImmutableContractPriceIT`, X5.5) |
 | product_id BIGINT NULL | NULL = every ORG recurring product without a specific row |
 | override_amount_minor BIGINT NULL | REPLACES the list price (same currency) |
 | override_pct_off_bp INT NULL | REDUCES the list price; exactly one of the two is non-NULL (check on save) |

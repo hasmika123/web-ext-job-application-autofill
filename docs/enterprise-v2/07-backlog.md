@@ -130,9 +130,9 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 
 **Functional requirements**
 - TenantResolverFilter (OncePerRequestFilter, before the JWT filter) reads X-Kiwiply-Host, normalises, resolves per 04 §2.2, stores TenantContext in a request attribute + ThreadLocal holder (cleared in finally) + MDC tenant/host.
-- Resolution cache: Caffeine, key host, TTL 60 s (setting enterprise.tenant.cache_seconds), evicted when organization.config_version changes (bumped by any hostname/branding/status write through OrgTenancyService).
+- Resolution cache: Caffeine, key host, TTL 60 s (setting enterprise.tenant.cache_seconds), evicted when organization.config_version changes (bumped by any hostname/branding/status write through OrgTenancyService). Negative cache: UNKNOWN results are cached 10 s (setting enterprise.tenant.negative_cache_seconds) and the cache is bounded at 10 000 entries (T13/T24 — enumeration bursts cannot evict live tenants or hammer the DB).
 - GET /api/public/tenant (permitAll, rate-limited per host+IP) returns PublicTenantDTO per 04 §2.4 for TENANT; 404 for UNKNOWN; for PLATFORM returns {kind:"PLATFORM"} only.
-- GET /api/internal/tenant-hosts/check?domain= (X-Internal-Token, internal network) returns 200 for ACTIVE org_hostname rows of orgs ACTIVE/PAST_DUE and for {label}.kiwiply.com when subdomain_enabled; 404 otherwise; CUSTOM rows only when flag.enterprise.domains allows the org.
+- GET /api/internal/tenant-hosts/check?domain= (internal network) returns 200 for ACTIVE org_hostname rows of orgs ACTIVE/PAST_DUE and for {label}.kiwiply.com when subdomain_enabled; 404 otherwise; CUSTOM rows only when flag.enterprise.domains allows the org. Credential = a dedicated secret env DOSSIER_ASK_TOKEN (≠ DOSSIER_INTERNAL_TOKEN; 42 T17) accepted as X-Internal-Token on this endpoint or as query `t` (X3.3 adds the query form; constant-time compare; `t=` masked in access logs); the general internal token is NOT accepted here and the ask token is accepted nowhere else.
 - OrgPermissionInterceptor: if context is TENANT, path {orgId} must equal context.orgId else 404; if UNKNOWN, every /api/orgs/**, /api/me/orgs/**, /api/join/** → 404.
 
 **UI requirements**
@@ -161,16 +161,18 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - A member of beta forging X-Kiwiply-Host: acme.kiwiply.com gets 200 on /api/public/tenant (public branding) and 404 on /api/orgs/{acme}/*.
 - config_version bump evicts the cache within one request.
 - The ask endpoint answers within 50 ms from cache and never 200s for a non-ACTIVE row (AskEndpointIT).
+- Ask endpoint with DOSSIER_INTERNAL_TOKEN → 401; with DOSSIER_ASK_TOKEN → 200/404 per the rules; DOSSIER_ASK_TOKEN on any other /api/internal/** route → 401 (AskTokenScopeIT).
+- A burst of 20 000 distinct unknown hosts leaves the resolver cache ≤ 10 000 entries and acme still resolves from cache (NegativeCacheTest).
 
 **Test cases**
 - TenantResolverTest (table-driven hosts).
 - PublicTenantResourceIT, InternalTenantHostResourceIT (AskEndpointIT).
 - OrgPermissionInterceptor ITs extended: tenant mismatch → 404.
+- AskTokenScopeIT, NegativeCacheTest.
 
 - **Tech notes:** Algorithm and DTO: 04-tenancy-and-security.md §2–3. Never read tenant ids from headers. Keep OrgsEnabledFilter first.
 - **Definition of Done:** openapi.json regenerated; CI green. Plus the common DoD in `06-phase-plan.md` §5.
-
-### X1.4 — Web host resolution: proxy.ts carries the host and rewrites tenant hosts to /_t, serverApiFetch forwards X-Kiwiply-Host, getTenant(), (tenant)/_t route group skeleton, tenant-404 page
+### X1.4 — Web host resolution: proxy.ts carries the host and rewrites tenant hosts to /_t, serverApiFetch forwards X-Kiwiply-Host, getTenant(), (tenant)/%5Ft route group skeleton (URL /_t), tenant-404 page, tenant layout without Kiwiply chrome
 - **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X1.3
 - **Persona:** A visitor of acme.localhost / careers.acme.com
 - **Objective:** The web app renders the tenant or a safe 404, never another tenant or the public site — without a second page at `/` (Next forbids two pages at one path, so tenant pages live under `(tenant)/_t/**` and proxy.ts rewrites to them).
@@ -181,10 +183,12 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - Rewrite (16 §2.3, escalation B2): for a non-platform host, `NextResponse.rewrite(new URL('/_t' + pathname + search, req.url))` for every path except `/api/*`, `/_next/*`, `/tenant-assets/*`, `/favicon.ico`, `/robots.txt` and files with an extension; a platform host requesting `/_t/*` directly is NOT rewritten and the (tenant) layout answers notFound(). The rewrite is applied before any host check so an UNKNOWN host still lands in the (tenant) layout (which renders the 404).
 - web/src/lib/api.ts serverApiFetch forwards X-Kiwiply-Host from the incoming request (headers()); tracker/resume proxies and the login/refresh route handlers inherit it.
 - web/src/lib/tenant.ts: getTenant() cached per request (React cache()) → {kind: PLATFORM|TENANT|UNKNOWN, tenant?: PublicTenantDTO}; PLATFORM for platform hosts without calling the API; when flag.enterprise is off (public-config orgs/enterprise flags) every non-platform host is UNKNOWN without calling the API; API 404 or failure → UNKNOWN (fail closed).
-- Route group web/src/app/(tenant)/_t/ with layout.tsx (the ONLY place the three kinds branch): UNKNOWN → render TenantUnavailable (HTTP 404, no branding, no links, no cookies, noindex); PLATFORM → notFound(); TENANT → sets <title> from tenant.displayName, lang/theme hooks for X2.12 (no theming yet) → children. No `(tenant)/page.tsx` at the root: `(marketing)/page.tsx` keeps `/`.
-- Skeleton pages under _t/ in this story only: `_t/page.tsx` (TENANT: temporary "Portal coming soon" placeholder with the display name — X2.6 replaces it with the login-first redirect), `_t/login/page.tsx` placeholder (X2.3 replaces it with BrandedLogin), `_t/w/[workspace]/layout.tsx` placeholder that renders notFound() until X2.2. Every other path under _t/ falls through to Next's not-found inside the tenant layout (never the marketing 404).
+- Route group web/src/app/(tenant)/%5Ft/ (Next.js treats a `_t` folder as private, so the directory on disk is the URL-encoded `%5Ft`; the public path stays `/_t`) with layout.tsx (the ONLY place the three kinds branch): UNKNOWN → render TenantUnavailable (HTTP 404, no branding, no links, no cookies, noindex); PLATFORM → notFound(); TENANT → sets <title> from tenant.displayName, lang/theme hooks for X2.12 (no theming yet) → children. No `(tenant)/page.tsx` at the root: `(marketing)/page.tsx` keeps `/`.
+- Skeleton pages under (tenant)/%5Ft/ in this story only: `_t/page.tsx` (TENANT: temporary "Portal coming soon" placeholder with the display name — X2.6 replaces it with the login-first redirect), `_t/login/page.tsx` placeholder (X2.3 replaces it with BrandedLogin), `_t/w/[workspace]/layout.tsx` placeholder that renders notFound() until X2.2. Every other path under _t/ falls through to Next's not-found inside the tenant layout (never the marketing 404).
 - Platform hosts keep today's (marketing)/(app)/(admin)/(org) behaviour untouched; `/org/*` on kiwiply.com stays the legacy console.
 - Dev: next dev accepts acme.localhost:3100 (`*.localhost` is tenant-only: `enterprise.hosts.tenant_base_domains`, only `localhost` itself is a platform host); mock-api resolves hosts (X1.12).
+- Root layout split: the Kiwiply chrome that `web/src/app/layout.tsx` mounts today (cookie-consent banner, bug-report widget, analytics/marketing scripts, SITE_URL metadata) moves into the platform route groups' layouts (`(marketing)`, `(app)`, `(admin)`, `(org)`) or a shared `PlatformChrome` component they each mount; the root layout keeps only `<html>/<body>`, fonts and theme providers. `(tenant)/%5Ft/layout.tsx` mounts none of it — no cookie banner, no bug-report, no third-party script, no Kiwiply links on tenant hosts (11 §7, 42 T19/T23).
+- proxy.ts matcher covers `/api/auth/*` and every BFF route (`/api/*` route handlers are not rewritten, but the matcher must still run so `x-kiwiply-host` is set on them); the matcher table is unit-tested. The BFF (`serverApiFetch`, the auth route handlers) never forwards `X-Forwarded-Host` upstream — only `X-Kiwiply-Host` (42 T23, X1.13 `PublicHostGuardFilter`); the host is taken from `X-Forwarded-Host` only because the shared edge overwrites it (44 §6.2 spoof test), never from a client-settable header on a platform host.
 
 **UI requirements**
 - TenantUnavailable page: packages/ui EmptyState + mascot warn pose (compact), copy "This workspace isn't available"; no Kiwiply marketing links; 16 px gutters at 390 px.
@@ -213,6 +217,8 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - X-Kiwiply-Host reaches the mock on every BFF call, including the refresh and login route handlers (mock asserts and the route test checks the header).
 - public-config fails closed → UNKNOWN for non-platform hosts; an API 5xx on /api/public/tenant also renders TenantUnavailable (no stack, no retry loop).
 - A tenant host requesting a path that does not exist under _t/ gets the tenant-scoped not-found (status 404, tenant <title>), not the marketing not-found.
+- Platform-chrome split: on acme.localhost no cookie-consent, bug-report or analytics element is in the DOM (Playwright asserts the test ids of each are absent); on localhost:3100 they are still present (snapshot unchanged).
+- POST /api/auth/login and /api/auth/refresh route handlers receive `x-kiwiply-host` from proxy.ts (matcher test + route test); `serverApiFetch` sends `X-Kiwiply-Host` and never `X-Forwarded-Host` (BffDoesNotForwardForwardedHostTest).
 
 **Test cases**
 - tenant.test.ts (host normalisation, platform-host classification incl. `localhost` vs `*.localhost`, flag-off short-circuit, fail-closed branches).
@@ -220,8 +226,9 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - app/(tenant)/_t/layout.test.tsx (three kinds: UNKNOWN 404, PLATFORM notFound, TENANT title).
 - api.test.ts header forwarding (serverApiFetch + login/refresh handlers).
 - Playwright tenant-unknown.spec.ts with extraHTTPHeaders Host for nobody.localhost, acme.localhost and localhost (incl. `/_t/` on the platform host → 404).
+- BffDoesNotForwardForwardedHostTest (42 §6.2), layout-chrome.test.tsx (chrome mounted per group, absent in (tenant)).
 
-- **Tech notes:** Next 16 proxy (web/src/proxy.ts) — one rewrite, no redirects, no cookies set on tenant hosts in this story; React cache() per request as in branch A org.ts; keep SITE_URL for the platform only. Route group shape and later pages: 16 §2.3–2.4 (X2.2 shell, X2.3 login, X2.6 login-first + join). Security headers on tenant hosts are added in X2.6/X3.7, not here (only X-Robots-Tag for the 404).
+- **Tech notes:** Next 16 proxy (web/src/proxy.ts) — one rewrite, no redirects, no cookies set on tenant hosts in this story; React cache() per request as in branch A org.ts; keep SITE_URL for the platform only. Route group shape and later pages: 16 §2.3–2.4 (X2.2 shell, X2.3 login, X2.6 login-first + join). Security headers on tenant hosts are added in X2.6/X3.7, not here (only X-Robots-Tag for the 404). Directory note: Next.js private-folder rule — `_t` on disk would be unroutable, so the folder is `%5Ft` (09 row 15 as corrected by Session E Task 3).
 - **Definition of Done:** npm test + build green; Playwright green over mock; 16 §2.3 unchanged (this story implements it). Plus the common DoD in `06-phase-plan.md` §5.
 ### X1.5 — Tenant-bound sessions: tid/hid claims on tenant-host login, decoder validation, refresh keeps tid, interceptor enforces tid = path org
 - **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.3, X1.4
@@ -234,6 +241,8 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - JwtDecoder validator: tid present and context TENANT → tid must equal context.orgId (else 401 TOKEN_TENANT_MISMATCH); tid present and context PLATFORM → token accepted for user-scoped routes only, 404 on /api/orgs/{any}; tid absent and context TENANT → unauthenticated on tenant routes except /api/account (login-first hand-off).
 - Refresh rotation preserves tid/hid; /api/logout unchanged; /api/extension/session never adds tid.
 - Web login route handlers forward X-Kiwiply-Host (already by X1.4); cookies unchanged (host-only).
+- OriginCheckFilter (42 T27): every non-GET/HEAD request authenticated by cookie must carry an Origin (else Referer) whose host equals the resolved tenant host or one of the org's other ACTIVE hostnames; missing both ⇒ generic 404 (WARN logged); Bearer-token (extension) requests are exempt; the BFF applies the same check. Cookies on tenant hosts use the `__Host-` prefix (Secure, Path=/, no Domain; 42 T19) — `dossier.cookies.host-prefix` default true, false allowed only in the mock/dev profile (ProdConfigIT asserts).
+- proxy.ts/BFF: the /api/auth/* route handlers forward X-Kiwiply-Host on every call (login, mfa, google, refresh, logout) — the proxy matcher includes them (X1.4); a tenant-host refresh whose cookie tid ≠ resolved tenant is refused and the BFF clears the cookies (STALE_SESSION in X2.3).
 
 **UI requirements**
 - Login page on tenant hosts (unbranded placeholder until X2.3): NOT_A_MEMBER renders "You're not a member of this workspace" with no data and a sign-out link.
@@ -259,15 +268,18 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - Refresh on acme host returns tokens with the same tid; the old family revocation still applies.
 - Extension tokens carry no tid before and after.
 - Non-member login on acme host → 403 NOT_A_MEMBER, no Set-Cookie, audit row LOGIN_DENIED_NOT_MEMBER in acme's org_audit_event with hostname_id.
+- POST /api/orgs/{acme}/… from evil.kiwiply.com with acme cookies (Origin: https://evil.kiwiply.com) → 404 and nothing changes; same request with Origin: https://acme.kiwiply.com → normal; a request with neither Origin nor Referer → 404; an extension Bearer request without Origin → normal (OriginCheckFilterIT, SEC-16).
+- Cookies set on acme.localhost are named with the __Host- prefix and carry Secure + Path=/ and no Domain attribute (cookie assertion in AuthenticateControllerIT and Playwright).
+- POST /api/auth/refresh on acme.localhost with a beta-minted refresh cookie → 401 and Set-Cookie clearing both cookies (AuthRouteForwardsHostTest).
 
 **Test cases**
 - AuthenticateControllerIT extended (HostMismatchIT cases).
 - SecurityJwtConfigurationTest validator table.
 - Web auth route tests forward the host.
+- OriginCheckFilterIT (SEC-16), cookie prefix assertions, AuthRouteForwardsHostTest (web).
 
 - **Tech notes:** Claims next to USER_ID_CLAIM in SecurityUtils; keep tokens stateless; 04 §3.
 - **Definition of Done:** openapi regenerated; CI green; 04 §3 matches code. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X1.6 — Roles as data: org_role, org_role_permission, org_member_role; system templates seeded from the enum; backfill; OrgAccessService reads the join table; dual-write of org_member.role
 - **Epic:** X1 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X1.2
 - **Persona:** The API
@@ -377,6 +389,7 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - Setting org.invite.require_email_match (BOOL, default true, org-overridable via org_setting): when true, accept requires the signed-in account's email to equal invite_email (case-insensitive) else 409 INVITE_EMAIL_MISMATCH {invitedEmailMasked}.
 - TenantUrls.joinLink(org, token): the email link uses the org's primary ACTIVE hostname when one exists (https://{host}/join/t/{token}), else https://kiwiply.com/join/t/{token}; mail template takes tenant branding name/logo (placeholder until X2.5).
 - Join accept on a TENANT host requires the invite's org to equal the tenant (else 404); on PLATFORM any org (today's behaviour).
+- Ceiling re-check at accept (42 T32): on accept, every invited role is re-validated against the inviter's current rights; roles the inviter can no longer grant are trimmed to MEMBER (or the org default), the accept proceeds, the inviter is notified ORG_MEMBERSHIP "roles trimmed", audit INVITE_ROLES_TRIMMED.
 
 **UI requirements**
 - —
@@ -404,13 +417,14 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - Accept with a different email when require_email_match=true → 409 INVITE_EMAIL_MISMATCH and the seat stays INVITED; with the setting false → accepted (audited with flag).
 - Email link uses careers.acme.com when acme has an ACTIVE primary hostname, otherwise kiwiply.com (unit test on TenantUrls).
 - Accepting an acme invite while on beta.localhost → 404.
+- Inviter loses MARKETING_MANAGER between invite and accept → the invitee joins with the remaining grantable roles only; the audit row lists the trimmed roles (InviteCeilingAtAcceptIT, SEC-22).
 
 **Test cases**
 - Branch B suites + OrgInviteServiceTest extensions + TenantUrlsTest + JoinResourceIT tenant cases.
+- InviteCeilingAtAcceptIT.
 
 - **Tech notes:** git cherry-pick a6a9a62; keep 01 §5 security note; settings via EnterpriseSettingKeys/org_setting.
 - **Definition of Done:** openapi regenerated; CI green; 01 §5 row for a6a9a62 marked adopted. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X1.9 — Isolation test gate: HostUnknownIT, HostMismatchIT, ForgedHostHeaderIT, SuspendedHostnameIT, AskEndpointIT, TenantRepositoryContractTest, CrossTenantSweepIT, Playwright tenant-isolation.spec.ts
 - **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** API, Web, QA · **Deps:** X1.3, X1.4, X1.5, X1.12
 - **Persona:** QA architect
@@ -584,45 +598,56 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - **Tech notes:** Mirror demo-org.json shape; keep Playwright accounts in e2e/fixtures/accounts.ts.
 - **Definition of Done:** CI green; HANDOFF lists the accounts. Plus the common DoD in `06-phase-plan.md` §5.
 
-### X1.13 — Ops endpoints hardening (E12): /management/prometheus needs ROLE_ADMIN or a scrape token; /api/internal/** refuses public Host/X-Forwarded-Host
-- **Epic:** X1 · **Size/Complexity:** S/S · **Owners:** API · **Deps:** X1.3
-- **Persona:** Platform operator
-- **Objective:** No operational endpoint is reachable with a public hostname, and metrics need a credential (escalation E12 fix, 09 row 19).
-- **Story:** As the operator, I want metrics and internal endpoints to answer only to the box and to credentials I hold so that a tenant host can never expose them.
+### X1.13 — Ops endpoints off the public host: prometheus behind admin-or-scrape-token, /api/internal/** + non-health /management/** refused on public hosts, exposure allow-list tests (E12)
+- **Epic:** X1 · **Size/Complexity:** S/S · **Owners:** API, Ops · **Deps:** — · **Relates:** E12
+- **Persona:** Operator / security reviewer
+- **Objective:** Nothing operational or service-to-service is reachable from the internet through api.kiwiply.com, even if the shared edge's path rules are missing, and scraping stays possible with a dedicated credential.
+- **Story:** As the operator, I want Prometheus metrics and the internal API closed to public hosts so that a scanner or a leaked token cannot read internals or call service-only endpoints.
 
 **Functional requirements**
-- SecurityConfiguration: /management/prometheus requires ROLE_ADMIN or a bearer scrape token (setting enterprise.ops.scrape_token, HIGH, hashed at rest; compared constant-time); /management/health stays permitAll with details hidden.
-- InternalSecurityConfiguration (existing X-Internal-Token chain for /api/internal/**) additionally refuses with 404 any request whose Host or X-Forwarded-Host is a public host (anything not in enterprise.hosts.internal, default ["localhost","api","127.0.0.1"]) — evaluated before the token check so the response is indistinguishable from an unknown route.
-- The edge path rule (BeeCompete Caddy) stays the user's runbook (E5); this story is the application-side guarantee and is independent of V2 flags (always on).
+- /management/prometheus: hasAuthority(ROLE_ADMIN) or a valid scrape token (Authorization: Bearer <token>, ScrapeTokenFilter, constant-time compare against dossier.management.scrape-token ← env DOSSIER_SCRAPE_TOKEN; blank/unset ⇒ token path disabled, admin only; token ≥ 32 chars or the app refuses to enable it; never logged). Secrets come from env, never from the settings registry (CLAUDE.md).
+- /management/info → ROLE_ADMIN. /management/health and /management/health/{liveness,readiness} stay permitAll with management.endpoint.health.show-details=never (monitors keep working; DEPLOY.md expectation {"status":"UP"} unchanged).
+- PublicHostGuardFilter (OncePerRequestFilter, @Order(HIGHEST_PRECEDENCE + 5), ahead of both security chains) answers 404 (empty body, same as an unknown route, before any token check) for any request to /api/internal/** or /management/** (except the health paths) when either (a) it carries X-Forwarded-Host (the edge always sets it; compose-internal callers — web BFF, Caddy's ask call, Docker healthchecks — never do), or (b) its Host (port stripped) is not in the internal allow-list setting enterprise.hosts.internal (HIGH, EnterpriseSettingKeys.Ops, default ["localhost","127.0.0.1","[::1]","api","dossier-api","web","dossier-web"]) — fail-closed. Master switch dossier.internal.refuse-public-host (default true; tests set it per case).
+- The BFF (serverApiFetch) must not forward X-Forwarded-Host to the API (X1.4 AC; the host travels only as X-Kiwiply-Host) — BffDoesNotForwardForwardedHostTest.
+- Actuator exposure allow-list: management.endpoints.web.exposure.include = health,info,prometheus in every profile (ManagementExposureTest fails on any other id, e.g. env, beans, heapdump, loggers, threaddump); Swagger UI and /v3/api-docs/** stay disabled/admin-only in prod (OpenApiExposureTest).
+- Docs: DEPLOY.md gets the env var, the "prometheus now needs a token" note and the edge rule reference (44 §6.4); .env.example gets DOSSIER_SCRAPE_TOKEN=. Independent of V2 flags (always on).
 
 **UI requirements**
-- —
+- — (the platform-admin Tenant Health page, X3.3, may show "metrics endpoint: protected ✓" from a self-check; optional)
 
 **Backend requirements**
-- config/SecurityConfiguration, config/InternalSecurityConfiguration, EnterpriseSettingKeys.Ops
+- config/SecurityConfiguration (matchers), security/ScrapeTokenFilter, web/filter/PublicHostGuardFilter, config/ManagementProperties (dossier.management.scrape-token, dossier.internal.refuse-public-host), application YAMLs (exposure + health details), test config
 
 **Database changes**
 - —
 
 **APIs**
-- GET /management/prometheus → 401 without credential; /api/internal/** → 404 on public hosts
+- GET /management/prometheus → 200 (admin JWT or scrape token) | 401 | 404 (public host)
+- GET /management/info → 200 admin | 401/403
+- GET /management/health → 200 {"status":"UP"} (public, no details)
+- /api/internal/** → unchanged contract for internal callers; 404 for public-looking requests
 
 **Permissions**
-- ROLE_ADMIN or scrape token
+- ROLE_ADMIN or scrape token; internal token for /api/internal/** (unchanged)
 
 **Feature entitlements**
 - —
 
 **Acceptance criteria**
-- GET /management/prometheus without credentials → 401; with ROLE_ADMIN or the scrape token → 200.
-- GET /api/internal/tenant-hosts/check with Host: api.kiwiply.com (or any tenant host) → 404 even with a valid X-Internal-Token; with Host: localhost + token → 200/404 per X1.3.
-- The ask endpoint used by the edge keeps working from the docker network (Host header = the internal service name).
+- Anonymous GET /management/prometheus → 401 (no body detail); with Authorization: Bearer <wrong> → 401; with the right token → 200 and the Prometheus text format; an admin JWT → 200; token unset ⇒ token header ignored (401).
+- Request to /api/internal/tenant-hosts/check?domain=acme.kiwiply.com&t=<right> carrying X-Forwarded-Host: api.kiwiply.com → 404; the same request without that header (Caddy-style, Host: dossier-api:8080) → 200/404 per the ask rules; with Host: api.kiwiply.com and no XFH → 404 (not in the internal allow-list); with Host: dossier-api:8080 and no XFH → allowed.
+- /management/health → 200 {"status":"UP"} with and without XFH; response contains no components/details.
+- /management/env, /management/beans, /management/heapdump, /management/loggers, /management/threaddump → 404 (not exposed) even for admin; ManagementExposureTest lists exactly health,info,prometheus.
+- /management/info anonymous → 401; admin → 200.
+- The extension's calls to /api/profile/version, /api/extension/session etc. on api.kiwiply.com are unaffected (ExtensionRoutesUnaffectedIT).
+- The web container's calls to dossier-api:8080/api/internal/... (PDF renderer, resume PDF bridge) still succeed (InternalCallersStillWorkIT with the compose-style Host and no XFH).
+- Logs never contain the scrape token or the t= query value (LogMaskingTest).
 
 **Test cases**
-- OpsEndpointsSecurityIT (prometheus 401/200), InternalHostGuardIT (public host → 404), SettingDefinitionsTest for the new keys.
+- ManagementSecurityIT, PrometheusScrapeTokenIT, PublicHostGuardFilterTest (table: Host × XFH × path), InternalHostGuardIT, ManagementExposureTest, OpenApiExposureTest, BffDoesNotForwardForwardedHostTest, LogMaskingTest, ExtensionRoutesUnaffectedIT, InternalCallersStillWorkIT.
 
-- **Tech notes:** Listed as the E12 fix story in the threat model (doc 42, Session E task 3). Keep OrgsEnabledFilter/EnterpriseEnabledFilter order unchanged.
-- **Definition of Done:** CI green; DEPLOY.md ops note updated. Plus the common DoD in `06-phase-plan.md` §5.
+- **Tech notes:** Full spec = 42 §5 (governs; this entry mirrors it — Session E Task 3 reconciliation). Differences from the earlier 09 row 19 summary are deliberate: scrape token from env DOSSIER_SCRAPE_TOKEN (not a registry setting); host rule = union of the allow-list test and the X-Forwarded-Host presence test; deps "—" (independent of X1.3; soft: X1.3 reuses the guard for its negative test). Defence in depth for E12 (a)+(b): the edge deny rule (44 §6.4) is applied by the user and is the first layer. Keep OrgsEnabledFilter/EnterpriseEnabledFilter order unchanged. /management/health stays public on purpose.
+- **Definition of Done:** DEPLOY.md + .env.example updated; openapi.json unchanged; CI green. Plus the common DoD in `06-phase-plan.md` §5.
 ## 3. Phases 2–12 — stories
 
 X2, X3 and X4 (except X4.7/X4.8/X4.10) are fully specified by Session B below; the remaining epics
@@ -688,7 +713,7 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - API: GET /api/me/tenant (tenant hosts only; tid token) per 12 §3 → org, member, roles, permissions map, modules, workspaces[], landing, consent; ETag = hash(roles, permissions, modules); 403 MEMBER_SUSPENDED; 404 non-member.
 - Web: web/src/lib/ent/workspaces.ts = the data in 16 §3/§5 (workspace_key → ordered NavItem{needs[], module?}); `workspacesFor(me)` = workspaces whose home is openable; `landingFor(me)`.
 - EnterpriseShell (web/src/components/ent/shell/EnterpriseShell.tsx): sidebar 236px sticky h-dvh overflow-y-auto scroll-slim, collapsible 64px (localStorage, try/catch), org logo/name header, switcher (16 §4) only when workspaces.length > 1 else static eyebrow, nav groups, Need-help MascotCard, optional Powered-by footer; top bar 64px (quick-search slot hidden until a provider exists, NotificationBell, AccountMenu with "My profile" first); banners (PAST_DUE, draft branding, domain failing, access-changed) by permission; mobile: 56px top bar, nav BottomSheet, bottom tab bar = first four items + More with useBottomBar inset.
-- Workspace layout web/src/app/(tenant)/_t/w/[workspace]/layout.tsx per 16 §2.4 (getTenant → getMeTenant → validate workspace → shell); not-part-of-your-role EmptyState (no redirect); re-validate /api/me/tenant on focus every 5 min and show the reload banner when the ETag changed.
+- Workspace layout web/src/app/(tenant)/%5Ft/w/[workspace]/layout.tsx per 16 §2.4 (getTenant → getMeTenant → validate workspace → shell); not-part-of-your-role EmptyState (no redirect); re-validate /api/me/tenant on focus every 5 min and show the reload banner when the ETag changed.
 - Promote the generic admin kit pieces to packages/ui: FilterBar, DataTable (table→cards), ReasonSheet, ConfirmTypedSheet, HistoryDrawer, PersonCell, StatusDot, QuickActionTiles (admin-v3 re-exports them; sample-lint unchanged); add web/src/lib/ent/use-save.ts (useAdminSaveEngine with the /api fetcher).
 - Tenant theme: the shell wrapper applies `.theme-v2 .theme-tenant` with inline --tenant-* variables from the public DTO (X2.12 provides the derivation; until merged, the wrapper applies the Kiwiply defaults).
 - Contract of GET /api/me/tenant per 12 §3 as amended by 09 row 2: modules = exactly {domains, roles, billing, marketing, hrFinance, extensionWorkspaces, integrations, analytics}, each = flag allow-list ∧ ModuleGate.isOn where a module product exists; features = {licensed: [featureKey…], pending: boolean} — pending=true, licensed=[] until X5.6 lands, then licensed = EntitlementService.entitlementsOf for CONSULTANT members (others [] with pending=false).
@@ -740,8 +765,9 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 **Functional requirements**
 - web/src/components/ent/login/BrandedLogin.tsx per 11 §3.1 (reuses AuthCardShell/AuthField/SocialRow/GoogleSignIn; tenant tokens; MascotPose welcome lg/sm; Powered-by mark; Report-this-page mailto; no signup link, no demo card).
 - States per 11 §3.2: SIGNED_OUT, STALE_SESSION (BFF clears cookies on tid mismatch), WRONG_ORG_ACCOUNT (403 NOT_A_MEMBER panel), INVITED_NOT_ACCEPTED (pending panel + resend-for-me), MFA_REQUIRED (code step, resend after 30 s), EMAIL_UNVERIFIED, PAST_DUE (login proceeds), GOOGLE_UNAVAILABLE (button hidden), DRAFT_PREVIEW (branding.manage only), ERROR.
-- Page web/src/app/(tenant)/_t/login/page.tsx: EXISTING_SESSION probe (/api/account + /api/me/tenant) → redirect to landing; else BrandedLogin; title "Sign in · {displayName}"; ?next= same-host only.
+- Page web/src/app/(tenant)/%5Ft/login/page.tsx: EXISTING_SESSION probe (/api/account + /api/me/tenant) → redirect to landing; else BrandedLogin; title "Sign in · {displayName}"; ?next= same-host only.
 - BFF /api/auth/login on tenant hosts: rate-limit key tenant:{host}:{ip}; maps 403 NOT_A_MEMBER {pending?, suspended?} and 401 USER_NOT_ACTIVATED to typed responses; after success calls /api/me/tenant and returns {ok, landing}.
+- Login options are data, never code: BrandedLogin reads login.google and login.mfaRequired from the public tenant DTO, which the API derives from the org settings org.security.google_signin (∧ the hostname's google_origin_registered, X3.7) and org.security.mfa_required (X2.14); no tenant-specific branches in the component.
 
 **UI requirements**
 - Wireframes 11 §3.1 (390/1440); copy table 11 §3.2; tenant tokens only; AA contrast via X2.12 derived set; focus order: email → password → submit.
@@ -769,6 +795,7 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - Admin MFA on a tenant host completes through the code step and lands on the dashboard.
 - The Powered-by mark and Report link are present in every tenant login snapshot; no link to the marketing site exists on the page.
 - Lighthouse a11y ≥ 95 on the login at 390; axe has no violations.
+- Flipping org.security.mfa_required / org.security.google_signin for acme changes the acme login (hint text, Google button) within one request and leaves beta unchanged (PublicTenantResourceIT login matrix + Playwright).
 
 **Test cases**
 - BrandedLogin.test.tsx (every state renders the specified copy/controls)
@@ -778,7 +805,6 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 
 - **Tech notes:** 11 §3; branch `2672733` join/consent screens are reused later (X2.6); never render branding for a non-ACTIVE host.
 - **Definition of Done:** npm test + build green; Playwright green; 11 §3.2 table matches the component's state union (type-level exhaustiveness). Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X2.4 — Org Admin Dashboard on real data: tiles (consultants, licensed, available, activity, applications, interviews, placements, pending approvals), subscription summary, alerts, quick actions, activation checklist (reworked from 18f2123)
 - **Epic:** X2 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X2.2, X1.6, X1.10 · **Relates:** O2.7, O7.4
 - **Persona:** Org Admin (Priya) after sign-in
@@ -841,6 +867,7 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - Web /w/admin/branding: sections Identity (display name), Logo/Favicon/Banner (ResumeUpload-style drop zones from packages/ui, previews), Colours (three pickers + hex input + "Adjusted for readability" chips from preview-theme), Welcome copy, Theme (LIGHT/DARK/SYSTEM), Terminology (allow-listed table), Navigation (hide/reorder per workspace, SortableList), Powered-by (LOGIN_ONLY/LOGIN_AND_FOOTER); live preview column (login card + shell header from the draft); header actions: "Open draft login", "Publish" (enabled only when draft ≠ published), "Discard draft"; History drawer with Restore.
 - Autosave per field into the draft (800 ms, If-Match, inline ✓, undo toast per field); publish = the only explicit action (it is a release, not a save).
 - Dashboard alert BRANDING_DRAFT when a draft is > 24 h old (X2.4 reads published_at vs draft updated_at).
+- Uploads (42 T54): raster only — PNG/JPEG/WebP, no SVG; magic-byte check, server-side re-encode (strips metadata, normalises dimensions), size ≤ 1 MB (setting ent.upload.max_bytes), served with X-Content-Type-Options: nosniff.
 
 **UI requirements**
 - 11 §1 fields and limits; draft-vs-published badge; preview at 390 width inside the page on desktop; reduced to stacked sections on phone; tenant tokens only.
@@ -869,16 +896,17 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - Restore version 2 fills the draft; publish writes version 4 (versions are append-only).
 - Draft preview URL works only for a branding.manage member; a consultant gets the published login.
 - Every publish/restore/asset change writes one audit row; discard writes none.
+- Uploading an SVG, a polyglot (PNG header + script), or a 1.5 MB PNG → 422 with the typed reason; a 300 KB PNG is re-encoded (EXIF stripped, verified) and served nosniff (AssetUploadIT, SEC-46).
 
 **Test cases**
 - OrgBrandingResourceIT (validation matrix, draft/publish/restore, assets, isolation, audit)
 - BrandingAssetsTest (magic bytes, re-encode strips EXIF)
 - web branding.test.tsx (autosave, preview, publish enablement)
 - Playwright branding.spec.ts (upload → publish → login shows it, 390/1440)
+- AssetUploadIT (SEC-46).
 
 - **Tech notes:** 11 §1; OrgStorageKeys prefix helper (04 §4); ImageIO + a WebP reader (TwelveMonkeys, Apache-2.0) are API-side additions; no SVG.
 - **Definition of Done:** openapi regenerated; CI green; 11 §1.1 limits match validators (doc-sync constants test). Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X2.6 — Login-first routing on tenant hosts: proxy rewrite to the tenant route tree, unauthenticated → BrandedLogin, authenticated member → primary workspace home, join pages branded (from 2672733, re-verified)
 - **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X2.3, X1.8, X2.2, X1.4 · **Relates:** O2.3
 - **Persona:** Anyone visiting a tenant host; an invitee accepting on careers.acme.com
@@ -887,9 +915,10 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 
 **Functional requirements**
 - proxy.ts: keep X1.4's rewrite of every non-API/non-static path to /_t{path}{search} on non-platform hosts (do not re-implement it); add the tenant security headers (11 §7) and X-Robots-Tag; refresh logic unchanged but sends the host header so the API refuses tid/host mismatches.
-- Route tree web/src/app/(tenant)/_t/ per 16 §2.3 (skeleton from X1.4): replace the `/` placeholder with the redirect page (member → landing, else /login); login (X2.3); forgot/reset/activate wrappers (branded, links on this host); join/t/[token] and join/[slug]/[code] from 2672733 (ConsentScreen reused) with the branches in 12 §5; a platform host hitting /_t/* → notFound() (already from X1.4).
+- Route tree web/src/app/(tenant)/%5Ft/ (directory; URL `/_t`) per 16 §2.3 (skeleton from X1.4): replace the `/` placeholder with the redirect page (member → landing, else /login); login (X2.3); forgot/reset/activate wrappers (branded, links on this host); join/t/[token] and join/[slug]/[code] from 2672733 (ConsentScreen reused) with the branches in 12 §5; a platform host hitting /_t/* → notFound() (already from X1.4).
 - API: /api/authenticate on a tenant host accepts X-Kiwiply-Invite {token} to mint a tid-less pair for a valid pending invite of that tenant (audit LOGIN_FOR_INVITE); POST /api/join/{token}/accept on a tenant host returns a fresh tid/hid pair which the BFF writes (replacing cookies); signup on tenant hosts allowed only with a valid invite token (POST /api/register gains inviteToken; else 404 on tenant hosts).
 - TenantUrls used by every link the join/verify/reset mails carry (X2.10).
+- Tenant pages keep X1.4's chrome-free layout: no cookie-consent/bug-report/analytics on any `(tenant)` page, including the join/forgot/reset wrappers (they reuse the forms, not the platform layouts).
 
 **UI requirements**
 - Join preview card branded (logo, name, invited-as roles, what the org sees); consent screen unchanged (SUMMARY recommended / NONE); "You're in" screen with MascotPose celebrate + [Go to my workspace]; email-mismatch panel per 12 §5.
@@ -917,6 +946,7 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - Invite flow: signed-out invitee with no account on acme.localhost → signup (only with the token) → verification link on acme.localhost → join → consent → accepted → cookies now carry tid=acme → lands on /w/consultant; at no point before accept does a tid=acme cookie exist (cookie assertions in Playwright).
 - Accepting an acme invite while signed in as a different email → 409 INVITE_EMAIL_MISMATCH panel; with org.invite.require_email_match=false for acme → accepted and audited.
 - Security headers present on every tenant response (CSP, frame DENY, nosniff, noindex); absent/unchanged on kiwiply.com.
+- No platform chrome on tenant join/forgot/reset pages (Playwright test ids absent).
 
 **Test cases**
 - proxy.test.ts (rewrite matrix, headers)
@@ -1024,7 +1054,7 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - **Story:** As an org admin, I want to manage Acme's identity, contacts and policies in one settings page so that organization configuration never mixes with my own profile.
 
 **Functional requirements**
-- API: OrgSettingsResource per 14 §4.1 (GET list of orgOverridable keys with source/default/history; PUT with reason for HIGH; DELETE reset; audit ORG_SETTING; config_version bump for DTO-affecting keys); EnterpriseSettingKeys.ORG_OVERRIDABLE = org.invite.require_email_match, org.consent.request_cooldown_days, org.security.mfa_required, org.domains.redirect_non_primary, org.domains.subdomain_mode, org.domains.max_custom, org.attention.inactive_days, org.dashboard.greeting, org.contact.support_email, org.addresses; OrgSettings.get(orgId, key) resolution helper with per-request cache; PATCH /api/orgs/{orgId} gains displayName.
+- API: OrgSettingsResource per 14 §4.1 (GET list of orgOverridable keys with source/default/history; PUT with reason for HIGH; DELETE reset; audit ORG_SETTING; config_version bump for DTO-affecting keys); EnterpriseSettingKeys.ORG_OVERRIDABLE = org.invite.require_email_match, org.consent.request_cooldown_days, org.security.mfa_required, org.security.google_signin (shown with "Ask Kiwiply to register {host}" until org_hostname.google_origin_registered, X3.7), org.domains.redirect_non_primary, org.domains.subdomain_mode, org.domains.max_custom, org.attention.inactive_days, org.dashboard.greeting, org.contact.support_email, org.addresses; OrgSettings.get(orgId, key) resolution helper with per-request cache; PATCH /api/orgs/{orgId} gains displayName.
 - Web /w/admin/settings per 14 §4: sections Identity, Contact & addresses, Branding (link), Domains (subdomain read-only + link), Policies (each with platform default + Reset + history), Team configuration (links), Integrations (soon), Subscription (status; dev-activate in dev), Danger zone (transfer, close — existing flows with ConfirmTypedSheet).
 - Autosave per field; HIGH keys (mfa_required) open ReasonSheet before saving; undo toasts for the rest.
 
@@ -1054,6 +1084,7 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - DELETE resets to the global value and the list shows source GLOBAL.
 - Address text containing a 9-digit SSN pattern → 422 SENSITIVE_CONTENT.
 - The page is reachable only via /w/admin/settings and the dashboard quick action; /me never links to it; a consultant gets the not-part-of-your-role state.
+- Policies lists "Require a sign-in code" and "Google sign-in" as org settings; the Google row is disabled with the registration note until the host's origin is registered.
 
 **Test cases**
 - OrgSettingsResourceIT (allow-list, HIGH reason, reset, audit, config_version, isolation)
@@ -1063,7 +1094,6 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 
 - **Tech notes:** 14 §4; SettingDefinitions typing reused (type/range validation lives in the definition); PATCH /api/orgs exists (branch A problem mapping).
 - **Definition of Done:** openapi regenerated; CI green; 06 §3 flag table unchanged; 14 §4 table matches ORG_OVERRIDABLE (doc-sync test). Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X2.10 — Tenant-aware URL building (TenantUrls) for mail, notifications and redirects; notification kinds for org events
 - **Epic:** X2 · **Size/Complexity:** S/S · **Owners:** API · **Deps:** X1.2, X1.3
 - **Persona:** The API (mail and notifications)
@@ -1438,6 +1468,8 @@ _careers.acme.com: registration, ownership verification, on-demand certificates 
 - LE weekly counter table le_issuance (registered_domain, hostname, issued_at); subdomain provisioning refuses with SUBDOMAIN_THROTTLED when ≥ 45 kiwiply.com issuances in 7 days; gauge kiwiply_hostname_state{state}.
 - Org Domains page: timeline step 2/3 from cert fields; troubleshooting panel copy per 10 §4.4 incl. CERT_PENDING/CERT_FAILED hints; "Activate" button when VERIFIED and auto_activate is off (POST …/hostnames/{hid}/activate).
 - Platform admin /admin/domains (admin kit): every hostname across orgs with org, kind, state, cert state, last check/result, last ask; filters; actions re-check / suspend / resume (ReasonSheet, X1.11 endpoints extended to CUSTOM rows); Tenant Health page rows: ask 200/404 rate (5 min), hostnames by state, check-job last run, LE counter.
+- Activation cap (42 T16): global setting enterprise.domains.activations_per_day (default 30); beyond it a VERIFIED host stays VERIFIED with last_check_result CAPACITY_QUEUED and activates on the next day's job run; admin alert. org.domains.max_custom (default 5) per org.
+- Probe hardening (42 T22): probe_via_edge_ip defaults to true in prod (connect to enterprise.domains.edge_ipv4 with SNI = host); DNS lookups use public resolvers; results that resolve to private/loopback/link-local ranges are ignored. The probe also records the served certificate's not_after (additive column) and a weekly check alerts when < 14 days (44 §7.3).
 
 **UI requirements**
 - Org page: three-step timeline + panel; admin page: AdminHero → AdminStatTiles → AdminFilterBar + AdminTable; 390/1440.
@@ -1447,6 +1479,7 @@ _careers.acme.com: registration, ownership verification, on-demand certificates 
 
 **Database changes**
 - le_issuance (id, registered_domain, hostname, issued_at; index (registered_domain, issued_at)) additive
+- org_hostname.cert_not_after DATETIME NULL (additive)
 
 **APIs**
 - GET /api/internal/tenant-hosts/check?domain=&t= (200|404|401)
@@ -1467,6 +1500,7 @@ _careers.acme.com: registration, ownership verification, on-demand certificates 
 - With 45 kiwiply.com issuances in 7 days, provisioning a subdomain → 429 SUBDOMAIN_THROTTLED with the date it frees up.
 - Admin Domains lists acme and beta hostnames; suspend via ReasonSheet makes the host UNKNOWN within one request and writes both audit rows (admin + tenant log).
 - kiwiply_tenant_ask_total increments per result in a metrics test.
+- 31 activations in one day → the 31st stays VERIFIED with CAPACITY_QUEUED and activates next day (ActivationCapIT, SEC-06); a custom host whose A record points at 10.0.0.1 is never probed directly — the probe goes to the edge IP (ProbeTargetIT, SEC-11); not_after is stored and the expiry alert fires at 13 days (CertExpiryAlertTest).
 
 **Test cases**
 - AskEndpointIT (hardened)
@@ -1475,10 +1509,10 @@ _careers.acme.com: registration, ownership verification, on-demand certificates 
 - AdminDomainResourceIT
 - web admin-domains.test.tsx, domains timeline test
 - Playwright admin-domains.spec.ts
+- ActivationCapIT, ProbeTargetIT, CertExpiryAlertTest.
 
 - **Tech notes:** 10 §5, §7; the probe runs in the API container; never log the token; Caddy sends no headers, hence the query token.
 - **Definition of Done:** openapi regenerated; CI green; DEPLOY.md gains a "tenant hosts" subsection pointing to 10 §8. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X3.4 — Primary domain and redirects: one primary per org; non-primary ACTIVE hosts 308 to the primary (org setting); subdomain reachable or redirecting per org setting; links built on the primary
 - **Epic:** X3 · **Size/Complexity:** S/S · **Owners:** API, Web · **Deps:** X3.3, X2.6, X2.10
 - **Persona:** Org Admin choosing careers.acme.com as the address employees use
@@ -1626,6 +1660,7 @@ _careers.acme.com: registration, ownership verification, on-demand certificates 
 - Web GoogleSignIn on tenant hosts passes the current origin; the client id is the platform's (one client, many origins).
 - proxy.ts headers per 11 §7 with a per-request nonce threaded to Next scripts (next.config headers + nonce in the tenant layout); X-Frame-Options DENY; Referrer-Policy; nosniff; Permissions-Policy; X-Robots-Tag; no HSTS. Platform hosts unchanged.
 - E14 answer documented: default password + email verification; Google per domain on request.
+- Cookies on tenant hosts must carry the __Host- prefix (set in X1.5; asserted here per host) and the catch-all edge block must not inherit HSTS includeSubDomains/preload (42 T19/T20) — SecurityHeadersIT asserts no Strict-Transport-Security header is emitted by the app for tenant hosts (the edge owns HSTS per host).
 
 **UI requirements**
 - Settings → Policies row "Google sign-in" disabled with the note "Ask Kiwiply to register careers.acme.com" until registered; Google button appears on the login when enabled.
@@ -1650,16 +1685,17 @@ _careers.acme.com: registration, ownership verification, on-demand certificates 
 - With the origin unregistered, the login on careers.acme.localhost shows no Google button and POST /api/auth/google → 404; registering + enabling shows it and a non-member Google account still gets NOT_A_MEMBER.
 - Every tenant HTML response has CSP with a nonce that matches the inline scripts (Playwright checks console for CSP violations = 0), X-Frame-Options DENY, X-Robots-Tag noindex; kiwiply.com responses are byte-identical to before (snapshot).
 - Framing the tenant login from another origin is blocked (Playwright iframe test).
+- SecurityHeadersIT (SEC-09/10): tenant responses carry the full header set, no HSTS, and every Set-Cookie is __Host-prefixed; kiwiply.com responses are unchanged.
 
 **Test cases**
 - GoogleAuthControllerIT tenant gate
 - PublicTenantResourceIT login.google matrix
 - proxy headers test
 - Playwright tenant-headers.spec.ts
+- SecurityHeadersIT (SEC-09/10).
 
 - **Tech notes:** 11 §7; 12 §4 step 5; Next 16 nonce pattern; keep the single Google client id.
 - **Definition of Done:** openapi regenerated; CI green; 04 §7 updated to "implemented". Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X3.8 — E2E-A custom-domain segment and SuspendedHostnameIT/AskEndpointIT hardening; Playwright domains journey
 - **Epic:** X3 · **Size/Complexity:** M/M · **Owners:** QA, API, Web · **Deps:** X3.1, X3.2, X3.3, X3.4, X3.5, X3.7, X2.11
 - **Persona:** QA
@@ -2374,7 +2410,7 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - web/rest/admin/AdminContractResource (API only; UI in X6.9)
 
 **Database changes**
-- Liquibase 20261019020000_ent_contracts.xml: org_contract, org_contract_price, contract_event, org_discount, org_discount_redemption; license_quote lives in X5.4's changelog (QuoteService writes it once X5.4 lands; until then the engine returns DTOs only — X5.5 tests run in memory).
+- Liquibase 20261019020000_ent_contracts.xml: org_contract, org_contract_price (with version_from INT NOT NULL, version_to INT NULL — a price row is closed, never edited; a quote pinned at contract version v reads rows with version_from ≤ v < COALESCE(version_to, ∞); 23 §2.2, 41 §3.3), contract_event, org_discount, org_discount_redemption; license_quote lives in X5.4's changelog (QuoteService writes it once X5.4 lands; until then the engine returns DTOs only — X5.5 tests run in memory).
 
 **APIs**
 - GET/POST/PUT /api/admin/contracts, POST /{id}/approve|activate|end|cancel, GET /{id}/events
@@ -2392,6 +2428,7 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - Property tests 22 §10 pass (1 000 random inputs each).
 - Confirm with a changed catalog_version/contract_version/inputs → 409 QUOTE_STALE with reason; after 15 minutes → 410 QUOTE_EXPIRED.
 - A second ACTIVE contract overlapping → 409 CONTRACT_OVERLAP; a row with both overrides → 422; currency mismatch → 422.
+- Amending an ACTIVE contract (version v → v+1) closes the replaced price rows with version_to = v+1 and inserts new rows with version_from = v+1; a quote pinned at v still prices with the old rows and a re-quote prices with the new ones (ContractPriceVersionTest); any UPDATE of override_amount_minor/override_pct_off_bp on an existing row is refused (ImmutableContractPriceIT).
 
 **Test cases**
 - MinorTest
@@ -2402,10 +2439,11 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - ContractLifecycleJobTest
 - OrgDiscountTest
 - AdminContractResourceIT
+- ContractPriceVersionTest
+- ImmutableContractPriceIT
 
 - **Tech notes:** PricingEngine takes a PricingInputs value object; no repositories inside. Basis points everywhere; never BigDecimal/double. Promo "best" = largest reduction on the org's current recurring total, tie → lowest id.
 - **Definition of Done:** Golden tests green and checked in with the exact tables. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
 ### X5.4 — consultant_license + license_feature + license_quote + license_change tables and LicenseService (quote → confirm; assign, add/remove features, upgrade, schedule downgrade, suspend, cancel, reactivate; presets; dependencies) — API only, Stripe off (LocalBillingApplier)
 - **Epic:** X5 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X5.5, X1.7, X1.8 · **Relates:** O3.2 · **Supersedes:** O3.2
 - **Persona:** Org admin
@@ -4204,6 +4242,7 @@ Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interv
 - interview_slot state machine per 33 §3 registered; confirm creates the person interview row via InterviewService.create with source ORG (new constant) and nullable application_id (additive change); one-way reconciliation; InterviewSlotSuggester under FULL.
 - IcsCalendar.event(...) overload; GET …/interviews/{slotId}/ics; InterviewReminderJob (10 min) writing reminder_24h/1h columns for all person rows; ORG_INTERVIEW notifications per 33 §3.
 - Overlap guard SLOT_OVERLAP.
+- .ics feed hardening (42 T55): per-user 32-byte random feed token, hashed at rest, revocable from Settings, rate-limited; feed content = time + generic title ("Interview") unless the consultant opts in (calendar.include_company, default off).
 
 **UI requirements**
 - Consultant confirm/decline BottomSheet (390) with .ics button; marketer propose SideSheet; Home 'Needs you' entry.
@@ -4228,13 +4267,14 @@ Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interv
 - ICS output has VTIMEZONE, UID slot-<id>@kiwiply.com and no ATTENDEE; reminders are sent once per column.
 - A second CONFIRMED slot overlapping in time → 409 SLOT_OVERLAP.
 - SUMMARY viewers see 'Interview · Anika' without client names (projection test).
+- GET …/ics with a revoked or guessed token → 404; default feed shows no company or client name; opting in adds it (IcsTokenIT, SEC-47).
 
 **Test cases**
 - InterviewSlotStateTest, SlotConfirmCreatesPersonRowTest, IcsCalendarEventTest, InterviewReminderJobTest, SlotOverlapTest, Playwright interviews.spec.ts.
+- IcsTokenIT (SEC-47).
 
 - **Tech notes:** Reuse InterviewService verbatim for the person row; the reminder job fulfils the parked U7 reminder intent for everyone.
 - **Definition of Done:** Interview coordination live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X9.6 — Interviews page (org side) and calendar of consented interviews
 - **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X9.5
 - **Persona:** Marketer / Account Manager / Org Admin

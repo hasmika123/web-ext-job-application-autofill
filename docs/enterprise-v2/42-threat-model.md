@@ -261,7 +261,7 @@ Threat ids: S spoofing · T tampering · R repudiation · I information disclosu
 | PII scanner | X11.7 | `HrFinanceNeverCollectedTest`, `NeverCollectedSchemaTest` (SEC-42) |
 | Outbound webhooks SSRF, SSO | X12.3, X12.4 | `WebhookSsrfIT` (SEC-50), `SamlAssertionIT` (SEC-24) |
 
-### 6.2 Amendments this doc requires on existing stories (apply when the story is next edited; none edits happen in this task)
+### 6.2 Amendments this doc requires on existing stories — **applied 2026-10-12 (Session E Task 3)** to `ent.json`/`07-backlog.md` (X12.3's SSRF ACs landed with its full spec in Task 5; 23 §2.2 and 10 §5.2/§8 edited)
 | Story | Amendment (acceptance criterion to add) |
 |---|---|
 | X1.3 | dedicated `DOSSIER_ASK_TOKEN` for the ask endpoint (T17); negative cache 10 s + max 10 000 entries (T13/T24) |

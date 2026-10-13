@@ -165,10 +165,14 @@ clears `failing_since`.
 
 ### 5.2 Passing the internal token to the ask endpoint
 Caddy's `ask` is a bare GET: it cannot add headers. `InternalTenantHostResource` therefore
-accepts the internal token **either** as `X-Internal-Token` **or** as the query parameter `t`
+accepts the ask token **either** as `X-Internal-Token` **or** as the query parameter `t`
 (this endpoint only; constant-time compare; the token never appears in logs — the access-log
-pattern masks `t=`). The Caddyfile carries it as an environment variable (`{$KIWIPLY_ASK_TOKEN}`)
-set in the edge compose file. The ask endpoint is additionally reachable only on the `web_edge`
+pattern masks `t=`). **The ask token is a dedicated secret** (42 T17, Task 3): API env
+`DOSSIER_ASK_TOKEN`, accepted **only** by `/api/internal/tenant-hosts/check`; it is **not**
+`DOSSIER_INTERNAL_TOKEN` (that one never leaves the compose network and is refused on the ask
+endpoint), so a leak through edge logs or config grants nothing else. The Caddyfile carries it as
+an environment variable (`{$KIWIPLY_ASK_TOKEN}`, same value as `DOSSIER_ASK_TOKEN`) set in the
+edge compose file; rotation = change both env files, `up -d api`, `up -d caddy`. The ask endpoint is additionally reachable only on the `web_edge`
 network (the API never publishes `/api/internal/**` through `api.kiwiply.com`; E12 asks the edge
 to deny that path publicly).
 
@@ -196,6 +200,14 @@ https:// {
 	# The tenant hostname travels to the app as X-Forwarded-Host (reverse_proxy sets it); the BFF
 	# forwards it as X-Kiwiply-Host and the API resolves the tenant from it (ADR-003).
 	reverse_proxy dossier-web:3000
+}
+
+# 3) HTTP catch-all (44 §6.5): Caddy's automatic HTTP→HTTPS redirect only covers hostnames it
+#    manages, so a custom domain arriving on :80 before its certificate exists needs this block.
+#    Skip it if the edge already has an `http://` catch-all. ACME HTTP-01 challenges are answered
+#    by Caddy before this block runs.
+http:// {
+	redir https://{host}{uri} permanent
 }
 # ---- end Kiwiply Enterprise ---------------------------------------------------------------------
 ```
@@ -264,8 +276,11 @@ links to the org. No tenant data beyond hostname/org name.
 ## 8. Runbook — applying the edge change (E5, answered 2026-10-12; owner: the user)
 
 Pre-conditions: Phase 3 code deployed (ask endpoint live on `dossier-api`), `KIWIPLY_ASK_TOKEN`
-= the API's `DOSSIER_INTERNAL_TOKEN` value, DNS records created in Cloudflare (grey-cloud):
-`*.kiwiply.com A 74.208.212.158` and `edge.kiwiply.com A 74.208.212.158`.
+= the API's **`DOSSIER_ASK_TOKEN`** value (a new, separate secret — **not** `DOSSIER_INTERNAL_TOKEN`;
+§5.2), DNS records created in Cloudflare (grey-cloud): `*.kiwiply.com A 74.208.212.158` and
+`edge.kiwiply.com A 74.208.212.158`. Before step 3, run the dev-edge rehearsal
+(`docker-compose.dev-edge.yml`, X3.6) and read the box's current `Caddyfile` for existing global,
+`http://`, catch-all or wildcard blocks (44 §6.3).
 
 1. On the box: `cd ~/beecompete-edge && cp Caddyfile Caddyfile.bak-$(date +%F)`.
 2. Add `KIWIPLY_ASK_TOKEN=<value>` to the edge compose `environment:` of the `caddy` service
@@ -276,11 +291,16 @@ Pre-conditions: Phase 3 code deployed (ask endpoint live on `dossier-api`), `KIW
 4. Validate without applying: `docker compose -f docker-compose.edge.yml exec caddy caddy validate --config /etc/caddy/Caddyfile`.
 5. Reload (zero downtime): `docker compose -f docker-compose.edge.yml exec caddy caddy reload --config /etc/caddy/Caddyfile`.
 6. Verify neighbours untouched: `curl -sI https://beecompete.com | head -1`, `curl -sI https://staging.beecompete.com | head -1`, `curl -sI https://kiwiply.com | head -1`.
-7. Verify the gate: `curl -s -o /dev/null -w '%{http_code}\n' "http://dossier-api:8080/api/internal/tenant-hosts/check?t=$KIWIPLY_ASK_TOKEN&domain=nobody.example"` from inside the edge container → `404`; the demo org's subdomain → `200`.
+7. Verify the gate: `curl -s -o /dev/null -w '%{http_code}\n' "http://dossier-api:8080/api/internal/tenant-hosts/check?t=$KIWIPLY_ASK_TOKEN&domain=nobody.example"` from inside the edge container → `404`; the demo org's subdomain → `200`. Also `curl -sI https://api.kiwiply.com/management/health | head -1` → 200 (monitors unaffected).
+7b. **Spoof test (42 T23, 44 §6.2):** `curl -sk --resolve acme.kiwiply.com:443:74.208.212.158 https://kiwiply.com/ -H 'X-Forwarded-Host: acme.kiwiply.com' -o /dev/null -w '%{http_code}\n'` and the same without the header: both must return the **platform** site (Caddy overwrote the header). If they differ, **stop and roll back** — the edge trusts client `X-Forwarded-Host` (`trusted_proxies` misconfigured) and tenant resolution would be forgeable.
 8. First issuance: open `https://acme.kiwiply.com` (provisioned, ACTIVE). Expect the branded login
    within ~5 s; `docker compose … logs caddy | grep acme.kiwiply.com` shows the ask + obtain lines.
 9. Rollback: `cp Caddyfile.bak-<date> Caddyfile && caddy reload` (certificates already obtained
    stay on disk and are harmless).
+10. Afterwards: add the edge's `caddy_data` volume (ACME account key + issued certificates) to the
+    weekly backup targets (44 §8 — losing it causes a re-issue storm against LE limits), and confirm
+    the edge access log does not record the outbound `ask` query string (`t=`); the API masks `t=`
+    in its own logs (X1.13 `LogMaskingTest`).
 
 Troubleshooting (edge side): `caddy` log `"on-demand TLS: ask endpoint returned 404"` means the
 host is not ACTIVE (check Domains page / admin); `"too many certificates already issued"` is the

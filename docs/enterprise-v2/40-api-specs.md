@@ -339,7 +339,7 @@ Columns: **perm / scope / feat** · **body → response** · **notable errors** 
 | `/ops/**` (product H, unchanged) | `ops.*` | | 11 |
 
 ### 12.12 Analytics, integrations, SSO (Phase 12; shapes defined in X12.* stories)
-`GET {o}/analytics/…` (`flag.enterprise.analytics`, k-anonymity floor `org.analytics.k_min`=5) · `GET/POST/PATCH/DELETE {o}/integrations/webhooks[/{id}]` + `POST …/{id}/test|redeliver` (`integrations.manage`, §9.2) · `GET/PUT {o}/sso` (SAML/OIDC metadata, domain claim; `flag.enterprise.sso`; ⚑) · `POST {o}/security/mfa-policy` (`org.security.mfa_required`) · `GET {o}/extension/assigned-items`.
+`GET {o}/analytics/…` (`flag.enterprise.analytics`, k-anonymity floor `org.analytics.k_min`=5) · `GET/POST/PATCH/DELETE {o}/integrations/webhooks[/{id}]` + `POST …/{id}/test|redeliver` (`integrations.manage`, §9.2) · `GET/PUT {o}/sso` + `POST {o}/sso/test` + `GET/PUT {o}/sso/jit-mapping` (SAML/OIDC metadata, domain claim; `flag.enterprise.sso`; **story X12.4** connection + login, **X12.10** JIT mapping with the `org.sso.max_jit_role` ceiling, 42 T34/T63 — design review done, Task 4) · `POST {o}/security/mfa-policy` (`org.security.mfa_required`) · `GET {o}/extension/assigned-items`.
 
 ## 13. DTO appendix (key shapes; full classes in code, snapshot-tested by `DtoSnapshotTest`)
 

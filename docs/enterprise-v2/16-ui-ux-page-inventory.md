@@ -81,7 +81,10 @@ templates in 05 §3 and asserts the inventory in §5 exactly (doc-sync test agai
 tables, like `ShareMatrixTest`).
 
 ### 2.3 Route tree (tenant hosts; `proxy.ts` rewrite, X2.6)
-Public URL on `careers.acme.com` → file under `web/src/app/(tenant)/_t/`:
+Public URL on `careers.acme.com` → file under `web/src/app/(tenant)/%5Ft/` (**directory name is
+`%5Ft`**, the URL-encoded `_t`: Next.js treats a folder starting with `_` as private and would not
+route it — the public path stays `/_t`; corrected by Session E Task 3, 09 row 15). The `_t/…` names
+below are the URL segments after the rewrite, not folder names:
 ```
 /                      → _t/page.tsx           redirect: signed-in member → /w/{landing}; else /login
 /login                 → _t/login/page.tsx     BrandedLogin (11 §3)
@@ -95,8 +98,12 @@ Public URL on `careers.acme.com` → file under `web/src/app/(tenant)/_t/`:
 path except `/api/*`, `/_next/*`, `/tenant-assets/*`, static files; sets the security headers
 (11 §7). A platform host requesting `/_t/*` directly gets `notFound()` from the layout. Platform
 hosts are untouched (`(marketing)`, `(app)`, `(admin)`, `(org)` keep working on kiwiply.com).
+The proxy matcher also runs on `/api/auth/*` and the other BFF route handlers (not rewritten, but
+`x-kiwiply-host` must be set there — X1.4/X1.5). **Root layout split (X1.4):** the Kiwiply chrome
+(cookie-consent banner, bug-report widget, analytics scripts) moves out of `app/layout.tsx` into
+the platform groups' layouts; `(tenant)/%5Ft/layout.tsx` mounts none of it.
 
-### 2.4 Workspace layout (`_t/w/[workspace]/layout.tsx`)
+### 2.4 Workspace layout (`(tenant)/%5Ft/w/[workspace]/layout.tsx`, URL `/w/[workspace]`)
 1. `getTenant()` (cached) → TENANT or 404.
 2. `getMeTenant()` (cached; `GET /api/me/tenant`) → 401 → `redirect('/login?next=…')`; 403
    `MEMBER_SUSPENDED` → "Your access is paused" panel; 404 → not-a-member panel.
