@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import { AlertIcon, CalendarIcon, CheckCircleIcon, ErrorState, HourglassIcon, PencilIcon, PhoneIcon, SendIcon, cn } from "@kiwiply/ui";
+import type { IconProps } from "@kiwiply/ui";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import {
   FOLLOWUP_KPI_KEYS, FOLLOWUP_KPI_TITLES, fetchFollowups, runFollowupAction, type FollowupAction, type FollowupKpiKey, type FollowupRow, type FollowupsView, type InsightWindow,
@@ -16,7 +17,7 @@ import FollowupTable, { type RowAction } from "./FollowupTable";
  * Insights). ASSIGNED scope. E1: Send Reminder, Log Call and Update Status only RECORD on the follow-up; nothing is emailed and nothing is submitted for a consultant.
  */
 
-const KPI: Record<FollowupKpiKey, { icon: typeof CalendarIcon; tint: TintName; spark: number; lowerIsBetter?: boolean }> = {
+const KPI: Record<FollowupKpiKey, { icon: ComponentType<IconProps>; tint: TintName; spark: number; lowerIsBetter?: boolean }> = {
   dueToday: { icon: CalendarIcon, tint: "blue", spark: 1 },
   overdue: { icon: AlertIcon, tint: "coral", spark: 4, lowerIsBetter: true },
   completedToday: { icon: CheckCircleIcon, tint: "green", spark: 2 },
@@ -136,7 +137,7 @@ export default function FollowupsPage({ orgId }: MktPageProps) {
   const loading = status === "loading";
   const v = view;
 
-  const section = (name: Bucket, title: string, icon: typeof CalendarIcon, tint: TintName, rows: FollowupRow[], total: number, emptyCopy: string, opts: { withDate: boolean; alert: boolean; sortable?: boolean; toolbar?: ReactNode }) => {
+  const section = (name: Bucket, title: string, icon: ComponentType<IconProps>, tint: TintName, rows: FollowupRow[], total: number, emptyCopy: string, opts: { withDate: boolean; alert: boolean; sortable?: boolean; toolbar?: ReactNode }) => {
     const limit = expanded[name] ? rows.length : SHOWN[name];
     const shown = rows.slice(0, limit);
     return (
