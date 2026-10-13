@@ -29,6 +29,17 @@ cat docs/enterprise-v2/progress-tracker.md                        # statuses
 - Foundation design: `00` vision, `03` domain model (bounded contexts, every entity, migration map), `04` tenancy & security (resolution, context, per-layer isolation, negative tests, threat model), `05` permission model (11-step order, templates, scopes, actor/beneficiary), `06` phase plan (0–12, flags, migration strategy, DoD).
 - Plan: `07-backlog.md` + roadmap area **`ent` (prefix `X`)** with 13 epics / 109 stories (Phase 1 fully specified), back-links from `org.json`/`admin.json`, roadmap regenerated with 0 dangling ids; `progress-tracker.md`; `08-decisions-for-user.md` (20 escalations with safe defaults).
 
+## Session D (2026-10-12, branch `ev2-design-d`, not pushed)
+Designed assignments (`17`), org resume management (`30`), the talent-marketing lifecycle as state machines
+(`31`), applications (`32`), interviews (`33`), clients (`34`), placements + Timesheets bridge (`35`),
+HR & Finance record-only (`36`), the entitlement hook map for Session C (`37`) and the talent UX (`38`).
+Specified 44 stories (X4.7–X4.8, X7–X11; new X8.10 pipeline schema/engine, X10.8 Timesheets bridge,
+X11.7 PII-scanner coverage) in `ent.json` + `07-backlog.md`; added escalations D1–D7 and recorded
+**E1, E2, E3, E5 as answered 2026-10-12** in `08-decisions-for-user.md`. Build order per phase is in the
+`07-backlog.md` section headers and `progress-tracker.md`. Sessions B/C must align on: `ORG_*` notification
+kinds, `X-Kiwiply-Workspace`, `AiCallContext` + `ai_call` columns, feature keys/units in `37` §4,
+`ShareField.OFFERS` doc row, `interview.application_id` nullable, `ops_placement.pipeline_placement_id`.
+
 ## The decisions in one breath
 Shared schema + `org_id` + explicit `TenantContext` (ADR-001) · Caddy on-demand TLS at the shared edge, Cloudflare for SaaS reserved (002) · the API resolves the host, clients never name a tenant, unknown hosts 404 (003) · host-only sessions + `tid` claim (004) · roles as data, N roles per member, five scopes, ceiling rule (005) · basic profile vs membership-scoped consultant overlay (006) · one shell, permission nav, data-defined workspaces (007) · `org_assignment` history (008) · person-owned resumes + `org_resume` links (009) · **marketers prepare, consultants submit, Kiwiply never submits** (010) · one client model with relationship edges; HR/Finance record-only, no identity documents (011) · base license + feature add-ons, presets as shortcuts (012) · immutable effective-dated prices (013) · list → contract → one discount → volume tier (014) · volume tiers ship empty (015) · idempotent usage ledger, per-consultant allowances (016) · one Stripe subscription per org, quantities aggregate (017) · personal subscriptions untouched, no cross-workspace stacking (018) · add now/remove at period end, backend quotes with expiry (019) · discounts as Stripe coupons, 20-item fallback, test clocks (020) · one `EntitlementService.check` with the 11-step order (021) · design for two instances, run one (022) · additive Liquibase + per-phase flags (023).
 
