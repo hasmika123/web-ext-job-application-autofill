@@ -133,7 +133,7 @@ public class EnterpriseDemoSeeder {
         "Acme Staffing",
         OrgType.CONSULTANCY,
         ACME_HOST,
-        "#0f766e",
+        "#1d5bd8",
         "#f59e0b",
         "Welcome to Acme Staffing",
         "Sign in to your consultant bench, placements and team workspace.",
