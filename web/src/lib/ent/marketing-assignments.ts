@@ -287,7 +287,10 @@ export const AVAILABILITY_LABEL: Record<string, string> = { AVAILABLE: "Availabl
 export function formatDay(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  if (Number.isNaN(d.getTime())) return "";
+  // this year's dates drop the year (a narrow column); older ones keep it
+  const sameYear = d.getUTCFullYear() === new Date().getUTCFullYear();
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), timeZone: "UTC" });
 }
 
 export interface TileView {

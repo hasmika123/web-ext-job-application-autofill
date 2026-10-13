@@ -97,7 +97,7 @@ export default function ConsultantsPanel({
         <span className="flex min-w-0 items-center gap-2.5">
           {canManage && narrow && <Check checked={selected.has(r.consultantId)} onChange={() => onToggle(r.consultantId)} label={`Select ${r.name}`} />}
           <MemberAvatar name={r.name} size={30} />
-          <span className="min-w-0 max-w-[6.5rem]" title={r.jobTitle ? `${r.name}, ${r.jobTitle}` : r.name}>
+          <span className="min-w-0 max-w-[6rem]" title={r.jobTitle ? `${r.name}, ${r.jobTitle}` : r.name}>
             <span className="block truncate text-[13px] font-bold text-ink">{r.name}</span>
             <span className="block truncate text-[11.5px] font-normal text-muted">{r.jobTitle ?? (r.availability ? AVAILABILITY_LABEL[r.availability] : "")}</span>
           </span>

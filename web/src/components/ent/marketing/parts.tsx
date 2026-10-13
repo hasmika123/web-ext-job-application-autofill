@@ -20,12 +20,12 @@ export function PriorityPill({ priority }: { priority: string | null }) {
 }
 
 /** A marketer as an initials circle and a name; none reads as a dash (never a made-up face: the platform keeps no photos). */
-export function PersonChip({ person, size = 22, none = "—" }: { person: Person | null; size?: number; none?: string }) {
+export function PersonChip({ person, size = 20, none = "—" }: { person: Person | null; size?: number; none?: string }) {
   if (!person) return <span className="text-muted">{none}</span>;
   return (
     <span className="flex min-w-0 max-w-[7.25rem] items-center gap-1.5" title={person.name}>
       <MemberAvatar name={person.name} size={size} />
-      <span className="truncate text-[12.5px] text-ink">{person.name}</span>
+      <span className="truncate text-[12px] text-ink">{person.name}</span>
     </span>
   );
 }
