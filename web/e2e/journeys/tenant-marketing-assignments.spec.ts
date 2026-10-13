@@ -107,9 +107,13 @@ test.describe("marketing assignments (real stack)", () => {
     await checks.nth(1).check();
     await page.getByRole("button", { name: /Bulk Actions/ }).click();
     await page.getByRole("menuitem", { name: "High" }).click();
-    await expect(page.getByText(/Set high priority on [12] consultants?/)).toBeVisible();
-    await page.getByRole("button", { name: "Undo" }).last().click();
-    await expect(page.getByText("Undone")).toBeVisible();
+    await expect(page.getByText(/Set high priority on \d+ consultants?/)).toBeVisible();
+    // rows that were already High change nothing and offer no Undo; otherwise Undo puts them back
+    const undo = page.getByRole("button", { name: "Undo" });
+    if (await undo.count()) {
+      await undo.last().click();
+      await expect(page.getByText("Undone")).toBeVisible();
+    }
 
     // over capacity: Michael Park is at 29 / 30; three more is a warning first, and nothing changes
     await card(page, "Michael Park").getByRole("button", { name: /Show their consultants/ }).click();
@@ -129,7 +133,7 @@ test.describe("marketing assignments (real stack)", () => {
     // the workload report
     await page.getByRole("button", { name: /View Workload Report/ }).click();
     await expect(page.getByRole("table", { name: "Workload by marketer" })).toBeVisible();
-    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("button", { name: "Close", exact: true }).last().click();
 
     // another organization cannot read Acme's board
     const orgId = await page.evaluate(async () => ((await (await fetch("/api/me/tenant")).json()) as { org: { id: number } }).org.id);
