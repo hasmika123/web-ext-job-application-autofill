@@ -587,6 +587,21 @@ class OrgGroupEnterpriseIT {
         assertThat(d.toString()).as("never a login or email").doesNotContain("@example.com");
     }
 
+    @Test
+    void thePeoplePickerOffersActiveMembersByNameWithinTheCallersScope() throws Exception {
+        OrgMember named = person(a, "ge-pick-ann");
+        fx.seat(a, "ge-pick-gone", OrgRole.MEMBER, OrgMemberStatus.SUSPENDED);
+        person(b, "ge-pick-other-org");
+        JsonNode all = body(call("ge-a-owner", get(url(a) + "/people?q=ge-pick&limit=5")));
+        assertThat(all.size()).isEqualTo(1);
+        assertThat(all.get(0).path("memberId").asLong()).isEqualTo(named.getId());
+        assertThat(all.toString()).doesNotContain("@example.com");
+        // a manager sees only people inside their TEAM scope: nobody here is on their team
+        assertThat(body(call("ge-a-manager", get(url(a) + "/people?q=ge-pick"))).size()).isZero();
+        generic404(call("ge-a-consultant", get(url(a) + "/people")), "consultant people");
+        generic404(call("ge-l-owner", get(url(legacy) + "/people")), "people outside the flag");
+    }
+
     // ---- the scope directory ---------------------------------------------------------------------------------------
 
     @Test

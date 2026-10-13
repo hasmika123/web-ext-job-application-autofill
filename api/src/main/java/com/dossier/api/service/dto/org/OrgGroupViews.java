@@ -27,6 +27,9 @@ public final class OrgGroupViews {
 
     public record MemberRow(Long memberId, String name, String initials, String status, String roleName, boolean lead, String departmentName, String teamName) {}
 
+    /** One person a lead or a member picker can offer: ACTIVE seats only, never an email or login. */
+    public record PersonOption(Long memberId, String name, String initials, String roleName, String departmentName, String teamName) {}
+
     /** Body of {@code POST /groups/{id}/members}: at most 500 ids. */
     public record MoveRequest(List<Long> memberIds) {}
 

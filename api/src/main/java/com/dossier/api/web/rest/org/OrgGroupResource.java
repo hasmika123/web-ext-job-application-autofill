@@ -90,6 +90,17 @@ public class OrgGroupResource {
         return directory.structure(me);
     }
 
+    @Operation(summary = "People a lead or member picker can offer", description = "ACTIVE members only (name, initials, role, department, team), narrowed to the caller's scope; q searches by name, limit at most 50. Enterprise flag only.")
+    @GetMapping("/people")
+    @OrgPermissionRequired
+    public List<OrgGroupViews.PersonOption> people(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestParam(required = false) String q,
+        @RequestParam(required = false, defaultValue = "20") int limit
+    ) {
+        return directory.people(me, q, limit);
+    }
+
     @Operation(summary = "The icons and colours a group can use", description = "A closed list; anything else is a 422.")
     @GetMapping("/pickers")
     @OrgPermissionRequired

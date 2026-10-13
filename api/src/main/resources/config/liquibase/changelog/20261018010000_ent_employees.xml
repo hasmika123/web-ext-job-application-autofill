@@ -56,17 +56,9 @@
             <column name="org_id"/>
             <column name="manager_member_id"/>
         </createIndex>
-        <rollback>
-            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_manager"/>
-            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_team"/>
-            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_department"/>
-            <dropIndex tableName="org_member" indexName="ix_member_org_manager"/>
-            <dropIndex tableName="org_member" indexName="ix_member_org_team"/>
-            <dropIndex tableName="org_member" indexName="ix_member_org_department"/>
-            <dropColumn tableName="org_member" columnName="manager_member_id"/>
-            <dropColumn tableName="org_member" columnName="team_group_id"/>
-            <dropColumn tableName="org_member" columnName="department_group_id"/>
-        </rollback>
+        <!-- X1.15 (20261015040000) always adds these columns and keys first, so this changeset is MARK_RAN on every database and created nothing:
+             there is nothing to undo here. Dropping them is X1.15's own rollback (which runs after this one, in reverse order). -->
+        <rollback/>
     </changeSet>
 
     <changeSet id="20261018010000-3" author="dossier">
@@ -237,8 +229,8 @@
             <column name="lead_member_id"/>
         </createIndex>
         <rollback>
-            <dropIndex tableName="org_group" indexName="idx_group_org_lead"/>
             <dropForeignKeyConstraint baseTableName="org_group" constraintName="fk_group_lead"/>
+            <dropIndex tableName="org_group" indexName="idx_group_org_lead"/>
             <dropColumn tableName="org_group" columnName="lead_member_id"/>
         </rollback>
     </changeSet>

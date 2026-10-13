@@ -103,6 +103,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
+// Every route is attacked by every caller: with the groups routes (X4.5) the sweeps outgrew the global 15 s default on a loaded machine.
+@org.junit.jupiter.api.Timeout(90)
 class OrgIsolationIT {
 
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
@@ -158,6 +160,7 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/groups/directory", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/groups/structure", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/groups/pickers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/groups/people", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/groups/{groupId}", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/groups/{groupId}/members", Case.versioned(200, OrgAuditService.GROUP_MOVE, w -> "{\"memberIds\":[" + w.member.getId() + "]}", w -> null)),
         Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}/members/{memberId}", Case.write(null, 204, null)),

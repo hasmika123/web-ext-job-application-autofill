@@ -134,6 +134,27 @@ public class OrgGroupDirectoryService {
         return new OrgGroupViews.Detail(view.card(g), view.cards(teamGroups), rows, seats.size());
     }
 
+    /** The people a picker can offer (ACTIVE seats, narrowed by the caller's scope, searched by name, at most 50). */
+    @Transactional(readOnly = true)
+    public List<OrgGroupViews.PersonOption> people(OrgMembership me, String q, int limit) {
+        OrgGroupSnapshot.View view = gate(me);
+        PermissionScope scope = access.readScope(me).orElse(PermissionScope.OWN);
+        List<OrgGroupSnapshot.Seat> seats = view.seats().stream().filter(s -> s.status() == OrgMemberStatus.ACTIVE).filter(s -> scope == PermissionScope.ORG || scopes.inScope(me, scope, s.id())).toList();
+        view.preload(seats.stream().map(OrgGroupSnapshot.Seat::id).toList());
+        String needle = q == null ? "" : q.strip().toLowerCase(Locale.ROOT);
+        List<OrgGroupViews.PersonOption> out = new ArrayList<>();
+        for (OrgGroupSnapshot.Seat s : seats) {
+            OrgGroupDTO.Person p = view.person(s.id());
+            if (p == null || (!needle.isEmpty() && !p.name().toLowerCase(Locale.ROOT).contains(needle))) continue;
+            OrgGroup dept = view.group(s.departmentId());
+            OrgGroup team = view.group(s.teamId());
+            out.add(new OrgGroupViews.PersonOption(s.id(), p.name(), p.initials(), p.roleName(), dept == null ? null : dept.getName(), team == null ? null : team.getName()));
+        }
+        out.sort(Comparator.comparing((OrgGroupViews.PersonOption o) -> o.name().toLowerCase(Locale.ROOT)).thenComparing(OrgGroupViews.PersonOption::memberId));
+        int max = Math.max(1, Math.min(50, limit <= 0 ? 20 : limit));
+        return out.size() > max ? List.copyOf(out.subList(0, max)) : out;
+    }
+
     // ---- helpers ------------------------------------------------------------------------------------------------
 
     private OrgGroupSnapshot.View gate(OrgMembership me) {
