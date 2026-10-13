@@ -31,9 +31,11 @@ describe("DepartmentsPage (X4.5)", () => {
     expect(within(tiles).getByText("Avg. Team Size")).toBeTruthy();
     expect(within(tiles).getByText("9")).toBeTruthy();
     expect(screen.queryByText(/open positions/i)).toBeNull(); // no recruiting data exists: no tile
+    expect(document.querySelector(".grp-page")).toBeTruthy(); // the board's scoped look
+    expect(screen.getByRole("region", { name: "Need help with departments?" })).toBeTruthy(); // the board's own help card
     const cards = await screen.findByRole("list", { name: "Departments" });
     const consulting = within(cards).getByText("Consulting").closest("button")!;
-    expect(within(consulting).getByText("3 employees")).toBeTruthy();
+    expect(consulting.textContent).toContain("3 employees");
     expect(within(consulting).getByText("Amara Silva")).toBeTruthy();
     expect(within(consulting).getByText("Account Manager")).toBeTruthy();
     expect(within(cards).getByText("No lead yet")).toBeTruthy(); // Marketing

@@ -3,9 +3,8 @@
 import { useMemo, useState } from "react";
 import {
   ArchiveIcon,
+  BarChartIcon,
   Button,
-  Card,
-  ChartIcon,
   DataTable,
   Dialog,
   EmptyState,
@@ -19,6 +18,7 @@ import {
   PersonCell,
   PlusIcon,
   RestoreIcon,
+  Select,
   Skeleton,
   TrashIcon,
   UserIcon,
@@ -31,7 +31,7 @@ import { ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { plural, type Group } from "@/lib/ent/groups";
 import CreateGroupSheet from "./CreateGroupSheet";
 import GroupDetailSheet from "./GroupDetailSheet";
-import { AvatarStack, GroupStatus, GroupTile, Kpi } from "./GroupVisuals";
+import { AvatarStack, GroupStatus, GroupTile, Kpi, PageHelpCard, SectionHead } from "./GroupVisuals";
 import { StructureTree } from "./StructureViews";
 import { useGroupActions, useGroupsData } from "./useGroups";
 
@@ -119,16 +119,16 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
   const cardFilters = cq !== "" || cDept !== "" || cStatus !== "";
 
   return (
-    <div className="flex flex-col gap-5" data-page="teams">
+    <div className="grp-page flex flex-col gap-5" data-page="teams">
       <section aria-label="Team numbers" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {!s ? (
           [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[124px] w-full rounded-2xl" />)
         ) : (
           <>
-            <Kpi icon={<UsersIcon size={20} />} label="Total Teams" value={s.teams} tone="primary" hint={s.inactive > 0 ? `${s.inactive} archived` : undefined} />
+            <Kpi icon={<UsersIcon size={20} />} label="Total Teams" value={s.teams} tone="secondary" hint={s.inactive > 0 ? `${s.inactive} archived` : undefined} />
             <Kpi icon={<UserIcon size={20} />} label="Total Team Members" value={s.teamMembers} tone="success" hint={s.employees > s.teamMembers ? `${s.employees - s.teamMembers} of ${s.employees} employees are in no team` : undefined} />
-            <Kpi icon={<NetworkIcon size={20} />} label="Team Leads" value={s.teamLeads} tone="secondary" />
-            <Kpi icon={<ChartIcon size={20} />} label="Avg. Team Size" value={s.averageTeamSize == null ? "–" : s.averageTeamSize} tone="info" hint={s.averageTeamSize == null ? "No teams yet" : "people per team"} />
+            <Kpi icon={<NetworkIcon size={20} />} label="Team Leads" value={s.teamLeads} tone="primary" />
+            <Kpi icon={<BarChartIcon size={20} />} label="Avg. Team Size" value={s.averageTeamSize == null ? "–" : s.averageTeamSize} tone="warning" hint={s.averageTeamSize == null ? "No teams yet" : "people per team"} />
           </>
         )}
       </section>
@@ -144,50 +144,49 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
           />
         </>
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-w-0 flex-col gap-5">
-            <Card className="p-4 sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="text-[17px] font-bold text-ink">Teams Overview</h2>
-                  <p className="text-[13px] text-muted">Manage your teams and their members.</p>
+            <section aria-label="Teams overview" className="grp-card p-4 sm:p-5">
+              <SectionHead icon={<UsersIcon size={26} />} title="Teams Overview" subtitle="Manage your teams and their members.">
+                <div className="flex min-w-0 flex-wrap items-center gap-2.5">
+                  <FilterBar
+                    compact
+                    className="xl:flex-nowrap"
+                    query={cq}
+                    onQueryChange={setCq}
+                    values={{ department: cDept, status: cStatus }}
+                    onFilterChange={(n, v) => (n === "department" ? setCDept(v) : setCStatus(v))}
+                    search={{ placeholder: "Search teams…", label: "Search teams" }}
+                    filters={[
+                      { name: "department", label: "Department", allLabel: "All Departments", options: deptOptions },
+                      { name: "status", label: "Status", allLabel: "All Statuses", options: [{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Archived" }] },
+                    ]}
+                  />
+                  {canManage && (
+                    <Button variant="accent" onClick={() => setCreating(true)} className="min-h-10 rounded-[10px] px-4 text-[14px] font-bold">
+                      <PlusIcon size={16} /> Create Team
+                    </Button>
+                  )}
                 </div>
-                {canManage && (
-                  <Button variant="accent" onClick={() => setCreating(true)} className="min-h-11">
-                    <PlusIcon size={16} /> Create Team
-                  </Button>
-                )}
-              </div>
-              <FilterBar
-                className="mt-3"
-                query={cq}
-                onQueryChange={setCq}
-                values={{ department: cDept, status: cStatus }}
-                onFilterChange={(n, v) => (n === "department" ? setCDept(v) : setCStatus(v))}
-                search={{ placeholder: "Search teams…", label: "Search teams" }}
-                filters={[
-                  { name: "department", label: "Department", allLabel: "All departments", options: deptOptions },
-                  { name: "status", label: "Status", allLabel: "All statuses", options: [{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Archived" }] },
-                ]}
-              />
+              </SectionHead>
               {!structure ? (
                 <Skeleton className="mt-4 h-44 w-full" />
               ) : shownTeams.length === 0 ? (
                 <EmptyState variant="inline" className="mt-4" title={cardFilters ? "No teams match" : "No teams yet"} description={cardFilters ? "Try a different search or clear the filters." : "Create a team to get started."} />
               ) : (
-                <ul aria-label="Teams" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                <ul aria-label="Teams" className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-[repeat(auto-fill,minmax(228px,1fr))]">
                   {shownTeams.map((t) => (
-                    <li key={t.id} data-team-card={t.name} className="relative flex flex-col gap-3 rounded-2xl border border-line bg-paper p-3.5">
+                    <li key={t.id} data-team-card={t.name} className="grp-card relative flex flex-col gap-3 !rounded-[14px] p-3.5">
                       <div className="flex items-start gap-3">
-                        <GroupTile icon={t.icon} color={t.color} size={44} fallback="users" />
-                        <button type="button" onClick={() => setOpenId(t.id)} className="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-accent">
-                          <div className="truncate text-[15px] font-bold text-ink">{t.name}</div>
-                          <div className="truncate text-[12.5px] text-muted">{t.parentName ?? "No department"}</div>
+                        <GroupTile icon={t.icon} color={t.color} size={48} fallback="users" />
+                        <button type="button" onClick={() => setOpenId(t.id)} className="min-w-0 flex-1 pt-0.5 text-left focus-visible:outline-2 focus-visible:outline-accent">
+                          <div className="truncate text-[15px] font-bold leading-tight text-ink">{t.name}</div>
+                          <div className="mt-0.5 truncate text-[13px] text-ink-soft">{t.parentName ?? "No department"}</div>
                         </button>
                         <Menu
                           align="end"
                           trigger={
-                            <IconButton aria-label={`Actions for ${t.name}`} title="Actions">
+                            <IconButton aria-label={`Actions for ${t.name}`} title="Actions" className="-mr-1.5 -mt-1">
                               <MoreVerticalIcon size={16} />
                             </IconButton>
                           }
@@ -198,37 +197,43 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
                         <AvatarStack people={t.memberPreview} total={t.activeCount} />
                         <GroupStatus status={t.status} />
                       </div>
-                      <div className="text-[13px] text-ink-soft">
-                        <span className="font-semibold text-ink tabular-nums">{plural(t.activeCount, "member")}</span>
-                        {t.lead ? <span className="text-muted"> · led by {t.lead.name}</span> : <span className="text-muted"> · no lead yet</span>}
+                      <div className="flex flex-wrap items-center gap-x-2 text-[13px] text-ink-soft">
+                        <span className="tabular-nums">{plural(t.activeCount, "member")}</span>
+                        <span aria-hidden className="h-3.5 w-px bg-line" />
+                        <span className="min-w-0 truncate">{t.lead ? `led by ${t.lead.name}` : "no lead yet"}</span>
                       </div>
                     </li>
                   ))}
                 </ul>
               )}
-            </Card>
+            </section>
 
-            <Card className="p-4 sm:p-5">
-              <div className="mb-3">
-                <h2 className="text-[17px] font-bold text-ink">Team Directory</h2>
-                <p className="text-[13px] text-muted">Every team, its department, lead and size.</p>
-              </div>
+            <section aria-label="Team directory" className="grp-card p-4 sm:p-5">
+              <SectionHead icon={<UsersIcon size={26} />} title="Team Directory" subtitle="Every team, its department, lead and size.">
               <FilterBar
+                compact
                 query={tq}
                 onQueryChange={(v) => {
                   setTq(v);
                   setPage(0);
                 }}
-                values={{ department: tDept }}
-                onFilterChange={(_n, v) => {
-                  setTDept(v);
+                values={{ department: tDept, sort: sort.key === "name" ? "" : sort.key }}
+                onFilterChange={(n, v) => {
+                  if (n === "sort") setSort({ key: v || "name", dir: v === "members" ? "desc" : "asc" });
+                  else setTDept(v);
                   setPage(0);
                 }}
                 search={{ placeholder: "Search teams or team leads…", label: "Search the directory" }}
-                filters={[{ name: "department", label: "Department", allLabel: "All departments", options: departments.map((d) => ({ value: String(d.id), label: d.name })) }]}
-                className="mb-3"
+                filters={[
+                  { name: "department", label: "Department", allLabel: "All Departments", options: departments.map((d) => ({ value: String(d.id), label: d.name })) },
+                  { name: "sort", label: "Sort by", allLabel: "Sort by Name", options: [{ value: "department", label: "Sort by Department" }, { value: "lead", label: "Sort by Lead" }, { value: "members", label: "Sort by Members" }] },
+                ]}
+                className="xl:flex-nowrap"
               />
+              </SectionHead>
+              <div className="mt-4" />
               <DataTable
+                variant="board"
                 label="Team directory"
                 what="the teams"
                 columns={columns}
@@ -250,25 +255,32 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
                 onPage={(p) => setPage(p - 1)}
                 empty={<EmptyState variant="inline" title={tq || tDept ? "No teams match" : "No teams yet"} description={tq || tDept ? "Try a different search or clear the filters." : undefined} />}
               />
-            </Card>
+            </section>
           </div>
 
           <div className="flex min-w-0 flex-col gap-5">
-            <Card className="p-4 sm:p-5">
-              <h2 className="mb-1 flex items-center gap-2 text-[16px] font-bold text-ink">
-                <ChartIcon size={18} className="text-accent" /> Team Performance
-              </h2>
-              <p data-team-performance-empty className="rounded-xl bg-paper-2/60 px-3 py-4 text-[13px] leading-relaxed text-ink-soft">
+            <section aria-label="Team performance" className="grp-card p-4 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
+                  <BarChartIcon size={22} className="text-accent" /> Team Performance
+                </h2>
+                <div className="w-40 flex-none" title="Trends are on the way">
+                  <Select aria-label="Period" disabled value="6" options={[{ value: "6", label: "Last 6 Months" }]} />
+                </div>
+              </div>
+              <p data-team-performance-empty className="mt-3 rounded-xl bg-paper-2/70 px-3 py-4 text-[13px] leading-relaxed text-ink-soft">
                 Nothing measures team performance yet. A chart will appear here once teams have assignments and placements to count. Until then we show no numbers rather than invent them.
               </p>
-            </Card>
+            </section>
 
-            <Card className="p-4 sm:p-5">
-              <h2 className="mb-3 flex items-center gap-2 text-[16px] font-bold text-ink">
-                <NetworkIcon size={18} className="text-accent" /> Team Structure
+            <section aria-label="Team structure" className="grp-card p-4 sm:p-5">
+              <h2 className="mb-3 flex items-center gap-2.5 text-[17px] font-extrabold text-ink">
+                <NetworkIcon size={22} className="text-accent" /> Team Structure
               </h2>
               {structure ? <StructureTree structure={structure} onOpen={(g) => setOpenId(g.id)} /> : <Skeleton className="h-40 w-full" />}
-            </Card>
+            </section>
+
+            <PageHelpCard topic="Teams" text="I can help you create teams, assign members, manage permissions, or answer questions." />
           </div>
         </div>
       )}

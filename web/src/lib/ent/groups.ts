@@ -133,21 +133,21 @@ export type GroupTone = (typeof GROUP_COLORS)[number];
 
 /** Tile (soft background + readable foreground) and bar (solid fill) classes per colour. Brand colours follow the tenant theme; the rest are fixed status tones. */
 export const TONE_TILE: Record<string, string> = {
-  primary: "bg-accent-soft text-accent-deep",
-  secondary: "bg-v2-blue-soft text-v2-blue-ink",
-  success: "bg-ok/15 text-ink",
-  info: "bg-brown-soft text-brown-deep",
-  warning: "bg-warn/20 text-ink",
-  danger: "bg-danger/10 text-danger-text",
+  primary: "bg-accent-soft text-accent",
+  secondary: "bg-v2-violet-soft text-v2-violet",
+  success: "bg-v2-green-soft text-v2-green",
+  info: "bg-v2-pink-soft text-v2-pink",
+  warning: "bg-v2-amber-soft text-v2-amber",
+  danger: "bg-v2-coral-soft text-v2-coral",
   neutral: "bg-paper-2 text-ink-soft",
 };
 export const TONE_BAR: Record<string, string> = {
   primary: "bg-accent",
-  secondary: "bg-v2-blue",
-  success: "bg-ok",
-  info: "bg-brown",
-  warning: "bg-warn",
-  danger: "bg-danger",
+  secondary: "bg-v2-violet",
+  success: "bg-v2-green",
+  info: "bg-v2-pink",
+  warning: "bg-v2-amber",
+  danger: "bg-v2-coral",
   neutral: "bg-ink-soft",
 };
 export const toneOf = (color: string | null | undefined): string => (color && color in TONE_TILE ? color : "neutral");
