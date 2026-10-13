@@ -377,6 +377,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 - 2026-10-13 — Marketing My Assigned Talent (branch `mkt-talent`, Sonnet): `/w/marketing/talent` from the board (5 KPI tiles, consultants table with status chips, search, Skill/Location/Experience/Availability filters, Saved Views, Add Consultant gated by `consultants.edit`, three bottom cards, bee help card, Quick Actions, View Profile drawer at consent SUMMARY). API `GET /api/orgs/{orgId}/mkt/talent[/{id}]`, `POST|DELETE .../views`, scope via `MktScope`; table `mkt_saved_view` (`20261104060000_mkt_talent.xml`). Unit tests green; `MktTalentIT` compiled, not run (no Docker). Details: `page-mkt-talent.md`.
 =======
 - 2026-10-13 — Marketing Job Discovery (branch `mkt-jobs`, Sonnet): `/w/marketing/jobs` from the board (5 tiles, filter row, Job Openings table/cards with View / Match / Assign, Trending Skills, Top Clients, Alerts, Saved Searches, Watched Streams). API `GET|POST|DELETE /api/orgs/{orgId}/mkt/jobs/**` via `MktScope`, own tables `mkt_job_meta` + `mkt_saved_search`, `MktJobsDemoSeeder`; Assign records an ASSIGNED match only (E1). 41 Java unit tests + 38 web tests green, build ok; `MktJobsIT` compiled, not run (no Docker). Doc: `page-mkt-jobs.md`.
@@ -387,3 +388,6 @@
 =======
 - 2026-10-13 — Marketing Job Streams (branch `mkt-streams`, Sonnet): `/w/marketing/streams` board (4 KPI tiles, Job Source Streams table with filters, Sync Activity, stacked Openings Captured, Alerts, Stream Assistant, Stream Rules) on the real `/api/orgs/{orgId}/mkt/streams` API (`matches.run`; add/configure/pause/resume + rule toggles record settings only, no scraping, nothing submits), tables `mkt_job_stream`, `mkt_stream_sync_log`, `mkt_stream_alert`, `mkt_stream_rule`, `MktStreamsDemoSeeder`, `recordSync` connector seam, `StackedBarChart` in `@kiwiply/ui`. Details: `page-mkt-streams.md`.
 >>>>>>> mkt-streams
+=======
+- 2026-10-13 — Marketing Submissions (branch `mkt-submissions`, Sonnet): `/w/marketing/submissions` end to end (records only, E1): `mkt_submission` / `mkt_submission_event` / `mkt_submission_view`, `GET|POST|PATCH|DELETE /api/orgs/{orgId}/mkt/submissions`, demo seeder, web board + BFF + mock + vitest. Handoff: `docs/enterprise-v2/page-mkt-submissions.md`.
+>>>>>>> mkt-submissions
