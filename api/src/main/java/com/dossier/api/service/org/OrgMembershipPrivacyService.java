@@ -5,6 +5,7 @@ import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.enumeration.OrgStatus;
 import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.domain.org.Organization;
+import com.dossier.api.service.ent.TenantConfigChangedEvent;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,12 +52,14 @@ public class OrgMembershipPrivacyService {
     private final OrganizationRepository orgs;
     private final OrgAuditService audit;
     private final DataShareService dataShare;
+    private final ApplicationEventPublisher events;
 
-    public OrgMembershipPrivacyService(OrgMemberRepository members, OrganizationRepository orgs, OrgAuditService audit, DataShareService dataShare) {
+    public OrgMembershipPrivacyService(OrgMemberRepository members, OrganizationRepository orgs, OrgAuditService audit, DataShareService dataShare, ApplicationEventPublisher events) {
         this.members = members;
         this.orgs = orgs;
         this.audit = audit;
         this.dataShare = dataShare;
+        this.events = events;
     }
 
     /** Anonymises every membership of {@code userId}; returns how many rows were erased. */
@@ -92,6 +96,7 @@ public class OrgMembershipPrivacyService {
         OrgStatus before = org.get().getStatus();
         org.get().setStatus(OrgStatus.SUSPENDED);
         orgs.saveAndFlush(org.get());
+        events.publishEvent(new TenantConfigChangedEvent("org " + orgId + " suspended")); // its tenant host stops resolving at once
         audit.record(orgId, OrgAuditService.SYSTEM_ACTOR, null, OrgAuditService.ORG_SETTINGS, OrgAuditService.TARGET_ORG, null, orgId.toString(), "no owner left: status " + before + " -> SUSPENDED", null);
         LOG.warn("Organization {} has no ACTIVE owner after an account erasure; moved to SUSPENDED (needs a platform admin)", orgId);
     }

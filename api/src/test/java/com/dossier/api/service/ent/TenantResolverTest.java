@@ -59,7 +59,7 @@ class TenantResolverTest {
         fake.put(EnterpriseSettingKeys.FLAG_DOMAINS, "{\"on\":true}");
         acme = org(ACME, "acme", OrgStatus.ACTIVE);
         beta = org(BETA, "beta", OrgStatus.ACTIVE);
-        resolver = new TenantResolver(hostnames, organizations, fake.settings, flag, clock);
+        resolver = new TenantResolver(hostnames, organizations, fake.settings, flag, clock, true);
         when(hostnames.findActiveByHostname(anyString())).thenReturn(Optional.empty());
         when(hostnames.findBySubdomain(anyString())).thenReturn(Optional.empty());
         when(hostnames.findLiveByOrgIdAndHostname(anyLong(), anyString())).thenReturn(Optional.empty());
@@ -222,9 +222,21 @@ class TenantResolverTest {
         subdomain(acme, "acme", true);
         assertThat(resolver.resolve("acme.localhost:3000").orgId()).isEqualTo(ACME);
         assertThat(resolver.resolve("localhost").kind()).isEqualTo(Kind.PLATFORM);
-        fake.put(EnterpriseSettingKeys.HOSTS_TENANT_BASE_DOMAINS, "[\"kiwiply.com\"]");
+        fake.put(EnterpriseSettingKeys.HOSTS_TENANT_BASE_DOMAINS, "[\"kiwiply.com\",\"localhost\"]");
         resolver.invalidate();
-        assertUnknown("acme.localhost", Reason.UNKNOWN_HOST);
+        assertThat(resolver.resolve("acme.localhost").orgId()).as("the dev switch, not the list, decides").isEqualTo(ACME);
+    }
+
+    @Test
+    void localhostIsNeverATenantBaseDomainOutsideDevelopmentEvenIfTheAdminListNamesIt() {
+        TenantResolver prod = new TenantResolver(hostnames, organizations, fake.settings, flag, clock, false);
+        subdomain(acme, "acme", true);
+        assertThat(prod.resolve("acme.kiwiply.com").orgId()).isEqualTo(ACME);
+        assertThat(prod.resolve("acme.localhost").kind()).isEqualTo(Kind.UNKNOWN);
+        fake.put(EnterpriseSettingKeys.HOSTS_TENANT_BASE_DOMAINS, "[\"kiwiply.com\",\"localhost\"]");
+        prod.invalidate();
+        assertThat(prod.resolve("acme.localhost").kind()).isEqualTo(Kind.UNKNOWN);
+        assertThat(prod.resolve("localhost").kind()).as("loopback is still the platform").isEqualTo(Kind.PLATFORM);
     }
 
     // ---- flags --------------------------------------------------------------------------------------------------------------
@@ -277,9 +289,48 @@ class TenantResolverTest {
     }
 
     @Test
-    void unknownHostsAreCachedToo_butTheCacheIsBounded() {
-        for (int i = 0; i < TenantResolver.MAX_CACHE_ENTRIES + 500; i++) resolver.resolve("h" + i + ".example");
-        assertThat(resolver.cachedHosts()).isEqualTo(TenantResolver.MAX_CACHE_ENTRIES);
+    void unknownHostsAreCachedBrieflyInTheirOwnBoundedMapAndNeverEvictRealTenants() {
+        subdomain(acme, "acme", true);
+        resolver.resolve("acme.kiwiply.com");
+        for (int i = 0; i < TenantResolver.MAX_NEGATIVE_ENTRIES + 500; i++) resolver.resolve("h" + i + ".example");
+        assertThat(resolver.cachedHosts()).isEqualTo(TenantResolver.MAX_NEGATIVE_ENTRIES + 1);
+        resolver.resolve("acme.kiwiply.com");
+        verify(hostnames, times(1)).findBySubdomain("acme"); // still cached after the scan
+    }
+
+    @Test
+    void anUnknownHostIsRememberedOnlyAFewSeconds() {
+        resolver.resolve("nobody.example");
+        resolver.resolve("nobody.example");
+        verify(hostnames, times(1)).findActiveByHostname("nobody.example");
+        now.addAndGet(TenantResolver.NEGATIVE_TTL_MILLIS + 1);
+        resolver.resolve("nobody.example");
+        verify(hostnames, times(2)).findActiveByHostname("nobody.example");
+    }
+
+    @Test
+    void oneVisitorCanOnlyCauseSoManyLookupsPerMinute() {
+        for (int i = 0; i < TenantResolver.MISSES_PER_MINUTE; i++) resolver.resolve("miss" + i + ".example", "203.0.113.9");
+        verify(hostnames, times(TenantResolver.MISSES_PER_MINUTE)).findActiveByHostname(anyString());
+        TenantContext over = resolver.resolve("one-more.example", "203.0.113.9");
+        assertThat(over.kind()).isEqualTo(Kind.UNKNOWN);
+        verify(hostnames, never()).findActiveByHostname("one-more.example"); // no database for the excess
+        assertThat(resolver.resolve("other.example", "198.51.100.4").kind()).as("another visitor is unaffected").isEqualTo(Kind.UNKNOWN);
+        verify(hostnames).findActiveByHostname("other.example");
+        // a cached answer costs the visitor nothing
+        assertThat(resolver.resolve("miss0.example", "203.0.113.9").kind()).isEqualTo(Kind.UNKNOWN);
+    }
+
+    @Test
+    void aTenantConfigChangeEventEvictsBothCaches() {
+        subdomain(acme, "acme", true);
+        resolver.resolve("acme.kiwiply.com");
+        resolver.resolve("nobody.example");
+        assertThat(resolver.cachedHosts()).isEqualTo(2);
+        acme.setStatus(OrgStatus.SUSPENDED);
+        resolver.onTenantConfigChanged(new TenantConfigChangedEvent("org 12 closed"));
+        assertThat(resolver.cachedHosts()).isZero();
+        assertUnknown("acme.kiwiply.com", Reason.ORG_INACTIVE);
     }
 
     @Test

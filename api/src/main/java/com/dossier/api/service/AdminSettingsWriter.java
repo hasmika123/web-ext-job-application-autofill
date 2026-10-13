@@ -7,9 +7,11 @@ import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.ResumeBuilderSettingKeys.Key;
 import com.dossier.api.service.ai.AiSettingKeys;
+import com.dossier.api.service.ent.TenantConfigChangedEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.Objects;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -45,14 +47,17 @@ public class AdminSettingsWriter {
     private final AdminAuditService audit;
     private final ResumeBuilderSettings settings;
     private final ObjectMapper mapper;
+    private final ApplicationEventPublisher events;
 
     public AdminSettingsWriter(
         AppSettingRepository repository,
         AppSettingHistoryRepository history,
         AdminAuditService audit,
         ResumeBuilderSettings settings,
-        ObjectMapper mapper
+        ObjectMapper mapper,
+        ApplicationEventPublisher events
     ) {
+        this.events = events;
         this.repository = repository;
         this.history = history;
         this.audit = audit;
@@ -117,6 +122,10 @@ public class AdminSettingsWriter {
         // Drop the cache now (this thread reads its own write) and again once the change is committed, so a
         // concurrent reader that re-filled the cache from the old rows mid-transaction doesn't keep them for a minute.
         settings.invalidate();
+        // The host-to-tenant cache depends on the enterprise flags and the host lists: evict it once this commits.
+        if (k.key().startsWith("flag.enterprise") || k.key().startsWith("enterprise.hosts.")) {
+            events.publishEvent(new TenantConfigChangedEvent("setting " + k.key()));
+        }
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(
                 new TransactionSynchronization() {

@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import com.dossier.api.service.ent.TenantConfigChangedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -240,6 +241,7 @@ public class OrgService {
         org.setClosedAt(now);
         org = orgs.saveAndFlush(org);
         audit.record(me, OrgAuditService.ORG_CLOSE, OrgAuditService.TARGET_ORG, null, org.getId().toString(), "status " + before + " -> CLOSED");
+        events.publishEvent(new TenantConfigChangedEvent("org " + org.getId() + " closed")); // its tenant host stops resolving at once
         events.publishEvent(new OrgClosedEvent(org.getId(), now)); // grants end now: the billing area listens (O4.9)
         return detail(org, new OrgMembership(me.orgId(), me.memberId(), me.userId(), me.login(), me.role(), me.status(), OrgStatus.CLOSED));
     }

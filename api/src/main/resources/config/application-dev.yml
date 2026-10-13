@@ -116,6 +116,9 @@ jhipster:
 # ===================================================================
 
 dossier:
+  # acme.localhost names a tenant in local development only (production: false, application.yml).
+  tenant-host:
+    allow-localhost-tenants: true
   # Organization features are ON for local development (production leaves ORGS_ENABLED unset = off).
   orgs:
     enabled: ${ORGS_ENABLED:true}
