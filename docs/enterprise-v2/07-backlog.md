@@ -6216,21 +6216,527 @@ Design: `docs/enterprise-v2/36-hr-and-finance.md`. Build order (L stories split 
 
 - **Tech notes:** Reuse H5.1's async export job; never synchronous for large orgs.
 - **Definition of Done:** Reports/exports/retention done; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-### X12 — Phase 12 — Advanced analytics and enterprise features
-_Org analytics with k-anonymity, Autopilot prepare for assigned jobs, integrations, SSO, second-instance readiness, Cloudflare-for-SaaS evaluation._
+### X12 — Phase 12 — Advanced analytics and enterprise features (fully specified, Session E)
+_Org analytics with k-anonymity and the Executive workspace, scheduled reports, integrations, SSO + JIT + stronger MFA, second-instance readiness, Autopilot feed for assigned jobs (D2-gated), Cloudflare-for-SaaS decision, Platform Analytics._
 
-| Id | Story | Size | Relates / supersedes |
-|---|---|---|---|
-| X12.1 | Org analytics with k-anonymity (from docs/design/org/analytics.md) across pipeline and licenses; Executive/Viewer workspace | L | — |
-| X12.2 | Autopilot prepare for assigned jobs (automation.approved_apply) — stops before submit, attestation untouched | L | — |
-| X12.3 | Integrations: outbound webhooks, Slack digests, ICS feeds (from O12) scoped per tenant | M | — |
-| X12.4 | SSO: SAML/OIDC per org with JIT membership mapping to role templates | L | — |
-| X12.5 | Second-instance readiness: ShedLock, shared rate limits, cache invalidation across instances | M | — |
-| X12.6 | Cloudflare for SaaS evaluation and migration runbook (if custom-host volume or DDoS exposure requires it) | S | — |
-| X12.7 | Advanced reporting and scheduled report emails per workspace | M | — |
+Build order (dependencies first): X12.5 → X12.1 → X12.8 → X12.7 → X12.3 → X12.12 → X12.11 → X12.4 → X12.10 → X12.2 → X12.9 → X12.6. X12.6 is documentation and can run any time after X3.6; X12.2/X12.9 stay **Not Started** until escalation D2 is answered (safe default (b) keeps the feed off). Each story gates on its own flag (`flag.enterprise.analytics`, `.integrations`, `.sso`, `.autopilot_feed`).
+### X12.5 — Second-instance readiness: ShedLock on every @Scheduled job, DB-backed shared rate limiters and counters, cross-instance cache invalidation (config_version polling + cache_invalidation table), stateless-session audit, compose `--scale api=2` rehearsal and runbook
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Ops · **Deps:** X3.2, X5.7, X1.3
+- **Persona:** Platform operator; every job and limiter in the codebase
+- **Objective:** A second API container can be started without double-running a job, double-counting a limit or serving a stale tenant from cache (ADR-022: design for two, run one).
+- **Story:** As the operator, I want to scale the API to two instances when load requires it, knowing jobs run once and caches stay coherent.
 
-## 4. Story-id discipline
-- Ids are permanent; a dropped story keeps its id with status `blocked` and a note.
-- A story may not span two bounded contexts (03 §1); split it.
-- Every story that consumes a feature names the feature key and the beneficiary rule.
-- Every story that touches an org-owned table adds a case to `CrossTenantSweepIT` (via the coverage registry).
+**Functional requirements**
+- ShedLock (JDBC provider, table shedlock in 20261026070000_ent_ops.xml) on every @Scheduled job (an ArchUnit test fails on an unlocked scheduler); lock names = job class; lockAtMostFor per job (≤ the schedule interval).
+- Rate limiters (JoinRateLimiter, tenant public endpoints, ask endpoint, login) move from in-memory to a DB-backed sliding window (rate_limit_bucket (key, window_start, count)) with a Caffeine front cache; semantics unchanged (table-driven tests); per-org caps of 42 T65 use the same store.
+- Cache invalidation: resolver/membership/catalog caches keyed by config_version/catalog_version already evict on change within one instance; add cache_invalidation (id, scope, key, at) rows written on every bump and a 5-s poller per instance that evicts matching entries (no Redis on the box); verified by a two-instance IT (Testcontainers: two app contexts, one DB).
+- Sessions are stateless JWT (04 §3) — audit any remaining in-memory state (MFA challenges → DB rows (X2.14 note), admin_mfa_challenge, quote drafts) and move it to the DB; compose rehearsal doc: `docker compose … up -d --scale api=2` behind the shared edge with health-based routing (44 §9.2) — operator-run, documented in DEPLOY.md.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- config/SchedulerLockConfig, ratelimit/DbRateLimiter, cache/CacheInvalidationPoller, ArchUnit SchedulerLockedTest
+
+**Database changes**
+- Liquibase 20261026070000_ent_ops.xml: shedlock, rate_limit_bucket, cache_invalidation (platform tables).
+
+**APIs**
+- None.
+
+**Permissions**
+- None.
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Two app contexts against one DB: a job scheduled every 10 s runs exactly once per tick across both (ShedLock IT); SchedulerLockedTest fails on a new @Scheduled method without @SchedulerLock.
+- Rate-limit of 5/min reached on instance A is enforced on instance B within the same window (DbRateLimiterIT).
+- A config_version bump on A evicts B's resolver entry within 5 s (CacheInvalidationIT); tenant resolution stays ≤ 50 ms p95 from cache.
+- No in-memory login/MFA state remains (grep-style ArchUnit rule over a deny-list of ConcurrentHashMap singletons in security packages).
+
+**Test cases**
+- ShedLockTwoInstanceIT
+- SchedulerLockedTest (ArchUnit)
+- DbRateLimiterIT
+- CacheInvalidationIT
+- StatelessSecurityArchTest
+
+- **Tech notes:** Fully specified by Session E. ADR-022; 44 §9.2 trigger "a second API instance only after X12.5"; no Redis (box memory). Jobs added by earlier phases already say "ShedLock-ready" — this story turns it on.
+- **Definition of Done:** Two-instance IT green in CI; DEPLOY.md scale runbook; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.1 — Org analytics API with k-anonymity: pipeline, licenses and usage metrics over the O7 rollup rules (contributors < k suppressed), org.analytics.k_min, flag.enterprise.analytics, team.performance dashboard widget, audited exports
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X8.13, X5.7, X10.4, X4.9
+- **Persona:** Executive / Viewer and Org Admin reading org-wide numbers; marketing managers reading team numbers
+- **Objective:** Org-wide analytics never expose a person: every per-group cell is suppressed below k contributors, and the numbers are the same ones the pipeline and license ledgers hold.
+- **Story:** As an executive, I want fill rate, time-to-place, licensed consultants and AI spend by team so that I see how Acme is doing without seeing anyone's private application.
+
+**Functional requirements**
+- Metric definitions extend docs/design/org/analytics.md §2 with pipeline (matches assigned/accepted, submissions, interviews, offers, placements, time-to-place, requirement fill rate), licenses (licensed/unlicensed, recurring total, feature adoption) and usage (allowance consumed by feature; AI budget %) — all computed from pipeline_event, consultant_license, usage_event; rollup table org_metric_daily (metric, org_id, group key, value, contributors) by RollupJob (nightly, per-org loop, ShedLock-ready).
+- OrgMetricReadService suppression: group/owner rows with contributors < org.analytics.k_min (INT, org-overridable, default 5) → value null, suppressed=true; org-wide rows always show; deltas never for suppressed cells; consent scope ≥ SUMMARY counts only (consent-data-sharing.md).
+- GET {o}/analytics/summary?period= · /breakdown?by=group|owner|feature · /pipeline · /licenses · /usage (reports.view; EXECUTIVE_VIEWER template holds it at ORG; MARKETING_MANAGER at TEAM) behind flag.enterprise.analytics (modules.analytics on /api/me/tenant); CSV export audited EXPORT with the redaction pass (X4.9 hub).
+- DashboardWidgetProvider bean team.performance (14 §2.2, 09 row 3) for the Org Admin Dashboard and the Marketing Manager home.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/ent/analytics/{MetricDefinitions, RollupJob, OrgMetricReadService}; web/rest/ent/OrgAnalyticsResource; TeamPerformanceWidgetProvider
+
+**Database changes**
+- Liquibase 20261026010000_ent_analytics.xml (Phase-12 bucket): org_metric_daily (org_id, metric, day, group_kind, group_id, value, contributors; PK (org_id, metric, day, group_kind, group_id)); retention 24 months (setting).
+
+**APIs**
+- GET /api/orgs/{orgId}/analytics/summary | breakdown | pipeline | licenses | usage
+- GET /api/orgs/{orgId}/analytics/export.csv
+
+**Permissions**
+- reports.view (ORG for EXEC/ADMIN, TEAM for managers); reports.export for CSV
+
+**Feature entitlements**
+- None (org-wide analytics is a module flag, not a consultant feature — 09 row 9)
+
+**Acceptance criteria**
+- A team with 4 contributing consultants returns value=null, suppressed=true for every per-team cell; with 5 it returns values; org-wide rows always show (fixture from analytics.md §8 pattern).
+- OrgMetricDefinitionsDocTest fails when the doc table and the enum differ; RollupJob is idempotent per (org, day).
+- A member of beta → 404 on every analytics route; a consultant → 404 (no reports.view); the flag off → 404 and modules.analytics=false.
+- CSV export writes one EXPORT audit row and contains no person-level rows.
+
+**Test cases**
+- OrgMetricDefinitionsDocTest
+- RollupJobTest
+- SuppressionTest
+- OrgAnalyticsResourceIT (+ registry lines)
+- TeamPerformanceWidgetTest
+
+- **Tech notes:** Fully specified by Session E (Task 5); split: X12.1 = API, X12.8 = EXEC workspace pages. Reuse analytics.md suppression helper (O7) if built, else share it. 42 T65 per-org caps apply to the rollup.
+- **Definition of Done:** Analytics API live behind the flag with suppression proven; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.8 — Executive / Viewer workspace (/w/exec): Home with counts-only tiles and k-anonymous breakdowns, Reports page (ORG aggregates, saved views, audited export); the same AnalyticsPage mounted under /w/admin/reports
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X12.1, X2.16, X2.15
+- **Persona:** Executive / Viewer (EXECUTIVE_VIEWER template); Org Admin on the Reports page
+- **Objective:** Leadership gets read-only, organization-wide visibility in the branded portal without a single per-person screen.
+- **Story:** As an executive, I want a home page with the numbers that matter and a reports page I can filter by period and team so that I never have to ask for a spreadsheet.
+
+**Functional requirements**
+- Workspace EXEC per 16 §5.8 (nav Home · Reports · More); Home = counts-only tiles from GET …/dashboard projected by EXECUTIVE_VIEWER permissions (X2.4 AC: no names in recent activity) + three headline analytics tiles (placements this period, fill rate, licensed consultants) with "of N sharing" captions; MascotPose greet once per day.
+- Reports page (AnalyticsPage, shared component): period picker, breakdown by team/department/feature, suppressed cells rendered as "—  fewer than 5 people" (never a number), deltas hidden when suppressed, chart tiles from the dataviz rules, saved views in a Menu (localStorage try/catch), Export CSV (reports.export, audited); mounted at /w/exec/reports and /w/admin/reports (ReportsPage family filter: Analytics tab next to the X4.9 exports hub).
+
+**UI requirements**
+- 390: tiles 2-up, breakdown as cards; 1440: table + chart; tenant tokens; axe clean; reduced-motion safe.
+
+**Backend requirements**
+- — (X12.1)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes /api/orgs/{orgId}/analytics/**, GET …/dashboard
+
+**Permissions**
+- dashboard.view_org, reports.view (ORG); reports.export
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- An EXECUTIVE_VIEWER on acme.localhost lands on /w/exec; the sidebar shows Home · Reports only; opening /w/admin/employees → not-part-of-your-role.
+- A breakdown row with 4 contributors renders the suppressed cell text and no delta; with 5 it renders the number (DOM assertion on fixtures).
+- Export writes an audit row (visible on /w/admin/audit) and the download has no per-person rows.
+- Playwright: exec-home.spec.ts at 390/1440; E2E-B variant: Sarah with ORG_ADMIN + EXECUTIVE_VIEWER sees the EXEC workspace in the switcher.
+
+**Test cases**
+- web exec-home.test.tsx, analytics-page.test.tsx (suppression rendering)
+- Playwright exec-home.spec.ts
+
+- **Tech notes:** Split from X12.1 by Session E (doc 45 gap: Executive/Viewer workspace). 16 §5.8, 05 §3 EXECUTIVE_VIEWER, dataviz skill rules for chart tiles.
+- **Definition of Done:** EXEC workspace live behind flag.enterprise.analytics; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.7 — Advanced reporting: ReportsPage family filter across ADMIN / MARKETING_MGMT / HR / FINANCE / EXEC, saved report definitions, scheduled report emails (weekly/monthly) with signed download links, redaction pass and audit on every run
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X12.1, X4.9, X10.7, X11.6
+- **Persona:** Org Admin, Marketing Manager, HR, Finance, Executive
+- **Objective:** Every workspace's reports share one page and one schedule mechanism, and a scheduled report never mails data — it mails a link whose download is audited like a manual export.
+- **Story:** As a marketing manager, I want the team pipeline report in my inbox every Monday so that the week starts with the numbers, not with building them.
+
+**Functional requirements**
+- ReportsPage (one component, 16 §7) with the family filter per workspace: ADMIN (all), MARKETING_MGMT (pipeline, team — TEAM scope), HR (X11.6), FINANCE (X11.6), EXEC (analytics); each report = a definition (kind, params, scope) rendered by the owning service (X10.7, X11.6, X12.1) with the redaction pass; saved definitions per member (report_definition table).
+- Schedules: report_schedule (org_id, definition_id, cadence WEEKLY|MONTHLY, weekday/day, recipients = member ids only (never free email), created_by, active); ReportScheduleJob (hourly, org-local time, ShedLock-ready) renders the CSV to S3 org/{id}/reports/{uuid}.csv (private), writes an EXPORT audit row with schedule id, and sends ORG_* email "Your {report} is ready" with a signed link (7-day TTL, member-only, logged on download); the mail never carries data or attachments.
+- Recipients must hold the report's permission at send time (else skipped + notified creator); schedules of a removed member are deactivated by the offboarding chain (X4.4 hook "Reports").
+
+**UI requirements**
+- ReportsPage: list → detail (params, preview table, Export, "Schedule…" sheet with cadence + recipients picker); 390 cards; schedules list with pause/resume and undo.
+
+**Backend requirements**
+- service/ent/reports/{ReportDefinitions, ReportRenderer, ReportScheduleJob, ReportsOffboardingHook}; web/rest/ent/OrgReportResource
+
+**Database changes**
+- Liquibase 20261026020000_ent_reports.xml: report_definition, report_schedule, report_run (org_id, schedule_id, ran_at, s3_key, status, audit_event_id); composite tenant FKs.
+
+**APIs**
+- GET /api/orgs/{orgId}/reports (family filter) · POST …/reports/{kind}/run · GET/POST/PATCH/DELETE …/reports/definitions[/{id}] · GET/POST/PATCH …/reports/schedules[/{id}] · GET …/reports/runs/{id}/download (signed, member-only)
+
+**Permissions**
+- reports.view (scope per workspace); reports.export for run/download; reports.schedule (ORG_ADMIN, MARKETING_MANAGER at TEAM, HR/FINANCE)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- A weekly schedule renders on the configured weekday in org-local time, writes one EXPORT audit row, and the email contains a link only (mail fixture has no attachment and no numbers).
+- A recipient who lost reports.view is skipped and the creator is notified once; the download link of another member → 404; after 7 days → 410.
+- The HR report definition rendered for a FINANCE member → 404 (family filter + permission); the same page component serves all five workspaces (doc-sync against 16 §7 reuse map).
+- Offboarding a schedule creator deactivates their schedules (hook test).
+
+**Test cases**
+- ReportScheduleJobTest
+- ReportRendererRedactionTest
+- OrgReportResourceIT (+ registry lines)
+- web reports-page.test.tsx
+- Playwright reports.spec.ts (390/1440)
+
+- **Tech notes:** Fully specified by Session E. Links, not attachments (inbox rule and data-minimisation); S3 keys under the org prefix (04 §4); 16 §5.1 Reports row.
+- **Definition of Done:** Scheduled reports live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.3 — Integrations module (flag.enterprise.integrations): outbound webhooks (org_webhook, HMAC signature, SSRF guard, retries, deliveries log, redeliver, auto-disable), Slack incoming-webhook digests, org ICS feeds, org Integrations page, platform admin Integrations view (delivery health across orgs)
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X8.13, X2.16, X9.5, X2.9
+- **Persona:** Org Admin with integrations.manage; platform admin watching delivery health
+- **Objective:** Orgs can push consent-safe events to their own systems and get digests in Slack, and no webhook can ever be pointed at something inside our network.
+- **Story:** As an org admin, I want placement and interview events in our Slack and a signed webhook into our CRM so that Kiwiply fits our stack instead of replacing it.
+
+**Functional requirements**
+- org_webhook (41 §10): url (https only), secret via SecretBox (shown once), event_types[], status ACTIVE|DISABLED|FAILED, per-org cap (setting enterprise.webhooks.max_per_org = 10); delivery POST JSON {id, type, createdAt, orgId, data} with X-Kiwiply-Signature: t=<unix>,v1=<hmac-sha256(secret, t + "." + body)> and X-Kiwiply-Event-Id; retries 1 m, 5 m, 30 m, 2 h, 12 h then FAILED + ORG_* notification; manual redeliver; auto-disable after 3 consecutive FAILED; deliveries log (webhook_delivery, 30-day retention).
+- SSRF guard (42 T61, 40 §9.2): resolve the host at send time and pin the IP for the connection; refuse private/loopback/link-local/metadata ranges (IPv4 + IPv6, including DNS rebinding re-check), redirects disabled, 5 s timeout, 64 KB body, per-org send rate cap; URL validation at save and at every send.
+- Event catalog (additive allow-list enterprise.webhooks.events): member.joined|left, license.changed, usage.threshold, match.assigned|accepted, submission.recorded, interview.confirmed, offer.extended|accepted, placement.started|ended — payloads follow the consent projection (no resume text; rates only when the creator holds finance.view and opted in, default off).
+- Slack: org_integration kind SLACK with an incoming-webhook URL (same SSRF guard), event picks, test message, daily digest (counts only); ICS: org admin feed (counts/titles per X9.5 token rules, revocable).
+- Org Integrations page /w/admin/integrations (16 §5.1): Connected / Available / Not planned (honest, from O12.1), webhook editor (test, redeliver, deliveries drawer), Slack card, ICS card; platform admin /admin/integrations (16 §5.9): delivery health per org (success rate, FAILED count, disabled), no payload content.
+
+**UI requirements**
+- Admin page patterns; SecretBox reveal-once sheet; deliveries drawer with status + response code only.
+
+**Backend requirements**
+- service/ent/integrations/{WebhookService, WebhookDeliveryJob, SsrfGuard, SlackDigestJob, OrgIcsFeedService}; web/rest/ent/OrgIntegrationsResource; web/rest/admin/AdminIntegrationsResource
+
+**Database changes**
+- Liquibase 20261026040000_ent_integrations.xml: org_webhook, webhook_delivery, org_integration (kind, config_json encrypted, status); composite tenant FKs.
+
+**APIs**
+- GET/POST/PATCH/DELETE /api/orgs/{orgId}/integrations/webhooks[/{id}] · POST …/{id}/test | redeliver · GET …/{id}/deliveries · GET/PUT …/integrations/slack · POST …/slack/test · GET/POST …/integrations/ics · GET /api/admin/integrations/health
+
+**Permissions**
+- integrations.manage (ORG); module flag.enterprise.integrations; ROLE_ADMIN for the platform view
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Saving a webhook to http://, to 10.0.0.1, 169.254.169.254, ::1, or a hostname that resolves to a private range → 422 WEBHOOK_URL_REFUSED; a hostname that flips to a private IP between save and send is refused at send (rebinding test) — WebhookSsrfIT (SEC-50).
+- A delivery carries a valid signature over t.body; a receiver fixture rejects a replay with t older than 5 min (contract test); after 5 failed attempts the delivery is FAILED and the org is notified once; 3 consecutive FAILED deliveries disable the webhook.
+- Payload for interview.confirmed contains no client name for a SUMMARY consultant and no rates by default (projection test).
+- Platform admin health view shows counts only; a member of beta → 404 on acme's webhook routes.
+
+**Test cases**
+- WebhookSsrfIT (SEC-50)
+- WebhookSignatureContractTest
+- WebhookDeliveryJobTest (retries, auto-disable)
+- WebhookPayloadProjectionTest
+- OrgIntegrationsResourceIT (+ registry lines)
+- Playwright integrations.spec.ts
+
+- **Tech notes:** Fully specified by Session E; 42 §6.2 SSRF ACs applied here. Prior art O12.2–O12.4; 40 §9.2; secrets via SecretBox never logged.
+- **Definition of Done:** Integrations module live behind the flag with SSRF and signature tests in CI; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.12 — Platform Analytics page (/admin/analytics): cross-tenant aggregates for Kiwiply only — orgs by status/type, licensed consultants and MRR from the org mirrors, feature adoption, AI spend vs budget, domains by state, ask-rate and tenant-health trends; nightly PlatformMetricsJob; no per-person or tenant-content rows
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X6.14, X3.3, X5.7, X1.11
+- **Persona:** Kiwiply platform admin / the user
+- **Objective:** The platform team sees how Enterprise V2 is doing across tenants without ever opening a tenant (break-glass stays the only path into customer data).
+- **Story:** As the platform owner, I want MRR, licensed consultants, feature adoption and domain health across all orgs on one page so that I can run the business without touching customer records.
+
+**Functional requirements**
+- PlatformMetricsJob (nightly, ShedLock-ready) → platform_metric_daily (metric, day, dimension, value): orgs by status/type/plan mode, enterprise-flagged orgs per phase flag, licensed/unlicensed consultants, recurring total (sum of org_subscription mirrors, minor units, per currency), feature adoption (licenses per feature key), AI spend vs budget (usage_event/ai_call aggregates), domains by state + certificate issues, ask 200/404 rate, break-glass grants count, webhook delivery health (X12.3) — aggregates only; the job never reads resume, application, note or contact tables (statement inspector test).
+- /admin/analytics (admin page kit, 16 §5.9): AdminHero + tiles + time-series tiles (dataviz rules), filters by period/org type; drill-down links go to /admin/organizations/[id] (counts-only detail, X1.11) — never to tenant content; CSV export audited (AdminAuditEvent EXPORT).
+- Tenant Health rows (X3.3) link here for the trend view; Platform Home gets one "Enterprise" tile linking to this page.
+
+**UI requirements**
+- Admin kit only; 390 via useNarrow; chart tiles with accessible tables behind a toggle.
+
+**Backend requirements**
+- service/admin/PlatformMetricsJob, PlatformMetricsReadService; web/rest/admin/AdminAnalyticsResource
+
+**Database changes**
+- Liquibase 20261026080000_ent_platform_metrics.xml: platform_metric_daily (platform table; no org_id — aggregates only).
+
+**APIs**
+- GET /api/admin/analytics/summary?period= · /series?metric= · /export.csv
+
+**Permissions**
+- ROLE_ADMIN + analytics.view admin permission
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- The page shows MRR per currency equal to the sum of ACTIVE org_subscription mirrors on fixtures; licensed consultants equal the count of live consultant_license rows.
+- PlatformMetricsJob touches only the allow-listed tables (statement inspector); no endpoint under /api/admin/analytics returns a login, name or org note.
+- Export writes an AdminAuditEvent; the page renders at 390 and 1440 with the kit snapshots; axe clean.
+- The job is idempotent per day and ShedLock-locked (X12.5 pattern).
+
+**Test cases**
+- PlatformMetricsJobTest (+ statement inspector)
+- AdminAnalyticsResourceIT
+- web admin-analytics.test.tsx
+- Playwright admin-analytics.spec (390/1440)
+
+- **Tech notes:** New in Task 2 (doc 45 gap: §25 platform admin "Platform Analytics"). Aggregates only by construction; break-glass (X6.17) remains the only read path into a tenant.
+- **Definition of Done:** Platform Analytics live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.11 — TOTP and passkeys (WebAuthn) as second factors for every user; org.security.mfa_method (EMAIL|TOTP|PASSKEY|ANY) lets an org require a stronger factor than the emailed code; recovery codes; /me → Security enrolment; admin reset with reason
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.14, X2.7
+- **Persona:** Every member (enrolment); Org Admin setting the policy
+- **Objective:** Orgs that cannot accept email codes can require an authenticator app or a passkey, and nobody is locked out without a recovery path.
+- **Story:** As an org admin, I want to require an authenticator or passkey for everyone at Acme so that a mailbox compromise is not an account compromise.
+
+**Functional requirements**
+- user_mfa_method (login, kind TOTP|PASSKEY, secret/credential (SecretBox / WebAuthn credential id + public key), label, created_at, last_used_at) and user_recovery_code (hashed, single-use, 10 per set); enrolment flows on /me → Security (13): TOTP (QR + verify), passkey (WebAuthn registration, platform or roaming), recovery codes download-once; remove with re-auth.
+- LoginMfaService (X2.14) generalised: challenge kind chosen by org.security.mfa_method — EMAIL (today), TOTP, PASSKEY or ANY (user picks among enrolled methods); when the org requires a method the member lacks → post-login enrolment gate (cannot enter a workspace until enrolled; grace enterprise.mfa.enrol_grace_days, default 7, shown as a banner); platform admins unaffected (existing AdminMfaService stays email + may add TOTP).
+- Admin reset: ORG_ADMIN may reset a member's second factor (ReasonSheet HIGH, notification to the member, audit MFA_RESET) — never view secrets; platform admin same for admins.
+
+**UI requirements**
+- /me Security section per 13 (enrol cards, recovery codes sheet); BrandedLogin MFA step gains TOTP input and the passkey button; Settings → Policies "Sign-in code method" select.
+
+**Backend requirements**
+- security/mfa/{TotpService, WebAuthnService (webauthn4j or Spring Security WebAuthn), RecoveryCodeService}; LoginMfaService (extend); web/rest/MeMfaResource; OrgSettings key org.security.mfa_method
+
+**Database changes**
+- Liquibase 20261026060000_ent_mfa.xml: user_mfa_method, user_recovery_code (login-keyed, platform tables — not org-owned).
+
+**APIs**
+- GET/POST/DELETE /api/me/mfa/methods[/{id}] · POST /api/me/mfa/totp/verify · POST /api/me/mfa/webauthn/options | /register · POST /api/me/mfa/recovery-codes · POST /api/authenticate/mfa (extended: {code | assertion | recoveryCode}) · POST /api/orgs/{orgId}/members/{id}/mfa/reset {reason}
+
+**Permissions**
+- self for enrolment; members.security.reset (ORG_ADMIN) for reset; org.settings.manage for the policy
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- With org.security.mfa_method=TOTP, a member without TOTP sees the enrolment gate after password login and cannot open /w/* until enrolled (grace banner when within grace); after enrolment the login completes with the TOTP code; an email code is refused.
+- Passkey registration + assertion succeed on the tenant host origin (rpId = host) and fail from another origin; recovery code works once and is then invalid.
+- Admin reset removes the methods, notifies the member and writes MFA_RESET HIGH; the admin never sees a secret.
+- Platform-host (kiwiply.com) personal logins behave exactly as before unless the user enrolled voluntarily (regression suite).
+
+**Test cases**
+- TotpServiceTest
+- WebAuthnServiceIT (rpId per host)
+- LoginMfaServiceMethodTest
+- MeMfaResourceIT
+- Playwright tenant-login-totp.spec.ts, passkey (virtual authenticator)
+
+- **Tech notes:** Split from X12.4 by Session E (11 §3.4 note: TOTP/passkeys ride with the SSO phase). Dependency review for the WebAuthn lib (42 T64). rpId = the tenant host, so passkeys are per host by design (12 §9: no central SSO).
+- **Definition of Done:** Stronger factors available; org policy enforceable; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.4 — SSO per org (flag.enterprise.sso): org_sso_connection (SAML 2.0 or OIDC) with per-org entity id, DNS-TXT-verified domain claim, SP-initiated "Continue with {org} SSO" on the branded login, assertion hardening (signed assertions, InResponseTo, audience, one-time ids, skew ≤ 2 min), membership rule unchanged, admin Security settings
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.3, X2.9, X3.2, X1.5, X2.14
+- **Persona:** Org Admin configuring SSO; every employee signing in with the company IdP
+- **Objective:** Employees sign in with the company identity provider on the org's own host, and an assertion can never create or elevate access by itself — membership still decides.
+- **Story:** As an org admin, I want Acme's Okta to sign people into careers.acme.com so that leavers lose access the moment IT disables them.
+
+**Functional requirements**
+- org_sso_connection (org_id, kind SAML|OIDC, idp_metadata_xml / issuer+client_id+client_secret (SecretBox), sp_entity_id = https://{primary host}/sso/{orgId}, acs/callback URL per host, domain_claim, domain_verified_at, status DRAFT|VERIFYING|ACTIVE|DISABLED, enforce BOOL); domain claim verified by a DNS TXT record (reuse X3.2 verification job + instructions panel); one ACTIVE connection per org.
+- Login: public DTO login.sso = {enabled, label} from the org setting org.security.sso (ACTIVE connection ∧ flag); BrandedLogin shows "Continue with Acme SSO"; SP-initiated only by default (IdP-initiated refused unless org.security.sso_idp_initiated, default off); after a valid assertion the identity (email/subject) must match an ACTIVE member of that org (12 §4 step 2 unchanged) else NOT_A_MEMBER; tid/hid pair minted as in X1.5; enforce=true hides password/Google for non-OWNER members (OWNER keeps password as break-glass for IdP outages).
+- Hardening (42 T63): Spring Security SAML2/OIDC only (no hand-rolled XML), signed assertions required, InResponseTo checked, audience = sp_entity_id, clock skew ≤ 2 min, one-time assertion id store (24 h), replay → 401 SSO_REPLAY; OIDC: PKCE, nonce, state bound to the host; errors audited LOGIN_SSO_FAILED with reason.
+- Admin: /w/admin/settings → Security → SSO card (connection editor, metadata download, "Test sign-in", domain TXT instructions, Enforce toggle with ReasonSheet HIGH); platform admin can disable a connection with reason.
+
+**UI requirements**
+- BrandedLogin gains the SSO button state (11 §3.2 extension); Settings Security card; 390/1440.
+
+**Backend requirements**
+- security/sso/{SsoConnectionService, SamlRelyingPartyRegistrationRepository (per org/host), OidcClientRegistrationRepository, AssertionReplayStore}; web/rest/ent/OrgSsoResource; login filters on tenant hosts; EnterpriseSettingKeys.Org (security.sso*)
+
+**Database changes**
+- Liquibase 20261026050000_ent_sso.xml: org_sso_connection, sso_assertion_id (id hash, org_id, expires_at); composite tenant FKs.
+
+**APIs**
+- GET/PUT /api/orgs/{orgId}/sso · POST …/sso/test · POST …/sso/verify-domain · GET /sso/{orgId}/metadata (public, per host) · POST /login/saml2/sso/{orgId} | GET /login/oauth2/code/{orgId} (framework endpoints, tenant hosts only)
+
+**Permissions**
+- org.settings.manage + security.manage (HIGH, ReasonSheet) for configuration; login is public on the tenant host
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- A signed assertion for anika@acme.com from the ACTIVE connection on acme.localhost → session with tid=acme; the same assertion replayed → 401 SSO_REPLAY; an assertion with audience beta → 401; unsigned → 401; skew 3 min → 401 (SamlAssertionIT, SEC-24).
+- An assertion for someone who is not a member → NOT_A_MEMBER panel, no account created (JIT is X12.10 and off by default).
+- With enforce=true a MEMBER gets no password field; the OWNER still can; Google is hidden; kiwiply.com logins ignore SSO entirely.
+- The domain claim must be TXT-verified before ACTIVE (422 SSO_DOMAIN_UNVERIFIED); the SSO endpoints answer 404 on platform hosts and on hosts of other orgs.
+
+**Test cases**
+- SamlAssertionIT (SEC-24)
+- OidcLoginIT (PKCE/nonce/state)
+- SsoConnectionServiceTest
+- OrgSsoResourceIT (+ registry lines)
+- Playwright tenant-login-sso.spec.ts (mock IdP)
+
+- **Tech notes:** Fully specified by Session E; split: X12.4 = connection + login, X12.10 = JIT mapping, X12.11 = TOTP/passkeys. 12 §9, 42 T34/T63/T64 (dependency review for the SAML libs). Central cross-host SSO is not built (12 §9).
+- **Definition of Done:** SSO live behind the flag with the SEC-24 suite in CI; 04 §7 security note updated; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.10 — SSO JIT membership mapping: org_sso_jit_rule (IdP attribute/group → role template ≤ org.sso.max_jit_role, department/team, manager), invite-less join still passing the consent screen, deprovisioning signal (IdP group removed → suspend), audit; never OWNER/ORG_ADMIN by JIT (42 T34)
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X12.4, X1.15
+- **Persona:** Org Admin automating onboarding; employees joining through the IdP
+- **Objective:** New employees get a seat with the right role from their IdP group on first sign-in — but JIT can never hand out admin rights, and the consultant still chooses what the org sees.
+- **Story:** As an org admin, I want anyone in Okta group "Consultants" to get a consultant seat on first login so that onboarding is automatic, while admins are still invited by hand.
+
+**Functional requirements**
+- org_sso_jit_rule (org_id, connection_id, attribute, match (EQUALS|CONTAINS|REGEX), role_template_key, department_group_id, team_group_id, manager_member_id, priority, active); evaluation on a successful assertion for a non-member: first matching rule → create INVITED→ACTIVE seat through OrgJoinService with the invite-equivalent body (X1.15 ceiling check against org.sso.max_jit_role, default CONSULTANT; OWNER/ORG_ADMIN/roles with dangerous keys are refused at rule save — 422 JIT_ROLE_CEILING); no rule → NOT_A_MEMBER.
+- First sign-in via JIT lands on the consent screen (12 §5) before any workspace — the member picks SUMMARY/NONE exactly as an invited member would; audit MEMBER_JIT_CREATED with the rule id and the assertion attributes used (no secrets).
+- Deprovisioning: when org.sso.deprovision_on_group_loss (default off) and a later assertion lacks every matching group → seat SUSPENDED (reversible, X4.4) with audit; never offboard automatically.
+- Admin UI: Security → SSO → "Automatic seats" rules table (priority drag with undo, test against a sample attribute set, max role shown as a ceiling note).
+
+**UI requirements**
+- Settings Security card extension; rule rows as cards at 390.
+
+**Backend requirements**
+- security/sso/JitProvisioningService, OrgSsoJitRuleService; OrgSsoResource (rules)
+
+**Database changes**
+- org_sso_jit_rule in 20261026050000_ent_sso.xml (same bucket file as X12.4; additive changeSet).
+
+**APIs**
+- GET/POST/PATCH/DELETE /api/orgs/{orgId}/sso/jit-rules[/{id}] · POST …/jit-rules/test {attributes}
+
+**Permissions**
+- org.settings.manage + security.manage (HIGH); ceiling: rule role ≤ org.sso.max_jit_role and ⊆ the saver's own rights
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Saving a rule with role ORG_ADMIN → 422 JIT_ROLE_CEILING; with CONSULTANT → saved; the saver (an HR_SPECIALIST without marketing rights) cannot map to MARKETING_SPECIALIST (ROLE_CEILING).
+- A first assertion for a non-member in group "Consultants" creates the seat, shows the consent screen, then lands on /w/consultant; the audit row names the rule; a second assertion does not create a second seat.
+- With deprovision on, an assertion without the group suspends the seat and notifies the admin; with it off nothing changes.
+- JIT never runs on platform hosts or for an org without an ACTIVE connection.
+
+**Test cases**
+- JitProvisioningServiceTest (ceiling, consent, idempotency)
+- JitRuleResourceIT
+- SamlJitIT (SEC-24 extension)
+- Playwright sso-jit.spec.ts (mock IdP)
+
+- **Tech notes:** Split from X12.4 by Session E. 42 T34 default org.sso.max_jit_role = CONSULTANT; 12 §5 consent flow reused; escalation E4/E7 defaults apply.
+- **Definition of Done:** JIT live behind the SSO flag with the ceiling proven; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.2 — Autopilot prepare for assigned jobs — API side: assigned-items feed for the consultant's own Autopilot queue (automation.approved_apply on the consultant's license, caps shared with personal 30/300), per-org consultant opt-in, PREPARED status back on the match, attestation untouched, stops before submit (D2: ships off; not started until answered)
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X9.9, X5.16, X8.4, X9.11
+- **Persona:** Consultant who opted in; marketer watching the match status
+- **Objective:** Assigned jobs can flow into the consultant's own batch-prepare queue under every existing Autopilot lock — their session, stop before submit, no attestation — and only when they chose it.
+- **Story:** As Anika, I want the jobs Sarah assigned me to be prepared by my Autopilot overnight so that I only review and submit, while nothing is ever sent for me.
+
+**Functional requirements**
+- Consultant opt-in per org: org-scoped setting on the member (member_setting autopilot.org_feed BOOL, written from the X9.11 Settings page toggle, default off); platform flag flag.enterprise.autopilot_feed (off until D2 is answered) and org setting org.pipeline.autopilot_feed (admin on/off).
+- GET /api/autopilot/next (prior art, docs/design/ext/autopilot-orchestrator.md) and GET {o}/extension/assigned-items (40 §12.12): include ASSIGNED/ACCEPTED match items (match_id, posting/url, pinned resume version) for consultants with the opt-in, @RequiresFeature(automation.approved_apply, SELF) on the consultant's own license (37 #13; personal Autopilot entitlement is NOT reused across workspaces — ADR-018), daily/period caps shared with the personal 30/300 through the same usage counters; BoardPolicy: items whose board forbids agency/automation are excluded.
+- Status back: POST /api/autopilot/items/{id}/prepared {matchId} → pipeline_application_link status PREPARED (new transition registered in X8.13 registry; consultant actor) → marketer sees "Prepared by Anika's Autopilot" on the card; nothing else changes — submission remains the consultant's own act (E1) and `NoSubmitSurfaceTest` covers the new routes.
+
+**UI requirements**
+- X9.11 Settings toggle becomes enabled with the copy "Let Acme's assigned jobs feed my Autopilot — it prepares, you submit"; marketer card chip "Prepared".
+
+**Backend requirements**
+- AutopilotFeedService, AssignedItemsResource, PipelineTransitions row APPLICATION_LINK → PREPARED, EnterpriseSettingKeys.Pipeline autopilot_feed
+
+**Database changes**
+- member_setting (org_id, member_id, key, value_json) additive in 20261026030000_ent_autopilot.xml if no member-scoped setting table exists by then; pipeline_application_link.status gains PREPARED (enum value, additive).
+
+**APIs**
+- GET /api/autopilot/next (extended items) · GET /api/orgs/{orgId}/extension/assigned-items · POST /api/autopilot/items/{id}/prepared
+
+**Permissions**
+- self (consultant); org.pipeline.autopilot_feed; flag.enterprise.autopilot_feed
+
+**Feature entitlements**
+- automation.approved_apply (beneficiary = the consultant, SELF)
+
+**Acceptance criteria**
+- With the flag off nothing is returned (byte-identical /api/autopilot/next for every user — PersonalSubscriptionUnchangedIT extended); with the flag on but no opt-in → nothing; with opt-in and the feature → assigned items appear, capped so that personal + org items ≤ 30/day and ≤ 300/period.
+- An item from a board that forbids automation is never returned (BoardPolicy test); the pinned resume version equals the match's approved pin.
+- POST …/prepared flips the link to PREPARED, writes one pipeline_event, and the marketer's card shows the chip; no route in the feature can submit (NoSubmitSurfaceTest lists the new routes).
+- Personal Autopilot entitlement without the org feature → 402 AUTOPILOT_REQUIRED on the org items only (no stacking).
+
+**Test cases**
+- AutopilotFeedServiceTest
+- AssignedItemsResourceIT
+- NoSubmitSurfaceTest (extended)
+- PersonalSubscriptionUnchangedIT (extended)
+- BoardPolicyFeedTest
+
+- **Tech notes:** Fully specified by Session E; split: X12.2 = API/web, X12.9 = extension. Escalation D2 — safe default (b) stays applied: flag off, story not_started until the user answers. 31 §9, 37 #13, docs/design/ext/autopilot-orchestrator.md locks.
+- **Definition of Done:** Feed live behind the flag only after D2 is answered; CLAUDE.md Autopilot locks proven by tests; tracker row stays Not Started until then. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.9 — Extension side of Autopilot for assigned items: queue consumes org items with match_id in the org workspace, prepares with the user's own profile and the pinned resume, stops at the final page, reports PREPARED, attestation never ticked, no_submit + caps tests, version bump
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** Ext · **Deps:** X12.2, X9.12
+- **Persona:** Consultant running Autopilot in the Acme workspace
+- **Objective:** The orchestrator treats an assigned job exactly like a personal queue item — same locks, same stop line — plus one status call back to the org.
+- **Story:** As Anika, I want my overnight Autopilot to include Acme's assigned jobs and show me each prepared application in the morning so that I submit each one myself.
+
+**Functional requirements**
+- Autopilot orchestrator (docs/design/ext/autopilot-orchestrator.md) reads items from GET /api/autopilot/next in the active workspace; org items carry match_id and the pinned resume reference (the mirror already holds the resume after X9.12); preparation uses the signed-in user's own profile only; stops at the final page; attestation controls are never ticked (BLOCK_RE + attestation guard unchanged).
+- After a successful prepare: POST /api/autopilot/items/{id}/prepared {matchId} through the TrackingProvider seam; the drawer's Jobs tab shows "Prepared · review and submit"; caps shown in the drawer as "n of 30 today" across personal + org items.
+- Workspace switch mid-run pauses the queue (no cross-workspace items in one run); account change clears queue state (account_clear.test.js).
+
+**UI requirements**
+- Drawer Jobs tab chip "Prepared"; caps line; no new engine deps.
+
+**Backend requirements**
+- — (X12.2)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes GET /api/autopilot/next, POST /api/autopilot/items/{id}/prepared
+
+**Permissions**
+- Workspace header (X9.9); self
+
+**Feature entitlements**
+- automation.approved_apply on the consultant's org license
+
+**Acceptance criteria**
+- A fixture queue with 2 personal + 3 org items prepares all five, stops before submit on every fixture ATS page (no_submit.test.js extended with the org fixtures), and posts PREPARED for the 3 org items only.
+- Attestation checkbox fixtures remain unchecked after preparation (attestation.test.js).
+- Switching workspace during a run pauses it; resuming in the other workspace starts a fresh run with that workspace's items.
+- `npm test` green; versions bumped in wxt.config.ts and package.json.
+
+**Test cases**
+- extension autopilot-org.test.js, no_submit.test.js (extended), attestation.test.js, account_clear.test.js
+
+- **Tech notes:** Split from X12.2 by Session E. Engine stays vanilla JS on window.JAF; TrackingProvider is the only backend seam. Not started until D2 is answered.
+- **Definition of Done:** Extension prepares org items under every lock; versions bumped; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.6 — Cloudflare for SaaS evaluation and migration runbook: trigger criteria (custom hosts, LE limit hits, DDoS exposure), fallback-origin and custom-hostname API steps, certificate validation modes, DNS instruction changes, cost model, rollback; recorded as ADR-024 (proposed, not adopted)
+- **Epic:** X12 · **Size/Complexity:** S/S · **Owners:** Ops · **Deps:** X3.6
+- **Persona:** The user / platform operator deciding on edge infrastructure
+- **Objective:** When the shared Caddy edge stops being enough, the move to Cloudflare for SaaS is a documented decision with a tested runbook, not a scramble.
+- **Story:** As the operator, I want to know exactly when and how we would move custom domains to Cloudflare for SaaS so that a rate-limit week does not become an outage week.
+
+**Functional requirements**
+- docs/enterprise-v2/adr/ADR-024-cloudflare-for-saas.md (status Proposed): triggers — active custom hostnames > enterprise.domains.cf_eval_threshold (default 100), ≥ 2 LE RATE_LIMIT events in 30 days (le_issuance), a DDoS/abuse incident on tenant hosts, or BeeCompete edge constraints; options compared (stay on Caddy + wildcard DNS-01 needing a Caddy build change; Cloudflare for SaaS; CloudFront) with cost per hostname, isolation impact (RR5: custom domains become Cloudflare-terminated), and the X-Forwarded-Host trust chain change (42 T23).
+- Runbook (44 §7 addendum): fallback origin setup, custom hostname creation via API from HostnameService (adapter interface EdgeProvider {CADDY_ASK, CLOUDFLARE} with the ask endpoint retained for CADDY), certificate validation (TXT/HTTP) mapped to the existing verification states, DNS instructions panel variant (CNAME to the fallback origin), per-tenant migration batches, rollback (DNS back to the box IP, Caddy ask still answering).
+- No production change in this story; a dev spike against a Cloudflare test zone is optional and recorded.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- Design only: EdgeProvider interface sketch in the ADR (implemented only if adopted).
+
+**Database changes**
+- —
+
+**APIs**
+- None.
+
+**Permissions**
+- None.
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- ADR-024 exists with the trigger table, option matrix, cost model and rollback; 44 §7.3 "Option if LE limits bite" points to it; 10 §3 notes the instruction-panel variant as future.
+- The user has a one-page decision summary in 08-decisions-for-user.md (new row) with the safe default "stay on Caddy".
+
+**Test cases**
+- Doc review only (no code).
+
+- **Tech notes:** Fully specified by Session E. ADR-002 reserved Cloudflare for SaaS; this story turns the reservation into a decision-ready plan.
+- **Definition of Done:** ADR-024 proposed; 08 row added; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
