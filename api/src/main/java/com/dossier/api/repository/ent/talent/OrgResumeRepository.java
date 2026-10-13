@@ -1,0 +1,27 @@
+package com.dossier.api.repository.ent.talent;
+
+import com.dossier.api.domain.ent.talent.OrgResume;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+/** Org-scoped access to {@code org_resume}: every method takes the organization id first (TalentSchemaIT enforces it). */
+public interface OrgResumeRepository extends JpaRepository<OrgResume, Long> {
+    Optional<OrgResume> findByOrgIdAndId(Long orgId, Long id);
+
+    List<OrgResume> findByOrgId(Long orgId);
+
+    long countByOrgId(Long orgId);
+
+    List<OrgResume> findByOrgIdAndConsultantId(Long orgId, Long consultantId);
+
+    long countByOrgIdAndApprovalStatus(Long orgId, String approvalStatus);
+
+    long countByOrgIdAndPrimaryForOrgTrue(Long orgId);
+
+    long countByOrgIdAndUpdatedAtGreaterThanEqual(Long orgId, Instant since);
+
+    long countByOrgIdAndCreatedAtLessThan(Long orgId, Instant before);
+
+}

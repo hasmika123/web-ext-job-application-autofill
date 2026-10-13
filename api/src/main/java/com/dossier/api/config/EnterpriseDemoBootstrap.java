@@ -2,6 +2,7 @@ package com.dossier.api.config;
 
 import com.dossier.api.service.ent.EnterpriseDemoSeeder;
 import com.dossier.api.service.ent.RoleTemplateSeeder;
+import com.dossier.api.service.ent.TalentDemoSeeder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,11 +25,13 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
 
     private final EnterpriseDemoSeeder seeder;
     private final RoleTemplateSeeder roleTemplates;
+    private final TalentDemoSeeder talent;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
+        this.talent = talent;
         this.createAccounts = createAccounts;
     }
 
@@ -41,6 +44,12 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             seeder.seed();
         } catch (RuntimeException e) {
             LOG.error("Enterprise demo seed failed; the demo tenants were not created/updated.", e);
+            return;
+        }
+        try {
+            talent.seed(); // talent boards demo data: only after the tenants exist, same switches
+        } catch (RuntimeException e) {
+            LOG.error("Talent demo seed failed; the talent pages have no demo data.", e);
         }
     }
 }
