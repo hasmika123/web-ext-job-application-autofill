@@ -235,6 +235,17 @@ export function primaryRoleName(me: MeTenant): string {
   return (me.roles.find((r) => r.isPrimary) ?? me.roles[0])?.name ?? "Member";
 }
 
+/**
+ * The short form of the primary role for the profile chip ("Org Admin" on the boards, "Organization Admin" in the role's data).
+ * A role may carry its own `shortName` (the API can add one later); until then the leading word "Organization" is abbreviated, so
+ * no role name is hard-coded here and a custom role keeps its own name.
+ */
+export function primaryRoleShortName(me: MeTenant): string {
+  const role = me.roles.find((r) => r.isPrimary) ?? me.roles[0];
+  if (!role) return "Member";
+  return role.shortName?.trim() || role.name.replace(/^Organization\b/, "Org");
+}
+
 /** The workspace the shell draws: the URL's, else the landing one (the not-part-of-your-role state fills the content area). */
 export function shellWorkspace(me: MeTenant, slug: string): { ws: Workspace; allowed: boolean } | null {
   const found = me.workspaces.find((w) => w.key === slug);

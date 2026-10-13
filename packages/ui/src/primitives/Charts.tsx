@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { createContext, useContext, useId, type ReactNode } from "react";
 import { cn } from "./cn";
 
 /**
@@ -53,8 +53,19 @@ export interface SparklineProps {
   /** Names the trend for assistive tech; omit when the number beside it already says everything (then it is hidden). */
   label?: string;
   className?: string;
-  /** Opt-in: draw the same points as a smooth curve with a soft fading fill (a look only; the points are unchanged). */
+  /**
+   * Draw the same points as a smooth curve with a soft fading fill (a look only; the points are unchanged). Unset = the page's default
+   * (`SparklineDefaults`: smooth inside an enterprise tenant page, the straight line everywhere else); `true` / `false` always win.
+   */
   smooth?: boolean;
+}
+
+/** The look a `Sparkline` takes when it is not told: the tenant tree provides `{ smooth: true }` (the boards' soft gradient curve). */
+export const SparklineDefaults = createContext<{ smooth: boolean }>({ smooth: false });
+
+/** A client-side way to set the sparkline default from a server component (the tenant root): `<SparklineDefaultsProvider smooth>`. */
+export function SparklineDefaultsProvider({ smooth, children }: { smooth: boolean; children: ReactNode }) {
+  return <SparklineDefaults.Provider value={{ smooth }}>{children}</SparklineDefaults.Provider>;
 }
 
 /** A smooth path through the points (Catmull-Rom turned into cubic curves, clamped to the grid). Pure. */
@@ -73,8 +84,10 @@ export function smoothPath(pts: [number, number][]): string {
   return d;
 }
 
-export function Sparkline({ values, color = chartColor(0), label, className, smooth = false }: SparklineProps) {
+export function Sparkline({ values, color = chartColor(0), label, className, smooth: smoothProp }: SparklineProps) {
   const gid = useId();
+  const defaults = useContext(SparklineDefaults);
+  const smooth = smoothProp ?? defaults.smooth;
   const pts = sparkPoints(values);
   if (pts.length < 2) return null; // one point (or none) is not a trend: draw nothing
   const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");

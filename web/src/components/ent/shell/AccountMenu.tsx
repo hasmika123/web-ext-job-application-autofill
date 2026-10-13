@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDownIcon, MemberAvatar, Menu, SignOutIcon, SwapIcon, UserIcon, BellIcon, ShieldIcon, type MenuEntry } from "@kiwiply/ui";
 import { Button } from "@/components/ui";
-import { primaryRoleName } from "@/lib/ent/shell";
+import { primaryRoleShortName } from "@/lib/ent/shell";
 import { showSwitcher, type MeTenant } from "@/lib/ent/workspaces";
 
 /** Ends the session on this host (revokes the refresh token, clears the cookies) and goes to this host's sign-in. */
@@ -41,7 +41,7 @@ export function SignOutButton({ className }: { className?: string }) {
  */
 export default function AccountMenu({ me, onSwitchWorkspace, compact = false }: { me: MeTenant; onSwitchWorkspace: () => void; compact?: boolean }) {
   const router = useRouter();
-  const role = primaryRoleName(me);
+  const role = primaryRoleShortName(me);
   const entries: MenuEntry[] = [
     { heading: `${me.org.displayName} · ${role}` },
     { label: "My profile", icon: <UserIcon size={16} />, onSelect: () => router.push("/me") },
@@ -61,16 +61,16 @@ export default function AccountMenu({ me, onSwitchWorkspace, compact = false }: 
           type="button"
           aria-label={`Account menu for ${me.person.name}`}
           data-account-menu
-          className="flex h-14 items-center gap-3 rounded-xl border border-transparent px-1.5 text-left transition-colors hover:bg-paper-2 sm:border-line sm:px-3 sm:shadow-sm"
+          className="ent-profile flex items-center gap-3 text-left transition-colors hover:bg-paper-2"
         >
           <MemberAvatar name={me.person.name} src={me.person.imageUrl} size={44} />
           {compact ? null : (
             <span className="hidden min-w-0 leading-tight lg:block">
-              <span className="block max-w-[140px] truncate text-[15px] font-semibold text-ink">{me.person.name}</span>
-              <span className="block max-w-[140px] truncate text-[12.5px] text-muted">{role}</span>
+              <span className="block max-w-[150px] truncate text-[15px] font-semibold text-[color:var(--ent-title)]">{me.person.name}</span>
+              <span className="block max-w-[150px] truncate text-[13px] text-[#5b6896]">{role}</span>
             </span>
           )}
-          <ChevronDownIcon size={16} className="hidden flex-none text-muted lg:block" />
+          <ChevronDownIcon size={16} className="hidden flex-none text-[color:var(--ent-title)] lg:block" />
         </button>
       }
     />
