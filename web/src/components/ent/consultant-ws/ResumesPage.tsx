@@ -237,7 +237,7 @@ function ResumeTable({ rows, actions }: { rows: ResumeRow[]; actions: RowActions
                 </td>
                 <td className={cn(TD, "whitespace-nowrap")}>v{r.versionNo}</td>
                 <td className={TD}>
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex flex-wrap items-center gap-1.5">
                     <button type="button" className={TEXT_BTN} aria-label={`View ${r.title}`} onClick={() => actions.onView(r)}>
                       View
                     </button>

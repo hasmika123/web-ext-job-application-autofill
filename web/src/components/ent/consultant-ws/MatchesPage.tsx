@@ -31,7 +31,7 @@ import {
 import type { IconProps } from "@kiwiply/ui";
 import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, TABLE, TD, TableHead, useWorkspaceData } from "./parts";
+import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
 import { deltaText, employmentLabel, firstName, initialsOf, matchTone, placeLabel } from "@/lib/ent/consultant-ws/home";
 import {
   MAX_COMPARE,
@@ -291,8 +291,17 @@ function MatchedJobs({ view, selected, compare, busy, a, notice }: { view: Match
         <Empty>No matches fit these filters.</Empty>
       ) : (
         <div className="overflow-x-auto">
-          <table className={cn(TABLE, "min-w-[860px]")}>
-            <TableHead cols={["#", "Job Title", "Company", "Location", "Match", "Skill Fit", "Type", "Posted", "Actions"]} />
+          <table className={cn(TABLE, "min-w-[640px] 2xl:min-w-[860px]")}>
+            {/* Type and Posted only from 2xl: below it the card is too narrow and would clip the actions */}
+            <thead>
+              <tr className="text-left text-[12px] font-semibold text-muted">
+                {["#", "Job Title", "Company", "Location", "Match", "Skill Fit", "Type", "Posted", "Actions"].map((c) => (
+                  <th key={c} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", (c === "Type" || c === "Posted") && "hidden 2xl:table-cell")}>
+                    {c}
+                  </th>
+                ))}
+              </tr>
+            </thead>
             <tbody className="divide-y divide-line">
               {rows.map((m, i) => (
                 <tr key={m.matchId} data-match={m.matchId} aria-selected={selected === m.matchId} className={cn(selected === m.matchId && "bg-accent-soft/40")}>
@@ -318,10 +327,10 @@ function MatchedJobs({ view, selected, compare, busy, a, notice }: { view: Match
                   <td className={TD}>
                     <FitBar pct={m.skillFit} />
                   </td>
-                  <td className={TD}>{employmentLabel(m.employment) ? <Pill tone="blue">{employmentLabel(m.employment)}</Pill> : null}</td>
-                  <td className={cn(TD, "whitespace-nowrap text-ink-soft")}>{postedAgo(m.postedAt)}</td>
+                  <td className={cn(TD, "hidden 2xl:table-cell")}>{employmentLabel(m.employment) ? <Pill tone="blue">{employmentLabel(m.employment)}</Pill> : null}</td>
+                  <td className={cn(TD, "hidden whitespace-nowrap text-ink-soft 2xl:table-cell")}>{postedAgo(m.postedAt)}</td>
                   <td className={TD}>
-                    <span className="flex items-center gap-1.5">
+                    <span className="flex flex-wrap items-center gap-1.5">
                       <button type="button" data-action="view" aria-label={`View match for ${m.title}`} onClick={() => a.open(m)} className="inline-flex min-h-8 items-center whitespace-nowrap rounded-lg bg-accent-soft px-3 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft/70">
                         View Match
                       </button>

@@ -625,8 +625,8 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
       {status === "failed" ? (
         <ErrorState what="Job Discovery" description="Your workspace didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
-        <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="grid min-w-0 content-start gap-4 sm:gap-5">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
             <section aria-label="Search jobs" className="rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-5">
               <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)} variant="underline">
                 <TabList aria-label="Job Discovery views">
@@ -825,7 +825,7 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
             )}
           </div>
 
-          <aside aria-label="Help and shortcuts" className="grid min-w-0 content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-1">
+          <aside aria-label="Help and shortcuts" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-1">
             <BeeCard
               name={firstName.trim().split(/\s+/)[0] || "there"}
               body="Tell me what kind of roles you're looking for, and I'll help you find the best opportunities that match your skills, experience and goals."

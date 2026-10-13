@@ -68,18 +68,20 @@ public class ConsultantWsJobDiscoveryDemoSeeder {
             List<ClientRequirement> open = requirements.findByOrgIdAndStatusOrderByPostedAtDesc(org.getId(), "OPEN");
             for (ConsultantProfile c : consultants.findByOrgId(org.getId())) {
                 if (c.getMemberId() == null) continue;
+                // the guard is this page's own rows only (searches): the Job Matches seeder also saves jobs and runs first
                 boolean has = searches.countByOrgIdAndConsultantIdAndKind(org.getId(), c.getId(), CwsSavedSearch.SAVED) > 0
-                    || searches.countByOrgIdAndConsultantIdAndKind(org.getId(), c.getId(), CwsSavedSearch.RECENT) > 0
-                    || savedJobs.countByOrgIdAndConsultantId(org.getId(), c.getId()) > 0;
+                    || searches.countByOrgIdAndConsultantIdAndKind(org.getId(), c.getId(), CwsSavedSearch.RECENT) > 0;
                 if (has) continue;
                 Instant now = Instant.now();
                 for (Spec s : SAVED) made += row(org, c, CwsSavedSearch.SAVED, s, now);
                 for (Spec s : RECENT) made += row(org, c, CwsSavedSearch.RECENT, s, now);
                 for (int i = 0; i < Math.min(2, open.size()); i++) {
+                    Long reqId = open.get(i * 2 % open.size()).getId();
+                    if (savedJobs.findByOrgIdAndConsultantIdAndRequirementId(org.getId(), c.getId(), reqId).isPresent()) continue;
                     CwsSavedJob j = new CwsSavedJob();
                     j.setOrgId(org.getId());
                     j.setConsultantId(c.getId());
-                    j.setRequirementId(open.get(i * 2 % open.size()).getId());
+                    j.setRequirementId(reqId);
                     j.setCreatedAt(now.minus(Duration.ofDays(1L + i)));
                     savedJobs.save(j);
                     made++;
