@@ -7,6 +7,7 @@ import static com.dossier.api.domain.enumeration.PermissionScope.TEAM;
 
 import com.dossier.api.domain.ent.OrgRolePermission;
 import com.dossier.api.domain.enumeration.PermissionScope;
+import com.dossier.api.service.ent.authz.EntPermissions;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -57,6 +58,9 @@ public final class RoleTemplates {
     public static final String ACCOUNT_MANAGER = "ACCOUNT_MANAGER";
     public static final String TALENT_ACQUISITION = "TALENT_ACQUISITION";
     public static final String EXECUTIVE_VIEWER = "EXECUTIVE_VIEWER";
+
+    /** The two permissions only the Owner holds (05 section 3). */
+    private static final java.util.Set<String> OWNER_ONLY = java.util.Set.of("org.close", "org.transfer_ownership");
 
     private static final List<Template> ALL = build();
     private static final Map<String, Template> BY_KEY;
@@ -115,19 +119,18 @@ public final class RoleTemplates {
     private static List<Template> build() {
         List<Template> out = new ArrayList<>();
 
-        // ORG_ADMIN: "all (ORG)" in 05 section 3, plus the three legacy ADMIN permissions the row does not name.
+        // ORG_ADMIN: every registered permission at ORG except org.close and org.transfer_ownership (05 section 3). Keys whose
+        // natural scope is OWN (a consultant's own work, ops.own_hours, self.*) are not held at ORG: they reach only the holder's
+        // own records, the ceiling rule exempts them, and 05 says an admin is never a consultant. self.* is added at OWN below.
+        B adminGrants = new B();
+        for (EntPermissions.Def def : EntPermissions.all()) {
+            if (OWNER_ONLY.contains(def.key()) || def.defaultScope() == OWN) continue;
+            if (def.key().equals("members.role.set")) adminGrants.addWith(ORG, OrgRolePermission.CEILING_BELOW_ADMIN, null, def.key());
+            else adminGrants.add(ORG, def.key());
+        }
         Template orgAdmin = new Template(
             ORG_ADMIN, "Organization Admin", "Runs the organization: settings, people, roles, licences and billing. Cannot close it or hand it over.", "ADMIN",
-            new B()
-                .add(ORG, "org.settings.manage", "branding.manage", "domains.manage", "roles.manage", "members.invite", "members.import")
-                .addWith(ORG, OrgRolePermission.CEILING_BELOW_ADMIN, null, "members.role.set")
-                .add(ORG, "members.remove", "members.suspend", "members.support_owner.set", "members.group.set", "members.manager.set",
-                    "groups.manage", "assignments.manage", "consultants.view", "consultants.edit", "resumes.view_for", "resumes.approve_request",
-                    "licenses.view", "licenses.manage", "billing.view", "billing.manage", "usage.view", "pipeline.view", "clients.view",
-                    "placements.view", "hr.view", "finance.view", "reports.view", "reports.export", "audit.view", "integrations.manage",
-                    "dashboard.view_org", "member.view_summary", "services.order_for_member", "ops.*")
-                .self()
-                .build()
+            adminGrants.self().build()
         );
 
         // OWNER: ORG_ADMIN plus close and transfer, and members.role.set without the ceiling.

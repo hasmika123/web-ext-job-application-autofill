@@ -25,6 +25,8 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 class RoleTemplatesTest {
 
+    private static final java.util.Set<String> ADMIN_GAP_KEYS = java.util.Set.of("member.view_full", "member.act_for");
+
     static Stream<Arguments> legacyPairs() {
         return Stream.of(
             Arguments.of(OrgRole.OWNER, RoleTemplates.OWNER),
@@ -44,6 +46,13 @@ class RoleTemplatesTest {
             Map<OrgPermission, OrgScope> legacyGrants = legacy.grants();
             RoleTemplates.Grant g = grants.get(p.key());
             if (!legacyGrants.containsKey(p)) {
+                // The intended change of the "admin role gap" decision (05 s3): OWNER and ORG_ADMIN hold every registered permission (ORG),
+                // so the two consent-gated marketer keys are held too; the share consent and the assignment kinds still gate their use.
+                if (ADMIN_GAP_KEYS.contains(p.key()) && (templateKey.equals(RoleTemplates.OWNER) || templateKey.equals(RoleTemplates.ORG_ADMIN))) {
+                    assertThat(g).as(templateKey + " holds " + p.key() + " at ORG since the admin-role-gap decision").isNotNull();
+                    assertThat(g.scope()).isEqualTo(PermissionScope.ORG);
+                    continue;
+                }
                 assertThat(g).as("%s must NOT hold legacy permission %s (the enum role did not)", templateKey, p.key()).isNull();
                 continue;
             }
