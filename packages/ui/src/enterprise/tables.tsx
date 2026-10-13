@@ -304,7 +304,7 @@ export function DataTable<T>({
     <div className={className}>
       <div className="overflow-x-auto rounded-[var(--radius)] border border-line bg-paper">
         <table aria-label={label} className={cn("w-full border-collapse text-left", dense ? "text-[12.5px]" : "text-[13.5px]")}>
-          <thead className="bg-paper-2/60 text-[12px] uppercase tracking-[.04em] text-muted">
+          <thead className={cn("bg-paper-2/60 uppercase text-muted", dense ? "text-[11px] tracking-[.02em]" : "text-[12px] tracking-[.04em]")}>
             <tr>
               {columns.map((c) => {
                 const active = sort?.key === c.key;

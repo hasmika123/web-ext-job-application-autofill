@@ -342,7 +342,7 @@ export default function MarketingAssignmentsPage({ orgId, orgName, workspace, pe
 
       <KpiRow kpis={kpis.data} loading={kpis.status === "loading"} error={kpis.status === "error"} onRetry={() => void loadKpis()} orgName={orgName} />
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,0.36fr)_minmax(0,0.64fr)]">
+      <div className="grid grid-cols-1 gap-4 min-[1400px]:grid-cols-[minmax(0,0.33fr)_minmax(0,0.67fr)]">
         <MarketersPanel
           state={marketers}
           selectedId={marketer?.memberId ?? null}

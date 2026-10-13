@@ -58,25 +58,27 @@ export default function KpiRow({ kpis, loading, error, onRetry, orgName }: { kpi
           </Card>
         );
       })}
-      <section aria-label="Help" data-help-bee className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-paper sm:col-span-2 xl:col-span-1">
+      <section aria-label="Help" data-help-bee className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-paper p-3 sm:col-span-2 xl:col-span-1">
         <ClaimsMascot />
         <ClaimsHelpCard />
-        <div className="flex h-[4.5rem] justify-center overflow-hidden bg-accent-soft/60 pt-1">
-          <EnterpriseMascot pose="greet" size="sm" />
+        <div className="flex items-start gap-2.5">
+          <span className="flex-none rounded-xl bg-accent-soft/60 px-1 pt-1">
+            <EnterpriseMascot pose="greet" size="sm" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-[14px] font-extrabold leading-tight text-ink">Need help with marketing assignments?</h2>
+            <p className="mt-1 text-[12px] leading-snug text-muted">I can help you balance workloads, reassign consultants, or find the best marketer for your team at {orgName}.</p>
+          </div>
         </div>
-        <div className="flex flex-1 flex-col p-3">
-          <h2 className="text-[14.5px] font-extrabold leading-tight text-ink">Need help with marketing assignments?</h2>
-          <p className="mt-1 text-[12px] leading-snug text-muted">I can help you balance workloads, reassign consultants, or find the best marketer for your team at {orgName}.</p>
-          <button
-            type="button"
-            onClick={openHelpPanel}
-            className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[13.5px] font-semibold text-accent-deep hover:bg-accent-soft/70"
-          >
-            <SparklesIcon size={16} className="flex-none" />
-            <span className="min-w-0 flex-1 truncate">Ask a question...</span>
-            <ChevronRightIcon size={15} className="flex-none" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={openHelpPanel}
+          className="mt-3 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[13.5px] font-semibold text-accent-deep hover:bg-accent-soft/70"
+        >
+          <SparklesIcon size={16} className="flex-none" />
+          <span className="min-w-0 flex-1 truncate">Ask a question...</span>
+          <ChevronRightIcon size={15} className="flex-none" />
+        </button>
       </section>
     </div>
   );

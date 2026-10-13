@@ -97,7 +97,7 @@ export default function ConsultantsPanel({
         <span className="flex min-w-0 items-center gap-2.5">
           {canManage && narrow && <Check checked={selected.has(r.consultantId)} onChange={() => onToggle(r.consultantId)} label={`Select ${r.name}`} />}
           <MemberAvatar name={r.name} size={30} />
-          <span className="min-w-0 max-w-[9.5rem]" title={r.jobTitle ? `${r.name}, ${r.jobTitle}` : r.name}>
+          <span className="min-w-0 max-w-[7rem]" title={r.jobTitle ? `${r.name}, ${r.jobTitle}` : r.name}>
             <span className="block truncate text-[13px] font-bold text-ink">{r.name}</span>
             <span className="block truncate text-[11.5px] font-normal text-muted">{r.jobTitle ?? (r.availability ? AVAILABILITY_LABEL[r.availability] : "")}</span>
           </span>
@@ -108,7 +108,7 @@ export default function ConsultantsPanel({
     { key: "backup", header: "Backup Marketer", render: (r) => <PersonChip person={r.backup} none="No backup" /> },
     { key: "status", header: "Status", sortable: true, render: (r) => <AssignmentStatusPill status={r.status} /> },
     { key: "priority", header: "Priority", sortable: true, render: (r) => <PriorityPill priority={r.priority} /> },
-    { key: "activeApps", header: "Active Apps", sortable: true, className: "text-center tabular-nums", render: (r) => <span className="tabular-nums">{r.activeApps}</span> },
+    { key: "activeApps", header: <span className="inline-block text-center leading-tight">Active<br />Apps</span>, headerLabel: "Active Apps", sortable: true, className: "text-center tabular-nums", render: (r) => <span className="tabular-nums">{r.activeApps}</span> },
     { key: "lastActivity", header: "Last Activity", sortable: true, render: (r) => <span className="whitespace-nowrap text-[12px] text-ink-soft">{formatDay(r.lastActivityAt) || "—"}</span> },
   ];
 
