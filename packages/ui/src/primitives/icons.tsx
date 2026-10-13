@@ -943,6 +943,18 @@ export function GoogleIcon({ size = 18, className, ...props }: IconProps) {
   );
 }
 
+/** Microsoft four-square logo - official brand colors, so it ignores currentColor on purpose (the "Sign in with Microsoft" button). */
+export function MicrosoftIcon({ size = 20, className, ...props }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden className={className} {...props}>
+      <path fill="#F25022" d="M2 2h9.5v9.5H2z" />
+      <path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z" />
+      <path fill="#00A4EF" d="M2 12.5h9.5V22H2z" />
+      <path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z" />
+    </svg>
+  );
+}
+
 /** Open book (guides / help center). */
 export const BookOpenIcon = makeIcon("BookOpenIcon", {
   node: (
