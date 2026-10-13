@@ -33,6 +33,29 @@ public class OrgGroup implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** The department a TEAM sits under (X4.5); null for a department, a cohort and a team with no department. */
+    @Column(name = "parent_group_id")
+    private Long parentGroupId;
+
+    /** The member who leads the group (X4.5); counts as a member of it for TEAM / DEPARTMENT scope. */
+    @Column(name = "lead_member_id")
+    private Long leadMemberId;
+
+    /** Optimistic-concurrency counter: the ETag of the group (X4.5). */
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
+    /** ACTIVE or INACTIVE (archived). */
+    @Column(name = "status", length = 12, nullable = false)
+    private String status = "ACTIVE";
+
+    @Column(name = "icon", length = 24)
+    private String icon;
+
+    @Column(name = "color", length = 16)
+    private String color;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }
@@ -45,4 +68,15 @@ public class OrgGroup implements Serializable {
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Long getParentGroupId() { return parentGroupId; }
+    public void setParentGroupId(Long parentGroupId) { this.parentGroupId = parentGroupId; }
+    public Long getLeadMemberId() { return leadMemberId; }
+    public void setLeadMemberId(Long leadMemberId) { this.leadMemberId = leadMemberId; }
+    public long getVersion() { return version; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public String getIcon() { return icon; }
+    public void setIcon(String icon) { this.icon = icon; }
+    public String getColor() { return color; }
+    public void setColor(String color) { this.color = color; }
 }

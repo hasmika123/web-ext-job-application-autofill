@@ -29,6 +29,7 @@ class EnterpriseDemoSeederGateTest {
         return new EnterpriseDemoSeeder(
             mock(OrganizationRepository.class),
             mock(OrgMemberRepository.class),
+            mock(com.dossier.api.repository.org.OrgGroupRepository.class),
             mock(OrgHostnameRepository.class),
             mock(OrgBrandingRepository.class),
             mock(OrgRoleRepository.class),

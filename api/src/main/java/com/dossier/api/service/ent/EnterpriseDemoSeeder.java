@@ -12,10 +12,12 @@ import com.dossier.api.domain.enumeration.AssignmentKind;
 import com.dossier.api.domain.enumeration.HostnameCertState;
 import com.dossier.api.domain.enumeration.OrgHostnameKind;
 import com.dossier.api.domain.enumeration.OrgHostnameStatus;
+import com.dossier.api.domain.enumeration.OrgGroupKind;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.enumeration.OrgStatus;
 import com.dossier.api.domain.enumeration.OrgType;
+import com.dossier.api.domain.org.OrgGroup;
 import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.AppSettingRepository;
@@ -26,6 +28,7 @@ import com.dossier.api.repository.ent.OrgBrandingRepository;
 import com.dossier.api.repository.ent.OrgHostnameRepository;
 import com.dossier.api.repository.ent.OrgMemberRoleRepository;
 import com.dossier.api.repository.ent.OrgRoleRepository;
+import com.dossier.api.repository.org.OrgGroupRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.AuthoritiesConstants;
@@ -171,6 +174,7 @@ public class EnterpriseDemoSeeder {
 
     private final OrganizationRepository orgs;
     private final OrgMemberRepository members;
+    private final OrgGroupRepository groupRows;
     private final OrgHostnameRepository hostnames;
     private final OrgBrandingRepository brandings;
     private final OrgRoleRepository roleRows;
@@ -191,6 +195,7 @@ public class EnterpriseDemoSeeder {
     public EnterpriseDemoSeeder(
         OrganizationRepository orgs,
         OrgMemberRepository members,
+        OrgGroupRepository groupRows,
         OrgHostnameRepository hostnames,
         OrgBrandingRepository brandings,
         OrgRoleRepository roleRows,
@@ -210,6 +215,7 @@ public class EnterpriseDemoSeeder {
     ) {
         this.orgs = orgs;
         this.members = members;
+        this.groupRows = groupRows;
         this.hostnames = hostnames;
         this.brandings = brandings;
         this.roleRows = roleRows;
@@ -259,6 +265,7 @@ public class EnterpriseDemoSeeder {
         int[] counts = new int[4]; // users, seats, role rows, assignments
         Set<Long> orgIds = new LinkedHashSet<>();
         Map<String, Map<String, OrgMember>> seatsByOrg = new LinkedHashMap<>();
+        Map<String, Organization> orgByKey = new LinkedHashMap<>();
 
         for (Tenant t : TENANTS) {
             Person first = t.people().get(0);
@@ -270,6 +277,7 @@ public class EnterpriseDemoSeeder {
             }
             if (org == null) org = createOrg(t, owner, now);
             orgIds.add(org.getId());
+            orgByKey.put(t.orgKey(), org);
             ensureHostname(org, t.host(), now);
             ensureBranding(org, t, now);
 
@@ -290,6 +298,7 @@ public class EnterpriseDemoSeeder {
 
         assign(seatsByOrg.get("acme"), "sarah", "anika", AssignmentKind.PRIMARY, now, counts);
         assign(seatsByOrg.get("acme"), "omar", "ben", AssignmentKind.PRIMARY, now, counts);
+        if (orgByKey.containsKey("acme") && seatsByOrg.containsKey("acme")) seedStructure(orgByKey.get("acme"), seatsByOrg.get("acme"));
 
         if (!orgIds.isEmpty()) {
             enableFlags(orgIds);
@@ -504,6 +513,85 @@ public class EnterpriseDemoSeeder {
         x.setCreatedByMemberId(assignee.getId());
         assignments.saveAndFlush(x);
         counts[3]++;
+    }
+
+    // ---- departments and teams (X4.5) -------------------------------------------------------------------------------
+
+    /** One seeded department: name, picker icon and colour, lead (a person key), people (person keys) and its teams. */
+    record DemoDepartment(String name, String icon, String color, String lead, List<String> people, List<DemoTeam> teams) {}
+
+    record DemoTeam(String name, String icon, String color, String lead, List<String> people) {}
+
+    /** Acme's structure, drawn from the seeded people. Names are invented; a person appears in at most one department. */
+    static final List<DemoDepartment> ACME_STRUCTURE = List.of(
+        new DemoDepartment("Consulting", "briefcase", "primary", "amara", List.of("amara", "sam", "nina"), List.of(new DemoTeam("Bench East", "users", "info", "anika", List.of("anika", "ben")))),
+        new DemoDepartment("Marketing", "rocket", "secondary", "sarah", List.of("sarah"), List.of(new DemoTeam("Talent Marketing", "lightbulb", "warning", "omar", List.of("omar")))),
+        new DemoDepartment("HR", "users", "info", "hana", List.of("hana"), List.of(new DemoTeam("People Operations", "heart", "danger", "tomas", List.of("tomas")))),
+        new DemoDepartment("Finance", "dollar", "success", "felix", List.of("felix"), List.of()),
+        new DemoDepartment("Operations", "building", "neutral", "eve", List.of("eve"), List.of())
+    );
+
+    /**
+     * Creates Acme's departments and teams, with leads and placed people, the first time (a group that already exists is left exactly as
+     * it is, so a person moved or a lead changed in a later session is never put back). Nina is an invited seat: she is placed through
+     * her invite email. Idempotent.
+     */
+    private void seedStructure(Organization org, Map<String, OrgMember> seats) {
+        Long orgId = org.getId();
+        OrgMember nina = members.findByOrgIdAndInviteEmailAndStatusIn(orgId, "nina.vogel@acme.example.com", List.of(OrgMemberStatus.INVITED)).stream().findFirst().orElse(null);
+        Map<String, OrgMember> all = new LinkedHashMap<>(seats);
+        if (nina != null) all.put("nina", nina);
+        int created = 0;
+        int order = 0;
+        for (DemoDepartment d : ACME_STRUCTURE) {
+            OrgGroup dept = createDemoGroup(orgId, d.name(), OrgGroupKind.DEPARTMENT, null, d.icon(), d.color(), all.get(d.lead()), order++);
+            boolean deptNew = dept != null;
+            if (deptNew) created++;
+            else dept = findGroup(orgId, d.name());
+            if (dept == null) continue;
+            if (deptNew) {
+                for (String key : d.people()) {
+                    OrgMember m = all.get(key);
+                    if (m != null && m.getDepartmentGroupId() == null) {
+                        m.setDepartmentGroupId(dept.getId());
+                        members.saveAndFlush(m);
+                    }
+                }
+            }
+            for (DemoTeam t : d.teams()) {
+                OrgGroup team = createDemoGroup(orgId, t.name(), OrgGroupKind.TEAM, dept.getId(), t.icon(), t.color(), all.get(t.lead()), order++);
+                if (team == null) continue;
+                created++;
+                for (String key : t.people()) {
+                    OrgMember m = all.get(key);
+                    if (m != null && m.getTeamGroupId() == null) {
+                        m.setTeamGroupId(team.getId());
+                        m.setDepartmentGroupId(dept.getId());
+                        members.saveAndFlush(m);
+                    }
+                }
+            }
+        }
+        if (created > 0) LOG.info("Enterprise demo structure: {} departments and teams created for {}", created, org.getSlug());
+    }
+
+    private OrgGroup findGroup(Long orgId, String name) {
+        return groupRows.findByOrgIdOrderBySortOrderAscNameAsc(orgId).stream().filter(g -> g.getName().equalsIgnoreCase(name)).findFirst().orElse(null);
+    }
+
+    /** The new group, or null when one of that name already exists. */
+    private OrgGroup createDemoGroup(Long orgId, String name, OrgGroupKind kind, Long parentId, String icon, String color, OrgMember lead, int order) {
+        if (groupRows.existsByOrgIdAndName(orgId, name)) return null;
+        OrgGroup g = new OrgGroup();
+        g.setOrgId(orgId);
+        g.setName(name);
+        g.setKind(kind);
+        g.setParentGroupId(parentId);
+        g.setIcon(icon);
+        g.setColor(color);
+        g.setSortOrder(order);
+        if (lead != null && lead.getStatus() == OrgMemberStatus.ACTIVE) g.setLeadMemberId(lead.getId());
+        return groupRows.saveAndFlush(g);
     }
 
     // ---- settings ---------------------------------------------------------------------------------------------------

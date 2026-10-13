@@ -21,6 +21,11 @@ public interface OrgGroupRepository extends Repository<OrgGroup, Long> {
 
     long countByOrgId(Long orgId);
 
+    /** The groups that sit directly under this one (the teams of a department). */
+    long countByOrgIdAndParentGroupId(Long orgId, Long parentGroupId);
+
+    List<OrgGroup> findByOrgIdAndParentGroupIdOrderBySortOrderAscNameAsc(Long orgId, Long parentGroupId);
+
     @Modifying
     @Query("delete from OrgGroup g where g.orgId = :orgId and g.id = :id")
     int deleteByOrgIdAndId(@Param("orgId") Long orgId, @Param("id") Long id);
