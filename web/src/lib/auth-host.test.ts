@@ -25,6 +25,15 @@ describe("authHostHeader (X1.5: login/refresh must tell the API which tenant hos
   it("forwards a tenant host, normalised, preferring x-forwarded-host", () => {
     expect(authHostHeader(new Headers({ host: "web:3000", "x-forwarded-host": "Acme.Localhost:443" }))).toEqual({ "X-Kiwiply-Host": "acme.localhost" });
   });
+  it("adds the shared secret and the visitor's address for the API", () => {
+    vi.stubEnv("DOSSIER_TENANT_HOST_SECRET", "web-api-secret");
+    expect(authHostHeader(new Headers({ host: "acme.localhost", "x-forwarded-for": "1.1.1.1, 9.9.9.9" }))).toEqual({
+      "X-Kiwiply-Host": "acme.localhost",
+      "X-Kiwiply-Host-Secret": "web-api-secret",
+      "X-Forwarded-For": "9.9.9.9",
+    });
+    vi.unstubAllEnvs();
+  });
   it("sends nothing for a platform host or no host", () => {
     expect(authHostHeader(new Headers({ host: "localhost:3000" }))).toEqual({});
     expect(authHostHeader(new Headers({ host: "kiwiply.com" }))).toEqual({});

@@ -12,7 +12,8 @@
 import { apiUrl } from "@/lib/config";
 import { headers as requestHeaders } from "next/headers";
 import { getAccessToken } from "@/lib/auth";
-import { TENANT_HOST_HEADER } from "@/lib/tenant-host";
+import { clientIpFromHeaders } from "@/lib/rate-limit";
+import { TENANT_HOST_HEADER, tenantApiHeaders } from "@/lib/tenant-host";
 
 export async function serverApiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = await getAccessToken();
@@ -21,8 +22,12 @@ export async function serverApiFetch(path: string, init: RequestInit = {}): Prom
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
   // X1.4: the API resolves the tenant from the host the visitor arrived on (set by proxy.ts), never from a parameter.
   try {
-    const host = (await requestHeaders()).get(TENANT_HOST_HEADER);
-    if (host) headers.set("X-Kiwiply-Host", host);
+    const incoming = await requestHeaders();
+    const host = incoming.get(TENANT_HOST_HEADER);
+    if (host) {
+      // the shared secret proves to the API that this is the web server; the visitor's address keeps its per-visitor limits honest
+      for (const [name, value] of Object.entries(tenantApiHeaders(host, clientIpFromHeaders(incoming)))) headers.set(name, value);
+    }
   } catch {
     // not inside a request (build time, a script): nothing to forward
   }

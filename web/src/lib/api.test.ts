@@ -30,6 +30,16 @@ describe("serverApiFetch", () => {
     expect(sentHeaders(fn).get("authorization")).toBe("Bearer tok");
   });
 
+  it("adds the shared secret and the visitor's last-hop address next to the host, so the API believes it and limits per visitor", async () => {
+    vi.stubEnv("DOSSIER_TENANT_HOST_SECRET", "web-api-secret");
+    hdrs.value = new Headers({ "x-kiwiply-host": "acme.localhost", "x-forwarded-for": "6.6.6.6, 203.0.113.5" });
+    const fn = stubFetch();
+    await serverApiFetch("/api/account");
+    expect(sentHeaders(fn).get("x-kiwiply-host-secret")).toBe("web-api-secret");
+    expect(sentHeaders(fn).get("x-forwarded-for")).toBe("203.0.113.5");
+    vi.unstubAllEnvs();
+  });
+
   it("sends no host header when there is none, and survives being called outside a request", async () => {
     hdrs.value = new Headers();
     let fn = stubFetch();

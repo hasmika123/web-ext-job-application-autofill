@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { apiUrl } from "@/lib/config";
 import { isRewriteExempt, isTenantRoutePath, requestHost, TENANT_HOST_HEADER, TENANT_ROUTE_PREFIX } from "@/lib/tenant-host";
 import { resolveHost } from "@/lib/tenant";
+import { clientIpFromHeaders } from "@/lib/rate-limit";
 import { ACCESS_COOKIE, REFRESH_COOKIE, sessionCookieOptions } from "@/lib/cookies";
 
 /**
@@ -25,7 +26,7 @@ export async function proxy(request: NextRequest) {
   const host = requestHost(request.headers);
   const pathname = request.nextUrl.pathname;
 
-  const resolution = await resolveHost(host);
+  const resolution = await resolveHost(host, clientIpFromHeaders(request.headers));
   if (resolution.kind !== "PLATFORM") {
     // A tenant (or unknown) host: serve the tenant tree. Session refresh is skipped on purpose: the platform's
     // cookies are not valid on a tenant host (X1.5/X2.6 own tenant sessions).
