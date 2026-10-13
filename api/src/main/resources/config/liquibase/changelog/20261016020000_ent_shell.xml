@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 X2.2 - the tenant shell (docs/enterprise-v2/41-database-design.md changelog 2 "ent_shell",
+        12-identity.md section 3, 16-ui-ux-page-inventory.md section 3).
+
+        Additive only: one nullable column on org_member, the workspace the member chose to open first ("Open Marketing first").
+        X2.2 reads it (GET /api/me/tenant: used when it is still a workspace the member may open); X4.2 writes it. NULL means
+        "my primary role's workspace", so every existing row keeps today's behaviour. The workspace definitions themselves are
+        a versioned resource (config/ent/workspaces.json), not a table, so there is nothing else to migrate.
+    -->
+
+    <changeSet id="20261016020000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_member" columnName="landing_workspace"/></not>
+        </preConditions>
+        <addColumn tableName="org_member">
+            <column name="landing_workspace" type="varchar(20)"/>
+        </addColumn>
+        <rollback><dropColumn tableName="org_member" columnName="landing_workspace"/></rollback>
+    </changeSet>
+</databaseChangeLog>

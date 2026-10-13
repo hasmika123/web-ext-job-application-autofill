@@ -66,6 +66,10 @@ public class OrgMember implements Serializable {
     @Column(name = "primary_role_id")
     private Long primaryRoleId;
 
+    /** The workspace key the member chose to open first (Enterprise V2, X2.2 reads it, X4.2 writes it); null = their primary role's workspace. */
+    @Column(name = "landing_workspace", length = 20)
+    private String landingWorkspace;
+
     @Column(name = "joined_at")
     private Instant joinedAt;
 
@@ -113,6 +117,8 @@ public class OrgMember implements Serializable {
     public void setGroupId(Long groupId) { this.groupId = groupId; }
     public Long getPrimaryRoleId() { return primaryRoleId; }
     public void setPrimaryRoleId(Long primaryRoleId) { this.primaryRoleId = primaryRoleId; }
+    public String getLandingWorkspace() { return landingWorkspace; }
+    public void setLandingWorkspace(String landingWorkspace) { this.landingWorkspace = landingWorkspace; }
     public Long getSupportOwnerMemberId() { return supportOwnerMemberId; }
     public void setSupportOwnerMemberId(Long supportOwnerMemberId) { this.supportOwnerMemberId = supportOwnerMemberId; }
     public Instant getJoinedAt() { return joinedAt; }

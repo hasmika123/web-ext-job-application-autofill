@@ -129,6 +129,12 @@ export const MOCK_TENANTS = {
 export const MOCK_TENANT_PASSWORD = "demo1234";
 export const MOCK_TENANT_USERS = {
   "owner@acme.com": ["acme.localhost"],
+  // X2.2: the other roles of the tenant session mock (scripts/mock-me-tenant.mjs)
+  "marketer@acme.com": ["acme.localhost"],
+  "sarah@acme.com": ["acme.localhost"],
+  "consultant@acme.com": ["acme.localhost"],
+  "finance@acme.com": ["acme.localhost"],
+  "paused@acme.com": ["acme.localhost"],
   "owner@beta.com": ["beta.localhost"],
 };
 

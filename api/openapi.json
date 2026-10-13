@@ -99,6 +99,9 @@
     "name" : "org-branding",
     "description" : "Organization branding: draft, publish, versions, assets."
   }, {
+    "name" : "tenant",
+    "description" : "The signed-in member's view of the organization on this host."
+  }, {
     "name" : "job-search",
     "description" : "Search the job postings we keep; save or hide one."
   }, {
@@ -8332,6 +8335,26 @@
         }
       }
     },
+    "/api/me/tenant" : {
+      "get" : {
+        "tags" : [ "tenant" ],
+        "summary" : "The shell's session contract on a tenant host",
+        "description" : "Tenant hosts only, with a token minted for that tenant (tid). Returns the organization, the caller's seat and roles, their permission map, the eight module booleans, the workspaces they may open with their navigation (already filtered by their permissions and the organization's modules), the landing workspace, their consent scope and licensed features. ETag / If-None-Match supported (304). 403 MEMBER_SUSPENDED for a suspended member (no organization data); 404 for a platform or unknown host, enterprise off or a non-member; 401 for a token that is not for this tenant (none, personal or another organization's).",
+        "operationId" : "tenant_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MeTenantDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/jobs/{id}" : {
       "get" : {
         "tags" : [ "job-search" ],
@@ -14970,6 +14993,237 @@
           "memberCount" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "Consent" : {
+        "type" : "object",
+        "properties" : {
+          "scope" : {
+            "type" : "string"
+          },
+          "fullTo" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Flags" : {
+        "type" : "object",
+        "properties" : {
+          "pastDue" : {
+            "type" : "boolean"
+          },
+          "billingActionRequired" : {
+            "type" : "boolean"
+          },
+          "greeting" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "MeTenantDTO" : {
+        "type" : "object",
+        "properties" : {
+          "org" : {
+            "$ref" : "#/components/schemas/Org"
+          },
+          "member" : {
+            "$ref" : "#/components/schemas/Member"
+          },
+          "person" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Role"
+            }
+          },
+          "permissions" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "modules" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "boolean"
+            }
+          },
+          "workspaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Workspace"
+            }
+          },
+          "landing" : {
+            "type" : "string"
+          },
+          "landingKey" : {
+            "type" : "string"
+          },
+          "consent" : {
+            "$ref" : "#/components/schemas/Consent"
+          },
+          "features" : {
+            "$ref" : "#/components/schemas/Features"
+          }
+        }
+      },
+      "Member" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "departmentGroupId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "teamGroupId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "managerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "joinedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "NavItem" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "icon" : {
+            "type" : "string"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "badge" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Org" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "primaryHost" : {
+            "type" : "string"
+          },
+          "terminology" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "flags" : {
+            "$ref" : "#/components/schemas/Flags"
+          }
+        }
+      },
+      "Person" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Role" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "isPrimary" : {
+            "type" : "boolean"
+          },
+          "workspaceKey" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Workspace" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "workspaceKey" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "home" : {
+            "type" : "string"
+          },
+          "order" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "roleKeys" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "nav" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NavItem"
+            }
+          },
+          "bottomTabs" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },

@@ -38,6 +38,9 @@ public final class EnterpriseSettingKeys {
     public static final String FLAG_MARKETING = "flag.enterprise.marketing";
     public static final String FLAG_HR_FINANCE = "flag.enterprise.hr_finance";
     public static final String FLAG_EXTENSION_WORKSPACES = "flag.enterprise.extension_workspaces";
+    /** X2.2: the module booleans of {@code GET /api/me/tenant} read these two as well (12-identity.md section 3); declared, not offered in admin yet. */
+    public static final String FLAG_INTEGRATIONS = "flag.enterprise.integrations";
+    public static final String FLAG_ANALYTICS = "flag.enterprise.analytics";
 
     /** Hostnames that are the platform itself (kiwiply.com and friends): they never resolve to a tenant. */
     public static final String HOSTS_PLATFORM = "enterprise.hosts.platform";
@@ -87,6 +90,9 @@ public final class EnterpriseSettingKeys {
         flag(d, FLAG_MARKETING, Risk.MEDIUM, "Talent marketing and pipeline modules. Needs the master flag." + NOT_ENFORCED);
         flag(d, FLAG_HR_FINANCE, Risk.MEDIUM, "HR and Finance record modules. Needs the master flag." + NOT_ENFORCED);
         flag(d, FLAG_EXTENSION_WORKSPACES, Risk.MEDIUM, "Workspaces on /api/profile/version and the extension workspace header. Needs the master flag." + NOT_ENFORCED);
+
+        flag(d, FLAG_INTEGRATIONS, Risk.MEDIUM, "Integrations and webhooks module (Phase 12). Needs the master flag." + NOT_ENFORCED);
+        flag(d, FLAG_ANALYTICS, Risk.MEDIUM, "Analytics and reports module (Phase 12). Needs the master flag." + NOT_ENFORCED);
 
         k.add(new Key(HOSTS_PLATFORM, Type.JSON, DEFAULT_PLATFORM_HOSTS, null, null, null,
             "Hostnames that are the platform itself (never a tenant), as a JSON list of lower-case hostnames. A request for one of them is the personal product and the platform console.",

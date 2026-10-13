@@ -1,77 +1,106 @@
 /**
- * The signed-in state of a visitor on a tenant host (X2.6), as the API sees it.
+ * The tenant session on the web (X2.2): `GET /api/me/tenant` (12-identity.md section 3) for the signed-in member of the
+ * organization on this host.
  *
- * !! CONTRACT STUB !! `GET /api/me/tenant` is built by X2.2 (doc 12 section 3). Until it lands this module reads only the two
- * fields the routing needs (`landing`, `org.displayName`), tolerates every status the real endpoint will answer, and treats a
- * 404 (the route does not exist yet) as `NO_CONTRACT`: signed in, destination unknown. X2.2 REPLACES the body of
- * `readMeTenant` with the typed `getMeTenant()` (full `MeTenantDTO`, ETag) and keeps the `TenantSession` union below.
+ * `fetchTenantSession` is the pure part (takes the fetcher, so it is testable without Next); `getTenantSession()` is the
+ * per-request server helper (`cache()`, the tenant host headers and the bearer token come from `serverApiFetch`).
  *
- * Why the page asks the API and the proxy does not: the proxy only knows that a cookie holds a tid-bound token, not that the
- * tid is THIS host's organization (the API's `TokenTenantBinding` checks that on every call and answers 401
- * `TOKEN_TENANT_MISMATCH`). A session of tenant A presented on host B therefore ends here as `UNAUTHENTICATED`.
+ * FAILS CLOSED. The only way to get `{ kind: "OK" }` is a 200 whose body has the shape of the contract. Every other outcome is a
+ * named refusal and carries no organization data:
+ *   UNAUTHENTICATED  401 (no session on this host, a personal token, a token for another tenant): the page sends the visitor to /login
+ *   SUSPENDED        403 MEMBER_SUSPENDED: the "Your access is paused" panel with sign-out
+ *   NOT_A_MEMBER     404 and any other refusal: the "not a member" panel (the API answers the same 404 for every cause)
+ *   UNAVAILABLE      5xx, 429, a timeout, a network error or a body that is not the contract: "try again", never a default menu
  */
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { getAccessToken } from "@/lib/auth";
-import { serverApiFetch } from "@/lib/api";
 import { safeReturnTo } from "@/lib/tenant-urls";
+import { MODULE_KEYS, type MeTenant } from "@/lib/ent/workspaces";
 
 export type TenantSession =
-  /** No cookie at all, or the API refused the token (expired, another tenant's, revoked): show the sign-in. */
-  | { status: "UNAUTHENTICATED" }
-  /** Signed in and the API named where this member lands (a same-host path). */
-  | { status: "OK"; landing: string; orgName: string | null }
-  /** Signed in, but the member's seat is paused (403 MEMBER_SUSPENDED). */
-  | { status: "SUSPENDED" }
-  /** Signed in as a non-member of this workspace (404 on the contract). */
-  | { status: "NOT_A_MEMBER" }
-  /** STUB: the API has no /api/me/tenant yet (X2.2): signed in, landing unknown. */
-  | { status: "NO_CONTRACT" }
-  /** The API was unreachable or erroring: do not guess. */
-  | { status: "UNAVAILABLE" };
+  | { kind: "OK"; me: MeTenant; etag: string | null }
+  | { kind: "UNAUTHENTICATED" }
+  | { kind: "SUSPENDED" }
+  | { kind: "NOT_A_MEMBER" }
+  | { kind: "UNAVAILABLE" };
 
-async function readMeTenant(): Promise<TenantSession> {
-  if (!(await getAccessToken())) return { status: "UNAUTHENTICATED" };
-  let res: Response;
-  try {
-    res = await serverApiFetch("/api/me/tenant", { headers: { accept: "application/json" }, signal: AbortSignal.timeout(4000) });
-  } catch {
-    return { status: "UNAVAILABLE" };
+export type SessionFetcher = (path: string, init?: RequestInit) => Promise<Response>;
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Validates the parts of the body the shell relies on. Returns null for anything that is not the contract (never a partial object). */
+export function parseMeTenant(data: unknown): MeTenant | null {
+  if (!isObj(data)) return null;
+  const { org, member, person, roles, permissions, modules, workspaces, consent, features } = data;
+  if (!isObj(org) || typeof org.id !== "number" || typeof org.displayName !== "string") return null;
+  if (!isObj(member) || typeof member.status !== "string") return null;
+  if (!isObj(person) || typeof person.name !== "string") return null;
+  if (!Array.isArray(roles) || !isObj(permissions) || !isObj(modules) || !Array.isArray(workspaces)) return null;
+  if (!isObj(consent) || !isObj(features) || !Array.isArray(features.licensed)) return null;
+  for (const k of MODULE_KEYS) if (typeof modules[k] !== "boolean") return null;
+  for (const w of workspaces) {
+    if (!isObj(w) || typeof w.key !== "string" || typeof w.home !== "string" || !Array.isArray(w.nav) || !Array.isArray(w.bottomTabs)) return null;
+    if (!w.home.startsWith("/w/")) return null;
+    for (const n of w.nav) if (!isObj(n) || typeof n.key !== "string" || typeof n.href !== "string" || !n.href.startsWith("/w/")) return null;
   }
-  if (res.status === 401) return { status: "UNAUTHENTICATED" };
-  if (res.status === 403) return { status: "SUSPENDED" };
-  if (res.status === 404) {
-    // 404 is "not a member" once the route exists and "no such route" before X2.2: the API's body tells them apart.
-    const body = (await res.json().catch(() => null)) as { code?: string } | null;
-    return body?.code === "NOT_A_MEMBER" ? { status: "NOT_A_MEMBER" } : { status: "NO_CONTRACT" };
-  }
-  if (!res.ok) return { status: "UNAVAILABLE" };
-  const data = (await res.json().catch(() => null)) as { landing?: unknown; org?: { displayName?: unknown } } | null;
-  if (!data) return { status: "UNAVAILABLE" };
-  // The API names the landing; the web only ever follows a plain same-host path (never builds a cross-host URL, never trusts "//x").
-  const landing = safeReturnTo(typeof data.landing === "string" ? data.landing : undefined);
-  const orgName = typeof data.org?.displayName === "string" ? data.org.displayName : null;
-  return landing ? { status: "OK", landing, orgName } : { status: "NO_CONTRACT" };
+  const landing = typeof data.landing === "string" ? data.landing : null;
+  if (landing !== null && !landing.startsWith("/w/")) return null;
+  return { ...(data as unknown as MeTenant), landing, landingKey: typeof data.landingKey === "string" ? data.landingKey : null };
 }
 
-/** The visitor's session on this tenant host, asked once per request. */
-export const getTenantSession = cache(readMeTenant);
+/** One call, one classified answer. Never throws. `etag` is the validator for the focus re-check (`revalidateTenantSession`). */
+export async function fetchTenantSession(fetcher: SessionFetcher, init: RequestInit = {}): Promise<TenantSession | { kind: "NOT_MODIFIED" }> {
+  try {
+    const res = await fetcher("/api/me/tenant", { ...init, headers: { accept: "application/json", ...(init.headers as Record<string, string> | undefined) }, signal: init.signal ?? AbortSignal.timeout(4000) });
+    if (res.status === 304) return { kind: "NOT_MODIFIED" };
+    if (res.status === 401) return { kind: "UNAUTHENTICATED" };
+    if (res.status === 429 || res.status >= 500) return { kind: "UNAVAILABLE" };
+    if (res.status === 403) {
+      const body = (await res.json().catch(() => null)) as { code?: unknown } | null;
+      return body?.code === "MEMBER_SUSPENDED" ? { kind: "SUSPENDED" } : { kind: "NOT_A_MEMBER" };
+    }
+    if (!res.ok) return { kind: "NOT_A_MEMBER" };
+    const me = parseMeTenant(await res.json().catch(() => null));
+    return me ? { kind: "OK", me, etag: res.headers.get("etag") } : { kind: "UNAVAILABLE" };
+  } catch {
+    return { kind: "UNAVAILABLE" };
+  }
+}
 
 /**
- * Where a signed-in visitor goes from `/` and `/login`: `next` when it is a safe same-host path, else the API's landing.
- * Null when there is nowhere to send them (show the page).
+ * The shell's focus check (every 5 minutes): has this member's access changed? `true` when the ETag differs (show "Your access
+ * changed - reload"). Anything that is not a clean 304 or a 200 with the same tag is "changed" (fail towards re-checking).
+ */
+export async function accessChanged(fetcher: SessionFetcher, etag: string | null): Promise<boolean> {
+  if (!etag) return true;
+  const r = await fetchTenantSession(fetcher, { headers: { "If-None-Match": etag } });
+  if (r.kind === "NOT_MODIFIED") return false;
+  if (r.kind === "OK") return r.etag !== etag;
+  return r.kind !== "UNAVAILABLE"; // unreachable is not a change: keep the shell, try again next time
+}
+
+/** The tenant session for the current request (server components and route handlers), resolved once per request. */
+export const getTenantSession = cache(async (): Promise<TenantSession> => {
+  const { serverApiFetch } = await import("@/lib/api");
+  const r = await fetchTenantSession((path, init) => serverApiFetch(path, init));
+  return r.kind === "NOT_MODIFIED" ? { kind: "UNAVAILABLE" } : r; // a 304 can only follow our own If-None-Match: never here
+});
+
+/**
+ * Where a signed-in visitor goes from `/` and `/login` (X2.6): `next` when it is a safe same-host path, else the API's landing
+ * workspace home (only ever a plain same-host path). Null when there is nowhere to send them (show the page).
  */
 export function destinationFor(session: TenantSession, next?: string | string[] | null): string | null {
-  if (session.status !== "OK") return null;
-  return safeReturnTo(next) ?? session.landing;
+  if (session.kind !== "OK") return null;
+  return safeReturnTo(next) ?? safeReturnTo(session.me.landing ?? undefined) ?? null;
 }
 
 /** For tenant pages that need a member: signed out (or another tenant's token) goes to the sign-in with a return-to. */
-export async function requireTenantSession(returnTo: string): Promise<Exclude<TenantSession, { status: "UNAUTHENTICATED" }>> {
+export async function requireTenantSession(returnTo: string): Promise<Exclude<TenantSession, { kind: "UNAUTHENTICATED" }>> {
   const s = await getTenantSession();
-  if (s.status === "UNAUTHENTICATED") {
+  if (s.kind === "UNAUTHENTICATED") {
     const next = safeReturnTo(returnTo);
     redirect(next ? `/login?next=${encodeURIComponent(next)}` : "/login");
   }
-  return s;
+  return s as Exclude<TenantSession, { kind: "UNAUTHENTICATED" }>;
 }

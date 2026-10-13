@@ -30,6 +30,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  */
 public class TenantTokenBindingFilter extends OncePerRequestFilter {
 
+    /** X2.2: the shell's session contract is a tenant route even though it has no organization id in its path (a token without tid is 401 there, as on /api/orgs). */
+    private static final String TENANT_SESSION_PATH = "/api/me/tenant";
+
     private static final Pattern ORG_SCOPED = Pattern.compile("^/api/(orgs/[0-9]+(/.*)?|ent(/.*)?)$");
 
     @Override
@@ -44,7 +47,7 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
         Long tid = TenantTokenBinding.tenantOf(jwtAuth.getToken());
         TenantContext c = context.get();
         if (c.isTenant()) {
-            if (OrgsEnabledFilter.isOrgPath(path) || path.equals("/api/ent") || path.startsWith("/api/ent/")) {
+            if (OrgsEnabledFilter.isOrgPath(path) || path.equals("/api/ent") || path.startsWith("/api/ent/") || path.equals(TENANT_SESSION_PATH)) {
                 if (tid == null) {
                     unauthorized(response, "TOKEN_TENANT_REQUIRED");
                     return;
