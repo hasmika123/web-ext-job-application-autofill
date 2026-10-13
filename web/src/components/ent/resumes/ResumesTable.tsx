@@ -29,7 +29,7 @@ function SortHead({ label, k, sort, onSort, className }: { label: string; k: Sor
   const active = sort.key === k;
   return (
     <th scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"} className={`${HEAD} ${className ?? ""}`}>
-      <button type="button" onClick={() => onSort(k)} className="inline-flex items-center gap-1 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent" title={`Sort by ${label.toLowerCase()}`}>
+      <button type="button" onClick={() => onSort(k)} className="inline-flex items-center gap-1 whitespace-nowrap hover:text-ink focus-visible:outline-2 focus-visible:outline-accent" title={`Sort by ${label.toLowerCase()}`}>
         {label}
         {active && (sort.dir === "asc" ? <ArrowUpIcon aria-hidden size={12} /> : <ArrowDownIcon aria-hidden size={12} />)}
       </button>

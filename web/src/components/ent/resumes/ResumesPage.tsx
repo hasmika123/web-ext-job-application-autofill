@@ -109,7 +109,7 @@ export default function ResumesPage({ orgName, orgId, permissions, supportEmail 
 
   const apply = useCallback((patch: Partial<ResumeUrlState>, resetPage = true) => {
     const next: ResumeUrlState = { ...stateRef.current, ...patch, page: patch.page ?? (resetPage ? 0 : stateRef.current.page) };
-    window.history.replaceState(window.history.state, "", `${window.location.pathname}${stateToSearch(next)}`);
+    window.history.replaceState(null, "", `${window.location.pathname}${stateToSearch(next)}`);
   }, []);
 
   /* ── data ─────────────────────────────────────────────────────────────────────── */
@@ -283,21 +283,21 @@ export default function ResumesPage({ orgName, orgId, permissions, supportEmail 
 
           <section aria-label="Resumes" className="space-y-3 rounded-2xl border border-line bg-paper p-3 sm:p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <Tabs value={state.tab} onValueChange={(v) => apply({ tab: v as TabKey })} variant="underline" className="min-w-0">
+              <Tabs value={state.tab} onValueChange={(v) => apply({ tab: v as TabKey })} variant="underline" className="min-w-0 max-w-full overflow-x-auto">
                 <TabList aria-label="Resume views">
                   <Tab value="all">
                     <span className="inline-flex items-center gap-1.5">
-                      <FileTextIcon aria-hidden size={15} /> {TAB_LABEL.all}
+                      <FileTextIcon aria-hidden size={15} className="hidden sm:block" /> {TAB_LABEL.all}
                     </span>
                   </Tab>
                   <Tab value="pending">
                     <span className="inline-flex items-center gap-1.5">
-                      <ClipboardCheckIcon aria-hidden size={15} /> {TAB_LABEL.pending}
+                      <ClipboardCheckIcon aria-hidden size={15} className="hidden sm:block" /> {TAB_LABEL.pending}
                     </span>
                   </Tab>
                   <Tab value="recent">
                     <span className="inline-flex items-center gap-1.5">
-                      <ClockIcon aria-hidden size={15} /> {TAB_LABEL.recent}
+                      <ClockIcon aria-hidden size={15} className="hidden sm:block" /> {TAB_LABEL.recent}
                     </span>
                   </Tab>
                 </TabList>
@@ -316,7 +316,7 @@ export default function ResumesPage({ orgName, orgId, permissions, supportEmail 
                 onQueryChange={(q) => apply({ q })}
                 values={filterValues}
                 onFilterChange={onFilter}
-                search={{ placeholder: "Search resumes by name, consultant, role, or skills...", label: "Search resumes" }}
+                search={{ placeholder: "Search name, role, or skills...", label: "Search resumes" }}
                 filters={filters}
                 actions={
                   <Button type="button" variant="ghost" size="sm" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>

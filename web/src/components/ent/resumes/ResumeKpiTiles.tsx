@@ -34,13 +34,13 @@ export default function ResumeKpiTiles({ counts, loading, error, compact = false
         const tile: ResumeTile | null = counts ? counts[t.key] : null;
         const delta = resumeTileDelta(tile);
         return (
-          <li key={t.key} data-kpi={t.key}>
+          <li key={t.key} data-kpi={t.key} className="min-w-0">
             <Card className="flex h-full flex-col gap-2 !p-4">
               <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
                 {t.icon}
               </span>
               <span className="text-[13px] font-medium leading-tight text-ink-soft">{t.label}</span>
-              <div className="flex items-end justify-between gap-3">
+              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
                 {loading ? (
                   <Skeleton className="h-8 w-16" />
                 ) : (
@@ -48,7 +48,11 @@ export default function ResumeKpiTiles({ counts, loading, error, compact = false
                     {tile ? tile.value.toLocaleString("en-US") : error ? "—" : ""}
                   </span>
                 )}
-                {tile && tile.series.length >= 2 && <Sparkline values={tile.series} label={t.series} className="h-9 w-24 flex-none" />}
+                {tile && tile.series.length >= 2 && (
+                  <div className="w-full max-w-28 flex-none sm:w-24">
+                    <Sparkline values={tile.series} label={t.series} className="h-9 w-full" />
+                  </div>
+                )}
               </div>
               {delta && (
                 <span className="flex flex-wrap items-center gap-1.5 text-[12px] text-muted" data-kpi-delta>

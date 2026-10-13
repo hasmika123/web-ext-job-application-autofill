@@ -434,8 +434,8 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
     );
   })();
 
-  const title = state.status === "ok" ? state.detail.row.consultant.name : "Resume";
-  const description = state.status === "ok" ? state.detail.row.name : undefined;
+  const title = state.status === "ok" ? state.detail.row.name : "Resume";
+  const description = state.status === "ok" ? `${versionText(state.detail.row.version)} (Latest)` : undefined;
 
   if (p.mode === "sheet") {
     return (

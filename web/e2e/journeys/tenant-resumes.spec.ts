@@ -45,12 +45,16 @@ test.describe("resumes (real stack)", () => {
     await page.screenshot({ path: resolve(shots, "resumes-1440.png") });
 
     // tab: Pending Approval keeps only pending rows and writes the tab to the URL
+    const pendingList = page.waitForResponse((r) => r.url().includes("/resumes?") && r.url().includes("tab=pending"));
     await page.getByRole("tab", { name: /Pending Approval/ }).click();
     await expect(page).toHaveURL(/tab=pending/);
+    await pendingList;
     await expect(rows(page).first()).toBeVisible();
     for (const r of await rows(page).all()) await expect(r).toContainText("Pending");
+    const recentList = page.waitForResponse((r) => r.url().includes("/resumes?") && r.url().includes("tab=recent"));
     await page.getByRole("tab", { name: /Recent Updates/ }).click();
     await expect(page).toHaveURL(/tab=recent/);
+    await recentList;
     await expect(rows(page).first()).toBeVisible();
     await page.getByRole("tab", { name: /All Resumes/ }).click();
     await expect(page).not.toHaveURL(/tab=/);
@@ -64,17 +68,19 @@ test.describe("resumes (real stack)", () => {
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page).not.toHaveURL(/vis=/);
     const search = page.getByRole("searchbox", { name: "Search resumes" });
-    await search.fill("Jessica");
-    await expect(page).toHaveURL(/q=Jessica/);
-    await expect(rows(page).first()).toContainText("Jessica");
+    const someone = (await rows(page).first().locator("td").nth(2).innerText()).split(/\s+/)[0].trim();
+    await search.fill(someone);
+    await expect(page).toHaveURL(new RegExp(`q=${someone}`));
+    await expect(rows(page).first()).toContainText(someone);
     await search.fill("");
+    await expect(page).not.toHaveURL(/q=/);
 
     // an approved, non-primary resume: open it in the drawer (the id lands in the URL and survives a reload)
     await page.goto(`${base}/w/admin/resumes?status=APPROVED&primary=no`);
     await expect(rows(page).first()).toBeVisible();
     const target = rows(page).first();
     const targetId = await target.getAttribute("data-row-id");
-    const targetName = (await target.locator("td").nth(2).locator("span").first().innerText()).trim();
+    const targetName = (await target.locator("td").nth(2).locator("span.font-semibold").innerText()).trim();
     await target.click();
     await expect(drawer(page).locator("[data-detail-body]")).toBeVisible();
     await expect(page).toHaveURL(new RegExp(`open=${targetId}`));
@@ -134,7 +140,7 @@ test.describe("resumes (real stack)", () => {
     await up.getByLabel("Professional summary").fill("Writes tests that find real problems.");
     await up.getByRole("button", { name: "Add resume" }).click();
     await expect(page.getByText(`${newName} was added`)).toBeVisible();
-    await expect(drawer(page).locator("[data-detail-body]")).toContainText(newName.replace("E2E ", ""));
+    await expect(drawer(page)).toContainText(newName);
     await expect(drawer(page).getByRole("button", { name: "Approve" })).toHaveCount(0);
     await expect(drawer(page)).toContainText("cannot approve it");
     await page.screenshot({ path: resolve(shots, "resumes-created-1440.png") });
