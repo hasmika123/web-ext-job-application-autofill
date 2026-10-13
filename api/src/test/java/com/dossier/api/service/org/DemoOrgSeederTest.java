@@ -35,7 +35,7 @@ class DemoOrgSeederTest {
 
     private DemoOrgSeeder seeder(MockEnvironment env, boolean demoEnabled, boolean orgsEnabled) {
         when(flag.isEnabled()).thenReturn(orgsEnabled);
-        return new DemoOrgSeeder(orgs, members, groups, users, authorities, applications, dataShare, audit, flag, encoder, env, demoEnabled);
+        return new DemoOrgSeeder(orgs, members, groups, users, authorities, applications, dataShare, audit, flag, encoder, env, mock(com.dossier.api.service.ent.OrgRoleService.class), demoEnabled);
     }
 
     private static User user(long id, String login) {

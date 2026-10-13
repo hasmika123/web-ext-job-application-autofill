@@ -13,6 +13,7 @@ import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.ResumeBuilderSettingKeys;
 import com.dossier.api.service.ResumeBuilderSettings;
+import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.dto.org.OrgCreateRequest;
 import com.dossier.api.service.dto.org.OrgDTO;
 import com.dossier.api.service.dto.org.OrgDetailDTO;
@@ -65,6 +66,7 @@ public class OrgService {
     private final ObjectMapper json;
     private final ApplicationEventPublisher events;
     private final ResumeBuilderSettings settings;
+    private final OrgRoleService roleService;
 
     public OrgService(
         OrganizationRepository orgs,
@@ -73,9 +75,11 @@ public class OrgService {
         OrgAuditService audit,
         ObjectMapper json,
         ApplicationEventPublisher events,
-        ResumeBuilderSettings settings
+        ResumeBuilderSettings settings,
+        OrgRoleService roleService
     ) {
         this.settings = settings;
+        this.roleService = roleService;
         this.orgs = orgs;
         this.members = members;
         this.users = users;
@@ -129,6 +133,7 @@ public class OrgService {
         owner.setStatus(OrgMemberStatus.ACTIVE);
         owner.setJoinedAt(Instant.now());
         owner = members.saveAndFlush(owner);
+        roleService.syncFromLegacy(owner); // Enterprise V2 (X1.6): the role rows follow the enum this code still writes
 
         audit.record(org.getId(), OrgRole.OWNER, OrgAuditService.ORG_CREATE, OrgAuditService.TARGET_ORG, null, org.getId().toString(), "type=" + org.getType() + " slug=" + slug);
         OrgMembership me = new OrgMembership(org.getId(), owner.getId(), user.getId(), login, OrgRole.OWNER, OrgMemberStatus.ACTIVE, org.getStatus());

@@ -166,7 +166,7 @@ class SettingDefinitionsTest {
     void theEnterpriseFlagsAreOffJsonFlagsWithOrgIdLists() {
         List<Key> flags = SettingDefinitions.all().stream().filter(k -> k.key().equals("flag.enterprise") || k.key().startsWith("flag.enterprise.")).toList();
         assertThat(flags).extracting(Key::key).containsExactlyInAnyOrder(
-            "flag.enterprise", "flag.enterprise.domains"
+            "flag.enterprise", "flag.enterprise.domains", "flag.enterprise.roles"
         );
         for (Key k : flags) {
             assertThat(k.type()).as(k.key()).isEqualTo(Type.JSON);
@@ -214,7 +214,7 @@ class SettingDefinitionsTest {
     void keysNothingReadsYetAreHiddenFromAdmin() {
         List<String> deferred = EnterpriseSettingKeys.deferred().stream().map(Key::key).toList();
         assertThat(deferred).contains(
-            "flag.enterprise.roles", "flag.enterprise.billing", "flag.enterprise.marketing", "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces",
+            "flag.enterprise.billing", "flag.enterprise.marketing", "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces",
             "enterprise.domains.subdomains_per_day", "enterprise.domains.recheck_hours", "enterprise.domains.grace_hours_before_suspend", "org.invite.require_email_match",
             "org.consent.request_cooldown_days", "enterprise.billing.mode_default", "enterprise.quote.ttl_minutes", "enterprise.usage.retention_months"
         );

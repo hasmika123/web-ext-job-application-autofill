@@ -9,6 +9,7 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.ent.OrgRoleService;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -37,11 +38,19 @@ public class OrgAccessService {
     private final UserRepository userRepository;
     private final OrgMemberRepository memberRepository;
     private final OrganizationRepository organizationRepository;
+    private final OrgRoleService roleService;
 
-    public OrgAccessService(UserRepository userRepository, OrgMemberRepository memberRepository, OrganizationRepository organizationRepository) {
+    /** {@code roleService} null (a test that does not exercise enterprise roles) = permissions always come from the legacy enum. */
+    public OrgAccessService(
+        UserRepository userRepository,
+        OrgMemberRepository memberRepository,
+        OrganizationRepository organizationRepository,
+        OrgRoleService roleService
+    ) {
         this.userRepository = userRepository;
         this.memberRepository = memberRepository;
         this.organizationRepository = organizationRepository;
+        this.roleService = roleService;
     }
 
     /** The caller's membership in {@code orgId} if they hold {@code permission} there; otherwise a 404. */
@@ -85,6 +94,17 @@ public class OrgAccessService {
         OrgMember seat = seats.get(0);
         Optional<Organization> org = organizationRepository.findByOrgId(orgId);
         if (org.isEmpty() || seat.getRole() == null || seat.getRole().isReserved()) return Optional.empty();
+        // Enterprise V2 (X1.6): with flag.enterprise.roles on for this org the permissions come from the member's role rows; any doubt
+        // (no rows, drift from the enum, no permission rows) keeps the legacy enum answer, which is what this always returned.
+        Optional<OrgRoleService.RoleGrants> data = roleService == null ? Optional.empty() : roleService.resolveGrants(orgId, seat);
+        if (data.isPresent()) {
+            return Optional.of(
+                new OrgMembership(
+                    orgId, seat.getId(), user.get().getId(), login.get(), seat.getRole(), seat.getStatus(), org.get().getStatus(),
+                    data.get().roles(), data.get().grants()
+                )
+            );
+        }
         return Optional.of(
             new OrgMembership(orgId, seat.getId(), user.get().getId(), login.get(), seat.getRole(), seat.getStatus(), org.get().getStatus())
         );

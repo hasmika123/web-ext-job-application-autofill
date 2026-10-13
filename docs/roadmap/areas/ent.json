@@ -430,7 +430,7 @@
       "id": "X1.6",
       "epic": "X1",
       "title": "Roles as data (read side): org_role, org_role_permission, org_member_role; system templates seeded from the enum; backfill; OrgMembership/OrgAccessService read the join table",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

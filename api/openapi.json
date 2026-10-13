@@ -66,6 +66,9 @@
     "name" : "job-matches",
     "description" : "Daily job matches (Pro)."
   }, {
+    "name" : "roles",
+    "description" : "Role templates and organization roles (read only)."
+  }, {
     "name" : "authentication",
     "description" : "Google sign-in (public)."
   }, {
@@ -8014,6 +8017,29 @@
         } ]
       }
     },
+    "/api/orgs/{orgId}/roles" : {
+      "get" : {
+        "tags" : [ "roles" ],
+        "summary" : "List the roles an organization can use",
+        "description" : "System templates (organization-independent, read-only) first, then the organization's own roles, each with its permission rows. Any active member. 404 when the organization is not enterprise-roles enabled or the caller is not a member.",
+        "operationId" : "list_6",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RoleDTO"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/mine" : {
       "get" : {
         "tags" : [ "org-resource" ],
@@ -9219,7 +9245,7 @@
     "/api/admin/users/{login}/sessions" : {
       "get" : {
         "tags" : [ "admin-session-resource" ],
-        "operationId" : "list_6",
+        "operationId" : "list_7",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -9249,7 +9275,7 @@
     "/api/admin/subscribers" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "list_7",
+        "operationId" : "list_8",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -9357,7 +9383,7 @@
     "/api/admin/settings" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "list_8",
+        "operationId" : "list_9",
         "parameters" : [ {
           "name" : "area",
           "in" : "query",
@@ -9464,7 +9490,7 @@
     "/api/admin/inquiries" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "list_9",
+        "operationId" : "list_10",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -9546,7 +9572,7 @@
     "/api/admin/customers" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "list_10",
+        "operationId" : "list_11",
         "parameters" : [ {
           "name" : "filter",
           "in" : "query",
@@ -9654,7 +9680,7 @@
     "/api/admin/bug-reports" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "list_11",
+        "operationId" : "list_12",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -14491,6 +14517,59 @@
           "count" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "PermissionDTO" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "ceilingRoleKey" : {
+            "type" : "string"
+          },
+          "rowFilter" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RoleDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "templateKey" : {
+            "type" : "string"
+          },
+          "system" : {
+            "type" : "boolean"
+          },
+          "editable" : {
+            "type" : "boolean"
+          },
+          "workspaceKey" : {
+            "type" : "string"
+          },
+          "permissions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionDTO"
+            }
           }
         }
       },

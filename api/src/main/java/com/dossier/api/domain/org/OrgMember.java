@@ -62,6 +62,10 @@ public class OrgMember implements Serializable {
     @Column(name = "support_owner_member_id")
     private Long supportOwnerMemberId;
 
+    /** The member's primary role in {@code org_role} (Enterprise V2, X1.6); null until backfilled or written. {@code role} stays the legacy mirror. */
+    @Column(name = "primary_role_id")
+    private Long primaryRoleId;
+
     @Column(name = "joined_at")
     private Instant joinedAt;
 
@@ -107,6 +111,8 @@ public class OrgMember implements Serializable {
     public void setDisplayLabel(String displayLabel) { this.displayLabel = displayLabel; }
     public Long getGroupId() { return groupId; }
     public void setGroupId(Long groupId) { this.groupId = groupId; }
+    public Long getPrimaryRoleId() { return primaryRoleId; }
+    public void setPrimaryRoleId(Long primaryRoleId) { this.primaryRoleId = primaryRoleId; }
     public Long getSupportOwnerMemberId() { return supportOwnerMemberId; }
     public void setSupportOwnerMemberId(Long supportOwnerMemberId) { this.supportOwnerMemberId = supportOwnerMemberId; }
     public Instant getJoinedAt() { return joinedAt; }

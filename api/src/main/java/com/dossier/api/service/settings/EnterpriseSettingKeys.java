@@ -82,7 +82,7 @@ public final class EnterpriseSettingKeys {
             "Master switch for Enterprise V2: tenant resolution from the request host, GET /api/public/tenant and every enterprise route. "
                 + "on = enabled; an allow list of organization ids narrows it to those organizations (a pilot); deny always wins. Off = those routes answer 404.");
         flag(k, FLAG_DOMAINS, Risk.HIGH, "Custom-domain lifecycle and the certificate 'ask' endpoint answering for custom hostnames. Needs the master flag.");
-        flag(d, FLAG_ROLES, Risk.MEDIUM, "Roles stored as data become authoritative and the role editor appears. Needs the master flag." + NOT_ENFORCED);
+        flag(k, FLAG_ROLES, Risk.MEDIUM, "Organization member permissions are read from role data (several roles per member, scopes) instead of the fixed role enum, and GET /api/orgs/{id}/roles answers. A member whose role data is missing or disagrees with the enum keeps the enum. Needs the master flag.");
         flag(d, FLAG_BILLING, Risk.HIGH, "Enterprise license APIs and Stripe organization billing. Needs the master flag." + NOT_ENFORCED);
         flag(d, FLAG_MARKETING, Risk.MEDIUM, "Talent marketing and pipeline modules. Needs the master flag." + NOT_ENFORCED);
         flag(d, FLAG_HR_FINANCE, Risk.MEDIUM, "HR and Finance record modules. Needs the master flag." + NOT_ENFORCED);

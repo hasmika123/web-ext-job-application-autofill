@@ -22,6 +22,7 @@ import com.dossier.api.repository.org.OrgGroupRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.AuthoritiesConstants;
+import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.org.DataShareService.ShareContext;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -131,6 +132,7 @@ public class DemoOrgSeeder {
     private final OrgFeatureFlag orgFlag;
     private final PasswordEncoder passwordEncoder;
     private final Environment environment;
+    private final OrgRoleService roleService;
     private final boolean demoEnabled;
 
     public DemoOrgSeeder(
@@ -145,6 +147,7 @@ public class DemoOrgSeeder {
         OrgFeatureFlag orgFlag,
         PasswordEncoder passwordEncoder,
         Environment environment,
+        OrgRoleService roleService,
         @Value("${dossier.demo.enabled:false}") boolean demoEnabled
     ) {
         this.orgs = orgs;
@@ -158,6 +161,7 @@ public class DemoOrgSeeder {
         this.orgFlag = orgFlag;
         this.passwordEncoder = passwordEncoder;
         this.environment = environment;
+        this.roleService = roleService;
         this.demoEnabled = demoEnabled;
     }
 
@@ -313,7 +317,9 @@ public class DemoOrgSeeder {
         m.setSupportOwnerMemberId(supportOwnerId);
         m.setDisplayLabel(label);
         m.setJoinedAt(joinedAt);
-        return members.saveAndFlush(m);
+        m = members.saveAndFlush(m);
+        roleService.syncFromLegacy(m); // Enterprise V2 (X1.6): dual write
+        return m;
     }
 
     private boolean invitedSeat(Long orgId, Person p, Long groupId, Long supportOwnerId, Long invitedBy, Instant invitedAt) {
@@ -328,7 +334,8 @@ public class DemoOrgSeeder {
         m.setGroupId(groupId);
         m.setSupportOwnerMemberId(supportOwnerId);
         m.setDisplayLabel(p.group());
-        members.saveAndFlush(m);
+        m = members.saveAndFlush(m);
+        roleService.syncFromLegacy(m); // Enterprise V2 (X1.6): dual write
         return true;
     }
 

@@ -48,7 +48,7 @@ class OrgAccessServiceTest {
         users = mock(UserRepository.class);
         members = mock(OrgMemberRepository.class);
         orgs = mock(OrganizationRepository.class);
-        service = new OrgAccessService(users, members, orgs);
+        service = new OrgAccessService(users, members, orgs, null);
         User u = new User();
         u.setId(USER_ID);
         u.setLogin("carol");

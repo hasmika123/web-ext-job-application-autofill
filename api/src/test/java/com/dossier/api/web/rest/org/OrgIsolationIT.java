@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.enumeration.OrgGroupKind;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgPermission;
@@ -17,6 +18,7 @@ import com.dossier.api.domain.org.OrgInviteBatch;
 import com.dossier.api.domain.org.OrgJoinCode;
 import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.domain.org.Organization;
+import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.org.DataShareEventRepository;
 import com.dossier.api.repository.org.DataShareRepository;
@@ -27,6 +29,7 @@ import com.dossier.api.repository.org.OrgInviteBatchRepository;
 import com.dossier.api.repository.org.OrgJoinCodeRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
+import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.org.DataShareService;
 import com.dossier.api.service.org.DataShareService.ShareContext;
 import com.dossier.api.service.org.OrgAuditService;
@@ -34,6 +37,7 @@ import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgShareConsent;
 import com.dossier.api.service.org.ShareField;
 import com.dossier.api.service.resume.OrgResumeSharing;
+import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import jakarta.persistence.EntityManager;
 import java.lang.reflect.Method;
 import java.time.Instant;
@@ -48,6 +52,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -118,7 +124,8 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/groups", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/groups", Case.write("{\"name\":\"Hijack\"}", 201, OrgAuditService.GROUP_CREATE)),
         Map.entry("PATCH /api/orgs/{orgId}/groups/{groupId}", Case.write("{\"name\":\"Hijack\"}", 200, OrgAuditService.GROUP_UPDATE)),
-        Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}", Case.write(null, 204, OrgAuditService.GROUP_DELETE))
+        Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}", Case.write(null, 204, OrgAuditService.GROUP_DELETE)),
+        Map.entry("GET /api/orgs/{orgId}/roles", Case.read())
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -138,6 +145,28 @@ class OrgIsolationIT {
     @Autowired private DataShareEventRepository shareEvents;
     @Autowired private DataShareService dataShare;
     @Autowired private OrgResumeSharing resumeSharing;
+    @Autowired private AppSettingRepository settingRows;
+    @Autowired private ResumeBuilderSettings settingsCache;
+
+    private static final String FLAG_WRITER = "isolation-it";
+
+    /**
+     * Enterprise V2 routes (the roles API, X1.6) exist only behind their flags, which ship off. The gate must be proven with the
+     * routes REACHABLE, so every test here runs with the master and roles flags on: a route that was only "protected" by being
+     * switched off would otherwise pass the hostile-caller test for the wrong reason.
+     */
+    @BeforeEach
+    void enterpriseFlagsOn() {
+        settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_ENTERPRISE, "{\"on\":true}", FLAG_WRITER, Instant.now()));
+        settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_ROLES, "{\"on\":true}", FLAG_WRITER, Instant.now()));
+        settingsCache.invalidate();
+    }
+
+    @AfterEach
+    void enterpriseFlagsOff() {
+        for (AppSetting row : settingRows.findAll()) if (FLAG_WRITER.equals(row.getUpdatedBy())) settingRows.delete(row);
+        settingsCache.invalidate();
+    }
 
     private OrgFixtures fx;
 
@@ -286,7 +315,7 @@ class OrgIsolationIT {
     private static void assertGeneric404(MvcResult r, String what) throws Exception {
         String body = r.getResponse().getContentAsString();
         assertThat(r.getResponse().getStatus()).as(what + " -> " + body).isEqualTo(404);
-        String lower = body.toLowerCase();
+        String lower = body.toLowerCase().replaceAll("\"(instance|path)\":\"[^\"]*\"", ""); // the echoed request path may legitimately contain /roles
         assertThat(lower).as(what).contains("\"code\":\"not_found\"").doesNotContain("forbidden").doesNotContain("permission").doesNotContain("not a member").doesNotContain("role").doesNotContain("denied");
     }
 

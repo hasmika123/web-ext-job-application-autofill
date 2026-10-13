@@ -25,7 +25,12 @@ class EntRepositoryContractTest {
     /** Lookups that exist to FIND the tenant from a host, so they cannot take an org id (04-tenancy-and-security.md section 2.2). */
     private static final Set<String> ALLOW_LISTED = Set.of(
         "OrgHostnameRepository.findActiveByHostname",
-        "OrgHostnameRepository.findBySubdomain"
+        "OrgHostnameRepository.findBySubdomain",
+        // System role templates belong to no organization (org_id NULL); only the seeder and the legacy-seat sync read them (X1.6).
+        "OrgRoleRepository.findSystemByRoleKey",
+        "OrgRoleRepository.findSystemRoles",
+        "OrgRolePermissionRepository.findAllSystemRolePermissions",
+        "OrgRolePermissionRepository.deleteSystemRolePermissions"
     );
 
     private static List<Class<?>> entRepositories() throws ClassNotFoundException {
@@ -45,7 +50,7 @@ class EntRepositoryContractTest {
 
     @Test
     void theEntRepositoriesAreFound() throws Exception {
-        assertThat(entRepositories()).extracting(Class::getSimpleName).contains("OrgHostnameRepository", "OrgBrandingRepository", "OrgSettingRepository");
+        assertThat(entRepositories()).extracting(Class::getSimpleName).contains("OrgHostnameRepository", "OrgBrandingRepository", "OrgSettingRepository", "OrgRoleRepository", "OrgRolePermissionRepository", "OrgMemberRoleRepository");
     }
 
     @Test

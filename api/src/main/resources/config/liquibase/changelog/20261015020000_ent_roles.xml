@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 roles as data, X1.6 (docs/enterprise-v2/03-domain-model.md section 2.1, 05-permission-model.md section 3, ADR-005, ADR-023).
+
+        Additive only: three new tables (org_role, org_role_permission, org_member_role) and one nullable column on org_member
+        (primary_role_id). Nothing is renamed, dropped or moved; org_member.role (the legacy enum column) stays and is the
+        compatibility mirror. Every changeset has a precondition (MARK_RAN) so a re-run, or a database that already has the
+        object, is a no-op, and carries a rollback. Raw SQL (generated columns) is one column per changeset.
+
+        System templates are organization-independent rows (org_id NULL). This changelog seeds the twelve ROW headers only,
+        because the backfill below needs their ids; the permission rows are written by RoleTemplateSeeder at startup from the
+        one code definition (RoleTemplates), so the matrix of 05 section 3 exists in exactly one place and cannot drift from
+        a copy in SQL. A member whose primary role has no permission rows yet falls back to the enum (fail to the old behaviour,
+        never to "no checks"), so the window between migration and the seeder's first run grants nothing new.
+
+        The backfill gives every live org_member (INVITED, ACTIVE, SUSPENDED) one org_member_role row marked primary, mapped
+        from the enum (OWNER to OWNER, ADMIN to ORG_ADMIN, STAFF to STAFF, MEMBER to MEMBER, MARKETER to MARKETING_SPECIALIST,
+        FINANCE to FINANCE_SPECIALIST; COACH is reserved and has no template), and points org_member.primary_role_id at it.
+        Both are idempotent (NOT EXISTS / primary_role_id IS NULL).
+
+        org_role_permission also carries ceiling_role_key and row_filter. 41-database-design.md schedules those for the
+        Phase-4 changelog, but the legacy OrgScope mapping (05 section 4: MEMBER_ROLE_ONLY, BELOW_ADMIN_ROLES and
+        BILLING_AND_OPS_ROWS become ORG plus an attribute) is applied by the seeder in this story, and a role row that dropped
+        the narrowing would silently widen STAFF and ORG_ADMIN. The Phase-4 changelog must add them only behind a
+        columnExists precondition.
+    -->
+
+    <changeSet id="20261015020000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_role"/></not>
+        </preConditions>
+        <createTable tableName="org_role">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint"/>
+            <column name="role_key" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="name" type="varchar(80)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="description" type="varchar(255)"/>
+            <column name="template_key" type="varchar(40)"/>
+            <column name="is_system" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_editable" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="workspace_key" type="varchar(40)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="org_role" indexName="ix_org_role_org">
+            <column name="org_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_role" baseColumnNames="org_id"
+            constraintName="fk_org_role_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <rollback>
+            <dropTable tableName="org_role"/>
+        </rollback>
+    </changeSet>
+
+    <!-- (org_id, role_key) must be unique including the organization-independent rows, and MySQL treats NULLs as distinct in a unique index: COALESCE(org_id, 0) in a generated column. -->
+    <changeSet id="20261015020000-2" author="dossier" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_role" columnName="role_scope_key"/></not>
+        </preConditions>
+        <sql>
+            ALTER TABLE org_role ADD COLUMN role_scope_key VARCHAR(80)
+                GENERATED ALWAYS AS (CONCAT(COALESCE(org_id, 0), ':', role_key)) STORED
+        </sql>
+        <rollback>
+            <dropColumn tableName="org_role" columnName="role_scope_key"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261015020000-3" author="dossier" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <not><indexExists tableName="org_role" indexName="uk_org_role_scope_key"/></not>
+        </preConditions>
+        <createIndex tableName="org_role" indexName="uk_org_role_scope_key" unique="true">
+            <column name="role_scope_key"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261015020000-4" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_role_permission"/></not>
+        </preConditions>
+        <createTable tableName="org_role_permission">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="role_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="permission_key" type="varchar(60)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="scope" type="varchar(12)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ceiling_role_key" type="varchar(40)"/>
+            <column name="row_filter" type="varchar(30)"/>
+        </createTable>
+        <createIndex tableName="org_role_permission" indexName="uk_org_role_permission" unique="true">
+            <column name="role_id"/>
+            <column name="permission_key"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_role_permission" baseColumnNames="role_id"
+            constraintName="fk_org_role_permission_role" referencedTableName="org_role" referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <rollback>
+            <dropTable tableName="org_role_permission"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261015020000-5" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_member_role"/></not>
+        </preConditions>
+        <createTable tableName="org_member_role">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="member_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="role_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="is_primary" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="granted_by_member_id" type="bigint"/>
+            <column name="granted_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ends_at" type="${datetimeType}"/>
+        </createTable>
+        <createIndex tableName="org_member_role" indexName="ix_org_member_role_member">
+            <column name="org_id"/>
+            <column name="member_id"/>
+        </createIndex>
+        <createIndex tableName="org_member_role" indexName="ix_org_member_role_role">
+            <column name="org_id"/>
+            <column name="role_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_member_role" baseColumnNames="org_id"
+            constraintName="fk_org_member_role_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_member_role" baseColumnNames="member_id"
+            constraintName="fk_org_member_role_member" referencedTableName="org_member" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_member_role" baseColumnNames="role_id"
+            constraintName="fk_org_member_role_role" referencedTableName="org_role" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_member_role" baseColumnNames="granted_by_member_id"
+            constraintName="fk_org_member_role_granter" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+        <rollback>
+            <dropTable tableName="org_member_role"/>
+        </rollback>
+    </changeSet>
+
+    <!-- A member holds a role at most once at a time (ended rows keep history and free the slot) ... -->
+    <changeSet id="20261015020000-6" author="dossier" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_member_role" columnName="active_role_key"/></not>
+        </preConditions>
+        <sql>
+            ALTER TABLE org_member_role ADD COLUMN active_role_key VARCHAR(41)
+                GENERATED ALWAYS AS (IF(ends_at IS NULL, CONCAT(member_id, ':', role_id), NULL)) STORED
+        </sql>
+        <rollback>
+            <dropColumn tableName="org_member_role" columnName="active_role_key"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261015020000-7" author="dossier" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <not><indexExists tableName="org_member_role" indexName="uk_org_member_role_active"/></not>
+        </preConditions>
+        <createIndex tableName="org_member_role" indexName="uk_org_member_role_active" unique="true">
+            <column name="active_role_key"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- ... and has at most one live primary role (the landing workspace). -->
+    <changeSet id="20261015020000-8" author="dossier" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_member_role" columnName="primary_member_key"/></not>
+        </preConditions>
+        <sql>
+            ALTER TABLE org_member_role ADD COLUMN primary_member_key BIGINT
+                GENERATED ALWAYS AS (IF(is_primary AND ends_at IS NULL, member_id, NULL)) STORED
+        </sql>
+        <rollback>
+            <dropColumn tableName="org_member_role" columnName="primary_member_key"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261015020000-9" author="dossier" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <not><indexExists tableName="org_member_role" indexName="uk_org_member_role_primary"/></not>
+        </preConditions>
+        <createIndex tableName="org_member_role" indexName="uk_org_member_role_primary" unique="true">
+            <column name="primary_member_key"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261015020000-10" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_member" columnName="primary_role_id"/></not>
+        </preConditions>
+        <addColumn tableName="org_member">
+            <column name="primary_role_id" type="bigint"/>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="org_member" columnName="primary_role_id"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261015020000-11" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><foreignKeyConstraintExists foreignKeyTableName="org_member" foreignKeyName="fk_org_member_primary_role"/></not>
+        </preConditions>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="primary_role_id"
+            constraintName="fk_org_member_primary_role" referencedTableName="org_role" referencedColumnNames="id"/>
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_org_member_primary_role"/>
+        </rollback>
+    </changeSet>
+
+    <!-- The twelve system templates (headers only; permission rows come from RoleTemplateSeeder). -->
+    <changeSet id="20261015020000-12" author="dossier" dbms="mysql">
+        <sql splitStatements="true" endDelimiter=";">
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'OWNER', 'Owner', 'OWNER', TRUE, FALSE, 'ADMIN', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'OWNER');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'ORG_ADMIN', 'Organization Admin', 'ORG_ADMIN', TRUE, FALSE, 'ADMIN', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'ORG_ADMIN');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'STAFF', 'Staff', 'STAFF', TRUE, FALSE, NULL, NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'STAFF');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'MEMBER', 'Member', 'MEMBER', TRUE, FALSE, NULL, NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'MEMBER');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'CONSULTANT', 'Consultant', 'CONSULTANT', TRUE, FALSE, 'CONSULTANT', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'CONSULTANT');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'MARKETING_SPECIALIST', 'Marketing Specialist', 'MARKETING_SPECIALIST', TRUE, FALSE, 'MARKETING', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'MARKETING_SPECIALIST');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'MARKETING_MANAGER', 'Marketing Manager', 'MARKETING_MANAGER', TRUE, FALSE, 'MARKETING_MGMT', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'MARKETING_MANAGER');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'HR_SPECIALIST', 'HR Specialist', 'HR_SPECIALIST', TRUE, FALSE, 'HR', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'HR_SPECIALIST');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'FINANCE_SPECIALIST', 'Finance Specialist', 'FINANCE_SPECIALIST', TRUE, FALSE, 'FINANCE', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'FINANCE_SPECIALIST');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'ACCOUNT_MANAGER', 'Account Manager', 'ACCOUNT_MANAGER', TRUE, FALSE, 'ACCOUNTS', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'ACCOUNT_MANAGER');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'TALENT_ACQUISITION', 'Talent Acquisition', 'TALENT_ACQUISITION', TRUE, FALSE, 'HR', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'TALENT_ACQUISITION');
+            INSERT INTO org_role (org_id, role_key, name, template_key, is_system, is_editable, workspace_key, created_at, updated_at)
+            SELECT NULL, 'EXECUTIVE_VIEWER', 'Executive Viewer', 'EXECUTIVE_VIEWER', TRUE, FALSE, 'EXEC', NOW(6), NOW(6) FROM DUAL
+            WHERE NOT EXISTS (SELECT 1 FROM org_role WHERE org_id IS NULL AND role_key = 'EXECUTIVE_VIEWER');
+        </sql>
+        <rollback>
+            <sql>DELETE FROM org_role WHERE org_id IS NULL AND is_system = TRUE</sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="ent-roles-backfill" author="dossier" dbms="mysql">
+        <sql>
+            INSERT INTO org_member_role (org_id, member_id, role_id, is_primary, granted_at)
+            SELECT m.org_id, m.id, r.id, TRUE, NOW(6)
+            FROM org_member m
+            JOIN org_role r ON r.org_id IS NULL AND r.role_key = CASE m.role
+                WHEN 'OWNER' THEN 'OWNER'
+                WHEN 'ADMIN' THEN 'ORG_ADMIN'
+                WHEN 'STAFF' THEN 'STAFF'
+                WHEN 'MEMBER' THEN 'MEMBER'
+                WHEN 'MARKETER' THEN 'MARKETING_SPECIALIST'
+                WHEN 'FINANCE' THEN 'FINANCE_SPECIALIST'
+            END
+            WHERE m.status IN ('INVITED', 'ACTIVE', 'SUSPENDED')
+              AND NOT EXISTS (SELECT 1 FROM org_member_role x WHERE x.member_id = m.id AND x.ends_at IS NULL)
+        </sql>
+        <rollback>
+            <sql>DELETE FROM org_member_role</sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="ent-roles-backfill-primary" author="dossier" dbms="mysql">
+        <sql>
+            UPDATE org_member m
+            SET m.primary_role_id = (
+                SELECT mr.role_id FROM org_member_role mr
+                WHERE mr.member_id = m.id AND mr.is_primary = TRUE AND mr.ends_at IS NULL
+            )
+            WHERE m.primary_role_id IS NULL
+        </sql>
+        <rollback>
+            <sql>UPDATE org_member SET primary_role_id = NULL</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
