@@ -43,11 +43,13 @@ class TenantModulesTest {
         EnterpriseFeatureFlag flag = mock(EnterpriseFeatureFlag.class);
         when(flag.isEnabled(anyString(), anyLong())).thenReturn(true);
         Map<String, Boolean> m = new TenantModules(flag).forOrg(5L);
-        // billing, marketing, hrFinance, extensionWorkspaces, integrations and analytics are deferred keys: nobody can have switched them on yet
-        for (String deferred : List.of("billing", "marketing", "hrFinance", "extensionWorkspaces", "integrations", "analytics")) {
+        // billing, hrFinance, extensionWorkspaces, integrations and analytics are deferred keys: nobody can have switched them on yet
+        // (marketing went live with the Marketing workspace pages: it reads its flag like domains and roles do)
+        for (String deferred : List.of("billing", "hrFinance", "extensionWorkspaces", "integrations", "analytics")) {
             assertThat(m.get(deferred)).as(deferred).isFalse();
         }
-        verify(flag, never()).isEnabled(EnterpriseSettingKeys.FLAG_MARKETING, 5L);
+        verify(flag, never()).isEnabled(EnterpriseSettingKeys.FLAG_BILLING, 5L);
+        assertThat(m.get("marketing")).isTrue();
     }
 
     @Test
