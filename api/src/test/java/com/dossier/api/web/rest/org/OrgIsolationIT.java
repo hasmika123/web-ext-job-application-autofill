@@ -269,7 +269,19 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/update", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"priority\":\"HIGH\"}", null, w -> w.mktAssigned())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/unassign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "]}", null, w -> w.mktAssigned())),
-        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/restore", Case.people(200, "MARKETING_BULK", 2, w -> "{\"rows\":[{\"consultantId\":" + w.mktConsultantId + ",\"marketerMemberId\":null}]}", null, w -> w.mktAssigned()))
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/restore", Case.people(200, "MARKETING_BULK", 2, w -> "{\"rows\":[{\"consultantId\":" + w.mktConsultantId + ",\"marketerMemberId\":null}]}", null, w -> w.mktAssigned())),
+        // Enterprise V2 Applications page (docs/enterprise-v2/page-applications.md): reads write no audit row; every mutation writes one APPLICATION_* row.
+        Map.entry("GET /api/orgs/{orgId}/applications", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/pickers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/pipeline", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/analytics", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/{applicationId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/applications", Case.versioned(201, "APPLICATION_CREATE", w -> "{\"requirementId\":" + w.appTalent.requirementId() + ",\"consultantId\":" + w.appTalent.spareConsultantId() + "}", w -> null)),
+        Map.entry("PATCH /api/orgs/{orgId}/applications/{applicationId}", Case.versioned(200, "APPLICATION_UPDATE", w -> "{\"nextAction\":\"Hijacked\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/applications/{applicationId}/stage", Case.versioned(200, "APPLICATION_STAGE", w -> "{\"stage\":\"SUBMITTED\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/applications/{applicationId}/notes", Case.versioned(201, "APPLICATION_NOTE", w -> "{\"body\":\"Hijacked note\"}", w -> null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -369,6 +381,8 @@ class OrgIsolationIT {
         Long jobId;
         Long matchId;
         String jobVersion;
+        /** Applications page: one client, job, two consultants and an ASSIGNED application of this organization. */
+        com.dossier.api.web.rest.ent.ApplicationItSupport.Rows appTalent;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -554,6 +568,7 @@ class OrgIsolationIT {
             a.setConsultantId(mktConsultantId);
             a.setMarketerMemberId(member.getId());
             mktAssignments.saveAndFlush(a);
+            appTalent = com.dossier.api.web.rest.ent.ApplicationItSupport.seed(em, org.getId(), owner.getId());
         }
 
         /** Puts the member in the SUSPENDED state (what a reinstate needs to find). */
@@ -587,6 +602,7 @@ class OrgIsolationIT {
             ids.put("resumeId", String.valueOf(resumeId));
             ids.put("jobId", String.valueOf(jobId));
             ids.put("matchId", String.valueOf(matchId));
+            ids.put("applicationId", String.valueOf(appTalent.applicationId()));
             return ids;
         }
 
@@ -701,6 +717,7 @@ class OrgIsolationIT {
         s.append("jobMatches:").append(jobMatches.findByOrgId(w.org.getId()).stream().map(m -> m.getId() + "|" + m.getStatus() + "|" + m.getAssignedAt()).toList()).append('\n');
         s.append("audit:").append(audit.countByOrgId(w.org.getId())).append('\n');
         s.append("events:").append(shareEvents.countByOrgId(w.org.getId())).append('\n');
+        s.append(com.dossier.api.web.rest.ent.ApplicationItSupport.fingerprint(em, w.org.getId()));
         return s.toString();
     }
 
