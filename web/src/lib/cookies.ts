@@ -20,6 +20,24 @@ export const REFRESH_COOKIE = "kiwiply_refresh";
  */
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
 
+/**
+ * Tenant hosts (X1.5 spec gap, doc 42 T19): the session cookies carry the `__Host-` prefix (browser-enforced: Secure, no Domain,
+ * Path=/), so a sibling tenant or `evil.kiwiply.com` can never plant or shadow them with a `Domain=.kiwiply.com` cookie. A tenant
+ * host reads and writes ONLY these names; the platform reads and writes ONLY the plain ones, so neither ever sees the other's.
+ */
+export const TENANT_ACCESS_COOKIE = "__Host-kiwiply_access";
+export const TENANT_REFRESH_COOKIE = "__Host-kiwiply_refresh";
+
+export function sessionCookieNames(tenant: boolean): { access: string; refresh: string } {
+  return tenant ? { access: TENANT_ACCESS_COOKIE, refresh: TENANT_REFRESH_COOKIE } : { access: ACCESS_COOKIE, refresh: REFRESH_COOKIE };
+}
+
+/** Cookie options for the host kind: tenant cookies are always `Secure` (a `__Host-` cookie must be; Chromium accepts it on `*.localhost`). */
+export function sessionCookieOptionsFor(tenant: boolean) {
+  const base = sessionCookieOptions();
+  return tenant ? { ...base, secure: true } : base;
+}
+
 /** Options for the httpOnly session cookies. Used wherever these cookies are written. */
 export function sessionCookieOptions() {
   return {

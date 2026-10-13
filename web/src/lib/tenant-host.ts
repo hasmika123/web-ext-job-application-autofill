@@ -89,6 +89,17 @@ export function isRewriteExempt(pathname: string): boolean {
   return /\.[a-z0-9]{1,8}$/i.test(last);
 }
 
+/** The header the proxy sets on every request it handles: `tenant` or `platform`. The root layout reads it to decide whether Kiwiply's own chrome (cookie consent, bug report) mounts. Always overwritten. */
+export const SURFACE_HEADER = "x-kiwiply-surface";
+
+/**
+ * Tenant paths a signed-out visitor may open (X2.6): the sign-in and its helpers. Everything else on a tenant host is login-first.
+ * `/join/...` (the invite pages, X2.6 wrappers) are listed now so they work signed out when they land.
+ */
+export function isTenantPublicPath(pathname: string): boolean {
+  return ["/login", "/forgot-password", "/reset-password", "/account/activate", "/join"].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 export function isTenantRoutePath(pathname: string): boolean {
   return pathname === TENANT_ROUTE_PREFIX || pathname.startsWith(`${TENANT_ROUTE_PREFIX}/`);
 }

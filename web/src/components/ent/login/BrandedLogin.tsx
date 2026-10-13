@@ -19,6 +19,7 @@ import {
   cn,
 } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import { safeReturnTo } from "@/lib/tenant-urls";
 
 /**
  * The tenant sign-in (X2.3, rebuilt from the "Welcome Back" boards), one component for every organization, drawn from the
@@ -57,10 +58,9 @@ type View = "form" | "mfa" | "notMember" | "unavailable";
 export const DEFAULT_TITLE = "Welcome Back";
 export const DEFAULT_MESSAGE = "Sign in to access your workspace, tasks, and updates.";
 
-/** Only a same-host relative path is allowed as a post-login redirect (no open redirects). */
+/** Only a same-host relative path is allowed as a post-login redirect (no open redirects; the one rule is `safeReturnTo`, X2.10). */
 export function safeNext(next?: string | null): string | null {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
-  return next;
+  return safeReturnTo(next);
 }
 
 const DEFAULT_CHIPS = ["Secure Access", "Connect & Collaborate", "Tools for What's Next"];
