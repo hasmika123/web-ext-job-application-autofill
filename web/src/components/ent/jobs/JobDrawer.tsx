@@ -1,0 +1,457 @@
+"use client";
+
+import { useState } from "react";
+import type { ReactNode, RefObject } from "react";
+import {
+  BottomSheet,
+  BriefcaseIcon,
+  BuildingIcon,
+  Button,
+  CalendarIcon,
+  ChartIcon,
+  ErrorState,
+  GlobeIcon,
+  GraduationCapIcon,
+  MailIcon,
+  MapPinIcon,
+  MemberAvatar,
+  PencilIcon,
+  Select,
+  SideSheet,
+  Skeleton,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+  DollarIcon,
+  ClockIcon,
+  useToast,
+} from "@kiwiply/ui";
+import {
+  AVAILABILITY_LABEL,
+  employmentLabel,
+  experienceLabel,
+  jobsApi,
+  errorSentence,
+  postedText,
+  rateText,
+  relativeTime,
+  STAGE_LABEL,
+  STATUS_LABEL,
+  workModeLabel,
+  type ClientOption,
+  type JobDetail,
+  type PatchBody,
+  type TopMatch,
+} from "@/lib/ent/jobs";
+import EditForm from "./EditForm";
+import HelpBeeCard from "./HelpBeeCard";
+import { Kebab, SkillChips, StatusPill } from "./parts";
+import { useJobDetail } from "./useJobDetail";
+
+export type SheetMode = "push" | "overlay" | "sheet";
+export type DrawerTab = "overview" | "matches" | "submissions" | "activity";
+export const UNDO_MS = 9000; // config-literal-ok: how long an Undo stays offered (UI timing)
+
+export interface JobDrawerProps {
+  orgId: number | string;
+  orgName: string;
+  jobId: number | null;
+  mode: SheetMode;
+  clientOptions: ClientOption[];
+  tab: DrawerTab;
+  onTab: (t: DrawerTab) => void;
+  onClose: () => void;
+  /** A saved or reloaded job: the list row and the tiles refresh from it. */
+  onChanged: () => void;
+  /** Bumped by the page when something outside the drawer changed this job. */
+  reloadToken: number;
+  returnFocusTo?: RefObject<HTMLElement | null>;
+  supportEmail?: string | null;
+}
+
+const OPEN_STATES = new Set(["OPEN", "IN_REVIEW"]);
+
+function Fact({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 items-start gap-2.5">
+      <span aria-hidden className="mt-0.5 flex-none text-muted">
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <dt className="text-[12.5px] text-muted">{label}</dt>
+        <dd className="text-[14px] font-semibold leading-snug text-ink">{children}</dd>
+      </div>
+    </div>
+  );
+}
+
+function Loading() {
+  return (
+    <div role="status" aria-label="Loading job" className="space-y-3 py-2">
+      <Skeleton className="h-8 w-2/3" />
+      <Skeleton className="h-5 w-1/2" />
+      <Skeleton className="h-24 w-full" />
+      <Skeleton className="h-40 w-full" />
+    </div>
+  );
+}
+
+/** One consultant of "Top Consultant Matches": initials, name, title, score, and Assign (or the state the match is in). */
+function MatchRow({ m, job, canAssign, busy, onAssign, onDismiss, onRestore }: { m: TopMatch; job: JobDetail; canAssign: boolean; busy: boolean; onAssign: () => void; onDismiss: () => void; onRestore: () => void }) {
+  const jobOpen = OPEN_STATES.has(job.status);
+  return (
+    <li data-match-row={m.matchId} className={`flex items-center gap-3 rounded-xl border border-line bg-paper p-2.5 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
+      <MemberAvatar name={m.name} size={40} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[14px] font-bold leading-tight text-ink">{m.name}</p>
+        <p className="truncate text-[12.5px] text-muted">{[m.title, m.availability ? AVAILABILITY_LABEL[m.availability] ?? m.availability : null].filter(Boolean).join(" · ")}</p>
+        {m.reason && <p className="mt-0.5 truncate text-[12px] text-ink-soft" title={m.reason}>{m.reason}</p>}
+      </div>
+      <span className="flex-none text-[13.5px] font-bold text-accent-deep tabular-nums" data-match-score>
+        {m.score}% match
+      </span>
+      {m.status === "ASSIGNED" ? (
+        <span data-match-assigned className="flex-none rounded-full bg-v2-violet-soft px-2.5 py-1 text-[12px] font-semibold text-v2-violet-ink">
+          Assigned{m.applicationCode ? ` · ${m.applicationCode}` : ""}
+        </span>
+      ) : m.status === "DISMISSED" ? (
+        canAssign && (
+          <Button type="button" size="sm" variant="ghost" onClick={onRestore} disabled={busy}>
+            Restore
+          </Button>
+        )
+      ) : (
+        canAssign && (
+          <>
+            <Button type="button" size="sm" onClick={onAssign} disabled={busy || !jobOpen} title={jobOpen ? undefined : "Reopen the job to assign someone"} aria-label={`Assign ${m.name}`}>
+              Assign
+            </Button>
+            <Kebab label={`More for ${m.name}`} items={[{ label: "Not a fit (dismiss)", onSelect: onDismiss }]} />
+          </>
+        )
+      )}
+    </li>
+  );
+}
+
+function MatchList({ orgId, job, limit, onChanged, replace }: { orgId: number | string; job: JobDetail; limit?: number; onChanged: () => void; replace: (d: JobDetail) => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState<number | null>(null);
+  const live = job.topMatches.filter((m) => m.status !== "DISMISSED");
+  const rows = limit ? live.slice(0, limit) : job.topMatches;
+  if (job.topMatches.length === 0) {
+    return (
+      <p className="rounded-xl bg-paper-2 p-3 text-[13px] text-ink-soft" data-no-matches>
+        No consultants are matched to this job yet.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="space-y-2" data-match-list>
+      {rows.map((m) => (
+        <MatchRow
+          key={m.matchId}
+          m={m}
+          job={job}
+          canAssign={job.access.canAssign}
+          busy={busy === m.matchId}
+          onAssign={async () => {
+            setBusy(m.matchId);
+            const res = await jobsApi.assign(orgId, job.id, m.matchId);
+            setBusy(null);
+            if (!res.ok) {
+              toast({ title: `Couldn't assign ${m.name}`, description: errorSentence(res), variant: "error" });
+              return;
+            }
+            replace(res.data.job);
+            onChanged();
+            toast({ title: res.data.alreadyAssigned ? `${m.name} was already assigned` : `${m.name} assigned`, description: `Application ${res.data.applicationCode} is open in the Assigned stage.`, variant: "success" });
+          }}
+          onDismiss={async () => {
+            setBusy(m.matchId);
+            const res = await jobsApi.setMatch(orgId, job.id, m.matchId, "DISMISSED");
+            setBusy(null);
+            if (!res.ok) {
+              toast({ title: `Couldn't dismiss ${m.name}`, description: errorSentence(res), variant: "error" });
+              return;
+            }
+            replace(res.data);
+            onChanged();
+            toast({
+              title: `${m.name} dismissed for this job`,
+              variant: "success",
+              duration: UNDO_MS,
+              action: {
+                label: "Undo",
+                onClick: () =>
+                  void jobsApi.setMatch(orgId, job.id, m.matchId, "SUGGESTED").then((u) => {
+                    if (u.ok) {
+                      replace(u.data);
+                      onChanged();
+                      toast({ title: "Restored", variant: "success" });
+                    } else toast({ title: "Couldn't undo", description: errorSentence(u), variant: "error" });
+                  }),
+              },
+            });
+          }}
+          onRestore={async () => {
+            setBusy(m.matchId);
+            const res = await jobsApi.setMatch(orgId, job.id, m.matchId, "SUGGESTED");
+            setBusy(null);
+            if (!res.ok) {
+              toast({ title: `Couldn't restore ${m.name}`, description: errorSentence(res), variant: "error" });
+              return;
+            }
+            replace(res.data);
+            onChanged();
+          }}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function Overview({ orgId, d, replace, onChanged, onTab, save, contacts, editing }: { orgId: number | string; d: JobDetail; replace: (x: JobDetail) => void; onChanged: () => void; onTab: (t: DrawerTab) => void; save: ReturnType<typeof useJobDetail>["save"]; contacts: ClientOption["contacts"]; editing: boolean }) {
+  const rate = rateText(d.rate);
+  if (editing) return <EditForm key={d.id} detail={d} contacts={contacts} save={save as (b: PatchBody) => ReturnType<typeof save>} />;
+  return (
+    <div className="space-y-5" data-overview>
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
+        <Fact icon={<BriefcaseIcon size={17} />} label="Job Type">
+          {employmentLabel(d.employment) || "Not set"}
+        </Fact>
+        <Fact icon={<GraduationCapIcon size={17} />} label="Experience Level">
+          {experienceLabel(d.experienceLevel) || "Not set"}
+        </Fact>
+        <Fact icon={<CalendarIcon size={17} />} label="Duration">
+          {d.durationLabel || "Not set"}
+        </Fact>
+        <Fact icon={<DollarIcon size={17} />} label="Compensation">
+          {rate || "Not stated"}
+        </Fact>
+        <Fact icon={<ChartIcon size={17} />} label="Positions">
+          {d.filled} filled of {d.positions}
+        </Fact>
+        <Fact icon={<ClockIcon size={17} />} label="Posted">
+          {postedText(d.postedAt)}
+        </Fact>
+      </dl>
+      <section aria-label="Client contact" data-client-contact>
+        <h3 className="mb-1.5 text-[12.5px] font-semibold text-muted">Client Contact</h3>
+        {d.contact ? (
+          <div className="flex items-center gap-2.5">
+            <MemberAvatar name={d.contact.name} size={36} />
+            <div className="min-w-0">
+              <p className="truncate text-[14px] font-semibold text-ink">{d.contact.name}</p>
+              <p className="flex min-w-0 items-center gap-1 truncate text-[12.5px] text-muted">
+                <MailIcon aria-hidden size={12} className="flex-none" /> {d.contact.email ?? d.contact.title ?? ""}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <p className="text-[13px] text-muted">No contact is set for this job.</p>
+        )}
+      </section>
+      <section aria-label="Top Consultant Matches" data-top-matches>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-[15px] font-bold text-ink">Top Consultant Matches</h3>
+          {d.topMatches.length > 3 && (
+            <button type="button" onClick={() => onTab("matches")} className="text-[13px] font-semibold text-accent-deep hover:underline">
+              View All Matches ›
+            </button>
+          )}
+        </div>
+        <MatchList orgId={orgId} job={d} limit={3} onChanged={onChanged} replace={replace} />
+      </section>
+    </div>
+  );
+}
+
+function SubmissionsTab({ d }: { d: JobDetail }) {
+  if (d.submissions.length === 0) return <p className="rounded-xl bg-paper-2 p-3 text-[13px] text-ink-soft">No one has been assigned or submitted for this job yet.</p>;
+  return (
+    <ul className="divide-y divide-line/70 rounded-xl border border-line" data-submissions-list>
+      {d.submissions.map((s) => (
+        <li key={s.applicationId} className="flex items-center gap-3 p-2.5">
+          <MemberAvatar name={s.consultantName} size={34} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[13.5px] font-semibold text-ink">{s.consultantName}</p>
+            <p className="text-[12px] text-muted">
+              {s.code}
+              {s.appliedOn ? ` · ${postedText(s.appliedOn + "T00:00:00Z")}` : ""}
+            </p>
+          </div>
+          <span className="flex-none rounded-full bg-paper-2 px-2.5 py-1 text-[12px] font-semibold text-ink-soft">
+            {STAGE_LABEL[s.stage] ?? s.stage}
+            {s.closedReason ? ` · ${s.closedReason.toLowerCase().replace(/_/g, " ")}` : ""}
+          </span>
+        </li>
+      ))}
+      {d.submissionCount > d.submissions.length && <li className="p-2.5 text-[12.5px] text-muted">Showing {d.submissions.length} of {d.submissionCount}.</li>}
+    </ul>
+  );
+}
+
+function ActivityTab({ d }: { d: JobDetail }) {
+  if (d.activity.length === 0) return <p className="rounded-xl bg-paper-2 p-3 text-[13px] text-ink-soft">Nothing has happened on this job yet.</p>;
+  return (
+    <ol className="space-y-3" data-activity-list>
+      {d.activity.map((a, i) => (
+        <li key={`${a.at}-${i}`} className="flex gap-2.5">
+          <span aria-hidden className="mt-1.5 h-2 w-2 flex-none rounded-full bg-accent" />
+          <div className="min-w-0">
+            <p className="text-[13.5px] leading-snug text-ink">{a.summary}</p>
+            <p className="text-[12px] text-muted">
+              {a.actor ? `${a.actor} · ` : ""}
+              {relativeTime(a.at)}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** The drawer itself: docks beside the list on a wide screen, floats over it on a tablet and rises from the bottom on a phone. */
+export default function JobDrawer(p: JobDrawerProps) {
+  const open = p.jobId !== null;
+  const toast = useToast();
+  const { state, save, replace, reload } = useJobDetail(p.orgId, p.jobId, p.reloadToken);
+  const [editing, setEditing] = useState(false);
+  const [editFor, setEditFor] = useState<number | null>(null);
+  // leaving the job being edited ends the edit mode (state derived during render, no effect)
+  if (editFor !== p.jobId) {
+    setEditFor(p.jobId);
+    if (editing) setEditing(false);
+  }
+
+  const replaceAndNotify = (d: JobDetail) => {
+    replace(d);
+  };
+
+  const body = (() => {
+    if (state.status === "idle" || state.status === "loading") return <Loading />;
+    if (state.status === "gone") return <ErrorState variant="inline" what="this job" description="It is no longer in your view. It may have been removed." />;
+    if (state.status === "error") return <ErrorState variant="inline" what="this job" description={state.message} onRetry={() => void reload()} />;
+    const d = state.detail;
+    const contacts = p.clientOptions.find((c) => c.id === d.client.id)?.contacts ?? (d.contact ? [d.contact] : []);
+    return (
+      <div data-detail-body data-job-id={d.id}>
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {d.access.canEdit ? (
+              <div className="w-40">
+                <Select
+                  aria-label="Status"
+                  value={d.status}
+                  onChange={async (v) => {
+                    const prev = d.status;
+                    const r = await save({ status: v as JobDetail["status"] });
+                    if (!r.ok) {
+                      toast({ title: "Couldn't change the status", description: r.error, variant: "error" });
+                      return;
+                    }
+                    p.onChanged();
+                    toast({
+                      title: `Status is now ${STATUS_LABEL[v] ?? v}`,
+                      variant: "success",
+                      duration: UNDO_MS,
+                      action: {
+                        label: "Undo",
+                        onClick: () =>
+                          void save({ status: prev }).then((u) => {
+                            toast(u.ok ? { title: "Undone", variant: "success" } : { title: "Couldn't undo", description: u.error, variant: "error" });
+                            p.onChanged();
+                          }),
+                      },
+                    });
+                  }}
+                  options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))}
+                />
+              </div>
+            ) : (
+              <StatusPill status={d.status} />
+            )}
+            {d.access.canEdit && (
+              <Button type="button" size="sm" variant="ghost" aria-pressed={editing} onClick={() => setEditing((e) => !e)} data-edit-toggle>
+                <PencilIcon size={14} aria-hidden /> {editing ? "Done editing" : "Edit job"}
+              </Button>
+            )}
+          </div>
+          <ul className="space-y-1 text-[13.5px] text-ink-soft" data-job-facts>
+            <li className="flex items-center gap-1.5">
+              <BuildingIcon aria-hidden size={14} className="flex-none text-muted" /> <span className="font-semibold text-ink">{d.client.name}</span>
+              {d.clientIndustry && <span className="text-muted">· {d.clientIndustry}</span>}
+            </li>
+            <li className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+              {d.location && (
+                <span className="inline-flex items-center gap-1">
+                  <MapPinIcon aria-hidden size={14} className="text-muted" /> {d.location}
+                </span>
+              )}
+              {d.workMode && (
+                <span className="inline-flex items-center gap-1">
+                  <GlobeIcon aria-hidden size={14} className="text-muted" /> {workModeLabel(d.workMode)}
+                </span>
+              )}
+              <span className="inline-flex items-center gap-1">
+                <CalendarIcon aria-hidden size={14} className="text-muted" /> Posted {postedText(d.postedAt)}
+              </span>
+            </li>
+          </ul>
+          <SkillChips skills={d.skills} max={8} size="md" />
+          {d.description && !editing && (
+            <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-ink-soft" data-description>
+              {d.description}
+            </p>
+          )}
+        </div>
+        <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DrawerTab)} variant="underline" className="mt-4">
+          <TabList aria-label="Job details">
+            <Tab value="overview">Overview</Tab>
+            <Tab value="matches">Top Matches ({d.topMatches.filter((m) => m.status !== "DISMISSED").length})</Tab>
+            <Tab value="submissions">Submissions ({d.submissionCount})</Tab>
+            <Tab value="activity">Activity</Tab>
+          </TabList>
+          <TabPanel value="overview" className="pt-4">
+            <Overview orgId={p.orgId} d={d} replace={replaceAndNotify} onChanged={p.onChanged} onTab={p.onTab} save={save} contacts={contacts} editing={editing} />
+          </TabPanel>
+          <TabPanel value="matches" className="pt-4">
+            <MatchList orgId={p.orgId} job={d} onChanged={p.onChanged} replace={replaceAndNotify} />
+          </TabPanel>
+          <TabPanel value="submissions" className="pt-4">
+            <SubmissionsTab d={d} />
+          </TabPanel>
+          <TabPanel value="activity" className="pt-4">
+            <ActivityTab d={d} />
+          </TabPanel>
+        </Tabs>
+        <div className="mt-5">
+          <HelpBeeCard orgName={p.orgName} supportEmail={p.supportEmail} forJob />
+        </div>
+      </div>
+    );
+  })();
+
+  const title = state.status === "ok" ? state.detail.title : "Job";
+  const description = state.status === "ok" ? state.detail.client.name : undefined;
+
+  if (p.mode === "sheet") {
+    return (
+      <BottomSheet id="ent-job-sheet" open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo} defaultSnap="partial">
+        {body}
+      </BottomSheet>
+    );
+  }
+  const sheet = (
+    <SideSheet id="ent-job-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 440 : 500} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
+      {body}
+    </SideSheet>
+  );
+  if (p.mode === "push") {
+    return <div className={`sticky top-4 h-[calc(100dvh-7rem)] shrink-0 self-start ${open ? "ml-4" : ""}`}>{sheet}</div>;
+  }
+  return sheet;
+}
