@@ -37,7 +37,7 @@ export default function KpiTiles({ counts, loading, error, compact = false }: { 
               <span
                 aria-hidden
                 className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl"
-                style={{ color: t.color, background: `color-mix(in srgb, ${t.color} 14%, var(--color-paper, #fff))` }}
+                style={{ color: t.color, background: `color-mix(in srgb, ${t.color} 14%, var(--color-paper, white))` }}
               >
                 {t.icon}
               </span>
