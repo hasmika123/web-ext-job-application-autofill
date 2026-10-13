@@ -50,6 +50,24 @@ public class TalentPlacement implements Serializable {
     @Column(name = "currency", length = 3, nullable = false)
     private String currency = "USD";
 
+    @Column(name = "placement_type", length = 20, nullable = false)
+    private String placementType = "CONTRACT";
+
+    @Column(name = "account_manager_member_id")
+    private Long accountManagerMemberId;
+
+    @Column(name = "client_contact_id")
+    private Long clientContactId;
+
+    @Column(name = "redeployment_pool", nullable = false)
+    private boolean redeploymentPool;
+
+    @Column(name = "redeployment_date")
+    private LocalDate redeploymentDate;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -89,4 +107,16 @@ public class TalentPlacement implements Serializable {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public String getPlacementType() { return placementType; }
+    public void setPlacementType(String placementType) { this.placementType = placementType; }
+    public Long getAccountManagerMemberId() { return accountManagerMemberId; }
+    public void setAccountManagerMemberId(Long accountManagerMemberId) { this.accountManagerMemberId = accountManagerMemberId; }
+    public Long getClientContactId() { return clientContactId; }
+    public void setClientContactId(Long clientContactId) { this.clientContactId = clientContactId; }
+    public boolean isRedeploymentPool() { return redeploymentPool; }
+    public void setRedeploymentPool(boolean redeploymentPool) { this.redeploymentPool = redeploymentPool; }
+    public LocalDate getRedeploymentDate() { return redeploymentDate; }
+    public void setRedeploymentDate(LocalDate redeploymentDate) { this.redeploymentDate = redeploymentDate; }
+    public Instant getCompletedAt() { return completedAt; }
+    public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
 }

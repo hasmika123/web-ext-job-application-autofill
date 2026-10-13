@@ -56,6 +56,10 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_MARKETING_OVERLOAD_PCT = "org.marketing.overload_pct";
     public static final String ORG_MARKETING_BULK_MAX = "org.marketing.bulk_max";
     public static final String ORG_MARKETING_CAPACITY_MAX = "org.marketing.capacity_max";
+    /** Placements board: how many days ahead a placement counts as ending soon / starting soon, and how close an end date turns red. An organization may override each in org_setting. */
+    public static final String ORG_PLACEMENTS_ENDING_SOON_DAYS = "org.placements.ending_soon_days";
+    public static final String ORG_PLACEMENTS_ENDING_URGENT_DAYS = "org.placements.ending_urgent_days";
+    public static final String ORG_PLACEMENTS_STARTING_SOON_DAYS = "org.placements.starting_soon_days";
     public static final String ORG_CONSENT_REQUEST_COOLDOWN_DAYS = "org.consent.request_cooldown_days";
     public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
@@ -114,6 +118,9 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_MARKETING_OVERLOAD_PCT, 90, 50, 100, Risk.LOW, "Marketing Assignments: a marketer counts as overloaded once assigned consultants reach this percent of their capacity. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_BULK_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: most consultants one assign, update, unassign or undo call may name. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_CAPACITY_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: the highest capacity (consultants at once) a marketer may be given. An organization can override it in org_setting.");
+        integer(k, ORG_PLACEMENTS_ENDING_SOON_DAYS, 45, 1, 365, Risk.LOW, "Placements: a placement whose end date is within this many days counts as ending soon (the Ending Soon tile and the Ends in N days pill). An organization can override it in org_setting.");
+        integer(k, ORG_PLACEMENTS_ENDING_URGENT_DAYS, 14, 1, 90, Risk.LOW, "Placements: an end date this close (or closer) turns the Ends in N days pill red. An organization can override it in org_setting.");
+        integer(k, ORG_PLACEMENTS_STARTING_SOON_DAYS, 30, 1, 180, Risk.LOW, "Placements: a placement starting within this many days counts as starting soon (the Starting Soon tile). An organization can override it in org_setting.");
         integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
         d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));

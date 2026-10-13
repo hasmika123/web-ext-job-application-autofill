@@ -2,6 +2,7 @@ package com.dossier.api.config;
 
 import com.dossier.api.service.ent.EnterpriseDemoSeeder;
 import com.dossier.api.service.ent.RoleTemplateSeeder;
+import com.dossier.api.service.ent.PlacementDemoSeeder;
 import com.dossier.api.service.ent.TalentDemoSeeder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,12 +27,14 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final EnterpriseDemoSeeder seeder;
     private final RoleTemplateSeeder roleTemplates;
     private final TalentDemoSeeder talent;
+    private final PlacementDemoSeeder placementDemo;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, PlacementDemoSeeder placementDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
+        this.placementDemo = placementDemo;
         this.createAccounts = createAccounts;
     }
 
@@ -50,6 +53,12 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             talent.seed(); // talent boards demo data: only after the tenants exist, same switches
         } catch (RuntimeException e) {
             LOG.error("Talent demo seed failed; the talent pages have no demo data.", e);
+            return;
+        }
+        try {
+            placementDemo.seed(); // Placements page demo data (end dates, upcoming, extensions, pool): after the talent rows exist
+        } catch (RuntimeException e) {
+            LOG.error("Placements demo seed failed; the Placements page has only the foundation rows.", e);
         }
     }
 }
