@@ -661,7 +661,7 @@ public class EnterpriseDemoSeeder {
      * programme stays dark for every other organization on a shared dev database.
      */
     private void enableFlags(Set<Long> orgIds) {
-        for (String key : List.of(EnterpriseSettingKeys.FLAG_ENTERPRISE, EnterpriseSettingKeys.FLAG_DOMAINS, EnterpriseSettingKeys.FLAG_ROLES)) {
+        for (String key : List.of(EnterpriseSettingKeys.FLAG_ENTERPRISE, EnterpriseSettingKeys.FLAG_DOMAINS, EnterpriseSettingKeys.FLAG_ROLES, EnterpriseSettingKeys.FLAG_MARKETING)) {
             ObjectNode flag = mapper.createObjectNode();
             JsonNode current = settingRows.findById(key).map(r -> parse(r.getValue())).orElse(null);
             Set<Long> allow = new LinkedHashSet<>();

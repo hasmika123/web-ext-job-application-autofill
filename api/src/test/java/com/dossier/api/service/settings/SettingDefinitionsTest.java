@@ -226,7 +226,7 @@ class SettingDefinitionsTest {
     void keysNothingReadsYetAreHiddenFromAdmin() {
         List<String> deferred = EnterpriseSettingKeys.deferred().stream().map(Key::key).toList();
         assertThat(deferred).contains(
-            "flag.enterprise.billing", "flag.enterprise.marketing", "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces",
+            "flag.enterprise.billing", "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces",
             "enterprise.domains.subdomains_per_day", "enterprise.domains.recheck_hours", "enterprise.domains.grace_hours_before_suspend",
             "org.consent.request_cooldown_days", "enterprise.billing.mode_default", "enterprise.quote.ttl_minutes", "enterprise.usage.retention_months"
         );
