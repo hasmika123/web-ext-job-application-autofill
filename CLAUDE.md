@@ -153,7 +153,8 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   Daily job matches source jobs from the ATS' public job-board APIs, plus one licensed
   aggregator API. **Never scraping.** Strong matches (16.1) are the first build after Launch 1.
   Free = 3 rule-ranked matches a day (no AI); Pro/Autopilot = 10–20 AI-scored + email + 👍/👎;
-  consultancies included in the Pro seat.
+  consultancies: a consultant's matching rides on their org **base license + add-ons** (Enterprise V2
+  bullet below), not on a "Pro seat".
 
 - **Expansion (locked 2026-10-05, ROADMAP *Expansion build*, Phases 18–23).**
   - **Floors:** **nothing is unlimited**. Every subscription keeps **≥ 80 % gross margin in the
@@ -164,8 +165,13 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
     and stops before submit. **No cloud auto-apply**, and it never ticks attestation boxes.
   - **Services:** human resume review, resume rewrite, mock interview and coaching, delivered by
     paid freelance experts; plus AI Interview Practice (text). **AI voice interviews dropped for now.**
-  - **Organizations:** a **one-time setup fee** (always charged) + **per-person items, mixed
-    freely** (Pro, Autopilot, AI Interview Practice, services), priced **above** individual prices.
+  - **Organizations (E3, user decision 2026-10-12 — replaces "per-person items"):** a **one-time
+    setup fee** (always charged, catalog item `ORG_SETUP_FEE`) + per consultant a **mandatory base
+    license** + **individually priced feature add-ons** (matching, tailoring, inbox, interview prep,
+    Autopilot prepare, …). **Presets are shortcuts** that pick add-ons, never a price. The old items
+    become presets / features / org modules (marketer seat = `module.talent_marketing`). Base and
+    feature prices are **admin inputs** under the **≥ 80 % margin guard** and the "above individual"
+    check; the **catalog ships without prices** — nothing is sellable until admin publishes.
   - **No packages yet:** prices, limits and future bundles live in the catalog and change from
     admin, not code.
   - **Everything is admin-configured (user decision 2026-10-11):** every feature's on/off switch,
@@ -179,6 +185,21 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   - **Consultancy Ops add-on (Phase 23):** optional timesheets + finances. **Record money, never
     move it**; no bank numbers, SSNs or tax IDs. The scope waits on the 23.0 brainstorm.
   - **No Coach tier.** The org model keeps a hook for it; don't build it unless asked.
+
+- **Enterprise V2 (locked 2026-10-12; design `docs/enterprise-v2/`, roadmap area `ent`/`X`).**
+  Supersedes the old org plan (prior art only). Shared schema + `org_id` + explicit `TenantContext`;
+  the **API resolves the tenant from the host alone** (clients never name a tenant; unknown hosts 404);
+  host-only sessions with a `tid` claim; tenant pages live under `web/src/app/(tenant)/_t/**` behind a
+  `proxy.ts` rewrite; custom domains via on-demand TLS on the shared edge (**the user applies the
+  Caddy change**, E5). Roles are data (N roles per member, five scopes, ceiling rule); one
+  `EntitlementService.check` with the 11-step order is the only gate. **E1:** marketers prepare,
+  request and record — **the consultant submits; Kiwiply never submits**, no auto-submit. **E2:** HR &
+  Finance are **record-only** — no identity documents, no SSN/tax/bank/DOB, never move money, PII
+  scanner on every path. **E3:** pricing per the Organizations bullet above; one Stripe subscription
+  per org, add now / remove at period end, backend quotes with expiry; personal subscriptions
+  untouched (never stacked). Everything admin-configured; additive Liquibase + per-phase flags.
+  Design by Fable, code by Sonnet; `CLAUDE.md` wins on conflict and conflicts go to
+  `docs/enterprise-v2/08-decisions-for-user.md`.
 
 ## Definition of done (every task)
 Acceptance criteria met · tests added & green · PROGRESS.md updated · versions
