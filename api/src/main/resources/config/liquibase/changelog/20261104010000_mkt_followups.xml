@@ -9,4 +9,57 @@
         Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
         table names prefixed mkt_). Never edit another page's changelog.
     -->
+
+    <!-- Follow-up items of the Marketing workspace (calls, emails, chats the marketer owes a client/recruiter). Overdue is DERIVED (not COMPLETED and due_at < now); no status stores it. -->
+    <changeSet id="mkt-followups-1-mkt_followup" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_followup"/></not></preConditions>
+        <createTable tableName="mkt_followup">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="application_id" type="bigint"/>
+            <column name="client_account_id" type="bigint"/>
+            <column name="title" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(200)"/>
+            <column name="counterpart_label" type="varchar(120)"/>
+            <column name="channel" type="varchar(10)" defaultValue="PHONE"><constraints nullable="false"/></column>
+            <column name="priority" type="varchar(10)" defaultValue="MEDIUM"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(15)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="due_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="completed_at" type="${datetimeType}"/>
+            <column name="owner_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_followup" baseColumnNames="org_id" constraintName="fk_mkt_followup_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_followup" baseColumnNames="org_id, consultant_id" constraintName="fk_mkt_followup_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_followup" baseColumnNames="org_id, application_id" constraintName="fk_mkt_followup_application" referencedTableName="talent_application" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_followup" baseColumnNames="org_id, client_account_id" constraintName="fk_mkt_followup_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_followup" baseColumnNames="org_id, owner_member_id" constraintName="fk_mkt_followup_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_followup" columnNames="org_id, id" constraintName="uk_mkt_followup_org_id"/>
+        <createIndex tableName="mkt_followup" indexName="ix_mkt_followup_due"><column name="org_id"/><column name="status"/><column name="due_at"/></createIndex>
+        <createIndex tableName="mkt_followup" indexName="ix_mkt_followup_consultant"><column name="org_id"/><column name="consultant_id"/><column name="due_at"/></createIndex>
+        <createIndex tableName="mkt_followup" indexName="ix_mkt_followup_completed"><column name="org_id"/><column name="completed_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Append-only log of what the marketer did on a follow-up: a call logged, a reminder REQUEST recorded (nothing is mailed), a status change. -->
+    <changeSet id="mkt-followups-2-mkt_followup_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_followup_event"/></not></preConditions>
+        <createTable tableName="mkt_followup_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="followup_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(500)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="by_member_id" type="bigint"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_followup_event" baseColumnNames="org_id" constraintName="fk_mkt_followup_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_followup_event" baseColumnNames="org_id, followup_id" constraintName="fk_mkt_followup_event_followup" referencedTableName="mkt_followup" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_followup_event" baseColumnNames="org_id, by_member_id" constraintName="fk_mkt_followup_event_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="mkt_followup_event" indexName="ix_mkt_followup_event_followup"><column name="org_id"/><column name="followup_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="mkt_followup_event" indexName="ix_mkt_followup_event_kind"><column name="org_id"/><column name="kind"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>
