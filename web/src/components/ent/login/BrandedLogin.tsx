@@ -1,34 +1,34 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
-import Image from "next/image";
+import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
+import { getImageProps } from "next/image";
 import { useRouter } from "next/navigation";
 import {
   AlertIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
-  BarChartIcon,
   EyeIcon,
   EyeOffIcon,
+  GoogleIcon,
+  ImageIcon,
   LockIcon,
   MailIcon,
   MicrosoftIcon,
   ShieldCheckIcon,
   ShieldIcon,
-  UsersIcon,
   cn,
 } from "@kiwiply/ui";
-import { buttonVariants } from "@/components/ui/Button";
 import TenantLogo from "@/components/ent/login/TenantLogo";
 
 /**
- * The tenant sign-in (X2.3), one component for every organization, drawn from the PUBLISHED branding at runtime:
- * the logo (or the name as a wordmark), the headline "Welcome to {name} Portal", the subtitle, the primary / secondary
- * colours (through the tenant CSS variables, never a literal), the support address and whether the Microsoft button exists.
- * Nothing is hard-coded to one organization and nothing falls back to another organization or to the Kiwiply site.
+ * The tenant sign-in (X2.3, rebuilt from the "Welcome Back" boards), one component for every organization, drawn from the
+ * PUBLISHED branding at runtime: the org logo (in the slot beside the "Sign In" heading, or the name as a wordmark), the
+ * heading ("Welcome Back" unless the org set a title), the subtitle, the colours (through the tenant CSS variables, never a
+ * literal), the support address and which social buttons exist (Google / Microsoft, only when the org's login options enable
+ * them). Nothing is hard-coded to one organization and nothing falls back to another organization or to the Kiwiply site.
  *
- * Layout (design/enterprise-login boards): two panels from 1024 px (welcome + scene on the left, the card on the right);
- * below that one column - logo, title, three feature chips, the scene, then the card overlapping the scene.
+ * Layout: a full-bleed illustrated plate (desk, bee, cat; no baked text) behind live HTML. From 1024 px the heading sits on
+ * the left and a frosted-glass card on the right; below that the heading, the scene, then the card overlapping its lower part.
  *
  * States: the form; the admin / org MFA code step; NOT_A_MEMBER (correct credentials, no seat: a calm panel with "use a
  * different account" and no organization data); UNAVAILABLE (the API could not be reached: try again); 401 (an inline
@@ -40,17 +40,22 @@ export interface BrandedLoginProps {
   welcomeTitle?: string | null;
   welcomeMessage?: string | null;
   supportEmail?: string | null;
-  /** Up to three published chip labels (defaults fill the rest). */
+  /** Deprecated and unused since the v2 boards (the feature chips were dropped); kept so existing callers still compile. */
   featureChips?: string[] | null;
-  /** The org's login config enables Microsoft sign-in (Phase 12). Default hidden. */
+  /** The org's login config enables Microsoft sign-in. Default hidden. */
   microsoft?: boolean;
+  /** The org's login config enables Google sign-in. Default hidden. */
+  google?: boolean;
+  /** Branding editor preview: with no logo set, the logo slot shows a dashed "your logo goes here" placeholder (never on the public login). */
+  preview?: boolean;
   /** Same-host relative path to land on after sign-in. */
   next?: string;
 }
 
 type View = "form" | "mfa" | "notMember" | "unavailable";
 
-const DEFAULT_MESSAGE = "Secure access for employees, consultants, and teams.";
+export const DEFAULT_TITLE = "Welcome Back";
+export const DEFAULT_MESSAGE = "Sign in to access your workspace, tasks, and updates.";
 
 /** Only a same-host relative path is allowed as a post-login redirect (no open redirects). */
 export function safeNext(next?: string | null): string | null {
@@ -58,20 +63,44 @@ export function safeNext(next?: string | null): string | null {
   return next;
 }
 
-/** Defaults for the three chips; an organization's published `featureChips` replace them label by label. Tints come from the theme. */
 const DEFAULT_CHIPS = ["Secure Access", "Connect & Collaborate", "Tools for What's Next"];
-const CHIP_STYLE: { Icon: typeof ShieldIcon; tone: string }[] = [
-  { Icon: ShieldIcon, tone: "bg-[var(--brand-subtle)] text-[var(--brand-text)]" },
-  { Icon: UsersIcon, tone: "bg-[var(--brand-2-subtle)] text-[var(--brand-2-text)]" },
-  { Icon: BarChartIcon, tone: "bg-[var(--brand-100)] text-[var(--brand-800)]" },
-];
 
-/** The three chip labels: the published ones where given, else the defaults (never fewer than three). */
+/** @deprecated The chips are not part of the v2 login; kept as a stable export. */
 export function chipLabels(custom?: string[] | null): string[] {
   return DEFAULT_CHIPS.map((d, i) => custom?.[i]?.trim() || d);
 }
 
-export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessage, supportEmail, featureChips, microsoft = false, next }: BrandedLoginProps) {
+/** The clean background plates (design/enterprise-login/v2 with the text and the card removed): phone / tablet portrait, and desktop. */
+const PLATE_PHONE = { src: "/ent/login/plate-phone.webp", width: 941, height: 3432 };
+const PLATE_DESKTOP = { src: "/ent/login/plate-desktop.webp", width: 1448, height: 1086 };
+
+/** Art-directed <picture>: only the plate for the current breakpoint is fetched (no double preload). Decorative. */
+function LoginBackdrop() {
+  const phone = getImageProps({ ...PLATE_PHONE, alt: "", sizes: "100vw" });
+  const desktop = getImageProps({ ...PLATE_DESKTOP, alt: "", sizes: "100vw" });
+  return (
+    <picture className="pointer-events-none absolute inset-x-0 top-0 -z-10 block lg:inset-0">
+      <source media="(min-width: 1024px)" srcSet={desktop.props.srcSet} sizes="100vw" />
+      <img
+        {...phone.props}
+        alt=""
+        data-tenant-plate
+        loading="eager"
+        fetchPriority="high"
+        className="block h-auto w-full select-none lg:h-full lg:object-cover lg:[object-position:42%_14%]"
+      />
+    </picture>
+  );
+}
+
+/** Three rounded ticks beside the heading (the board's sparkle), tinted by the secondary colour. */
+const SPARKS: CSSProperties[] = [
+  { left: 20, top: 0, transform: "rotate(28deg)" },
+  { left: 29, top: 14, transform: "rotate(70deg)" },
+  { left: 20, top: 28, transform: "rotate(112deg)" },
+];
+
+export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessage, supportEmail, microsoft = false, google = false, preview = false, next }: BrandedLoginProps) {
   const router = useRouter();
   const uid = useId();
   const emailId = `${uid}-email`;
@@ -177,61 +206,41 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
     setTimeout(() => emailRef.current?.focus(), 0);
   }
 
-  const headline = welcomeTitle?.trim() || null;
+  const title = welcomeTitle?.trim() || DEFAULT_TITLE;
+  const subtitle = welcomeMessage?.trim() || DEFAULT_MESSAGE;
+  const social = google || microsoft;
 
   return (
-    <main className="tenant-sky relative min-h-dvh overflow-x-hidden text-[var(--brand-900)]" data-tenant-login>
-      <div className="mx-auto flex min-h-dvh w-full max-w-[1480px] flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(440px,540px)] lg:items-center lg:gap-10 lg:px-10 xl:px-16">
-        {/* ── welcome panel ── */}
-        <section className="flex flex-col items-center px-5 pt-8 text-center lg:items-start lg:px-0 lg:py-14 lg:text-left" aria-labelledby={`${uid}-title`}>
-          <TenantLogo name={name} logoUrl={logoUrl} size="lg" className="max-w-full" />
-
-          <h1 id={`${uid}-title`} className="font-body mt-6 max-w-[16ch] text-[34px] font-extrabold leading-[1.04] tracking-tight sm:max-w-none sm:text-[44px] lg:mt-12 lg:text-[56px] xl:text-[64px]">
-            {headline ? (
-              headline
-            ) : (
-              <>
-                Welcome to
-                <br />
-                <span className="tenant-headline-accent">{name} Portal</span>
-              </>
-            )}
+    <main className="tenant-sky relative isolate min-h-dvh overflow-x-hidden text-[var(--brand-900)]" data-tenant-login>
+      <LoginBackdrop />
+      <div className="mx-auto flex min-h-dvh w-full max-w-[1600px] flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(460px,570px)] lg:items-center lg:gap-10 lg:px-12 xl:px-20">
+        {/* ── heading (real text: the plate has none) ── */}
+        <section
+          className="tenant-login-rise flex min-h-[36vw] flex-col items-center px-6 pt-7 text-center lg:min-h-0 lg:items-start lg:self-start lg:pl-8 lg:pr-0 lg:pt-[clamp(56px,13vh,150px)] lg:text-left xl:pl-20"
+          aria-labelledby={`${uid}-title`}
+        >
+          <h1 id={`${uid}-title`} className="font-body relative max-w-[16ch] text-[32px] font-extrabold leading-[1.05] tracking-tight [text-shadow:0_0_18px_rgb(255_255_255/0.85)] sm:max-w-none sm:text-[48px] lg:text-[56px] xl:text-[64px]">
+            {title}
+            <span aria-hidden className="tenant-spark absolute -right-9 -top-2 h-9 w-9 sm:-right-11 sm:h-11 sm:w-11">
+              {SPARKS.map((st, i) => (
+                <i key={i} style={st} />
+              ))}
+            </span>
           </h1>
-          <p className="mt-3 max-w-[34ch] text-[16px] leading-snug text-[var(--brand-700)] sm:text-[18px] lg:mt-5 lg:max-w-[28ch] lg:text-[24px]">
-            {welcomeMessage?.trim() || DEFAULT_MESSAGE}
-          </p>
-
-          <ul className="mt-5 flex w-full max-w-[460px] items-start justify-center gap-4 sm:gap-8 lg:mt-8 lg:max-w-none lg:justify-start lg:gap-8">
-            {chipLabels(featureChips).map((label, i) => {
-              const { Icon, tone } = CHIP_STYLE[i];
-              return (
-              <li key={i} className="flex flex-col items-center gap-1.5 text-center text-[13.5px] font-medium leading-tight sm:text-[14.5px] lg:flex-row lg:gap-3 lg:text-left">
-                <span aria-hidden className={cn("grid h-11 w-11 shrink-0 place-items-center rounded-full lg:h-14 lg:w-14", tone)}>
-                  <Icon size={22} />
-                </span>
-                <span className="max-w-[12ch] lg:max-w-[14ch]">{label}</span>
-              </li>
-              );
-            })}
-          </ul>
-
-          {/* the scene art: its edges are masked so it melts into the sky (theme-tenant.css) */}
-          <div className="tenant-scene relative mt-2 hidden w-full max-w-[640px] lg:-ml-6 lg:mt-4 lg:block" aria-hidden>
-            <Image src="/ent/login/scene-desktop.png" alt="" width={826} height={581} sizes="(min-width: 1280px) 640px, 520px" priority className="h-auto w-full select-none" />
-          </div>
-          <div className="tenant-scene relative -mb-6 mt-1 w-full max-w-[560px] sm:max-w-[640px] lg:hidden" aria-hidden>
-            <Image src="/ent/login/scene-mobile.png" alt="" width={941} height={408} sizes="(min-width: 640px) 640px, 100vw" priority className="h-auto w-full select-none" />
-          </div>
+          <p className="mt-2 max-w-[30ch] text-[15px] [text-shadow:0_0_14px_rgb(255_255_255/0.85)] leading-snug text-[var(--brand-800)] sm:max-w-[40ch] sm:text-[20px] lg:mt-3 lg:max-w-[26ch] lg:text-[24px]">{subtitle}</p>
         </section>
 
-        {/* ── sign-in card (overlaps the scene on a phone) ── */}
-        <section className="relative z-10 mx-auto w-full max-w-[540px] px-4 pb-10 sm:px-0 lg:px-0 lg:py-12" aria-label="Sign in">
-          <div className="tenant-card rounded-[24px] bg-white px-6 py-8 sm:px-10 sm:py-10">
+        {/* the bee scene lives in the plate; this spacer keeps the card below it on a phone / tablet */}
+        <div aria-hidden className="h-[45vw] lg:hidden" />
+
+        {/* ── sign-in card (overlaps the lower part of the scene on a phone) ── */}
+        <section className="relative z-10 mx-auto w-full max-w-[560px] px-4 pb-10 sm:px-0 lg:py-12" aria-label="Sign in">
+          <div className="tenant-glass rounded-[28px] px-5 py-7 sm:px-9 sm:py-9">
             {view === "notMember" && <NotMember name={name} onDifferent={switchAccount} />}
             {view === "unavailable" && <Unavailable onRetry={() => setView(mfaToken ? "mfa" : "form")} />}
             {view === "mfa" && (
               <form onSubmit={onVerify} noValidate>
-                <CardTitle title="Check your email" subtitle="We emailed a 6-digit code to verify it's you. Enter it to finish signing in." />
+                <CardHeader title="Check your email" subtitle="We emailed a 6-digit code to verify it's you." name={name} logoUrl={logoUrl} preview={preview} />
                 <Field id={`${uid}-code`} label="Verification code" icon={<ShieldCheckIcon size={20} />} error={undefined}>
                   <input
                     id={`${uid}-code`}
@@ -247,7 +256,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
                   />
                 </Field>
                 <ErrorLine id={errorId} message={error} />
-                <button type="submit" disabled={busy} aria-busy={busy} className={buttonVariants("accent", "lg", PRIMARY)}>
+                <button type="submit" disabled={busy} aria-busy={busy} className={SIGNIN}>
                   {busy ? "Verifying..." : "Verify & sign in"}
                 </button>
                 <button type="button" onClick={switchAccount} className="mt-4 inline-flex min-h-[44px] items-center text-[14px] font-semibold text-accent-deep hover:underline">
@@ -257,12 +266,9 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
             )}
             {view === "form" && (
               <form onSubmit={onSubmit} noValidate>
-                <div className="mb-6 hidden justify-center lg:flex">
-                  <TenantLogo name={name} logoUrl={logoUrl} />
-                </div>
-                <CardTitle title="Sign In" subtitle={`Access your ${name} account to continue.`} />
+                <CardHeader title="Sign In" subtitle="Access your account securely." name={name} logoUrl={logoUrl} preview={preview} />
 
-                <Field id={emailId} label="Work Email" icon={<MailIcon size={20} />} error={emailErr}>
+                <Field id={emailId} label="User Name" icon={<MailIcon size={20} />} error={emailErr}>
                   <input
                     ref={emailRef}
                     id={emailId}
@@ -272,7 +278,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
                     autoComplete="username"
                     autoCapitalize="none"
                     spellCheck={false}
-                    placeholder={`you@${domainHint(supportEmail)}`}
+                    placeholder="you@company.com"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     aria-invalid={emailErr ? true : undefined}
@@ -299,54 +305,67 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
                     onClick={() => setShowPassword((v) => !v)}
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     aria-pressed={showPassword}
-                    className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-xl text-v2-muted transition-colors hover:text-[var(--brand-900)]"
+                    className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-r-xl text-[var(--brand-800)] transition-colors hover:text-[var(--brand-900)]"
                   >
                     {showPassword ? <EyeOffIcon size={20} /> : <EyeIcon size={20} />}
                   </button>
                 </Field>
 
-                <div className="mb-5 flex items-center justify-between gap-3">
-                  <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2.5 text-[15px] font-medium">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <label className="inline-flex min-h-[44px] cursor-pointer items-center gap-2.5 text-[15px] font-medium text-[var(--brand-800)]">
                     <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="h-[22px] w-[22px] rounded-md border border-line accent-[var(--brand-solid)]" />
                     Remember me
                   </label>
                   <a href="/forgot-password" className="text-[15px] font-semibold text-accent-deep hover:underline">
-                    Forgot Password?
+                    Forgot password?
                   </a>
                 </div>
 
                 <ErrorLine id={errorId} message={error} />
 
-                <button type="submit" disabled={busy} aria-busy={busy} className={buttonVariants("accent", "lg", PRIMARY)}>
-                  {busy ? "Signing in..." : <>Sign In <ArrowRightIcon size={18} /></>}
+                <button type="submit" disabled={busy} aria-busy={busy} className={SIGNIN}>
+                  {busy ? "Signing in..." : <>Sign In <ArrowRightIcon size={20} /></>}
                 </button>
 
-                {microsoft && (
+                {social && (
                   <>
-                    <div className="my-5 flex items-center gap-4 text-[14px] text-v2-muted" role="separator" aria-label="or">
-                      <span className="h-px flex-1 bg-line" />
-                      or
-                      <span className="h-px flex-1 bg-line" />
+                    <div className="my-4 flex items-center gap-4 text-[13px] font-medium tracking-wide text-[var(--brand-800)]" role="separator" aria-label="or">
+                      <span className="h-px flex-1 bg-[var(--brand-border)]" />
+                      OR
+                      <span className="h-px flex-1 bg-[var(--brand-border)]" />
                     </div>
-                    <a href="/sso/microsoft" className="flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-line bg-paper text-[16px] font-semibold transition-colors hover:bg-paper-2">
-                      <MicrosoftIcon size={22} />
-                      Sign in with Microsoft
-                    </a>
+                    <div className={cn("grid gap-3", google && microsoft ? "sm:grid-cols-2" : "grid-cols-1")}>
+                      {google && (
+                        <a href="/sso/google" data-sso="google" className={SOCIAL}>
+                          <GoogleIcon size={22} />
+                          Continue with Google
+                        </a>
+                      )}
+                      {microsoft && (
+                        <a href="/sso/microsoft" data-sso="microsoft" className={SOCIAL}>
+                          <MicrosoftIcon size={22} />
+                          Continue with Microsoft
+                        </a>
+                      )}
+                    </div>
                   </>
                 )}
 
-                <div className="mt-6 space-y-1.5 text-center text-[13.5px] text-v2-muted">
-                  <p className="flex items-center justify-center gap-2">
-                    <LockIcon size={14} aria-hidden /> Secure access protected by {name}.
+                <div className="mt-5 space-y-1 text-center text-[13.5px] text-[var(--brand-800)]">
+                  <p>
+                    <ShieldIcon size={16} aria-hidden className="mr-1.5 inline-block align-[-3px]" />
+                    Secure access protected by industry standards.
                   </p>
-                  {supportEmail ? (
-                    <p>
-                      Need help? Contact IT Support at{" "}
+                  <p>
+                    Need help?{" "}
+                    {supportEmail ? (
                       <a href={`mailto:${supportEmail}`} className="font-semibold text-accent-deep hover:underline">
-                        {supportEmail}
+                        Contact IT Support
                       </a>
-                    </p>
-                  ) : null}
+                    ) : (
+                      <span>Contact IT Support</span>
+                    )}
+                  </p>
                 </div>
               </form>
             )}
@@ -357,32 +376,42 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
   );
 }
 
-const INPUT =
-  "h-[52px] w-full rounded-xl border border-line bg-paper pl-12 pr-4 text-[16px] text-[var(--brand-900)] placeholder:text-v2-muted/80 focus-visible:border-[var(--brand-ring)]";
-const PRIMARY = "h-[52px] w-full gap-3 rounded-xl text-[17px]";
+const INPUT = "tenant-glass-field h-[52px] w-full rounded-xl pl-12 pr-4 text-[16px] text-[var(--brand-900)] placeholder:text-[var(--brand-700)]/80";
+const SIGNIN = "tenant-signin inline-flex h-[54px] w-full items-center justify-center gap-3 rounded-xl text-[18px] font-semibold transition-[filter] hover:brightness-105 disabled:cursor-not-allowed";
+const SOCIAL =
+  "tenant-glass-field flex h-[50px] w-full items-center justify-center gap-2.5 rounded-xl text-[14.5px] font-semibold text-[var(--brand-900)] transition-colors hover:bg-white";
 
-function domainHint(email?: string | null): string {
-  const at = email?.indexOf("@") ?? -1;
-  return email && at > 0 ? email.slice(at + 1) : "company.com";
-}
-
-function CardTitle({ title, subtitle }: { title: string; subtitle: string }) {
+/** Heading on the left; behind a thin divider, the org logo slot on the right (dashed placeholder only in the editor preview). */
+function CardHeader({ title, subtitle, name, logoUrl, preview }: { title: string; subtitle: string; name: string; logoUrl?: string | null; preview: boolean }) {
+  const placeholder = preview && !logoUrl;
   return (
-    <div className="mb-7 text-center">
-      <h2 className="font-body text-[30px] font-extrabold leading-tight tracking-tight sm:text-[34px]">{title}</h2>
-      <p className="mx-auto mt-2 max-w-[30ch] text-[16px] leading-snug text-v2-ink-soft">{subtitle}</p>
+    <div className="mb-6 flex items-center gap-4">
+      <div className="min-w-0 flex-1">
+        <h2 className="font-body text-[32px] font-extrabold leading-tight tracking-tight sm:text-[38px]">{title}</h2>
+        <p className="mt-1 text-[15px] leading-snug text-[var(--brand-800)] sm:text-[16px]">{subtitle}</p>
+      </div>
+      <span aria-hidden className="h-16 w-px shrink-0 bg-[var(--brand-border)] sm:h-20" />
+      <div
+        data-logo-slot={placeholder ? "placeholder" : "logo"}
+        className={cn(
+          "grid h-[68px] w-[92px] shrink-0 place-items-center rounded-2xl p-2 sm:h-[84px] sm:w-[116px]",
+          placeholder && "border-2 border-dashed border-[var(--brand-border)] bg-[var(--brand-subtle)] text-[var(--brand-text)]",
+        )}
+      >
+        {placeholder ? <ImageIcon size={34} aria-label="Your logo appears here" role="img" /> : <TenantLogo name={name} logoUrl={logoUrl} size="slot" />}
+      </div>
     </div>
   );
 }
 
 function Field({ id, label, icon, error, children }: { id: string; label: string; icon: ReactNode; error?: string; children: ReactNode }) {
   return (
-    <div className="mb-4">
-      <label htmlFor={id} className="mb-2 block text-[15px] font-semibold">
+    <div className="mb-3.5">
+      <label htmlFor={id} className="mb-1.5 block text-[15px] font-semibold">
         {label}
       </label>
       <div className="relative">
-        <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-v2-ink-soft">
+        <span aria-hidden className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[var(--brand-800)]">
           {icon}
         </span>
         {children}
@@ -417,10 +446,10 @@ function NotMember({ name, onDifferent }: { name: string; onDifferent: () => voi
         <ShieldIcon size={26} />
       </span>
       <h2 className="font-body text-[26px] font-extrabold leading-tight tracking-tight">You&apos;re not a member of {name}</h2>
-      <p className="mx-auto mt-3 max-w-[34ch] text-[16px] leading-snug text-v2-ink-soft">
+      <p className="mx-auto mt-3 max-w-[34ch] text-[16px] leading-snug text-[var(--brand-800)]">
         This account isn&apos;t part of {name}&apos;s workspace. Ask an administrator for an invitation, or sign in with a different account.
       </p>
-      <button type="button" onClick={onDifferent} className={buttonVariants("accent", "lg", `${PRIMARY} mt-6`)}>
+      <button type="button" onClick={onDifferent} className={cn(SIGNIN, "mt-6")}>
         Use a different account
       </button>
     </div>
@@ -434,8 +463,8 @@ function Unavailable({ onRetry }: { onRetry: () => void }) {
         <AlertIcon size={26} />
       </span>
       <h2 className="font-body text-[26px] font-extrabold leading-tight tracking-tight">We couldn&apos;t reach the server</h2>
-      <p className="mx-auto mt-3 max-w-[34ch] text-[16px] leading-snug text-v2-ink-soft">Nothing was signed in. Please try again in a moment.</p>
-      <button type="button" onClick={onRetry} className={buttonVariants("accent", "lg", `${PRIMARY} mt-6`)}>
+      <p className="mx-auto mt-3 max-w-[34ch] text-[16px] leading-snug text-[var(--brand-800)]">Nothing was signed in. Please try again in a moment.</p>
+      <button type="button" onClick={onRetry} className={cn(SIGNIN, "mt-6")}>
         Try again
       </button>
     </div>

@@ -11,7 +11,7 @@ import { MOCK_TENANTS } from "../../../../scripts/mock-tenants.mjs";
 import BrandedLogin, { chipLabels, safeNext } from "./BrandedLogin";
 import TenantLogo from "./TenantLogo";
 
-type MockTenant = { displayName: string; branding: Record<string, string | string[] | null | undefined>; login: { microsoft?: boolean } };
+type MockTenant = { displayName: string; branding: Record<string, string | string[] | null | undefined>; login: { microsoft?: boolean; google?: boolean } };
 const acme = MOCK_TENANTS["acme.localhost"] as unknown as MockTenant;
 const beta = MOCK_TENANTS["beta.localhost"] as unknown as MockTenant;
 
@@ -28,6 +28,7 @@ function Page({ t }: { t: MockTenant }) {
         supportEmail={b.supportEmail as string | null}
         featureChips={b.featureChips as string[] | null}
         microsoft={t.login.microsoft === true}
+        google={t.login.google === true}
       />
     </TenantThemeProvider>
   );
@@ -37,25 +38,31 @@ beforeEach(() => push.mockReset());
 afterEach(cleanup);
 
 describe("BrandedLogin: everything comes from the host's published branding", () => {
-  it("acme: its logo, 'Welcome to Acme Portal', its support line, Microsoft sign-in and its CSS variables", () => {
+  it("acme: its logo in the slot beside Sign In, the default heading, Microsoft only, its CSS variables", () => {
     const { container } = render(<Page t={acme} />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome toAcme Portal");
-    expect(container.querySelector('[data-tenant-logo="image"] img')?.getAttribute("src")).toContain("/tenant-assets/logo");
-    expect(screen.getByText("it@acme.com").getAttribute("href")).toBe("mailto:it@acme.com");
-    expect(screen.getByText("Sign in with Microsoft")).toBeTruthy();
-    expect(screen.getByText("Secure access protected by Acme.")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome Back");
+    expect(screen.getByText("Sign in to access your workspace, tasks, and updates.")).toBeTruthy();
+    const slot = container.querySelector("[data-logo-slot]");
+    expect(slot?.getAttribute("data-logo-slot")).toBe("logo");
+    expect(slot?.querySelector('[data-tenant-logo="image"] img')?.getAttribute("src")).toContain("/tenant-assets/logo");
+    expect(container.querySelectorAll("[data-tenant-logo]").length).toBe(1); // the logo appears nowhere else on the page
+    expect(screen.getByText("Contact IT Support").getAttribute("href")).toBe("mailto:it@acme.com");
+    expect(screen.getByText("Continue with Microsoft")).toBeTruthy();
+    expect(screen.queryByText("Continue with Google")).toBeNull();
+    expect(screen.getByText("Secure access protected by industry standards.")).toBeTruthy();
     expect(container.querySelector("style")?.textContent).toContain("--brand-600:#0f5fc4");
     expect(container.querySelector("style")?.textContent).toContain("--brand-2-600:#0b7a8a");
   });
 
-  it("beta: a wordmark instead of a logo, its own headline, chips and colours, no Microsoft button, no support line", () => {
+  it("beta: a wordmark in the slot, its own heading and subtitle, Google only, plain-text help line", () => {
     const { container } = render(<Page t={beta} />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome toBeta Talent Portal");
-    expect(container.querySelector('[data-tenant-logo="wordmark"]')?.textContent).toBe("Beta Talent");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Hello, Beta Talent");
+    expect(screen.getByText("Find your next role with us.")).toBeTruthy();
+    expect(container.querySelector('[data-logo-slot="logo"] [data-tenant-logo="wordmark"]')?.textContent).toBe("Beta Talent");
     expect(container.querySelector("img[src*='tenant-assets']")).toBeNull();
-    expect(screen.queryByText("Sign in with Microsoft")).toBeNull();
-    expect(screen.queryByText(/Need help/)).toBeNull();
-    for (const chip of ["People First", "Fast Hiring", "Open Roles"]) expect(screen.getByText(chip)).toBeTruthy();
+    expect(screen.getByText("Continue with Google")).toBeTruthy();
+    expect(screen.queryByText("Continue with Microsoft")).toBeNull();
+    expect(screen.getByText("Contact IT Support").tagName).toBe("SPAN");
     expect(container.querySelector("style")?.textContent).toContain("--brand-600:#b4531a");
     expect(container.querySelector("style")?.textContent).toContain("--brand-2-600:#2f6f4e");
   });
@@ -71,16 +78,43 @@ describe("BrandedLogin: everything comes from the host's published branding", ()
     expect(tenantThemeVars("#0f5fc4", "#0b7a8a")["--brand-solid"]).not.toBe(tenantThemeVars("#b4531a", "#2f6f4e")["--brand-solid"]);
   });
 
-  it("a published welcome title is used verbatim; the subtitle defaults sensibly", () => {
-    render(<BrandedLogin name="Gamma" welcomeTitle="Hello Gamma people" />);
+  it("a published welcome title / message is used verbatim; both default to the board's text", () => {
+    render(<BrandedLogin name="Gamma" welcomeTitle="Hello Gamma people" welcomeMessage="Your portal." />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Hello Gamma people");
-    expect(screen.getByText("Secure access for employees, consultants, and teams.")).toBeTruthy();
+    expect(screen.getByText("Your portal.")).toBeTruthy();
+    cleanup();
+    render(<BrandedLogin name="Gamma" />);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Welcome Back");
+  });
+
+  it("Google / Microsoft buttons exist only when the org's options enable them; no OR divider when neither", () => {
+    const { container } = render(<BrandedLogin name="Gamma" />);
+    expect(container.querySelector("[data-sso]")).toBeNull();
+    expect(screen.queryByRole("separator")).toBeNull();
+    cleanup();
+    render(<BrandedLogin name="Gamma" google microsoft />);
+    expect(screen.getByText("Continue with Google").getAttribute("href")).toBe("/sso/google");
+    expect(screen.getByText("Continue with Microsoft").getAttribute("href")).toBe("/sso/microsoft");
+    expect(screen.getByRole("separator")).toBeTruthy();
+  });
+
+  it("logo slot: the dashed placeholder shows ONLY in the branding preview with no logo; the public login shows the wordmark", () => {
+    const pub = render(<BrandedLogin name="Gamma" />);
+    expect(pub.container.querySelector('[data-logo-slot="placeholder"]')).toBeNull();
+    expect(pub.container.querySelector('[data-tenant-logo="wordmark"]')?.textContent).toBe("Gamma");
+    cleanup();
+    const prev = render(<BrandedLogin name="Gamma" preview />);
+    expect(prev.container.querySelector('[data-logo-slot="placeholder"]')).toBeTruthy();
+    expect(prev.container.querySelector("[data-tenant-logo]")).toBeNull();
+    cleanup();
+    const withLogo = render(<BrandedLogin name="Gamma" preview logoUrl="/tenant-assets/logo?v=1" />);
+    expect(withLogo.container.querySelector('[data-logo-slot="logo"] img')).toBeTruthy();
   });
 
   it("the page itself holds no hex colour: it paints with the theme variables only", () => {
     const { container } = render(<Page t={acme} />);
-    const html = (container.querySelector("main")?.outerHTML ?? "").replace(/<svg[\s\S]*?<\/svg>/g, ""); // brand glyphs (Microsoft) keep their official colours
-    expect(html).not.toMatch(/#[0-9a-fA-F]{6}/);
+    const html = (container.querySelector("main")?.outerHTML ?? "").replace(/<svg[\s\S]*?<\/svg>/g, ""); // brand glyphs (Google, Microsoft) keep their official colours
+    expect(html.replace(/<picture[\s\S]*?<\/picture>/g, "")).not.toMatch(/#[0-9a-fA-F]{6}/);
     expect(html).toContain("var(--brand-");
   });
 });
@@ -117,7 +151,7 @@ describe("TenantLogo: no tofu, ever", () => {
 
 describe("the sign-in states", () => {
   const fill = async () => {
-    fireEvent.change(screen.getByLabelText("Work Email"), { target: { value: "x@acme.com" } });
+    fireEvent.change(screen.getByLabelText("User Name"), { target: { value: "x@acme.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "pw" } });
     fireEvent.click(screen.getByRole("button", { name: /Sign In/ }));
   };
@@ -136,7 +170,7 @@ describe("the sign-in states", () => {
     await fill();
     await waitFor(() => expect(screen.getByText("You're not a member of Acme")).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Use a different account" }));
-    await waitFor(() => expect(screen.getByLabelText("Work Email")).toBeTruthy());
+    await waitFor(() => expect(screen.getByLabelText("User Name")).toBeTruthy());
     cleanup();
 
     answer(502, { error: "down" });
