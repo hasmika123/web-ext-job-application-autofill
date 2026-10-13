@@ -221,7 +221,7 @@ class OrgJobResourceIT extends MemberItSupport {
         assertThat(ids(list(login("owner"), "?clientId=" + clientB.getId()))).as("another tenant's client id finds nothing").isEmpty();
         assertThat(ids(list(login("owner"), "?workMode=HYBRID"))).containsExactly(j1.getId());
         assertThat(ids(list(login("owner"), "?employment=CONTRACT"))).containsExactly(j1.getId());
-        assertThat(ids(list(login("owner"), "?location=" + java.net.URLEncoder.encode("New York, NY", java.nio.charset.StandardCharsets.UTF_8)))).as("a comma is not a separator").containsExactly(j1.getId());
+        assertThat(ids(json(call(login("owner"), get(url(a)).param("location", "New York, NY")))) /* .param: a template string would encode the percent signs twice */).as("a comma is not a separator").containsExactly(j1.getId());
         assertThat(ids(list(login("owner"), "?minMatch=90"))).containsExactly(j1.getId());
         assertThat(ids(list(login("owner"), "?minMatch=60"))).hasSize(2);
         assertThat(ids(list(login("owner"), "?sort=title&dir=asc"))).containsExactly(j2.getId(), j1.getId());

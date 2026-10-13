@@ -43,8 +43,10 @@ public class OrgJobResource {
     private final JobWriteService write;
     private final IdempotencyService idempotency;
     private final DemoGuard demoGuard;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper;
 
-    public OrgJobResource(JobBoardService board, JobWriteService write, IdempotencyService idempotency, DemoGuard demoGuard) {
+    public OrgJobResource(JobBoardService board, JobWriteService write, IdempotencyService idempotency, DemoGuard demoGuard, com.fasterxml.jackson.databind.ObjectMapper mapper) {
+        this.mapper = mapper;
         this.board = board;
         this.write = write;
         this.idempotency = idempotency;
@@ -109,10 +111,11 @@ public class OrgJobResource {
     public ResponseEntity<JobDTO.Detail> create(
         @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
         @RequestHeader(value = "Idempotency-Key", required = false) String key,
-        @RequestBody JobDTO.CreateRequest body,
+        @RequestBody com.fasterxml.jackson.databind.JsonNode raw,
         HttpServletRequest request
     ) {
         demoGuard.assertNotDemo();
+        JobDTO.CreateRequest body = strict(raw, JobDTO.CreateRequest.class);
         IdempotencyService.Outcome<JobDTO.Detail> out = idempotency.execute(me, key, true, "POST", request.getRequestURI(), body, 201, JobDTO.Detail.class, () -> write.create(me, body));
         ResponseEntity.BodyBuilder ok = ResponseEntity.status(out.status());
         if (out.replayed()) ok.header("Idempotent-Replayed", "true");
@@ -146,10 +149,11 @@ public class OrgJobResource {
     public ResponseEntity<JobDTO.BulkResult> bulkStatus(
         @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
         @RequestHeader(value = "Idempotency-Key", required = false) String key,
-        @RequestBody JobDTO.BulkStatusRequest body,
+        @RequestBody com.fasterxml.jackson.databind.JsonNode raw,
         HttpServletRequest request
     ) {
         demoGuard.assertNotDemo();
+        JobDTO.BulkStatusRequest body = strict(raw, JobDTO.BulkStatusRequest.class);
         IdempotencyService.Outcome<JobDTO.BulkResult> out = idempotency.execute(me, key, true, "POST", request.getRequestURI(), body, 200, JobDTO.BulkResult.class, () -> write.bulkStatus(me, body));
         ResponseEntity.BodyBuilder ok = ResponseEntity.status(out.status());
         if (out.replayed()) ok.header("Idempotent-Replayed", "true");
@@ -187,11 +191,22 @@ public class OrgJobResource {
         @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
         @PathVariable Long jobId,
         @PathVariable Long matchId,
-        @RequestBody JobDTO.MatchRequest body
+        @RequestBody com.fasterxml.jackson.databind.JsonNode raw
     ) {
         demoGuard.assertNotDemo();
+        JobDTO.MatchRequest body = strict(raw, JobDTO.MatchRequest.class);
         if (body == null) throw OrgException.invalid("status", "DISMISSED or SUGGESTED");
         return withEtag(write.setMatchStatus(me, jobId, matchId, body.status()));
+    }
+
+    /** Binds a body and refuses any property the shape does not name (Spring's mapper ignores unknown ones, which would let {@code orgId} ride along silently). */
+    private <T> T strict(com.fasterxml.jackson.databind.JsonNode raw, Class<T> type) {
+        if (raw == null || raw.isNull()) throw OrgException.invalid("body", "is required");
+        try {
+            return mapper.readerFor(type).with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(raw);
+        } catch (java.io.IOException e) {
+            throw OrgException.invalid("body", "has a property or value this request does not accept");
+        }
     }
 
     private static ResponseEntity<JobDTO.Detail> withEtag(JobDTO.Detail d) {
