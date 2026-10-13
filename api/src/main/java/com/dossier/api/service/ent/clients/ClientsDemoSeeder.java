@@ -153,12 +153,17 @@ public class ClientsDemoSeeder {
         List<ConsultantProfile> people = consultants.findByOrgId(orgId);
 
         // 1. the clients that exist already: profile facts without touching updated_at (it feeds "last activity")
-        for (ClientAccount c : existing) {
+        List<ClientAccount> ordered = new ArrayList<>(existing);
+        ordered.sort(java.util.Comparator.comparing(ClientAccount::getId));
+        for (int i = 0; i < ordered.size(); i++) {
+            ClientAccount c = ordered.get(i);
             if (c.getSizeBand() != null) continue;
             Profile p = KNOWN.get(c.getName());
             if (p == null) continue;
             LocalDate since = today.minusDays(240 + rnd.nextInt(1100));
-            jdbc.update("update client_account set location = ?, size_band = ?, client_since = ?, about = ? where org_id = ? and id = ?", p.city(), p.size(), since, p.about(), orgId, c.getId());
+            // the foundation gave every client to one account manager; spread two of every three over the marketing seats
+            Long owner = owners.isEmpty() || i % 3 == 0 ? c.getOwnerMemberId() : owners.get(i % owners.size());
+            jdbc.update("update client_account set location = ?, size_band = ?, client_since = ?, about = ?, owner_member_id = ? where org_id = ? and id = ?", p.city(), p.size(), since, p.about(), owner, orgId, c.getId());
         }
 
         // 2. new clients up to the target

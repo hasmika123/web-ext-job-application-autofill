@@ -8,8 +8,8 @@ import java.time.Instant;
  * ({@link ClientsSettings}: {@code org.clients.healthy_days}, default 14, and {@code org.clients.at_risk_days}, default 45).
  *
  * <pre>
- *   quiet     = days since the client's last activity (the newest of: the account's own change, a requirement posted or changed,
- *               an application moving, a placement, a contact added, a relationship note)
+ *   quiet     = days since the client's last activity (the newest of: the account's own change, a requirement posted or closed,
+ *               an application moving, a placement starting or ending, a contact added, a relationship note)
  *   in flight = the client has an open requirement or a consultant currently placed
  *
  *   status INACTIVE or PROSPECT              -> NEUTRAL  (not being worked, nothing to judge)

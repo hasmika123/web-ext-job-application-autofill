@@ -465,17 +465,17 @@ public class ClientBoardService {
     Map<Long, Stat> stats(Long orgId, Collection<ClientAccount> of) {
         Map<Long, Long> open = new HashMap<>();
         Map<Long, Instant> lastReq = new HashMap<>();
-        for (Object[] row : (List<Object[]>) em.createQuery("select r.clientId, sum(case when r.status = 'OPEN' then 1 else 0 end), max(r.postedAt), max(r.updatedAt) from ClientRequirement r where r.orgId = :o group by r.clientId").setParameter("o", orgId).getResultList()) {
+        for (Object[] row : (List<Object[]>) em.createQuery("select r.clientId, sum(case when r.status = 'OPEN' then 1 else 0 end), max(r.postedAt), max(r.closedAt) from ClientRequirement r where r.orgId = :o group by r.clientId").setParameter("o", orgId).getResultList()) {
             open.put((Long) row[0], row[1] == null ? 0L : ((Number) row[1]).longValue());
             lastReq.put((Long) row[0], newest((Instant) row[2], (Instant) row[3]));
         }
         Map<Long, Long> active = new HashMap<>();
         Map<Long, Long> placed = new HashMap<>();
         Map<Long, Instant> lastPlacement = new HashMap<>();
-        for (Object[] row : (List<Object[]>) em.createQuery("select p.clientId, count(distinct case when p.status = 'ACTIVE' then p.consultantId else null end), count(p), max(p.updatedAt), max(p.createdAt) from TalentPlacement p where p.orgId = :o group by p.clientId").setParameter("o", orgId).getResultList()) {
+        for (Object[] row : (List<Object[]>) em.createQuery("select p.clientId, count(distinct case when p.status = 'ACTIVE' then p.consultantId else null end), count(p), max(p.startDate), max(p.endDate) from TalentPlacement p where p.orgId = :o group by p.clientId").setParameter("o", orgId).getResultList()) {
             active.put((Long) row[0], ((Number) row[1]).longValue());
             placed.put((Long) row[0], ((Number) row[2]).longValue());
-            lastPlacement.put((Long) row[0], newest((Instant) row[3], (Instant) row[4]));
+            lastPlacement.put((Long) row[0], newest(atStart((java.time.LocalDate) row[3]), atStart((java.time.LocalDate) row[4])));
         }
         Map<Long, Instant> lastApp = new HashMap<>();
         for (Object[] row : (List<Object[]>) em.createQuery("select a.clientId, max(a.stageChangedAt) from TalentApplication a where a.orgId = :o and a.clientId is not null group by a.clientId").setParameter("o", orgId).getResultList()) lastApp.put((Long) row[0], (Instant) row[1]);
@@ -491,6 +491,10 @@ public class ClientBoardService {
             out.put(id, new Stat(open.getOrDefault(id, 0L).intValue(), active.getOrDefault(id, 0L).intValue(), placed.getOrDefault(id, 0L).intValue(), last));
         }
         return out;
+    }
+
+    private static Instant atStart(java.time.LocalDate d) {
+        return d == null ? null : d.atStartOfDay().toInstant(java.time.ZoneOffset.UTC);
     }
 
     private static Instant newest(Instant... values) {
