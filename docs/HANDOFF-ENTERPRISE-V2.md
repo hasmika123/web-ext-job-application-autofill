@@ -8,7 +8,27 @@
 
 ## START HERE
 
-**Last commit:** `enterprise-v2: phase 0 audit, architecture debate, ADRs, foundation design, phase plan` on `enterprise-v2` (see `git log --oneline -1`).
+**Branch layout (2026-10-12):** `enterprise-v2` = the design line (Phase 0). `ev2-design-b/c/d` = the three
+parallel design sessions (docs 10–16, 20–29, 17 + 30–38). **`ev2-design-e`** = Session E, which merged B, C and D
+(`93c519e`, `d8629f4`, `6d0aba1` — conflicts resolved by content, `ent.json` parses, `--list` → 0 dangling ids) and was
+**paused by the usage limit** at the WIP commit `wip: enterprise-v2 design E — paused (usage limit), see HANDOFF`.
+`ev2-build-p1` = Phase 1 code in progress (X1.1 done at `f3e71b2`; X1.2–X1.3 next). Nothing is pushed.
+
+**Session E status — resume here (checkout `ev2-design-e`):**
+| Task | State | Where |
+|---|---|---|
+| 0 Merge B/C/D, regenerate roadmap | **done** | three merge commits; `08-decisions-for-user.md` restructured (Answered table → open items → B/C/D blocks) |
+| 1 Cross-session consistency pass | **partial** — every mismatch is *decided* in `docs/enterprise-v2/09-consistency-decisions.md` (20 rows + planned story work) but **not yet applied** to docs 05/11/12/14/15/16/20/21/24/25/28/30–38 or to `ent.json`/`07-backlog.md` | apply row by row; X1.4 must be amended (row 15) before `ev2-build-p1` reaches it |
+| 2 CLAUDE.md E3 change (+ Go-to-market line, Enterprise V2 locked bullet, ROADMAP.md note at the org price table ≈ line 1134) | **not started** | text is in the Session E brief |
+| 3 Docs 40–44 (API, DB, threat model, testing, deployment) | **not started** | README still lists them as 40/41/42 — rename to 40–44 |
+| 4 Story review: X4.10 + X12.* full spec, X1.13/X2.15 new, 26 L→S/M splits, global build order in 06 + tracker | **not started** (plan in 09 "Planned story work") | render stories into `07-backlog.md` in the X1 section format |
+| 5 This START HERE (next Sonnet stories, open escalations) | **partial** (this table) | after X1.3: X1.4 (amended), X1.5, X1.6, X1.7 in that order; X1.10/X1.12 parallel |
+
+**Open escalations needing the user (material only):** E4 role ceiling, E8 break-glass, E9 coupons, E10 subdomain approval,
+E12 ops endpoints (fix story X1.13 planned), B1 ask-token via query param, C1 enterprise credits, C3 Stripe Tax, C5 preset
+pricing, D1 link checks, D2 Autopilot feed, D4 marketer inbox — all with safe defaults applied (`08-decisions-for-user.md`).
+
+**Last design commit:** `enterprise-v2: phase 0 audit, architecture debate, ADRs, foundation design, phase plan` on `enterprise-v2` (see `git log --oneline -1`).
 
 **First commands**
 ```bash
