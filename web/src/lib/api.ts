@@ -19,7 +19,7 @@ export async function serverApiFetch(path: string, init: RequestInit = {}): Prom
   const token = await getAccessToken();
   const headers = new Headers(init.headers);
   if (token) headers.set("authorization", `Bearer ${token}`);
-  if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+  if (init.body && !(init.body instanceof FormData) && !headers.has("content-type")) headers.set("content-type", "application/json");
   // X1.4: the API resolves the tenant from the host the visitor arrived on (set by proxy.ts), never from a parameter.
   try {
     const incoming = await requestHeaders();
