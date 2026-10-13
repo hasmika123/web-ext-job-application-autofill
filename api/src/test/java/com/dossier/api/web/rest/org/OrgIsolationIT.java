@@ -124,6 +124,16 @@ class OrgIsolationIT {
             return new Case(null, 200, null, false, null, null, 1, null);
         }
 
+        /** A consultant-workspace read: the owner is made a consultant first, and no audit row is written. */
+        static Case consultantRead() {
+            return new Case(null, 200, null, false, null, null, 1, World::makeOwnerAConsultant);
+        }
+
+        /** A consultant-workspace write: same caller, own-scoped data, no org audit row. */
+        static Case consultantWrite(String body, int status) {
+            return new Case(body, status, null, false, null, null, 1, World::makeOwnerAConsultant);
+        }
+
         static Case write(String body, int status, String action) {
             return new Case(body, status, action, false, null, null, 1, null);
         }
@@ -219,7 +229,43 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/dashboard", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null)),
         // Consultant workspace Home: own-scoped. Only a consultant (opportunities.respond + a consultant_profile) may read it, so the legitimate call makes the owner one.
-        Map.entry("GET /api/orgs/{orgId}/me-workspace/home", new Case(null, 200, null, false, null, null, 1, World::makeOwnerAConsultant))
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/home", Case.consultantRead()),
+        // The other consultant-workspace pages: own-scoped too, same legitimate caller (the owner made a consultant), no org audit row.
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/profile", Case.consultantRead()),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/availability", Case.consultantWrite("{\"status\":\"NOTICE\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/summary", Case.consultantWrite("{\"text\":\"Hijacked summary\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/career-goals", Case.consultantWrite("{\"text\":\"Hijacked goals\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/work-authorization", Case.consultantWrite("{\"value\":\"authorized_no_sponsorship\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/employment-types", Case.consultantWrite("{\"values\":[\"CONTRACT\"]}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/profile/skills", Case.consultantWrite("{\"skill\":\"Hijack\"}", 200)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/profile/skills/{skillId}", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/profile/certifications", Case.consultantWrite("{\"name\":\"Hijack cert\"}", 200)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/profile/certifications/{certId}", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/profile/prefs", Case.consultantWrite("{\"kind\":\"ROLE\",\"value\":\"Hijack role\"}", 200)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/profile/prefs/{prefId}", Case.consultantWrite(null, 200)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/resumes", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/preview", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/primary", Case.consultantWrite(null, 200)),
+        Map.entry("PATCH /api/orgs/{orgId}/me-workspace/resumes/{resumeId}", Case.consultantWrite("{\"name\":\"Hijacked resume\"}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/activity", Case.consultantWrite("{\"kind\":\"VIEWED\"}", 204)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/duplicate", Case.consultantWrite(null, 201)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/marketer", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/matches", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/matches/{matchId}", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/matches/{matchId}/view", Case.consultantWrite(null, 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/matches/{matchId}/save", Case.consultantWrite(null, 200)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/matches/{matchId}/save", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/matches/{matchId}/interest", Case.consultantWrite("{\"note\":\"Hijack\"}", 200)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/job-discovery/overview", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/job-discovery/search", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/job-discovery/jobs/{requirementId}", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/saved/{requirementId}", Case.consultantWrite(null, 200)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/job-discovery/saved/{requirementId}", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/jobs/{requirementId}/apply", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/saved-searches", Case.consultantWrite("{\"name\":\"Hijack search\",\"filters\":{\"q\":\"java\"}}", 200)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/job-discovery/saved-searches/{id}", Case.consultantWrite(null, 204)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/saved-searches/{id}/viewed", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/recent-searches", Case.consultantWrite("{\"q\":\"hijack\"}", 200))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -270,12 +316,21 @@ class OrgIsolationIT {
     @Autowired private OrgBrandingRepository brandings;
     @Autowired private OrgBrandingVersionRepository brandingVersions;
 
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantSkillRepository consultantSkills;
+    @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsCertificationRepository cwsCerts;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsProfilePrefRepository cwsPrefs;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsSavedSearchRepository cwsSavedSearches;
+    @Autowired private com.dossier.api.repository.ent.talent.ClientAccountRepository clientAccounts;
+    @Autowired private com.dossier.api.repository.ent.talent.ClientRequirementRepository clientRequirements;
+    @Autowired private com.dossier.api.repository.ent.talent.RequirementMatchRepository requirementMatches;
+
     private OrgFixtures fx;
 
     @Autowired private com.dossier.api.repository.ent.OrgMemberRoleRepository memberRoleRows;
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository consultantProfiles;
 
-    /** Gives the seat the Consultant role and a consultant_profile, which is what the consultant-workspace routes require. */
+    /** Gives the seat the Consultant role; the consultant_profile is already there (every World seeds one for its owner). */
     private void makeConsultant(Long orgId, OrgMember seat) {
         com.dossier.api.domain.ent.OrgMemberRole r = new com.dossier.api.domain.ent.OrgMemberRole();
         r.setOrgId(orgId);
@@ -284,12 +339,6 @@ class OrgIsolationIT {
         r.setPrimary(false);
         r.setGrantedAt(Instant.now());
         memberRoleRows.saveAndFlush(r);
-        com.dossier.api.domain.ent.talent.ConsultantProfile c = new com.dossier.api.domain.ent.talent.ConsultantProfile();
-        c.setOrgId(orgId);
-        c.setMemberId(seat.getId());
-        c.setDisplayName("Isolation Consultant");
-        c.setEmail("isolation-consultant@example.org");
-        consultantProfiles.saveAndFlush(c);
     }
 
     // ---- the two tenants ------------------------------------------------------------------------------------------
@@ -315,6 +364,8 @@ class OrgIsolationIT {
         OrgGroup department;
         String memberVersion;
         Long offboardingId;
+        /** Consultant workspace: the rows of the owner's consultant profile (own-scoped; A's ids are named from B's org in the cross-tenant sweep). */
+        Long skillId, certId, prefId, resumeId, matchId, requirementId, savedSearchId;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -422,6 +473,63 @@ class OrgIsolationIT {
             sched.setReason("Scheduled for the isolation test");
             sched.setCreatedByMemberId(owner.getId());
             offboardingId = offboardingRows.saveAndFlush(sched).getId();
+            // Consultant workspace: a consultant_profile for the owner (the Consultant ROLE is only added by makeOwnerAConsultant) and one
+            // row of every table the me-workspace routes name by id, all belonging to that profile.
+            com.dossier.api.domain.ent.talent.ConsultantProfile cp = new com.dossier.api.domain.ent.talent.ConsultantProfile();
+            cp.setOrgId(org.getId());
+            cp.setMemberId(owner.getId());
+            cp.setDisplayName("Isolation Consultant");
+            cp.setEmail(prefix + "-consultant@example.org");
+            cp = consultantProfiles.saveAndFlush(cp);
+            com.dossier.api.domain.ent.talent.ConsultantSkill sk = new com.dossier.api.domain.ent.talent.ConsultantSkill();
+            sk.setOrgId(org.getId());
+            sk.setConsultantId(cp.getId());
+            sk.setSkill("Java");
+            sk.setPrimarySkill(true);
+            sk.setSortOrder(0);
+            skillId = consultantSkills.saveAndFlush(sk).getId();
+            com.dossier.api.domain.ent.consultantws.CwsCertification ce = new com.dossier.api.domain.ent.consultantws.CwsCertification();
+            ce.setOrgId(org.getId());
+            ce.setConsultantId(cp.getId());
+            ce.setName("Isolation cert");
+            certId = cwsCerts.saveAndFlush(ce).getId();
+            com.dossier.api.domain.ent.consultantws.CwsProfilePref pf = new com.dossier.api.domain.ent.consultantws.CwsProfilePref();
+            pf.setOrgId(org.getId());
+            pf.setConsultantId(cp.getId());
+            pf.setKind("ROLE");
+            pf.setValue("Architect");
+            prefId = cwsPrefs.saveAndFlush(pf).getId();
+            com.dossier.api.domain.ent.talent.OrgResume rs = new com.dossier.api.domain.ent.talent.OrgResume();
+            rs.setOrgId(org.getId());
+            rs.setConsultantId(cp.getId());
+            rs.setMemberId(owner.getId());
+            rs.setName(prefix + " resume");
+            rs.setPrimaryForOrg(true);
+            resumeId = orgResumes.saveAndFlush(rs).getId();
+            com.dossier.api.domain.ent.talent.ClientAccount ca = new com.dossier.api.domain.ent.talent.ClientAccount();
+            ca.setOrgId(org.getId());
+            ca.setName(prefix + " client");
+            ca = clientAccounts.saveAndFlush(ca);
+            com.dossier.api.domain.ent.talent.ClientRequirement rq = new com.dossier.api.domain.ent.talent.ClientRequirement();
+            rq.setOrgId(org.getId());
+            rq.setClientId(ca.getId());
+            rq.setTitle(prefix + " Java Developer");
+            requirementId = clientRequirements.saveAndFlush(rq).getId();
+            com.dossier.api.domain.ent.talent.RequirementMatch rm = new com.dossier.api.domain.ent.talent.RequirementMatch();
+            rm.setOrgId(org.getId());
+            rm.setRequirementId(requirementId);
+            rm.setConsultantId(cp.getId());
+            rm.setScore(88);
+            rm.setStatus("SUGGESTED");
+            rm.setReason("Skills align with this role.");
+            matchId = requirementMatches.saveAndFlush(rm).getId();
+            com.dossier.api.domain.ent.consultantws.CwsSavedSearch ss = new com.dossier.api.domain.ent.consultantws.CwsSavedSearch();
+            ss.setOrgId(org.getId());
+            ss.setConsultantId(cp.getId());
+            ss.setKind(com.dossier.api.domain.ent.consultantws.CwsSavedSearch.SAVED);
+            ss.setName(prefix + " search");
+            ss.setKeyword("java");
+            savedSearchId = cwsSavedSearches.saveAndFlush(ss).getId();
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
         }
@@ -457,6 +565,13 @@ class OrgIsolationIT {
             ids.put("pendingMemberId", String.valueOf(pending.getId())); // X1.8's resend names the INVITED seat; every other {memberId} route is the ACTIVE member
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             ids.put("alertKey", "MEMBERS_SUSPENDED");
+            ids.put("skillId", String.valueOf(skillId));
+            ids.put("certId", String.valueOf(certId));
+            ids.put("prefId", String.valueOf(prefId));
+            ids.put("resumeId", String.valueOf(resumeId));
+            ids.put("matchId", String.valueOf(matchId));
+            ids.put("requirementId", String.valueOf(requirementId));
+            ids.put("id", String.valueOf(savedSearchId)); // saved-searches/{id}
             return ids;
         }
 
