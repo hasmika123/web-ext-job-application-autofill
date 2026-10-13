@@ -98,18 +98,20 @@ export default function InvitePanel({
   }
 
   return (
-    <form onSubmit={submit} noValidate data-invite-panel aria-labelledby={headingId ?? `${uid}-h`} className="flex flex-col gap-3.5">
+    <form onSubmit={submit} noValidate data-invite-panel aria-labelledby={headingId ?? `${uid}-h`} className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 id={headingId ?? `${uid}-h`} className="flex items-center gap-2 text-[17px] font-bold text-ink">
-            <MailIcon aria-hidden size={20} className="flex-none text-accent" />
+          <h2 id={headingId ?? `${uid}-h`} className="flex items-center gap-3 text-[20px] font-bold text-ink">
+            <span aria-hidden className="grid h-[34px] w-[34px] flex-none place-items-center rounded-lg bg-accent-soft text-accent">
+              <MailIcon aria-hidden size={20} />
+            </span>
             Invite Employee
           </h2>
-          <p className="mt-1 text-[13px] text-muted">Send an invitation to join your organization.</p>
+          <p className="mt-2 text-[14px] text-muted">Send an invitation to join your organization.</p>
         </div>
         {onClose && (
           <Tooltip content="Close">
-            <IconButton aria-label="Close the invite panel" onClick={onClose}>
+            <IconButton aria-label="Close the invite panel" onClick={onClose} className="!h-[34px] !w-[34px] flex-none rounded-full border border-line bg-paper text-accent shadow-sm">
               <XIcon size={16} />
             </IconButton>
           </Tooltip>

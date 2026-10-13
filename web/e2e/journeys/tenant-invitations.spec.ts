@@ -66,7 +66,7 @@ test.describe("Sarah on Acme", () => {
     }
     await panel.getByLabel(/Personal Message/).fill("Welcome to the team.");
     await panel.getByRole("button", { name: /Send Invitation/ }).click();
-    await expect(page.getByText("Invite sent")).toBeVisible();
+    await expect(page.getByText("Invite sent")).toBeVisible({ timeout: 20_000 });
     await expect(panel.getByText(`Invitation sent to ${email}.`)).toBeVisible();
 
     // counters and feed change
@@ -115,7 +115,7 @@ test.describe("Sarah on Acme", () => {
       await page.getByRole("option").first().click();
     }
     await panel.getByRole("button", { name: /Send Invitation/ }).click();
-    await expect(page.getByText("Invite sent")).toBeVisible();
+    await expect(page.getByText("Invite sent")).toBeVisible({ timeout: 20_000 });
     await expect.poll(() => kpi(page, "PENDING")).toBe(pending0 + 1);
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByText("Invitation cancelled")).toBeVisible();

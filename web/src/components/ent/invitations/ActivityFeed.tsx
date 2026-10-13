@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { BellIcon, Button, EmptyState, MemberAvatar, Skeleton } from "@kiwiply/ui";
+import { BellIcon, Button, EmptyState, Skeleton } from "@kiwiply/ui";
+import { InviteAvatar } from "./InviteBits";
 import { displayName, relativeTime, type Activity } from "@/lib/ent/invitations";
 
 const COLLAPSED = 5;
@@ -26,10 +27,10 @@ export default function ActivityFeed({ items, now }: { items: Activity[] | null;
   const [all, setAll] = useState(false);
   const shown = items ? (all ? items : items.slice(0, COLLAPSED)) : [];
   return (
-    <section aria-labelledby="inv-activity-h" data-invitation-activity className="min-w-0 rounded-[var(--radius-lg)] border border-line bg-paper p-4 sm:p-5">
+    <section aria-labelledby="inv-activity-h" data-invitation-activity className="inv-card min-w-0 p-4 sm:p-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 id="inv-activity-h" className="flex items-center gap-2 text-[16px] font-bold text-ink">
-          <BellIcon aria-hidden size={18} className="text-danger" />
+        <h2 id="inv-activity-h" className="flex items-center gap-2 text-[20px] font-bold text-ink">
+          <BellIcon aria-hidden size={22} className="text-v2-coral" />
           Recent Invitation Activity
         </h2>
         {items && items.length > COLLAPSED && (
@@ -47,17 +48,17 @@ export default function ActivityFeed({ items, now }: { items: Activity[] | null;
       ) : items.length === 0 ? (
         <EmptyState variant="inline" title="Nothing yet" description="Invitations you send, and what happens to them, show up here." />
       ) : (
-        <ul className="mt-3 divide-y divide-line/60">
+        <ul className="mt-3 divide-y divide-line/40">
           {shown.map((a, i) => {
             const { text, sub } = line(a);
             return (
-              <li key={`${a.kind}-${a.invitationId ?? i}-${a.at}`} className="flex items-center gap-3 py-2.5">
-                <MemberAvatar name={displayName(a)} size={34} />
-                <div className="min-w-0 flex-1 text-[13.5px] leading-snug text-ink-soft">
+              <li key={`${a.kind}-${a.invitationId ?? i}-${a.at}`} className="flex items-center gap-3 py-2">
+                <InviteAvatar name={displayName(a)} size={34} />
+                <div className="min-w-0 flex-1 text-[14.5px] leading-snug text-ink">
                   <p className="truncate">{text}</p>
-                  {sub && <p className="truncate text-[12px] text-muted">{sub}</p>}
+                  {sub && <p className="truncate text-[13px] text-muted">{sub}</p>}
                 </div>
-                <time dateTime={a.at} suppressHydrationWarning className="flex-none text-[12.5px] tabular-nums text-muted">
+                <time dateTime={a.at} suppressHydrationWarning className="flex-none text-[14px] tabular-nums text-ink-soft">
                   {relativeTime(a.at, now)}
                 </time>
               </li>

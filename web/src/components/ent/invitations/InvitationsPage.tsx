@@ -9,9 +9,10 @@ import {
   FilterBar,
   MailIcon,
   MinusCircleIcon,
-  PersonCell,
+  PlusIcon,
   SendIcon,
-  StatePill,
+  CalendarIcon,
+  Select,
   UploadIcon,
   useMediaQuery,
   useNarrow,
@@ -19,10 +20,10 @@ import {
   type DataTableColumn,
   type MenuEntry,
 } from "@kiwiply/ui";
+import { InviteAvatar, InviteStatusPill } from "./InviteBits";
 import { undoToast } from "@/lib/undo-toast";
 import PageHeader, { ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import {
-  INVITATION_DOMAIN,
   RANGES,
   STATUSES,
   STATUS_LABEL,
@@ -229,15 +230,19 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
       key: "name",
       header: "Name",
       primary: true,
-      className: "min-w-40 max-w-[14rem]",
+      className: "min-w-40 max-w-[15rem]",
       render: (r) => (
         <span className="flex min-w-0 items-center gap-2.5">
           {canInvite && narrow && <Checkbox checked={selected.has(r.id)} label={`Select ${displayName(r)}`} onChange={(v) => toggle(r.id, v)} />}
-          <PersonCell name={displayName(r)} avatarName={displayName(r)} size={32} sub={narrow ? undefined : <span className="@[1040px]:hidden">{r.email}</span>} />
+          <InviteAvatar name={displayName(r)} size={30} />
+          <span className="min-w-0">
+            <span className="block truncate text-[14px] font-semibold text-ink">{displayName(r)}</span>
+            {!narrow && <span className="block truncate text-[12px] text-muted @[900px]:hidden">{r.email}</span>}
+          </span>
         </span>
       ),
     },
-    { key: "email", header: "Email", className: "hidden @[1040px]:table-cell", render: (r) => <span className="block max-w-56 truncate text-ink-soft">{r.email}</span> },
+    { key: "email", header: "Email", className: "hidden @[900px]:table-cell", render: (r) => <span className="block max-w-56 truncate text-ink-soft">{r.email}</span> },
     { key: "roles", header: "Role", className: "max-w-44 whitespace-nowrap", render: (r) => <RolesCell row={r} withDept={!narrow} /> },
     { key: "department", header: "Department", className: "hidden whitespace-nowrap @[760px]:table-cell", render: (r) => r.department?.name ?? <span className="text-muted">—</span> },
     { key: "invitedBy", header: "Invited By", className: "hidden whitespace-nowrap @[760px]:table-cell", render: (r) => r.invitedBy?.name ?? <span className="text-muted">—</span> },
@@ -247,7 +252,7 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
       className: "whitespace-nowrap",
       render: (r) => (
         <span title={r.status === "PENDING" && r.expiresAt ? `Expires ${shortDate(r.expiresAt)}` : undefined} data-invitation-status={r.status}>
-          <StatePill domain={INVITATION_DOMAIN} state={r.status} label={STATUS_LABEL[r.status]} />
+          <InviteStatusPill status={r.status} label={STATUS_LABEL[r.status]} />
         </span>
       ),
     },
@@ -287,9 +292,9 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
 
       <KpiTiles counts={inv.counts} failed={inv.countsError} onRetry={() => void inv.refreshSide()} />
 
-      <div className={showPanel ? "grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]" : "grid gap-4"}>
+      <div className={showPanel ? "grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_346px]" : "grid gap-4"}>
         {empty ? (
-          <section aria-label="Employee Invitations" className="rounded-[var(--radius-lg)] border border-line bg-paper p-4 sm:p-5">
+          <section aria-label="Employee Invitations" className="inv-card p-4 sm:p-5">
             <EmptyState
               mascotPose="empty"
               title="No invitations yet"
@@ -305,19 +310,19 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
             />
           </section>
         ) : (
-          <section aria-labelledby="inv-table-h" className="@container min-w-0 rounded-[var(--radius-lg)] border border-line bg-paper p-3 sm:p-5">
+          <section aria-labelledby="inv-table-h" className="@container inv-card min-w-0 p-3 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 id="inv-table-h" className="text-[18px] font-bold text-ink">
+              <h2 id="inv-table-h" className="text-[20px] font-bold text-ink">
                 Employee Invitations
               </h2>
               {canInvite && (
                 <div className="flex flex-wrap items-center gap-2">
-                  <Button type="button" variant="ghost" onClick={() => setBulkOpen(true)} className="min-h-11 border-accent text-accent-deep sm:min-h-0">
+                  <Button type="button" variant="ghost" onClick={() => setBulkOpen(true)} className="min-h-11 border-accent bg-paper text-accent-deep sm:min-h-0 sm:py-2.5">
                     <UploadIcon aria-hidden size={16} />
                     Bulk Invite
                   </Button>
-                  <Button type="button" variant="accent" onClick={openInvite} className="min-h-11 sm:min-h-0">
-                    <span aria-hidden className="text-[18px] leading-none">+</span>
+                  <Button type="button" variant="accent" onClick={openInvite} className="min-h-11 sm:min-h-0 sm:py-2.5">
+                    <PlusIcon aria-hidden size={18} />
                     Invite Employee
                   </Button>
                 </div>
@@ -335,8 +340,17 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
                 { name: "status", label: "Status", allLabel: "All Statuses", options: STATUSES.map((s) => ({ value: s, label: STATUS_LABEL[s] })) },
                 { name: "roleId", label: "Role", allLabel: "All Roles", options: (options?.roles ?? []).map((r) => ({ value: String(r.id), label: r.name })) },
                 { name: "departmentGroupId", label: "Department", allLabel: "All Departments", options: (options?.departments ?? []).map((d) => ({ value: String(d.id), label: d.name })) },
-                { name: "range", label: "Invited on", allLabel: "All time", options: RANGES.filter((r) => r.value !== "all").map((r) => ({ value: r.value, label: r.label })) },
               ]}
+              actions={
+                <Select
+                  variant="pill"
+                  aria-label="Invited on"
+                  leadingIcon={<CalendarIcon aria-hidden size={16} />}
+                  value={query.range}
+                  onChange={(v) => inv.setFilter({ range: v as RangeKey })}
+                  options={RANGES.map((r) => ({ value: r.value, label: r.label.replace(/\b[a-z]/g, (c) => c.toUpperCase()) }))}
+                />
+              }
             />
 
             {selectedRows.length > 0 && canInvite && (
@@ -358,10 +372,11 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
               </div>
             )}
 
-            <p role="status" aria-live="polite" className="mb-2 mt-3 text-[12.5px] text-muted">
+            <p role="status" aria-live="polite" className="sr-only">
               {list.loading || list.error ? "" : list.total === 0 ? "No invitations to show" : `Showing ${from}–${to} of ${list.total}`}
             </p>
             <DataTable
+              className="mt-3"
               label="Invitations"
               what="the invitations"
               columns={columns}
@@ -373,6 +388,8 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
               hasFilters={inv.filtered}
               empty={<EmptyState variant="inline" title={inv.filtered ? "No invitations match" : "No invitations here"} description={inv.filtered ? "Try a different search or clear the filters." : undefined} />}
               rowActions={rowActions}
+              actionsHeader="Actions"
+              actionsIcon="horizontal"
               page={query.page}
               pageCount={inv.pageCount}
               onPage={(p) => inv.setFilter({ page: p })}
@@ -381,13 +398,13 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
         )}
 
         {showPanel && (
-          <aside aria-label="Invite Employee" className="rounded-[var(--radius-lg)] border border-line bg-paper p-4 sm:p-5 xl:sticky xl:top-4">
+          <aside aria-label="Invite Employee" className="inv-card p-4 xl:sticky xl:top-4">
             <InvitePanel orgId={orgId} options={options} onSent={onSent} onClose={() => setPanelClosed(true)} focusSignal={focusSignal} />
           </aside>
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
         <ActivityFeed items={inv.activity} />
         <HelpInvitesCard orgName={orgName} supportEmail={supportEmail} bee={!empty} />
       </div>
