@@ -1,0 +1,558 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
+import {
+  AlertIcon,
+  BarChartIcon,
+  BoardIcon,
+  BuildingIcon,
+  CalendarIcon,
+  CheckCircleIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  DollarIcon,
+  ErrorState,
+  FileTextIcon,
+  GearIcon,
+  HandshakeIcon,
+  InfoIcon,
+  BriefcaseIcon,
+  MemberAvatar,
+  SparklesIcon,
+  Tooltip,
+  IconButton,
+  UserIcon,
+  UsersIcon,
+  XIcon,
+  ZapIcon,
+  BarChart,
+  DonutChart,
+  useToast,
+  cn,
+} from "@kiwiply/ui";
+import type { IconProps } from "@kiwiply/ui";
+import PageHeader, { ClaimsHelpCard, ClaimsMascot, openHelpPanel } from "@/components/ent/shell/ShellContext";
+import { EnterpriseMascot } from "@/lib/ent/mascot";
+import { undoToast } from "@/lib/undo-toast";
+import {
+  TILE_KEYS,
+  TILE_TITLES,
+  activityHref,
+  activityOf,
+  activityText,
+  alertsOf,
+  dismissAlert,
+  fetchDashboard,
+  invitesOf,
+  quickActionsOf,
+  relativeTime,
+  subscriptionOf,
+  widgetOf,
+  type AlertItem,
+  type DashboardView,
+  type DashboardWidget,
+  type QuickActionItem,
+  type TileKey,
+} from "@/lib/ent/dashboard";
+import { CARD, CardError, CardHead, CardSkeleton, StatTile, TONES, Unavailable, UpdatedAt, emptyText, type IconTone, type TileSpec } from "./parts";
+
+/**
+ * The Organization Dashboard (X2.17; design/enterprise-admin/dashboard.png). One call to `GET /api/orgs/{orgId}/dashboard` (through
+ * the BFF) draws the whole page; each widget is shown strictly by its own `state` (see parts.tsx). A widget the API does not send
+ * is not drawn. Refreshes when the tab regains focus (at most every 30 s), says when it last did, and never shows a spinner that
+ * blocks the page: every card has its own skeleton.
+ */
+
+export const REVALIDATE_MS = 30_000;
+export const UNDO_MS = 6_000;
+
+const TILES: Record<TileKey, Omit<TileSpec, "key" | "title">> = {
+  "consultants.total": { icon: UsersIcon, tone: "violet" },
+  "employees.active": { icon: UserIcon, tone: "green" },
+  "applications.active": { icon: FileTextIcon, tone: "accent" },
+  "interviews.upcoming": { icon: CalendarIcon, tone: "amber" },
+  placements: { icon: BriefcaseIcon, tone: "violet" },
+  "finance.summary": { icon: DollarIcon, tone: "pink" },
+};
+
+const ACTION_ICONS: Record<string, { icon: ComponentType<IconProps>; tone: IconTone }> = {
+  "invite-employee": { icon: UserIcon, tone: "accent" },
+  "assign-marketer": { icon: UsersIcon, tone: "green" },
+  "configure-licenses": { icon: GearIcon, tone: "violet" },
+  "review-applications": { icon: FileTextIcon, tone: "amber" },
+  "view-pipeline": { icon: BoardIcon, tone: "teal" },
+  "configure-organization": { icon: BuildingIcon, tone: "pink" },
+};
+
+/* ── data hook ─────────────────────────────────────────────────────────────────────── */
+
+type Status = "loading" | "ready" | "failed" | "denied";
+
+function useDashboard(orgId: number) {
+  const [view, setView] = useState<DashboardView | null>(null);
+  const [status, setStatus] = useState<Status>("loading");
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const last = useRef(0);
+  const inflight = useRef(false);
+
+  const load = useCallback(async () => {
+    if (inflight.current) return;
+    inflight.current = true;
+    setRefreshing(true);
+    const r = await fetchDashboard(orgId);
+    inflight.current = false;
+    setRefreshing(false);
+    last.current = Date.now();
+    if (r.kind === "OK" && r.view) {
+      setView(r.view);
+      setStatus("ready");
+      setUpdatedAt(Date.now());
+    } else if (r.kind === "DENIED") setStatus("denied");
+    else setStatus((s) => (s === "ready" ? s : "failed")); // a failed refresh keeps what is on screen
+  }, [orgId]);
+
+  useEffect(() => {
+    const t = setTimeout(() => void load(), 0); // the first load runs after mount, outside the effect body
+    return () => clearTimeout(t);
+  }, [load]);
+
+  // Revalidate when the person comes back (tab focus / visibility), at most every REVALIDATE_MS.
+  useEffect(() => {
+    const again = () => {
+      if (document.visibilityState === "visible" && Date.now() - last.current > REVALIDATE_MS) void load();
+    };
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", again);
+    return () => {
+      window.removeEventListener("focus", again);
+      document.removeEventListener("visibilitychange", again);
+    };
+  }, [load]);
+
+  return { view, status, updatedAt, refreshing, reload: load };
+}
+
+function useNow(ms = 60_000): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
+}
+
+/* ── the cards ─────────────────────────────────────────────────────────────────────── */
+
+type CardBody = { loading: boolean; widget: DashboardWidget | null; onRetry: () => void };
+
+/** The states every card shares; returns the card's body when it is not `ok`, or null when the card should draw its data. */
+function stateBody({ loading, widget, onRetry }: CardBody, what: string, empty?: string): React.ReactNode | null {
+  if (loading) return <CardSkeleton />;
+  if (!widget) return null;
+  if (widget.state === "unavailable") return <Unavailable module={widget.module} />;
+  if (widget.state === "error") return <CardError what={what} onRetry={onRetry} />;
+  if (widget.state === "empty") return <p className="py-6 text-center text-[13.5px] text-muted">{empty ?? emptyText(widget.reason)}</p>;
+  return null;
+}
+
+interface TeamData {
+  months: string[];
+  series: { key: string; label: string; values: number[] }[];
+}
+interface PipelineData {
+  total?: number;
+  slices: { key: string; label: string; value: number }[];
+}
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+function teamOf(w: DashboardWidget): TeamData | null {
+  if (w.state !== "ok" || !isObj(w.data) || !Array.isArray(w.data.months) || !Array.isArray(w.data.series)) return null;
+  const series = w.data.series.filter((s): s is TeamData["series"][number] => isObj(s) && typeof s.key === "string" && typeof s.label === "string" && Array.isArray(s.values));
+  return series.length ? { months: w.data.months.map(String), series } : null;
+}
+function pipelineOf(w: DashboardWidget): PipelineData | null {
+  if (w.state !== "ok" || !isObj(w.data) || !Array.isArray(w.data.slices)) return null;
+  const slices = w.data.slices.filter((s): s is PipelineData["slices"][number] => isObj(s) && typeof s.key === "string" && typeof s.label === "string" && typeof s.value === "number");
+  return slices.length ? { total: typeof w.data.total === "number" ? w.data.total : undefined, slices } : null;
+}
+
+function TeamPerformanceCard({ body }: { body: CardBody }) {
+  const { widget } = body;
+  if (!body.loading && !widget) return null;
+  const shared = stateBody(body, "team performance");
+  const team = widget && !body.loading ? teamOf(widget) : null;
+  return (
+    <section aria-labelledby="dash-team" data-dash-card="team.performance" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5 lg:col-span-2 xl:col-span-1")}>
+      <CardHead id="dash-team" icon={BarChartIcon} title="Team Performance" />
+      <div className="mt-3 flex flex-1 flex-col">
+        {shared ?? (team ? <BarChart label="Team performance by month" categories={team.months} series={team.series} /> : <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>)}
+      </div>
+    </section>
+  );
+}
+
+function PipelineCard({ body }: { body: CardBody }) {
+  const { widget } = body;
+  if (!body.loading && !widget) return null;
+  const shared = stateBody(body, "the pipeline");
+  const pipe = widget && !body.loading ? pipelineOf(widget) : null;
+  return (
+    <section aria-labelledby="dash-pipeline" data-dash-card="pipeline.overview" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
+      <CardHead id="dash-pipeline" icon={HandshakeIcon} title="Pipeline Overview" tone="teal" />
+      <div className="mt-3 flex flex-1 flex-col">
+        {shared ??
+          (pipe ? (
+            <DonutChart label="Applications by stage" total={pipe.total} totalLabel="Total applications" slices={pipe.slices} />
+          ) : (
+            <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>
+          ))}
+      </div>
+    </section>
+  );
+}
+
+function QuickActionsCard({ body }: { body: CardBody }) {
+  const { widget } = body;
+  if (!body.loading && !widget) return null;
+  const shared = stateBody(body, "your shortcuts");
+  const items = widget && !body.loading ? quickActionsOf(widget) : [];
+  return (
+    <section aria-labelledby="dash-quick" data-dash-card="quick.actions" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
+      <CardHead id="dash-quick" icon={ZapIcon} title="Quick Actions" />
+      <div className="mt-3 flex-1">
+        {shared ?? (
+          <ul className="flex flex-col gap-2">
+            {items.map((a) => (
+              <li key={a.key}>
+                <ActionRow a={a} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ActionRow({ a }: { a: QuickActionItem }) {
+  const meta = ACTION_ICONS[a.key] ?? { icon: SparklesIcon, tone: "accent" as IconTone };
+  const Icon = meta.icon;
+  const inner = (
+    <>
+      <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-[10px]", TONES[meta.tone])}>
+        <Icon size={19} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[14px] font-semibold text-ink">{a.label}</span>
+        <span className="block truncate text-[12.5px] text-muted">{a.description}</span>
+      </span>
+    </>
+  );
+  const row = "flex min-h-14 items-center gap-3 rounded-xl border border-line bg-paper px-3 py-2";
+  if (!a.available)
+    return (
+      <div data-quick-action={a.key} data-available="false" aria-disabled="true" className={cn(row, "bg-paper-2/50")}>
+        {inner}
+        <Tooltip content={a.soonModule ? `Arrives with ${a.soonModule}` : "Coming soon"} side="left">
+          <span tabIndex={0} data-soon-chip className="flex-none rounded-full bg-paper-2 px-2 py-0.5 text-[11.5px] font-bold text-ink-soft ring-1 ring-line">
+            Soon
+          </span>
+        </Tooltip>
+      </div>
+    );
+  return (
+    <Link href={a.href} data-quick-action={a.key} data-available="true" className={cn(row, "group transition-colors hover:bg-paper-2")}>
+      {inner}
+      <ChevronRightIcon aria-hidden size={16} className="flex-none text-muted transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+    </Link>
+  );
+}
+
+const SEVERITY: Record<AlertItem["severity"], { icon: ComponentType<IconProps>; tone: IconTone; word: string }> = {
+  danger: { icon: AlertIcon, tone: "coral", word: "Urgent" },
+  warn: { icon: AlertIcon, tone: "amber", word: "Warning" },
+  info: { icon: InfoIcon, tone: "accent", word: "Info" },
+};
+
+function AlertsCard({ body, hidden, onDismiss }: { body: CardBody; hidden: Set<string>; onDismiss: (a: AlertItem) => void }) {
+  const { widget } = body;
+  if (!body.loading && !widget) return null;
+  const items = widget && !body.loading ? alertsOf(widget).filter((a) => !hidden.has(a.key)) : [];
+  const shared = stateBody(body, "your alerts");
+  const allClear = !shared && items.length === 0;
+  return (
+    <section aria-labelledby="dash-alerts" data-dash-card="alerts" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
+      <CardHead id="dash-alerts" icon={AlertIcon} title="Activity & Alerts" tone="coral" />
+      <div className="mt-3 flex-1">
+        {shared ??
+          (allClear ? (
+            <p data-alerts-clear className="flex items-center justify-center gap-2 py-6 text-center text-[13.5px] text-muted">
+              <CheckCircleIcon size={18} className="text-v2-green-ink" /> All clear. Nothing needs your attention.
+            </p>
+          ) : (
+            <ul className="divide-y divide-line/70" aria-live="polite">
+              {items.map((a) => {
+                const s = SEVERITY[a.severity];
+                const Icon = s.icon;
+                const title = (
+                  <>
+                    <span className="sr-only">{s.word}: </span>
+                    {a.title}
+                  </>
+                );
+                return (
+                  <li key={a.key} data-alert={a.key} data-severity={a.severity} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
+                    <span aria-hidden className={cn("mt-0.5 grid h-10 w-10 flex-none place-items-center rounded-full", TONES[s.tone])}>
+                      <Icon size={18} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-semibold leading-snug text-ink">
+                        {a.href ? (
+                          <Link href={a.href} className="underline-offset-2 hover:underline">
+                            {title}
+                          </Link>
+                        ) : (
+                          title
+                        )}
+                      </p>
+                      {a.message ? <p className="mt-0.5 text-[12.5px] leading-snug text-muted">{a.message}</p> : null}
+                    </div>
+                    <Tooltip content="Dismiss for 7 days" side="left">
+                      <IconButton aria-label={`Dismiss for 7 days: ${a.title}`} onClick={() => onDismiss(a)} className="h-9 w-9 flex-none">
+                        <XIcon size={15} />
+                      </IconButton>
+                    </Tooltip>
+                  </li>
+                );
+              })}
+            </ul>
+          ))}
+      </div>
+    </section>
+  );
+}
+
+function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: number; viewAll: string | null }) {
+  const { widget } = body;
+  if (!body.loading && !widget) return null;
+  const shared = stateBody(body, "recent activity");
+  const items = widget && !body.loading ? activityOf(widget) : [];
+  return (
+    <section aria-labelledby="dash-activity" data-dash-card="activity.recent" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
+      <CardHead id="dash-activity" icon={ClockIcon} title="Recent Activity" tone="accent">
+        {viewAll ? (
+          <Link href={viewAll} className="flex-none rounded-lg border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 py-1.5 text-[12.5px] font-semibold text-accent-deep hover:bg-accent-soft/70">
+            View all
+          </Link>
+        ) : null}
+      </CardHead>
+      <div className="mt-3 flex-1">
+        {shared ?? (
+          <ul className="divide-y divide-line/70">
+            {items.map((a) => {
+              const t = activityText(a);
+              const href = activityHref(a);
+              const row = (
+                <>
+                  <MemberAvatar name={t.who} size={38} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13.5px] leading-snug text-ink">
+                      <span className="font-semibold">{t.who}</span> {t.what}
+                    </p>
+                    {t.target ? <p className="truncate text-[12.5px] text-muted">{t.target}</p> : null}
+                  </div>
+                  <time dateTime={a.at} title={new Date(a.at).toLocaleString()} className="flex-none whitespace-nowrap text-[12px] text-muted">
+                    {relativeTime(a.at, now)}
+                  </time>
+                </>
+              );
+              return (
+                <li key={a.id} data-activity={a.id}>
+                  {href ? (
+                    <Link href={href} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-paper-2/60">
+                      {row}
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-3 py-2.5">{row}</div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function BeeHelpCard({ firstName, orgName }: { firstName: string; orgName: string }) {
+  return (
+    <section aria-label="Help" data-dash-card="help" className="flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper md:col-span-2 xl:col-span-1">
+      <div className="flex justify-center bg-accent-soft pt-3">
+        <EnterpriseMascot pose="greet" size="lg" />
+      </div>
+      <div className="p-4 sm:p-5">
+        <h2 className="text-[19px] font-extrabold leading-tight text-ink">Need help, {firstName}?</h2>
+        <p className="mt-1.5 text-[13.5px] leading-snug text-muted">I can help you find reports, manage users, or answer questions about {orgName}.</p>
+        <button
+          type="button"
+          onClick={openHelpPanel}
+          className="mt-4 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft/70"
+        >
+          <SparklesIcon size={17} className="flex-none" />
+          <span className="min-w-0 flex-1 truncate">Ask a question...</span>
+          <ChevronRightIcon size={16} className="flex-none" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ── the page ──────────────────────────────────────────────────────────────────────── */
+
+export interface DashboardPageProps {
+  orgId: number;
+  orgName: string;
+  firstName: string;
+  /** The audit log page for "View all" on Recent Activity, when this member's menu has one. */
+  auditHref?: string | null;
+  /** The sidebar page that lists the employees / invitations, for the slim status chips. */
+  employeesHref?: string | null;
+  invitationsHref?: string | null;
+}
+
+export default function DashboardPage({ orgId, orgName, firstName, auditHref = null, employeesHref = null, invitationsHref = null }: DashboardPageProps) {
+  const { view, status, updatedAt, refreshing, reload } = useDashboard(orgId);
+  const toast = useToast();
+  const now = useNow();
+  const loading = status === "loading";
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
+  const pending = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+
+  const unhide = useCallback((key: string) => setHidden((h) => (h.has(key) ? new Set([...h].filter((k) => k !== key)) : h)), []);
+
+  const commit = useCallback(
+    async (key: string) => {
+      pending.current.delete(key);
+      const ok = await dismissAlert(orgId, key);
+      if (!ok) {
+        unhide(key);
+        toast({ title: "Couldn't dismiss that alert", description: "It is back in the list. Try again in a moment.", variant: "error" });
+      }
+    },
+    [orgId, toast, unhide],
+  );
+
+  const dismiss = useCallback(
+    (a: AlertItem) => {
+      setHidden((h) => new Set(h).add(a.key));
+      pending.current.set(a.key, setTimeout(() => void commit(a.key), UNDO_MS));
+      undoToast(toast, {
+        title: "Alert dismissed for 7 days",
+        description: a.title,
+        ms: UNDO_MS,
+        onUndo: () => {
+          const t = pending.current.get(a.key);
+          if (t) clearTimeout(t);
+          pending.current.delete(a.key);
+          unhide(a.key);
+        },
+      });
+    },
+    [commit, toast, unhide],
+  );
+
+  // Leaving the page (or closing the tab) inside the undo window still saves the dismissal.
+  useEffect(() => {
+    const map = pending.current;
+    const flush = () => {
+      for (const [key, t] of map) {
+        clearTimeout(t);
+        void dismissAlert(orgId, key, true);
+      }
+      map.clear();
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, [orgId]);
+
+  const w = useCallback((key: string): DashboardWidget | null => widgetOf(view, key), [view]);
+  const body = useCallback((key: string): CardBody => ({ loading, widget: w(key), onRetry: () => void reload() }), [loading, w, reload]);
+
+  const invites = invitesOf(w("invites.pending"));
+  const sub = subscriptionOf(w("subscription.summary"));
+  const chips = useMemo(() => {
+    const out: { key: string; text: string; href: string | null; tone: "info" | "warn" }[] = [];
+    if (invites && invites.invited > 0)
+      out.push({
+        key: "invited",
+        text: `${invites.invited} invitation${invites.invited === 1 ? "" : "s"} waiting${invites.expiringSoon > 0 ? ` (${invites.expiringSoon} expiring soon)` : ""}`,
+        href: invitationsHref,
+        tone: invites.expiringSoon > 0 ? "warn" : "info",
+      });
+    if (invites && invites.suspended > 0) out.push({ key: "suspended", text: `${invites.suspended} suspended`, href: employeesHref, tone: "info" });
+    if (sub && sub.orgStatus.toUpperCase() !== "ACTIVE") out.push({ key: "subscription", text: `Subscription ${sub.orgStatus.toLowerCase().replace(/_/g, " ")}`, href: null, tone: "warn" });
+    return out;
+  }, [invites, sub, invitationsHref, employeesHref]);
+
+  const updatedText = updatedAt ? `Updated ${relativeTime(new Date(updatedAt).toISOString(), now)}` : "";
+
+  if (status === "denied") return <ErrorState what="the dashboard" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
+
+  return (
+    <div data-dashboard data-status={status} className="flex flex-col gap-4 sm:gap-5">
+      <PageHeader title="Organization Dashboard" subtitle={`Welcome back! Here's what's happening at ${orgName} today.`} />
+      <ClaimsMascot />
+      <ClaimsHelpCard />
+
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <ul aria-label="Needs a look" className="flex min-w-0 flex-wrap gap-2">
+          {chips.map((c) => {
+            const cls = cn("inline-flex min-h-8 items-center rounded-full px-3 text-[12.5px] font-semibold", c.tone === "warn" ? "bg-v2-amber-soft text-v2-amber-ink" : "bg-accent-soft text-accent-deep");
+            return (
+              <li key={c.key} data-dash-chip={c.key}>
+                {c.href ? (
+                  <Link href={c.href} className={cn(cls, "hover:underline")}>
+                    {c.text}
+                  </Link>
+                ) : (
+                  <span className={cls}>{c.text}</span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+        {status === "ready" ? <UpdatedAt text={updatedText} refreshing={refreshing} onRefresh={() => void reload()} /> : <span className="sr-only" role="status" aria-live="polite">{loading ? "Loading the dashboard" : ""}</span>}
+      </div>
+
+      {status === "failed" ? (
+        <ErrorState what="the dashboard" description="Your organization's numbers didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
+      ) : (
+        <>
+          <section aria-label="Key numbers" data-dash-tiles className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+            {TILE_KEYS.map((key, i) => (
+              <StatTile key={key} index={i} loading={loading} widget={w(key)} spec={{ key, title: TILE_TITLES[key], ...TILES[key] }} onRetry={() => void reload()} />
+            ))}
+          </section>
+
+          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1.15fr)_minmax(0,1fr)]">
+            <TeamPerformanceCard body={body("team.performance")} />
+            <PipelineCard body={body("pipeline.overview")} />
+            <QuickActionsCard body={body("quick.actions")} />
+          </div>
+
+          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
+            <AlertsCard body={body("alerts")} hidden={hidden} onDismiss={dismiss} />
+            <RecentActivityCard body={body("activity.recent")} now={now} viewAll={auditHref} />
+            <BeeHelpCard firstName={firstName} orgName={orgName} />
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

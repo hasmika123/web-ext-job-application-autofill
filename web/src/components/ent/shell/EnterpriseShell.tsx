@@ -96,6 +96,7 @@ export default function EnterpriseShell({
   const [collapsedPref, setCollapsedPref] = useState<boolean | null>(null);
   const [header, setHeader] = useState<PageHeaderValue | null>(null);
   const [mascotClaimed, setMascotClaimed] = useState(false);
+  const [helpClaimed, setHelpClaimed] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -106,7 +107,7 @@ export default function EnterpriseShell({
   const firstPath = useRef(pathname);
   useBottomBar(tabsRef);
 
-  const slot = useMemo(() => ({ setHeader, claimMascot: setMascotClaimed }), []);
+  const slot = useMemo(() => ({ setHeader, claimMascot: setMascotClaimed, claimHelp: setHelpClaimed }), []);
   const changed = useAccessChanged(etag);
 
   // Per-browser conveniences live in storage (an external store the server cannot see): read them once after hydration.
@@ -256,7 +257,7 @@ export default function EnterpriseShell({
               <ShellNav sections={sections} active={active} collapsed={collapsed} />
             </div>
             <div className="flex-none pt-2">
-              <HelpCard firstName={firstName} orgName={tenant.displayName} supportEmail={tenant.supportEmail} bee={!mascotClaimed} collapsed={collapsed} />
+              <HelpCard firstName={firstName} orgName={tenant.displayName} supportEmail={tenant.supportEmail} bee={!mascotClaimed} cardHidden={helpClaimed} collapsed={collapsed} />
             </div>
           </div>
         </aside>

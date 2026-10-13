@@ -83,6 +83,10 @@ export type { SparkleBurstProps } from "./primitives/SparkleBurst";
 export { default as SpeechBubble } from "./primitives/SpeechBubble";
 export type { SpeechBubbleProps } from "./primitives/SpeechBubble";
 
+/* ── Charts (X2.17): Sparkline, BarChart, DonutChart. They draw only the data they are given ── */
+export { Sparkline, BarChart, DonutChart, CHART_COLORS, chartColor, sparkPoints, niceMax, shares } from "./primitives/Charts";
+export type { SparklineProps, BarChartProps, BarSeries, DonutChartProps, DonutSlice } from "./primitives/Charts";
+
 export { default as Skeleton } from "./primitives/Skeleton";
 export { default as Spinner } from "./primitives/Spinner";
 export type { SpinnerProps } from "./primitives/Spinner";
