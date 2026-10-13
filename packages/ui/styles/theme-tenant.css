@@ -216,7 +216,6 @@
   .theme-tenant .grp-page [role="search"] > div:first-child {
     width: 14rem;
   }
-  }
 }
 /* ── Invitations page (design/enterprise-admin/invitations.png): rectangular 10px controls, soft-lift cards, tinted fields, a
  * plain-case table header. Scoped to the page root, so no other tenant page and nothing outside `.theme-tenant` changes. ── */
