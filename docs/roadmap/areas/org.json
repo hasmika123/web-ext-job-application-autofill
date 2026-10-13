@@ -117,7 +117,10 @@
       "tech": "api/src/main/resources/config/liquibase/changelog/, api/src/main/java/com/dossier/api/domain/org/*, repository/org/*. Mirror Subscription.java style (VARCHAR status, Instant timestamps).",
       "evidence": [],
       "design": "docs/design/org/tenant-model.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X1.2"
+      ]
     },
     {
       "id": "O1.2",
@@ -147,7 +150,11 @@
       "tech": "api/.../security/org/OrgAccessService.java, OrgPermission.java, OrgRole.java; SecurityUtils.getCurrentUserLogin() for the principal.",
       "evidence": [],
       "design": "docs/design/org/tenant-model.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X1.6",
+        "X1.7"
+      ]
     },
     {
       "id": "O1.3",
@@ -235,7 +242,10 @@
       "tech": "api/src/test/java/.../org/OrgIsolationIT.java; Testcontainers (DOCKER_API_VERSION note in HANDOFF-V2).",
       "evidence": [],
       "design": "docs/design/org/tenant-model.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X1.9"
+      ]
     },
     {
       "id": "O1.6",
@@ -266,7 +276,10 @@
         "web/src/app/(org)/layout.tsx (session-only gate, comment says no org model)"
       ],
       "design": "docs/design/org/tenant-model.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X2.1"
+      ]
     },
     {
       "id": "O1.7",
@@ -297,7 +310,10 @@
         "OrgShell.tsx hard-codes 'Admin' and '1 unread'"
       ],
       "design": "docs/design/org/tenant-model.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X2.2"
+      ]
     },
     {
       "id": "O1.8",
@@ -356,7 +372,8 @@
       "design": "docs/design/org/onboarding-invites.md",
       "critical": false,
       "relates": [
-        "O4.1"
+        "O4.1",
+        "X1.11"
       ]
     },
     {
@@ -387,7 +404,10 @@
       "tech": "web/rest/org/OrgMemberResource.java, JoinResource.java, service/org/OrgInviteService.java, MailService templates.",
       "evidence": [],
       "design": "docs/design/org/onboarding-invites.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X1.8"
+      ]
     },
     {
       "id": "O2.3",
@@ -417,7 +437,10 @@
       "tech": "web/src/app/join/**, components/org-join/*; reuse auth return-URL plumbing in web/src/proxy.ts.",
       "evidence": [],
       "design": "docs/design/org/onboarding-invites.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X2.6"
+      ]
     },
     {
       "id": "O2.4",
@@ -510,7 +533,10 @@
       "tech": "OrgDomainResource, DnsVerifier (dnsjava or JNDI), web dashboard card in the user app (coordinate with U area layout).",
       "evidence": [],
       "design": "docs/design/org/onboarding-invites.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X3.1"
+      ]
     },
     {
       "id": "O2.7",
@@ -541,7 +567,10 @@
         "web/src/components/org-v2/dashboard/DashboardPage.tsx ← DASHBOARD_STATS sample"
       ],
       "design": "docs/design/org/onboarding-invites.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X2.4"
+      ]
     },
     {
       "id": "O2.8",
@@ -637,7 +666,8 @@
         "B1.1"
       ],
       "relates": [
-        "B1.1"
+        "B1.1",
+        "X5.2"
       ],
       "story": "As the catalog, I want the org rows so that assignments and Stripe items have something to point at.",
       "genz": "Prices live in data so they can change without a release — and the pricing page always tells the truth.",
@@ -680,7 +710,10 @@
       "tech": "domain/org/OrgAssignment, service/org/OrgAssignmentService; entitlement_grant from Phase 18.1.",
       "evidence": [],
       "design": "docs/design/org/billing.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X5.4"
+      ]
     },
     {
       "id": "O3.3",
@@ -707,7 +740,10 @@
       "tech": "api/.../service/EntitlementService.java (replace subscription-only logic per Phase 18.2, admin area may own the base refactor — coordinate).",
       "evidence": [],
       "design": "docs/design/org/billing.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X5.6"
+      ]
     },
     {
       "id": "O3.4",
@@ -734,7 +770,10 @@
       "tech": "api web/rest/ProfileResource.java; job-autofill entrypoints/panel + options; tracking.js DTO.",
       "evidence": [],
       "design": "docs/design/org/billing.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X9.9"
+      ]
     },
     {
       "id": "O3.5",
@@ -762,7 +801,10 @@
       "tech": "OrgAssignmentService hook; BillingResource portal endpoint exists.",
       "evidence": [],
       "design": "docs/design/org/billing.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X5.6"
+      ]
     },
     {
       "id": "O3.6",
@@ -779,7 +821,8 @@
       ],
       "relates": [
         "B2.1",
-        "B2.2"
+        "B2.2",
+        "X5.3"
       ],
       "story": "As the admin publishing a price, I want the guard to compute org and service margins the way we actually get charged.",
       "genz": "Fair prices that keep the lights on — the guard is why we can promise no sudden hikes.",
@@ -878,7 +921,10 @@
       "tech": "service/billing/BillingWebhookService.java, new OrgBillingWebhookHandler; domain OrgSubscription, OrgSubscriptionItem, OrgInvoice; changelog 20261011020000_org_billing.xml.",
       "evidence": [],
       "design": "docs/design/org/billing.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X6.6"
+      ]
     },
     {
       "id": "O4.4",
@@ -906,7 +952,10 @@
       "tech": "OrgAssignmentService + StripeGatewayImpl (SubscriptionItem API).",
       "evidence": [],
       "design": "docs/design/org/billing.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X6.7"
+      ]
     },
     {
       "id": "O4.5",
@@ -963,7 +1012,10 @@
         "web/src/components/org-v2/billing/BillingPage.tsx ← INVOICES/USAGE/SUBSCRIPTION_DETAILS sample"
       ],
       "design": "docs/design/org/billing.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X6.4"
+      ]
     },
     {
       "id": "O4.7",
@@ -1019,7 +1071,10 @@
       "tech": "OrgSeatReconciler @Scheduled; admin alert via the A-area queue table (or SalesInquiry-style row until it exists).",
       "evidence": [],
       "design": "docs/design/org/billing.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X6.8"
+      ]
     },
     {
       "id": "O4.9",
@@ -1104,7 +1159,10 @@
         "web/src/components/org-v2/team/TeamTable.tsx ← EMPLOYEES sample"
       ],
       "design": "docs/design/org/consent-data-sharing.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X4.3"
+      ]
     },
     {
       "id": "O5.2",
@@ -1131,7 +1189,10 @@
       "tech": "OrgMembershipService; team row KebabMenu actions.",
       "evidence": [],
       "design": "docs/design/org/tenant-model.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X4.4"
+      ]
     },
     {
       "id": "O5.3",
@@ -1158,7 +1219,10 @@
       "tech": "OrgGroupResource (O1.3) + web team components.",
       "evidence": [],
       "design": "docs/design/org/tenant-model.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X4.5"
+      ]
     },
     {
       "id": "O5.4",
@@ -1213,7 +1277,10 @@
       "tech": "web/src/components/org-v2/team/AssignSheet.tsx; OrgAssignmentResource preview endpoint.",
       "evidence": [],
       "design": "docs/design/org/billing.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X6.2"
+      ]
     },
     {
       "id": "O5.6",
@@ -1293,7 +1360,10 @@
       "tech": "web/src/components/org-v2/team/MemberSheet.tsx.",
       "evidence": [],
       "design": "docs/design/org/consent-data-sharing.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X4.6"
+      ]
     },
     {
       "id": "O6.1",
@@ -1320,7 +1390,10 @@
       "tech": "domain/org/DataShare, DataShareEvent; service/org/ShareScopeService.",
       "evidence": [],
       "design": "docs/design/org/consent-data-sharing.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X7.6"
+      ]
     },
     {
       "id": "O6.2",
@@ -1349,7 +1422,11 @@
       "tech": "web/src/app/join/**/consent.tsx; MeOrgsResource.",
       "evidence": [],
       "design": "docs/design/org/consent-data-sharing.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X1.8",
+        "X2.6"
+      ]
     },
     {
       "id": "O6.3",
@@ -1613,7 +1690,10 @@
         "web/src/components/org-v2/dashboard/DashboardPage.tsx (sample)"
       ],
       "design": "docs/design/org/analytics.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X2.4"
+      ]
     },
     {
       "id": "O7.5",
@@ -1640,7 +1720,10 @@
         "web/src/components/org-v2/analytics/AnalyticsPage.tsx (sample series)"
       ],
       "design": "docs/design/org/analytics.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X12.1"
+      ]
     },
     {
       "id": "O7.6",
@@ -1724,7 +1807,10 @@
         "web/src/components/org-v2/applications/ApplicationsTable.tsx (sample employer rows)"
       ],
       "design": "docs/design/org/consent-data-sharing.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X9.4"
+      ]
     },
     {
       "id": "O8.2",
@@ -1787,7 +1873,10 @@
         "web/src/components/org-v2/interviews/InterviewCalendar.tsx (sample)"
       ],
       "design": "docs/design/org/analytics.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X9.6"
+      ]
     },
     {
       "id": "O8.4",
@@ -1818,7 +1907,10 @@
       ],
       "design": "docs/design/org/consent-data-sharing.md",
       "critical": false,
-      "benchmark": "G42 — VMock template scoring, Handshake advisor summaries; ours is tied to real applications"
+      "benchmark": "G42 — VMock template scoring, Handshake advisor summaries; ours is tied to real applications",
+      "relates": [
+        "X7.3"
+      ]
     },
     {
       "id": "O8.5",
@@ -2073,7 +2165,10 @@
       "tech": "OrgServicesResource; MeServicesResource; billing invoice items (O4.3 handler mirrors).",
       "evidence": [],
       "design": "docs/design/org/services-marketplace.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X6.3"
+      ]
     },
     {
       "id": "O9.9",
@@ -2155,7 +2250,10 @@
       "tech": "domain/org/MarketerAssignment; OrgMarketerResource.",
       "evidence": [],
       "design": "docs/design/org/marketer-workspace.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X4.7"
+      ]
     },
     {
       "id": "O10.2",
@@ -2182,7 +2280,10 @@
       "tech": "web join/settings consent components; ShareScopeService.",
       "evidence": [],
       "design": "docs/design/org/marketer-workspace.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X7.6"
+      ]
     },
     {
       "id": "O10.3",
@@ -2198,7 +2299,8 @@
         "O10.2"
       ],
       "relates": [
-        "O10.12"
+        "O10.12",
+        "X8.1"
       ],
       "story": "As a marketer, I want to flip between my five consultants and see each one's board.",
       "genz": "A segmented control and a switcher sheet — fast on a phone between recruiter calls.",
@@ -2239,7 +2341,10 @@
       "tech": "Resume builder (R*) act-for context; ResumeResource; AI budget accounting (AiCall.login → grant owner).",
       "evidence": [],
       "design": "docs/design/org/marketer-workspace.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X7.5"
+      ]
     },
     {
       "id": "O10.5",
@@ -2255,7 +2360,8 @@
         "O10.4"
       ],
       "relates": [
-        "O10.11"
+        "O10.11",
+        "X8.4"
       ],
       "story": "As a marketer, I want to line up 40 jobs for a consultant with the right resume on each, in one batch.",
       "genz": "A checklist with resume pickers, assigned in one tap, one notification — not 40 pings.",
@@ -2295,7 +2401,10 @@
       "tech": "Depends on Phase 19 Autopilot tables (U area); job-autofill panel resume picker.",
       "evidence": [],
       "design": "docs/design/org/marketer-workspace.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X9.2"
+      ]
     },
     {
       "id": "O10.7",
@@ -2321,7 +2430,10 @@
       "tech": "job-autofill entrypoints/panel, src/lib/tracking.js (TrackingProvider seam).",
       "evidence": [],
       "design": "docs/design/org/marketer-workspace.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X9.9"
+      ]
     },
     {
       "id": "O10.8",
@@ -2347,7 +2459,10 @@
       "tech": "ApplicationSyncResource; JobAssignmentService.",
       "evidence": [],
       "design": "docs/design/org/marketer-workspace.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X9.2"
+      ]
     },
     {
       "id": "O10.9",
@@ -2373,7 +2488,10 @@
       "tech": "InboxConnection/InboxMessage additive columns; inbox poller; web Mail tab.",
       "evidence": [],
       "design": "docs/design/org/marketer-workspace.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X8.6"
+      ]
     },
     {
       "id": "O10.10",
@@ -2401,7 +2519,10 @@
       "tech": "Catalog seed; security test; MeOrgsResource timeline.",
       "evidence": [],
       "design": "docs/design/org/marketer-workspace.md",
-      "critical": true
+      "critical": true,
+      "relates": [
+        "X8.9"
+      ]
     },
     {
       "id": "O12.1",
@@ -2456,7 +2577,10 @@
       "tech": "OrgSlackService; org_slack_webhook.",
       "evidence": [],
       "design": "docs/design/org/integrations.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X12.3"
+      ]
     },
     {
       "id": "O12.3",
@@ -2481,7 +2605,10 @@
       "tech": "IcsFeedResource (public, token auth); ical generation inline.",
       "evidence": [],
       "design": "docs/design/org/integrations.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X12.3"
+      ]
     },
     {
       "id": "O12.4",
@@ -2507,7 +2634,10 @@
       "tech": "OrgWebhookService + delivery job.",
       "evidence": [],
       "design": "docs/design/org/integrations.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X12.3"
+      ]
     },
     {
       "id": "O12.5",
@@ -2561,7 +2691,10 @@
         "web/src/components/org-v2/settings/SettingsPage.tsx (sample; 5 of 7 tabs 'Coming soon')"
       ],
       "design": "docs/design/org/tenant-model.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X2.5"
+      ]
     },
     {
       "id": "O13.2",
@@ -2644,7 +2777,10 @@
       "tech": "OrgAuditResource; settings tab.",
       "evidence": [],
       "design": "docs/design/org/tenant-model.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X4.9"
+      ]
     },
     {
       "id": "O13.5",
@@ -2697,7 +2833,10 @@
       "tech": "OrgService.close; settings danger zone.",
       "evidence": [],
       "design": "docs/design/org/tenant-model.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X4.4"
+      ]
     },
     {
       "id": "O14.1",
@@ -2780,7 +2919,10 @@
       "tech": "web/src/components/marketing/organizations/Calculator.tsx; lib/catalog.ts PER_PERSON.",
       "evidence": [],
       "design": "docs/design/org/billing.md",
-      "critical": false
+      "critical": false,
+      "relates": [
+        "X6.9"
+      ]
     },
     {
       "id": "O14.4",
@@ -2796,7 +2938,8 @@
         "O1.3"
       ],
       "relates": [
-        "A14.1"
+        "A14.1",
+        "X1.11"
       ],
       "story": "As the platform admin, I want to see orgs and convert an inquiry into a DRAFT org invite for the buyer.",
       "genz": "Shorter path from 'interested' to 'live'.",
@@ -3010,7 +3153,8 @@
       ],
       "relates": [
         "E11.2",
-        "O10.10"
+        "O10.10",
+        "X8.8"
       ],
       "supersedes": [],
       "story": "As a marketer I want a warning when a job I am assigning is already assigned or applied in my org, with who and when, so that two consultants never collide on one posting.",
@@ -3047,7 +3191,8 @@
       ],
       "relates": [
         "H0.3",
-        "O7.7"
+        "O7.7",
+        "X7.2"
       ],
       "supersedes": [],
       "story": "As a consultant I want to set when I am available; as a marketer I want to see who has been waiting longest, so that the bench is worked in the right order without anyone being tracked behind their back.",
@@ -3145,7 +3290,9 @@
     },
     {
       "status": "done",
-      "relates": [],
+      "relates": [
+        "X1.1"
+      ],
       "supersedes": [],
       "evidence": [
         "web/src/app/(org)/layout.tsx (session-only gate)"
@@ -3177,7 +3324,9 @@
     },
     {
       "status": "not_started",
-      "relates": [],
+      "relates": [
+        "X5.9"
+      ],
       "supersedes": [],
       "evidence": [
         "web/src/components/org-v2/billing/BillingPage.tsx (all literals)"

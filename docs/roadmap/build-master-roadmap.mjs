@@ -30,6 +30,8 @@ const AREAS = [
     summary: 'The workspace for consultancies and teams: members and seats, per-person items, consultant boards, marketer-prepared resumes and job banks, billing and setup. Timesheets and Consultancy Ops now live in the Timesheets product.' },
   { key: 'admin', group: 'dashboards', prefix: 'A', name: 'App admin dashboard', file: path.join(AREAS_DIR, 'admin.json'), plan: 'PLAN-admin.md', audit: 'AUDIT-admin.md',
     summary: 'The internal console for running Kiwiply: plan and price catalog with the margin guard, users and orgs, AI quotas, services queue, support tools and system health.' },
+  { key: 'ent', group: 'dashboards', prefix: 'X', name: 'Enterprise V2', file: path.join(AREAS_DIR, 'ent.json'), plan: null, audit: null,
+    summary: 'Multi-tenant enterprise portals on the shared deployment: hostname tenancy, branded login-first shells, configurable multi-role permissions, consultant licenses with feature add-ons, and the talent-marketing pipeline. Design set: docs/enterprise-v2/.' },
   { key: 'ext', group: 'cross', prefix: 'E', name: 'Browser extension', file: path.join(AREAS_DIR, 'ext.json'), plan: 'PLAN-ext.md', audit: 'AUDIT-ext.md',
     summary: 'The on-page engine: ATS adapters proven against captured real DOM, a fill report after every fill, capture and submit detection, store listings for Chrome, Edge and Firefox. It never auto-submits and never bypasses a CAPTCHA.' },
   { key: 'mkt', group: 'cross', prefix: 'M', name: 'Marketing & growth', file: path.join(AREAS_DIR, 'mkt.json'), plan: 'PLAN-mkt.md', audit: 'AUDIT-mkt.md',
