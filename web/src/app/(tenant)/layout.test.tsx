@@ -24,7 +24,8 @@ describe("(tenant)/_t layout: three branches", () => {
     expect(html).toContain("inside");
     const meta = await generateMetadata();
     expect(meta.title).toEqual({ template: "%s · Acme Staffing", default: "Acme Staffing" });
-    expect(meta.icons).toBeUndefined();
+    expect(meta.icons).toEqual({ icon: expect.stringContaining("data:image/svg+xml") }); // never Kiwiply's own icon
+    expect(meta.applicationName).toBe("Acme Staffing");
   });
 
   it("uses the tenant's favicon from the same-origin asset route when one is published", async () => {
@@ -32,6 +33,11 @@ describe("(tenant)/_t layout: three branches", () => {
     const meta = await generateMetadata();
     expect(meta.icons).toEqual({ icon: "/tenant-assets/favicon?v=4", apple: "/tenant-assets/favicon?v=4" });
     expect(meta.openGraph).toBeUndefined();
+  });
+
+  it("falls back to the org logo when there is no favicon", async () => {
+    state.value = { kind: "TENANT", tenant: { kind: "TENANT", displayName: "Acme", branding: { logoUrl: "/tenant-assets/logo?v=2" } } };
+    expect((await generateMetadata()).icons).toEqual({ icon: "/tenant-assets/logo?v=2", apple: "/tenant-assets/logo?v=2" });
   });
 
   it("UNKNOWN answers notFound() and a bare title", async () => {

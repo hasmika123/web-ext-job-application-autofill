@@ -14,7 +14,17 @@ import { can } from "@/lib/ent/workspaces";
  * The Admin workspace's own home (`/w/admin`, no slug) is the Organization Dashboard (X2.17): it needs `dashboard.view_org`
  * (the API answers the same gate), and an Admin member without it keeps the "on the way" home.
  */
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+/** The tab title is the org's, never Kiwiply's: an absolute "{page} · {org}" (the layout's title template would not apply to this segment's fallback). */
+export async function generateMetadata({ params }: { params: Promise<{ workspace: string; slug?: string[] }> }): Promise<Metadata> {
+  const { workspace, slug } = await params;
+  const session = await getTenantSession();
+  const robots = { index: false, follow: false };
+  if (session.kind !== "OK") return { robots };
+  const hit = catchAllPage(session.me, workspace, slug ?? []);
+  const page = workspace === "admin" && (slug ?? []).length === 0 ? "Dashboard" : hit.kind === "page" ? hit.title : null;
+  const org = session.me.org.displayName;
+  return { title: { absolute: page ? `${page} · ${org}` : org }, robots };
+}
 
 export default async function WorkspaceCatchAll({ params }: { params: Promise<{ workspace: string; slug?: string[] }> }) {
   const { workspace, slug } = await params;
