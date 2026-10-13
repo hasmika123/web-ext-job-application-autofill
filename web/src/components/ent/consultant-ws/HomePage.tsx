@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useState, type ComponentType, type ReactNode } from "react";
 import {
   BriefcaseIcon,
   CalendarCheckIcon,
@@ -13,7 +13,6 @@ import {
   ErrorState,
   FileTextIcon,
   MapPinIcon,
-  MoreVerticalIcon,
   SearchIcon,
   Skeleton,
   Sparkline,
@@ -27,9 +26,9 @@ import {
   cn,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import { CARD, CardHead, TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot, openHelpPanel } from "@/components/ent/shell/ShellContext";
-import { EnterpriseMascot } from "@/lib/ent/mascot";
+import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
+import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
+import { BASE, BeeCard, Card, CompanyMark, Empty, MoreButton, Pill, SampleMark, TABLE, TD, TableHead, ViewButton, useWorkspaceData } from "./parts";
 import {
   OPPORTUNITY_LABELS,
   PRIORITY_TONE,
@@ -38,7 +37,6 @@ import {
   employmentLabel,
   fetchHome,
   firstName,
-  initialsOf,
   interviewWhen,
   matchTone,
   placeLabel,
@@ -46,7 +44,6 @@ import {
   taskStatusLabel,
   type HomeView,
   type TileData,
-  type Tone,
 } from "@/lib/ent/consultant-ws/home";
 
 /**
@@ -55,117 +52,12 @@ import {
  * another role's module and gets real data when the roles merge). Empty cards say so in a sentence; there is no made-up number.
  */
 
-export const REVALIDATE_MS = 30_000;
 
-const PILL: Record<Tone, string> = {
-  green: "bg-v2-green-soft text-v2-green-ink",
-  amber: "bg-v2-amber-soft text-v2-amber-ink",
-  blue: "bg-accent-soft text-accent-deep",
-  red: "bg-v2-coral-soft text-v2-coral-ink",
-  violet: "bg-v2-violet-soft text-v2-violet-ink",
-  slate: "bg-paper-2 text-ink-soft",
-};
 
-function Pill({ tone, children, className }: { tone: Tone; children: ReactNode; className?: string }) {
-  return <span className={cn("inline-flex min-h-6 items-center whitespace-nowrap rounded-md px-2 text-[12px] font-semibold", PILL[tone], className)}>{children}</span>;
-}
-
-function SampleMark() {
-  return (
-    <span data-sample className="rounded-md bg-paper-2 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted" title="Placeholder until this module is connected">
-      Sample
-    </span>
-  );
-}
-
-const BASE = "/w/consultant";
 
 /* ── data hook ──────────────────────────────────────────────────────────────────────── */
 
-type Status = "loading" | "ready" | "failed" | "denied";
 
-function useHome(orgId: number) {
-  const [view, setView] = useState<HomeView | null>(null);
-  const [status, setStatus] = useState<Status>("loading");
-  const last = useRef(0);
-  const inflight = useRef(false);
-
-  const load = useCallback(async () => {
-    if (inflight.current) return;
-    inflight.current = true;
-    const r = await fetchHome(orgId);
-    inflight.current = false;
-    last.current = Date.now();
-    if (r.kind === "OK" && r.view) {
-      setView(r.view);
-      setStatus("ready");
-    } else if (r.kind === "DENIED") setStatus("denied");
-    else setStatus((s) => (s === "ready" ? s : "failed")); // a failed refresh keeps what is on screen
-  }, [orgId]);
-
-  useEffect(() => {
-    const t = setTimeout(() => void load(), 0);
-    return () => clearTimeout(t);
-  }, [load]);
-
-  useEffect(() => {
-    const again = () => {
-      if (document.visibilityState === "visible" && Date.now() - last.current > REVALIDATE_MS) void load();
-    };
-    window.addEventListener("focus", again);
-    document.addEventListener("visibilitychange", again);
-    return () => {
-      window.removeEventListener("focus", again);
-      document.removeEventListener("visibilitychange", again);
-    };
-  }, [load]);
-
-  return { view, status, reload: load };
-}
-
-/* ── shared pieces ──────────────────────────────────────────────────────────────────── */
-
-function Card({ id, title, icon, tone = "accent", viewAll, extra, children, className }: { id: string; title: string; icon: ComponentType<IconProps>; tone?: IconTone; viewAll?: string; extra?: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <section aria-labelledby={id} data-home-card={id} className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5", className)}>
-      <CardHead id={id} icon={icon} title={title} tone={tone}>
-        {extra}
-        {viewAll ? (
-          <Link href={viewAll} className="flex-none text-[13px] font-semibold text-accent-deep hover:underline">
-            View All
-          </Link>
-        ) : null}
-      </CardHead>
-      <div className="mt-3 flex flex-1 flex-col">{children}</div>
-    </section>
-  );
-}
-
-const Empty = ({ children }: { children: ReactNode }) => <p className="py-6 text-center text-[13.5px] text-muted">{children}</p>;
-
-function CompanyMark({ name, tone = 0 }: { name: string | null; tone?: number }) {
-  const colors = ["bg-accent-soft text-accent-deep", "bg-v2-violet-soft text-v2-violet-ink", "bg-v2-amber-soft text-v2-amber-ink", "bg-v2-green-soft text-v2-green-ink", "bg-v2-pink-soft text-v2-pink-ink", "bg-v2-teal-soft text-v2-teal-ink"];
-  const i = name ? [...name].reduce((a, ch) => a + ch.charCodeAt(0), tone) % colors.length : 0;
-  return (
-    <span aria-hidden className={cn("grid h-6 w-6 flex-none place-items-center rounded-md text-[10px] font-bold", colors[i])}>
-      {initialsOf(name)}
-    </span>
-  );
-}
-
-const ViewButton = ({ href, label }: { href: string; label: string }) => (
-  <Link href={href} aria-label={label} className="inline-flex min-h-8 items-center rounded-lg border border-line bg-paper px-3.5 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft">
-    View
-  </Link>
-);
-
-const MoreButton = ({ label }: { label: string }) => (
-  <button type="button" aria-label={label} className="grid h-8 w-8 flex-none place-items-center rounded-lg text-muted hover:bg-paper-2">
-    <MoreVerticalIcon size={16} />
-  </button>
-);
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
 
 interface TileSpec {
   key: string;
@@ -249,22 +141,6 @@ function Tile({ spec, view, index }: { spec: TileSpec; view: HomeView | null; in
 
 /* ── the cards ──────────────────────────────────────────────────────────────────────── */
 
-function TableHead({ cols }: { cols: string[] }) {
-  return (
-    <thead>
-      <tr className="text-left text-[12px] font-semibold text-muted">
-        {cols.map((c, i) => (
-          <th key={`${c}-${i}`} scope="col" className="whitespace-nowrap bg-paper-2/60 px-2.5 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg">
-            {c || <span className="sr-only">Actions</span>}
-          </th>
-        ))}
-      </tr>
-    </thead>
-  );
-}
-
-const TD = "px-2 py-2.5 align-middle text-[13px] text-ink";
-const TABLE = "w-full border-collapse";
 
 function RecommendedMatches({ view }: { view: HomeView }) {
   return (
@@ -531,29 +407,6 @@ function TasksCard({ view }: { view: HomeView }) {
 
 /* ── the right rail ─────────────────────────────────────────────────────────────────── */
 
-function BeeCard({ name }: { name: string }) {
-  return (
-    <section aria-label="Help" data-home-card="help" className="flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper">
-      <div className="flex justify-center bg-accent-soft pt-3">
-        <EnterpriseMascot pose="greet" size="lg" />
-      </div>
-      <div className="p-4 sm:p-5">
-        <h2 className="text-[17px] font-extrabold leading-tight text-ink">Your career companion, here to help!</h2>
-        <p className="mt-1.5 text-[13px] leading-snug text-muted">Get personalized job matches, prepare for interviews, track your progress and more, {name}. I&apos;m here whenever you need support on your journey.</p>
-        <button
-          type="button"
-          onClick={openHelpPanel}
-          className="mt-4 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft/70"
-        >
-          <SparklesIcon size={17} className="flex-none" />
-          <span className="min-w-0 flex-1 truncate">Ask a question</span>
-          <ChevronRightIcon size={16} className="flex-none" />
-        </button>
-      </div>
-    </section>
-  );
-}
-
 function TodaysFocus({ view }: { view: HomeView }) {
   const [done, setDone] = useState<Set<string>>(() => new Set());
   const d = view.todaysFocus.date ? shortDate(view.todaysFocus.date) : "";
@@ -640,7 +493,7 @@ export interface HomePageProps {
 }
 
 export default function ConsultantHomePage({ orgId, firstName: first }: HomePageProps) {
-  const { view, status, reload } = useHome(orgId);
+  const { view, status, reload } = useWorkspaceData(useCallback(() => fetchHome(orgId), [orgId]));
   const loading = status === "loading";
 
   if (status === "denied") return <ErrorState what="your workspace" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
