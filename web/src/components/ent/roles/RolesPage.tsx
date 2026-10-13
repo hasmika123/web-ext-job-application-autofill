@@ -307,7 +307,7 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
             }} className="rounded-xl pl-9" data-role-search />
         </div>
         {canManage && (
-          <Button onClick={startCreate} data-create-role-button className="min-h-11 rounded-xl px-4 text-[14.5px] font-bold sm:min-h-[42px]">
+          <Button variant="accent" onClick={startCreate} data-create-role-button className="min-h-11 rounded-xl px-4 text-[14.5px] font-bold sm:min-h-[42px]">
             <PlusIcon size={16} aria-hidden /> Create Role
           </Button>
         )}
@@ -338,28 +338,28 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
         <h2 className="flex items-center gap-2 text-[17px] font-bold text-ink">
           <ShieldCheckIcon size={20} aria-hidden className="text-[var(--brand-solid,var(--color-accent))]" /> Permission Overview
         </h2>
-        <div className="mt-3 flex flex-col items-center gap-4 sm:flex-row xl:flex-col 2xl:flex-row">
+        <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row xl:flex-col 2xl:flex-row">
           <div
             role="img"
             aria-label={slices.map((s) => `${s.label}: ${s.keys}`).join(", ") || "No permissions"}
             data-donut
-            className="relative grid h-[150px] w-[150px] flex-none place-items-center rounded-full"
+            className="relative grid h-[116px] w-[116px] flex-none place-items-center rounded-full"
             style={{ background: donutGradient(slices, DONUT, 0.8) }}
           >
-            <div className="grid h-[92px] w-[92px] place-items-center rounded-full bg-paper text-center">
+            <div className="grid h-[78px] w-[78px] place-items-center rounded-full bg-paper text-center">
               <div>
-                <p className="text-[26px] font-extrabold leading-none text-ink">{data?.totalPermissionKeys ?? "–"}</p>
-                <p className="mt-0.5 text-[11px] leading-tight text-muted">Permissions</p>
+                <p className="text-[22px] font-extrabold leading-none text-ink">{data?.totalPermissionKeys ?? "–"}</p>
+                <p className="mt-0.5 text-[10px] leading-tight text-muted">Permissions</p>
               </div>
             </div>
           </div>
-          <ul className="w-full min-w-0 flex-1 text-[13.5px]">
+          <ul className="w-full min-w-0 flex-1 text-[13px]">
             {slices.map((s, i) => (
-              <li key={s.category} data-slice={s.category} className="flex items-center gap-2.5 py-[5px]">
+              <li key={s.category} data-slice={s.category} className="flex items-center gap-2 py-[5px]">
                 <span aria-hidden className="h-3 w-3 flex-none rounded-full" style={{ background: DONUT[i % DONUT.length] }} />
                 <span className="min-w-0 flex-1 truncate text-ink-soft">{s.label}</span>
                 <span className="font-bold tabular-nums text-ink">{s.keys}</span>
-                <span className="w-10 text-right tabular-nums text-ink-soft">{s.percent}%</span>
+                <span className="w-9 text-right tabular-nums text-ink-soft">{s.percent}%</span>
               </li>
             ))}
           </ul>
@@ -450,7 +450,7 @@ function Kpi({ icon, label, value, note, tone }: { icon: ReactNode; label: strin
 }
 
 const QUICK_TONES = {
-  blue: "bg-[var(--brand-solid,var(--color-accent))] text-[var(--on-brand,#fff)]",
+  blue: "bg-[var(--brand-solid,var(--color-accent))] text-[var(--color-on-accent)]",
   violet: "bg-v2-violet-soft text-v2-violet-ink",
   green: "bg-v2-green-soft text-v2-green-ink",
   accent: "bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]",
