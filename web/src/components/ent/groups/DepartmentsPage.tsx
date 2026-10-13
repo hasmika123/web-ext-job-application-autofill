@@ -180,7 +180,7 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
                 }}
                 search={{ placeholder: "Search departments…", label: "Search departments" }}
                 filters={[{ name: "status", label: "Status", allLabel: "All Departments", options: [{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Archived" }] }]}
-                className="flex-nowrap"
+                className="xl:flex-nowrap"
               />
               </SectionHead>
               <div className="mt-4" />
@@ -240,7 +240,7 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
             </section>
 
             <section aria-label="Department performance" className="grp-card p-4 sm:p-5">
-              <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
                   <BarChartIcon size={22} className="text-accent" /> Department Performance
                 </h2>

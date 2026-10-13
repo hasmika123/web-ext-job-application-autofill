@@ -151,7 +151,7 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
                 <div className="flex min-w-0 flex-wrap items-center gap-2.5">
                   <FilterBar
                     compact
-                    className="flex-nowrap"
+                    className="xl:flex-nowrap"
                     query={cq}
                     onQueryChange={setCq}
                     values={{ department: cDept, status: cStatus }}
@@ -228,7 +228,7 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
                   { name: "department", label: "Department", allLabel: "All Departments", options: departments.map((d) => ({ value: String(d.id), label: d.name })) },
                   { name: "sort", label: "Sort by", allLabel: "Sort by Name", options: [{ value: "department", label: "Sort by Department" }, { value: "lead", label: "Sort by Lead" }, { value: "members", label: "Sort by Members" }] },
                 ]}
-                className="flex-nowrap"
+                className="xl:flex-nowrap"
               />
               </SectionHead>
               <div className="mt-4" />
@@ -260,7 +260,7 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
 
           <div className="flex min-w-0 flex-col gap-5">
             <section aria-label="Team performance" className="grp-card p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
                   <BarChartIcon size={22} className="text-accent" /> Team Performance
                 </h2>

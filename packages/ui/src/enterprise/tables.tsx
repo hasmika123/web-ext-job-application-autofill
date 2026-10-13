@@ -306,7 +306,7 @@ export function DataTable<T>({
 
   return (
     <div className={className}>
-      <div className={cn("overflow-x-auto bg-paper", board ? "rounded-xl" : "rounded-[var(--radius)] border border-line")}>
+      <div className={cn("relative overflow-x-auto bg-paper", board ? "rounded-xl" : "rounded-[var(--radius)] border border-line")}>
         <table aria-label={label} className="w-full border-collapse text-left text-[13.5px]">
           <thead className={board ? "bg-accent-soft/50 text-[13px] text-ink-soft" : "bg-paper-2/60 text-[12px] uppercase tracking-[.04em] text-muted"}>
             <tr>
