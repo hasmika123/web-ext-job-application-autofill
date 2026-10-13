@@ -16,6 +16,7 @@ import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
 import { createJobsMock } from "./mock-jobs.mjs";
 import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset } from "./mock-tenants.mjs";
+import { createBrandingMock } from "./mock-branding.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -216,6 +217,23 @@ const withBody = (req, cb) => {
   });
 };
 
+/* ── Organization branding mock (X2.18: draft/publish/versions/assets for the acme owner; scripts/mock-branding.mjs) ── */
+const bearerSub = (req) => {
+  try {
+    return JSON.parse(Buffer.from((req.headers.authorization ?? "").replace(/^Bearer\s+/i, "").split(".")[1] ?? "", "base64url").toString()).sub ?? null;
+  } catch {
+    return null;
+  }
+};
+const handleBranding = createBrandingMock({
+  json,
+  subOf: bearerSub,
+  // a publish changes what the public tenant view says for acme.localhost (the real API's public view reads published values only)
+  onPublish: (p) => {
+    const t = MOCK_TENANTS["acme.localhost"];
+    if (t) t.branding = { ...t.branding, primary: p.primary ?? null, secondary: p.secondary ?? null, theme: p.theme ?? "LIGHT", welcomeTitle: p.welcomeTitle ?? null, welcomeMessage: p.welcomeMessage ?? null, supportEmail: p.supportEmail ?? null, featureChips: p.featureChips ?? null, logoUrl: p.logoHash ? `/tenant-assets/logo?v=${p.logoHash}` : null };
+  },
+});
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
 const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
 /* ── Job search mock (APP-E2E U4.0: search, suggest, detail, save, hide; scripts/mock-jobs.mjs) ── */
@@ -1878,7 +1896,7 @@ const server = http.createServer((req, res) => {
   if (path === "/api/refresh" && method === "POST") {
     return withBody(req, (b) => {
       const sub = String(b.refreshToken ?? "").replace(/^refresh\./, "");
-      return ACCOUNTS[sub] ? json(res, 200, pair(sub)) : json(res, 401, { error: "invalid" });
+      return ACCOUNTS[sub] || MOCK_TENANT_USERS[sub] ? json(res, 200, pair(sub)) : json(res, 401, { error: "invalid" });
     });
   }
   if (path === "/api/logout") {
@@ -1896,6 +1914,7 @@ const server = http.createServer((req, res) => {
   // Unlike every other write in this mock, these succeed, so the editor can be tried without the API.
   // ETag / If-Match / 409 / 422 / 402 behave like ResumeDocResource. To force a 409 from outside:
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
+  if (handleBranding(req, res, path, method)) return;
   if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
   if (handleAi(req, res, path, method)) return;
