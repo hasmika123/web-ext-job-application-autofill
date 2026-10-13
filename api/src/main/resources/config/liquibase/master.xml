@@ -82,5 +82,12 @@
     <include file="config/liquibase/changelog/20261018010000_ent_employees.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261016090000_ent_dashboard.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261019010000_ent_talent.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261104010000_mkt_followups.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261104020000_mkt_streams.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261104030000_mkt_submissions.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261104040000_mkt_opportunities.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261104050000_mkt_interviews.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261104060000_mkt_talent.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261104070000_mkt_jobs.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

@@ -1,6 +1,6 @@
 /**
  * The Marketing Home board's data (design: Talent Marketing Dashboard). One call to
- * `GET /api/orgs/{orgId}/me-workspace/marketing/home` (through the BFF) draws the page. It is ASSIGNED-scope: only the
+ * `GET /api/orgs/{orgId}/mkt/home` (through the BFF) draws the page. It is ASSIGNED-scope: only the
  * consultants the marketer is assigned to. A section the API leaves out is drawn as an honest empty state, never a made-up row.
  * E1: every action here prepares or records; nothing submits for a consultant.
  */
@@ -94,7 +94,7 @@ export type HomeFetch = { kind: "OK"; view: MarketingHomeView } | { kind: "DENIE
 
 export async function fetchMarketingHome(orgId: number | string, signal?: AbortSignal): Promise<HomeFetch> {
   try {
-    const res = await fetch(`/api/orgs/${orgId}/me-workspace/marketing/home`, { headers: { accept: "application/json" }, cache: "no-store", signal });
+    const res = await fetch(`/api/orgs/${orgId}/mkt/home`, { headers: { accept: "application/json" }, cache: "no-store", signal });
     if (res.status === 403 || res.status === 404) return { kind: "DENIED" };
     if (!res.ok) return { kind: "FAILED" };
     const view = parseHome(await res.json().catch(() => null));

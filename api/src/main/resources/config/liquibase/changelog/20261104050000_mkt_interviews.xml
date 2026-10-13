@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Marketing workspace (interviews) tables. Owned by the interviews page ONLY; empty until that page adds its own changeSets.
+        Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
+        table names prefixed mkt_). Never edit another page's changelog.
+    -->
+</databaseChangeLog>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import DashboardPage from "@/components/ent/dashboard/DashboardPage";
-import MarketingHomePage from "@/components/ent/marketer-ws/MarketingHomePage";
+import { marketingPage } from "@/components/ent/marketer-ws/registry";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
 import { firstNameOf } from "@/lib/ent/dashboard";
 import { getTenantSession } from "@/lib/ent/tenant-session";
@@ -47,11 +47,12 @@ export default async function WorkspaceCatchAll({ params }: { params: Promise<{ 
       />
     );
   }
-  if (hit.kind === "page" && workspace === "marketing" && (slug ?? []).length === 0 && can(me, "consultants.view") && me.org.id) {
-    // Marketing Home (marketer workspace): the board for a Marketing Specialist's assigned consultants.
+  if (hit.kind === "page" && workspace === "marketing" && me.org.id) {
+    // The Marketing workspace's real pages (one folder each under components/ent/marketer-ws); the rest keep "on the way".
     const nav = me.workspaces.find((w) => w.key === "marketing")?.nav ?? [];
     const hrefs = Object.fromEntries(nav.map((n) => [n.key, n.href]));
-    return <MarketingHomePage orgId={me.org.id} orgName={me.org.displayName} firstName={firstNameOf(me.person.name)} hrefs={hrefs} />;
+    const page = marketingPage(slug ?? [], { orgId: me.org.id, orgName: me.org.displayName, firstName: firstNameOf(me.person.name), hrefs });
+    if (page) return page;
   }
   if (hit.kind === "page") return <ComingSoon title={hit.title} />;
   const other = me.workspaces.find((w) => w.home === me.landing) ?? me.workspaces[0];

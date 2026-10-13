@@ -21,7 +21,7 @@ import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset 
 import { createBrandingMock } from "./mock-branding.mjs";
 import { createInvitationsMock } from "./mock-invitations.mjs";
 import { createDashboardMock } from "./mock-dashboard.mjs";
-import { createMarketingHomeMock } from "./mock-marketing-home.mjs";
+import { createMktMock } from "./mock-mkt.mjs";
 import { createMembersMock } from "./mock-members.mjs";
 import { createGroupsMock } from "./mock-groups.mjs";
 import { createRolesMock } from "./mock-roles.mjs";
@@ -264,7 +264,7 @@ const handleInvitations = createInvitationsMock({
 });
 /* ── Organization dashboard mock (X2.17: GET .../dashboard + alert dismiss for the acme/beta tenant members; scripts/mock-dashboard.mjs) ── */
 const handleDashboard = createDashboardMock({ json, subOf: bearerSub });
-const handleMarketingHome = createMarketingHomeMock({ json, subOf: bearerSub });
+const handleMkt = createMktMock({ json, subOf: bearerSub });
 /* Employees mock (X4.12: members list, tiles, detail, bulk, lifecycle for Acme; scripts/mock-members.mjs) */
 const handleMembers = createMembersMock({ json, subOf: bearerSub });
 /* ── Departments and Teams mock (X4.5: groups, leads, moves for Acme; scripts/mock-groups.mjs) ── */
@@ -1993,7 +1993,7 @@ const server = http.createServer((req, res) => {
   if (handleBranding(req, res, path, method)) return;
   if (ENTERPRISE_ENABLED && handleInvitations(req, res, path, method)) return;
   if (handleDashboard(req, res, path, method)) return;
-  if (handleMarketingHome(req, res, path, method)) return;
+  if (handleMkt(req, res, path, method)) return;
   if (handleMembers(req, res, path, method)) return;
   if (handleGroups(req, res, path, method)) return;
   if (ENTERPRISE_ENABLED && handleRoles(req, res, path, method)) return;

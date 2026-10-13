@@ -216,6 +216,7 @@ the API re-checks with scope) · **Entitlement / module** · **Empty state** · 
 | Job Discovery → `/w/marketing/jobs` | `JobDiscoveryPage` (beneficiary picker) | `GET …/jobs/search?for=…` | `matches.run` | marketing + `ai.job_matching` (beneficiary) for AI ranking | "Pick a consultant to search for" | X8.2 (D) |
 | Job Matches → `/w/marketing/matches` | `MatchesPage` | `GET …/matches?assigned=me` | `matches.run` | marketing + entitlement | "Run a match to see suggestions" | X8.3 (D) |
 | Opportunities → `/w/marketing/opportunities` | `OpportunitiesPage` | `GET …/opportunities?mine` | `opportunities.manage` | marketing | "Assign the first opportunity" | X8.4 (D) |
+| Job Streams → `/w/marketing/streams` | `JobStreamsPage` (job-source feeds, sync health) | `GET …/mkt/streams` | `matches.run` | marketing | "Connect your first job source" | X8.2 (D) |
 | Submissions → `/w/marketing/submissions` | `SubmissionsPage` (records only, ADR-010; E1 answered 2026-10-12: consultants submit) | `GET …/submissions?mine` | `submissions.record` | marketing | "Nothing recorded yet" | X10.3 (D) |
 | Applications → `/w/marketing/applications` | `OrgApplicationsPage` scope ASSIGNED | `GET …/applications?assigned=me` | `member.view_summary` (ASSIGNED) | — | consent copy | X9.4 (D) |
 | Interviews → `/w/marketing/interviews` | `OrgInterviewsPage` scope ASSIGNED | `GET …/interviews?assigned=me` | `interviews.coordinate` | marketing | "No interviews yet" | X9.5/X9.6 (D) |

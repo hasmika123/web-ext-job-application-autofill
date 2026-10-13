@@ -349,6 +349,16 @@
           "module": "marketing"
         },
         {
+          "key": "streams",
+          "label": "Job Streams",
+          "icon": "Layers",
+          "href": "/w/marketing/streams",
+          "needs": [
+            "matches.run"
+          ],
+          "module": "marketing"
+        },
+        {
           "key": "submissions",
           "label": "Submissions",
           "icon": "Send",

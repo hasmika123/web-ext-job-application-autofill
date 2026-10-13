@@ -1,5 +1,5 @@
 /**
- * The Marketing Home API mock (marketer workspace), in memory, DEV ONLY: `GET /api/orgs/{orgId}/me-workspace/marketing/home`.
+ * The Marketing Home API mock (marketer workspace), in memory, DEV ONLY: `GET /api/orgs/{orgId}/mkt/home`.
  * The rows are the approved "Talent Marketing Dashboard" board, so the page can be compared to it side by side. Only acme (id 2)
  * members who hold the marketing grants see it; anyone else gets the API's 404.
  */
@@ -75,9 +75,9 @@ const view = () => ({
   ],
 });
 
-export function createMarketingHomeMock({ json, subOf = () => null }) {
+export function createMktHomeMock({ json, subOf = () => null }) {
   return function handle(req, res, path, method) {
-    const m = /^\/api\/orgs\/(\d+)\/me-workspace\/marketing\/home$/.exec(path);
+    const m = /^\/api\/orgs\/(\d+)\/mkt\/home$/.exec(path);
     if (!m) return false;
     req.resume();
     const login = subOf(req);

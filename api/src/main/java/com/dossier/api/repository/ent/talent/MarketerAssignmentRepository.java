@@ -18,6 +18,8 @@ public interface MarketerAssignmentRepository extends JpaRepository<MarketerAssi
 
     List<MarketerAssignment> findByOrgIdAndMarketerMemberId(Long orgId, Long marketerMemberId);
 
+    List<MarketerAssignment> findByOrgIdAndBackupMemberId(Long orgId, Long backupMemberId);
+
     long countByOrgIdAndMarketerMemberId(Long orgId, Long marketerMemberId);
 
     long countByOrgIdAndAssignedAtLessThan(Long orgId, Instant before);
