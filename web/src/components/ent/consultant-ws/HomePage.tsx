@@ -263,8 +263,8 @@ function TableHead({ cols }: { cols: string[] }) {
   );
 }
 
-const TD = "px-2.5 py-2.5 align-middle text-[13px] text-ink";
-const TABLE = "w-full min-w-[520px] border-collapse";
+const TD = "px-2 py-2.5 align-middle text-[13px] text-ink";
+const TABLE = "w-full border-collapse";
 
 function RecommendedMatches({ view }: { view: HomeView }) {
   return (
