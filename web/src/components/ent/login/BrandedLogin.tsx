@@ -216,10 +216,10 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
       <div className="mx-auto flex min-h-dvh w-full max-w-[1600px] flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(460px,570px)] lg:items-center lg:gap-10 lg:px-12 xl:px-20">
         {/* ── heading (real text: the plate has none) ── */}
         <section
-          className="tenant-login-rise flex min-h-[36vw] flex-col items-center px-6 pt-7 text-center lg:min-h-0 lg:items-start lg:self-start lg:pl-8 lg:pr-0 lg:pt-[clamp(56px,13vh,150px)] lg:text-left xl:pl-20"
+          className="tenant-login-rise tenant-login-heading flex min-h-[36vw] flex-col items-center px-6 pt-7 text-center lg:absolute lg:min-h-0 lg:items-start lg:p-0 lg:text-left"
           aria-labelledby={`${uid}-title`}
         >
-          <h1 id={`${uid}-title`} className="font-body relative max-w-[16ch] text-[32px] font-extrabold leading-[1.05] tracking-tight [text-shadow:0_0_10px_rgb(255_255_255/0.35)] sm:max-w-none sm:text-[48px] lg:text-[56px] xl:text-[64px]">
+          <h1 id={`${uid}-title`} className="font-body relative max-w-[16ch] text-[32px] font-extrabold leading-[1.05] tracking-tight [text-shadow:0_0_10px_rgb(255_255_255/0.35)] sm:max-w-none sm:text-[48px] lg:text-[length:calc(var(--plate-s)*58)]">
             {title}
             <span aria-hidden className="tenant-spark absolute -right-9 -top-2 h-9 w-9 sm:-right-11 sm:h-11 sm:w-11">
               {SPARKS.map((st, i) => (
@@ -227,14 +227,14 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
               ))}
             </span>
           </h1>
-          <p className="mt-2 max-w-[30ch] text-[15px] [text-shadow:0_0_8px_rgb(255_255_255/0.35)] leading-snug text-[var(--brand-800)] sm:max-w-[40ch] sm:text-[20px] lg:mt-3 lg:max-w-[26ch] lg:text-[24px]">{subtitle}</p>
+          <p className="mt-2 max-w-[30ch] text-[15px] [text-shadow:0_0_8px_rgb(255_255_255/0.35)] leading-snug text-[var(--brand-800)] sm:max-w-[40ch] sm:text-[20px] lg:mt-3 lg:max-w-[26ch] lg:text-[length:calc(var(--plate-s)*26)]">{subtitle}</p>
         </section>
 
         {/* the bee scene lives in the plate; this spacer keeps the card below it on a phone / tablet */}
         <div aria-hidden className="h-[45vw] lg:hidden" />
 
         {/* ── sign-in card (overlaps the lower part of the scene on a phone) ── */}
-        <section className="relative z-10 mx-auto w-full max-w-[560px] px-4 pb-10 sm:px-0 lg:py-12" aria-label="Sign in">
+        <section className="relative z-10 mx-auto w-full max-w-[560px] px-4 pb-10 sm:px-0 lg:col-start-2 lg:py-12" aria-label="Sign in">
           <div className="tenant-glass rounded-[28px] px-5 py-7 sm:px-9 sm:py-9">
             {view === "notMember" && <NotMember name={name} onDifferent={switchAccount} />}
             {view === "unavailable" && <Unavailable onRetry={() => setView(mfaToken ? "mfa" : "form")} />}

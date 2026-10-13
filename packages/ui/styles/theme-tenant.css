@@ -143,3 +143,14 @@
   background: var(--brand-2-400, #f5b72b);
   transform-origin: center;
 }
+
+/* Desktop: the heading is pinned to the plate's own coordinates (the plate is object-cover at 42% / 14%), so it always sits in the
+ * empty sky above the bee, whatever the window shape. --plate-s is the plate's scale (screen px per plate px). */
+@media (min-width: 1024px) {
+  .theme-tenant .tenant-sky { --plate-s: max(calc(100vw / 1448), calc(100dvh / 1086)); }
+  .theme-tenant .tenant-login-heading {
+    left: calc((100vw - 1448 * var(--plate-s)) * 0.42 + 270 * var(--plate-s));
+    top: calc((100dvh - 1086 * var(--plate-s)) * 0.14 + 95 * var(--plate-s));
+    max-width: calc(480 * var(--plate-s));
+  }
+}
