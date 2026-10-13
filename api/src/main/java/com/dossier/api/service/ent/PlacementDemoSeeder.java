@@ -9,7 +9,7 @@ import com.dossier.api.domain.ent.talent.PlacementExtension;
 import com.dossier.api.domain.ent.talent.PlacementNote;
 import com.dossier.api.domain.ent.talent.TalentPlacement;
 import com.dossier.api.domain.org.Organization;
-import com.dossier.api.repository.OrganizationRepository;
+import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import java.time.Instant;
