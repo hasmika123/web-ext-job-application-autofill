@@ -247,7 +247,16 @@ class OrgIsolationIT {
         Map.entry("PUT /api/orgs/{orgId}/resumes/{resumeId}/visibility", Case.write("{\"visibility\":\"PUBLIC\"}", 200, "RESUME_VISIBILITY")),
         Map.entry("POST /api/orgs/{orgId}/resumes/{resumeId}/decision", Case.write("{\"decision\":\"REOPEN\"}", 200, "RESUME_REOPEN")),
         Map.entry("POST /api/orgs/{orgId}/resumes", Case.versioned(201, "RESUME_CREATE", w -> "{\"consultantId\":" + w.consultantProfileId + ",\"name\":\"Isolation resume\"}", w -> null)),
-        Map.entry("POST /api/orgs/{orgId}/resumes/bulk", Case.people(200, "RESUME_BULK", 2, w -> "{\"ids\":[" + w.resumeId + "],\"action\":\"VISIBILITY\",\"visibility\":\"PUBLIC\"}", null, null))
+        Map.entry("POST /api/orgs/{orgId}/resumes/bulk", Case.people(200, "RESUME_BULK", 2, w -> "{\"ids\":[" + w.resumeId + "],\"action\":\"VISIBILITY\",\"visibility\":\"PUBLIC\"}", null, null)),
+        // Talent board "Jobs": reads, create (Idempotency-Key), edit (If-Match), bulk status (a JOB_STATUS row per job + the JOB_BULK summary), assign and dismiss a match
+        Map.entry("GET /api/orgs/{orgId}/jobs", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/jobs/summary", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/jobs/{jobId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/jobs", Case.versioned(201, "JOB_CREATE", w -> "{\"title\":\"Hijack job\",\"clientId\":" + w.jobClientId + "}", w -> null)),
+        Map.entry("PATCH /api/orgs/{orgId}/jobs/{jobId}", Case.versioned(200, "JOB_UPDATE", w -> "{\"title\":\"Hijacked job\"}", w -> w.jobVersion)),
+        Map.entry("POST /api/orgs/{orgId}/jobs/bulk/status", Case.people(200, "JOB_BULK", 2, w -> "{\"ids\":[" + w.jobId + "],\"status\":\"ON_HOLD\"}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}/assign", Case.people(200, "JOB_ASSIGN", 1, null, null, null)),
+        Map.entry("PATCH /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}", Case.versioned(200, "JOB_MATCH_DISMISS", w -> "{\"status\":\"DISMISSED\"}", w -> null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -294,6 +303,11 @@ class OrgIsolationIT {
         settingsCache.invalidate();
     }
     @Autowired private com.dossier.api.repository.ent.OrgMemberOffboardingRepository offboardingRows;
+    // Jobs page (talent board): one client, consultant, job and suggested match per world
+    @Autowired private com.dossier.api.repository.ent.talent.ClientAccountRepository jobClients;
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository jobConsultants;
+    @Autowired private com.dossier.api.repository.ent.talent.ClientRequirementRepository jobRows;
+    @Autowired private com.dossier.api.repository.ent.talent.RequirementMatchRepository jobMatches;
     @Autowired private com.dossier.api.service.ent.members.OrgMemberQueryService memberQuery;
     @Autowired private OrgBrandingRepository brandings;
     @Autowired private OrgBrandingVersionRepository brandingVersions;
@@ -332,6 +346,11 @@ class OrgIsolationIT {
         /** Resumes board: one consultant of this organization and one approved, non-primary, internal resume of theirs. */
         Long consultantProfileId;
         Long resumeId;
+        /** Jobs page: a client, an OPEN job of it (with its ETag version) and one suggested match of that job. */
+        Long jobClientId;
+        Long jobId;
+        Long matchId;
+        String jobVersion;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -456,6 +475,32 @@ class OrgIsolationIT {
             rs.setName(prefix + " resume");
             rs.setOwnerMemberId(member.getId());
             resumeId = talentResumes.saveAndFlush(rs).getId();
+            // Jobs page: one client, one consultant, one OPEN job and one suggested match
+            com.dossier.api.domain.ent.talent.ClientAccount jc = new com.dossier.api.domain.ent.talent.ClientAccount();
+            jc.setOrgId(org.getId());
+            jc.setName(prefix + " client");
+            jobClientId = jobClients.saveAndFlush(jc).getId();
+            com.dossier.api.domain.ent.talent.ConsultantProfile jp = new com.dossier.api.domain.ent.talent.ConsultantProfile();
+            jp.setOrgId(org.getId());
+            jp.setDisplayName(prefix + " consultant");
+            jp.setEmail(prefix + "-consultant@example.com");
+            jp = jobConsultants.saveAndFlush(jp);
+            com.dossier.api.domain.ent.talent.ClientRequirement jr = new com.dossier.api.domain.ent.talent.ClientRequirement();
+            jr.setOrgId(org.getId());
+            jr.setClientId(jobClientId);
+            jr.setTitle(prefix + " job");
+            jr = jobRows.saveAndFlush(jr);
+            com.dossier.api.domain.ent.talent.RequirementMatch jm = new com.dossier.api.domain.ent.talent.RequirementMatch();
+            jm.setOrgId(org.getId());
+            jm.setRequirementId(jr.getId());
+            jm.setConsultantId(jp.getId());
+            jm.setScore(91);
+            jm = jobMatches.saveAndFlush(jm);
+            em.flush();
+            em.refresh(jr); // the version is the stored (microsecond) instant, not the in-memory one
+            jobId = jr.getId();
+            matchId = jm.getId();
+            jobVersion = com.dossier.api.service.ent.jobs.JobBoardService.versionOf(jr);
         }
 
         /** Puts the member in the SUSPENDED state (what a reinstate needs to find). */
@@ -487,6 +532,8 @@ class OrgIsolationIT {
             ids.put("alertKey", "MEMBERS_SUSPENDED");
             ids.put("consultantId", String.valueOf(consultantId));
             ids.put("resumeId", String.valueOf(resumeId));
+            ids.put("jobId", String.valueOf(jobId));
+            ids.put("matchId", String.valueOf(matchId));
             return ids;
         }
 
@@ -545,7 +592,7 @@ class OrgIsolationIT {
         if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members") || route.key().equals("POST /api/orgs/{orgId}/resumes") || route.key().equals("POST /api/orgs/{orgId}/resumes/bulk")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/jobs/bulk/status"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {
@@ -597,6 +644,8 @@ class OrgIsolationIT {
         s.append("domains:").append(domains.findByOrgIdOrderByDomain(w.org.getId()).stream().map(d -> d.getDomain() + "|" + d.getVerifiedAt()).toList()).append('\n');
         brandings.findByOrgId(w.org.getId()).ifPresent(b -> s.append("branding:").append(b.getPrimaryColor()).append('|').append(b.getWelcomeTitle()).append('|').append(b.getDraftJson()).append('|').append(b.getDraftVersion()).append('|').append(b.getPublishedAt()).append('|').append(b.getLogoKey()).append('\n'));
         s.append("brandingVersions:").append(brandingVersions.findAllByOrgIdNewestFirst(w.org.getId()).stream().map(v -> v.getVersionNo() + "|" + v.getSnapshotJson()).toList()).append('\n');
+        s.append("jobs:").append(jobRows.findByOrgId(w.org.getId()).stream().map(r -> r.getId() + "|" + r.getTitle() + "|" + r.getStatus() + "|" + r.getUpdatedAt()).toList()).append('\n');
+        s.append("jobMatches:").append(jobMatches.findByOrgId(w.org.getId()).stream().map(m -> m.getId() + "|" + m.getStatus() + "|" + m.getAssignedAt()).toList()).append('\n');
         s.append("audit:").append(audit.countByOrgId(w.org.getId())).append('\n');
         s.append("events:").append(shareEvents.countByOrgId(w.org.getId())).append('\n');
         return s.toString();

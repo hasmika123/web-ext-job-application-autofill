@@ -84,6 +84,7 @@ export function Sparkline({ values, color = chartColor(0), label, className, smo
         viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
         preserveAspectRatio="none"
         data-sparkline
+        data-smooth
         role={label ? "img" : undefined}
         aria-label={label}
         aria-hidden={label ? undefined : true}

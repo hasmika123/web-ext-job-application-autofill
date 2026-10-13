@@ -74,3 +74,17 @@ describe("DonutChart", () => {
     expect(container.querySelectorAll("circle")).toHaveLength(1); // only the track
   });
 });
+
+describe("smooth sparkline", () => {
+  it("draws a curve and a gradient fill, only when asked", () => {
+    const { container } = render(<Sparkline smooth values={[1, 3, 2, 5]} label="x" />);
+    const svg = container.querySelector("svg[data-smooth]")!;
+    expect(svg.querySelector("linearGradient")).toBeTruthy();
+    expect(svg.querySelectorAll("path")).toHaveLength(2);
+    expect(svg.querySelector("path[fill=none]")!.getAttribute("d")).toMatch(/^M[\d.]+,[\d.]+( C[\d., -]+){3}$/);
+    cleanup();
+    const plain = render(<Sparkline values={[1, 3, 2, 5]} label="x" />);
+    expect(plain.container.querySelector("polyline")).toBeTruthy();
+    expect(plain.container.querySelector("[data-smooth]")).toBeNull();
+  });
+});
