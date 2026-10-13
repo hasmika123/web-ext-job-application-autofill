@@ -181,7 +181,7 @@ export function handleMeTenant(req, res, path, method, json, tenantHostOf) {
 // unread notices so the bell shows its dot; everyone else is caught up. Read state is per process (a restart resets it).
 const READ = new Set();
 const NOTICES = (login) => [
-  { id: 1, title: "3 invitations are waiting", body: "People you invited have not accepted yet.", link: "/w/admin/employees?status=invited", createdAt: "2026-10-13T08:30:00Z", read: READ.has(login) },
+  { id: 1, title: "3 invitations are waiting", body: "People you invited have not accepted yet.", link: "/w/admin/invitations", createdAt: "2026-10-13T08:30:00Z", read: READ.has(login) },
   { id: 2, title: "Branding draft saved", body: "Publish it when you are ready.", link: "/w/admin/branding", createdAt: "2026-10-12T16:10:00Z", read: READ.has(login) },
 ];
 const WITH_NOTICES = new Set(["owner@acme.com", "sarah@acme.com"]);

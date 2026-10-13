@@ -19,6 +19,7 @@ import { handleMeTenant, handleTenantNotifications, memberStatus, roleName } fro
 import { demoPeople } from "./fixtures/enterprise.mjs";
 import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset } from "./mock-tenants.mjs";
 import { createBrandingMock } from "./mock-branding.mjs";
+import { createInvitationsMock } from "./mock-invitations.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -245,6 +246,15 @@ const handleBranding = createBrandingMock({
   onPublish: (p) => {
     const t = MOCK_TENANTS["acme.localhost"];
     if (t) t.branding = { ...t.branding, primary: p.primary ?? null, secondary: p.secondary ?? null, theme: p.theme ?? "LIGHT", welcomeTitle: p.welcomeTitle ?? null, welcomeMessage: p.welcomeMessage ?? null, supportEmail: p.supportEmail ?? null, featureChips: p.featureChips ?? null, logoUrl: p.logoHash ? `/tenant-assets/logo?v=${p.logoHash}` : null };
+  },
+});
+/* ── Invitations mock (X4.12 part: list, counts, activity, invite, resend, revoke, bulk; scripts/mock-invitations.mjs) ── */
+const handleInvitations = createInvitationsMock({
+  json,
+  withBody,
+  hostOf: (r) => {
+    const raw = r.headers["x-kiwiply-host"];
+    return (typeof raw === "string" ? raw : "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "");
   },
 });
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
@@ -1967,6 +1977,7 @@ const server = http.createServer((req, res) => {
   // ETag / If-Match / 409 / 422 / 402 behave like ResumeDocResource. To force a 409 from outside:
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
   if (handleBranding(req, res, path, method)) return;
+  if (ENTERPRISE_ENABLED && handleInvitations(req, res, path, method)) return;
   if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
   if (handleAi(req, res, path, method)) return;
