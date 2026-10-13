@@ -192,7 +192,7 @@ the API re-checks with scope) · **Entitlement / module** · **Empty state** · 
 | Applications → `/w/admin/applications` | `OrgApplicationsPage` (D, X9.4) scope ORG, consent-projected | `GET …/applications` | `member.view_summary` | — (Phase 2 shows the consent-based list from 18f2123's overview; full page Phase 9) | "Nobody is sharing progress yet" | X9.4 (D) |
 | Interviews → `/w/admin/interviews` | `OrgInterviewsPage` (D, X9.6) | `GET …/interviews` | `member.view_summary` | — | "No interviews scheduled" | X9.6 (D) |
 | Clients → `/w/admin/clients` | `ClientsPage` (D, X10.1) scope ORG | `GET …/clients` | `clients.view` | marketing | "Add your first client" | X10.1 (D) |
-| Placements → `/w/admin/placements` | `PlacementsPage` (D, X10.4) | `GET …/placements` | `placements.view` | marketing | "No placements yet" | X10.4 (D) |
+| Placements → `/w/admin/placements` | `PlacementsPage` (live, ent-placements) | `GET …/placements/*` (list, counts, filters, pickers, detail, actions) | `placements.view` or `placements.manage` | — | "No placements yet" | X10.4 |
 | Subscription Overview → `/w/admin/subscription` | `SubscriptionOverview` (C, X6.1) | `GET …/billing/overview` | `billing.view` | billing | status card | X6.1 (C) |
 | Consultant Licenses → `/w/admin/licenses` | `LicensesPage` (C, X6.2) | `GET …/licenses` | `licenses.view` | billing | "Assign the first license" | X6.2 (C) |
 | Billing → `/w/admin/billing` | `BillingPage` (C, X6.4) | `GET …/billing` | `billing.view` | billing | "Billing isn't connected" (dev) | X6.4 (C) |

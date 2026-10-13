@@ -22,7 +22,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -167,12 +166,6 @@ class OrgPlacementResourceIT extends MemberItSupport {
         return call(login(who), req, body, null, key());
     }
 
-    private static List<Long> ids(JsonNode page) {
-        List<Long> out = new ArrayList<>();
-        for (JsonNode n : page.path("items")) out.add(n.path("id").asLong());
-        return out;
-    }
-
     // ---- reading ---------------------------------------------------------------------------------------------------------------
 
     @Test
@@ -246,7 +239,7 @@ class OrgPlacementResourceIT extends MemberItSupport {
     void theFourTilesAndTheTabCountsComeFromRowsWithHonestDeltas() throws Exception {
         JsonNode c = json(read("owner", "/counts"));
         assertThat(c.path("active").path("value").asInt()).isEqualTo(3);
-        assertThat(c.path("active").path("previous").asInt()).as("all three were running 30 days ago").isEqualTo(3);
+        assertThat(c.path("active").path("previous").asInt()).as("the three active ones and the one completed 20 days ago were all running 30 days ago").isEqualTo(4);
         assertThat(c.path("active").path("series")).hasSize(8);
         assertThat(c.path("startingSoon").path("value").asInt()).isEqualTo(1);
         assertThat(c.path("endingSoon").path("value").asInt()).as("ends in 10 and 40 days, inside the 45 day window").isEqualTo(2);
@@ -297,8 +290,8 @@ class OrgPlacementResourceIT extends MemberItSupport {
     void filtersAndPickersAreBuiltFromTheSameRows() throws Exception {
         JsonNode f = json(read("owner", "/filters"));
         assertThat(f.path("clients")).hasSize(2);
-        assertThat(f.path("roles")).hasSize(3);
-        assertThat(f.path("managers")).hasSize(3);
+        assertThat(f.path("roles")).hasSize(4);
+        assertThat(f.path("managers")).hasSize(4);
         assertThat(f.path("types")).hasSize(3);
         assertThat(f.path("statuses")).hasSize(6);
         JsonNode people = json(read("owner", "/pickers?kind=consultant&q=sky"));
@@ -322,7 +315,7 @@ class OrgPlacementResourceIT extends MemberItSupport {
         assertThat(d.path("engagement").path("start").asText()).isEqualTo(p1.getStartDate().toString());
         assertThat(d.path("engagement").path("midpoint").asText()).isEqualTo(p1.getStartDate().plusDays(55).toString());
         assertThat(d.path("engagement").path("percent").asInt()).isEqualTo(91);
-        assertThat(d.path("availability").path("availableFrom").asText()).isEqualTo(p1.getEndDate().plusDays(1).toString());
+        assertThat(d.path("availability").path("availableFrom").asText()).isEqualTo(today.plusDays(10).plusDays(1).toString());
         assertThat(d.path("availability").path("inDays").asInt()).isEqualTo(11);
         assertThat(d.path("availability").path("inPool").asBoolean()).isFalse();
         assertThat(d.path("actions").path("extend").asBoolean()).isTrue();
@@ -401,24 +394,24 @@ class OrgPlacementResourceIT extends MemberItSupport {
     @Test
     void extendingMovesTheEndDateRecordsItOnceAndCanBeUndone() throws Exception {
         long before = auditCount(a, "PLACEMENT_EXTEND");
-        LocalDate next = p1.getEndDate().plusDays(90);
+        LocalDate next = today.plusDays(10).plusDays(90);
         MvcResult r = send("owner", post(url() + "/" + p1.getId() + "/extend"), "{\"endDate\":\"" + next + "\",\"note\":\"Client renewed\"}");
         assertStatus(r, 200);
         JsonNode d = json(r);
         assertThat(d.path("endDate").asText()).isEqualTo(next.toString());
         assertThat(d.path("extensions").get(0).path("status").asText()).isEqualTo("APPROVED");
-        assertThat(d.path("extensions").get(0).path("fromEndDate").asText()).isEqualTo(p1.getEndDate().toString());
+        assertThat(d.path("extensions").get(0).path("fromEndDate").asText()).isEqualTo(today.plusDays(10).toString());
         assertThat(d.path("timeline").get(0).path("type").asText()).isEqualTo("EXTENDED");
         assertThat(d.path("nextAction").path("kind").asText()).as("no longer ending soon").isEqualTo("NONE");
         assertThat(auditCount(a, "PLACEMENT_EXTEND") - before).isEqualTo(1);
         // an end date that is not later is refused
-        assertStatus(send("owner", post(url() + "/" + p1.getId() + "/extend"), "{\"endDate\":\"" + p1.getEndDate() + "\"}"), 422);
+        assertStatus(send("owner", post(url() + "/" + p1.getId() + "/extend"), "{\"endDate\":\"" + today.plusDays(10) + "\"}"), 422);
         // undo
         long eventId = d.path("undo").path("eventId").asLong();
         MvcResult undone = send("owner", post(url() + "/" + p1.getId() + "/undo"), "{\"eventId\":" + eventId + "}");
         assertStatus(undone, 200);
         JsonNode u = json(undone);
-        assertThat(u.path("endDate").asText()).isEqualTo(p1.getEndDate().toString());
+        assertThat(u.path("endDate").asText()).isEqualTo(today.plusDays(10).toString());
         assertThat(u.path("extensions").get(0).path("status").asText()).isEqualTo("CANCELLED");
         assertThat(u.path("timeline").get(0).path("type").asText()).isEqualTo("UNDO");
         assertThat(u.path("undo").isNull()).isTrue();
@@ -428,7 +421,7 @@ class OrgPlacementResourceIT extends MemberItSupport {
 
     @Test
     void anExtensionIsRequestedOnceThenApprovedOrDeclined() throws Exception {
-        LocalDate to = p1.getEndDate().plusDays(60);
+        LocalDate to = today.plusDays(10).plusDays(60);
         MvcResult req = send("owner", post(url() + "/" + p1.getId() + "/extension-requests"), "{\"requestedEndDate\":\"" + to + "\",\"note\":\"Client wants to continue\"}");
         assertStatus(req, 201);
         JsonNode d = json(req);
@@ -446,15 +439,15 @@ class OrgPlacementResourceIT extends MemberItSupport {
         assertThat(auditCount(a, "PLACEMENT_EXTENSION_DECIDE") - before).isEqualTo(1);
         assertCode(send("owner", post(url() + "/" + p1.getId() + "/extensions/" + extId + "/decision"), "{\"decision\":\"DECLINE\"}"), 409, "EXTENSION_NOT_PENDING");
         // decline another one: the end date stays
-        MvcResult second = send("owner", post(url() + "/" + p2.getId() + "/extension-requests"), "{\"requestedEndDate\":\"" + p2.getEndDate().plusDays(30) + "\"}");
+        MvcResult second = send("owner", post(url() + "/" + p2.getId() + "/extension-requests"), "{\"requestedEndDate\":\"" + today.plusDays(40).plusDays(30) + "\"}");
         long extId2 = json(second).path("extensions").get(0).path("id").asLong();
         MvcResult no = send("owner", post(url() + "/" + p2.getId() + "/extensions/" + extId2 + "/decision"), "{\"decision\":\"DECLINE\"}");
         assertStatus(no, 200);
-        assertThat(json(no).path("endDate").asText()).isEqualTo(p2.getEndDate().toString());
+        assertThat(json(no).path("endDate").asText()).isEqualTo(today.plusDays(40).toString());
         assertThat(json(no).path("extensions").get(0).path("status").asText()).isEqualTo("DECLINED");
         // an extension of another placement cannot be decided through this one
         assertGeneric404(send("owner", post(url() + "/" + p1.getId() + "/extensions/" + extId2 + "/decision"), "{\"decision\":\"APPROVE\"}"), "someone else's extension");
-        assertStatus(send("owner", post(url() + "/" + p3.getId() + "/extensions/" + extension(p3, "REQUESTED", p3.getEndDate(), p3.getEndDate().plusDays(5), owner).getId() + "/decision"), "{\"decision\":\"MAYBE\"}"), 422);
+        assertStatus(send("owner", post(url() + "/" + p3.getId() + "/extensions/" + extension(p3, "REQUESTED", today.plusDays(300), today.plusDays(300).plusDays(5), owner).getId() + "/decision"), "{\"decision\":\"MAYBE\"}"), 422);
     }
 
     @Test
@@ -472,7 +465,7 @@ class OrgPlacementResourceIT extends MemberItSupport {
         MvcResult undone = send("owner", post(url() + "/" + p3.getId() + "/undo"), "{\"eventId\":" + d.path("undo").path("eventId").asLong() + "}");
         assertStatus(undone, 200);
         assertThat(json(undone).path("status").asText()).isEqualTo("ACTIVE");
-        assertThat(json(undone).path("endDate").asText()).isEqualTo(p3.getEndDate().toString());
+        assertThat(json(undone).path("endDate").asText()).isEqualTo(today.plusDays(300).toString());
         // an upcoming placement cannot be completed
         assertCode(send("owner", post(url() + "/" + p4.getId() + "/complete"), "{}"), 422, "PLACEMENT_NOT_STARTED");
     }
@@ -483,7 +476,7 @@ class OrgPlacementResourceIT extends MemberItSupport {
         assertStatus(r, 200);
         JsonNode d = json(r);
         assertThat(d.path("availability").path("inPool").asBoolean()).isTrue();
-        assertThat(d.path("availability").path("availableFrom").asText()).isEqualTo(p1.getEndDate().plusDays(1).toString());
+        assertThat(d.path("availability").path("availableFrom").asText()).isEqualTo(today.plusDays(10).plusDays(1).toString());
         assertThat(json(read("owner", "/counts")).path("pool").path("value").asInt()).isEqualTo(2);
         assertCode(send("owner", post(url() + "/" + p1.getId() + "/redeploy"), "{}"), 409, "ALREADY_IN_POOL");
         MvcResult undone = send("owner", post(url() + "/" + p1.getId() + "/undo"), "{\"eventId\":" + d.path("undo").path("eventId").asLong() + "}");
@@ -505,7 +498,7 @@ class OrgPlacementResourceIT extends MemberItSupport {
         assertThat(json(r).path("notes").get(0).path("body").asText()).isEqualTo("Renewal call booked for Friday");
         assertThat(json(r).path("notesCount").asInt()).isEqualTo(1);
         assertThat(auditCount(a, "PLACEMENT_NOTE") - before).isEqualTo(1);
-        assertThat(newestAudit(a).getDetailJson()).doesNotContain("Renewal");
+        assertThat(newestAudit(a).getDetails()).doesNotContain("Renewal");
         assertStatus(send("owner", post(url() + "/" + p1.getId() + "/notes"), "{\"body\":\"SSN 123-45-6789\"}"), 422);
         assertStatus(send("owner", post(url() + "/" + p1.getId() + "/notes"), "{\"body\":\"  \"}"), 422);
     }

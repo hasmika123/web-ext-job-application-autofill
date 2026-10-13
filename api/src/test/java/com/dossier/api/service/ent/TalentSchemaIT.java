@@ -55,7 +55,7 @@ class TalentSchemaIT {
     private static final List<String> TABLES = List.of(
         "client_account", "client_contact", "consultant_profile", "consultant_skill", "marketer_capacity", "marketer_assignment", "client_requirement",
         "requirement_skill", "requirement_match", "org_resume", "org_resume_experience", "talent_application", "talent_application_event",
-        "talent_application_note", "talent_interview", "talent_placement", "org_spend_entry"
+        "talent_application_note", "talent_interview", "talent_placement", "org_spend_entry", "placement_extension", "placement_note", "placement_event"
     );
 
     @Autowired private EnterpriseDemoSeeder baseSeeder;

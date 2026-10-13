@@ -80,7 +80,8 @@ export interface PlacementsPageProps {
 
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: PlacementRow[]; total: number };
 
-const FIELD = "!h-10 !rounded-[10px] !border-[color:var(--pl-input-line)] !bg-white !py-0 !text-[12.5px] !font-normal !text-[color:var(--pl-body)]";
+const TAB = "!px-4 !py-3 !text-[12.5px] !font-medium !text-[color:var(--pl-body)] aria-selected:!font-semibold aria-selected:!border-accent aria-selected:!text-accent-deep";
+const FIELD = "!h-[33px] !min-h-0 !rounded-lg !border-[color:var(--pl-input-line)] !bg-white !py-0 !pl-2.5 !pr-6 !text-[11.5px] !font-normal !text-[color:var(--pl-body)]";
 
 export default function PlacementsPage({ orgId, permissions, consultantsHref, clientsHref }: PlacementsPageProps) {
   const toast = useToast();
@@ -303,30 +304,30 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
 
           <section aria-label="Placements" className="ent-card px-4 pb-4 pt-1.5" data-placements-card>
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <Tabs value={view.tab} onValueChange={(t) => onTab(t as MainTab)} variant="underline" className="min-w-0">
-                <TabList aria-label="Placement views">
-                  <Tab value="active">{tabIcon(<UsersIcon size={17} aria-hidden />, tabLabel("Active", tabs?.active))}</Tab>
-                  <Tab value="upcoming">{tabIcon(<CalendarIcon size={17} aria-hidden />, tabLabel("Upcoming", tabs?.upcoming))}</Tab>
-                  <Tab value="completed">{tabIcon(<CheckCircleIcon size={17} aria-hidden />, tabLabel("Completed", tabs?.completed))}</Tab>
-                  <Tab value="extensions">{tabIcon(<RefreshIcon size={17} aria-hidden />, tabLabel("Extensions", tabs?.extensions))}</Tab>
+              <Tabs value={view.tab} onValueChange={(t) => onTab(t as MainTab)} variant="underline" className="min-w-0 flex-1">
+                <TabList aria-label="Placement views" className="!gap-3 !border-[color:var(--pl-track)]">
+                  <Tab value="active" className={TAB}>{tabIcon(<UsersIcon size={18} aria-hidden />, tabLabel("Active", tabs?.active))}</Tab>
+                  <Tab value="upcoming" className={TAB}>{tabIcon(<CalendarIcon size={18} aria-hidden />, tabLabel("Upcoming", tabs?.upcoming))}</Tab>
+                  <Tab value="completed" className={TAB}>{tabIcon(<CheckCircleIcon size={18} aria-hidden />, tabLabel("Completed", tabs?.completed))}</Tab>
+                  <Tab value="extensions" className={TAB}>{tabIcon(<RefreshIcon size={18} aria-hidden />, tabLabel("Extensions", tabs?.extensions))}</Tab>
                 </TabList>
               </Tabs>
               {canManage && (
-                <Button type="button" variant="accent" onClick={() => setAdding(true)} data-add-placement className="!h-10 flex-none !rounded-[10px] !px-5 !text-[13px]">
-                  <PlusIcon size={16} aria-hidden /> Add Placement
+                <Button type="button" variant="accent" onClick={() => setAdding(true)} data-add-placement className="!h-[33px] flex-none !rounded-lg !px-4 !py-0 !text-[11.5px]">
+                  <PlusIcon size={15} aria-hidden /> Add Placement
                 </Button>
               )}
             </div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2.5">
-              <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search placements" placeholder="Search placements by consultant, client, role, or skills..." />
-              <div className="w-[7.6rem] flex-none">
+            <div className="mt-2.5 flex flex-wrap items-center gap-3">
+              <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search placements" placeholder="Search placements by consultant, client, role, or skills…" />
+              <div className="w-[108px] flex-none">
                 <Select aria-label="Client" value={view.client} onChange={(v) => setView({ client: v })} options={[{ value: "", label: "All Clients" }, ...(options?.clients ?? [])]} className={FIELD} />
               </div>
-              <div className="w-[7.6rem] flex-none">
+              <div className="w-[108px] flex-none">
                 <Select aria-label="Role" value={view.role} onChange={(v) => setView({ role: v })} options={[{ value: "", label: "All Roles" }, ...(options?.roles ?? [])]} className={FIELD} />
               </div>
-              <div className="w-[7.6rem] flex-none">
+              <div className="w-[108px] flex-none">
                 <Select aria-label="Status" value={view.status} onChange={(v) => setView({ status: v })} options={[{ value: "", label: "All Statuses" }, ...(options?.statuses ?? [])]} className={FIELD} />
               </div>
               <Popover
@@ -339,9 +340,9 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
                     ref={t.ref}
                     {...t.props}
                     data-more-filters
-                    className="inline-flex h-10 flex-none items-center gap-2 rounded-[10px] border border-[color:var(--pl-input-line)] bg-white px-4 text-[12.5px] font-medium text-[color:var(--pl-body)] hover:bg-[color:var(--ent-field-bg)]"
+                    className="inline-flex h-[33px] w-[122px] flex-none items-center justify-center gap-2 rounded-lg border border-[color:var(--pl-input-line)] bg-white px-3 text-[11.5px] font-medium text-[color:var(--pl-body)] hover:bg-[color:var(--ent-field-bg)]"
                   >
-                    <FilterIcon size={16} aria-hidden /> More Filters{moreCount > 0 && <span className="ml-0.5 rounded-full bg-accent px-1.5 text-[11px] font-bold text-on-accent">{moreCount}</span>}
+                    <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 && <span className="ml-0.5 rounded-full bg-accent px-1.5 text-[11px] font-bold text-on-accent">{moreCount}</span>}
                   </button>
                 )}
               >
@@ -375,8 +376,8 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
               </Popover>
             </div>
 
-            <div className="mt-3.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-              <p aria-live="polite" className="text-[12.5px] text-[color:var(--pl-body)]" data-showing-top>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <p aria-live="polite" className="text-[11.5px] text-[color:var(--pl-body)]" data-showing-top>
                 {showingText(total, view.page, view.size, rows.length, view.tab)}
                 {checked.size > 0 && (
                   <>
@@ -390,24 +391,35 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
                 )}
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[12.5px] text-[color:var(--pl-body)]">Sort by:</span>
-                <div className="w-[11.4rem]">
-                  <Select aria-label="Sort by" value={sortValue} onChange={(v) => { const [key, dir] = v.split(","); setView({ sort: { key: key as ViewState["sort"]["key"], dir: dir as ViewState["sort"]["dir"] } }); }} options={sortOptions.map((c) => ({ value: c.value, label: c.label }))} className={`${FIELD} !h-9`} />
+                <div className="inline-flex h-[33px] items-center rounded-lg border border-[color:var(--pl-input-line)] bg-white pl-3">
+                  <span className="text-[11.5px] text-[color:var(--pl-soft)]">Sort by:</span>
+                  <div className="w-[9.6rem]">
+                    <Select
+                      aria-label="Sort by"
+                      value={sortValue}
+                      onChange={(v) => {
+                        const [key, dir] = v.split(",");
+                        setView({ sort: { key: key as ViewState["sort"]["key"], dir: dir as ViewState["sort"]["dir"] } });
+                      }}
+                      options={sortOptions.map((c) => ({ value: c.value, label: c.label }))}
+                      className="!h-[31px] !min-h-0 !border-0 !bg-transparent !py-0 !pl-1.5 !pr-7 !text-[11.5px] !font-normal !text-[color:var(--pl-body)] !shadow-none"
+                    />
+                  </div>
                 </div>
-                <div role="group" aria-label="View" className="inline-flex h-9 overflow-hidden rounded-[10px] border border-[color:var(--pl-input-line)] bg-white">
-                  <button type="button" aria-label="List view" aria-pressed={view.mode === "list"} onClick={() => setView({ mode: "list" }, false)} className={`grid w-9 place-items-center ${view.mode === "list" ? "text-[color:var(--ent-title)]" : "text-[color:var(--pl-subtle)]"}`} data-view-toggle="list">
-                    <ListIcon size={18} aria-hidden />
+                <div role="group" aria-label="View" className="inline-flex h-[33px] overflow-hidden rounded-lg border border-[color:var(--pl-input-line)] bg-white">
+                  <button type="button" aria-label="List view" aria-pressed={view.mode === "list"} onClick={() => setView({ mode: "list" }, false)} className={`grid w-8 place-items-center ${view.mode === "list" ? "text-[color:var(--ent-title)]" : "text-[color:var(--pl-subtle)]"}`} data-view-toggle="list">
+                    <ListIcon size={17} aria-hidden />
                   </button>
-                  <button type="button" aria-label="Grid view" aria-pressed={view.mode === "grid"} onClick={() => setView({ mode: "grid" }, false)} className={`grid w-9 place-items-center ${view.mode === "grid" ? "text-[color:var(--ent-title)]" : "text-[color:var(--pl-subtle)]"}`} data-view-toggle="grid">
-                    <GridIcon size={18} aria-hidden />
+                  <button type="button" aria-label="Grid view" aria-pressed={view.mode === "grid"} onClick={() => setView({ mode: "grid" }, false)} className={`grid w-8 place-items-center ${view.mode === "grid" ? "text-[color:var(--ent-title)]" : "text-[color:var(--pl-subtle)]"}`} data-view-toggle="grid">
+                    <GridIcon size={17} aria-hidden />
                   </button>
                 </div>
                 <div className="inline-flex gap-1.5">
-                  <button type="button" aria-label="Previous page" disabled={view.page <= 0} onClick={() => setView({ page: view.page - 1 }, false)} className="grid h-9 w-9 place-items-center rounded-[10px] border border-[color:var(--pl-input-line)] bg-white text-[color:var(--pl-body)] disabled:text-[color:var(--pl-disabled)]">
-                    <ChevronLeftIcon size={16} aria-hidden />
+                  <button type="button" aria-label="Previous page" disabled={view.page <= 0} onClick={() => setView({ page: view.page - 1 }, false)} className="grid h-[33px] w-[33px] place-items-center rounded-lg border border-[color:var(--pl-input-line)] bg-white text-[color:var(--ent-title)] disabled:text-[color:var(--pl-disabled)]">
+                    <ChevronLeftIcon size={15} aria-hidden />
                   </button>
-                  <button type="button" aria-label="Next page" disabled={view.page >= pages - 1} onClick={() => setView({ page: view.page + 1 }, false)} className="grid h-9 w-9 place-items-center rounded-[10px] border border-[color:var(--pl-input-line)] bg-white text-[color:var(--pl-body)] disabled:text-[color:var(--pl-disabled)]">
-                    <ChevronRightIcon size={16} aria-hidden />
+                  <button type="button" aria-label="Next page" disabled={view.page >= pages - 1} onClick={() => setView({ page: view.page + 1 }, false)} className="grid h-[33px] w-[33px] place-items-center rounded-lg border border-[color:var(--pl-input-line)] bg-white text-[color:var(--ent-title)] disabled:text-[color:var(--pl-disabled)]">
+                    <ChevronRightIcon size={15} aria-hidden />
                   </button>
                 </div>
               </div>

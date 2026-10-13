@@ -16,10 +16,10 @@ interface TileDef {
 }
 
 const TILES: TileDef[] = [
-  { key: "active", label: "Active Placements", icon: <UsersIcon size={22} />, tone: "blue", line: "var(--ent-kpi-blue-fg)" },
-  { key: "startingSoon", label: "Starting Soon", icon: <CalendarIcon size={22} />, tone: "green", line: "var(--ent-kpi-green-line)" },
-  { key: "endingSoon", label: "Ending Soon", icon: <ClockIcon size={22} />, tone: "orange", line: "var(--ent-kpi-orange-line)" },
-  { key: "pool", label: "Redeployment Pool", icon: <UsersIcon size={22} />, tone: "violet", line: "var(--ent-kpi-violet-fg)" },
+  { key: "active", label: "Active Placements", icon: <UsersIcon size={20} />, tone: "blue", line: "var(--ent-kpi-blue-fg)" },
+  { key: "startingSoon", label: "Starting Soon", icon: <CalendarIcon size={20} />, tone: "green", line: "var(--ent-kpi-green-line)" },
+  { key: "endingSoon", label: "Ending Soon", icon: <ClockIcon size={20} />, tone: "orange", line: "var(--ent-kpi-orange-line)" },
+  { key: "pool", label: "Redeployment Pool", icon: <UsersIcon size={20} />, tone: "violet", line: "var(--ent-kpi-violet-fg)" },
 ];
 
 /**
@@ -37,25 +37,25 @@ export default function KpiTiles({ counts, loading, error }: { counts: Counts | 
         const down = delta?.dir === "down";
         return (
           <li key={t.key} data-kpi={t.key}>
-            <div className="ent-card relative flex h-full flex-col px-4 pb-3.5 pt-4">
-              <span aria-hidden className="ent-kpi-chip" data-tone={t.tone}>
+            <div className="ent-card relative flex h-full flex-col px-4 pb-3 pt-3.5">
+              <span aria-hidden className="ent-kpi-chip !h-10 !w-10 !rounded-[10px]" data-tone={t.tone}>
                 {t.icon}
               </span>
-              <span className="ent-kpi-label mt-3 leading-tight">{t.label}</span>
-              <div className="mt-1.5 flex items-end justify-between gap-2">
+              <span className="ent-kpi-label mt-2.5 !text-[12.5px] !font-normal leading-tight">{t.label}</span>
+              <div className="mt-1 flex items-end justify-between gap-2">
                 {loading ? (
                   <Skeleton className="h-8 w-14" />
                 ) : (
-                  <span className="ent-kpi-value" data-kpi-value>
+                  <span className="ent-kpi-value !text-[25px]" data-kpi-value>
                     {tile ? tile.value.toLocaleString("en-US") : error ? "—" : ""}
                   </span>
                 )}
                 {tile && tile.series.length > 1 && (
-                  <Sparkline values={tile.series} color={t.line} label={`${t.label}, last ${tile.series.length} weeks`} className="mb-0.5 !h-9 !w-[88px] flex-none" />
+                  <Sparkline values={tile.series} color={t.line} label={`${t.label}, last ${tile.series.length} weeks`} className="mb-0.5 !h-8 !w-[82px] flex-none" />
                 )}
               </div>
               {delta && !loading && (
-                <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[12.5px] text-[color:var(--pl-soft)]" data-kpi-delta data-delta={delta.dir}>
+                <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12px] text-[color:var(--pl-soft)]" data-kpi-delta data-delta={delta.dir}>
                   <span className="ent-kpi-delta inline-flex items-center gap-1 font-bold" data-good={up ? "true" : down ? "false" : undefined}>
                     <span aria-hidden>{up ? "▲" : down ? "▼" : "▬"}</span>
                     <span className="sr-only">{up ? "Up " : down ? "Down " : "No change "}</span>

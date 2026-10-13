@@ -41,25 +41,25 @@ export function ConsultantCell({ consultant, size = 34 }: { consultant: PersonRe
   return (
     <span className="flex min-w-0 items-center gap-2">
       <MemberAvatar name={consultant.name} size={size} />
-      <span className="min-w-0 leading-[1.2]">
-        <span className="block truncate text-[12px] font-bold text-[color:var(--ent-title)]">{consultant.name}</span>
-        {consultant.subtitle && <span className="block text-[10.5px] leading-[1.25] text-[color:var(--pl-link-soft)]">{consultant.subtitle}</span>}
+      <span className="min-w-0 flex-1 leading-[1.2]">
+        <span className="block text-[11px] font-bold text-[color:var(--ent-title)]">{consultant.name}</span>
+        {consultant.subtitle && <span className="block text-[9.5px] leading-[1.25] text-[color:var(--pl-link-soft)]">{consultant.subtitle}</span>}
       </span>
     </span>
   );
 }
 
-export function ManagerCell({ name, size = 26 }: { name: string | null; size?: number }) {
+export function ManagerCell({ name, size = 28 }: { name: string | null; size?: number }) {
   if (!name) return <span className="text-muted">{"—"}</span>;
   return (
     <span className="flex min-w-0 items-center gap-1.5" title={name}>
       <MemberAvatar name={name} size={size} />
-      <span className="min-w-0 text-[12px] leading-tight text-[color:var(--pl-body)]">{name}</span>
+      <span className="min-w-0 text-[11px] leading-tight text-[color:var(--pl-body)]">{name}</span>
     </span>
   );
 }
 
-const PILL = "!rounded-md !px-3 !py-[3px] !text-[12px] !font-medium";
+const PILL = "!rounded-md !px-2.5 !py-[3px] !text-[10.5px] !font-medium";
 
 /** The row's status chip: Active is green, Upcoming blue, Completed grey. */
 export function StatusPill({ status }: { status: PlacementStatus }) {
@@ -133,7 +133,7 @@ export function SearchBox({ value, onChange, label, placeholder }: { value: stri
             }
           } else if (e.key === "Escape" && text !== "") setText("");
         }}
-        className="!h-10 !rounded-[10px] !border-[color:var(--pl-blue-line)] !bg-[color:var(--ent-field-bg)] !py-0 pl-9 !text-[12.5px]"
+        className="!h-[33px] !min-h-0 !rounded-lg !border-[color:var(--pl-blue-line)] !bg-[color:var(--ent-field-bg)] !py-0 pl-9 !text-[11px]"
       />
     </div>
   );

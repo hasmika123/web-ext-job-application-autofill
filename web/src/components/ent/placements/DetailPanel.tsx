@@ -43,16 +43,17 @@ export interface DetailPanelProps {
   onIntentHandled?: () => void;
 }
 
-const ROW = "grid grid-cols-[6.6rem_1fr] items-center gap-x-2 py-[5px] text-[12.5px] leading-snug";
-const HEADING = "text-[15px] font-bold leading-tight text-[color:var(--ent-title)]";
+const ROW = "grid grid-cols-[6.6rem_1fr] items-center gap-x-2 py-[3px] text-[10.5px] leading-snug";
+const HEADING = "text-[13px] font-bold leading-tight text-[color:var(--ent-title)]";
 const SOFT = "rounded-xl border border-[color:var(--ent-card-border)] bg-white p-3";
+const TAB = "!px-2 !py-2 !text-[11px] !font-medium !text-[color:var(--pl-value)] aria-selected:!border-accent aria-selected:!text-accent-deep";
 const OUTLINE_BTN =
-  "inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-[color:var(--pl-blue-line)] bg-white px-3 text-[12.5px] font-semibold text-accent-deep transition hover:bg-accent-soft/60 disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-[color:var(--pl-blue-line)] bg-white px-3 text-[11.5px] font-semibold text-accent-deep transition hover:bg-accent-soft/60 disabled:pointer-events-none disabled:opacity-50";
 
 function Row({ label, children, testId }: { label: string; children: ReactNode; testId?: string }) {
   return (
     <div className={ROW} data-field={testId}>
-      <dt className="text-[color:var(--pl-link-soft)]">{label}</dt>
+      <dt className="text-[color:var(--pl-soft)]">{label}</dt>
       <dd className="min-w-0 text-[color:var(--pl-value)]">{children}</dd>
     </div>
   );
@@ -81,21 +82,21 @@ export function EngagementTimeline({ d }: { d: PlacementDetail }) {
   const lastOn = dots.reduce((n, x, i) => (x.on ? i : n), 0);
   return (
     <div data-engagement>
-      <div className="relative mx-[7px] h-3.5">
-        <span aria-hidden className="absolute left-0 right-0 top-[5px] h-[3px] rounded bg-[color:var(--pl-track)]" />
-        <span aria-hidden className="absolute left-0 top-[5px] h-[3px] rounded bg-[color:var(--pl-green)]" style={{ width: `${lastOn * 50}%` }} />
+      <div className="relative mx-1.5 h-3">
+        <span aria-hidden className="absolute left-0 right-0 top-[4.5px] h-[3px] rounded bg-[color:var(--pl-track)]" />
+        <span aria-hidden className="absolute left-0 top-[4.5px] h-[3px] rounded bg-[color:var(--pl-green)]" style={{ width: `${lastOn * 50}%` }} />
         {dots.map((x, i) => (
           <span
             key={x.label}
             aria-hidden
             data-dot={x.label}
             data-on={x.on}
-            className={`absolute top-0 h-3.5 w-3.5 -translate-x-1/2 rounded-full ${x.on ? "bg-[color:var(--pl-green)]" : "bg-[color:var(--pl-track)]"}`}
+            className={`absolute top-0 h-3 w-3 -translate-x-1/2 rounded-full ${x.on ? "bg-[color:var(--pl-green)]" : "bg-[color:var(--pl-track)]"}`}
             style={{ left: `${i * 50}%` }}
           />
         ))}
       </div>
-      <ol className="mt-1.5 flex justify-between text-[12px] leading-[1.25] text-[color:var(--pl-soft)]">
+      <ol className="mt-1.5 flex justify-between text-[10.5px] leading-[1.25] text-[color:var(--pl-soft)]">
         {dots.map((x, i) => {
           const p = dayParts(x.iso);
           return (
@@ -148,12 +149,12 @@ function ExtensionsPanel({ d, onDecide, onRequest, busy }: { d: PlacementDetail;
             return (
               <li key={x.id} data-extension-id={x.id} data-extension-status={x.status} className={SOFT}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[12.5px] font-bold text-[color:var(--ent-title)]">{x.fromEndDate ? `${formatDay(x.fromEndDate)} to ${formatDay(x.requestedEndDate)}` : `Until ${formatDay(x.requestedEndDate)}`}</span>
+                  <span className="text-[11.5px] font-bold text-[color:var(--ent-title)]">{x.fromEndDate ? `${formatDay(x.fromEndDate)} to ${formatDay(x.requestedEndDate)}` : `Until ${formatDay(x.requestedEndDate)}`}</span>
                   <span className="ent-pill !px-2 !py-[2px] !text-[11px] !font-semibold" data-tone={pill.tone}>
                     {pill.label}
                   </span>
                 </div>
-                <p className="mt-1 text-[11.5px] text-[color:var(--pl-soft)]">
+                <p className="mt-1 text-[11px] text-[color:var(--pl-soft)]">
                   {x.status === "REQUESTED" ? "Requested" : "Recorded"} by {(x.decidedBy ?? x.requestedBy)?.name ?? "someone"} on {formatDay(x.decidedAt ?? x.createdAt)}
                 </p>
                 {x.note && <p className="mt-1 break-words text-[12px] text-[color:var(--pl-value)]">{x.note}</p>}
@@ -216,7 +217,7 @@ function NotesPanel({ orgId, d, onSaved }: { orgId: number | string; d: Placemen
           />
           {err && <p role="alert" className="mt-1 text-[12px] text-danger">{err}</p>}
           <div className="mt-1.5 flex items-center justify-between gap-2">
-            <p className="text-[11.5px] text-muted">No ID numbers or other sensitive details. Ctrl+Enter adds it.</p>
+            <p className="text-[10.5px] text-muted">No ID numbers or other sensitive details. Ctrl+Enter adds it.</p>
             <Button type="button" size="sm" onClick={() => void add()} disabled={busy || text.trim() === ""}>
               Add note
             </Button>
@@ -348,10 +349,10 @@ export default function DetailPanel(p: DetailPanelProps) {
   return (
     <div data-detail-body data-placement-id={d.id}>
       <div className="flex items-start gap-3" data-drawer-head>
-        <MemberAvatar name={d.consultant.name} size={46} />
+        <MemberAvatar name={d.consultant.name} size={38} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-            <h3 className="text-[15px] font-bold leading-tight text-[color:var(--ent-title)]">
+            <h3 className="text-[13.5px] font-bold leading-tight text-[color:var(--ent-title)]">
               {p.consultantsHref ? (
                 <Link href={p.consultantsHref} className="hover:underline">
                   {d.consultant.name}
@@ -362,21 +363,21 @@ export default function DetailPanel(p: DetailPanelProps) {
             </h3>
             <StatusPill status={d.status} />
           </div>
-          <p className="mt-1 text-[12.5px] leading-tight text-[color:var(--pl-link-soft)]">{d.consultant.subtitle ?? d.roleTitle}</p>
+          <p className="mt-1 text-[10.5px] leading-tight text-[color:var(--pl-link-soft)]">{d.consultant.subtitle ?? d.roleTitle}</p>
         </div>
         {p.onClose && (
           <button type="button" onClick={p.onClose} aria-label="Close" className="grid h-7 w-7 flex-none place-items-center rounded-md text-accent-deep hover:bg-accent-soft" data-drawer-close>
-            <XIcon size={18} aria-hidden />
+            <XIcon size={16} aria-hidden />
           </button>
         )}
       </div>
 
       <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DetailTab)} variant="underline" className="mt-3">
-        <TabList aria-label="Placement details">
-          <Tab value="overview">Overview</Tab>
-          <Tab value="timeline">Timeline</Tab>
-          <Tab value="extensions">Extensions</Tab>
-          <Tab value="notes">Notes</Tab>
+        <TabList aria-label="Placement details" className="!gap-0 justify-between !border-[color:var(--pl-track)]">
+          <Tab value="overview" className={TAB}>Overview</Tab>
+          <Tab value="timeline" className={TAB}>Timeline</Tab>
+          <Tab value="extensions" className={TAB}>Extensions</Tab>
+          <Tab value="notes" className={TAB}>Notes</Tab>
         </TabList>
 
         <TabPanel value="overview" className="pt-3.5">
@@ -421,7 +422,7 @@ export default function DetailPanel(p: DetailPanelProps) {
                   <MemberAvatar name={d.clientContact.name} size={26} />
                   <span className="min-w-0 leading-tight">
                     <span className="block">{d.clientContact.name}</span>
-                    {d.clientContact.title && <span className="block text-[11.5px] text-[color:var(--pl-link-soft)]">{d.clientContact.title}</span>}
+                    {d.clientContact.title && <span className="block text-[10.5px] text-[color:var(--pl-link-soft)]">{d.clientContact.title}</span>}
                   </span>
                 </span>
               ) : (
@@ -439,10 +440,10 @@ export default function DetailPanel(p: DetailPanelProps) {
             <div className="flex items-start gap-2.5">
               <ClockIcon size={24} aria-hidden className="mt-0.5 flex-none text-[color:var(--pl-amber)]" />
               <div className="min-w-0 flex-1">
-                <h4 id="ext-h" className="text-[14px] font-bold leading-tight text-[color:var(--ent-title)]">
+                <h4 id="ext-h" className="text-[12.5px] font-bold leading-tight text-[color:var(--ent-title)]">
                   {ext.title === "Extension status" ? "Extension Status" : ext.title}
                 </h4>
-                <p className="mt-0.5 text-[12px] leading-snug text-[color:var(--pl-soft)]">{ext.body}</p>
+                <p className="mt-0.5 text-[10.5px] leading-snug text-[color:var(--pl-soft)]">{ext.body}</p>
               </div>
             </div>
             {d.actions.requestExtension && (
@@ -473,13 +474,13 @@ export default function DetailPanel(p: DetailPanelProps) {
             <div className="flex items-start gap-2.5">
               <UsersIcon size={24} aria-hidden className="mt-0.5 flex-none text-accent" />
               <div className="min-w-0 flex-1">
-                <h4 id="avail-h" className="text-[14px] font-bold leading-tight text-[color:var(--ent-title)]">
+                <h4 id="avail-h" className="text-[12.5px] font-bold leading-tight text-[color:var(--ent-title)]">
                   Post-Placement Availability
                 </h4>
-                {d.availability.availableFrom && <p className="mt-0.5 text-[12.5px] font-bold leading-snug text-[color:var(--pl-good)]">Available for redeployment</p>}
-                <p className="text-[12px] leading-snug text-[color:var(--pl-soft)]">{availableText}</p>
+                {d.availability.availableFrom && <p className="mt-0.5 text-[10.5px] font-bold leading-snug text-[color:var(--pl-good)]">Available for redeployment</p>}
+                <p className="text-[10.5px] leading-snug text-[color:var(--pl-soft)]">{availableText}</p>
                 {d.availability.inPool && (
-                  <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px] text-[color:var(--pl-soft)]">
+                  <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[10.5px] text-[color:var(--pl-soft)]">
                     <span className="ent-pill !px-2 !py-[2px] !text-[11px] !font-semibold" data-tone="purple">In the redeployment pool</span>
                     {d.actions.addNote && (
                       <button type="button" className="font-semibold text-accent-deep hover:underline" onClick={() => void leavePool()} disabled={busy} data-leave-pool>
@@ -494,10 +495,10 @@ export default function DetailPanel(p: DetailPanelProps) {
 
           {hasQuick && (
             <section aria-labelledby="quick-h" className="mt-3.5" data-quick-actions>
-              <h4 id="quick-h" className="text-[14px] font-bold text-[color:var(--ent-title)]">
+              <h4 id="quick-h" className="text-[12.5px] font-bold text-[color:var(--ent-title)]">
                 Quick Actions
               </h4>
-              <div className="mt-2 grid grid-cols-2 gap-2">
+              <div className="mt-2 grid grid-cols-[1.14fr_1fr] gap-2">
                 {d.actions.extend && (
                   <button
                     type="button"
@@ -507,18 +508,18 @@ export default function DetailPanel(p: DetailPanelProps) {
                     }}
                     disabled={busy}
                     data-quick="extend"
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-accent px-2 text-[12.5px] font-semibold text-on-accent transition hover:brightness-95 disabled:opacity-50"
+                    className="inline-flex h-[38px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-2 text-[11px] font-semibold text-on-accent transition hover:brightness-95 disabled:opacity-50"
                   >
                     <CalendarIcon size={16} aria-hidden /> Extend Placement
                   </button>
                 )}
                 {d.actions.complete && (
-                  <button type="button" onClick={() => void complete()} disabled={busy} data-quick="complete" className={`${OUTLINE_BTN} !h-10`}>
+                  <button type="button" onClick={() => void complete()} disabled={busy} data-quick="complete" className={`${OUTLINE_BTN} !h-[38px] !gap-1.5 whitespace-nowrap !px-2`}>
                     <CheckIcon size={16} aria-hidden /> Mark Complete
                   </button>
                 )}
                 {d.actions.redeploy && (
-                  <button type="button" onClick={() => void redeploy()} disabled={busy} data-quick="redeploy" className={`${OUTLINE_BTN} !h-10 col-span-2`}>
+                  <button type="button" onClick={() => void redeploy()} disabled={busy} data-quick="redeploy" className={`${OUTLINE_BTN} !h-[38px] col-span-2`}>
                     <UsersIcon size={16} aria-hidden /> Start Redeployment
                   </button>
                 )}

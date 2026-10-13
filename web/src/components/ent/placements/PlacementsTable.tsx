@@ -18,8 +18,8 @@ export interface TableProps {
   showRates: boolean;
 }
 
-const HEAD = "px-2 py-2.5 text-left text-[12px] font-bold text-[color:var(--ent-title)]";
-const CELL = "px-2 py-2";
+const HEAD = "px-1.5 py-2 text-left !text-[11px] font-bold leading-tight text-[color:var(--ent-title)]";
+const CELL = "px-1.5 py-2 !text-[11px]";
 
 function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (on: boolean) => void; label: string }) {
   return (
@@ -29,7 +29,7 @@ function Checkbox({ checked, onChange, label }: { checked: boolean; onChange: (o
       checked={checked}
       onChange={(e) => onChange(e.target.checked)}
       onClick={(e) => e.stopPropagation()}
-      className="h-[18px] w-[18px] cursor-pointer rounded-[5px] border-[color:var(--pl-check-line)] accent-[var(--brand-solid,var(--color-accent))]"
+      className="h-4 w-4 cursor-pointer rounded-[4px] border-[color:var(--pl-check-line)] accent-[var(--brand-solid,var(--color-accent))]"
     />
   );
 }
@@ -38,7 +38,7 @@ function Kebab({ items, name }: { items: MenuEntry[]; name: string }) {
   return (
     <Menu
       trigger={
-        <IconButton aria-label={`Actions for ${name}`} title="Row actions" className="!h-8 !w-8 !rounded-lg border border-[color:var(--pl-btn-line)] bg-white text-accent-deep">
+        <IconButton aria-label={`Actions for ${name}`} title="Row actions" className="!h-[30px] !w-[30px] !rounded-lg border border-[color:var(--pl-btn-line)] bg-white !text-accent-deep">
           <MoreHorizontalIcon size={16} />
         </IconButton>
       }
@@ -92,10 +92,23 @@ export function PlacementsTable(p: TableProps) {
 
   return (
     <div className="overflow-x-auto" data-placement-table-wrap>
-      <table aria-label="Placements" className="w-full min-w-[820px] border-collapse text-[12px]" data-placement-table>
+      <table aria-label="Placements" className="w-full min-w-[780px] table-fixed border-collapse text-[11px]" data-placement-table>
+        <colgroup>
+          <col style={{ width: "3.4%" }} />
+          <col style={{ width: p.showRates ? "15.4%" : "17.4%" }} />
+          <col style={{ width: "10.8%" }} />
+          <col style={{ width: p.showRates ? "9.6%" : "11.6%" }} />
+          <col style={{ width: "8.8%" }} />
+          <col style={{ width: "8.8%" }} />
+          <col style={{ width: "12.6%" }} />
+          <col style={{ width: "7.2%" }} />
+          {p.showRates && <col style={{ width: "6.6%" }} />}
+          <col style={{ width: "11.2%" }} />
+          <col style={{ width: "5.6%" }} />
+        </colgroup>
         <thead className="bg-[color:var(--ent-table-head-bg)]">
           <tr>
-            <th scope="col" className="w-[38px] rounded-l-[10px] py-2.5 pl-3 pr-1">
+            <th scope="col" className="rounded-l-[10px] py-2 pl-2.5 pr-0 text-left">
               <Checkbox checked={allChecked} onChange={p.onCheckAll} label="Select all placements on this page" />
             </th>
             <th scope="col" className={HEAD}>Consultant</th>
@@ -128,24 +141,24 @@ export function PlacementsTable(p: TableProps) {
                     p.onOpen(r);
                   }
                 }}
-                className={`cursor-pointer border-b border-[color:var(--ent-table-line)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open || on ? "bg-[color:var(--ent-field-bg)]" : "hover:bg-[color:var(--pl-row-hover)]"}`}
+                className={`cursor-pointer border-b border-[color:var(--ent-table-line)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open || on ? "bg-accent-soft/60" : "hover:bg-[color:var(--pl-row-hover)]"}`}
               >
-                <td className="py-2 pl-3 pr-1" onClick={(e) => e.stopPropagation()}>
+                <td className="py-2 pl-2.5 pr-0 align-middle" onClick={(e) => e.stopPropagation()}>
                   <Checkbox checked={on || open} onChange={(v) => p.onCheck(r.id, v)} label={`Select ${r.consultant.name}`} />
                 </td>
-                <td className={`${CELL} min-w-[9.5rem]`}>
+                <td className={CELL}>
                   <ConsultantCell consultant={r.consultant} />
                 </td>
-                <td className={`${CELL} min-w-[7.2rem]`}>
+                <td className={CELL}>
                   <span className="flex min-w-0 items-center gap-2">
-                    <ClientTile client={r.client} size={26} />
-                    <span className="min-w-0 text-[12px] leading-tight text-[color:var(--pl-body)]">{r.client.name}</span>
+                    <ClientTile client={r.client} size={27} />
+                    <span className="min-w-0 text-[11px] leading-tight text-[color:var(--pl-body)]">{r.client.name}</span>
                   </span>
                 </td>
-                <td className={`${CELL} min-w-[5.6rem] text-[12px] leading-[1.3] text-[color:var(--pl-soft)]`}>{r.roleTitle}</td>
-                <td className={`${CELL} whitespace-nowrap text-[color:var(--pl-soft)]`}>{formatDay(r.startDate)}</td>
-                <td className={`${CELL} whitespace-nowrap text-[color:var(--pl-soft)]`}>{r.endDate ? formatDay(r.endDate) : <span className="text-muted">Open-ended</span>}</td>
-                <td className={`${CELL} min-w-[7.4rem]`}>
+                <td className={`${CELL} leading-[1.3] text-[color:var(--pl-soft)]`}>{r.roleTitle}</td>
+                <td className={`${CELL} whitespace-nowrap !px-1 tracking-[-0.01em] text-[color:var(--pl-soft)]`}>{formatDay(r.startDate)}</td>
+                <td className={`${CELL} whitespace-nowrap !px-1 tracking-[-0.01em] text-[color:var(--pl-soft)]`}>{r.endDate ? formatDay(r.endDate) : <span className="text-muted">Open-ended</span>}</td>
+                <td className={CELL}>
                   <ManagerCell name={r.accountManager?.name ?? null} />
                 </td>
                 <td className={CELL}>
@@ -180,12 +193,12 @@ export function pageWindow(page: number, count: number): (number | "gap")[] {
   return out;
 }
 
-const PAGE_BTN = "grid h-9 min-w-9 place-items-center rounded-lg border border-[color:var(--pl-btn-line)] bg-white px-2 text-[13px] font-medium text-[color:var(--pl-body)] hover:bg-[color:var(--ent-field-bg)] disabled:opacity-40";
+const PAGE_BTN = "grid h-[30px] min-w-[30px] place-items-center rounded-md border border-[color:var(--pl-btn-line)] bg-white px-2 text-[11px] font-medium text-[color:var(--pl-body)] hover:bg-[color:var(--ent-field-bg)] disabled:text-[color:var(--pl-disabled)]";
 
 export function Pagination({ page, size, total, shown, onPage, onSize }: { page: number; size: number; total: number; shown: number; onPage: (p: number) => void; onSize: (s: number) => void }) {
   const count = pagesOf(total, size);
   return (
-    <div className="mt-3 flex flex-col gap-2 text-[12.5px] text-[color:var(--pl-soft)] sm:flex-row sm:items-center sm:justify-between" data-pagination>
+    <div className="mt-3 flex flex-col gap-2 text-[11.5px] text-[color:var(--pl-soft)] sm:flex-row sm:items-center sm:justify-between" data-pagination>
       <p aria-live="polite" data-showing>{footText(total, page, size, shown)}</p>
       <div className="flex flex-wrap items-center gap-2">
         {count > 1 && (
@@ -195,7 +208,7 @@ export function Pagination({ page, size, total, shown, onPage, onSize }: { page:
             </button>
             {pageWindow(page, count).map((n, i) =>
               n === "gap" ? (
-                <span key={`g${i}`} aria-hidden className="grid h-9 min-w-9 place-items-center rounded-lg border border-[color:var(--pl-btn-line)] text-muted">
+                <span key={`g${i}`} aria-hidden className="grid h-[30px] min-w-[30px] place-items-center rounded-md border border-[color:var(--pl-btn-line)] text-muted">
                   {"…"}
                 </span>
               ) : (
@@ -205,7 +218,7 @@ export function Pagination({ page, size, total, shown, onPage, onSize }: { page:
                   aria-label={`Page ${n + 1}`}
                   aria-current={n === page ? "page" : undefined}
                   onClick={() => onPage(n)}
-                  className={n === page ? "grid h-9 min-w-9 place-items-center rounded-lg bg-accent px-2 text-[13px] font-semibold tabular-nums text-on-accent" : `${PAGE_BTN} tabular-nums`}
+                  className={n === page ? "grid h-[30px] min-w-[30px] place-items-center rounded-md bg-accent px-2 text-[11px] font-semibold tabular-nums text-on-accent" : `${PAGE_BTN} tabular-nums`}
                 >
                   {n + 1}
                 </button>
@@ -217,7 +230,7 @@ export function Pagination({ page, size, total, shown, onPage, onSize }: { page:
           </nav>
         )}
         <div className="w-[7.6rem]">
-          <Select aria-label="Rows per page" value={String(size)} onChange={(v) => onSize(Number(v))} options={PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} per page` }))} className="!h-9 !rounded-lg !border-[color:var(--pl-btn-line)] !py-0 !text-[12.5px]" />
+          <Select aria-label="Rows per page" value={String(size)} onChange={(v) => onSize(Number(v))} options={PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} per page` }))} className="!h-[30px] !min-h-0 !rounded-md !border-[color:var(--pl-btn-line)] !py-0 !pl-2.5 !pr-6 !text-[11px]" />
         </div>
       </div>
     </div>
