@@ -40,7 +40,7 @@ bank number. `OrgIsolationIT` has all eight routes in its registry (hostile call
 
 `web/src/components/ent/jobs/` (`JobsPage`, `KpiTiles`, `JobsList` + `Pagination`, `JobDrawer`, `EditForm`, `CreateJobDialog`, `HelpBeeCard`, `parts`,
 `useJobDetail`), `web/src/lib/ent/jobs.ts` (types, URL mapping, helpers, client), `jobs-bff.ts` + `app/api/orgs/[orgId]/jobs/[[...path]]/route.ts`,
-page `app/(tenant)/_t/w/[workspace]/jobs/page.tsx` (Admin workspace only; Marketing's "Job Discovery" keeps its "on the way" page).
+page `app/(tenant)/%5Ft/w/[workspace]/jobs/page.tsx` (Admin workspace only; Marketing's "Job Discovery" keeps its "on the way" page).
 Only `@kiwiply/ui` primitives and icons, tenant `--brand-*` / v2 token classes, initials avatars (no photos exist), one bee (the drawer's card, or the
 list's when the drawer is closed). Inline edits autosave (selects at once, text on blur or Enter, skills after a short rest) with a status line and no
 Save button; status changes and dismissals have an Undo toast; Create Job is a dialog with one Idempotency-Key per opening.
@@ -65,3 +65,10 @@ shared help list (no assistant exists yet).
   is treated like ORG (consultants are mostly not seats, so the seat-based team check has nothing to evaluate); ASSIGNED scope is exact.
 - The web mock API (`dev:demo`) has no jobs data: the page needs the real stack.
 - Interviews, Clients and Placements pages are not part of this branch.
+
+## Verification (2026-10-13, real stack: API 18192, web 3202, database `dossier_ent_jobs`)
+
+- API: `JobKpisTest`, `OrgJobResourceIT`, `OrgIsolationIT` (all routes incl. the eight Jobs rows), `WorkspaceServiceTest` green (24 tests, one KPI test assertion fixed afterwards and re-run green).
+- Web: `tsc`, eslint and vitest for the Jobs files green; `npm run build` green.
+- Journey `web/e2e/journeys/tenant-jobs.spec.ts` (`playwright.real.config.ts`, `PW_CHANNEL=chrome`) passes. It is **not re-runnable on the same database** (it creates a job and asserts the seeded tile values): drop and re-seed `dossier_ent_jobs` to run it again.
+- Screenshots: `design/enterprise-talent/built/jobs-*.png` (list, drawer, tall drawer with Top Matches and the bee, edit form, created job, phone list and bottom sheet).

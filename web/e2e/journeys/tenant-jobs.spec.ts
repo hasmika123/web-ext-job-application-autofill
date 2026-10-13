@@ -71,6 +71,7 @@ test.describe("jobs (real stack)", () => {
     await fresh.close();
 
     // one mutation: assign the best SUGGESTED match, the application code comes back and the match shows as assigned
+    await page.getByRole("tab", { name: /Top Matches/ }).click();
     const assign = drawer.getByRole("button", { name: /^Assign / }).first();
     await expect(assign).toBeVisible();
     await assign.click();
@@ -93,7 +94,7 @@ test.describe("jobs (real stack)", () => {
     await page.getByRole("button", { name: /Create Job/ }).click();
     await page.getByLabel(/Job title/).fill("Journey Platform Engineer");
     await page.locator("[data-create-form] button").first().click();
-    await page.getByRole("option").first().click();
+    await page.getByRole("option", { name: "TechCorp" }).click();
     await page.locator("[data-create-submit]").click();
     await expect(page.getByText("Journey Platform Engineer was created")).toBeVisible();
     await expect(page.locator("[data-detail-body] h1, [data-detail-body]").first()).toBeVisible();
