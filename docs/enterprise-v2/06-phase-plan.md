@@ -71,16 +71,42 @@
 | `enterprise.billing.mode_default` | STRING | `SUBSCRIPTION_ITEMS` | HIGH | ADR-017/020 |
 | `enterprise.quote.ttl_minutes` | INT | 15 | MEDIUM | ADR-019 |
 | `enterprise.usage.retention_months` | INT | 24 | LOW | ledger purge |
+| `flag.enterprise.analytics` | FLAG | off | MEDIUM | org-wide analytics (X12.1); `/api/me/tenant.modules.analytics` |
+| `flag.enterprise.integrations` | FLAG | off | MEDIUM | integrations module (Phase 12) |
+| `flag.enterprise.sso` | FLAG | off | HIGH | SSO (Phase 12) |
+| `enterprise.matching.batch_size` | INT | 20 | LOW | `ai.job_matching` units reserved per run (37 #1) |
+| `enterprise.pipeline.board_policies` | JSON | `{}` | MEDIUM | 31 §9 (was D's `pipeline.board_policies`) |
+| `enterprise.pipeline.consumer_email_domains` | JSON list | gmail.com, … | LOW | 34 §2 (was D's `pipeline.consumer_email_domains`) |
+| `org.pipeline.open_matches_max` | INT (org-overridable) | 25 | LOW | 17 (was D's `assignments.open_max`) |
+| `org.ui.roles_reviewed_at` | DATETIME (org-overridable) | null | LOW | 14 §2.4 (was B's `ui.roles_reviewed_at`) |
+| `catalog.org_above_individual_pct`, `catalog.stripe.invoicing_bp`, `catalog.org_min_invoice_lines` | INT | 25 / 40 / 1 | HIGH | 21 §5 (C) — registered under `EnterpriseSettingKeys.Catalog`, not `AdminSettingKeys` |
 
 All flags fail closed (existing `OrgFeatureFlag` pattern). Per-org allow lists let one pilot org
 (the demo `acme`) run each phase before general availability.
 
+**One registration point (09 row 7).** Every key introduced by docs 10–38 registers in
+`EnterpriseSettingKeys` as nested groups `Tenancy`, `Domains`, `Org`, `Billing`, `Catalog`, `Pipeline`,
+`Hr` (the table above is not exhaustive — each doc's own keys follow the convention). Naming:
+`enterprise.<area>.<name>` = platform-wide, `org.<area>.<name>` = org-overridable through
+`OrgSettingsResource` (14 §4), `flag.enterprise.*` = flags. `SettingDefinitionsTest`'s duplicate-key
+guard is the gate; a key that does not follow the convention fails `EnterpriseSettingKeysConventionTest`.
+
 ## 4. Migration strategy (ADR-023, applied per phase)
-1. One Liquibase file per phase and context: `202610xxxxxxxx_ent_tenancy.xml`,
-   `_ent_roles.xml`, `_ent_catalog.xml`, `_ent_licenses.xml`, `_ent_usage.xml`,
-   `_ent_talent.xml`, `_ent_pipeline.xml`, `_ent_hr_finance.xml`, each **additive only**
-   (createTable / addColumn with default / createIndex / addForeignKey / insert seeds with
-   preconditions).
+1. One Liquibase file per phase and context, each **additive only** (createTable / addColumn with
+   default / createIndex / addForeignKey / insert seeds with preconditions). **Timestamps (09 row 16):**
+   enterprise owns one "day" bucket per phase, `202610<13+P>NN0000_ent_<context>.xml`, `NN` = sequence
+   within the phase — P1 `20261015`, P2 `20261016`, P3 `20261017`, P4 `20261018`, P5 `20261019`,
+   P6 `20261020`, P7 `20261021`, P8 `20261022`, P9 `20261023`, P10 `20261024`, P11 `20261025`,
+   P12 `20261026`. Assigned files: `20261015010000_ent_tenancy` (X1.2), `20261015020000_ent_roles` (X1.6),
+   `20261015030000_ent_authz` (X1.7 `org_assignment` shell), `20261016010000_ent_profile` (X2.7),
+   `20261017010000_ent_domains` (X3.3), `20261018010000_ent_assignments` (X4.7),
+   `20261019010000_ent_catalog` (X5.1), `20261019020000_ent_contracts` (X5.5), `20261019030000_ent_licenses`
+   (X5.4), `20261019040000_ent_usage` (X5.7, incl. the `ai_call` columns of X5.8), `20261020010000_ent_org_billing`
+   (X6.12), `20261020020000_ent_org_billing_mirrors` (X6.6 if needed), `20261021010000_ent_talent` (X7.2/X7.3/X7.6),
+   `20261022010000_ent_pipeline` (X8.10), `20261023010000_ent_applications` (X9.5, X9.8),
+   `20261024010000_ent_placements` (X10.1–X10.8, incl. `ops_placement.pipeline_placement_id`),
+   `20261025010000_ent_hr_finance` (X11.*). Product H keeps its own bucket (≥ `20261027`) and must move
+   its planned `20261013*_ts_*` files there.
 2. Backfills are separate changesets, idempotent, with `<preCondition onFail="MARK_RAN">`:
    e.g. `ent_roles_backfill`: insert system `org_role` rows; insert one `org_member_role` per live
    `org_member` from `role`; set `primary_role_id`.

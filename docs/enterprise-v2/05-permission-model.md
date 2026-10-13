@@ -81,6 +81,18 @@ Rules:
   primary template key for compatibility (ADR-023).
 - `COACH` stays reserved.
 
+### 3.1 Keys added by Sessions B and D (09 row 8) — folded into the templates above
+
+| Key | Granted to (scope) | Notes |
+|---|---|---|
+| `dashboard.view_org` | OWNER, ORG_ADMIN, EXECUTIVE_VIEWER (ORG) | Org Admin Dashboard read (14 §2.2; X2.4 seeds it) |
+| `members.group.set` | ORG_ADMIN, HR_SPECIALIST (ORG) | department/team assignment (15 §2) |
+| `members.manager.set` | ORG_ADMIN, HR_SPECIALIST (ORG); MARKETING_MANAGER (TEAM) | manager link with the cycle guard (15 §2) |
+| `departments.manage`, `teams.manage` | — | **aliases** of `groups.manage` in `EntPermissions` (same row; the Roles page shows one key) |
+| `applications.view` | — | **not a key.** Org Applications pages use `member.view_summary` (consent projection, 32 §3) and the pipeline board uses `pipeline.view` |
+| marketer profile proposals (30 §2, X7.2) | `member.act_for` (ASSIGNED) | not `consultants.edit` (that key is admin-side editing of the overlay) |
+| `finance.view` / `finance.manage` | FINANCE_SPECIALIST (ORG) | `finance.view` ⇒ `ops.finance` read; `finance.manage` ⇒ `ops.finance` + `ops.placements` write (36 §4) — H's `OpsGate` unchanged |
+
 ## 4. Scopes
 
 | Scope | Meaning | `ScopeEvaluator` rule (target = record's subject member) |
@@ -129,6 +141,10 @@ AuthzRequest { actorMemberId, beneficiaryMemberId?, permissionKey, featureKey?, 
 @RequiresFeature(value = "ai.resume_tailoring", beneficiary = Beneficiary.PATH_MEMBER, quantity = 1) // step 6–8, 11
 @PostMapping("/api/orgs/{orgId}/consultants/{memberId}/resumes/{resumeId}/tailor")
 ```
+- **One `Beneficiary` enum** (X1.7, 09 row 12) is shared by both annotations — there is no `@ActFor`:
+  `NONE` (no beneficiary; org-level records), `SELF` (actor = beneficiary), `PATH_MEMBER` (`{memberId}`),
+  `BODY_MEMBER` (field `beneficiaryMemberId`), `QUERY_MEMBER` (`?for=` / `?memberId=`, used by job
+  discovery and other list endpoints). The interceptor resolves it once and both checks see the same id.
 - `OrgPermissionInterceptor` stays the single entry point; it builds `AuthzRequest` from the
   annotations and path variables (`orgId`, `memberId`) and calls `AuthorizationService.authorize`.
   The decision is stored under `OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE` (existing) plus

@@ -27,7 +27,7 @@
 ┌─────────▼──────────────────────────────┐   ┌────────────────────────────────────────────────┐
 │ TALENT                                  │   │ PIPELINE (per org)                              │
 │ consultant_profile · org_assignment ·   │──▶│ client_account/contact/relationship ·           │
-│ org_resume (links to person resumes)    │   │ client_requirement · opportunity ·              │
+│ org_resume (links to person resumes)    │   │ client_requirement · job_opportunity ·          │
 │ employment_record · hr_task · policy_ack│   │ opportunity_match · candidate_submission ·      │
 └────────────────────────────────────────┘   │ interview_slot · offer · placement ·            │
                                               │ pipeline_event                                   │
@@ -107,7 +107,7 @@ Rules between contexts:
 | `client_contact` | **new** | org_id, client_id, name, work_email, phone, title, status | Scanned for PII. |
 | `client_relationship` | **new** | org_id, from_client_id, to_client_id, kind SUBCONTRACTS_TO\|SUPPLIES\|MSP, terms_label | Vendor chains. |
 | `client_requirement` | **new** | org_id, client_id, via_client_id, title, description, skills_json, location, mode, rate_band_label, status OPEN\|ON_HOLD\|FILLED\|CLOSED, opens_at, closes_at, owner_member_id, source MANUAL\|EMAIL\|IMPORT, dedupe_key | |
-| `opportunity` | **new** | org_id, kind JOB_POSTING\|CLIENT_REQUIREMENT, posting_id NULL (global `job_posting`), requirement_id NULL, title, company, url, status NEW\|TRIAGED\|ASSIGNED\|CLOSED, created_by_member_id, assignment_id | Exactly one of posting/requirement. |
+| `job_opportunity` | **new** | org_id, kind JOB_POSTING\|CLIENT_REQUIREMENT, posting_id NULL (global `job_posting`), requirement_id NULL, title, company, url, status NEW\|TRIAGED\|ASSIGNED\|CLOSED, created_by_member_id, assignment_id, dedupe_key | Exactly one of posting/requirement. Table name is `job_opportunity` (31 §3, 41 §2 — the earlier `opportunity` name here was aligned by Session E Task 3). |
 | `opportunity_match` | **new** | org_id, opportunity_id, consultant_member_id, score, reason, model, status SUGGESTED\|ASSIGNED\|ACCEPTED\|DECLINED\|WITHDRAWN, assigned_by_member_id, assigned_at, consultant_decided_at, resume_id (org-approved), authorization CONSULTANT_APPROVED\|PENDING\|DECLINED, authorized_at | Unique (opportunity_id, consultant_member_id) = duplicate guard. |
 | `candidate_submission` | **new** | org_id, match_id, requirement_id, consultant_member_id, submitted_by_member_id, resume_id, resume_version_no, channel_label, external_reference, status DRAFT\|AUTHORIZED\|SUBMITTED\|SHORTLISTED\|REJECTED\|WITHDRAWN, submitted_at, authorized_at | **Record only** (ADR-010). Unique (requirement_id, consultant_member_id). |
 | `pipeline_application_link` | **new** | org_id, match_id, application_id (consultant's `application`), linked_at, source SUBMIT_DETECT\|CONSULTANT | The consultant's own application row, linked by submit-detect or by the consultant. Org reads status under consent. |
@@ -140,8 +140,8 @@ usage_event  *─1 org_member (beneficiary) ; *─1 org_member (actor)
 org_resume   *─1 resume (person-owned)   ; *─1 org_member (member) ; *─1 org_member (managed_by)
 client_account 1─* client_contact ; client_relationship (from→to)
 client_requirement *─1 client_account (issuer) ; *─0..1 client_account (via)
-opportunity  *─0..1 job_posting | *─0..1 client_requirement
-opportunity  1─* opportunity_match *─1 org_member (consultant)
+job_opportunity  *─0..1 job_posting | *─0..1 client_requirement
+job_opportunity  1─* opportunity_match *─1 org_member (consultant)
 opportunity_match 1─0..1 candidate_submission ; 1─0..1 pipeline_application_link *─1 application (person-owned)
 candidate_submission 1─* interview_slot ; 1─0..1 offer 1─0..1 placement
 placement    0..1─* placement (extension_of / redeployment_of)

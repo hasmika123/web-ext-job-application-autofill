@@ -1132,9 +1132,18 @@ package later is an admin-console action, not a release.
 Still no annual plan, no free trial, and "no refunds, cancel anytime" (Phase 12, unchanged).
 
 ### Prices — organizations
+
+> **Superseded 2026-10-12 (Enterprise V2, decision E3 — `docs/enterprise-v2/20`–`22`, `CLAUDE.md`).**
+> Organizations now buy, per consultant, a **mandatory base license** plus **individually priced
+> feature add-ons**; presets are shortcuts that pick add-ons (no price of their own); the setup fee
+> stays; every price is an **admin input** under the ≥ 80 % margin guard and the "above individual"
+> check, and the **catalog ships without prices**. The per-person items below map onto presets /
+> features / org modules (`docs/enterprise-v2/21-feature-catalog.md` §3.3) and are kept only as the
+> pre-E3 reference.
+
 - **Setup fee: $499, one-time, per organization.** Always charged, and nothing activates until it
   is paid. It covers the workspace, admin accounts, bulk CSV invite and one onboarding call.
-- **Per person, per month, item by item.** The org mixes freely, person by person:
+- ~~**Per person, per month, item by item.**~~ *(pre-E3 reference; see the note above)* The org mixes freely, person by person:
 
   | Item | Org price | vs individual |
   |---|---|---|

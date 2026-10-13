@@ -1,0 +1,93 @@
+# 09 — Consistency decisions (Session E) — APPLIED 2026-10-12
+
+> Status: **applied.** Session E merged B/C/D (commits `93c519e`, `d8629f4`, `6d0aba1`), read every
+> doc, reached the resolutions below and then applied them row by row to the named docs and to
+> `ent.json`/`07-backlog.md` (✅ = applied, with the commit). Row 15 went first (`5cd945a`); every
+> other row landed in `babb22a`. Nothing here reopens an ADR; each row refines one. The "Planned
+> story work" at the end is still the later session's (Task 4), except the pieces a row demanded.
+
+| # | ✅ | Mismatch | Resolution | Apply to |
+|---|---|---|---|---|
+| 1 | ✅ `babb22a` | Workspace keys / URLs: B `ADMIN/MARKETING/MARKETING_MGMT/CONSULTANT/HR/FINANCE/ACCOUNTS/EXEC` under `/w/{key}`; D uses `/org/resumes/{id}/edit`, `/org/interviews`, `/org/ops/timesheets`, lint path `src/app/(org)/**` | B's eight keys are canonical. On tenant hosts every page lives under `(tenant)/_t/w/[workspace]/…`; D's paths become `/w/marketing/resumes/{orgResumeId}/edit`, `/w/{marketing\|accounts\|admin}/interviews`, `/w/finance/timesheets`; the no-submit lint runs over `src/app/(tenant)/**` + `src/components/ent/**`. `/org/*` on kiwiply.com stays the legacy console. | 30 §6, 31 §10, 32 §1/§6, 33 §5, 36 §4, 38, X7.5 |
+| 2 | ✅ `babb22a` | `GET /api/me/tenant` contract | `modules: {domains, roles, billing, marketing, hrFinance, extensionWorkspaces, integrations, analytics}` (booleans = flag allow-list ∧ `ModuleGate`, row 13); `features: {licensed: [featureKey…], pending: boolean}` — `pending=true, licensed=[]` until X5.6 lands, then filled from `EntitlementService.entitlementsOf` for CONSULTANT members. | 12 §3, X2.2 |
+| 3 | ✅ `babb22a` | Dashboard widget registry | X2.4 ships a `DashboardWidgetProvider` bean interface (`key, permission, module, compute(orgId, membership)`) + the Phase-2 providers; later stories add one bean each: `consultants.licensed` + `subscription.summary` (X6.1), `consultants.available` (X7.2), `marketing.activity7d` (X8.6), `approvals.pending` (X8.5), `placements` (X10.4), `finance.summary` (X11.5), `team.performance` (X12.1). Doc-sync test over the key list in 14 §2.2. | 14 §2.2, those stories |
+| 4 | ✅ `babb22a` | Offboarding hooks; B says licenses end at period end, C says ENDED now | **C wins**: seat removal/leave/erase → license `ENDED` now, Stripe decrement now, no proration; wizard copy "License ends now; the paid period isn't refunded". X4.4 owns an `OffboardingHook {preview(), apply()}` interface, ordered: Sessions (X2.7) → Assignments (X4.7) → Consent (`DataShareService.endFor`) → OrgResumeLinks (X7.3) → Licenses (X5.4) → Pipeline (X8.13: open matches WITHDRAWN `CONSULTANT_LEFT`) → EmploymentRecord (X11.1). | 15 §2/§5, 20 §3, X4.4 |
+| 5 | ✅ `babb22a` | `MascotPose` map | B's eight poses are the whole map (`welcome, greet, empty, encourage, celebrate, warn, error, peek`). C's "pointing" → `encourage`; D's "nod" → `greet`; `SpeechBubble` pairs with `<MascotPose size="sm">`. No new poses. | 28 §1, 38 §6 |
+| 6 | ✅ `babb22a` | `t()` terminology keys | B's allow-list + `requirement/requirements`, `vendor/vendors` (D needs them) = 22 keys; nothing else. | 11 §1.3 |
+| 7 | ✅ `babb22a` | `EnterpriseSettingKeys` single registration point | Every key introduced by B/C/D registers in `EnterpriseSettingKeys` (nested groups Tenancy/Domains/Org/Billing/Catalog/Pipeline/Hr), including C's `catalog.org_above_individual_pct`, `catalog.stripe.invoicing_bp`, `catalog.org_min_invoice_lines`. Renames: D `assignments.open_max` → `org.pipeline.open_matches_max`; D `pipeline.board_policies` → `enterprise.pipeline.board_policies`; D `pipeline.consumer_email_domains` → `enterprise.pipeline.consumer_email_domains`; B `ui.roles_reviewed_at` → `org.ui.roles_reviewed_at`. Convention: `enterprise.<area>.<name>` platform-wide, `org.<area>.<name>` org-overridable, `flag.enterprise.*` flags. New flags: `flag.enterprise.analytics`, `flag.enterprise.integrations`, `flag.enterprise.sso` (Phase 12). `SettingDefinitionsTest` duplicate-key guard is the gate. | 06 §3, 10 §10, 14 §4, 17, 31, 34, 36 |
+| 8 | ✅ `babb22a` | Permission keys added by B and D | Fold into 05 §3: `dashboard.view_org` (OWNER, ORG_ADMIN, EXECUTIVE_VIEWER), `members.group.set` + `members.manager.set` (ORG_ADMIN, HR_SPECIALIST at ORG; MARKETING_MANAGER manager.set at TEAM), aliases `departments.manage`/`teams.manage` → `groups.manage`. D's `applications.view` is **not** a key — org Applications pages use `member.view_summary` (consent projection) and the pipeline board `pipeline.view`. Marketer profile proposals need `member.act_for` (ASSIGNED), not `consultants.edit`. `finance.view ⇒ ops.finance` read, `finance.manage ⇒ ops.finance + ops.placements` write (36 §4). | 05 §3 (+ new §3.1), 32 §6 |
+| 9 | ✅ `babb22a` | Feature keys/units (D 37 §4 vs C 21) | **C's catalog is authoritative** (plural units). Hook mapping: #1 `ai.job_matching` unit `matches` — a run reserves `enterprise.matching.batch_size` (default 20) and commits the scored count; #7 `marketing.assisted_applications` = 1 `preparation` per assigned match row and per submission packet (DRAFT), 0 for record/follow-up; #12 `analytics.applications` stays a per-consultant FEATURE; org-wide analytics (X12.1) is gated by `flag.enterprise.analytics`, not a license. Marketer-side AI (#9 inbox attribution, #11 marketer alerts, #14 requirement enrichment) is charged to the **org module** `module.talent_marketing` (a `feature_definition` row, category MODULE, `ORG_POOL` allowance = `default_allowance × module quantity`, beneficiary = the actor) — non-consultants never hold a consultant license (E3). Dependency graph: C's (21 §3.4) wins; D's "`automation.approved_apply` → TECHNICAL on `marketing.assisted_applications`" is dropped. | 37 §2/§4, 21 §2.4, 25 §3, X5.11, X8.3, X8.4 |
+| 10 | ✅ `babb22a` | `ConsentGate` / `org_feature_consent` | `org_feature_consent.feature_key` holds **consent kinds** from `ConsentKinds`: `consent.resume_edit` (D's `resume.edit_for`), `consent.resume_view_org` (D's `resume.view_org`), `consent.ai_tailoring`, `consent.ai_optimization`, `consent.marketing_assist`; `consent.act_for` = FULL pairing (no row). `feature_dependency` CONSENT rows map feature → consent kind. `ConsentGate` is an interface (X5.6, default = FULL pairing only); X7.6 ships the implementation. | 21 §2.5/§3.4, 24 §3 step 10, 30 §1/§4, X7.6 |
+| 11 | ✅ `babb22a` | `AiCallContext` + `ai_call` columns | **X5.8 owns** `AiCallContext(actorLogin, beneficiaryLogin, orgId, featureKey, usageEventId)`, the `AiRouter.generate(…, ctx)` / `AiMeteringService.record(…, ctx)` overloads and the four additive `ai_call` columns (Phase-5 usage changelog). X7.10/X8.3 consume. | 24 §7, 30 §6, 37 §1, X5.8 |
+| 12 | ✅ `babb22a` | `@RequiresFeature` beneficiary modes / D's `@ActFor` | One enum `Beneficiary {NONE, SELF, PATH_MEMBER, BODY_MEMBER, QUERY_MEMBER}` used by both `@OrgPermissionRequired` and `@RequiresFeature`; no `@ActFor` annotation. `QUERY_MEMBER` reads `?for=`/`?memberId=` (job discovery). | 05 §6, 24 §5, 30 §6, X1.7, X5.16 |
+| 13 | ✅ `babb22a` | `module.talent_marketing` gating | `ModuleGate.isOn(orgId, moduleKey)` = flag allow-list ∧ (no active ORG price published for the module product **or** a live `org_module_license`). Gated: every MARKETER/MANAGER actor transition in `PipelineTransitions` on `opportunity_match`, `candidate_submission`, `pipeline_task`, plus the Marketing / Marketing-mgmt workspace homes (step 6 `MODULE_OFF`). | 20 §6, 24 §3 step 6, 31 §2, X5.11 |
+| 14 | ✅ `babb22a` | `packages/ui` primitives (B/C/D lists) | One owning story **X2.15** (M, UI): `FilterBar, DataTable, ReasonSheet, ConfirmTypedSheet, HistoryDrawer, PersonCell (+MemberAvatar), StatusDot, StatePill` (merges C's `StatusPill` map and D's `PipelineBadge`; tone maps registered per domain), `QuickActionTiles, MoneyText (+band mode = D's RateCell), PriceDelta, FeatureChip, AllowanceMeter, ConsentChip, ReadinessRing, KanbanBoard, WorkloadColumn, TimelineFeed, SensitiveTextField` + icons (`briefcase, handshake, calendar-check, clipboard-check, shield-check, building, route`). `QuoteSummary`/`CostConfirmSheet` are web composites (`web/src/components/ent/billing`). `MascotPose` stays in X2.8. X2.2 and every C/D UI story depend on X2.15. | 16 §7, 28 §0, 38 §7, X2.2, X7.1, X6.2, X6.3, X11.7 |
+| 15 | ✅ `5cd945a` | B2 `(tenant)/_t/**` rewrite vs X1.4 | **X1.4 as written is wrong**: a `(tenant)/page.tsx` at `/` collides with `(marketing)/page.tsx` (Next forbids two pages at one path). Amend X1.4: the tree lives at `web/src/app/(tenant)/%5Ft/` (**directory `%5Ft`, not `_t`** — Next.js treats `_`-prefixed folders as private; the URL stays `/_t`; corrected in Task 3), `proxy.ts` rewrites every non-API path on a non-platform host to `/_t{path}` (16 §2.3); a platform host requesting `/_t/*` gets `notFound()`. X1.1–X1.3 are unaffected. X2.6 then only adds login-first routing on top. | X1.4, X2.6 |
+| 16 | ✅ `babb22a` | Liquibase timestamps (C `202611xxxxxxxx`, D `202610xxxxxxxx`, H `20261013*_ts_*`) | Enterprise owns one "day" bucket per phase: `202610<13+P>NN0000_ent_<context>.xml` → P1 `20261015`, P2 `20261016`, P3 `20261017`, P4 `20261018`, P5 `20261019`, P6 `20261020`, P7 `20261021`, P8 `20261022`, P9 `20261023`, P10 `20261024`, P11 `20261025`, P12 `20261026`; `NN` = sequence in the phase. X1.2 (`20261015010000_ent_tenancy`) and X1.6 (`20261015020000_ent_roles`) already comply; X1.7's `org_assignment` shell → `20261015030000_ent_authz.xml`. C's catalog/contracts/licenses/usage → `20261019{01..04}0000`, org billing → `202610200{1,2}0000`, D's talent → `20261021010000`, pipeline → `20261022010000`, applications → `20261023010000`, placements bridge (incl. `ops_placement.pipeline_placement_id`) → `20261024010000`, hr_finance → `20261025010000`. Product H should move its planned `20261013*_ts_*` files to its own bucket (≥ `20261027`). | 06 §4, every story's DB bullet, 41 |
+| 17 | ✅ `babb22a` | X4.10 (no owner) | Owner API, size S, deps X1.14 (role writes), X4.1, X4.3: remove the enum fallback from `OrgAccessService.resolve`; `LegacyRoleMirror` keeps dual-writing `org_member.role` (reads never use it); `flag.enterprise.roles` resolves "on" for every org in the `flag.enterprise` allow list; a verification job asserts one `is_primary` row per live member; `OrgMemberRoleAuthoritativeIT`. | X4.10 |
+| 18 | ✅ `babb22a` | `ORG_*` notification kinds (B X2.10 vs D X8.10; X4.7 needs them in Phase 4) | X2.10 registers the full list up front: `ORG_MEMBERSHIP, ORG_DOMAIN, ORG_BILLING, ORG_ASSIGNMENT, ORG_CONSENT, ORG_RESUME, ORG_OPPORTUNITY, ORG_AUTHORIZATION, ORG_APPROVAL, ORG_INTERVIEW, ORG_OFFER, ORG_PLACEMENT, ORG_HR, ORG_FINANCE` with NOTIFY_DEFAULTS; later stories only publish. | X2.10, X4.7, X8.10 |
+| 19 | ✅ `babb22a` | E12 (prometheus permitAll, `/api/internal/**` exposure) | New story **X1.13** (S, API): `/management/prometheus` requires `ROLE_ADMIN` or a scrape token; `InternalSecurityConfiguration` additionally refuses requests whose `X-Forwarded-Host`/`Host` is a public host; the edge path rule stays the user's (E5 runbook). Listed as the fix story in 42. | X1.13, 42 |
+| 20 | ✅ `babb22a` | D alignment leftovers | `ShareField.OFFERS` gets its doc row (consent-data-sharing matrix, SUMMARY = count, FULL = offer rows); `interview.application_id` becomes nullable (Phase-9 changelog); `ops_placement.pipeline_placement_id` lives in the enterprise Phase-10 changelog, not H's. | 32, 33, 35, X9.5, X10.8 |
+
+## Decisions made while applying (Session E, 2026-10-12)
+- **Row 15 / X1.4 scope:** X1.4 ships the `_t` skeleton (`_t/page.tsx` and `_t/login/page.tsx` placeholders with
+  `data-testid="tenant-placeholder"`, `_t/w/[workspace]/layout.tsx` → `notFound()` until X2.2) and only `X-Robots-Tag` on the 404;
+  tenant security headers stay in X2.6/X3.7. X2.6 keeps X1.4's rewrite (does not re-implement it) and gained dep X1.4.
+- **Row 2:** `modules.extensionWorkspaces/integrations/analytics` read their `flag.enterprise.*` only (no module product);
+  `features.pending=false, licensed=[]` for non-CONSULTANT members once X5.6 lands.
+- **Row 3:** the Phase-2 provider set is `consultants.total, applications.active, interviews.upcoming, invites.pending,
+  activity.recent, alerts, checklist`; a missing bean renders `unavailable`; `DashboardWidgetRegistryTest` is the doc-sync test.
+- **Row 4:** `OffboardingHook` beans use `@Order`; a missing bean is skipped; leave and erase run the same chain as offboard.
+- **Row 7:** `catalog.*` keys move from `AdminSettingKeys` to `EnterpriseSettingKeys.Catalog` (X5.3's bullet still names
+  `AdminSettingKeys` — the Phase-5 builder registers them under `EnterpriseSettingKeys.Catalog`; the duplicate-key guard
+  catches a double registration). Added `enterprise.matching.batch_size` (INT 20) for row 9, `org.pipeline.open_matches_max`
+  default 25, and an `EnterpriseSettingKeysConventionTest` for the naming rule.
+- **Row 9:** `module.talent_marketing`'s MODULE feature row uses `usage_unit = operations`; the "Talent Marketing Support"
+  marketer-seat preset of 37 §4 is withdrawn; `alerts.advanced` stays a per-consultant FEATURE for the consultant's own alerts
+  (37 #11 for marketers charges the module). Seeded CONSENT rows: `ai.resume_tailoring → consent.ai_tailoring`,
+  `resume.optimization → consent.ai_optimization`, `marketing.assisted_applications → consent.act_for`.
+- **Row 10:** `ConsentKinds` constants and the `ConsentGate` interface live in X5.6 (the planned X5.16 split does not exist
+  yet); X7.6 ships the implementation.
+- **Row 12:** the `Beneficiary` enum is X1.7's; the `@RequiresFeature` side is written into X5.6 (X5.16 pending the split).
+- **Row 14:** X2.15 (M, UI, deps X2.1, X2.8) is now a real story; deps on it were added to X2.2, X7.1, X6.1–X6.5, X8.1,
+  X9.1, X10.5, X11.3, X11.4, X11.7 (the UI-bearing C/D stories). `QuoteSummary`/`CostConfirmSheet` stay web composites.
+- **Row 16:** named files: `20261016010000_ent_profile` (X2.7), `20261017010000_ent_domains` (X3.3),
+  `20261018010000_ent_assignments` (X4.7), `20261019{01..04}0000_ent_{catalog,contracts,licenses,usage}`,
+  `20261020010000_ent_org_billing`, `20261021010000_ent_talent`, `20261022010000_ent_pipeline`,
+  `20261023010000_ent_applications`, `20261024010000_ent_placements`, `20261025010000_ent_hr_finance`. The `ai_call` columns
+  ride in `_ent_usage` (X5.8 owns them, X5.7 owns the file). Doc 41 (other designer) should reuse these names.
+- **Row 17:** X4.10 deps are `X1.6, X4.1, X4.3` until the X1.14 split exists (noted in its tech line).
+- **Row 18:** X2.10 registers the 14 coarse `ORG_*` kinds **in addition to** its own fine-grained B kinds
+  (`ORG_INVITE_ACCEPTED`, `DOMAIN_*`, …); `ORG_BILLING` is email-now like `ORG_AUTHORIZATION/ORG_OFFER/ORG_INTERVIEW`.
+- **Row 19:** X1.13 (S, API, dep X1.3) adds `enterprise.ops.scrape_token` + `enterprise.hosts.internal` and is always on
+  (independent of `flag.enterprise`); doc 42 (other designer) lists it as the E12 fix story. **Superseded by 42 §5 (Task 3):**
+  the scrape token is env `DOSSIER_SCRAPE_TOKEN` (never a registry setting), the host rule is the union of the allow-list and
+  the `X-Forwarded-Host` presence test, deps are "—"; `ent.json`/`07` now mirror 42 §5.
+- **Task 3 corrections (Session E, 2026-10-12):** (a) `(tenant)/%5Ft/` directory (rows 1 and 15 read `_t` as the URL);
+  (b) X1.13 = 42 §5; (c) doc 10 uses a dedicated `DOSSIER_ASK_TOKEN`/`KIWIPLY_ASK_TOKEN`, adds the HTTP redirect catch-all and
+  the XFH spoof test; (d) `org_contract_price.version_from/version_to` in 23 §2.2 and X5.5; (e) the table is `job_opportunity`
+  everywhere (03 §2.4 aligned); (f) 40 §12.12 SSO → X12.4/X12.10; (g) 42 §6.2 ACs applied to X1.3/X1.4/X1.5/X1.8/X2.5/X3.3/X3.7/X9.5
+  (X12.3 at its full spec); (h) login google/MFA flags are org settings surfaced through the public DTO (X2.3, X2.9);
+  (i) X1.4/X1.5: proxy matcher covers `/api/auth/*`, BFF never forwards `X-Forwarded-Host`, root-layout chrome split.
+- **Row 1:** `/org/*` on kiwiply.com stays the legacy console everywhere a D doc mentioned it; `OrgInterviewsPage` mounts in
+  three workspaces rather than one URL.
+- **Not changed:** story *count* in the roadmap is now 120 with 0 dangling ids (X1.13, X2.15 added by this session; X12.* rows
+  were already present from the merged branches). README.md and docs 40–44 untouched (other designer).
+- **Deferred (cosmetic, per the token-saving rule):** none of the 20 rows was skipped; the per-story "Apply to" lists were
+  satisfied by one representative bullet per story rather than a full §30 re-review (that is Task 4).
+
+## Planned story work (not applied yet)
+- New: ~~X1.13 (E12 fix), X2.15 (ui kit), X4.10 (finalised)~~ (done above), X12.1–X12.7 fully specified, with X12.1/X12.2/X12.4 split
+  (X12.8 EXEC workspace, X12.9 extension Autopilot assigned items, X12.10 SSO JIT mapping, X12.11 TOTP/passkeys).
+- L → S/M splits (original id keeps the foundation half; new id carries the rest; dependents re-pointed):
+  X1.6→+X1.14 (role writes) · X1.8→+X1.15 (multi-role invites, email match) · X2.2→+X2.16 (shell UI) ·
+  X2.4→+X2.17 (dashboard UI) · X2.5→+X2.18 (branding UI) · X4.1→+X4.11 · X4.3→+X4.12 · X4.7→+X4.13 ·
+  X5.1→+X5.13 (admin catalog page) · X5.4→+X5.14 (lifecycle job, LocalBillingApplier, shortcuts) ·
+  X5.5→+X5.15 (contracts/discounts/QuoteService) · X5.6→+X5.16 (@RequiresFeature, interceptor, AuthzCoverageTest) ·
+  X6.2/X6.3→+X6.13 (bulk mode + cost-confirm sheet) · X6.6→+X6.14 (webhook handler + mirrors) ·
+  X6.7→+X6.15 (rollover, item limit, COMPUTED_INVOICE) · X6.9→+X6.16 (discounts/contracts tabs) ·
+  X7.1→+X7.8 · X7.3→+X7.9 · X7.5→+X7.10 (act-for AI) · X8.3→+X8.11 · X8.4→+X8.12 · X8.10→+X8.13 (engine) ·
+  X9.1→+X9.11 (home) · X9.9→+X9.12 (extension side) · X10.1→+X10.9 · X10.4→+X10.10 · X11.3→+X11.8 (TA pools) ·
+  X11.4→+X11.9 (H embedding).
+- Scratchpad helper for the next session: `ent-tools.mjs` (render/patch stories into `07-backlog.md` from `ent.json`) was
+  written in the session scratchpad; re-create it if the scratchpad is gone (render format = the X1 sections of `07-backlog.md`).
