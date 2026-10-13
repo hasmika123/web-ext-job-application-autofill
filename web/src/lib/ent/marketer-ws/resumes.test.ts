@@ -83,7 +83,7 @@ describe("helpers", () => {
   });
 });
 
-const reply = (status: number, body: unknown) => vi.fn(async (..._a: unknown[]) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
+const reply = (status: number, body: unknown) => vi.fn(async (...args: unknown[]) => (void args, new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })));
 
 describe("fetching and writing", () => {
   it("DENIED for 403/404, FAILED for a server error", async () => {

@@ -83,7 +83,9 @@ const reset = () => {
 };
 
 const publicRow = (r) => {
-  const { skill: _s, availability: _a, ...row } = r;
+  const row = { ...r };
+  delete row.skill;
+  delete row.availability;
   return row;
 };
 const SPARK = { total: [30, 33, 36, 39, 41, 44, 46, 48], profilesReady: [22, 24, 27, 29, 31, 33, 35, 36], needUpdates: [11, 11, 10, 10, 9, 9, 8, 8], approvalsPending: [2, 2, 3, 3, 3, 4, 4, 4] };

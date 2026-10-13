@@ -38,7 +38,7 @@ export default function ResumeDrawer({ orgId, row, mode, canApprove, onClose, on
   const [state, setState] = useState<{ id: number; detail: ResumeDetail | null; status: "loading" | "ready" | "failed" | "denied" } | null>(null);
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const [form, setForm] = useState({ title: "", headline: "", summary: "", targetRole: "" });
+  const [draft, setDraft] = useState<{ title: string; headline: string; summary: string; targetRole: string } | null>(null);
 
   useEffect(() => {
     if (id === null) return;
@@ -59,14 +59,9 @@ export default function ResumeDrawer({ orgId, row, mode, canApprove, onClose, on
   const detail = state && state.id === id ? state.detail : null;
   const status = state && state.id === id ? state.status : "loading";
   const current = detail?.row ?? row;
-
-  // Seed the form when the edit view opens (or the saved detail changes).
-  useEffect(() => {
-    if (mode === "edit" && detail) {
-      setForm({ title: detail.row.title, headline: detail.headline ?? "", summary: detail.summary ?? "", targetRole: detail.row.targetRole ?? "" });
-      setProblem(null);
-    }
-  }, [mode, detail]);
+  // The form shows the saved values until the person types; the draft is dropped on save, cancel and close.
+  const form = useMemo(() => draft ?? { title: detail?.row.title ?? "", headline: detail?.headline ?? "", summary: detail?.summary ?? "", targetRole: detail?.row.targetRole ?? "" }, [draft, detail]);
+  const setForm = setDraft;
 
   const changes = useMemo(() => {
     if (!detail) return null;
@@ -83,6 +78,7 @@ export default function ResumeDrawer({ orgId, row, mode, canApprove, onClose, on
     if (r.kind === "OK") {
       setState({ id: r.detail.row.id, detail: r.detail, status: "ready" });
       setProblem(null);
+      setDraft(null);
       onChanged(done);
       return true;
     }
@@ -113,7 +109,13 @@ export default function ResumeDrawer({ orgId, row, mode, canApprove, onClose, on
   const footer =
     !current || status !== "ready" ? null : mode === "edit" ? (
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={() => onModeChange("view")} disabled={saving}>
+        <Button variant="ghost" size="sm" onClick={() => {
+            setDraft(null);
+            setProblem(null);
+            onModeChange("view");
+          }}
+          disabled={saving}
+        >
           Cancel
         </Button>
         <Button variant="accent" size="sm" onClick={() => void save()} disabled={saving || !changes}>
@@ -146,7 +148,11 @@ export default function ResumeDrawer({ orgId, row, mode, canApprove, onClose, on
       mode="overlay"
       id="resume-drawer"
       open={open}
-      onClose={onClose}
+      onClose={() => {
+        setDraft(null);
+        setProblem(null);
+        onClose();
+      }}
       title={current?.title ?? "Resume"}
       description={current ? `${current.consultantName} - ${current.consultantTitle}` : undefined}
       icon={<FileTextIcon size={18} />}
