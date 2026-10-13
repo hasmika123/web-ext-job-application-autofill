@@ -29,9 +29,8 @@ const KPI_STYLE: Record<KpiKey, { icon: typeof CalendarIcon; tint: TintName; spa
 type Dialog = { kind: "reschedule"; row: InterviewRow } | { kind: "feedback"; row: { id: number; consultant: string; client: string; round: string } };
 
 export default function InterviewsPage({ orgId, orgName }: MktPageProps) {
-  const initial = useRef(weekRange()).current;
-  const [from, setFrom] = useState(initial.from);
-  const [to, setTo] = useState(initial.to);
+  const [from, setFrom] = useState(() => weekRange().from);
+  const [to, setTo] = useState(() => weekRange().to);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [clientFilter, setClientFilter] = useState("ALL");
   const [mode, setMode] = useState<Mode>("list");

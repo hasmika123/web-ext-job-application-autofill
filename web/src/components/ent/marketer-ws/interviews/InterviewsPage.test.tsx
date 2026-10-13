@@ -52,7 +52,7 @@ const fixture = (over: Record<string, unknown> = {}) => ({
 
 const HREFS = { interviews: "/w/marketing/interviews" };
 const mount = () => render(<InterviewsPage orgId={2} orgName="Acme" firstName="Sarah" hrefs={HREFS} />);
-const reply = (status: number, body: unknown) => vi.fn(async (_u: string, _i?: RequestInit) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
+const reply = (status: number, body: unknown) => vi.fn(async (...args: [string, RequestInit?]) => (void args, new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })));
 /** The schedule rows are on screen (a name alone appears in several cards). */
 const rowsReady = () => waitFor(() => expect(document.querySelector('[data-interview-row="1"]')).toBeTruthy());
 const calls = (f: ReturnType<typeof reply>) => f.mock.calls.map(([u, i]) => `${i?.method ?? "GET"} ${String(u).split("?")[0]}`);

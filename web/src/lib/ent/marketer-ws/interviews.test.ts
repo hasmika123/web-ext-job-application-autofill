@@ -4,7 +4,7 @@ import {
 } from "./interviews";
 
 afterEach(() => vi.unstubAllGlobals());
-const reply = (status: number, body: unknown) => vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
+const reply = (status: number, body: unknown) => vi.fn(async (...args: [string, RequestInit?]) => (void args, new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } })));
 
 describe("parseInterviews", () => {
   it("is lenient: junk sections become empty, junk values get defaults", () => {
