@@ -156,7 +156,7 @@ test.describe("Sarah on Acme (1440)", () => {
     mkdirSync(out, { recursive: true });
     await signInAs(page, acme!, "Sarah Chen");
     await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("kiwiply.dashboard.help")).forEach((k) => localStorage.removeItem(k)));
-    for (const [w, h] of [[1440, 900], [768, 1024], [390, 844]] as const) {
+    for (const [w, h] of [[1672, 941], [768, 1024], [390, 844]] as const) {
       await page.setViewportSize({ width: w, height: h });
       await page.goto(`${acme}/w/admin`);
       await loaded(page);

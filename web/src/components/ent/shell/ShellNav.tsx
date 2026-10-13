@@ -46,11 +46,12 @@ export default function ShellNav({
           onClick={onNavigate}
           data-nav-item={item.key}
           data-nav-soon="true"
+          title="On the way"
           className={cn(ROW, "text-ink/45 hover:text-ink/70", collapsed && "justify-center px-0")}
         >
           <NavIcon name={item.icon} className="flex-none text-muted/70" />
           {collapsed ? null : <span className="min-w-0 flex-1 truncate">{item.text}</span>}
-          {collapsed ? null : item.key === "hr" || item.key === "finance" ? <ChevronDownIcon size={14} className="flex-none text-muted/70" /> : <span data-soon-chip className="flex-none rounded-full bg-paper-2 px-1.5 py-px text-[10.5px] font-bold uppercase tracking-wide text-muted">Soon</span>}
+          {collapsed ? null : item.key === "hr" || item.key === "finance" ? <ChevronDownIcon size={14} className="flex-none text-muted/70" /> : <span className="sr-only">(soon)</span>}
         </Link>
       );
       return collapsed ? (

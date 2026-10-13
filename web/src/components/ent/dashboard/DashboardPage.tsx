@@ -216,7 +216,7 @@ function PipelineCard({ body }: { body: CardBody }) {
       <div className="mt-3 flex flex-1 flex-col">
         {shared ??
           (pipe ? (
-            <DonutChart size={168} label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
+            <DonutChart size={150} label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
           ) : (
             <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>
           ))}
@@ -226,15 +226,14 @@ function PipelineCard({ body }: { body: CardBody }) {
 }
 
 const ACTIVITY_SHOWN = 6; // the board shows five or six; "View all" has the rest
-const QUICK_SHOWN = 4; // the board shows four; the rest the API sends sit behind "Show more"
+const QUICK_SHOWN = 4; // the board shows four; the rest the API sends are reachable from the menu
 
 function QuickActionsCard({ body }: { body: CardBody }) {
-  const [all, setAll] = useState(false);
   const { widget } = body;
   if (!body.loading && !widget) return null;
   const shared = stateBody(body, "your shortcuts");
   const every = widget && !body.loading ? quickActionsOf(widget) : [];
-  const items = all ? every : every.slice(0, QUICK_SHOWN);
+  const items = every.slice(0, QUICK_SHOWN);
   return (
     <section aria-labelledby="dash-quick" data-dash-card="quick.actions" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
       <CardHead id="dash-quick" icon={ZapIcon} title="Quick Actions" />
@@ -248,11 +247,6 @@ function QuickActionsCard({ body }: { body: CardBody }) {
             ))}
           </ul>
         )}
-        {!shared && every.length > QUICK_SHOWN ? (
-          <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-9 w-full rounded-lg px-2 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft">
-            {all ? "Show fewer" : `Show ${every.length - QUICK_SHOWN} more`}
-          </button>
-        ) : null}
       </div>
     </section>
   );
