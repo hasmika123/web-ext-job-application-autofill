@@ -549,7 +549,7 @@
       "id": "X1.7",
       "epic": "X1",
       "title": "Scope model: PermissionScope {OWN, ASSIGNED, TEAM, DEPARTMENT, ORG}, ScopeEvaluator, legacy OrgScope mapping, EntPermissions registry + AuthorizationService skeleton with the 11-step order",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

@@ -63,9 +63,12 @@ class EntTenancyMigrationIT {
                     List<ChangeSet> all = lb.listUnrunChangeSets(new Contexts(CONTEXTS), new LabelExpression());
                     long tenancy = all.stream().filter(c -> c.getId().startsWith(TENANCY_PREFIX)).count();
                     assertThat(tenancy).as("the tenancy changesets are in the changelog").isGreaterThanOrEqualTo(6);
+                    int firstTenancy = -1;
+                    for (int i = 0; i < all.size() && firstTenancy < 0; i++) if (all.get(i).getId().startsWith(TENANCY_PREFIX)) firstTenancy = i;
 
-                    // 1. a database at the last existing changelog, with data written the way production wrote it
-                    lb.update((int) (all.size() - tenancy), CONTEXTS);
+                    // 1. a database at the last existing changelog (everything before the tenancy file; later files such as roles and
+                    //    authz are applied with it in step 2), with data written the way production wrote it
+                    lb.update(firstTenancy, CONTEXTS);
                     assertThat(tableExists(conn, scratch, "org_hostname")).isFalse();
                     assertThat(columnType(conn, scratch, "organization", "type")).isEqualTo("varchar(20)");
                     exec(conn, "INSERT INTO organization (slug, name, type, status, timezone, created_at, updated_at) VALUES ('mig-org','Mig Org','BOOTCAMP','ACTIVE','UTC',NOW(6),NOW(6))");

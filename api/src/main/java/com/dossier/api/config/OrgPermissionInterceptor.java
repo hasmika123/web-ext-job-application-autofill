@@ -1,8 +1,14 @@
 package com.dossier.api.config;
 
+import com.dossier.api.domain.enumeration.OrgPermission;
 import com.dossier.api.service.ent.EnterpriseFeatureFlag;
 import com.dossier.api.service.ent.TenantContext;
 import com.dossier.api.service.ent.TenantContextHolder;
+import com.dossier.api.service.ent.authz.AuthorizationService;
+import com.dossier.api.service.ent.authz.AuthzDecision;
+import com.dossier.api.service.ent.authz.AuthzOperation;
+import com.dossier.api.service.ent.authz.AuthzRequest;
+import com.dossier.api.service.ent.authz.Beneficiary;
 import com.dossier.api.service.org.OrgAccessService;
 import com.dossier.api.service.org.OrgFeatureFlag;
 import com.dossier.api.service.org.OrgMembership;
@@ -11,9 +17,14 @@ import com.dossier.api.web.rest.org.OrgPermissionRequired;
 import com.dossier.api.web.rest.org.OrgUnscoped;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
@@ -31,6 +42,11 @@ import org.springframework.web.servlet.HandlerMapping;
  * </ul>
  *
  * Non-handler dispatches (static resources, error pages) are not org handlers and pass through.
+ *
+ * <p>Enterprise V2 (X1.7): for an organization in the enterprise flag the check is {@link AuthorizationService#authorize}, the
+ * fixed 11-step order (tenant, membership, organization state, permission, scope, assignment...) against the beneficiary the
+ * annotation names; the decision is stored next to the membership. For every other organization (the shipped default) the
+ * legacy {@link OrgAccessService} calls below run exactly as before, so nothing changes until the flag is turned on.
  */
 public class OrgPermissionInterceptor implements HandlerInterceptor {
 
@@ -39,12 +55,24 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
     private final OrgAccessService accessService;
     private final OrgFeatureFlag featureFlag;
     private final EnterpriseFeatureFlag enterpriseFlag;
+    private final AuthorizationService authorization;
 
     /** {@code enterpriseFlag} null (tests that do not exercise enterprise routes) = fail closed: every {@code /api/orgs/{id}/enterprise/**} handler is a 404. */
     public OrgPermissionInterceptor(OrgAccessService accessService, OrgFeatureFlag featureFlag, EnterpriseFeatureFlag enterpriseFlag) {
+        this(accessService, featureFlag, enterpriseFlag, null);
+    }
+
+    /** {@code authorization} null = the legacy check for every organization (what the three-argument constructor gives). */
+    public OrgPermissionInterceptor(
+        OrgAccessService accessService,
+        OrgFeatureFlag featureFlag,
+        EnterpriseFeatureFlag enterpriseFlag,
+        AuthorizationService authorization
+    ) {
         this.featureFlag = featureFlag;
         this.accessService = accessService;
         this.enterpriseFlag = enterpriseFlag;
+        this.authorization = authorization;
     }
 
     @Override
@@ -73,11 +101,67 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
         if (EnterpriseEnabledFilter.isOrgEnterprisePath(OrgsEnabledFilter.pathOf(request)) && (enterpriseFlag == null || !enterpriseFlag.isEnabled(orgId))) {
             throw new OrgNotFoundException();
         }
+        if (authorization != null && enterpriseFlag != null && enterpriseFlag.isEnabled(orgId)) {
+            enterpriseCheck(request, required, vars, orgId, tenant);
+            return true;
+        }
         OrgMembership membership = required.value().length == 0
             ? accessService.requireMember(orgId)
             : accessService.requireAll(orgId, java.util.List.of(required.value()));
         request.setAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, membership);
         return true;
+    }
+
+    /** Request attribute a body-caching component may set to the {@code beneficiaryMemberId} of the body (the interceptor cannot read a body before the handler). */
+    public static final String BODY_BENEFICIARY_ATTRIBUTE = "com.dossier.api.authz.bodyBeneficiary";
+
+    private void enterpriseCheck(HttpServletRequest request, OrgPermissionRequired required, Map<String, String> vars, Long orgId, TenantContext tenant) {
+        Beneficiary beneficiary = required.beneficiary();
+        Long beneficiaryId = null;
+        switch (beneficiary) {
+            case NONE, SELF -> {}
+            case PATH_MEMBER -> beneficiaryId = id(vars == null ? null : vars.get(required.scopeTarget().isBlank() ? "memberId" : required.scopeTarget()));
+            case QUERY_MEMBER -> {
+                Set<String> given = new LinkedHashSet<>();
+                for (String name : List.of("for", "memberId")) {
+                    String[] values = request.getParameterValues(name);
+                    if (values != null) for (String v : values) if (v != null && !v.isBlank()) given.add(v.trim());
+                }
+                if (given.isEmpty()) beneficiary = Beneficiary.SELF; // no ?for=: the caller's own
+                else if (given.size() > 1) throw new OrgNotFoundException(); // two different answers: refuse, never pick one
+                else beneficiaryId = id(given.iterator().next());
+            }
+            case BODY_MEMBER -> {
+                if (!(request.getAttribute(BODY_BENEFICIARY_ATTRIBUTE) instanceof Long fromBody)) {
+                    LOG.error("{} needs the body beneficiary but nothing supplied it; refusing", request.getRequestURI());
+                    throw new OrgNotFoundException();
+                }
+                beneficiaryId = fromBody;
+            }
+        }
+        List<String> keys = java.util.Arrays.stream(required.value()).map(OrgPermission::key).toList();
+        AuthzRequest authz = new AuthzRequest(
+            orgId, keys, beneficiary, beneficiaryId, AuthzOperation.ofHttpMethod(request.getMethod()), required.stateAction(), tenant,
+            tokenTenant(), null, 0, null
+        );
+        AuthzDecision decision = authorization.require(authz);
+        request.setAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, decision.membership());
+        request.setAttribute(AuthzDecision.ATTRIBUTE, decision);
+    }
+
+    private static Long tokenTenant() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth instanceof JwtAuthenticationToken jwt ? TenantTokenBinding.tenantOf(jwt.getToken()) : null;
+    }
+
+    private static Long id(String raw) {
+        try {
+            long v = Long.parseLong(raw == null ? "" : raw.trim());
+            if (v <= 0) throw new OrgNotFoundException();
+            return v;
+        } catch (NumberFormatException e) {
+            throw new OrgNotFoundException(); // a member id that is not a number names nobody
+        }
     }
 
     private static Long parse(String raw) {

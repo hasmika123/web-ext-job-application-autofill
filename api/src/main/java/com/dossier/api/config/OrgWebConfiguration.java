@@ -2,6 +2,7 @@ package com.dossier.api.config;
 
 import com.dossier.api.service.ent.EnterpriseFeatureFlag;
 import com.dossier.api.service.ent.TenantResolver;
+import com.dossier.api.service.ent.authz.AuthorizationService;
 import com.dossier.api.service.org.OrgAccessService;
 import com.dossier.api.service.org.OrgFeatureFlag;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
     private final OrgFeatureFlag orgFeatureFlag;
     private final EnterpriseFeatureFlag enterpriseFeatureFlag;
     private final TenantResolver tenantResolver;
+    private final AuthorizationService authorizationService;
     private final TenantHostTrust tenantHostTrust;
 
     public OrgWebConfiguration(
@@ -31,6 +33,7 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
         OrgFeatureFlag orgFeatureFlag,
         EnterpriseFeatureFlag enterpriseFeatureFlag,
         TenantResolver tenantResolver,
+        AuthorizationService authorizationService,
         @Value("${dossier.tenant-host.secret:}") String tenantHostSecret,
         @Value("${dossier.tenant-host.require-secret:false}") boolean requireTenantHostSecret
     ) {
@@ -39,11 +42,12 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
         this.orgFeatureFlag = orgFeatureFlag;
         this.enterpriseFeatureFlag = enterpriseFeatureFlag;
         this.tenantResolver = tenantResolver;
+        this.authorizationService = authorizationService;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new OrgPermissionInterceptor(accessService, orgFeatureFlag, enterpriseFeatureFlag)).addPathPatterns("/api/orgs", "/api/orgs/**");
+        registry.addInterceptor(new OrgPermissionInterceptor(accessService, orgFeatureFlag, enterpriseFeatureFlag, authorizationService)).addPathPatterns("/api/orgs", "/api/orgs/**");
     }
 
     /** Ahead of Spring Security (order -100) so a signed-out probe gets the same 404 as everyone else while the flag is off. */
