@@ -30,7 +30,7 @@ export default function KpiTiles({ counts, loading, error, docked = false }: { c
         return (
           <li key={t.key} data-kpi={t.key}>
             <Card className="flex h-full flex-col gap-1.5 !p-3.5">
-              <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
+              <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl" style={{ background: `color-mix(in srgb, ${chartColor(i)} 14%, var(--color-paper, #fff))`, color: chartColor(i) }}>
                 {t.icon}
               </span>
               <span className="text-[13px] font-medium leading-tight text-ink-soft">{t.label}</span>

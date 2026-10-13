@@ -301,7 +301,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
               <div className="flex items-center gap-2.5">
                 <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search applications" placeholder="Search by consultant name, job title, client, or status…" />
                 {canAdd && (
-                  <Button type="button" onClick={() => setAdding(true)} data-add-application className="flex-none">
+                  <Button type="button" variant="accent" onClick={() => setAdding(true)} data-add-application className="flex-none">
                     <PlusIcon size={16} aria-hidden /> Add Application
                   </Button>
                 )}
