@@ -5,7 +5,7 @@
  */
 export { FilterBar, DataTable, SEARCH_DEBOUNCE_MS, hasActiveFilters } from "./tables";
 export type { FilterBarProps, FilterDef, DataTableProps, DataTableColumn, SortDir } from "./tables";
-export { ReasonSheet, ConfirmTypedSheet, HistoryDrawer, REASON_MIN, REASON_MAX, reasonOk, reasonProblem, useNarrow } from "./sheets";
+export { ReasonSheet, ConfirmTypedSheet, HistoryDrawer, SheetFrame, REASON_MIN, REASON_MAX, reasonOk, reasonProblem, useNarrow } from "./sheets";
 export type { ReasonSpec, ConfirmTypedSpec, SheetOutcome, HistoryDrawerProps, HistoryLoader, HistoryRow } from "./sheets";
 export { PersonCell, MemberAvatar, StatusDot, initialsOf, statusDotTone } from "./people";
 export type { PersonCellProps, MemberAvatarProps, StatusDotProps, StatusDotTone } from "./people";

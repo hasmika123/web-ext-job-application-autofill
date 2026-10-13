@@ -47,6 +47,8 @@ export interface FilterBarProps {
   filters?: FilterDef[];
   /** Extra controls at the end of the row (an export button, a view switch). */
   actions?: ReactNode;
+  /** Narrower search and selects, for a bar that must fit one row beside other controls. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -56,7 +58,7 @@ export function hasActiveFilters(query: string, values: Record<string, string>):
 }
 
 /** A search box and a row of dropdown filters. Typing is debounced; Enter sends at once; Esc clears the box; "Clear filters" shows only while something is applied. */
-export function FilterBar({ query, onQueryChange, values, onFilterChange, search = {}, filters = [], actions, className }: FilterBarProps) {
+export function FilterBar({ query, onQueryChange, values, onFilterChange, search = {}, filters = [], actions, compact, className }: FilterBarProps) {
   const [text, setText] = useState(query);
   const sent = useRef(query); // the last value this bar sent: a `query` that differs came from outside (URL, Clear)
 
@@ -89,7 +91,7 @@ export function FilterBar({ query, onQueryChange, values, onFilterChange, search
   return (
     <div role="search" className={cn("flex flex-wrap items-center gap-2.5", className)}>
       {search !== false && (
-        <div className="relative w-full min-w-0 sm:w-72 sm:flex-none">
+        <div className={cn("relative w-full min-w-0 sm:flex-none", compact ? "sm:w-60" : "sm:w-72")}>
           <SearchIcon aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
           <Input
             type="search"
@@ -110,7 +112,7 @@ export function FilterBar({ query, onQueryChange, values, onFilterChange, search
         </div>
       )}
       {filters.map((f) => (
-        <div key={f.name} className="min-w-0 flex-1 basis-[calc(50%-0.3rem)] sm:w-44 sm:flex-none sm:basis-auto">
+        <div key={f.name} className={cn("min-w-0 flex-1 basis-[calc(50%-0.3rem)] sm:flex-none sm:basis-auto", compact ? "sm:w-36" : "sm:w-44")}>
           <Select
             aria-label={f.label}
             value={values[f.name] ?? ""}
