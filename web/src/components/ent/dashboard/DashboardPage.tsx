@@ -28,6 +28,7 @@ import {
   ZapIcon,
   BarChart,
   DonutChart,
+  chartColor,
   useToast,
   cn,
 } from "@kiwiply/ui";
@@ -160,6 +161,11 @@ function stateBody({ loading, widget, onRetry }: CardBody, what: string, empty?:
   return null;
 }
 
+/** Series colours by key: brand primary, status green, the brand's second colour. Distinct from each other whatever the tenant's colours are. */
+const TEAM_COLORS: Record<string, string> = { applications: chartColor(0), interviews: "var(--color-v2-green)", placements: chartColor(1) };
+/** Pipeline stages, left to right through the funnel: brand, blue, brand second colour, green, violet. */
+const STAGE_COLORS: Record<string, string> = { new: chartColor(0), in_review: "var(--color-v2-blue)", interviewing: chartColor(1), offered: "var(--color-v2-green)", hired: "var(--color-v2-violet)" };
+
 const RANGES = [
   { months: 3, label: "Last 3 Months" },
   { months: 6, label: "Last 6 Months" },
@@ -192,7 +198,7 @@ function TeamPerformanceCard({ body }: { body: CardBody }) {
         ) : null}
       </CardHead>
       <div className="mt-3 flex flex-1 flex-col">
-        {shared ?? (team ? <BarChart label="Team performance by month" categories={team.months} series={team.series} /> : <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>)}
+        {shared ?? (team ? <BarChart label="Team performance by month" categories={team.months} series={team.series.map((x) => ({ ...x, color: TEAM_COLORS[x.key] }))} /> : <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>)}
       </div>
     </section>
   );
@@ -209,7 +215,7 @@ function PipelineCard({ body }: { body: CardBody }) {
       <div className="mt-3 flex flex-1 flex-col">
         {shared ??
           (pipe ? (
-            <DonutChart label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices} />
+            <DonutChart label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
           ) : (
             <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>
           ))}
