@@ -313,3 +313,304 @@
   padding-bottom: 6px;
   font-size: 13.5px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+ * ENTERPRISE FINAL LOOK (design boards, 1672 px wide). Everything below is tenant-scoped (`.theme-tenant` only), additive,
+ * and driven by tokens, so a page restyle reuses these names instead of inventing colours.
+ *
+ *   Shell      --ent-sidebar-w  --ent-page-bg  --ent-nav-*  --ent-shell-px
+ *   Cards      .ent-card   (--ent-card-radius / -border / -shadow)
+ *   KPI tiles  data-tone="violet|green|blue|orange|indigo|pink" on .ent-kpi-chip; line colour var(--ent-kpi-<tone>-line);
+ *              the `KpiTile` component in @kiwiply/ui wires them. Palette is FIXED (the boards), never brand or chart colours.
+ *   Pills      .ent-pill[data-tone="green|amber|red|purple|blue|pink|grey"] and StatePill (same tones).
+ *   Tables     :where() rules on every tenant table (thead tint) and filter bar controls (40 px, 10 px radius).
+ * ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════ */
+.theme-tenant {
+  /* shell proportions: the boards' sidebar is 258 of 1672 px (15.4 %) */
+  --ent-sidebar-w: clamp(216px, 15.4vw, 258px);
+  --ent-shell-px: clamp(16px, 1.5vw, 26px);
+  --ent-shell-px-end: clamp(12px, 1vw, 17px); /* the boards: 27 px of air on the sidebar side, 17 px on the far edge */
+  --ent-fs: clamp(13px, 0.9vw, 15px); /* sidebar item size: 15 px at the board width, 13 px at 1440 */
+  --ent-page-bg: #f7f9fc;
+  --ent-sidebar-bg: color-mix(in srgb, var(--brand-50, #f2f7ff) 55%, #ffffff);
+  --ent-nav-text: #3a4778;
+  --ent-nav-icon: #3a4778;
+  --ent-title: #0b1445;
+
+  /* surfaces */
+  --ent-card-radius: 16px;
+  --ent-card-border: #e9eef6;
+  --ent-card-shadow: 0 1px 2px rgba(20, 33, 79, 0.04), 0 6px 20px rgba(30, 64, 120, 0.06);
+  --ent-table-head-bg: #f4f7fb;
+  --ent-table-line: #edf1f7;
+  --ent-control-h: 40px;
+  --ent-control-radius: 10px;
+  --ent-control-border: #dde5f1;
+  --ent-field-bg: #f4f8fe;
+  --ent-primary: var(--brand-solid, #0b6bff);
+
+  /* KPI icon tiles: fixed palette (violet, green, blue, orange, indigo, pink) + the sparkline stroke of each */
+  --ent-kpi-violet-bg: #efe9ff;
+  --ent-kpi-violet-fg: #7a4cf0;
+  --ent-kpi-violet-line: #18b377;
+  --ent-kpi-green-bg: #dff7ea;
+  --ent-kpi-green-fg: #1aa565;
+  --ent-kpi-green-line: #18b377;
+  --ent-kpi-blue-bg: #e1eeff;
+  --ent-kpi-blue-fg: #2b72f0;
+  --ent-kpi-blue-line: #e83a6c;
+  --ent-kpi-orange-bg: #fdefd9;
+  --ent-kpi-orange-fg: #f28c1c;
+  --ent-kpi-orange-line: #f5a623;
+  --ent-kpi-indigo-bg: #eceafd;
+  --ent-kpi-indigo-fg: #5b46d6;
+  --ent-kpi-indigo-line: #6a4cf5;
+  --ent-kpi-pink-bg: #ffe4ec;
+  --ent-kpi-pink-fg: #e8366a;
+  --ent-kpi-pink-line: #e8366a;
+  --ent-kpi-good: #12a05c;
+  --ent-kpi-bad: #e5304f;
+
+  /* status / priority pills: soft tint, bold coloured text, no border */
+  --ent-pill-green-bg: #d3f5e6;
+  --ent-pill-green-fg: #0c7c4d;
+  --ent-pill-amber-bg: #fdf0cf;
+  --ent-pill-amber-fg: #8f5a06;
+  --ent-pill-red-bg: #fde2e2;
+  --ent-pill-red-fg: #be2237;
+  --ent-pill-purple-bg: #ebe1ff;
+  --ent-pill-purple-fg: #6a30cf;
+  --ent-pill-blue-bg: #e1edff;
+  --ent-pill-blue-fg: #1d57c2;
+  --ent-pill-pink-bg: #fde4ee;
+  --ent-pill-pink-fg: #b82462;
+  --ent-pill-grey-bg: #eceff5;
+  --ent-pill-grey-fg: #4b5578;
+}
+
+/* ── the shell ───────────────────────────────────────────────────────────────────────────────────────────────────── */
+.theme-tenant [data-enterprise-shell] {
+  --color-app-bg: var(--ent-page-bg);
+  --color-paper: #ffffff;
+  --color-paper-2: color-mix(in srgb, var(--brand-50, #f2f7ff) 70%, #ffffff);
+  background: var(--ent-page-bg);
+}
+.theme-tenant .ent-sidebar {
+  width: var(--ent-sidebar-w);
+  background: var(--ent-sidebar-bg);
+  border-radius: 0 20px 20px 0;
+  box-shadow: 0 0 28px rgba(30, 64, 120, 0.07);
+}
+.theme-tenant .ent-sidebar[data-rail="true"] {
+  width: 64px;
+}
+.theme-tenant .ent-sidebar-head {
+  height: clamp(52px, 3.5vw, 60px);
+  padding-left: clamp(16px, 1.4vw, 23px);
+  padding-right: 12px;
+}
+.theme-tenant .ent-sidebar[data-rail="true"] .ent-sidebar-head {
+  padding-left: 0;
+  padding-right: 0;
+}
+.theme-tenant .ent-wordmark {
+  font-size: clamp(19px, 1.43vw, 24px);
+  color: var(--ent-title);
+}
+/* the menu scrolls by itself: the board's grey thumb, 8 px, no track */
+.theme-tenant .ent-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #b4bccf transparent;
+}
+.theme-tenant .ent-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.theme-tenant .ent-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.theme-tenant .ent-scroll::-webkit-scrollbar-thumb {
+  background: #b4bccf;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+.theme-tenant .ent-nav {
+  padding: 4px clamp(8px, 0.72vw, 12px) 12px;
+  line-height: 1;
+  font-size: var(--ent-fs);
+}
+.theme-tenant .ent-nav-sep {
+  margin: clamp(5px, 0.42vw, 7px) clamp(8px, 0.9vw, 14px);
+  border-top: 1px solid #e2e8f3;
+}
+.theme-tenant .ent-nav-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: clamp(28px, 1.93vw, 32.2px);
+  gap: clamp(10px, 0.96vw, 16px);
+  padding: 0 4px 0 clamp(8px, 1.1vw, 19px);
+  border-radius: 10px;
+  font-size: var(--ent-fs);
+  font-weight: 500;
+  line-height: 1.15;
+  color: var(--ent-nav-text);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.theme-tenant .ent-nav-row:hover {
+  background: color-mix(in srgb, var(--color-accent-soft) 55%, transparent);
+  color: var(--ent-title);
+}
+.theme-tenant .ent-nav-row > svg {
+  width: 1.33em;
+  height: 1.33em;
+  flex: none;
+  color: var(--ent-nav-icon);
+}
+.theme-tenant .ent-nav-row[aria-current="page"] {
+  min-height: clamp(30px, 2.1vw, 35px);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-deep);
+  font-weight: 600;
+}
+.theme-tenant .ent-nav-row[aria-current="page"] > svg {
+  color: var(--color-accent);
+}
+.theme-tenant .ent-nav-row[data-rail="true"] {
+  justify-content: center;
+  padding: 0;
+}
+
+/* the header: title + one-line subtitle, wide search, bell, profile chip */
+.theme-tenant .ent-header {
+  min-height: clamp(76px, 5.7vw, 96px);
+  padding-left: calc(var(--ent-shell-px) + clamp(4px, 0.7vw, 12px)); /* the board's title sits a little right of the tiles */
+  padding-right: var(--ent-shell-px-end);
+  gap: clamp(12px, 1.2vw, 20px);
+}
+.theme-tenant .ent-title {
+  font-size: clamp(28px, 2.03vw, 34px);
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  color: var(--ent-title);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.theme-tenant .ent-subtitle {
+  margin-top: 2px;
+  font-size: clamp(13px, 0.96vw, 16px);
+  line-height: 1.3;
+  color: #46527e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.theme-tenant .ent-search-wrap {
+  width: clamp(330px, 26.3vw, 440px);
+}
+.theme-tenant .ent-search {
+  height: clamp(42px, 2.75vw, 46px);
+  border-radius: 12px;
+  border: 1px solid #cfe0f7;
+  background: #f4f8ff;
+  font-size: clamp(12.5px, 0.84vw, 14px);
+}
+.theme-tenant .ent-profile {
+  height: clamp(50px, 3.3vw, 56px);
+  border-radius: 16px;
+  border: 1px solid #e6ecf6;
+  background: #f9fbff;
+  padding: 0 clamp(8px, 0.9vw, 14px) 0 clamp(6px, 0.6vw, 10px);
+  box-shadow: none;
+}
+.theme-tenant main[data-shell-main] {
+  padding-left: var(--ent-shell-px);
+  padding-right: var(--ent-shell-px-end);
+}
+
+/* ── cards ───────────────────────────────────────────────────────────────────────────────────────────────────────── */
+.theme-tenant .ent-card {
+  background: #ffffff;
+  border: 1px solid var(--ent-card-border);
+  border-radius: var(--ent-card-radius);
+  box-shadow: var(--ent-card-shadow);
+}
+
+/* ── KPI tiles ───────────────────────────────────────────────────────────────────────────────────────────────────── */
+.theme-tenant .ent-kpi-chip {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+}
+.theme-tenant .ent-kpi-chip[data-tone="violet"] { background: var(--ent-kpi-violet-bg); color: var(--ent-kpi-violet-fg); }
+.theme-tenant .ent-kpi-chip[data-tone="green"] { background: var(--ent-kpi-green-bg); color: var(--ent-kpi-green-fg); }
+.theme-tenant .ent-kpi-chip[data-tone="blue"] { background: var(--ent-kpi-blue-bg); color: var(--ent-kpi-blue-fg); }
+.theme-tenant .ent-kpi-chip[data-tone="orange"] { background: var(--ent-kpi-orange-bg); color: var(--ent-kpi-orange-fg); }
+.theme-tenant .ent-kpi-chip[data-tone="indigo"] { background: var(--ent-kpi-indigo-bg); color: var(--ent-kpi-indigo-fg); }
+.theme-tenant .ent-kpi-chip[data-tone="pink"] { background: var(--ent-kpi-pink-bg); color: var(--ent-kpi-pink-fg); }
+.theme-tenant .ent-kpi-label { font-size: 14.5px; font-weight: 500; color: #2a3667; }
+.theme-tenant .ent-kpi-value { font-size: 30px; font-weight: 800; line-height: 1; letter-spacing: -0.01em; color: var(--ent-title); font-variant-numeric: tabular-nums; }
+.theme-tenant .ent-kpi-delta[data-good="true"] { color: var(--ent-kpi-good); }
+.theme-tenant .ent-kpi-delta[data-good="false"] { color: var(--ent-kpi-bad); }
+
+/* ── pills ───────────────────────────────────────────────────────────────────────────────────────────────────────── */
+.theme-tenant .ent-pill,
+.theme-tenant [data-state-pill] {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 3px 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.theme-tenant .ent-pill[data-shape="round"] { border-radius: 999px; }
+.theme-tenant .ent-pill[data-tone="green"], .theme-tenant [data-state-pill][data-tone="green"] { background: var(--ent-pill-green-bg); color: var(--ent-pill-green-fg); }
+.theme-tenant .ent-pill[data-tone="amber"], .theme-tenant [data-state-pill][data-tone="amber"] { background: var(--ent-pill-amber-bg); color: var(--ent-pill-amber-fg); }
+.theme-tenant .ent-pill[data-tone="red"], .theme-tenant [data-state-pill][data-tone="red"] { background: var(--ent-pill-red-bg); color: var(--ent-pill-red-fg); }
+.theme-tenant .ent-pill[data-tone="purple"], .theme-tenant [data-state-pill][data-tone="purple"] { background: var(--ent-pill-purple-bg); color: var(--ent-pill-purple-fg); }
+.theme-tenant .ent-pill[data-tone="blue"], .theme-tenant [data-state-pill][data-tone="blue"] { background: var(--ent-pill-blue-bg); color: var(--ent-pill-blue-fg); }
+.theme-tenant .ent-pill[data-tone="pink"] { background: var(--ent-pill-pink-bg); color: var(--ent-pill-pink-fg); }
+.theme-tenant .ent-pill[data-tone="grey"], .theme-tenant [data-state-pill][data-tone="grey"] { background: var(--ent-pill-grey-bg); color: var(--ent-pill-grey-fg); }
+/* the outlined billing tones keep their outline, in the same colours */
+.theme-tenant [data-state-pill][data-tone="amber-outline"] { background: transparent; color: var(--ent-pill-amber-fg); border: 1px solid currentColor; }
+.theme-tenant [data-state-pill][data-tone="grey-outline"] { background: transparent; color: var(--ent-pill-grey-fg); border: 1px solid #d3dae8; }
+
+/* ── tables and filter bars (low specificity on purpose: a page's own rule wins) ─────────────────────────────────── */
+.theme-tenant :where(main[data-shell-main] table thead) {
+  background: var(--ent-table-head-bg);
+}
+.theme-tenant :where(main[data-shell-main] table thead th) {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ent-title);
+}
+.theme-tenant :where(main[data-shell-main] table tbody tr) {
+  border-color: var(--ent-table-line);
+}
+.theme-tenant :where(main[data-shell-main] table tbody td) {
+  font-size: 13.5px;
+}
+.theme-tenant :where(main[data-shell-main] [role="search"] input[type="search"]) {
+  background: var(--ent-field-bg);
+  border-color: color-mix(in srgb, var(--color-accent) 18%, var(--ent-control-border));
+  border-radius: var(--ent-control-radius);
+  min-height: var(--ent-control-h);
+}
+.theme-tenant :where(main[data-shell-main] [role="search"] button[aria-haspopup]) {
+  background: #ffffff;
+  border-color: var(--ent-control-border);
+  border-radius: var(--ent-control-radius);
+  min-height: var(--ent-control-h);
+  font-size: 13.5px;
+}
