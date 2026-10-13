@@ -11,10 +11,10 @@ resolution, branded login, shell, roles/permissions, org admin pages) plus the s
 (clients, consultants, jobs, applications, interviews, placements, resumes, seed data).
 ```
 git fetch origin
-git checkout -b ent-consultant-ws origin/ent-talent
+git checkout -b ent-talent-consultant origin/ent-talent
 ```
-Never commit to `ent-talent`, `version2`, `main` or any branch you did not create. Do not push to those. Push only your own branch
-(`origin ent-consultant-ws`, or `ent-consultant-<page>` per page if you split the work).
+Never commit to `ent-talent` (it is the frozen shared base for every role), `version2`, `main` or any branch you did not create. Do not push to those. Push only your own branch
+(`origin ent-talent-consultant`, or `ent-talent-consultant-<page>` per page if you split the work).
 
 **First tasks (in order):**
 1. Read this file, `CLAUDE.md` (hard rules), `docs/HANDOFF-ENTERPRISE-ADMIN.md`, `docs/enterprise-v2/real-stack-runbook.md`,

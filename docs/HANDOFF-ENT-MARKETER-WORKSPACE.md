@@ -13,7 +13,7 @@ resolution, branded login, shell, roles/permissions, org admin pages) plus the s
 git fetch origin
 git checkout -b ent-talent-marketer origin/ent-talent
 ```
-Never commit to `ent-talent`, `version2`, `main` or any branch you did not create. Do not push to those. Push only your own branch
+Never commit to `ent-talent` (it is the frozen shared base for every role), `version2`, `main` or any branch you did not create. Do not push to those. Push only your own branch
 (`origin ent-talent-marketer`, or `ent-talent-marketer-<page>` per page if you split the work).
 
 **First tasks (in order):**
