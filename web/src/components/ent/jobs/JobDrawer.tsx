@@ -410,10 +410,10 @@ export default function JobDrawer(p: JobDrawerProps) {
         </div>
         <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DrawerTab)} variant="underline" className="mt-4">
           <TabList aria-label="Job details">
-            <Tab value="overview" className="!px-2.5 !text-[13px]">Overview</Tab>
-            <Tab value="matches" className="!px-2.5 !text-[13px]">Top Matches ({d.topMatches.filter((m) => m.status !== "DISMISSED").length})</Tab>
-            <Tab value="submissions" className="!px-2.5 !text-[13px]">Submissions ({d.submissionCount})</Tab>
-            <Tab value="activity" className="!px-2.5 !text-[13px]">Activity</Tab>
+            <Tab value="overview" className="!px-2 !text-[12.5px]">Overview</Tab>
+            <Tab value="matches" className="!px-2 !text-[12.5px]">Top Matches ({d.topMatches.filter((m) => m.status !== "DISMISSED").length})</Tab>
+            <Tab value="submissions" className="!px-2 !text-[12.5px]">Submissions ({d.submissionCount})</Tab>
+            <Tab value="activity" className="!px-2 !text-[12.5px]">Activity</Tab>
           </TabList>
           <TabPanel value="overview" className="pt-4">
             <Overview orgId={p.orgId} d={d} replace={replaceAndNotify} onChanged={p.onChanged} onTab={p.onTab} save={save} contacts={contacts} editing={editing} />

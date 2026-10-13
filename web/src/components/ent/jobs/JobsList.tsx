@@ -48,7 +48,7 @@ export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpe
                   onOpen(r);
                 }
               }}
-              className={`flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-3 px-3.5 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent lg:grid lg:grid-cols-[20px_minmax(0,1fr)_56px_104px_76px_84px_34px] ${open || selected.has(r.id) ? "bg-accent-soft/60" : "hover:bg-paper-2/50"}`}
+              className={`flex cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-3 px-3 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent lg:grid lg:grid-cols-[20px_minmax(0,1fr)_68px_92px_76px_80px_34px] ${open || selected.has(r.id) ? "bg-accent-soft/60" : "hover:bg-paper-2/50"}`}
             >
               <div>
                 <Check checked={selected.has(r.id)} onChange={() => onToggle(r.id)} label={`Select ${r.title} at ${r.client.name}`} />
@@ -76,7 +76,7 @@ export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpe
               </div>
               <div className="text-center" data-submissions>
                 <p className="text-[18px] font-bold leading-tight text-ink tabular-nums">{r.submissions}</p>
-                <p className="text-[11.5px] text-muted">{r.submissions === 1 ? "Submission" : "Submissions"}</p>
+                <p className="text-[11px] text-muted">{r.submissions === 1 ? "Submission" : "Submissions"}</p>
               </div>
               <div>
                 <MatchStack matches={r.matches} />
