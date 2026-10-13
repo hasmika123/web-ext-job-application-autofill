@@ -33,7 +33,7 @@
     "R2.4",
     "R2.5",
     "R2.6",
-    "R2.11",
+    "R2.13",
     "R3.7",
     "R3.9",
     "R3.11",
@@ -1315,7 +1315,7 @@
       ]
     },
     {
-      "id": "R2.11",
+      "id": "R2.13",
       "epic": "R2",
       "title": "Edit an uploaded resume in the builder (convert on Edit / on open) + friendly resume-cap dialog",
       "status": "done",
