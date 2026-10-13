@@ -109,6 +109,10 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
             ? accessService.requireMember(orgId)
             : accessService.requireAll(orgId, java.util.List.of(required.value()));
         request.setAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, membership);
+        // X1.10: the member id (a number, never a login) joins tenant/host in the MDC for the rest of the request; only with enterprise on
+        if (enterpriseFlag != null && enterpriseFlag.isEnabled() && membership.memberId() != null) {
+            org.slf4j.MDC.put(MDC_MEMBER, String.valueOf(membership.memberId()));
+        }
         return true;
     }
 
@@ -163,6 +167,13 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
             throw new OrgNotFoundException(); // a member id that is not a number names nobody
         }
     }
+    /** Cleared when the request is done, whatever the outcome, so a pooled thread never carries the member on to the next request. */
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+        org.slf4j.MDC.remove(MDC_MEMBER);
+    }
+
+    static final String MDC_MEMBER = "member";
 
     private static Long parse(String raw) {
         if (raw == null) throw new OrgNotFoundException(); // a handler that asks for the check but has no {orgId}: nothing to scope to

@@ -62,6 +62,8 @@ class EntTenancyMigrationIT {
                 try (Liquibase lb = new Liquibase("config/liquibase/master.xml", new ClassLoaderResourceAccessor(), db)) {
                     List<ChangeSet> all = lb.listUnrunChangeSets(new Contexts(CONTEXTS), new LabelExpression());
                     long tenancy = all.stream().filter(c -> c.getId().startsWith(TENANCY_PREFIX)).count();
+                    // later Enterprise V2 changelogs (branding publish, X2.5) sit AFTER the tenancy one: leave them unrun too
+                    long afterTenancy = all.stream().filter(c -> c.getId().startsWith("20261016010000-")).count();
                     assertThat(tenancy).as("the tenancy changesets are in the changelog").isGreaterThanOrEqualTo(6);
                     int firstTenancy = -1;
                     for (int i = 0; i < all.size() && firstTenancy < 0; i++) if (all.get(i).getId().startsWith(TENANCY_PREFIX)) firstTenancy = i;
@@ -96,7 +98,7 @@ class EntTenancyMigrationIT {
                         .as("organization.type is still NOT NULL").isInstanceOf(SQLException.class);
 
                     // the three new tables exist and the generated keys are enforced by the database itself
-                    for (String table : List.of("org_hostname", "org_branding", "org_setting")) assertThat(tableExists(conn, scratch, table)).as(table).isTrue();
+                    for (String table : List.of("org_hostname", "org_branding", "org_setting", "org_branding_version")) assertThat(tableExists(conn, scratch, table)).as(table).isTrue();
                     String orgId = scalar(conn, "SELECT id FROM organization WHERE slug='mig-org'");
                     exec(conn, "INSERT INTO org_hostname (org_id, hostname, kind, status, is_primary, cert_state, created_at, updated_at) VALUES (" + orgId + ",'careers.mig.com','CUSTOM','ACTIVE',1,'NONE',NOW(6),NOW(6))");
                     assertThatThrownBy(() -> exec(conn, "INSERT INTO org_hostname (org_id, hostname, kind, status, is_primary, cert_state, created_at, updated_at) VALUES (" + orgId + ",'careers.mig.com','CUSTOM','PENDING',0,'NONE',NOW(6),NOW(6))"))

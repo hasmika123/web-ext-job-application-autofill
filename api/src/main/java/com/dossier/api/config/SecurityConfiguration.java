@@ -48,6 +48,8 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/demo")).permitAll()
                     // Enterprise V2 (X1.3): the host-derived public view of a tenant. 404 while enterprise is off or the host is unknown.
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/assets/*")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.HEAD, "/api/public/tenant/assets/*")).permitAll()
                     // The two public on/off switches (orgs, demo): booleans only, cached, never per-user (PublicConfigResource).
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/config/public")).permitAll()
                     // Resume share links (R3.11): the 32-char token is the credential. GET only; the resource

@@ -143,10 +143,37 @@ export type { MenuProps, MenuItem, MenuHeading, MenuSeparator, MenuEntry } from 
 export { Mark, Wordmark, BrandLockup, Check } from "./primitives/Brand";
 export type { MarkProps, WordmarkProps, BrandLockupProps } from "./primitives/Brand";
 
+/* ── The ENTERPRISE bee (X2.8): never the regular Kiwiply mascot; not for (marketing)/(app)/(org)/(admin) pages ── */
+export { default as MascotPose, MascotProvider, useMascotBase, MASCOT_POSES, POSE_KEYS, MASCOT_HEIGHT, DEFAULT_MASCOT_BASE, poseUrl, poseSize, celebrate } from "./primitives/MascotPose";
+export type { EnterprisePose, MascotPoseProps, MascotSize, PoseDef } from "./primitives/MascotPose";
+
+/* ── The enterprise kit (X2.15): FilterBar, DataTable, ReasonSheet, StatePill, MoneyText, KanbanBoard, ... ── */
+export * from "./enterprise";
+
 export * from "./primitives/icons";
 export * from "./primitives/doodles";
 
 export { cn } from "./primitives/cn";
+
+/* ── Tenant brand colours (Enterprise V2 X2.12): two hex colours -> a contrast-safe variable set ─ */
+export {
+  AA_BODY,
+  AA_LARGE,
+  DARK_SURFACE,
+  DEFAULT_PRIMARY,
+  DEFAULT_SECONDARY,
+  LIGHT_SURFACE,
+  STEPS as BRAND_STEPS,
+  brandScale,
+  contrastRatio,
+  isHex as isHexColor,
+  onColor,
+  rolesFor as brandRoles,
+  tenantThemeCss,
+  tenantThemeVars,
+  whiteTextCheck,
+} from "./color/brand";
+export type { BrandRoles, Scale as BrandScale, Step as BrandStep } from "./color/brand";
 
 /* ── Never-collected values detector (Resume Builder R1.1; twin of the API's SensitivePatterns) ─ */
 /* Aliased with a "Sensitive" tag because `scan` / `redact` are too generic for a package barrel. */

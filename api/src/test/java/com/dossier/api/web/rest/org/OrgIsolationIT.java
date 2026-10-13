@@ -5,6 +5,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.AppSetting;
+import com.dossier.api.domain.ent.OrgBranding;
+import com.dossier.api.domain.ent.OrgBrandingVersion;
 import com.dossier.api.domain.enumeration.OrgGroupKind;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgPermission;
@@ -20,6 +22,8 @@ import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.repository.ent.OrgBrandingRepository;
+import com.dossier.api.repository.ent.OrgBrandingVersionRepository;
 import com.dossier.api.repository.org.DataShareEventRepository;
 import com.dossier.api.repository.org.DataShareRepository;
 import com.dossier.api.repository.org.OrgAuditEventRepository;
@@ -61,6 +65,7 @@ import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.AssignableTypeFilter;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.repository.Repository;
 import org.springframework.http.HttpMethod;
@@ -103,13 +108,18 @@ class OrgIsolationIT {
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
 
     /** How to attack a route, and what a legitimate call by the org's owner must do. */
-    private record Case(String body, int legitStatus, String auditAction) {
+    private record Case(String body, int legitStatus, String auditAction, boolean multipart) {
         static Case read() {
-            return new Case(null, 200, null);
+            return new Case(null, 200, null, false);
         }
 
         static Case write(String body, int status, String action) {
-            return new Case(body, status, action);
+            return new Case(body, status, action, false);
+        }
+
+        /** A multipart upload (field "file", a small valid PNG) instead of a JSON body. */
+        static Case upload(int status, String action) {
+            return new Case(null, status, action, true);
         }
     }
 
@@ -125,7 +135,16 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/groups", Case.write("{\"name\":\"Hijack\"}", 201, OrgAuditService.GROUP_CREATE)),
         Map.entry("PATCH /api/orgs/{orgId}/groups/{groupId}", Case.write("{\"name\":\"Hijack\"}", 200, OrgAuditService.GROUP_UPDATE)),
         Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}", Case.write(null, 204, OrgAuditService.GROUP_DELETE)),
-        Map.entry("GET /api/orgs/{orgId}/roles", Case.read())
+        Map.entry("GET /api/orgs/{orgId}/roles", Case.read()),
+        // Enterprise V2 X2.5: branding. Draft edits, discards and removing an absent asset write no audit row (by design).
+        Map.entry("GET /api/orgs/{orgId}/branding", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/branding/preview-theme", Case.read()),
+        Map.entry("PATCH /api/orgs/{orgId}/branding/draft", Case.write("{\"welcomeTitle\":\"Hijacked\"}", 200, null)),
+        Map.entry("POST /api/orgs/{orgId}/branding/publish", Case.write(null, 200, OrgAuditService.BRANDING_PUBLISH)),
+        Map.entry("POST /api/orgs/{orgId}/branding/discard", Case.write(null, 200, null)),
+        Map.entry("POST /api/orgs/{orgId}/branding/versions/{versionNo}/restore", Case.write(null, 200, OrgAuditService.BRANDING_RESTORE)),
+        Map.entry("POST /api/orgs/{orgId}/branding/assets/{kind}", Case.upload(200, OrgAuditService.BRANDING_ASSET)),
+        Map.entry("DELETE /api/orgs/{orgId}/branding/assets/{kind}", Case.write(null, 200, null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -167,6 +186,8 @@ class OrgIsolationIT {
         for (AppSetting row : settingRows.findAll()) if (FLAG_WRITER.equals(row.getUpdatedBy())) settingRows.delete(row);
         settingsCache.invalidate();
     }
+    @Autowired private OrgBrandingRepository brandings;
+    @Autowired private OrgBrandingVersionRepository brandingVersions;
 
     private OrgFixtures fx;
 
@@ -182,6 +203,7 @@ class OrgIsolationIT {
         final OrgJoinCode code;
         final OrgDomain domain;
         final OrgAuditEvent auditRow;
+        int brandingVersionNo;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -234,6 +256,20 @@ class OrgIsolationIT {
             e.setTargetId(String.valueOf(org.getId()));
             auditRow = audit.save(e);
 
+            // X2.5: one branding row (unpublished) and one published version. The version number differs per world kind so
+            // "B's owner with A's row id" names a version B does not have.
+            OrgBranding br = new OrgBranding();
+            br.setOrgId(org.getId());
+            br.setPrimaryColor("#0f5fc4");
+            br.setWelcomeTitle(prefix + " welcome");
+            brandings.saveAndFlush(br);
+            OrgBrandingVersion bv = new OrgBrandingVersion();
+            bv.setOrgId(org.getId());
+            bv.setVersionNo(everyRole ? 5 : 6);
+            bv.setSnapshotJson("{\"primary\":\"#0f5fc4\"}");
+            brandingVersions.save(bv);
+            brandingVersionNo = bv.getVersionNo();
+
             // The member shares a summary with their org: one data_share row and its event.
             dataShare.grant(me(member), ShareScope.SUMMARY, null, OrgShareConsent.CURRENT, ShareContext.EMPTY);
             em.flush();
@@ -252,6 +288,8 @@ class OrgIsolationIT {
             Map<String, String> ids = new LinkedHashMap<>();
             ids.put("orgId", String.valueOf(org.getId()));
             ids.put("groupId", String.valueOf(group.getId()));
+            ids.put("versionNo", String.valueOf(brandingVersionNo));
+            ids.put("kind", "logo");
             return ids;
         }
 
@@ -303,9 +341,23 @@ class OrgIsolationIT {
     // ---- requests -------------------------------------------------------------------------------------------------
 
     private MockHttpServletRequestBuilder request(Route route, String uri) {
+        if (COVERAGE.get(route.key()).multipart()) {
+            return MockMvcRequestBuilders.multipart(HttpMethod.valueOf(route.method()), uri).file(new MockMultipartFile("file", "logo.png", "image/png", samplePng()));
+        }
         MockHttpServletRequestBuilder req = MockMvcRequestBuilders.request(HttpMethod.valueOf(route.method()), uri).contentType(MediaType.APPLICATION_JSON);
         String body = COVERAGE.get(route.key()).body();
         return body == null ? req : req.content(body);
+    }
+
+    private static byte[] samplePng() {
+        try {
+            java.awt.image.BufferedImage img = new java.awt.image.BufferedImage(160, 80, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "png", out);
+            return out.toByteArray();
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private MvcResult hostile(Route route, String uri, org.springframework.test.web.servlet.request.RequestPostProcessor caller) throws Exception {
@@ -337,6 +389,8 @@ class OrgIsolationIT {
         s.append("batches:").append(batches.findByOrgIdOrderByCreatedAtDesc(w.org.getId()).size()).append('\n');
         s.append("codes:").append(codes.findByOrgIdOrderByCreatedAtDesc(w.org.getId()).stream().map(c -> c.getCode() + "|" + c.getUses() + "|" + c.getRevokedAt()).toList()).append('\n');
         s.append("domains:").append(domains.findByOrgIdOrderByDomain(w.org.getId()).stream().map(d -> d.getDomain() + "|" + d.getVerifiedAt()).toList()).append('\n');
+        brandings.findByOrgId(w.org.getId()).ifPresent(b -> s.append("branding:").append(b.getPrimaryColor()).append('|').append(b.getWelcomeTitle()).append('|').append(b.getDraftJson()).append('|').append(b.getDraftVersion()).append('|').append(b.getPublishedAt()).append('|').append(b.getLogoKey()).append('\n'));
+        s.append("brandingVersions:").append(brandingVersions.findAllByOrgIdNewestFirst(w.org.getId()).stream().map(v -> v.getVersionNo() + "|" + v.getSnapshotJson()).toList()).append('\n');
         s.append("audit:").append(audit.countByOrgId(w.org.getId())).append('\n');
         s.append("events:").append(shareEvents.countByOrgId(w.org.getId())).append('\n');
         return s.toString();
@@ -419,7 +473,7 @@ class OrgIsolationIT {
             if (ids.equals(b.ids())) continue; // the route has no row id: nothing of A's to name
             Matcher m = VAR.matcher(route.pattern());
             boolean hasRowId = false;
-            while (m.find()) hasRowId |= !m.group(1).equals("orgId");
+            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind");
             if (!hasRowId) continue;
             assertGeneric404(hostile(route, uri(route, ids), user("bravo-owner")), route.key() + " as B's owner with B's orgId and A's row id");
             variants++;

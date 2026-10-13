@@ -943,6 +943,18 @@ export function GoogleIcon({ size = 18, className, ...props }: IconProps) {
   );
 }
 
+/** Microsoft four-square logo - official brand colors, so it ignores currentColor on purpose (the "Sign in with Microsoft" button). */
+export function MicrosoftIcon({ size = 20, className, ...props }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden className={className} {...props}>
+      <path fill="#F25022" d="M2 2h9.5v9.5H2z" />
+      <path fill="#7FBA00" d="M12.5 2H22v9.5h-9.5z" />
+      <path fill="#00A4EF" d="M2 12.5h9.5V22H2z" />
+      <path fill="#FFB900" d="M12.5 12.5H22V22h-9.5z" />
+    </svg>
+  );
+}
+
 /** Open book (guides / help center). */
 export const BookOpenIcon = makeIcon("BookOpenIcon", {
   node: (
@@ -1024,6 +1036,47 @@ export const ListOrderedIcon = makeIcon("ListOrderedIcon", {
     <>
       <path d="M11 6h9M11 12h9M11 18h9" />
       <path d="M4 5.2l1.4-.7V9M4 15.5a1.4 1.4 0 0 1 2.7.3c0 .8-.6 1.2-1.3 1.7L4 18.4h2.9" strokeWidth={1.5} />
+    </>
+  ),
+});
+
+/* ── Enterprise V2 kit (X2.15). BriefcaseIcon, ShieldCheckIcon and BuildingIcon already exist above. ── */
+export const HandshakeIcon = makeIcon("HandshakeIcon", {
+  node: (
+    <>
+      <path d="M2.5 11l3-3.5 4 1 3-1.5 3.5 1 3-1 3 4" />
+      <path d="M2.5 11l2.5 2.5M5 13.5l3.5 3 2-1.5M8.5 16.5l2 1.5 2.5-1.5M13 16.5l2 1.5 3.5-3.5L21.5 11" />
+      <path d="M9.5 8.5L12 12l3-2" />
+    </>
+  ),
+});
+
+export const CalendarCheckIcon = makeIcon("CalendarCheckIcon", {
+  node: (
+    <>
+      <rect x="3.5" y="5" width="17" height="15" rx="2.2" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+      <path d="M9 15l2.2 2.2L15.5 13" />
+    </>
+  ),
+});
+
+export const ClipboardCheckIcon = makeIcon("ClipboardCheckIcon", {
+  node: (
+    <>
+      <rect x="5" y="4.5" width="14" height="16.5" rx="2.2" />
+      <path d="M9 4.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5" />
+      <path d="M9 13.2l2.2 2.2L15.2 11" />
+    </>
+  ),
+});
+
+export const RouteIcon = makeIcon("RouteIcon", {
+  node: (
+    <>
+      <circle cx="6" cy="18" r="2.2" />
+      <circle cx="18" cy="6" r="2.2" />
+      <path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8" />
     </>
   ),
 });

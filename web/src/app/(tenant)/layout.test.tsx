@@ -23,7 +23,15 @@ describe("(tenant)/_t layout: three branches", () => {
     const html = renderToStaticMarkup(await TenantTreeLayout({ children: <p>inside</p> }));
     expect(html).toContain("inside");
     const meta = await generateMetadata();
-    expect(meta.title).toEqual({ absolute: "Acme Staffing" });
+    expect(meta.title).toEqual({ template: "%s · Acme Staffing", default: "Acme Staffing" });
+    expect(meta.icons).toBeUndefined();
+  });
+
+  it("uses the tenant's favicon from the same-origin asset route when one is published", async () => {
+    state.value = { kind: "TENANT", tenant: { kind: "TENANT", displayName: "Acme", branding: { faviconUrl: "/tenant-assets/favicon?v=4" } } };
+    const meta = await generateMetadata();
+    expect(meta.icons).toEqual({ icon: "/tenant-assets/favicon?v=4", apple: "/tenant-assets/favicon?v=4" });
+    expect(meta.openGraph).toBeUndefined();
   });
 
   it("UNKNOWN answers notFound() and a bare title", async () => {

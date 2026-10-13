@@ -32,9 +32,11 @@ export interface PublicTenant {
     theme?: "LIGHT" | "DARK" | "SYSTEM" | null;
     welcomeTitle?: string | null;
     welcomeMessage?: string | null;
+    supportEmail?: string | null;
+    featureChips?: string[] | null;
     terminology?: Record<string, string> | null;
   } | null;
-  login?: { password: boolean; google: boolean; mfaRequired: boolean } | null;
+  login?: { password: boolean; google: boolean; mfaRequired: boolean; microsoft?: boolean } | null;
 }
 
 export type TenantResolution = { kind: "PLATFORM" } | { kind: "UNKNOWN" } | { kind: "UNAVAILABLE" } | { kind: "TENANT"; tenant: PublicTenant };

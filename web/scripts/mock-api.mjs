@@ -15,6 +15,7 @@
 import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
 import { createJobsMock } from "./mock-jobs.mjs";
+import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset } from "./mock-tenants.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -75,14 +76,6 @@ const EMPTY_BIOS = new Map();
 // X1.4: the enterprise master flag (public config `enterprise`) and the tenant hosts the mock serves.
 const ENTERPRISE_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_ENTERPRISE_ENABLED ?? "true");
 const PLATFORM_MOCK_HOSTS = new Set(["", "localhost", "127.0.0.1", "[::1]"]);
-const MOCK_TENANTS = {
-  "acme.localhost": {
-    kind: "TENANT",
-    displayName: "Acme Staffing",
-    branding: { primary: "#0b6e4f", theme: "SYSTEM", welcomeTitle: "Welcome to Acme", welcomeMessage: "Sign in with your Acme account." },
-    login: { password: true, google: false, mfaRequired: false },
-  },
-};
 /** Last X-Kiwiply-Host seen per API path, readable at GET /__mock/seen-hosts (web route tests assert the BFF forwards it). */
 const seenHosts = new Map();
 // Mirrors the real API's DEMO_ENABLED config flag: MOCK_DEMO_ENABLED=false turns the demo off (default on).
@@ -1838,6 +1831,24 @@ const server = http.createServer((req, res) => {
     return tenant ? json(res, 200, tenant) : json(res, 404, { code: "NOT_FOUND", message: "error.org" });
   }
 
+  // GET|HEAD /api/public/tenant/assets/{kind}: the published logo of the forwarded host (X2.13). Host-scoped, ETag + 304.
+  {
+    const m = /^\/api\/public\/tenant\/assets\/([a-z]+)$/.exec(path);
+    if (m && (method === "GET" || method === "HEAD")) {
+      const raw = req.headers["x-kiwiply-host"];
+      const host = (typeof raw === "string" ? raw : "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "");
+      const asset = ENTERPRISE_ENABLED && typeof raw === "string" ? mockTenantAsset(host, m[1]) : null;
+      if (!asset) return json(res, 404, { code: "NOT_FOUND", message: "error.org" });
+      const headers = { "cache-control": "public, max-age=86400", etag: asset.etag, vary: "X-Kiwiply-Host", "x-content-type-options": "nosniff" };
+      if (req.headers["if-none-match"] === asset.etag) {
+        res.writeHead(304, headers);
+        return res.end();
+      }
+      res.writeHead(200, { ...headers, "content-type": asset.type, "content-length": asset.body.length });
+      return res.end(method === "HEAD" ? undefined : asset.body);
+    }
+  }
+
   if (path === "/api/authenticate/demo" && method === "POST") {
     if (!DEMO_ENABLED) {
       req.resume();
@@ -1851,6 +1862,15 @@ const server = http.createServer((req, res) => {
   if (path === "/api/authenticate" && method === "POST") {
     return withBody(req, (b) => {
       const who = String(b.username ?? "").trim().toLowerCase();
+      // On a tenant host (X2.3): owner@<org>.com signs in on that host only; the other org's owner is a 403 NOT_A_MEMBER.
+      const rawHost = req.headers["x-kiwiply-host"];
+      const tenantHost = (typeof rawHost === "string" ? rawHost : "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "");
+      if (MOCK_TENANTS[tenantHost]) {
+        const hosts = MOCK_TENANT_USERS[who];
+        if (!hosts || b.password !== MOCK_TENANT_PASSWORD) return json(res, 401, { error: "Bad credentials" });
+        if (!hosts.includes(tenantHost)) return json(res, 403, { code: "NOT_A_MEMBER", message: "error.org" });
+        return json(res, 200, pair(who));
+      }
       const hit = Object.values(FIXTURE_ACCOUNTS).find((a) => a.login.toLowerCase() === who || a.email.toLowerCase() === who);
       return hit && hit.password === b.password ? json(res, 200, pair(hit.login)) : json(res, 401, { error: "Bad credentials" });
     });

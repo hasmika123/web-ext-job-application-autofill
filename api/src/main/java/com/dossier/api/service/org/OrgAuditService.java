@@ -4,6 +4,8 @@ import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.org.OrgAuditEvent;
 import com.dossier.api.repository.org.OrgAuditEventRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.ent.TenantContext;
+import com.dossier.api.service.ent.TenantContextHolder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -64,6 +66,11 @@ public class OrgAuditService {
     /** X1.5: correct credentials on this organization's host by someone with no active seat (recorded in the tenant's own trail). */
     public static final String LOGIN_DENIED_NOT_MEMBER = "LOGIN_DENIED_NOT_MEMBER";
     public static final String TARGET_SESSION = "SESSION";
+    /** X2.5: a branding publish, a restore into the draft, and an asset upload or removal (draft edits and discards write none). */
+    public static final String BRANDING_PUBLISH = "BRANDING_PUBLISH";
+    public static final String BRANDING_RESTORE = "BRANDING_RESTORE";
+    public static final String BRANDING_ASSET = "BRANDING_ASSET";
+    public static final String TARGET_BRANDING = "BRANDING";
 
     // --- Target kinds ---
     public static final String TARGET_ORG = "ORG";
@@ -121,6 +128,30 @@ public class OrgAuditService {
         String details,
         String ipHash
     ) {
+        return record(orgId, actorLogin, actorRole, action, targetType, targetLogin, targetId, details, ipHash, null, null, null);
+    }
+
+    /**
+     * X1.10: the full form. {@code hostnameId} is the tenant hostname the request arrived on; when null it is taken from the
+     * request's tenant context, but ONLY if that context is a tenant host of THIS org (a row never carries another org's
+     * hostname, and a job thread with no context records none). {@code beneficiaryLogin} is who the action was done for
+     * (a marketer acting for a consultant); {@code risk} is LOW / MEDIUM / HIGH and defaults to LOW.
+     */
+    @Transactional
+    public OrgAuditEvent record(
+        Long orgId,
+        String actorLogin,
+        OrgRole actorRole,
+        String action,
+        String targetType,
+        String targetLogin,
+        String targetId,
+        String details,
+        String ipHash,
+        Long hostnameId,
+        String beneficiaryLogin,
+        String risk
+    ) {
         if (orgId == null) throw new IllegalArgumentException("orgId is required");
         if (action == null || action.isBlank()) throw new IllegalArgumentException("action is required");
         if (targetType == null || targetType.isBlank()) throw new IllegalArgumentException("targetType is required");
@@ -134,10 +165,24 @@ public class OrgAuditService {
         e.setTargetId(targetId);
         e.setDetails(details != null && details.length() > DETAILS_MAX ? details.substring(0, DETAILS_MAX) : details);
         e.setIpHash(ipHash);
+        e.setHostnameId(hostnameId != null ? hostnameId : contextHostnameId(orgId));
+        e.setBeneficiaryLogin(beneficiaryLogin);
+        e.setRisk(normalizeRisk(risk));
         e.setCreatedAt(Instant.now());
         OrgAuditEvent saved = repository.save(e);
-        LOG.info("ORG AUDIT org={} actor='{}' action='{}' target='{}:{}'", orgId, actorLogin, action, targetType, targetId);
+        LOG.info("ORG AUDIT org={} host={} actor='{}' action='{}' target='{}:{}' risk={}", orgId, saved.getHostnameId(), actorLogin, action, targetType, targetId, saved.getRisk());
         return saved;
+    }
+
+    private static Long contextHostnameId(Long orgId) {
+        return TenantContextHolder.current().filter(c -> c.isTenant() && orgId.equals(c.orgId())).map(TenantContext::hostnameId).orElse(null);
+    }
+
+    private static String normalizeRisk(String risk) {
+        if (risk == null || risk.isBlank()) return "LOW";
+        String r = risk.trim().toUpperCase(java.util.Locale.ROOT);
+        if (!r.equals("LOW") && !r.equals("MEDIUM") && !r.equals("HIGH") && !r.equals("CRITICAL")) throw new IllegalArgumentException("risk must be LOW, MEDIUM, HIGH or CRITICAL");
+        return r;
     }
 
     /** A denied sign-in on a tenant host: no signed-in caller exists yet, so the actor is the login that tried; carries the hostname row. */
