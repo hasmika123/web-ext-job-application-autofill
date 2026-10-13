@@ -28,7 +28,7 @@ export function StatusPill({ status, className = "", trailing }: { status: strin
 export function SkillChips({ skills, max = 3, size = "sm" }: { skills: string[]; max?: number; size?: "sm" | "md" }) {
   if (skills.length === 0) return null;
   const { shown, more } = skillChips(skills, max);
-  const cls = `inline-flex items-center rounded-md bg-accent-soft font-medium leading-none text-accent-deep ${size === "md" ? "px-2.5 py-1.5 text-[12.5px]" : "px-2.5 py-1.5 text-[12px]"}`;
+  const cls = `inline-flex items-center rounded-md bg-accent-soft font-medium leading-none text-accent-deep ${size === "md" ? "px-2.5 py-1.5 text-[12.5px]" : "px-2 py-1.5 text-[11.5px]"}`;
   return (
     <ul aria-label="Skills" className="flex flex-wrap items-center gap-1.5" data-skill-chips>
       {shown.map((s) => (
@@ -101,7 +101,7 @@ export function Kebab({ items, label = "Row actions" }: { items: MenuEntry[]; la
   return (
     <Menu
       trigger={
-        <IconButton aria-label={label} title={label} className="!h-9 !w-9 border border-line bg-paper text-ink-soft">
+        <IconButton aria-label={label} title={label} className="!h-8 !w-8 border border-line bg-paper text-ink-soft">
           <MoreHorizontalIcon size={16} />
         </IconButton>
       }

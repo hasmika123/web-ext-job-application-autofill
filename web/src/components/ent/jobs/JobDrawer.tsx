@@ -101,12 +101,11 @@ function Loading() {
 function MatchRow({ m, job, canAssign, busy, onAssign, onDismiss, onRestore }: { m: TopMatch; job: JobDetail; canAssign: boolean; busy: boolean; onAssign: () => void; onDismiss: () => void; onRestore: () => void }) {
   const jobOpen = OPEN_STATES.has(job.status);
   return (
-    <li data-match-row={m.matchId} className={`flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
-      <MemberAvatar name={m.name} size={44} />
-      <div className="min-w-[8.5rem] flex-1">
+    <li data-match-row={m.matchId} className={`flex flex-wrap items-center gap-x-2.5 gap-y-2 py-2.5 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
+      <MemberAvatar name={m.name} size={40} />
+      <div className="min-w-[6rem] flex-1">
         <p className="truncate text-[14px] font-bold leading-tight text-ink">{m.name}</p>
-        <p className="truncate text-[12.5px] text-muted">{[m.title, m.availability ? AVAILABILITY_LABEL[m.availability] ?? m.availability : null].filter(Boolean).join(" · ")}</p>
-        {m.reason && <p className="mt-0.5 truncate text-[12px] text-ink-soft" title={m.reason}>{m.reason}</p>}
+        <p className="truncate text-[12.5px] text-muted" title={[m.reason, m.availability ? AVAILABILITY_LABEL[m.availability] ?? m.availability : null].filter(Boolean).join(" · ")}>{m.title ?? ""}</p>
       </div>
       <span className="flex-none text-[13.5px] font-semibold text-v2-green-ink tabular-nums" data-match-score>
         {m.score}% match
@@ -235,10 +234,10 @@ function Overview({ orgId, d, replace, onChanged, onTab, save, contacts, editing
           <Fact icon={<UserIcon size={18} />} label="Client Contact">
             {d.contact ? (
               <span className="mt-1 flex items-center gap-2">
-                <MemberAvatar name={d.contact.name} size={30} />
+                <MemberAvatar name={d.contact.name} size={28} />
                 <span className="min-w-0">
                   <span className="block truncate text-[13px] font-semibold leading-tight text-ink">{d.contact.name}</span>
-                  <span className="block truncate text-[11.5px] font-normal leading-tight text-muted">{d.contact.email ?? d.contact.title ?? ""}</span>
+                  <span className="block truncate text-[11px] font-normal leading-tight tracking-tight text-muted">{d.contact.email ?? d.contact.title ?? ""}</span>
                 </span>
               </span>
             ) : (
@@ -411,10 +410,10 @@ export default function JobDrawer(p: JobDrawerProps) {
         </div>
         <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DrawerTab)} variant="underline" className="mt-4">
           <TabList aria-label="Job details">
-            <Tab value="overview">Overview</Tab>
-            <Tab value="matches">Top Matches ({d.topMatches.filter((m) => m.status !== "DISMISSED").length})</Tab>
-            <Tab value="submissions">Submissions ({d.submissionCount})</Tab>
-            <Tab value="activity">Activity</Tab>
+            <Tab value="overview" className="!px-2.5 !text-[13px]">Overview</Tab>
+            <Tab value="matches" className="!px-2.5 !text-[13px]">Top Matches ({d.topMatches.filter((m) => m.status !== "DISMISSED").length})</Tab>
+            <Tab value="submissions" className="!px-2.5 !text-[13px]">Submissions ({d.submissionCount})</Tab>
+            <Tab value="activity" className="!px-2.5 !text-[13px]">Activity</Tab>
           </TabList>
           <TabPanel value="overview" className="pt-4">
             <Overview orgId={p.orgId} d={d} replace={replaceAndNotify} onChanged={p.onChanged} onTab={p.onTab} save={save} contacts={contacts} editing={editing} />

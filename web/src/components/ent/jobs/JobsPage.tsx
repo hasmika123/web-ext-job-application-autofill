@@ -321,10 +321,10 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
             <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap" data-filters>
               {filterSelects.map((fs) => (
                 <div key={fs.name} className="min-w-0 flex-1 basis-[calc(50%-0.3rem)] sm:basis-0">
-                  <Select className="!min-h-11 !rounded-xl !pl-3 !pr-8 !text-[13px] sm:!min-h-11" aria-label={fs.label} value={query[fs.name]} onChange={(v) => change({ [fs.name]: v } as Partial<JobQuery>)} options={[{ value: "", label: fs.all }, ...fs.options]} />
+                  <Select className="!min-h-11 !rounded-xl !pl-2.5 !pr-7 !text-[12.5px] sm:!min-h-11" aria-label={fs.label} value={query[fs.name]} onChange={(v) => change({ [fs.name]: v } as Partial<JobQuery>)} options={[{ value: "", label: fs.all }, ...fs.options]} />
                 </div>
               ))}
-              <Button type="button" variant="ghost" size="sm" className="min-h-11 flex-none !rounded-xl bg-paper !px-3.5 !text-[13px]" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
+              <Button type="button" variant="ghost" size="sm" className="min-h-11 flex-none !rounded-xl bg-paper !px-3 !text-[12.5px]" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
                 <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
               </Button>
               {filtersOn && (
