@@ -11,11 +11,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * {@link ScopeDirectory} over what exists before X4: a member's one {@code group_id} is their TEAM when that group's kind is TEAM
- * and their DEPARTMENT when it is DEPARTMENT (a COHORT is neither). There are no leads and no group tree yet, so
- * {@link #teamsLedBy}, {@link #departmentsLedBy} and {@link #teamsUnder} are empty: this is a strict subset of the final TEAM and
- * DEPARTMENT rules (the final ones only add leads, hierarchy and the separate team/department links), so it can only
- * under-grant. X4.5/X4.3 replace it.
+ * {@link ScopeDirectory} over {@code org_member.team_group_id / department_group_id} (X4.3) with the pre-X4 single {@code group_id} as
+ * the fallback for a member nobody has placed yet (their TEAM when that group's kind is TEAM, their DEPARTMENT when it is DEPARTMENT; a
+ * COHORT is neither), and the department tree {@code org_group.parent_group_id} for {@link #teamsUnder}. There are no leads yet
+ * ({@link #teamsLedBy} and {@link #departmentsLedBy} stay empty until X4.5 adds {@code lead_member_id}), so this can only
+ * under-grant compared with the final rules.
  */
 @Component
 public class JpaScopeDirectory implements ScopeDirectory {
@@ -36,8 +36,11 @@ public class JpaScopeDirectory implements ScopeDirectory {
         if (r[1] == com.dossier.api.domain.enumeration.OrgMemberStatus.ERASED) return Optional.empty(); // anonymised: nothing of them is in any scope
         Long groupId = (Long) r[2];
         OrgGroupKind kind = (OrgGroupKind) r[3];
-        Long team = kind == OrgGroupKind.TEAM ? groupId : null;
-        Long department = kind == OrgGroupKind.DEPARTMENT ? groupId : null;
+        Long linkedTeam = r.length > 4 ? (Long) r[4] : null;
+        Long linkedDepartment = r.length > 5 ? (Long) r[5] : null;
+        // X4.3: the separate team and department links win; the legacy single group is the fallback for a member nobody has placed yet.
+        Long team = linkedTeam != null ? linkedTeam : kind == OrgGroupKind.TEAM ? groupId : null;
+        Long department = linkedDepartment != null ? linkedDepartment : kind == OrgGroupKind.DEPARTMENT ? groupId : null;
         return Optional.of(new MemberFacts(memberId, team, department));
     }
 
@@ -52,8 +55,10 @@ public class JpaScopeDirectory implements ScopeDirectory {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Set<Long> teamsUnder(Long orgId, Collection<Long> departmentGroupIds) {
-        return Set.of();
+        if (orgId == null || departmentGroupIds == null || departmentGroupIds.isEmpty()) return Set.of();
+        return new HashSet<>(repository.findTeamIdsUnder(orgId, departmentGroupIds));
     }
 
     @Override

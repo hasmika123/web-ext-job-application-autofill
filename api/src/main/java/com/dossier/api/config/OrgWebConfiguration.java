@@ -3,6 +3,7 @@ package com.dossier.api.config;
 import com.dossier.api.service.ent.EnterpriseFeatureFlag;
 import com.dossier.api.service.ent.TenantResolver;
 import com.dossier.api.service.ent.authz.AuthorizationService;
+import com.dossier.api.service.ent.members.MemberActivityTracker;
 import com.dossier.api.service.org.OrgAccessService;
 import com.dossier.api.service.org.OrgFeatureFlag;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,6 +28,7 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
     private final TenantResolver tenantResolver;
     private final AuthorizationService authorizationService;
     private final TenantHostTrust tenantHostTrust;
+    private final MemberActivityTracker activityTracker;
 
     public OrgWebConfiguration(
         OrgAccessService accessService,
@@ -34,6 +36,7 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
         EnterpriseFeatureFlag enterpriseFeatureFlag,
         TenantResolver tenantResolver,
         AuthorizationService authorizationService,
+        MemberActivityTracker activityTracker,
         @Value("${dossier.tenant-host.secret:}") String tenantHostSecret,
         @Value("${dossier.tenant-host.require-secret:false}") boolean requireTenantHostSecret
     ) {
@@ -43,11 +46,14 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
         this.enterpriseFeatureFlag = enterpriseFeatureFlag;
         this.tenantResolver = tenantResolver;
         this.authorizationService = authorizationService;
+        this.activityTracker = activityTracker;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new OrgPermissionInterceptor(accessService, orgFeatureFlag, enterpriseFeatureFlag, authorizationService)).addPathPatterns("/api/orgs", "/api/orgs/**");
+        // X4.3: right behind it, the hourly "last active" of an admitted member (enterprise organizations only)
+        registry.addInterceptor(new LastActiveInterceptor(activityTracker, enterpriseFeatureFlag)).addPathPatterns("/api/orgs", "/api/orgs/**");
     }
 
     /** Ahead of Spring Security (order -100) so a signed-out probe gets the same 404 as everyone else while the flag is off. */
