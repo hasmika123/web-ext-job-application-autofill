@@ -187,7 +187,7 @@ the API re-checks with scope) · **Entitlement / module** · **Empty state** · 
 | Roles & Permissions → `/w/admin/roles` | `RolesPage` | `GET …/roles`, `GET …/roles/{id}` | `roles.manage` (view: `member.view_summary`) | `flag.enterprise.roles` | "Start from a template" | X4.1 |
 | Consultants → `/w/admin/consultants` | `ConsultantDirectory` (D, X7.1) scope ORG | `GET …/consultants` | `consultants.view` | marketing (directory itself is Phase 7) | "No consultants yet" → [Invite consultants] | X7.1 (D) |
 | Resumes → `/w/admin/resumes` | `OrgResumesPage` (D, X7.3) scope ORG | `GET …/resumes` | `resumes.view_for` | marketing | "No resumes shared with Acme yet" (explains consent) | X7.3 (D) |
-| Marketing Assignments → `/w/admin/assignments` | `AssignmentsPage` (D, X4.7) | `GET …/assignments` | `assignments.manage` | marketing | "Pair consultants with marketers" | X4.7 (D) |
+| Marketing Assignments → `/w/admin/marketing-assignments` | `MarketingAssignmentsPage` (live, ent-marketing) | `GET …/marketing-assignments/*` | `assignments.manage`, `workload.view` | — | "Pair consultants with marketers" | X4.7 (D) |
 | Jobs → `/w/admin/jobs` | `OrgJobsPage` (D, X8.2 job banks) scope ORG | `GET …/jobs` | `pipeline.view` | marketing | "No curated jobs yet" | X8.2 (D) |
 | Applications → `/w/admin/applications` | `OrgApplicationsPage` (D, X9.4) scope ORG, consent-projected | `GET …/applications` | `member.view_summary` | — (Phase 2 shows the consent-based list from 18f2123's overview; full page Phase 9) | "Nobody is sharing progress yet" | X9.4 (D) |
 | Interviews → `/w/admin/interviews` | `OrgInterviewsPage` (D, X9.6) | `GET …/interviews` | `member.view_summary` | — | "No interviews scheduled" | X9.6 (D) |

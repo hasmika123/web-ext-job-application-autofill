@@ -217,7 +217,20 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/invitations/bulk/revoke", Case.write("{\"ids\":[1]}", 200, null)),
         // Enterprise V2 X2.4: the dashboard. Dismissing an alert is a personal preference of the caller, so it writes no audit row.
         Map.entry("GET /api/orgs/{orgId}/dashboard", Case.read()),
-        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null))
+        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null)),
+        // Enterprise V2 (ent-marketing): the Marketing Assignments board. Reads write no audit row; every change writes its own rows plus one MARKETING_BULK summary (marketer admin: one row).
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/marketers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/marketers/candidates", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/consultants", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/kpis", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/workload", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/marketers", Case.people(201, "MARKETER_ADD", 1, w -> "{\"memberId\":" + w.member.getId() + ",\"capacity\":9}", null, w -> mktMarketingRole(w))),
+        Map.entry("PATCH /api/orgs/{orgId}/marketing-assignments/marketers/{memberId}", Case.people(200, "MARKETER_UPDATE", 1, w -> "{\"capacity\":7}", null, w -> mktCapacity(w))),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + mktConsultant(w) + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> mktCapacity(w))),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/update", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + mktConsultant(w) + "],\"priority\":\"HIGH\"}", null, w -> mktAssigned(w))),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/unassign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + mktConsultant(w) + "]}", null, w -> mktAssigned(w))),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/restore", Case.people(200, "MARKETING_BULK", 2, w -> "{\"rows\":[{\"consultantId\":" + mktConsultant(w) + ",\"marketerMemberId\":null}]}", null, w -> mktAssigned(w)))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -267,6 +280,49 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.service.ent.members.OrgMemberQueryService memberQuery;
     @Autowired private OrgBrandingRepository brandings;
     @Autowired private OrgBrandingVersionRepository brandingVersions;
+
+    // ---- ent-marketing fixtures: the Marketing Assignments routes need a marketer (capacity row), a consultant profile and sometimes an assignment ----
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository mktConsultants;
+    @Autowired private com.dossier.api.repository.ent.talent.MarketerCapacityRepository mktCapacities;
+    @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentRepository mktAssignments;
+    private final Map<Long, Long> mktConsultantByOrg = new java.util.HashMap<>();
+
+    /** The world's member holds a marketing role (what "add a marketer" promotes). */
+    private void mktMarketingRole(World w) {
+        w.member.setRole(OrgRole.MARKETER);
+        members.saveAndFlush(w.member);
+        roleService.syncFromLegacy(w.member);
+        em.flush();
+    }
+
+    /** A marketer (capacity row) for the world's member, plus one consultant profile. */
+    private void mktCapacity(World w) {
+        mktMarketingRole(w);
+        com.dossier.api.domain.ent.talent.MarketerCapacity c = new com.dossier.api.domain.ent.talent.MarketerCapacity();
+        c.setOrgId(w.org.getId());
+        c.setMemberId(w.member.getId());
+        c.setCapacity(5);
+        mktCapacities.saveAndFlush(c);
+        com.dossier.api.domain.ent.talent.ConsultantProfile k = new com.dossier.api.domain.ent.talent.ConsultantProfile();
+        k.setOrgId(w.org.getId());
+        k.setDisplayName(w.p + " consultant");
+        k.setEmail(w.p + "-consultant@example.org");
+        mktConsultantByOrg.put(w.org.getId(), mktConsultants.saveAndFlush(k).getId());
+    }
+
+    private void mktAssigned(World w) {
+        mktCapacity(w);
+        com.dossier.api.domain.ent.talent.MarketerAssignment a = new com.dossier.api.domain.ent.talent.MarketerAssignment();
+        a.setOrgId(w.org.getId());
+        a.setConsultantId(mktConsultantByOrg.get(w.org.getId()));
+        a.setMarketerMemberId(w.member.getId());
+        mktAssignments.saveAndFlush(a);
+    }
+
+    /** The world's consultant profile id (the hostile sweeps ask before any prepare ran: a made-up id, which must also be a generic answer). */
+    private Long mktConsultant(World w) {
+        return mktConsultantByOrg.getOrDefault(w.org.getId(), 1L);
+    }
 
     private OrgFixtures fx;
 
@@ -489,7 +545,7 @@ class OrgIsolationIT {
         if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/marketing-assignments/"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {
