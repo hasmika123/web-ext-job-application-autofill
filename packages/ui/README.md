@@ -45,6 +45,12 @@ Concretely:
   `PriceDelta` + `FeatureChip` + `AllowanceMeter`, `ConsentChip`, `ReadinessRing`, `KanbanBoard` (no cross-column drag),
   `WorkloadColumn`, `TimelineFeed` (+ `mergeTimeline`), `SensitiveTextField` (the TS sensitive-patterns pre-check).
   A doc-sync test (`kit.test.ts`) fails if 16 s7's kit row names something this barrel does not export.
+- **MascotPose** (X2.8, `primitives/MascotPose.tsx`): the ENTERPRISE bee only, never the regular Kiwiply mascot. `MASCOT_POSES` maps
+  a meaning (`welcome`, `greet`, `empty`, `encourage`, `celebrate`, `warn`, `error`, `peek`, `thinking`, `secure`, ...) to a file,
+  its native size and a motion class; sizes sm 48 / md 80 / lg 120 px tall; decorative; motion only without `prefers-reduced-motion`.
+  The HOST says where the art lives (`MascotProvider base` or the `base` prop; default `/ent/bee`). `EmptyState mascotPose` and
+  `ErrorState mascotPose` use it; `celebrate(eventId)` dedupes a celebration per session. Web wrapper + copy deck:
+  `web/src/lib/ent/mascot.tsx`, `mascot-copy.ts`; one per viewport, never in tables, never in `(marketing)/(app)/(org)/(admin)`.
 - **Feature components** → `src/`: `ResumeUpload` (the portable resume form) and `JobFitReport`
   (13.3 — one resume against one job, shown the same in the drawer and on the board) and
   `AtsReport` (13.5 — a resume's ATS score, what to fix first, and keyword coverage for a job).

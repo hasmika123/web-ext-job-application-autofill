@@ -9,7 +9,7 @@ export default function TenantTemporarilyUnavailable() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl items-center px-4 py-10" data-tenant-temporarily-unavailable>
       <EmptyState
-        mascot
+        mascotPose="error"
         title="Please try again in a moment"
         description="We couldn't reach this workspace just now. This is usually brief."
         action={

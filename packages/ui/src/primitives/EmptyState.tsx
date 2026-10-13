@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { cn } from "./cn";
 import { MascotCheer } from "./doodles";
+import MascotPose from "./MascotPose";
+import type { EnterprisePose } from "./MascotPose";
 
 /**
  * EmptyState — the friendly "nothing here yet" panel (the page kit's honest empty state, APP-E2E-PLAN section 2.3):
@@ -18,6 +20,11 @@ export interface EmptyStateProps {
   icon?: ReactNode;
   /** Show the mascot above the title. Page variant only; ignored inline. */
   mascot?: boolean;
+  /**
+   * The ENTERPRISE bee in this pose (X2.8), above the title. Page variant only; wins over `mascot` (the Kiwiply doodle is
+   * the regular product's character, the bee is the enterprise portals').
+   */
+  mascotPose?: EnterprisePose;
   title: ReactNode;
   description?: ReactNode;
   /** Optional CTA (e.g. a Button). */
@@ -25,7 +32,7 @@ export interface EmptyStateProps {
   className?: string;
 }
 
-export default function EmptyState({ variant = "page", icon, mascot = false, title, description, action, className }: EmptyStateProps) {
+export default function EmptyState({ variant = "page", icon, mascot = false, mascotPose, title, description, action, className }: EmptyStateProps) {
   if (variant === "inline") {
     return (
       <div data-empty-state="inline" className={cn("flex flex-col items-center justify-center px-4 py-6 text-center", className)}>
@@ -46,7 +53,7 @@ export default function EmptyState({ variant = "page", icon, mascot = false, tit
         className,
       )}
     >
-      {mascot && <MascotCheer className="mb-3 h-20 w-20" />}
+      {mascotPose ? <MascotPose pose={mascotPose} size="md" className="mb-3" /> : mascot && <MascotCheer className="mb-3 h-20 w-20" />}
       {icon != null && <div className="mb-3 text-3xl">{icon}</div>}
       <h3 className="text-lg font-semibold text-ink">{title}</h3>
       {description != null && <p className="mt-1.5 max-w-sm text-sm text-muted">{description}</p>}

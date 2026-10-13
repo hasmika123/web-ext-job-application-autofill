@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { AlertIcon } from "./icons";
 import { cn } from "./cn";
+import MascotPose from "./MascotPose";
+import type { EnterprisePose } from "./MascotPose";
 
 /**
  * ErrorState — "Couldn't load X · Retry" (the page kit, E2E-U0.0). One calm line and one action: a failed load is
@@ -22,10 +24,12 @@ export interface ErrorStateProps {
   onRetry?: () => void;
   /** `page` is the dashed panel; `inline` fits inside a card. */
   variant?: "page" | "inline";
+  /** The ENTERPRISE bee in this pose (X2.8) instead of the alert glyph. Page variant only (usually `error`). */
+  mascotPose?: EnterprisePose;
   className?: string;
 }
 
-export default function ErrorState({ what, title, description, requestId, onRetry, variant = "page", className }: ErrorStateProps) {
+export default function ErrorState({ what, title, description, requestId, onRetry, variant = "page", mascotPose, className }: ErrorStateProps) {
   const inline = variant === "inline";
   return (
     <div
@@ -37,7 +41,11 @@ export default function ErrorState({ what, title, description, requestId, onRetr
         className,
       )}
     >
-      <AlertIcon aria-hidden className={cn("mb-2 text-danger", inline ? "h-5 w-5" : "h-7 w-7")} />
+      {mascotPose && !inline ? (
+        <MascotPose pose={mascotPose} size="md" className="mb-2" />
+      ) : (
+        <AlertIcon aria-hidden className={cn("mb-2 text-danger", inline ? "h-5 w-5" : "h-7 w-7")} />
+      )}
       <p className={cn("font-semibold text-ink", inline ? "text-sm" : "text-lg")}>{title ?? `Couldn't load ${what}`}</p>
       {description != null && <p className="mt-1 max-w-sm text-sm text-muted">{description}</p>}
       {onRetry && (

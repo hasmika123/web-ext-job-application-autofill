@@ -83,7 +83,7 @@ const eslintConfig = defineConfig([
     files: ["src/**/*.tsx"],
     ignores: ["**/*.test.tsx"],
     plugins: { kiwiply },
-    rules: { "kiwiply/icon-button-needs-label": "error" },
+    rules: { "kiwiply/icon-button-needs-label": "error", "kiwiply/one-mascot-per-file": "warn" },
   },
   // The admin console shows real numbers or none (ADMIN-E2E-PLAN section 3.5, D-7; E2E-A15.0): an admin page
   // component never imports a `sample-data` module. The pages that still do carry a per-file

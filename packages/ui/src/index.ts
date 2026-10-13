@@ -143,6 +143,10 @@ export type { MenuProps, MenuItem, MenuHeading, MenuSeparator, MenuEntry } from 
 export { Mark, Wordmark, BrandLockup, Check } from "./primitives/Brand";
 export type { MarkProps, WordmarkProps, BrandLockupProps } from "./primitives/Brand";
 
+/* ── The ENTERPRISE bee (X2.8): never the regular Kiwiply mascot; not for (marketing)/(app)/(org)/(admin) pages ── */
+export { default as MascotPose, MascotProvider, useMascotBase, MASCOT_POSES, POSE_KEYS, MASCOT_HEIGHT, DEFAULT_MASCOT_BASE, poseUrl, poseSize, celebrate } from "./primitives/MascotPose";
+export type { EnterprisePose, MascotPoseProps, MascotSize, PoseDef } from "./primitives/MascotPose";
+
 /* ── The enterprise kit (X2.15): FilterBar, DataTable, ReasonSheet, StatePill, MoneyText, KanbanBoard, ... ── */
 export * from "./enterprise";
 

@@ -9,7 +9,7 @@ export default function TenantUnavailable() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-xl items-center px-4 py-10" data-tenant-unavailable>
       <EmptyState
-        mascot
+        mascotPose="empty"
         title="This workspace isn't available"
         description="Check the address you were given, or ask the person who invited you for a fresh link."
         className="w-full"
