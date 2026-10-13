@@ -353,10 +353,10 @@ export default function InterviewsPage({ orgId, orgName, permissions, supportEma
           </div>
         )}
       </Popover>
-      <div className="w-[9.5rem]">
+      <div className="w-[6.9rem]">
         <Select aria-label="Client" value={view.client} onChange={(v) => setView({ client: v })} options={[{ value: "", label: "All Clients" }, ...(options?.clients ?? [])]} />
       </div>
-      <div className="w-[9.5rem]">
+      <div className="w-[7.4rem]">
         <Select aria-label="Status" value={view.status} onChange={(v) => setView({ status: v })} options={[{ value: "", label: "All Statuses" }, ...(options?.statuses ?? [])]} />
       </div>
       <Popover
@@ -598,7 +598,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, supportEma
       {columnOn ? (
         <div className="grid grid-cols-[minmax(0,1fr)_17.6rem] items-start gap-4">
           {main}
-          <div className="sticky top-3 space-y-3" data-right-column>
+          <div className="sticky top-3 flex h-[calc(100dvh-7.2rem)] min-h-[34rem] flex-col gap-3" data-right-column>
             <HelpBeeCard orgName={orgName} supportEmail={supportEmail} />
             {drawer}
           </div>

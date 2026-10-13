@@ -49,7 +49,7 @@ import {
   type Step,
 } from "@/lib/ent/interviews";
 import { useInterviewDetail, useReminder, useStatusMove, type SaveResult } from "./hooks";
-import { ClientTile, StatusPill } from "./parts";
+import { ClientTile } from "./parts";
 
 export type DrawerMode = "dock" | "overlay" | "sheet";
 
@@ -242,8 +242,8 @@ function InterviewerList({ people, editing, save, max }: { people: Interviewer[]
           <li key={`${p.name}-${i}`} className="flex min-w-0 items-start gap-2">
             <MemberAvatar name={p.name} size={36} />
             <span className="min-w-0 leading-tight">
-              <span className="block truncate text-[12.5px] font-bold text-ink">{p.name}</span>
-              <span className="block truncate text-[11.5px] text-muted">{p.title ?? "Interviewer"}</span>
+              <span className="block break-words text-[12.5px] font-bold text-ink">{p.name}</span>
+              <span className="block break-words text-[11.5px] text-muted">{p.title ?? "Interviewer"}</span>
               {p.primary && <span className="mt-1 inline-block rounded-full bg-accent-soft px-2.5 py-0.5 text-[11px] font-semibold text-accent-deep">Primary</span>}
             </span>
           </li>
@@ -571,7 +571,6 @@ export default function DetailDrawer(p: DetailDrawerProps) {
           </span>
         )}
       </div>
-      <StatusPill status={detail.status} className="hidden" />
     </div>
   ) : null;
 
@@ -600,7 +599,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
   if (!open) return null;
   return (
     <>
-      <aside aria-label="Interview details" data-drawer-dock className="ent-card flex max-h-[calc(100dvh-5.5rem)] min-h-0 flex-col overflow-hidden">
+      <aside aria-label="Interview details" data-drawer-dock className="ent-card flex min-h-0 flex-1 flex-col overflow-hidden">
         <div className="relative border-b border-[var(--ent-table-line,var(--color-line))] px-3.5 pb-3 pt-3.5">
           {header ?? <Skeleton className="h-11 w-2/3" />}
           <button type="button" onClick={p.onClose} aria-label="Close interview details" className="absolute right-2.5 top-2.5 grid h-8 w-8 place-items-center rounded-full text-ink-soft hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-accent">

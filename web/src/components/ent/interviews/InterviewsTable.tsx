@@ -20,7 +20,7 @@ export interface TableProps {
   compact?: boolean;
 }
 
-const HEAD = "px-2 py-2.5 text-left text-[12px] font-semibold text-ink";
+const HEAD = "whitespace-nowrap px-1.5 py-2.5 text-left text-[12px] font-semibold text-ink";
 const CHECK = "h-4 w-4 cursor-pointer rounded border-line accent-[var(--ent-primary,var(--color-accent))]";
 
 function SortHead({ label, k, sort, onSort, className }: { label: string; k: SortKey; sort: TableProps["sort"]; onSort: TableProps["onSort"]; className?: string }) {
@@ -60,7 +60,7 @@ export function RoleCell({ row }: { row: InterviewRow }) {
 
 /** The next step wraps in two lines like the board ("Send prep / materials"). */
 export function NextStepCell({ text }: { text: string }) {
-  return <span className="line-clamp-2 max-w-[8rem] whitespace-normal text-[12px] leading-snug text-ink-soft">{text}</span>;
+  return <span className="line-clamp-2 max-w-[6rem] whitespace-normal text-[11.5px] leading-snug text-ink-soft">{text}</span>;
 }
 
 export function InterviewsTable(p: TableProps) {
@@ -141,16 +141,16 @@ export function InterviewsTable(p: TableProps) {
                 <td className="py-1.5 pl-3 pr-1" onClick={(e) => e.stopPropagation()}>
                   <input type="checkbox" aria-label={`Select ${r.jobTitle ?? r.code}`} className={CHECK} checked={p.selected.has(r.id)} onChange={() => p.onToggle(r.id)} />
                 </td>
-                <td className="min-w-[7.5rem] max-w-[10rem] px-2 py-1.5"><RoleCell row={r} /></td>
-                <td className="min-w-[9rem] px-2 py-1.5"><ConsultantCell consultant={r.consultant} /></td>
-                <td className={`min-w-[7rem] px-2 py-1.5 ${p.compact ? "hidden" : "hidden lg:table-cell"}`}><ClientCell client={r.client} /></td>
-                <td className={`px-2 py-1.5 text-[12px] text-ink-soft ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.round ?? <span className="text-muted">{"—"}</span>}</td>
-                <td className="whitespace-nowrap px-2 py-1.5"><WhenCell at={r.scheduledAt} /></td>
-                <td className={`px-2 py-1.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}><InterviewerStack people={r.interviewers} /></td>
-                <td className={`px-2 py-1.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}><ModeCell mode={r.mode} /></td>
-                <td className="px-2 py-1.5"><StatusPill status={r.status} /></td>
-                <td className={`px-2 py-1.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}><NextStepCell text={r.nextStep} /></td>
-                <td className="px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                <td className="max-w-[8.5rem] px-1.5 py-1.5"><RoleCell row={r} /></td>
+                <td className="px-1.5 py-1.5"><ConsultantCell consultant={r.consultant} /></td>
+                <td className={`px-1.5 py-1.5 ${p.compact ? "hidden" : "hidden lg:table-cell"}`}><ClientCell client={r.client} /></td>
+                <td className={`max-w-[5.5rem] px-1.5 py-1.5 text-[11.5px] leading-snug text-ink-soft ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.round ?? <span className="text-muted">{"—"}</span>}</td>
+                <td className="whitespace-nowrap px-1.5 py-1.5"><WhenCell at={r.scheduledAt} /></td>
+                <td className={`px-1.5 py-1.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}><InterviewerStack people={r.interviewers} /></td>
+                <td className={`px-1.5 py-1.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}><ModeCell mode={r.mode} /></td>
+                <td className="px-1.5 py-1.5"><StatusPill status={r.status} /></td>
+                <td className={`px-1.5 py-1.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}><NextStepCell text={r.nextStep} /></td>
+                <td className="px-1 text-center" onClick={(e) => e.stopPropagation()}>
                   <Kebab items={p.rowMenu(r)} name={r.jobTitle ?? r.code} />
                 </td>
               </tr>

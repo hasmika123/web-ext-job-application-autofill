@@ -15,10 +15,10 @@ export default function HelpBeeCard({ orgName, supportEmail }: { orgName: string
   const [open, setOpen] = useState(false);
   const links = helpLinks(supportEmail);
   return (
-    <section aria-label="Interview coordination help" data-help-bee className="ent-card overflow-hidden !p-0">
+    <section aria-label="Interview coordination help" data-help-bee className="ent-card shrink-0 overflow-hidden !p-0">
       <ClaimsMascot />
-      <div className="flex h-[88px] items-end justify-center bg-gradient-to-b from-accent-soft/70 to-accent-soft/20">
-        <EnterpriseMascot pose="greet" size="lg" />
+      <div className="flex h-[92px] items-end justify-center bg-gradient-to-b from-accent-soft/70 to-accent-soft/20 pt-1.5">
+        <EnterpriseMascot pose="greet" size="md" />
       </div>
       <div className="px-3.5 pb-3.5 pt-2.5">
         <h2 className="text-[13.5px] font-bold leading-tight text-ink">Need help with interview coordination?</h2>

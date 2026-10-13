@@ -32,7 +32,7 @@ export function TwoLine({ top, sub, strong = true }: { top: ReactNode; sub?: Rea
 export function ConsultantCell({ consultant }: { consultant: PersonRef }) {
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <MemberAvatar name={consultant.name} size={32} />
+      <MemberAvatar name={consultant.name} size={30} />
       <TwoLine top={consultant.name} sub="Consultant" />
     </span>
   );
@@ -41,8 +41,8 @@ export function ConsultantCell({ consultant }: { consultant: PersonRef }) {
 export function ClientCell({ client }: { client: ClientRef }) {
   return (
     <span className="flex min-w-0 items-center gap-1.5">
-      <ClientTile client={client} />
-      <span className="truncate text-[12px] text-ink-soft">{client.name}</span>
+      <ClientTile client={client} size={24} />
+      <span className="text-[11.5px] leading-tight text-ink-soft">{client.name}</span>
     </span>
   );
 }
@@ -54,9 +54,9 @@ export function InterviewerStack({ people, max = 2 }: { people: Interviewer[]; m
   const more = people.length - shown.length;
   return (
     <span className="flex items-center" title={people.map((p) => p.name).join(", ")} data-interviewers>
-      <span className="flex -space-x-2">
+      <span className="flex -space-x-1.5">
         {shown.map((p, i) => (
-          <MemberAvatar key={`${p.name}-${i}`} name={p.name} size={26} className="ring-2 ring-paper" />
+          <MemberAvatar key={`${p.name}-${i}`} name={p.name} size={24} className="ring-2 ring-paper" />
         ))}
       </span>
       {more > 0 && <span className="ml-1 text-[11.5px] font-semibold text-ink-soft">+{more}</span>}
@@ -69,7 +69,7 @@ export function InterviewerStack({ people, max = 2 }: { people: Interviewer[]; m
 export function ModeCell({ mode }: { mode: Mode }) {
   const Icon = mode === "VIDEO" ? VideoIcon : mode === "ONSITE" ? MapPinIcon : PhoneIcon;
   return (
-    <span className="inline-flex items-center gap-1.5 text-[12.5px] text-ink-soft" data-mode={mode}>
+    <span className="inline-flex items-center gap-1 text-[12px] text-ink-soft" data-mode={mode}>
       <Icon size={15} aria-hidden className="text-accent" /> {modeLabel(mode)}
     </span>
   );

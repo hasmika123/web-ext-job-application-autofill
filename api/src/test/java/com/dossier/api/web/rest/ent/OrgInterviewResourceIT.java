@@ -74,7 +74,7 @@ class OrgInterviewResourceIT extends MemberItSupport {
         i.setApplicationId(app == null ? null : app.getId());
         i.setConsultantId(c.getId());
         i.setClientId(client.getId());
-        i.setScheduledAt(Instant.now().plus(from).withNano(0));
+        i.setScheduledAt(Instant.now().plus(from).truncatedTo(java.time.temporal.ChronoUnit.SECONDS));
         i.setDurationMinutes(60);
         i.setStatus(status);
         i.setRoundLabel("Technical Interview");
