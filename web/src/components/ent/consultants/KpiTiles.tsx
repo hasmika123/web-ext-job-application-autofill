@@ -34,7 +34,11 @@ export default function KpiTiles({ counts, loading, error, compact = false }: { 
         return (
           <li key={t.key} data-kpi={t.key}>
             <Card className={`flex h-full flex-col gap-1 ${compact ? "!p-3" : "!p-4"}`}>
-              <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
+              <span
+                aria-hidden
+                className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl"
+                style={{ color: t.color, background: `color-mix(in srgb, ${t.color} 14%, var(--color-paper, #fff))` }}
+              >
                 {t.icon}
               </span>
               <span className="mt-1 text-[14px] font-medium leading-tight text-ink-soft">{t.label}</span>
@@ -48,7 +52,7 @@ export default function KpiTiles({ counts, loading, error, compact = false }: { 
                 )}
                 {tile && tile.series.length >= 2 && (
                   <div className={`flex-none ${compact ? "w-14" : "w-24"}`}>
-                    <Sparkline values={tile.series} color={t.color} label={`${t.label}, last eight weeks`} className="h-9" />
+                    <Sparkline values={tile.series} color={t.color} label={`${t.label}, last eight weeks`} className="h-9" smooth />
                   </div>
                 )}
               </div>
