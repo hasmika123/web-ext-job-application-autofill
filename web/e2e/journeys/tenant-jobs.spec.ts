@@ -92,7 +92,7 @@ test.describe("jobs (real stack)", () => {
     await page.locator("[data-clear-filters]").click();
     await page.getByRole("button", { name: /Create Job/ }).click();
     await page.getByLabel(/Job title/).fill("Journey Platform Engineer");
-    await page.locator("[data-create-form]").getByRole("button", { name: "Choose a client" }).click();
+    await page.locator("[data-create-form] button").first().click();
     await page.getByRole("option").first().click();
     await page.locator("[data-create-submit]").click();
     await expect(page.getByText("Journey Platform Engineer was created")).toBeVisible();

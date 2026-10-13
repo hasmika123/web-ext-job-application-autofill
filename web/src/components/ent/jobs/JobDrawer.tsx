@@ -101,9 +101,9 @@ function Loading() {
 function MatchRow({ m, job, canAssign, busy, onAssign, onDismiss, onRestore }: { m: TopMatch; job: JobDetail; canAssign: boolean; busy: boolean; onAssign: () => void; onDismiss: () => void; onRestore: () => void }) {
   const jobOpen = OPEN_STATES.has(job.status);
   return (
-    <li data-match-row={m.matchId} className={`flex items-center gap-3 rounded-xl border border-line bg-paper p-2.5 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
+    <li data-match-row={m.matchId} className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-paper p-2.5 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
       <MemberAvatar name={m.name} size={40} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[8.5rem] flex-1">
         <p className="truncate text-[14px] font-bold leading-tight text-ink">{m.name}</p>
         <p className="truncate text-[12.5px] text-muted">{[m.title, m.availability ? AVAILABILITY_LABEL[m.availability] ?? m.availability : null].filter(Boolean).join(" · ")}</p>
         {m.reason && <p className="mt-0.5 truncate text-[12px] text-ink-soft" title={m.reason}>{m.reason}</p>}
@@ -446,7 +446,7 @@ export default function JobDrawer(p: JobDrawerProps) {
     );
   }
   const sheet = (
-    <SideSheet id="ent-job-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 440 : 500} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
+    <SideSheet id="ent-job-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 460 : 500} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
       {body}
     </SideSheet>
   );
