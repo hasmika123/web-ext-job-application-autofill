@@ -238,31 +238,34 @@ export function matchesQuery(e: CatalogEntry, q: string): boolean {
 export type RoleIconName = "crown" | "users" | "briefcase" | "handshake" | "chart" | "dollar" | "shield" | "key" | "heart";
 
 /** The table's icon tile by what the role is for (the board colours these by category). */
-export function roleIcon(role: Pick<RoleRow, "key" | "templateKey" | "system">): { icon: RoleIconName; tone: "brand" | "brand2" | "warm" } {
+export type RoleTone = "amber" | "violet" | "coral" | "green" | "blue" | "teal";
+
+export function roleIcon(role: Pick<RoleRow, "key" | "templateKey" | "system">): { icon: RoleIconName; tone: RoleTone } {
   const k = role.system ? role.key : (role.templateKey ?? "");
   switch (k) {
     case "OWNER":
     case "ORG_ADMIN":
-      return { icon: "crown", tone: "warm" };
+      return { icon: "crown", tone: "amber" };
     case "MARKETING_MANAGER":
     case "MARKETING_SPECIALIST":
-      return { icon: "chart", tone: "brand" };
+      return { icon: "chart", tone: "blue" };
     case "HR_SPECIALIST":
+      return { icon: "users", tone: "green" };
     case "TALENT_ACQUISITION":
-      return { icon: "users", tone: "brand2" };
+      return { icon: "users", tone: "coral" };
     case "FINANCE_SPECIALIST":
-      return { icon: "dollar", tone: "brand" };
+      return { icon: "dollar", tone: "teal" };
     case "ACCOUNT_MANAGER":
-      return { icon: "handshake", tone: "brand2" };
+      return { icon: "handshake", tone: "green" };
     case "CONSULTANT":
-      return { icon: "briefcase", tone: "warm" };
+      return { icon: "briefcase", tone: "coral" };
     case "EXECUTIVE_VIEWER":
-      return { icon: "shield", tone: "brand" };
+      return { icon: "shield", tone: "violet" };
     case "STAFF":
     case "MEMBER":
-      return { icon: "users", tone: "brand2" };
+      return { icon: "users", tone: "violet" };
     default:
-      return { icon: role.system ? "key" : "shield", tone: "brand" };
+      return { icon: role.system ? "key" : "shield", tone: "violet" };
   }
 }
 
@@ -280,13 +283,14 @@ export const deletable = (r: Pick<RoleRow, "system" | "assignedUsers">): boolean
 export const assignHref = (workspace: string, role: Pick<RoleRow, "id">): string => `/w/${workspace}/employees?role=${role.id}`;
 
 /** The donut: a conic-gradient from the slices' percentages (whole circle even when rounding leaves a gap). */
-export function donutGradient(slices: Pick<CategorySlice, "keys">[], colours: string[]): string {
+export function donutGradient(slices: Pick<CategorySlice, "keys">[], colours: string[], gap = 0): string {
   const total = slices.reduce((n, s) => n + s.keys, 0);
   if (total === 0) return "conic-gradient(var(--color-line) 0 100%)";
   let at = 0;
   const stops = slices.map((s, i) => {
     const from = at;
     at += (s.keys / total) * 100;
+    if (gap > 0 && slices.length > 1) return `${colours[i % colours.length]} ${from.toFixed(2)}% ${(at - gap).toFixed(2)}%, var(--color-paper, #fff) ${(at - gap).toFixed(2)}% ${at.toFixed(2)}%`;
     return `${colours[i % colours.length]} ${from.toFixed(2)}% ${at.toFixed(2)}%`;
   });
   return `conic-gradient(${stops.join(", ")})`;
