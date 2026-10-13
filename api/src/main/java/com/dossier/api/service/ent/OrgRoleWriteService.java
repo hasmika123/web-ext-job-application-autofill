@@ -11,6 +11,7 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.ent.OrgMemberRoleRepository;
 import com.dossier.api.repository.ent.OrgRolePermissionRepository;
 import com.dossier.api.repository.ent.OrgRoleRepository;
+import com.dossier.api.repository.org.OrgAuditEventRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.service.dto.ent.RoleDTO;
 import com.dossier.api.service.dto.ent.RoleWriteDTO;
@@ -66,6 +67,7 @@ public class OrgRoleWriteService {
     public static final String ROLE_CREATE = "ROLE_CREATE";
     public static final String ROLE_UPDATE = "ROLE_UPDATE";
     public static final String ROLE_DELETE = "ROLE_DELETE";
+    public static final String ROLE_RESYNC = "ROLE_RESYNC";
     public static final String ROLE_ASSIGN = "ROLE_ASSIGN";
     public static final String ROLE_REVOKE = "ROLE_REVOKE";
     public static final String TARGET_ROLE = "ROLE";
@@ -102,6 +104,7 @@ public class OrgRoleWriteService {
     private final UserRepository users;
     private final OrgRoleService read;
     private final OrgAuditService audit;
+    private final OrgAuditEventRepository auditEvents;
     private final ObjectMapper json;
 
     public OrgRoleWriteService(
@@ -112,6 +115,7 @@ public class OrgRoleWriteService {
         UserRepository users,
         OrgRoleService read,
         OrgAuditService audit,
+        OrgAuditEventRepository auditEvents,
         ObjectMapper json
     ) {
         this.roles = roles;
@@ -121,6 +125,7 @@ public class OrgRoleWriteService {
         this.users = users;
         this.read = read;
         this.audit = audit;
+        this.auditEvents = auditEvents;
         this.json = json;
     }
 
@@ -165,21 +170,165 @@ public class OrgRoleWriteService {
             );
         }
         Map<String, int[]> perCategory = new LinkedHashMap<>(); // category key -> {registered, granted}
-        for (PermissionCategories.Category c : PermissionCategories.all()) perCategory.put(c.key(), new int[2]);
+        Map<String, Set<String>> familiesPerCategory = new LinkedHashMap<>(); // the "permission sets" of the board = families of related keys
+        for (PermissionCategories.Category c : PermissionCategories.all()) {
+            perCategory.put(c.key(), new int[2]);
+            familiesPerCategory.put(c.key(), new LinkedHashSet<>());
+        }
         int total = 0;
+        Set<String> allFamilies = new LinkedHashSet<>();
         for (EntPermissions.Def def : EntPermissions.all()) {
-            int[] counts = perCategory.get(PermissionCategories.of(def.key()).key());
+            String category = PermissionCategories.of(def.key()).key();
+            int[] counts = perCategory.get(category);
             counts[0]++;
             total++;
             if (granted.contains(def.key())) counts[1]++;
+            familiesPerCategory.get(category).add(def.family());
+            allFamilies.add(def.family());
         }
         List<RoleWriteDTO.CategorySlice> slices = new ArrayList<>();
         for (PermissionCategories.Category c : PermissionCategories.all()) {
             int[] counts = perCategory.get(c.key());
-            slices.add(new RoleWriteDTO.CategorySlice(c.key(), c.label(), counts[0], counts[1], total == 0 ? 0 : Math.round(100f * counts[0] / total)));
+            slices.add(new RoleWriteDTO.CategorySlice(c.key(), c.label(), counts[0], counts[1], total == 0 ? 0 : Math.round(100f * counts[0] / total), familiesPerCategory.get(c.key()).size()));
         }
         long activeUsers = memberRoles.countSeatsWithAnyRole(orgId, List.of(OrgMemberStatus.ACTIVE));
-        return new RoleWriteDTO.Overview(table, defs.size(), activeUsers, custom, system, total, slices);
+        return new RoleWriteDTO.Overview(table, defs.size(), activeUsers, custom, system, total, slices, allFamilies.size());
+    }
+
+    // ---- X4.1: the caller's ceiling, template diff, resync, history ----------------------------------------------------------------
+
+    /**
+     * The caller's ceiling for the permissions catalog: empty when the caller cannot write roles (no {@code roles.manage} at ORG scope,
+     * no data-backed roles, or the organization's state forbids writes); never throws for that, the catalog answers "nothing grantable".
+     */
+    @Transactional(readOnly = true)
+    public Optional<RoleCeiling> callerCeiling(OrgMembership me) {
+        return ceilingOrEmpty(me, PERM_ROLES_MANAGE);
+    }
+
+    /** True when the organization reads its roles from data (the roles flag is on and the roles are backfilled). */
+    public boolean rolesEnabled(Long orgId) {
+        return read.rolesFromData(orgId);
+    }
+
+    /** A role compared with its template (any active member, like {@link #get}). */
+    @Transactional(readOnly = true)
+    public RoleWriteDTO.TemplateDiff diff(OrgMembership me, Long roleId) {
+        Long orgId = me.orgId();
+        if (!read.rolesFromData(orgId)) throw new OrgNotFoundException();
+        OrgRoleDefinition def = visible(orgId, roleId);
+        List<OrgRolePermission> rows = permissions.findForRoles(orgId, List.of(def.getId()));
+        String templateKey = def.isSystem() ? null : def.getTemplateKey();
+        if (templateKey == null) {
+            return new RoleWriteDTO.TemplateDiff(def.getId(), null, null, false, true, List.of(), List.of(), List.of(), List.of());
+        }
+        Optional<OrgRoleDefinition> template = roles.findSystemByRoleKey(templateKey);
+        if (template.isEmpty()) {
+            return new RoleWriteDTO.TemplateDiff(def.getId(), templateKey, templateKey, false, true, List.of(), List.of(), List.of(), List.of());
+        }
+        List<OrgRolePermission> templateRows = permissions.findForRoles(orgId, List.of(template.get().getId()));
+        Map<String, RoleCeiling.Row> templateByKey = byKey(templateRows.stream().map(RoleCeiling.Row::of).toList());
+        Map<String, Object> d = diff(templateByKey, byKey(rows.stream().map(RoleCeiling.Row::of).toList()));
+        return templateDiff(def.getId(), template.get(), d, templateByKey);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static RoleWriteDTO.TemplateDiff templateDiff(Long roleId, OrgRoleDefinition template, Map<String, Object> d, Map<String, RoleCeiling.Row> templateByKey) {
+        List<RoleWriteDTO.DiffEntry> added = new ArrayList<>();
+        for (String s : (List<String>) d.getOrDefault("added", List.of())) {
+            int at = s.lastIndexOf('@');
+            added.add(new RoleWriteDTO.DiffEntry(s.substring(0, at), s.substring(at + 1)));
+        }
+        List<RoleWriteDTO.DiffEntry> removed = new ArrayList<>();
+        for (String s : (List<String>) d.getOrDefault("removed", List.of())) {
+            RoleCeiling.Row was = templateByKey.get(s); // the scope the template gives it (what a restore would put back)
+            removed.add(new RoleWriteDTO.DiffEntry(s, was == null ? null : was.scope().name()));
+        }
+        List<RoleWriteDTO.DiffScopeChange> changed = new ArrayList<>();
+        for (Map<String, String> m : (List<Map<String, String>>) d.getOrDefault("scopeChanged", List.of())) {
+            changed.add(new RoleWriteDTO.DiffScopeChange(m.get("key"), m.get("from"), m.get("to")));
+        }
+        List<String> attributes = (List<String>) d.getOrDefault("attributesChanged", List.of());
+        boolean matches = added.isEmpty() && removed.isEmpty() && changed.isEmpty() && attributes.isEmpty();
+        return new RoleWriteDTO.TemplateDiff(roleId, template.getRoleKey(), template.getName(), true, matches, added, removed, changed, attributes);
+    }
+
+    /**
+     * Restores an organization role to the rows of the template it was cloned from. The editor sees the diff first ({@link #diff}); this
+     * is the confirmed write: the ceiling covers everything the role holds before and after, the version must be current, one
+     * ROLE_RESYNC audit row (HIGH) carries what was added, removed and changed back. A role with no template is 422.
+     */
+    @Transactional
+    public RoleWriteDTO.RoleDetail resync(OrgMembership me, Long roleId, String ifMatch) {
+        Long orgId = me.orgId();
+        RoleCeiling actor = gate(me, PERM_ROLES_MANAGE);
+        OrgRoleDefinition def = ownedOrSystem(orgId, roleId);
+        List<OrgRolePermission> current = permissions.findForRoles(orgId, List.of(def.getId()));
+        checkVersion(ifMatch, versionOf(def, current));
+        if (def.getTemplateKey() == null) throw OrgException.invalid("templateKey", "this role was not made from a template, so there is nothing to restore");
+        OrgRoleDefinition template = roles.findSystemByRoleKey(def.getTemplateKey()).orElseThrow(() -> OrgException.invalid("templateKey", "the template no longer exists"));
+        List<OrgRolePermission> templateRows = permissions.findForRoles(orgId, List.of(template.getId()));
+        Map<String, RoleCeiling.Row> before = byKey(current.stream().map(RoleCeiling.Row::of).toList());
+        Map<String, RoleCeiling.Row> after = byKey(templateRows.stream().map(RoleCeiling.Row::of).toList());
+        ensureSelfRows(after);
+        enforceCeiling(actor, before.values());
+        enforceCeiling(actor, after.values());
+        Map<String, Object> diff = diff(before, after);
+        if (diff.isEmpty()) return detail(orgId, def, current); // already identical: no write, no audit row
+        permissions.deleteForOwnedRole(orgId, def.getId());
+        current = saveRows(def.getId(), after.values());
+        def.setUpdatedAt(Instant.now());
+        roles.saveAndFlush(def);
+        Map<String, Object> details = new LinkedHashMap<>();
+        details.put("template", template.getRoleKey());
+        details.putAll(diff);
+        record(me, ROLE_RESYNC, TARGET_ROLE, null, String.valueOf(def.getId()), details, "HIGH");
+        return detail(orgId, def, current);
+    }
+
+    /**
+     * The audit trail of roles (needs roles.manage at ORG): the changes to one role, or, with {@code roleId == null}, every role change and
+     * assignment in the organization, newest first.
+     */
+    @Transactional(readOnly = true)
+    public List<RoleWriteDTO.HistoryEntry> history(OrgMembership me, Long roleId, int limit) {
+        Long orgId = me.orgId();
+        gate(me, PERM_ROLES_MANAGE);
+        int size = Math.max(1, Math.min(limit, 200));
+        org.springframework.data.domain.Pageable page = org.springframework.data.domain.PageRequest.of(0, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt", "id"));
+        List<com.dossier.api.domain.org.OrgAuditEvent> rows;
+        if (roleId != null) {
+            visible(orgId, roleId); // another organization's role is the generic 404
+            rows = auditEvents.findByOrgIdAndTargetTypeAndTargetId(orgId, TARGET_ROLE, String.valueOf(roleId), page).getContent();
+        } else {
+            rows = auditEvents.findByOrgIdAndActionIn(orgId, List.of(ROLE_CREATE, ROLE_UPDATE, ROLE_DELETE, ROLE_RESYNC, ROLE_ASSIGN, ROLE_REVOKE), page).getContent();
+        }
+        Map<Long, String> names = new HashMap<>();
+        for (OrgRoleDefinition d : roles.findVisibleToOrg(orgId)) names.put(d.getId(), d.getName());
+        List<RoleWriteDTO.HistoryEntry> out = new ArrayList<>();
+        for (com.dossier.api.domain.org.OrgAuditEvent e : rows) {
+            Map<String, Object> details = parseDetails(e.getDetails());
+            String name = null;
+            if (TARGET_ROLE.equals(e.getTargetType()) && e.getTargetId() != null) {
+                try {
+                    name = names.get(Long.valueOf(e.getTargetId()));
+                } catch (NumberFormatException ignored) {
+                    // not a role id: no name
+                }
+                if (name == null && details.get("name") instanceof String s) name = s; // a deleted role: the audit row kept its name
+            }
+            out.add(new RoleWriteDTO.HistoryEntry(e.getId(), e.getAction(), e.getRisk(), e.getActorLogin(), e.getTargetType(), e.getTargetId(), e.getTargetLogin(), name, e.getCreatedAt(), details));
+        }
+        return out;
+    }
+
+    private Map<String, Object> parseDetails(String text) {
+        if (text == null || text.isBlank()) return Map.of();
+        try {
+            return json.readValue(text, new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String, Object>>() {});
+        } catch (JsonProcessingException e) {
+            return Map.of("raw", text);
+        }
     }
 
     // ---- create -----------------------------------------------------------------------------------------------------------
@@ -448,14 +597,18 @@ public class OrgRoleWriteService {
      * roles), and the organization's state. Returns the actor's rows for the ceiling rule.
      */
     private RoleCeiling gate(OrgMembership me, String permissionKey) {
-        if (me == null || !read.rolesFromData(me.orgId())) throw new OrgNotFoundException();
-        if (!me.canKey(permissionKey) || me.scopeFor(permissionKey).filter(s -> s == PermissionScope.ORG).isEmpty()) throw new OrgNotFoundException();
-        if (me.roles().isEmpty() || me.roles().stream().anyMatch(r -> r.roleId() == null)) throw new OrgNotFoundException();
-        if (!OrgStateRules.allows(me.orgStatus(), AuthzOperation.WRITE, List.of(permissionKey))) throw new OrgNotFoundException();
+        return ceilingOrEmpty(me, permissionKey).orElseThrow(OrgNotFoundException::new);
+    }
+
+    private Optional<RoleCeiling> ceilingOrEmpty(OrgMembership me, String permissionKey) {
+        if (me == null || !read.rolesFromData(me.orgId())) return Optional.empty();
+        if (!me.canKey(permissionKey) || me.scopeFor(permissionKey).filter(s -> s == PermissionScope.ORG).isEmpty()) return Optional.empty();
+        if (me.roles().isEmpty() || me.roles().stream().anyMatch(r -> r.roleId() == null)) return Optional.empty();
+        if (!OrgStateRules.allows(me.orgStatus(), AuthzOperation.WRITE, List.of(permissionKey))) return Optional.empty();
         List<Long> ids = me.roles().stream().map(OrgMembership.RoleRef::roleId).toList();
         List<OrgRolePermission> rows = permissions.findForRoles(me.orgId(), ids);
         boolean owner = roles.findSystemByRoleKey(RoleTemplates.OWNER).map(r -> ids.contains(r.getId())).orElse(false);
-        return owner ? RoleCeiling.unlimited(rows) : RoleCeiling.of(rows);
+        return Optional.of(owner ? RoleCeiling.unlimited(rows) : RoleCeiling.of(rows));
     }
 
     private void enforceCeiling(RoleCeiling actor, Collection<RoleCeiling.Row> rows) {

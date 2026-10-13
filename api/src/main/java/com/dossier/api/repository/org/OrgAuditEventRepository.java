@@ -16,6 +16,12 @@ public interface OrgAuditEventRepository extends Repository<OrgAuditEvent, Long>
 
     Page<OrgAuditEvent> findByOrgIdAndAction(Long orgId, String action, Pageable pageable);
 
+    /** The rows of any of {@code actions} (the Roles page's org-wide history). */
+    Page<OrgAuditEvent> findByOrgIdAndActionIn(Long orgId, java.util.Collection<String> actions, Pageable pageable);
+
+    /** The rows about one target (the Roles page's history of one role). */
+    Page<OrgAuditEvent> findByOrgIdAndTargetTypeAndTargetId(Long orgId, String targetType, String targetId, Pageable pageable);
+
     long countByOrgId(Long orgId);
 
     long countByOrgIdAndActorLogin(Long orgId, String actorLogin);

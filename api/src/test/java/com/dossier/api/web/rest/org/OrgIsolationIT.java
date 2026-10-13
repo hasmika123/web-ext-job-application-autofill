@@ -158,6 +158,12 @@ class OrgIsolationIT {
         // Enterprise V2 X1.14: role writes and the Roles and Permissions board data. Role edits and deletes carry the role version as If-Match.
         Map.entry("GET /api/orgs/{orgId}/roles/overview", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/roles/{roleId}", Case.read()),
+        // Enterprise V2 X4.1: the permissions catalog, the diff against the template, the change history and the resync.
+        Map.entry("GET /api/orgs/{orgId}/permissions", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/roles/{roleId}/diff", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/roles/{roleId}/history", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/roles/history", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/roles/{roleId}/resync", Case.versioned(200, "ROLE_RESYNC", w -> null, w -> w.roleVersion)),
         Map.entry("POST /api/orgs/{orgId}/roles", Case.write("{\"name\":\"Hijack\",\"templateKey\":\"EXECUTIVE_VIEWER\"}", 201, "ROLE_CREATE")),
         Map.entry("PATCH /api/orgs/{orgId}/roles/{roleId}", Case.versioned(200, "ROLE_UPDATE", w -> "{\"name\":\"Hijacked\"}", w -> w.roleVersion)),
         Map.entry("DELETE /api/orgs/{orgId}/roles/{roleId}", Case.versioned(204, "ROLE_DELETE", w -> null, w -> w.roleVersion)),
@@ -722,7 +728,9 @@ class OrgIsolationIT {
             assertThat(domains.findByOrgIdAndId(B, a.domain.getId())).isEmpty();
             assertThat(domains.findByOrgIdOrderByDomain(B)).extracting(OrgDomain::getId).doesNotContain(a.domain.getId());
         }));
-        checks.put("OrgAuditEventRepository", new RepoCheck(Set.of("findByOrgId", "findByOrgIdAndAction", "countByOrgId", "countByOrgIdAndActorLogin"), () -> {
+        checks.put("OrgAuditEventRepository", new RepoCheck(Set.of("findByOrgId", "findByOrgIdAndAction", "findByOrgIdAndActionIn", "findByOrgIdAndTargetTypeAndTargetId", "countByOrgId", "countByOrgIdAndActorLogin"), () -> {
+            assertThat(audit.findByOrgIdAndActionIn(B, List.of("ROLE_CREATE", "ROLE_UPDATE", "ROLE_ASSIGN", "ROLE_DELETE", "ROLE_RESYNC"), PageRequest.of(0, 100)).getContent()).extracting(OrgAuditEvent::getOrgId).doesNotContain(A);
+            assertThat(audit.findByOrgIdAndTargetTypeAndTargetId(B, "ROLE", String.valueOf(a.roleId), PageRequest.of(0, 100)).getContent()).as("A role id in B has no rows").isEmpty();
             assertThat(audit.findByOrgId(B, PageRequest.of(0, 100)).getContent()).extracting(OrgAuditEvent::getOrgId).containsOnly(B);
             assertThat(audit.findByOrgIdAndAction(B, OrgAuditService.SHARE_SCOPE_CHANGED, PageRequest.of(0, 100)).getContent()).extracting(OrgAuditEvent::getActorLogin).containsOnly("bravo-member");
             assertThat(audit.countByOrgIdAndActorLogin(B, "alpha-owner")).as("A's actor never appears in B's trail").isZero();
