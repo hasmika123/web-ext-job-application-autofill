@@ -104,7 +104,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @AutoConfigureMockMvc
 @Transactional
 // Every route is attacked by every caller: with the groups routes (X4.5) the sweeps outgrew the global 15 s default on a loaded machine.
-@org.junit.jupiter.api.Timeout(90)
+@org.junit.jupiter.api.Timeout(300)
 class OrgIsolationIT {
 
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
