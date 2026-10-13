@@ -1622,7 +1622,7 @@
       "design": "docs/enterprise-v2/13-user-profiles.md"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "critical": false,
       "evidence": [],
       "ui": [
@@ -2010,7 +2010,7 @@
       "id": "X2.15",
       "epic": "X2",
       "title": "Enterprise UI kit in packages/ui: FilterBar, DataTable, ReasonSheet, ConfirmTypedSheet, HistoryDrawer, PersonCell(+MemberAvatar), StatusDot, StatePill (tone maps per domain), QuickActionTiles, MoneyText (+band), PriceDelta, FeatureChip, AllowanceMeter, ConsentChip, ReadinessRing, KanbanBoard, WorkloadColumn, TimelineFeed, SensitiveTextField + 7 icons",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [

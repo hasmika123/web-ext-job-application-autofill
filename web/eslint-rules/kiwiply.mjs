@@ -68,6 +68,35 @@ const iconButtonNeedsLabel = {
   },
 };
 
-const plugin = { rules: { "icon-button-needs-label": iconButtonNeedsLabel } };
+/**
+ * `kiwiply/one-mascot-per-file` (X2.8): the enterprise bee is compact and contextual, at most ONE per viewport (doc 11 s6).
+ * A page component file that renders `<MascotPose>` / `<EnterpriseMascot>` more than once is almost certainly breaking that
+ * cap, so every one after the first is reported (warn). `mascotPose=` props on EmptyState / ErrorState count too.
+ */
+const MASCOT_ELEMENTS = new Set(["MascotPose", "EnterpriseMascot"]);
+const oneMascotPerFile = {
+  meta: {
+    type: "suggestion",
+    schema: [],
+    messages: { many: "More than one enterprise mascot in this file. Doc 11 s6 caps it at one per viewport: keep a single MascotPose (or a single mascotPose prop) per page component." },
+  },
+  create(context) {
+    let seen = 0;
+    const count = (node) => {
+      seen += 1;
+      if (seen > 1) context.report({ node, messageId: "many" });
+    };
+    return {
+      JSXOpeningElement(node) {
+        if (node.name.type === "JSXIdentifier" && MASCOT_ELEMENTS.has(node.name.name)) count(node);
+      },
+      JSXAttribute(node) {
+        if (node.name.type === "JSXIdentifier" && node.name.name === "mascotPose") count(node);
+      },
+    };
+  },
+};
+
+const plugin = { rules: { "icon-button-needs-label": iconButtonNeedsLabel, "one-mascot-per-file": oneMascotPerFile } };
 
 export default plugin;
