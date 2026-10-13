@@ -121,7 +121,7 @@ describe("the dashboard from real data", () => {
 
   it("links Recent Activity rows and 'View all' only where a page exists", async () => {
     await mount();
-    const row = document.querySelector("[data-activity='5'] a") as HTMLAnchorElement;
+    const row = document.querySelector("[data-activity='audit-5'] a") as HTMLAnchorElement;
     expect(row.getAttribute("href")).toBe("/w/admin/invitations");
     expect(within(cardOf("activity.recent")!).getByRole("link", { name: "View all" }).getAttribute("href")).toBe("/w/admin/audit");
     cleanup();

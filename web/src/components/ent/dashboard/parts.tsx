@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
 import { Button, DeltaChip, LockIcon, RefreshIcon, Skeleton, Sparkline, Tooltip, IconButton, chartColor, cn } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import { comparedToText, deltaFromPct, statTileOf, unavailableText, type DashboardWidget } from "@/lib/ent/dashboard";
+import { comparedToText, deltaFromPct, statTileOf, tileValueText, unavailableText, type DashboardWidget } from "@/lib/ent/dashboard";
 
 /**
  * The dashboard's shared card pieces (X2.17). Every widget state has ONE honest rendering here:
@@ -49,6 +49,10 @@ const EMPTY_TEXT: Record<string, string> = {
   NO_ALERTS: "All clear. Nothing needs your attention.",
   NO_ACTIVITY: "Nothing has happened yet.",
   NO_ACTIONS: "No shortcuts for your role.",
+  NO_APPLICATIONS: "No applications yet",
+  NO_INTERVIEWS: "No interviews yet",
+  NO_PLACEMENTS: "No placements yet",
+  NO_SPEND: "No spend recorded this month",
 };
 export const emptyText = (reason: string | null): string => (reason && EMPTY_TEXT[reason]) || "Nothing here yet.";
 
@@ -161,10 +165,10 @@ export function StatTile({ spec, widget, loading, onRetry, index }: { spec: Tile
     <>
       <div className="mt-1.5 flex items-end justify-between gap-2">
         <p data-tile-value className="text-[30px] font-extrabold leading-none tabular-nums text-ink">
-          {nf(tile.value)}
+          {tileValueText(tile)}
         </p>
         <div className="mb-0.5 w-[44%] max-w-[88px] flex-none">
-          <Sparkline values={tile.sparkline} color={chartColor(index)} />
+          <Sparkline values={tile.sparkline} color={tile.deltaPct !== null && tile.deltaPct < 0 ? "var(--color-v2-coral)" : chartColor(index)} />
         </div>
       </div>
       <p className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted">
@@ -182,7 +186,7 @@ export function StatTile({ spec, widget, loading, onRetry, index }: { spec: Tile
   return (
     <TileFrame spec={spec} state="ok">
       {spec.href ? (
-        <Link href={spec.href} className="-m-1 block rounded-lg p-1 hover:bg-paper-2/60" aria-label={`${spec.title}: ${nf(tile.value)}. Open`}>
+        <Link href={spec.href} className="-m-1 block rounded-lg p-1 hover:bg-paper-2/60" aria-label={`${spec.title}: ${tileValueText(tile)}. Open`}>
           {body}
         </Link>
       ) : (

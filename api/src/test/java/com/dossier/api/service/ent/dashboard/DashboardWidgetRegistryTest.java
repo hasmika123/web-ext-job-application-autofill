@@ -31,13 +31,13 @@ class DashboardWidgetRegistryTest {
         return List.of(
             new ConsultantsTotalProvider(),
             new ActiveEmployeesProvider(),
-            new NotYetBuiltProviders.Applications(),
-            new NotYetBuiltProviders.Interviews(),
-            new NotYetBuiltProviders.Placements(),
-            new NotYetBuiltProviders.Finance(),
-            new NotYetBuiltProviders.TeamPerformance(),
-            new NotYetBuiltProviders.PipelineOverview(),
-            new QuickActionsProvider(),
+            new TalentWidgets.Applications(),
+            new TalentWidgets.Interviews(),
+            new TalentWidgets.Placements(),
+            new TalentWidgets.Finance(),
+            new TalentWidgets.TeamPerformanceWidget(),
+            new TalentWidgets.PipelineWidget(),
+            new QuickActionsProvider(null),
             new AlertsProvider(null),
             new InvitesPendingProvider(),
             new ActivityRecentProvider(null, null),
@@ -77,15 +77,20 @@ class DashboardWidgetRegistryTest {
     }
 
     @Test
-    void notYetBuiltProvidersAnswerNotEnabledWithNoData() {
-        for (DashboardWidgetProvider p : providers()) {
-            if (!(p instanceof NotYetBuiltProvider)) continue;
-            WidgetResult r = p.compute(null);
-            assertThat(r.state().wire()).as(p.key()).isEqualTo("unavailable");
-            assertThat(r.reason()).isEqualTo(WidgetResult.NOT_ENABLED);
-            assertThat(r.data()).isNull();
-            assertThat(r.module()).isEqualTo(p.module());
-        }
+    void aNotYetBuiltProviderAnswersNotEnabledWithNoData() {
+        NotYetBuiltProvider later = new NotYetBuiltProvider("later.widget", 999, List.of("hr.view"), "someModule") {};
+        WidgetResult r = later.compute(null);
+        assertThat(r.state().wire()).isEqualTo("unavailable");
+        assertThat(r.reason()).isEqualTo(WidgetResult.NOT_ENABLED);
+        assertThat(r.data()).isNull();
+        assertThat(r.module()).isEqualTo("someModule");
+    }
+
+    @Test
+    void theBoardTilesAreRealProvidersNotPlaceholders() {
+        for (DashboardWidgetProvider p : providers()) assertThat(p).as(p.key()).isNotInstanceOf(NotYetBuiltProvider.class);
+        assertThat(new DashboardWidgetRegistry(providers()).keys())
+            .containsSubsequence("consultants.total", "employees.active", "applications.active", "interviews.upcoming", "placements", "finance.summary", "team.performance", "pipeline.overview", "quick.actions");
     }
 
     @Test

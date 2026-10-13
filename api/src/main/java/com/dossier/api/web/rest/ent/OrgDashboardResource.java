@@ -45,7 +45,7 @@ public class OrgDashboardResource {
 
     @Operation(
         summary = "Hide an alert for 7 days (for the caller only)",
-        description = "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT). "
+        description = "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT, APPLICATIONS_OVERDUE, LICENSES_ATTENTION, MARKETERS_OVERLOADED, APPLICATIONS_NEW, INTERVIEWS_WEEK, PLACEMENT_NEW, RESUMES_PENDING, CONSULTANTS_UNASSIGNED). "
             + "Other administrators still see it. Unknown key, or no dashboard.view_org: 404."
     )
     @PostMapping("/alerts/{alertKey}/dismiss")

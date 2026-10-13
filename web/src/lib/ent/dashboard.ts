@@ -19,6 +19,9 @@ export interface StatTileData {
   sparkline: number[];
   comparedTo: string;
   counts: Record<string, number>;
+  /** "money": `value` is in minor units of `currency`; otherwise a plain count. */
+  unit: "count" | "money";
+  currency: string | null;
 }
 
 export interface QuickActionItem {
@@ -39,6 +42,8 @@ export interface AlertItem {
   message: string;
   href: string | null;
   count: number;
+  /** When the newest row behind it happened; null when the alert is a standing condition. */
+  at: string | null;
 }
 
 export interface ActivityItem {
@@ -51,6 +56,20 @@ export interface ActivityItem {
   targetLogin: string | null;
   targetName: string | null;
   at: string;
+  /** "audit" (the organization's trail) or "application" (an application event). */
+  source: string;
+  /** What it was about, for example the job title. */
+  subject: string | null;
+}
+
+export interface TeamData {
+  months: string[];
+  series: { key: string; label: string; values: number[] }[];
+}
+
+export interface PipelineData {
+  total: number;
+  slices: { key: string; label: string; value: number }[];
 }
 
 export interface InvitesData {
@@ -122,14 +141,58 @@ export function statTileOf(w: DashboardWidget | null): StatTileData | null {
     sparkline: spark,
     comparedTo: typeof d.comparedTo === "string" ? d.comparedTo : "30d",
     counts,
+    unit: d.unit === "money" ? "money" : "count",
+    currency: str(d.currency),
   };
 }
+
+const isObj2 = isObj;
+
+/** The Team Performance chart's rows when `ok` and well formed; null otherwise (nothing is drawn from it). */
+export function teamOf(w: DashboardWidget | null): TeamData | null {
+  if (!w || w.state !== "ok" || !isObj2(w.data) || !Array.isArray(w.data.months) || !Array.isArray(w.data.series)) return null;
+  const months = w.data.months.map(String);
+  const series = w.data.series
+    .filter((s): s is Record<string, unknown> => isObj2(s) && typeof s.key === "string" && typeof s.label === "string" && Array.isArray(s.values))
+    .map((s) => ({ key: s.key as string, label: s.label as string, values: (s.values as unknown[]).map((v) => (typeof v === "number" && Number.isFinite(v) ? v : 0)) }));
+  return series.length && months.length ? { months, series } : null;
+}
+
+/** The donut's slices when `ok` and well formed; the total is the API's, else the sum. */
+export function pipelineOf(w: DashboardWidget | null): PipelineData | null {
+  if (!w || w.state !== "ok" || !isObj2(w.data) || !Array.isArray(w.data.slices)) return null;
+  const slices = w.data.slices
+    .filter((s): s is Record<string, unknown> => isObj2(s) && typeof s.key === "string" && typeof s.label === "string" && typeof s.value === "number")
+    .map((s) => ({ key: s.key as string, label: s.label as string, value: s.value as number }));
+  if (!slices.length) return null;
+  const sum = slices.reduce((a, s) => a + s.value, 0);
+  return { total: typeof w.data.total === "number" ? w.data.total : sum, slices };
+}
+
+/** The last `n` months of the chart (the range select), keeping every series aligned. */
+export function lastMonths(t: TeamData, n: number): TeamData {
+  const from = Math.max(0, t.months.length - n);
+  return { months: t.months.slice(from), series: t.series.map((s) => ({ ...s, values: s.values.slice(from) })) };
+}
+
+/** "$328K" style for money in minor units (compact above a thousand), whole units below. Pure. */
+export function formatMoney(minor: number, currency: string | null): string {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency ?? "USD", notation: Math.abs(minor) >= 100_000 ? "compact" : "standard", maximumFractionDigits: Math.abs(minor) >= 100_000 ? 0 : 0 }).format(minor / 100);
+  } catch {
+    return String(Math.round(minor / 100));
+  }
+}
+
+/** The tile's headline number as text. */
+export const tileValueText = (t: StatTileData): string => (t.unit === "money" ? formatMoney(t.value, t.currency) : t.value.toLocaleString("en-US"));
 
 /** "vs last 30 days" for "30d"; "vs last 7 days"... anything else reads "vs earlier". */
 export function comparedToText(comparedTo: string): string {
   const m = /^(\d+)d$/.exec(comparedTo);
   if (!m) return "vs earlier";
-  return Number(m[1]) === 30 ? "vs last month" : `vs last ${m[1]} days`;
+  if (Number(m[1]) === 30) return "vs last month";
+  return Number(m[1]) === 7 ? "vs last week" : `vs last ${m[1]} days`;
 }
 
 /** The delta chip text and direction from the API's own percentage; null (draw nothing) when there is none. */
@@ -157,11 +220,15 @@ const SEVERITY_ORDER = { danger: 0, warn: 1, info: 2 } as const;
 /** Alerts, danger first (the API already sorts; this keeps the page right if it ever does not). */
 export const alertsOf = (w: DashboardWidget | null): AlertItem[] =>
   listOf(w, (x): x is AlertItem => isObj(x) && typeof x.key === "string" && typeof x.title === "string" && (x.severity === "danger" || x.severity === "warn" || x.severity === "info"))
-    .map((x) => ({ ...x, href: x.href ?? null, message: x.message ?? "", count: typeof x.count === "number" ? x.count : 0 }))
+    .map((x) => ({ ...x, href: x.href ?? null, message: x.message ?? "", count: typeof x.count === "number" ? x.count : 0, at: typeof x.at === "string" ? x.at : null }))
     .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 
 export const activityOf = (w: DashboardWidget | null): ActivityItem[] =>
-  listOf(w, (x): x is ActivityItem => isObj(x) && typeof x.label === "string" && typeof x.at === "string" && typeof x.id === "number");
+  listOf(w, (x): x is ActivityItem => isObj(x) && typeof x.label === "string" && typeof x.at === "string" && typeof x.id === "number").map((x) => ({
+    ...x,
+    source: typeof x.source === "string" ? x.source : "audit",
+    subject: typeof x.subject === "string" ? x.subject : null,
+  }));
 
 export function invitesOf(w: DashboardWidget | null): InvitesData | null {
   if (!w || w.state !== "ok" || !isObj(w.data)) return null;
@@ -204,11 +271,12 @@ export function relativeTime(iso: string, now: number = Date.now()): string {
 
 /** Who did what: "Sarah Chen invited a member"; falls back to the login when the account has no name. */
 export function activityText(a: ActivityItem): { who: string; what: string; target: string | null } {
-  return { who: a.actorName ?? a.actorLogin ?? "Someone", what: a.label, target: a.targetName ?? (a.targetLogin ? a.targetLogin : null) };
+  return { who: a.actorName ?? a.actorLogin ?? "Someone", what: a.label, target: a.subject ?? a.targetName ?? (a.targetLogin ? a.targetLogin : null) };
 }
 
 /** Where an activity row leads, by what it touched (never a guess: unknown kinds have no link). */
 export function activityHref(a: ActivityItem): string | null {
+  if (a.source === "application") return "/w/admin/applications";
   if (/^MEMBER_INVITE/.test(a.action)) return "/w/admin/invitations";
   if (/^(MEMBER|ASSIGNMENT|ROLE)_/.test(a.action)) return "/w/admin/employees";
   if (/^BRANDING_/.test(a.action)) return "/w/admin/branding";

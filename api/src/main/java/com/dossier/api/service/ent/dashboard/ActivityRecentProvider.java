@@ -9,6 +9,7 @@ import com.dossier.api.service.dto.ent.DashboardDTO.Activity;
 import com.dossier.api.service.dto.ent.DashboardDTO.ActivityItem;
 import com.dossier.api.service.org.OrgAuditService;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -50,7 +51,7 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
 
     @Override
     public List<String> permissions() {
-        return List.of("audit.view");
+        return List.of("audit.view", "pipeline.view");
     }
 
     @Override
@@ -60,6 +61,15 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
 
     @Override
     public WidgetResult compute(DashboardContext ctx) {
+        List<ActivityItem> items = new ArrayList<>();
+        if (ctx.can("audit.view")) items.addAll(auditItems(ctx));
+        if (ctx.can("pipeline.view")) items.addAll(applicationItems(ctx));
+        if (items.isEmpty()) return WidgetResult.empty("NO_ACTIVITY");
+        items.sort(Comparator.comparing(ActivityItem::at).reversed());
+        return WidgetResult.ok(new Activity(items.size() > LIMIT ? items.subList(0, LIMIT) : items));
+    }
+
+    private List<ActivityItem> auditItems(DashboardContext ctx) {
         Set<String> filters = rowFilters(ctx);
         PageRequest page = PageRequest.of(0, LIMIT);
         List<OrgAuditEvent> rows;
@@ -72,7 +82,7 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
             while (prefixes.size() < 4) prefixes.add(NONE);
             rows = ctx.repo().latestAuditWithPrefixes(ctx.orgId(), prefixes.get(0), prefixes.get(1), prefixes.get(2), prefixes.get(3), page);
         }
-        if (rows.isEmpty()) return WidgetResult.empty("NO_ACTIVITY");
+        if (rows.isEmpty()) return List.of();
         Set<String> logins = new HashSet<>();
         for (OrgAuditEvent e : rows) {
             logins.add(e.getActorLogin());
@@ -80,7 +90,7 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
         }
         Map<String, String> names = new HashMap<>();
         for (User u : users.findAllByLoginIn(logins)) names.put(u.getLogin(), displayName(u));
-        List<ActivityItem> items = rows
+        return rows
             .stream()
             .map(e ->
                 new ActivityItem(
@@ -96,7 +106,59 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
                 )
             )
             .toList();
-        return WidgetResult.ok(new Activity(items));
+    }
+
+    /** The newest application events: who (the marketer, else the consultant), what, and the job it was about. Names only, no free text. */
+    private List<ActivityItem> applicationItems(DashboardContext ctx) {
+        List<Object[]> rows = ctx.repo().latestApplicationEvents(ctx.orgId(), PageRequest.of(0, LIMIT));
+        if (rows.isEmpty()) return List.of();
+        Set<Long> memberIds = new HashSet<>();
+        Set<Long> consultantIds = new HashSet<>();
+        Set<Long> requirementIds = new HashSet<>();
+        for (Object[] r : rows) {
+            if (r[4] != null) memberIds.add((Long) r[4]);
+            consultantIds.add((Long) r[6]);
+            requirementIds.add((Long) r[7]);
+        }
+        Map<Long, String> members = new HashMap<>();
+        if (!memberIds.isEmpty()) {
+            for (Object[] m : ctx.repo().memberNames(ctx.orgId(), memberIds)) {
+                String full = ((m[1] == null ? "" : m[1].toString().trim()) + " " + (m[2] == null ? "" : m[2].toString().trim())).trim();
+                members.put((Long) m[0], full.isEmpty() ? String.valueOf(m[3]) : full);
+            }
+        }
+        Map<Long, String> consultants = new HashMap<>();
+        for (Object[] c : ctx.repo().consultantNames(ctx.orgId(), consultantIds)) consultants.put((Long) c[0], String.valueOf(c[1]));
+        Map<Long, String> jobs = new HashMap<>();
+        for (Object[] j : ctx.repo().requirementTitles(ctx.orgId(), requirementIds)) jobs.put((Long) j[0], String.valueOf(j[1]));
+        List<ActivityItem> out = new ArrayList<>();
+        for (Object[] r : rows) {
+            String consultant = consultants.getOrDefault((Long) r[6], "a consultant");
+            String actor = r[4] == null ? null : members.get((Long) r[4]);
+            String who = actor != null ? actor : consultant;
+            String what = applicationLabel((String) r[1], (String) r[2], (String) r[8], actor != null ? consultant : null);
+            out.add(new ActivityItem((Long) r[0], "APPLICATION_" + r[1], what, null, who, "APPLICATION", null, null, (java.time.Instant) r[3], "application", jobs.get((Long) r[7])));
+        }
+        return out;
+    }
+
+    /** "submitted an application for Dana Cole": the stage the event moved to, in words. {@code consultant} is null when the consultant is the actor. */
+    static String applicationLabel(String eventType, String toStage, String closedReason, String consultant) {
+        String of = consultant == null ? "" : " for " + consultant;
+        boolean self = consultant == null;
+        if ("NOTE".equals(eventType)) return "added a note" + of;
+        if ("CREATED".equals(eventType)) return self ? "was matched to an application" : "created an application" + of;
+        String stage = toStage == null ? "" : toStage;
+        return switch (stage) {
+            case "SUBMITTED" -> "submitted an application" + of;
+            case "UNDER_REVIEW" -> self ? "was moved to In Review" : "moved an application to In Review" + of;
+            case "INTERVIEWING" -> self ? "was moved to Interviewing" : "scheduled an interview" + of;
+            case "OFFER" -> self ? "was moved to Offered" : "moved an application to Offered" + of;
+            case "CLOSED" -> self
+                ? "closed an application" + (closedReason == null ? "" : " (" + closedReason.toLowerCase(java.util.Locale.ROOT).replace('_', ' ') + ")")
+                : "closed an application" + of + (closedReason == null ? "" : " (" + closedReason.toLowerCase(java.util.Locale.ROOT).replace('_', ' ') + ")");
+            default -> "updated an application" + of;
+        };
     }
 
     /** The row filters of the roles that grant {@code audit.view}; empty when any role grants it unfiltered (or none is recorded: the legacy grant is whole). */

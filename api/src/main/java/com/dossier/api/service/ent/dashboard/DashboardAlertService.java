@@ -48,8 +48,20 @@ public class DashboardAlertService {
         new Kind("INVITES_EXPIRING", "info", "members.invite", "/w/admin/employees?status=invited"),
         new Kind("MEMBERS_SUSPENDED", "info", "members.suspend", "/w/admin/employees?status=suspended"),
         new Kind("SINGLE_ADMIN", "info", "members.role.set", "/w/admin/employees"),
-        new Kind("BRANDING_DRAFT", "info", "branding.manage", "/w/admin/branding")
+        new Kind("BRANDING_DRAFT", "info", "branding.manage", "/w/admin/branding"),
+        // the talent conditions of the board's Activity & Alerts card (talent-foundation.md section 5)
+        new Kind("APPLICATIONS_OVERDUE", "warn", "pipeline.view", "/w/admin/applications"),
+        new Kind("LICENSES_ATTENTION", "warn", "licenses.view", "/w/admin/licenses"),
+        new Kind("MARKETERS_OVERLOADED", "warn", "workload.view", "/w/admin/assignments"),
+        new Kind("APPLICATIONS_NEW", "info", "pipeline.view", "/w/admin/applications"),
+        new Kind("INTERVIEWS_WEEK", "info", "pipeline.view", "/w/admin/interviews"),
+        new Kind("PLACEMENT_NEW", "info", "placements.view", "/w/admin/placements"),
+        new Kind("RESUMES_PENDING", "info", "resumes.view_for", "/w/admin/resumes"),
+        new Kind("CONSULTANTS_UNASSIGNED", "info", "assignments.manage", "/w/admin/assignments")
     );
+
+    static final Duration RECENT = Duration.ofDays(7);
+    static final int OVERLOAD_PCT = 90; // TalentDemoSeeder.OVERLOAD_PCT: a marketer at 90 % of capacity or more
 
     public static final Set<String> KEYS = KINDS.stream().map(Kind::key).collect(java.util.stream.Collectors.toUnmodifiableSet());
 
@@ -125,9 +137,49 @@ public class DashboardAlertService {
                 if (b.getDraftUpdatedAt().isAfter(ctx.now().minus(BRANDING_DRAFT_STALE_AFTER))) return null;
                 return alert(kind, "Unpublished branding changes", "Your branding draft has not been published for over a day.", 1);
             }
+            case "APPLICATIONS_OVERDUE": {
+                long n = ctx.repo().countOverdueApplications(orgId, TalentTiles.day(ctx.now()));
+                return n == 0 ? null : alert(kind, n + (n == 1 ? " application is overdue" : " applications are overdue"), "Their next action is past its due date.", n);
+            }
+            case "LICENSES_ATTENTION": {
+                long n = ctx.repo().countLicensesNeedingAttention(orgId);
+                return n == 0 ? null : alert(kind, n + (n == 1 ? " consultant license needs attention" : " consultant licenses need attention"), "Expiring or waiting for review.", n);
+            }
+            case "MARKETERS_OVERLOADED": {
+                long n = ctx.repo().countOverloadedMarketers(orgId, OVERLOAD_PCT);
+                return n == 0 ? null : alert(kind, n + (n == 1 ? " marketer is near capacity" : " marketers are near capacity"), "At " + OVERLOAD_PCT + "% of their consultant limit or more.", n);
+            }
+            case "APPLICATIONS_NEW": {
+                Instant since = ctx.now().minus(RECENT);
+                long n = ctx.repo().countApplicationsCreatedSince(orgId, since);
+                return n == 0 ? null : alert(kind, n + (n == 1 ? " new application received" : " new applications received"), "In the last 7 days.", n, ctx.repo().newestApplicationCreatedSince(orgId, since));
+            }
+            case "INTERVIEWS_WEEK": {
+                long n = ctx.repo().countInterviews(orgId, ctx.now(), ctx.now().plus(RECENT), List.of("SCHEDULED"));
+                if (n == 0) return null;
+                long clients = ctx.repo().countInterviewClients(orgId, ctx.now(), ctx.now().plus(RECENT));
+                return alert(kind, n + (n == 1 ? " interview scheduled this week" : " interviews scheduled this week"), "Across " + clients + (clients == 1 ? " client." : " clients."), n);
+            }
+            case "PLACEMENT_NEW": {
+                java.time.LocalDate from = TalentTiles.day(ctx.now().minus(RECENT));
+                long n = ctx.repo().countPlacementsStarted(orgId, from, TalentTiles.day(ctx.now()));
+                return n == 0 ? null : alert(kind, n + (n == 1 ? " new placement started" : " new placements started"), "In the last 7 days.", n, ctx.repo().newestPlacementStartedSince(orgId, from));
+            }
+            case "RESUMES_PENDING": {
+                long n = ctx.repo().countResumesPendingApproval(orgId);
+                return n == 0 ? null : alert(kind, n + (n == 1 ? " resume needs approval" : " resumes need approval"), "Waiting for a decision.", n);
+            }
+            case "CONSULTANTS_UNASSIGNED": {
+                long n = ctx.repo().countUnassignedConsultants(orgId);
+                return n == 0 ? null : alert(kind, n + (n == 1 ? " consultant has no marketer" : " consultants have no marketer"), "Assign a marketer so they are worked on.", n);
+            }
             default:
                 return null;
         }
+    }
+
+    private static Alert alert(Kind kind, String title, String message, long count, Instant at) {
+        return new Alert(kind.key(), kind.severity(), title, message, kind.href(), count, at);
     }
 
     private static Alert alert(Kind kind, String title, String message, long count) {

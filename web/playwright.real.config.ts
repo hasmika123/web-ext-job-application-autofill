@@ -11,7 +11,7 @@ const port = Number(process.env.E2E_REAL_PORT ?? 3200);
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: ["journeys/tenant-employees.spec.ts", "journeys/tenant-dashboard.spec.ts", "journeys/tenant-invitations.spec.ts"],
+  testMatch: ["journeys/tenant-employees.spec.ts", "journeys/tenant-dashboard-v2.spec.ts", "journeys/tenant-invitations.spec.ts"],
   timeout: 240_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
