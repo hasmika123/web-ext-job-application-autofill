@@ -1,8 +1,8 @@
 "use client";
 
-import { Button, ChevronDownIcon, DataTable, EmptyState, FilterBar, FilterIcon, HandshakeIcon, MemberAvatar, Menu, Select, useNarrow } from "@kiwiply/ui";
+import { Button, ChevronDownIcon, DataTable, EmptyState, FilterIcon, HandshakeIcon, MemberAvatar, Menu, Select, useNarrow } from "@kiwiply/ui";
 import type { DataTableColumn, MenuEntry } from "@kiwiply/ui";
-import { AssignmentStatusPill, Check, PersonChip, PriorityPill } from "./parts";
+import { AssignmentStatusPill, Check, CompactFilters, PersonChip, PriorityPill } from "./parts";
 import {
   AVAILABILITY_LABEL,
   filtersApplied,
@@ -96,10 +96,10 @@ export default function ConsultantsPanel({
       render: (r) => (
         <span className="flex min-w-0 items-center gap-2.5">
           {canManage && narrow && <Check checked={selected.has(r.consultantId)} onChange={() => onToggle(r.consultantId)} label={`Select ${r.name}`} />}
-          <MemberAvatar name={r.name} size={34} />
-          <span className="min-w-0">
-            <span className="block truncate text-[13.5px] font-bold text-ink">{r.name}</span>
-            <span className="block truncate text-[12px] font-normal text-muted">{r.jobTitle ?? (r.availability ? AVAILABILITY_LABEL[r.availability] : "")}</span>
+          <MemberAvatar name={r.name} size={30} />
+          <span className="min-w-0 max-w-[9.5rem]" title={r.jobTitle ? `${r.name}, ${r.jobTitle}` : r.name}>
+            <span className="block truncate text-[13px] font-bold text-ink">{r.name}</span>
+            <span className="block truncate text-[11.5px] font-normal text-muted">{r.jobTitle ?? (r.availability ? AVAILABILITY_LABEL[r.availability] : "")}</span>
           </span>
         </span>
       ),
@@ -108,8 +108,8 @@ export default function ConsultantsPanel({
     { key: "backup", header: "Backup Marketer", render: (r) => <PersonChip person={r.backup} none="No backup" /> },
     { key: "status", header: "Status", sortable: true, render: (r) => <AssignmentStatusPill status={r.status} /> },
     { key: "priority", header: "Priority", sortable: true, render: (r) => <PriorityPill priority={r.priority} /> },
-    { key: "activeApps", header: "Active Apps", sortable: true, className: "text-right tabular-nums", render: (r) => <span className="tabular-nums">{r.activeApps}</span> },
-    { key: "lastActivity", header: "Last Activity", sortable: true, render: (r) => <span className="whitespace-nowrap text-ink-soft">{formatDay(r.lastActivityAt) || "—"}</span> },
+    { key: "activeApps", header: "Active Apps", sortable: true, className: "text-center tabular-nums", render: (r) => <span className="tabular-nums">{r.activeApps}</span> },
+    { key: "lastActivity", header: "Last Activity", sortable: true, render: (r) => <span className="whitespace-nowrap text-[12px] text-ink-soft">{formatDay(r.lastActivityAt) || "—"}</span> },
   ];
 
   const filterDefs = [
@@ -123,14 +123,14 @@ export default function ConsultantsPanel({
   const count = pagesOf(total, query.size);
 
   return (
-    <section aria-label="Assigned consultants" className="flex min-w-0 flex-col rounded-2xl border border-line bg-paper p-4" data-consultants-panel>
-      <div className="flex flex-wrap items-start gap-3">
+    <section aria-label="Assigned consultants" className="flex min-w-0 flex-col rounded-2xl border border-line bg-paper p-3.5" data-consultants-panel>
+      <div className="flex flex-wrap items-start gap-2.5">
         <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
           <HandshakeIcon size={22} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[17px] font-extrabold leading-tight text-ink">Assigned Consultants</h2>
-          <p className="mt-0.5 text-[12.5px] leading-snug text-muted" data-consultants-subtitle>
+          <h2 className="text-[16.5px] font-extrabold leading-tight text-ink">Assigned Consultants</h2>
+          <p className="mt-0.5 text-[12px] leading-snug text-muted" data-consultants-subtitle>
             {marketer ? `Consultants assigned to ${marketer.name} (${marketer.assigned} total)` : "Pick a marketer to see their consultants."}
           </p>
         </div>
@@ -152,16 +152,18 @@ export default function ConsultantsPanel({
       </div>
 
       <div className="mt-3 space-y-2">
-        <FilterBar
-          compact
+        <CompactFilters
           query={query.q}
-          onQueryChange={(q) => onChange({ q })}
-          values={values}
-          onFilterChange={onFilter}
-          search={{ placeholder: "Search consultants by name, skill, or client...", label: "Search consultants" }}
+          onQuery={(q) => onChange({ q })}
+          placeholder="Search consultants by name, skill, or client..."
+          label="Search consultants"
           filters={filterDefs}
+          values={values}
+          onFilter={onFilter}
+          active={applied}
+          onClear={() => onChange({ q: "", status: "", priority: "", clientId: "", availability: "", noBackup: false })}
           actions={
-            <Button type="button" variant="ghost" size="sm" aria-expanded={moreOpen} onClick={onMore} data-more-filters>
+            <Button type="button" variant="ghost" size="sm" className="flex-none" aria-expanded={moreOpen} onClick={onMore} data-more-filters>
               <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
             </Button>
           }
@@ -195,6 +197,7 @@ export default function ConsultantsPanel({
           error={state.status === "error" ? state.message : null}
           onRetry={onRetry}
           hasFilters={applied}
+          dense
           rowActions={canManage ? rowMenu : undefined}
           sort={query.sort}
           onSort={(k) => onChange({ sort: nextSort(query.sort, k as SortKey) })}

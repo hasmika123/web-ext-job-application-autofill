@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowRightIcon, Button, EmptyState, ErrorState, FilterBar, IconButton, MemberAvatar, Menu, Meter, MoreVerticalIcon, PlusIcon, Skeleton, StatePill, UsersIcon } from "@kiwiply/ui";
+import { ArrowRightIcon, Button, EmptyState, ErrorState, IconButton, MemberAvatar, Menu, Meter, MoreVerticalIcon, PlusIcon, Skeleton, StatePill, UsersIcon } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
-import "./parts";
+import { CompactFilters } from "./parts";
 import { loadText, type Marketer, type MarketerList } from "@/lib/ent/marketing-assignments";
 
 export type MarketersState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; data: MarketerList };
@@ -54,32 +54,38 @@ export default function MarketersPanel({
   ];
 
   return (
-    <section aria-label="Marketing specialists" className="flex min-w-0 flex-col rounded-2xl border border-line bg-paper p-4" data-marketers-panel>
-      <div className="flex items-start gap-3">
+    <section aria-label="Marketing specialists" className="flex min-w-0 flex-col rounded-2xl border border-line bg-paper p-3.5" data-marketers-panel>
+      <div className="flex items-start gap-2.5">
         <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
           <UsersIcon size={22} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[17px] font-extrabold leading-tight text-ink">Marketing Specialists</h2>
-          <p className="mt-0.5 text-[12.5px] leading-snug text-muted">View marketer workloads and manage assignments.</p>
+          <h2 className="text-[16.5px] font-extrabold leading-tight text-ink">Marketing Specialists</h2>
+          <p className="mt-0.5 text-[12px] leading-snug text-muted">View marketer workloads and manage assignments.</p>
         </div>
         {canManage && (
-          <Button type="button" size="sm" onClick={onAdd} data-add-marketer>
+          <Button type="button" size="sm" className="flex-none" onClick={onAdd} data-add-marketer>
             <PlusIcon size={15} aria-hidden /> Add Marketer
           </Button>
         )}
       </div>
 
-      <FilterBar
-        compact
-        className="mt-3"
-        query={query}
-        onQueryChange={onQuery}
-        values={{ status }}
-        onFilterChange={(_n, v) => onStatus(v)}
-        search={{ placeholder: "Search marketers...", label: "Search marketers" }}
-        filters={[{ name: "status", label: "Status", allLabel: "All Statuses", options: [{ value: "ACTIVE", label: "Active" }, { value: "PAUSED", label: "Paused" }] }]}
-      />
+      <div className="mt-3">
+        <CompactFilters
+          query={query}
+          onQuery={onQuery}
+          placeholder="Search marketers..."
+          label="Search marketers"
+          filters={[{ name: "status", label: "Status", allLabel: "All Statuses", options: [{ value: "ACTIVE", label: "Active" }, { value: "PAUSED", label: "Paused" }] }]}
+          values={{ status }}
+          onFilter={(_n, v) => onStatus(v)}
+          active={filtered}
+          onClear={() => {
+            onQuery("");
+            onStatus("");
+          }}
+        />
+      </div>
 
       <div className="mt-3 min-h-[120px] flex-1">
         {state.status === "loading" && (
@@ -107,7 +113,7 @@ export default function MarketersPanel({
           />
         )}
         {data && data.items.length > 0 && (
-          <ul className="space-y-2" aria-label="Marketers">
+          <ul className="space-y-1" aria-label="Marketers">
             {data.items.map((m) => {
               const selected = m.memberId === selectedId;
               return (
@@ -115,33 +121,33 @@ export default function MarketersPanel({
                   key={m.memberId}
                   data-marketer={m.memberId}
                   data-selected={selected || undefined}
-                  className={`flex items-center gap-1 rounded-xl border p-1.5 ${selected ? "border-accent bg-accent-soft/50" : "border-transparent hover:bg-paper-2/60"}`}
+                  className={`flex items-center gap-0.5 rounded-xl border p-1 ${selected ? "border-accent bg-accent-soft/50" : "border-transparent hover:bg-paper-2/60"}`}
                 >
                   <button
                     type="button"
                     aria-pressed={selected}
                     aria-label={`${m.name}, ${loadText(m)} consultants, ${m.percent} percent. Show their consultants`}
                     onClick={() => onSelect(m.memberId)}
-                    className="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-lg p-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                    className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
                   >
-                    <MemberAvatar name={m.name} size={40} />
+                    <MemberAvatar name={m.name} size={38} />
                     <span className="min-w-0 flex-1">
-                      <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                        <span className="truncate text-[14px] font-bold text-ink">{m.name}</span>
+                      <span className="block truncate text-[13.5px] font-bold leading-tight text-ink">{m.name}</span>
+                      <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
                         <StatePill domain="assignment" state={m.status} label={m.status === "PAUSED" ? "Paused" : "Active"} />
+                        <span className="truncate text-[11.5px] text-muted">{m.title ?? "Marketing"}</span>
                       </span>
-                      <span className="block truncate text-[12px] text-muted">{m.title ?? "Marketing"}</span>
                     </span>
-                    <span className="w-[42%] max-w-[170px] flex-none">
-                      <span className="flex items-baseline justify-between gap-1 text-[12px]">
+                    <span className="w-[7.4rem] flex-none">
+                      <span className="flex items-baseline gap-1 whitespace-nowrap text-[12px]">
                         <span className="font-bold tabular-nums text-ink" data-load>
                           {loadText(m)}
                         </span>
-                        <span className="text-muted">Consultants</span>
+                        <span className="text-[11px] text-muted">Consultants</span>
                       </span>
-                      <span className="mt-1 flex items-center gap-2">
+                      <span className="mt-1 flex items-center gap-1.5">
                         <Meter className="flex-1" value={m.assigned} max={Math.max(1, m.capacity)} warnAt={0.9} label={`${m.name} workload`} valueText={`${m.assigned} of ${m.capacity} consultants, ${m.percent} percent`} />
-                        <span className={`text-[11.5px] font-semibold tabular-nums ${m.overloaded ? "text-danger-text" : "text-muted"}`} data-percent>
+                        <span className={`w-8 text-right text-[11px] font-semibold tabular-nums ${m.overloaded ? "text-danger-text" : "text-muted"}`} data-percent>
                           {m.percent}%
                         </span>
                       </span>
@@ -175,7 +181,7 @@ export default function MarketersPanel({
               <p className="text-[12px] leading-snug text-muted">Manage workloads, set coverage, and keep assignments balanced.</p>
             </div>
           </div>
-          <dl className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-paper p-3">
+          <dl className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-paper p-3 [&_dt]:whitespace-nowrap">
             <div>
               <dd className="text-[22px] font-extrabold leading-none tabular-nums text-ink" data-summary="total">
                 {data.summary.totalAssigned}

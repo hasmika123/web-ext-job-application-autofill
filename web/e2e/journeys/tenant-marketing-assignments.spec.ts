@@ -73,7 +73,7 @@ test.describe("marketing assignments (real stack)", () => {
     await expect(page.locator("[data-showing]")).toHaveText("1-10 of 28 consultants");
 
     // search by a name from the table
-    const first = await page.getByRole("table", { name: "Assigned consultants" }).getByRole("row").nth(1).locator("td").nth(1).locator("span.font-bold").innerText();
+    const first = await page.getByRole("table", { name: "Assigned consultants" }).getByRole("row").nth(1).locator("td").nth(1).locator("span.truncate.font-bold").first().innerText();
     await page.getByRole("searchbox", { name: "Search consultants" }).fill(first.split(" ")[0]);
     await expect(tableRow(page, new RegExp(first))).toBeVisible();
     await page.getByRole("searchbox", { name: "Search consultants" }).fill("");

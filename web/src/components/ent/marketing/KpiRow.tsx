@@ -25,8 +25,8 @@ export default function KpiRow({ kpis, loading, error, onRetry, orgName }: { kpi
         const tile = kpis?.tiles.find((x) => x.key === t.key) ?? null;
         const view = tileView(tile);
         return (
-          <Card key={t.key} className="flex min-w-0 flex-col gap-2 !p-4" data-kpi={t.key}>
-            <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
+          <Card key={t.key} className="flex min-w-0 flex-col gap-1.5 !p-3.5" data-kpi={t.key}>
+            <span aria-hidden className="inline-grid h-9 w-9 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
               {t.icon}
             </span>
             <span className="text-[13.5px] font-medium leading-tight text-ink-soft">{t.label}</span>
@@ -34,7 +34,7 @@ export default function KpiRow({ kpis, loading, error, onRetry, orgName }: { kpi
               {loading ? (
                 <Skeleton className="h-9 w-16" />
               ) : (
-                <span className="text-[32px] font-extrabold leading-none tracking-tight text-ink tabular-nums" data-kpi-value>
+                <span className="text-[30px] font-extrabold leading-none tracking-tight text-ink tabular-nums" data-kpi-value>
                   {tile ? tile.current.toLocaleString("en-US") : error ? "—" : ""}
                 </span>
               )}
@@ -61,12 +61,12 @@ export default function KpiRow({ kpis, loading, error, onRetry, orgName }: { kpi
       <section aria-label="Help" data-help-bee className="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line bg-paper sm:col-span-2 xl:col-span-1">
         <ClaimsMascot />
         <ClaimsHelpCard />
-        <div className="flex justify-center bg-accent-soft/60 pt-2">
-          <EnterpriseMascot pose="greet" size="md" />
+        <div className="flex h-[4.5rem] justify-center overflow-hidden bg-accent-soft/60 pt-1">
+          <EnterpriseMascot pose="greet" size="sm" />
         </div>
-        <div className="flex flex-1 flex-col p-3.5">
-          <h2 className="text-[15px] font-extrabold leading-tight text-ink">Need help with marketing assignments?</h2>
-          <p className="mt-1 text-[12.5px] leading-snug text-muted">I can help you balance workloads, reassign consultants, or find the best marketer for your team at {orgName}.</p>
+        <div className="flex flex-1 flex-col p-3">
+          <h2 className="text-[14.5px] font-extrabold leading-tight text-ink">Need help with marketing assignments?</h2>
+          <p className="mt-1 text-[12px] leading-snug text-muted">I can help you balance workloads, reassign consultants, or find the best marketer for your team at {orgName}.</p>
           <button
             type="button"
             onClick={openHelpPanel}
