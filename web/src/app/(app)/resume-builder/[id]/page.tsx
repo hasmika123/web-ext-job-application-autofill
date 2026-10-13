@@ -14,7 +14,13 @@ import ResumeEditor from "@/components/app-v3/resume-builder/ResumeEditor";
  * tab after the resume costs no second API call. Parses the body here because a `Response` can only be read once.
  */
 const loadDoc = cache(async (id: string) => {
-  const res = await serverApiFetch(`/api/profile/resumes/${id}/doc`);
+  let res = await serverApiFetch(`/api/profile/resumes/${id}/doc`);
+  // An uploaded file has no document yet: open it in the builder by converting it in place (idempotent, same resume id,
+  // the original file stays downloadable). Someone else's resume is still a 404 from the import call.
+  if (res.status === 404 || res.status === 400) {
+    const imported = await serverApiFetch(`/api/profile/resumes/${id}/doc/import`, { method: "POST" });
+    if (imported.ok) res = await serverApiFetch(`/api/profile/resumes/${id}/doc`);
+  }
   const dto = res.ok ? ((await res.json()) as ResumeDocDTO) : null;
   return { status: res.status, ok: res.ok, etag: res.headers.get("etag"), dto };
 });

@@ -202,13 +202,14 @@ export default function ResumeCard({ model: m, layout, display, onManage, action
 
   const actionRow = (
     <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-      <Tooltip content={`Edit ${m.name}`}>
+      <Tooltip content={busy && !built ? "Opening in the builder…" : `Edit ${m.name}`}>
         {built ? (
           <Link href={`/resume-builder/${m.id}`} className={ICON_BTN} aria-label={`Edit ${m.name}`}>
             <PencilIcon size={16} />
           </Link>
         ) : (
-          <button type="button" onClick={onManage} className={ICON_BTN} aria-label={`Edit ${m.name}`}>
+          // An uploaded resume converts into a builder document first (idempotent), then the editor opens.
+          <button type="button" onClick={() => void actions.openInBuilder(m)} disabled={busy} aria-busy={busy} className={ICON_BTN} aria-label={`Edit ${m.name}`}>
             <PencilIcon size={16} />
           </button>
         )}

@@ -96,6 +96,20 @@ class DemoSandboxIT {
     }
 
     @Test
+    void aDemoAccountCanOpenAnUploadedResumeInTheBuilderTwice() throws Exception {
+        demoAccounts.ensureAccounts();
+        User demo = userRepository.findOneByLogin("demo").orElseThrow();
+        Resume file = new Resume().label("Uploaded").r2ObjectKey("").status(com.dossier.api.domain.enumeration.ResumeStatus.CONFIRMED).createdAt(java.time.Instant.now());
+        file.setUser(demo);
+        file = resumeRepository.saveAndFlush(file);
+
+        String first = mockMvc.perform(post("/api/profile/resumes/" + file.getId() + "/doc/import").with(user("demo"))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String second = mockMvc.perform(post("/api/profile/resumes/" + file.getId() + "/doc/import").with(user("demo"))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(om.readTree(second).at("/doc/contentHash").asText()).isEqualTo(om.readTree(first).at("/doc/contentHash").asText());
+        mockMvc.perform(get("/api/profile/resumes/" + file.getId() + "/doc").with(user("demo"))).andExpect(status().isOk());
+    }
+
+    @Test
     void aDemoAccountIsStillReadOnlyOnAccountBillingInboxAndNotifications() throws Exception {
         demoAccounts.ensureAccounts();
 

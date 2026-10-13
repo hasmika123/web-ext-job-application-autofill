@@ -1081,7 +1081,8 @@ function handleSources(req, res, path, method) {
 
   if (tail === "doc/import" && method === "POST") {
     req.resume();
-    if (r.kind === "BUILT") return problem(res, 409, "ALREADY_BUILT"), true;
+    // Idempotent: an already-built resume returns its existing document.
+    if (r.kind === "BUILT" && DOCS.has(r.id)) return withEtag(res, 200, { resume: listRow(r), doc: docDto(r.id) }, DOCS.get(r.id).version), true;
     const doc = docFromStructured(r.label, JSON.parse(r.parsedJson || "{}"), null);
     r.kind = "BUILT";
     r.templateId = "modern";

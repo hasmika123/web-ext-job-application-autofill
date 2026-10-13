@@ -362,14 +362,18 @@ class ResumeSourcesIT {
         assertThat(originalKey).startsWith("resume-originals/" + user().getId() + "/");
         mockMvc.perform(get("/api/profile/resumes/" + file.getId() + "/original")).andExpect(status().isOk()).andExpect(content().bytes("%PDF-original".getBytes(StandardCharsets.UTF_8)));
 
-        // a second import is refused
-        mockMvc.perform(post("/api/profile/resumes/" + file.getId() + "/doc/import")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ALREADY_BUILT"));
+        // a second import is idempotent: the same document comes back, nothing is rebuilt
+        String again = mockMvc.perform(post("/api/profile/resumes/" + file.getId() + "/doc/import")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        assertThat(json(again).at("/doc/docVersion").asLong()).isEqualTo(built.at("/doc/docVersion").asLong());
+        assertThat(json(again).at("/doc/contentHash").asText()).isEqualTo(built.at("/doc/contentHash").asText());
+        assertThat(json(again).at("/doc/doc/meta/originalFileKey").asText()).isEqualTo(originalKey);
+        assertThat(resumeRepository.findById(file.getId()).orElseThrow().getId()).isEqualTo(file.getId());
     }
 
     @Test
-    void importOfABuiltOrForeignResumeIsRefused() throws Exception {
+    void importOfABuiltResumeIsIdempotentAndAForeignOneIsRefused() throws Exception {
         long builtId = created("{}").at("/resume/id").asLong();
-        mockMvc.perform(post("/api/profile/resumes/" + builtId + "/doc/import")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ALREADY_BUILT"));
+        mockMvc.perform(post("/api/profile/resumes/" + builtId + "/doc/import")).andExpect(status().isOk()).andExpect(jsonPath("$.doc.resumeId").value(builtId));
 
         User other = userRepository.findOneByLogin("admin").orElseThrow();
         Resume theirs = new Resume().label("Theirs").r2ObjectKey("").status(ResumeStatus.CONFIRMED).createdAt(Instant.now());
