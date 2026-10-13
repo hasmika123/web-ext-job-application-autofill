@@ -45,11 +45,13 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
         TenantContext c = context.get();
         if (c.isTenant()) {
             if (OrgsEnabledFilter.isOrgPath(path) || path.equals("/api/ent") || path.startsWith("/api/ent/")) {
-                if (tid == null) {
+                if (tid == null && isJoin(path)) {
+                    // X1.8: the invitee signed in before holding a seat (a tid-less token, see TenantSessionService), so the join
+                    // endpoints are the one org surface a tid-less token may reach; OrgJoinService still pins the invite to this host.
+                } else if (tid == null) {
                     unauthorized(response, "TOKEN_TENANT_REQUIRED");
                     return;
-                }
-                if (!tid.equals(c.orgId())) {
+                } else if (!tid.equals(c.orgId())) {
                     unauthorized(response, TenantTokenBinding.MISMATCH);
                     return;
                 }
@@ -70,6 +72,10 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
         response.setContentType("application/problem+json");
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.getWriter().write("{\"status\":401,\"title\":\"Unauthorized\",\"code\":\"" + code + "\"}");
+    }
+
+    private static boolean isJoin(String path) {
+        return path.equals("/api/join") || path.startsWith("/api/join/");
     }
 
     private static String pathOf(HttpServletRequest request) {

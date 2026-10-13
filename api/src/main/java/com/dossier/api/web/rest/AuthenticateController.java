@@ -128,7 +128,7 @@ public class AuthenticateController {
         Long userId = authentication.getPrincipal() instanceof UserWithId user ? user.getId() : null;
 
         // X1.5: on a tenant host the user needs an active seat in that org (403 NOT_A_MEMBER) BEFORE any MFA mail goes out.
-        bindingFor(userId, authentication.getName());
+        bindingFor(userId, authentication.getName(), true);
 
         // Admin email-OTP MFA (Phase 9.X.3) — when enabled, an admin gets an emailed code instead
         // of tokens here, and completes sign-in at /authenticate/mfa. If they have no email on file,
@@ -160,7 +160,7 @@ public class AuthenticateController {
 
     /** Build the access + refresh token pair (new rotation family) and the bearer header. */
     private ResponseEntity<TokenResponse> issueTokens(String subject, String authorities, Long userId) {
-        TenantBinding binding = bindingFor(userId, subject).orElse(null);
+        TenantBinding binding = bindingFor(userId, subject, false).orElse(null);
         String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding);
         // New login starts a new rotation family. The refresh token carries a jti recorded
         // server-side so it can be rotated and revoked.
@@ -174,9 +174,17 @@ public class AuthenticateController {
         return new ResponseEntity<>(new TokenResponse(accessToken, refreshToken), httpHeaders, HttpStatus.OK);
     }
 
-    private Optional<TenantBinding> bindingFor(Long userId, String login) {
+    private Optional<TenantBinding> bindingFor(Long userId, String login, boolean auditInvite) {
         TenantSessionService sessions = tenantSessions.getIfAvailable();
-        return sessions == null ? Optional.empty() : sessions.bindingForLogin(userId, login);
+        return sessions == null ? Optional.empty() : sessions.bindingForLogin(userId, login, inviteHeader(), auditInvite);
+    }
+
+    /** The {@code X-Kiwiply-Invite} header of the current request (the invite token a not-yet-member signs in with, X1.8), or null. */
+    private static String inviteHeader() {
+        if (org.springframework.web.context.request.RequestContextHolder.getRequestAttributes() instanceof org.springframework.web.context.request.ServletRequestAttributes attrs) {
+            return attrs.getRequest().getHeader("X-Kiwiply-Invite");
+        }
+        return null;
     }
 
     private static Long longClaim(Jwt jwt, String name) {

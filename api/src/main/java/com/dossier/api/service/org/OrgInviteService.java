@@ -17,6 +17,8 @@ import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.MailService;
 import com.dossier.api.service.ResumeBuilderSettingKeys;
 import com.dossier.api.service.ResumeBuilderSettings;
+import com.dossier.api.service.ent.JoinLinks;
+import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.dto.org.OrgInviteRequest;
 import com.dossier.api.service.dto.org.OrgInviteResultDTO;
 import com.dossier.api.service.privacy.SensitivePatterns;
@@ -35,7 +37,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -83,7 +84,8 @@ public class OrgInviteService {
     private final OrgService orgService;
     private final ResumeBuilderSettings settings;
     private final MailService mail;
-    private final String baseUrl;
+    private final JoinLinks links;
+    private final OrgRoleService roleService;
 
     public OrgInviteService(
         OrganizationRepository orgs,
@@ -95,7 +97,8 @@ public class OrgInviteService {
         OrgService orgService,
         ResumeBuilderSettings settings,
         MailService mail,
-        @Value("${jhipster.mail.base-url:http://localhost:3000}") String baseUrl
+        JoinLinks links,
+        OrgRoleService roleService
     ) {
         this.orgs = orgs;
         this.members = members;
@@ -106,7 +109,8 @@ public class OrgInviteService {
         this.orgService = orgService;
         this.settings = settings;
         this.mail = mail;
-        this.baseUrl = baseUrl.replaceAll("/+$", "");
+        this.links = links;
+        this.roleService = roleService;
     }
 
     /** One entry of the request, parsed. */
@@ -199,6 +203,7 @@ public class OrgInviteService {
                 alreadyMember.add(e.email());
                 continue;
             }
+            roleService.syncFromLegacy(seat); // X1.6 note: a seat created after the backfill gets its primary role row at once
             invited.add(new OrgInviteResultDTO.Invited(seat.getId(), e.email(), e.name(), role, expires));
             sends.add(() -> sendInvite(org, e.email(), e.name(), inviter, role, token, expires));
         }
@@ -333,7 +338,7 @@ public class OrgInviteService {
 
     private void sendInvite(Organization org, String to, String name, String inviter, OrgRole role, String token, Instant expires) {
         try {
-            mail.sendOrgInviteEmail(to, name, org.getName(), inviter, roleWord(role), List.of(), baseUrl + "/join/t/" + token, EXPIRES.format(expires));
+            mail.sendOrgInviteEmail(to, name, org.getName(), inviter, roleWord(role), List.of(), links.joinLink(org.getId(), token), EXPIRES.format(expires));
         } catch (RuntimeException e) {
             LOG.warn("Invite email could not be queued for org {}", org.getId(), e); // never log the address or the link
         }

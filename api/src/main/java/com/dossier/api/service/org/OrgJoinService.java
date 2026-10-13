@@ -16,6 +16,9 @@ import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.NotificationService;
+import com.dossier.api.service.ent.OrgRoleService;
+import com.dossier.api.service.ent.TenantContext;
+import com.dossier.api.service.ent.TenantContextHolder;
 import com.dossier.api.service.dto.org.JoinAcceptRequest;
 import com.dossier.api.service.dto.org.JoinPreviewDTO;
 import com.dossier.api.service.dto.org.JoinResultDTO;
@@ -59,6 +62,7 @@ public class OrgJoinService {
     private final OrgService orgService;
     private final OrgAuditService audit;
     private final NotificationService notifications;
+    private final OrgRoleService roleService;
 
     public OrgJoinService(
         OrganizationRepository orgs,
@@ -71,7 +75,8 @@ public class OrgJoinService {
         OrgShareConsent consent,
         OrgService orgService,
         OrgAuditService audit,
-        NotificationService notifications
+        NotificationService notifications,
+        OrgRoleService roleService
     ) {
         this.orgs = orgs;
         this.members = members;
@@ -84,6 +89,7 @@ public class OrgJoinService {
         this.orgService = orgService;
         this.audit = audit;
         this.notifications = notifications;
+        this.roleService = roleService;
     }
 
     // ---- preview (public) ---------------------------------------------------------------------------------------------
@@ -183,6 +189,7 @@ public class OrgJoinService {
         } catch (DataIntegrityViolationException raced) {
             throw OrgException.alreadyMember();
         }
+        roleService.syncFromLegacy(seat);
         return finishJoin(org, seat, user, scope, req.consentVersion(), ctx, "via=code");
     }
 
@@ -193,7 +200,7 @@ public class OrgJoinService {
         OrgMembership me = new OrgMembership(org.getId(), seat.getId(), user.getId(), user.getLogin(), seat.getRole(), OrgMemberStatus.ACTIVE, org.getStatus());
         dataShare.grant(me, scope, null, consentVersion == null || consentVersion.isBlank() ? OrgShareConsent.CURRENT : consentVersion, ctx);
         audit.record(me, OrgAuditService.MEMBER_JOIN, OrgAuditService.TARGET_MEMBER, user.getLogin(), String.valueOf(seat.getId()), details + " scope=" + scope);
-        return new JoinResultDTO(org.getId(), org.getSlug(), org.getName(), seat.getId(), seat.getRole(), scope, List.of());
+        return new JoinResultDTO(org.getId(), org.getSlug(), org.getName(), seat.getId(), seat.getRole(), scope, List.of(), null);
     }
 
     /** One notice to the person who invited them (in-app, and email when that person has switched it on). */
@@ -234,7 +241,20 @@ public class OrgJoinService {
     private Organization openOrg(Long orgId) {
         Organization org = orgs.findByOrgId(orgId).orElseThrow(OrgNotFoundException::new);
         if (org.getStatus() == com.dossier.api.domain.enumeration.OrgStatus.CLOSED) throw new OrgNotFoundException();
+        requireHostMatches(org.getId());
         return org;
+    }
+
+    /**
+     * X1.8 (12-identity.md section 5): on an organization's own host only THAT organization's invites and codes exist; on the
+     * platform host (or with no host, today's clients) any organization's do. A host that was given but is not served is a 404.
+     * Answered as the same generic 404 as a token that never existed, so a host reveals nothing about another tenant's links.
+     */
+    private static void requireHostMatches(Long orgId) {
+        TenantContext c = TenantContextHolder.current().orElse(null);
+        if (c == null) return;
+        if (c.isExplicitlyUnknown()) throw new OrgNotFoundException();
+        if (c.isTenant() && !java.util.Objects.equals(c.orgId(), orgId)) throw new OrgNotFoundException();
     }
 
     private static void requireNotExpired(OrgMember seat, Organization org) {

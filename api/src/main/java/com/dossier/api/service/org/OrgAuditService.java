@@ -68,6 +68,8 @@ public class OrgAuditService {
     /** X1.5: correct credentials on this organization's host by someone with no active seat (recorded in the tenant's own trail). */
     public static final String LOGIN_DENIED_NOT_MEMBER = "LOGIN_DENIED_NOT_MEMBER";
     public static final String TARGET_SESSION = "SESSION";
+    /** X1.8: sign-in on an organization host by someone with no seat yet, who holds a live invitation to that organization (no tid until accepted). */
+    public static final String LOGIN_FOR_INVITE = "LOGIN_FOR_INVITE";
     /** X2.5: a branding publish, a restore into the draft, and an asset upload or removal (draft edits and discards write none). */
     public static final String BRANDING_PUBLISH = "BRANDING_PUBLISH";
     public static final String BRANDING_RESTORE = "BRANDING_RESTORE";

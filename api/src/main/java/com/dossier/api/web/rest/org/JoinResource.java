@@ -1,6 +1,11 @@
 package com.dossier.api.web.rest.org;
 
 import com.dossier.api.service.DemoGuard;
+import com.dossier.api.service.TokenIssuer;
+import com.dossier.api.service.ent.TenantBinding;
+import com.dossier.api.service.ent.TenantContext;
+import com.dossier.api.service.ent.TenantContextHolder;
+import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.dto.org.JoinAcceptRequest;
 import com.dossier.api.service.dto.org.JoinPreviewDTO;
 import com.dossier.api.service.dto.org.JoinResultDTO;
@@ -39,11 +44,13 @@ public class JoinResource {
     private final OrgJoinService joinService;
     private final JoinRateLimiter limiter;
     private final DemoGuard demoGuard;
+    private final TokenIssuer tokenIssuer;
 
-    public JoinResource(OrgJoinService joinService, JoinRateLimiter limiter, DemoGuard demoGuard) {
+    public JoinResource(OrgJoinService joinService, JoinRateLimiter limiter, DemoGuard demoGuard, TokenIssuer tokenIssuer) {
         this.joinService = joinService;
         this.limiter = limiter;
         this.demoGuard = demoGuard;
+        this.tokenIssuer = tokenIssuer;
     }
 
     @Operation(summary = "Preview an emailed invite", description = "No authentication. 404 for anything that is not a live invite, 409 INVITE_EXPIRED once it has run out, 429 over the rate limit.")
@@ -65,7 +72,7 @@ public class JoinResource {
     @OrgUnscoped
     public ResponseEntity<?> acceptInvite(@PathVariable("token") String token, @RequestBody JoinAcceptRequest body, HttpServletRequest request) {
         demoGuard.assertNotDemo();
-        return guarded(request, () -> joinService.acceptInvite(token, body, context(request)));
+        return guarded(request, () -> withTenantSession(joinService.acceptInvite(token, body, context(request))));
     }
 
     @Operation(summary = "Join with a shared code", description = "Signed in. Same as accepting an invite, for a join link a cohort shares. Members only.")
@@ -73,7 +80,23 @@ public class JoinResource {
     @OrgUnscoped
     public ResponseEntity<?> acceptCode(@PathVariable("code") String code, @RequestBody JoinAcceptRequest body, HttpServletRequest request) {
         demoGuard.assertNotDemo();
-        return guarded(request, () -> joinService.acceptCode(code, body, context(request)));
+        return guarded(request, () -> withTenantSession(joinService.acceptCode(code, body, context(request))));
+    }
+
+    /**
+     * Accepting on an organization's own host (X1.8, 12-identity.md section 5): the person signed in BEFORE they held a seat, so
+     * their token has no {@code tid}. Now that they are a member the response carries a fresh pair bound to this tenant
+     * ({@code tid}, {@code hid}); the web replaces its cookies with it. Anywhere else the result is unchanged.
+     */
+    private JoinResultDTO withTenantSession(JoinResultDTO result) {
+        TenantContext c = TenantContextHolder.current().orElse(null);
+        if (c == null || !c.isTenant() || !c.orgId().equals(result.orgId())) return result;
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        Long userId = SecurityUtils.getCurrentUserId().orElse(null);
+        String login = SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (auth == null || userId == null || login == null) return result;
+        String authorities = auth.getAuthorities().stream().map(org.springframework.security.core.GrantedAuthority::getAuthority).collect(java.util.stream.Collectors.joining(" "));
+        return result.withSession(tokenIssuer.issue(login, authorities, userId, new TenantBinding(c.orgId(), c.hostnameId())));
     }
 
     /** Rate limits the lookup, runs it, and counts a miss against the visitor. Never cached, never indexed. */

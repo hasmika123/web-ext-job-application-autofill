@@ -3,6 +3,7 @@ package com.dossier.api.service.ent;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.service.org.InviteTokens;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgNotFoundException;
@@ -38,16 +39,41 @@ public class TenantSessionService {
 
     /** The binding for a sign-in by {@code userId} (login {@code login}) on the current request's host, or empty when unbound. */
     public Optional<TenantBinding> bindingForLogin(Long userId, String login) {
+        return bindingForLogin(userId, login, null, false);
+    }
+
+    /**
+     * As above, plus the invitation exception of 12-identity.md section 5 (X1.8): on a TENANT host a person with NO active seat is
+     * still signed in, WITHOUT {@code tid}, when {@code inviteToken} (the {@code X-Kiwiply-Invite} header) is a live pending invite
+     * of THIS organization. That token can then only reach the join endpoints ({@code TenantTokenBindingFilter}); accepting
+     * returns the tenant-bound pair, so "no member, no tenant session" stays true. {@code auditInvite} writes the
+     * {@code LOGIN_FOR_INVITE} row (the caller passes true once per sign-in). A wrong, spent, expired, revoked or foreign token
+     * is treated as no token at all: the ordinary {@code 403 NOT_A_MEMBER}.
+     */
+    public Optional<TenantBinding> bindingForLogin(Long userId, String login, String inviteToken, boolean auditInvite) {
         Optional<TenantContext> context = TenantContextHolder.current();
         if (context.isEmpty()) return Optional.empty();
         TenantContext c = context.get();
         if (c.isExplicitlyUnknown()) throw new OrgNotFoundException();
         if (!c.isTenant()) return Optional.empty();
         if (!isActiveMember(c.orgId(), userId)) {
+            if (hasLiveInvite(c.orgId(), inviteToken)) {
+                if (auditInvite) audit.recordHostEvent(c.orgId(), c.hostnameId(), login, OrgAuditService.LOGIN_FOR_INVITE, "LOW", "sign-in for a pending invitation (no tenant session until it is accepted)");
+                return Optional.empty();
+            }
             audit.recordHostEvent(c.orgId(), c.hostnameId(), login, OrgAuditService.LOGIN_DENIED_NOT_MEMBER, "MEDIUM", "sign-in refused: no active seat");
             throw OrgException.notAMember();
         }
         return Optional.of(new TenantBinding(c.orgId(), c.hostnameId()));
+    }
+
+    private boolean hasLiveInvite(Long orgId, String token) {
+        if (token == null || !InviteTokens.looksLikeToken(token)) return false;
+        return members
+            .findByInviteTokenHash(InviteTokens.hash(token))
+            .filter(s -> s.getStatus() == OrgMemberStatus.INVITED && orgId.equals(s.getOrgId()))
+            .filter(s -> s.getInviteExpiresAt() == null || s.getInviteExpiresAt().isAfter(java.time.Instant.now()))
+            .isPresent();
     }
 
     /**
