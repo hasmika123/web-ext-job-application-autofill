@@ -20,11 +20,25 @@
 | `08-decisions-for-user.md` | escalations with safe defaults | open |
 | `progress-tracker.md` | Progress Tracker | live |
 
+## Written by Session B (domains, branding, login, identity, dashboards, UX) — 2026-10-12
+
+| File | §28 name(s) | Status |
+|---|---|---|
+| `10-domain-routing.md` | Domain Routing (lifecycle, DNS instructions, verification job, edge snippet + runbook, monitoring, dev path) | done |
+| `11-branding-and-login.md` | Branding and Login (model, draft/publish, runtime theme tokens, `BrandedLogin` states, contrast safety, favicon/title, mascot pose map, headers) | done |
+| `12-identity.md` | Identity (tid/hid contract, `/api/me/tenant`, login-first steps, invite acceptance on a tenant host, session-per-host, personal user joins) | done |
+| `13-user-profiles.md` | User Profiles (basic profile via the avatar menu; separation from career/org profiles) | done |
+| `14-organization-administration.md` | Organization Administration (Org Admin Dashboard widgets → sources, alerts, quick actions, checklist, Organization Settings) | done |
+| `15-employees-and-teams.md` | Employees and Teams (seat lifecycle, Employees page, bulk actions, detail sheet, offboarding wizard, departments/teams) | done |
+| `16-ui-ux-page-inventory.md` | UI/UX Page Inventory (UX standards, enterprise shell, tenant route tree, workspaces, switcher, every page per role, wireframes) | done |
+| `07-backlog.md` §3 X2/X3/X4 + `docs/roadmap/areas/ent.json` | Agile Stories X2.1–X2.14, X3.1–X3.8, X4.1–X4.6, X4.9 (§30 format) | done |
+| `08-decisions-for-user.md` "Session B additions" | escalations B1–B8 with safe defaults; E1/E2/E3/E5 recorded as answered | open |
+
 ## Owned by follow-up design sessions
 
 | Session | Owns (§28 names → target files) | Inputs it must respect |
 |---|---|---|
-| **B — Domains, branding, login, identity, dashboards UX** | `10-domain-routing.md` (lifecycle, DNS instructions, verification job, edge snippet + runbook, monitoring) · `11-branding-and-login.md` (BrandedLogin, tenant theme tokens, mascot pose map, contrast rules) · `12-identity.md` (tid/hid claims, login-first flows, Google per host, MFA, SSO later) · `13-user-profiles.md` (basic profile) · `14-organization-administration.md` (org settings, admin dashboard spec) · `15-employees-and-teams.md` · `16-ui-ux-page-inventory.md` (every page per workspace, 390 px + desktop, empty/error/loading states) · stories X2.*, X3.*, X4.1–X4.6, X4.9 | ADR-002/003/004/005/007; `04-tenancy-and-security.md`; `05-permission-model.md` §3 templates; `@kiwiply/ui` only; branch A prior art (01 §5) |
+| **B — Domains, branding, login, identity, dashboards UX** (**done 2026-10-12**, see above) | `10-domain-routing.md` (lifecycle, DNS instructions, verification job, edge snippet + runbook, monitoring) · `11-branding-and-login.md` (BrandedLogin, tenant theme tokens, mascot pose map, contrast rules) · `12-identity.md` (tid/hid claims, login-first flows, Google per host, MFA, SSO later) · `13-user-profiles.md` (basic profile) · `14-organization-administration.md` (org settings, admin dashboard spec) · `15-employees-and-teams.md` · `16-ui-ux-page-inventory.md` (every page per workspace, 390 px + desktop, empty/error/loading states) · stories X2.*, X3.*, X4.1–X4.6, X4.9 | ADR-002/003/004/005/007; `04-tenancy-and-security.md`; `05-permission-model.md` §3 templates; `@kiwiply/ui` only; branch A prior art (01 §5) |
 | **C — Subscriptions, catalog, pricing, entitlements, metering, billing** | `20-consultant-license-model.md` · `21-feature-catalog.md` (feature keys, dependencies, presets) · `22-pricing-calculation.md` (engine, golden tables, rounding) · `23-contract-discounts.md` · `24-entitlements.md` (11-step order as code contracts, reason codes) · `25-usage-metering.md` · `26-billing-provider-integration.md` (StripeGateway growth, webhook routing, reconciler, test clocks) · `27-subscription-lifecycle.md` (org + license state machines, mid-cycle rules) · stories X5.*, X6.* | ADR-012…021; locked pricing rules (CLAUDE.md); Phase 18 catalog design; `docs/design/org/billing.md`; E3/E9/E11/E17/E18 defaults |
 | **D — Talent marketing, resumes, applications, clients, placements, HR, finance** | `17-consultant-assignments.md` · `30-resume-management.md` · `31-talent-marketing.md` (pipeline state machines, approvals, notifications) · `32-applications.md` · `33-interviews.md` · `34-clients.md` · `35-placements.md` · `36-hr-and-finance.md` (record-only, PII rules) · stories X4.7–X4.8, X7.*–X11.* | ADR-006/008/009/010/011; `03-domain-model.md` §2.3–2.4; no-submit guarantee (`docs/design/org/marketer-workspace.md` §6); Timesheets product H; E1/E2 defaults |
 | **E — API specs, test plan, deployment plan, full story set** | `40-api-specifications.md` (OpenAPI deltas per phase, DTOs, error codes) · `41-testing-plan.md` (unit/IT/Playwright matrix, negative suites, E2E A–F scripts, Stripe test clocks) · `42-deployment-plan.md` (flags rollout per org, edge runbook, backups/retention, second-instance readiness) · review and finalise every story in `ent.json` to §30 format · stories X12.* | everything above; CI gates (`OrgIsolationIT`, `TenantRepositoryContractTest`, `PersonalSubscriptionUnchangedIT`) |
