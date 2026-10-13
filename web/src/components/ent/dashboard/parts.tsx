@@ -67,7 +67,7 @@ export function CardError({ onRetry, what }: { onRetry: () => void; what: string
 /** The honest locked body of a card whose module is not built yet. No chart, no figure, no sample. */
 export function Unavailable({ module }: { module: string | null }) {
   return (
-    <div data-widget-unavailable className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+    <div data-widget-unavailable className="flex flex-1 flex-col items-center justify-center gap-2 px-4 py-10 text-center">
       <span aria-hidden className="grid h-11 w-11 place-items-center rounded-full bg-paper-2 text-muted">
         <LockIcon size={20} />
       </span>

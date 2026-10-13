@@ -213,11 +213,16 @@ function PipelineCard({ body }: { body: CardBody }) {
   );
 }
 
+const ACTIVITY_SHOWN = 6; // the board shows five or six; "View all" has the rest
+const QUICK_SHOWN = 4; // the board shows four; the rest the API sends sit behind "Show more"
+
 function QuickActionsCard({ body }: { body: CardBody }) {
+  const [all, setAll] = useState(false);
   const { widget } = body;
   if (!body.loading && !widget) return null;
   const shared = stateBody(body, "your shortcuts");
-  const items = widget && !body.loading ? quickActionsOf(widget) : [];
+  const every = widget && !body.loading ? quickActionsOf(widget) : [];
+  const items = all ? every : every.slice(0, QUICK_SHOWN);
   return (
     <section aria-labelledby="dash-quick" data-dash-card="quick.actions" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
       <CardHead id="dash-quick" icon={ZapIcon} title="Quick Actions" />
@@ -231,6 +236,11 @@ function QuickActionsCard({ body }: { body: CardBody }) {
             ))}
           </ul>
         )}
+        {!shared && every.length > QUICK_SHOWN ? (
+          <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-9 w-full rounded-lg px-2 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft">
+            {all ? "Show fewer" : `Show ${every.length - QUICK_SHOWN} more`}
+          </button>
+        ) : null}
       </div>
     </section>
   );
@@ -245,8 +255,8 @@ function ActionRow({ a }: { a: QuickActionItem }) {
         <Icon size={19} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[14px] font-semibold text-ink">{a.label}</span>
-        <span className="block truncate text-[12.5px] text-muted">{a.description}</span>
+        <span className="block text-[14px] font-semibold leading-tight text-ink">{a.label}</span>
+        <span className="line-clamp-2 text-[12.5px] leading-snug text-muted">{a.description}</span>
       </span>
     </>
   );
@@ -338,7 +348,7 @@ function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: numbe
   const { widget } = body;
   if (!body.loading && !widget) return null;
   const shared = stateBody(body, "recent activity");
-  const items = widget && !body.loading ? activityOf(widget) : [];
+  const items = widget && !body.loading ? activityOf(widget).slice(0, ACTIVITY_SHOWN) : [];
   return (
     <section aria-labelledby="dash-activity" data-dash-card="activity.recent" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
       <CardHead id="dash-activity" icon={ClockIcon} title="Recent Activity" tone="accent">
@@ -540,7 +550,7 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
             ))}
           </section>
 
-          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1.15fr)_minmax(0,1fr)]">
+          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1.1fr)]">
             <TeamPerformanceCard body={body("team.performance")} />
             <PipelineCard body={body("pipeline.overview")} />
             <QuickActionsCard body={body("quick.actions")} />
