@@ -53,7 +53,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @Transactional
 @TestPropertySource(properties = { "dossier.demo.enabled=true", "dossier.demo.enterprise-seed=true", "dossier.demo.create-accounts=false" })
-@org.junit.jupiter.api.Timeout(240)
+@org.junit.jupiter.api.Timeout(1200)
 class TalentDashboardIT {
 
     @Autowired private EnterpriseDemoSeeder baseSeeder;
@@ -73,7 +73,7 @@ class TalentDashboardIT {
     private Long beta;
 
     @BeforeEach
-    @org.junit.jupiter.api.Timeout(300)
+    @org.junit.jupiter.api.Timeout(900)
     void seed() {
         assertThat(baseSeeder.seed().ran()).isTrue();
         assertThat(talentSeeder.seed().ran()).isTrue();
@@ -107,8 +107,21 @@ class TalentDashboardIT {
         return (StatTile) r.data();
     }
 
+    /** One test: seeding the two demo tenants is the expensive part, so every check runs on the same seed. */
     @Test
-    void tilesEqualIndependentCountsOfTheRows() {
+    void theDashboardWidgetsOnTheSeededTenants() {
+        tilesEqualIndependentCountsOfTheRows();
+        deltasAreComputedFromRowsAndTheHistoryRises();
+        teamPerformanceHasSixMonthsOfRisingCounts();
+        pipelineBucketsFollowTheStageMapping();
+        betaNumbersDifferFromAcmeAndNeverMix();
+        anOrganizationWithoutRowsGetsHonestEmptyWidgetsNeverZeros();
+        talentAlertsAreRealCountsWithTheDocumentedNumbers();
+        recentActivityMergesApplicationEventsNewestFirstWithNamesAndJobs();
+        aRoleWithoutAWidgetsPermissionCannotSeeIt();
+    }
+
+    private void tilesEqualIndependentCountsOfTheRows() {
         long open = applications.countByOrgId(acme) - applications.countByOrgIdAndStage(acme, "CLOSED");
         assertThat(tile("applications.active", acme).value()).isEqualTo(open);
 
@@ -129,8 +142,7 @@ class TalentDashboardIT {
         assertThat(money.sparkline().get(5)).isEqualTo(money.value());
     }
 
-    @Test
-    void deltasAreComputedFromRowsAndTheHistoryRises() {
+    private void deltasAreComputedFromRowsAndTheHistoryRises() {
         for (String key : List.of("placements", "consultants.total", "finance.summary")) {
             StatTile t = tile(key, acme);
             assertThat(t.previous()).as(key + " previous").isNotNull();
@@ -143,8 +155,7 @@ class TalentDashboardIT {
         assertThat(placementsTile.sparkline().get(0)).isLessThan(placementsTile.sparkline().get(5));
     }
 
-    @Test
-    void teamPerformanceHasSixMonthsOfRisingCounts() {
+    private void teamPerformanceHasSixMonthsOfRisingCounts() {
         WidgetResult r = run("team.performance", ctx(acme, RoleTemplates.ORG_ADMIN));
         assertThat(r.state()).isEqualTo(State.OK);
         TeamPerformance t = (TeamPerformance) r.data();
@@ -158,8 +169,7 @@ class TalentDashboardIT {
         assertThat(apps.stream().mapToLong(Long::longValue).sum()).isEqualTo(inWindow);
     }
 
-    @Test
-    void pipelineBucketsFollowTheStageMapping() {
+    private void pipelineBucketsFollowTheStageMapping() {
         Pipeline p = (Pipeline) run("pipeline.overview", ctx(acme, RoleTemplates.ORG_ADMIN)).data();
         Map<String, Long> by = p.slices().stream().collect(Collectors.toMap(Slice::key, Slice::value));
         assertThat(by.get("new")).isEqualTo(applications.countByOrgIdAndStage(acme, "ASSIGNED"));
@@ -172,8 +182,7 @@ class TalentDashboardIT {
         assertThat(p.slices().stream().mapToDouble(s -> s.pct()).sum()).isBetween(99.5, 100.5);
     }
 
-    @Test
-    void betaNumbersDifferFromAcmeAndNeverMix() {
+    private void betaNumbersDifferFromAcmeAndNeverMix() {
         for (String key : List.of("applications.active", "placements", "consultants.total", "finance.summary")) {
             long a = tile(key, acme).value();
             long b = tile(key, beta).value();
@@ -190,8 +199,7 @@ class TalentDashboardIT {
         assertThat(betaApps).isLessThan(applications.countByOrgId(acme));
     }
 
-    @Test
-    void anOrganizationWithoutRowsGetsHonestEmptyWidgetsNeverZeros() {
+    private void anOrganizationWithoutRowsGetsHonestEmptyWidgetsNeverZeros() {
         Long nobody = 987_654_321L;
         for (String key : List.of("applications.active", "interviews.upcoming", "placements", "finance.summary", "team.performance", "pipeline.overview", "consultants.total")) {
             WidgetResult r = run(key, ctx(nobody, RoleTemplates.ORG_ADMIN));
@@ -201,8 +209,7 @@ class TalentDashboardIT {
         }
     }
 
-    @Test
-    void talentAlertsAreRealCountsWithTheDocumentedNumbers() {
+    private void talentAlertsAreRealCountsWithTheDocumentedNumbers() {
         List<Alert> acmeAlerts = alerts.alerts(ctx(acme, RoleTemplates.ORG_ADMIN));
         Map<String, Alert> by = acmeAlerts.stream().collect(Collectors.toMap(Alert::key, a -> a, (x, y) -> x));
         assertThat(by.get("MARKETERS_OVERLOADED").count()).isEqualTo(3L); // talent-foundation.md section 3
@@ -213,8 +220,7 @@ class TalentDashboardIT {
         assertThat(DashboardAlertService.KEYS).contains("INTERVIEWS_WEEK", "APPLICATIONS_NEW", "LICENSES_ATTENTION", "RESUMES_PENDING");
     }
 
-    @Test
-    void recentActivityMergesApplicationEventsNewestFirstWithNamesAndJobs() {
+    private void recentActivityMergesApplicationEventsNewestFirstWithNamesAndJobs() {
         Activity feed = (Activity) run("activity.recent", ctx(acme, RoleTemplates.ORG_ADMIN)).data();
         List<ActivityItem> items = feed.items();
         assertThat(items).hasSizeBetween(1, ActivityRecentProvider.LIMIT);
@@ -228,8 +234,7 @@ class TalentDashboardIT {
         }
     }
 
-    @Test
-    void aRoleWithoutAWidgetsPermissionCannotSeeIt() {
+    private void aRoleWithoutAWidgetsPermissionCannotSeeIt() {
         OrgMembership exec = me(acme, RoleTemplates.EXECUTIVE_VIEWER);
         Map<String, Boolean> sees = registry.providers().stream().collect(Collectors.toMap(DashboardWidgetProvider::key, p -> p.permissions().stream().anyMatch(exec::canKey)));
         assertThat(sees.get("finance.summary")).isFalse();

@@ -37,7 +37,7 @@ class DashboardWidgetRegistryTest {
             new TalentWidgets.Finance(),
             new TalentWidgets.TeamPerformanceWidget(),
             new TalentWidgets.PipelineWidget(),
-            new QuickActionsProvider(null),
+            new QuickActionsProvider(),
             new AlertsProvider(null),
             new InvitesPendingProvider(),
             new ActivityRecentProvider(null, null),

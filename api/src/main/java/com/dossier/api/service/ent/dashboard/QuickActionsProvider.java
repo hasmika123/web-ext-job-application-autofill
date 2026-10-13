@@ -2,8 +2,6 @@ package com.dossier.api.service.ent.dashboard;
 
 import com.dossier.api.service.dto.ent.DashboardDTO.QuickAction;
 import com.dossier.api.service.dto.ent.DashboardDTO.QuickActions;
-import com.dossier.api.service.ent.TenantModule;
-import com.dossier.api.service.ent.TenantModules;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -22,16 +20,11 @@ public class QuickActionsProvider implements DashboardWidgetProvider {
      */
     private record Def(String key, String label, String description, String href, String permission, boolean exists, String module) {}
 
-    private final TenantModules modules;
-
-    public QuickActionsProvider(TenantModules modules) {
-        this.modules = modules;
-    }
 
     private static final List<Def> DEFS = List.of(
         new Def("invite-employee", "Invite Employee", "Add a new team member", "/w/admin/employees?invite=1", "members.invite", true, null),
-        new Def("assign-marketer", "Assign Marketer", "Connect a marketer to roles", "/w/admin/assignments", "assignments.manage", true, "marketing"),
-        new Def("configure-licenses", "Configure Licenses", "Manage seats and permissions", "/w/admin/licenses", "licenses.manage", true, "billing"),
+        new Def("assign-marketer", "Assign Marketer", "Connect a marketer to roles", "/w/admin/marketing-assignments", "assignments.manage", true, null),
+        new Def("configure-licenses", "Configure Licenses", "Manage seats and permissions", "/w/admin/licenses", "licenses.manage", true, null),
         new Def("review-applications", "Review Applications", "View pending applications", "/w/admin/applications", "member.view_summary", true, null),
         new Def("view-pipeline", "View Pipeline", "See applications by stage", "/w/admin/pipeline", "pipeline.view", false, null),
         new Def("configure-organization", "Configure Organization", "Settings and defaults", "/w/admin/settings", "org.settings.manage", true, null)
@@ -63,15 +56,10 @@ public class QuickActionsProvider implements DashboardWidgetProvider {
             .stream()
             .filter(d -> ctx.can(d.permission()))
             .map(d -> {
-                boolean on = d.exists() && moduleOn(d.module(), ctx.orgId());
+                boolean on = d.exists();
                 return new QuickAction(d.key(), d.label(), d.description(), d.href(), d.permission(), on, on ? null : (d.module() != null ? d.module() : "pipeline"));
             })
             .toList();
         return items.isEmpty() ? WidgetResult.empty("NO_ACTIONS") : WidgetResult.ok(new QuickActions(items));
-    }
-
-    private boolean moduleOn(String module, Long orgId) {
-        if (module == null) return true;
-        return TenantModule.ofWire(module).map(m -> modules != null && modules.isOn(m, orgId)).orElse(false);
     }
 }

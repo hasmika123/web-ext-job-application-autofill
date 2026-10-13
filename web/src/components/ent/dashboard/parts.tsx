@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
-import { Button, DeltaChip, LockIcon, RefreshIcon, Skeleton, Sparkline, Tooltip, IconButton, chartColor, cn } from "@kiwiply/ui";
+import { Button, LockIcon, RefreshIcon, Skeleton, Sparkline, Tooltip, IconButton, chartColor, cn } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import { comparedToText, deltaFromPct, statTileOf, tileValueText, unavailableText, type DashboardWidget } from "@/lib/ent/dashboard";
 
@@ -15,15 +15,15 @@ import { comparedToText, deltaFromPct, statTileOf, tileValueText, unavailableTex
  *   error        one inline retry for this card only
  */
 
-export const CARD = "rounded-[var(--radius-lg)] border border-line bg-paper";
+export const CARD = "rounded-2xl border border-line/70 bg-paper shadow-[0_1px_3px_rgb(16_24_40/0.06),0_1px_2px_rgb(16_24_40/0.04)]";
 
 export function CardHead({ icon: Icon, title, tone = "accent", children, id }: { icon: ComponentType<IconProps>; title: string; tone?: IconTone; children?: ReactNode; id: string }) {
   return (
-    <header className="flex min-h-9 items-center gap-2.5">
-      <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-[10px]", TONES[tone])}>
-        <Icon size={19} />
+    <header className="flex min-h-10 items-center gap-3">
+      <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl", TONES[tone])}>
+        <Icon size={22} />
       </span>
-      <h2 id={id} className="min-w-0 flex-1 truncate text-[16.5px] font-bold text-ink">
+      <h2 id={id} className="min-w-0 flex-1 truncate text-[19px] font-bold text-ink">
         {title}
       </h2>
       {children}
@@ -98,20 +98,22 @@ export interface TileSpec {
   title: string;
   icon: ComponentType<IconProps>;
   tone: IconTone;
+  /** The sparkline colour (a CSS variable); a falling number is drawn in the danger colour whatever this is. */
+  spark?: string;
   /** Where the tile leads, when its page exists. */
   href?: string | null;
 }
 
-const TILE = "flex min-h-[148px] min-w-0 flex-col rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-4";
+const TILE = "flex min-h-[172px] min-w-0 flex-col rounded-2xl border border-line/70 bg-paper p-4 shadow-[0_1px_3px_rgb(16_24_40/0.06),0_1px_2px_rgb(16_24_40/0.04)] sm:p-5";
 
 function TileFrame({ spec, children, state }: { spec: TileSpec; children: ReactNode; state: string }) {
   const Icon = spec.icon;
   return (
     <section aria-label={spec.title} data-stat-tile={spec.key} data-state={state} className={TILE}>
-      <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-[11px]", TONES[spec.tone])}>
-        <Icon size={20} />
+      <span aria-hidden className={cn("grid h-[52px] w-[52px] flex-none place-items-center rounded-[14px]", TONES[spec.tone])}>
+        <Icon size={26} />
       </span>
-      <h3 className="mt-2.5 truncate text-[14px] font-semibold text-ink-soft">{spec.title}</h3>
+      <h3 className="mt-3 truncate text-[16px] font-medium text-ink">{spec.title}</h3>
       {children}
     </section>
   );
@@ -163,19 +165,24 @@ export function StatTile({ spec, widget, loading, onRetry, index }: { spec: Tile
     .join(" · ");
   const body = (
     <>
-      <div className="mt-1.5 flex items-end justify-between gap-2">
-        <p data-tile-value className="text-[30px] font-extrabold leading-none tabular-nums text-ink">
+      <div className="mt-2 flex items-end justify-between gap-2">
+        <p data-tile-value className="text-[34px] font-extrabold leading-none tabular-nums text-ink">
           {tileValueText(tile)}
         </p>
-        <div className="mb-0.5 w-[44%] max-w-[88px] flex-none">
-          <Sparkline values={tile.sparkline} color={tile.deltaPct !== null && tile.deltaPct < 0 ? "var(--color-v2-coral)" : chartColor(index)} />
+        <div className="mb-0.5 w-[46%] max-w-[104px] flex-none">
+          <Sparkline values={tile.sparkline} color={tile.deltaPct !== null && tile.deltaPct < 0 ? "var(--color-v2-coral)" : (spec.spark ?? chartColor(index))} />
         </div>
       </div>
-      <p className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted">
+      <p className="mt-3 flex min-h-5 flex-wrap items-center gap-x-2 text-[12.5px] text-muted">
         {delta ? (
           <>
-            <DeltaChip delta={delta} />
-            <span>{comparedToText(tile.comparedTo)}</span>
+            <span data-delta={delta.dir} className={cn("inline-flex items-center gap-1 text-[14px] font-bold", delta.dir === "up" ? "text-v2-green-ink" : delta.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
+              <span aria-hidden className="text-[10px]">{delta.dir === "up" ? "▲" : delta.dir === "down" ? "▼" : "▶"}</span>
+              <span className="sr-only">{delta.dir === "up" ? "Up " : delta.dir === "down" ? "Down " : "No change "}</span>
+              {delta.dir === "up" ? "+" : delta.dir === "down" ? "-" : ""}
+              {delta.text}
+            </span>
+            <span className="text-[13.5px]">{comparedToText(tile.comparedTo)}</span>
           </>
         ) : parts ? (
           <span data-tile-counts>{parts}</span>

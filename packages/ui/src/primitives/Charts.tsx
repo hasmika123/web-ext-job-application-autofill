@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useState, type ReactNode } from "react";
 import { cn } from "./cn";
 
 /**
@@ -53,11 +55,31 @@ export interface SparklineProps {
   className?: string;
 }
 
+/** A smooth path through the points (Catmull-Rom turned into cubic Beziers). Pure. */
+export function smoothPath(pts: [number, number][]): string {
+  if (pts.length < 2) return "";
+  const f = (n: number) => n.toFixed(1);
+  let d = `M${f(pts[0][0])},${f(pts[0][1])}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1: [number, number] = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2: [number, number] = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${f(c1[0])},${f(c1[1])} ${f(c2[0])},${f(c2[1])} ${f(p2[0])},${f(p2[1])}`;
+  }
+  return d;
+}
+
+let sparkIds = 0;
+
 export function Sparkline({ values, color = chartColor(0), label, className }: SparklineProps) {
   const pts = sparkPoints(values);
+  const [id] = useState(() => `spark-${++sparkIds}`);
   if (pts.length < 2) return null; // one point (or none) is not a trend: draw nothing
-  const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-  const area = `0,${SPARK_H} ${line} ${SPARK_W},${SPARK_H}`;
+  const line = smoothPath(pts);
+  const area = `${line} L${SPARK_W},${SPARK_H} L0,${SPARK_H} Z`;
   return (
     <svg
       viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
@@ -69,8 +91,14 @@ export function Sparkline({ values, color = chartColor(0), label, className }: S
       className={cn("h-8 w-full", className)}
       style={{ color }}
     >
-      <polygon points={area} fill="currentColor" opacity={0.12} />
-      <polyline points={line} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <defs>
+        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity={0.28} />
+          <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${id})`} />
+      <path d={line} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }
