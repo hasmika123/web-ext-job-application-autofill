@@ -225,12 +225,12 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/filters", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/kpis", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/workload", Case.read()),
-        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/marketers", Case.people(201, "MARKETER_ADD", 1, w -> "{\"memberId\":" + w.member.getId() + ",\"capacity\":9}", null, w -> mktMarketingRole(w))),
-        Map.entry("PATCH /api/orgs/{orgId}/marketing-assignments/marketers/{memberId}", Case.people(200, "MARKETER_UPDATE", 1, w -> "{\"capacity\":7}", null, w -> mktCapacity(w))),
-        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + mktConsultant(w) + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> mktCapacity(w))),
-        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/update", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + mktConsultant(w) + "],\"priority\":\"HIGH\"}", null, w -> mktAssigned(w))),
-        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/unassign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + mktConsultant(w) + "]}", null, w -> mktAssigned(w))),
-        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/restore", Case.people(200, "MARKETING_BULK", 2, w -> "{\"rows\":[{\"consultantId\":" + mktConsultant(w) + ",\"marketerMemberId\":null}]}", null, w -> mktAssigned(w)))
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/marketers", Case.people(201, "MARKETER_ADD", 1, w -> "{\"memberId\":" + w.member.getId() + ",\"capacity\":9}", null, w -> w.mktMarketingRole())),
+        Map.entry("PATCH /api/orgs/{orgId}/marketing-assignments/marketers/{memberId}", Case.people(200, "MARKETER_UPDATE", 1, w -> "{\"capacity\":7}", null, w -> w.mktCapacity())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/update", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"priority\":\"HIGH\"}", null, w -> w.mktAssigned())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/unassign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "]}", null, w -> w.mktAssigned())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/restore", Case.people(200, "MARKETING_BULK", 2, w -> "{\"rows\":[{\"consultantId\":" + w.mktConsultantId + ",\"marketerMemberId\":null}]}", null, w -> w.mktAssigned()))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -281,48 +281,10 @@ class OrgIsolationIT {
     @Autowired private OrgBrandingRepository brandings;
     @Autowired private OrgBrandingVersionRepository brandingVersions;
 
-    // ---- ent-marketing fixtures: the Marketing Assignments routes need a marketer (capacity row), a consultant profile and sometimes an assignment ----
+    // ---- ent-marketing fixtures: the Marketing Assignments routes need a marketer (capacity row), a consultant profile and sometimes an assignment (helpers live in World) ----
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository mktConsultants;
     @Autowired private com.dossier.api.repository.ent.talent.MarketerCapacityRepository mktCapacities;
     @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentRepository mktAssignments;
-    private final Map<Long, Long> mktConsultantByOrg = new java.util.HashMap<>();
-
-    /** The world's member holds a marketing role (what "add a marketer" promotes). */
-    private void mktMarketingRole(World w) {
-        w.member.setRole(OrgRole.MARKETER);
-        members.saveAndFlush(w.member);
-        roleService.syncFromLegacy(w.member);
-        em.flush();
-    }
-
-    /** A marketer (capacity row) for the world's member, plus one consultant profile. */
-    private void mktCapacity(World w) {
-        mktMarketingRole(w);
-        com.dossier.api.domain.ent.talent.MarketerCapacity c = new com.dossier.api.domain.ent.talent.MarketerCapacity();
-        c.setOrgId(w.org.getId());
-        c.setMemberId(w.member.getId());
-        c.setCapacity(5);
-        mktCapacities.saveAndFlush(c);
-        com.dossier.api.domain.ent.talent.ConsultantProfile k = new com.dossier.api.domain.ent.talent.ConsultantProfile();
-        k.setOrgId(w.org.getId());
-        k.setDisplayName(w.p + " consultant");
-        k.setEmail(w.p + "-consultant@example.org");
-        mktConsultantByOrg.put(w.org.getId(), mktConsultants.saveAndFlush(k).getId());
-    }
-
-    private void mktAssigned(World w) {
-        mktCapacity(w);
-        com.dossier.api.domain.ent.talent.MarketerAssignment a = new com.dossier.api.domain.ent.talent.MarketerAssignment();
-        a.setOrgId(w.org.getId());
-        a.setConsultantId(mktConsultantByOrg.get(w.org.getId()));
-        a.setMarketerMemberId(w.member.getId());
-        mktAssignments.saveAndFlush(a);
-    }
-
-    /** The world's consultant profile id (the hostile sweeps ask before any prepare ran: a made-up id, which must also be a generic answer). */
-    private Long mktConsultant(World w) {
-        return mktConsultantByOrg.getOrDefault(w.org.getId(), 1L);
-    }
 
     private OrgFixtures fx;
 
@@ -458,6 +420,41 @@ class OrgIsolationIT {
             offboardingId = offboardingRows.saveAndFlush(sched).getId();
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
+        }
+
+        /** ent-marketing: the id of this world's consultant profile (a made-up id until a prepare created it, which must also give a generic answer). */
+        Long mktConsultantId = 1L;
+
+        /** The world's member holds a marketing role (what "add a marketer" promotes). */
+        void mktMarketingRole() {
+            member.setRole(OrgRole.MARKETER);
+            members.saveAndFlush(member);
+            roleService.syncFromLegacy(member);
+            em.flush();
+        }
+
+        /** A marketer (capacity row) for the world's member, plus one consultant profile. */
+        void mktCapacity() {
+            mktMarketingRole();
+            com.dossier.api.domain.ent.talent.MarketerCapacity c = new com.dossier.api.domain.ent.talent.MarketerCapacity();
+            c.setOrgId(org.getId());
+            c.setMemberId(member.getId());
+            c.setCapacity(5);
+            mktCapacities.saveAndFlush(c);
+            com.dossier.api.domain.ent.talent.ConsultantProfile k = new com.dossier.api.domain.ent.talent.ConsultantProfile();
+            k.setOrgId(org.getId());
+            k.setDisplayName(p + " consultant");
+            k.setEmail(p + "-consultant@example.org");
+            mktConsultantId = mktConsultants.saveAndFlush(k).getId();
+        }
+
+        void mktAssigned() {
+            mktCapacity();
+            com.dossier.api.domain.ent.talent.MarketerAssignment a = new com.dossier.api.domain.ent.talent.MarketerAssignment();
+            a.setOrgId(org.getId());
+            a.setConsultantId(mktConsultantId);
+            a.setMarketerMemberId(member.getId());
+            mktAssignments.saveAndFlush(a);
         }
 
         /** Puts the member in the SUSPENDED state (what a reinstate needs to find). */

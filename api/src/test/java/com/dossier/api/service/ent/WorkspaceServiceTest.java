@@ -91,7 +91,7 @@ class WorkspaceServiceTest {
     void withTheModulesOffTheAdminMenuLosesExactlyTheModulePages() {
         WorkspaceService.Result off = compute(ALL_OFF, "ORG_ADMIN");
         assertThat(navKeys(off, "admin")).containsExactly(
-            "home", "employees", "invitations", "teams", "departments", "applications", "interviews", "reports", "branding", "audit", "settings"
+            "home", "employees", "invitations", "teams", "departments", "assignments", "applications", "interviews", "reports", "branding", "audit", "settings"
         );
         Map<String, Boolean> rolesAndDomains = new LinkedHashMap<>(ALL_OFF);
         rolesAndDomains.put("roles", true);
