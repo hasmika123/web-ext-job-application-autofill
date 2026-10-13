@@ -7,7 +7,7 @@ import { badBody, forward, readObject } from "@/lib/admin-proxy";
  *
  * Only the routes below are forwarded; anything else is a 404 from this layer, never an open proxy.
  */
-const ID = "\d{1,18}";
+const ID = "\\d{1,18}";
 const ROUTES: { method: string; pattern: RegExp; body: boolean }[] = [
   { method: "GET", pattern: /^$/, body: false },
   { method: "GET", pattern: /^summary$/, body: false },
