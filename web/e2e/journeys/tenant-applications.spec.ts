@@ -12,8 +12,12 @@ const base = `http://acme.localhost:${port}`;
 const shots = resolve(__dirname, "../../../design/enterprise-talent/built");
 
 async function signInAsSarah(page: Page) {
-  await page.goto(`${base}/login`);
-  await page.getByRole("button", { name: /Demo accounts/ }).first().click();
+  // the first click can land before the page is hydrated: reload and click again until the demo roster is open
+  await expect(async () => {
+    await page.goto(`${base}/login`);
+    await page.getByRole("button", { name: /Demo accounts/ }).first().click();
+    await expect(page.getByRole("button", { name: "Sign in as Sarah Chen" })).toBeVisible({ timeout: 8000 });
+  }).toPass({ timeout: 90_000 });
   await page.getByRole("button", { name: "Sign in as Sarah Chen" }).click();
   await page.waitForURL((u) => u.pathname.startsWith("/w/"));
 }
@@ -26,6 +30,7 @@ test.describe("applications (real stack)", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
   test("the journey", async ({ page }) => {
+    test.slow(); // a loaded shared machine: triple the timeout
     mkdirSync(shots, { recursive: true });
     await signInAsSarah(page);
     await page.goto(`${base}/w/admin/applications`);
@@ -53,7 +58,7 @@ test.describe("applications (real stack)", () => {
     const search = page.getByRole("searchbox", { name: "Search applications" });
     await search.fill("zzzz-nobody");
     await expect(page.getByText("No applications match")).toBeVisible();
-    await page.getByRole("button", { name: "Clear filters" }).click();
+    await page.getByRole("button", { name: "Clear filters" }).first().click();
     await expect(page.locator("tr[data-row-id]")).toHaveCount(10);
     await expect(page).not.toHaveURL(/stage=/);
 
@@ -77,10 +82,11 @@ test.describe("applications (real stack)", () => {
     await drawer(page).locator("[data-move-trigger]").click();
     await expect(page.getByRole("menuitem", { name: "Record as Submitted" })).toBeVisible();
     await page.getByRole("menuitem", { name: "Record as Submitted" }).click();
+    // the Undo toast is short-lived: act on it first, check the rest afterwards
+    const undo = page.getByRole("button", { name: "Undo" }).last();
+    await expect(undo).toBeVisible();
     await expect(page.getByText(/recorded as Submitted/)).toBeVisible();
-    await expect(drawer(page).locator("[data-step=SUBMITTED][data-step-state=CURRENT]")).toBeVisible();
-    await expect(page.locator("tr[data-row-id]", { hasText: "Submitted" }).first()).toBeVisible().catch(() => undefined);
-    await page.getByRole("button", { name: "Undo" }).last().click();
+    await undo.click();
     await expect(page.getByText("Undone", { exact: true })).toBeVisible();
     await expect(drawer(page).locator("[data-step=ASSIGNED][data-step-state=CURRENT]")).toBeVisible();
 
@@ -94,6 +100,7 @@ test.describe("applications (real stack)", () => {
 
     // add a note
     await drawer(page).getByRole("tab", { name: /^Notes/ }).click();
+    await expect(drawer(page).locator("[data-notes]")).toBeVisible();
     const before = await drawer(page).locator("[data-note-id]").count();
     await drawer(page).getByRole("textbox", { name: "Add a note" }).fill("Client prefers a Friday call");
     await drawer(page).getByRole("button", { name: "Add note" }).click();

@@ -571,9 +571,10 @@ public class ApplicationQueryService {
         List<ApplicationDTO.NoteItem> noteItems = ns.stream().map(n -> new ApplicationDTO.NoteItem(n.getId(), names.marketer(n.getAuthorMemberId(), who), n.getBody(), n.getCreatedAt())).toList();
 
         boolean edit = access.canWrite(me, ApplicationAccess.WRITE_KEYS, a);
-        boolean move = edit && !ApplicationStages.CLOSED.equals(a.getStage()) && access.canWrite(me, List.of(ApplicationAccess.KEY_RECORD, ApplicationAccess.KEY_FOLLOWUP, ApplicationAccess.KEY_OFFERS), a);
+        boolean canRecord = edit && access.canWrite(me, List.of(ApplicationAccess.KEY_RECORD, ApplicationAccess.KEY_FOLLOWUP, ApplicationAccess.KEY_OFFERS), a);
+        boolean move = canRecord && !ApplicationStages.CLOSED.equals(a.getStage());
         boolean reassign = access.canWrite(me, List.of(ApplicationAccess.KEY_REASSIGN), a);
-        ApplicationDTO.UndoToken undo = move ? undoToken(me, a, evs) : null;
+        ApplicationDTO.UndoToken undo = canRecord ? undoToken(me, a, evs) : null; // a move to Closed can be undone too
         boolean mayMove = move;
         return new ApplicationDTO.Detail(
             a.getId(), a.getCode(), r.getId(), r.getTitle(), r.getEmploymentLabel(), consultantRef(c), clientRef(cl), a.getAppliedOn(), a.getStage(), a.getClosedReason(), a.getSourceLabel(),

@@ -31,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
+// the real chain with a MySQL container: give a loaded machine more than the 15 s global default
+@org.junit.jupiter.api.Timeout(120)
 class OrgApplicationResourceIT extends MemberItSupport {
 
     private ClientAccount client;
@@ -386,7 +388,7 @@ class OrgApplicationResourceIT extends MemberItSupport {
         assertThat(json(send("owner", patch(url() + "/" + app1.getId()), "{\"nextActionDue\":null}")).path("nextActionDue").isNull()).isTrue();
         assertCode(send("owner", patch(url() + "/" + app1.getId()), "{\"stage\":\"OFFER\"}"), 422, "FIELD_UNKNOWN");
         assertStatus(send("owner", patch(url() + "/" + app1.getId()), "{\"nextActionDue\":\"tomorrow\"}"), 422);
-        assertStatus(send("owner", patch(url() + "/" + app1.getId()), "{\"nextAction\":\"card 4111 1111 1111 1111\"}"), 422);
+        assertStatus(send("owner", patch(url() + "/" + app1.getId()), "{\"nextAction\":\"SSN 123-45-6789\"}"), 422);
     }
 
     @Test

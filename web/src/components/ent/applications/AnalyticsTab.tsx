@@ -38,14 +38,14 @@ function Bars({ rows, label }: { rows: Bucket[]; label: string }) {
  */
 export default function AnalyticsTab({ data }: { data: Analytics }) {
   if (data.total === 0) {
-    return <EmptyState variant="inline" mascot mascotPose="empty" title="No applications to analyse yet" description="Charts appear once applications are added to the pipeline." />;
+    return <EmptyState variant="inline" mascot={false} title="No applications to analyse yet" description="Charts appear once applications are added to the pipeline." />;
   }
   const funnel = data.reached;
   const first = funnel[0]?.count ?? 0;
   return (
     <div className="grid gap-3 lg:grid-cols-2" data-analytics-tab>
       <Panel title="Where applications are now" testId="stages">
-        <div className="flex flex-wrap items-center gap-4">
+        <div>
           <DonutChart
             label="Applications by stage"
             total={data.total}
@@ -53,14 +53,6 @@ export default function AnalyticsTab({ data }: { data: Analytics }) {
             size={140}
             slices={data.byStage.map((b, i) => ({ key: b.key, label: b.label, value: b.count, color: chartColor(i) }))}
           />
-          <ul className="min-w-0 flex-1 space-y-1 text-[12.5px]">
-            {data.byStage.map((b, i) => (
-              <li key={b.key} className="flex items-center justify-between gap-2">
-                <span className="flex items-center gap-2 text-ink-soft"><span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: chartColor(i) }} />{b.label}</span>
-                <span className="font-semibold tabular-nums text-ink">{b.count}</span>
-              </li>
-            ))}
-          </ul>
         </div>
         <p className="mt-3 text-[12.5px] text-muted">
           {data.open} open

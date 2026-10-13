@@ -21,9 +21,9 @@ const TILES: TileDef[] = [
  * The four KPI tiles. The delta ("vs last month") is drawn only when the API rebuilt a figure from thirty days ago: an organization
  * younger than a month shows the figure alone. The sparkline is the weekly series the API computed from the application history.
  */
-export default function KpiTiles({ counts, loading, error }: { counts: Counts | null; loading: boolean; error: boolean }) {
+export default function KpiTiles({ counts, loading, error, docked = false }: { counts: Counts | null; loading: boolean; error: boolean; docked?: boolean }) {
   return (
-    <ul aria-label="Application figures" className="grid grid-cols-2 gap-3 xl:grid-cols-4" data-kpi-tiles>
+    <ul aria-label="Application figures" className={`grid grid-cols-2 gap-3 ${docked ? "lg:grid-cols-4" : "xl:grid-cols-4"}`} data-kpi-tiles>
       {TILES.map((t, i) => {
         const tile: Tile | null = counts ? counts[t.key] : null;
         const delta = tile ? deltaOf(tile.value, tile.previous) : null;
@@ -43,7 +43,7 @@ export default function KpiTiles({ counts, loading, error }: { counts: Counts | 
                   </span>
                 )}
                 {tile && tile.series.length > 1 && (
-                  <span className="w-20 flex-none sm:w-24">
+                  <span className={`flex-none ${docked ? "w-14" : "w-20 sm:w-24"}`}>
                     <Sparkline values={tile.series} color={chartColor(i)} label={`${t.label}, last ${tile.series.length} weeks`} />
                   </span>
                 )}

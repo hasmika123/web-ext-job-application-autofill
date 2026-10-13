@@ -47,7 +47,7 @@ at eight weekly points is replayed from its latest event up to that instant. An 
 view), `KpiTiles` (tile, `Sparkline`, `DeltaChip`), `ApplicationsTable` (table at desktop, cards on a phone, pager), `PipelineBoard`
 (`KanbanBoard`, cards move by their menu, no dragging), `AnalyticsTab` (`DonutChart`, `BarChart`, bars), `DetailDrawer` (`SideSheet` / `BottomSheet`;
 stepper, Overview / Timeline / Notes (n) / Activity, edit with autosave, "Record a move" menu), `AddApplicationDialog` (searchable pickers),
-`HelpBeeCard` (the page's one bee: the promo card when no application is open, the help card in the drawer when one is), `hooks.ts`
+`HelpBeeCard` (the page's ONE bee lives on the top-right promo card; the help card under an open application is text only), `hooks.ts`
 (`useApplicationDetail`, `useStageMove`: every move toasts "recorded as X" with an Undo). BFF: one catch-all handler
 `web/src/app/api/orgs/[orgId]/applications/[[...path]]` (`applications-bff.ts`: numeric ids, known routes, JSON object bodies only).
 Client and URL helpers: `web/src/lib/ent/applications.ts`. No Save buttons (fields save as you type; a note and Add application are explicit sends).

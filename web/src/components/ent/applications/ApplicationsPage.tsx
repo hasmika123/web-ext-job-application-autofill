@@ -57,6 +57,7 @@ import HelpBeeCard from "./HelpBeeCard";
 import { useStageMove } from "./hooks";
 import KpiTiles from "./KpiTiles";
 import PipelineBoard from "./PipelineBoard";
+import { SearchBox } from "./parts";
 
 const WIDE_QUERY = "(min-width: 1400px)"; // config-literal-ok: the width at which the drawer docks beside the table instead of floating over it
 
@@ -222,15 +223,16 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
 
   /* ── filters ─────────────────────────────────────────────────────────────────── */
 
-  const filterValues = { job: view.job, client: view.client, stage: view.stage, marketer: view.marketer };
+  const filterValues: Record<string, string> = view.tab === "pipeline" ? { job: view.job, client: view.client, marketer: view.marketer } : { job: view.job, client: view.client, stage: view.stage, marketer: view.marketer };
   const onFilter = (name: string, value: string) => setView({ [name]: value } as Partial<ViewState>);
   const active = filtersActive(view);
   const clearAll = () => setView({ q: "", stage: "", job: "", client: "", marketer: "", from: "", to: "" });
 
+  /** The pipeline has a column per stage, so it offers no stage filter. */
   const filters = [
     { name: "job", label: "Job Title", allLabel: "All Job Titles", options: options?.jobTitles ?? [] },
     { name: "client", label: "Client", allLabel: "All Clients", options: options?.clients ?? [] },
-    { name: "stage", label: "Stage", allLabel: "All Stages", options: options?.stages ?? [] },
+    ...(view.tab === "pipeline" ? [] : [{ name: "stage", label: "Stage", allLabel: "All Stages", options: options?.stages ?? [] }]),
     { name: "marketer", label: "Marketer", allLabel: "All Marketers", options: options?.marketers ?? [] },
   ];
 
@@ -262,6 +264,8 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
   const total = list.status === "ok" ? list.total : 0;
   const mode = narrow ? "sheet" : wide ? "push" : "overlay";
   const drawerOpen = view.selected !== null;
+  /** The drawer sits beside the table (wide screens): the tiles and the promo card stack in the narrower column. */
+  const docked = drawerOpen && mode === "push";
   const dateLabel = view.from || view.to ? `${view.from ? formatDay(view.from) : "Any"} – ${view.to ? formatDay(view.to) : "Any"}` : "Date Range";
 
   const dateControls = (
@@ -277,13 +281,11 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
       <PageHeader title="Applications" subtitle="Track and manage consultant applications across all your job opportunities." />
       <div className="flex items-start">
         <div className="min-w-0 flex-1 space-y-4">
-          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_17rem]">
-            <KpiTiles counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
-            {!drawerOpen && (
-              <div className="hidden md:block">
-                <HelpBeeCard variant="promo" orgName={orgName} supportEmail={supportEmail} />
-              </div>
-            )}
+          <div className={`grid items-stretch gap-3 ${docked ? "" : "xl:grid-cols-[minmax(0,1fr)_20rem]"}`}>
+            <KpiTiles counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} docked={docked} />
+            <div className="hidden md:block">
+              <HelpBeeCard variant="promo" orgName={orgName} supportEmail={supportEmail} />
+            </div>
           </div>
 
           <Tabs value={view.tab} onValueChange={(t) => setView({ tab: t as MainTab, page: 0 }, false)} variant="underline">
@@ -296,25 +298,15 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
 
           {view.tab !== "analytics" && (
             <div className="space-y-2">
-              <FilterBar
-                compact
-                query={view.q}
-                onQueryChange={(q) => setView({ q })}
-                values={filterValues}
-                onFilterChange={onFilter}
-                search={{ placeholder: "Search by consultant name, job title, client, or status…", label: "Search applications" }}
-                filters={filters}
-                actions={
-                  <>
-                    {dateControls}
-                    {canAdd && (
-                      <Button type="button" onClick={() => setAdding(true)} data-add-application>
-                        <PlusIcon size={16} aria-hidden /> Add Application
-                      </Button>
-                    )}
-                  </>
-                }
-              />
+              <div className="flex items-center gap-2.5">
+                <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search applications" placeholder="Search by consultant name, job title, client, or status…" />
+                {canAdd && (
+                  <Button type="button" onClick={() => setAdding(true)} data-add-application className="flex-none">
+                    <PlusIcon size={16} aria-hidden /> Add Application
+                  </Button>
+                )}
+              </div>
+              <FilterBar query={view.q} onQueryChange={(q) => setView({ q })} values={filterValues} onFilterChange={onFilter} search={false} filters={filters} actions={dateControls} />
               {dateOpen && (
                 <div className="flex flex-wrap items-end gap-2.5 rounded-[var(--radius)] border border-line bg-paper-2/40 p-2.5" data-date-row>
                   <label className="text-[12.5px] font-medium text-ink-soft">
@@ -349,7 +341,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
                     rowMenu={rowMenu}
                     sort={view.sort}
                     onSort={(k: SortKey) => setView({ sort: nextSort(view.sort, k) })}
-                    compact={drawerOpen && mode === "push"}
+                    compact={docked}
                   />
                   <Pagination page={view.page} size={view.size} total={total} shown={rows.length} onPage={(page) => setView({ page }, false)} onSize={(size) => setView({ size })} />
                 </>

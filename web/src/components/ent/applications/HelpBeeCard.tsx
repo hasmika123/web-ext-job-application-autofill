@@ -7,9 +7,10 @@ import { helpLinks } from "@/lib/ent/shell";
 import { ClaimsMascot } from "@/components/ent/shell/ShellContext";
 
 /**
- * A help card with the enterprise bee: the page's one mascot (it tells the shell to drop the sidebar card's bee while it is on screen).
+ * A help card. The `promo` card carries the page's ONE enterprise bee (it tells the shell to drop the sidebar card's bee while it is on screen);
+ * the `help` card under an open application is text only, so the view never shows two bees.
  * "Ask a question..." opens the same help panel the shell offers (no assistant yet: it lists where a person can be reached).
- * `variant="promo"` is the top-right card of the board ("Streamline your hiring pipeline"), `variant="help"` the one under an open application.
+ * `variant="promo"` is the top-right card of the board ("Streamline your hiring pipeline"), always on screen from md up; `variant="help"` the one under an open application.
  */
 export default function HelpBeeCard({
   variant,
@@ -27,10 +28,14 @@ export default function HelpBeeCard({
     <section
       aria-label={promo ? "Hiring pipeline tips" : "Help with this application"}
       data-help-bee={variant}
-      className={`flex gap-3 overflow-hidden rounded-2xl border border-line bg-accent-soft/50 p-3 ${promo ? "flex-col sm:flex-row xl:flex-col" : "items-center"}`}
+      className="flex items-center gap-3 overflow-hidden rounded-2xl border border-line bg-accent-soft/50 p-3"
     >
-      <ClaimsMascot />
-      <EnterpriseMascot pose={promo ? "greet" : "peek"} size={promo ? "lg" : "md"} />
+      {promo && (
+        <>
+          <ClaimsMascot />
+          <EnterpriseMascot pose="greet" size="md" />
+        </>
+      )}
       <div className="min-w-0 flex-1">
         <h2 className="text-[14.5px] font-bold leading-tight text-ink">{promo ? "Streamline your hiring pipeline" : "Need help with this application?"}</h2>
         <p className="mt-0.5 text-[12.5px] leading-snug text-muted">

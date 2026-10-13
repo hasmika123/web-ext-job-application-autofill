@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { MemberAvatar, StatePill, Tooltip, hasStateMap, registerStateMap } from "@kiwiply/ui";
+import { Input, MemberAvatar, SEARCH_DEBOUNCE_MS, SearchIcon, StatePill, Tooltip, hasStateMap, registerStateMap } from "@kiwiply/ui";
 import { REASON_LABEL, stageLabel, type ClientRef, type Marketer, type PersonRef } from "@/lib/ent/applications";
 
 /** The application stage map of the StatePill: grey Assigned/Closed, amber Submitted/Interviewing, grey Under Review, green Offer. */
@@ -73,5 +74,53 @@ export function MarketerCell({ marketer, withName = false }: { marketer: Markete
       {withName && <span className="truncate text-[13px] text-ink">{marketer.name}</span>}
       {!withName && <span className="sr-only">{marketer.name}</span>}
     </span>
+  );
+}
+
+/**
+ * The wide search box of the board (the shared FilterBar keeps its box narrow beside its dropdowns). Same behaviour: typing is debounced,
+ * Enter sends at once, Esc clears, and a value that changes from outside (the URL, "Clear filters") shows up in the box.
+ */
+export function SearchBox({ value, onChange, label, placeholder }: { value: string; onChange: (q: string) => void; label: string; placeholder: string }) {
+  const [text, setText] = useState(value);
+  const sent = useRef(value);
+  useEffect(() => {
+    if (value !== sent.current) {
+      sent.current = value;
+      setText(value);
+    }
+  }, [value]);
+  useEffect(() => {
+    if (text === sent.current) return;
+    const timer = setTimeout(() => {
+      if (text === sent.current) return;
+      sent.current = text;
+      onChange(text);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // the page's setter changes identity on every render; the timer restarts on every keystroke
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
+  return (
+    <div role="search" className="relative min-w-0 flex-1">
+      <SearchIcon aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+      <Input
+        type="search"
+        value={text}
+        placeholder={placeholder}
+        aria-label={label}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            if (text !== sent.current) {
+              sent.current = text;
+              onChange(text);
+            }
+          } else if (e.key === "Escape" && text !== "") setText("");
+        }}
+        className="pl-9"
+      />
+    </div>
   );
 }

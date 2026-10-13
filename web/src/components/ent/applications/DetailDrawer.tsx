@@ -89,8 +89,8 @@ export function ProgressSteps({ steps }: { steps: Step[] }) {
             >
               {done ? "✓" : i + 1}
             </span>
-            <span className={`mt-1.5 text-[11.5px] font-semibold leading-tight ${current ? "text-ink" : "text-ink-soft"}`}>{s.label}</span>
-            <span className="text-[11px] leading-tight text-muted">{s.reachedAt ? formatShort(s.reachedAt) : current ? "Current" : " "}</span>
+            <span className={`mt-1.5 text-[10.5px] font-semibold leading-tight sm:text-[11.5px] ${current ? "text-ink" : "text-ink-soft"}`}>{s.label}</span>
+            <span className="text-[10.5px] leading-tight text-muted sm:text-[11px]">{s.reachedAt ? formatShort(s.reachedAt) : current ? "Current" : " "}</span>
             {current && s.reachedAt && <span className="mt-0.5 rounded-full bg-accent-soft px-2 text-[10.5px] font-semibold text-accent-deep">Current</span>}
           </li>
         );
@@ -341,23 +341,19 @@ export default function DetailDrawer(p: DetailDrawerProps) {
     const options = d.actions.moveStage ? moveOptions(d.nextStages) : [];
     return (
       <div data-detail-body data-application-id={d.id}>
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3" data-drawer-head>
           <ClientTile client={d.client} size={44} />
           <div className="min-w-0 flex-1">
-            <h3 className="truncate text-[16px] font-bold leading-tight text-ink">{d.jobTitle}</h3>
-            <p className="text-[12.5px] text-muted" data-code>{d.code}</p>
+            <p className="truncate text-[13.5px] font-semibold text-ink">
+              {d.client.name} <span className="font-normal text-muted">({p.orgName})</span>
+            </p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <StagePill stage={d.stage} reason={d.closedReason} />
               {d.employmentLabel && <span className="rounded-full bg-paper-2 px-2.5 py-[3px] text-[11.5px] font-semibold leading-none text-ink-soft">{EMPLOYMENT[d.employmentLabel] ?? d.employmentLabel}</span>}
             </div>
           </div>
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-2 text-[13px]">
-          <span className="min-w-0 truncate font-semibold text-ink">
-            {d.client.name} <span className="font-normal text-muted">({p.orgName})</span>
-          </span>
           {p.jobsHref && (
-            <Link href={p.jobsHref} className="inline-flex flex-none items-center gap-1 font-semibold text-accent-deep hover:underline">
+            <Link href={p.jobsHref} className="inline-flex flex-none items-center gap-1 text-[13px] font-semibold text-accent-deep hover:underline">
               View Job <ArrowRightIcon size={14} aria-hidden />
             </Link>
           )}
