@@ -107,7 +107,12 @@ test.describe("resumes (real stack)", () => {
     const visibility = drawer(page).locator('button[aria-label="Visibility"]');
     const before = (await visibility.innerText()).trim();
     const choose = before.startsWith("Private") ? "Public (Shareable with clients)" : "Private (Owner and marketer only)";
-    await visibility.click();
+    await visibility.scrollIntoViewIfNeeded();
+    await expect(async () => {
+      await page.waitForTimeout(500); // a menu closes when the page scrolls: settle first, then open it
+      await visibility.click();
+      await expect(page.getByRole("option", { name: choose })).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000 });
     await page.getByRole("option", { name: choose }).click();
     await expect(page.getByText(/Visibility is now/)).toBeVisible();
     await expect(visibility).not.toContainText(before);
