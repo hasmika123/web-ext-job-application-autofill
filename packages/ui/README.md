@@ -36,6 +36,15 @@ Concretely:
   ever shows an invented trend), `Textarea` (`Input`'s multi-line sibling) and `useMediaQuery` (a media query that
   follows live, for the one decision CSS cannot make: Dialog on a desktop, BottomSheet on a phone). The admin
   composites built on them (`AdminTable`, `AdminFilterBar`, `ReasonSheet`, ...) live in `web/src/components/admin-v3/common`.
+- **The enterprise kit** (X2.15, `src/enterprise/`; `docs/enterprise-v2/16` s7 / `28` s0 / `38` s7): the shared primitives of the
+  enterprise (tenant) pages. Props-driven (no web imports), so the tenant admin, the platform admin and the extension use one
+  copy. `FilterBar` + `DataTable` (controlled by the page's list query; cards below `md`), `ReasonSheet` / `ConfirmTypedSheet`
+  (`run(reason) -> {ok}`; Dialog from `md`, BottomSheet below), `HistoryDrawer`, `PersonCell` + `MemberAvatar`, `StatusDot`,
+  `StatePill` (`registerStateMap(domain, map)`; the billing map is built in; unknown state = neutral + dev warning; a second
+  map for one domain throws), `QuickActionTiles`, `MoneyText` (integer minor units; `band` shows the label only) +
+  `PriceDelta` + `FeatureChip` + `AllowanceMeter`, `ConsentChip`, `ReadinessRing`, `KanbanBoard` (no cross-column drag),
+  `WorkloadColumn`, `TimelineFeed` (+ `mergeTimeline`), `SensitiveTextField` (the TS sensitive-patterns pre-check).
+  A doc-sync test (`kit.test.ts`) fails if 16 s7's kit row names something this barrel does not export.
 - **Feature components** → `src/`: `ResumeUpload` (the portable resume form) and `JobFitReport`
   (13.3 — one resume against one job, shown the same in the drawer and on the board) and
   `AtsReport` (13.5 — a resume's ATS score, what to fix first, and keyword coverage for a job).

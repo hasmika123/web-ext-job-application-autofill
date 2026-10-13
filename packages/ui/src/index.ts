@@ -143,6 +143,9 @@ export type { MenuProps, MenuItem, MenuHeading, MenuSeparator, MenuEntry } from 
 export { Mark, Wordmark, BrandLockup, Check } from "./primitives/Brand";
 export type { MarkProps, WordmarkProps, BrandLockupProps } from "./primitives/Brand";
 
+/* ── The enterprise kit (X2.15): FilterBar, DataTable, ReasonSheet, StatePill, MoneyText, KanbanBoard, ... ── */
+export * from "./enterprise";
+
 export * from "./primitives/icons";
 export * from "./primitives/doodles";
 

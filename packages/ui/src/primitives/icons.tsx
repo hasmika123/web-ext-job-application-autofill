@@ -1027,3 +1027,44 @@ export const ListOrderedIcon = makeIcon("ListOrderedIcon", {
     </>
   ),
 });
+
+/* ── Enterprise V2 kit (X2.15). BriefcaseIcon, ShieldCheckIcon and BuildingIcon already exist above. ── */
+export const HandshakeIcon = makeIcon("HandshakeIcon", {
+  node: (
+    <>
+      <path d="M2.5 11l3-3.5 4 1 3-1.5 3.5 1 3-1 3 4" />
+      <path d="M2.5 11l2.5 2.5M5 13.5l3.5 3 2-1.5M8.5 16.5l2 1.5 2.5-1.5M13 16.5l2 1.5 3.5-3.5L21.5 11" />
+      <path d="M9.5 8.5L12 12l3-2" />
+    </>
+  ),
+});
+
+export const CalendarCheckIcon = makeIcon("CalendarCheckIcon", {
+  node: (
+    <>
+      <rect x="3.5" y="5" width="17" height="15" rx="2.2" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+      <path d="M9 15l2.2 2.2L15.5 13" />
+    </>
+  ),
+});
+
+export const ClipboardCheckIcon = makeIcon("ClipboardCheckIcon", {
+  node: (
+    <>
+      <rect x="5" y="4.5" width="14" height="16.5" rx="2.2" />
+      <path d="M9 4.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5" />
+      <path d="M9 13.2l2.2 2.2L15.2 11" />
+    </>
+  ),
+});
+
+export const RouteIcon = makeIcon("RouteIcon", {
+  node: (
+    <>
+      <circle cx="6" cy="18" r="2.2" />
+      <circle cx="18" cy="6" r="2.2" />
+      <path d="M8.2 18H15a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h6.8" />
+    </>
+  ),
+});
