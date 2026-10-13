@@ -23,6 +23,21 @@ async function signInAs(page: Page, base: string, name: string) {
   await page.waitForSelector("[data-enterprise-shell]", { timeout: 30_000 });
 }
 
+
+/** Calls the BFF from inside the page (the browser resolves *.localhost; Playwright's own request client does not). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- the BFF's JSON is whatever the page under test sends
+async function api(page: Page, method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: any }> {
+  return page.evaluate(
+    async ({ method, path, body, headers }) => {
+      const res = await fetch(path, { method, headers: { accept: "application/json", ...(body === undefined ? {} : { "content-type": "application/json" }), ...headers }, body: body === undefined ? undefined : JSON.stringify(body) });
+      const json = await res.json().catch(() => null);
+      return { status: res.status, json };
+    },
+    { method, path, body, headers },
+  );
+}
+const getJson = async (page: Page, path: string) => (await api(page, "GET", path)).json;
+
 async function shot(page: Page, name: string) {
   mkdirSync(SHOTS, { recursive: true });
   await page.waitForTimeout(600);
@@ -40,15 +55,15 @@ test.describe("departments and teams on the real stack", () => {
     test.setTimeout(240_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInAs(page, ACME, "Sarah Chen");
-    const me = await (await page.request.get(`${ACME}/api/me/tenant`)).json();
+    const me = await getJson(page, "/api/me/tenant");
     orgId = me.org.id;
 
     await page.goto(`${ACME}/w/admin/departments`);
-    const cards = page.getByRole("list", { name: "Departments" });
-    await expect(cards.getByText("Consulting")).toBeVisible({ timeout: 30_000 });
+    const cards = page.getByRole("list", { name: "Departments", exact: true });
+    await expect(cards.getByText("Consulting", { exact: true })).toBeVisible({ timeout: 30_000 });
     for (const d of ["Marketing", "HR", "Finance", "Operations"]) await expect(cards.getByText(d, { exact: true })).toBeVisible();
     // the counts on the page are the API's counts
-    const api = await (await page.request.get(`/api/orgs/${orgId}/groups/structure`)).json();
+    const api = await getJson(page, `/api/orgs/${orgId}/groups/structure`);
     const consulting = api.departments.find((n: { group: { name: string } }) => n.group.name === "Consulting");
     await expect(page.getByRole("button", { name: new RegExp(`Consulting\\s+${consulting.group.activeCount} employee`) })).toBeVisible();
     await expect(page.getByText("Total Departments")).toBeVisible();
@@ -56,7 +71,7 @@ test.describe("departments and teams on the real stack", () => {
     await shot(page, "departments-1440");
 
     await page.goto(`${ACME}/w/admin/teams`);
-    await expect(page.getByRole("list", { name: "Teams" }).getByText("Bench East")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("list", { name: "Teams", exact: true }).getByText("Bench East")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/Nothing measures team performance yet/)).toBeVisible();
     await expect(page.getByText(/workload/i)).toHaveCount(0);
     await shot(page, "teams-1440");
@@ -67,7 +82,7 @@ test.describe("departments and teams on the real stack", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInAs(page, ACME, "Sarah Chen");
     await page.goto(`${ACME}/w/admin/departments`);
-    await page.getByRole("button", { name: "Create Department" }).first().click();
+    await page.getByRole("button", { name: "Create Department", exact: true }).first().click();
     const sheet = page.getByRole("dialog", { name: "Create Department" });
     await sheet.getByLabel(/Department name/).fill(dept);
     await sheet.getByRole("combobox", { name: "Department lead" }).fill("Hana");
@@ -75,11 +90,11 @@ test.describe("departments and teams on the real stack", () => {
     await sheet.getByRole("button", { name: "shield" }).click();
     await sheet.getByRole("button", { name: "Amber" }).click();
     await shot(page, "departments-create-1440");
-    await sheet.getByRole("button", { name: "Create Department" }).click();
-    await expect(page.getByRole("list", { name: "Departments" }).getByText(dept)).toBeVisible({ timeout: 30_000 });
+    await sheet.getByRole("button", { name: "Create Department", exact: true }).click();
+    await expect(page.getByRole("list", { name: "Departments", exact: true }).getByText(dept)).toBeVisible({ timeout: 30_000 });
 
     await page.goto(`${ACME}/w/admin/teams`);
-    await page.getByRole("button", { name: "Create Team" }).first().click();
+    await page.getByRole("button", { name: "Create Team", exact: true }).first().click();
     const tsheet = page.getByRole("dialog", { name: "Create Team" });
     await tsheet.getByLabel(/Team name/).fill(team);
     await tsheet.getByRole("button", { name: "Department" }).click();
@@ -88,13 +103,13 @@ test.describe("departments and teams on the real stack", () => {
     await tsheet.getByRole("option", { name: /Omar Haddad/ }).getByRole("button").click();
     await tsheet.getByRole("combobox", { name: "Add people to the team" }).fill("Ben");
     await tsheet.getByRole("option", { name: /Ben Okafor/ }).getByRole("button").click();
-    await tsheet.getByRole("button", { name: "Create Team" }).click();
+    await tsheet.getByRole("button", { name: "Create Team", exact: true }).click();
     const teamCard = page.locator(`[data-team-card="${team}"]`);
     await expect(teamCard).toBeVisible({ timeout: 30_000 });
     await expect(teamCard.getByText("1 member")).toBeVisible();
     await expect(teamCard.getByText(dept)).toBeVisible();
     // the API agrees: Ben carries both links
-    const dir = await (await page.request.get(`/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`)).json();
+    const dir = await getJson(page, `/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`);
     expect(dir.items[0].parentName).toBe(dept);
     expect(dir.items[0].lead.name).toBe("Omar Haddad");
   });
@@ -104,7 +119,7 @@ test.describe("departments and teams on the real stack", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await signInAs(page, ACME, "Sarah Chen");
     await page.goto(`${ACME}/w/admin/teams`);
-    await page.locator(`[data-team-card="${team}"]`).getByRole("button", { name: team }).click();
+    await page.locator(`[data-team-card="${team}"] button`).first().click();
     const sheet = page.getByRole("dialog", { name: team });
     await expect(sheet.getByRole("list", { name: "People in this group" }).getByText("Ben Okafor")).toBeVisible({ timeout: 30_000 });
 
@@ -115,17 +130,17 @@ test.describe("departments and teams on the real stack", () => {
     await sheet.getByRole("button", { name: "Move Ben Okafor to" }).click();
     await page.getByRole("option", { name: "Bench East" }).click();
     await expect(sheet.getByText("Nobody is in this team yet.")).toBeVisible({ timeout: 30_000 });
-    const bench = await (await page.request.get(`/api/orgs/${orgId}/groups/directory?kind=TEAM&q=Bench`)).json();
+    const bench = await getJson(page, `/api/orgs/${orgId}/groups/directory?kind=TEAM&q=Bench`);
     expect(bench.items[0].activeCount).toBeGreaterThanOrEqual(2);
 
     // change the lead to Hana, then undo it
     await sheet.getByRole("combobox", { name: "Change lead" }).fill("Hana");
     await sheet.getByRole("option", { name: /Hana Petrov/ }).getByRole("button").click();
     await expect(page.getByText(/Hana Petrov now leads/)).toBeVisible({ timeout: 30_000 });
-    let d = await (await page.request.get(`/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`)).json();
+    let d = await getJson(page, `/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`);
     expect(d.items[0].lead.name).toBe("Hana Petrov");
     await page.getByRole("button", { name: "Undo" }).click();
-    await expect.poll(async () => (await (await page.request.get(`/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`)).json()).items[0].lead.name, { timeout: 30_000 }).toBe("Omar Haddad");
+    await expect.poll(async () => (await getJson(page, `/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`)).items[0].lead.name, { timeout: 30_000 }).toBe("Omar Haddad");
 
     // now the team is empty: delete it (with its version), and the department can follow
     await expect(sheet.getByRole("button", { name: "Delete" })).toBeEnabled();
@@ -133,7 +148,7 @@ test.describe("departments and teams on the real stack", () => {
     await sheet.getByRole("button", { name: "Delete" }).click();
     await page.getByRole("button", { name: "Delete team" }).click();
     await expect(page.locator(`[data-team-card="${team}"]`)).toHaveCount(0, { timeout: 30_000 });
-    d = await (await page.request.get(`/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`)).json();
+    d = await getJson(page, `/api/orgs/${orgId}/groups/directory?kind=TEAM&q=${encodeURIComponent(team)}`);
     expect(d.total).toBe(0);
   });
 
@@ -158,23 +173,23 @@ test.describe("departments and teams on the real stack", () => {
   test("another organization cannot see Acme's groups, and a consultant gets nothing", async ({ browser, page }) => {
     test.setTimeout(240_000);
     await signInAs(page, ACME, "Sarah Chen");
-    const acmeStructure = await (await page.request.get(`/api/orgs/${orgId}/groups/structure`)).json();
+    const acmeStructure = await getJson(page, `/api/orgs/${orgId}/groups/structure`);
     expect(acmeStructure.departments.length).toBeGreaterThanOrEqual(5);
 
     const betaCtx = await browser.newContext();
     const bp = await betaCtx.newPage();
     await signInAs(bp, BETA, "Bea Turner");
     // Beta's own organization has no groups; Acme's id is a plain 404 from Beta's session, for every route
-    const betaMe = await (await bp.request.get(`${BETA}/api/me/tenant`)).json();
+    const betaMe = await getJson(bp, "/api/me/tenant");
     expect(betaMe.org.id).not.toBe(orgId);
     for (const path of ["", "/directory", "/structure", `/${acmeStructure.departments[0].group.id}`]) {
-      const r = await bp.request.get(`${BETA}/api/orgs/${orgId}/groups${path}`);
-      expect(r.status(), `beta reading acme groups${path}`).toBe(404);
+      const r = await api(bp, "GET", `/api/orgs/${orgId}/groups${path}`);
+      expect(r.status, `beta reading acme groups${path}`).toBe(404);
     }
-    const own = await (await bp.request.get(`${BETA}/api/orgs/${betaMe.org.id}/groups/structure`)).json();
+    const own = await getJson(bp, `/api/orgs/${betaMe.org.id}/groups/structure`);
     expect(own.departments).toHaveLength(0);
-    const write = await bp.request.post(`${BETA}/api/orgs/${orgId}/groups`, { data: { name: "Planted", kind: "DEPARTMENT" } });
-    expect(write.status()).toBe(404);
+    const write = await api(bp, "POST", `/api/orgs/${orgId}/groups`, { name: "Planted", kind: "DEPARTMENT" });
+    expect(write.status).toBe(404);
     await bp.goto(`${BETA}/w/admin/departments`);
     await expect(bp.getByText("Group people into departments and teams")).toBeVisible({ timeout: 30_000 });
     await betaCtx.close();
@@ -183,16 +198,16 @@ test.describe("departments and teams on the real stack", () => {
     const cCtx = await browser.newContext();
     const cp = await cCtx.newPage();
     await signInAs(cp, ACME, "Anika Rao");
-    expect((await cp.request.get(`${ACME}/api/orgs/${orgId}/groups`)).status()).toBe(404);
+    expect((await api(cp, "GET", `/api/orgs/${orgId}/groups`)).status).toBe(404);
     await cp.goto(`${ACME}/w/consultant/departments`);
-    await expect(cp.getByText("This isn't part of your role")).toBeVisible({ timeout: 30_000 });
+    await expect(cp.getByText("This isn't part of your role").first()).toBeVisible({ timeout: 30_000 });
     await cCtx.close();
 
     // the demo department made earlier is tidied up so the run can repeat
-    const left = await (await page.request.get(`/api/orgs/${orgId}/groups/directory?kind=DEPARTMENT&q=${encodeURIComponent(dept)}`)).json();
+    const left = await getJson(page, `/api/orgs/${orgId}/groups/directory?kind=DEPARTMENT&q=${encodeURIComponent(dept)}`);
     if (left.items[0]) {
-      const del = await page.request.delete(`/api/orgs/${orgId}/groups/${left.items[0].id}`, { headers: { "if-match": left.items[0].version } });
-      expect(del.status()).toBe(204);
+      const del = await api(page, "DELETE", `/api/orgs/${orgId}/groups/${left.items[0].id}`, undefined, { "if-match": left.items[0].version });
+      expect(del.status).toBe(204);
     }
   });
 });

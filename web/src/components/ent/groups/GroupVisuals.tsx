@@ -55,13 +55,13 @@ export function GroupTile({ icon, color, size = 44, fallback = "users" }: { icon
 }
 
 /** Up to four avatars overlapped, then "+N". */
-export function AvatarStack({ people, total, size = 26 }: { people: GroupPerson[]; total: number; size?: number }) {
+export function AvatarStack({ people, total, size = 28 }: { people: GroupPerson[]; total: number; size?: number }) {
   const extra = Math.max(0, total - people.length);
   if (people.length === 0) return <span className="text-[12px] text-muted">No people yet</span>;
   return (
     <span className="inline-flex items-center" role="img" aria-label={`${total} ${total === 1 ? "person" : "people"}`}>
       {people.map((p, i) => (
-        <span key={p.memberId} className={cn("rounded-full ring-2 ring-paper", i > 0 && "-ml-2")}>
+        <span key={p.memberId} className={cn("rounded-full ring-2 ring-paper", i > 0 && "-ml-1.5")}>
           <MemberAvatar name={p.name} size={size} />
         </span>
       ))}

@@ -101,7 +101,11 @@ export default function Select({
   useEffect(() => {
     if (!open) return;
     place();
-    const close = () => setOpen(false);
+    // a scroll INSIDE the open list (a long list) is the user reaching an option, not the page moving away
+    const close = (e?: Event) => {
+      if (e?.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
@@ -160,7 +164,7 @@ export default function Select({
             aria-label={ariaLabel}
             style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
             className={cn(
-              "scroll-slim z-[200] max-h-64 overflow-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
+              "scroll-slim z-[1100] max-h-64 overflow-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
               menuClassName,
             )}
           >

@@ -153,7 +153,7 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
                   <p className="text-[13px] text-muted">Manage your teams and their members.</p>
                 </div>
                 {canManage && (
-                  <Button onClick={() => setCreating(true)} className="min-h-11">
+                  <Button variant="accent" onClick={() => setCreating(true)} className="min-h-11">
                     <PlusIcon size={16} /> Create Team
                   </Button>
                 )}

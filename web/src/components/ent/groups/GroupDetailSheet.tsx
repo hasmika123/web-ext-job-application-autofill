@@ -65,6 +65,14 @@ export default function GroupDetailSheet({
     void load(groupId);
   }, [groupId, load]);
 
+  // The page reloads its lists after every change, including an Undo from a toast; when the list's copy of this group moves on, so does the sheet.
+  const live = groupId == null ? null : (groups.find((x) => x.id === groupId) ?? departments.find((x) => x.id === groupId) ?? null);
+  const liveVersion = live?.version ?? null;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- load() applies its result after an await
+    if (groupId != null && detail && liveVersion != null && liveVersion !== detail.group.version) void load(groupId);
+  }, [liveVersion, groupId, detail, load]);
+
   const g = detail?.group ?? null;
   const open = groupId != null;
 
@@ -216,6 +224,25 @@ export default function GroupDetailSheet({
             </section>
           )}
 
+          {canManage && (
+            <section aria-label="Archive and delete" className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => void change({ status: g.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }, g.status === "ACTIVE" ? `${g.name} archived` : `${g.name} restored`, { status: g.status })}
+              >
+                {g.status === "ACTIVE" ? "Archive" : "Restore"}
+              </Button>
+              <Tooltip content={isEmpty ? `Delete ${g.name}` : `Move the ${detail.membersTotal ? plural(detail.membersTotal, "person", "people") : plural(detail.teams.length, "team")} out first`}>
+                <span>
+                  <Button type="button" variant="danger" disabled={!isEmpty} onClick={() => setConfirmDelete(true)}>
+                    <TrashIcon size={15} /> Delete
+                  </Button>
+                </span>
+              </Tooltip>
+            </section>
+          )}
+
           <section aria-label="People" className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between">
               <h3 className="text-[13px] font-semibold text-ink">People</h3>
@@ -281,25 +308,6 @@ export default function GroupDetailSheet({
                   </li>
                 ))}
               </ul>
-            </section>
-          )}
-
-          {canManage && (
-            <section aria-label="Archive and delete" className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => void change({ status: g.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" }, g.status === "ACTIVE" ? `${g.name} archived` : `${g.name} restored`, { status: g.status })}
-              >
-                {g.status === "ACTIVE" ? "Archive" : "Restore"}
-              </Button>
-              <Tooltip content={isEmpty ? `Delete ${g.name}` : `Move the ${detail.membersTotal ? plural(detail.membersTotal, "person", "people") : plural(detail.teams.length, "team")} out first`}>
-                <span>
-                  <Button type="button" variant="danger" disabled={!isEmpty} onClick={() => setConfirmDelete(true)}>
-                    <TrashIcon size={15} /> Delete
-                  </Button>
-                </span>
-              </Tooltip>
             </section>
           )}
 

@@ -122,7 +122,7 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
                   <p className="text-[13px] text-muted">Manage departments, view details, and explore team structure.</p>
                 </div>
                 {canManage && (
-                  <Button onClick={() => setCreating(true)} className="min-h-11">
+                  <Button variant="accent" onClick={() => setCreating(true)} className="min-h-11">
                     <PlusIcon size={16} /> Create Department
                   </Button>
                 )}
@@ -218,12 +218,12 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
 
           <div className="flex min-w-0 flex-col gap-5">
             <Card className="p-4 sm:p-5">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h2 className="flex items-center gap-2 text-[16px] font-bold text-ink">
-                  <NetworkIcon size={18} className="text-accent" /> Organization Structure
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <h2 className="flex items-center gap-2 whitespace-nowrap text-[16px] font-bold text-ink">
+                  <NetworkIcon size={18} className="flex-none text-accent" /> Organization Structure
                 </h2>
-                <Button variant="ghost" size="sm" onClick={() => setFullTree(true)} disabled={!structure}>
-                  View Full Structure
+                <Button variant="ghost" size="sm" className="whitespace-nowrap text-accent-deep" onClick={() => setFullTree(true)} disabled={!structure}>
+                  View full structure <ChevronRightIcon size={14} />
                 </Button>
               </div>
               {structure ? <OrgChart structure={structure} onOpen={(g) => setOpenId(g.id)} /> : <Skeleton className="h-40 w-full" />}

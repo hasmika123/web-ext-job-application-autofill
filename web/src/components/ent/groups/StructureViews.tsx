@@ -18,7 +18,7 @@ export function OrgChart({ structure, onOpen }: { structure: Structure; onOpen: 
       ) : (
         <>
           <span aria-hidden className="h-4 w-px bg-line" />
-          <ul aria-label="Departments in the organization" className="relative flex w-full flex-wrap justify-center gap-x-3 gap-y-3 border-t border-line pt-4">
+          <ul aria-label="Departments in the organization" className="grid w-full grid-cols-3 gap-2 border-t border-line pt-4">
             {deps.map((d) => (
               <li key={d.id} className="relative">
                 <span aria-hidden className="absolute -top-4 left-1/2 h-4 w-px bg-line" />
@@ -26,10 +26,10 @@ export function OrgChart({ structure, onOpen }: { structure: Structure; onOpen: 
                   type="button"
                   onClick={() => onOpen(d)}
                   title={`${d.name}: ${plural(d.activeCount, "employee")}`}
-                  className={cn("flex w-[78px] flex-col items-center gap-1.5 rounded-xl border border-line p-2 text-center hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-accent", d.status === "INACTIVE" && "opacity-60")}
+                  className={cn("flex h-full w-full flex-col items-center gap-1.5 rounded-xl border border-line p-2 text-center hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-accent", d.status === "INACTIVE" && "opacity-60")}
                 >
-                  <GroupTile icon={d.icon} color={d.color} size={38} />
-                  <span className="w-full truncate text-[12px] font-semibold text-ink">{d.name}</span>
+                  <GroupTile icon={d.icon} color={d.color} size={36} />
+                  <span className="w-full break-words text-[11.5px] font-semibold leading-tight text-ink">{d.name}</span>
                 </button>
               </li>
             ))}

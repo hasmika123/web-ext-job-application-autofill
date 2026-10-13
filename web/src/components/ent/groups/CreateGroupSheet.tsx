@@ -128,7 +128,7 @@ export default function CreateGroupSheet({
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => void submit()} disabled={!name.trim() || busy}>
+          <Button type="button" variant="accent" onClick={() => void submit()} disabled={!name.trim() || busy}>
             {busy ? "Creating…" : `Create ${noun}`}
           </Button>
         </div>

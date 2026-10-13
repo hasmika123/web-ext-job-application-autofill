@@ -87,7 +87,11 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
       if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
       setOpen(false);
     };
-    const close = () => setOpen(false);
+    // a scroll INSIDE the open menu is the user reaching an item, not the page moving away
+    const close = (e?: Event) => {
+      if (e?.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     document.addEventListener("mousedown", onDocMouseDown);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
@@ -218,7 +222,7 @@ export default function Menu({ trigger, items, align = "end", className, menuCla
               visibility: pos ? "visible" : "hidden",
             }}
             className={cn(
-              "scroll-slim z-[161] min-w-[9rem] overflow-y-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
+              "scroll-slim z-[1100] min-w-[9rem] overflow-y-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
               menuClassName,
             )}
           >
