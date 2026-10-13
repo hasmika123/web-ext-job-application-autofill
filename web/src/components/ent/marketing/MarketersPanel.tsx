@@ -132,11 +132,13 @@ export default function MarketersPanel({
                   >
                     <MemberAvatar name={m.name} size={38} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13.5px] font-bold leading-tight text-ink">{m.name}</span>
-                      <span className="mt-0.5 flex min-w-0 items-center gap-1.5">
-                        <StatePill domain="assignment" state={m.status} label={m.status === "PAUSED" ? "Paused" : "Active"} />
-                        <span className="truncate text-[11.5px] text-muted">{m.title ?? "Marketing"}</span>
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate text-[13.5px] font-bold leading-tight text-ink">{m.name}</span>
+                        <span className="flex-none">
+                          <StatePill domain="assignment" state={m.status} label={m.status === "PAUSED" ? "Paused" : "Active"} />
+                        </span>
                       </span>
+                      <span className="mt-0.5 block truncate text-[11.5px] text-muted">{m.title ?? "Marketing"}</span>
                     </span>
                     <span className="w-[7.4rem] flex-none">
                       <span className="flex items-baseline gap-1 whitespace-nowrap text-[12px]">
