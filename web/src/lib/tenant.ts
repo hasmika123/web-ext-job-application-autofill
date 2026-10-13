@@ -31,7 +31,6 @@ export interface PublicTenant {
     terminology?: Record<string, string> | null;
   } | null;
   login?: { password: boolean; google: boolean; mfaRequired: boolean } | null;
-  status?: string | null;
 }
 
 export type TenantResolution = { kind: "PLATFORM" } | { kind: "UNKNOWN" } | { kind: "TENANT"; tenant: PublicTenant };

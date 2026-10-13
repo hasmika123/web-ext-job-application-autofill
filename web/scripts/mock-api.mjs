@@ -81,7 +81,6 @@ const MOCK_TENANTS = {
     displayName: "Acme Staffing",
     branding: { primary: "#0b6e4f", theme: "SYSTEM", welcomeTitle: "Welcome to Acme", welcomeMessage: "Sign in with your Acme account." },
     login: { password: true, google: false, mfaRequired: false },
-    status: "ACTIVE",
   },
 };
 /** Last X-Kiwiply-Host seen per API path, readable at GET /__mock/seen-hosts (web route tests assert the BFF forwards it). */
