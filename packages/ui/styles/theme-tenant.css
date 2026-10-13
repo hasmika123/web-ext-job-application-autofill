@@ -97,3 +97,49 @@
 .theme-tenant h3 {
   font-family: var(--font-body);
 }
+
+/* ── Branded login v2 (X2.3, "Welcome Back" boards) ───────────────────────────────────────────────────────────────────
+ * The illustration is a clean background plate (bee, cat, desk, windows) with NO baked text or card; everything else is live
+ * HTML painted from the theme variables. Illustration colours stay as drawn; the glass card, button, links, rings, checkbox
+ * and heading accent follow the organization's colours. The card keeps >= ~78 % opacity so text on the blurred scene is AA.
+ */
+.theme-tenant .tenant-glass {
+  background: color-mix(in srgb, var(--brand-100, #d4e4f8) 26%, rgb(255 255 255 / 0.72));
+  border: 1.5px solid color-mix(in srgb, var(--brand-300, #a8c8f0) 50%, rgb(255 255 255 / 0.85));
+  box-shadow:
+    0 28px 70px color-mix(in srgb, var(--brand-700, #0c4fa3) 20%, transparent),
+    inset 0 1px 0 rgb(255 255 255 / 0.85);
+  -webkit-backdrop-filter: blur(22px) saturate(1.15);
+  backdrop-filter: blur(22px) saturate(1.15);
+}
+.theme-tenant .tenant-glass-field {
+  background: rgb(255 255 255 / 0.78);
+  border: 1px solid var(--brand-border, #c4d8f2);
+}
+.theme-tenant .tenant-glass-field:focus-within,
+.theme-tenant .tenant-glass-field:focus {
+  border-color: var(--brand-ring, #0f5fc4);
+}
+
+.theme-tenant .tenant-signin {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--brand-solid, #0f5fc4) 92%, white), var(--brand-solid, #0f5fc4));
+  color: var(--on-brand, #fff);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--brand-solid, #0f5fc4) 32%, transparent);
+}
+.theme-tenant .tenant-signin:hover:not(:disabled) {
+  background-image: linear-gradient(180deg, var(--brand-solid, #0f5fc4), var(--brand-solid-hover, #0c4fa3));
+}
+.theme-tenant .tenant-signin:disabled {
+  opacity: 0.75;
+}
+
+/* the "sparkle" ticks beside the heading (three rounded bars), tinted by the secondary colour */
+.theme-tenant .tenant-spark > i {
+  position: absolute;
+  display: block;
+  width: 4px;
+  height: 17px;
+  border-radius: 4px;
+  background: var(--brand-2-400, #f5b72b);
+  transform-origin: center;
+}

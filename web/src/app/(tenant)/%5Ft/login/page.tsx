@@ -25,6 +25,7 @@ export default async function TenantLoginPage({ searchParams }: { searchParams: 
       supportEmail={b?.supportEmail}
       featureChips={b?.featureChips}
       microsoft={t.tenant.login?.microsoft === true}
+      google={t.tenant.login?.google === true}
       next={typeof next === "string" ? next : undefined}
     />
   );
