@@ -1,7 +1,6 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
-import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ai.engines.ProposalListResult;
 import com.dossier.api.service.ai.engines.ProposalResult;
 import com.dossier.api.service.ai.engines.ProposalResult.ProposalView;
@@ -45,24 +44,20 @@ public class ResumeAiResource {
     public record ApplyVM(@Size(max = 40) List<@Size(max = 40) String> keep, @Size(max = 40) Map<@Size(max = 40) String, Integer> alternatives) {}
 
     private final ResumeAiService service;
-    private final DemoGuard demoGuard;
 
-    public ResumeAiResource(ResumeAiService service, DemoGuard demoGuard) {
+    public ResumeAiResource(ResumeAiService service) {
         this.service = service;
-        this.demoGuard = demoGuard;
     }
 
     @Operation(summary = "Rewrite resume lines with AI", description = "Pro. Up to resume.ai.rewriteMaxRefs lines by ref, in a mode (stronger, shorter, formal, plain, grammar). The answer is a checked proposal; nothing changes until it is applied.")
     @PostMapping("/resumes/{id}/ai/rewrite")
     public ResponseEntity<?> rewrite(@PathVariable("id") Long id, @Valid @RequestBody RewriteVM vm) {
-        demoGuard.assertNotDemo();
         return respond(service.rewrite(id, vm.refs(), vm.mode(), vm.consent()));
     }
 
     @Operation(summary = "Generate a summary with AI", description = "Pro. Up to three variants in a tone (concise, confident, plain), as one proposal with ref 'summary'.")
     @PostMapping("/resumes/{id}/ai/summary")
     public ResponseEntity<?> summary(@PathVariable("id") Long id, @Valid @RequestBody SummaryVM vm) {
-        demoGuard.assertNotDemo();
         return respond(service.summary(id, vm.tone(), vm.consent()));
     }
 
@@ -72,7 +67,6 @@ public class ResumeAiResource {
     )
     @PostMapping("/resumes/{id}/ai/suggestions")
     public ResponseEntity<?> suggest(@PathVariable("id") Long id, @Valid @RequestBody SuggestVM vm) {
-        demoGuard.assertNotDemo();
         return respond(service.suggest(id, vm.consent(), vm.refresh()));
     }
 
@@ -91,7 +85,6 @@ public class ResumeAiResource {
     @Operation(summary = "Apply an AI proposal", description = "Writes the kept changes (by ref; alternatives by index) into the resume: marks cleared, version AI_APPLY. 409 PROPOSAL_STALE when the resume changed, 422 PLACEHOLDER_REMAINS, 400 KEEP_EMPTY.")
     @PostMapping("/ai/proposals/{pid}/apply")
     public ResponseEntity<ResumeDocDTO> apply(@PathVariable("pid") Long pid, @Valid @RequestBody ApplyVM vm) {
-        demoGuard.assertNotDemo();
         ResumeDocDTO dto = service.apply(pid, vm.keep(), vm.alternatives());
         return ResponseEntity.ok().header(HttpHeaders.ETAG, "\"" + dto.getDocVersion() + "\"").body(dto);
     }
@@ -99,7 +92,6 @@ public class ResumeAiResource {
     @Operation(summary = "Dismiss an AI proposal")
     @PostMapping("/ai/proposals/{pid}/dismiss")
     public ResponseEntity<Void> dismiss(@PathVariable("pid") Long pid) {
-        demoGuard.assertNotDemo();
         service.dismiss(pid);
         return ResponseEntity.noContent().build();
     }

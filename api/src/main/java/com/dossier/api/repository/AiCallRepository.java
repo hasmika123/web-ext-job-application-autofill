@@ -25,6 +25,10 @@ public interface AiCallRepository extends JpaRepository<AiCall, Long> {
         @Param("since") Instant since
     );
 
+    /** How many successful AI calls (any task) a login made since {@code since}: the demo accounts' daily cap. */
+    @Query("select count(c) from AiCall c where c.login = :login and c.createdAt >= :since and c.success = true")
+    long countSuccessfulSince(@Param("login") String login, @Param("since") Instant since);
+
     /** The newest ledger row of a user's task - what a proposal records as its provenance. */
     Optional<AiCall> findFirstByLoginAndTaskOrderByIdDesc(String login, String task);
 

@@ -1,7 +1,6 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
-import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.EntitlementService;
 import com.dossier.api.service.ProfileService;
 import com.dossier.api.service.dto.BioDTO;
@@ -36,12 +35,10 @@ public class ProfileResource {
     private final ProfileService profileService;
     private final EntitlementService entitlementService;
 
-    private final DemoGuard demoGuard;
 
-    public ProfileResource(ProfileService profileService, EntitlementService entitlementService, DemoGuard demoGuard) {
+    public ProfileResource(ProfileService profileService, EntitlementService entitlementService) {
         this.profileService = profileService;
         this.entitlementService = entitlementService;
-        this.demoGuard = demoGuard;
     }
 
     /** {@code GET /api/profile} : the current user's bio, or 404 if none yet. */
@@ -77,7 +74,6 @@ public class ProfileResource {
     @Operation(summary = "Upsert my bio", description = "Create or overwrite the current user's single bio.")
     @PutMapping("")
     public ResponseEntity<BioDTO> putProfile(@Valid @RequestBody ProfileVM vm) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to upsert the current user's profile");
         return ResponseEntity.ok(profileService.upsertProfile(vm.getPayload()));
     }
@@ -98,7 +94,6 @@ public class ProfileResource {
     @Operation(summary = "Create a resume", description = "Create a resume owned by the current user (server fills object key, status, createdAt).")
     @PostMapping("/resumes")
     public ResponseEntity<ResumeDTO> createResume(@RequestBody ResumeDTO resumeDTO) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to create a resume for the current user");
         return ResponseEntity.status(HttpStatus.CREATED).body(profileService.createResume(resumeDTO));
     }
@@ -115,7 +110,6 @@ public class ProfileResource {
     @Operation(summary = "Delete a resume", description = "Delete one of the current user's resumes (and its stored file); 404 if not owned.")
     @DeleteMapping("/resumes/{id}")
     public ResponseEntity<Void> deleteResume(@PathVariable("id") Long id) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to delete resume {} for the current user", id);
         profileService.deleteResume(id);
         return ResponseEntity.noContent().build();

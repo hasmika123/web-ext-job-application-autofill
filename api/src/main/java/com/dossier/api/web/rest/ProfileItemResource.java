@@ -2,7 +2,6 @@ package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
 import com.dossier.api.domain.enumeration.ProfileSection;
-import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ProfileItemService;
 import com.dossier.api.service.ProfileItemService.CompletenessDTO;
 import com.dossier.api.service.ProfileItemService.ImportRequest;
@@ -40,11 +39,9 @@ public class ProfileItemResource {
     private static final Logger LOG = LoggerFactory.getLogger(ProfileItemResource.class);
 
     private final ProfileItemService profileItemService;
-    private final DemoGuard demoGuard;
 
-    public ProfileItemResource(ProfileItemService profileItemService, DemoGuard demoGuard) {
+    public ProfileItemResource(ProfileItemService profileItemService) {
         this.profileItemService = profileItemService;
-        this.demoGuard = demoGuard;
     }
 
     /** {@code GET /api/profile/items?section=} : the current user's items (hidden included, deleted excluded). */
@@ -62,7 +59,6 @@ public class ProfileItemResource {
     @Operation(summary = "Create a profile item", description = "422 SENSITIVE_CONTENT when a value is one the product never collects.")
     @PostMapping("/items")
     public ResponseEntity<ProfileItemDTO> create(@RequestBody NewItem body) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to create a profile item");
         return ResponseEntity.status(HttpStatus.CREATED).body(profileItemService.create(body));
     }
@@ -71,7 +67,6 @@ public class ProfileItemResource {
     @Operation(summary = "Update a profile item", description = "Partial: only the fields sent change. 404 if not owned.")
     @PutMapping("/items/{id}")
     public ProfileItemDTO update(@PathVariable("id") Long id, @RequestBody ItemPatch body) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to update profile item {}", id);
         return profileItemService.update(id, body);
     }
@@ -80,7 +75,6 @@ public class ProfileItemResource {
     @Operation(summary = "Delete a profile item", description = "Soft delete; 404 if not owned.")
     @DeleteMapping("/items/{id}")
     public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to delete profile item {}", id);
         profileItemService.delete(id);
         return ResponseEntity.noContent().build();
@@ -90,7 +84,6 @@ public class ProfileItemResource {
     @Operation(summary = "Reorder a section", description = "Listed ids first in the given order, unlisted items after them. 404 for an id that is not yours in this section.")
     @PostMapping("/items/reorder")
     public ResponseEntity<Void> reorder(@RequestBody Reorder body) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to reorder profile items");
         profileItemService.reorder(body);
         return ResponseEntity.noContent().build();
@@ -103,7 +96,6 @@ public class ProfileItemResource {
     )
     @PostMapping("/items/import")
     public ImportResult importItems(@RequestBody ImportRequest body) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to import profile items");
         return profileItemService.importItems(body);
     }

@@ -1,7 +1,6 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
-import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ResumeDocService;
 import com.dossier.api.service.dto.BuiltResumeDTO;
 import com.dossier.api.service.dto.ResumeDocDTO;
@@ -36,11 +35,9 @@ public class ResumeDocResource {
     private static final Logger LOG = LoggerFactory.getLogger(ResumeDocResource.class);
 
     private final ResumeDocService resumeDocService;
-    private final DemoGuard demoGuard;
 
-    public ResumeDocResource(ResumeDocService resumeDocService, DemoGuard demoGuard) {
+    public ResumeDocResource(ResumeDocService resumeDocService) {
         this.resumeDocService = resumeDocService;
-        this.demoGuard = demoGuard;
     }
 
     /** Body of {@code POST /built}. */
@@ -70,7 +67,6 @@ public class ResumeDocResource {
     )
     @PostMapping("/built")
     public ResponseEntity<BuiltResumeDTO> createBuilt(@RequestBody(required = false) CreateBuiltVM vm) {
-        demoGuard.assertNotDemo();
         LOG.debug("REST request to create a built resume");
         CreateBuiltVM body = vm == null ? new CreateBuiltVM(null, null, null, null) : vm;
         BuiltResumeDTO created = resumeDocService.createBuilt(body.templateId(), body.target(), body.label(), body.source());
@@ -83,7 +79,6 @@ public class ResumeDocResource {
     @Operation(summary = "Open an uploaded resume in the builder", description = "Builds a document from the uploaded resume's parsed structure and makes it BUILT (same id). 409 ALREADY_BUILT when it already is; 404 if not owned.")
     @PostMapping("/{id}/doc/import")
     public ResponseEntity<BuiltResumeDTO> importUploaded(@PathVariable("id") Long id) {
-        demoGuard.assertNotDemo();
         BuiltResumeDTO built = resumeDocService.importUploaded(id);
         return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(built.doc())).body(built);
     }
@@ -92,7 +87,6 @@ public class ResumeDocResource {
     @Operation(summary = "Duplicate a resume", description = "Same as POST /built with source {kind:'copy', fromResumeId}: the plan cap applies first (402), ids are regenerated, label '<name> (copy)'.")
     @PostMapping("/{id}/doc/duplicate")
     public ResponseEntity<BuiltResumeDTO> duplicate(@PathVariable("id") Long id, @RequestBody(required = false) DuplicateVM vm) {
-        demoGuard.assertNotDemo();
         BuiltResumeDTO created = resumeDocService.duplicate(id, vm == null ? null : vm.label());
         return ResponseEntity.status(HttpStatus.CREATED).header(HttpHeaders.ETAG, etag(created.doc())).body(created);
     }
@@ -131,7 +125,6 @@ public class ResumeDocResource {
         @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch,
         @RequestBody(required = false) JsonNode body
     ) {
-        demoGuard.assertNotDemo();
         ResumeDocDTO dto;
         try {
             dto = resumeDocService.put(id, ifMatch, body);
@@ -146,7 +139,6 @@ public class ResumeDocResource {
     @Operation(summary = "Switch a resume's template", description = "Body {templateId, theme?}; 422 DOC_INVALID for an unknown or disabled id. Applies the new template's theme defaults to the theme keys the user has not touched (or stores the given theme verbatim), writes a TEMPLATE_SWITCH version row and queues the PDF at once. Does not change the fillable content.")
     @PatchMapping("/{id}/doc/template")
     public ResponseEntity<ResumeDocDTO> patchTemplate(@PathVariable("id") Long id, @RequestBody(required = false) TemplateVM vm) {
-        demoGuard.assertNotDemo();
         ResumeDocDTO dto = resumeDocService.setTemplate(id, vm == null ? null : vm.templateId(), vm == null ? null : vm.theme());
         return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(dto)).body(dto);
     }
@@ -161,7 +153,6 @@ public class ResumeDocResource {
     )
     @PatchMapping("/{id}/doc/theme")
     public ResponseEntity<ResumeDocDTO> patchTheme(@PathVariable("id") Long id, @RequestBody(required = false) JsonNode body) {
-        demoGuard.assertNotDemo();
         ResumeDocDTO dto = resumeDocService.setTheme(id, body);
         return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(dto)).body(dto);
     }
@@ -173,7 +164,6 @@ public class ResumeDocResource {
     )
     @PostMapping("/{id}/doc/versions/{n}/restore")
     public ResponseEntity<ResumeDocDTO> restoreVersion(@PathVariable("id") Long id, @PathVariable("n") int n) {
-        demoGuard.assertNotDemo();
         ResumeDocDTO dto = resumeDocService.restore(id, n);
         return ResponseEntity.ok().header(HttpHeaders.ETAG, etag(dto)).body(dto);
     }
@@ -192,7 +182,6 @@ public class ResumeDocResource {
     )
     @PostMapping("/{id}/export-recorded")
     public ResponseEntity<Void> exportRecorded(@PathVariable("id") Long id, @RequestBody(required = false) ExportRecordedVM vm) {
-        demoGuard.assertNotDemo();
         resumeDocService.recordExport(id, vm == null ? null : vm.hash());
         return ResponseEntity.noContent().build();
     }
@@ -214,7 +203,6 @@ public class ResumeDocResource {
     @Operation(summary = "Generate the resume's PDF now", description = "Queues the PDF job immediately when the stored PDF is behind the document; 204 either way, 404 if not owned.")
     @PostMapping("/{id}/doc/pdf-now")
     public ResponseEntity<Void> pdfNow(@PathVariable("id") Long id) {
-        demoGuard.assertNotDemo();
         resumeDocService.requestPdfNow(id);
         return ResponseEntity.noContent().build();
     }

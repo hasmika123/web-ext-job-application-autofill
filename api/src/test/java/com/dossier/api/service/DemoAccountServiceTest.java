@@ -59,6 +59,7 @@ class DemoAccountServiceTest {
     private RefreshTokenService refreshTokenService;
     private InboxService inboxService;
     private NotificationService notificationService;
+    private ResumeBuilderDataService resumeBuilderData = mock(ResumeBuilderDataService.class);
 
     private DemoAccountService service(String password) {
         return service(password, false);
@@ -88,6 +89,7 @@ class DemoAccountServiceTest {
             mock(TrackerDataService.class),
             mock(com.dossier.api.service.jobs.DemoJobSeeder.class),
             mock(DemoOrgSeeder.class),
+            resumeBuilderData,
             mapper,
             password,
             enabled
@@ -320,5 +322,28 @@ class DemoAccountServiceTest {
         verify(notificationService).deleteAllForUser(orgId);
         // The org account is wiped but not seeded.
         verify(bioRepository, times(1)).save(any(Bio.class));
+    }
+
+    @Test
+    void resetDataErasesTheBuilderSandboxOfTheDemoAccountsOnly() {
+        users.put("real-user", userWithId("real-user", 9001L));
+
+        service("pw").resetData();
+
+        Long demoId = users.get("demo").getId();
+        Long orgId = users.get("demo-org").getId();
+        verify(resumeBuilderData).deleteAllForUser(demoId);
+        verify(resumeBuilderData).deleteAllForUser(orgId);
+        verify(resumeBuilderData).deleteSharingAsViewer("demo");
+        verify(resumeBuilderData).deleteSharingAsViewer("demo-org");
+        verify(resumeBuilderData, times(2)).deleteAllForUser(any());
+        verify(resumeBuilderData, never()).deleteAllForUser(9001L);
+    }
+
+    private static User userWithId(String login, Long id) {
+        User u = new User();
+        u.setLogin(login);
+        u.setId(id);
+        return u;
     }
 }

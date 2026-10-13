@@ -25,7 +25,7 @@ class DemoGuardTest {
         when(accounts.isDemo("demo-org")).thenReturn(true);
         when(accounts.isDemoIdentifier("demo")).thenReturn(true);
         when(accounts.isDemoIdentifier("demo@kiwiply.com")).thenReturn(true);
-        guard = new DemoGuard(accounts);
+        guard = new DemoGuard(accounts, false);
     }
 
     @AfterEach

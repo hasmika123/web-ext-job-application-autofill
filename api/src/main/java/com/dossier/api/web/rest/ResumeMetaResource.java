@@ -1,7 +1,6 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
-import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ResumeMetaService;
 import com.dossier.api.service.dto.ResumeLineageDTO;
 import com.dossier.api.service.dto.ResumeMetaDTO;
@@ -29,11 +28,9 @@ import org.springframework.web.bind.annotation.*;
 public class ResumeMetaResource {
 
     private final ResumeMetaService metaService;
-    private final DemoGuard demoGuard;
 
-    public ResumeMetaResource(ResumeMetaService metaService, DemoGuard demoGuard) {
+    public ResumeMetaResource(ResumeMetaService metaService) {
         this.metaService = metaService;
-        this.demoGuard = demoGuard;
     }
 
     /** Body of {@code POST /{id}/doc/checkpoint}. */
@@ -51,7 +48,6 @@ public class ResumeMetaResource {
     )
     @PatchMapping("/{id}/meta")
     public ResumeMetaDTO patchMeta(@PathVariable("id") Long id, @RequestBody(required = false) JsonNode body) {
-        demoGuard.assertNotDemo();
         return metaService.patch(id, body);
     }
 
@@ -64,7 +60,6 @@ public class ResumeMetaResource {
     @Operation(summary = "Detach a tailored resume", description = "Turns a tailored resume into a master (it keeps its content and job target). 409 NOT_TAILORED otherwise.")
     @PostMapping("/{id}/detach")
     public ResumeMetaDTO detach(@PathVariable("id") Long id) {
-        demoGuard.assertNotDemo();
         return metaService.detach(id);
     }
 
@@ -74,7 +69,6 @@ public class ResumeMetaResource {
     )
     @PostMapping("/{id}/doc/checkpoint")
     public ResumeMetaService.Checkpoint checkpoint(@PathVariable("id") Long id, @RequestBody(required = false) CheckpointVM vm) {
-        demoGuard.assertNotDemo();
         return metaService.checkpoint(id, vm == null ? null : vm.name());
     }
 

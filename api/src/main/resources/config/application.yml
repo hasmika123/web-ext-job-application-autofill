@@ -263,6 +263,13 @@ dossier:
     enabled: ${DEMO_ENABLED:false}
     password: ${DEMO_PASSWORD:kiwiply-demo}
     create-accounts: ${DEMO_CREATE_ACCOUNTS:true}
+    # Sandbox: demo accounts may use the Resume Builder and profile (see DemoGuard). Account, billing, inbox and orgs stay read-only.
+    # DEMO_ALLOW_WRITES=true lifts even that (global dev override; never in production).
+    allow-writes: ${DEMO_ALLOW_WRITES:false}
+    # Nightly UTC reset of the demo accounts to the seed (cron; blank = off).
+    reset-cron: ${DEMO_RESET_CRON:0 0 4 * * *}
+    # Cap on AI calls per demo account per UTC day, on top of the plan/budget (0 = no AI for demo).
+    ai-calls-per-day: ${DEMO_AI_CALLS_PER_DAY:10}
   # Organization features (E2E-O1.9). OFF unless ORGS_ENABLED=true (the dev profile turns it on). This is only the
   # environment default: an admin-stored `feature.orgs.enabled` setting, when present, wins (OrgFeatureFlag). While off,
   # /api/orgs/**, /api/join/** and /api/me/orgs/** answer 404 and the web hides the org navigation.

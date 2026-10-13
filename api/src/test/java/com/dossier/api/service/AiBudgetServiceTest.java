@@ -47,6 +47,7 @@ class AiBudgetServiceTest {
     private SubscriptionRepository subscriptions;
     private StripeProperties stripe;
     private AiBudgetService service;
+    private DemoAiCap demoCap;
 
     @BeforeEach
     void setUp() {
@@ -59,10 +60,11 @@ class AiBudgetServiceTest {
         calls = Mockito.mock(AiCallRepository.class);
         metering = Mockito.mock(AiMeteringService.class);
         subscriptions = Mockito.mock(SubscriptionRepository.class); // no row: the calendar-month fallback
+        demoCap = Mockito.mock(DemoAiCap.class); // not a demo account: never reached
         stripe = new StripeProperties();
         stripe.setPriceMonthly("price_month");
         stripe.setPrice3mo("price_3mo");
-        service = new AiBudgetService(policy, runtime, overrides, entitlement, calls, metering, subscriptions, stripe, FREE_PARSES);
+        service = new AiBudgetService(policy, runtime, overrides, entitlement, calls, metering, subscriptions, stripe, demoCap, FREE_PARSES);
     }
 
     private void pro() {
