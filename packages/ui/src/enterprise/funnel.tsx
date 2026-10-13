@@ -54,7 +54,11 @@ const SOURCE_TILES: Record<string, { bg: string; glyph: string; fg?: string }> =
   "client portal": { bg: "#e8ecf3", glyph: "▣", fg: "#3b4a63" },
 };
 
-export function SourceLogo({ source, size = 30, className }: { source: string; size?: number; className?: string }) {
+export function SourceLogo({ source, size = 30, src, className }: { source: string; size?: number; /** The real logo art; the letter tile is the fallback. */ src?: string | null; className?: string }) {
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element -- packages/ui is framework-free
+    return <img src={src} alt="" aria-hidden data-source-logo={source} style={{ width: size, height: size }} className={cn("flex-none rounded-[8px] object-cover", className)} />;
+  }
   const tile = SOURCE_TILES[source.trim().toLowerCase()] ?? { bg: "#e8ecf3", glyph: source.trim().charAt(0).toUpperCase() || "?", fg: "#3b4a63" };
   return (
     <span

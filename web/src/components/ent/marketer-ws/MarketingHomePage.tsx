@@ -9,9 +9,8 @@ import {
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot, openHelpPanel } from "@/components/ent/shell/ShellContext";
-import { EnterpriseMascot } from "@/lib/ent/mascot";
 import { deltaFromPct, relativeTime } from "@/lib/ent/dashboard";
-import { KPI_KEYS, KPI_TITLES, clockText, fetchMarketingHome, matchTone, type FollowupTask, type KpiKey, type MarketingHomeView, type Tone } from "@/lib/ent/marketer-ws/home";
+import { KPI_KEYS, KPI_TITLES, HELP_BANNER, clockText, fetchMarketingHome, logoFor, matchTone, photoFor, type FollowupTask, type KpiKey, type MarketingHomeView, type Tone } from "@/lib/ent/marketer-ws/home";
 
 /**
  * Marketing Home (design: Talent Marketing Dashboard). One call draws the board; every card has its own empty state, never a
@@ -182,7 +181,7 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
                       const action = cn("inline-block whitespace-nowrap rounded-md px-2.5 py-1 text-[12px] font-semibold", ACTION_TONE[t.nextAction.tone]);
                       return (
                         <tr key={t.id} data-talent-row={t.id} className="border-b border-line last:border-0">
-                          <td className="px-2 py-2"><span className="flex items-center gap-2 font-semibold text-ink"><MemberAvatar name={t.name} src={t.avatarUrl} size={34} />{t.name}</span></td>
+                          <td className="px-2 py-2"><span className="flex items-center gap-2 font-semibold text-ink"><MemberAvatar name={t.name} src={photoFor(t.name, t.avatarUrl)} size={34} />{t.name}</span></td>
                           <td className="px-2 text-ink-soft">{t.primarySkill}</td>
                           <td className="px-2"><span className="inline-flex items-center gap-1.5 text-ink-soft"><span aria-hidden className={cn("h-2 w-2 rounded-full", DOT_TONE[t.availability.tone])} />{t.availability.label}</span></td>
                           <td className="px-2"><span className="inline-flex items-center gap-1.5 text-ink-soft"><span aria-hidden className={cn("grid h-5 w-5 place-items-center rounded", t.resume.state === "UPDATED" ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-pink-soft text-v2-pink-ink")}><FileTextIcon size={12} /></span>{t.resume.label}</span></td>
@@ -221,7 +220,7 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
                 <tbody>
                   {v.streams.map((s) => (
                     <tr key={s.source} data-stream-row={s.source} className="border-b border-line last:border-0">
-                      <td className="px-2 py-2"><span className="flex items-center gap-2 font-semibold text-ink"><SourceLogo source={s.source} />{s.source}</span></td>
+                      <td className="px-2 py-2"><span className="flex items-center gap-2 font-semibold text-ink"><SourceLogo source={s.source} src={logoFor(s.source)} />{s.source}</span></td>
                       <td className="px-2"><span className="inline-block rounded-md bg-v2-green-soft px-2 py-0.5 text-[12px] font-semibold text-v2-green-ink">{s.status}</span></td>
                       <td className="px-2 font-semibold text-ink">{s.newOpenings}</td>
                       <td className="px-2 text-ink-soft">{s.lastSyncAt ? relativeTime(s.lastSyncAt, now) : "-"}</td>
@@ -236,7 +235,8 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
         )}
 
         <section aria-label="Help" data-home-card="help" className="flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper lg:col-span-2 xl:col-span-1">
-          <div className="flex justify-center bg-accent-soft pt-3"><EnterpriseMascot pose="greet" size="lg" /></div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- the approved board art, served as is */}
+          <img src={HELP_BANNER} alt="" className="block w-full object-cover" />
           <div className="p-4">
             <h2 className="text-[19px] font-extrabold leading-tight text-ink">Find the right opportunities for your talent faster!</h2>
             <p className="mt-1.5 text-[13.5px] leading-snug text-muted">I can help you find matches, track submissions, and never miss a follow-up{firstName ? `, ${firstName}` : ""}.</p>
@@ -380,7 +380,7 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
                     {v.interviews.map((i) => (
                       <tr key={i.id} data-interview-row={i.id} className="border-b border-line last:border-0">
                         <td className="px-2 py-1.5 text-ink-soft">{clockText(i.startsAt)}</td>
-                        <td className="px-2"><span className="flex items-center gap-2 font-semibold text-ink"><MemberAvatar name={i.consultant} src={i.avatarUrl} size={20} />{i.consultant}</span></td>
+                        <td className="px-2"><span className="flex items-center gap-2 font-semibold text-ink"><MemberAvatar name={i.consultant} src={photoFor(i.consultant, i.avatarUrl)} size={20} />{i.consultant}</span></td>
                         <td className="px-2 text-ink-soft">{i.role}</td>
                         <td className="px-2 text-ink-soft">{i.client}</td>
                         <td className="px-2 text-ink-soft">{i.type}</td>
@@ -407,7 +407,7 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
               <ul className="flex flex-col">
                 {v.activity.map((a) => (
                   <li key={a.id} data-activity-row={a.id} className="flex items-start gap-2.5 border-b border-line py-2 last:border-0">
-                    <MemberAvatar name={a.actor} src={a.avatarUrl} size={28} />
+                    <MemberAvatar name={a.actor} src={photoFor(a.actor, a.avatarUrl)} size={28} />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] text-ink"><b>{a.actor}</b> {a.text}</span>
                       {a.detail ? <span className="block truncate text-[12px] text-muted">{a.detail}</span> : null}

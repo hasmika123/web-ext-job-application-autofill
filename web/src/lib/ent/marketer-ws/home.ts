@@ -111,3 +111,11 @@ export function clockText(iso: string): string {
 export function matchTone(pct: number): "green" | "amber" {
   return pct >= 80 ? "green" : "amber";
 }
+
+/** Board art served from `public/ent/marketer` (cropped from the approved board). A real `avatarUrl` from the API always wins. */
+export const MARKETER_ART_BASE = "/ent/marketer";
+const PEOPLE: Record<string, string> = { "alex morgan": "alex-morgan", "priya sharma": "priya-sharma", "michael park": "michael-park", "emily lawson": "emily-lawson", "david kim": "david-kim" };
+const LOGOS: Record<string, string> = { "linkedin jobs": "linkedin", linkedin: "linkedin", indeed: "indeed", dice: "dice", ziprecruiter: "zip", "client portal": "portal" };
+export const photoFor = (name: string, url: string | null): string | null => url ?? (PEOPLE[name.trim().toLowerCase()] ? `${MARKETER_ART_BASE}/${PEOPLE[name.trim().toLowerCase()]}.png` : null);
+export const logoFor = (source: string): string | null => (LOGOS[source.trim().toLowerCase()] ? `${MARKETER_ART_BASE}/logo-${LOGOS[source.trim().toLowerCase()]}.png` : null);
+export const HELP_BANNER = `${MARKETER_ART_BASE}/help-banner.png`;
