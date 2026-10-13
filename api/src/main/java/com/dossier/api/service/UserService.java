@@ -95,6 +95,9 @@ public class UserService {
     }
 
     public User registerUser(AdminUserDTO userDTO, String password) {
+        if (DemoAccountService.isDemoLogin(userDTO.getLogin())) {
+            throw new UsernameAlreadyUsedException(); // the demo namespaces (demo, demo-org, demo-ent-*) are never registrable
+        }
         userRepository
             .findOneByLogin(userDTO.getLogin().toLowerCase())
             .ifPresent(existingUser -> {

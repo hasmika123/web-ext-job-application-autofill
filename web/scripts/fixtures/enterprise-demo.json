@@ -1,0 +1,27 @@
+{
+  "_comment": "The enterprise demo roster the real API seeds (api EnterpriseDemoSeeder.TENANTS) and the mock API serves. EnterpriseDemoSeederIT diffs this file against the seed, so the two cannot drift. Role keys are the system role templates (api RoleTemplates).",
+  "tenants": {
+    "acme.localhost": {
+      "orgKey": "acme",
+      "name": "Acme Staffing",
+      "people": [
+        { "key": "sarah", "first": "Sarah", "last": "Chen", "roles": ["ORG_ADMIN", "MARKETING_MANAGER"], "status": "ACTIVE" },
+        { "key": "omar", "first": "Omar", "last": "Haddad", "roles": ["MARKETING_SPECIALIST"], "status": "ACTIVE" },
+        { "key": "anika", "first": "Anika", "last": "Rao", "roles": ["CONSULTANT"], "status": "ACTIVE" },
+        { "key": "ben", "first": "Ben", "last": "Okafor", "roles": ["CONSULTANT"], "status": "ACTIVE" },
+        { "key": "hana", "first": "Hana", "last": "Petrov", "roles": ["HR_SPECIALIST"], "status": "ACTIVE" },
+        { "key": "felix", "first": "Felix", "last": "Ng", "roles": ["FINANCE_SPECIALIST"], "status": "ACTIVE" },
+        { "key": "amara", "first": "Amara", "last": "Silva", "roles": ["ACCOUNT_MANAGER"], "status": "ACTIVE" },
+        { "key": "tomas", "first": "Tomas", "last": "Berg", "roles": ["TALENT_ACQUISITION"], "status": "ACTIVE" },
+        { "key": "eve", "first": "Eve", "last": "Lindqvist", "roles": ["EXECUTIVE_VIEWER"], "status": "ACTIVE" },
+        { "key": "sam", "first": "Sam", "last": "Whitfield", "roles": ["CONSULTANT"], "status": "SUSPENDED" },
+        { "key": "nina", "first": "Nina", "last": "Vogel", "roles": ["CONSULTANT"], "status": "INVITED" }
+      ]
+    },
+    "beta.localhost": {
+      "orgKey": "beta",
+      "name": "Beta Talent",
+      "people": [{ "key": "bea", "first": "Bea", "last": "Turner", "roles": ["OWNER"], "status": "ACTIVE" }]
+    }
+  }
+}

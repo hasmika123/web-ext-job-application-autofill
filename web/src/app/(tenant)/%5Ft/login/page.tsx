@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import BrandedLogin from "@/components/ent/login/BrandedLogin";
+import TenantDemoTab from "@/components/ent/login/TenantDemoTab";
 import { destinationFor, getTenantSession } from "@/lib/ent/tenant-session";
 import { getTenant } from "@/lib/tenant";
 
@@ -22,6 +23,7 @@ export default async function TenantLoginPage({ searchParams }: { searchParams: 
   if (to) redirect(to);
   const b = t.tenant.branding;
   return (
+    <>
     <BrandedLogin
       name={t.tenant.displayName}
       logoUrl={b?.logoUrl}
@@ -33,5 +35,8 @@ export default async function TenantLoginPage({ searchParams }: { searchParams: 
       google={t.tenant.login?.google === true}
       next={typeof next === "string" ? next : undefined}
     />
+    {/* X1.12: the dev-style "Demo accounts" tab; renders nothing unless the API says DEMO_ENABLED + ENT_DEMO_SEED are on for this host. */}
+    <TenantDemoTab />
+    </>
   );
 }

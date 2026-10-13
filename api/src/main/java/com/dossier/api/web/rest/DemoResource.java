@@ -7,6 +7,9 @@ import com.dossier.api.service.DemoAccountService;
 import com.dossier.api.service.DemoAccountService.DemoAccount;
 import com.dossier.api.service.DemoException;
 import com.dossier.api.service.TokenIssuer;
+import com.dossier.api.service.ent.EnterpriseDemoSeeder;
+import com.dossier.api.service.ent.EnterpriseDemoService;
+import com.dossier.api.service.ent.TenantContextHolder;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.LinkedHashMap;
@@ -43,8 +46,10 @@ public class DemoResource {
     private final DemoAccountService demoAccountService;
     private final UserRepository userRepository;
     private final TokenIssuer tokenIssuer;
+    private final EnterpriseDemoService enterpriseDemo;
 
-    public DemoResource(DemoAccountService demoAccountService, UserRepository userRepository, TokenIssuer tokenIssuer) {
+    public DemoResource(DemoAccountService demoAccountService, UserRepository userRepository, TokenIssuer tokenIssuer, EnterpriseDemoService enterpriseDemo) {
+        this.enterpriseDemo = enterpriseDemo;
         this.demoAccountService = demoAccountService;
         this.userRepository = userRepository;
         this.tokenIssuer = tokenIssuer;
@@ -62,6 +67,15 @@ public class DemoResource {
     }
 
     @Operation(
+        summary = "Demo members of the tenant on this host",
+        description = "X1.12. On a demo tenant's host while DEMO_ENABLED and ENT_DEMO_SEED are on: the members the login page can open, with their role names. Anywhere else {enabled:false, accounts:[]}. No passwords."
+    )
+    @GetMapping("/api/public/tenant/demo")
+    public ResponseEntity<EnterpriseDemoService.Directory> tenantDemo() {
+        return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, "no-store").body(enterpriseDemo.directory(TenantContextHolder.current().orElse(null)));
+    }
+
+    @Operation(
         summary = "Open a demo account",
         description = "Issue the normal access + refresh token pair for a demo account. 403 DEMO_DISABLED while the demo is off; 404 for any other login."
     )
@@ -71,8 +85,15 @@ public class DemoResource {
             throw DemoException.disabled();
         }
         String login = vm == null || vm.login() == null ? "" : vm.login().trim().toLowerCase(Locale.ENGLISH);
-        if (!demoAccountService.isDemo(login)) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        if (EnterpriseDemoSeeder.isEnterpriseDemoLogin(login)) {
+            // X1.12: an enterprise demo member signs in only on its own tenant host, with a tid-bound token pair
+            TokenIssuer.TokenPair tenantPair = enterpriseDemo.login(login, TenantContextHolder.current().orElse(null));
+            HttpHeaders tenantHeaders = new HttpHeaders();
+            tenantHeaders.setBearerAuth(tenantPair.accessToken());
+            return new ResponseEntity<>(tenantPair, tenantHeaders, HttpStatus.OK);
+        }
+        if (!demoAccountService.isDemo(login) || TenantContextHolder.current().map(c -> c.isTenant()).orElse(false)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // the personal demo accounts never sign in on a tenant host
         }
         if (DemoAccountService.LOGIN_JOB_SEEKER.equals(login)) {
             demoAccountService.ensureSeeded(); // a SQL-flipped switch seeds nothing; fill an empty demo now
