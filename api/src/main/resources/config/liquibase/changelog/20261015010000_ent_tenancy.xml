@@ -93,6 +93,10 @@
         <addForeignKeyConstraint baseTableName="org_hostname" baseColumnNames="created_by_member_id"
             constraintName="fk_org_hostname_member" referencedTableName="org_member" referencedColumnNames="id"
             onDelete="SET NULL"/>
+        <!-- The raw <sql> generated columns have no automatic inverse; dropping the table takes them, their indexes and the FKs with it. -->
+        <rollback>
+            <dropTable tableName="org_hostname"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="20261015010000-2" author="dossier">
@@ -160,24 +164,52 @@
             constraintName="fk_org_setting_org" referencedTableName="organization" referencedColumnNames="id"/>
     </changeSet>
 
+    <!--
+        One changeset per column (a precondition with several columnExists is all-or-nothing: a database that already had one
+        of the four would skip the other three). -4 keeps its id, now covering only organization.subdomain and its unique
+        key; its checksum changed with the split, so validCheckSum ANY lets a database that already ran the original -4
+        (a developer's) accept it. The other three are new ids and are no-ops (MARK_RAN) where the column exists.
+    -->
     <changeSet id="20261015010000-4" author="dossier">
+        <validCheckSum>ANY</validCheckSum>
         <preConditions onFail="MARK_RAN">
             <not><columnExists tableName="organization" columnName="subdomain"/></not>
-            <not><columnExists tableName="organization" columnName="subdomain_enabled"/></not>
-            <not><columnExists tableName="organization" columnName="config_version"/></not>
-            <not><columnExists tableName="organization" columnName="display_name"/></not>
         </preConditions>
         <addColumn tableName="organization">
             <column name="subdomain" type="varchar(63)"/>
+        </addColumn>
+        <addUniqueConstraint tableName="organization" columnNames="subdomain" constraintName="uk_org_subdomain"/>
+    </changeSet>
+
+    <changeSet id="20261015010000-4b" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="organization" columnName="subdomain_enabled"/></not>
+        </preConditions>
+        <addColumn tableName="organization">
             <column name="subdomain_enabled" type="boolean" defaultValueBoolean="false">
                 <constraints nullable="false"/>
             </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261015010000-4c" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="organization" columnName="config_version"/></not>
+        </preConditions>
+        <addColumn tableName="organization">
             <column name="config_version" type="int" defaultValueNumeric="0">
                 <constraints nullable="false"/>
             </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261015010000-4d" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="organization" columnName="display_name"/></not>
+        </preConditions>
+        <addColumn tableName="organization">
             <column name="display_name" type="varchar(120)"/>
         </addColumn>
-        <addUniqueConstraint tableName="organization" columnNames="subdomain" constraintName="uk_org_subdomain"/>
     </changeSet>
 
     <!--
@@ -188,22 +220,42 @@
     -->
     <changeSet id="20261015010000-5" author="dossier" dbms="mysql">
         <sql>ALTER TABLE organization MODIFY COLUMN type VARCHAR(40) NOT NULL</sql>
+        <!-- Narrowing back fails loudly if a 21+ character value (PROFESSIONAL_SERVICES) is stored: the right outcome, it would lose data. -->
+        <rollback>
+            <sql>ALTER TABLE organization MODIFY COLUMN type VARCHAR(20) NOT NULL</sql>
+        </rollback>
     </changeSet>
 
+    <!-- org_audit_event: one changeset per column, same reasoning as -4 (validCheckSum for a database that ran the original -6). -->
     <changeSet id="20261015010000-6" author="dossier">
+        <validCheckSum>ANY</validCheckSum>
         <preConditions onFail="MARK_RAN">
             <not><columnExists tableName="org_audit_event" columnName="hostname_id"/></not>
-            <not><columnExists tableName="org_audit_event" columnName="beneficiary_login"/></not>
-            <not><columnExists tableName="org_audit_event" columnName="risk"/></not>
         </preConditions>
         <addColumn tableName="org_audit_event">
             <column name="hostname_id" type="bigint"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="org_audit_event" baseColumnNames="hostname_id"
+            constraintName="fk_org_audit_hostname" referencedTableName="org_hostname" referencedColumnNames="id"/>
+    </changeSet>
+
+    <changeSet id="20261015010000-6b" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_audit_event" columnName="beneficiary_login"/></not>
+        </preConditions>
+        <addColumn tableName="org_audit_event">
             <column name="beneficiary_login" type="varchar(50)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261015010000-6c" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_audit_event" columnName="risk"/></not>
+        </preConditions>
+        <addColumn tableName="org_audit_event">
             <column name="risk" type="varchar(10)" defaultValue="LOW">
                 <constraints nullable="false"/>
             </column>
         </addColumn>
-        <addForeignKeyConstraint baseTableName="org_audit_event" baseColumnNames="hostname_id"
-            constraintName="fk_org_audit_hostname" referencedTableName="org_hostname" referencedColumnNames="id"/>
     </changeSet>
 </databaseChangeLog>
