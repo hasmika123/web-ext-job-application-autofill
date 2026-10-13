@@ -83,16 +83,15 @@ here when a story is specified; never add a row without an id in `ent.json`.
 |---|---|---|---|
 | X2 Branded login & shell | Not Started | B | needs branding/login spec |
 | X3 Custom domains | Not Started | B | needs edge change (E5) for public hosts |
-| X4 Roles, employees, assignments | Not Started | B (UX) + D (assignments) | |
+| X4 Roles, employees, assignments | Not Started | B (UX) + D (assignments) | X4.7–X4.8 specified (D) — rows below |
 | X5 Subscription foundation | Not Started (stories specified, see below) | C | design docs 20–25, 27, 29 |
 | X6 Billing & license UI | Not Started (stories specified, see below) | C | design docs 26–28 |
-| X7 Consultant & resume mgmt | Not Started | D | |
-| X8 Talent marketing | Not Started | D | |
-| X9 Applications, interviews, extension workspace | Not Started | D (+ ext) | |
-| X10 Clients & placements | Not Started | D | |
-| X11 HR & Finance | Not Started | D | product H integration |
+| X7 Consultant & resume mgmt | Not Started | D | stories specified (D) — rows below |
+| X8 Talent marketing | Not Started | D | stories specified (D) — rows below |
+| X9 Applications, interviews, extension workspace | Not Started | D (+ ext) | stories specified (D) — rows below |
+| X10 Clients & placements | Not Started | D | stories specified (D) — rows below |
+| X11 HR & Finance | Not Started | D | product H integration; stories specified (D) — rows below |
 | X12 Advanced | Not Started | E | |
-
 ## Phase 5 — Subscription foundation (build order; Session C, specified 2026-10-12)
 
 | Story | Status | Owner | Evidence | Notes |
@@ -126,6 +125,79 @@ here when a story is specified; never add a row without an id in `ent.json`.
 | X6.9 Platform Pricing Admin | Not Started | Sonnet (Web+API) | — | admin page kit |
 | X6.10 Platform admin org billing operations | Not Started | Sonnet (Web+API) | — | credits behind flag (C1) |
 | X6.11 Test-clock runbook + E2E-C Playwright + Phase 6 gate | Not Started | Sonnet (QA+Web) | — | closes the phase |
+## Phase 4 (Session D part) — Assignments (build order as listed; stories specified by Session D 2026-10-12)
+
+| Story | Status | Owner | Evidence | Notes |
+|---|---|---|---|---|
+| X4.7 Consultant–marketer assignments | Not Started | Sonnet (API+Web) | — | deps X1.6, X1.7, X4.3 |
+| X4.8 Workload balancing view for Marketing Managers | Not Started | Sonnet (API+Web) | — | deps X4.7 |
+
+## Phase 7 — Consultant & resume management (build order as listed; stories specified by Session D 2026-10-12)
+
+| Story | Status | Owner | Evidence | Notes |
+|---|---|---|---|---|
+| X7.2 Consultant profile overlay | Not Started | Sonnet (API+Web) | — | deps X4.7, X1.7 |
+| X7.1 Consultant directory | Not Started | Sonnet (API+Web) | — | deps X7.2, X4.7 |
+| X7.3 Resumes page for the org | Not Started | Sonnet (API+Web) | — | deps X7.1 |
+| X7.6 org_feature_consent | Not Started | Sonnet (API+Web) | — | deps X7.3, X5 |
+| X7.4 Resume approval workflow | Not Started | Sonnet (API+Web) | — | deps X7.3, X7.6 |
+| X7.5 Marketer-made resumes via the builder in act-for mode | Not Started | Sonnet (API+Web) | — | deps X7.4, X5 |
+| X7.7 Marketing readiness checklist per consultant | Not Started | Sonnet (API+Web) | — | deps X7.4, X7.2 |
+
+## Phase 8 — Talent marketing (build order as listed; stories specified by Session D 2026-10-12)
+
+| Story | Status | Owner | Evidence | Notes |
+|---|---|---|---|---|
+| X8.10 Pipeline schema | Not Started | Sonnet (API) | — | deps X7.4, X4.7 |
+| X8.1 Marketing workspace shell | Not Started | Sonnet (Web+API) | — | deps X8.10, X7.1, X2 |
+| X8.2 Job discovery for a consultant | Not Started | Sonnet (API+Web) | — | deps X8.1 |
+| X8.3 AI matching for a consultant | Not Started | Sonnet (API+Web) | — | deps X8.2, X5 |
+| X8.4 Opportunity assignment | Not Started | Sonnet (API+Web) | — | deps X8.3, X7.4 |
+| X8.5 Authorization requests | Not Started | Sonnet (API+Web) | — | deps X8.4 |
+| X8.8 Duplicate-submission guard across consultants and vendors; same-employer window setting | Not Started | Sonnet (API) | — | deps X8.4 |
+| X8.6 Follow-ups and tasks | Not Started | Sonnet (API+Web) | — | deps X8.5 |
+| X8.7 Marketer performance view | Not Started | Sonnet (API+Web) | — | deps X8.6 |
+| X8.9 NoSubmitSurfaceTest + MarketerScopeTest kept green; E2E-D up to authorization in Playwright | Not Started | Sonnet (API+Web+QA) | — | deps X8.5, X8.8 |
+
+## Phase 9 — Consultant applications, interviews, extension workspace (build order as listed; stories specified by Session D 2026-10-12)
+
+| Story | Status | Owner | Evidence | Notes |
+|---|---|---|---|---|
+| X9.1 Consultant workspace | Not Started | Sonnet (Web+API) | — | deps X8.5, X2 |
+| X9.2 Assigned jobs list for the consultant and application link via submit-detect | Not Started | Sonnet (API+Web+Ext) | — | deps X9.1 |
+| X9.3 Application tracking for the org | Not Started | Sonnet (API) | — | deps X9.2 |
+| X9.4 Applications page | Not Started | Sonnet (Web) | — | deps X9.3 |
+| X9.5 Interview coordination | Not Started | Sonnet (API+Web) | — | deps X9.2, X8.10 |
+| X9.6 Interviews page | Not Started | Sonnet (Web+API) | — | deps X9.5 |
+| X9.7 AI Interview Preparation for consultants gated by interview.ai_prep entitlement; mascot encouragement | Not Started | Sonnet (API+Web) | — | deps X9.5, X5 |
+| X9.8 Offers | Not Started | Sonnet (API+Web) | — | deps X9.5 |
+| X9.9 Extension workspace selector | Not Started | Sonnet (Ext+API) | — | deps X9.2, X5 |
+| X9.10 E2E-D completion | Not Started | Sonnet (QA+Web) | — | deps X9.9, X9.8 |
+
+## Phase 10 — Clients & placements (build order as listed; stories specified by Session D 2026-10-12)
+
+| Story | Status | Owner | Evidence | Notes |
+|---|---|---|---|---|
+| X10.1 Client accounts, contacts, relationships | Not Started | Sonnet (API+Web) | — | deps X8.10, X11.7 |
+| X10.2 Client requirements | Not Started | Sonnet (API+Web) | — | deps X10.1 |
+| X10.3 Candidate submissions as records | Not Started | Sonnet (API+Web) | — | deps X10.2, X8.5 |
+| X10.4 Offers → placements lifecycle | Not Started | Sonnet (API+Web) | — | deps X9.8, X10.3 |
+| X10.8 Timesheets bridge | Not Started | Sonnet (API) | — | deps X10.4, H1.1 |
+| X10.6 Placement declaration from the consultant side and org celebration | Not Started | Sonnet (Web+API) | — | deps X10.4 |
+| X10.5 Account Manager workspace | Not Started | Sonnet (Web) | — | deps X10.4, X10.6 |
+| X10.7 Pipeline reports | Not Started | Sonnet (API+Web) | — | deps X10.5 |
+
+## Phase 11 — HR & Finance (build order as listed; stories specified by Session D 2026-10-12)
+
+| Story | Status | Owner | Evidence | Notes |
+|---|---|---|---|---|
+| X11.7 PII scanner on every path | Not Started | Sonnet (API+Web) | — | deps X8.10 |
+| X11.1 HR lifecycle records | Not Started | Sonnet (API+Web) | — | deps X11.7, X4.4 |
+| X11.2 Compliance checklists | Not Started | Sonnet (API+Web) | — | deps X11.1 |
+| X11.3 HR workspace | Not Started | Sonnet (Web+API) | — | deps X11.2 |
+| X11.5 Finance records for placements | Not Started | Sonnet (API+Web) | — | deps X10.8, X11.7 |
+| X11.4 Finance workspace over product H | Not Started | Sonnet (Web+API) | — | deps X11.5, X6 |
+| X11.6 HR/Finance reports and CSV exports | Not Started | Sonnet (API+Web) | — | deps X11.3, X11.4 |
 
 ## Blocked / waiting on the user
 | Item | Since | Blocks | Default in force |
@@ -135,8 +207,10 @@ here when a story is specified; never add a row without an id in `ent.json`.
 | E4, E6–E20 | 2026-10-12 | nothing (defaults applied) | see `08-decisions-for-user.md` |
 | B1–B8 (Session B: ask-token transport, `_t` rewrite, email MFA, apex domains, invite-only signup, redirects, two API deps, last-active) | 2026-10-12 | nothing (defaults applied) | see `08-decisions-for-user.md` |
 | C1–C10 (Session C: credits, suspension billing, Stripe Tax, currencies, preset pricing, min commitment, invite billing, draft prices, removal timing, proration authority) | 2026-10-12 | nothing (defaults applied) | see `08-decisions-for-user.md` |
+| D1–D7 (Session D: link checks, Autopilot feed, client documents, marketer inbox, TA CVs, rate visibility, HR Policies naming) | 2026-10-12 | nothing (defaults applied; D2 keeps X12.2 not started, D4 keeps the marketer inbox out of X8) | see `08-decisions-for-user.md` "Session D additions" |
 
 ## Log
 - 2026-10-12 — Phase 0 complete on `enterprise-v2` (Fable). Roadmap area `ent` registered, 109 stories, 0 dangling ids.
 - 2026-10-12 — Session B (Fable, branch `ev2-design-b`): docs 10–16, stories X2.1–X2.14 / X3.1–X3.8 / X4.1–X4.6 / X4.9 fully specified (112 stories, 0 dangling), escalations B1–B8, E1/E2/E3/E5 recorded as answered.
 - 2026-10-12 — Session C (Fable, `ev2-design-c`): docs 20–29, stories X5.1–X5.12 and X6.1–X6.12 fully specified (+X5.11, X5.12, X6.12 new), escalations C1–C10, E1/E2/E3/E5 recorded as answered; 112 stories, 0 dangling ids.
+- 2026-10-12 — Session D (Fable, `ev2-design-d`): assignments, org resumes, talent-marketing state machines, applications, interviews, clients, placements, HR & finance designed (`17`, `30`–`38`); 44 stories specified (X4.7–4.8, X7–X11 incl. new X8.10, X10.8, X11.7); escalations D1–D7; E1/E2/E3/E5 recorded answered. Roadmap: 112 stories, 0 dangling ids.

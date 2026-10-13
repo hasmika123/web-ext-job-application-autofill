@@ -34,6 +34,22 @@
 | `07-backlog.md` §3 X2/X3/X4 + `docs/roadmap/areas/ent.json` | Agile Stories X2.1–X2.14, X3.1–X3.8, X4.1–X4.6, X4.9 (§30 format) | done |
 | `08-decisions-for-user.md` "Session B additions" | escalations B1–B8 with safe defaults; E1/E2/E3/E5 recorded as answered | open |
 
+## Written by Session D (talent marketing, resumes, applications, clients, placements, HR, finance)
+
+| File | §28 name(s) | Status |
+|---|---|---|
+| `17-consultant-assignments.md` | Consultant Assignments (`org_assignment`, delegation, workload, consent interaction) | done (X4.7–X4.8) |
+| `30-resume-management.md` | Resume Management for orgs (directory, `org_resume`, consent-gated edits, approval, readiness) | done (X7.*) |
+| `31-talent-marketing.md` | Talent Marketing lifecycle as state machines, submission rule under E1, duplicate guard, board terms, `NoSubmitSurfaceTest`, notifications | done (X8.*) |
+| `32-applications.md` | Applications (consultant side, org consented view, inbox rules, extension workspace) | done (X9.1–X9.4, X9.9–X9.10) |
+| `33-interviews.md` | Interviews (`interview_slot` over the person's `interview`, `.ics`, reminders, AI prep) | done (X9.5–X9.7) |
+| `34-clients.md` | Clients, vendors, contacts, requirements, Account Manager workspace, reports | done (X10.1–X10.2, X10.5, X10.7) |
+| `35-placements.md` | Offers → placements, extensions, redeployment, Timesheets bridge | done (X9.8, X10.3–X10.4, X10.6, X10.8) |
+| `36-hr-and-finance.md` | HR & Finance record-only (E2), PII scanner on every path | done (X11.*) |
+| `37-entitlement-hooks.md` | Entitlement hook map (feature × actor × beneficiary × call site) — alignment list for Session C | done |
+| `38-ux-talent-workspaces.md` | UX for marketer, manager, consultant, AM, HR, finance pages (390/1440 wireframes, empty states, honest delight, new `@kiwiply/ui` primitives) | done |
+| `08-decisions-for-user.md` → "Session D additions" | escalations D1–D7; E1/E2/E3/E5 recorded as answered 2026-10-12 | open |
+
 ## Owned by follow-up design sessions
 
 | Session | Owns (§28 names → target files) | Inputs it must respect |
