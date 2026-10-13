@@ -63,7 +63,11 @@ const MEMBERS = {
     "owner@beta.com": { name: "Bea Owner", roles: ["OWNER"], status: "ACTIVE", id: 201 },
   },
 };
-const ORGS = { "acme.localhost": { id: 1, displayName: "Acme", type: "STAFFING" }, "beta.localhost": { id: 2, displayName: "Beta Talent", type: "STAFFING" } };
+// acme.id is the one mock-branding.mjs serves (ACME_ORG_ID): the Branding page takes its organization from this session.
+const ORGS = {
+  "acme.localhost": { id: 2, displayName: "Acme", type: "STAFFING", terminology: {} },
+  "beta.localhost": { id: 3, displayName: "Beta Talent", type: "STAFFING", terminology: { employees: "Team members" } },
+};
 
 /** Modules per host: marketing and billing on for Acme so the role menus have something to show; Beta has none. */
 const MODULES = {
@@ -115,7 +119,7 @@ export function meTenantFor(host, login) {
   const primaryWs = roleViews[0].workspaceKey;
   const landingWs = workspaces.find((w) => w.workspaceKey === primaryWs) ?? workspaces[0] ?? null;
   const body = {
-    org: { id: org.id, displayName: org.displayName, status: "ACTIVE", type: org.type, primaryHost: host, terminology: {}, flags: { pastDue: false, billingActionRequired: false, greeting: true } },
+    org: { id: org.id, displayName: org.displayName, status: "ACTIVE", type: org.type, primaryHost: host, terminology: org.terminology ?? {}, flags: { pastDue: false, billingActionRequired: false, greeting: true } },
     member: { id: member.id, status: member.status, title: null, departmentGroupId: null, teamGroupId: null, managerMemberId: null, joinedAt: "2026-10-01T09:00:00Z" },
     person: { name: member.name, email: login, imageUrl: null },
     roles: roleViews,
@@ -153,4 +157,25 @@ export function handleMeTenant(req, res, path, method, json, tenantHostOf) {
   res.writeHead(200, { "content-type": "application/json", etag: answer.etag, "cache-control": "private, no-cache" });
   res.end(JSON.stringify(answer.body));
   return true;
+}
+
+// ---- the shell bell (X2.16) ---------------------------------------------------------------------------------------------------
+// GET /api/profile/notifications and POST .../read-all for a tenant member's token. Admin-side members (owner, Sarah) have a few
+// unread notices so the bell shows its dot; everyone else is caught up. Read state is per process (a restart resets it).
+const READ = new Set();
+const NOTICES = (login) => [
+  { id: 1, title: "3 invitations are waiting", body: "People you invited have not accepted yet.", link: "/w/admin/employees?status=invited", createdAt: "2026-10-13T08:30:00Z", read: READ.has(login) },
+  { id: 2, title: "Branding draft saved", body: "Publish it when you are ready.", link: "/w/admin/branding", createdAt: "2026-10-12T16:10:00Z", read: READ.has(login) },
+];
+const WITH_NOTICES = new Set(["owner@acme.com", "sarah@acme.com"]);
+
+export function handleTenantNotifications(req, res, path, method, json) {
+  if (path !== "/api/profile/notifications" && path !== "/api/profile/notifications/read-all") return false;
+  const login = jwtSub(req);
+  const isTenantMember = login && Object.values(MEMBERS).some((m) => m[login]);
+  if (!isTenantMember) return false; // a personal account: the regular mock answers
+  if (path.endsWith("/read-all") && method === "POST") return READ.add(login), json(res, 200, { ok: true }), true;
+  if (method !== "GET") return false;
+  const items = WITH_NOTICES.has(login) ? NOTICES(login) : [];
+  return json(res, 200, { unread: items.filter((n) => !n.read).length, items }), true;
 }

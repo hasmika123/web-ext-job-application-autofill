@@ -15,7 +15,7 @@
 import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
 import { createJobsMock } from "./mock-jobs.mjs";
-import { handleMeTenant } from "./mock-me-tenant.mjs";
+import { handleMeTenant, handleTenantNotifications } from "./mock-me-tenant.mjs";
 import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset } from "./mock-tenants.mjs";
 import { createBrandingMock } from "./mock-branding.mjs";
 import { readFileSync } from "node:fs";
@@ -1879,23 +1879,6 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // GET /api/me/tenant (X2.2 contract, minimal stub for X2.6): the tid-bound member of the forwarded host and where they land.
-  if (path === "/api/me/tenant" && method === "GET") {
-    const host = hostOf(req);
-    const key = orgKeyOf(host);
-    if (!ENTERPRISE_ENABLED || !key) return json(res, 404, { code: "NOT_FOUND", message: "error.org" });
-    const raw = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
-    let claims = null;
-    try {
-      claims = JSON.parse(Buffer.from(raw.split(".")[1] ?? "", "base64url").toString());
-    } catch {
-      claims = null;
-    }
-    if (!claims || !claims.tid || claims.exp * 1000 < Date.now()) return json(res, 401, { code: "UNAUTHENTICATED", message: "error.http.401" });
-    if (claims.tid !== key) return json(res, 401, { code: "TOKEN_TENANT_MISMATCH", message: "error.http.401" });
-    return json(res, 200, { org: { displayName: MOCK_TENANTS[host].displayName }, member: { status: "ACTIVE" }, landing: "/w/admin", workspaces: [{ key: "admin", home: "/w/admin" }] });
-  }
-
   if (path === "/api/authenticate/demo" && method === "POST") {
     if (!DEMO_ENABLED) {
       req.resume();
@@ -1911,6 +1894,8 @@ const server = http.createServer((req, res) => {
     const raw = r.headers["x-kiwiply-host"];
     return (typeof raw === "string" ? raw : "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "");
   })) return;
+  // X2.16: the shell bell on a tenant token (the real API serves the same shape).
+  if (ENTERPRISE_ENABLED && handleTenantNotifications(req, res, path, method, json)) return;
   if (path === "/api/authenticate" && method === "POST") {
     return withBody(req, (b) => {
       const who = String(b.username ?? "").trim().toLowerCase();
