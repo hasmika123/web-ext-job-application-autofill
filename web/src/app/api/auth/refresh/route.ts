@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/config";
+import { authHostHeaders } from "@/lib/auth-host";
 import { getRefreshToken, setAuthCookies } from "@/lib/auth";
 
 /**
@@ -16,7 +17,7 @@ export async function POST() {
   try {
     res = await fetch(apiUrl("/api/refresh"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(await authHostHeaders()) },
       body: JSON.stringify({ refreshToken }),
       cache: "no-store",
     });

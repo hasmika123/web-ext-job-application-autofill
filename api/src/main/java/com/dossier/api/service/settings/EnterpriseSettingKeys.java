@@ -23,8 +23,10 @@ import java.util.regex.Pattern;
  * never touches these settings behaves exactly as it did before Enterprise V2 (ADR-023). The allow/deny lists hold
  * <b>organization ids</b> (positive integers, or the same digits as strings), not logins.
  *
- * <p>Keys marked "not enforced yet" are declared and editable, but nothing reads them until the story that owns the
- * feature does; the description says so, so the admin page never claims a switch that does nothing.
+ * <p>Keys whose feature has not shipped ("not enforced yet") are kept in {@link #deferred()}: the constants exist so the
+ * story that owns the feature can read them, but they are NOT registered ({@link #all()}, {@link #find}), so the admin
+ * page never offers a switch that does nothing. The story that starts reading a key moves its declaration from the
+ * deferred list to the live one ({@code d} to {@code k} in the static block below).
  */
 public final class EnterpriseSettingKeys {
 
@@ -53,55 +55,64 @@ public final class EnterpriseSettingKeys {
     public static final String USAGE_RETENTION_MONTHS = "enterprise.usage.retention_months";
 
     /** The default of {@link #HOSTS_PLATFORM} (06-phase-plan.md section 3). */
-    public static final String DEFAULT_PLATFORM_HOSTS = "[\"kiwiply.com\",\"www.kiwiply.com\",\"app.kiwiply.com\",\"api.kiwiply.com\",\"localhost\"]";
+    public static final String DEFAULT_PLATFORM_HOSTS = "[\"kiwiply.com\",\"www.kiwiply.com\",\"app.kiwiply.com\",\"api.kiwiply.com\"]";
 
-    /** The default of {@link #HOSTS_TENANT_BASE_DOMAINS}: production, plus {@code acme.localhost} for development. */
-    public static final String DEFAULT_TENANT_BASE_DOMAINS = "[\"kiwiply.com\",\"localhost\"]";
+    /**
+     * The default of {@link #HOSTS_TENANT_BASE_DOMAINS}: production only. {@code localhost} (for {@code acme.localhost}) is
+     * never a default: it is added by the resolver only where {@code dossier.tenant-host.allow-localhost-tenants} is true
+     * (the dev and test profiles). Loopback names are always platform hosts in the resolver, so they are not listed here.
+     * The web app derives its own copy of the platform list from its site URL and {@code PLATFORM_HOSTS}; this setting is
+     * the source of truth and the two must be kept in step (documented in DEPLOY.md and web/.env.example).
+     */
+    public static final String DEFAULT_TENANT_BASE_DOMAINS = "[\"kiwiply.com\"]";
 
     private static final Pattern HOSTNAME = Pattern.compile("(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*");
     private static final Pattern ORG_ID_TEXT = Pattern.compile("[1-9][0-9]{0,18}");
     private static final String NOT_ENFORCED = " Not enforced yet: it takes effect once the feature that reads it ships.";
 
     private static final List<Key> ALL;
+    private static final List<Key> DEFERRED;
     private static final Map<String, Key> BY_KEY;
 
     static {
         List<Key> k = new ArrayList<>();
+        List<Key> d = new ArrayList<>(); // declared, not enforced yet, hidden from admin
 
         flag(k, FLAG_ENTERPRISE, Risk.HIGH,
             "Master switch for Enterprise V2: tenant resolution from the request host, GET /api/public/tenant and every enterprise route. "
                 + "on = enabled; an allow list of organization ids narrows it to those organizations (a pilot); deny always wins. Off = those routes answer 404.");
         flag(k, FLAG_DOMAINS, Risk.HIGH, "Custom-domain lifecycle and the certificate 'ask' endpoint answering for custom hostnames. Needs the master flag.");
-        flag(k, FLAG_ROLES, Risk.MEDIUM, "Roles stored as data become authoritative and the role editor appears. Needs the master flag." + NOT_ENFORCED);
-        flag(k, FLAG_BILLING, Risk.HIGH, "Enterprise license APIs and Stripe organization billing. Needs the master flag." + NOT_ENFORCED);
-        flag(k, FLAG_MARKETING, Risk.MEDIUM, "Talent marketing and pipeline modules. Needs the master flag." + NOT_ENFORCED);
-        flag(k, FLAG_HR_FINANCE, Risk.MEDIUM, "HR and Finance record modules. Needs the master flag." + NOT_ENFORCED);
-        flag(k, FLAG_EXTENSION_WORKSPACES, Risk.MEDIUM, "Workspaces on /api/profile/version and the extension workspace header. Needs the master flag." + NOT_ENFORCED);
+        flag(d, FLAG_ROLES, Risk.MEDIUM, "Roles stored as data become authoritative and the role editor appears. Needs the master flag." + NOT_ENFORCED);
+        flag(d, FLAG_BILLING, Risk.HIGH, "Enterprise license APIs and Stripe organization billing. Needs the master flag." + NOT_ENFORCED);
+        flag(d, FLAG_MARKETING, Risk.MEDIUM, "Talent marketing and pipeline modules. Needs the master flag." + NOT_ENFORCED);
+        flag(d, FLAG_HR_FINANCE, Risk.MEDIUM, "HR and Finance record modules. Needs the master flag." + NOT_ENFORCED);
+        flag(d, FLAG_EXTENSION_WORKSPACES, Risk.MEDIUM, "Workspaces on /api/profile/version and the extension workspace header. Needs the master flag." + NOT_ENFORCED);
 
         k.add(new Key(HOSTS_PLATFORM, Type.JSON, DEFAULT_PLATFORM_HOSTS, null, null, null,
             "Hostnames that are the platform itself (never a tenant), as a JSON list of lower-case hostnames. A request for one of them is the personal product and the platform console.",
             EnterpriseSettingKeys::hostList, Risk.HIGH));
         k.add(new Key(HOSTS_TENANT_BASE_DOMAINS, Type.JSON, DEFAULT_TENANT_BASE_DOMAINS, null, null, null,
-            "Base domains under which {label}.<base> can name an organization's subdomain, as a JSON list. Include 'localhost' only for development hosts such as acme.localhost.",
+            "Base domains under which {label}.<base> can name an organization's subdomain, as a JSON list. Development hosts such as acme.localhost are enabled by the dev profile, not by this list.",
             EnterpriseSettingKeys::hostList, Risk.HIGH));
         integer(k, TENANT_CACHE_SECONDS, 60, 0, 600, Risk.LOW, "Seconds the API remembers which tenant a hostname belongs to. 0 = no caching. A tenant, hostname or status change evicts the entry at once on that instance.");
         integer(k, TENANT_RATE_PER_MIN, 120, 10, 6000, Risk.MEDIUM, "Requests per minute per hostname and visitor IP on GET /api/public/tenant.");
-        integer(k, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
-        integer(k, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
-        integer(k, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
-        k.add(new Key(ORG_INVITE_REQUIRE_EMAIL_MATCH, Type.BOOL, "true", null, null, null,
+        integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
+        integer(d, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
+        integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
+        d.add(new Key(ORG_INVITE_REQUIRE_EMAIL_MATCH, Type.BOOL, "true", null, null, null,
             "An organization invitation can only be accepted by the account whose email matches the invited address (a per-organization override comes later)." + NOT_ENFORCED, null, Risk.MEDIUM));
-        integer(k, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
-        k.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
+        integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
+        d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));
-        integer(k, QUOTE_TTL_MINUTES, 15, 1, 240, Risk.MEDIUM, "Minutes a license-change quote stays valid before it must be recomputed." + NOT_ENFORCED);
-        integer(k, USAGE_RETENTION_MONTHS, 24, 3, 84, Risk.LOW, "Months of enterprise usage-ledger rows kept before they are purged." + NOT_ENFORCED);
+        integer(d, QUOTE_TTL_MINUTES, 15, 1, 240, Risk.MEDIUM, "Minutes a license-change quote stays valid before it must be recomputed." + NOT_ENFORCED);
+        integer(d, USAGE_RETENTION_MONTHS, 24, 3, 84, Risk.LOW, "Months of enterprise usage-ledger rows kept before they are purged." + NOT_ENFORCED);
 
         Map<String, Key> by = new LinkedHashMap<>();
         for (Key key : k) {
             if (by.put(key.key(), key) != null) throw new IllegalStateException("duplicate enterprise setting key " + key.key());
         }
         ALL = Collections.unmodifiableList(k);
+        DEFERRED = Collections.unmodifiableList(d);
         BY_KEY = Collections.unmodifiableMap(by);
     }
 
@@ -110,6 +121,11 @@ public final class EnterpriseSettingKeys {
     /** Every key declared here, in declaration order. */
     public static List<Key> all() {
         return ALL;
+    }
+
+    /** Declared but not enforced yet (hidden from admin and from {@link #find}); see the class comment. */
+    public static List<Key> deferred() {
+        return DEFERRED;
     }
 
     /** The declaration for {@code key}; null when it is not one of these. */

@@ -5,6 +5,7 @@
  * behaviour. Every other host is a candidate tenant host (acme.kiwiply.com, careers.acme.com) and is only
  * ever served when the API confirms it; see `lib/tenant.ts`.
  */
+import { clientIpFromHeaders } from "@/lib/rate-limit";
 import { SITE_URL } from "@/lib/site";
 
 /** The header the proxy sets on the request (never trusted from the browser: the proxy always overwrites it). */
@@ -26,9 +27,33 @@ export function normalizeHost(raw: string | null | undefined): string {
   return host.replace(/\.+$/, "");
 }
 
-/** The host a request was addressed to: `x-forwarded-host` (set by the edge Caddy) before `host`. */
-export function requestHost(headers: { get(name: string): string | null }): string {
-  return normalizeHost(headers.get("x-forwarded-host") ?? headers.get("host"));
+/**
+ * Is `x-forwarded-host` believed? `TRUST_PROXY_HOST` (default "true"): production runs behind the shared edge Caddy, which
+ * always sets `X-Forwarded-Host` to the host the visitor typed (and overwrites anything the visitor sent). Set it to
+ * "false" when the web container is reachable directly with no such proxy (a bare `next start` on a public port): then a
+ * visitor could send `X-Forwarded-Host: acme.kiwiply.com` and only the plain `Host` header is used.
+ */
+export function trustProxyHost(env: string | undefined = process.env.TRUST_PROXY_HOST): boolean {
+  return !/^(false|0|no|off)$/i.test((env ?? "true").trim());
+}
+
+/** The host a request was addressed to: `x-forwarded-host` (set by the edge Caddy, when trusted) before `host`. */
+export function requestHost(headers: { get(name: string): string | null }, trustProxy: boolean = trustProxyHost()): string {
+  return normalizeHost((trustProxy ? headers.get("x-forwarded-host") : null) ?? headers.get("host"));
+}
+
+/**
+ * Headers that make a web-server to API call tenant-aware (X1.3 hardening). The API only believes `X-Kiwiply-Host` together
+ * with the shared secret `X-Kiwiply-Host-Secret` (`DOSSIER_TENANT_HOST_SECRET`, the same value as the API's), so a stranger
+ * calling the API directly can not name a tenant. The visitor's address travels as `X-Forwarded-For` (just the one hop we
+ * trust) so the API's per-visitor rate limits and miss bounds see the visitor, not this server. A blank host sends nothing.
+ */
+export function tenantApiHeaders(host: string, ip?: string | null, secret: string | undefined = process.env.DOSSIER_TENANT_HOST_SECRET): Record<string, string> {
+  if (!host) return {};
+  const out: Record<string, string> = { "X-Kiwiply-Host": host };
+  if (secret && secret.trim()) out["X-Kiwiply-Host-Secret"] = secret.trim();
+  if (ip && ip !== "unknown") out["X-Forwarded-For"] = ip;
+  return out;
 }
 
 const DEFAULT_PLATFORM_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
@@ -37,6 +62,10 @@ const DEFAULT_PLATFORM_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
  * Hosts that are the platform itself. Defaults: loopback, the canonical site host and its www/app/api siblings;
  * `PLATFORM_HOSTS` (comma separated) adds more (staging, preview, the container's own name). An empty host is the
  * platform too (an internal call with no Host header).
+ *
+ * This is a FAST PATH only (a platform host never costs an API call). The API's `enterprise.hosts.platform` setting
+ * (admin, default kiwiply.com + www/app/api) is the single source of truth for what is platform, and a host this list
+ * does not know is simply asked about: keep `PLATFORM_HOSTS` (staging, preview, the container's own name) in step with it.
  */
 export function platformHosts(env: string | undefined = process.env.PLATFORM_HOSTS): Set<string> {
   const site = normalizeHost(new URL(SITE_URL).host);
@@ -62,4 +91,15 @@ export function isRewriteExempt(pathname: string): boolean {
 
 export function isTenantRoutePath(pathname: string): boolean {
   return pathname === TENANT_ROUTE_PREFIX || pathname.startsWith(`${TENANT_ROUTE_PREFIX}/`);
+}
+
+/**
+ * The `X-Kiwiply-Host` header an auth BFF call must carry so the API can bind the session to the tenant (X1.5).
+ * `proxy.ts` does not run on `/api/auth/*`, so the browser's `x-kiwiply-host` is NEVER trusted here: the host is
+ * recomputed from the raw request (`x-forwarded-host` / `host`). A platform host (or none) sends nothing, so
+ * today's sign-in is byte-for-byte unchanged and an unlisted staging host can not turn into a 404.
+ */
+export function authHostHeader(headers: { get(name: string): string | null }): Record<string, string> {
+  const host = requestHost(headers);
+  return host && !isPlatformHost(host) ? tenantApiHeaders(host, clientIpFromHeaders(headers)) : {};
 }

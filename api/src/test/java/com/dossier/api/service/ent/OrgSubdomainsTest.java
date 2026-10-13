@@ -33,6 +33,15 @@ class OrgSubdomainsTest {
     }
 
     @Test
+    void theInfrastructureLabelsAreReservedForSubdomainsOnlyAndStayValidAsSlugs() {
+        // changing the slug rules with the enterprise flag off would change today's behaviour (review finding 5)
+        for (String label : List.of("mail", "edge", "static", "cdn", "dev", "staging", "connect")) {
+            assertThat(OrgSubdomains.isReserved(label)).as(label).isTrue();
+            assertThat(com.dossier.api.service.org.OrgSlugs.isReserved(label)).as("slug " + label).isFalse();
+        }
+    }
+
+    @Test
     void aValidLabelIsReturnedLowerCased() {
         assertThat(OrgSubdomains.requireValid("  AcmeCorp ")).isEqualTo("acmecorp");
         assertThat(OrgSubdomains.isReserved("acmecorp")).isFalse();

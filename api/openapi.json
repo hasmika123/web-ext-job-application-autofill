@@ -7076,7 +7076,7 @@
       "get" : {
         "tags" : [ "tenant" ],
         "summary" : "Public view of the tenant for the forwarded host",
-        "description" : "No authentication. The tenant is derived from X-Kiwiply-Host (set by the web BFF), never from a parameter. TENANT: {kind, displayName, branding, login, status}; PLATFORM: {kind:\"PLATFORM\"}; an unserved host, a missing header or enterprise being off: 404. Cache-Control: public, max-age=60, Vary: X-Kiwiply-Host. 429 over the per-host-and-IP rate limit.",
+        "description" : "No authentication. The tenant is derived from X-Kiwiply-Host (set by the web BFF), never from a parameter. TENANT: {kind, displayName, branding, login}; PLATFORM: {kind:\"PLATFORM\"}; an unserved host, a missing header or enterprise being off: 404. Cache-Control: public, max-age=60, Vary: X-Kiwiply-Host. 429 over the per-host-and-IP rate limit.",
         "operationId" : "tenant",
         "responses" : {
           "200" : {
@@ -8302,7 +8302,7 @@
       "get" : {
         "tags" : [ "config" ],
         "summary" : "Public feature switches",
-        "description" : "{orgs, demo}: whether organization features and the demo accounts are on. No authentication; cached for 5 minutes; never per-user.",
+        "description" : "{orgs, demo, enterprise}: whether organization features, the demo accounts and the enterprise master flag are on. No authentication; cached for 5 minutes; never per-user.",
         "operationId" : "publicConfig",
         "responses" : {
           "200" : {
@@ -13221,9 +13221,6 @@
           },
           "login" : {
             "$ref" : "#/components/schemas/Login"
-          },
-          "status" : {
-            "type" : "string"
           }
         }
       },
@@ -14737,6 +14734,9 @@
             "type" : "boolean"
           },
           "demo" : {
+            "type" : "boolean"
+          },
+          "enterprise" : {
             "type" : "boolean"
           }
         }

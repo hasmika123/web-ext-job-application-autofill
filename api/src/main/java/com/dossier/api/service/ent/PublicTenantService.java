@@ -51,8 +51,7 @@ public class PublicTenantService {
             "TENANT",
             displayName,
             branding(published),
-            new PublicTenantDTO.Login(true, false, false), // password only until an org enables Google / MFA (ADR-004)
-            org.getStatus().name()
+            new PublicTenantDTO.Login(true, false, false) // password only until an org enables Google / MFA (ADR-004)
         ));
     }
 

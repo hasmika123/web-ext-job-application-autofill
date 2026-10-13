@@ -40,11 +40,7 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
     private final OrgFeatureFlag featureFlag;
     private final EnterpriseFeatureFlag enterpriseFlag;
 
-    public OrgPermissionInterceptor(OrgAccessService accessService, OrgFeatureFlag featureFlag) {
-        this(accessService, featureFlag, null);
-    }
-
-    /** {@code enterpriseFlag} null = fail closed: every {@code /api/orgs/{id}/enterprise/**} handler is a 404. */
+    /** {@code enterpriseFlag} null (tests that do not exercise enterprise routes) = fail closed: every {@code /api/orgs/{id}/enterprise/**} handler is a 404. */
     public OrgPermissionInterceptor(OrgAccessService accessService, OrgFeatureFlag featureFlag, EnterpriseFeatureFlag enterpriseFlag) {
         this.featureFlag = featureFlag;
         this.accessService = accessService;
@@ -74,7 +70,7 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
         if (tenant != null && tenant.isTenant() && !tenant.orgId().equals(orgId)) throw new OrgNotFoundException();
         // Enterprise V2 (X1.1): the per-org wall behind EnterpriseEnabledFilter. The org is known here, so an organization
         // outside the flag's allow list (or on its deny list) sees the enterprise routes as if they did not exist.
-        if (EnterpriseEnabledFilter.isOrgEnterprisePath(pathOf(request)) && (enterpriseFlag == null || !enterpriseFlag.isEnabled(orgId))) {
+        if (EnterpriseEnabledFilter.isOrgEnterprisePath(OrgsEnabledFilter.pathOf(request)) && (enterpriseFlag == null || !enterpriseFlag.isEnabled(orgId))) {
             throw new OrgNotFoundException();
         }
         OrgMembership membership = required.value().length == 0
@@ -82,12 +78,6 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
             : accessService.requireAll(orgId, java.util.List.of(required.value()));
         request.setAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, membership);
         return true;
-    }
-
-    private static String pathOf(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        String context = request.getContextPath();
-        return context != null && !context.isEmpty() && path.startsWith(context) ? path.substring(context.length()) : path;
     }
 
     private static Long parse(String raw) {

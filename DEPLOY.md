@@ -1202,6 +1202,7 @@ replace; there is no PDF history.
 | Env | Where | What |
 |---|---|---|
 | `DOSSIER_INTERNAL_TOKEN` | `api` **and** `web` (the same value) | Shared secret for `/api/internal/**`, sent as `X-Internal-Token`, compared in constant time. Generate once: `openssl rand -hex 32`; keep it in the password manager (GitHub secrets are write-only). **Blank = the API refuses every internal request and the worker logs an error and does not start**; manual "Export PDF" and the rest of the site are unaffected. |
+| `DOSSIER_TENANT_HOST_SECRET` | `api` **and** `web` (the same value) | Enterprise V2: proves to the API that `X-Kiwiply-Host` (the visitor's host) came from the web server, sent as `X-Kiwiply-Host-Secret`, compared in constant time. Generate once: `openssl rand -hex 32`; keep it in the password manager. **Blank on the API in prod = no tenant host is believed** (the platform is unaffected). `TRUST_PROXY_HOST` (web, default `true`) controls whether `X-Forwarded-Host` is believed: leave it on behind the edge Caddy. |
 | `RESUME_PDF_WORKER` | `web` | `1` (the compose default) turns the polling loop on. Exactly one web container should set it (several would be safe, claims are leased, but waste Chromium time). |
 
 **Never publish `/api/internal/*`.** The web reaches it over the Compose network (`DOSSIER_API_URL=http://api:8080`).

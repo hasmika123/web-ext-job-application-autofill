@@ -47,7 +47,7 @@ class SettingsServiceTest {
         audit = mock(AdminAuditService.class);
         environment = new MockEnvironment();
         AiRuntimeSettings runtime = fake.runtime(new AiEnv(true, "gemini", "", "gemini-2.5-flash-lite", 400, 4000), new AiPolicy());
-        AdminSettingsWriter writer = new AdminSettingsWriter(fake.repository, history, audit, fake.settings, fake.mapper);
+        AdminSettingsWriter writer = new AdminSettingsWriter(fake.repository, history, audit, fake.settings, fake.mapper, event -> {});
         service = new SettingsService(fake.settings, runtime, writer, fake.repository, history, environment, fake.mapper);
     }
 

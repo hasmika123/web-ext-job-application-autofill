@@ -101,6 +101,9 @@ jhipster:
 
 # application:
 dossier:
+  tenant-host:
+    allow-localhost-tenants: true
+    misses-per-minute: 1000000 # every MockMvc request is 127.0.0.1; the bound itself is unit-tested
   # Disable per-IP rate limiting in tests — the integration suite hammers the auth
   # endpoints and would otherwise trip the 429 limiter.
   rate-limit:

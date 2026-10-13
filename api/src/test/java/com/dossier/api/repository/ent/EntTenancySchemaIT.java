@@ -50,6 +50,23 @@ class EntTenancySchemaIT {
         b = org("beta-" + System.nanoTime());
     }
 
+    @Test
+    void theSuiteRunsOnRealMySqlNotH2() {
+        // the generated columns and their unique indexes below exist only on MySQL (MysqlTestContainer, mysql:9.2.0)
+        String product = (String) em.createNativeQuery("SELECT VERSION()").getSingleResult();
+        assertThat(product).as("database version string").doesNotContainIgnoringCase("h2").matches("\\d+\\.\\d+.*");
+        Object generated = em.createNativeQuery("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'org_hostname' AND column_name IN ('live_hostname_key','primary_org_key') AND generation_expression <> ''").getSingleResult();
+        assertThat(((Number) generated).intValue()).as("both STORED generated columns exist").isEqualTo(2);
+    }
+
+    @Test
+    void everySplitOrganizationColumnExists() {
+        for (String column : new String[] { "subdomain", "subdomain_enabled", "config_version", "display_name" }) {
+            Object n = em.createNativeQuery("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'organization' AND column_name = ?1").setParameter(1, column).getSingleResult();
+            assertThat(((Number) n).intValue()).as(column).isEqualTo(1);
+        }
+    }
+
     private Organization org(String slug) {
         Organization o = new Organization();
         o.setSlug(slug);

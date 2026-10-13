@@ -35,7 +35,7 @@ class AdminSettingsWriterTest {
         fake = new FakeSettings();
         history = mock(AppSettingHistoryRepository.class);
         audit = mock(AdminAuditService.class);
-        writer = new AdminSettingsWriter(fake.repository, history, audit, fake.settings, fake.mapper);
+        writer = new AdminSettingsWriter(fake.repository, history, audit, fake.settings, fake.mapper, event -> {});
     }
 
     @AfterEach
@@ -45,6 +45,20 @@ class AdminSettingsWriterTest {
 
     private static void code(Runnable r, String code) {
         assertThatThrownBy(r::run).isInstanceOfSatisfying(AiConfigException.class, e -> assertThat(e.getCode()).isEqualTo(code));
+    }
+
+    @Test
+    void anEnterpriseFlagOrHostWriteTellsTheTenantResolverToEvictAndOtherWritesDoNot() {
+        java.util.List<Object> published = new java.util.ArrayList<>();
+        AdminSettingsWriter w = new AdminSettingsWriter(fake.repository, history, audit, fake.settings, fake.mapper, published::add);
+        w.write("flag.enterprise", "{\"on\":true}", "pilot", Risk.HIGH);
+        w.write("enterprise.hosts.platform", "[\"kiwiply.com\"]", "hosts", Risk.HIGH);
+        w.write("flag.enterprise.domains", "{\"on\":true}", "domains", Risk.HIGH);
+        assertThat(published).hasSize(3).allSatisfy(e -> assertThat(e).isInstanceOf(com.dossier.api.service.ent.TenantConfigChangedEvent.class));
+        published.clear();
+        w.write("ai.soft_cap_pct", "80", null, Risk.LOW);
+        w.write("flag.enterprise", "{\"on\":true}", "same value again", Risk.HIGH); // a no-op write changes nothing
+        assertThat(published).isEmpty();
     }
 
     @Test

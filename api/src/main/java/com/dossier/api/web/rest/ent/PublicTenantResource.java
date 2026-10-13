@@ -41,7 +41,7 @@ public class PublicTenantResource {
     @Operation(
         summary = "Public view of the tenant for the forwarded host",
         description = "No authentication. The tenant is derived from X-Kiwiply-Host (set by the web BFF), never from a parameter. "
-            + "TENANT: {kind, displayName, branding, login, status}; PLATFORM: {kind:\"PLATFORM\"}; an unserved host, a missing header or enterprise being off: 404. "
+            + "TENANT: {kind, displayName, branding, login}; PLATFORM: {kind:\"PLATFORM\"}; an unserved host, a missing header or enterprise being off: 404. "
             + "Cache-Control: public, max-age=60, Vary: X-Kiwiply-Host. 429 over the per-host-and-IP rate limit."
     )
     @GetMapping("/api/public/tenant")

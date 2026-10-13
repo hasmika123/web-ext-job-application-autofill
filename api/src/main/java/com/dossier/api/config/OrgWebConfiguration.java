@@ -4,6 +4,7 @@ import com.dossier.api.service.ent.EnterpriseFeatureFlag;
 import com.dossier.api.service.ent.TenantResolver;
 import com.dossier.api.service.org.OrgAccessService;
 import com.dossier.api.service.org.OrgFeatureFlag;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,8 +24,17 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
     private final OrgFeatureFlag orgFeatureFlag;
     private final EnterpriseFeatureFlag enterpriseFeatureFlag;
     private final TenantResolver tenantResolver;
+    private final TenantHostTrust tenantHostTrust;
 
-    public OrgWebConfiguration(OrgAccessService accessService, OrgFeatureFlag orgFeatureFlag, EnterpriseFeatureFlag enterpriseFeatureFlag, TenantResolver tenantResolver) {
+    public OrgWebConfiguration(
+        OrgAccessService accessService,
+        OrgFeatureFlag orgFeatureFlag,
+        EnterpriseFeatureFlag enterpriseFeatureFlag,
+        TenantResolver tenantResolver,
+        @Value("${dossier.tenant-host.secret:}") String tenantHostSecret,
+        @Value("${dossier.tenant-host.require-secret:false}") boolean requireTenantHostSecret
+    ) {
+        this.tenantHostTrust = new TenantHostTrust(tenantHostSecret, requireTenantHostSecret);
         this.accessService = accessService;
         this.orgFeatureFlag = orgFeatureFlag;
         this.enterpriseFeatureFlag = enterpriseFeatureFlag;
@@ -60,7 +70,7 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
      */
     @Bean
     public FilterRegistrationBean<TenantResolverFilter> tenantResolverFilter() {
-        FilterRegistrationBean<TenantResolverFilter> bean = new FilterRegistrationBean<>(new TenantResolverFilter(tenantResolver, enterpriseFeatureFlag));
+        FilterRegistrationBean<TenantResolverFilter> bean = new FilterRegistrationBean<>(new TenantResolverFilter(tenantResolver, enterpriseFeatureFlag, tenantHostTrust));
         bean.addUrlPatterns("/api/*");
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 52);
         return bean;

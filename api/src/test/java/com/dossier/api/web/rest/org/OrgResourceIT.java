@@ -468,6 +468,7 @@ class OrgResourceIT {
         OrgAuditEvent row = OrgAuditAsserts.assertOneNewRow(audit, org.getId(), before, OrgAuditService.ORG_CLOSE);
         assertThat(row.getDetails()).isEqualTo("status DRAFT -> CLOSED");
         assertThat(events.stream(OrgService.OrgClosedEvent.class)).singleElement().satisfies(e -> assertThat(e.orgId()).isEqualTo(org.getId()));
+        assertThat(events.stream(com.dossier.api.service.ent.TenantConfigChangedEvent.class)).as("its tenant host is evicted after commit").hasSize(1);
         // soft: the row and the people stay, members keep reading it, nobody can edit it any more
         assertThat(members.countByOrgIdAndStatus(org.getId(), OrgMemberStatus.ACTIVE)).isEqualTo(2);
         call("bob", get("/api/orgs/" + org.getId())).andExpect(status().isOk()).andExpect(jsonPath("$.org.status").value("CLOSED"));

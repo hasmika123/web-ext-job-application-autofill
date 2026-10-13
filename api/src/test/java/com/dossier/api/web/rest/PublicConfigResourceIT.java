@@ -79,7 +79,7 @@ class PublicConfigResourceIT {
         for (RecordComponent c : PublicConfigDTO.class.getRecordComponents()) {
             assertThat(c.getType()).as(c.getName() + " must be a primitive boolean").isEqualTo(boolean.class);
         }
-        assertThat(PublicConfigDTO.class.getRecordComponents()).extracting(RecordComponent::getName).containsExactlyInAnyOrder("orgs", "demo");
+        assertThat(PublicConfigDTO.class.getRecordComponents()).extracting(RecordComponent::getName).containsExactlyInAnyOrder("orgs", "demo", "enterprise");
     }
 
     @Test

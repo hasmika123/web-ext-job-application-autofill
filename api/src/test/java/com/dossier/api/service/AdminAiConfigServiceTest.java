@@ -99,7 +99,7 @@ class AdminAiConfigServiceTest {
         calls = mock(AiCallRepository.class);
         history = mock(AppSettingHistoryRepository.class);
         audit = mock(AdminAuditService.class);
-        AdminSettingsWriter writer = new AdminSettingsWriter(fake.repository, history, audit, fake.settings, fake.mapper);
+        AdminSettingsWriter writer = new AdminSettingsWriter(fake.repository, history, audit, fake.settings, fake.mapper, event -> {});
         clock = new MutableClock();
         service = new AdminAiConfigService(runtime, writer, registry, router, pricing, calls, history, audit, fake.mapper, clock);
     }

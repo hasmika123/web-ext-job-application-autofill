@@ -57,7 +57,7 @@ class OrgPermissionInterceptorTest {
         access = mock(OrgAccessService.class);
         flag = mock(OrgFeatureFlag.class);
         when(flag.isEnabled()).thenReturn(true);
-        interceptor = new OrgPermissionInterceptor(access, flag);
+        interceptor = new OrgPermissionInterceptor(access, flag, null);
         request = new MockHttpServletRequest();
     }
 

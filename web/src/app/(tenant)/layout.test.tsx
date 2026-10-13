@@ -37,6 +37,18 @@ describe("(tenant)/_t layout: three branches", () => {
   });
 });
 
+describe("(tenant)/_t layout: the API is struggling", () => {
+  it("UNAVAILABLE renders the try-again page, not the 'workspace isn't available' 404", async () => {
+    state.value = { kind: "UNAVAILABLE" };
+    const html = renderToStaticMarkup(await TenantTreeLayout({ children: <p>inside</p> }));
+    expect(html).toContain("Please try again in a moment");
+    expect(html).toContain("data-tenant-temporarily-unavailable");
+    expect(html).not.toContain("inside");
+    expect(html).not.toContain("isn&#x27;t available");
+    expect((await generateMetadata()).title).toEqual({ absolute: "Please try again" });
+  });
+});
+
 describe("tenant-unavailable page", () => {
   it("says the workspace isn't available and links nowhere", () => {
     const html = renderToStaticMarkup(<TenantNotFound />);

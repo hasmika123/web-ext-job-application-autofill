@@ -7,6 +7,11 @@ import com.dossier.api.service.DemoAccountService;
 import com.dossier.api.service.GoogleIdTokenService;
 import com.dossier.api.service.TokenIssuer;
 import com.dossier.api.service.UserService;
+import com.dossier.api.service.ent.TenantBinding;
+import com.dossier.api.service.ent.TenantSessionService;
+import com.dossier.api.service.org.OrgException;
+import java.util.Optional;
+import org.springframework.beans.factory.ObjectProvider;
 import com.dossier.api.web.rest.vm.GoogleLoginVM;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -43,13 +48,16 @@ public class GoogleAuthController {
     private final UserService userService;
     private final TokenIssuer tokenIssuer;
     private final DemoAccountService demoAccountService;
+    private final ObjectProvider<TenantSessionService> tenantSessions;
 
     public GoogleAuthController(
         GoogleIdTokenService googleIdTokenService,
         UserService userService,
         TokenIssuer tokenIssuer,
-        DemoAccountService demoAccountService
+        DemoAccountService demoAccountService,
+        ObjectProvider<TenantSessionService> tenantSessions
     ) {
+        this.tenantSessions = tenantSessions;
         this.googleIdTokenService = googleIdTokenService;
         this.userService = userService;
         this.tokenIssuer = tokenIssuer;
@@ -82,10 +90,15 @@ public class GoogleAuthController {
             if (authorities.isBlank()) {
                 authorities = AuthoritiesConstants.USER;
             }
-            TokenIssuer.TokenPair pair = tokenIssuer.issue(user.getLogin(), authorities, user.getId());
+            // X1.5: on a tenant host the sign-in needs an active seat there and the tokens carry tid/hid (NOT_A_MEMBER = 403).
+            TenantSessionService sessions = tenantSessions.getIfAvailable();
+            Optional<TenantBinding> binding = sessions == null ? Optional.empty() : sessions.bindingForLogin(user.getId(), user.getLogin());
+            TokenIssuer.TokenPair pair = tokenIssuer.issue(user.getLogin(), authorities, user.getId(), binding.orElse(null));
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.setBearerAuth(pair.accessToken());
             return new ResponseEntity<>(pair, httpHeaders, HttpStatus.OK);
+        } catch (OrgException e) {
+            throw e; // NOT_A_MEMBER (403) / unserved host (404) are answers, not failures
         } catch (Exception e) {
             // Log the cause server-side for ops; never leak internals to the client.
             LOG.warn("Google sign-in failed", e);

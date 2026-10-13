@@ -49,9 +49,7 @@ public class EnterpriseEnabledFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
-        String path = request.getRequestURI();
-        String context = request.getContextPath();
-        if (context != null && !context.isEmpty() && path.startsWith(context)) path = path.substring(context.length());
+        String path = OrgsEnabledFilter.pathOf(request);
         if (isEnterprisePath(path) && !flag.isEnabled()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             response.setContentType("application/problem+json");

@@ -134,7 +134,7 @@ class TenantResolutionIT {
         JsonNode body = json(r);
         assertThat(body.get("kind").asText()).isEqualTo("TENANT");
         assertThat(body.get("displayName").asText()).isEqualTo(acme.getName());
-        assertThat(body.get("status").asText()).isEqualTo("ACTIVE");
+        assertThat(body.has("status")).as("no billing / lifecycle state for an anonymous caller").isFalse();
         assertThat(body.get("login").get("password").asBoolean()).isTrue();
         assertThat(body.get("login").get("google").asBoolean()).isFalse();
         assertThat(body.get("branding").get("theme").asText()).isEqualTo("SYSTEM");
@@ -143,6 +143,16 @@ class TenantResolutionIT {
         assertThat(r.getResponse().getHeader("Cache-Control")).contains("public").contains("max-age=60");
         assertThat(r.getResponse().getHeaders("Vary")).anyMatch(v -> v.contains(HOST));
         assertThat(r.getResponse().getHeaders("Set-Cookie")).isEmpty();
+    }
+
+    @Test
+    void aPastDueOrgIsStillServedButItsStateNeverLeaks() throws Exception {
+        acme.setStatus(OrgStatus.PAST_DUE);
+        orgs.saveAndFlush(acme);
+        resolver.invalidate();
+        MvcResult r = call("acme-it.kiwiply.com", null, "/api/public/tenant");
+        assertThat(r.getResponse().getStatus()).isEqualTo(200);
+        assertThat(r.getResponse().getContentAsString()).doesNotContain("PAST_DUE").doesNotContain("status");
     }
 
     @Test

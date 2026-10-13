@@ -55,6 +55,13 @@ public class OrgsEnabledFilter extends OncePerRequestFilter {
         return false;
     }
 
+    /** The request path without the servlet context path: the one place filters and the interceptor read it from. */
+    static String pathOf(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String context = request.getContextPath();
+        return context != null && !context.isEmpty() && path.startsWith(context) ? path.substring(context.length()) : path;
+    }
+
     static String normalise(String raw) {
         StringBuilder out = new StringBuilder();
         for (String segment : raw.split("/")) {
@@ -73,9 +80,7 @@ public class OrgsEnabledFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
-        String path = request.getRequestURI();
-        String context = request.getContextPath();
-        if (context != null && !context.isEmpty() && path.startsWith(context)) path = path.substring(context.length());
+        String path = pathOf(request);
         if (isOrgPath(path) && !flag.isEnabled()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             response.setContentType("application/problem+json");

@@ -166,8 +166,7 @@ class SettingDefinitionsTest {
     void theEnterpriseFlagsAreOffJsonFlagsWithOrgIdLists() {
         List<Key> flags = SettingDefinitions.all().stream().filter(k -> k.key().equals("flag.enterprise") || k.key().startsWith("flag.enterprise.")).toList();
         assertThat(flags).extracting(Key::key).containsExactlyInAnyOrder(
-            "flag.enterprise", "flag.enterprise.domains", "flag.enterprise.roles", "flag.enterprise.billing", "flag.enterprise.marketing",
-            "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces"
+            "flag.enterprise", "flag.enterprise.domains"
         );
         for (Key k : flags) {
             assertThat(k.type()).as(k.key()).isEqualTo(Type.JSON);
@@ -199,22 +198,33 @@ class SettingDefinitionsTest {
         Key hosts = key("enterprise.hosts.platform");
         assertThat(hosts.type()).isEqualTo(Type.JSON);
         assertThat(hosts.risk()).isEqualTo(Risk.HIGH);
-        assertThat(hosts.defaultValue()).isEqualTo("[\"kiwiply.com\",\"www.kiwiply.com\",\"app.kiwiply.com\",\"api.kiwiply.com\",\"localhost\"]");
+        assertThat(hosts.defaultValue()).isEqualTo("[\"kiwiply.com\",\"www.kiwiply.com\",\"app.kiwiply.com\",\"api.kiwiply.com\"]");
+        assertThat(key("enterprise.hosts.tenant_base_domains").defaultValue()).as("localhost is never a production default").isEqualTo("[\"kiwiply.com\"]");
         assertValid(hosts, "[\"kiwiply.com\",\"localhost\"]", true);
         assertValid(hosts, "[]", false);
         assertValid(hosts, "[\"Kiwiply.com\"]", false); // lower-case only
         assertValid(hosts, "[\"kiwiply.com/path\"]", false);
         assertValid(hosts, "[\"-bad.com\"]", false);
         assertValid(hosts, "\"kiwiply.com\"", false);
-        assertKey("enterprise.domains.subdomains_per_day", "20", 1, 500, Risk.MEDIUM);
-        assertKey("enterprise.domains.recheck_hours", "24", 1, 168, Risk.LOW);
-        assertKey("enterprise.domains.grace_hours_before_suspend", "72", 1, 720, Risk.MEDIUM);
-        assertKey("enterprise.quote.ttl_minutes", "15", 1, 240, Risk.MEDIUM);
-        assertKey("enterprise.usage.retention_months", "24", 3, 84, Risk.LOW);
-        assertKey("org.consent.request_cooldown_days", "7", 1, 90, Risk.LOW);
-        assertThat(key("org.invite.require_email_match").defaultValue()).isEqualTo("true");
-        assertThat(key("enterprise.billing.mode_default").defaultValue()).isEqualTo("SUBSCRIPTION_ITEMS");
-        assertThat(key("enterprise.billing.mode_default").allowed()).containsExactly("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE");
+        assertKey("enterprise.tenant.cache_seconds", "60", 0, 600, Risk.LOW);
+        assertKey("enterprise.tenant.rate_per_min", "120", 10, 6000, Risk.MEDIUM);
+    }
+
+    @Test
+    void keysNothingReadsYetAreHiddenFromAdmin() {
+        List<String> deferred = EnterpriseSettingKeys.deferred().stream().map(Key::key).toList();
+        assertThat(deferred).contains(
+            "flag.enterprise.roles", "flag.enterprise.billing", "flag.enterprise.marketing", "flag.enterprise.hr_finance", "flag.enterprise.extension_workspaces",
+            "enterprise.domains.subdomains_per_day", "enterprise.domains.recheck_hours", "enterprise.domains.grace_hours_before_suspend", "org.invite.require_email_match",
+            "org.consent.request_cooldown_days", "enterprise.billing.mode_default", "enterprise.quote.ttl_minutes", "enterprise.usage.retention_months"
+        );
+        for (String k : deferred) {
+            assertThat(SettingDefinitions.find(k)).as("%s must not be offered in admin yet", k).isNull();
+            assertThat(EnterpriseSettingKeys.find(k)).isNull();
+        }
+        for (Key k : EnterpriseSettingKeys.all()) {
+            assertThat(k.description()).as(k.key()).doesNotContain("Not enforced yet");
+        }
     }
 
     @Test

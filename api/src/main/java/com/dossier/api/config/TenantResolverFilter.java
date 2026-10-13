@@ -4,6 +4,7 @@ import com.dossier.api.service.ent.EnterpriseFeatureFlag;
 import com.dossier.api.service.ent.TenantContext;
 import com.dossier.api.service.ent.TenantContextHolder;
 import com.dossier.api.service.ent.TenantResolver;
+import com.dossier.api.web.filter.RateLimitFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,9 +23,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * answer is known before authentication.
  *
  * <p><b>The client never names a tenant.</b> The only input is the host header the BFF sets from the visitor's own request
- * host; a tenant id in any other header, cookie, query or body is never read. A caller that forges the header (it can: the
- * API is reachable directly) merely selects a tenant CANDIDATE; membership and permissions are still required for
- * anything it names, so forging a host grants nothing. A request with several values, or a value that is not one hostname,
+ * host; a tenant id in any other header, cookie, query or body is never read. The API is reachable directly, so the
+ * header is only believed when it comes with the shared secret {@code X-Kiwiply-Host-Secret} that only the web server
+ * holds ({@link TenantHostTrust}); without it the request is a legacy caller with no host and no tenant is ever read for
+ * it. Even a believed host merely selects a tenant CANDIDATE: membership and permissions are still required for
+ * anything it names. A request with several values, or a value that is not one hostname,
  * is an unknown host.
  *
  * <p><b>Flags off, nothing changes.</b> While the enterprise master flag is off the filter does nothing at all: no lookup,
@@ -40,10 +43,12 @@ public class TenantResolverFilter extends OncePerRequestFilter {
 
     private final TenantResolver resolver;
     private final EnterpriseFeatureFlag flag;
+    private final TenantHostTrust trust;
 
-    public TenantResolverFilter(TenantResolver resolver, EnterpriseFeatureFlag flag) {
+    public TenantResolverFilter(TenantResolver resolver, EnterpriseFeatureFlag flag, TenantHostTrust trust) {
         this.resolver = resolver;
         this.flag = flag;
+        this.trust = trust;
     }
 
     @Override
@@ -52,15 +57,15 @@ public class TenantResolverFilter extends OncePerRequestFilter {
             chain.doFilter(request, response);
             return;
         }
-        TenantContext context = resolver.resolve(forwardedHost(request));
+        // only the web server (it holds the shared secret) may name a host; anyone else is a legacy caller with no host
+        String host = trust.trusts(request) ? forwardedHost(request) : null;
+        TenantContext context = resolver.resolve(host, RateLimitFilter.clientIp(request));
         request.setAttribute(TenantContextHolder.REQUEST_ATTRIBUTE, context);
         TenantContextHolder.set(context);
         MDC.put("tenant", context.tenantLabel());
         if (context.host() != null) MDC.put("host", context.host());
         try {
-            String path = request.getRequestURI();
-            String contextPath = request.getContextPath();
-            if (contextPath != null && !contextPath.isEmpty() && path.startsWith(contextPath)) path = path.substring(contextPath.length());
+            String path = OrgsEnabledFilter.pathOf(request);
             if (context.isExplicitlyUnknown() && OrgsEnabledFilter.isOrgPath(path)) {
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 response.setContentType("application/problem+json");
