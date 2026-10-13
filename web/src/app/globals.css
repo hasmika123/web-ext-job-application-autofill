@@ -8,6 +8,8 @@
 @import "@kiwiply/ui/styles/tokens.css";
 /* "Kiwiply Bright" - scoped to .theme-v2 (the (marketing) layout wrapper). Landing v2. */
 @import "@kiwiply/ui/styles/theme-v2.css";
+/* Enterprise tenant theme: scoped to .theme-tenant (the (tenant) tree root only). */
+@import "@kiwiply/ui/styles/theme-tenant.css";
 /* The onboarding delight layer's shared motion (SpeechBubble, CardStack, SwipeCard, AnimatedNumber): reduced-motion safe. */
 @import "@kiwiply/ui/styles/delight.css";
 /* ...and the web-only companion motion (the mascot's poses). */

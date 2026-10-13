@@ -50,25 +50,47 @@ public class PublicTenantService {
         return Optional.of(new PublicTenantDTO(
             "TENANT",
             displayName,
-            branding(published),
-            new PublicTenantDTO.Login(true, false, false) // password only until an org enables Google / MFA (ADR-004)
+            branding(published, org.getConfigVersion()),
+            new PublicTenantDTO.Login(true, false, false, false) // password only until an org enables Google / MFA (ADR-004)
         ));
     }
 
-    private PublicTenantDTO.Branding branding(OrgBranding b) {
-        if (b == null) return new PublicTenantDTO.Branding(null, null, null, null, null, null, OrgBrandingTheme.SYSTEM.name(), null, null, Map.of());
+    /**
+     * The same-origin URL a browser loads an asset from (X2.13): the web BFF proxies {@code /tenant-assets/{kind}} to the
+     * host-scoped API route, and {@code v} (the organization's config_version) busts caches after a publish. Null when unset.
+     */
+    static String assetUrl(String key, String kind, int configVersion) {
+        return key == null || key.isBlank() ? null : "/tenant-assets/" + kind + "?v=" + configVersion;
+    }
+
+    private PublicTenantDTO.Branding branding(OrgBranding b, int configVersion) {
+        if (b == null) return new PublicTenantDTO.Branding(null, null, null, null, null, null, OrgBrandingTheme.SYSTEM.name(), null, null, null, null, Map.of());
         return new PublicTenantDTO.Branding(
-            null, // logo / favicon / banner: signed URLs arrive with the branding-publish story
-            null,
-            null,
+            assetUrl(b.getLogoKey(), "logo", configVersion),
+            assetUrl(b.getFaviconKey(), "favicon", configVersion),
+            assetUrl(b.getLoginBannerKey(), "banner", configVersion),
             b.getPrimaryColor(),
             b.getSecondaryColor(),
             b.getAccentColor(),
             (b.getTheme() == null ? OrgBrandingTheme.SYSTEM : b.getTheme()).name(),
             b.getWelcomeTitle(),
             b.getWelcomeMessage(),
+            b.getSupportEmail(),
+            chips(b.getLoginChipsJson()),
             terminology(b.getTerminologyJson())
         );
+    }
+
+    /** The login's feature chip labels: at most three short strings, anything else dropped (null = the web's defaults). */
+    private java.util.List<String> chips(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            java.util.List<String> raw = mapper.readValue(json, new TypeReference<java.util.List<String>>() {});
+            java.util.List<String> out = raw.stream().filter(x -> x != null && !x.isBlank() && x.length() <= 24).limit(3).toList();
+            return out.isEmpty() ? null : out;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /** The label overrides, defensively: invalid JSON, non-string values and over-long text are dropped, not trusted. */

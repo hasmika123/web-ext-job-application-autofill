@@ -27,9 +27,11 @@ public record PublicTenantDTO(String kind, String displayName, Branding branding
         String theme,
         String welcomeTitle,
         String welcomeMessage,
+        String supportEmail,
+        java.util.List<String> featureChips,
         Map<String, String> terminology
     ) {}
 
-    /** The sign-in methods the login page offers on this host. */
-    public record Login(boolean password, boolean google, boolean mfaRequired) {}
+    /** The sign-in methods the login page offers on this host ({@code microsoft} is the SSO button, false until SSO ships in Phase 12). */
+    public record Login(boolean password, boolean google, boolean mfaRequired, boolean microsoft) {}
 }

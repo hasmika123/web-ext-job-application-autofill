@@ -107,6 +107,30 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Enterprise tenant surfaces (X2.12, 11-branding-and-login.md section 4.5): colours come from the tenant variables
+  // (--brand-*, bg-accent, ...), never from a hex literal, so a new brand colour recolours every tenant page. This block
+  // repeats the inline-svg selector because a later `no-restricted-syntax` block replaces the earlier one.
+  {
+    files: ["src/app/(tenant)/**/*.{ts,tsx}", "src/components/ent/**/*.{ts,tsx}", "src/components/tenant/**/*.{ts,tsx}"],
+    ignores: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXOpeningElement[name.name='svg']",
+          message: "Inline <svg> icons are not allowed - add the glyph to @kiwiply/ui and import it.",
+        },
+        {
+          selector: "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+          message: "No hex colour literals on tenant surfaces: use the tenant variables (var(--brand-600), bg-accent, text-accent-deep ...) so the organization's colours apply.",
+        },
+        {
+          selector: "TemplateElement[value.raw=/#[0-9a-fA-F]{3,8}\\b/]",
+          message: "No hex colour literals on tenant surfaces: use the tenant variables.",
+        },
+      ],
+    },
+  },
   // next/og images must be self-contained (no imports resolve in the OG runtime).
   {
     files: ["src/app/opengraph-image.tsx"],

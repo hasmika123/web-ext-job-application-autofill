@@ -62,6 +62,21 @@ public class OrgBranding implements Serializable {
     @Column(name = "draft_json", columnDefinition = "json")
     private String draftJson;
 
+    /** Optimistic-lock counter of the draft (the editor sends it as If-Match); bumped on every draft write. */
+    @Column(name = "draft_version", nullable = false)
+    private int draftVersion;
+
+    @Column(name = "draft_updated_at")
+    private Instant draftUpdatedAt;
+
+    /** Published IT contact shown on the login. */
+    @Column(name = "support_email", length = 254)
+    private String supportEmail;
+
+    /** The login's three feature chip labels (JSON list), or null for the defaults. */
+    @Column(name = "login_chips_json", columnDefinition = "json")
+    private String loginChipsJson;
+
     @Column(name = "published_at")
     private Instant publishedAt;
 
@@ -105,6 +120,14 @@ public class OrgBranding implements Serializable {
     public void setNavPrefsJson(String navPrefsJson) { this.navPrefsJson = navPrefsJson; }
     public String getDraftJson() { return draftJson; }
     public void setDraftJson(String draftJson) { this.draftJson = draftJson; }
+    public int getDraftVersion() { return draftVersion; }
+    public void setDraftVersion(int draftVersion) { this.draftVersion = draftVersion; }
+    public Instant getDraftUpdatedAt() { return draftUpdatedAt; }
+    public void setDraftUpdatedAt(Instant draftUpdatedAt) { this.draftUpdatedAt = draftUpdatedAt; }
+    public String getLoginChipsJson() { return loginChipsJson; }
+    public void setLoginChipsJson(String loginChipsJson) { this.loginChipsJson = loginChipsJson; }
+    public String getSupportEmail() { return supportEmail; }
+    public void setSupportEmail(String supportEmail) { this.supportEmail = supportEmail; }
     public Instant getPublishedAt() { return publishedAt; }
     public void setPublishedAt(Instant publishedAt) { this.publishedAt = publishedAt; }
     public Long getUpdatedByMemberId() { return updatedByMemberId; }

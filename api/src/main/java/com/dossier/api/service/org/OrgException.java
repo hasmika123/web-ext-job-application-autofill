@@ -78,6 +78,16 @@ public class OrgException extends RuntimeException {
         return new OrgException(409, CODE_ORG_NOT_EDITABLE, message, Map.of());
     }
 
+    /**
+     * A refusal with its own typed {@code code} whose human sentence reaches the client (the generic problem body replaces the
+     * title, so the sentence also travels as the {@code message} property). Used by the branding API (Enterprise V2, X2.5).
+     */
+    public static OrgException coded(int status, String code, String message, Map<String, Object> extra) {
+        Map<String, Object> merged = new java.util.LinkedHashMap<>(extra == null ? Map.of() : extra);
+        merged.put("message", message);
+        return new OrgException(status, code, message, merged);
+    }
+
     public int getStatus() {
         return status;
     }

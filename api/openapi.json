@@ -96,6 +96,9 @@
     "name" : "analytics",
     "description" : "The user's job-search numbers, from the application history."
   }, {
+    "name" : "org-branding",
+    "description" : "Organization branding: draft, publish, versions, assets."
+  }, {
     "name" : "job-search",
     "description" : "Search the job postings we keep; save or hide one."
   }, {
@@ -4223,6 +4226,142 @@
         }
       }
     },
+    "/api/orgs/{orgId}/branding/versions/{versionNo}/restore" : {
+      "post" : {
+        "tags" : [ "org-branding" ],
+        "summary" : "Copy a published version into the draft (does not publish)",
+        "operationId" : "restore",
+        "parameters" : [ {
+          "name" : "versionNo",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgBrandingDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/branding/publish" : {
+      "post" : {
+        "tags" : [ "org-branding" ],
+        "summary" : "Publish the draft",
+        "description" : "Validates everything, makes the draft live, appends a version, bumps config_version. 409 BRANDING_NOTHING_TO_PUBLISH when the draft equals what is live.",
+        "operationId" : "publish",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Published"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/branding/discard" : {
+      "post" : {
+        "tags" : [ "org-branding" ],
+        "summary" : "Throw the draft away (back to what is live); writes no audit row",
+        "operationId" : "discard",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgBrandingDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/branding/assets/{kind}" : {
+      "post" : {
+        "tags" : [ "org-branding" ],
+        "summary" : "Upload a logo, favicon or banner into the draft",
+        "description" : "multipart field 'file'. PNG, JPEG or WebP only (magic bytes decide); SVG and anything else -> 415 BRANDING_ASSET_UNSUPPORTED_TYPE; over the size cap -> 413 BRANDING_ASSET_TOO_LARGE; too small -> 422 BRANDING_ASSET_TOO_SMALL; not an image or not square (favicon) -> 422. PNG/JPEG are re-encoded (metadata stripped).",
+        "operationId" : "upload_2",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgBrandingDTO"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "org-branding" ],
+        "summary" : "Remove the logo, favicon or banner from the draft",
+        "operationId" : "removeAsset",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgBrandingDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/newsletter/unsubscribe" : {
       "post" : {
         "tags" : [ "newsletter-resource" ],
@@ -6884,6 +7023,45 @@
         }
       }
     },
+    "/api/orgs/{orgId}/branding/draft" : {
+      "patch" : {
+        "tags" : [ "org-branding" ],
+        "summary" : "Edit the draft (partial)",
+        "description" : "Body: any of primary, secondary, accent (#rrggbb, white text must reach 4.5:1 -> 422 BRANDING_COLOR_LOW_CONTRAST with a suggestion), theme, welcomeTitle, welcomeMessage, supportEmail, terminology, navPrefs; null clears a field. If-Match: the draftVersion the editor last saw (409 BRANDING_DRAFT_CONFLICT when stale).",
+        "operationId" : "patchDraft",
+        "parameters" : [ {
+          "name" : "If-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgBrandingDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/ai/routes/{task}" : {
       "delete" : {
         "tags" : [ "admin-ai-config-resource" ],
@@ -7088,6 +7266,35 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PublicTenantDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/tenant/assets/{kind}" : {
+      "get" : {
+        "tags" : [ "tenant" ],
+        "summary" : "A published branding asset of the tenant for the forwarded host",
+        "description" : "kind = logo | favicon | banner. No authentication; the tenant comes from X-Kiwiply-Host only. 404 for a host that is not served, an unknown kind or an unset asset. Cache-Control: public, max-age=86400; ETag = the content hash; If-None-Match -> 304; X-Content-Type-Options: nosniff.",
+        "operationId" : "asset",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
                 }
               }
             }
@@ -8040,6 +8247,70 @@
         }
       }
     },
+    "/api/orgs/{orgId}/branding" : {
+      "get" : {
+        "tags" : [ "org-branding" ],
+        "summary" : "Published values, the draft, its version and the publish history",
+        "operationId" : "get_4",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgBrandingDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/branding/preview-theme" : {
+      "get" : {
+        "tags" : [ "org-branding" ],
+        "summary" : "Check a colour for the live preview",
+        "description" : "Can white text be read on this colour (WCAG AA 4.5:1)? When not, the nearest colour that can. Query: primary, secondary, accent (each optional).",
+        "operationId" : "previewTheme",
+        "parameters" : [ {
+          "name" : "primary",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "secondary",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "accent",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "$ref" : "#/components/schemas/ColourCheck"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/mine" : {
       "get" : {
         "tags" : [ "org-resource" ],
@@ -8066,7 +8337,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_4",
+        "operationId" : "get_5",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -9453,7 +9724,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_5",
+        "operationId" : "get_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -12432,6 +12703,75 @@
           }
         }
       },
+      "OrgBrandingDTO" : {
+        "type" : "object",
+        "properties" : {
+          "published" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "draft" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "hasDraft" : {
+            "type" : "boolean"
+          },
+          "draftVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "draftUpdatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "versions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Version"
+            }
+          }
+        }
+      },
+      "Version" : {
+        "type" : "object",
+        "properties" : {
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "publishedByMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Published" : {
+        "type" : "object",
+        "properties" : {
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "changed" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "branding" : {
+            "$ref" : "#/components/schemas/OrgBrandingDTO"
+          }
+        }
+      },
       "TokenRequest" : {
         "type" : "object",
         "properties" : {
@@ -13211,6 +13551,15 @@
           "welcomeMessage" : {
             "type" : "string"
           },
+          "supportEmail" : {
+            "type" : "string"
+          },
+          "featureChips" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
           "terminology" : {
             "type" : "object",
             "additionalProperties" : {
@@ -13229,6 +13578,9 @@
             "type" : "boolean"
           },
           "mfaRequired" : {
+            "type" : "boolean"
+          },
+          "microsoft" : {
             "type" : "boolean"
           }
         }
@@ -14570,6 +14922,27 @@
             "items" : {
               "$ref" : "#/components/schemas/PermissionDTO"
             }
+          }
+        }
+      },
+      "ColourCheck" : {
+        "type" : "object",
+        "properties" : {
+          "color" : {
+            "type" : "string"
+          },
+          "valid" : {
+            "type" : "boolean"
+          },
+          "allowsWhiteText" : {
+            "type" : "boolean"
+          },
+          "contrastOnWhite" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "suggestion" : {
+            "type" : "string"
           }
         }
       },

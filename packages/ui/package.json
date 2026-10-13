@@ -13,6 +13,7 @@
     "./styles/animations.css": "./styles/animations.css",
     "./styles/delight.css": "./styles/delight.css",
     "./styles/theme-v2.css": "./styles/theme-v2.css",
+    "./styles/theme-tenant.css": "./styles/theme-tenant.css",
     "./styles/resume.css": "./styles/resume.css",
     "./styles/resume-print.css": "./styles/resume-print.css",
     "./fonts/*": "./fonts/*",
