@@ -7276,6 +7276,26 @@
         }
       }
     },
+    "/api/public/tenant/demo" : {
+      "get" : {
+        "tags" : [ "demo" ],
+        "summary" : "Demo members of the tenant on this host",
+        "description" : "X1.12. On a demo tenant's host while DEMO_ENABLED and ENT_DEMO_SEED are on: the members the login page can open, with their role names. Anywhere else {enabled:false, accounts:[]}. No passwords.",
+        "operationId" : "tenantDemo",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Directory"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/public/tenant/assets/{kind}" : {
       "get" : {
         "tags" : [ "tenant" ],
@@ -13622,6 +13642,49 @@
           },
           "login" : {
             "$ref" : "#/components/schemas/Login"
+          }
+        }
+      },
+      "DemoMember" : {
+        "type" : "object",
+        "properties" : {
+          "login" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "primaryRole" : {
+            "type" : "string"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "canSignIn" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Directory" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "org" : {
+            "type" : "string"
+          },
+          "accounts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DemoMember"
+            }
           }
         }
       },

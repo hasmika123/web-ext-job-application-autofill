@@ -10,6 +10,7 @@
 import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { resolve } from "node:path";
+import { demoPeople } from "./fixtures/enterprise.mjs";
 
 const DEFS_PATH = "api/src/main/resources/config/ent/workspaces.json";
 function loadDefs() {
@@ -44,6 +45,11 @@ const ROLES = {
     grants: { ...at("TEAM", [...MARKETING, "assignments.manage", "approvals.decide", "workload.view", "escalations.manage", "reports.export", "members.manager.set"]), ...at("OWN", SELF) },
   },
   CONSULTANT: { name: "Consultant", workspace: "CONSULTANT", grants: at("OWN", ["opportunities.respond", "submissions.authorize", "applications.manage", "interviews.manage", "offers.respond", "resumes.manage", "features.view", ...SELF]) },
+  // X1.12: the templates the enterprise demo roster uses beyond the six above (RoleTemplates.java)
+  HR_SPECIALIST: { name: "HR Specialist", workspace: "HR", grants: { ...at("ORG", ["members.invite", "members.suspend", "members.group.set", "members.manager.set", "hr.view", "hr.manage", "groups.manage", "lifecycle.manage", "reports.view"]), ...at("OWN", SELF) } },
+  ACCOUNT_MANAGER: { name: "Account Manager", workspace: "ACCOUNTS", grants: { ...at("ORG", ["clients.view", "clients.manage", "requirements.manage", "submissions.record", "interviews.coordinate", "offers.manage", "placements.manage", "reports.view"]), ...at("OWN", SELF) } },
+  TALENT_ACQUISITION: { name: "Talent Acquisition", workspace: "HR", grants: { ...at("ORG", ["members.invite", "candidates.manage", "talent_pools.manage", "consultants.view", "onboarding.coordinate"]), ...at("OWN", SELF) } },
+  EXECUTIVE_VIEWER: { name: "Executive Viewer", workspace: "EXEC", grants: { ...at("ORG", ["dashboard.view_org", "reports.view", "pipeline.view", "billing.view"]), ...at("OWN", SELF) } },
   FINANCE_SPECIALIST: { name: "Finance Specialist", workspace: "FINANCE", grants: at("ORG", ["billing.view", "billing.manage", "licenses.view", "usage.view", "finance.view", "finance.manage", "placements.view", "ops.*", "reports.view", "reports.export", "audit.view", ...SELF]) },
 };
 
@@ -63,6 +69,17 @@ const MEMBERS = {
     "owner@beta.com": { name: "Bea Owner", roles: ["OWNER"], status: "ACTIVE", id: 201 },
   },
 };
+// X1.12: the enterprise demo members (fixtures/enterprise-demo.json, the roster the real API seeds) sign in through the demo tab.
+let demoId = 300;
+for (const host of Object.keys(MEMBERS)) {
+  for (const p of demoPeople(host)) {
+    if (p.login) MEMBERS[host][p.login] = { name: p.name, roles: p.roles, status: p.status, id: ++demoId };
+  }
+}
+/** The role names of a template key, as the API prints them (the demo tab's labels). */
+export const roleName = (key) => ROLES[key]?.name ?? key;
+/** True when `login` holds an ACTIVE seat on `host` (the demo login's membership check). */
+export const memberStatus = (host, login) => MEMBERS[host]?.[login]?.status ?? null;
 const ORGS = { "acme.localhost": { id: 1, displayName: "Acme", type: "STAFFING" }, "beta.localhost": { id: 2, displayName: "Beta Talent", type: "STAFFING" } };
 
 /** Modules per host: marketing and billing on for Acme so the role menus have something to show; Beta has none. */

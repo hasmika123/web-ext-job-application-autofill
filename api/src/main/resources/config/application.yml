@@ -270,6 +270,9 @@ dossier:
     reset-cron: ${DEMO_RESET_CRON:0 0 4 * * *}
     # Cap on AI calls per demo account per UTC day, on top of the plan/budget (0 = no AI for demo).
     ai-calls-per-day: ${DEMO_AI_CALLS_PER_DAY:10}
+    # Enterprise V2 demo tenants (X1.12): Acme Staffing + Beta Talent with demo members, seeded at startup. Needs DEMO_ENABLED too;
+    # dev and CI only, never under the prod profile (the seeder refuses). Off by default.
+    enterprise-seed: ${ENT_DEMO_SEED:false}
   # Organization features (E2E-O1.9). OFF unless ORGS_ENABLED=true (the dev profile turns it on). This is only the
   # environment default: an admin-stored `feature.orgs.enabled` setting, when present, wins (OrgFeatureFlag). While off,
   # /api/orgs/**, /api/join/** and /api/me/orgs/** answer 404 and the web hides the org navigation.

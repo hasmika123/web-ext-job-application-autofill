@@ -15,7 +15,8 @@
 import http from "node:http";
 import { createTrackerMock } from "./mock-tracker.mjs";
 import { createJobsMock } from "./mock-jobs.mjs";
-import { handleMeTenant } from "./mock-me-tenant.mjs";
+import { handleMeTenant, memberStatus, roleName } from "./mock-me-tenant.mjs";
+import { demoPeople } from "./fixtures/enterprise.mjs";
 import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset } from "./mock-tenants.mjs";
 import { createBrandingMock } from "./mock-branding.mjs";
 import { readFileSync } from "node:fs";
@@ -1893,7 +1894,25 @@ const server = http.createServer((req, res) => {
     }
     if (!claims || !claims.tid || claims.exp * 1000 < Date.now()) return json(res, 401, { code: "UNAUTHENTICATED", message: "error.http.401" });
     if (claims.tid !== key) return json(res, 401, { code: "TOKEN_TENANT_MISMATCH", message: "error.http.401" });
+    // X1.12: an enterprise demo member gets the full contract (roles, permission-filtered workspaces), like the real API
+    if (typeof claims.sub === "string" && claims.sub.startsWith("demo-ent-") && handleMeTenant(req, res, path, method, json, hostOf)) return;
     return json(res, 200, { org: { displayName: MOCK_TENANTS[host].displayName }, member: { status: "ACTIVE" }, landing: "/w/admin", workspaces: [{ key: "admin", home: "/w/admin" }] });
+  }
+
+  // X1.12: the demo members of the tenant on this host (empty off a tenant host or while the demo is off).
+  if (path === "/api/public/tenant/demo" && method === "GET") {
+    const host = hostOf(req);
+    const off = { enabled: false, org: null, accounts: [] };
+    if (!ENTERPRISE_ENABLED || !DEMO_ENABLED || !MOCK_TENANTS[host]) return json(res, 200, off);
+    const accounts = demoPeople(host).map((p) => ({
+      login: p.login,
+      name: p.name,
+      primaryRole: roleName(p.roles[0]),
+      roles: p.roles.map(roleName),
+      status: p.status,
+      canSignIn: p.status === "ACTIVE",
+    }));
+    return json(res, 200, accounts.length ? { enabled: true, org: MOCK_TENANTS[host].displayName, accounts } : off);
   }
 
   if (path === "/api/authenticate/demo" && method === "POST") {
@@ -1903,6 +1922,15 @@ const server = http.createServer((req, res) => {
     }
     return withBody(req, (b) => {
       const login = String(b.login ?? "");
+      // X1.12: an enterprise demo member signs in on its own tenant host only, with a tid-bound pair
+      if (login.startsWith("demo-ent-")) {
+        const host = hostOf(req);
+        if (!MOCK_TENANTS[host]) return json(res, 404, { code: "NOT_FOUND", message: "error.org" });
+        const known = Object.keys(MOCK_TENANTS).some((h) => memberStatus(h, login));
+        if (!known) return json(res, 404, { code: "NOT_FOUND", message: "error.org" });
+        if (memberStatus(host, login) !== "ACTIVE") return json(res, 403, { code: "NOT_A_MEMBER", message: "error.org" });
+        return json(res, 200, tenantPair(login, orgKeyOf(host)));
+      }
       return ACCOUNTS[login] ? json(res, 200, pair(login)) : json(res, 400, { error: "Unknown demo account." });
     });
   }

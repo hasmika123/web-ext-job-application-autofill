@@ -255,7 +255,7 @@ class EnterpriseDemoSeederIT {
         assertThat(body.get("roles")).hasSize(2);
         // two ROLES; a workspace opens only when its home module is live, and Marketing's flag is still deferred (not registrable), so only ADMIN opens today
         assertThat(body.get("workspaces").size()).isGreaterThanOrEqualTo(1);
-        assertThat(body.get("workspaces").get(0).get("key").asText()).isEqualTo("ADMIN");
+        assertThat(body.get("workspaces").get(0).get("key").asText()).isEqualTo("admin");
         assertThat(body.get("person").get("name").asText()).isEqualTo("Sarah Chen");
     }
 
@@ -313,5 +313,30 @@ class EnterpriseDemoSeederIT {
         assertThat(com.dossier.api.service.DemoAccountService.isDemoLogin("demo-ent-acme-sarah")).isTrue();
         assertThat(com.dossier.api.service.DemoAccountService.isDemoLogin("demo-ent-anything")).isTrue();
         assertThat(com.dossier.api.service.DemoAccountService.isDemoLogin("someone")).isFalse();
+    }
+
+    @Test
+    void theMockRosterIsTheSameTableAsTheSeed() throws Exception {
+        java.nio.file.Path p = java.nio.file.Path.of("..", "web", "scripts", "fixtures", "enterprise-demo.json");
+        if (!java.nio.file.Files.exists(p)) p = java.nio.file.Path.of("web", "scripts", "fixtures", "enterprise-demo.json");
+        JsonNode fixture = mapper.readTree(java.nio.file.Files.readString(p)).get("tenants");
+        for (EnterpriseDemoSeeder.Tenant t : EnterpriseDemoSeeder.TENANTS) {
+            JsonNode f = fixture.get(t.host());
+            assertThat(f).as(t.host()).isNotNull();
+            assertThat(f.get("orgKey").asText()).isEqualTo(t.orgKey());
+            assertThat(f.get("name").asText()).isEqualTo(t.name());
+            assertThat(f.get("people")).hasSize(t.people().size());
+            for (int i = 0; i < t.people().size(); i++) {
+                EnterpriseDemoSeeder.Person person = t.people().get(i);
+                JsonNode fp = f.get("people").get(i);
+                assertThat(fp.get("key").asText()).isEqualTo(person.key());
+                assertThat(fp.get("first").asText()).isEqualTo(person.first());
+                assertThat(fp.get("last").asText()).isEqualTo(person.last());
+                assertThat(fp.get("status").asText()).isEqualTo(person.status().name());
+                List<String> roles = new java.util.ArrayList<>();
+                fp.get("roles").forEach(r -> roles.add(r.asText()));
+                assertThat(roles).isEqualTo(person.roles());
+            }
+        }
     }
 }
