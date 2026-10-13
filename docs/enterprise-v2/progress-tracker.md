@@ -379,6 +379,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 - 2026-10-13 — Marketing My Assigned Talent (branch `mkt-talent`, Sonnet): `/w/marketing/talent` from the board (5 KPI tiles, consultants table with status chips, search, Skill/Location/Experience/Availability filters, Saved Views, Add Consultant gated by `consultants.edit`, three bottom cards, bee help card, Quick Actions, View Profile drawer at consent SUMMARY). API `GET /api/orgs/{orgId}/mkt/talent[/{id}]`, `POST|DELETE .../views`, scope via `MktScope`; table `mkt_saved_view` (`20261104060000_mkt_talent.xml`). Unit tests green; `MktTalentIT` compiled, not run (no Docker). Details: `page-mkt-talent.md`.
 =======
 - 2026-10-13 — Marketing Job Discovery (branch `mkt-jobs`, Sonnet): `/w/marketing/jobs` from the board (5 tiles, filter row, Job Openings table/cards with View / Match / Assign, Trending Skills, Top Clients, Alerts, Saved Searches, Watched Streams). API `GET|POST|DELETE /api/orgs/{orgId}/mkt/jobs/**` via `MktScope`, own tables `mkt_job_meta` + `mkt_saved_search`, `MktJobsDemoSeeder`; Assign records an ASSIGNED match only (E1). 41 Java unit tests + 38 web tests green, build ok; `MktJobsIT` compiled, not run (no Docker). Doc: `page-mkt-jobs.md`.
@@ -395,3 +396,7 @@
 =======
 - 2026-10-13 — Marketing Follow-ups page (branch `mkt-followups`, Sonnet): `/w/marketing/followups` board with real `mkt_followup` + `mkt_followup_event` tables (`20261104010000_mkt_followups.xml`), `MktFollowupService` (today/overdue/upcoming reusable for Tasks and Home), `MktFollowupsResource`, demo seeder, record-only writes (reminder never emails); see `page-mkt-followups.md`.
 >>>>>>> mkt-followups
+=======
+
+- 2026-10-13 — Marketing Applications page (branch `mkt-applications`, Sonnet): `/w/marketing/applications` board (4 inline KPI tiles, Application Tracker with search + 4 selects + stage tabs + table, Funnel, Overdue Actions, Recent Updates, bee card) wired to `GET /api/orgs/{orgId}/mkt/applications` (+ 4 record-only writes: note, next action, follow-up done, stage record), derived from existing talent tables (no new table), consent-aware (SUMMARY shows the stage only). Service tests 24 green, web 15 + lib tests green; `MktApplicationsIT` compiled, not run (no Docker). See `page-mkt-applications.md`.
+>>>>>>> mkt-applications
