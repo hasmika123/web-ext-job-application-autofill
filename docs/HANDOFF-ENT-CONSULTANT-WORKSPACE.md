@@ -79,6 +79,18 @@ EXACTLY (layout, fonts, sizes, icon-tile colours, pills, spacing). If no board e
 — read `docs/enterprise-v2/page-<name>.md` on the integrated branch for their contracts; build consultant-scoped (OWN) views, do not
 change the admin endpoints.
 
+## Daily loop and finishing (the agent on this machine follows this exactly)
+1. `git fetch origin && git checkout ent-talent-consultant` (create it from `origin/ent-talent` the first time, see START HERE).
+2. Build ONE page at a time. Commit small and often on `ent-talent-consultant` (commit message: `ent-consultant: <page>: <what>`; end with the
+   `Co-Authored-By` trailer the harness gives you). Run that page's tests + build before each push.
+3. Push your own branch only: `git push -u origin ent-talent-consultant` (after every finished page; never force-push).
+4. After each page, write `docs/enterprise-v2/page-<page>.md` and add one Log line to `docs/enterprise-v2/progress-tracker.md`, commit, push.
+5. Optionally pull the base forward into YOUR branch: `git merge origin/ent-talent` (later `origin/ent-all`), resolve, push.
+6. When a page is done, send the first-machine owner a short report: page, branch + last commit sha, what is real vs empty-state, test
+   results (honest, including anything unverified), screenshots path, shared-file edits you made, known gaps. The owner merges; you do not.
+Never: merge into `ent-talent` / `ent-all` / `version2` / `main`, push to any branch you did not create, edit another role's folders,
+or restructure shared files.
+
 ## Merging back
 **All merging is done on the first machine only.** You never merge into `ent-talent`, `ent-all`, `version2` or `main`, and you never open or merge a PR into them: build on your own branch, push it, and stop. Keeping your branch up to date with `git merge origin/ent-talent` (or `origin/ent-all` once published) INTO YOUR OWN branch is fine and encouraged.
 
