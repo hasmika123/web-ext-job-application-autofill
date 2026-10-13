@@ -237,7 +237,7 @@
       "id": "X1.3",
       "epic": "X1",
       "title": "TenantResolver + TenantContext in the API, GET /api/public/tenant, internal tenant-hosts/check (ask) endpoint",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

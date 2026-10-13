@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -57,6 +58,7 @@ public class TenantResolver {
     private final Clock clock;
     private final Cache cache = new Cache();
 
+    @Autowired
     public TenantResolver(OrgHostnameRepository hostnames, OrganizationRepository organizations, ResumeBuilderSettings settings, EnterpriseFeatureFlag flag) {
         this(hostnames, organizations, settings, flag, Clock.systemUTC());
     }

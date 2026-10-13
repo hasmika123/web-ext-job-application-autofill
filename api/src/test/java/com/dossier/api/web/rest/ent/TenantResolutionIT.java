@@ -155,9 +155,12 @@ class TenantResolutionIT {
         br.setDraftJson("{\"primaryColor\":\"#ff0000\",\"secret\":\"draft-only\"}");
         brandings.saveAndFlush(br);
 
-        JsonNode unpublished = json(call("acme-it.kiwiply.com", null, "/api/public/tenant")).get("branding");
-        assertThat(unpublished.get("primary")).as("unpublished: safe defaults").isNull();
-        assertThat(unpublished.get("welcomeTitle")).isNull();
+        // Jackson models a JSON null as a NullNode (never a Java null), so assert "null or absent" and that no value leaked.
+        MvcResult beforePublish = call("acme-it.kiwiply.com", null, "/api/public/tenant");
+        JsonNode unpublished = json(beforePublish).get("branding");
+        assertThat(unpublished.path("primary").isNull() || unpublished.path("primary").isMissingNode()).as("unpublished: safe defaults").isTrue();
+        assertThat(unpublished.path("welcomeTitle").isNull() || unpublished.path("welcomeTitle").isMissingNode()).isTrue();
+        assertThat(beforePublish.getResponse().getContentAsString()).doesNotContain("#0a5fff").doesNotContain("Hello Acme").doesNotContain("#ff0000").doesNotContain("draft-only");
 
         br.setPublishedAt(Instant.now());
         brandings.saveAndFlush(br);

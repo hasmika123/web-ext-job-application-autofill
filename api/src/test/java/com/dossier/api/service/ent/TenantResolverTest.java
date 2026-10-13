@@ -297,7 +297,7 @@ class TenantResolverTest {
         when(hostnames.findActiveByHostname(anyString())).thenThrow(new IllegalStateException("db down"));
         assertUnknown("careers.acme.com", Reason.UNKNOWN_HOST);
         assertThat(resolver.cachedHosts()).isZero();
-        when(hostnames.findActiveByHostname(anyString())).thenReturn(Optional.empty());
+        org.mockito.Mockito.doReturn(Optional.empty()).when(hostnames).findActiveByHostname(anyString());
         assertUnknown("careers.acme.com", Reason.UNKNOWN_HOST);
         assertThat(resolver.cachedHosts()).isEqualTo(1);
     }
