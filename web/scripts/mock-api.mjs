@@ -20,6 +20,7 @@ import { demoPeople } from "./fixtures/enterprise.mjs";
 import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset } from "./mock-tenants.mjs";
 import { createBrandingMock } from "./mock-branding.mjs";
 import { createInvitationsMock } from "./mock-invitations.mjs";
+import { createDashboardMock } from "./mock-dashboard.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -257,6 +258,8 @@ const handleInvitations = createInvitationsMock({
     return (typeof raw === "string" ? raw : "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "");
   },
 });
+/* ── Organization dashboard mock (X2.17: GET .../dashboard + alert dismiss for the acme/beta tenant members; scripts/mock-dashboard.mjs) ── */
+const handleDashboard = createDashboardMock({ json, subOf: bearerSub });
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
 const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
 /* ── Job search mock (APP-E2E U4.0: search, suggest, detail, save, hide; scripts/mock-jobs.mjs) ── */
@@ -1978,6 +1981,7 @@ const server = http.createServer((req, res) => {
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
   if (handleBranding(req, res, path, method)) return;
   if (ENTERPRISE_ENABLED && handleInvitations(req, res, path, method)) return;
+  if (handleDashboard(req, res, path, method)) return;
   if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
   if (handleAi(req, res, path, method)) return;

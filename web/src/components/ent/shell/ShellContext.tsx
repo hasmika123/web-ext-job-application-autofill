@@ -17,6 +17,8 @@ export interface PageHeaderValue {
 export interface ShellSlot {
   setHeader(value: PageHeaderValue | null): void;
   claimMascot(on: boolean): void;
+  /** The page draws its own "Need help?" card (the dashboard board does): the sidebar card hides, the help panel stays reachable. */
+  claimHelp?(on: boolean): void;
 }
 
 export const ShellSlotContext = createContext<ShellSlot | null>(null);
@@ -40,3 +42,18 @@ export function ClaimsMascot(): ReactNode {
   }, [slot]);
   return null;
 }
+
+/** The page shows its own "Need help?" card; the sidebar one steps aside (X2.17). Open the shared panel with `openHelpPanel()`. */
+export function ClaimsHelpCard(): ReactNode {
+  const slot = useContext(ShellSlotContext);
+  useIsoLayoutEffect(() => {
+    slot?.claimHelp?.(true);
+    return () => slot?.claimHelp?.(false);
+  }, [slot]);
+  return null;
+}
+
+export const OPEN_HELP_EVENT = "kiwiply:open-help";
+export const openHelpPanel = (): void => {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(OPEN_HELP_EVENT));
+};

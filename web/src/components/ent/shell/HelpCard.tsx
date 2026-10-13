@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, ExternalLinkIcon, HelpCircleIcon, IconButton, SparklesIcon, Tooltip } from "@kiwiply/ui";
 import { EnterpriseMascot } from "@/lib/ent/mascot";
 import { helpLinks } from "@/lib/ent/shell";
+import { OPEN_HELP_EVENT } from "./ShellContext";
 
 /** The help panel the "Ask a question..." buttons open (the sidebar's card and any page's own card share it). */
 export function HelpPanel({ open, onClose, orgName, supportEmail }: { open: boolean; onClose: () => void; orgName: string; supportEmail?: string | null }) {
@@ -36,9 +37,15 @@ export function HelpPanel({ open, onClose, orgName, supportEmail }: { open: bool
  * button opens a small help panel that says so and offers the organization's support email and the Kiwiply help centre.
  * `bee=false` (the page already shows a bee, or the rail is collapsed) keeps the card text-only.
  */
-export default function HelpCard({ firstName, orgName, supportEmail, bee = true, collapsed = false }: { firstName: string; orgName: string; supportEmail?: string | null; bee?: boolean; collapsed?: boolean }) {
+export default function HelpCard({ firstName, orgName, supportEmail, bee = true, cardHidden = false, collapsed = false }: { firstName: string; orgName: string; supportEmail?: string | null; bee?: boolean; cardHidden?: boolean; collapsed?: boolean }) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  // a page that draws its own help card (the dashboard) opens this same panel through openHelpPanel()
+  useEffect(() => {
+    const on = () => setOpen(true);
+    window.addEventListener(OPEN_HELP_EVENT, on);
+    return () => window.removeEventListener(OPEN_HELP_EVENT, on);
+  }, []);
 
   const panel = <HelpPanel open={open} onClose={() => setOpen(false)} orgName={orgName} supportEmail={supportEmail} />;
 
@@ -53,6 +60,8 @@ export default function HelpCard({ firstName, orgName, supportEmail, bee = true,
         {panel}
       </div>
     );
+
+  if (cardHidden) return panel;
 
   return (
     <section aria-label="Help" data-help-card className="mx-3 mb-3 overflow-hidden rounded-2xl border border-line bg-accent-soft/50">

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { meTenantFor as untyped } from "../../../scripts/mock-me-tenant.mjs";
 import { parseMeTenant } from "@/lib/ent/tenant-session-core";
+import { ToastProvider } from "@kiwiply/ui";
 
 const state = vi.hoisted(() => ({
   tenant: { kind: "TENANT", tenant: { kind: "TENANT", displayName: "Acme", branding: { logoUrl: "/tenant-assets/logo?v=1", supportEmail: "it@acme.com" } } } as unknown,
@@ -37,7 +38,7 @@ const ok = (login: string) => {
   return { kind: "OK", me: parseMeTenant(a.body)!, etag: a.etag };
 };
 const layout = async (workspace: string) => renderToStaticMarkup(await WorkspaceLayout({ params: Promise.resolve({ workspace }), children: <p>the page</p> }));
-const catchAll = async (workspace: string, slug?: string[]) => renderToStaticMarkup((await WorkspaceCatchAll({ params: Promise.resolve({ workspace, slug }) })) ?? <i />);
+const catchAll = async (workspace: string, slug?: string[]) => renderToStaticMarkup(<ToastProvider>{(await WorkspaceCatchAll({ params: Promise.resolve({ workspace, slug }) })) ?? <i />}</ToastProvider>);
 
 beforeEach(() => {
   state.session = { kind: "UNAUTHENTICATED" };
@@ -96,9 +97,11 @@ describe("catch-all: a menu page that is not built yet", () => {
     expect(html).toContain("data-coming-soon");
     expect(html).toContain("This page is on the way");
   });
-  it("the workspace home resolves too (the dashboard comes with X2.17)", async () => {
+  it("the Admin workspace home is the Organization Dashboard (X2.17); another workspace home stays \"on the way\"", async () => {
     state.session = ok("owner@acme.com");
-    expect(await catchAll("admin")).toContain("data-coming-soon");
+    expect(await catchAll("admin")).toContain("data-dashboard");
+    state.session = ok("marketer@acme.com");
+    expect(await catchAll("marketing")).toContain("data-coming-soon");
   });
   it("a page that is not in the member's menu is 'not part of your role'", async () => {
     state.session = ok("marketer@acme.com");

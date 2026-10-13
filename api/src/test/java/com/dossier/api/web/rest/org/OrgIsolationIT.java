@@ -198,7 +198,10 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/invitations/{invitationId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND)),
         Map.entry("POST /api/orgs/{orgId}/invitations/{invitationId}/revoke", Case.write(null, 204, OrgAuditService.MEMBER_INVITE_REVOKE)),
         Map.entry("POST /api/orgs/{orgId}/invitations/bulk/resend", Case.write("{\"ids\":[1]}", 200, null)),
-        Map.entry("POST /api/orgs/{orgId}/invitations/bulk/revoke", Case.write("{\"ids\":[1]}", 200, null))
+        Map.entry("POST /api/orgs/{orgId}/invitations/bulk/revoke", Case.write("{\"ids\":[1]}", 200, null)),
+        // Enterprise V2 X2.4: the dashboard. Dismissing an alert is a personal preference of the caller, so it writes no audit row.
+        Map.entry("GET /api/orgs/{orgId}/dashboard", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -407,6 +410,7 @@ class OrgIsolationIT {
             ids.put("kind", "logo");
             ids.put("pendingMemberId", String.valueOf(pending.getId())); // X1.8's resend names the INVITED seat; every other {memberId} route is the ACTIVE member
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
+            ids.put("alertKey", "MEMBERS_SUSPENDED");
             return ids;
         }
 
@@ -598,7 +602,7 @@ class OrgIsolationIT {
             if (ids.equals(b.ids())) continue; // the route has no row id: nothing of A's to name
             Matcher m = VAR.matcher(route.pattern());
             boolean hasRowId = false;
-            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind");
+            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("alertKey"); // kind and alertKey are fixed words, not rows
             if (!hasRowId) continue;
             assertGeneric404(hostile(route, uri(route, ids), a, user("bravo-owner")), route.key() + " as B's owner with B's orgId and A's row id");
             variants++;

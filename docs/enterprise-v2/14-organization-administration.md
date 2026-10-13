@@ -49,6 +49,7 @@ rows (honest empty card); **ok** otherwise.
 | Key | §7 widget | Data source (real) | Permission | Module / phase | Empty / unavailable copy |
 |---|---|---|---|---|---|
 | `consultants.total` | Total consultants | count `org_member` ACTIVE ⨝ `org_member_role` role template `CONSULTANT` (X1.6) | `member.view_summary` | Phase 2 | "No consultants yet" → [Invite consultants] |
+| `employees.active` | Active employees (board tile; added by X2.4) | count `org_member` ACTIVE that do not hold the CONSULTANT role, with the 30-day change from seat start/end dates | `hr.view` or `members.invite` | Phase 2 | "No employees yet" |
 | `consultants.licensed` | Licensed consultants | count `consultant_license` ACTIVE (C, X5.4) | `licenses.view` | `flag.enterprise.billing` → Phase 5/6 | unavailable until the module; then "No licenses assigned" → [Assign licenses] |
 | `consultants.available` | Available consultants | `consultant_profile.availability_status = AVAILABLE` (D, X7.2) | `consultants.view` | `flag.enterprise.marketing` → Phase 7 | unavailable until the module |
 | `marketing.activity7d` | Marketing activity | count `pipeline_event` last 7 d by kind (D, X8.6) + sparkline per day | `pipeline.view` | marketing → Phase 8 | unavailable until the module |
@@ -56,12 +57,17 @@ rows (honest empty card); **ok** otherwise.
 | `interviews.upcoming` | Interviews | consented `interview` rows in the next 14 d (18f2123 `upcomingInterviews`); Phase 9 adds `interview_slot` | `member.view_summary` | Phase 2 | "No interviews scheduled" |
 | `placements` | Placements | today: members who declared a placement (consent doc §6, 18f2123 `placedMembers`); Phase 10: `placement` ACTIVE count | `placements.view` or `member.view_summary` | Phase 2 → 10 | "No placements recorded" |
 | `approvals.pending` | Pending approvals | Phase 8 authorization requests awaiting a manager (`opportunity_match.authorization = PENDING` where the caller may decide); **until then** the tile is `invites.pending` = `org_member` INVITED count (labelled "Pending invites") | `approvals.decide` / `members.invite` | Phase 2 (invites) → 8 (approvals) | "Nothing waiting on you" |
+| `invites.pending` | Pending invites (and suspended members) | `org_member` INVITED count, how many expire within 48 h, and SUSPENDED count; `approvals.pending` replaces it in Phase 8 | `members.invite` or `members.suspend` | Phase 2 | "Nothing waiting on you" |
+| `pipeline.overview` | Pipeline overview donut (board; added by X2.4) | Applications module by stage (New, In Review, Interview Scheduled, Offered, Hired); `NOT_ENABLED` until it exists | `pipeline.view` or `member.view_summary` | Applications module | unavailable until the module |
+| `quick.actions` | Quick actions (board; added by X2.4) | the six shortcuts of §2.5 filtered by the caller's permissions; `available=false` = "soon" | any permission of a shortcut | Phase 2 | hidden when the caller holds none |
 | `team.performance` | Team performance | Phase 12 org analytics with k-anonymity (`docs/design/org/analytics.md`) | `reports.view` | Phase 12 | unavailable card: "Team performance arrives with analytics" (mascot encourage, no numbers) |
 | `subscription.summary` | Subscription summary | today: `organization.status`, `setup_fee_paid_at`, billing email; Phase 6: `org_billing_account` + `org_subscription` mirror (MRR, next invoice, licensed count, pending changes) | `billing.view` | Phase 2 → 6 | "Billing isn't connected in this environment" (dev) / status only |
 | `finance.summary` | Financial summary | Phase 11 finance records (H6 money mirrors: billed/paid this month) | `finance.view` | `flag.enterprise.hr_finance` → 11 | unavailable until the module |
 | `activity.recent` | Recent activity | `org_audit_event` last 10 (actor, action label, target, relative time; no PII beyond names the caller may see) | `audit.view` or admin templates | Phase 2 | "No activity yet" |
 | `alerts` | Important alerts | computed, see §2.3 | per alert | Phase 2 | hidden when none |
 | `checklist` | Activation checklist | `GET /api/orgs/{orgId}/onboarding` (18f2123 reworked, §2.4) | admin templates | Phase 2 | hides when complete; the slot shows "Pipeline this week" (Phase 8) or nothing |
+
+**As built (X2.4).** The response is an ordered array, not a map: `{ orgId, generatedAt, widgets: [ { key, state: "ok"|"empty"|"unavailable"|"error", reason?, module?, data? } ] }` in board order. A widget the caller has no permission for is absent. `unavailable` with `reason: "NOT_ENABLED"` and the `module` name means its module is off or has no tables yet: no data, no zeros (applications, interviews, placements, spend, team performance and the pipeline donut are all in this state today). `error` (`reason: "PROVIDER_FAILED"`) isolates one failing provider. `data` is present only for `ok`. Scope: a team/department/assigned actor's counts cover only their slice. No server-side cache.
 
 **Registry shape (09 row 3).** X2.4 ships the bean interface
 `DashboardWidgetProvider { String key(); String permission(); String module(); WidgetResult compute(long orgId, Membership m); }`
@@ -81,6 +87,7 @@ widget `unavailable`. `DashboardWidgetRegistryTest` diffs the registered keys ag
 | `INVITES_EXPIRING` | INVITED seats expiring within 48 h | info | `/w/admin/employees?status=invited` |
 | `SINGLE_ADMIN` | only one member holds OWNER/ORG_ADMIN | info | `/w/admin/employees` ("Add a second administrator") |
 | `BRANDING_DRAFT` | `org_branding.draft_json` differs from published for > 24 h | info | `/w/admin/branding` |
+| `MEMBERS_SUSPENDED` | any member with status SUSPENDED (added by X2.4) | info | `/w/admin/employees?status=suspended` |
 | `CONSENT_GAPS` | consultants with `data_share.scope = NONE` ≥ 1 (count only) | info | `/w/admin/consultants?consent=none` (Phase 7) |
 | `LICENSE_CHANGES_PENDING` | `license_change` PENDING effective within 7 d (Phase 6) | info | `/w/admin/licenses` |
 
