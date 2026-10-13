@@ -94,10 +94,10 @@ export default function ShellBell() {
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={toggle}
-          className="relative h-11 w-11 rounded-xl text-ink/80"
+          className="relative h-11 w-11 rounded-xl text-[color:var(--ent-title)]"
         >
           <BellIcon size={22} />
-          {unread > 0 ? <span data-unread-dot aria-hidden className="absolute right-2.5 top-2.5 h-2.5 w-2.5 rounded-full border-2 border-paper bg-danger" /> : null}
+          {unread > 0 ? <span data-unread-dot aria-hidden className="absolute right-[9px] top-[8px] h-2 w-2 rounded-full bg-danger" /> : null}
         </IconButton>
       </Tooltip>
       {open ? (

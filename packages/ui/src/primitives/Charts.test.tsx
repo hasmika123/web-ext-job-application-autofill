@@ -1,6 +1,6 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { BarChart, DonutChart, Sparkline, chartColor, niceMax, shares, sparkPoints } from "./Charts";
+import { BarChart, DonutChart, Sparkline, SparklineDefaultsProvider, chartColor, niceMax, shares, sparkPoints } from "./Charts";
 
 afterEach(cleanup);
 
@@ -86,5 +86,17 @@ describe("smooth sparkline", () => {
     const plain = render(<Sparkline values={[1, 3, 2, 5]} label="x" />);
     expect(plain.container.querySelector("polyline")).toBeTruthy();
     expect(plain.container.querySelector("[data-smooth]")).toBeNull();
+  });
+});
+
+describe("sparkline default (tenant provider)", () => {
+  it("an explicit smooth={false} still draws the straight line inside the smooth default", () => {
+    const { container } = render(
+      <SparklineDefaultsProvider smooth>
+        <Sparkline smooth={false} values={[1, 3, 2, 5]} />
+      </SparklineDefaultsProvider>,
+    );
+    expect(container.querySelector("polyline")).toBeTruthy();
+    expect(container.querySelector("[data-smooth]")).toBeNull();
   });
 });
