@@ -71,7 +71,7 @@ public class DemoResource {
             throw DemoException.disabled();
         }
         String login = vm == null || vm.login() == null ? "" : vm.login().trim().toLowerCase(Locale.ENGLISH);
-        if (!demoAccountService.isDemo(login)) {
+        if (!demoAccountService.isDemo(login) || (DemoAccountService.LOGIN_ADMIN.equals(login) && !demoAccountService.isAdminDemoEnabled())) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
         if (DemoAccountService.LOGIN_JOB_SEEKER.equals(login)) {

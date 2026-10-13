@@ -64,6 +64,8 @@ public class DemoAccountService {
 
     public static final String LOGIN_JOB_SEEKER = "demo";
     public static final String LOGIN_ORG = "demo-org";
+    /** A real ROLE_ADMIN demo account for testing the app admin console; only exists while {@code dossier.demo.admin-enabled} is on. */
+    public static final String LOGIN_ADMIN = "demo-admin";
 
     /** How many applications {@link #resetData()} seeds for the job seeker. */
     static final int SEEDED_APPLICATIONS = 8;
@@ -79,6 +81,13 @@ public class DemoAccountService {
             "/dashboard"
         ),
         new DemoAccount(LOGIN_ORG, "Organization admin", "The organization admin: people, boards and reports.", "/org")
+    );
+
+    private static final DemoAccount ADMIN_ACCOUNT = new DemoAccount(
+        LOGIN_ADMIN,
+        "App admin",
+        "The Kiwiply app admin console (testing only).",
+        "/admin"
     );
 
     private static final List<String> SKILLS = List.of(
@@ -123,6 +132,10 @@ public class DemoAccountService {
 
     /** {@code dossier.demo.enabled}: fixed at startup from server config; there is no runtime switch. */
     private volatile boolean enabled;
+
+    /** {@code dossier.demo.admin-enabled} (env {@code DEMO_ADMIN_ENABLED}, default off): offers the {@code demo-admin} account. Local/testing only. */
+    @Value("${dossier.demo.admin-enabled:false}")
+    private boolean adminEnabled;
 
     public DemoAccountService(
         UserRepository userRepository,
@@ -186,7 +199,17 @@ public class DemoAccountService {
 
     /** The two accounts the login page offers, in display order. */
     public List<DemoAccount> accounts() {
-        return ACCOUNTS;
+        if (!adminEnabled) {
+            return ACCOUNTS;
+        }
+        List<DemoAccount> all = new java.util.ArrayList<>(ACCOUNTS);
+        all.add(ADMIN_ACCOUNT);
+        return all;
+    }
+
+    /** Whether the {@code demo-admin} account is on offer (needs the demo on AND {@code DEMO_ADMIN_ENABLED}). */
+    public boolean isAdminDemoEnabled() {
+        return enabled && adminEnabled;
     }
 
     /** True when {@code login} is one of the fixed demo logins (case-insensitive). */
@@ -200,7 +223,7 @@ public class DemoAccountService {
             return false;
         }
         String lower = login.trim().toLowerCase(Locale.ENGLISH);
-        return ACCOUNTS.stream().anyMatch(a -> a.login().equals(lower));
+        return LOGIN_ADMIN.equals(lower) || ACCOUNTS.stream().anyMatch(a -> a.login().equals(lower));
     }
 
     /**
@@ -212,7 +235,7 @@ public class DemoAccountService {
             return false;
         }
         String lower = loginOrEmail.trim().toLowerCase(Locale.ENGLISH);
-        return isDemo(lower) || ACCOUNTS.stream().anyMatch(a -> emailFor(a.login()).equals(lower));
+        return isDemo(lower) || emailFor(LOGIN_ADMIN).equals(lower) || ACCOUNTS.stream().anyMatch(a -> emailFor(a.login()).equals(lower));
     }
 
     /** Whether the demo is on: the {@code dossier.demo.enabled} property (env {@code DEMO_ENABLED}), nothing else. */
@@ -223,7 +246,7 @@ public class DemoAccountService {
     /** Sign the demo accounts out everywhere by revoking their refresh tokens. */
     @Transactional
     public void revokeSessions() {
-        for (DemoAccount account : ACCOUNTS) {
+        for (DemoAccount account : accounts()) {
             userRepository.findOneByLogin(account.login()).ifPresent(u -> refreshTokenService.deleteAllForUser(u.getId()));
         }
     }
@@ -267,9 +290,19 @@ public class DemoAccountService {
             });
         ensureAccount(LOGIN_JOB_SEEKER, "Priya", "Sharma", userAuthority); // the demo persona (D47)
         ensureAccount(LOGIN_ORG, "Demo", "Organization", userAuthority);
+        if (adminEnabled) {
+            Authority adminAuthority = authorityRepository
+                .findById(AuthoritiesConstants.ADMIN)
+                .orElseGet(() -> {
+                    Authority authority = new Authority();
+                    authority.setName(AuthoritiesConstants.ADMIN);
+                    return authorityRepository.save(authority);
+                });
+            ensureAccount(LOGIN_ADMIN, "Demo", "Admin", userAuthority, adminAuthority);
+        }
     }
 
-    private void ensureAccount(String login, String firstName, String lastName, Authority userAuthority) {
+    private void ensureAccount(String login, String firstName, String lastName, Authority... authorities) {
         Optional<User> existing = userRepository.findOneByLogin(login);
         if (existing.isPresent()) {
             User user = existing.get();
@@ -301,7 +334,7 @@ public class DemoAccountService {
         user.setLangKey("en");
         user.setActivated(true);
         user.setPassword(passwordEncoder.encode(demoPassword));
-        user.setAuthorities(new HashSet<>(List.of(userAuthority)));
+        user.setAuthorities(new HashSet<>(List.of(authorities)));
         userRepository.save(user);
         LOG.info("Created demo account '{}'", login);
     }
