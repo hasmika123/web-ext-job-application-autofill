@@ -18,6 +18,9 @@
     "name" : "billing",
     "description" : "The current user's plan. Stripe is the source of truth; this reads our mirror of it."
   }, {
+    "name" : "org-invitations",
+    "description" : "Invitations of an organization: list, counts, activity, invite, resend, revoke."
+  }, {
     "name" : "demo",
     "description" : "Public demo accounts (only while an admin has switched them on)."
   }, {
@@ -38,6 +41,9 @@
   }, {
     "name" : "job-fit",
     "description" : "One resume against one job: match, missing keywords, red flags (Pro)."
+  }, {
+    "name" : "org-members",
+    "description" : "Seats of an organization: invites, and the consent-scoped list."
   }, {
     "name" : "inbox",
     "description" : "Connect a dedicated Gmail so applications update themselves (Pro)."
@@ -86,6 +92,9 @@
   }, {
     "name" : "account-deletion",
     "description" : "Self-service GDPR/CCPA account and data deletion."
+  }, {
+    "name" : "org-join",
+    "description" : "Join an organization from an invite or a join code."
   }, {
     "name" : "applications-sync",
     "description" : "User-scoped application tracker: the authenticated user's applications."
@@ -4257,10 +4266,302 @@
         }
       }
     },
+    "/api/orgs/{orgId}/members/{memberId}/resend" : {
+      "post" : {
+        "tags" : [ "org-members" ],
+        "summary" : "Send an invite again",
+        "description" : "Rotates the one-time link (the old one stops working) and emails the new one. Limited per invite per week.",
+        "operationId" : "resend",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Invited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/invite" : {
+      "post" : {
+        "tags" : [ "org-members" ],
+        "summary" : "Invite people by email",
+        "description" : "Up to the configured number of addresses per call. Returns who was invited, which entries were refused and which addresses already hold a seat. 409 SEAT_STATE while the org is not active (admins only before then), 422 ORG_LIMIT_REACHED over a configured cap.",
+        "operationId" : "invite",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrgInviteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgInviteResultDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/invitations" : {
+      "get" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "List invitations",
+        "description" : "Newest first. Filters: status (PENDING, ACCEPTED, EXPIRED, REVOKED), roleId, departmentGroupId, an invited-on range (from inclusive, to exclusive, ISO instants) and q (email or name contains). A caller whose invite right is limited to members sees only the invitations they sent.",
+        "operationId" : "list_3",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "REVOKED" ]
+          }
+        }, {
+          "name" : "roleId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "departmentGroupId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 0
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 25
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "invitedAt,desc"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InvitationPage"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Invite one or many people",
+        "description" : "One address with an optional fullName, or a pasted list (up to the configured batch size). Same roles and placement for all. Returns one row per entry (INVITED, INVALID, DUPLICATE, ALREADY_MEMBER); the link is only ever emailed. 422 ROLE_CEILING when a role gives more access than the caller holds.",
+        "operationId" : "invite_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OrgInviteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgInviteResultDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/invitations/{invitationId}/revoke" : {
+      "post" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Revoke a pending invitation",
+        "description" : "The link stops working at once and the address can be invited again. 404 for an invitation that is not pending.",
+        "operationId" : "revoke",
+        "parameters" : [ {
+          "name" : "invitationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/invitations/{invitationId}/resend" : {
+      "post" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Send an invitation again",
+        "description" : "Rotates the one-time link (the old one stops working), extends the expiry, and revives an expired invitation. Limited per invitation per week.",
+        "operationId" : "resend_1",
+        "parameters" : [ {
+          "name" : "invitationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Invited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/invitations/bulk/revoke" : {
+      "post" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Revoke several invitations",
+        "description" : "At most 100 ids. One result per id.",
+        "operationId" : "bulkRevoke",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IdsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InvitationBulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/invitations/bulk/resend" : {
+      "post" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Resend several invitations",
+        "description" : "At most 100 ids. One result per id: an invitation that cannot be re-sent fails alone with its code.",
+        "operationId" : "bulkResend",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/IdsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InvitationBulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/groups" : {
       "get" : {
         "tags" : [ "org-group-resource" ],
-        "operationId" : "list_3",
+        "operationId" : "list_4",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -4570,6 +4871,108 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/join/{token}/accept" : {
+      "post" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Accept an emailed invite",
+        "description" : "Signed in. Becomes a member and records the consent choice (NONE or SUMMARY) with the text version. 409 ALREADY_MEMBER, INVITE_EXPIRED or SEAT_STATE.",
+        "operationId" : "acceptInvite",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JoinAcceptRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/join/code/{code}" : {
+      "get" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Preview a shared join link",
+        "description" : "No authentication. 404 for an unknown or revoked code, 409 INVITE_EXPIRED when it has expired or has no places left.",
+        "operationId" : "previewCode",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Join with a shared code",
+        "description" : "Signed in. Same as accepting an invite, for a join link a cohort shares. Members only.",
+        "operationId" : "acceptCode",
+        "parameters" : [ {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JoinAcceptRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
           }
         }
       }
@@ -6205,7 +6608,7 @@
     "/api/admin/users/{login}/sessions/{familyId}/revoke" : {
       "post" : {
         "tags" : [ "admin-session-resource" ],
-        "operationId" : "revoke",
+        "operationId" : "revoke_1",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -6456,7 +6859,7 @@
     "/api/admin/job-sources" : {
       "get" : {
         "tags" : [ "admin-job-source-resource" ],
-        "operationId" : "list_4",
+        "operationId" : "list_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -6883,7 +7286,7 @@
         "tags" : [ "resume-builder" ],
         "summary" : "Revoke a grant or link",
         "description" : "Idempotent: 204 whether or not it was already revoked. 404 if the resume or the grant is not yours.",
-        "operationId" : "revoke_1",
+        "operationId" : "revoke_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -8153,7 +8556,7 @@
       "get" : {
         "tags" : [ "job-matches" ],
         "summary" : "Today's matches and the switch",
-        "operationId" : "list_5",
+        "operationId" : "list_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -8281,7 +8684,7 @@
         "tags" : [ "field-cache-sync" ],
         "summary" : "List my field cache",
         "description" : "All learned field answers owned by the current user.",
-        "operationId" : "list_6",
+        "operationId" : "list_7",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -8460,6 +8863,59 @@
         }
       }
     },
+    "/api/orgs/{orgId}/invitations/counts" : {
+      "get" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Invitation counters",
+        "description" : "Pending, accepted, expired and revoked, each with the change against the month before (invitations sent in the last 30 days minus the 30 days before).",
+        "operationId" : "counts",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InvitationCounts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/invitations/activity" : {
+      "get" : {
+        "tags" : [ "org-invitations" ],
+        "summary" : "Recent invitation activity",
+        "description" : "The latest invited, accepted, revoked and expired events, newest first.",
+        "operationId" : "activity_1",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 10
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/InvitationActivity"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/branding" : {
       "get" : {
         "tags" : [ "org-branding" ],
@@ -8558,6 +9014,34 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/MeTenantDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/join/{token}" : {
+      "get" : {
+        "tags" : [ "org-join" ],
+        "summary" : "Preview an emailed invite",
+        "description" : "No authentication. 404 for anything that is not a live invite, 409 INVITE_EXPIRED once it has run out, 429 over the rate limit.",
+        "operationId" : "previewInvite",
+        "parameters" : [ {
+          "name" : "token",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
                 }
               }
             }
@@ -9749,7 +10233,7 @@
     "/api/admin/users/{login}/sessions" : {
       "get" : {
         "tags" : [ "admin-session-resource" ],
-        "operationId" : "list_7",
+        "operationId" : "list_8",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -9779,7 +10263,7 @@
     "/api/admin/subscribers" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "list_8",
+        "operationId" : "list_9",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -9865,7 +10349,7 @@
     "/api/admin/subscribers/counts" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "counts",
+        "operationId" : "counts_1",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9887,7 +10371,7 @@
     "/api/admin/settings" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "list_9",
+        "operationId" : "list_10",
         "parameters" : [ {
           "name" : "area",
           "in" : "query",
@@ -9994,7 +10478,7 @@
     "/api/admin/inquiries" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "list_10",
+        "operationId" : "list_11",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -10054,7 +10538,7 @@
     "/api/admin/inquiries/counts" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "counts_1",
+        "operationId" : "counts_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -10076,7 +10560,7 @@
     "/api/admin/customers" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "list_11",
+        "operationId" : "list_12",
         "parameters" : [ {
           "name" : "filter",
           "in" : "query",
@@ -10162,7 +10646,7 @@
     "/api/admin/customers/counts" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "counts_2",
+        "operationId" : "counts_3",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -10184,7 +10668,7 @@
     "/api/admin/bug-reports" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "list_12",
+        "operationId" : "list_13",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -10244,7 +10728,7 @@
     "/api/admin/bug-reports/counts" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "counts_3",
+        "operationId" : "counts_4",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -13055,6 +13539,187 @@
           }
         }
       },
+      "Invited" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "OWNER", "ADMIN", "STAFF", "MEMBER", "MARKETER", "FINANCE", "COACH" ]
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "roleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "OrgInviteRequest" : {
+        "type" : "object",
+        "properties" : {
+          "emails" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "OWNER", "ADMIN", "STAFF", "MEMBER", "MARKETER", "FINANCE", "COACH" ]
+          },
+          "groupId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "supportOwnerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "roleIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "departmentGroupId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "teamGroupId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "managerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "fullName" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Invalid" : {
+        "type" : "object",
+        "properties" : {
+          "entry" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InviteRowResult" : {
+        "type" : "object",
+        "properties" : {
+          "entry" : {
+            "type" : "string"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "OrgInviteResultDTO" : {
+        "type" : "object",
+        "properties" : {
+          "batchId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "invited" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Invited"
+            }
+          },
+          "invalid" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Invalid"
+            }
+          },
+          "alreadyMember" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InviteRowResult"
+            }
+          }
+        }
+      },
+      "IdsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "ids" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          }
+        }
+      },
+      "InvitationBulkItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InvitationBulkResult" : {
+        "type" : "object",
+        "properties" : {
+          "results" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InvitationBulkItem"
+            }
+          }
+        }
+      },
       "OrgGroupRequest" : {
         "type" : "object",
         "properties" : {
@@ -13179,6 +13844,18 @@
             "type" : "string"
           },
           "source" : {
+            "type" : "string"
+          }
+        }
+      },
+      "JoinAcceptRequest" : {
+        "type" : "object",
+        "properties" : {
+          "shareScope" : {
+            "type" : "string",
+            "enum" : [ "NONE", "SUMMARY", "FULL" ]
+          },
+          "consentVersion" : {
             "type" : "string"
           }
         }
@@ -15447,6 +16124,188 @@
           },
           "version" : {
             "type" : "string"
+          }
+        }
+      },
+      "InvitationDTO" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "REVOKED" ]
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InvitationRoleRef"
+            }
+          },
+          "department" : {
+            "$ref" : "#/components/schemas/InvitationGroupRef"
+          },
+          "team" : {
+            "$ref" : "#/components/schemas/InvitationGroupRef"
+          },
+          "manager" : {
+            "$ref" : "#/components/schemas/InvitationPersonRef"
+          },
+          "invitedBy" : {
+            "$ref" : "#/components/schemas/InvitationPersonRef"
+          },
+          "invitedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "acceptedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "resendCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InvitationGroupRef" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InvitationPage" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InvitationDTO"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "InvitationPersonRef" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InvitationRoleRef" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "primary" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "InvitationCounts" : {
+        "type" : "object",
+        "properties" : {
+          "counts" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/InvitationStatusCount"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "InvitationStatusCount" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string",
+            "enum" : [ "PENDING", "ACCEPTED", "EXPIRED", "REVOKED" ]
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deltaLastMonth" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "InvitationActivity" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "invitationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "actor" : {
+            "$ref" : "#/components/schemas/InvitationPersonRef"
           }
         }
       },
