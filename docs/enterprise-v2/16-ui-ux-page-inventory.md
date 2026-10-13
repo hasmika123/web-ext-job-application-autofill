@@ -264,7 +264,7 @@ the API re-checks with scope) · **Entitlement / module** · **Empty state** · 
 | Lifecycle → `/w/hr/lifecycle` | `LifecyclePage` (employment_record) | `GET …/hr/lifecycle` | `lifecycle.manage` | hr_finance | X11.1 (D) |
 | Offboarding → `/w/hr/offboarding` | scheduled offboardings (15 §5) + HR steps | `GET …/members/offboarding` | `members.remove`, `lifecycle.manage` | — / hr_finance | X4.4, X11.1 |
 | Reports → `/w/hr/reports` | `ReportsPage` HR rows | `GET …/reports?family=hr` | `reports.view` | hr_finance | X11.6 (D) |
-| (Talent Acquisition) Candidates, Talent pools → `/w/hr/candidates`, `/w/hr/talent-pools` | D (X7/X11 follow-up); hidden until built | | `candidates.manage` | | — |
+| (Talent Acquisition) Candidates, Talent pools → `/w/hr/candidates`, `/w/hr/talent-pools` | `CandidatesPage`, `TalentPoolsPage` (36 §3; members/invites only, D5) | `GET …/hr/candidates`, `…/hr/talent-pools` | `candidates.manage`, `talent_pools.manage` | hr_finance | "Invite your first candidate" | X11.8 |
 
 ### 5.6 FINANCE — Finance Specialist (C: subscriptions/billing; D: placements/timesheets)
 | Page | Component | Data source | Permission | Module | Story |
@@ -289,7 +289,7 @@ ORG, permissions `clients.*`, `requirements.manage`, `submissions.record`, `inte
 ### 5.8 EXEC — Executive / Viewer (E, Phase 12; Phase 2 ships Home with counts only)
 Home `/w/exec` (counts-only tiles from `GET …/dashboard` projected by `EXECUTIVE_VIEWER`'s
 permissions; k-anonymity rules for anything per-person) · Reports `/w/exec/reports`
-(`reports.view` ORG aggregates) — X12.1.
+(`reports.view` ORG aggregates) — API X12.1, pages **X12.8** (AnalyticsPage shared with `/w/admin/reports`).
 
 ### 5.9 Kiwiply Platform Admin (kiwiply.com `/admin/*`, existing admin kit; never on tenant hosts)
 | Page | Story |
@@ -297,7 +297,11 @@ permissions; k-anonymity rules for anything per-person) · Reports `/w/exec/repo
 | Platform Home (existing), Organizations + Tenant Provisioning (`/admin/organizations`, `/[id]`) | X1.11 |
 | Domains (`/admin/domains`: every hostname, states, re-check, suspend/resume, Google-origin flag) | X3.3, X3.7 |
 | Subscriptions (org billing ops), Feature Catalog, Pricing, Commercial Agreements | X6.9, X6.10 (C) |
-| Integrations, Platform Analytics, Security (break-glass log, E8), Tenant Health (ask rate, hostname states, check-job health, flags per org), Settings (registry) | X3.6 (tenant health rows), X12.* (E) |
+| Integrations (delivery health across orgs) | X12.3 |
+| Platform Analytics (`/admin/analytics`, cross-tenant aggregates only) | X12.12 |
+| Security (`/admin/security`: break-glass grant log, E8) | X6.17 |
+| Tenant Health (ask rate, hostname states, check-job health, flags per org) | X3.3, X3.6 |
+| Settings (registry) | existing (A5.1) |
 
 ## 6. Wireframes for the key pages (390 / 1440)
 

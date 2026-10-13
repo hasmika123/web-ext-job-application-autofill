@@ -137,3 +137,32 @@ version, invoice traceability, reconciliation, regression tests for the personal
 | Branch A/B merge conflicts | X1.8 and X2.1 start by consolidating the duplicate web helpers in one commit before adding features |
 | Stripe item cap | ADR-020 fallback designed up front; flag per org |
 | Team bandwidth | Each phase is 8–14 stories sized S/M/L; no story spans two contexts |
+
+## 7. Global build order (Session E, Task 5 — 2026-10-12)
+
+One sequence across phases, dependencies first; the same list drives the phase tables in
+`progress-tracker.md`. Stories inside a phase may run in parallel where the per-phase notes in
+`07-backlog.md` allow it; across phases the order is strict except where noted. Every story is
+S/M (the 27 former L stories were split: the original id keeps the foundation/API half, the new id
+carries the UI/lifecycle half). 154 stories including X0.1.
+
+| Phase | Build order |
+|---|---|
+| **1** Enterprise tenant foundation | X1.1 → X1.2 → X1.3 → X1.4 → X1.5 → X1.6 → X1.7 → X1.14 → X1.8 → X1.15 → X1.10 → X1.11 → X1.12 → X1.9 → X1.13 |
+| **2** Branded login and dashboard shell | X2.1 → X2.8 → X2.15 → X2.12 → X2.13 → X2.2 → X2.16 → X2.10 → X2.3 → X2.6 → X2.7 → X2.9 → X2.4 → X2.17 → X2.5 → X2.18 → X2.14 → X2.11 |
+| **3** Custom domains | X3.1 → X3.2 → X3.3 → X3.4 → X3.5 → X3.6 → X3.7 → X3.8 |
+| **4** Roles, employees, departments, teams, assignments | X4.1 → X4.11 → X4.2 → X4.5 → X4.3 → X4.12 → X4.6 → X4.4 → X4.9 → X4.7 → X4.13 → X4.8 → X4.10 |
+| **5** Subscription foundation | X5.1 → X5.2 → X5.3 → X5.13 → X5.5 → X5.15 → X5.4 → X5.14 → X5.7 → X5.6 → X5.16 → X5.11 → X5.8 → X5.12 → X5.9 → X5.10 |
+| **6** Billing & license UI, Stripe org billing | X6.12 → X6.6 → X6.14 → X6.7 → X6.15 → X6.8 → X6.1 → X6.2 → X6.3 → X6.13 → X6.4 → X6.5 → X6.9 → X6.16 → X6.10 → X6.17 → X6.11 |
+| **7** Consultant & resume management | X7.2 → X7.1 → X7.8 → X7.3 → X7.9 → X7.6 → X7.4 → X7.5 → X7.10 → X7.7 |
+| **8** Talent marketing | X8.10 → X8.13 → X11.7 → X8.1 → X8.2 → X8.3 → X8.11 → X8.4 → X8.12 → X8.5 → X8.8 → X8.6 → X8.7 → X8.9 |
+| **9** Consultant applications, interviews, extension workspace | X9.1 → X9.11 → X9.2 → X9.3 → X9.4 → X9.5 → X9.6 → X9.7 → X9.8 → X9.9 → X9.12 → X9.10 |
+| **10** Clients & placements | X10.1 → X10.9 → X10.2 → X10.3 → X10.4 → X10.10 → X10.8 → X10.6 → X10.5 → X10.7 |
+| **11** HR & Finance | X11.1 → X11.2 → X11.3 → X11.8 → X11.5 → X11.4 → X11.9 → X11.6 |
+| **12** Advanced analytics & enterprise features | X12.5 → X12.1 → X12.8 → X12.7 → X12.3 → X12.12 → X12.11 → X12.4 → X12.10 → X12.2 → X12.9 → X12.6 |
+
+Notes: X1.13 is independent of the flags and can be built first. X11.7 (PII scanner) is built in the
+Phase-8 slot because X10.1 depends on it. X3.* needs the user-applied edge change for public hosts
+but develops on `*.localhost`. X12.2/X12.9 stay Not Started until escalation D2 is answered.
+Phase gates (§1 exit criteria) are unchanged; `X1.9`, `X2.11`, `X3.8`, `X4.10`, `X5.10`, `X6.11`,
+`X8.9`, `X9.10` close their phases.

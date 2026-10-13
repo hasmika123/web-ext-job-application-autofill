@@ -1,4 +1,4 @@
-# 07 — Backlog: epics for every phase, fully specified stories for Phase 1
+# 07 — Backlog: epics for every phase, every story fully specified (§30 format)
 
 > Status: plan, 2026-10-12. Source of truth for ids and statuses is `docs/roadmap/areas/ent.json`
 > (area `ent`, prefix `X`), rendered in `docs/roadmap/master-roadmap.html`. Change a status with
@@ -29,8 +29,8 @@
 
 ## 2. Phase 1 — Enterprise tenant foundation (fully specified)
 
-Build order (dependencies first): X1.1 → X1.2 → X1.3 → X1.4 → X1.5 → X1.6 → X1.7 → X1.8 → X1.9 → X1.10 → X1.11 → X1.12 → X1.13 (any time after X1.3; independent of the flags).
-X1.4 is the amended version (09 row 15): the tenant tree lives at `web/src/app/(tenant)/_t/**` behind a `proxy.ts` rewrite.
+Build order (dependencies first; L stories split by Session E): X1.1 → X1.2 → X1.3 → X1.4 → X1.5 → X1.6 → X1.7 → X1.14 → X1.8 → X1.15 → X1.10 → X1.11 → X1.12 → X1.9 → X1.13 (any time; independent of X1.3 and the flags).
+X1.4 is the amended version (09 row 15, corrected in Task 3): the tenant tree lives in the directory `web/src/app/(tenant)/%5Ft/**` (URL `/_t`) behind a `proxy.ts` rewrite.
 X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X1.2; X1.9 closes the phase.
 
 ### X1.1 — Enterprise feature flags in the settings registry + EnterpriseEnabledFilter (second 404 wall)
@@ -223,7 +223,7 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 **Test cases**
 - tenant.test.ts (host normalisation, platform-host classification incl. `localhost` vs `*.localhost`, flag-off short-circuit, fail-closed branches).
 - proxy.test.ts (rewrite table: rewritten paths, excluded paths, platform host never rewritten, header set on every branch).
-- app/(tenant)/_t/layout.test.tsx (three kinds: UNKNOWN 404, PLATFORM notFound, TENANT title).
+- app/(tenant)/%5Ft/layout.test.tsx (three kinds: UNKNOWN 404, PLATFORM notFound, TENANT title).
 - api.test.ts header forwarding (serverApiFetch + login/refresh handlers).
 - Playwright tenant-unknown.spec.ts with extraHTTPHeaders Host for nobody.localhost, acme.localhost and localhost (incl. `/_t/` on the platform host → 404).
 - BffDoesNotForwardForwardedHostTest (42 §6.2), layout-chrome.test.tsx (chrome mounted per group, absent in (tenant)).
@@ -517,6 +517,7 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - OrgIsolationIT coverage registry includes every new route (fails otherwise, existing pattern).
 - TenantRepositoryContractTest: reflection over repository.org and repository.ent; allow-list file for the few host/subdomain lookups.
 - Playwright web/e2e/journeys/tenant-isolation.spec.ts over the mock with Host emulation: different branding per host, non-member sees not-a-member, unknown host 404, /admin on a tenant host 404.
+- Restore-drill assertions (44 §8/§14): extend `verify-restore.sh` so the weekly restore asserts COUNT(*) > 0 for org_role and (once X5.1 lands) feature_definition, databasechangelog max id = expected, one org_member_role per live member for enterprise-flagged orgs; `PriceIntegrityJob --once` is appended by X5.1.
 
 **UI requirements**
 - —
@@ -540,13 +541,13 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - All classes exist, run in the CI api-tests job and pass.
 - Deliberately removing the tid check (mutation) fails HostMismatchIT; deliberately adding a findById to an ent repository fails the contract test (documented in the test javadoc).
 - ci.yml needs no change (tests discovered by pattern).
+- verify-restore.sh fails on a dump missing the org_role system rows (fixture) and passes on a good dump.
 
 **Test cases**
 - Themselves.
 
 - **Tech notes:** 04-tenancy-and-security.md §5; OrgIsolationIT patterns; Playwright extraHTTPHeaders.
 - **Definition of Done:** CI green; 04 §5 lists the class names as built. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X1.10 — Tenant context in logs, audit and async work: MDC tenant/host/member, TenantScoped helper, OrgAuditService hostname/beneficiary/risk
 - **Epic:** X1 · **Size/Complexity:** S/S · **Owners:** API · **Deps:** X1.3
 - **Persona:** Operator / org admin reading the audit log
@@ -731,9 +732,10 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - **Definition of Done:** DEPLOY.md + .env.example updated; openapi.json unchanged; CI green. Plus the common DoD in `06-phase-plan.md` §5.
 ## 3. Phases 2–12 — stories
 
-X2, X3 and X4 (except X4.7/X4.8/X4.10) are fully specified by Session B below; the remaining epics
-keep their title tables until the owning session (README: C owns X5/X6, D owns X7–X11, E owns the
-API/test/deploy specs and reviews every story) writes them. Sizes of unspecified rows are first estimates.
+Every story in X2–X12 is fully specified (Sessions B, C, D wrote X2–X11; Session E wrote X12, split every
+L story into S/M halves — the original id keeps the foundation/API half, the new id carries the UI/lifecycle
+half — and added X6.17, X11.8, X12.8–X12.12 from the coverage audit `45-requirements-coverage.md`).
+The global build order across phases is in `06-phase-plan.md` §7 and `progress-tracker.md`.
 
 ### X2 — Phase 2 — Branded login and dashboard shell
 _Runtime branding, one branded login, one enterprise shell with permission-driven workspaces, Org Admin lands on the Org Admin Dashboard, basic profile from the avatar menu, the Kiwiply character used compactly._
@@ -2526,10 +2528,10 @@ Owned elsewhere (titles only here):
 ### X5 — Phase 5 — Subscription foundation (fully specified, Session C)
 _Catalog (shared with personal plans), feature definitions and dependencies, base license + add-ons, pricing engine with contracts, entitlement evaluation, usage ledger, org modules, bulk operations, personal-subscription regression suite. Design: docs 20–25, 27, 29._
 
-Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X5.7 → X5.6 → X5.11 → X5.8 → X5.12 → X5.9 → X5.10.
+Build order (dependencies first; L stories split by Session E): X5.1 → X5.2 → X5.3 → X5.13 → X5.5 → X5.15 → X5.4 → X5.14 → X5.7 → X5.6 → X5.16 → X5.11 → X5.8 → X5.12 → X5.9 → X5.10.
 
-### X5.1 — Catalog tables (product, product_price, product_entitlement, bundle_item, catalog_publish) with effective dates, catalog_version and the new kinds; admin Catalog page read/write for platform admins
-- **Epic:** X5 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X1.1, X1.11 · **Relates:** A3.1, A3.5, A3.7
+### X5.1 — Catalog tables (product, product_price, product_entitlement, bundle_item, catalog_publish) with effective dates, catalog_version and the enterprise kinds; CatalogService + admin catalog API; enterprise rows seeded with no prices
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.1, X1.11 · **Relates:** A3.1, A3.5, A3.7
 - **Persona:** Platform admin
 - **Objective:** One catalog for personal plans and enterprise licenses, with immutable effective-dated prices and a monotonic version, editable from admin.
 - **Story:** As a platform admin, I want products and prices to live in the database with effective dates and versions so that enterprise licenses and personal plans share one priced catalog that never changes under a contract.
@@ -2539,11 +2541,10 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - Prices are immutable: publish = new row + catalog_publish row in one transaction; retire sets active=false, retired_at, effective_until; ORG + QUARTER refused (E17); one active row per (product, audience, interval, currency).
 - Publishing creates the Stripe Price through StripeGateway with idempotency key price-{id}; with Stripe off, publish is refused 503 BILLING_DISABLED except in LOCAL mode (dossier.catalog.local-publish=true for dev/CI) where stripe_price_id = "local_{id}".
 - Seed: FREE/PRO/AUTOPILOT personal products from today's config (A3.5 behaviour), ORG_SETUP_FEE, ORG_BASE_LICENSE, one FEATURE product per 21 §3 key, MOD_TALENT_MARKETING — all enterprise rows WITHOUT prices (E3 answered: nothing is sellable until admin publishes).
-- Admin Catalog page (admin page kit, A3.4 layout) lists products/prices/versions; price editor with the live margin guard (Phase 18 §10) for SUBSCRIPTION/SERVICE/FEE kinds; ORG kinds get their formulas in X5.3.
+- The admin Catalog page is X5.13; this story exposes the admin API only.
 
 **UI requirements**
-- web/src/app/(admin)/admin/pricing/page.tsx with AdminHero + AdminTabs (Catalog, Publish, Change history); AdminTable rows with margin column; ReasonSheet on publish/retire; ConfirmTypedSheet typing the version number on publish.
-- 390: tabs scroll, tables become card lists (useNarrow).
+- —
 
 **Backend requirements**
 - service/catalog/CatalogService (products, prices, publish, retire, versions)
@@ -2584,11 +2585,49 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - CatalogResourceIT (reason sheet, 409, 422, drafts hidden)
 - CatalogSeedTest (isPro behaviour for fixture users identical before/after seed — A3.5 migration test)
 - PublicCatalogIT (unchanged)
-- web: pricing page render + guard debounce test
 
-- **Tech notes:** Do not fork the Phase 18 design; X5.1 supersedes A3.1 (A3.5/A3.7 remain admin stories that reuse these tables). amount_minor not amount_cents. Keep StripeGateway the only com.stripe importer.
+- **Tech notes:** Do not fork the Phase 18 design; X5.1 supersedes A3.1 (A3.5/A3.7 remain admin stories that reuse these tables). amount_minor not amount_cents. Keep StripeGateway the only com.stripe importer. Split by Session E: X5.1 = tables + service + API; X5.13 = page.
 - **Definition of Done:** Catalog page lists seeded products with no enterprise prices; CI green; progress-tracker row updated. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.13 — Admin Catalog page (admin page kit): products/prices/versions tabs, price editor with the live margin guard, ReasonSheet on publish/retire, typed version confirm, change history
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X5.1, X5.3 · **Relates:** A3.4
+- **Persona:** Kiwiply platform admin
+- **Objective:** The catalog can be read and priced from the admin console with the margin floors visible before publish, so no price is ever typed into code.
+- **Story:** As a platform admin, I want to see every product and price, add a price and watch the margin guard before I publish so that pricing is a console action with a reason, not a deploy.
 
+**Functional requirements**
+- web/src/app/(admin)/admin/pricing/page.tsx with AdminHero + AdminTabs (Catalog, Publish, Change history); AdminTable rows with the margin column (live from X5.3 MarginCalculator for every kind); price editor (amount_minor, currency, interval, audience, effective_from) with the guard result inline (≥ 80 % subscriptions / ≥ 20 % services; ORG kinds via X5.3 formulas); ReasonSheet on publish/retire; ConfirmTypedSheet typing the version number on publish; drafts vs active vs retired badges.
+- 390: tabs scroll, tables become card lists (useNarrow); autosave on draft fields, publish is the explicit action.
+
+**UI requirements**
+- Admin kit only (AdminTable/AdminFilterBar/ReasonSheet/ConfirmTypedSheet); no new primitives without adding them to the kit first.
+
+**Backend requirements**
+- — (X5.1 API; X5.3 margin endpoint)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes /api/admin/catalog/** (X5.1), POST /api/admin/catalog/margin-preview (X5.3)
+
+**Permissions**
+- ROLE_ADMIN + catalog.manage admin permission
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- The page lists seeded enterprise products with zero price rows and sellable=false badges; adding an ORG_BASE_LICENSE price below the floor shows the guard refusal before Publish is enabled.
+- Publish requires typing the next version ("v18") and a reason; the Change history tab shows the publish with before/after and the actor.
+- Retiring a price shows it as retired (still readable by id) and the public catalog test stays unchanged.
+- 390 and 1440 kit snapshots; axe clean.
+
+**Test cases**
+- web pricing page render + guard debounce test (kit-test-utils)
+- Playwright catalog-admin.spec (publish with typed version, 390/1440)
+
+- **Tech notes:** Split from X5.1 by Session E. A3.4 layout; Phase 18 §10 margin guard UX; X6.9 extends this page with Features/Presets/Tiers, X6.16 with Discounts/Contracts.
+- **Definition of Done:** Admin can publish the first enterprise price from the page; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X5.2 — feature_definition, feature_definition_limit, feature_dependency, license_preset, volume_tier tables + admin editors; initial feature keys, dependencies and presets seeded inactive with no prices
 - **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X5.1 · **Relates:** O3.1 · **Supersedes:** O3.1
 - **Persona:** Platform admin
@@ -2693,8 +2732,8 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - **Tech notes:** No floating point: percentages are basis points; margins returned as bp integers and formatted in the web.
 - **Definition of Done:** Guard visible in all three editors; override audited. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 
-### X5.5 — PricingEngine (list → contract → one discount → volume tier → effective, half-even per unit), org_contract/org_contract_price/contract_event/org_discount tables, ContractService, QuoteService with inputs_hash and 15-min expiry, golden and property tests
-- **Epic:** X5 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X5.3 · **Relates:** E2E-A5.1
+### X5.5 — PricingEngine (list → contract → one discount → volume tier → effective, half-even per unit) + QuoteService with inputs_hash and 15-min expiry; golden tables G1–G14 and property tests
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.3 · **Relates:** E2E-A5.1
 - **Persona:** Platform admin / Org admin
 - **Objective:** One pure pricing function with exact precedence and rounding, contracts and discounts as data, and authoritative quotes that cannot go stale.
 - **Story:** As an org admin, I want every price I see to be computed by the backend from the catalog, my contract and any discount in a fixed order so that the number on the quote is the number on the invoice.
@@ -2702,8 +2741,8 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 **Functional requirements**
 - Minor.mulDivHalfEven and the per-unit precedence of 22 §3 (contract REPLACES/REDUCES; promo only if no non-stackable contract; tier only if volume_applies or uncontracted org; clamp ≥ 0).
 - Totals per 22 §4; proration per 22 §6 (Kiwiply authority; confirm ≤ quote); inputs_hash per 22 §7; LicenseQuoteDTO with every field of 22 §8; license_quote persistence (20 §2.3) with status OPEN/APPLIED/EXPIRED/SUPERSEDED and QuotePurgeJob.
-- Contracts and discounts per 23 (one ACTIVE per org, versions, two-person rule, floor + reason, ContractLifecycleJob, org_discount best-of selection with tie-break).
 - Golden tables G1–G14 and property tests 1–7 of 22 §9–10 as code.
+- Contract and discount tables/services are X5.15; until it lands the engine takes PricingInputs with empty contract/discount sets (golden tables that need contracts run against in-memory inputs).
 
 **UI requirements**
 - None (platform admin contract pages are X6.9).
@@ -2711,16 +2750,12 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 **Backend requirements**
 - service/ent/pricing/Minor, PricingEngine, PricingInputs, PricingInputsLoader, QuoteHasher
 - service/ent/pricing/QuoteService
-- service/ent/contracts/ContractService, ContractLifecycleJob, OrgDiscountService
-- web/rest/admin/AdminContractResource (API only; UI in X6.9)
 
 **Database changes**
-- Liquibase 20261019020000_ent_contracts.xml: org_contract, org_contract_price (with version_from INT NOT NULL, version_to INT NULL — a price row is closed, never edited; a quote pinned at contract version v reads rows with version_from ≤ v < COALESCE(version_to, ∞); 23 §2.2, 41 §3.3), contract_event, org_discount, org_discount_redemption; license_quote lives in X5.4's changelog (QuoteService writes it once X5.4 lands; until then the engine returns DTOs only — X5.5 tests run in memory).
+- None in this story (license_quote is X5.4's changelog; org_contract* and org_discount* are X5.15's).
 
 **APIs**
-- GET/POST/PUT /api/admin/contracts, POST /{id}/approve|activate|end|cancel, GET /{id}/events
-- GET/POST/PUT /api/admin/org-discounts, POST /{id}/archive
-- GET /api/admin/orgs/{orgId}/pricing-preview
+- No public routes; QuoteService is consumed by X5.4 (quotes) and X6.3 (UI).
 
 **Permissions**
 - ROLE_ADMIN + contracts.manage; every write HIGH with reason; org side read-only (no write endpoints under /api/orgs/** — asserted).
@@ -2732,41 +2767,82 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - PricingEngineGoldenTest reproduces every value in 22 §9 (G1 7992; G2 7392/600; G3 7192/800; G4 7467/525; G5 = G2; G6 6867/1125; G7 7592/400; G8 7094; G9 6835 and 7192; G10 rounding rows; G11 386/1062/1448/11437 and confirm 380/1044; G12 currency cases; G13 4294 and 425 ¢; G14 dependency outcomes).
 - Property tests 22 §10 pass (1 000 random inputs each).
 - Confirm with a changed catalog_version/contract_version/inputs → 409 QUOTE_STALE with reason; after 15 minutes → 410 QUOTE_EXPIRED.
-- A second ACTIVE contract overlapping → 409 CONTRACT_OVERLAP; a row with both overrides → 422; currency mismatch → 422.
-- Amending an ACTIVE contract (version v → v+1) closes the replaced price rows with version_to = v+1 and inserts new rows with version_from = v+1; a quote pinned at v still prices with the old rows and a re-quote prices with the new ones (ContractPriceVersionTest); any UPDATE of override_amount_minor/override_pct_off_bp on an existing row is refused (ImmutableContractPriceIT).
 
 **Test cases**
 - MinorTest
 - PricingEngineGoldenTest
 - PricingEnginePropertyTest
 - QuoteHasherTest
+- QuoteServiceTest (expiry, stale, supersede)
+
+- **Tech notes:** PricingEngine takes a PricingInputs value object; no repositories inside. Basis points everywhere; never BigDecimal/double. Promo "best" = largest reduction on the org's current recurring total, tie → lowest id. Split by Session E: X5.5 = engine + quotes; X5.15 = contracts/discounts (09 planned the split as "contracts/discounts/QuoteService"; QuoteService stays with the engine because confirm-freshness is an engine concern).
+- **Definition of Done:** Golden tests green and checked in with the exact tables. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.15 — Contracts and discounts: org_contract / org_contract_price (version_from/version_to) / contract_event / org_discount / org_discount_redemption tables, ContractService with the two-person rule and floor check, ContractLifecycleJob, OrgDiscountService best-of selection, admin contract API
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.5, X1.11
+- **Persona:** Kiwiply platform admin (sales/finance); the pricing engine as the consumer
+- **Objective:** Negotiated prices and promotions are data with immutable history that the engine reads at the pinned contract version, never a code change.
+- **Story:** As a platform admin, I want to record Acme's negotiated base price and a 10 % launch discount with an approver so that every quote and invoice for Acme reflects the deal exactly and auditable.
+
+**Functional requirements**
+- Tables per 23 §2.1–§2.4 in 20261019020000_ent_contracts.xml: org_contract (one ACTIVE per org via generated active_key; status DRAFT|APPROVED|ACTIVE|ENDED|CANCELLED; version), org_contract_price (version_from/version_to; override_amount_minor XOR override_pct_off_bp; min_quantity; allowance_override; pool_mode_override; floor check with override_reason), contract_event (every transition and row add/remove with before/after JSON), org_discount (promotional, ends_at ≤ 12 months, stackable flag), org_discount_redemption.
+- ContractService: create/amend (version+1 closes replaced price rows), approve (two-person rule: approver ≠ author, both ROLE_ADMIN with contracts.manage), activate, end, cancel; validation 23 §3 (overlap 409 CONTRACT_OVERLAP, both overrides 422, currency mismatch 422, floor → HIGH audit CONTRACT_BELOW_FLOOR with reason); ContractLifecycleJob (daily: ACTIVE → ENDED at ends_at, renewal drafts, ORG_BILLING notification 30/7 days before end).
+- OrgDiscountService: best-of selection among eligible discounts (largest reduction on the org's current recurring total, tie → lowest id); never stacks with a non-stackable contract (22 §3).
+- PricingInputsLoader (X5.5) reads the ACTIVE contract rows at the quote's pinned contract_version.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/ent/contracts/ContractService, ContractLifecycleJob, OrgDiscountService; web/rest/admin/AdminContractResource, AdminOrgDiscountResource; repository/ent/*
+
+**Database changes**
+- Liquibase 20261019020000_ent_contracts.xml: org_contract, org_contract_price, contract_event, org_discount, org_discount_redemption; composite tenant FKs per 41 R3.
+
+**APIs**
+- GET/POST/PUT /api/admin/contracts, POST /{id}/approve|activate|end|cancel, GET /{id}/events
+- GET/POST/PUT /api/admin/org-discounts, POST /{id}/archive
+- GET /api/admin/orgs/{orgId}/pricing-preview
+
+**Permissions**
+- ROLE_ADMIN + contracts.manage; ReasonSheet on every write; two-person rule on approve
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- A second ACTIVE contract overlapping → 409 CONTRACT_OVERLAP; a row with both overrides → 422; currency mismatch → 422; approve by the author → 422 TWO_PERSON_RULE.
+- Amending an ACTIVE contract (v → v+1) closes the replaced price rows with version_to = v+1 and inserts new rows with version_from = v+1; a quote pinned at v still prices with the old rows and a re-quote prices with the new ones (ContractPriceVersionTest); any UPDATE of override_amount_minor/override_pct_off_bp on an existing row is refused (ImmutableContractPriceIT).
+- A below-floor override without a reason → 422; with a reason → saved and audited HIGH CONTRACT_BELOW_FLOOR.
+- Golden tables G2–G7 (contract and discount cases of 22 §9) pass end to end through PricingInputsLoader with persisted rows.
+- The org sees only its contract name and the "contract pricing applied" markers (23 §4) — never another org's rows (OrgIsolationIT).
+
+**Test cases**
 - ContractServiceTest
 - ContractLifecycleJobTest
 - OrgDiscountTest
 - AdminContractResourceIT
 - ContractPriceVersionTest
 - ImmutableContractPriceIT
+- PricingInputsLoaderIT (G2–G7)
 
-- **Tech notes:** PricingEngine takes a PricingInputs value object; no repositories inside. Basis points everywhere; never BigDecimal/double. Promo "best" = largest reduction on the org's current recurring total, tie → lowest id.
-- **Definition of Done:** Golden tests green and checked in with the exact tables. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-### X5.4 — consultant_license + license_feature + license_quote + license_change tables and LicenseService (quote → confirm; assign, add/remove features, upgrade, schedule downgrade, suspend, cancel, reactivate; presets; dependencies) — API only, Stripe off (LocalBillingApplier)
-- **Epic:** X5 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X5.5, X1.7, X1.8 · **Relates:** O3.2 · **Supersedes:** O3.2
+- **Tech notes:** Split from X5.5 by Session E. 23 (all), 22 §3, 41 §3.3; escalations C6 (min commitment informational), E9 (Stripe representation is X6.7's coupon).
+- **Definition of Done:** Admin API can take a contract from draft to active with a second approver; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.4 — consultant_license + license_feature + license_quote + license_change tables and LicenseService (quote → confirm; assign, add/remove features, upgrade, schedule downgrade; presets; dependencies; org-effective catalog) — API only, applier interface with a no-op LOCAL stub
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.5, X1.7, X1.8, X5.15 · **Supersedes:** O3.2 · **Relates:** O3.2
 - **Persona:** Org admin
 - **Objective:** Per-consultant base + feature licenses tied to the membership, every change through a quote and a change row, with effective dates and no silent paid additions.
 - **Story:** As an org admin, I want to give each consultant a base license and exactly the features they need, see the price before I confirm, and schedule removals for period end so that nobody pays for time they did not use or gets a feature they did not agree to.
 
 **Functional requirements**
 - Tables per 20 §2.1–2.4 with the one-live-license and one-live-feature rules; LicenseService per 20 §4 rules 1–11 (org state, membership PENDING for INVITED, eligibility, dependency semantics 21 §4, stackable caps, currency, freshness, idempotent confirm, atomic change rows, audit, notifications).
-- Lifecycle per 27 §2–§3 implemented in Kiwiply rows; LicenseLifecycleJob (PENDING promotion, period-end flips, SUSPENDED expiry).
-- LocalBillingApplier (26 §11) applies batches immediately when Stripe is off and writes org_subscription/org_subscription_item mirror rows with source=LOCAL and calendar-month periods; paid_through_at = period end.
-- Shortcut endpoints suspend/reactivate/cancel create + confirm a one-line quote.
 - Org-effective catalog endpoint (sellable flags, effective unit prices with applied markers, presets, dependencies, contract name).
+- LicenseChangeApplier interface defined here with NoopApplier (LOCAL profile) so confirm is testable without Stripe; LocalBillingApplier mirrors, the lifecycle job and the suspend/reactivate/cancel shortcuts are X5.14.
 
 **UI requirements**
 - None (pages in X6.1–X6.3).
 
 **Backend requirements**
-- service/ent/licenses/LicenseService, LicenseChangeApplier (interface) + LocalBillingApplier, LicenseLifecycleJob, LicenseRules
+- service/ent/licenses/LicenseService, LicenseChangeApplier (interface) + NoopApplier, LicenseRules
 - domain/ConsultantLicense, LicenseFeature, LicenseQuote, LicenseChange
 - web/rest/org/OrgLicenseResource
 - service/ent/OrgStateRules
@@ -2782,7 +2858,6 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - POST /api/orgs/{orgId}/licenses/quotes
 - POST /api/orgs/{orgId}/licenses/quotes/{quoteId}/confirm (Idempotency-Key)
 - DELETE /api/orgs/{orgId}/licenses/changes/{changeId}
-- POST /api/orgs/{orgId}/licenses/{id}/suspend|reactivate|cancel
 - GET /api/orgs/{orgId}/members/{memberId}/entitlements
 
 **Permissions**
@@ -2793,23 +2868,63 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 
 **Acceptance criteria**
 - E2E-C API path: base + ai.job_matching + ai.resume_tailoring for a member → quote shows 2797 at draft prices → confirm → license ACTIVE with two live features; a second confirm with the same Idempotency-Key returns the same batch and creates nothing.
-- Removing a feature sets ends_at = period end and the feature row stays live until then; cancelling the pending change restores it; after the job runs at ends_at the row is not live.
+- Removing a feature sets ends_at = period end and the feature row stays live until then; cancelling the pending change restores it (the period-end job is X5.14).
 - A quote with a paid TECHNICAL dependency missing → 422 DEPENDENCY_REQUIRED; a COMMERCIAL dependency → requiresConfirmation[] and confirm without confirmedCommercialDeps → 422 DEPENDENCY_UNCONFIRMED.
-- INVITED member → license PENDING; accepting the invite promotes it to ACTIVE.
-- Member leaves → license ENDED(MEMBER_LEFT) now and features off now.
+- INVITED member → license PENDING (promotion on accept is X5.14).
 - Org PAST_DUE → quotes may only remove/cancel (PAST_DUE_REMOVE_ONLY); SUSPENDED → 409 ORG_STATE.
-- Every route returns 404 to a member of another org (OrgIsolationIT) and 402 bodies never name another tenant.
 
 **Test cases**
 - LicenseServiceTest (20 §9 list)
-- LicenseLifecycleJobTest
-- LocalBillingApplierTest
 - LicenseResourceIT + OrgIsolationIT registry rows + CrossTenantSweepIT rows
 - QuoteConfirmIT (stale/expired/idempotent)
 
-- **Tech notes:** license_feature liveness is service-maintained (live BOOLEAN + live_seq) because MySQL generated columns cannot use NOW(). Confirm writes Kiwiply rows first, then calls the applier (26 §4 step 6 rationale). Entitlement is effective at commit.
+- **Tech notes:** license_feature liveness is service-maintained (live BOOLEAN + live_seq) because MySQL generated columns cannot use NOW(). Confirm writes Kiwiply rows first, then calls the applier (26 §4 step 6 rationale). Entitlement is effective at commit. Split by Session E: X5.4 = tables + service + confirm; X5.14 = lifecycle job, LOCAL mirrors, shortcuts.
 - **Definition of Done:** E2E-C API scenario passes with Stripe off. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.14 — License lifecycle: LicenseLifecycleJob (PENDING promotion on invite accept, period-end flips, SUSPENDED expiry, MEMBER_LEFT via OffboardingHook), LocalBillingApplier writing org_subscription mirrors with source=LOCAL, suspend/reactivate/cancel shortcut endpoints
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.4
+- **Persona:** Org Admin (via the API); the system over time
+- **Objective:** Licenses move through their states on their own clock and the dev/CI "billing off" path produces the same mirror rows Stripe would, so pages and tests work without a key.
+- **Story:** As an org admin, I want a removed feature to stop exactly at period end and a suspended consultant to lose features now so that what I confirmed is what happens.
 
+**Functional requirements**
+- LicenseLifecycleJob (every 15 min, ShedLock-ready): PENDING → ACTIVE when the member accepts the invite (also triggered by the join event); features with ends_at ≤ now → live=false; CANCEL_AT_PERIOD_END licenses → ENDED at ends_at; SUSPENDED licenses older than org.licenses.suspended_max_days (default 90) → ENDED(SUSPENDED_EXPIRED); state machine per 27 §2–§3 row by row.
+- OffboardingHook (X4.4 chain, order "Licenses"): seat removal/leave/erase → license ENDED(MEMBER_LEFT) now, features off now, applier decrement now, no proration (09 row 4).
+- LocalBillingApplier (26 §11): when Stripe is off (dossier.orgs.dev-activate / LOCAL mode) applies batches immediately and writes org_subscription/org_subscription_item mirror rows with source=LOCAL and calendar-month periods; paid_through_at = period end; never creates a Stripe object.
+- Shortcut endpoints suspend/reactivate/cancel create + confirm a one-line quote with the same idempotency and audit as a normal confirm (C2: suspension = no credit; reactivation inside the paid period is free).
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/ent/licenses/LicenseLifecycleJob, LocalBillingApplier, LicenseOffboardingHook; web/rest/org/OrgLicenseResource (shortcuts)
+
+**Database changes**
+- None (tables from X5.4; org_subscription/org_subscription_item created in X5.4's changelog).
+
+**APIs**
+- POST /api/orgs/{orgId}/licenses/{id}/suspend | reactivate | cancel (licenses.manage; Idempotency-Key)
+
+**Permissions**
+- licenses.manage (ORG)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Removing a feature sets ends_at = period end; after the job runs at ends_at the row is not live and EntitlementService refuses the feature (402 FEATURE_NOT_LICENSED).
+- INVITED member → license PENDING; accepting the invite promotes it to ACTIVE within one job run (and immediately via the join event).
+- Member leaves → license ENDED(MEMBER_LEFT) now, features off now, LOCAL mirror quantity decremented, no proration row.
+- Suspend → features off now, quantity drops next period only (no credit); reactivate within the paid period → ACTIVE with no new charge; after it → a new quote is required (409 REACTIVATE_REQUIRES_QUOTE).
+- With Stripe off, GET …/billing/overview (X6.1) reads LOCAL mirror rows and shows calendar-month periods; PersonalSubscriptionUnchangedIT is untouched by any of this.
+
+**Test cases**
+- LicenseLifecycleJobTest (clock-driven table)
+- LocalBillingApplierTest
+- LicenseShortcutResourceIT
+- OffboardingHookLicensesTest
+
+- **Tech notes:** Split from X5.4 by Session E. 27 §2–§3, 26 §11, 20 §4 rules; escalations C2, C7, C9.
+- **Definition of Done:** E2E-C API scenario (X5.10) passes with Stripe off; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X5.7 — usage_event ledger + usage_counter: reserve/commit/release with idempotency keys, TTL and extension, UsageSweeperJob, allowance resolution (per-consultant / ORG_POOL, contract overrides, DAY and PERIOD limits), period keys, overage hooks, admin credits
 - **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.4
 - **Persona:** Org admin / Consultant
@@ -2866,17 +2981,16 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - **Tech notes:** Reservation runs REQUIRES_NEW; the handler's advice commits/releases; async workers use the job id as attempt id. Never un-commit; corrections are credit rows.
 - **Definition of Done:** Ledger invariants proven by tests; purge job registered. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 
-### X5.6 — EntitlementService.check/require with EntitlementContext (PERSONAL | ORG) and the 11-step order composed over AuthorizationService; @RequiresFeature + interceptor + UsageCommitAdvice; EntitlementException → 402/403/404/409 reason codes; AuthzCoverageTest
-- **Epic:** X5 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X5.7, X1.7, X4.7 · **Supersedes:** O3.3 · **Relates:** O3.3, O3.5, A3.2
+### X5.6 — EntitlementService.check/require with EntitlementContext (PERSONAL | ORG) and the 11-step order composed over AuthorizationService; reason codes; ConsentGate interface + ConsentKinds; entitlementsOf()/has()
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.7, X1.7, X4.7 · **Supersedes:** O3.3 · **Relates:** O3.3, O3.5, A3.2
 - **Persona:** Consultant / Marketer
 - **Objective:** One server-side entitlement check with a fixed evaluation order, actor/beneficiary recording and workspace-scoped resolution that never stacks personal and org benefits.
 - **Story:** As a marketer acting for a consultant, I want the server to decide in one place whether I may use a licensed feature for them — permission, assignment, license, allowance, consent, subscription state — so that the UI only reflects decisions and nothing leaks across tenants.
 
 **Functional requirements**
-- Contexts and resolution per 24 §1; request/decision records §2; the order and contracts §3 (delegating 1–6, 9–10 to AuthorizationService); reason codes and HTTP mapping §4; annotation, interceptor extension and UsageCommitAdvice §5; service shape §6 (no decision cache; 60 s catalog cache keyed by catalog_version); entitlement_decision_log sampled; entitlementsOf() for "My Available Features"; has() for menus/extension.
-- AuthzCoverageTest reflection gate.
+- Contexts and resolution per 24 §1; request/decision records §2; the order and contracts §3 (delegating 1–6, 9–10 to AuthorizationService); reason codes and HTTP mapping §4; service shape §6 (no decision cache; 60 s catalog cache keyed by catalog_version); entitlement_decision_log sampled; entitlementsOf() for "My Available Features"; has() for menus/extension.
 - ConsentGate interface (step 10, 24 §3; 09 row 10): allows(beneficiary, actor, consentKind) — default implementation in this story handles consent.act_for only (= the data_share FULL pairing naming the actor) and answers CONSENT_REQUIRED for any other kind; X7.6 replaces it with the org_feature_consent implementation. ConsentKinds constants (consent.act_for, consent.resume_edit, consent.resume_view_org, consent.ai_tailoring, consent.ai_optimization, consent.marketing_assist) live here.
-- @RequiresFeature uses the one Beneficiary enum from X1.7 {NONE, SELF, PATH_MEMBER, BODY_MEMBER, QUERY_MEMBER}; there is no @ActFor annotation (09 row 12). QUERY_MEMBER reads ?for= / ?memberId=.
+- The @RequiresFeature annotation, interceptor, UsageCommitAdvice, HTTP mapping of EntitlementException and AuthzCoverageTest are X5.16; this story is the service and its contracts (callable from code).
 
 **UI requirements**
 - None (402/403 handling cards are in X6.3/X6.5 and the consultant workspace X9.1).
@@ -2884,9 +2998,6 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 **Backend requirements**
 - service/EntitlementService (extend; existing methods untouched)
 - service/ent/entitlement/EntitlementContext, EntitlementRequest, EntitlementDecision, ReasonCode, EntitlementException, EntitlementRequests
-- web/rest/org/RequiresFeature, config/OrgPermissionInterceptor (extend), aop/UsageCommitAdvice
-- web/rest/errors/ExceptionTranslator (reason codes)
-- test/AuthzCoverageTest
 
 **Database changes**
 - Optional entitlement_decision_log (90-day purge) in the usage changelog.
@@ -2907,19 +3018,61 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - PAST_DUE before paid_through_at → allowed; after → 402 SUBSCRIPTION_STATE{PAST_DUE_LAPSED}.
 - CANCEL_AT_PERIOD_END keeps the feature until ends_at.
 - INTEGRATION dependency unsatisfied → 409 INTEGRATION_REQUIRED.
-- Missing Idempotency-Key on a consuming handler → 400 IDEMPOTENCY_KEY_REQUIRED.
-- AuthzCoverageTest fails for a handler under /api/orgs/** that names a feature key without @RequiresFeature or an explicit-check listing.
 - The worked example of 24 §8 passes end to end (with X7.6 consent stubbed as data_share FULL until X7.6 lands).
 
 **Test cases**
-- EntitlementServiceCheckTest
-- RequiresFeatureInterceptorIT
-- AuthzCoverageTest
-- ExceptionTranslatorTest additions
+- EntitlementServiceCheckTest (one test per step)
+- ConsentGateDefaultTest
 - existing EntitlementServiceTest unchanged and green
 
-- **Tech notes:** Step 10 reads org_feature_consent only when the table exists (X7.6, Session D) — until then data_share FULL naming the actor is the whole consent check; keep the call behind a ConsentGate interface so X7.6 plugs in without touching check().
+- **Tech notes:** Step 10 reads org_feature_consent only when the table exists (X7.6, Session D) — until then data_share FULL naming the actor is the whole consent check; keep the call behind a ConsentGate interface so X7.6 plugs in without touching check(). Split by Session E: X5.6 = service; X5.16 = annotation/interceptor/coverage gate (05 §6, 24 §5 already name X5.16).
 - **Definition of Done:** check() is the only gate for every feature named in 24 §7; coverage test in CI. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X5.16 — @RequiresFeature(beneficiary = NONE|SELF|PATH_MEMBER|BODY_MEMBER|QUERY_MEMBER) + OrgPermissionInterceptor extension + UsageCommitAdvice + EntitlementException → 402/403/404/409 reason codes + AuthzCoverageTest reflection gate
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.6, X1.7
+- **Persona:** Backend developer adding any feature-gated handler; the consultant hit by a 402
+- **Objective:** Every feature-consuming handler is gated declaratively, usage is reserved before and committed after the handler, and a forgotten annotation fails CI.
+- **Story:** As a developer, I want to annotate a handler with the feature and the beneficiary so that the 11-step check, the reservation and the 402 body happen without hand-written code.
+
+**Functional requirements**
+- @RequiresFeature(key, beneficiary) using the one Beneficiary enum from X1.7 (no @ActFor); the interceptor resolves the beneficiary member (path/body/query ?for=/?memberId=), builds EntitlementRequest and calls EntitlementService.require before the handler; a consuming handler must carry Idempotency-Key (400 IDEMPOTENCY_KEY_REQUIRED).
+- UsageCommitAdvice: reservation from step 8 is committed on 2xx (quantity from the handler's UsageOutcome attribute, default 1) and released on exception or non-2xx; a refusal at step 9/10 releases the reservation made at 8.
+- ExceptionTranslator maps EntitlementException reason codes to 402 (FEATURE_NOT_LICENSED, SUBSCRIPTION_STATE, ALLOWANCE_EXHAUSTED, PRO_REQUIRED for PERSONAL), 403 (CONSENT_REQUIRED only), 404 (membership/assignment), 409 (INTEGRATION_REQUIRED, MODULE_OFF) with the Problem body of 40 §4 — never naming another tenant.
+- AuthzCoverageTest: reflection over /api/orgs/** and /api/me/orgs/** handlers — any handler referencing a FeatureKeys constant without @RequiresFeature or an explicit-check listing fails; the OpenAPI customizer emits x-feature from the annotation (40 §10).
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- web/rest/org/RequiresFeature, config/OrgPermissionInterceptor (extend), aop/UsageCommitAdvice, web/rest/errors/ExceptionTranslator (reason codes), test/AuthzCoverageTest, OpenApiFeatureCustomizer
+
+**Database changes**
+- —
+
+**APIs**
+- No new routes; every gated route gains x-feature in openapi.json
+
+**Permissions**
+- Composed: permission check (X1.7) then entitlement (X5.6)
+
+**Feature entitlements**
+- All of 24 §7 once their stories land
+
+**Acceptance criteria**
+- A handler annotated SELF for ai.resume_tailoring called by a consultant without the feature → 402 FEATURE_NOT_LICENSED with the catalog hint; by a marketer with PATH_MEMBER for an assigned consultant who has the feature and FULL pairing → 200 and one committed usage_event; without pairing → 403 CONSENT_REQUIRED and the reservation released.
+- Missing Idempotency-Key on a consuming handler → 400 IDEMPOTENCY_KEY_REQUIRED; a retry with the same key returns the same result and commits nothing twice.
+- INTEGRATION dependency unsatisfied → 409 INTEGRATION_REQUIRED; MODULE_OFF → 409.
+- AuthzCoverageTest fails for a handler under /api/orgs/** that names a feature key without @RequiresFeature or an explicit-check listing (negative fixture handler in the test module).
+- openapi.json carries x-feature for every annotated route (OpenApiAuthzExtensionsIT).
+
+**Test cases**
+- RequiresFeatureInterceptorIT
+- UsageCommitAdviceTest
+- ExceptionTranslatorTest additions
+- AuthzCoverageTest
+- OpenApiAuthzExtensionsIT
+
+- **Tech notes:** Split from X5.6 by Session E. 24 §4–§5, 05 §6, 09 row 12. Beneficiary resolution must not read any repository other than membership (statement inspector).
+- **Definition of Done:** Coverage gate in CI; X5.8 migrates the eight isPro callers onto the annotation. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X5.11 — Org modules: org_module_license (FLAT / PER_ROLE quantity), the marketer seat as module.talent_marketing per MARKETING_SPECIALIST, quantity follows role grants through a quote, step 6 MODULE_OFF reads it
 - **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.4, X1.14
 - **Persona:** Org admin
@@ -2968,7 +3121,7 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - **Tech notes:** Quantity maintenance must be transactional with the role grant; if the quote/confirm is skipped (e.g. OWNER grants without the UI), the role grant is refused 409 MODULE_QUOTE_REQUIRED.
 - **Definition of Done:** Marketer seat billable per role; nothing granted silently. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X5.8 — Migrate the eight isPro callers to EntitlementService.require with context-aware feature keys (PersonalFeatureMap keeps PRO_REQUIRED byte-identical); ai_call gains org_id/beneficiary_login/feature_key/usage_event_id; AiBudgetService.decide(AiBudgetWindow) for the beneficiary's org window (feature AI budgets + extra credits, admin override)
-- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.6
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.16
 - **Persona:** Consultant / Marketer
 - **Objective:** Every protected feature goes through one check; the AI cost budget is a second guard keyed by beneficiary and org; personal behaviour unchanged to the byte.
 - **Story:** As a consultant using an org feature, I want my org AI budget and allowances to apply in the org workspace and my own plan in my personal workspace, never mixed, so that billing stays separate.
@@ -3104,7 +3257,7 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - **Definition of Done:** CI job wired as required; progress-tracker updated. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 
 ### X5.10 — E2E-C API-level scenario test (activate base → add two features → quote → confirm → entitlements effective, others unavailable) + Phase 5 exit gate (flag.enterprise.billing API-on)
-- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.9, X5.12, X5.11
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.9, X5.12, X5.11, X5.14
 - **Persona:** QA
 - **Objective:** Close Phase 5 with the full §32-C scenario at API level and every billing gate green with Stripe off.
 - **Story:** As QA, I want one scenario test that walks E2E-C through the API so that Phase 6 can build the UI on a proven backend.
@@ -3140,14 +3293,13 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 
 - **Tech notes:** Uses the acme/beta fixtures from X1.12 and draft prices published in LOCAL mode by the test.
 - **Definition of Done:** Phase 5 gate passed. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
 ### X6 — Phase 6 — Billing and license UI, Stripe org billing (fully specified, Session C)
 _Setup fee and billing account, StripeGateway growth, webhook mirrors, change applier with Kiwiply prorations and coupons, reconciler and dunning, the six billing pages, Platform Pricing Admin, admin billing operations, test-clock runbook. Design: docs 26–28._
 
-Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → X6.2 → X6.3 → X6.4 → X6.5 → X6.9 → X6.10 → X6.11.
+Build order (dependencies first; L stories split by Session E): X6.12 → X6.6 → X6.14 → X6.7 → X6.15 → X6.8 → X6.1 → X6.2 → X6.3 → X6.13 → X6.4 → X6.5 → X6.9 → X6.16 → X6.10 → X6.17 → X6.11.
 
 ### X6.12 — org_billing_account + Stripe org customer + setup fee (one-time Checkout or send_invoice Stripe Invoice) for enterprise orgs — adopts the O4.1/O4.2 design; currency fixed at account creation
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X5.4 · **Relates:** O4.1, O4.2
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X5.4, X5.14 · **Relates:** O4.1, O4.2
 - **Persona:** Org owner
 - **Objective:** A billing account per org with one Stripe customer, the setup fee as the activation gate, and a fixed currency, before any license is billed.
 - **Story:** As an org owner, I want to pay the one-time setup fee by card or bank transfer and have my organisation activate on payment so that licensing can begin.
@@ -3194,17 +3346,15 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** Never reuse the OWNER's personal customer. Stripe Tax ID collection stays off (locked).
 - **Definition of Done:** An enterprise org can be activated by paying the fee in Stripe test mode. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
-### X6.6 — StripeGateway extension (org subscription with items, setItemQuantities proration none, cancel-at-period-end, amount-off coupons, invoice items, create+finalize invoice, upcoming preview, invoices list, refund, credit, test clocks) + StripeWebhookEvent org fields + OrgBillingWebhookHandler writing org_subscription/items/invoice/lines/discount mirrors with scope routing
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X6.12 · **Relates:** O4.3 · **Supersedes:** O4.3
+### X6.6 — StripeGateway extension for org billing: subscription with items, setItemQuantities (proration none), cancel-at-period-end, amount-off coupons, invoice items, create+finalize invoice, upcoming preview, invoices list, refund, credit, test clocks; StripeWebhookEvent org fields
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.12 · **Supersedes:** O4.3 · **Relates:** O4.3
 - **Persona:** Finance
 - **Objective:** Grow the one Stripe seam for org billing and route org webhooks to a handler that is the only writer of the org mirrors, leaving the personal path untouched.
 - **Story:** As Finance, I want invoices, items and subscription state mirrored from Stripe so that the billing pages show what Stripe will charge, never what we guessed.
 
 **Functional requirements**
 - 26 §3 methods with IdempotencyKey on every write; live-key refusal for test clocks; StripeWebhookEvent new fields (personal fields unchanged).
-- 26 §7 routing (scope metadata or customer lookup → org handler; else personal path verbatim), event table effects, stale-event ordering, taggedForAnotherApp kept.
-- Mirrors: org_subscription (+ Stripe columns), org_subscription_item, org_invoice, org_invoice_line snapshots, org_stripe_discount.
+- Webhook routing, OrgBillingWebhookHandler and the org_* mirrors are X6.14.
 
 **UI requirements**
 - None.
@@ -3212,15 +3362,12 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 **Backend requirements**
 - service/billing/StripeGateway + StripeGatewayImpl (grow)
 - service/billing/StripeWebhookEvent (grow)
-- service/billing/BillingWebhookService (route)
-- service/ent/billing/OrgBillingWebhookHandler
-- domain/OrgSubscription, OrgSubscriptionItem, OrgInvoice, OrgInvoiceLine, OrgStripeDiscount
 
 **Database changes**
-- Additive columns on org_subscription/org_subscription_item (stripe ids, source STRIPE|LOCAL, discount) if not present from X5.4.
+- —
 
 **APIs**
-- POST /api/billing/webhook (existing endpoint; new routing)
+- No new HTTP routes (gateway methods only).
 
 **Permissions**
 - Webhook permitAll + signature (existing).
@@ -3229,42 +3376,81 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - —
 
 **Acceptance criteria**
-- Every §7 row of 26 behaves as specified in OrgBillingWebhookHandlerTest; a personal event never touches org_* and an org event never touches subscription (PersonalSubscriptionUnchangedIT E9/E10).
-- invoice.paid sets paid_through_at = period_end and flips PAST_DUE → ACTIVE; unpaid/canceled → SUSPENDED and licenses ENDED(ORG_SUSPENDED).
 - Every gateway write passes its idempotency key (recorded-fixture IT).
 - createTestClock with sk_live_ → StripeGatewayException before any call.
+- Every 26 §3 method is covered by a recorded-fixture test and refuses to run without an idempotency key.
+
+**Test cases**
+- StripeGatewayImplIT (fixtures)
+- StripeWebhookEventTest (new fields; personal fields unchanged)
+
+- **Tech notes:** StripeGatewayImpl remains the only com.stripe importer; one update call for all item quantity changes; percent_off never used. Split by Session E: X6.6 = gateway; X6.14 = handler + mirrors.
+- **Definition of Done:** Mirrors written only by the handler (WriterRegistryTest extended to org_* tables). Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.14 — Org webhook routing + OrgBillingWebhookHandler writing org_subscription/org_subscription_item/org_invoice/org_invoice_line/org_stripe_discount mirrors with scope routing, stale-event ordering and the personal path untouched
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.6, X5.4
+- **Persona:** The billing system; Finance Specialist reading invoices
+- **Objective:** Stripe stays the truth and only webhooks write the org mirrors, exactly as the personal subscription already works, with no event ever crossing between the two.
+- **Story:** As the system, I want every org Stripe event to land in the right org's mirror rows in order so that pages and the reconciler read a faithful copy.
+
+**Functional requirements**
+- 26 §7 routing in BillingWebhookService: scope metadata (kiwiply_scope=org, org_id) or customer lookup → OrgBillingWebhookHandler; else the personal path verbatim; taggedForAnotherApp kept; stale-event ordering by created/sequence; idempotent by event id (stripe_event table, org_id nullable attribution — 41 R2a).
+- OrgBillingWebhookHandler event table effects (26 §7): subscription.created/updated → org_subscription + items; invoice.created/finalized/paid/payment_failed/voided → org_invoice + org_invoice_line snapshots (unit list price, discount, quantity, feature key); invoice.paid sets paid_through_at = period_end and flips PAST_DUE → ACTIVE; unpaid/canceled → SUSPENDED and licenses ENDED(ORG_SUSPENDED) through LicenseService; customer.discount.* → org_stripe_discount.
+- Mirrors are written only by this handler and LocalBillingApplier (WriterRegistryTest extended to org_* tables).
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/billing/BillingWebhookService (route), service/ent/billing/OrgBillingWebhookHandler, domain/OrgInvoice, OrgInvoiceLine, OrgStripeDiscount
+
+**Database changes**
+- Liquibase 20261020020000_ent_org_billing_mirrors.xml: org_invoice, org_invoice_line, org_stripe_discount; additive Stripe columns on org_subscription/org_subscription_item (stripe ids, source STRIPE|LOCAL, discount) if not present from X5.4.
+
+**APIs**
+- POST /api/billing/webhook (existing endpoint; new routing)
+
+**Permissions**
+- Webhook signature only (existing)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Every §7 row of 26 behaves as specified in OrgBillingWebhookHandlerTest; a personal event never touches org_* and an org event never touches subscription (PersonalSubscriptionUnchangedIT E9/E10).
+- invoice.paid sets paid_through_at = period_end and flips PAST_DUE → ACTIVE; unpaid/canceled → SUSPENDED and licenses ENDED(ORG_SUSPENDED).
+- An out-of-order older subscription.updated after a newer one is ignored (stale ordering test); a replayed event id is a no-op.
+- org_invoice_line snapshots carry the list price, discount and feature key so a later price change never alters an issued invoice's mirror (snapshot test).
 
 **Test cases**
 - OrgBillingWebhookHandlerTest
 - BillingWebhookRoutingTest
-- StripeGatewayImplIT (fixtures)
-- OrgBillingWebhookIT
+- OrgBillingWebhookIT (SEC-27)
+- WriterRegistryTest (org_* tables)
 
-- **Tech notes:** StripeGatewayImpl remains the only com.stripe importer; one update call for all item quantity changes; percent_off never used.
-- **Definition of Done:** Mirrors written only by the handler (WriterRegistryTest extended to org_* tables). Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
-### X6.7 — LicenseChangeApplier (Stripe mode): target item set → one update with proration none, Kiwiply proration invoice items, amount-off coupon re-size, last-item cancel-at-period-end, failure → FAILED + LicenseChangeRetryJob with the same keys; COMPUTED_INVOICE mode (OrgInvoiceComposer) + BillingModeGuard; STRIPE_ITEM_LIMIT and REPRICE
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X6.6 · **Relates:** O4.4 · **Supersedes:** O4.4
+- **Tech notes:** Split from X6.6 by Session E. 26 §7, 27 §2; ADR-017/020; stripe_event attribution column per 41 R2a.
+- **Definition of Done:** Mirrors written only by the handler/LOCAL applier; PersonalSubscriptionUnchangedIT green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.7 — LicenseChangeApplier (Stripe mode): target item set → one update with proration none, Kiwiply proration invoice items, amount-off coupon re-size, last-item cancel-at-period-end, failure → FAILED + LicenseChangeRetryJob with the same keys, batch invariants
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.14 · **Supersedes:** O4.4 · **Relates:** O4.4
 - **Persona:** Org admin
 - **Objective:** Confirmed license changes reach Stripe exactly once, with Kiwiply-computed prorations and discounts that reproduce the quote to the minor unit, and a fallback when the 20-item cap bites.
 - **Story:** As an org admin, I want the amount I confirmed to be the amount Stripe invoices, with additions prorated today and removals at period end, so that the quote is the truth.
 
 **Functional requirements**
-- 26 §4 steps 1–6; §5 coupon rules; §6 item limit (quote warning ≥ 18, 409 > 20, REPRICE lines, admin mode switch, OrgInvoiceComposer per period with send_invoice, BillingModeGuard alert); §8 keys; 27 §2 Stripe column implemented row by row.
+- 26 §4 steps 1–6; §5 coupon rules (OrgDiscountSync); §8 idempotency keys; 27 §2 Stripe column implemented row by row for add/remove/upgrade/downgrade/cancel/reactivate.
 - Invariant checks after every batch (Σ qty × list = Σ list lines; coupon = discount_total).
+- Period rollover, the item limit/REPRICE path, COMPUTED_INVOICE mode and the admin mode switch are X6.15.
 
 **UI requirements**
 - None (errors surfaced by X6.3).
 
 **Backend requirements**
-- service/ent/billing/StripeLicenseChangeApplier, LicenseChangeRetryJob, OrgDiscountSync, OrgPeriodRolloverJob, OrgInvoiceComposer, BillingModeGuard
-- web/rest/admin/AdminOrgBillingResource (mode switch)
+- service/ent/billing/StripeLicenseChangeApplier, LicenseChangeRetryJob, OrgDiscountSync
 
 **Database changes**
-- license_change.stripe_ref/stripe_idempotency_key used; org_billing_account.billing_mode.
+- license_change.stripe_ref/stripe_idempotency_key used.
 
 **APIs**
-- PUT /api/admin/orgs/{id}/billing/mode {mode, reason}
+- No new routes.
 
 **Permissions**
 - Applier runs as the confirm actor; mode switch platform admin HIGH.
@@ -3276,22 +3462,64 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - G1 confirm → subscription with 6 items and quantities per 22 §9 G1; G2 contract → coupon amount_off 600; G11 batch → RT/preset proration invoice items 380/1044 at confirm time, INT item deleted, 7 items.
 - Gateway failure at step 3 → batch FAILED, Kiwiply rows applied, retry job replays with identical keys and converges (recorded fixture proves no duplicate invoice item).
 - Last license cancelled → cancel_at_period_end=true; new license before period end → cancel flag cleared + item added.
-- 21 items would result → 409 STRIPE_ITEM_LIMIT listing retired prices; REPRICE line moves them; admin switch to COMPUTED_INVOICE → next period invoice composed with lines equal to PricingEngine output.
-- Coupon re-sized at invoice.upcoming when a tier/contract changes for the next period.
 
 **Test cases**
 - LicenseChangeApplierTest
 - LicenseChangeRetryJobTest
 - OrgDiscountSyncTest
-- OrgInvoiceComposerTest
-- BillingModeGuardTest
 - ApplierInvariantsPropertyTest
 
-- **Tech notes:** proration_behavior=none on every Stripe call; Kiwiply is the proration authority (22 §6). Refinement of ADR-017 ordering recorded in 26 §4 step 6.
+- **Tech notes:** proration_behavior=none on every Stripe call; Kiwiply is the proration authority (22 §6). Refinement of ADR-017 ordering recorded in 26 §4 step 6. Split by Session E: X6.7 = applier; X6.15 = rollover/limits/computed invoices.
 - **Definition of Done:** Test-clock scenario in 26 §10 steps 1–2 reproducible in Stripe test mode. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.15 — OrgPeriodRolloverJob (coupon re-size at invoice.upcoming, scheduled removals), Stripe item limit (warning ≥ 18, 409 STRIPE_ITEM_LIMIT > 20, REPRICE lines), COMPUTED_INVOICE mode with OrgInvoiceComposer (send_invoice) + BillingModeGuard, admin billing-mode switch
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.7, X6.14
+- **Persona:** The billing system; platform admin switching a large org's mode
+- **Objective:** Period boundaries and Stripe's 20-item cap never corrupt an org's bill: coupons are re-sized before the invoice, and an org that outgrows subscription items moves to Kiwiply-computed invoices without losing anything.
+- **Story:** As the system, I want each period's invoice to equal the pricing engine's output to the minor unit, whichever Stripe representation the org is on.
 
+**Functional requirements**
+- OrgPeriodRolloverJob: on invoice.upcoming (webhook) or 24 h before period end, recompute the org's coupon amount from PricingEngine (tier/contract changes), apply scheduled removals (ends_at = period end → quantity decrement, proration none; C9), close CANCEL_AT_PERIOD_END licenses.
+- Item limit (26 §6): quote warning at ≥ 18 distinct Stripe prices, 409 STRIPE_ITEM_LIMIT at > 20 listing retired prices; REPRICE line type moves retired prices onto the current ones in one update; admin mode switch to COMPUTED_INVOICE.
+- COMPUTED_INVOICE mode: OrgInvoiceComposer builds one Stripe Invoice per period (send_invoice, lines = PricingEngine output incl. discount line, metadata scope=org) through the gateway; no subscription items; BillingModeGuard alerts when an org's mode and its Stripe objects disagree (admin attention row).
+- PUT /api/admin/orgs/{id}/billing/mode {mode, reason} (ROLE_ADMIN, ReasonSheet, HIGH audit) with a dry-run diff of the next invoice under both modes.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/ent/billing/OrgPeriodRolloverJob, OrgInvoiceComposer, BillingModeGuard; web/rest/admin/AdminOrgBillingResource (mode switch)
+
+**Database changes**
+- org_billing_account.billing_mode (from X6.12) used; org_invoice.composed BOOLEAN additive.
+
+**APIs**
+- PUT /api/admin/orgs/{id}/billing/mode {mode, reason}
+- GET /api/admin/orgs/{id}/billing/mode/preview
+
+**Permissions**
+- ROLE_ADMIN + billing.ops
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- 21 items would result → 409 STRIPE_ITEM_LIMIT listing retired prices; a REPRICE line moves them and the quote succeeds with ≤ 20 items.
+- Admin switch to COMPUTED_INVOICE → the next period invoice is composed with lines equal to PricingEngine output to the minor unit (golden G11 under both modes); switching back re-creates subscription items with proration none.
+- Coupon re-sized at invoice.upcoming when a tier/contract changes for the next period (test clock fixture).
+- A scheduled removal with ends_at at period end is applied by the rollover, never earlier; the consultant keeps the feature until then (EntitlementService check at T-1 min and T+1 min).
+- BillingModeGuard raises an admin attention row when an org in COMPUTED_INVOICE still has subscription items (fixture).
+
+**Test cases**
+- OrgPeriodRolloverJobTest
+- OrgInvoiceComposerTest (golden under both modes)
+- BillingModeGuardTest
+- AdminOrgBillingModeResourceIT
+- StripeItemLimitTest
+
+- **Tech notes:** Split from X6.7 by Session E. 26 §5–§6, 27 §2; ADR-020 fallback; escalations C9/C10.
+- **Definition of Done:** Test-clock scenario 26 §10 through a period rollover reproducible in Stripe test mode. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X6.8 — OrgSeatReconciler nightly + billing_drift + admin attention; dunning (PAST_DUE banner, DunningReminderJob, paid_through lapse → SUBSCRIPTION_STATE, SUSPENDED → licenses end, reactivation on payment with new rows); notifications and emails
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.7 · **Relates:** O4.8 · **Supersedes:** O4.8
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X6.15 · **Supersedes:** O4.8 · **Relates:** O4.8
 - **Persona:** Finance / Platform admin
 - **Objective:** Detect drift between Kiwiply and Stripe without ever auto-fixing money, and run the grace/dunning rules exactly.
 - **Story:** As Finance, I want a clear warning when an invoice fails and nothing switched off until the period I paid for ends, and as a platform admin I want to know when Stripe and Kiwiply disagree.
@@ -3333,7 +3561,6 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** ShedLock-ready job names; MDC tenant per org iteration (X1.10).
 - **Definition of Done:** Drift visible in admin; dunning path proven with the LOCAL and Stripe fixtures. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
 ### X6.1 — Subscription Overview page: consultants/licensed/unlicensed tiles, monthly recurring, estimated next invoice (prorations, tax note), billing status + PAST_DUE banner, pending changes with undo, feature-usage top 5, contract summary — 390 and 1440
 - **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.7, X2.16, X2.17, X2.15
 - **Persona:** Org admin / Finance
@@ -3378,17 +3605,17 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** The page never adds two amounts; every number is a DTO field.
 - **Definition of Done:** Page live behind flag.enterprise.billing UI-on for acme. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-### X6.2 — Consultant Licenses page: cards (390) / table (1440), filters, search, sort, status and pending-change chips, per-row actions, bulk bar → one BULK quote, unlicensed consultants with a License CTA
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** Web · **Deps:** X6.1, X5.12, X2.15 · **Supersedes:** O5.5 · **Relates:** O5.5
+### X6.2 — Consultant Licenses page: cards (390) / table (1440), filters, search, sort, status and pending-change chips, per-row actions, unlicensed consultants with a License CTA
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X6.1, X5.12, X2.15 · **Supersedes:** O5.5 · **Relates:** O5.5
 - **Persona:** Org admin
 - **Objective:** Find any consultant's license state and change many at once, with next effective change visible.
 - **Story:** As an org admin, I want a list of consultants with their features, price and next change, filterable by team and feature, with bulk actions, so that managing 50 licenses is quick.
 
 **Functional requirements**
-- 28 §2 layouts, filters, sort, search (300 ms), row actions by state (27 §3), bulk selection bar producing a BULK quote and opening the confirm flow (X6.3 bulk mode), pending chips (dashed removal / dotted add).
+- 28 §2 layouts, filters, sort, search (300 ms), row actions by state (27 §3); the bulk selection bar is X6.13, pending chips (dashed removal / dotted add).
 
 **UI requirements**
-- web/src/app/(tenant)/admin/licenses/page.tsx; FeatureChip, StatePill from packages/ui (X2.15); MemberAvatar from Session B.
+- web/src/app/(tenant)/%5Ft/w/admin/licenses/page.tsx; FeatureChip, StatePill from packages/ui (X2.15); MemberAvatar from Session B.
 
 **Backend requirements**
 - Uses X5.4/X5.12 endpoints; list endpoint gains sort/filter params if missing.
@@ -3397,7 +3624,7 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - None.
 
 **APIs**
-- GET /api/orgs/{orgId}/licenses (filters/sort), POST …/licenses/bulk/quotes
+- GET /api/orgs/{orgId}/licenses (filters/sort)
 
 **Permissions**
 - licenses.view for the list; actions hidden without licenses.manage (server still enforces).
@@ -3408,7 +3635,6 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 **Acceptance criteria**
 - Fixture rows render exactly as 28 §2 (Anika $27.97 ACTIVE, Priya with "−Interview Dec 5", Dev $14.99, Lin no license).
 - Filter feature=Interview Prep + status=pending → Priya only.
-- Selecting 3 + Apply preset → one quote with 3 member lines → confirm flow.
 - 390 cards and 1440 table snapshots; keyboard navigation of row actions.
 - A member of beta opening acme's URL sees the shell's not-part-of-your-role state (404), no redirect.
 
@@ -3418,18 +3644,18 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** Server-side pagination (page size 50); never load all licenses client-side.
 - **Definition of Done:** Page live for acme behind the flag. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-### X6.3 — Configure Consultant License: summary, base, feature picker with prices/allowances/dependency hints, presets, stackable quantity, debounced backend quotes, QuoteSummary impact preview, cost-confirmation sheet for COMMERCIAL deps, confirm with countdown, error handling (stale, item limit, unconfirmed deps), bulk mode
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** Web · **Deps:** X6.2, X2.15
+### X6.3 — Configure Consultant License: summary, base, feature picker with prices/allowances/dependency hints, presets, stackable quantity, debounced backend quotes, QuoteSummary impact preview, confirm with countdown, error handling (stale, item limit, unconfirmed deps)
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X6.2, X2.15
 - **Persona:** Org admin
 - **Objective:** The E2E-C surface: pick features, see the authoritative impact preview, confirm — never a silently added paid feature.
 - **Story:** As an org admin configuring Anika, I want to tick features and see the exact new monthly price, today's prorated charge and the next invoice before I confirm, and be asked explicitly when a feature needs another paid one.
 
 **Functional requirements**
-- 28 §3, §7, §9; quote on every change (400 ms debounce) rendering LicenseQuoteDTO fields only; countdown + auto re-quote; confirm sheet with final numbers; success toast with undo for removals; errors per 28 §3; bulk mode with per-member accordion.
+- 28 §3, §7, §9; quote on every change (400 ms debounce) rendering LicenseQuoteDTO fields only; countdown + auto re-quote; confirm sheet with final numbers; success toast with undo for removals; errors per 28 §3; COMMERCIAL dependencies render as a disabled tick with "needs confirmation" until X6.13 ships the cost-confirmation sheet (the API already refuses DEPENDENCY_UNCONFIRMED).
 - Consultant-side 402 cards reuse the same chip components (X9.1 consumes).
 
 **UI requirements**
-- web/src/app/(tenant)/admin/licenses/[memberId]/page.tsx; packages/ui QuoteSummary, CostConfirmSheet, AllowanceMeter, FeatureChip; Stepper on 390, two-pane on 1440; useBottomBar sticky bar.
+- web/src/app/(tenant)/%5Ft/w/admin/licenses/[memberId]/page.tsx; web composites QuoteSummary (X2.15 primitives AllowanceMeter, FeatureChip, PriceDelta, MoneyText); Stepper on 390, two-pane on 1440; useBottomBar sticky bar.
 
 **Backend requirements**
 - None new (X5.4/X5.5/X5.12).
@@ -3448,20 +3674,61 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 **Acceptance criteria**
 - E2E-C UI journey: base → AI Job Matching → AI Resume Tailoring → per-line prices shown → preview totals equal the mock quote ($27.97) → confirm → consultant page shows the two chips → Interview Prep unavailable (402 card).
-- Ticking Autopilot prepare opens the cost-confirmation sheet naming AI Job Matching and the combined amount; Cancel leaves both unticked; Accept re-quotes with both.
 - Unticking an active feature shows "works until Dec 5 · no refund".
 - QUOTE_STALE → inline refresh; STRIPE_ITEM_LIMIT → retired-prices card with Refresh prices.
 - Quote expiry → countdown hits 0 → automatic re-quote; confirm disabled while pending.
 - No client-side arithmetic (lint rule: no `+`/`*` on *Minor fields; test asserts the formatter is the only consumer).
 
 **Test cases**
-- Playwright configure.spec (390/1440, bulk mode)
-- component tests for QuoteSummary and CostConfirmSheet with every DTO field
+- Playwright configure.spec (390/1440)
+- component tests for QuoteSummary with every DTO field
 
 - **Tech notes:** Debounce + cancel in-flight quote requests; render only the latest inputsHash.
 - **Definition of Done:** E2E-C UI green over the mock. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.13 — Cost-confirmation sheet for COMMERCIAL dependencies (full cost impact, explicit accept) + bulk mode: selection bar on the Licenses page → one BULK quote → per-member accordion confirm, line errors, CSV import entry
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X6.2, X6.3, X5.12, X2.15
+- **Persona:** Organization Admin licensing many consultants
+- **Objective:** A paid feature is never added silently, and licensing twenty consultants is one quote and one confirmation.
+- **Story:** As an org admin, I want to apply the "Full Career Support" preset to the whole Boston team in one go and be told plainly when a tick pulls in another paid feature so that the invoice never surprises me.
+
+**Functional requirements**
+- CostConfirmSheet (web/src/components/ent/billing): opens when the quote returns requiresConfirmation[] — names the dependency, its price and the combined delta; Cancel leaves both unticked; Accept re-quotes with confirmedCommercialDeps and the summary shows both lines (28 §4; requirement §16 "never silently add").
+- Bulk mode: Licenses page selection bar (X6.2) with Apply preset / Add feature / Remove feature / Suspend / Cancel / Reactivate → POST …/licenses/bulk/quotes (X5.12) → bulk confirm page with a per-member accordion (each line's delta, dependency confirmations, line errors such as INVITED/NOT_ELIGIBLE shown inline and skippable), one confirm with countdown, per-line results toast with Undo for removals; CSV import entry (X5.12) with a dry-run preview.
+- Filters (team/department/role/unlicensed) can seed the selection ("Select all 14 unlicensed") — resolved at quote time by the API.
+
+**UI requirements**
+- Sheet on 390 (bottom), dialog on 1440; accordion rows 44 px; no client-side arithmetic (lint rule from X6.3).
+
+**Backend requirements**
+- — (X5.12)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes POST …/licenses/bulk/quotes, POST …/quotes/{id}/confirm, POST …/licenses/bulk/import (dry-run + apply)
+
+**Permissions**
+- licenses.manage (ORG)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Ticking Autopilot prepare opens the cost-confirmation sheet naming AI Job Matching and the combined amount; Cancel leaves both unticked; Accept re-quotes with both and the preview shows two lines (E2E-C variant).
+- Selecting 3 + Apply preset → one quote with 3 member lines → confirm → 3 licenses ACTIVE; one INVITED member in the selection shows "billed while waiting on the invite" (C7) and is included.
+- A line error (NOT_ELIGIBLE) is shown inline; confirming applies the other lines (per-line results); Undo reverses removals within 10 s.
+- CSV dry-run lists accepted/rejected rows before anything is quoted; 501 rows → 422 BULK_TOO_LARGE.
+- Playwright bulk journey at 390/1440; axe clean.
+
+**Test cases**
+- Playwright licenses-bulk.spec (390/1440)
+- CostConfirmSheet component tests with every requiresConfirmation shape
+
+- **Tech notes:** Split from X6.2/X6.3 by Session E (09). 28 §2 bulk bar, §4 sheet, §9 errors; 21 §4 dependency semantics.
+- **Definition of Done:** E2E-C dependency variant green over the mock; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X6.4 — Billing & Invoices page: Account (status, currency, payment method via Stripe portal, tax status), Invoices with line snapshots and PDF links, Contract summary (+ server-generated PDF), Billing contacts (autosave), credits rows; setup-fee card when unpaid
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.6, X6.12, X2.15 · **Supersedes:** O4.6 · **Relates:** O4.6
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.14, X6.12, X2.15 · **Supersedes:** O4.6 · **Relates:** O4.6
 - **Persona:** Finance
 - **Objective:** Everything Finance needs about the account, contract and invoices without Stripe access.
 - **Story:** As Finance, I want to see and download every invoice with its lines, our contract terms and the payment method, so that I can reconcile without asking anyone.
@@ -3545,17 +3812,17 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** Never show dollars to org users for AI; percent only.
 - **Definition of Done:** Both pages live behind the flag. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-### X6.9 — Platform Pricing Admin (admin page kit): Catalog, Features, Presets, Volume tiers, Discounts, Contracts (rows editor + history), Publish (diff + margin re-check + typed version confirm), Change history
-- **Epic:** X6 · **Size/Complexity:** L/L · **Owners:** Web, API · **Deps:** X5.2, X5.5, X1.11 · **Relates:** A3.4
+### X6.9 — Platform Pricing Admin (admin page kit): Features, Presets, Volume tiers tabs + Publish (diff + margin re-check + typed version confirm) + Change history on the X5.13 Catalog page
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X5.13, X5.2, X5.3 · **Relates:** A3.4
 - **Persona:** Platform admin
 - **Objective:** Every commercial knob — prices, allowances, dependencies, presets, tiers, discounts, contracts, publication — editable from admin with the guard and audit in front of it.
 - **Story:** As a platform admin, I want one pricing console where I publish versions, negotiate contracts and see every change, so that nothing commercial is ever a code change.
 
 **Functional requirements**
-- 28 §6; every tab over X5.1/X5.2/X5.3/X5.5 endpoints; ReasonSheet on every write; ConfirmTypedSheet typing the version on publish; HistoryDrawer from catalog_change/contract_event; 390 behaviour via useNarrow.
+- 28 §6 tabs Features, Presets, Volume tiers over X5.2/X5.3 endpoints added to the X5.13 page; Publish tab shows the diff of the draft set with each affected preset/tier margin result; ReasonSheet on every write; ConfirmTypedSheet typing the version; HistoryDrawer from catalog_change; 390 behaviour via useNarrow. Discounts and Contracts tabs are X6.16.
 
 **UI requirements**
-- web/src/app/(admin)/admin/pricing/** (extends X5.1 page) and /admin/contracts/**; admin kit only.
+- web/src/app/(admin)/admin/pricing/** (extends X5.13); admin kit only.
 
 **Backend requirements**
 - None new beyond X5.* (contract approve/activate endpoints exist).
@@ -3564,7 +3831,7 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - None.
 
 **APIs**
-- the /api/admin/catalog/** and /api/admin/contracts/** set
+- the /api/admin/catalog/** and /api/admin/features|presets|volume-tiers/** set
 
 **Permissions**
 - ROLE_ADMIN; contracts.manage; HIGH re-auth on publish/override/contract activation.
@@ -3574,8 +3841,7 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 **Acceptance criteria**
 - Publishing a draft set shows the diff with each affected preset/tier margin result and requires typing "v18"; the publish creates catalog_publish 18.
-- Contract editor refuses a second active contract, shows the floor result per row and records the approver (two-person rule).
-- Discounts tab requires ends_at ≤ 12 months.
+- Dependency editor refuses a cycle with the path shown; preset editor shows the "above individual" check result live.
 - Change history lists before/after JSON with the actor and reason.
 - 390 and 1440 kit snapshots.
 
@@ -3583,11 +3849,50 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - Playwright pricing-admin.spec
 - component tests with kit-test-utils
 
-- **Tech notes:** Reuse AdminTable/AdminFilterBar/ReasonSheet; no new admin primitives without adding them to the kit first.
+- **Tech notes:** Reuse AdminTable/AdminFilterBar/ReasonSheet; no new admin primitives without adding them to the kit first. Split by Session E: X6.9 = catalog-side tabs; X6.16 = commercial tabs.
 - **Definition of Done:** Admin can take the enterprise catalog from "no prices" to a published version without engineering. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.16 — Platform Pricing Admin — Discounts and Contracts tabs (Commercial Agreements): contract rows editor with floor results, versions and history, two-person approve, discounts with best-of preview, org pricing preview
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X6.9, X5.15
+- **Persona:** Kiwiply platform admin (sales/finance)
+- **Objective:** Commercial agreements are managed from the console with the same guard rails the API enforces, and sales can preview an org's effective prices before activating a deal.
+- **Story:** As a platform admin, I want to draft Acme's contract, see the floor result per row, send it to a second admin to approve and preview Acme's new quote so that a deal is live without engineering.
 
+**Functional requirements**
+- Contracts tab (/admin/contracts/**): list with status/version; editor = header (org, dates, min committed licenses informational — C6, volume_applies, stackable) + price rows editor (product, override amount XOR pct, min quantity, allowance/pool overrides) showing the floor result per row and requiring override_reason below floor; Approve (disabled for the author — two-person rule), Activate, End, Cancel with ReasonSheet; versions + HistoryDrawer from contract_event; "Preview Acme's pricing" panel from GET /api/admin/orgs/{id}/pricing-preview.
+- Discounts tab: org_discount editor (amount/pct, ends_at ≤ 12 months, stackable, eligibility), best-of preview for a chosen org, archive.
+
+**UI requirements**
+- Admin kit only; 390 via useNarrow (rows become cards).
+
+**Backend requirements**
+- — (X5.15)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes /api/admin/contracts/**, /api/admin/org-discounts/**, /api/admin/orgs/{id}/pricing-preview
+
+**Permissions**
+- ROLE_ADMIN + contracts.manage
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Contract editor refuses a second active contract (409 shown inline), shows the floor result per row, requires a reason below floor and records the approver ≠ author (the author's Approve button is disabled with the rule text).
+- Discounts tab requires ends_at ≤ 12 months and shows which discount the engine would pick for the org.
+- Pricing preview for acme matches PricingEngineGoldenTest G2 values after activating the fixture contract.
+- 390 and 1440 kit snapshots; axe clean.
+
+**Test cases**
+- Playwright contracts-admin.spec (draft → approve by second admin → activate → preview)
+- component tests with kit-test-utils
+
+- **Tech notes:** Split from X6.9 by Session E. 28 §6, 23 §5; escalations C5/C6.
+- **Definition of Done:** A contract can go draft → active from the console with a second approver; CI green. Plus the common DoD in `06-phase-plan.md` §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X6.10 — Platform admin org billing operations: setup-fee status, invoices, items vs licenses with drift resolution, billing mode switch, suspend/reactivate with reason, AI budget override per license, credits (flag enterprise.billing.credits, two-person rule), duplicate-setup-fee refund, test-clock controls in test mode
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.8, X6.9 · **Relates:** A14.2
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.8, X6.9, X6.16 · **Relates:** A14.2
 - **Persona:** Platform admin
 - **Objective:** Support tooling for enterprise billing without touching money automatically.
 - **Story:** As a platform admin handling a support ticket, I want to see an org's billing state next to its licenses and resolve drift or apply an approved credit with a reason, so that every money action is deliberate and audited.
@@ -3632,9 +3937,58 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** No refunds for subscriptions, ever (locked); credits only via escalation C1's flag.
 - **Definition of Done:** Support can handle the enterprise billing scenarios of 26 §9 and 27 §7 from admin. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
+### X6.17 — Platform admin break-glass (E8): POST /api/admin/orgs/{id}/break-glass {reason, mfa} → 15-min read grant over an allow-listed projection, step-up MFA, HIGH ADMIN_READ audit written into the tenant's own log, OWNER notification, platform Security page (grant log)
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.11, X1.10, X4.9 · **Relates:** E8
+- **Persona:** Kiwiply platform admin handling a support case; the org OWNER who must see it
+- **Objective:** Privileged access to customer data exists only as a time-boxed, reasoned, MFA-confirmed grant that the customer can see in their own audit log — never a silent read.
+- **Story:** As a platform admin, I want to open a 15-minute window into Acme's licenses with a typed reason so that I can resolve a billing ticket while Acme's owner sees exactly what I looked at.
 
+**Functional requirements**
+- POST /api/admin/orgs/{id}/break-glass {reason (≥ 20 chars), mfaCode} → break_glass_grant row (admin_login, org_id, reason, expires_at = now + enterprise.breakglass.minutes (default 15), projections[]) after AdminMfaService step-up (401 STEP_UP_REQUIRED without a fresh code); one active grant per admin+org; revoke endpoint; grants expire by clock.
+- Projections allow-listed in BreakGlassProjections: org summary, member list (names, roles, status), licenses + usage counters, hostnames, the org audit tail — never resume text, consent-protected career data, rates, notes, inbox content (a projection outside the list is a compile-time error: enum).
+- Every read through a grant writes a HIGH ADMIN_READ org_audit_event into the tenant's log (actor = the admin, details = projection + reason + grant id) and an AdminAuditEvent; OWNER notified ORG_MEMBERSHIP "Kiwiply support accessed your workspace" when enterprise.breakglass.notify_owner (default true); security mailbox alert per grant.
+- Without a grant, /api/admin/orgs/{id}/** returns the counts-only detail of X1.11 — admin is not a membership path (404 on /api/orgs/**, AdminHostGuardIT unchanged).
+- Web: /admin/organizations/[id] gains "Request access" (ReasonSheet + MFA code) → a banner with the countdown and the allow-listed tabs; /admin/security (platform Security page, 16 §5.9): break-glass grant log (who, org, reason, projections read, expiry), filters, CSV export (audited); links to the admin audit.
+
+**UI requirements**
+- Admin kit; the grant banner is impossible to miss (tenant name + countdown); ReasonSheet requires 20+ chars; MFA code field; 390 cards.
+
+**Backend requirements**
+- service/admin/BreakGlassService, BreakGlassProjections (enum), web/rest/admin/AdminBreakGlassResource, AdminOrgReadResource (projection reads), EnterpriseSettingKeys.Ops (breakglass.*)
+
+**Database changes**
+- Liquibase 20261020030000_ent_break_glass.xml (Phase-6 bucket; 41 row 6 planned `…020000` which is taken by X6.14 — renumbered): break_glass_grant (id, admin_login, org_id, reason, projections_json, created_at, expires_at, revoked_at); index (org_id, expires_at).
+
+**APIs**
+- POST /api/admin/orgs/{id}/break-glass {reason, mfaCode} → 201 {grantId, expiresAt} | 401 STEP_UP_REQUIRED | 422
+- DELETE /api/admin/orgs/{id}/break-glass/{grantId}
+- GET /api/admin/orgs/{id}/read/{projection} (grant required → 403 BREAK_GLASS_REQUIRED without one)
+- GET /api/admin/security/break-glass (log, filters, export)
+
+**Permissions**
+- ROLE_ADMIN + support.access admin permission; step-up MFA
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Without a grant, GET /api/admin/orgs/{acme}/read/licenses → 403 BREAK_GLASS_REQUIRED; with a grant → 200 and one HIGH ADMIN_READ row in acme's org_audit_event visible on acme's /w/admin/audit (X4.9) to its OWNER/ORG_ADMIN.
+- A grant request without a fresh MFA code → 401 STEP_UP_REQUIRED; reason shorter than 20 chars → 422; after 15 minutes the read → 403 again.
+- A projection not in the enum cannot be requested (compile-time); the resume-text route does not exist under /api/admin (route table test).
+- OWNER receives exactly one notification per grant (dedupe grant:{id}); the security mailbox gets the alert.
+- The platform Security page lists the grant with projections read; exporting it writes an AdminAuditEvent EXPORT.
+
+**Test cases**
+- BreakGlassServiceTest
+- AdminBreakGlassResourceIT (SEC-48)
+- BreakGlassProjectionsTest (route table)
+- AdminHostGuardIT unchanged
+- web admin-security.test.tsx, Playwright admin-break-glass.spec (390/1440)
+
+- **Tech notes:** New in Task 2 (doc 45 gap): E8 had a default but no story; 42 §3.9 T9 and 40 §12 name the endpoint. Reuse AdminMfaService; settings enterprise.breakglass.minutes (INT 15), enterprise.breakglass.notify_owner (BOOL true). Until this story lands, no admin tenant-data read endpoint exists (E8 default).
+- **Definition of Done:** openapi regenerated; CI green; 42 §3.9 row T9 points here; 08 E8 consequence updated. Plus the common DoD in `06-phase-plan.md` §5.
 ### X6.11 — Stripe test-clock QA runbook (scenario C through dunning with recorded object ids) + E2E-C Playwright journey over the mock at 390/1440 + Phase 6 exit gate
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** QA, Web · **Deps:** X6.3, X6.4, X6.5, X6.8, X6.10
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** QA, Web · **Deps:** X6.3, X6.4, X6.5, X6.8, X6.10, X6.13
 - **Persona:** QA
 - **Objective:** Prove the Stripe path in test mode end to end and the UI journey over the mock, then close Phase 6.
 - **Story:** As QA, I want a repeatable test-clock script and a Playwright journey so that every release can re-prove billing without a real charge.
@@ -3670,11 +4024,10 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 
 - **Tech notes:** Test mode only; the runbook starts with a key check that refuses sk_live_.
 - **Definition of Done:** Phase 6 gate passed. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
-
 ### X7 — Phase 7 — Consultant and resume management (fully specified, Session D)
 _Consultant directory and profile overlay, org-managed resume links with approval and visibility, readiness, per-feature consent._
 
-Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1 → X7.3 → X7.6 → X7.4 → X7.5 → X7.7.
+Design: `docs/enterprise-v2/30-resume-management.md`. Build order (L stories split by Session E): X7.2 → X7.1 → X7.8 → X7.3 → X7.9 → X7.6 → X7.4 → X7.5 → X7.10 → X7.7.
 
 ### X7.2 — Consultant profile overlay (consultant_profile): availability, bench date, marketing status, preferences, self-declared work-auth category; consultant edits own, marketer proposes
 - **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X4.7, X1.7 · **Relates:** O10.12, O10.13
@@ -3720,8 +4073,8 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 
 - **Tech notes:** Membership-scoped: no org_id on person tables; the overlay row is the only org-owned copy and holds no career history.
 - **Definition of Done:** Overlay editable by the consultant, proposals by marketers; no PII classes; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-### X7.1 — Consultant directory: photo, skills, experience summary (consented), availability, marketing status, assigned marketer, license status, resume completeness
-- **Epic:** X7 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X7.2, X4.7, X2.15
+### X7.1 — Consultant directory API: org_member × consultant_profile × consent projection × open assignment × license × readiness; scope-aware (ASSIGNED/TEAM/ORG); filters; precomputed resume summary
+- **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X7.2, X4.7
 - **Persona:** Org Admin / Marketer / Marketing Manager
 - **Objective:** One list that answers 'who can we market, who is ready, who is mine' with consent made visible.
 - **Story:** As a marketer, I want a directory of consultants with their availability, marketing status, assigned marketer, license and readiness, so that I can pick who to work on next without guessing what I'm allowed to see.
@@ -3730,10 +4083,10 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 - GET /consultants joins org_member × consultant_profile × data_share projection × open org_assignment × consultant_license × readiness per 30 §2; filters q/availability/marketing/marketer/license/readiness; paged.
 - Scope: ASSIGNED for marketers, TEAM for managers, ORG for admins/HR/TA; consent projection per ShareField (experience summary only at FULL; readiness band at SUMMARY).
 - Directory never calls ResumeAccessService per row; resume_summary_json is precomputed (X7.7 fills it; until then null → 'Not computed yet').
+- The Consultants page is X7.8.
 
 **UI requirements**
-- Consultants page (38 §2.1 at 390/1440): cards with ConsentChip, availability dot, bench aging, ReadinessRing, assigned marketer chips, license chips; EmptyState texts from 38 §6; 'Ask Anika' with cooldown.
-- Add ConsentChip and ReadinessRing primitives to packages/ui (tests) before use.
+- —
 
 **Backend requirements**
 - service/org/ConsultantDirectoryService (query + projection); ConsultantRowDTO; ScopeEvaluator used for the row filter.
@@ -3752,17 +4105,60 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 
 **Acceptance criteria**
 - A marketer sees only consultants with an open act-for assignment to them; a direct GET on another marketer's consultant → 404.
-- A consultant at SUMMARY shows readiness band and counts but no experience summary; at FULL naming the viewer the summary appears and a SHARE_READ_FULL audit row is written once per page view.
-- Filters compose and page; 390 has no horizontal scroll; 1440 shows the three-pane layout.
+- A consultant at SUMMARY shows readiness band and counts but no experience summary; at FULL naming the viewer the summary appears and a SHARE_READ_FULL audit row is written once per list call.
+- Filters compose and page (server-side, 50 per page); the row DTO never contains a field outside ShareField.project (projection test).
 - 'Ask Anika' is disabled for org.consent.request_cooldown_days after a request (server-enforced).
 
 **Test cases**
-- ConsultantDirectoryServiceTest (scope, projection, filters), ConsentRequestCooldownTest, OrgIsolationIT lines, Playwright consultants.spec.ts (390/1440).
+- ConsultantDirectoryServiceTest (scope, projection, filters)
+- ConsentRequestCooldownTest
+- OrgIsolationIT lines
 
-- **Tech notes:** Projection through ShareField.project so a new field cannot leak; ShareMatrixTest unchanged (no new ShareField in this story).
+- **Tech notes:** Projection through ShareField.project so a new field cannot leak; ShareMatrixTest unchanged (no new ShareField in this story). Split by Session E (09 "Planned story work"): X7.1 = API; X7.8 = page.
 - **Definition of Done:** Directory live for all roles with consent-honest blanks; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-### X7.3 — Resumes page for the org: org_resume links, named/primary per org, versions, approval status, visibility, view/download/print by permission, audit
-- **Epic:** X7 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X7.1
+### X7.8 — Consultants page (/w/admin/consultants, /w/marketing/talent, /w/hr/consultants read-only): cards with ConsentChip, availability dot, bench aging, ReadinessRing, marketer and license chips; filters; consultant detail with the consent-honest blanks and "Ask Anika"
+- **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X7.1, X2.16, X2.15
+- **Persona:** Org Admin / Marketer / Marketing Manager / HR (summary only)
+- **Objective:** Everyone sees the consultants they are allowed to see with honest blanks where consent is missing, and asking for more is one tap with a cooldown.
+- **Story:** As a marketer, I want my assigned talent in one list with readiness, availability and license at a glance so that I know who to market today.
+
+**Functional requirements**
+- ConsultantDirectory (web/src/components/ent/talent): cards < md / three-pane ≥ md per 38 §2.1; FilterBar (q, availability, marketing status, marketer, license, readiness); ConsentChip, ReadinessRing, StatePill, PersonCell from X2.15; bench-aging text; "Ask Anika" (consent request) disabled during the cooldown with the date.
+- Detail (/consultants/{memberId}): profile overlay (X7.2), consented experience summary or the blank with the reason, resumes tab (X7.9), assignments chips (X4.13), license chips (X6.2 when billing is on), readiness checklist (X7.7 when it lands; "Not computed yet" otherwise).
+- Mounted in ADMIN (scope ORG), MARKETING (ASSIGNED, titled "My Assigned Talent"), MARKETING_MGMT (TEAM) and HR (ORG, summary columns only).
+
+**UI requirements**
+- 38 §2.1 wireframes at 390/1440; EmptyState texts from 38 §6; tenant tokens; no horizontal scroll at 390.
+
+**Backend requirements**
+- — (X7.1)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes GET /api/orgs/{orgId}/consultants, …/{memberId}, POST …/consultants/{memberId}/consent-request
+
+**Permissions**
+- consultants.view (scope per workspace); member.act_for for the marketer lens
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- A marketer sees only their assigned consultants; the admin sees all; HR sees summary columns and no experience text (projection test on the DOM).
+- A consultant at SUMMARY shows the readiness band and counts with the blank "Anika hasn't shared details"; at FULL naming the viewer the summary appears.
+- "Ask Anika" is disabled with the date for org.consent.request_cooldown_days after a request.
+- 390 cards and 1440 three-pane snapshots; axe clean; filters are URL-synced.
+
+**Test cases**
+- web consultants.test.tsx (projection, filters, cooldown)
+- Playwright consultants.spec.ts (390/1440)
+
+- **Tech notes:** Split from X7.1 by Session E. 38 §2.1, 30 §2; ConsentChip/ReadinessRing are X2.15 primitives (not added here).
+- **Definition of Done:** Directory live for all roles with consent-honest blanks; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X7.3 — Org resume links API: org_resume table, PERSONAL_SHARED sync from consent, visibility/primary/edit_allowed, reads through ResumeAccessService (Via.ORG) with view audit, PDF/text routes by permission
+- **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X7.1 · **Relates:** O8.4
 - **Persona:** Marketer / Org Admin / Consultant
 - **Objective:** Link, never copy: give the org management rights over person-owned resumes through org_resume.
 - **Story:** As a marketer, I want to see the resumes a consultant shares with Acme, name the org's primary one, open or print the approved version and see its history, so that submissions use a resume everyone agrees on.
@@ -3772,10 +4168,10 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 - OrgResumeLinkService.syncPersonal creates PERSONAL_SHARED links for non-archived resumes with share_with_org=TRUE when FULL is granted and on ResumeLifecycle events; ends links on archive/unshare/consent drop/leave.
 - Reads go through ResumeAccessService.access → Via.ORG (FULL) and record ResumeViewEvent(ORG) + SHARE_READ_FULL; visibility ORG + org_feature_consent('consent.resume_view_org') is the second qualifying path inside OrgShareResumeSharing.
 - Print = web print stylesheet over the doc; download = rendered PDF only (409 PDF_NOT_READY passthrough); original upload is owner-only.
+- The Org Resumes page and the consultant-side "Shared with Acme" section are X7.9.
 
 **UI requirements**
-- Org Resumes page (list by consultant: display name, kind chip, approval Badge, version no, visibility, primary star, last marketer edit) + consultant Resumes tab; Menu for versions (named rows) per Notion-style; PDF/print actions by permission; 390/1440 per 38 §1.
-- Consultant side (user app Resumes → 'Shared with Acme' section): per-link visibility Select, edit_allowed Switch, primary toggle.
+- —
 
 **Backend requirements**
 - domain/org/OrgResume + repository; OrgResumeLinkService; OrgShareResumeSharing extended with the visibility-ORG path; ActForResumeService facade (reads only in this story).
@@ -3799,12 +4195,53 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 - Every document/PDF read writes ResumeViewEvent(viewer_kind=ORG) and SHARE_READ_FULL; print uses no new endpoint.
 
 **Test cases**
-- OrgResumeLinkServiceTest, ResumeAccessOrgIT (extended), ResumeViewAuditTest, OrgIsolationIT lines, Playwright org-resumes.spec.ts.
+- OrgResumeLinkServiceTest
+- ResumeAccessOrgIT (extended)
+- ResumeViewAuditTest
+- OrgIsolationIT lines
 
-- **Tech notes:** Do not add columns to resume; ResumeAccessService.access keeps its signature — extend OrgShareResumeSharing only.
+- **Tech notes:** Do not add columns to resume; ResumeAccessService.access keeps its signature — extend OrgShareResumeSharing only. Split by Session E (09 "Planned story work"): X7.3 = API; X7.9 = pages.
 - **Definition of Done:** Org Resumes page works on real links; no content copied; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-- **Relates / supersedes:** O8.4
+### X7.9 — Org Resumes page (/w/admin/resumes, /w/marketing/resumes) + consultant Resumes tab + consultant-side "Shared with Acme" controls (visibility, edit_allowed, primary)
+- **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X7.3, X7.8, X2.15
+- **Persona:** Marketer / Org Admin; the consultant who controls what is shared
+- **Objective:** The org sees the resumes it was given and nothing else; the consultant keeps the switches.
+- **Story:** As a consultant, I want to decide which of my resumes Acme can see, whether Sarah may edit them and which one is primary so that sharing never means losing control.
 
+**Functional requirements**
+- Org Resumes page: list by consultant (display name, kind chip PERSONAL_SHARED/ORG_MANAGED, approval Badge, version no, visibility, primary star, last marketer edit); versions Menu (named rows, Notion-style); View (doc), PDF, Print (print stylesheet) by permission; 403 CONSENT_REQUIRED renders the consent card; mounted in ADMIN (ORG) and MARKETING (ASSIGNED).
+- Consultant side (user app Resumes → "Shared with Acme" section, and /w/consultant/resumes on tenant hosts): per-link visibility Select (ORG/ASSIGNED/PRIVATE), edit_allowed Switch, primary toggle — autosave with inline ✓ and undo.
+
+**UI requirements**
+- 38 §1 at 390/1440; Menu for versions; no download of the original upload (owner-only) — the action is absent, not disabled.
+
+**Backend requirements**
+- — (X7.3)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes GET /api/orgs/{orgId}/resumes, …/consultants/{memberId}/resumes, …/resumes/{id}/doc|pdf|versions; GET/PATCH /api/me/orgs/{orgId}/resumes[/{orgResumeId}]
+
+**Permissions**
+- resumes.view_for (ORG/ASSIGNED); consultant routes self
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- An ORG_ADMIN sees link metadata but opening /doc without FULL shows the consent card (no content); a marketer with FULL sees the document and a SHARE_READ_FULL audit row is written.
+- Flipping visibility to PRIVATE on the consultant side hides the link from the org page on the next load; setting another primary flips the star.
+- Print opens the browser print dialog over the doc (no new endpoint); PDF shows "Preparing" on 409 PDF_NOT_READY and retries.
+- Playwright: share → appears → edit_allowed off → marketer edit button absent (390/1440).
+
+**Test cases**
+- web org-resumes.test.tsx, shared-with-org.test.tsx
+- Playwright org-resumes.spec.ts
+
+- **Tech notes:** Split from X7.3 by Session E. 30 §3/§9, 38 §1.
+- **Definition of Done:** Org Resumes page works on real links; no content copied; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X7.6 — org_feature_consent: per-feature act-for consent with cooldown-limited requests; CONSENT_REQUIRED 403 card; immediate revoke
 - **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X7.3, X5 · **Relates:** O10.2
 - **Persona:** Consultant / Marketer
@@ -3847,7 +4284,7 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 - **Tech notes:** Mirror DataShareService patterns (ShareContext hashes, consent text under api/src/main/resources/consent/).
 - **Definition of Done:** Per-feature consent enforced centrally; instant revoke proven; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X7.4 — Resume approval workflow: marketer proposes (ORG_MANAGED or edit of shared), consultant approves/rejects with diff, approved_version pin
-- **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X7.3, X7.6
+- **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X7.3, X7.6, X7.9
 - **Persona:** Consultant / Marketer
 - **Objective:** Nothing a marketer wrote is used until the consultant approves that exact version.
 - **Story:** As a consultant, I want to review what Sarah changed against the version I approved, approve or reject it with a note, and know submissions can only use what I approved, so that every resume sent in my name is one I attest.
@@ -3888,9 +4325,8 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 
 - **Tech notes:** State table in 30 §5 is the contract; registry style like PipelineTransitions is optional here but the doc-sync test is required.
 - **Definition of Done:** Approval machine complete; gate available to later phases; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-
-### X7.5 — Marketer-made resumes via the builder in act-for mode (FULL consent + resumes.edit_for), versions with reason, AI tailoring charged to the consultant's entitlement (or org pool)
-- **Epic:** X7 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X7.4, X5
+### X7.5 — Marketer-made resumes via the builder in act-for mode (FULL consent + resumes.edit_for): ActForResumeService write facade, ORG_MANAGED create, versions with reason, lock rules, builder route on the tenant host
+- **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X7.4, X5 · **Relates:** O10.4
 - **Persona:** Marketer
 - **Objective:** Reuse the resume builder end to end for a marketer working on a consultant's resume, with actor/beneficiary recorded everywhere.
 - **Story:** As a marketer with Anika's consent, I want to create or edit an org resume for her in the same builder she uses, with AI help paid by her license, so that I never maintain a second document format or a second AI budget.
@@ -3898,20 +4334,20 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 **Functional requirements**
 - Act-for BFF routes under /api/orgs/{orgId}/consultants/{memberId}/resumes/{resumeId}/doc delegating to ResumeDocService.save with byLogin=marketer; versions reason=MARKETER, name 'Edit by <marketer>', never trimmed.
 - Create ORG_MANAGED: builder create path under the consultant's user with created_by_login=marketer, source COPY of the approved primary or BLANK, role TAILORED; link kind ORG_MANAGED, status DRAFT; first edit of a PERSONAL_SHARED link promotes it.
-- AI (rewrite/summary/suggest/tailor) with @RequiresFeature(resume.optimization|ai.resume_tailoring, PATH_MEMBER) and AiCallContext(actor, beneficiary, orgId, featureKey, usageEventId); rate limits count against the actor, budget against the beneficiary (30 §6, 37 #3/#5).
 - Edits blocked while PENDING_APPROVAL (409 RESUME_LOCKED); any edit on APPROVED → STALE.
+- AI endpoints in act-for mode (rewrite/summary/suggest/tailor with beneficiary charging) are X7.10; the builder's AI panel stays hidden in act-for mode until then.
 
 **UI requirements**
-- Web route /w/marketing/resumes/{orgResumeId}/edit on the tenant host ((tenant)/_t/w/[workspace]/resumes/[orgResumeId]/edit, 09 row 1) mounting the existing builder with mode='act-for': banner, AiDisclosure 'charged to Anika's license', SaveStatusChip; AI panel hidden when the beneficiary lacks the feature (402 → chip).
+- Web route /w/marketing/resumes/{orgResumeId}/edit on the tenant host (file (tenant)/%5Ft/w/[workspace]/resumes/[orgResumeId]/edit/page.tsx, 09 row 1) mounting the existing builder with mode='act-for': banner, AiDisclosure 'charged to Anika's license', SaveStatusChip; AI panel hidden in act-for mode until X7.10.
 
 **Backend requirements**
-- ActForResumeService (write facade; the only org path into Resume*Service writes); ResumeAiService entry points accept beneficiaryLogin; AiRouter AiCallContext (from X5 metering story) consumed.
+- ActForResumeService (write facade; the only org path into Resume*Service writes)
 
 **Database changes**
 - None (uses X7.3 + Session C's ai_call columns).
 
 **APIs**
-- PUT …/resumes/{resumeId}/doc · POST …/resumes · POST …/resumes/{resumeId}/ai/{rewrite|summary|suggest|tailor} (30 §9).
+- PUT …/resumes/{resumeId}/doc · POST …/resumes (30 §9)
 
 **Permissions**
 - resumes.edit_for (ASSIGNED) + step 9 act-for assignment + step 10 FULL naming the actor and org_feature_consent('consent.resume_edit') or link edit_allowed.
@@ -3922,16 +4358,59 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 **Acceptance criteria**
 - A marketer save creates resume_doc_version(reason=MARKETER, created_by_login=marketer) and audit MARKETER_RESUME_EDIT with beneficiary_login; the consultant's own autosave path is unchanged (regression test on /api/profile/resumes).
 - Without FULL naming the marketer → 404; with FULL but no edit consent → 403 CONSENT_REQUIRED; with both → 200.
-- AI tailor: usage_event(actor=sarah, member=anika) and ai_call(login=sarah, beneficiary_login=anika, feature_key) written; a failed provider call books the failure to anika with actor sarah.
 - The marketer cannot create share links or read the original upload for the consultant (routes absent; MarketerVerbsTest).
 
 **Test cases**
-- ActForBuilderIT, ActForAiChargingTest, MarketerVerbsTest, PersonalBuilderRegressionIT, Playwright act-for-builder.spec.ts.
+- ActForBuilderIT
+- MarketerVerbsTest
+- PersonalBuilderRegressionIT
+- Playwright act-for-builder.spec.ts
 
-- **Tech notes:** Never fork the builder; pass mode and beneficiary through props; the BFF swaps the API base path only.
+- **Tech notes:** Never fork the builder; pass mode and beneficiary through props; the BFF swaps the API base path only. Split by Session E (09 "Planned story work"): X7.5 = act-for writes + builder route; X7.10 = act-for AI.
 - **Definition of Done:** Marketer can build/edit with full attribution and correct charging; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-- **Relates / supersedes:** O10.4
+### X7.10 — Act-for AI in the builder: rewrite/summary/suggest/tailor with @RequiresFeature(resume.optimization | ai.resume_tailoring, PATH_MEMBER), AiCallContext(actor, beneficiary), consent kinds, charging to the consultant's entitlement (or org pool), AI panel + disclosure in act-for mode
+- **Epic:** X7 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X7.5, X5.16, X5.8, X7.6
+- **Persona:** Marketer tailoring an assigned consultant's resume; the consultant whose license pays
+- **Objective:** Sarah can use AI on Anika's resume only when Acme allows it, Anika holds the feature and consented, and usage is booked to Anika with Sarah as the actor (requirement §20).
+- **Story:** As a marketer, I want to tailor Anika's resume to a requirement with AI so that submissions are sharper, while the ledger shows exactly who did what for whom.
 
+**Functional requirements**
+- POST …/consultants/{memberId}/resumes/{resumeId}/ai/{rewrite|summary|suggest|tailor} with @RequiresFeature(key, PATH_MEMBER): rewrite/suggest/summary → resume.optimization (consent.ai_optimization), tailor → ai.resume_tailoring (consent.ai_tailoring); AiCallContext(actorLogin=marketer, beneficiaryLogin=consultant, orgId, featureKey, usageEventId); rate limits count against the actor, AI budget and allowance against the beneficiary (30 §6, 37 #3/#5, ORG_POOL when the feature is pooled).
+- ResumeAiService entry points accept beneficiaryLogin; outputs are drafts applied only on the marketer's explicit accept (42 T48: no auto-apply); inputs pass SensitivePatterns.redact.
+- Web: AI panel in act-for mode with AiDisclosure "charged to Anika's license"; hidden with a 402 chip ("AI tailoring isn't on Anika's license") or a consent chip (403 CONSENT_REQUIRED → "Ask Anika") — both from X2.15 primitives.
+
+**UI requirements**
+- Same builder AI panel; the disclosure line is always visible in act-for mode; 390/1440.
+
+**Backend requirements**
+- ResumeAiService (beneficiary overloads), ActForResumeAiResource, AiRouter.generate(…, ctx) consumer
+
+**Database changes**
+- None (uses X5.8's ai_call columns).
+
+**APIs**
+- POST …/consultants/{memberId}/resumes/{resumeId}/ai/{rewrite|summary|suggest|tailor} (Idempotency-Key)
+
+**Permissions**
+- member.act_for (ASSIGNED) + resumes.edit_for; consent kinds per 21 §2.5
+
+**Feature entitlements**
+- resume.optimization, ai.resume_tailoring (beneficiary = the consultant)
+
+**Acceptance criteria**
+- AI tailor: usage_event(actor=sarah, member=anika, feature=ai.resume_tailoring) and ai_call(login=sarah, beneficiary_login=anika, feature_key) written; a failed provider call books the failure to anika with actor sarah and releases the reservation.
+- Without the feature on Anika's license → 402 FEATURE_NOT_LICENSED and the panel shows the chip; without consent.ai_tailoring → 403 CONSENT_REQUIRED and the "Ask Anika" chip; the consultant's own AI path is unchanged (regression on /api/profile/resumes/*/ai).
+- A pooled feature (ORG_POOL) decrements the org counter with beneficiary = Anika still recorded.
+- Prompt-injection fixture in the resume text produces a draft only; nothing is applied without accept (PromptInjectionDraftOnlyTest).
+
+**Test cases**
+- ActForAiChargingTest
+- ActForResumeAiResourceIT
+- PromptInjectionDraftOnlyTest
+- Playwright act-for-ai.spec.ts
+
+- **Tech notes:** Split from X7.5 by Session E. 30 §6, 37 #3/#5, 24 §8 worked example, 09 rows 9–12.
+- **Definition of Done:** Ledger rows correct for actor/beneficiary; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X7.7 — Marketing readiness checklist per consultant (profile, approved resume, availability, license, consent) feeding the dashboard
 - **Epic:** X7 · **Size/Complexity:** S/S · **Owners:** API, Web · **Deps:** X7.4, X7.2
 - **Persona:** Marketer / Org Admin
@@ -3974,25 +4453,23 @@ Design: `docs/enterprise-v2/30-resume-management.md`. Build order: X7.2 → X7.1
 ### X8 — Phase 8 — Talent marketing (fully specified, Session D)
 _Assigned talent, job discovery and AI matching for a consultant, opportunity assignment and authorization, follow-ups, activities, duplicate guard — the marketer prepares, never submits (E1 answered 2026-10-12)._
 
-Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-entitlement-hooks.md` · `docs/enterprise-v2/38-ux-talent-workspaces.md`. Build order: X8.10 → X8.1 → X8.2 → X8.3 → X8.4 → X8.5 → X8.8 → X8.6 → X8.7 → X8.9.
+Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-entitlement-hooks.md` · `docs/enterprise-v2/38-ux-talent-workspaces.md`. Build order (L stories split by Session E): X8.10 → X8.13 → X8.1 → X8.2 → X8.3 → X8.11 → X8.4 → X8.12 → X8.5 → X8.8 → X8.6 → X8.7 → X8.9.
 
-### X8.10 — Pipeline schema (_ent_pipeline.xml), PipelineTransitions registry, pipeline_event, PipelineService.transition, ORG_* notification kinds
-- **Epic:** X8 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X7.4, X4.7
+### X8.10 — Pipeline schema: 20261022010000_ent_pipeline.xml (job_opportunity, opportunity_match, candidate_submission, pipeline_application_link, interview_slot, offer, placement, placement_extension, pipeline_event, pipeline_task, client_*), entities + repositories with OrgIsolationIT lines, purge job
+- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X7.4, X4.7
 - **Persona:** Platform / Sonnet
 - **Objective:** Lay down every pipeline table and the one transition engine so each later story adds rows to a registry instead of inventing status logic.
 - **Story:** As the build team, we want the PIPELINE context tables, the transition registry and the event/notification plumbing in one additive migration, so that X8–X10 stories are thin and the doc↔code sync test guards every state machine.
 
 **Functional requirements**
 - Tables: job_opportunity (31 §3), opportunity_match (31 §4), candidate_submission (31 §5), pipeline_application_link (32 §2), interview_slot (33 §2), offer (31 §7), placement + placement_extension (35 §2), pipeline_event, pipeline_task (31 §12), client_account/client_contact/client_relationship/client_requirement (34 §1–2) — all org_id-first, generated live keys as specified.
-- PipelineTransitions registry (data) + PipelineService.transition(entity, id, to, actor, body) with AuthorizationService, guards, effects, pipeline_event, audit, after-commit notifications; 409 PIPELINE_TRANSITION on illegal moves.
-- Every ORG_* NotificationKind is already registered by X2.10 with NOTIFY_DEFAULTS per 31 §11 (09 row 18); this story adds only the messages.properties keys notif.org.* and publishes ORG_OPPORTUNITY, ORG_AUTHORIZATION, ORG_APPROVAL, ORG_INTERVIEW, ORG_OFFER, ORG_PLACEMENT, ORG_HR, ORG_FINANCE.
-- PipelineStateMachineTest renders the registry and diffs it against the tables in 31/33/35 (and 34 §2, 36 §2) — ShareMatrixTest pattern.
+- Entities and repositories (each with a REPOSITORY_CHECKS line in OrgIsolationIT); PipelineEventPurgeJob (36 months, setting); notif.org.* messages keys. The transition registry and PipelineService are X8.13.
 
 **UI requirements**
 - None.
 
 **Backend requirements**
-- domain/org/pipeline/* entities + repositories (each with a REPOSITORY_CHECKS line in OrgIsolationIT); service/org/pipeline/{PipelineTransitions, PipelineService, PipelineEventService, Guards, Effects}; NotificationKind additions.
+- domain/org/pipeline/* entities + repositories; PipelineEventPurgeJob; messages.properties keys
 
 **Database changes**
 - Changelog 20261022010000_ent_pipeline.xml (additive): all tables above with indexes from the docs; retention of pipeline_event 36 months via a *PurgeJob per 03 §6.
@@ -4008,18 +4485,63 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 
 **Acceptance criteria**
 - Changelog runs clean on empty DB and on the previous changelog (Liquibase test pattern); every table has org_id first in its primary index.
-- PipelineStateMachineTest passes and fails when a doc table row is edited (proven by a deliberate mismatch in a unit test fixture).
-- An illegal transition returns 409 with {entity, from, to}; a legal one writes exactly one pipeline_event and one audit row and publishes notifications after commit (rollback → none).
+- Every repository has a REPOSITORY_CHECKS line and TenantRepositoryContractTest passes for the new tables; composite tenant FKs per 41 R3 verified by CompositeTenantFkTest.
 - NotificationKind.parse handles the new kinds; notification_preference matrix defaults apply.
 
 **Test cases**
-- PipelineStateMachineTest, PipelineServiceTest, PipelineEventPurgeJobTest, LiquibaseChangelogTest, NotificationKindDefaultsTest.
+- LiquibaseChangelogTest
+- TenantRepositoryContractTest (new tables)
+- CompositeTenantFkTest
+- PipelineEventPurgeJobTest
+- NotificationKindDefaultsTest
 
-- **Tech notes:** Transition registry shape: Transition(entity, from, to, actorKind, permissionKey, guards[], effects[], notifications[]). Keep guards pure and effects idempotent.
+- **Tech notes:** Transition registry shape: Transition(entity, from, to, actorKind, permissionKey, guards[], effects[], notifications[]). Keep guards pure and effects idempotent. Split by Session E (09 "Planned story work"): X8.10 = schema; X8.13 = engine.
 - **Definition of Done:** Engine and schema in; later stories only register transitions; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X8.13 — Pipeline engine: PipelineTransitions registry (data) + PipelineService.transition(entity, id, to, actor, body) with AuthorizationService, guards, effects, pipeline_event, audit, after-commit notifications, ModuleGate; PipelineStateMachineTest doc-sync
+- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X8.10, X1.7, X4.7
+- **Persona:** Every later pipeline story (X8.4–X10.4) as the consumer
+- **Objective:** There is exactly one way to move a pipeline object between states, and the registry is provably equal to the state-machine tables in docs 31/33/35.
+- **Story:** As a developer, I want to register a transition with its guards and effects and get authorization, history, audit and notifications for free so that no status is ever written by hand.
 
+**Functional requirements**
+- Transition(entity, from, to, actorKind, permissionKey, guards[], effects[], notifications[]) registry as data (31 §2–§6, 33 §3, 35 §3, 34 §2, 36 §2 rows); PipelineService.transition: AuthorizationService (11-step; step 6 ModuleGate module.talent_marketing for MARKETER/MANAGER actor kinds — 09 row 13), guards (pure), effects (idempotent), pipeline_event row, org audit row, notifications published after commit via @TransactionalEventListener; 409 PIPELINE_TRANSITION {entity, from, to} on illegal moves.
+- OffboardingHook "Pipeline" (X4.4 chain): open matches → WITHDRAWN reason CONSULTANT_LEFT.
+- PipelineStateMachineTest renders the registry and diffs it against the doc tables (ShareMatrixTest pattern) — a doc edit without a registry change fails.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/org/pipeline/{PipelineTransitions, PipelineService, PipelineEventService, Guards, Effects, PipelineOffboardingHook}
+
+**Database changes**
+- None (X8.10).
+
+**APIs**
+- None public in this story (engine only); no dev transition endpoint — use service tests.
+
+**Permissions**
+- Per transition row (registry); ModuleGate at step 6
+
+**Feature entitlements**
+- Per transition row where a feature is consumed (X8.4, X10.3)
+
+**Acceptance criteria**
+- An illegal transition returns 409 with {entity, from, to}; a legal one writes exactly one pipeline_event and one audit row and publishes notifications after commit (rollback → none).
+- A MARKETER transition with module.talent_marketing off for the org → 409 MODULE_OFF before any guard runs.
+- PipelineStateMachineTest passes and fails when a doc table row is edited (proven by a deliberate mismatch fixture).
+- The offboarding hook withdraws open matches with CONSULTANT_LEFT and leaves history intact.
+
+**Test cases**
+- PipelineStateMachineTest
+- PipelineServiceTest
+- PipelineModuleGateTest
+- PipelineOffboardingHookTest
+
+- **Tech notes:** Split from X8.10 by Session E. Keep guards pure and effects idempotent; registry shape as above.
+- **Definition of Done:** Engine in; later stories only register transitions; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X8.1 — Marketing workspace shell: My Assigned Talent, consultant switcher, consent/license chips
-- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X8.10, X7.1, X2, X2.15 · **Relates:** O10.3
+- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X8.10, X7.1, X2, X2.15, X7.8, X8.13 · **Relates:** O10.3
 - **Persona:** Marketer
 - **Objective:** The marketer's home: their consultants, what needs them, and the switcher every other page keys off.
 - **Story:** As a marketer, I want a workspace that opens on my assigned talent with consent and license chips and a consultant switcher, so that every page I open is already about the right person.
@@ -4100,23 +4622,23 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 - **Definition of Done:** Discovery and bank usable; no scraping path exists; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 - **Relates / supersedes:** O10.5, O8.2
 
-### X8.3 — AI matching for a consultant (opportunity_match with score/reason, beneficiary entitlement ai.job_matching, actor recorded)
-- **Epic:** X8 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X8.2, X5
+### X8.3 — AI matching for a consultant (on demand): OrgMatchService.matchOne with AiCallContext, opportunity_match SUGGESTED rows (score/reason/model), rule-only fallback, beneficiary entitlement ai.job_matching, batch-size reservation
+- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X8.2, X5.16, X5.8, X8.13
 - **Persona:** Marketer
 - **Objective:** Score the org's opportunities for a consultant with the existing matching pipeline, charged to the consultant's license and attributed to the marketer.
 - **Story:** As a marketer, I want AI-scored matches between Anika and our opportunities, paid by her license and recorded as me acting for her, so that I assign the right jobs first.
 
 **Functional requirements**
 - OrgMatchService.matchOne(orgId, memberId, actor): candidates = open job_opportunity rows (bank + requirements) ∪ JobPrefilter.select over fresh postings; one AiTask.JOBS call via the decide→generate→record sequence with AiCallContext(actor, beneficiary); writes opportunity_match SUGGESTED rows (source SUGGESTED_AI, score, reason ≤ 300, model); rule-only fallback (SUGGESTED_RULE, JobRanker) when the feature is not licensed.
-- EntitlementService.check(actor=marketer, beneficiary=consultant, ai.job_matching, 1) per run; OrgMatchJob nightly for consultants with marketing_status ACTIVE and the feature (explicit check; idempotency key per day).
-- Requires FULL (reads bio/resume) → otherwise CONSENT_REQUIRED and the rule fallback uses only consultant_profile skills.
+- EntitlementService.check(actor=marketer, beneficiary=consultant, ai.job_matching, batch) per run through @RequiresFeature(PATH_MEMBER) on the run endpoint; FULL required (reads bio/resume) → otherwise CONSENT_REQUIRED and the rule fallback uses only consultant_profile skills.
 - Metering per 37 #1 as resolved in 09 row 9: feature ai.job_matching, unit matches; a run reserves enterprise.matching.batch_size (default 20) units for the consultant and commits the scored count; AI calls pass X5.8's AiCallContext (beneficiary = consultant).
+- The nightly job and the Job Matches tab are X8.11.
 
 **UI requirements**
-- Job Matches tab per 38 §2.2 with AiDisclosure; 402 chip 'AI matching isn't on Anika's license'; SwipeCard select/dismiss at 390.
+- —
 
 **Backend requirements**
-- service/org/pipeline/OrgMatchService + OrgMatchJob; prompt reuse of JobMatchService.buildPrompt (make package-visible or extract JobsPrompt).
+- service/org/pipeline/OrgMatchService; prompt reuse of JobMatchService.buildPrompt (make package-visible or extract JobsPrompt).
 
 **Database changes**
 - None beyond X8.10.
@@ -4131,17 +4653,60 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 - ai.job_matching — actor marketer, beneficiary consultant, 1 matching_run (37 #1); AiCallContext recorded.
 
 **Acceptance criteria**
-- With the feature licensed: one usage_event(actor=sarah, member=anika, feature=ai.job_matching) and one ai_call with beneficiary_login=anika per run; without: 402 on the handler and SUGGESTED_RULE rows from the job (no AI call).
+- With the feature licensed: one usage_event(actor=sarah, member=anika, feature=ai.job_matching) and one ai_call with beneficiary_login=anika per run; without: 402 on the handler and the fallback endpoint writes SUGGESTED_RULE rows (no AI call).
 - The same (opportunity, consultant) pair never produces two rows (unique key; rerun updates score/reason).
-- Consent revoked → the nightly job skips the consultant and logs CONSENT_REQUIRED (no 403 leak to anyone).
+- Consent revoked → the run → 403 CONSENT_REQUIRED and no AI call.
 
 **Test cases**
-- OrgMatchServiceTest, OrgMatchJobTest (idempotency, skip rules), EntitlementHookTest for #1, Playwright matches.spec.ts.
+- OrgMatchServiceTest
+- EntitlementHookTest for #1
+- OrgMatchResourceIT
 
-- **Tech notes:** Scheduler path must call EntitlementService.check explicitly (no handler); keep the prompt identical to the personal one so quality stays comparable.
+- **Tech notes:** Scheduler path must call EntitlementService.check explicitly (no handler); keep the prompt identical to the personal one so quality stays comparable. Split by Session E (09 "Planned story work"): X8.3 = service + run endpoint; X8.11 = nightly job + UI.
 - **Definition of Done:** AI matching live with correct actor/beneficiary ledger rows; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-### X8.4 — Opportunity assignment: assign/withdraw, batch assign with default/override approved resume, one notification, duplicate guard
-- **Epic:** X8 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X8.3, X7.4 · **Relates:** O10.5
+### X8.11 — OrgMatchJob nightly (consultants with marketing_status ACTIVE and the feature; explicit entitlement check; idempotent per day; consent-skip) + Job Matches tab with AiDisclosure, 402/consent chips, SwipeCard select/dismiss
+- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X8.3, X8.1
+- **Persona:** Marketer reviewing suggestions each morning; the system overnight
+- **Objective:** Suggestions arrive by themselves for licensed, consenting consultants and are reviewed in a list that says plainly what the AI saw.
+- **Story:** As a marketer, I want fresh matches for each of my consultants every morning with the reason the model gave so that I can assign the good ones in minutes.
+
+**Functional requirements**
+- OrgMatchJob (02:00 org-local, ShedLock-ready, per-org loop with checks_per_run caps — 42 T65): for each consultant with marketing_status ACTIVE, FULL to at least one open assignee and the feature licensed → EntitlementService.check explicitly (scheduler path, no handler) → OrgMatchService.matchOne; idempotency key match:{org}:{member}:{date}; CONSENT_REQUIRED/402 → skip + log, never a notification to the consultant about the refusal.
+- Job Matches tab (/w/marketing/talent/{memberId}/matches, 38 §2.2): list of SUGGESTED rows (score, reason ≤ 300 chars, source AI/RULE chip, AiDisclosure); select → assign bar (X8.12); dismiss (POST …/matches/{id}/dismiss) with undo; SwipeCard at 390; 402 chip "AI matching isn't on Anika's license" with the run button disabled; "Run matching now" (POST …/matches/run) with the batch-size note.
+
+**UI requirements**
+- 38 §2.2 at 390 (SwipeCard) / 1440 (table); AiDisclosure always visible; tenant tokens.
+
+**Backend requirements**
+- service/org/pipeline/OrgMatchJob; web/rest/org/OrgMatchResource (dismiss, list)
+
+**Database changes**
+- None beyond X8.10.
+
+**APIs**
+- GET /api/orgs/{orgId}/matches?consultant=&status= · POST /matches/{id}/dismiss · POST …/consultants/{memberId}/matches/run (X8.3)
+
+**Permissions**
+- opportunities.manage (ASSIGNED); member.act_for
+
+**Feature entitlements**
+- ai.job_matching (beneficiary = the consultant)
+
+**Acceptance criteria**
+- The job runs once per consultant per day (second run same day is a no-op by key); a consultant whose consent was revoked is skipped with a log line and no notification.
+- With the feature licensed: one usage_event(actor=system, member=anika, feature=ai.job_matching) per nightly run with quantity = scored count; without it no AI call and no rows.
+- Dismiss hides the row with undo (8 s); the same (opportunity, consultant) pair never produces two rows.
+- Playwright: run now → rows appear with reasons → swipe-dismiss at 390 → select at 1440.
+
+**Test cases**
+- OrgMatchJobTest (idempotency, skip rules, per-org caps)
+- web matches.test.tsx
+- Playwright matches.spec.ts
+
+- **Tech notes:** Split from X8.3 by Session E. 37 #1, 09 row 9, 31 §4; scheduler must call EntitlementService.check explicitly.
+- **Definition of Done:** AI matching live with correct ledger rows; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X8.4 — Opportunity assignment API: SUGGESTED/—→ASSIGNED and →WITHDRAWN transitions with ApprovalGate, open-matches cap, DuplicateGuard, BoardPolicy and manager-approval hold; batch assign with default/override approved resume, one notification per batch; marketing.assisted_applications metering
+- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X8.3, X7.4, X8.11 · **Relates:** O10.5
 - **Persona:** Marketer
 - **Objective:** Turn suggestions into assignments the consultant sees, with the approved resume pinned and one notification per batch.
 - **Story:** As a marketer, I want to assign one or many opportunities to Anika with a default approved resume (overridable per job) and a note, and withdraw if needed, so that she gets one clear list and one notification.
@@ -4151,9 +4716,10 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 - Batch endpoint creates N matches in one transaction with groupKey batch:{uuid} → exactly one ORG_OPPORTUNITY notification; opportunity → ASSIGNED.
 - Feature marketing.assisted_applications consumed once per batch (37 #7).
 - Metering per 37 #7 as resolved in 09 row 9: marketing.assisted_applications, unit preparations — quantity = N for a batch of N match rows, 1 per submission packet (DRAFT), 0 (access check) for record/follow-ups/reads.
+- The assign bar, resume picker and Opportunities Kanban are X8.12.
 
 **UI requirements**
-- Assign bar per 38 §2.2 (useBottomBar), resume picker (APPROVED only; STALE disabled with reason), note; Opportunities Kanban per 38 §2.3 (Suggested/Assigned columns live).
+- —
 
 **Backend requirements**
 - OpportunityMatchService.assign(batch)/withdraw; transitions registered; BatchNotification.
@@ -4177,12 +4743,57 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 - With manager approval ALWAYS the rows stay SUGGESTED with approval PENDING and appear in the manager's queue.
 
 **Test cases**
-- OpportunityMatchServiceTest, BatchAssignNotificationTest, ApprovalGateTest (reuse), DuplicateGuardTest rules 2/5, Playwright assign.spec.ts.
+- OpportunityMatchServiceTest
+- BatchAssignNotificationTest
+- ApprovalGateTest (reuse)
+- DuplicateGuardTest rules 2/5
+- OpportunityMatchResourceIT
 
-- **Tech notes:** Registry-driven; no status writes outside PipelineService.
+- **Tech notes:** Registry-driven; no status writes outside PipelineService. Split by Session E (09 "Planned story work"): X8.4 = API; X8.12 = UI.
 - **Definition of Done:** Assignment flow complete through the engine; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X8.12 — Assign bar (useBottomBar) with APPROVED-only resume picker, overrides and note; Opportunities Kanban (Suggested / Assigned / Accepted / In progress / Closed) with drag-to-assign and withdraw; duplicate and cap warnings inline; board-policy badge
+- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X8.4, X8.11, X2.15
+- **Persona:** Marketer assigning opportunities to assigned talent
+- **Objective:** Assigning fourteen jobs with the right approved resume is one bar and one confirm, and every guard the API enforces is visible before the click.
+- **Story:** As a marketer, I want to select the matches I like, pick Anika's approved resume and assign them in one go so that she gets one tidy notification, not fourteen.
+
+**Functional requirements**
+- Assign bar per 38 §2.2: selection count, default resume picker (APPROVED only; STALE disabled with the reason; "no approved resume" → link to X7.4), per-row override, note, Assign → POST …/matches batch; 409 RESUME_NOT_APPROVED/ASSIGNMENT_CAP/DUPLICATE_WARNING rendered inline with "confirm duplicate" when allowed; board-policy badge on cards whose board forbids agency applications (31 §9: APPLY_SELF only).
+- Opportunities Kanban per 38 §2.3 (KanbanBoard primitive): columns from the match status; drag Suggested → Assigned opens the bar; Withdraw with reason (ReasonSheet) and undo; manager-approval hold shows "Waiting for approval" chip when org.pipeline.manager_approval applies.
+- Mounted in MARKETING (ASSIGNED) and MARKETING_MGMT Pipeline page (TEAM, read + approve link).
+
+**UI requirements**
+- 390: list with the sticky bottom bar; 1440: Kanban; 44 px targets; tenant tokens.
+
+**Backend requirements**
+- — (X8.4)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes POST /api/orgs/{orgId}/matches, POST /matches/{id}/withdraw, GET /matches, GET /pipeline?scope=team
+
+**Permissions**
+- opportunities.manage (ASSIGNED/TEAM); pipeline.view
+
+**Feature entitlements**
+- marketing.assisted_applications (actor = the marketer, via the API)
+
+**Acceptance criteria**
+- Assigning 14 selected matches with a default resume creates 14 ASSIGNED cards and the toast says "Anika will get one notification"; a STALE resume cannot be picked (disabled with reason).
+- Cap exceeded → inline 409 with the cap value and a link to the consultant's open matches; duplicate → warning with "assign anyway" when confirmDuplicate is allowed.
+- With manager approval ALWAYS the cards show the "Waiting for approval" chip in the Suggested column and appear on the manager's Approvals page (X8.5).
+- Playwright: select → assign → Kanban moves → withdraw with reason → undo (390/1440).
+
+**Test cases**
+- web assign-bar.test.tsx, kanban.test.tsx
+- Playwright assign.spec.ts
+
+- **Tech notes:** Split from X8.4 by Session E. 38 §2.2–§2.3; KanbanBoard from X2.15.
+- **Definition of Done:** Assignment flow complete end to end in the UI; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X8.5 — Authorization requests: consultant accepts/declines and authorizes a submission; marketer sees state; approvals for Marketing Managers
-- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X8.4
+- **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X8.4, X8.12
 - **Persona:** Consultant / Marketer / Marketing Manager
 - **Objective:** The consultant's decisions and authorization scope become explicit states the marketer and manager can see.
 - **Story:** As a consultant, I want to accept or decline what Sarah assigned and authorize exactly what she may do (I apply myself / she may present me to a client / both), and as a manager I want to approve assignments when my org requires it, so that nothing happens in my name without my say.
@@ -4261,7 +4872,7 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 - **Definition of Done:** Guard complete and wired; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 - **Relates / supersedes:** O10.11
 
-### X8.6 — Follow-ups and tasks: due dates, reminders, activity feed, status updates on matches/submissions
+### X8.6 — Follow-ups, tasks and escalations: due dates, reminders, activity feed, status updates on matches/submissions; Escalations page for Marketing Managers
 - **Epic:** X8 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X8.5
 - **Persona:** Marketer
 - **Objective:** Keep the marketer's day honest: what's due, what happened, what changed.
@@ -4272,6 +4883,7 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 - Activity feed = pipeline_event by actor; status updates = transitions IN_PROGRESS→CLOSED_* by marketer with followups.manage.
 - Ghost rule: OpportunityFreshnessJob closes IN_PROGRESS rows with no event for 2×org.pipeline.no_response_days.
 - Registers the DashboardWidgetProvider bean(s) marketing.activity7d for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService.
+- Escalations (requirement §25 Marketing Manager · 16 §5.3): pipeline_task.kind gains ESCALATION (additive enum value); a marketer raises one from a match/submission/task ("Escalate to my manager" with reason) → assignee = the open MANAGER assignment for the consultant (else the team lead); EscalationsPage /w/marketing-mgmt/escalations (escalations.manage, TEAM scope): open/resolved, SLA age, resolve with note, reassign; ORG_APPROVAL notification kind reused with subkind ESCALATION; dashboard tile "escalations open" for managers.
 
 **UI requirements**
 - Follow-ups page (Today/Overdue/This week), Tasks sheet, Activities feed (TimelineFeed) per 38 §2.4; undo Toast on Done.
@@ -4284,9 +4896,11 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 
 **APIs**
 - GET/POST/PATCH /api/orgs/{orgId}/pipeline/tasks[/{id}] · POST /tasks/{id}/done|snooze · GET /pipeline/activities?actor=me · POST /matches/{id}/status {to, reason}.
+- POST /api/orgs/{orgId}/pipeline/tasks/{id}/escalate {reason} · GET /pipeline/escalations?scope=team · POST /pipeline/escalations/{id}/resolve {note}
 
 **Permissions**
 - followups.manage (ASSIGNED); pipeline.view.
+- escalations.manage (TEAM) for managers; followups.manage for raising
 
 **Feature entitlements**
 - alerts.advanced — actor = beneficiary = marketer, limit check only (37 #11).
@@ -4294,9 +4908,11 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 **Acceptance criteria**
 - A SUBMITTED record with no change for 7 days produces one suggested task; done/undo works within 8 s; reminders deduped per day.
 - Without alerts.advanced the marketer still gets the basic in-app daily count; with it, the grouped digest email.
+- A marketer escalates a stuck submission → the manager's Escalations page lists it with the age; resolving writes the note to the task, a pipeline_event and one notification to the marketer; a marketer cannot open /w/marketing-mgmt/escalations (not-part-of-your-role).
 
 **Test cases**
 - PipelineTaskServiceTest, FollowUpReminderJobTest, GhostRuleTest, Playwright followups.spec.ts.
+- EscalationFlowTest, Playwright escalations.spec.ts.
 
 - **Tech notes:** Tasks are org rows about pipeline objects, never about the consultant's private application.
 - **Definition of Done:** Follow-ups and activities live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
@@ -4379,30 +4995,30 @@ Design: `docs/enterprise-v2/31-talent-marketing.md` · `docs/enterprise-v2/37-en
 ### X9 — Phase 9 — Consultant applications, interviews, extension workspace (fully specified, Session D)
 _Consultant workspace, assigned jobs, application link via submit-detect, interview coordination, AI interview prep (licensed), offers, extension workspace selector._
 
-Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interviews.md`. Build order: X9.1 → X9.2 → X9.3 → X9.4 → X9.5 → X9.6 → X9.7 → X9.8 → X9.9 → X9.10.
+Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interviews.md`. Build order (L stories split by Session E): X9.1 → X9.11 → X9.2 → X9.3 → X9.4 → X9.5 → X9.6 → X9.7 → X9.8 → X9.9 → X9.12 → X9.10.
 
-### X9.1 — Consultant workspace: Home, My Profile, My Resumes, Job Matches, Assigned Opportunities, Applications, Interviews, Offers, Placements, My Available Features, Notifications
-- **Epic:** X9 · **Size/Complexity:** L/L · **Owners:** Web, API · **Deps:** X8.5, X2, X2.15
+### X9.1 — Consultant workspace shell: nav per 38 §3; My Profile, My Resumes, Job Matches, Assigned Opportunities, Applications, Interviews, Offers, Placements, My Available Features and Notifications embedded on tenant hosts; org lens on the tracker
+- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X8.5, X2, X2.15
 - **Persona:** Consultant
 - **Objective:** The consultant's org lens over their own app, branded by the org, with nothing copied.
 - **Story:** As a consultant, I want a home in Acme's workspace that shows what needs me, my assigned opportunities, my own applications and interviews, offers, placements and what Acme licensed for me, so that I work in one place and keep my own account.
 
 **Functional requirements**
 - Workspace key CONSULTANT with nav per 38 §3; pages embed the existing user-area routes (tracker, resumes, interviews, job matches) inside the enterprise shell on tenant hosts; org-specific lists from /api/me/orgs/{orgId}/** (32 §1).
-- Home composition: needs-you (resume approvals, slot confirmations, offers), assigned opportunities, counts; SpeechBubble only when something is new.
 - My Available Features = Session C's entitlement view embedded.
+- Notifications page = the existing notifications UI inside the shell (org kinds included); Home and the consultant Settings page are X9.11.
 
 **UI requirements**
 - 38 §3.1 Home at 390/1440; EmptyState texts; the existing tracker gets a 'From Acme' filter preset (application.source='org' or linked).
 
 **Backend requirements**
-- ConsultantHomeService (counts + needs-you); user-area routes unchanged.
+- — (user-area routes unchanged; /api/me/orgs/{orgId}/** lists from 32 §1)
 
 **Database changes**
 - None.
 
 **APIs**
-- GET /api/me/orgs/{orgId}/home.
+- GET /api/me/orgs/{orgId}/opportunities · /applications · /interviews · /offers · /placements (32 §1)
 
 **Permissions**
 - self.* (OWN); the shell derives nav from the CONSULTANT template.
@@ -4411,17 +5027,63 @@ Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interv
 - —
 
 **Acceptance criteria**
-- A consultant on acme.localhost lands on Home with the org brand and sees only their own data; a non-consultant member gets the 'not part of your role' state.
+- A consultant on acme.localhost opens /w/consultant/* pages with the org brand and sees only their own data; a non-consultant member gets the 'not part of your role' state.
 - The personal workspace is unchanged (PersonalSubscriptionUnchangedIT + Playwright regression of /applications).
 - 390: every tile reachable without horizontal scroll.
 
 **Test cases**
-- ConsultantHomeServiceTest, Playwright consultant-workspace.spec.ts.
+- web consultant-workspace.test.tsx (nav, embeds)
+- Playwright consultant-workspace.spec.ts
+- PersonalSubscriptionUnchangedIT regression run
 
-- **Tech notes:** Reuse user-area components; the org lens is routing + branding, not new CRUD.
+- **Tech notes:** Reuse user-area components; the org lens is routing + branding, not new CRUD. Split by Session E (09 "Planned story work"): X9.1 = shell + embedded pages; X9.11 = Home + Settings.
 - **Definition of Done:** Consultant workspace live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X9.11 — Consultant Home (/w/consultant): needs-you (resume approvals, slot confirmations, offers, consent requests), assigned opportunities, counts, SpeechBubble only when new; Consultant Settings page (org-scoped preferences: notification kinds per org, calendar include_company, Autopilot opt-in placeholder, "What Acme can see" summary)
+- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X9.1, X2.8, X2.15
+- **Persona:** Consultant / Talent on a tenant host
+- **Objective:** The consultant sees what needs them first and controls the few org-scoped settings that exist in one place — without a second account or a duplicated profile.
+- **Story:** As Anika, I want to open Acme's portal and immediately see the resume Sarah wants approved and the interview slot to confirm, and decide what Acme may see about me, so that nothing waits on me unknowingly.
+
+**Functional requirements**
+- ConsultantHomeService → GET /api/me/orgs/{orgId}/home: needsYou[] (resume approvals X7.4, slot confirmations X9.5, offers X9.8, consent requests X7.6, authorization requests X8.5 — each with a deep link), assignedOpportunities (open matches), counts (applications in flight, interviews upcoming, placements), newSince (for the SpeechBubble).
+- Home page per 38 §3.1: needs-you list first, then opportunities, then counts; MascotPose greet with SpeechBubble only when newSince > 0; empty states from 38 §6; 390/1440.
+- Settings page /w/consultant/settings (requirement §25): per-org notification kinds (ORG_* toggles, writes notification_preference with org scope), calendar.include_company (X9.5 .ics), "Let Acme's assigned jobs feed my Autopilot" (disabled with "coming later" until X12.2/D2 is answered), "What Acme can see" read-only summary from the consent projection with a link to the share screen; basic profile fields are NOT here (link to /me — 13).
+
+**UI requirements**
+- 38 §3.1 at 390/1440; autosave toggles with inline ✓; one mascot max.
+
+**Backend requirements**
+- service/ent/ConsultantHomeService; web/rest/ent/MeOrgHomeResource; notification_preference org-scoped rows (additive column org_id NULL on notification_preference in 20261023010000_ent_applications.xml)
+
+**Database changes**
+- notification_preference.org_id BIGINT NULL (additive; NULL = personal)
+
+**APIs**
+- GET /api/me/orgs/{orgId}/home
+- GET/PATCH /api/me/orgs/{orgId}/settings
+
+**Permissions**
+- self (membership CONSULTANT role or any member — the page shows what applies)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- A consultant with one pending resume approval and one slot to confirm sees two needs-you rows with deep links; after acting, the rows disappear on reload and the SpeechBubble no longer shows.
+- Toggling ORG_INTERVIEW email off for acme leaves the personal INTERVIEW preference untouched (two rows; PersonalSubscriptionUnchangedIT-style assertion).
+- The Autopilot opt-in renders disabled with the "coming later" note (D2 default); the "What Acme can see" summary equals the ShareField projection for the viewer (projection test).
+- A non-consultant member opening /w/consultant gets the not-part-of-your-role state; 390: every tile reachable without horizontal scroll.
+
+**Test cases**
+- ConsultantHomeServiceTest
+- MeOrgSettingsResourceIT
+- web consultant-home.test.tsx, consultant-settings.test.tsx
+- Playwright consultant-home.spec.ts (390/1440)
+
+- **Tech notes:** Split from X9.1 by Session E (doc 45: Settings page gap). 38 §3, 32 §1, 13 (no profile duplication).
+- **Definition of Done:** Consultant lands on Home with needs-you first; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X9.2 — Assigned jobs list for the consultant and application link via submit-detect (pipeline_application_link); marketer sees APPLIED live
-- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** API, Web, Ext · **Deps:** X9.1
+- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** API, Web, Ext · **Deps:** X9.1, X9.11 · **Relates:** O10.6, O10.8
 - **Persona:** Consultant / Marketer
 - **Objective:** Close the loop: the consultant applies in their own session and the org learns it from submit-detect, never from a marketer click.
 - **Story:** As a consultant, I want to open an assigned job and apply with my own extension, and have Acme's record update by itself, so that Sarah sees progress without ever touching my application.
@@ -4460,8 +5122,6 @@ Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interv
 
 - **Tech notes:** Keep the linker tolerant: never fail the user's own status write because org matching failed (catch + log).
 - **Definition of Done:** Apply loop proven end to end; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-- **Relates / supersedes:** O10.6, O10.8
-
 ### X9.3 — Application tracking for the org: consented stage view, timeline merge of application_event and pipeline_event
 - **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X9.2
 - **Persona:** Marketer / Org Admin
@@ -4538,7 +5198,7 @@ Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interv
 - **Relates / supersedes:** O8.1, O8.5
 
 ### X9.5 — Interview coordination: interview_slot propose/confirm, consultant accepts into own calendar (interview row), ICS, reminders
-- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X9.2, X8.10
+- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X9.2, X8.10, X8.13
 - **Persona:** Marketer / Consultant
 - **Objective:** Coordinate interviews on the org side while the consultant's calendar stays their own.
 - **Story:** As a marketer, I want to propose an interview slot with a client contact and have Anika confirm it into her own calendar with an .ics and reminders, so that scheduling is coordinated but her data stays hers.
@@ -4695,22 +5355,22 @@ Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interv
 - **Tech notes:** Money in minor units + currency; never floats; rate_basis label.
 - **Definition of Done:** Offers flow complete; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 
-### X9.9 — Extension workspace selector: GET /api/profile/version workspaces[], X-Kiwiply-Workspace header, per-workspace mirror partition, 'Pro via Acme' only inside the org workspace
-- **Epic:** X9 · **Size/Complexity:** L/L · **Owners:** Ext, API · **Deps:** X9.2, X5
+### X9.9 — Extension workspace API: GET /api/profile/version workspaces[] + hints, WorkspaceHeaderFilter validating X-Kiwiply-Workspace against ACTIVE membership (404), workspace-aware /api/profile/** reads, plan resolution per ADR-018, opportunities/from-extension endpoint
+- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X9.2, X5 · **Relates:** O3.4, O10.7
 - **Persona:** Consultant / Marketer (extension users)
 - **Objective:** Make the extension workspace-aware without a new login or a new origin (E6 default a).
 - **Story:** As a consultant who is also a personal user, I want to switch the extension between Personal and Acme, see Acme's licensed features only there, and keep my learned answers, so that one extension serves both lives without mixing them.
 
 **Functional requirements**
 - ProfileVersion response gains workspaces[] and hints (additive); WorkspaceHeaderFilter validates X-Kiwiply-Workspace against ACTIVE membership (404 otherwise) and sets TenantContext for workspace-aware /api/profile/** reads; plan resolution per ADR-018 (no stacking).
-- Extension: workspace chip in the drawer; storage.js partitions ACCOUNT_KEYS by workspace prefix; clearAccountData clears all; TrackingProvider gains listWorkspaces/setWorkspace/assignedJobs/saveForConsultant; marketer-only 'Save for consultant…' drawer action (creates job_opportunity + draft match via POST /api/orgs/{orgId}/opportunities/from-extension).
-- no_submit.test.js: autofill always uses the signed-in user's own profile; BLOCK_RE unchanged; no click on submit-class controls in fixtures.
+- POST /api/orgs/{orgId}/opportunities/from-extension {consultantMemberId, url, title, company} creates a job_opportunity + draft match (marketer act-for; duplicate guard; BoardPolicy).
+- The extension-side changes are X9.12.
 
 **UI requirements**
-- Drawer header chip (Personal / Acme) using the drawer's existing design tokens; assigned jobs list in the drawer's Jobs tab when in an org workspace.
+- —
 
 **Backend requirements**
-- WorkspaceHeaderFilter, ProfileVersion extension, OpportunityService.fromExtension; extension modules per 32 §5.
+- WorkspaceHeaderFilter, ProfileVersion extension, OpportunityService.fromExtension
 
 **Database changes**
 - None.
@@ -4726,19 +5386,61 @@ Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interv
 
 **Acceptance criteria**
 - A forged workspace header → 404 before any data; without the header the personal plan applies (PersonalSubscriptionUnchangedIT extended).
-- Switching workspaces swaps resumes/assigned jobs/plan and keeps learned answers; account change wipes all partitions (account_clear.test.js extended).
-- In a marketer session the drawer never loads a consultant's bio (jsdom test) and only 'Save for consultant…' is offered.
-- Versions bumped in wxt.config.ts and package.json; rules version untouched.
+- With a valid header, /api/profile/version returns the org workspace's resumes/assigned jobs/plan ("Pro via Acme" only inside the org workspace; never stacked).
+- from-extension creates the opportunity and a draft match for the consultant; a second save of the same URL → 409 OPPORTUNITY_EXISTS.
 
 **Test cases**
-- WorkspaceHeaderFilterIT, extension workspace.test.js, no_submit.test.js, account_clear.test.js (extended), Playwright e2e-e.spec.ts (personal compatibility).
+- WorkspaceHeaderFilterIT
+- ProfileVersionWorkspacesIT
+- OpportunityFromExtensionIT
+- PersonalSubscriptionUnchangedIT (extended)
 
-- **Tech notes:** Token stays user-only (no tid for extension tokens); the header is the only workspace signal; /connect stays on kiwiply.com.
+- **Tech notes:** Token stays user-only (no tid for extension tokens); the header is the only workspace signal; /connect stays on kiwiply.com. Split by Session E (09 "Planned story work"): X9.9 = API; X9.12 = extension.
 - **Definition of Done:** Extension workspace-aware and still single-account; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-- **Relates / supersedes:** O3.4, O10.7
+### X9.12 — Extension side: workspace chip in the drawer, storage partition per workspace, TrackingProvider listWorkspaces/setWorkspace/assignedJobs/saveForConsultant, assigned jobs in the Jobs tab, marketer "Save for consultant…" action, no_submit + account_clear tests, version bump
+- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** Ext · **Deps:** X9.9
+- **Persona:** Consultant using the extension inside Acme's workspace; marketer saving a job for a consultant
+- **Objective:** The single-account extension becomes workspace-aware without a second login, never mixes personal and org data, and never autofills with anyone but the signed-in user's own profile.
+- **Story:** As Anika, I want to switch the drawer to Acme and see the jobs Sarah assigned me so that I can apply from my own browser with my own profile.
 
+**Functional requirements**
+- Drawer header chip (Personal / Acme) using the drawer's existing tokens; `src/lib/tracking.js` TrackingProvider gains listWorkspaces/setWorkspace/assignedJobs/saveForConsultant (canonical DTOs only; the seam stays the single backend path); every org-workspace call sends X-Kiwiply-Workspace.
+- storage.js partitions ACCOUNT_KEYS by workspace prefix (learned answers stay global per 32 §5); clearAccountData clears all partitions; the local store stays a read-only mirror (pull-only).
+- Jobs tab lists assigned jobs when in an org workspace (match_id carried on the item; opening a job starts the normal fill with the user's own profile); marketer session: no consultant bio is ever loaded — only "Save for consultant…" (POST from-extension) is offered.
+- no_submit.test.js: BLOCK_RE unchanged; no click on submit-class controls in fixtures; autofill always uses the signed-in user's profile. Versions bumped in wxt.config.ts and package.json; rules version untouched.
+
+**UI requirements**
+- Drawer chip + Jobs tab list; 44 px targets; no new engine deps.
+
+**Backend requirements**
+- — (X9.9)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes GET /api/profile/version (workspaces), POST /api/orgs/{orgId}/opportunities/from-extension; header X-Kiwiply-Workspace
+
+**Permissions**
+- Membership-validated header (API); marketer act-for for Save for consultant
+
+**Feature entitlements**
+- Plan resolution per ADR-018 (no stacking) — shown as "Pro via Acme" only inside the workspace
+
+**Acceptance criteria**
+- Switching workspaces swaps resumes/assigned jobs/plan and keeps learned answers; account change wipes all partitions (account_clear.test.js extended).
+- In a marketer session the drawer never loads a consultant's bio (jsdom test) and only "Save for consultant…" is offered.
+- no_submit.test.js green; `npm test` green; build produces .output/chrome-mv3 with the bumped version.
+- Playwright e2e-e.spec.ts (personal compatibility): personal workspace behaviour byte-identical with the chip on Personal.
+
+**Test cases**
+- extension workspace.test.js, no_submit.test.js, account_clear.test.js (extended), tracking.test.js
+- Playwright e2e-e.spec.ts
+
+- **Tech notes:** Split from X9.9 by Session E. 32 §5, ADR-018, escalation E6 (a); engine stays vanilla JS on window.JAF; /connect stays on kiwiply.com.
+- **Definition of Done:** Extension workspace-aware and still single-account; versions bumped; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X9.10 — E2E-D completion (submit in own session → interview → outcome) and E2E-E personal-compatibility Playwright journeys
-- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** QA, Web · **Deps:** X9.9, X9.8
+- **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** QA, Web · **Deps:** X9.9, X9.8, X9.12
 - **Persona:** QA
 - **Objective:** Prove scenarios D and E end to end on the mock tenants.
 - **Story:** As QA, I want Playwright journeys for scenario D from authorization through Anika applying in her session, interview scheduling and outcome/placement recording, and for scenario E (personal subscription unchanged), so that the programme's two consultant-facing promises are regression-tested.
@@ -4773,23 +5475,23 @@ Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interv
 
 - **Tech notes:** Reuse X8.9's spec file and continue it; keep steps data-driven from one scenario JSON.
 - **Definition of Done:** Scenarios D and E proven; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X10 — Phase 10 — Clients and placements (fully specified, Session D)
 _Client accounts, contacts, vendor relationships, requirements, candidate submissions (records), offers, placements, extensions and redeployment, Account Manager workspace._
 
-Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.md`. Build order: X10.1 → X10.2 → X10.3 → X10.4 → X10.8 → X10.6 → X10.5 → X10.7.
+Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.md`. Build order (L stories split by Session E): X10.1 → X10.9 → X10.2 → X10.3 → X10.4 → X10.10 → X10.8 → X10.6 → X10.5 → X10.7.
 
-### X10.1 — Client accounts, contacts, relationships (vendor chains) CRUD with PII scanner
-- **Epic:** X10 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X8.10, X11.7
+### X10.1 — Client model API: client_account / client_contact / client_relationship (vendor chains) CRUD, archive, DO_NOT_WORK, work-email rule, cycle refusal, @NoSensitiveText on every String field, audit
+- **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X8.10, X11.7, X8.13
 - **Persona:** Account Manager
 - **Objective:** One client model with edges, scanned on every field.
 - **Story:** As an account manager, I want to manage clients, vendors, primes and partners with their contacts and how they relate (who subcontracts to whom), so that requirements and placements always point at real relationships.
 
 **Functional requirements**
 - client_account/client_contact/client_relationship per 34 §1 (tables from X8.10) with CRUD, archive, DO_NOT_WORK reason, work-email rule (422 WORK_EMAIL_REQUIRED), cycle refusal (422 RELATIONSHIP_CYCLE), @NoSensitiveText on every String field.
+- The Clients pages are X10.9.
 
 **UI requirements**
-- Clients list + account page per 38 §5 (Tabs: Contacts, Relationships as nested chips, Requirements, Placements); SideSheets with autosave; 390/1440.
+- —
 
 **Backend requirements**
 - ClientService, ClientRelationshipGraph; DTOs annotated.
@@ -4812,13 +5514,56 @@ Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.
 - All routes in OrgIsolationIT; mutations audited CLIENT_*.
 
 **Test cases**
-- ClientServiceTest, ClientRelationshipGraphTest, ContactWorkEmailTest, SensitiveTextCoverageTest (package), Playwright clients.spec.ts.
+- ClientServiceTest
+- ClientRelationshipGraphTest
+- ContactWorkEmailTest
+- SensitiveTextCoverageTest (package)
+- ClientResourceIT + OrgIsolationIT lines
 
-- **Tech notes:** Keep ops_client_id/ops_vendor_id nullable; the bridge (X10.8) fills them.
+- **Tech notes:** Keep ops_client_id/ops_vendor_id nullable; the bridge (X10.8) fills them. Split by Session E (09 "Planned story work"): X10.1 = API; X10.9 = pages.
 - **Definition of Done:** Client model live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X10.9 — Clients pages (/w/accounts/clients, /w/admin/clients): list with filters, account page with Contacts / Relationships (nested vendor chips) / Requirements / Placements tabs, SideSheets with autosave, DO_NOT_WORK banner, MSA/SOW labels and dates only (D3)
+- **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X10.1, X2.16, X2.15
+- **Persona:** Account Manager / Org Admin
+- **Objective:** Clients, vendors and the chains between them are readable at a glance and editable without a Save button, with no document store and no sensitive text.
+- **Story:** As an account manager, I want Acme's clients, their vendors and contacts on one page so that I know who to call about a requirement.
 
+**Functional requirements**
+- Clients list (FilterBar: q, kind CLIENT/VENDOR/END_CLIENT, status, owner) with cards < md; account page per 38 §5 with Tabs (Contacts, Relationships as nested chips showing the chain, Requirements (X10.2 when it lands), Placements (X10.10)); SideSheets with autosave (inline ✓, undo); archive with ConfirmTypedSheet; DO_NOT_WORK banner with reason; SensitiveTextField for notes (X2.15) showing the 422 SENSITIVE_CONTENT reason inline.
+- MSA/SOW: labels + dates only (msa_label, msa_expires_on, payment_terms_label) with the empty-state line "Contracts live in your DMS" (escalation D3).
+
+**UI requirements**
+- 38 §5 at 390/1440; relationship chips are keyboard-navigable; tenant tokens.
+
+**Backend requirements**
+- — (X10.1)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes 34 §6 client/contact/relationship routes
+
+**Permissions**
+- clients.view / clients.manage (ORG)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Creating a contact with a gmail.com address shows the WORK_EMAIL_REQUIRED message inline; a note containing an EIN shows SENSITIVE_CONTENT and is not saved.
+- A relationship that would form a cycle is refused inline; nested chips render a 3-level chain correctly.
+- Archive hides the client from pickers but the page remains reachable with the archived badge.
+- Playwright: create client → contact → relationship → archive at 390/1440; axe clean.
+
+**Test cases**
+- web clients.test.tsx
+- Playwright clients.spec.ts
+
+- **Tech notes:** Split from X10.1 by Session E. 34 §1/§5, 38 §5; escalation D3.
+- **Definition of Done:** Client pages live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X10.2 — Client requirements: intake (manual/email paste/import), status, owner, dedupe
-- **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X10.1
+- **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X10.1, X10.9
 - **Persona:** Account Manager / Marketer
 - **Objective:** Requirements with their own lifecycle that automatically become opportunities.
 - **Story:** As an account manager, I want to capture requirements by typing, pasting a vendor email or importing CSV, with dedupe and status, so that marketers can match consultants to them the moment they arrive.
@@ -4854,7 +5599,6 @@ Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.
 
 - **Tech notes:** No mailbox read; paste only.
 - **Definition of Done:** Requirements intake live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X10.3 — Candidate submissions as records: authorize → submitted → shortlisted/rejected; unique per requirement+consultant; channel label and external reference
 - **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X10.2, X8.5
 - **Persona:** Marketer / Account Manager / Consultant
@@ -4894,8 +5638,8 @@ Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.
 - **Tech notes:** The verb is 'record'; never name a method submit*.
 - **Definition of Done:** Submission records flow complete under E1; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 
-### X10.4 — Offers → placements lifecycle: pending start, active, extension, redeployment, ended/terminated; bill-to account
-- **Epic:** X10 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X9.8, X10.3
+### X10.4 — Placement lifecycle API: PENDING_START/ACTIVE/ON_HOLD/EXTENDED/ENDED/TERMINATED machine, placement_extension log, redeployment chain, availability effects, requirement filled count, PlacementStartJob/EndNudgeJob, bill-to account, DTO redaction, dashboard widget bean
+- **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X9.8, X10.3
 - **Persona:** Account Manager
 - **Objective:** Placements as the engagement record, distinct from applications, with extensions and redeployment chains.
 - **Story:** As an account manager, I want placements created from accepted offers to go through pending start, active, extensions, end or termination, and redeployment into a new placement, so that the org's book of business is a record, not a spreadsheet.
@@ -4903,9 +5647,10 @@ Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.
 **Functional requirements**
 - placement machine per 35 §3 registered (PENDING_START/ACTIVE/ON_HOLD/EXTENDED chip/ENDED/TERMINATED), placement_extension log, redeployment chain, effects on consultant_profile (ON_PROJECT/PAUSED; back to ACTIVE only on consultant confirm), requirement filled count, PlacementStartJob/EndNudgeJob; bill_to_client_id; DTO redaction of bill rate.
 - Registers the DashboardWidgetProvider bean(s) placements for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService.
+- The Placements board/list and sheets are X10.10.
 
 **UI requirements**
-- Placements board per 38 §5.1 (1440) and list (390); Extend/End/Terminate SideSheets; redeploy Menu.
+- —
 
 **Backend requirements**
 - PlacementService + transitions + jobs; redaction mapper.
@@ -4928,10 +5673,55 @@ Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.
 - bill_rate_minor never in consultant/marketer DTOs.
 
 **Test cases**
-- PlacementStateTest, PlacementChainTest, PlacementAvailabilityEffectsTest, PlacementDtoRedactionTest, Playwright placements.spec.ts.
+- PlacementStateTest
+- PlacementChainTest
+- PlacementAvailabilityEffectsTest
+- PlacementDtoRedactionTest
+- PlacementResourceIT + OrgIsolationIT lines
 
-- **Tech notes:** Extension is an event on the same row; redeployment is a new row — keep that distinction in code names.
+- **Tech notes:** Extension is an event on the same row; redeployment is a new row — keep that distinction in code names. Split by Session E (09 "Planned story work"): X10.4 = API; X10.10 = UI.
 - **Definition of Done:** Placement lifecycle complete; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X10.10 — Placements board (1440) and list (390) with Extend / End / Terminate SideSheets, redeploy Menu, extension history, rate bands for marketers and numbers for finance/AM (D6), celebrate pose on first ACTIVE
+- **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X10.4, X10.9, X2.15
+- **Persona:** Account Manager / Org Admin / Finance (numbers) / Marketer (bands)
+- **Objective:** Placements are tracked distinctly from applications, extended or redeployed without losing the chain, and money is shown to exactly the roles allowed to see it.
+- **Story:** As an account manager, I want to extend Anika's placement by three months and see the chain of her engagements so that renewals never slip.
+
+**Functional requirements**
+- PlacementsPage: KanbanBoard by status at ≥ md, list at < md; card = consultant, client (bill-to), dates, status StatePill, rate (MoneyText band mode for marketers; numbers for finance.view/AM — D6); Extend (dates-only → placement_extension; changed rates → new offer flow link), End (end date + reason), Terminate (ReasonSheet, typed confirm), Redeploy (Menu → new chained placement with the bench gap shown); extension history drawer (TimelineFeed).
+- Mounted in ACCOUNTS, ADMIN, FINANCE (read + rates) and MARKETING_MGMT (bands); consultant-side declaration is X10.6.
+- First placement ACTIVE for the org → MascotPose celebrate toast once (session dedupe).
+
+**UI requirements**
+- 38 §5.1 at 390/1440; bill rate never rendered for marketer/consultant DTOs (the field is absent, not hidden).
+
+**Backend requirements**
+- — (X10.4)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes 35 §6 placement routes
+
+**Permissions**
+- placements.view / placements.manage; finance.view for rate numbers
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Dates-only extension logs a placement_extension row and the drawer shows it; a rate change routes to the offer flow with the explanation.
+- A marketer sees "Band B" where the AM sees the numbers (DOM assertion per role); bill_rate_minor is absent from the marketer response.
+- Redeploy creates a chained card and the bench gap text; Terminate requires typing the consultant's name.
+- Playwright: extend → end → redeploy at 390/1440; celebrate toast fires once.
+
+**Test cases**
+- web placements.test.tsx (role views, redaction)
+- Playwright placements.spec.ts
+
+- **Tech notes:** Split from X10.4 by Session E. 35 §2–§4, 38 §5.1; escalation D6.
+- **Definition of Done:** Placement UI complete; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X10.8 — Timesheets bridge: placement ACTIVE → ops_placement/ops_client/ops_vendor/ops_placement_rate (product H), one-way status mirror
 - **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X10.4, H1.1
 - **Persona:** Finance
@@ -4971,7 +5761,7 @@ Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.
 - **Relates / supersedes:** H1.1, H0.3
 
 ### X10.6 — Placement declaration from the consultant side and org celebration (mascot), feeding Timesheets (H)
-- **Epic:** X10 · **Size/Complexity:** S/S · **Owners:** Web, API · **Deps:** X10.4
+- **Epic:** X10 · **Size/Complexity:** S/S · **Owners:** Web, API · **Deps:** X10.4, X10.10
 - **Persona:** Consultant
 - **Objective:** Let the consultant say 'I started' and celebrate once, honestly.
 - **Story:** As a consultant, I want to confirm I started (or declare a placement I found myself) and see one honest celebration, so that my status is mine to state and the org records what it actually has.
@@ -5005,9 +5795,8 @@ Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.
 
 - **Tech notes:** Keep the free declaration path on the existing ShareField.PLACEMENT semantics.
 - **Definition of Done:** Consultant declaration live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X10.5 — Account Manager workspace: Clients, Contacts, Requirements, Submissions, Interviews, Offers, Placements
-- **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X10.4, X10.6, X2.15
+- **Epic:** X10 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X10.4, X10.6, X2.15, X10.9, X10.10
 - **Persona:** Account Manager
 - **Objective:** Assemble the AM pages into one workspace with the consent projection applied.
 - **Story:** As an account manager, I want a workspace with Home, Clients, Contacts, Requirements, Submissions, Interviews, Offers and Placements, so that the demand side of the business is one place.
@@ -5080,7 +5869,7 @@ Design: `docs/enterprise-v2/34-clients.md` · `docs/enterprise-v2/35-placements.
 ### X11 — Phase 11 — HR and Finance (fully specified, Session D)
 _Lifecycle records, compliance checklists and policy acknowledgements without identity documents; finance records over the Timesheets product; reports. E2 answered 2026-10-12: record-only, PII scanner on every path._
 
-Design: `docs/enterprise-v2/36-hr-and-finance.md`. Build order: X11.7 → X11.1 → X11.2 → X11.3 → X11.5 → X11.4 → X11.6.
+Design: `docs/enterprise-v2/36-hr-and-finance.md`. Build order (L stories split by Session E): X11.7 → X11.1 → X11.2 → X11.3 → X11.8 → X11.5 → X11.4 → X11.9 → X11.6.
 
 ### X11.7 — PII scanner on every path: @NoSensitiveText coverage test, PdfTextScanner refusal, HrFinanceNeverCollectedTest, SensitiveTextField primitive
 - **Epic:** X11 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X8.10, X2.15 · **Relates:** H3.1, H3.3
@@ -5193,26 +5982,26 @@ Design: `docs/enterprise-v2/36-hr-and-finance.md`. Build order: X11.7 → X11.1 
 - **Tech notes:** Use FileStorage two-phase upload (H3.2) for PDFs; never store images for HR.
 - **Definition of Done:** Checklists and policies live without identity documents; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 
-### X11.3 — HR workspace: Employees, Onboarding, Documents (policies only), Compliance, Lifecycle, Offboarding, Reports
-- **Epic:** X11 · **Size/Complexity:** L/L · **Owners:** Web, API · **Deps:** X11.2, X2.15
+### X11.3 — HR workspace: Home tiles, Employees (HR columns), Onboarding board, Policies (the requirement's "Documents", D7), Compliance, Lifecycle timeline, Offboarding, Reports
+- **Epic:** X11 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X11.2, X2.15
 - **Persona:** HR Specialist / Talent Acquisition
 - **Objective:** Assemble the HR workspace and the TA talent pools.
 - **Story:** As HR, I want a workspace with Home, Employees, Onboarding, Policies, Compliance, Lifecycle, Offboarding and Reports, and as Talent Acquisition I want talent pools of invited/existing members, so that people operations run in one place.
 
 **Functional requirements**
-- Workspace key HR with nav per 36 §3; Home tiles; talent_pool/talent_pool_member for TA (members or invites only; no external CV storage — escalation D5); HR reports (headcount, onboarding_time, ack_rate, compliance_open).
+- Workspace key HR with nav per 36 §3; HrHomeService (onboarding in progress, overdue tasks, policies pending ack, offboarding); pages over X11.1/X11.2/X4.4 data; HR reports (headcount by department/type, onboarding_time, ack_rate, compliance_open) via HrReportService; Policies nav label with the E2 empty state. Talent Acquisition pages are X11.8.
 
 **UI requirements**
-- 38 §5 HR pages at 390/1440; Policies nav label and empty state; TA pools as ChipInput lists.
+- 38 §5 HR pages at 390/1440; Policies nav label and empty state ("Kiwiply keeps no identity documents. Policies you publish live here.").
 
 **Backend requirements**
-- HrHomeService; TalentPoolService; HrReportService.
+- HrHomeService; HrReportService
 
 **Database changes**
-- _ent_hr_finance.xml changeSet 4: talent_pool, talent_pool_member.
+- None (X11.1/X11.2 tables).
 
 **APIs**
-- GET /api/orgs/{orgId}/hr/home · talent pool CRUD · GET /hr/reports.
+- GET /api/orgs/{orgId}/hr/home · GET /hr/reports
 
 **Permissions**
 - HR_SPECIALIST / TALENT_ACQUISITION template keys.
@@ -5221,13 +6010,62 @@ Design: `docs/enterprise-v2/36-hr-and-finance.md`. Build order: X11.7 → X11.1 
 - —
 
 **Acceptance criteria**
-- HR pages never render consultant career data (no resumes.* route reachable → 404 states); TA pools accept only member/invite ids; reports compute on fixtures.
+- HR pages never render consultant career data (no resumes.* route reachable → 404 states); reports compute on fixtures; the Policies empty state explains the absence of identity documents.
+- HR_SPECIALIST lands on /w/hr; an ORG_ADMIN without HR sees the read-only summary tile page at /w/admin/hr (hr.view).
 
 **Test cases**
-- Playwright hr.spec.ts; TalentPoolServiceTest; HrReportServiceTest.
+- Playwright hr.spec.ts
+- HrHomeServiceTest
+- HrReportServiceTest
 
-- **Tech notes:** Reuse X4.3 Employees list with HR columns.
+- **Tech notes:** Reuse X4.3 Employees list with HR columns. Split by Session E (09 "Planned story work"): X11.3 = HR workspace; X11.8 = Talent Acquisition.
 - **Definition of Done:** HR workspace live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X11.8 — Talent Acquisition: talent_pool / talent_pool_member tables (members or invites only — D5), TalentPoolService, Candidates page (invited + screening members with onboarding coordination) and Talent pools page (/w/hr/candidates, /w/hr/talent-pools) under candidates.manage / talent_pools.manage
+- **Epic:** X11 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X11.3, X4.12, X1.15
+- **Persona:** Talent Acquisition Specialist
+- **Objective:** Sourcing and screening work with people who have been invited — their resume is their own once they join — and talent pools organise them without a CV store Kiwiply would have to protect.
+- **Story:** As a TA specialist, I want to invite candidates, group them into pools by skill and track their screening and onboarding so that the bench grows without emailing spreadsheets.
+
+**Functional requirements**
+- Tables in 20261025020000_ent_hr_finance_ta.xml (Phase-11 bucket): talent_pool (org_id, name, skills_json, owner_member_id, archived_at) and talent_pool_member (org_id, pool_id, member_id NULL, invite_id NULL — exactly one; added_by, added_at; UNIQUE (pool_id, member_id), (pool_id, invite_id)); composite tenant FKs (41 R3).
+- TalentPoolService: CRUD, add/remove by member or invite id, archive; when an invite is accepted the row re-points from invite_id to member_id (join event); never stores external files or free-text CVs (SensitiveTextField on notes; no upload control).
+- Candidates page: Employees list preset status=INVITED|SCREENING (candidate = INVITED seat or member with employment_record stage SCREENING — X11.1), columns pool, source, invited by, screening task state (hr_task template "screening"), onboarding coordination (link to the member's onboarding checklist X11.2); actions: invite (X1.15 body with roles ⊆ ceiling), add to pool, start screening checklist, mark hired (→ onboarding).
+- Talent pools page: pools as cards with skills ChipInput and counts; pool detail = member/invite list with add/remove; "Invite to pool" shortcut.
+- Template TALENT_ACQUISITION (05 §3): members.invite, candidates.manage, talent_pools.manage, consultants.view (summary), onboarding.coordinate — registered in EntPermissions if missing.
+
+**UI requirements**
+- 38 §5 HR style at 390/1440; ChipInput for skills; no file inputs anywhere on these pages (lint assertion).
+
+**Backend requirements**
+- service/ent/hr/TalentPoolService, CandidateQueryService; web/rest/ent/TalentPoolResource, CandidatesResource
+
+**Database changes**
+- talent_pool, talent_pool_member (additive, Phase-11 bucket second file).
+
+**APIs**
+- GET/POST/PATCH/DELETE /api/orgs/{orgId}/hr/talent-pools[/{id}] · POST …/talent-pools/{id}/members {memberId | inviteId} · DELETE …/members/{rowId}
+- GET /api/orgs/{orgId}/hr/candidates (preset filter over members) · POST …/candidates/{memberId}/screening
+
+**Permissions**
+- candidates.manage, talent_pools.manage, members.invite (ORG); onboarding.coordinate
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Adding a pool member with neither memberId nor inviteId, or both → 422; a pool row for an invite re-points to the member on acceptance (join event test).
+- The Candidates page lists INVITED seats and SCREENING members only; no resume route is reachable from it (404 states); no file input exists on TA pages (DOM assertion).
+- A TA specialist can invite with roles within their ceiling and start a screening checklist; "mark hired" moves the employment_record to ONBOARDING and the member appears on the Onboarding board.
+- All routes in OrgIsolationIT; Playwright: invite → pool → screening → hired at 390/1440.
+
+**Test cases**
+- TalentPoolServiceTest
+- CandidatesResourceIT + TalentPoolResourceIT (+ registry lines)
+- web candidates.test.tsx, talent-pools.test.tsx
+- Playwright talent-acquisition.spec.ts
+
+- **Tech notes:** Split from X11.3 by Session E (doc 45 gap: TA pages). 36 §3 TA paragraph, 16 §5.5 row, 05 §3 template; escalation D5 (a).
+- **Definition of Done:** TA workflow live with zero external-CV storage; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X11.5 — Finance records for placements: bill/pay rate labels, invoice_record and payment_record links to H6; profit view (H5.15)
 - **Epic:** X11 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X10.8, X11.7 · **Relates:** H6.1, H6.4
 - **Persona:** Finance Specialist
@@ -5264,17 +6102,17 @@ Design: `docs/enterprise-v2/36-hr-and-finance.md`. Build order: X11.7 → X11.1 
 
 - **Tech notes:** ADR-011's invoice_record/payment_record names map to H6 ops_invoice/ops_payment (36 §4); do not create new money tables.
 - **Definition of Done:** Placement financial records live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-### X11.4 — Finance workspace over product H: Consultant Subscriptions (read), Billing, Invoices, Placements (rates), Timesheets, Approvals, Payments (status records), Reports
-- **Epic:** X11 · **Size/Complexity:** L/L · **Owners:** Web, API · **Deps:** X11.5, X6, X2.15
+### X11.4 — Finance workspace: Home tiles (AnimatedNumber) deep-linking into the billing pages, Consultant Subscriptions (read), Billing, Invoices, Placements (rates), finance reports, disclaimer line
+- **Epic:** X11 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X11.5, X6, X2.15
 - **Persona:** Finance Specialist
 - **Objective:** Assemble the finance workspace from Session C's billing pages, H's pages and X11.5.
 - **Story:** As finance, I want one workspace with licenses cost, Kiwiply billing, client invoices (records), placements, timesheets and approvals, payments (records) and reports, so that every money record is one click away and nothing in it can move money.
 
 **Functional requirements**
-- Workspace key FINANCE with nav per 36 §4; Home tiles (AnimatedNumber) deep-linking into Session C billing pages and H pages (embedded); disclaimer line; finance reports (licenses_cost, placements_margin, invoices_outstanding, payments_recorded).
+- Workspace key FINANCE with nav per 36 §4; FinanceHomeService (licenses cost this period, invoices outstanding, placements active with margin, payments recorded) deep-linking into X6.1/X6.4 (embedded read views under finance.view) and X11.5 placement rates; FinanceReportService (licenses_cost, placements_margin, invoices_outstanding, payments_recorded); disclaimer line "Kiwiply records money; it never moves it" on every finance page. Timesheets / Approvals / Payments (product H embedding) are X11.9.
 
 **UI requirements**
-- 38 §5 finance home; H's week view/approver inbox embedded unchanged (H2.4/H3.6); EmptyState for Payments from 38 §6.
+- 38 §5 finance home at 390/1440; EmptyState for Payments from 38 §6 until X11.9.
 
 **Backend requirements**
 - FinanceHomeService; FinanceReportService.
@@ -5283,7 +6121,7 @@ Design: `docs/enterprise-v2/36-hr-and-finance.md`. Build order: X11.7 → X11.1 
 - None.
 
 **APIs**
-- GET /api/orgs/{orgId}/finance/overview · /finance/reports.
+- GET /api/orgs/{orgId}/finance/overview · /finance/reports
 
 **Permissions**
 - FINANCE_SPECIALIST template keys (finance.*, billing.*, licenses.view, usage.view, ops.*).
@@ -5292,15 +6130,61 @@ Design: `docs/enterprise-v2/36-hr-and-finance.md`. Build order: X11.7 → X11.1 
 - —
 
 **Acceptance criteria**
-- Home tiles reconcile with their source pages on fixtures; no button on any finance page triggers a payment (lint + FinanceVerbsTest); H pages render inside the shell at 390.
+- Home tiles reconcile with their source pages on fixtures; no button on any finance page triggers a payment (lint + FinanceVerbsTest); FINANCE_SPECIALIST lands on /w/finance; Consultant Subscriptions is read-only for finance.view and editable only with licenses.manage.
 
 **Test cases**
-- Playwright finance.spec.ts; FinanceHomeServiceTest.
+- Playwright finance.spec.ts
+- FinanceHomeServiceTest
+- FinanceReportServiceTest
+- FinanceVerbsTest
 
-- **Tech notes:** If H pages are not built yet, show the 'Turn on Timesheets' card and keep tiles computed from what exists.
+- **Tech notes:** If H pages are not built yet, show the 'Turn on Timesheets' card and keep tiles computed from what exists. Split by Session E (09 "Planned story work"): X11.4 = finance workspace; X11.9 = product-H embedding.
 - **Definition of Done:** Finance workspace live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X11.9 — Product H embedding in the Finance workspace: Timesheets (week view), Approvals (approver inbox), Payments (status records) and invoice records rendered inside the enterprise shell on tenant hosts via the ops_* bridge; "Turn on Timesheets" card when H is off; FinanceVerbsTest over the embedded pages
+- **Epic:** X11 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X11.4, X10.8 · **Relates:** H2.4, H3.6, H6.1
+- **Persona:** Finance Specialist; approvers
+- **Objective:** Timesheets, approvals and payment records that product H already owns appear inside the org's branded workspace without a second product, and still never move money.
+- **Story:** As a finance specialist, I want this week's timesheets, the approvals waiting on me and the payment records on Acme's portal so that I work in one place.
+
+**Functional requirements**
+- Pages /w/finance/timesheets, /w/finance/approvals, /w/finance/payments, /w/finance/invoices mount H's existing components (H2.4 week view, H3.6 approver inbox, H6.x invoice/payment record lists) inside EnterpriseShell on tenant hosts; data from /ops/** (product H, unchanged) scoped by the X10.8 bridge (ops_placement.pipeline_placement_id); tenant theme tokens applied through the shell wrapper (no H restyle).
+- When H is not enabled for the org (ops.* setting / flag), the pages render the "Turn on Timesheets" card (admin-config, never hard-coded pricing — CLAUDE.md) and the Finance home tiles compute from what exists.
+- FinanceVerbsTest extended: no control on any embedded page issues a payment, transfer or bank action; NoSensitiveText coverage on the bridge DTOs.
+
+**UI requirements**
+- Embedded H views at 390 inside the shell (bottom bar inset respected); EmptyState copy from 38 §6.
+
+**Backend requirements**
+- FinanceEmbedResource (read scoping helpers over /ops/** for the tenant context) — no new ops_* writes
+
+**Database changes**
+- None (X10.8 bridge).
+
+**APIs**
+- Consumes /ops/** (product H) with TenantContext; GET /api/orgs/{orgId}/finance/embed-config
+
+**Permissions**
+- finance.view ⇒ ops.finance read; finance.manage ⇒ ops.finance + ops.placements write (36 §4); approvals per H
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- With H on: the week view, approver inbox and payment records render inside the shell at 390 and 1440 with Acme's tokens; approving a timesheet works exactly as on kiwiply.com (H test reused).
+- With H off: the "Turn on Timesheets" card shows and no /ops/** call is made (network assertion).
+- A member of beta opening acme's finance URLs → 404 states; /ops/** calls carry the tenant and refuse mismatches (OrgIsolationIT lines for the embed routes).
+- FinanceVerbsTest green over the embedded pages.
+
+**Test cases**
+- FinanceEmbedResourceIT
+- web finance-embed.test.tsx
+- Playwright finance-h.spec.ts (390/1440)
+- FinanceVerbsTest (extended)
+
+- **Tech notes:** Split from X11.4 by Session E. 36 §4, 35 §5 bridge; product H stays the owner of money records (E2).
+- **Definition of Done:** H pages live in the Finance workspace; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
 ### X11.6 — HR/Finance reports and CSV exports (audited); retention per settings
-- **Epic:** X11 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X11.3, X11.4
+- **Epic:** X11 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X11.3, X11.4, X11.9, X11.8 · **Relates:** H5.1, H7.2
 - **Persona:** HR / Finance
 - **Objective:** Exports with redaction and audit; retention jobs per the locked periods.
 - **Story:** As HR or finance, I want CSV exports of reports with an audit trail and redaction, and retention applied per settings, so that reporting is possible without creating a new PII store.
@@ -5334,23 +6218,527 @@ Design: `docs/enterprise-v2/36-hr-and-finance.md`. Build order: X11.7 → X11.1 
 
 - **Tech notes:** Reuse H5.1's async export job; never synchronous for large orgs.
 - **Definition of Done:** Reports/exports/retention done; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
-- **Relates / supersedes:** H5.1, H7.2
+### X12 — Phase 12 — Advanced analytics and enterprise features (fully specified, Session E)
+_Org analytics with k-anonymity and the Executive workspace, scheduled reports, integrations, SSO + JIT + stronger MFA, second-instance readiness, Autopilot feed for assigned jobs (D2-gated), Cloudflare-for-SaaS decision, Platform Analytics._
 
-### X12 — Phase 12 — Advanced analytics and enterprise features
-_Org analytics with k-anonymity, Autopilot prepare for assigned jobs, integrations, SSO, second-instance readiness, Cloudflare-for-SaaS evaluation._
+Build order (dependencies first): X12.5 → X12.1 → X12.8 → X12.7 → X12.3 → X12.12 → X12.11 → X12.4 → X12.10 → X12.2 → X12.9 → X12.6. X12.6 is documentation and can run any time after X3.6; X12.2/X12.9 stay **Not Started** until escalation D2 is answered (safe default (b) keeps the feed off). Each story gates on its own flag (`flag.enterprise.analytics`, `.integrations`, `.sso`, `.autopilot_feed`).
+### X12.5 — Second-instance readiness: ShedLock on every @Scheduled job, DB-backed shared rate limiters and counters, cross-instance cache invalidation (config_version polling + cache_invalidation table), stateless-session audit, compose `--scale api=2` rehearsal and runbook
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Ops · **Deps:** X3.2, X5.7, X1.3
+- **Persona:** Platform operator; every job and limiter in the codebase
+- **Objective:** A second API container can be started without double-running a job, double-counting a limit or serving a stale tenant from cache (ADR-022: design for two, run one).
+- **Story:** As the operator, I want to scale the API to two instances when load requires it, knowing jobs run once and caches stay coherent.
 
-| Id | Story | Size | Relates / supersedes |
-|---|---|---|---|
-| X12.1 | Org analytics with k-anonymity (from docs/design/org/analytics.md) across pipeline and licenses; Executive/Viewer workspace | L | — |
-| X12.2 | Autopilot prepare for assigned jobs (automation.approved_apply) — stops before submit, attestation untouched | L | — |
-| X12.3 | Integrations: outbound webhooks, Slack digests, ICS feeds (from O12) scoped per tenant | M | — |
-| X12.4 | SSO: SAML/OIDC per org with JIT membership mapping to role templates | L | — |
-| X12.5 | Second-instance readiness: ShedLock, shared rate limits, cache invalidation across instances | M | — |
-| X12.6 | Cloudflare for SaaS evaluation and migration runbook (if custom-host volume or DDoS exposure requires it) | S | — |
-| X12.7 | Advanced reporting and scheduled report emails per workspace | M | — |
+**Functional requirements**
+- ShedLock (JDBC provider, table shedlock in 20261026070000_ent_ops.xml) on every @Scheduled job (an ArchUnit test fails on an unlocked scheduler); lock names = job class; lockAtMostFor per job (≤ the schedule interval).
+- Rate limiters (JoinRateLimiter, tenant public endpoints, ask endpoint, login) move from in-memory to a DB-backed sliding window (rate_limit_bucket (key, window_start, count)) with a Caffeine front cache; semantics unchanged (table-driven tests); per-org caps of 42 T65 use the same store.
+- Cache invalidation: resolver/membership/catalog caches keyed by config_version/catalog_version already evict on change within one instance; add cache_invalidation (id, scope, key, at) rows written on every bump and a 5-s poller per instance that evicts matching entries (no Redis on the box); verified by a two-instance IT (Testcontainers: two app contexts, one DB).
+- Sessions are stateless JWT (04 §3) — audit any remaining in-memory state (MFA challenges → DB rows (X2.14 note), admin_mfa_challenge, quote drafts) and move it to the DB; compose rehearsal doc: `docker compose … up -d --scale api=2` behind the shared edge with health-based routing (44 §9.2) — operator-run, documented in DEPLOY.md.
 
-## 4. Story-id discipline
-- Ids are permanent; a dropped story keeps its id with status `blocked` and a note.
-- A story may not span two bounded contexts (03 §1); split it.
-- Every story that consumes a feature names the feature key and the beneficiary rule.
-- Every story that touches an org-owned table adds a case to `CrossTenantSweepIT` (via the coverage registry).
+**UI requirements**
+- —
+
+**Backend requirements**
+- config/SchedulerLockConfig, ratelimit/DbRateLimiter, cache/CacheInvalidationPoller, ArchUnit SchedulerLockedTest
+
+**Database changes**
+- Liquibase 20261026070000_ent_ops.xml: shedlock, rate_limit_bucket, cache_invalidation (platform tables).
+
+**APIs**
+- None.
+
+**Permissions**
+- None.
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Two app contexts against one DB: a job scheduled every 10 s runs exactly once per tick across both (ShedLock IT); SchedulerLockedTest fails on a new @Scheduled method without @SchedulerLock.
+- Rate-limit of 5/min reached on instance A is enforced on instance B within the same window (DbRateLimiterIT).
+- A config_version bump on A evicts B's resolver entry within 5 s (CacheInvalidationIT); tenant resolution stays ≤ 50 ms p95 from cache.
+- No in-memory login/MFA state remains (grep-style ArchUnit rule over a deny-list of ConcurrentHashMap singletons in security packages).
+
+**Test cases**
+- ShedLockTwoInstanceIT
+- SchedulerLockedTest (ArchUnit)
+- DbRateLimiterIT
+- CacheInvalidationIT
+- StatelessSecurityArchTest
+
+- **Tech notes:** Fully specified by Session E. ADR-022; 44 §9.2 trigger "a second API instance only after X12.5"; no Redis (box memory). Jobs added by earlier phases already say "ShedLock-ready" — this story turns it on.
+- **Definition of Done:** Two-instance IT green in CI; DEPLOY.md scale runbook; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.1 — Org analytics API with k-anonymity: pipeline, licenses and usage metrics over the O7 rollup rules (contributors < k suppressed), org.analytics.k_min, flag.enterprise.analytics, team.performance dashboard widget, audited exports
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X8.13, X5.7, X10.4, X4.9
+- **Persona:** Executive / Viewer and Org Admin reading org-wide numbers; marketing managers reading team numbers
+- **Objective:** Org-wide analytics never expose a person: every per-group cell is suppressed below k contributors, and the numbers are the same ones the pipeline and license ledgers hold.
+- **Story:** As an executive, I want fill rate, time-to-place, licensed consultants and AI spend by team so that I see how Acme is doing without seeing anyone's private application.
+
+**Functional requirements**
+- Metric definitions extend docs/design/org/analytics.md §2 with pipeline (matches assigned/accepted, submissions, interviews, offers, placements, time-to-place, requirement fill rate), licenses (licensed/unlicensed, recurring total, feature adoption) and usage (allowance consumed by feature; AI budget %) — all computed from pipeline_event, consultant_license, usage_event; rollup table org_metric_daily (metric, org_id, group key, value, contributors) by RollupJob (nightly, per-org loop, ShedLock-ready).
+- OrgMetricReadService suppression: group/owner rows with contributors < org.analytics.k_min (INT, org-overridable, default 5) → value null, suppressed=true; org-wide rows always show; deltas never for suppressed cells; consent scope ≥ SUMMARY counts only (consent-data-sharing.md).
+- GET {o}/analytics/summary?period= · /breakdown?by=group|owner|feature · /pipeline · /licenses · /usage (reports.view; EXECUTIVE_VIEWER template holds it at ORG; MARKETING_MANAGER at TEAM) behind flag.enterprise.analytics (modules.analytics on /api/me/tenant); CSV export audited EXPORT with the redaction pass (X4.9 hub).
+- DashboardWidgetProvider bean team.performance (14 §2.2, 09 row 3) for the Org Admin Dashboard and the Marketing Manager home.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/ent/analytics/{MetricDefinitions, RollupJob, OrgMetricReadService}; web/rest/ent/OrgAnalyticsResource; TeamPerformanceWidgetProvider
+
+**Database changes**
+- Liquibase 20261026010000_ent_analytics.xml (Phase-12 bucket): org_metric_daily (org_id, metric, day, group_kind, group_id, value, contributors; PK (org_id, metric, day, group_kind, group_id)); retention 24 months (setting).
+
+**APIs**
+- GET /api/orgs/{orgId}/analytics/summary | breakdown | pipeline | licenses | usage
+- GET /api/orgs/{orgId}/analytics/export.csv
+
+**Permissions**
+- reports.view (ORG for EXEC/ADMIN, TEAM for managers); reports.export for CSV
+
+**Feature entitlements**
+- None (org-wide analytics is a module flag, not a consultant feature — 09 row 9)
+
+**Acceptance criteria**
+- A team with 4 contributing consultants returns value=null, suppressed=true for every per-team cell; with 5 it returns values; org-wide rows always show (fixture from analytics.md §8 pattern).
+- OrgMetricDefinitionsDocTest fails when the doc table and the enum differ; RollupJob is idempotent per (org, day).
+- A member of beta → 404 on every analytics route; a consultant → 404 (no reports.view); the flag off → 404 and modules.analytics=false.
+- CSV export writes one EXPORT audit row and contains no person-level rows.
+
+**Test cases**
+- OrgMetricDefinitionsDocTest
+- RollupJobTest
+- SuppressionTest
+- OrgAnalyticsResourceIT (+ registry lines)
+- TeamPerformanceWidgetTest
+
+- **Tech notes:** Fully specified by Session E (Task 5); split: X12.1 = API, X12.8 = EXEC workspace pages. Reuse analytics.md suppression helper (O7) if built, else share it. 42 T65 per-org caps apply to the rollup.
+- **Definition of Done:** Analytics API live behind the flag with suppression proven; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.8 — Executive / Viewer workspace (/w/exec): Home with counts-only tiles and k-anonymous breakdowns, Reports page (ORG aggregates, saved views, audited export); the same AnalyticsPage mounted under /w/admin/reports
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X12.1, X2.16, X2.15
+- **Persona:** Executive / Viewer (EXECUTIVE_VIEWER template); Org Admin on the Reports page
+- **Objective:** Leadership gets read-only, organization-wide visibility in the branded portal without a single per-person screen.
+- **Story:** As an executive, I want a home page with the numbers that matter and a reports page I can filter by period and team so that I never have to ask for a spreadsheet.
+
+**Functional requirements**
+- Workspace EXEC per 16 §5.8 (nav Home · Reports · More); Home = counts-only tiles from GET …/dashboard projected by EXECUTIVE_VIEWER permissions (X2.4 AC: no names in recent activity) + three headline analytics tiles (placements this period, fill rate, licensed consultants) with "of N sharing" captions; MascotPose greet once per day.
+- Reports page (AnalyticsPage, shared component): period picker, breakdown by team/department/feature, suppressed cells rendered as "—  fewer than 5 people" (never a number), deltas hidden when suppressed, chart tiles from the dataviz rules, saved views in a Menu (localStorage try/catch), Export CSV (reports.export, audited); mounted at /w/exec/reports and /w/admin/reports (ReportsPage family filter: Analytics tab next to the X4.9 exports hub).
+
+**UI requirements**
+- 390: tiles 2-up, breakdown as cards; 1440: table + chart; tenant tokens; axe clean; reduced-motion safe.
+
+**Backend requirements**
+- — (X12.1)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes /api/orgs/{orgId}/analytics/**, GET …/dashboard
+
+**Permissions**
+- dashboard.view_org, reports.view (ORG); reports.export
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- An EXECUTIVE_VIEWER on acme.localhost lands on /w/exec; the sidebar shows Home · Reports only; opening /w/admin/employees → not-part-of-your-role.
+- A breakdown row with 4 contributors renders the suppressed cell text and no delta; with 5 it renders the number (DOM assertion on fixtures).
+- Export writes an audit row (visible on /w/admin/audit) and the download has no per-person rows.
+- Playwright: exec-home.spec.ts at 390/1440; E2E-B variant: Sarah with ORG_ADMIN + EXECUTIVE_VIEWER sees the EXEC workspace in the switcher.
+
+**Test cases**
+- web exec-home.test.tsx, analytics-page.test.tsx (suppression rendering)
+- Playwright exec-home.spec.ts
+
+- **Tech notes:** Split from X12.1 by Session E (doc 45 gap: Executive/Viewer workspace). 16 §5.8, 05 §3 EXECUTIVE_VIEWER, dataviz skill rules for chart tiles.
+- **Definition of Done:** EXEC workspace live behind flag.enterprise.analytics; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.7 — Advanced reporting: ReportsPage family filter across ADMIN / MARKETING_MGMT / HR / FINANCE / EXEC, saved report definitions, scheduled report emails (weekly/monthly) with signed download links, redaction pass and audit on every run
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X12.1, X4.9, X10.7, X11.6
+- **Persona:** Org Admin, Marketing Manager, HR, Finance, Executive
+- **Objective:** Every workspace's reports share one page and one schedule mechanism, and a scheduled report never mails data — it mails a link whose download is audited like a manual export.
+- **Story:** As a marketing manager, I want the team pipeline report in my inbox every Monday so that the week starts with the numbers, not with building them.
+
+**Functional requirements**
+- ReportsPage (one component, 16 §7) with the family filter per workspace: ADMIN (all), MARKETING_MGMT (pipeline, team — TEAM scope), HR (X11.6), FINANCE (X11.6), EXEC (analytics); each report = a definition (kind, params, scope) rendered by the owning service (X10.7, X11.6, X12.1) with the redaction pass; saved definitions per member (report_definition table).
+- Schedules: report_schedule (org_id, definition_id, cadence WEEKLY|MONTHLY, weekday/day, recipients = member ids only (never free email), created_by, active); ReportScheduleJob (hourly, org-local time, ShedLock-ready) renders the CSV to S3 org/{id}/reports/{uuid}.csv (private), writes an EXPORT audit row with schedule id, and sends ORG_* email "Your {report} is ready" with a signed link (7-day TTL, member-only, logged on download); the mail never carries data or attachments.
+- Recipients must hold the report's permission at send time (else skipped + notified creator); schedules of a removed member are deactivated by the offboarding chain (X4.4 hook "Reports").
+
+**UI requirements**
+- ReportsPage: list → detail (params, preview table, Export, "Schedule…" sheet with cadence + recipients picker); 390 cards; schedules list with pause/resume and undo.
+
+**Backend requirements**
+- service/ent/reports/{ReportDefinitions, ReportRenderer, ReportScheduleJob, ReportsOffboardingHook}; web/rest/ent/OrgReportResource
+
+**Database changes**
+- Liquibase 20261026020000_ent_reports.xml: report_definition, report_schedule, report_run (org_id, schedule_id, ran_at, s3_key, status, audit_event_id); composite tenant FKs.
+
+**APIs**
+- GET /api/orgs/{orgId}/reports (family filter) · POST …/reports/{kind}/run · GET/POST/PATCH/DELETE …/reports/definitions[/{id}] · GET/POST/PATCH …/reports/schedules[/{id}] · GET …/reports/runs/{id}/download (signed, member-only)
+
+**Permissions**
+- reports.view (scope per workspace); reports.export for run/download; reports.schedule (ORG_ADMIN, MARKETING_MANAGER at TEAM, HR/FINANCE)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- A weekly schedule renders on the configured weekday in org-local time, writes one EXPORT audit row, and the email contains a link only (mail fixture has no attachment and no numbers).
+- A recipient who lost reports.view is skipped and the creator is notified once; the download link of another member → 404; after 7 days → 410.
+- The HR report definition rendered for a FINANCE member → 404 (family filter + permission); the same page component serves all five workspaces (doc-sync against 16 §7 reuse map).
+- Offboarding a schedule creator deactivates their schedules (hook test).
+
+**Test cases**
+- ReportScheduleJobTest
+- ReportRendererRedactionTest
+- OrgReportResourceIT (+ registry lines)
+- web reports-page.test.tsx
+- Playwright reports.spec.ts (390/1440)
+
+- **Tech notes:** Fully specified by Session E. Links, not attachments (inbox rule and data-minimisation); S3 keys under the org prefix (04 §4); 16 §5.1 Reports row.
+- **Definition of Done:** Scheduled reports live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.3 — Integrations module (flag.enterprise.integrations): outbound webhooks (org_webhook, HMAC signature, SSRF guard, retries, deliveries log, redeliver, auto-disable), Slack incoming-webhook digests, org ICS feeds, org Integrations page, platform admin Integrations view (delivery health across orgs)
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X8.13, X2.16, X9.5, X2.9
+- **Persona:** Org Admin with integrations.manage; platform admin watching delivery health
+- **Objective:** Orgs can push consent-safe events to their own systems and get digests in Slack, and no webhook can ever be pointed at something inside our network.
+- **Story:** As an org admin, I want placement and interview events in our Slack and a signed webhook into our CRM so that Kiwiply fits our stack instead of replacing it.
+
+**Functional requirements**
+- org_webhook (41 §10): url (https only), secret via SecretBox (shown once), event_types[], status ACTIVE|DISABLED|FAILED, per-org cap (setting enterprise.webhooks.max_per_org = 10); delivery POST JSON {id, type, createdAt, orgId, data} with X-Kiwiply-Signature: t=<unix>,v1=<hmac-sha256(secret, t + "." + body)> and X-Kiwiply-Event-Id; retries 1 m, 5 m, 30 m, 2 h, 12 h then FAILED + ORG_* notification; manual redeliver; auto-disable after 3 consecutive FAILED; deliveries log (webhook_delivery, 30-day retention).
+- SSRF guard (42 T61, 40 §9.2): resolve the host at send time and pin the IP for the connection; refuse private/loopback/link-local/metadata ranges (IPv4 + IPv6, including DNS rebinding re-check), redirects disabled, 5 s timeout, 64 KB body, per-org send rate cap; URL validation at save and at every send.
+- Event catalog (additive allow-list enterprise.webhooks.events): member.joined|left, license.changed, usage.threshold, match.assigned|accepted, submission.recorded, interview.confirmed, offer.extended|accepted, placement.started|ended — payloads follow the consent projection (no resume text; rates only when the creator holds finance.view and opted in, default off).
+- Slack: org_integration kind SLACK with an incoming-webhook URL (same SSRF guard), event picks, test message, daily digest (counts only); ICS: org admin feed (counts/titles per X9.5 token rules, revocable).
+- Org Integrations page /w/admin/integrations (16 §5.1): Connected / Available / Not planned (honest, from O12.1), webhook editor (test, redeliver, deliveries drawer), Slack card, ICS card; platform admin /admin/integrations (16 §5.9): delivery health per org (success rate, FAILED count, disabled), no payload content.
+
+**UI requirements**
+- Admin page patterns; SecretBox reveal-once sheet; deliveries drawer with status + response code only.
+
+**Backend requirements**
+- service/ent/integrations/{WebhookService, WebhookDeliveryJob, SsrfGuard, SlackDigestJob, OrgIcsFeedService}; web/rest/ent/OrgIntegrationsResource; web/rest/admin/AdminIntegrationsResource
+
+**Database changes**
+- Liquibase 20261026040000_ent_integrations.xml: org_webhook, webhook_delivery, org_integration (kind, config_json encrypted, status); composite tenant FKs.
+
+**APIs**
+- GET/POST/PATCH/DELETE /api/orgs/{orgId}/integrations/webhooks[/{id}] · POST …/{id}/test | redeliver · GET …/{id}/deliveries · GET/PUT …/integrations/slack · POST …/slack/test · GET/POST …/integrations/ics · GET /api/admin/integrations/health
+
+**Permissions**
+- integrations.manage (ORG); module flag.enterprise.integrations; ROLE_ADMIN for the platform view
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Saving a webhook to http://, to 10.0.0.1, 169.254.169.254, ::1, or a hostname that resolves to a private range → 422 WEBHOOK_URL_REFUSED; a hostname that flips to a private IP between save and send is refused at send (rebinding test) — WebhookSsrfIT (SEC-50).
+- A delivery carries a valid signature over t.body; a receiver fixture rejects a replay with t older than 5 min (contract test); after 5 failed attempts the delivery is FAILED and the org is notified once; 3 consecutive FAILED deliveries disable the webhook.
+- Payload for interview.confirmed contains no client name for a SUMMARY consultant and no rates by default (projection test).
+- Platform admin health view shows counts only; a member of beta → 404 on acme's webhook routes.
+
+**Test cases**
+- WebhookSsrfIT (SEC-50)
+- WebhookSignatureContractTest
+- WebhookDeliveryJobTest (retries, auto-disable)
+- WebhookPayloadProjectionTest
+- OrgIntegrationsResourceIT (+ registry lines)
+- Playwright integrations.spec.ts
+
+- **Tech notes:** Fully specified by Session E; 42 §6.2 SSRF ACs applied here. Prior art O12.2–O12.4; 40 §9.2; secrets via SecretBox never logged.
+- **Definition of Done:** Integrations module live behind the flag with SSRF and signature tests in CI; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.12 — Platform Analytics page (/admin/analytics): cross-tenant aggregates for Kiwiply only — orgs by status/type, licensed consultants and MRR from the org mirrors, feature adoption, AI spend vs budget, domains by state, ask-rate and tenant-health trends; nightly PlatformMetricsJob; no per-person or tenant-content rows
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X6.14, X3.3, X5.7, X1.11
+- **Persona:** Kiwiply platform admin / the user
+- **Objective:** The platform team sees how Enterprise V2 is doing across tenants without ever opening a tenant (break-glass stays the only path into customer data).
+- **Story:** As the platform owner, I want MRR, licensed consultants, feature adoption and domain health across all orgs on one page so that I can run the business without touching customer records.
+
+**Functional requirements**
+- PlatformMetricsJob (nightly, ShedLock-ready) → platform_metric_daily (metric, day, dimension, value): orgs by status/type/plan mode, enterprise-flagged orgs per phase flag, licensed/unlicensed consultants, recurring total (sum of org_subscription mirrors, minor units, per currency), feature adoption (licenses per feature key), AI spend vs budget (usage_event/ai_call aggregates), domains by state + certificate issues, ask 200/404 rate, break-glass grants count, webhook delivery health (X12.3) — aggregates only; the job never reads resume, application, note or contact tables (statement inspector test).
+- /admin/analytics (admin page kit, 16 §5.9): AdminHero + tiles + time-series tiles (dataviz rules), filters by period/org type; drill-down links go to /admin/organizations/[id] (counts-only detail, X1.11) — never to tenant content; CSV export audited (AdminAuditEvent EXPORT).
+- Tenant Health rows (X3.3) link here for the trend view; Platform Home gets one "Enterprise" tile linking to this page.
+
+**UI requirements**
+- Admin kit only; 390 via useNarrow; chart tiles with accessible tables behind a toggle.
+
+**Backend requirements**
+- service/admin/PlatformMetricsJob, PlatformMetricsReadService; web/rest/admin/AdminAnalyticsResource
+
+**Database changes**
+- Liquibase 20261026080000_ent_platform_metrics.xml: platform_metric_daily (platform table; no org_id — aggregates only).
+
+**APIs**
+- GET /api/admin/analytics/summary?period= · /series?metric= · /export.csv
+
+**Permissions**
+- ROLE_ADMIN + analytics.view admin permission
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- The page shows MRR per currency equal to the sum of ACTIVE org_subscription mirrors on fixtures; licensed consultants equal the count of live consultant_license rows.
+- PlatformMetricsJob touches only the allow-listed tables (statement inspector); no endpoint under /api/admin/analytics returns a login, name or org note.
+- Export writes an AdminAuditEvent; the page renders at 390 and 1440 with the kit snapshots; axe clean.
+- The job is idempotent per day and ShedLock-locked (X12.5 pattern).
+
+**Test cases**
+- PlatformMetricsJobTest (+ statement inspector)
+- AdminAnalyticsResourceIT
+- web admin-analytics.test.tsx
+- Playwright admin-analytics.spec (390/1440)
+
+- **Tech notes:** New in Task 2 (doc 45 gap: §25 platform admin "Platform Analytics"). Aggregates only by construction; break-glass (X6.17) remains the only read path into a tenant.
+- **Definition of Done:** Platform Analytics live; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.11 — TOTP and passkeys (WebAuthn) as second factors for every user; org.security.mfa_method (EMAIL|TOTP|PASSKEY|ANY) lets an org require a stronger factor than the emailed code; recovery codes; /me → Security enrolment; admin reset with reason
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.14, X2.7
+- **Persona:** Every member (enrolment); Org Admin setting the policy
+- **Objective:** Orgs that cannot accept email codes can require an authenticator app or a passkey, and nobody is locked out without a recovery path.
+- **Story:** As an org admin, I want to require an authenticator or passkey for everyone at Acme so that a mailbox compromise is not an account compromise.
+
+**Functional requirements**
+- user_mfa_method (login, kind TOTP|PASSKEY, secret/credential (SecretBox / WebAuthn credential id + public key), label, created_at, last_used_at) and user_recovery_code (hashed, single-use, 10 per set); enrolment flows on /me → Security (13): TOTP (QR + verify), passkey (WebAuthn registration, platform or roaming), recovery codes download-once; remove with re-auth.
+- LoginMfaService (X2.14) generalised: challenge kind chosen by org.security.mfa_method — EMAIL (today), TOTP, PASSKEY or ANY (user picks among enrolled methods); when the org requires a method the member lacks → post-login enrolment gate (cannot enter a workspace until enrolled; grace enterprise.mfa.enrol_grace_days, default 7, shown as a banner); platform admins unaffected (existing AdminMfaService stays email + may add TOTP).
+- Admin reset: ORG_ADMIN may reset a member's second factor (ReasonSheet HIGH, notification to the member, audit MFA_RESET) — never view secrets; platform admin same for admins.
+
+**UI requirements**
+- /me Security section per 13 (enrol cards, recovery codes sheet); BrandedLogin MFA step gains TOTP input and the passkey button; Settings → Policies "Sign-in code method" select.
+
+**Backend requirements**
+- security/mfa/{TotpService, WebAuthnService (webauthn4j or Spring Security WebAuthn), RecoveryCodeService}; LoginMfaService (extend); web/rest/MeMfaResource; OrgSettings key org.security.mfa_method
+
+**Database changes**
+- Liquibase 20261026060000_ent_mfa.xml: user_mfa_method, user_recovery_code (login-keyed, platform tables — not org-owned).
+
+**APIs**
+- GET/POST/DELETE /api/me/mfa/methods[/{id}] · POST /api/me/mfa/totp/verify · POST /api/me/mfa/webauthn/options | /register · POST /api/me/mfa/recovery-codes · POST /api/authenticate/mfa (extended: {code | assertion | recoveryCode}) · POST /api/orgs/{orgId}/members/{id}/mfa/reset {reason}
+
+**Permissions**
+- self for enrolment; members.security.reset (ORG_ADMIN) for reset; org.settings.manage for the policy
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- With org.security.mfa_method=TOTP, a member without TOTP sees the enrolment gate after password login and cannot open /w/* until enrolled (grace banner when within grace); after enrolment the login completes with the TOTP code; an email code is refused.
+- Passkey registration + assertion succeed on the tenant host origin (rpId = host) and fail from another origin; recovery code works once and is then invalid.
+- Admin reset removes the methods, notifies the member and writes MFA_RESET HIGH; the admin never sees a secret.
+- Platform-host (kiwiply.com) personal logins behave exactly as before unless the user enrolled voluntarily (regression suite).
+
+**Test cases**
+- TotpServiceTest
+- WebAuthnServiceIT (rpId per host)
+- LoginMfaServiceMethodTest
+- MeMfaResourceIT
+- Playwright tenant-login-totp.spec.ts, passkey (virtual authenticator)
+
+- **Tech notes:** Split from X12.4 by Session E (11 §3.4 note: TOTP/passkeys ride with the SSO phase). Dependency review for the WebAuthn lib (42 T64). rpId = the tenant host, so passkeys are per host by design (12 §9: no central SSO).
+- **Definition of Done:** Stronger factors available; org policy enforceable; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.4 — SSO per org (flag.enterprise.sso): org_sso_connection (SAML 2.0 or OIDC) with per-org entity id, DNS-TXT-verified domain claim, SP-initiated "Continue with {org} SSO" on the branded login, assertion hardening (signed assertions, InResponseTo, audience, one-time ids, skew ≤ 2 min), membership rule unchanged, admin Security settings
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.3, X2.9, X3.2, X1.5, X2.14
+- **Persona:** Org Admin configuring SSO; every employee signing in with the company IdP
+- **Objective:** Employees sign in with the company identity provider on the org's own host, and an assertion can never create or elevate access by itself — membership still decides.
+- **Story:** As an org admin, I want Acme's Okta to sign people into careers.acme.com so that leavers lose access the moment IT disables them.
+
+**Functional requirements**
+- org_sso_connection (org_id, kind SAML|OIDC, idp_metadata_xml / issuer+client_id+client_secret (SecretBox), sp_entity_id = https://{primary host}/sso/{orgId}, acs/callback URL per host, domain_claim, domain_verified_at, status DRAFT|VERIFYING|ACTIVE|DISABLED, enforce BOOL); domain claim verified by a DNS TXT record (reuse X3.2 verification job + instructions panel); one ACTIVE connection per org.
+- Login: public DTO login.sso = {enabled, label} from the org setting org.security.sso (ACTIVE connection ∧ flag); BrandedLogin shows "Continue with Acme SSO"; SP-initiated only by default (IdP-initiated refused unless org.security.sso_idp_initiated, default off); after a valid assertion the identity (email/subject) must match an ACTIVE member of that org (12 §4 step 2 unchanged) else NOT_A_MEMBER; tid/hid pair minted as in X1.5; enforce=true hides password/Google for non-OWNER members (OWNER keeps password as break-glass for IdP outages).
+- Hardening (42 T63): Spring Security SAML2/OIDC only (no hand-rolled XML), signed assertions required, InResponseTo checked, audience = sp_entity_id, clock skew ≤ 2 min, one-time assertion id store (24 h), replay → 401 SSO_REPLAY; OIDC: PKCE, nonce, state bound to the host; errors audited LOGIN_SSO_FAILED with reason.
+- Admin: /w/admin/settings → Security → SSO card (connection editor, metadata download, "Test sign-in", domain TXT instructions, Enforce toggle with ReasonSheet HIGH); platform admin can disable a connection with reason.
+
+**UI requirements**
+- BrandedLogin gains the SSO button state (11 §3.2 extension); Settings Security card; 390/1440.
+
+**Backend requirements**
+- security/sso/{SsoConnectionService, SamlRelyingPartyRegistrationRepository (per org/host), OidcClientRegistrationRepository, AssertionReplayStore}; web/rest/ent/OrgSsoResource; login filters on tenant hosts; EnterpriseSettingKeys.Org (security.sso*)
+
+**Database changes**
+- Liquibase 20261026050000_ent_sso.xml: org_sso_connection, sso_assertion_id (id hash, org_id, expires_at); composite tenant FKs.
+
+**APIs**
+- GET/PUT /api/orgs/{orgId}/sso · POST …/sso/test · POST …/sso/verify-domain · GET /sso/{orgId}/metadata (public, per host) · POST /login/saml2/sso/{orgId} | GET /login/oauth2/code/{orgId} (framework endpoints, tenant hosts only)
+
+**Permissions**
+- org.settings.manage + security.manage (HIGH, ReasonSheet) for configuration; login is public on the tenant host
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- A signed assertion for anika@acme.com from the ACTIVE connection on acme.localhost → session with tid=acme; the same assertion replayed → 401 SSO_REPLAY; an assertion with audience beta → 401; unsigned → 401; skew 3 min → 401 (SamlAssertionIT, SEC-24).
+- An assertion for someone who is not a member → NOT_A_MEMBER panel, no account created (JIT is X12.10 and off by default).
+- With enforce=true a MEMBER gets no password field; the OWNER still can; Google is hidden; kiwiply.com logins ignore SSO entirely.
+- The domain claim must be TXT-verified before ACTIVE (422 SSO_DOMAIN_UNVERIFIED); the SSO endpoints answer 404 on platform hosts and on hosts of other orgs.
+
+**Test cases**
+- SamlAssertionIT (SEC-24)
+- OidcLoginIT (PKCE/nonce/state)
+- SsoConnectionServiceTest
+- OrgSsoResourceIT (+ registry lines)
+- Playwright tenant-login-sso.spec.ts (mock IdP)
+
+- **Tech notes:** Fully specified by Session E; split: X12.4 = connection + login, X12.10 = JIT mapping, X12.11 = TOTP/passkeys. 12 §9, 42 T34/T63/T64 (dependency review for the SAML libs). Central cross-host SSO is not built (12 §9).
+- **Definition of Done:** SSO live behind the flag with the SEC-24 suite in CI; 04 §7 security note updated; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.10 — SSO JIT membership mapping: org_sso_jit_rule (IdP attribute/group → role template ≤ org.sso.max_jit_role, department/team, manager), invite-less join still passing the consent screen, deprovisioning signal (IdP group removed → suspend), audit; never OWNER/ORG_ADMIN by JIT (42 T34)
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X12.4, X1.15
+- **Persona:** Org Admin automating onboarding; employees joining through the IdP
+- **Objective:** New employees get a seat with the right role from their IdP group on first sign-in — but JIT can never hand out admin rights, and the consultant still chooses what the org sees.
+- **Story:** As an org admin, I want anyone in Okta group "Consultants" to get a consultant seat on first login so that onboarding is automatic, while admins are still invited by hand.
+
+**Functional requirements**
+- org_sso_jit_rule (org_id, connection_id, attribute, match (EQUALS|CONTAINS|REGEX), role_template_key, department_group_id, team_group_id, manager_member_id, priority, active); evaluation on a successful assertion for a non-member: first matching rule → create INVITED→ACTIVE seat through OrgJoinService with the invite-equivalent body (X1.15 ceiling check against org.sso.max_jit_role, default CONSULTANT; OWNER/ORG_ADMIN/roles with dangerous keys are refused at rule save — 422 JIT_ROLE_CEILING); no rule → NOT_A_MEMBER.
+- First sign-in via JIT lands on the consent screen (12 §5) before any workspace — the member picks SUMMARY/NONE exactly as an invited member would; audit MEMBER_JIT_CREATED with the rule id and the assertion attributes used (no secrets).
+- Deprovisioning: when org.sso.deprovision_on_group_loss (default off) and a later assertion lacks every matching group → seat SUSPENDED (reversible, X4.4) with audit; never offboard automatically.
+- Admin UI: Security → SSO → "Automatic seats" rules table (priority drag with undo, test against a sample attribute set, max role shown as a ceiling note).
+
+**UI requirements**
+- Settings Security card extension; rule rows as cards at 390.
+
+**Backend requirements**
+- security/sso/JitProvisioningService, OrgSsoJitRuleService; OrgSsoResource (rules)
+
+**Database changes**
+- org_sso_jit_rule in 20261026050000_ent_sso.xml (same bucket file as X12.4; additive changeSet).
+
+**APIs**
+- GET/POST/PATCH/DELETE /api/orgs/{orgId}/sso/jit-rules[/{id}] · POST …/jit-rules/test {attributes}
+
+**Permissions**
+- org.settings.manage + security.manage (HIGH); ceiling: rule role ≤ org.sso.max_jit_role and ⊆ the saver's own rights
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Saving a rule with role ORG_ADMIN → 422 JIT_ROLE_CEILING; with CONSULTANT → saved; the saver (an HR_SPECIALIST without marketing rights) cannot map to MARKETING_SPECIALIST (ROLE_CEILING).
+- A first assertion for a non-member in group "Consultants" creates the seat, shows the consent screen, then lands on /w/consultant; the audit row names the rule; a second assertion does not create a second seat.
+- With deprovision on, an assertion without the group suspends the seat and notifies the admin; with it off nothing changes.
+- JIT never runs on platform hosts or for an org without an ACTIVE connection.
+
+**Test cases**
+- JitProvisioningServiceTest (ceiling, consent, idempotency)
+- JitRuleResourceIT
+- SamlJitIT (SEC-24 extension)
+- Playwright sso-jit.spec.ts (mock IdP)
+
+- **Tech notes:** Split from X12.4 by Session E. 42 T34 default org.sso.max_jit_role = CONSULTANT; 12 §5 consent flow reused; escalation E4/E7 defaults apply.
+- **Definition of Done:** JIT live behind the SSO flag with the ceiling proven; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.2 — Autopilot prepare for assigned jobs — API side: assigned-items feed for the consultant's own Autopilot queue (automation.approved_apply on the consultant's license, caps shared with personal 30/300), per-org consultant opt-in, PREPARED status back on the match, attestation untouched, stops before submit (D2: ships off; not started until answered)
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X9.9, X5.16, X8.4, X9.11
+- **Persona:** Consultant who opted in; marketer watching the match status
+- **Objective:** Assigned jobs can flow into the consultant's own batch-prepare queue under every existing Autopilot lock — their session, stop before submit, no attestation — and only when they chose it.
+- **Story:** As Anika, I want the jobs Sarah assigned me to be prepared by my Autopilot overnight so that I only review and submit, while nothing is ever sent for me.
+
+**Functional requirements**
+- Consultant opt-in per org: org-scoped setting on the member (member_setting autopilot.org_feed BOOL, written from the X9.11 Settings page toggle, default off); platform flag flag.enterprise.autopilot_feed (off until D2 is answered) and org setting org.pipeline.autopilot_feed (admin on/off).
+- GET /api/autopilot/next (prior art, docs/design/ext/autopilot-orchestrator.md) and GET {o}/extension/assigned-items (40 §12.12): include ASSIGNED/ACCEPTED match items (match_id, posting/url, pinned resume version) for consultants with the opt-in, @RequiresFeature(automation.approved_apply, SELF) on the consultant's own license (37 #13; personal Autopilot entitlement is NOT reused across workspaces — ADR-018), daily/period caps shared with the personal 30/300 through the same usage counters; BoardPolicy: items whose board forbids agency/automation are excluded.
+- Status back: POST /api/autopilot/items/{id}/prepared {matchId} → pipeline_application_link status PREPARED (new transition registered in X8.13 registry; consultant actor) → marketer sees "Prepared by Anika's Autopilot" on the card; nothing else changes — submission remains the consultant's own act (E1) and `NoSubmitSurfaceTest` covers the new routes.
+
+**UI requirements**
+- X9.11 Settings toggle becomes enabled with the copy "Let Acme's assigned jobs feed my Autopilot — it prepares, you submit"; marketer card chip "Prepared".
+
+**Backend requirements**
+- AutopilotFeedService, AssignedItemsResource, PipelineTransitions row APPLICATION_LINK → PREPARED, EnterpriseSettingKeys.Pipeline autopilot_feed
+
+**Database changes**
+- member_setting (org_id, member_id, key, value_json) additive in 20261026030000_ent_autopilot.xml if no member-scoped setting table exists by then; pipeline_application_link.status gains PREPARED (enum value, additive).
+
+**APIs**
+- GET /api/autopilot/next (extended items) · GET /api/orgs/{orgId}/extension/assigned-items · POST /api/autopilot/items/{id}/prepared
+
+**Permissions**
+- self (consultant); org.pipeline.autopilot_feed; flag.enterprise.autopilot_feed
+
+**Feature entitlements**
+- automation.approved_apply (beneficiary = the consultant, SELF)
+
+**Acceptance criteria**
+- With the flag off nothing is returned (byte-identical /api/autopilot/next for every user — PersonalSubscriptionUnchangedIT extended); with the flag on but no opt-in → nothing; with opt-in and the feature → assigned items appear, capped so that personal + org items ≤ 30/day and ≤ 300/period.
+- An item from a board that forbids automation is never returned (BoardPolicy test); the pinned resume version equals the match's approved pin.
+- POST …/prepared flips the link to PREPARED, writes one pipeline_event, and the marketer's card shows the chip; no route in the feature can submit (NoSubmitSurfaceTest lists the new routes).
+- Personal Autopilot entitlement without the org feature → 402 AUTOPILOT_REQUIRED on the org items only (no stacking).
+
+**Test cases**
+- AutopilotFeedServiceTest
+- AssignedItemsResourceIT
+- NoSubmitSurfaceTest (extended)
+- PersonalSubscriptionUnchangedIT (extended)
+- BoardPolicyFeedTest
+
+- **Tech notes:** Fully specified by Session E; split: X12.2 = API/web, X12.9 = extension. Escalation D2 — safe default (b) stays applied: flag off, story not_started until the user answers. 31 §9, 37 #13, docs/design/ext/autopilot-orchestrator.md locks.
+- **Definition of Done:** Feed live behind the flag only after D2 is answered; CLAUDE.md Autopilot locks proven by tests; tracker row stays Not Started until then. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.9 — Extension side of Autopilot for assigned items: queue consumes org items with match_id in the org workspace, prepares with the user's own profile and the pinned resume, stops at the final page, reports PREPARED, attestation never ticked, no_submit + caps tests, version bump
+- **Epic:** X12 · **Size/Complexity:** M/M · **Owners:** Ext · **Deps:** X12.2, X9.12
+- **Persona:** Consultant running Autopilot in the Acme workspace
+- **Objective:** The orchestrator treats an assigned job exactly like a personal queue item — same locks, same stop line — plus one status call back to the org.
+- **Story:** As Anika, I want my overnight Autopilot to include Acme's assigned jobs and show me each prepared application in the morning so that I submit each one myself.
+
+**Functional requirements**
+- Autopilot orchestrator (docs/design/ext/autopilot-orchestrator.md) reads items from GET /api/autopilot/next in the active workspace; org items carry match_id and the pinned resume reference (the mirror already holds the resume after X9.12); preparation uses the signed-in user's own profile only; stops at the final page; attestation controls are never ticked (BLOCK_RE + attestation guard unchanged).
+- After a successful prepare: POST /api/autopilot/items/{id}/prepared {matchId} through the TrackingProvider seam; the drawer's Jobs tab shows "Prepared · review and submit"; caps shown in the drawer as "n of 30 today" across personal + org items.
+- Workspace switch mid-run pauses the queue (no cross-workspace items in one run); account change clears queue state (account_clear.test.js).
+
+**UI requirements**
+- Drawer Jobs tab chip "Prepared"; caps line; no new engine deps.
+
+**Backend requirements**
+- — (X12.2)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes GET /api/autopilot/next, POST /api/autopilot/items/{id}/prepared
+
+**Permissions**
+- Workspace header (X9.9); self
+
+**Feature entitlements**
+- automation.approved_apply on the consultant's org license
+
+**Acceptance criteria**
+- A fixture queue with 2 personal + 3 org items prepares all five, stops before submit on every fixture ATS page (no_submit.test.js extended with the org fixtures), and posts PREPARED for the 3 org items only.
+- Attestation checkbox fixtures remain unchecked after preparation (attestation.test.js).
+- Switching workspace during a run pauses it; resuming in the other workspace starts a fresh run with that workspace's items.
+- `npm test` green; versions bumped in wxt.config.ts and package.json.
+
+**Test cases**
+- extension autopilot-org.test.js, no_submit.test.js (extended), attestation.test.js, account_clear.test.js
+
+- **Tech notes:** Split from X12.2 by Session E. Engine stays vanilla JS on window.JAF; TrackingProvider is the only backend seam. Not started until D2 is answered.
+- **Definition of Done:** Extension prepares org items under every lock; versions bumped; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.
+### X12.6 — Cloudflare for SaaS evaluation and migration runbook: trigger criteria (custom hosts, LE limit hits, DDoS exposure), fallback-origin and custom-hostname API steps, certificate validation modes, DNS instruction changes, cost model, rollback; recorded as ADR-024 (proposed, not adopted)
+- **Epic:** X12 · **Size/Complexity:** S/S · **Owners:** Ops · **Deps:** X3.6
+- **Persona:** The user / platform operator deciding on edge infrastructure
+- **Objective:** When the shared Caddy edge stops being enough, the move to Cloudflare for SaaS is a documented decision with a tested runbook, not a scramble.
+- **Story:** As the operator, I want to know exactly when and how we would move custom domains to Cloudflare for SaaS so that a rate-limit week does not become an outage week.
+
+**Functional requirements**
+- docs/enterprise-v2/adr/ADR-024-cloudflare-for-saas.md (status Proposed): triggers — active custom hostnames > enterprise.domains.cf_eval_threshold (default 100), ≥ 2 LE RATE_LIMIT events in 30 days (le_issuance), a DDoS/abuse incident on tenant hosts, or BeeCompete edge constraints; options compared (stay on Caddy + wildcard DNS-01 needing a Caddy build change; Cloudflare for SaaS; CloudFront) with cost per hostname, isolation impact (RR5: custom domains become Cloudflare-terminated), and the X-Forwarded-Host trust chain change (42 T23).
+- Runbook (44 §7 addendum): fallback origin setup, custom hostname creation via API from HostnameService (adapter interface EdgeProvider {CADDY_ASK, CLOUDFLARE} with the ask endpoint retained for CADDY), certificate validation (TXT/HTTP) mapped to the existing verification states, DNS instructions panel variant (CNAME to the fallback origin), per-tenant migration batches, rollback (DNS back to the box IP, Caddy ask still answering).
+- No production change in this story; a dev spike against a Cloudflare test zone is optional and recorded.
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- Design only: EdgeProvider interface sketch in the ADR (implemented only if adopted).
+
+**Database changes**
+- —
+
+**APIs**
+- None.
+
+**Permissions**
+- None.
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- ADR-024 exists with the trigger table, option matrix, cost model and rollback; 44 §7.3 "Option if LE limits bite" points to it; 10 §3 notes the instruction-panel variant as future.
+- The user has a one-page decision summary in 08-decisions-for-user.md (new row) with the safe default "stay on Caddy".
+
+**Test cases**
+- Doc review only (no code).
+
+- **Tech notes:** Fully specified by Session E. ADR-002 reserved Cloudflare for SaaS; this story turns the reservation into a decision-ready plan.
+- **Definition of Done:** ADR-024 proposed; 08 row added; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.

@@ -82,7 +82,7 @@ history timeline), Offboarding, Reports (headcount by department/type, time-to-o
 k-anonymity not required: HR sees members by right of role, but consultant *career* data stays
 consent-gated and is not on HR pages).
 
-Talent Acquisition (template TALENT_ACQUISITION) reuses Employees/Onboarding with `candidates.manage`:
+Talent Acquisition (template TALENT_ACQUISITION, **story X11.8**) reuses Employees/Onboarding with `candidates.manage`:
 `talent_pool(id, org_id, name, skills_json)` + `talent_pool_member(pool_id, member_id | invite_id)` —
 candidates are **invited members** (status INVITED) or existing members; no external CV storage in V2
 (a candidate CV is the person's resume once they join; escalation D5).

@@ -39,7 +39,7 @@
 | 5 | `20261019030000_ent_licenses` | `consultant_license, license_feature, license_quote, license_change, org_module_license, org_subscription, org_subscription_item` | none (the old org seat path is **not** migrated: orgs with legacy seat subscriptions keep them; enterprise licenses are a new path, ADR-018/023) | `flag.enterprise.billing` off | no data move |
 | 5 | `20261019040000_ent_usage` | `usage_event, usage_counter, usage_period_rollup`, optional `entitlement_decision_log`; `ai_call` + `org_id, beneficiary_login, feature_key, usage_event_id` (+ index); `feature_definition.overage_product_id` | none | `flag.enterprise.billing` off | |
 | 6 | `20261020010000_ent_org_billing` | `org_billing_account, org_invoice, org_invoice_line, org_stripe_discount, billing_drift`; `stripe_event.org_id` | `ent-billing-account-mirror`: one `org_billing_account` per org that already has `stripe_customer_id` (mirror; dual-write continues) | Stripe path off by blank key / `flag.enterprise.billing` UI off; LOCAL applier keeps writing mirrors | **do not** delete Stripe customers/subscriptions created in test mode; reconcile via runbook 44 §8 |
-| 6 | `20261020020000_ent_break_glass` | `break_glass_grant` (X5.x admin) — here to sit with billing ops ⚑ | none | n/a | |
+| 6 | `20261020030000_ent_break_glass` | `break_glass_grant` (**X6.17**; `…020000` is the X6.14 mirrors file — reviewed §13) | none | n/a | |
 | 7 | `20261021010000_ent_talent` | `consultant_profile, consultant_profile_proposal, org_resume, org_feature_consent, consent_request, consent_event` | `ent-talent-profile-seed`: none — profiles created on first view | `flag.enterprise.marketing` off | `org_resume` links deletable by flag-off job `OrgResumeLinkSweep` only on explicit admin action |
 | 8 | `20261022010000_ent_pipeline` | `job_opportunity, org_job_bank, opportunity_match, candidate_submission, pipeline_application_link, pipeline_task, interview_slot, offer, placement, placement_extension, pipeline_event, client_account, client_contact, client_relationship, client_requirement` (all created here, even Phase 9/10 tables, so FKs/uniques land once) | none | `flag.enterprise.marketing` off | |
 | 9 | `20261023010000_ent_applications` | `application_note.shared_with_org`; `interview.application_id` nullable (`dropNotNullConstraint` = the only constraint *relaxation* in the programme, explicitly allowed by `LiquibaseAdditiveTest` allow-list); `interview_prep` | none | `flag.enterprise.extension_workspaces` / marketing off | relaxation is irreversible but harmless (code writes values as before) |
@@ -234,3 +234,19 @@ All retention numbers are settings in `EnterpriseSettingKeys` (admin-editable, n
 ## 12. Database CI gates (all run in `./gradlew test integrationTest`)
 
 `LiquibaseAdditiveTest` · `TenantKeyPolicyTest` (R1/R2/R2a) · `CompositeTenantFkTest` (R3) · `DeleteRuleAllowListTest` (R4) · `GeneratedKeyTest` · `ColumnTypePolicyTest` (R7) · `JsonColumnPolicyTest` (§8) · `NeverCollectedSchemaTest` (§9) · `ErasureRegistryCoverageTest` (§10) · `MigrationUpgradeIT` (empty DB **and** a DB loaded from the previous release's schema snapshot `src/test/resources/db/prev-release.sql`, then all new changelogs, then `OrgIsolationIT` smoke) · `PriceOverlapIT`/`ImmutablePriceIT` (§4) · `PersonDeleteDoesNotBlockIT` (R6).
+
+## 13. Design review decisions on the ⚑ items (Session E Task 4, 2026-10-12)
+
+| Item | Decision | Consequence |
+|---|---|---|
+| R2a closed list of attribution ledgers | **Accept**, extended: `ATTRIBUTION_LEDGERS = {ai_call, stripe_event, refresh_token, break_glass_grant}` (`break_glass_grant` is platform-owned with a NOT NULL `org_id` but no tenant route — X6.17); `platform_metric_daily`, `user_mfa_method`, `user_recovery_code`, `shedlock`, `rate_limit_bucket`, `cache_invalidation` are platform tables without `org_id` (`TenantKeyPolicyTest` allow-list) | X6.17, X12.5, X12.11, X12.12 DB bullets |
+| R3 composite tenant FKs, DDL-only | **Accept** | `CompositeTenantFkTest` stays the gate; JPA maps plain columns |
+| R6 person deletes never blocked by org rows | **Accept** | `PersonDeleteDoesNotBlockIT` |
+| Row 2 `login_challenge` vs the `AdminMfaService` table | **Change**: no new table — `admin_mfa_challenge` gains nullable `org_id`, `kind (EMAIL\|TOTP\|PASSKEY)`, `hostname_id` (additive); X2.14 writes it, X12.11 extends it, X12.5 makes it the only challenge store (no in-memory state) | X2.14, X12.5, X12.11 |
+| Row 6 `20261020020000_ent_break_glass` | **Change**: that timestamp is X6.14's mirrors file; break-glass is `20261020030000_ent_break_glass.xml` owned by **X6.17** | X6.17 |
+| `org_contract_price.version_from/version_to` | **Accept** — applied to 23 §2.2 and X5.5/X5.15 (Task 3) | — |
+| `product_price` immutability by hash + nightly job (no triggers) | **Accept** | `ImmutablePriceIT`, `PriceIntegrityJob` |
+| `usage_event` partitioning deferred | **Accept** (revisit at 5 M rows per org-month) | — |
+| `organization.type` VARCHAR(20→40) — the one `modifyDataType` | **Accept** (online, lossless widening) — the single allow-listed exception to 06 §4 rule 4; escalated as **E21** for visibility | `LiquibaseAdditiveTest` allow-list `ent-tenancy-org-type-widen` |
+| Legacy org-seat Stripe rows not migrated | **Accept** — manual admin conversion per org; **E22** asks the user whether any real org is on legacy seats | 44 §7 |
+| Org CLOSED → anonymise after 12 months, never hard-delete | **Accept** — folded into **E13** (retention periods) for the user's confirmation | `OrgPurgeJob` |

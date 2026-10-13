@@ -300,3 +300,19 @@ Daily check of §10 board, error digest, reconciler (`billing_drift` = 0), LE co
 3. Provide a Stripe **test-mode** key as GitHub secret `STRIPE_TEST_SECRET_KEY` if the nightly test-clock job is wanted (else manual runbook).
 4. Approve: separate `DOSSIER_ASK_TOKEN`; no staging environment (pilot org instead); least-privilege DB user; S3 versioning on the org assets prefix.
 5. Edge facts only the user can read: whether BeeCompete's Caddyfile has a global block, `trusted_proxies`, an `http://` catch-all, wildcard blocks (6.3).
+
+## 14. Design review decisions on the ⚑ items (Session E Task 4, 2026-10-12)
+
+| Item | Decision | Consequence |
+|---|---|---|
+| No staging environment (pilot org behind per-org flags instead) | **Accept** until the box is upsized — **E25** asks the user about the upsize trigger | §1, §9.2 |
+| Rollback past Phase 9 with `interview.application_id` NULL rows | **Accept**: rollback past Phase 9 = restore dump or forward fix; no data fixes under pressure | §3.4 |
+| §6.3 interplay risks with BeeCompete blocks | **Accept** — the user applies with the §6.2 checks (dev-edge rehearsal first, spoof test 7b in 10 §8) | 10 §8 |
+| `HostnameProbeJob` stores `notAfter`, alert < 14 days | **Accept** — applied to X3.3 | X3.3 |
+| Restore-drill assertions for enterprise tables | **Accept** — owned by **X1.9** (the `verify-restore.sh` extension is part of the isolation gate's DoD; the `PriceIntegrityJob --once` line is added when X5.1 lands) | X1.9 |
+| S3 bucket versioning on the org assets prefix | **Accept** — user action in AWS (**E26**) | §8 |
+| Erased members remain in dumps ≤ 30 days | **Accept** — disclose in the privacy notes (**E26**) | §8, §12.5 |
+| `scripts/ops/restore-org.sh` | **Accept as a nice-to-have** inside X12.5 (ops addendum) | X12.5 |
+| No point-in-time recovery (nightly dumps only) | **Accept now**; before Phase 6 goes live with real money the user decides on binlog archiving or a second daily dump — **E27** | §8, §13 |
+| JVM heap cap 512 MB, raise only after soak | **Accept** | §9.1 |
+| Least-privilege MySQL user instead of `root` | **Accept (recommended)** — user action before enterprise data holds real customers — **E28** | §12.1 |
