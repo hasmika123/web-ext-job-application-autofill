@@ -151,13 +151,20 @@ class EntRolesMigrationIT {
                     assertThatThrownBy(() -> exec(conn, "DELETE FROM org_member WHERE id=" + member)).as("an assignment keeps its members: RESTRICT").isInstanceOf(SQLException.class);
                     exec(conn, "DELETE FROM org_assignment");
                     conn.commit();
-                    // ent_authz is not the last changeset any more (later enterprise files follow it): roll back it AND everything run after it
-                    int fromAuthz = Integer.parseInt(scalar(conn, "SELECT COUNT(*) FROM DATABASECHANGELOG WHERE orderexecuted >= (SELECT MIN(orderexecuted) FROM DATABASECHANGELOG WHERE id LIKE '20261015030000-%')"));
-                    lb.rollback(fromAuthz, CONTEXTS);
+                    // Roll back ent_authz AND every changeset applied after it (X1.15's ent_invites, X2.5's branding publish, ...): "the last one" is
+                    // no longer ent_authz now that the changelog goes on past it. Doing so also proves their rollbacks (columns and foreign keys) work.
+                    String later = scalar(conn, "SELECT COUNT(*) FROM DATABASECHANGELOG WHERE orderexecuted > (SELECT MAX(orderexecuted) FROM DATABASECHANGELOG WHERE id LIKE '20261015030000-%')");
+                    assertThat(columnExists(conn, scratch, "org_member", "invite_message")).as("X1.15's ent_invites is applied").isTrue();
+                    assertThat(scalar(conn, "SELECT COUNT(*) FROM DATABASECHANGELOG WHERE id LIKE '20261015040000-%'")).isEqualTo("8");
+                    lb.rollback(Integer.parseInt(later) + 1, CONTEXTS);
                     conn.commit(); // the shared connection is in manual-commit mode: publish the history row removal before another connection looks
                     assertThat(tableExists(conn, scratch, "org_assignment")).isFalse();
                     assertThat(scalar(conn, "SELECT COUNT(*) FROM DATABASECHANGELOG WHERE id LIKE '20261015030000-%'")).as("the rolled back changeset left the history").isEqualTo("0");
                     assertThat(scalar(conn, "SELECT COUNT(*) FROM org_member_role")).as("the roles part is untouched").isEqualTo("9");
+                    assertThat(columnExists(conn, scratch, "org_member", "invite_message")).as("ent_invites rolled back with it").isFalse();
+                    assertThat(columnExists(conn, scratch, "org_member", "invite_role_ids_json")).isFalse();
+                    assertThat(columnExists(conn, scratch, "org_member", "manager_member_id")).isFalse();
+                    assertThat(columnExists(conn, scratch, "org_member", "invite_sent_at")).as("branch B's invite columns are an earlier changelog and stay").isTrue();
                     // Not asserted: applying ent_authz AGAIN right after this rollback. Observed in this harness (one JVM, a second Liquibase object on a
                     // fresh connection): the update reports the changeset as run but leaves no table and no history row. Unexplained; production runs the
                     // changeset once on a database that never had the table, which every test above exercises.

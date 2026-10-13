@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
  * What account erasure and the data export do about a person's organization memberships
  * (docs/design/org/tenant-model.md section 6).
  *
- * <p><b>Erasure.</b> For every {@code org_member} row of the user, in any state: {@code user_id}, {@code invite_email},
+ * <p><b>Erasure.</b> For every {@code org_member} row of the user, in any state: {@code user_id}, {@code invite_email}, {@code invite_name},
  * {@code invite_token_hash}, {@code display_label} and {@code support_owner_member_id} are cleared and the status
  * becomes {@code ERASED}; the seat row stays so the org's history and counts are intact, but nothing on it identifies
  * the person. One {@code MEMBER_ERASED} audit row per org names the login as a string (the trail is keyed by login, so
@@ -75,6 +75,8 @@ public class OrgMembershipPrivacyService {
             m.setUserId(null);
             m.setStatus(OrgMemberStatus.ERASED);
             m.setInviteEmail(null);
+            m.setInviteName(null);
+            m.setInviteMessage(null);
             m.setInviteTokenHash(null);
             m.setInviteExpiresAt(null);
             m.setDisplayLabel(null);

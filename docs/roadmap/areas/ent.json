@@ -604,7 +604,7 @@
       "id": "X1.8",
       "epic": "X1",
       "title": "Invitation framework: adopt branch B (a6a9a62) invites + join API, re-verify, tenant-aware links and tenant-host acceptance",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
@@ -658,7 +658,7 @@
       ]
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [],
       "ui": [],

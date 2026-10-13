@@ -4,6 +4,7 @@ import com.dossier.api.domain.User;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -149,6 +150,45 @@ public class MailService {
         context.setVariable("link", link);
         String content = templateEngine.process("mail/notificationEmail", context);
         sendEmailSync(user.getEmail(), title, content, false, true);
+    }
+
+    /**
+     * O2.2: an organization invited someone by email. Goes to the invited ADDRESS (they may not have an account yet), so it
+     * does not take a {@link User}. Says who invited them, what role, what the org pays for, when the link stops working and
+     * the "Not you?" line (onboarding-invites.md section 3.2). The link carries the one-time token; it is never logged.
+     */
+    public void sendOrgInviteEmail(String to, String name, String orgName, String inviterName, String roleWord, List<String> pays, String link, String expires) {
+        sendOrgInviteEmail(to, name, orgName, inviterName, roleWord, pays, link, expires, null, null);
+    }
+
+    /**
+     * The organization-branded form (X1.8/X1.15): {@code logoUrl} is the org logo (null until branding supplies one: the template then
+     * shows the name only) and {@code message} the inviter's optional personal note, plain text, escaped by the template.
+     */
+    @Async
+    public void sendOrgInviteEmail(String to, String name, String orgName, String inviterName, String roleWord, List<String> pays, String link, String expires, String message, String logoUrl) {
+        if (to == null || to.isBlank()) return;
+        Locale locale = Locale.ENGLISH;
+        String inviter = inviterName == null || inviterName.isBlank() ? "The " + orgName + " team" : inviterName;
+        Context context = new Context(locale);
+        context.setVariable("name", name);
+        context.setVariable("org", orgName);
+        context.setVariable("inviter", inviter);
+        context.setVariable("role", roleWord);
+        context.setVariable("pays", pays == null ? List.of() : pays);
+        context.setVariable("paysList", pays == null ? "" : String.join(", ", pays));
+        context.setVariable("link", link);
+        context.setVariable("expires", expires);
+        context.setVariable("message", message == null || message.isBlank() ? null : message);
+        context.setVariable("logoUrl", logoUrl);
+        String subject = messageSource.getMessage(
+            inviterName == null || inviterName.isBlank() ? "email.invite.title.anon" : "email.invite.title",
+            inviterName == null || inviterName.isBlank() ? new Object[] { orgName } : new Object[] { inviterName, orgName },
+            locale
+        );
+        context.setVariable("subject", subject);
+        String content = templateEngine.process("mail/orgInviteEmail", context);
+        sendEmailSync(to, subject, content, false, true);
     }
 
     @Async

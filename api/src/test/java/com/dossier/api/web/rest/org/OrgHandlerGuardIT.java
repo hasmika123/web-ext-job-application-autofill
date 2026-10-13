@@ -49,12 +49,25 @@ class OrgHandlerGuardIT {
         assertThat(problems).isEmpty();
     }
 
+    /**
+     * The handlers with no {orgId} to scope by. Each one acts on the caller's own person (create an org, list one's own) or
+     * on a secret the caller holds (the public join links of O2.2: the token or code IS the credential, and every miss is
+     * the same generic 404). Anything added here is a deliberate, reviewed act.
+     */
     @Test
-    void theOnlyUnscopedHandlersAreCreateAndMine() {
+    void theOnlyUnscopedHandlersAreTheCallersOwnAndTheJoinLinks() {
         List<String> unscoped = new ArrayList<>();
         for (Map.Entry<RequestMappingInfo, HandlerMethod> e : mapping.getHandlerMethods().entrySet()) {
-            if (e.getValue().getMethod().isAnnotationPresent(OrgUnscoped.class)) unscoped.add(e.getValue().getMethod().getName());
+            Method m = e.getValue().getMethod();
+            if (m.isAnnotationPresent(OrgUnscoped.class)) unscoped.add(m.getDeclaringClass().getSimpleName() + "#" + m.getName());
         }
-        assertThat(unscoped).containsExactlyInAnyOrder("create", "mine");
+        assertThat(unscoped).containsExactlyInAnyOrder(
+            "OrgResource#create",
+            "OrgResource#mine",
+            "JoinResource#previewInvite",
+            "JoinResource#previewCode",
+            "JoinResource#acceptInvite",
+            "JoinResource#acceptCode"
+        );
     }
 }

@@ -287,6 +287,11 @@ public class OrgService {
         return new OrgDetailDTO(dto, new OrgDetailDTO.Me(me.memberId(), me.role(), me.permissionKeys()), activeSeats(org.getId()), org.getStatus());
     }
 
+    /** The org's typed settings with every missing key at its default (what the join screen and the invite flow consult). */
+    public OrgSettings settingsOf(Organization org) {
+        return readSettings(org.getSettingsJson());
+    }
+
     private OrgSettings readSettings(String raw) {
         if (raw == null || raw.isBlank()) return OrgSettings.defaults();
         try {

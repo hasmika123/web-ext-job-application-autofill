@@ -18,6 +18,10 @@ public interface OrgMemberRoleRepository extends Repository<OrgMemberRole, Long>
     @Query("select m from OrgMemberRole m where m.orgId = :orgId and m.memberId = :memberId and m.endsAt is null order by m.primary desc, m.id asc")
     List<OrgMemberRole> findLiveByOrgIdAndMemberId(@Param("orgId") Long orgId, @Param("memberId") Long memberId);
 
+    /** The live role rows of several members at once (the Invitations list), primary first per member. */
+    @Query("select m from OrgMemberRole m where m.orgId = :orgId and m.memberId in :memberIds and m.endsAt is null order by m.memberId asc, m.primary desc, m.id asc")
+    List<OrgMemberRole> findLiveByOrgIdAndMemberIds(@Param("orgId") Long orgId, @Param("memberIds") java.util.Collection<Long> memberIds);
+
     /** How many live members hold {@code roleId} in this organization. */
     @Query("select count(m) from OrgMemberRole m where m.orgId = :orgId and m.roleId = :roleId and m.endsAt is null")
     long countLiveByOrgIdAndRoleId(@Param("orgId") Long orgId, @Param("roleId") Long roleId);

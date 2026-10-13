@@ -72,9 +72,11 @@
     <include file="config/liquibase/changelog/20261013030000_application_events.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261013040000_notification_preference.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261013050000_job_posting_search.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261014010000_org_invites.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261015010000_ent_tenancy.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261015020000_ent_roles.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261015030000_ent_authz.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261015040000_ent_invites.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261016010000_org_branding_publish.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261016020000_ent_shell.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
