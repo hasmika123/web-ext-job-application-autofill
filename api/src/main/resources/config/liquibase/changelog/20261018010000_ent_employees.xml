@@ -223,6 +223,7 @@
             <column name="manager_member_id"/>
         </createIndex>
         <rollback><dropIndex tableName="org_member" indexName="ix_member_org_manager"/></rollback>
+    </changeSet>
 
     <!--
         X4.5 (departments and teams) adds, on top of X4.3's columns and the org_group.parent_group_id above: the unique (org_id, id) key
