@@ -3,6 +3,7 @@ import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import CookieConsent from "@/components/CookieConsent";
 import BugReportWidget from "@/components/BugReportWidget";
+import PlatformChrome from "@/components/PlatformChrome";
 import { ToastProvider } from "@/components/ui";
 import { SITE_URL } from "@/lib/site";
 
@@ -58,9 +59,13 @@ export default function RootLayout({
       className={`${inter.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <CookieConsent />
+        <PlatformChrome>
+          <CookieConsent />
+        </PlatformChrome>
         <ToastProvider>{children}</ToastProvider>
-        <BugReportWidget />
+        <PlatformChrome>
+          <BugReportWidget />
+        </PlatformChrome>
       </body>
     </html>
   );

@@ -1493,7 +1493,7 @@
       "design": "docs/enterprise-v2/07-backlog.md"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "critical": false,
       "evidence": [],
       "ui": [

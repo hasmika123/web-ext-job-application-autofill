@@ -117,9 +117,20 @@ const DEMO_INFO = { enabled: DEMO_ENABLED, accounts: DEMO_ENABLED ? DEMO_ACCOUNT
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 /** Unsigned JWT-shaped token: the web app only decodes `exp` (proxy.ts) and forwards it back to us. */
-const token = (sub, ttlSec) =>
-  `${b64({ alg: "none", typ: "JWT" })}.${b64({ sub, exp: Math.floor(Date.now() / 1000) + ttlSec })}.mock`;
+const token = (sub, ttlSec, extra = {}) =>
+  `${b64({ alg: "none", typ: "JWT" })}.${b64({ sub, exp: Math.floor(Date.now() / 1000) + ttlSec, ...extra })}.mock`;
 const pair = (sub) => ({ accessToken: token(sub, 15 * 60), refreshToken: `refresh.${sub}` });
+/** X2.6: a tenant sign-in mints a tid-bound pair (tid = the org key of the host). MOCK_ACCESS_TTL_SEC shortens the access token so the proxy refresh can be seen. */
+const tenantPair = (sub, orgKey) => ({
+  accessToken: token(sub, Number(process.env.MOCK_TENANT_ACCESS_TTL_SEC ?? 15 * 60), { tid: orgKey }),
+  refreshToken: `refresh.t.${orgKey}.${sub}`,
+});
+const hostOf = (req) => {
+  const raw = req.headers["x-kiwiply-host"];
+  return (typeof raw === "string" ? raw : "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "");
+};
+/** The org key a tenant host serves (acme.localhost -> acme); null for any other host. */
+const orgKeyOf = (host) => (MOCK_TENANTS[host] ? host.split(".")[0] : null);
 const subOf = (req) => {
   const raw = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
   try {
@@ -1849,6 +1860,23 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  // GET /api/me/tenant (X2.2 contract, minimal stub for X2.6): the tid-bound member of the forwarded host and where they land.
+  if (path === "/api/me/tenant" && method === "GET") {
+    const host = hostOf(req);
+    const key = orgKeyOf(host);
+    if (!ENTERPRISE_ENABLED || !key) return json(res, 404, { code: "NOT_FOUND", message: "error.org" });
+    const raw = (req.headers.authorization ?? "").replace(/^Bearer\s+/i, "");
+    let claims = null;
+    try {
+      claims = JSON.parse(Buffer.from(raw.split(".")[1] ?? "", "base64url").toString());
+    } catch {
+      claims = null;
+    }
+    if (!claims || !claims.tid || claims.exp * 1000 < Date.now()) return json(res, 401, { code: "UNAUTHENTICATED", message: "error.http.401" });
+    if (claims.tid !== key) return json(res, 401, { code: "TOKEN_TENANT_MISMATCH", message: "error.http.401" });
+    return json(res, 200, { org: { displayName: MOCK_TENANTS[host].displayName }, member: { status: "ACTIVE" }, landing: "/w/admin", workspaces: [{ key: "admin", home: "/w/admin" }] });
+  }
+
   if (path === "/api/authenticate/demo" && method === "POST") {
     if (!DEMO_ENABLED) {
       req.resume();
@@ -1869,7 +1897,7 @@ const server = http.createServer((req, res) => {
         const hosts = MOCK_TENANT_USERS[who];
         if (!hosts || b.password !== MOCK_TENANT_PASSWORD) return json(res, 401, { error: "Bad credentials" });
         if (!hosts.includes(tenantHost)) return json(res, 403, { code: "NOT_A_MEMBER", message: "error.org" });
-        return json(res, 200, pair(who));
+        return json(res, 200, tenantPair(who, orgKeyOf(tenantHost)));
       }
       const hit = Object.values(FIXTURE_ACCOUNTS).find((a) => a.login.toLowerCase() === who || a.email.toLowerCase() === who);
       return hit && hit.password === b.password ? json(res, 200, pair(hit.login)) : json(res, 401, { error: "Bad credentials" });
@@ -1877,7 +1905,14 @@ const server = http.createServer((req, res) => {
   }
   if (path === "/api/refresh" && method === "POST") {
     return withBody(req, (b) => {
-      const sub = String(b.refreshToken ?? "").replace(/^refresh\./, "");
+      const raw = String(b.refreshToken ?? "");
+      // X2.6: a tenant refresh token only works on its own host (the real API answers 401 TOKEN_TENANT_MISMATCH otherwise).
+      const t = /^refresh\.t\.([a-z0-9-]+)\.(.+)$/.exec(raw);
+      if (t) {
+        const host = hostOf(req);
+        return orgKeyOf(host) === t[1] ? json(res, 200, tenantPair(t[2], t[1])) : json(res, 401, { code: "TOKEN_TENANT_MISMATCH", error: "invalid" });
+      }
+      const sub = raw.replace(/^refresh\./, "");
       return ACCOUNTS[sub] ? json(res, 200, pair(sub)) : json(res, 401, { error: "invalid" });
     });
   }
