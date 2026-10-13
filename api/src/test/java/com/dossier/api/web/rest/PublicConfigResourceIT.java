@@ -55,7 +55,7 @@ class PublicConfigResourceIT {
     }
 
     @Test
-    void itNeedsNoAuthIsCacheableAndCarriesExactlyTwoBooleans() throws Exception {
+    void itNeedsNoAuthIsCacheableAndCarriesExactlyThreeBooleans() throws Exception {
         String body = mockMvc
             .perform(get("/api/config/public"))
             .andExpect(status().isOk())
@@ -70,7 +70,7 @@ class PublicConfigResourceIT {
         JsonNode json = om.readTree(body);
         List<String> names = new ArrayList<>();
         for (Iterator<String> it = json.fieldNames(); it.hasNext();) names.add(it.next());
-        assertThat(names).containsExactlyInAnyOrder("orgs", "demo");
+        assertThat(names).containsExactlyInAnyOrder("orgs", "demo", "enterprise");
         json.fields().forEachRemaining(e -> assertThat(e.getValue().isBoolean()).as(e.getKey()).isTrue());
     }
 

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiUrl } from "@/lib/config";
+import { isRewriteExempt, isTenantRoutePath, requestHost, TENANT_HOST_HEADER, TENANT_ROUTE_PREFIX } from "@/lib/tenant-host";
+import { resolveHost } from "@/lib/tenant";
 import { ACCESS_COOKIE, REFRESH_COOKIE, sessionCookieOptions } from "@/lib/cookies";
 
 /**
@@ -18,26 +20,56 @@ import { ACCESS_COOKIE, REFRESH_COOKIE, sessionCookieOptions } from "@/lib/cooki
  * errors are swallowed: a transient API blip must not log a valid user out.
  */
 export async function proxy(request: NextRequest) {
+  // X1.4: every request carries the host it was addressed to as an internal header (always overwritten, so a
+  // browser-supplied x-kiwiply-host is never believed). Server components and serverApiFetch read it.
+  const host = requestHost(request.headers);
+  const pathname = request.nextUrl.pathname;
+
+  const resolution = await resolveHost(host);
+  if (resolution.kind !== "PLATFORM") {
+    // A tenant (or unknown) host: serve the tenant tree. Session refresh is skipped on purpose: the platform's
+    // cookies are not valid on a tenant host (X1.5/X2.6 own tenant sessions).
+    if (isRewriteExempt(pathname)) return NextResponse.next({ request: { headers: withHost(request, host) } });
+    const url = request.nextUrl.clone();
+    url.pathname = TENANT_ROUTE_PREFIX + (pathname === "/" ? "" : pathname);
+    return NextResponse.rewrite(url, { request: { headers: withHost(request, host) } });
+  }
+  // A platform host never serves the tenant tree: /_t/* is a plain 404 there.
+  if (isTenantRoutePath(pathname)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/_not-a-tenant-host";
+    return NextResponse.rewrite(url, { request: { headers: withHost(request, host) } });
+  }
+  return platformSession(request, host);
+}
+
+function withHost(request: NextRequest, host: string): Headers {
+  const h = new Headers(request.headers);
+  h.set(TENANT_HOST_HEADER, host);
+  return h;
+}
+
+async function platformSession(request: NextRequest, host: string) {
   const access = request.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = request.cookies.get(REFRESH_COOKIE)?.value;
 
   // Fast path: no refresh token, or the access token is still good → nothing to do.
   if (!refresh || !isExpired(access)) {
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: withHost(request, host) } });
   }
 
   const renewed = await tryRefresh(refresh);
   if (!renewed) {
     // Couldn't refresh (expired/revoked/unreachable). Leave cookies as-is and let the
     // app layout's /api/account gate decide (redirect to /login when truly signed out).
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: withHost(request, host) } });
   }
 
   // Make the new token visible to THIS request's render, then persist it to the browser.
   request.cookies.set(ACCESS_COOKIE, renewed.accessToken);
   if (renewed.refreshToken) request.cookies.set(REFRESH_COOKIE, renewed.refreshToken);
 
-  const response = NextResponse.next({ request: { headers: request.headers } });
+  const response = NextResponse.next({ request: { headers: withHost(request, host) } });
   const opts = sessionCookieOptions();
   response.cookies.set(ACCESS_COOKIE, renewed.accessToken, opts);
   if (renewed.refreshToken) response.cookies.set(REFRESH_COOKIE, renewed.refreshToken, opts);

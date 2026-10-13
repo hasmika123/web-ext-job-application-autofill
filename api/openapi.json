@@ -21,6 +21,9 @@
     "name" : "demo",
     "description" : "Public demo accounts (only while an admin has switched them on)."
   }, {
+    "name" : "tenant",
+    "description" : "Public tenant branding for the host a visitor arrived on."
+  }, {
     "name" : "resume-tailor",
     "description" : "Reword a resume for one job and save it as a new version (Pro)."
   }, {
@@ -7069,6 +7072,26 @@
         }
       }
     },
+    "/api/public/tenant" : {
+      "get" : {
+        "tags" : [ "tenant" ],
+        "summary" : "Public view of the tenant for the forwarded host",
+        "description" : "No authentication. The tenant is derived from X-Kiwiply-Host (set by the web BFF), never from a parameter. TENANT: {kind, displayName, branding, login, status}; PLATFORM: {kind:\"PLATFORM\"}; an unserved host, a missing header or enterprise being off: 404. Cache-Control: public, max-age=60, Vary: X-Kiwiply-Host. 429 over the per-host-and-IP rate limit.",
+        "operationId" : "tenant",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PublicTenantDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/public/resumes/{token}" : {
       "get" : {
         "tags" : [ "resume-builder" ],
@@ -12205,7 +12228,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "COMPANY", "SCHOOL", "BOOTCAMP", "OUTPLACEMENT", "CONSULTANCY", "COACH" ]
+            "enum" : [ "COMPANY", "SCHOOL", "BOOTCAMP", "OUTPLACEMENT", "CONSULTANCY", "STAFFING", "PROFESSIONAL_SERVICES", "COACH" ]
           },
           "slug" : {
             "type" : "string"
@@ -12252,7 +12275,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "COMPANY", "SCHOOL", "BOOTCAMP", "OUTPLACEMENT", "CONSULTANCY", "COACH" ]
+            "enum" : [ "COMPANY", "SCHOOL", "BOOTCAMP", "OUTPLACEMENT", "CONSULTANCY", "STAFFING", "PROFESSIONAL_SERVICES", "COACH" ]
           },
           "status" : {
             "type" : "string",
@@ -13129,6 +13152,78 @@
         "properties" : {
           "enabled" : {
             "$ref" : "#/components/schemas/ResolvedBoolean"
+          }
+        }
+      },
+      "Branding" : {
+        "type" : "object",
+        "properties" : {
+          "logoUrl" : {
+            "type" : "string"
+          },
+          "faviconUrl" : {
+            "type" : "string"
+          },
+          "bannerUrl" : {
+            "type" : "string"
+          },
+          "primary" : {
+            "type" : "string"
+          },
+          "secondary" : {
+            "type" : "string"
+          },
+          "accent" : {
+            "type" : "string"
+          },
+          "theme" : {
+            "type" : "string"
+          },
+          "welcomeTitle" : {
+            "type" : "string"
+          },
+          "welcomeMessage" : {
+            "type" : "string"
+          },
+          "terminology" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "Login" : {
+        "type" : "object",
+        "properties" : {
+          "password" : {
+            "type" : "boolean"
+          },
+          "google" : {
+            "type" : "boolean"
+          },
+          "mfaRequired" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PublicTenantDTO" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "branding" : {
+            "$ref" : "#/components/schemas/Branding"
+          },
+          "login" : {
+            "$ref" : "#/components/schemas/Login"
+          },
+          "status" : {
+            "type" : "string"
           }
         }
       },

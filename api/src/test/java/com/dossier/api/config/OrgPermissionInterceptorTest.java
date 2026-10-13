@@ -13,6 +13,7 @@ import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgPermission;
 import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.enumeration.OrgStatus;
+import com.dossier.api.service.ent.EnterpriseFeatureFlag;
 import com.dossier.api.service.org.OrgAccessService;
 import com.dossier.api.service.org.OrgFeatureFlag;
 import com.dossier.api.service.org.OrgMembership;
@@ -141,5 +142,51 @@ class OrgPermissionInterceptorTest {
     @Test
     void aNonHandlerDispatchIsIgnored() {
         assertThat(interceptor.preHandle(request, response, new Object())).isTrue();
+    }
+
+    // ---- Enterprise V2 (X1.1): the per-org wall behind EnterpriseEnabledFilter ----------------------------------------
+
+    @Test
+    void anEnterpriseRouteOfAnOrgOutsideTheFlagIsA404BeforeTheMembershipCheck() throws Exception {
+        EnterpriseFeatureFlag enterprise = mock(EnterpriseFeatureFlag.class);
+        when(enterprise.isEnabled(7L)).thenReturn(false);
+        OrgPermissionInterceptor wired = new OrgPermissionInterceptor(access, flag, enterprise);
+        orgIdVariable("7");
+        request.setRequestURI("/api/orgs/7/enterprise/roles");
+
+        assertThatThrownBy(() -> wired.preHandle(request, response, handler("guarded"))).isInstanceOf(OrgNotFoundException.class);
+        verify(access, never()).requireAll(any(), any());
+        verify(access, never()).requireMember(any());
+    }
+
+    @Test
+    void anEnterpriseRouteOfAnOrgInsideTheFlagGoesOnToTheMembershipCheck() throws Exception {
+        EnterpriseFeatureFlag enterprise = mock(EnterpriseFeatureFlag.class);
+        when(enterprise.isEnabled(7L)).thenReturn(true);
+        when(access.requireAll(eq(7L), eq(List.of(OrgPermission.REPORTS_VIEW)))).thenReturn(membership());
+        OrgPermissionInterceptor wired = new OrgPermissionInterceptor(access, flag, enterprise);
+        orgIdVariable("7");
+        request.setRequestURI("/api/orgs/7/enterprise/roles");
+
+        assertThat(wired.preHandle(request, response, handler("guarded"))).isTrue();
+    }
+
+    @Test
+    void withoutAnEnterpriseFlagEveryEnterpriseRouteIsClosed() throws Exception {
+        orgIdVariable("7"); // the two-argument constructor used by every pre-enterprise caller
+        request.setRequestURI("/api/orgs/7/enterprise/roles");
+        assertThatThrownBy(() -> interceptor.preHandle(request, response, handler("guarded"))).isInstanceOf(OrgNotFoundException.class);
+    }
+
+    @Test
+    void anOrdinaryOrgRouteNeverConsultsTheEnterpriseFlag() throws Exception {
+        EnterpriseFeatureFlag enterprise = mock(EnterpriseFeatureFlag.class);
+        when(access.requireAll(eq(7L), eq(List.of(OrgPermission.REPORTS_VIEW)))).thenReturn(membership());
+        OrgPermissionInterceptor wired = new OrgPermissionInterceptor(access, flag, enterprise);
+        orgIdVariable("7");
+        request.setRequestURI("/api/orgs/7/groups");
+
+        assertThat(wired.preHandle(request, response, handler("guarded"))).isTrue();
+        verify(enterprise, never()).isEnabled(any(Long.class));
     }
 }

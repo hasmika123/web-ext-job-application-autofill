@@ -10,12 +10,21 @@
  * /api/auth/refresh from the client. Transparent refresh can move into proxy.ts later.
  */
 import { apiUrl } from "@/lib/config";
+import { headers as requestHeaders } from "next/headers";
 import { getAccessToken } from "@/lib/auth";
+import { TENANT_HOST_HEADER } from "@/lib/tenant-host";
 
 export async function serverApiFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = await getAccessToken();
   const headers = new Headers(init.headers);
   if (token) headers.set("authorization", `Bearer ${token}`);
   if (init.body && !headers.has("content-type")) headers.set("content-type", "application/json");
+  // X1.4: the API resolves the tenant from the host the visitor arrived on (set by proxy.ts), never from a parameter.
+  try {
+    const host = (await requestHeaders()).get(TENANT_HOST_HEADER);
+    if (host) headers.set("X-Kiwiply-Host", host);
+  } catch {
+    // not inside a request (build time, a script): nothing to forward
+  }
   return fetch(apiUrl(path), { ...init, headers, cache: "no-store" });
 }

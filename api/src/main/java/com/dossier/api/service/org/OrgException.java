@@ -14,6 +14,7 @@ import java.util.Map;
  *   <li>{@code SLUG_TAKEN} (409) - carries a {@code suggestion}.</li>
  *   <li>{@code GROUP_NAME_TAKEN} (409), {@code ORG_NOT_EDITABLE} (409) - state conflicts.</li>
  *   <li>{@code ORG_LIMIT_REACHED} (422) - an admin-configured cap was hit ({@code limit} names it, {@code max} is its value).</li>
+ *   <li>{@code SUBDOMAIN_TAKEN} (409) - another organization already owns that {@code kiwiply.com} label (Enterprise V2).</li>
  * </ul>
  */
 public class OrgException extends RuntimeException {
@@ -27,6 +28,7 @@ public class OrgException extends RuntimeException {
     public static final String CODE_GROUP_NAME_TAKEN = "GROUP_NAME_TAKEN";
     public static final String CODE_ORG_NOT_EDITABLE = "ORG_NOT_EDITABLE";
     public static final String CODE_ORG_LIMIT_REACHED = "ORG_LIMIT_REACHED";
+    public static final String CODE_SUBDOMAIN_TAKEN = "SUBDOMAIN_TAKEN";
 
     private final int status;
     private final String code;
@@ -50,6 +52,10 @@ public class OrgException extends RuntimeException {
 
     public static OrgException slugTaken(String slug, String suggestion) {
         return new OrgException(409, CODE_SLUG_TAKEN, "The address '" + slug + "' is taken", Map.of("slug", slug, "suggestion", suggestion));
+    }
+
+    public static OrgException subdomainTaken(String subdomain) {
+        return new OrgException(409, CODE_SUBDOMAIN_TAKEN, "The subdomain '" + subdomain + "' is taken", Map.of("subdomain", subdomain));
     }
 
     public static OrgException groupNameTaken(String name) {

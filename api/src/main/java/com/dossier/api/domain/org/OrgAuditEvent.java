@@ -52,6 +52,18 @@ public class OrgAuditEvent implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** Enterprise V2 (X1.2): the hostname the request arrived on, when it arrived on a tenant host. Null otherwise. */
+    @Column(name = "hostname_id")
+    private Long hostnameId;
+
+    /** Enterprise V2 (X1.2): who an action was done FOR (a marketer acting for a consultant), when that differs from the target. */
+    @Column(name = "beneficiary_login", length = 50)
+    private String beneficiaryLogin;
+
+    /** Enterprise V2 (X1.2): LOW, MEDIUM or HIGH; HIGH rows are the ones a tenant admin is shown first. */
+    @Column(name = "risk", length = 10, nullable = false)
+    private String risk = "LOW";
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }
@@ -74,4 +86,10 @@ public class OrgAuditEvent implements Serializable {
     public void setIpHash(String ipHash) { this.ipHash = ipHash; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Long getHostnameId() { return hostnameId; }
+    public void setHostnameId(Long hostnameId) { this.hostnameId = hostnameId; }
+    public String getBeneficiaryLogin() { return beneficiaryLogin; }
+    public void setBeneficiaryLogin(String beneficiaryLogin) { this.beneficiaryLogin = beneficiaryLogin; }
+    public String getRisk() { return risk; }
+    public void setRisk(String risk) { this.risk = risk; }
 }

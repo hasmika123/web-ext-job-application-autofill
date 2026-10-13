@@ -72,6 +72,21 @@ const isEmptyAccount = (sub) => !!sub && !!FIXTURE_ACCOUNTS[sub]?.empty;
 const EMPTY_BIOS = new Map();
 
 // Mirrors the real API's DEMO_ENABLED config flag: MOCK_DEMO_ENABLED=false turns the demo off (default on).
+// X1.4: the enterprise master flag (public config `enterprise`) and the tenant hosts the mock serves.
+const ENTERPRISE_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_ENTERPRISE_ENABLED ?? "true");
+const PLATFORM_MOCK_HOSTS = new Set(["", "localhost", "127.0.0.1", "[::1]"]);
+const MOCK_TENANTS = {
+  "acme.localhost": {
+    kind: "TENANT",
+    displayName: "Acme Staffing",
+    branding: { primary: "#0b6e4f", theme: "SYSTEM", welcomeTitle: "Welcome to Acme", welcomeMessage: "Sign in with your Acme account." },
+    login: { password: true, google: false, mfaRequired: false },
+    status: "ACTIVE",
+  },
+};
+/** Last X-Kiwiply-Host seen per API path, readable at GET /__mock/seen-hosts (web route tests assert the BFF forwards it). */
+const seenHosts = new Map();
+// Mirrors the real API's DEMO_ENABLED config flag: MOCK_DEMO_ENABLED=false turns the demo off (default on).
 const DEMO_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_DEMO_ENABLED ?? "true");
 // Mirrors the real API org feature flag (ORGS_ENABLED): on in the mock by default, MOCK_ORGS_ENABLED=false turns it off.
 const ORGS_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_ORGS_ENABLED ?? "true");
@@ -1807,7 +1822,22 @@ const server = http.createServer((req, res) => {
 
   if (path === "/api/public/demo") return json(res, 200, DEMO_INFO);
   // GET /api/config/public: the two public switches the web reads server-side (booleans only, same for everyone).
-  if (path === "/api/config/public" && method === "GET") return json(res, 200, { orgs: ORGS_ENABLED, demo: DEMO_ENABLED });
+  if (path === "/api/config/public" && method === "GET") return json(res, 200, { orgs: ORGS_ENABLED, demo: DEMO_ENABLED, enterprise: ENTERPRISE_ENABLED });
+
+  {
+    const seen = req.headers["x-kiwiply-host"];
+    if (typeof seen === "string" && path !== "/__mock/seen-hosts") seenHosts.set(path, seen);
+  }
+  if (path === "/__mock/seen-hosts" && method === "GET") return json(res, 200, Object.fromEntries(seenHosts));
+  // GET /api/public/tenant: what the API says about the forwarded host (404 when unserved, missing header or the flag is off).
+  if (path === "/api/public/tenant" && method === "GET") {
+    const raw = req.headers["x-kiwiply-host"];
+    const host = (typeof raw === "string" ? raw : "").split(",")[0].trim().toLowerCase().replace(/:\d+$/, "");
+    if (!ENTERPRISE_ENABLED || typeof raw !== "string") return json(res, 404, { code: "NOT_FOUND", message: "error.org" });
+    if (PLATFORM_MOCK_HOSTS.has(host)) return json(res, 200, { kind: "PLATFORM" });
+    const tenant = MOCK_TENANTS[host];
+    return tenant ? json(res, 200, tenant) : json(res, 404, { code: "NOT_FOUND", message: "error.org" });
+  }
 
   if (path === "/api/authenticate/demo" && method === "POST") {
     if (!DEMO_ENABLED) {

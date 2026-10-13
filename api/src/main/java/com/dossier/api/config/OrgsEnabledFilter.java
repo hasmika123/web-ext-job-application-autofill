@@ -55,7 +55,7 @@ public class OrgsEnabledFilter extends OncePerRequestFilter {
         return false;
     }
 
-    private static String normalise(String raw) {
+    static String normalise(String raw) {
         StringBuilder out = new StringBuilder();
         for (String segment : raw.split("/")) {
             int semi = segment.indexOf(';');

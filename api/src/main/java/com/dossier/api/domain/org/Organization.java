@@ -78,6 +78,24 @@ public class Organization implements Serializable {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    /**
+     * Enterprise V2 (X1.2): the DNS label of {@code {subdomain}.kiwiply.com}, globally unique, null until an admin sets
+     * one. Only meaningful while {@link #subdomainEnabled} is true; written through {@code OrgTenancyService}.
+     */
+    @Column(name = "subdomain", length = 63)
+    private String subdomain;
+
+    @Column(name = "subdomain_enabled", nullable = false)
+    private boolean subdomainEnabled;
+
+    /** Bumped by any hostname / branding / status write; the tenant-resolution cache is keyed on it (X1.3). */
+    @Column(name = "config_version", nullable = false)
+    private int configVersion;
+
+    /** The brand name when it differs from the legal {@link #name}; null otherwise. */
+    @Column(name = "display_name", length = 120)
+    private String displayName;
+
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();
@@ -119,4 +137,12 @@ public class Organization implements Serializable {
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
     public Instant getClosedAt() { return closedAt; }
     public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
+    public String getSubdomain() { return subdomain; }
+    public void setSubdomain(String subdomain) { this.subdomain = subdomain; }
+    public boolean isSubdomainEnabled() { return subdomainEnabled; }
+    public void setSubdomainEnabled(boolean subdomainEnabled) { this.subdomainEnabled = subdomainEnabled; }
+    public int getConfigVersion() { return configVersion; }
+    public void setConfigVersion(int configVersion) { this.configVersion = configVersion; }
+    public String getDisplayName() { return displayName; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
 }
