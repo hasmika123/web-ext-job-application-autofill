@@ -119,4 +119,30 @@ class OrgAuditServiceTest {
         assertThat(OrgAuditService.hashIp(null)).isNull();
         assertThat(OrgAuditService.hashIp(" ")).isNull();
     }
+
+    @Test
+    void rowsCarryTheRequestsHostnameBeneficiaryAndRisk() {
+        com.dossier.api.service.ent.TenantContextHolder.set(com.dossier.api.service.ent.TenantContext.tenant(7L, 9L, "acme.localhost"));
+        try {
+            service.record(7L, "sam", OrgRole.ADMIN, "X_ACTION", "MEMBER", "t", "1", null, null, null, "pat", "high");
+            service.record(8L, "sam", OrgRole.ADMIN, "X_ACTION", "MEMBER", "t", "1", null, null); // another org: never a foreign hostname
+        } finally {
+            com.dossier.api.service.ent.TenantContextHolder.clear();
+        }
+        service.record(7L, "job", null, "X_ACTION", "MEMBER", "t", "1", null, null); // no context (a job): none
+        ArgumentCaptor<OrgAuditEvent> c = ArgumentCaptor.forClass(OrgAuditEvent.class);
+        verify(repository, org.mockito.Mockito.times(3)).save(c.capture());
+        OrgAuditEvent a = c.getAllValues().get(0);
+        OrgAuditEvent b = c.getAllValues().get(1);
+        OrgAuditEvent d = c.getAllValues().get(2);
+        assertThat(a.getHostnameId()).isEqualTo(9L);
+        assertThat(a.getBeneficiaryLogin()).isEqualTo("pat");
+        assertThat(a.getRisk()).isEqualTo("HIGH");
+        assertThat(b.getHostnameId()).isNull();
+        assertThat(b.getRisk()).isEqualTo("LOW");
+        assertThat(d.getHostnameId()).isNull();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.record(7L, "s", null, "A", "M", null, null, null, null, null, null, "SEVERE")).isInstanceOf(
+            IllegalArgumentException.class
+        );
+    }
 }

@@ -46,4 +46,16 @@ class TechnicalStructureTest {
         .should()
         .dependOnClassesThat()
         .resideInAPackage("software.amazon.awssdk..");
+
+    // X1.10: background work gets its tenant as an explicit orgId through TenantScoped, never by reading the request-thread
+    // holder (a scheduler thread has no request; whatever the holder says there is a leak).
+    @ArchTest
+    static final ArchRule schedulersAndJobsNeverReadTheTenantContextHolder = noClasses()
+        .that()
+        .haveSimpleNameEndingWith("Scheduler")
+        .or()
+        .haveSimpleNameEndingWith("Job")
+        .should()
+        .dependOnClassesThat()
+        .belongToAnyOf(com.dossier.api.service.ent.TenantContextHolder.class);
 }

@@ -773,7 +773,7 @@
       "id": "X1.10",
       "epic": "X1",
       "title": "Tenant context in logs, audit and async work: MDC tenant/host/member, TenantScoped helper, OrgAuditService hostname/beneficiary/risk",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "API"
