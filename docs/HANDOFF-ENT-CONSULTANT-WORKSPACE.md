@@ -80,6 +80,8 @@ EXACTLY (layout, fonts, sizes, icon-tile colours, pills, spacing). If no board e
 change the admin endpoints.
 
 ## Merging back
+**All merging is done on the first machine only.** You never merge into `ent-talent`, `ent-all`, `version2` or `main`, and you never open or merge a PR into them: build on your own branch, push it, and stop. Keeping your branch up to date with `git merge origin/ent-talent` (or `origin/ent-all` once published) INTO YOUR OWN branch is fine and encouraged.
+
 The first machine will merge your branch into the integration branch with `git merge --no-ff`, resolving only the shared-file
 additions listed above. Keep your commits small and logical; keep your branch merged from `origin/ent-talent` (or `ent-all` once it
 is published) regularly (`git merge origin/ent-talent`) so conflicts stay tiny. Write `docs/enterprise-v2/page-<yourpage>.md` per page
