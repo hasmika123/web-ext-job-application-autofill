@@ -20,6 +20,7 @@ import {
 } from "@kiwiply/ui";
 import { buttonVariants } from "@/components/ui/Button";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import { safeReturnTo } from "@/lib/tenant-urls";
 
 /**
  * The tenant sign-in (X2.3), one component for every organization, drawn from the PUBLISHED branding at runtime:
@@ -52,10 +53,9 @@ type View = "form" | "mfa" | "notMember" | "unavailable";
 
 const DEFAULT_MESSAGE = "Secure access for employees, consultants, and teams.";
 
-/** Only a same-host relative path is allowed as a post-login redirect (no open redirects). */
+/** Only a same-host relative path is allowed as a post-login redirect (no open redirects; the one rule is `safeReturnTo`, X2.10). */
 export function safeNext(next?: string | null): string | null {
-  if (!next || !next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return null;
-  return next;
+  return safeReturnTo(next);
 }
 
 /** Defaults for the three chips; an organization's published `featureChips` replace them label by label. Tints come from the theme. */

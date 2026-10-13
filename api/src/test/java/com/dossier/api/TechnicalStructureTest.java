@@ -58,4 +58,13 @@ class TechnicalStructureTest {
         .should()
         .dependOnClassesThat()
         .belongToAnyOf(com.dossier.api.service.ent.TenantContextHolder.class);
+
+    // X2.10 / T12: links for an organization are built from its hostname rows only, never from the request's host.
+    @ArchTest
+    static final ArchRule tenantUrlsNeverReadTheRequestTenantContext = noClasses()
+        .that()
+        .belongToAnyOf(com.dossier.api.service.ent.TenantUrls.class)
+        .should()
+        .dependOnClassesThat()
+        .belongToAnyOf(com.dossier.api.service.ent.TenantContext.class, com.dossier.api.service.ent.TenantContextHolder.class);
 }
