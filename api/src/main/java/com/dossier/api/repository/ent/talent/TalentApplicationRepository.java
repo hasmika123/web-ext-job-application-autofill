@@ -6,10 +6,20 @@ import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
 /** Org-scoped access to {@code talent_application}: every method takes the organization id first (TalentSchemaIT enforces it). */
-public interface TalentApplicationRepository extends JpaRepository<TalentApplication, Long> {
+public interface TalentApplicationRepository extends Repository<TalentApplication, Long> {
+    <S extends TalentApplication> S save(S entity);
+
+    <S extends TalentApplication> S saveAndFlush(S entity);
+
+    void flush();
+
+    <S extends TalentApplication> List<S> saveAll(Iterable<S> entities);
+
+    <S extends TalentApplication> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<TalentApplication> findByOrgIdAndId(Long orgId, Long id);
 
     List<TalentApplication> findByOrgId(Long orgId);

@@ -20,7 +20,7 @@ import org.springframework.data.repository.Repository;
  */
 class EntRepositoryContractTest {
 
-    private static final Set<String> SAVE_METHODS = Set.of("save", "saveAndFlush", "flush");
+    private static final Set<String> SAVE_METHODS = Set.of("save", "saveAndFlush", "flush", "saveAll", "saveAllAndFlush", "delete", "deleteAll"); // entity-in writes (the entity carries its own org_id; no id lookups)
 
     /** Lookups that exist to FIND the tenant from a host, so they cannot take an org id (04-tenancy-and-security.md section 2.2). */
     private static final Set<String> ALLOW_LISTED = Set.of(

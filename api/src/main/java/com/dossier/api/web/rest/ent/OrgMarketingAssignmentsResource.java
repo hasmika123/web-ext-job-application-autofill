@@ -218,7 +218,7 @@ public class OrgMarketingAssignmentsResource {
     ) {
         demoGuard.assertNotDemo();
         service.gateWrite(me); // the permission wall first: an unauthorised caller never learns about the header
-        service.validate(body); // then the shape of the body, outside any transaction
+        service.validate(me.orgId(), body); // then the shape of the body, outside any transaction
         IdempotencyService.Outcome<MarketingAssignmentsDTO.BulkResult> out = idempotency.execute(
             me, key, true, "POST", request.getRequestURI(), body, 200, MarketingAssignmentsDTO.BulkResult.class, work
         );

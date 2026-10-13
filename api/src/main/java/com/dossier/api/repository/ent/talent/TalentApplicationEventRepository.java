@@ -4,10 +4,20 @@ import com.dossier.api.domain.ent.talent.TalentApplicationEvent;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
 /** Org-scoped access to {@code talent_application_event}: every method takes the organization id first (TalentSchemaIT enforces it). */
-public interface TalentApplicationEventRepository extends JpaRepository<TalentApplicationEvent, Long> {
+public interface TalentApplicationEventRepository extends Repository<TalentApplicationEvent, Long> {
+    <S extends TalentApplicationEvent> S save(S entity);
+
+    <S extends TalentApplicationEvent> S saveAndFlush(S entity);
+
+    void flush();
+
+    <S extends TalentApplicationEvent> List<S> saveAll(Iterable<S> entities);
+
+    <S extends TalentApplicationEvent> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<TalentApplicationEvent> findByOrgIdAndId(Long orgId, Long id);
 
     List<TalentApplicationEvent> findByOrgId(Long orgId);

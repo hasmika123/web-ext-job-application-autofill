@@ -90,7 +90,6 @@ public class MarketingAssignmentsService {
     public static final List<String> AVAILABILITIES = List.of("AVAILABLE", "ON_PROJECT", "NOTICE", "UNAVAILABLE");
     static final List<String> MARKETING_ROLE_KEYS = List.of(RoleTemplates.MARKETING_SPECIALIST, RoleTemplates.MARKETING_MANAGER);
     static final int DEFAULT_CAPACITY = 20;
-    static final int MAX_CAPACITY = 200;
     static final int MAX_SIZE = 100;
     static final int DEFAULT_SIZE = 10;
     static final int WEEKS = 8;
@@ -106,6 +105,7 @@ public class MarketingAssignmentsService {
     private final OrgAuditService audit;
     private final ObjectMapper json;
     private final Clock clock;
+    private final MarketingSettings limits;
 
     @Autowired
     public MarketingAssignmentsService(
@@ -117,9 +117,10 @@ public class MarketingAssignmentsService {
         MemberAccess access,
         OrgRoleService roles,
         OrgAuditService audit,
-        ObjectMapper json
+        ObjectMapper json,
+        MarketingSettings limits
     ) {
-        this(assignments, capacities, consultants, clients, board, access, roles, audit, json, Clock.systemUTC());
+        this(assignments, capacities, consultants, clients, board, access, roles, audit, json, limits, Clock.systemUTC());
     }
 
     MarketingAssignmentsService(
@@ -132,8 +133,10 @@ public class MarketingAssignmentsService {
         OrgRoleService roles,
         OrgAuditService audit,
         ObjectMapper json,
+        MarketingSettings limits,
         Clock clock
     ) {
+        this.limits = limits;
         this.assignments = assignments;
         this.capacities = capacities;
         this.consultants = consultants;
@@ -375,7 +378,7 @@ public class MarketingAssignmentsService {
                 for (MarketerAssignment a : s.assignmentRows) if (!a.getAssignedAt().isAfter(t)) per.merge(a.getMarketerMemberId(), 1, Integer::sum);
                 return s.capacities.stream()
                     .filter(c -> "ACTIVE".equals(c.getStatus()) && !c.getCreatedAt().isAfter(t))
-                    .filter(c -> overloaded(per.getOrDefault(c.getMemberId(), 0), c.getCapacity()))
+                    .filter(c -> overloaded(per.getOrDefault(c.getMemberId(), 0), c.getCapacity(), s.overloadPct))
                     .count();
             }
         }
@@ -387,7 +390,7 @@ public class MarketingAssignmentsService {
     public BulkResult assign(OrgMembership me, AssignRequest req) {
         gateWrite(me);
         if (req == null) throw OrgException.invalid("body", "is required");
-        List<Long> ids = cleanIds(req.consultantIds());
+        List<Long> ids = cleanIds(me.orgId(), req.consultantIds());
         if (req.marketerMemberId() == null) throw OrgException.invalid("marketerMemberId", "is required");
         String priority = req.priority() == null ? null : oneOf("priority", req.priority(), PRIORITIES);
         String status = req.status() == null ? null : oneOf("status", req.status(), ASSIGNMENT_STATUSES);
@@ -481,7 +484,7 @@ public class MarketingAssignmentsService {
     public BulkResult update(OrgMembership me, UpdateRequest req) {
         gateWrite(me);
         if (req == null) throw OrgException.invalid("body", "is required");
-        List<Long> ids = cleanIds(req.consultantIds());
+        List<Long> ids = cleanIds(me.orgId(), req.consultantIds());
         boolean clear = Boolean.TRUE.equals(req.clearBackup());
         int given = (req.priority() != null ? 1 : 0) + (req.status() != null ? 1 : 0) + (req.backupMemberId() != null ? 1 : 0) + (clear ? 1 : 0);
         if (given != 1) throw OrgException.invalid("priority", "name exactly one of priority, status, backupMemberId or clearBackup");
@@ -547,7 +550,7 @@ public class MarketingAssignmentsService {
     public BulkResult unassign(OrgMembership me, UnassignRequest req) {
         gateWrite(me);
         if (req == null) throw OrgException.invalid("body", "is required");
-        List<Long> ids = cleanIds(req.consultantIds());
+        List<Long> ids = cleanIds(me.orgId(), req.consultantIds());
         State s = load(me.orgId(), null);
         List<RowResult> results = new ArrayList<>();
         for (Long id : ids) {
@@ -573,7 +576,7 @@ public class MarketingAssignmentsService {
     public BulkResult restore(OrgMembership me, RestoreRequest req) {
         gateWrite(me);
         if (req == null || req.rows() == null || req.rows().isEmpty()) throw OrgException.invalid("rows", "name at least one assignment");
-        if (req.rows().size() > MarketingAssignmentsDTO.BULK_MAX) throw OrgException.invalid("rows", "at most " + MarketingAssignmentsDTO.BULK_MAX + " per call");
+        if (req.rows().size() > limits.bulkMax(me.orgId())) throw OrgException.invalid("rows", "at most " + limits.bulkMax(me.orgId()) + " per call");
         Long orgId = me.orgId();
         State s = load(orgId, null);
         Instant now = Instant.now(clock);
@@ -652,7 +655,7 @@ public class MarketingAssignmentsService {
         if (capacities.findByOrgIdAndMemberId(orgId, req.memberId()).isPresent()) {
             throw OrgException.coded(409, CODE_ALREADY_MARKETER, "This member is already a marketer", Map.of("memberId", req.memberId()));
         }
-        int capacity = capacityOf(req.capacity() == null ? DEFAULT_CAPACITY : req.capacity());
+        int capacity = capacityOf(orgId, req.capacity() == null ? DEFAULT_CAPACITY : req.capacity());
         String title = title(req.title());
         MarketerCapacity c = new MarketerCapacity();
         c.setOrgId(orgId);
@@ -678,7 +681,7 @@ public class MarketingAssignmentsService {
         if (!access.canAct(me, KEY_MANAGE, memberId)) throw new OrgNotFoundException();
         Map<String, Object> details = new LinkedHashMap<>();
         if (req.capacity() != null) {
-            int cap = capacityOf(req.capacity());
+            int cap = capacityOf(orgId, req.capacity());
             if (cap != c.getCapacity()) details.put("capacity", cap);
             c.setCapacity(cap);
         }
@@ -703,6 +706,7 @@ public class MarketingAssignmentsService {
 
     /** Everything of the organization the board needs, loaded once per request (an organization has tens of marketers and hundreds of consultants). */
     private final class State {
+        int overloadPct = 90;
         final List<MarketerCapacity> capacities = new ArrayList<>();
         final List<MarketerAssignment> assignmentRows = new ArrayList<>();
         final Map<Long, MarketerAssignment> assignmentByConsultant = new HashMap<>();
@@ -733,6 +737,7 @@ public class MarketingAssignmentsService {
     /** {@code visible} narrows the marketers (null = all); assignment rows are always the whole organization's, the callers filter them. */
     private State load(Long orgId, Set<Long> visible) {
         State s = new State();
+        s.overloadPct = limits.overloadPct(orgId);
         for (MarketerCapacity c : capacities.findByOrgId(orgId)) {
             s.allCapacityIds.add(c.getMemberId());
             if (visible(visible, c.getMemberId())) s.capacities.add(c);
@@ -755,7 +760,7 @@ public class MarketingAssignmentsService {
         int pct = c.getCapacity() == null || c.getCapacity() <= 0 ? 0 : (int) Math.round(assigned * 100.0 / c.getCapacity());
         return new Marketer(
             c.getMemberId(), names.getOrDefault(c.getMemberId(), "Member"), c.getTitleLabel(), c.getStatus(), c.getCapacity(), assigned, pct,
-            overloaded(assigned, c.getCapacity()), access.canAct(me, KEY_MANAGE, c.getMemberId())
+            overloaded(assigned, c.getCapacity(), s.overloadPct), access.canAct(me, KEY_MANAGE, c.getMemberId())
         );
     }
 
@@ -766,7 +771,7 @@ public class MarketingAssignmentsService {
             total += assigned;
             if ("ACTIVE".equals(c.getStatus())) {
                 active++;
-                if (overloaded(assigned, c.getCapacity())) over++;
+                if (overloaded(assigned, c.getCapacity(), s.overloadPct)) over++;
             }
         }
         int unassigned = (int) s.consultantsActive.stream().filter(c -> !s.assignmentByConsultant.containsKey(c.getId())).count();
@@ -774,8 +779,8 @@ public class MarketingAssignmentsService {
         return new Summary(active, total, avg, over, unassigned);
     }
 
-    static boolean overloaded(int assigned, Integer capacity) {
-        return capacity != null && capacity > 0 && assigned * 100L >= (long) TalentDemoSeeder.OVERLOAD_PCT * capacity;
+    static boolean overloaded(int assigned, Integer capacity, int overloadPct) {
+        return capacity != null && capacity > 0 && assigned * 100L >= (long) overloadPct * capacity;
     }
 
     private Row row(ConsultantProfile c, MarketerAssignment a, Map<Long, String> names, Map<Long, Integer> apps) {
@@ -873,9 +878,10 @@ public class MarketingAssignmentsService {
         }
     }
 
-    private static List<Long> cleanIds(List<Long> raw) {
+    private List<Long> cleanIds(Long orgId, List<Long> raw) {
+        int bulkMax = limits.bulkMax(orgId);
         if (raw == null || raw.isEmpty()) throw OrgException.invalid("consultantIds", "name at least one consultant");
-        if (raw.size() > MarketingAssignmentsDTO.BULK_MAX) throw OrgException.invalid("consultantIds", "at most " + MarketingAssignmentsDTO.BULK_MAX + " consultants per call");
+        if (raw.size() > bulkMax) throw OrgException.invalid("consultantIds", "at most " + bulkMax + " consultants per call");
         LinkedHashSet<Long> ids = new LinkedHashSet<>();
         for (Long id : raw) {
             if (id == null || id <= 0) throw OrgException.invalid("consultantIds", "must be consultant ids");
@@ -885,19 +891,19 @@ public class MarketingAssignmentsService {
     }
 
     /** Validates the body of a change without touching anything (the endpoint calls it before it opens the idempotent transaction). */
-    public void validate(Object body) {
+    public void validate(Long orgId, Object body) {
         if (body == null) throw OrgException.invalid("body", "is required");
         if (body instanceof AssignRequest r) {
-            cleanIds(r.consultantIds());
+            cleanIds(orgId, r.consultantIds());
             if (r.marketerMemberId() == null) throw OrgException.invalid("marketerMemberId", "is required");
             if (r.priority() != null) oneOf("priority", r.priority(), PRIORITIES);
             if (r.status() != null) oneOf("status", r.status(), ASSIGNMENT_STATUSES);
         } else if (body instanceof UpdateRequest r) {
-            cleanIds(r.consultantIds());
+            cleanIds(orgId, r.consultantIds());
             if (r.priority() != null) oneOf("priority", r.priority(), PRIORITIES);
             if (r.status() != null) oneOf("status", r.status(), ASSIGNMENT_STATUSES);
         } else if (body instanceof UnassignRequest r) {
-            cleanIds(r.consultantIds());
+            cleanIds(orgId, r.consultantIds());
         } else if (body instanceof RestoreRequest r) {
             if (r.rows() == null || r.rows().isEmpty()) throw OrgException.invalid("rows", "name at least one assignment");
         }
@@ -914,8 +920,9 @@ public class MarketingAssignmentsService {
         return oneOf(field, raw, allowed);
     }
 
-    private static int capacityOf(int capacity) {
-        if (capacity < 1 || capacity > MAX_CAPACITY) throw OrgException.invalid("capacity", "must be between 1 and " + MAX_CAPACITY);
+    private int capacityOf(Long orgId, int capacity) {
+        int max = limits.capacityMax(orgId);
+        if (capacity < 1 || capacity > max) throw OrgException.invalid("capacity", "must be between 1 and " + max);
         return capacity;
     }
 

@@ -4,10 +4,20 @@ import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
 /** Org-scoped access to {@code consultant_profile}: every method takes the organization id first (TalentSchemaIT enforces it). */
-public interface ConsultantProfileRepository extends JpaRepository<ConsultantProfile, Long> {
+public interface ConsultantProfileRepository extends Repository<ConsultantProfile, Long> {
+    <S extends ConsultantProfile> S save(S entity);
+
+    <S extends ConsultantProfile> S saveAndFlush(S entity);
+
+    void flush();
+
+    <S extends ConsultantProfile> List<S> saveAll(Iterable<S> entities);
+
+    <S extends ConsultantProfile> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<ConsultantProfile> findByOrgIdAndId(Long orgId, Long id);
 
     List<ConsultantProfile> findByOrgId(Long orgId);
