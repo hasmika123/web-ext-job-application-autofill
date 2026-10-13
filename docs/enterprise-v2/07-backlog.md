@@ -169,31 +169,34 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - **Tech notes:** Algorithm and DTO: 04-tenancy-and-security.md §2–3. Never read tenant ids from headers. Keep OrgsEnabledFilter first.
 - **Definition of Done:** openapi.json regenerated; CI green. Plus the common DoD in `06-phase-plan.md` §5.
 
-### X1.4 — Web host resolution: proxy.ts carries the host, serverApiFetch forwards X-Kiwiply-Host, getTenant(), (tenant) route group skeleton, tenant-404 page
+### X1.4 — Web host resolution: proxy.ts carries the host and rewrites tenant hosts to /_t, serverApiFetch forwards X-Kiwiply-Host, getTenant(), (tenant)/_t route group skeleton, tenant-404 page
 - **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X1.3
 - **Persona:** A visitor of acme.localhost / careers.acme.com
-- **Objective:** The web app renders the tenant or a safe 404, never another tenant or the public site.
+- **Objective:** The web app renders the tenant or a safe 404, never another tenant or the public site — without a second page at `/` (Next forbids two pages at one path, so tenant pages live under `(tenant)/_t/**` and proxy.ts rewrites to them).
 - **Story:** As a visitor on a tenant host, I want the site to know it is Acme's portal (or honestly say the workspace isn't available) so that I never land on the wrong company or the public marketing site.
 
 **Functional requirements**
-- web/src/proxy.ts: compute host (x-forwarded-host ?? host, lower-case, strip port), set internal request header x-kiwiply-host; unchanged refresh logic.
-- web/src/lib/api.ts serverApiFetch forwards X-Kiwiply-Host from the incoming request (headers()); tracker/resume proxies inherit it.
-- web/src/lib/tenant.ts: getTenant() cached per request → {kind, tenant?: PublicTenantDTO}; PLATFORM for reserved hosts without calling the API when the master flag is off (public-config orgs/enterprise flags).
-- Route group web/src/app/(tenant)/ with layout.tsx: UNKNOWN → render TenantUnavailable (404 status, no branding, no links, no cookies, noindex); TENANT → children; PLATFORM → notFound() for tenant-only paths.
-- Reserved hosts keep today's (marketing)/(app)/(admin)/(org) behaviour untouched.
-- Dev: next dev accepts acme.localhost:3100; mock-api resolves hosts (X1.12).
+- web/src/proxy.ts: compute host (x-forwarded-host ?? host, lower-case, strip port); classify it PLATFORM (exact `localhost`, kiwiply.com, www/app/api/admin/edge.kiwiply.com, reserved list from 04 §2.2 — resolved FIRST) or candidate tenant; set internal request header x-kiwiply-host on every request; unchanged refresh logic (it now sends the host header too).
+- Rewrite (16 §2.3, escalation B2): for a non-platform host, `NextResponse.rewrite(new URL('/_t' + pathname + search, req.url))` for every path except `/api/*`, `/_next/*`, `/tenant-assets/*`, `/favicon.ico`, `/robots.txt` and files with an extension; a platform host requesting `/_t/*` directly is NOT rewritten and the (tenant) layout answers notFound(). The rewrite is applied before any host check so an UNKNOWN host still lands in the (tenant) layout (which renders the 404).
+- web/src/lib/api.ts serverApiFetch forwards X-Kiwiply-Host from the incoming request (headers()); tracker/resume proxies and the login/refresh route handlers inherit it.
+- web/src/lib/tenant.ts: getTenant() cached per request (React cache()) → {kind: PLATFORM|TENANT|UNKNOWN, tenant?: PublicTenantDTO}; PLATFORM for platform hosts without calling the API; when flag.enterprise is off (public-config orgs/enterprise flags) every non-platform host is UNKNOWN without calling the API; API 404 or failure → UNKNOWN (fail closed).
+- Route group web/src/app/(tenant)/_t/ with layout.tsx (the ONLY place the three kinds branch): UNKNOWN → render TenantUnavailable (HTTP 404, no branding, no links, no cookies, noindex); PLATFORM → notFound(); TENANT → sets <title> from tenant.displayName, lang/theme hooks for X2.12 (no theming yet) → children. No `(tenant)/page.tsx` at the root: `(marketing)/page.tsx` keeps `/`.
+- Skeleton pages under _t/ in this story only: `_t/page.tsx` (TENANT: temporary "Portal coming soon" placeholder with the display name — X2.6 replaces it with the login-first redirect), `_t/login/page.tsx` placeholder (X2.3 replaces it with BrandedLogin), `_t/w/[workspace]/layout.tsx` placeholder that renders notFound() until X2.2. Every other path under _t/ falls through to Next's not-found inside the tenant layout (never the marketing 404).
+- Platform hosts keep today's (marketing)/(app)/(admin)/(org) behaviour untouched; `/org/*` on kiwiply.com stays the legacy console.
+- Dev: next dev accepts acme.localhost:3100 (`*.localhost` is tenant-only: `enterprise.hosts.tenant_base_domains`, only `localhost` itself is a platform host); mock-api resolves hosts (X1.12).
 
 **UI requirements**
 - TenantUnavailable page: packages/ui EmptyState + mascot warn pose (compact), copy "This workspace isn't available"; no Kiwiply marketing links; 16 px gutters at 390 px.
+- Placeholder pages (`_t/page.tsx`, `_t/login/page.tsx`) use the same EmptyState with the tenant display name and no navigation; they are replaced in X2.3/X2.6 and carry a `data-testid="tenant-placeholder"` so the X1 Playwright spec can assert them.
 
 **Backend requirements**
-- —
+- — (the API side is X1.3; this story sends X-Kiwiply-Host only)
 
 **Database changes**
 - —
 
 **APIs**
-- Consumes GET /api/public/tenant
+- Consumes GET /api/public/tenant (X1.3)
 
 **Permissions**
 - —
@@ -202,21 +205,23 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - —
 
 **Acceptance criteria**
-- Request with Host: nobody.localhost renders TenantUnavailable with HTTP 404 and no Set-Cookie.
-- Request with Host: acme.localhost (mock ACTIVE) renders the (tenant) layout with Acme's display name in <title>.
-- Request with Host: localhost:3100 renders the existing marketing home unchanged (snapshot of status + title).
-- X-Kiwiply-Host reaches the mock on every BFF call (mock asserts and the route test checks the header).
-- public-config fails closed → UNKNOWN for non-reserved hosts.
+- Request with Host: nobody.localhost for `/` is rewritten to `/_t/` and renders TenantUnavailable with HTTP 404, no Set-Cookie, `X-Robots-Tag: noindex`.
+- Request with Host: acme.localhost (mock ACTIVE) for `/` renders the (tenant)/_t layout with Acme's display name in <title> and the placeholder page; `/login` and `/w/admin` resolve inside the same layout (placeholder / not-found inside the tenant layout, never the marketing 404).
+- Request with Host: localhost:3100 renders the existing marketing home unchanged (snapshot of status + title); `localhost:3100/_t/` and `localhost:3100/_t/login` return the app 404 (notFound()), proving no tenant page is reachable on a platform host.
+- `/api/*`, `/_next/*`, `/tenant-assets/*` and static files on a tenant host are never rewritten (unit test on the matcher table).
+- X-Kiwiply-Host reaches the mock on every BFF call, including the refresh and login route handlers (mock asserts and the route test checks the header).
+- public-config fails closed → UNKNOWN for non-platform hosts; an API 5xx on /api/public/tenant also renders TenantUnavailable (no stack, no retry loop).
+- A tenant host requesting a path that does not exist under _t/ gets the tenant-scoped not-found (status 404, tenant <title>), not the marketing not-found.
 
 **Test cases**
-- tenant.test.ts (host normalisation, reserved hosts).
-- app/(tenant)/layout.test.tsx (three branches).
-- api.test.ts header forwarding.
-- Playwright tenant-unknown.spec.ts with extraHTTPHeaders Host.
+- tenant.test.ts (host normalisation, platform-host classification incl. `localhost` vs `*.localhost`, flag-off short-circuit, fail-closed branches).
+- proxy.test.ts (rewrite table: rewritten paths, excluded paths, platform host never rewritten, header set on every branch).
+- app/(tenant)/_t/layout.test.tsx (three kinds: UNKNOWN 404, PLATFORM notFound, TENANT title).
+- api.test.ts header forwarding (serverApiFetch + login/refresh handlers).
+- Playwright tenant-unknown.spec.ts with extraHTTPHeaders Host for nobody.localhost, acme.localhost and localhost (incl. `/_t/` on the platform host → 404).
 
-- **Tech notes:** Next 16 proxy (web/src/proxy.ts), React cache() per request as in branch A org.ts; keep SITE_URL for the platform only.
-- **Definition of Done:** npm test + build green; Playwright green over mock. Plus the common DoD in `06-phase-plan.md` §5.
-
+- **Tech notes:** Next 16 proxy (web/src/proxy.ts) — one rewrite, no redirects, no cookies set on tenant hosts in this story; React cache() per request as in branch A org.ts; keep SITE_URL for the platform only. Route group shape and later pages: 16 §2.3–2.4 (X2.2 shell, X2.3 login, X2.6 login-first + join). Security headers on tenant hosts are added in X2.6/X3.7, not here (only X-Robots-Tag for the 404).
+- **Definition of Done:** npm test + build green; Playwright green over mock; 16 §2.3 unchanged (this story implements it). Plus the common DoD in `06-phase-plan.md` §5.
 ### X1.5 — Tenant-bound sessions: tid/hid claims on tenant-host login, decoder validation, refresh keeps tid, interceptor enforces tid = path org
 - **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.3, X1.4
 - **Persona:** Acme employee signing in on careers.acme.com
@@ -833,14 +838,14 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - **Definition of Done:** openapi regenerated; CI green; 11 §1.1 limits match validators (doc-sync constants test). Plus the common DoD in `06-phase-plan.md` §5.
 
 ### X2.6 — Login-first routing on tenant hosts: proxy rewrite to the tenant route tree, unauthenticated → BrandedLogin, authenticated member → primary workspace home, join pages branded (from 2672733, re-verified)
-- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X2.3, X1.8, X2.2 · **Relates:** O2.3
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X2.3, X1.8, X2.2, X1.4 · **Relates:** O2.3
 - **Persona:** Anyone visiting a tenant host; an invitee accepting on careers.acme.com
 - **Objective:** Every tenant URL is login-first and branded; invites are accepted on the tenant host without ever creating a tenant session for a non-member.
 - **Story:** As a visitor, I want any Acme address to show Acme's sign-in or take me straight to my workspace, and as an invitee I want to accept on Acme's own domain, so that I never land on the public site or another company.
 
 **Functional requirements**
-- proxy.ts: on non-platform hosts rewrite every non-API/non-static path to /_t{path}{search}; set tenant security headers (11 §7) and X-Robots-Tag; refresh logic unchanged but sends the host header so the API refuses tid/host mismatches.
-- Route tree web/src/app/(tenant)/_t/ per 16 §2.3: `/` redirect page (member → landing, else /login); login (X2.3); forgot/reset/activate wrappers (branded, links on this host); join/t/[token] and join/[slug]/[code] from 2672733 (ConsentScreen reused) with the branches in 12 §5; a platform host hitting /_t/* → notFound().
+- proxy.ts: keep X1.4's rewrite of every non-API/non-static path to /_t{path}{search} on non-platform hosts (do not re-implement it); add the tenant security headers (11 §7) and X-Robots-Tag; refresh logic unchanged but sends the host header so the API refuses tid/host mismatches.
+- Route tree web/src/app/(tenant)/_t/ per 16 §2.3 (skeleton from X1.4): replace the `/` placeholder with the redirect page (member → landing, else /login); login (X2.3); forgot/reset/activate wrappers (branded, links on this host); join/t/[token] and join/[slug]/[code] from 2672733 (ConsentScreen reused) with the branches in 12 §5; a platform host hitting /_t/* → notFound() (already from X1.4).
 - API: /api/authenticate on a tenant host accepts X-Kiwiply-Invite {token} to mint a tid-less pair for a valid pending invite of that tenant (audit LOGIN_FOR_INVITE); POST /api/join/{token}/accept on a tenant host returns a fresh tid/hid pair which the BFF writes (replacing cookies); signup on tenant hosts allowed only with a valid invite token (POST /api/register gains inviteToken; else 404 on tenant hosts).
 - TenantUrls used by every link the join/verify/reset mails carry (X2.10).
 
@@ -879,7 +884,6 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 
 - **Tech notes:** 12 §4–§5, 16 §2.3; Next 16 proxy rewrite; keep (marketing)/(app)/(admin)/(org) untouched on platform hosts.
 - **Definition of Done:** openapi regenerated; CI green; 12 §5 diagram matches the implemented branches. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X2.7 — Basic user profile surface (avatar menu): photo, name, work email, phone, title, timezone, language, notification prefs, security, memberships and roles (read-only)
 - **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.2
 - **Persona:** Any member (also personal users on kiwiply.com)
