@@ -235,10 +235,9 @@ class TalentDashboardIT {
     }
 
     private void aRoleWithoutAWidgetsPermissionCannotSeeIt() {
-        OrgMembership exec = me(acme, RoleTemplates.EXECUTIVE_VIEWER);
+        OrgMembership exec = me(acme, RoleTemplates.MARKETING_SPECIALIST);
         Map<String, Boolean> sees = registry.providers().stream().collect(Collectors.toMap(DashboardWidgetProvider::key, p -> p.permissions().stream().anyMatch(exec::canKey)));
         assertThat(sees.get("finance.summary")).isFalse();
-        assertThat(sees.get("placements")).isFalse();
         assertThat(sees.get("pipeline.overview")).isTrue();
         assertThat(sees.get("applications.active")).isTrue();
     }

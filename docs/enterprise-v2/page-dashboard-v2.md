@@ -38,11 +38,16 @@ Permissions per widget (any one suffices; the whole endpoint also needs `dashboa
 interviews the same; placements `placements.view` / `member.view_summary`; finance `finance.view` / `billing.view`; team performance `reports.view` / `pipeline.view`;
 activity `audit.view` / `pipeline.view`. An Executive Viewer therefore sees applications, interviews, pipeline and team performance but not spend.
 
+### Polish pass (exact board)
+
+Shell (shared, additive): `web/src/lib/ent/shell.ts` (full Administration menu `ADMIN_FULL` in the board's order; items the API did not send are `soon: true`, shown greyed, leading to the "on the way" page via `catchAllPage`; search ignores them), `ShellNav.tsx` (soon rows, 15px items), `EnterpriseShell.tsx` (256px sidebar, wordmark next to the logo, no workspace caption, no collapse chevron at lg+, 34px title header), `ShellSearch.tsx`, `AccountMenu.tsx`. `packages/ui` `Charts.tsx`: smooth sparkline with gradient, donut legend wraps. Acme blue comes from the merged `ent-talent` seeder change (`--brand-*`).
+Quick Actions show the board's four only; Assign Marketer links `/w/admin/marketing-assignments`.
+
 ### Quick Actions
 
-Invite Employee `/w/admin/employees?invite=1`, Assign Marketer `/w/admin/assignments` (module marketing), Configure Licenses `/w/admin/licenses` (module billing),
+Invite Employee `/w/admin/employees?invite=1`, Assign Marketer `/w/admin/marketing-assignments`, Configure Licenses `/w/admin/licenses`,
 Review Applications `/w/admin/applications`, then View Pipeline (no page: always "Soon") and Configure Organization `/w/admin/settings`. Each is shown only with its permission.
-A shortcut is a link only when its page is on the Admin menu and its module is on for the organization (the same test the sidebar applies), otherwise a "Soon" chip, never a dead link.
+A shortcut is a link when its page is on the Administration menu (a page not built yet answers with the menu's "on the way" page); only View Pipeline (no page) is "Soon".
 The board shows four; the rest sit behind "Show more".
 
 ### Alerts (each dismissible for 7 days, per member, Undo toast)
@@ -79,3 +84,4 @@ sidebar help card returns when it is dismissed (the card holds the shell claims)
 - Spend, license usage and the "Last 6 months" range beyond six months have no history (spend is seed-only, record-only; nothing moves money).
 - No photos: the avatars are initials. No PII beyond names the org already holds (consultant and marketer display names, job titles).
 - Alert dismissal keys: eight new keys were added to `DashboardAlertService.KEYS`; the dismiss route accepts them.
+- Remaining visible differences vs the board: the subtitle names "Acme Staffing" (the organization's real display name); the profile chip says "Organization Admin" and shows initials (no photo); the bell dot shows only with unread notifications; Consultants and Placements tiles share the violet icon tone; the bee image is the enterprise bee, not the board's illustration; alert and activity rows are real data so their wording differs.
