@@ -7092,6 +7092,35 @@
         }
       }
     },
+    "/api/public/tenant/assets/{kind}" : {
+      "get" : {
+        "tags" : [ "tenant" ],
+        "summary" : "A published branding asset of the tenant for the forwarded host",
+        "description" : "kind = logo | favicon | banner. No authentication; the tenant comes from X-Kiwiply-Host only. 404 for a host that is not served, an unknown kind or an unset asset. Cache-Control: public, max-age=86400; ETag = the content hash; If-None-Match -> 304; X-Content-Type-Options: nosniff.",
+        "operationId" : "asset",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/public/resumes/{token}" : {
       "get" : {
         "tags" : [ "resume-builder" ],
