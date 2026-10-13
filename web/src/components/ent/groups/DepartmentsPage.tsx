@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BuildingIcon, Button, Card, DataTable, Dialog, EmptyState, ErrorState, FilterBar, MemberAvatar, PersonCell, PlusIcon, Skeleton, UserIcon, UsersIcon, ChevronRightIcon, NetworkIcon, ChartIcon, useToast, type DataTableColumn, type MenuEntry, PencilIcon, ArchiveIcon, RestoreIcon, TrashIcon, SwapIcon } from "@kiwiply/ui";
+import { ArrowLeftIcon, ArrowRightIcon, BarChartIcon, BuildingIcon, Button, DataTable, Dialog, EmptyState, ErrorState, FilterBar, MemberAvatar, PersonCell, PlusIcon, Select, Skeleton, UserIcon, UsersIcon, ChevronRightIcon, NetworkIcon, useToast, type DataTableColumn, type MenuEntry, PencilIcon, ArchiveIcon, RestoreIcon, TrashIcon, SwapIcon } from "@kiwiply/ui";
 import { ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { plural, shortDate, TONE_BAR, toneOf, type Group } from "@/lib/ent/groups";
 import CreateGroupSheet from "./CreateGroupSheet";
 import GroupDetailSheet from "./GroupDetailSheet";
 import PersonSearch from "./PersonSearch";
-import { GroupStatus, GroupTile, Kpi } from "./GroupVisuals";
+import { GroupStatus, GroupTile, Kpi, PageHelpCard, SectionHead } from "./GroupVisuals";
 import { OrgChart, StructureTree } from "./StructureViews";
 import { useGroupActions, useGroupsData } from "./useGroups";
 
@@ -87,17 +87,17 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
   const performance = [...departments].sort((a, b) => b.activeCount - a.activeCount);
 
   return (
-    <div className="flex flex-col gap-5" data-page="departments">
+    <div className="grp-page flex flex-col gap-5" data-page="departments">
       {/* KPI tiles: only what the API can count (open positions has no data behind it, so there is no tile) */}
       <section aria-label="Department numbers" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {!s ? (
           [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[124px] w-full rounded-2xl" />)
         ) : (
           <>
-            <Kpi icon={<BuildingIcon size={20} />} label="Total Departments" value={s.departments} tone="primary" hint={s.inactive > 0 ? `${s.inactive} archived` : undefined} />
+            <Kpi icon={<BuildingIcon size={20} />} label="Total Departments" value={s.departments} tone="secondary" hint={s.inactive > 0 ? `${s.inactive} archived` : undefined} />
             <Kpi icon={<UsersIcon size={20} />} label="Total Employees" value={s.employees} tone="success" hint={s.unplaced > 0 ? `${s.unplaced} not in a department yet` : undefined} />
-            <Kpi icon={<UserIcon size={20} />} label="Department Leads" value={s.departmentLeads} tone="secondary" />
-            <Kpi icon={<NetworkIcon size={20} />} label="Avg. Team Size" value={s.averageTeamSize == null ? "–" : s.averageTeamSize} tone="info" hint={s.averageTeamSize == null ? "No teams yet" : `across ${plural(s.teams, "team")}`} />
+            <Kpi icon={<UserIcon size={20} />} label="Department Leads" value={s.departmentLeads} tone="primary" />
+            <Kpi icon={<NetworkIcon size={20} />} label="Avg. Team Size" value={s.averageTeamSize == null ? "–" : s.averageTeamSize} tone="warning" hint={s.averageTeamSize == null ? "No teams yet" : `across ${plural(s.teams, "team")}`} />
           </>
         )}
       </section>
@@ -113,47 +113,45 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
           />
         </>
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_460px]">
           <div className="flex min-w-0 flex-col gap-5">
-            <Card className="p-4 sm:p-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="text-[17px] font-bold text-ink">Departments</h2>
-                  <p className="text-[13px] text-muted">Manage departments, view details, and explore team structure.</p>
-                </div>
+            <section aria-label="Departments overview" className="grp-card p-4 sm:p-5">
+              <SectionHead icon={<BuildingIcon size={26} />} title="Departments" subtitle="Manage departments, view details, and explore team structure.">
                 {canManage && (
-                  <Button variant="accent" onClick={() => setCreating(true)} className="min-h-11">
-                    <PlusIcon size={16} /> Create Department
+                  <Button variant="accent" onClick={() => setCreating(true)} className="min-h-11 rounded-[10px] px-5 text-[15px] font-bold">
+                    <PlusIcon size={18} /> Create Department
                   </Button>
                 )}
-              </div>
+              </SectionHead>
               {!structure ? (
                 <Skeleton className="mt-4 h-44 w-full" />
               ) : (
-                <ul aria-label="Departments" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+                <ul aria-label="Departments" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
                   {departments.map((d) => (
                     <li key={d.id}>
                       <button
                         type="button"
                         onClick={() => setOpenId(d.id)}
                         data-department-card={d.name}
-                        className="flex h-full w-full flex-col gap-2 rounded-2xl border border-line bg-paper p-3.5 text-left hover:bg-paper-2/50 focus-visible:outline-2 focus-visible:outline-accent"
+                        className="grp-card flex h-full w-full flex-col gap-2.5 !rounded-[14px] p-3.5 text-left hover:bg-paper-2/50 focus-visible:outline-2 focus-visible:outline-accent"
                       >
-                        <GroupTile icon={d.icon} color={d.color} size={48} />
+                        <GroupTile icon={d.icon} color={d.color} size={52} />
                         <div className="min-w-0">
-                          <div className="truncate text-[15px] font-bold text-ink">{d.name}</div>
-                          <div className="text-[13px] text-ink-soft">{plural(d.activeCount, "employee")}</div>
+                          <div className="truncate text-[16px] font-extrabold leading-tight text-ink">{d.name}</div>
+                          <div className="mt-0.5 text-[13.5px] text-ink-soft">
+                            <span className="text-[15px] font-bold tabular-nums text-ink">{d.activeCount}</span> {d.activeCount === 1 ? "employee" : "employees"}
+                          </div>
                         </div>
-                        <div className="mt-auto border-t border-line/70 pt-2.5">
-                          <div className="text-[11.5px] text-muted">Department Lead</div>
+                        <div className="mt-auto pt-1.5">
+                          <div className="text-[12px] text-ink-soft">Department Lead</div>
                           {d.lead ? (
                             <div className="mt-1 flex items-center gap-2">
-                              <MemberAvatar name={d.lead.name} size={28} />
+                              <MemberAvatar name={d.lead.name} size={34} />
                               <div className="min-w-0 flex-1 leading-tight">
-                                <div className="truncate text-[12.5px] font-semibold text-ink">{d.lead.name}</div>
+                                <div className="line-clamp-2 break-words text-[12.5px] font-bold leading-tight text-ink">{d.lead.name}</div>
                                 {d.lead.roleName && <div className="truncate text-[11.5px] text-muted">{d.lead.roleName}</div>}
                               </div>
-                              <ChevronRightIcon aria-hidden size={14} className="flex-none text-muted" />
+                              <ChevronRightIcon aria-hidden size={14} className="flex-none text-accent" />
                             </div>
                           ) : (
                             <div className="mt-1 text-[12.5px] text-muted">No lead yet</div>
@@ -164,14 +162,12 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
                   ))}
                 </ul>
               )}
-            </Card>
+            </section>
 
-            <Card className="p-4 sm:p-5">
-              <div className="mb-3">
-                <h2 className="text-[17px] font-bold text-ink">Department Directory</h2>
-                <p className="text-[13px] text-muted">View and manage all departments in your organization.</p>
-              </div>
+            <section aria-label="Department directory" className="grp-card p-4 sm:p-5">
+              <SectionHead icon={<BuildingIcon size={26} />} title="Department Directory" subtitle="View and manage all departments in your organization.">
               <FilterBar
+                compact
                 query={q}
                 onQueryChange={(v) => {
                   setQ(v);
@@ -183,10 +179,29 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
                   setPage(0);
                 }}
                 search={{ placeholder: "Search departments…", label: "Search departments" }}
-                filters={[{ name: "status", label: "Status", allLabel: "All departments", options: [{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Archived" }] }]}
-                className="mb-3"
+                filters={[{ name: "status", label: "Status", allLabel: "All Departments", options: [{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Archived" }] }]}
+                className="flex-nowrap"
               />
+              </SectionHead>
+              <div className="mt-4" />
               <DataTable
+                variant="board"
+                renderPager={({ page: pg, pageCount: pc, onPage }) => (
+                  <nav aria-label="Pagination" className="flex flex-wrap items-center justify-between gap-2 px-1 pt-3 text-[12.5px] text-ink-soft">
+                    <span aria-live="polite">{directory && directory.total > 0 ? `Showing ${directory.page * PAGE_SIZE + 1}-${Math.min(directory.total, (directory.page + 1) * PAGE_SIZE)} of ${plural(directory.total, "department")}` : ""}</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <button type="button" aria-label="Previous page" disabled={pg <= 1} onClick={() => onPage(pg - 1)} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-paper-2 disabled:opacity-40">
+                        <ArrowLeftIcon size={15} />
+                      </button>
+                      <span aria-current="page" aria-label={`Page ${pg} of ${pc}`} className="grid h-8 min-w-8 place-items-center rounded-lg bg-accent px-2 text-[13px] font-bold text-on-accent">
+                        {pg}
+                      </span>
+                      <button type="button" aria-label="Next page" disabled={pg >= pc} onClick={() => onPage(pg + 1)} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-paper-2 disabled:opacity-40">
+                        <ArrowRightIcon size={15} />
+                      </button>
+                    </span>
+                  </nav>
+                )}
                 label="Departments"
                 what="the departments"
                 columns={columns}
@@ -208,50 +223,51 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
                 onPage={(p) => setPage(p - 1)}
                 empty={<EmptyState variant="inline" title={hasFilters ? "No departments match" : "No departments yet"} description={hasFilters ? "Try a different search or clear the filters." : undefined} />}
               />
-              {directory && directory.total > 0 && (
-                <p className="mt-2 text-[12px] text-muted" aria-live="polite">
-                  Showing {directory.page * PAGE_SIZE + 1}–{Math.min(directory.total, (directory.page + 1) * PAGE_SIZE)} of {plural(directory.total, "department")}
-                </p>
-              )}
-            </Card>
+            </section>
           </div>
 
           <div className="flex min-w-0 flex-col gap-5">
-            <Card className="p-4 sm:p-5">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                <h2 className="flex items-center gap-2 whitespace-nowrap text-[16px] font-bold text-ink">
-                  <NetworkIcon size={18} className="flex-none text-accent" /> Organization Structure
+            <section aria-label="Organization structure" className="grp-card p-4 sm:p-5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
+                  <NetworkIcon size={22} className="flex-none text-accent" /> Organization Structure
                 </h2>
-                <Button variant="ghost" size="sm" className="whitespace-nowrap text-accent-deep" onClick={() => setFullTree(true)} disabled={!structure}>
-                  View full structure <ChevronRightIcon size={14} />
+                <Button variant="ghost" size="sm" className="whitespace-nowrap text-[13px] font-semibold text-accent" onClick={() => setFullTree(true)} disabled={!structure}>
+                  View Full Structure <ArrowRightIcon size={14} />
                 </Button>
               </div>
               {structure ? <OrgChart structure={structure} onOpen={(g) => setOpenId(g.id)} /> : <Skeleton className="h-40 w-full" />}
-            </Card>
+            </section>
 
-            <Card className="p-4 sm:p-5">
-              <h2 className="mb-1 flex items-center gap-2 text-[16px] font-bold text-ink">
-                <ChartIcon size={18} className="text-accent" /> Department Performance
-              </h2>
-              <p className="mb-3 text-[12.5px] text-muted">Employees per department, counted now.</p>
+            <section aria-label="Department performance" className="grp-card p-4 sm:p-5">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
+                  <BarChartIcon size={22} className="text-accent" /> Department Performance
+                </h2>
+                <div className="w-40 flex-none" title="Trends are on the way">
+                  <Select aria-label="Period" disabled value="6" options={[{ value: "6", label: "Last 6 Months" }]} />
+                </div>
+              </div>
               {!structure ? (
                 <Skeleton className="h-32 w-full" />
               ) : performance.length === 0 ? (
                 <p className="text-[13px] text-muted">No departments to compare yet.</p>
               ) : (
-                <ul aria-label="Employees per department" className="flex flex-col gap-2.5">
+                <ul aria-label="Employees per department" className="flex flex-col gap-3">
                   {performance.map((d) => (
-                    <li key={d.id} className="grid grid-cols-[84px_1fr_32px] items-center gap-2 text-[12.5px]">
+                    <li key={d.id} className="grid grid-cols-[88px_1fr_28px] items-center gap-3 text-[13px]">
                       <span className="truncate text-ink-soft">{d.name}</span>
-                      <span className="h-2.5 overflow-hidden rounded-full bg-paper-2" role="img" aria-label={`${d.name}: ${plural(d.activeCount, "employee")}`}>
+                      <span className="h-3 overflow-hidden rounded-full bg-paper-2" role="img" aria-label={`${d.name}: ${plural(d.activeCount, "employee")}`}>
                         <span className={`block h-full rounded-full ${TONE_BAR[toneOf(d.color)]}`} style={{ width: `${Math.max(2, Math.round((d.activeCount / maxEmployees) * 100))}%` }} />
                       </span>
-                      <span className="text-right font-semibold tabular-nums text-ink">{d.activeCount}</span>
+                      <span className="text-right font-bold tabular-nums text-ink">{d.activeCount}</span>
                     </li>
                   ))}
                 </ul>
               )}
-            </Card>
+            </section>
+
+            <PageHelpCard layout="side" topic="departments" text="I can help you set up departments, manage team structure, or answer any questions about organization management." />
           </div>
         </div>
       )}
