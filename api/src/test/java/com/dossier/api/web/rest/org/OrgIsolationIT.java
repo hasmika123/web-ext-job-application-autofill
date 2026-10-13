@@ -217,7 +217,9 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/invitations/bulk/revoke", Case.write("{\"ids\":[1]}", 200, null)),
         // Enterprise V2 X2.4: the dashboard. Dismissing an alert is a personal preference of the caller, so it writes no audit row.
         Map.entry("GET /api/orgs/{orgId}/dashboard", Case.read()),
-        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null))
+        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null)),
+        // Consultant workspace Home: own-scoped. Only a consultant (opportunities.respond + a consultant_profile) may read it, so the legitimate call makes the owner one.
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/home", new Case(null, 200, null, false, null, null, 1, World::makeOwnerAConsultant))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -269,6 +271,26 @@ class OrgIsolationIT {
     @Autowired private OrgBrandingVersionRepository brandingVersions;
 
     private OrgFixtures fx;
+
+    @Autowired private com.dossier.api.repository.ent.OrgMemberRoleRepository memberRoleRows;
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository consultantProfiles;
+
+    /** Gives the seat the Consultant role and a consultant_profile, which is what the consultant-workspace routes require. */
+    private void makeConsultant(Long orgId, OrgMember seat) {
+        com.dossier.api.domain.ent.OrgMemberRole r = new com.dossier.api.domain.ent.OrgMemberRole();
+        r.setOrgId(orgId);
+        r.setMemberId(seat.getId());
+        r.setRoleId(roleRepo.findSystemByRoleKey(com.dossier.api.service.ent.RoleTemplates.CONSULTANT).orElseThrow().getId());
+        r.setPrimary(false);
+        r.setGrantedAt(Instant.now());
+        memberRoleRows.saveAndFlush(r);
+        com.dossier.api.domain.ent.talent.ConsultantProfile c = new com.dossier.api.domain.ent.talent.ConsultantProfile();
+        c.setOrgId(orgId);
+        c.setMemberId(seat.getId());
+        c.setDisplayName("Isolation Consultant");
+        c.setEmail("isolation-consultant@example.org");
+        consultantProfiles.saveAndFlush(c);
+    }
 
     // ---- the two tenants ------------------------------------------------------------------------------------------
 
@@ -402,6 +424,10 @@ class OrgIsolationIT {
             offboardingId = offboardingRows.saveAndFlush(sched).getId();
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
+        }
+
+        void makeOwnerAConsultant() {
+            makeConsultant(org.getId(), owner);
         }
 
         /** Puts the member in the SUSPENDED state (what a reinstate needs to find). */
