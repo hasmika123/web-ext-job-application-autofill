@@ -23,8 +23,8 @@ export function ClientTile({ client, size = 28 }: { client: ClientRef; size?: nu
 export function TwoLine({ top, sub, strong = true }: { top: ReactNode; sub?: ReactNode; strong?: boolean }) {
   return (
     <div className="min-w-0 leading-tight">
-      <div className={`truncate text-[13px] text-ink ${strong ? "font-semibold" : "font-medium"}`}>{top}</div>
-      {sub != null && sub !== "" && <div className="truncate text-[11.5px] text-muted">{sub}</div>}
+      <div className={`truncate text-[12.5px] text-ink ${strong ? "font-semibold" : "font-medium"}`}>{top}</div>
+      {sub != null && sub !== "" && <div className="truncate text-[11px] text-muted">{sub}</div>}
     </div>
   );
 }
@@ -117,7 +117,7 @@ export function SearchBox({ value, onChange, label, placeholder }: { value: stri
             }
           } else if (e.key === "Escape" && text !== "") setText("");
         }}
-        className="pl-9"
+        className="pl-9 !text-[12.5px]"
       />
     </div>
   );

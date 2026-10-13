@@ -353,10 +353,10 @@ export default function InterviewsPage({ orgId, orgName, permissions, supportEma
           </div>
         )}
       </Popover>
-      <div className="w-[6.9rem]">
+      <div className="w-[7.6rem]">
         <Select aria-label="Client" value={view.client} onChange={(v) => setView({ client: v })} options={[{ value: "", label: "All Clients" }, ...(options?.clients ?? [])]} />
       </div>
-      <div className="w-[7.4rem]">
+      <div className="w-[8.4rem]">
         <Select aria-label="Status" value={view.status} onChange={(v) => setView({ status: v })} options={[{ value: "", label: "All Statuses" }, ...(options?.statuses ?? [])]} />
       </div>
       <Popover
@@ -453,7 +453,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, supportEma
   };
 
   const main = (
-    <div className="min-w-0 space-y-3.5">
+    <div className="min-w-0 space-y-3">
       <KpiTiles counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
 
       <div className="flex flex-wrap items-center justify-between gap-2.5">

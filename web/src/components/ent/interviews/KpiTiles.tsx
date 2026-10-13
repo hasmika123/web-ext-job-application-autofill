@@ -42,6 +42,7 @@ export default function KpiTiles({ counts, loading, error }: { counts: Counts | 
         return (
           <li key={t.key}>
             <KpiTile
+              className="!p-3.5 [&_.ent-kpi-chip]:!h-10 [&_.ent-kpi-chip]:!w-10 [&_.ent-kpi-label]:!mt-2 [&_[data-kpi-delta]]:!mt-1"
               id={t.key}
               tone={t.tone}
               label={t.label}
