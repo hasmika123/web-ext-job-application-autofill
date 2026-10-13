@@ -46,4 +46,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-web/test-results-real/
+test-results-real/

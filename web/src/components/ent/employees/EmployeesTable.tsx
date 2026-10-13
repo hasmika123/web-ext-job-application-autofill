@@ -21,7 +21,7 @@ export interface TableProps {
   compact?: boolean;
 }
 
-const HEAD = "px-3 py-2.5 text-left text-[12px] font-semibold text-ink-soft";
+const HEAD = "px-2.5 py-2.5 text-left text-[12px] font-semibold text-ink-soft";
 
 function SortHead({ label, k, sort, onSort, className }: { label: string; k: SortKey; sort: TableProps["sort"]; onSort: TableProps["onSort"]; className?: string }) {
   const active = sort.key === k;
@@ -87,7 +87,7 @@ export function EmployeesTable(p: TableProps) {
               <MemberStatusPill status={r.status} />
               <Kebab items={p.rowMenu(r)} />
             </div>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-line/60 px-3 py-2.5 text-[13px]">
+            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 border-t border-line/60 px-2.5 py-2.5 text-[13px]">
               <dt className="text-muted">Role</dt>
               <dd className="min-w-0"><RoleChips roles={r.roles} max={2} /></dd>
               <dt className="text-muted">Department</dt>
@@ -110,12 +110,12 @@ export function EmployeesTable(p: TableProps) {
       <table aria-label="Employees" className="w-full border-collapse text-[13.5px]" data-employee-table>
         <thead className="border-b border-line bg-paper-2/60">
           <tr>
-            <th scope="col" className="w-10 px-3 py-2.5">
+            <th scope="col" className="w-10 px-2.5 py-2.5">
               <Check checked={allOn} indeterminate={someOn} onChange={p.onTogglePage} label="Select all employees on this page" />
             </th>
             <SortHead label="Employee" k="name" sort={p.sort} onSort={p.onSort} />
             <th scope="col" className={HEAD}>Role</th>
-            <th scope="col" className={`${HEAD} hidden lg:table-cell`}>Department</th>
+            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>Department</th>
             <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>Team</th>
             <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>Manager</th>
             <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} />
@@ -144,25 +144,25 @@ export function EmployeesTable(p: TableProps) {
                 }}
                 className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? "bg-accent-soft/60" : p.selected.has(r.id) ? "bg-accent-soft/30" : "hover:bg-paper-2/50"}`}
               >
-                <td className="w-10 px-3 py-2.5">
+                <td className="w-10 px-2.5 py-2.5">
                   <Check checked={p.selected.has(r.id)} onChange={() => p.onToggle(r.id)} label={`Select ${r.name}`} />
                 </td>
-                <td className="min-w-[13rem] px-3 py-2.5">
+                <td className="min-w-[11rem] px-2.5 py-2.5">
                   <PersonCell name={r.name} avatarName={r.name} src={r.avatarUrl} sub={subOf(r)} />
                 </td>
-                <td className="max-w-[14rem] px-3 py-2.5">
+                <td className="max-w-[14rem] px-2.5 py-2.5">
                   <RoleChips roles={r.roles} max={1} />
                 </td>
-                <td className="hidden max-w-[10rem] truncate px-3 py-2.5 text-ink-soft lg:table-cell">{r.department?.name ?? "—"}</td>
-                <td className={`max-w-[10rem] truncate px-3 py-2.5 text-ink-soft ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>{r.team?.name ?? "—"}</td>
-                <td className={`px-3 py-2.5 ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>
+                <td className={`max-w-[10rem] truncate px-2.5 py-2.5 text-ink-soft ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.department?.name ?? "—"}</td>
+                <td className={`max-w-[10rem] truncate px-2.5 py-2.5 text-ink-soft ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>{r.team?.name ?? "—"}</td>
+                <td className={`px-2.5 py-2.5 ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>
                   <ManagerCell manager={r.manager} />
                 </td>
-                <td className="px-3 py-2.5">
+                <td className="px-2.5 py-2.5">
                   <MemberStatusPill status={r.status} />
                 </td>
-                <td className="hidden whitespace-nowrap px-3 py-2.5 text-ink-soft md:table-cell">{formatDate(r.joinedAt) || "—"}</td>
-                <td className="hidden whitespace-nowrap px-3 py-2.5 text-ink-soft 2xl:table-cell">{r.lastActiveAt ? relativeTime(r.lastActiveAt) : "—"}</td>
+                <td className="hidden whitespace-nowrap px-2.5 py-2.5 text-ink-soft md:table-cell">{formatDate(r.joinedAt) || "—"}</td>
+                <td className="hidden whitespace-nowrap px-2.5 py-2.5 text-ink-soft 2xl:table-cell">{r.lastActiveAt ? relativeTime(r.lastActiveAt) : "—"}</td>
                 <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
                   <Kebab items={p.rowMenu(r)} />
                 </td>

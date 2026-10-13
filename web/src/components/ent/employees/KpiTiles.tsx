@@ -25,19 +25,21 @@ const TILES: TileDef[] = [
  * The six KPI tiles of the Employees board. The delta ("vs last month") is drawn only when the API gave one: a tile with no history
  * (an organization younger than a month) shows the figure and nothing else, and there is no sparkline because there is no series.
  */
-export default function KpiTiles({ counts, loading, error }: { counts: MemberCounts | null; loading: boolean; error: boolean }) {
+export default function KpiTiles({ counts, loading, error, compact = false }: { counts: MemberCounts | null; loading: boolean; error: boolean; compact?: boolean }) {
   return (
-    <ul aria-label="Employee figures" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" data-kpi-tiles>
+    <ul aria-label="Employee figures" className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${compact ? "" : "xl:grid-cols-6"}`} data-kpi-tiles>
       {TILES.map((t) => {
         const tile: Tile | null = counts ? counts[t.key] : null;
         const delta = tileDelta(tile);
         return (
           <li key={t.key} data-kpi={t.key}>
             <Card className="flex h-full flex-col gap-1 !p-3.5">
-              <span aria-hidden className="mb-1 inline-grid h-9 w-9 place-items-center rounded-[10px] bg-accent-soft text-accent-deep">
-                {t.icon}
-              </span>
-              <span className="text-[13px] font-medium text-ink-soft">{t.label}</span>
+              <div className="flex items-center gap-2 sm:flex-col sm:items-start sm:gap-1">
+                <span aria-hidden className="inline-grid h-8 w-8 flex-none place-items-center rounded-[10px] bg-accent-soft text-accent-deep sm:mb-1 sm:h-9 sm:w-9">
+                  {t.icon}
+                </span>
+                <span className="text-[12.5px] font-medium leading-tight text-ink-soft sm:text-[13px]">{t.label}</span>
+              </div>
               {loading ? (
                 <Skeleton className="mt-1 h-7 w-14" />
               ) : (

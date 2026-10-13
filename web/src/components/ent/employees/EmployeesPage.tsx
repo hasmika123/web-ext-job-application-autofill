@@ -397,7 +397,7 @@ export default function EmployeesPage({ orgId, orgName, workspace, selfMemberId,
             )}
           </div>
 
-          <KpiTiles counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
+          <KpiTiles compact={sheetOpen && mode === "push"} counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
 
           <div className="space-y-2">
             <FilterBar

@@ -24,7 +24,7 @@ API and `EnterpriseDemoSeederIT` fails when the two differ.
 |---|---|---|
 | `DEMO_ENABLED` | `true` | the regular demo switch |
 | `ENT_DEMO_SEED` | `true` | seeds the two tenants at startup (property `dossier.demo.enterprise-seed`, default false) |
-| `DEMO_ALLOW_WRITES` | unset | the demo sandbox stays on: account and billing writes are refused for demo members |
+| `DEMO_ALLOW_WRITES` | unset (set `true` only to drive WRITES as a demo member, e.g. the Employees journey `web/e2e/journeys/tenant-employees.spec.ts`) | the demo sandbox stays on: account and billing writes are refused for demo members |
 | `DOSSIER_TENANT_HOST_SECRET` | the same random value on the API and the web | the API only believes `X-Kiwiply-Host` from the web server |
 | `APPLICATION_LIQUIBASE_ASYNC_START` | `false` | on a fresh database the startup seeders must not race the migrations |
 | `DOSSIER_STORAGE_DRIVER` / `DOSSIER_STORAGE_LOCAL_ROOT` | `local` + a folder | the demo logo is stored through the FileStorage seam; no S3 needed |
