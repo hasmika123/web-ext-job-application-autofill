@@ -27,8 +27,8 @@ class RoleTemplateDocSyncTest {
 
     /** template: key=SCOPE, ... ({@code self.*} is the two OWN keys, asserted separately for every template). */
     private static final String MATRIX = """
-        OWNER: org.settings.manage=ORG branding.manage=ORG domains.manage=ORG roles.manage=ORG members.invite=ORG members.import=ORG members.role.set=ORG members.remove=ORG members.suspend=ORG members.support_owner.set=ORG members.group.set=ORG members.manager.set=ORG groups.manage=ORG assignments.manage=ORG consultants.view=ORG consultants.edit=ORG resumes.view_for=ORG resumes.approve_request=ORG licenses.view=ORG licenses.manage=ORG billing.view=ORG billing.manage=ORG usage.view=ORG pipeline.view=ORG clients.view=ORG placements.view=ORG hr.view=ORG finance.view=ORG reports.view=ORG reports.export=ORG audit.view=ORG integrations.manage=ORG dashboard.view_org=ORG member.view_summary=ORG services.order_for_member=ORG ops.*=ORG org.close=ORG org.transfer_ownership=ORG
-        ORG_ADMIN: org.settings.manage=ORG branding.manage=ORG domains.manage=ORG roles.manage=ORG members.invite=ORG members.import=ORG members.role.set=ORG members.remove=ORG members.suspend=ORG members.support_owner.set=ORG members.group.set=ORG members.manager.set=ORG groups.manage=ORG assignments.manage=ORG consultants.view=ORG consultants.edit=ORG resumes.view_for=ORG resumes.approve_request=ORG licenses.view=ORG licenses.manage=ORG billing.view=ORG billing.manage=ORG usage.view=ORG pipeline.view=ORG clients.view=ORG placements.view=ORG hr.view=ORG finance.view=ORG reports.view=ORG reports.export=ORG audit.view=ORG integrations.manage=ORG dashboard.view_org=ORG member.view_summary=ORG services.order_for_member=ORG ops.*=ORG
+        OWNER: org.settings.manage=ORG members.invite=ORG members.import=ORG members.role.set=ORG members.remove=ORG members.suspend=ORG members.support_owner.set=ORG groups.manage=ORG assignments.manage=ORG billing.view=ORG billing.manage=ORG reports.view=ORG reports.export=ORG member.view_summary=ORG member.view_full=ORG member.act_for=ORG services.order_for_member=ORG audit.view=ORG integrations.manage=ORG ops.*=ORG members.group.set=ORG members.manager.set=ORG branding.manage=ORG domains.manage=ORG roles.manage=ORG dashboard.view_org=ORG consultants.view=ORG consultants.edit=ORG resumes.view_for=ORG resumes.edit_for=ORG resumes.approve_request=ORG licenses.view=ORG licenses.manage=ORG usage.view=ORG pipeline.view=ORG opportunities.manage=ORG matches.run=ORG submissions.prepare=ORG submissions.record=ORG followups.manage=ORG interviews.coordinate=ORG offers.manage=ORG approvals.decide=ORG workload.view=ORG escalations.manage=ORG clients.view=ORG clients.manage=ORG requirements.manage=ORG placements.view=ORG placements.manage=ORG hr.view=ORG hr.manage=ORG lifecycle.manage=ORG finance.view=ORG finance.manage=ORG candidates.manage=ORG talent_pools.manage=ORG onboarding.coordinate=ORG org.close=ORG org.transfer_ownership=ORG
+        ORG_ADMIN: org.settings.manage=ORG members.invite=ORG members.import=ORG members.role.set=ORG members.remove=ORG members.suspend=ORG members.support_owner.set=ORG groups.manage=ORG assignments.manage=ORG billing.view=ORG billing.manage=ORG reports.view=ORG reports.export=ORG member.view_summary=ORG member.view_full=ORG member.act_for=ORG services.order_for_member=ORG audit.view=ORG integrations.manage=ORG ops.*=ORG members.group.set=ORG members.manager.set=ORG branding.manage=ORG domains.manage=ORG roles.manage=ORG dashboard.view_org=ORG consultants.view=ORG consultants.edit=ORG resumes.view_for=ORG resumes.edit_for=ORG resumes.approve_request=ORG licenses.view=ORG licenses.manage=ORG usage.view=ORG pipeline.view=ORG opportunities.manage=ORG matches.run=ORG submissions.prepare=ORG submissions.record=ORG followups.manage=ORG interviews.coordinate=ORG offers.manage=ORG approvals.decide=ORG workload.view=ORG escalations.manage=ORG clients.view=ORG clients.manage=ORG requirements.manage=ORG placements.view=ORG placements.manage=ORG hr.view=ORG hr.manage=ORG lifecycle.manage=ORG finance.view=ORG finance.manage=ORG candidates.manage=ORG talent_pools.manage=ORG onboarding.coordinate=ORG
         STAFF: members.invite=ORG members.import=ORG reports.view=ASSIGNED member.view_summary=ASSIGNED
         MEMBER: ops.own_hours=OWN
         CONSULTANT: opportunities.respond=OWN submissions.authorize=OWN applications.manage=OWN interviews.manage=OWN offers.respond=OWN resumes.manage=OWN features.view=OWN
@@ -45,7 +45,7 @@ class RoleTemplateDocSyncTest {
     private static final Set<String> ALIASES = Set.of("departments.manage", "teams.manage");
 
     /** Templates whose document row is a prose pointer, not a key list: the code is checked against the matrix only. */
-    private static final Set<String> PROSE_ROWS = Set.of("OWNER", "STAFF", "MEMBER", "MARKETING_MANAGER");
+    private static final Set<String> PROSE_ROWS = Set.of("OWNER", "ORG_ADMIN", "STAFF", "MEMBER", "MARKETING_MANAGER");
 
     private static final Pattern TOKEN = Pattern.compile("`([a-z_.*]+)`(?:\\*\\*)?(\\s*\\(([^)]*)\\))?");
     private static final Pattern SCOPE_WORD = Pattern.compile("\\b(OWN|ASSIGNED|TEAM|DEPARTMENT|ORG)\\b");
@@ -208,6 +208,19 @@ class RoleTemplateDocSyncTest {
         DocRow staffMember = rows.stream().filter(r -> r.templates().contains("`STAFF`")).findFirst().orElseThrow();
         assertThat(staffMember.templates()).contains("`MEMBER`");
         assertThat(staffMember.grants()).contains("unchanged");
+    }
+
+    @Test
+    void theOrgAdminRowMeansEveryRegisteredPermissionExceptCloseAndTransfer() throws IOException {
+        DocRow admin = section3Rows(doc()).stream().filter(r -> r.templates().contains("`ORG_ADMIN`")).findFirst().orElseThrow();
+        assertThat(admin.grants()).contains("Every registered permission").contains("except `org.close` and `org.transfer_ownership`");
+        Set<String> held = RoleTemplates.find(RoleTemplates.ORG_ADMIN).orElseThrow().byKey().keySet();
+        for (var def : com.dossier.api.service.ent.authz.EntPermissions.all()) {
+            boolean ownerOnly = def.key().equals("org.close") || def.key().equals("org.transfer_ownership");
+            boolean personal = def.defaultScope() == PermissionScope.OWN && !def.key().startsWith("self.");
+            if (ownerOnly || personal) assertThat(held).as(def.key()).doesNotContain(def.key());
+            else assertThat(held).as(def.key()).contains(def.key());
+        }
     }
 
     @Test

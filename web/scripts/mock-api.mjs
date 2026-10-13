@@ -23,6 +23,7 @@ import { createInvitationsMock } from "./mock-invitations.mjs";
 import { createDashboardMock } from "./mock-dashboard.mjs";
 import { createMembersMock } from "./mock-members.mjs";
 import { createGroupsMock } from "./mock-groups.mjs";
+import { createRolesMock } from "./mock-roles.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -266,6 +267,8 @@ const handleDashboard = createDashboardMock({ json, subOf: bearerSub });
 const handleMembers = createMembersMock({ json, subOf: bearerSub });
 /* ── Departments and Teams mock (X4.5: groups, leads, moves for Acme; scripts/mock-groups.mjs) ── */
 const handleGroups = createGroupsMock({ json, withBody, subOf: bearerSub });
+/* ── Roles & Permissions mock (X4.11: roles, catalog, diff, history, resync, member roles; scripts/mock-roles.mjs) ── */
+const handleRoles = createRolesMock({ json, withBody, hostOf });
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
 const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
 /* ── Job search mock (APP-E2E U4.0: search, suggest, detail, save, hide; scripts/mock-jobs.mjs) ── */
@@ -1990,6 +1993,7 @@ const server = http.createServer((req, res) => {
   if (handleDashboard(req, res, path, method)) return;
   if (handleMembers(req, res, path, method)) return;
   if (handleGroups(req, res, path, method)) return;
+  if (ENTERPRISE_ENABLED && handleRoles(req, res, path, method)) return;
   if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
   if (handleAi(req, res, path, method)) return;

@@ -70,7 +70,7 @@ public final class RoleWriteDTO {
     ) {}
 
     /** One slice of the permission donut. */
-    public record CategorySlice(String category, String label, int keys, int grantedKeys, int percent) {}
+    public record CategorySlice(String category, String label, int keys, int grantedKeys, int percent, int permissionSets) {}
 
     /** The whole of the page's data: the table, the counts and the permission overview by category. */
     public record Overview(
@@ -80,6 +80,45 @@ public final class RoleWriteDTO {
         int customRoleCount,
         int systemRoleCount,
         int totalPermissionKeys,
-        List<CategorySlice> permissionOverview
+        List<CategorySlice> permissionOverview,
+        int permissionSetCount
+    ) {}
+
+    // ---- X4.1: template diff, history, resync ------------------------------------------------------------------------
+
+    /** A permission as the diff shows it. */
+    public record DiffEntry(String key, String scope) {}
+
+    public record DiffScopeChange(String key, String from, String to) {}
+
+    /**
+     * A role compared with the template it was cloned from. {@code template} is null for a blank role (nothing to compare with);
+     * {@code matches} is true when the rows are identical. {@code added} are rows the role has and the template lacks,
+     * {@code removed} are template rows the role dropped, {@code scopeChanged} rows both have at a different scope.
+     */
+    public record TemplateDiff(
+        Long roleId,
+        String template,
+        String templateName,
+        boolean hasTemplate,
+        boolean matches,
+        List<DiffEntry> added,
+        List<DiffEntry> removed,
+        List<DiffScopeChange> scopeChanged,
+        List<String> attributesChanged
+    ) {}
+
+    /** One audit row about a role (ROLE_CREATE, ROLE_UPDATE, ROLE_DELETE, ROLE_RESYNC, ROLE_ASSIGN, ROLE_REVOKE). */
+    public record HistoryEntry(
+        Long id,
+        String action,
+        String risk,
+        String actor,
+        String targetType,
+        String targetId,
+        String targetLogin,
+        String roleName,
+        java.time.Instant at,
+        java.util.Map<String, Object> details
     ) {}
 }

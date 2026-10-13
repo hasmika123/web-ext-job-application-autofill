@@ -255,12 +255,39 @@ class OrgRoleWriteIT {
         assertCode(r, 422, "ROLE_CEILING");
         assertThat(body(r).path("key").asText()).isEqualTo("org.close");
         assertThat(body(r).path("scope").asText()).isEqualTo("ORG");
-        // marketing keys are not held by an Organization Admin either, so a clone of MARKETING_MANAGER is out of reach
-        assertCode(call("rw-a-admin", post(roles(a)).content("{\"name\":\"Mkt\",\"templateKey\":\"MARKETING_MANAGER\"}")), 422, "ROLE_CEILING");
         // the owner's create is the only one that writes
         JsonNode team = createRole("rw-a-owner", a, "{\"name\":\"Team lead\",\"permissions\":" + grid("assignments.manage", "TEAM") + "}");
         assertThat(team.path("id").asLong()).isPositive();
         assertThat(auditCount(a)).isEqualTo(before + 1); // only the owner's create
+    }
+
+    /** Doc 05 section 3 read literally: an Organization Admin holds everything except org.close / org.transfer_ownership. */
+    @Test
+    void anOrgAdminClonesAndAssignsTheMarketingRolesButNeverCloseTransferOrOwner() throws Exception {
+        for (String key : new String[] { "MARKETING_MANAGER", "ACCOUNT_MANAGER", "HR_SPECIALIST", "FINANCE_SPECIALIST" }) {
+            JsonNode copy = createRole("rw-a-admin", a, "{\"name\":\"Mine " + key + "\",\"templateKey\":\"" + key + "\"}");
+            assertThat(copy.path("templateKey").asText()).isEqualTo(key);
+        }
+        JsonNode mkt = createRole("rw-a-admin", a, "{\"name\":\"Mkt lead\",\"templateKey\":\"MARKETING_MANAGER\"}");
+        long mktId = mkt.path("id").asLong();
+        assertStatus(call("rw-a-admin", put(memberRoles(a, aMember)).content("{\"roleIds\":[" + mktId + "]}")), 200);
+        // the system template itself is assignable too
+        assertStatus(call("rw-a-admin", put(memberRoles(a, aStaff)).content("{\"roleIds\":[" + template("MARKETING_MANAGER") + "]}")), 200);
+        // org.close / org.transfer_ownership stay out of reach
+        MvcResult close = call("rw-a-admin", patch(roles(a) + "/" + mktId).content("{\"permissions\":" + grid("assignments.manage", "TEAM", "org.close", "ORG") + "}"), mkt.path("version").asText());
+        assertCode(close, 422, "ROLE_CEILING");
+        assertThat(body(close).path("key").asText()).isEqualTo("org.close");
+        assertCode(call("rw-a-admin", post(roles(a)).content("{\"name\":\"Giver\",\"permissions\":" + grid("org.transfer_ownership", "ORG") + "}")), 422, "ROLE_CEILING");
+        // the Owner template can neither be cloned nor handed out by an admin
+        assertCode(call("rw-a-admin", post(roles(a)).content("{\"name\":\"Second owner\",\"templateKey\":\"OWNER\"}")), 409, "ROLE_SYSTEM");
+        assertCode(call("rw-a-admin", put(memberRoles(a, aMarketer)).content("{\"roleIds\":[" + template("OWNER") + "]}")), 422, "ROLE_CEILING");
+        // the Owner is the only holder of the two keys
+        for (String key : new String[] { "ORG_ADMIN", "MARKETING_MANAGER", "FINANCE_SPECIALIST" }) {
+            JsonNode t = body(call("rw-a-owner", get(roles(a) + "/" + template(key))));
+            assertThat(permission(t, "org.close")).as(key).isNull();
+            assertThat(permission(t, "org.transfer_ownership")).as(key).isNull();
+        }
+        assertThat(permission(body(call("rw-a-owner", get(roles(a) + "/" + template("OWNER")))), "org.close")).isNotNull();
     }
 
     @Test

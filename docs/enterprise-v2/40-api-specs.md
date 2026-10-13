@@ -241,8 +241,8 @@ Columns: **perm / scope / feat** · **body → response** · **notable errors** 
 | GET `{o}/members/{id}/offboard-preview` · POST `…/offboard` | `members.remove` | hook previews (09 row 4) → apply | 409 | I | 4 |
 | PATCH `{o}/members/{id}` | `members.edit` | title, manager, groups (`members.group.set`, `members.manager.set`) | | M | 4 |
 | POST `{o}/members/bulk/roles` · `/bulk/move` · `/bulk/suspend` | `roles.manage` / `members.group.set` | `{memberIds[], …}` → per-row result | 207-style `results[]` in 200 body | I | 4 |
-| GET/POST `{o}/roles` · GET/PATCH/DELETE `{o}/roles/{id}` · PUT `{o}/roles/{id}/permissions` · GET `{o}/roles/{id}/diff` · GET `{o}/roles/{id}/history` | `roles.manage` | clone/edit within **ceiling** | 422 `ROLE_CEILING`, 409 system row | M | 4 |
-| GET `{o}/permissions` | `roles.manage` | registry metadata (family, dangerous, scope) | | | 4 |
+| GET/POST `{o}/roles` · GET/PATCH/DELETE `{o}/roles/{id}` · PUT `{o}/roles/{id}/permissions` · GET `{o}/roles/{id}/diff` · GET `{o}/roles/{id}/history` · GET `{o}/roles/history` · GET `{o}/roles/overview` · POST `{o}/roles/{id}/resync` | `roles.manage` (reads: any active member, except history) | clone/edit within **ceiling**; `diff` against the template; `resync` restores the template rows (If-Match, audit `ROLE_RESYNC`) | 422 `ROLE_CEILING`, 409 system row, 428/412 If-Match | M | 4 |
+| GET `{o}/permissions` | any active member | registry metadata by the five board categories (family, description, dangerous, scope choices) with `grantable` per key and scope against the **caller's** ceiling (X4.1) | 404 outsiders / flag off | | 4 |
 | GET/POST `{o}/groups` · PATCH/DELETE `{o}/groups/{id}` · POST `…/groups/{id}/members` | `groups.manage` | `parentGroupId`, `leadMemberId` | 409 non-empty | M | 4 |
 | GET `{o}/assignments?consultant=&assignee=&kind=&open=` · `/history` · `/mine` · `/workload` | `assignments.manage`/`consultants.view`/`workload.view` | 17 §6 | | | 4 |
 | POST `{o}/assignments` · `/reassign` · `/{id}/end` | `assignments.manage` (TEAM) | | 409 `ASSIGNMENT_CAP`, `PRIMARY_EXISTS` | I | 4 |

@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -127,6 +128,59 @@ public class OrgRoleResource {
         demoGuard.assertNotDemo();
         writeService.delete(me, roleId, ifMatch);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+        summary = "A role compared with the template it was made from",
+        description = "Any active member. Rows the role added, template rows it dropped, scopes it changed. A blank role (no template) and a system template match by definition."
+    )
+    @GetMapping("/{roleId}/diff")
+    @OrgPermissionRequired
+    public RoleWriteDTO.TemplateDiff diff(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long roleId) {
+        return writeService.diff(me, roleId);
+    }
+
+    @Operation(
+        summary = "Restore a role to the rows of its template",
+        description = "roles.manage at ORG scope, If-Match required. Show GET .../diff first. Writes one ROLE_RESYNC audit row (HIGH) with what changed back; nothing when already identical. "
+            + "422 when the role has no template; 422 ROLE_CEILING when the role holds anything the caller does not; 409 ROLE_SYSTEM for a template."
+    )
+    @PostMapping("/{roleId}/resync")
+    @OrgPermissionRequired
+    public ResponseEntity<RoleWriteDTO.RoleDetail> resync(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long roleId,
+        @RequestHeader(value = HttpHeaders.IF_MATCH, required = false) String ifMatch
+    ) {
+        demoGuard.assertNotDemo();
+        return withEtag(ResponseEntity.ok(), writeService.resync(me, roleId, ifMatch));
+    }
+
+    @Operation(
+        summary = "The change history of one role",
+        description = "roles.manage at ORG scope (404 otherwise). Newest first, from the organization audit trail (ROLE_CREATE, ROLE_UPDATE with the added / removed / scope diff, ROLE_RESYNC)."
+    )
+    @GetMapping("/{roleId}/history")
+    @OrgPermissionRequired
+    public List<RoleWriteDTO.HistoryEntry> history(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long roleId,
+        @RequestParam(value = "limit", defaultValue = "50") int limit
+    ) {
+        return writeService.history(me, roleId, limit);
+    }
+
+    @Operation(
+        summary = "Every role change and assignment in the organization",
+        description = "roles.manage at ORG scope (404 otherwise). Newest first: ROLE_CREATE, ROLE_UPDATE, ROLE_DELETE, ROLE_RESYNC, ROLE_ASSIGN, ROLE_REVOKE. The page's Audit Role Changes drawer."
+    )
+    @GetMapping("/history")
+    @OrgPermissionRequired
+    public List<RoleWriteDTO.HistoryEntry> orgHistory(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestParam(value = "limit", defaultValue = "50") int limit
+    ) {
+        return writeService.history(me, null, limit);
     }
 
     private static ResponseEntity<RoleWriteDTO.RoleDetail> withEtag(ResponseEntity.BodyBuilder builder, RoleWriteDTO.RoleDetail body) {

@@ -93,11 +93,11 @@
     "name" : "resume-builder",
     "description" : "Resume Builder documents, config and settings."
   }, {
-    "name" : "resume-ai",
-    "description" : "Resume Builder AI: rewrite lines, generate a summary, apply or dismiss a checked proposal (Pro)."
-  }, {
     "name" : "roles",
     "description" : "Role templates and organization roles."
+  }, {
+    "name" : "resume-ai",
+    "description" : "Resume Builder AI: rewrite lines, generate a summary, apply or dismiss a checked proposal (Pro)."
   }, {
     "name" : "account-deletion",
     "description" : "Self-service GDPR/CCPA account and data deletion."
@@ -4261,6 +4261,42 @@
           },
           "required" : true
         },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/roles/{roleId}/resync" : {
+      "post" : {
+        "tags" : [ "roles" ],
+        "summary" : "Restore a role to the rows of its template",
+        "description" : "roles.manage at ORG scope, If-Match required. Show GET .../diff first. Writes one ROLE_RESYNC audit row (HIGH) with what changed back; nothing when already identical. 422 when the role has no template; 422 ROLE_CEILING when the role holds anything the caller does not; 409 ROLE_SYSTEM for a template.",
+        "operationId" : "resync",
+        "parameters" : [ {
+          "name" : "roleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "If-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9337,6 +9373,76 @@
         } ]
       }
     },
+    "/api/orgs/{orgId}/roles/{roleId}/history" : {
+      "get" : {
+        "tags" : [ "roles" ],
+        "summary" : "The change history of one role",
+        "description" : "roles.manage at ORG scope (404 otherwise). Newest first, from the organization audit trail (ROLE_CREATE, ROLE_UPDATE with the added / removed / scope diff, ROLE_RESYNC).",
+        "operationId" : "history",
+        "parameters" : [ {
+          "name" : "roleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/HistoryEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/roles/{roleId}/diff" : {
+      "get" : {
+        "tags" : [ "roles" ],
+        "summary" : "A role compared with the template it was made from",
+        "description" : "Any active member. Rows the role added, template rows it dropped, scopes it changed. A blank role (no template) and a system template match by definition.",
+        "operationId" : "diff",
+        "parameters" : [ {
+          "name" : "roleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TemplateDiff"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/roles/overview" : {
       "get" : {
         "tags" : [ "roles" ],
@@ -9350,6 +9456,59 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Overview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/roles/history" : {
+      "get" : {
+        "tags" : [ "roles" ],
+        "summary" : "Every role change and assignment in the organization",
+        "description" : "roles.manage at ORG scope (404 otherwise). Newest first: ROLE_CREATE, ROLE_UPDATE, ROLE_DELETE, ROLE_RESYNC, ROLE_ASSIGN, ROLE_REVOKE. The page's Audit Role Changes drawer.",
+        "operationId" : "orgHistory",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/HistoryEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/permissions" : {
+      "get" : {
+        "tags" : [ "roles" ],
+        "summary" : "Every permission key by category, with what the caller may grant",
+        "description" : "Any active member; 404 when the roles flag is off. Five categories (Core Platform, Recruiting, Consultants, Finance, Administration); each key has its description, dangerous flag, scope choices and, per scope, whether the CALLER may write it (their own ceiling: nobody grants more than they hold). grantable is false with a reason (NO_PERMISSION, OWNER_ONLY, BEYOND_YOUR_ACCESS) for keys the caller cannot hand out. Scope choices carry the ceiling attribute a new row must send.",
+        "operationId" : "catalog",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Catalog"
                 }
               }
             }
@@ -11295,7 +11454,7 @@
     "/api/admin/settings/{key}/history" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "history",
+        "operationId" : "history_1",
         "parameters" : [ {
           "name" : "key",
           "in" : "path",
@@ -11737,7 +11896,7 @@
     "/api/admin/ai/config/history" : {
       "get" : {
         "tags" : [ "admin-ai-config-resource" ],
-        "operationId" : "history_1",
+        "operationId" : "history_2",
         "parameters" : [ {
           "name" : "key",
           "in" : "query",
@@ -17516,6 +17675,114 @@
           }
         }
       },
+      "HistoryEntry" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "risk" : {
+            "type" : "string"
+          },
+          "actor" : {
+            "type" : "string"
+          },
+          "targetType" : {
+            "type" : "string"
+          },
+          "targetId" : {
+            "type" : "string"
+          },
+          "targetLogin" : {
+            "type" : "string"
+          },
+          "roleName" : {
+            "type" : "string"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "details" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          }
+        }
+      },
+      "DiffEntry" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "scope" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DiffScopeChange" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          }
+        }
+      },
+      "TemplateDiff" : {
+        "type" : "object",
+        "properties" : {
+          "roleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "template" : {
+            "type" : "string"
+          },
+          "templateName" : {
+            "type" : "string"
+          },
+          "hasTemplate" : {
+            "type" : "boolean"
+          },
+          "matches" : {
+            "type" : "boolean"
+          },
+          "added" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DiffEntry"
+            }
+          },
+          "removed" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DiffEntry"
+            }
+          },
+          "scopeChanged" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DiffScopeChange"
+            }
+          },
+          "attributesChanged" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "CategorySlice" : {
         "type" : "object",
         "properties" : {
@@ -17534,6 +17801,10 @@
             "format" : "int32"
           },
           "percent" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "permissionSets" : {
             "type" : "integer",
             "format" : "int32"
           }
@@ -17573,6 +17844,10 @@
             "items" : {
               "$ref" : "#/components/schemas/CategorySlice"
             }
+          },
+          "permissionSetCount" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -17620,6 +17895,53 @@
           },
           "version" : {
             "type" : "string"
+          }
+        }
+      },
+      "Catalog" : {
+        "type" : "object",
+        "properties" : {
+          "canManage" : {
+            "type" : "boolean"
+          },
+          "totalKeys" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "permissionSets" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "categories" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Category"
+            }
+          }
+        }
+      },
+      "Category" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "keyCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "permissionSets" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "permissions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Entry"
+            }
           }
         }
       },

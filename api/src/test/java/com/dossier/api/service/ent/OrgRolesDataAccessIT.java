@@ -119,6 +119,13 @@ class OrgRolesDataAccessIT {
             OrgMembership m = access.requireMember(orgA.getId());
             assertThat(m.roles()).as(role + " reads from data").hasSize(1).allSatisfy(r -> assertThat(r.roleId()).isNotNull());
             for (OrgPermission p : OrgPermission.values()) {
+                // The admin role gap (05 s3): OWNER and ORG_ADMIN now hold the two consent-gated marketer keys at ORG too (the share
+                // consent and the assignment kinds still gate their use); everything else is exactly what the enum gave.
+                boolean adminGap = (role == OrgRole.OWNER || role == OrgRole.ADMIN) && (p == OrgPermission.MEMBER_VIEW_FULL || p == OrgPermission.MEMBER_ACT_FOR);
+                if (adminGap) {
+                    assertThat(m.can(p)).as("%s / %s since the admin role gap", role, p.key()).isTrue();
+                    continue;
+                }
                 assertThat(m.can(p)).as("%s / %s", role, p.key()).isEqualTo(role.can(p));
                 assertThat(m.scopeOf(p)).as("%s / %s scope", role, p.key()).isEqualTo(role.scopeOf(p));
             }
@@ -136,7 +143,7 @@ class OrgRolesDataAccessIT {
         assertThat(m.roles()).extracting(OrgMembership.RoleRef::key).containsExactly("ORG_ADMIN", "MARKETING_MANAGER");
         assertThat(m.primaryRoleKey()).contains("ORG_ADMIN");
         assertThat(m.scopeFor("assignments.manage")).as("ORG on ORG_ADMIN, TEAM on MARKETING_MANAGER: widest wins").contains(PermissionScope.ORG);
-        assertThat(m.scopeFor("approvals.decide")).as("only the manager role grants it").contains(PermissionScope.TEAM);
+        assertThat(m.scopeFor("approvals.decide")).as("the manager role grants it at TEAM, ORG_ADMIN holds every key at ORG since the admin role gap: widest wins").contains(PermissionScope.ORG);
         assertThat(m.canKey("approvals.decide")).isTrue();
         assertThat(m.permissionKeys()).contains("approvals.decide", "assignments.manage", "members.invite");
         assertThat(m.role()).as("the legacy mirror is the primary role").isEqualTo(OrgRole.ADMIN);

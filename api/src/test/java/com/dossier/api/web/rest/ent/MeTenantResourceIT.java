@@ -286,7 +286,7 @@ class MeTenantResourceIT {
         assertThat(keys(me.path("workspaces"), "key")).containsExactly("admin", "marketing-mgmt");
         assertThat(me.path("landing").asText()).isEqualTo("/w/admin");
         assertThat(keys(me.path("roles"), "key")).containsExactlyInAnyOrder("ORG_ADMIN", "MARKETING_MANAGER");
-        assertThat(me.path("permissions").path("approvals.decide").asText()).isEqualTo("TEAM");
+        assertThat(me.path("permissions").path("approvals.decide").asText()).as("ORG_ADMIN holds every key at ORG, the widest wins").isEqualTo("ORG");
         assertThat(me.path("permissions").path("billing.view").asText()).isEqualTo("ORG");
         assertThat(keys(workspace(me, "marketing-mgmt").path("nav"), "key")).contains("home", "approvals", "workload");
     }

@@ -101,6 +101,13 @@ public final class RoleCeiling {
         return Optional.empty();
     }
 
+    /** The rows the actor holds for {@code key} (several roles may grant it), widest first; empty when none. */
+    public List<Row> heldRows(String key) {
+        List<Row> rows = new ArrayList<>(held.getOrDefault(key, List.of()));
+        rows.sort((a, b) -> b.scope().compareTo(a.scope()));
+        return rows;
+    }
+
     /** The widest scope the actor holds {@code key} at, if any. */
     public Optional<PermissionScope> scopeOf(String key) {
         PermissionScope best = null;
