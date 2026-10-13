@@ -104,7 +104,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @AutoConfigureMockMvc
 @Transactional
 // Every route is attacked by every caller: with the groups routes (X4.5) the sweeps outgrew the global 15 s default on a loaded machine.
-@org.junit.jupiter.api.Timeout(90)
+@org.junit.jupiter.api.Timeout(300)
 class OrgIsolationIT {
 
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
@@ -217,7 +217,25 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/invitations/bulk/revoke", Case.write("{\"ids\":[1]}", 200, null)),
         // Enterprise V2 X2.4: the dashboard. Dismissing an alert is a personal preference of the caller, so it writes no audit row.
         Map.entry("GET /api/orgs/{orgId}/dashboard", Case.read()),
-        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null))
+        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null)),
+        // Enterprise V2 Consultants board (talent-foundation.md section 5). Reads write no audit row; bulk calls write the changed rows plus one CONSULTANT_BULK summary.
+        Map.entry("GET /api/orgs/{orgId}/consultants", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/assignments", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/applications", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/activity", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/job-options", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/consultants", Case.write("{\"displayName\":\"Isolation Test\",\"email\":\"isolation.test@example.org\"}", 201, "CONSULTANT_CREATE")),
+        Map.entry("PATCH /api/orgs/{orgId}/consultants/{consultantId}", Case.versioned(200, "CONSULTANT_UPDATE", w -> "{\"locationLabel\":\"Hijacked\"}", w -> w.consultantVersion)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/marketer", Case.versioned(200, "CONSULTANT_ASSIGN", w -> "{\"marketerMemberId\":" + w.member.getId() + "}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/deactivate", Case.write("{\"reason\":\"Isolation test deactivation\"}", 200, "CONSULTANT_DEACTIVATE")),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/reactivate", Case.write(null, 200, null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/applications", Case.versioned(201, "APPLICATION_CREATE", w -> "{\"requirementId\":" + w.requirementId + "}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/bulk/availability", Case.people(200, "CONSULTANT_BULK", 2, w -> "{\"ids\":[" + w.consultantId + "],\"availability\":\"ON_PROJECT\"}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/bulk/marketer", Case.people(200, "CONSULTANT_BULK", 2, w -> "{\"ids\":[" + w.consultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/bulk/status", Case.people(200, "CONSULTANT_BULK", 2, w -> "{\"ids\":[" + w.consultantId + "],\"action\":\"DEACTIVATE\",\"reason\":\"Isolation test deactivation\"}", null, null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -293,6 +311,10 @@ class OrgIsolationIT {
         OrgGroup department;
         String memberVersion;
         Long offboardingId;
+        /** Consultants board: one consultant (with its ETag), one OPEN job, and marketer capacity for the member. */
+        Long consultantId;
+        String consultantVersion;
+        Long requirementId;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -402,6 +424,10 @@ class OrgIsolationIT {
             offboardingId = offboardingRows.saveAndFlush(sched).getId();
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
+            ConsultantIsolationFixture.Rows talent = ConsultantIsolationFixture.create(em, org.getId(), prefix, member.getId());
+            consultantId = talent.consultantId();
+            consultantVersion = talent.consultantVersion();
+            requirementId = talent.requirementId();
         }
 
         /** Puts the member in the SUSPENDED state (what a reinstate needs to find). */
@@ -431,6 +457,7 @@ class OrgIsolationIT {
             ids.put("pendingMemberId", String.valueOf(pending.getId())); // X1.8's resend names the INVITED seat; every other {memberId} route is the ACTIVE member
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             ids.put("alertKey", "MEMBERS_SUSPENDED");
+            ids.put("consultantId", String.valueOf(consultantId));
             return ids;
         }
 
@@ -489,7 +516,7 @@ class OrgIsolationIT {
         if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {

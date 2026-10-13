@@ -51,13 +51,55 @@ export interface SparklineProps {
   /** Names the trend for assistive tech; omit when the number beside it already says everything (then it is hidden). */
   label?: string;
   className?: string;
+  /** A smooth curve with a soft gradient fill (the enterprise KPI tiles) instead of straight segments. */
+  smooth?: boolean;
 }
 
-export function Sparkline({ values, color = chartColor(0), label, className }: SparklineProps) {
+/** A smooth path through the points (Catmull-Rom turned into cubic segments). */
+export function smoothPath(pts: [number, number][]): string {
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] ?? pts[i];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[i + 2] ?? p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1[0].toFixed(1)},${c1[1].toFixed(1)} ${c2[0].toFixed(1)},${c2[1].toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+
+export function Sparkline({ values, color = chartColor(0), label, className, smooth = false }: SparklineProps) {
   const pts = sparkPoints(values);
   if (pts.length < 2) return null; // one point (or none) is not a trend: draw nothing
   const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
   const area = `0,${SPARK_H} ${line} ${SPARK_W},${SPARK_H}`;
+  if (smooth) {
+    const d = smoothPath(pts);
+    const gid = `spark-${Math.abs([...values.join(",")].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 7))}`;
+    return (
+      <svg
+        viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
+        preserveAspectRatio="none"
+        data-sparkline
+        role={label ? "img" : undefined}
+        aria-label={label}
+        aria-hidden={label ? undefined : true}
+        className={cn("h-8 w-full", className)}
+        style={{ color }}
+      >
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="currentColor" stopOpacity={0.28} />
+            <stop offset="100%" stopColor="currentColor" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <path d={`${d} L${SPARK_W},${SPARK_H} L0,${SPARK_H} Z`} fill={`url(#${gid})`} />
+        <path d={d} fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+    );
+  }
   return (
     <svg
       viewBox={`0 0 ${SPARK_W} ${SPARK_H}`}
