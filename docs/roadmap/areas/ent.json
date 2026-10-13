@@ -349,7 +349,7 @@
       "tests": [
         "tenant.test.ts (host normalisation, platform-host classification incl. `localhost` vs `*.localhost`, flag-off short-circuit, fail-closed branches).",
         "proxy.test.ts (rewrite table: rewritten paths, excluded paths, platform host never rewritten, header set on every branch).",
-        "app/(tenant)/_t/layout.test.tsx (three kinds: UNKNOWN 404, PLATFORM notFound, TENANT title).",
+        "app/(tenant)/%5Ft/layout.test.tsx (three kinds: UNKNOWN 404, PLATFORM notFound, TENANT title).",
         "api.test.ts header forwarding (serverApiFetch + login/refresh handlers).",
         "Playwright tenant-unknown.spec.ts with extraHTTPHeaders Host for nobody.localhost, acme.localhost and localhost (incl. `/_t/` on the platform host → 404).",
         "BffDoesNotForwardForwardedHostTest (42 §6.2), layout-chrome.test.tsx (chrome mounted per group, absent in (tenant))."
