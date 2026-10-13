@@ -71,8 +71,8 @@ export function chipLabels(custom?: string[] | null): string[] {
 }
 
 /** The clean background plates (design/enterprise-login/v2 with the text and the card removed): phone / tablet portrait, and desktop. */
-const PLATE_PHONE = { src: "/ent/login/plate-phone.webp", width: 941, height: 3432 };
-const PLATE_DESKTOP = { src: "/ent/login/plate-desktop.webp", width: 1448, height: 1086 };
+const PLATE_PHONE = { src: "/ent/login/plate-phone-2.webp", width: 941, height: 3432 };
+const PLATE_DESKTOP = { src: "/ent/login/plate-desktop-2.webp", width: 1448, height: 1086 };
 
 /** Art-directed <picture>: only the plate for the current breakpoint is fetched (no double preload). Decorative. */
 function LoginBackdrop() {
@@ -219,7 +219,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
           className="tenant-login-rise flex min-h-[36vw] flex-col items-center px-6 pt-7 text-center lg:min-h-0 lg:items-start lg:self-start lg:pl-8 lg:pr-0 lg:pt-[clamp(56px,13vh,150px)] lg:text-left xl:pl-20"
           aria-labelledby={`${uid}-title`}
         >
-          <h1 id={`${uid}-title`} className="font-body relative max-w-[16ch] text-[32px] font-extrabold leading-[1.05] tracking-tight [text-shadow:0_0_18px_rgb(255_255_255/0.85)] sm:max-w-none sm:text-[48px] lg:text-[56px] xl:text-[64px]">
+          <h1 id={`${uid}-title`} className="font-body relative max-w-[16ch] text-[32px] font-extrabold leading-[1.05] tracking-tight [text-shadow:0_0_10px_rgb(255_255_255/0.35)] sm:max-w-none sm:text-[48px] lg:text-[56px] xl:text-[64px]">
             {title}
             <span aria-hidden className="tenant-spark absolute -right-9 -top-2 h-9 w-9 sm:-right-11 sm:h-11 sm:w-11">
               {SPARKS.map((st, i) => (
@@ -227,7 +227,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
               ))}
             </span>
           </h1>
-          <p className="mt-2 max-w-[30ch] text-[15px] [text-shadow:0_0_14px_rgb(255_255_255/0.85)] leading-snug text-[var(--brand-800)] sm:max-w-[40ch] sm:text-[20px] lg:mt-3 lg:max-w-[26ch] lg:text-[24px]">{subtitle}</p>
+          <p className="mt-2 max-w-[30ch] text-[15px] [text-shadow:0_0_8px_rgb(255_255_255/0.35)] leading-snug text-[var(--brand-800)] sm:max-w-[40ch] sm:text-[20px] lg:mt-3 lg:max-w-[26ch] lg:text-[24px]">{subtitle}</p>
         </section>
 
         {/* the bee scene lives in the plate; this spacer keeps the card below it on a phone / tablet */}
