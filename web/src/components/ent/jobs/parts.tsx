@@ -60,10 +60,10 @@ export function MatchStack({ matches }: { matches: MatchSummary }) {
   return (
     <div className="flex flex-col items-start gap-1" data-match-stack>
       <div className="flex items-center">
-        <ul aria-label="Best matching consultants" className="flex -space-x-2">
+        <ul aria-label="Best matching consultants" className="flex -space-x-2.5">
           {matches.top.map((m) => (
             <li key={m.consultantId} title={`${m.name} (${m.score}%)`} className="rounded-full ring-2 ring-paper">
-              <MemberAvatar name={m.name} size={26} />
+              <MemberAvatar name={m.name} size={32} />
             </li>
           ))}
         </ul>
