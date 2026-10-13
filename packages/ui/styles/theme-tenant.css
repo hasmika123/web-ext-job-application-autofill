@@ -144,13 +144,23 @@
   transform-origin: center;
 }
 
-/* Desktop: the heading is pinned to the plate's own coordinates (the plate is object-cover at 42% / 14%), so it always sits in the
- * empty sky above the bee, whatever the window shape. --plate-s is the plate's scale (screen px per plate px). */
+/* Desktop: the sign-in column is a full-height glass panel on the right edge (square, no card); the welcome text sits in it.
+ * On a phone / tablet the same markup stays a rounded card under the scene. */
 @media (min-width: 1024px) {
-  .theme-tenant .tenant-sky { --plate-s: max(calc(100vw / 1672), calc(100dvh / 941)); }
-  .theme-tenant .tenant-login-heading {
-    left: calc((100vw - 1672 * var(--plate-s)) * 0.42 + 250 * var(--plate-s));
-    top: calc((100dvh - 941 * var(--plate-s)) * 0.14 + 90 * var(--plate-s));
-    max-width: calc(520 * var(--plate-s));
+  .theme-tenant .tenant-panel {
+    background: color-mix(in srgb, var(--brand-100, #d4e4f8) 14%, rgb(255 255 255 / 0.36));
+    border-left: 1.5px solid rgb(255 255 255 / 0.78);
+    box-shadow: -24px 0 60px color-mix(in srgb, var(--brand-700, #0c4fa3) 14%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(1.1);
+    backdrop-filter: blur(20px) saturate(1.1);
+  }
+  .theme-tenant .tenant-panel .tenant-glass {
+    background: none;
+    border: 0;
+    box-shadow: none;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-radius: 0;
+    padding: 0;
   }
 }
