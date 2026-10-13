@@ -1,0 +1,25 @@
+import { forward, readObject } from "@/lib/admin-proxy";
+
+/**
+ * The BFF half of the Consultant workspace Job Matches page: validates only the SHAPE of the ids (numeric) and forwards to the API,
+ * which owns every rule (permission, tenant wall, "only your own match"). Tenant host headers come with `serverApiFetch`.
+ */
+const isId = (v: string): boolean => /^\d{1,18}$/.test(v);
+const notFound = () => Response.json({ error: "Not found." }, { status: 404 });
+
+export async function matchesCall(
+  params: Promise<{ orgId: string; matchId?: string }>,
+  suffix: string,
+  init: RequestInit = {},
+  request?: Request,
+): Promise<Response> {
+  const { orgId, matchId } = await params;
+  if (!isId(orgId) || (matchId !== undefined && !isId(matchId))) return notFound();
+  let body: string | undefined;
+  if (request) {
+    const obj = await readObject(request);
+    body = JSON.stringify(obj ?? {});
+  }
+  const path = `/api/orgs/${orgId}/me-workspace/matches${matchId === undefined ? "" : `/${matchId}`}${suffix}`;
+  return forward(path, { ...init, headers: { accept: "application/json" }, ...(body === undefined ? {} : { body, headers: { accept: "application/json", "content-type": "application/json" } }) });
+}
