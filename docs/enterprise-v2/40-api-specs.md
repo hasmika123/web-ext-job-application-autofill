@@ -154,7 +154,7 @@ duplicate `stripe_event.id` → 200 no-op). Route first: org event (`customerId 
 `OrgBillingWebhookHandler`; else personal path **unchanged**; BeeCompete-tagged events ignored. Handler failure → 500 so Stripe retries; permanent
 parse errors → 200 + `billing_drift`/log (never a poison loop). Only webhooks write billing mirrors.
 
-### 9.2 Outbound — org integrations (Phase 12, X12.5; ⚑ risk area: SSRF + replay)
+### 9.2 Outbound — org integrations (Phase 12, X12.3; ⚑ risk area: SSRF + replay)
 `org_webhook` (41 §10): URL (https only, no private/loopback/link-local/metadata IPs — resolved at send time and pinned, redirects disabled, 5 s timeout, 64 KB body),
 secret (SecretBox, shown once), event types, status. Delivery `POST` JSON `{id, type, createdAt, orgId, data}` with
 `X-Kiwiply-Signature: t=<unix>,v1=<hex hmac-sha256(secret, t + "." + body)>`, `X-Kiwiply-Event-Id`; receivers must reject `t` older than 5 min.
@@ -217,7 +217,7 @@ Columns: **perm / scope / feat** · **body → response** · **notable errors** 
 | PATCH `{o}/branding/draft` | `branding.manage` | partial → `BrandingDraftDTO` | 422 `CONTRAST_TOO_LOW`, `RESERVED_VALUE` | M | 2 |
 | POST `{o}/branding/publish` · `…/revert` | `branding.manage` | → published; `config_version++` | 409 `INVALID_TRANSITION` | I | 2 |
 | GET `{o}/branding/preview-theme?primary=&secondary=&accent=` | `branding.manage` | derived tokens + contrast report | | | 2 |
-| POST `{o}/branding/assets/{logo\|favicon\|banner}` | `branding.manage` | multipart PNG/SVG-sanitised ≤ 1 MB → key under `org/{id}/` | 413, 415 | | 2 |
+| POST `{o}/branding/assets/{logo\|favicon\|banner}` | `branding.manage` | multipart PNG/JPEG/WebP only (no SVG, 42 §3.8) ≤ 1 MB → key under `org/{id}/` | 413, 415 | | 2 |
 | GET `{o}/settings` · PUT `{o}/settings/{key}` | `org.settings.manage` | `OrgSettingDTO[]` · `{value, reason?}` | 422 allow-list | M | 2 |
 | PATCH `{o}` | `org.settings.manage` | identity fields (`displayName`…) | | M | 2 |
 | GET `{o}/dashboard` | `dashboard.view_org` (ORG) | widgets via `DashboardWidgetProvider` | | | 2 |
