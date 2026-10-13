@@ -73,6 +73,7 @@ class TalentDashboardIT {
     private Long beta;
 
     @BeforeEach
+    @org.junit.jupiter.api.Timeout(300)
     void seed() {
         assertThat(baseSeeder.seed().ran()).isTrue();
         assertThat(talentSeeder.seed().ran()).isTrue();
