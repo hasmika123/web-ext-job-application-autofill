@@ -5,8 +5,67 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-        Marketing workspace (opportunities) tables. Owned by the opportunities page ONLY; empty until that page adds its own changeSets.
-        Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
-        table names prefixed mkt_). Never edit another page's changelog.
+        Marketing workspace, Opportunities page. Owned by the opportunities page ONLY.
+        Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL + FK organization, every index starts with org_id,
+        composite tenant FKs to the parent's (org_id, id) unique key, varchar enum names, DATETIME(6) UTC, one precondition-guarded
+        changeSet per table, additive only, no sensitive PII).
+
+        The opportunities themselves are requirement_match rows (ASSIGNED / SUGGESTED). What the talent foundation does not hold is
+        the consultant's interest, the marketer who owns the follow-up, the next action and the activity feed: those live here.
+        The consultant ANSWERS on their own workspace; the marketer side only requests (E1), so no marketer endpoint writes `interest`.
     -->
+
+    <!-- Additive: the composite tenant FK below needs requirement_match to expose (org_id, id) as a unique key. -->
+    <changeSet id="mkt-opportunities-0-uk_requirement_match_org_id" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="requirement_match" indexName="uk_requirement_match_org_id"/></not></preConditions>
+        <addUniqueConstraint tableName="requirement_match" columnNames="org_id, id" constraintName="uk_requirement_match_org_id"/>
+        <rollback/>
+    </changeSet>
+
+    <!-- One row per opportunity that has marketing state (created lazily on the first request / seed). -->
+    <changeSet id="mkt-opportunities-1-mkt_opportunity" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_opportunity"/></not></preConditions>
+        <createTable tableName="mkt_opportunity">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="match_id" type="bigint"><constraints nullable="false"/></column>
+            <!-- VERY_INTERESTED / INTERESTED / OPEN / NOT_INTERESTED / NO_RESPONSE; written only from the consultant's side. -->
+            <column name="interest" type="varchar(20)" defaultValue="NO_RESPONSE"><constraints nullable="false"/></column>
+            <column name="owner_member_id" type="bigint"/>
+            <column name="next_action_at" type="${datetimeType}"/>
+            <column name="last_response_at" type="${datetimeType}"/>
+            <column name="interest_requested_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_opportunity" baseColumnNames="org_id" constraintName="fk_mkt_opportunity_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_opportunity" baseColumnNames="org_id, match_id" constraintName="fk_mkt_opportunity_match" referencedTableName="requirement_match" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_opportunity" baseColumnNames="org_id, owner_member_id" constraintName="fk_mkt_opportunity_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_opportunity" columnNames="org_id, id" constraintName="uk_mkt_opportunity_org_id"/>
+        <addUniqueConstraint tableName="mkt_opportunity" columnNames="org_id, match_id" constraintName="uk_mkt_opportunity_match"/>
+        <createIndex tableName="mkt_opportunity" indexName="ix_mkt_opportunity_interest"><column name="org_id"/><column name="interest"/></createIndex>
+        <createIndex tableName="mkt_opportunity" indexName="ix_mkt_opportunity_owner"><column name="org_id"/><column name="owner_member_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- The Recent Opportunity Activity feed and the detail timeline. text is a short verb phrase (no free text from a person). -->
+    <changeSet id="mkt-opportunities-2-mkt_opportunity_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_opportunity_event"/></not></preConditions>
+        <createTable tableName="mkt_opportunity_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="opportunity_id" type="bigint"><constraints nullable="false"/></column>
+            <!-- CREATED / ASSIGNED / INTEREST_REQUESTED / RESUME_REQUESTED / REVIEWED / INTEREST_CHANGED / RESUME_UPDATED -->
+            <column name="kind" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="text" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_opportunity_event" baseColumnNames="org_id" constraintName="fk_mkt_opportunity_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_opportunity_event" baseColumnNames="org_id, opportunity_id" constraintName="fk_mkt_opportunity_event_opp" referencedTableName="mkt_opportunity" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_opportunity_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_mkt_opportunity_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="mkt_opportunity_event" indexName="ix_mkt_opportunity_event_opp"><column name="org_id"/><column name="opportunity_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="mkt_opportunity_event" indexName="ix_mkt_opportunity_event_time"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>
