@@ -21,3 +21,4 @@ export { KanbanBoard, WorkloadColumn, TimelineFeed, mergeTimeline, capacityDots 
 export type { KanbanBoardProps, KanbanColumn, WorkloadColumnProps, WorkloadItem, TimelineFeedProps, TimelineEvent, TimelineSource } from "./boards";
 export { FunnelChart, SourceLogo, funnelWidths, FUNNEL_COLORS } from "./funnel";
 export type { FunnelStage } from "./funnel";
+export { HourglassIcon, TeamsIcon } from "./followup-icons";
