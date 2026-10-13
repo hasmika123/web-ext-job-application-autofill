@@ -281,7 +281,21 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/applications", Case.versioned(201, "APPLICATION_CREATE", w -> "{\"requirementId\":" + w.appTalent.requirementId() + ",\"consultantId\":" + w.appTalent.spareConsultantId() + "}", w -> null)),
         Map.entry("PATCH /api/orgs/{orgId}/applications/{applicationId}", Case.versioned(200, "APPLICATION_UPDATE", w -> "{\"nextAction\":\"Hijacked\"}", w -> null)),
         Map.entry("POST /api/orgs/{orgId}/applications/{applicationId}/stage", Case.versioned(200, "APPLICATION_STAGE", w -> "{\"stage\":\"SUBMITTED\"}", w -> null)),
-        Map.entry("POST /api/orgs/{orgId}/applications/{applicationId}/notes", Case.versioned(201, "APPLICATION_NOTE", w -> "{\"body\":\"Hijacked note\"}", w -> null))
+        Map.entry("POST /api/orgs/{orgId}/applications/{applicationId}/notes", Case.versioned(201, "APPLICATION_NOTE", w -> "{\"body\":\"Hijacked note\"}", w -> null)),
+        // Enterprise V2 Interviews page (docs/enterprise-v2/page-interviews.md): reads write no audit row; every mutation writes one INTERVIEW_* row.
+        Map.entry("GET /api/orgs/{orgId}/interviews", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/interviews/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/interviews/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/interviews/pickers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/interviews/pipeline", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/interviews/analytics", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/interviews/{interviewId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/interviews", Case.versioned(201, "INTERVIEW_CREATE", w -> "{\"consultantId\":" + w.appTalent.spareConsultantId() + ",\"clientId\":" + w.appTalent.clientId() + ",\"scheduledAt\":\"" + java.time.Instant.now().plus(java.time.Duration.ofDays(40)).truncatedTo(java.time.temporal.ChronoUnit.HOURS) + "\"}", w -> null)),
+        Map.entry("PATCH /api/orgs/{orgId}/interviews/{interviewId}", Case.versioned(200, "INTERVIEW_UPDATE", w -> "{\"notes\":\"Hijacked note\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/reschedule", Case.people(200, "INTERVIEW_RESCHEDULE", 1, w -> "{\"scheduledAt\":\"" + java.time.Instant.now().plus(java.time.Duration.ofDays(12)).truncatedTo(java.time.temporal.ChronoUnit.HOURS) + "\"}", null, w -> w.interviewState("SCHEDULED"))),
+        Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/status", Case.people(200, "INTERVIEW_STATUS", 1, w -> "{\"status\":\"IN_PROGRESS\"}", null, w -> w.interviewState("SCHEDULED"))),
+        Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/reminder", Case.people(200, "INTERVIEW_REMINDER", 1, w -> "{}", null, w -> w.interviewState("SCHEDULED"))),
+        Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/feedback", Case.people(201, "INTERVIEW_FEEDBACK", 1, w -> "{\"rating\":4,\"recommendation\":\"ADVANCE\"}", null, w -> w.interviewState("COMPLETED")))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -383,6 +397,8 @@ class OrgIsolationIT {
         String jobVersion;
         /** Applications page: one client, job, two consultants and an ASSIGNED application of this organization. */
         com.dossier.api.web.rest.ent.ApplicationItSupport.Rows appTalent;
+        /** Interviews page: one SCHEDULED interview of that application. */
+        Long interviewId;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -534,6 +550,22 @@ class OrgIsolationIT {
             matchId = jm.getId();
             jobVersion = com.dossier.api.service.ent.jobs.JobBoardService.versionOf(jr);
             appTalent = com.dossier.api.web.rest.ent.ApplicationItSupport.seed(em, org.getId(), owner.getId());
+            com.dossier.api.domain.ent.talent.TalentInterview iv = new com.dossier.api.domain.ent.talent.TalentInterview();
+            iv.setOrgId(org.getId());
+            iv.setApplicationId(appTalent.applicationId());
+            iv.setConsultantId(appTalent.consultantId());
+            iv.setClientId(appTalent.clientId());
+            iv.setScheduledAt(java.time.Instant.now().plus(java.time.Duration.ofDays(10)).truncatedTo(java.time.temporal.ChronoUnit.HOURS));
+            em.persist(iv);
+            em.flush();
+            interviewId = iv.getId();
+        }
+
+        /** Puts the world's interview in {@code status}, ten days out, with no reminder recorded (what each interview route needs to find). */
+        void interviewState(String status) {
+            em.createQuery("update TalentInterview i set i.status = :s, i.reminderRequestedAt = null, i.scheduledAt = :t where i.orgId = :o and i.id = :id")
+                .setParameter("s", status).setParameter("t", java.time.Instant.now().plus(java.time.Duration.ofDays(10)).truncatedTo(java.time.temporal.ChronoUnit.HOURS)).setParameter("o", org.getId()).setParameter("id", interviewId).executeUpdate();
+            em.clear();
         }
 
         /** ent-marketing: the id of this world's consultant profile (a made-up id until a prepare created it, which must also give a generic answer). */
@@ -617,6 +649,7 @@ class OrgIsolationIT {
             ids.put("jobId", String.valueOf(jobId));
             ids.put("matchId", String.valueOf(matchId));
             ids.put("applicationId", String.valueOf(appTalent.applicationId()));
+            ids.put("interviewId", String.valueOf(interviewId));
             return ids;
         }
 
