@@ -48,4 +48,12 @@ describe("Menu trigger", () => {
     fireEvent.keyDown(trigger, { key: "Enter" });
     expect(screen.getByRole("menu")).toBeTruthy();
   });
+  it("scrolling INSIDE the open menu keeps it open; the page scrolling away closes it (X4.5: a long list must stay reachable)", () => {
+    render(<Menu trigger={<IconButton aria-label="More options">⋯</IconButton>} items={[{ label: "Rename", onSelect: vi.fn() }]} />);
+    fireEvent.click(screen.getByRole("button", { name: "More options" }));
+    fireEvent.scroll(screen.getByRole("menu"));
+    expect(screen.getByRole("menu")).toBeTruthy();
+    fireEvent.scroll(window);
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
 });

@@ -61,7 +61,7 @@
           "key": "departments",
           "label": "Departments",
           "icon": "Building",
-          "href": "/w/admin/teams#departments",
+          "href": "/w/admin/departments",
           "needs": [
             "groups.manage"
           ]

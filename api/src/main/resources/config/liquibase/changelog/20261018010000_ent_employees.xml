@@ -223,5 +223,65 @@
             <column name="manager_member_id"/>
         </createIndex>
         <rollback><dropIndex tableName="org_member" indexName="ix_member_org_manager"/></rollback>
+
+    <!--
+        X4.5 (departments and teams) adds, on top of X4.3's columns and the org_group.parent_group_id above: the unique (org_id, id) key
+        on org_member so a lead can be a composite tenant foreign key (41 section 1, R3), org_group.lead_member_id (the one member who
+        leads the group; a lead counts as a member of it for TEAM / DEPARTMENT scope), version (the ETag behind If-Match), status
+        (ACTIVE / INACTIVE), and icon / color (closed picker lists validated by the service). Additive, nothing backfilled.
+    -->
+    <changeSet id="20261018010000-20" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_member" indexName="uk_member_org_id"/></not></preConditions>
+        <addUniqueConstraint tableName="org_member" columnNames="org_id, id" constraintName="uk_member_org_id"/>
+        <rollback><dropUniqueConstraint tableName="org_member" constraintName="uk_member_org_id"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-21" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="lead_member_id"/></not></preConditions>
+        <addColumn tableName="org_group"><column name="lead_member_id" type="bigint"/></addColumn>
+        <addForeignKeyConstraint baseTableName="org_group" baseColumnNames="org_id, lead_member_id" constraintName="fk_group_lead"
+            referencedTableName="org_member" referencedColumnNames="org_id, id" onDelete="RESTRICT"/>
+        <createIndex tableName="org_group" indexName="idx_group_org_lead">
+            <column name="org_id"/>
+            <column name="lead_member_id"/>
+        </createIndex>
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_group" constraintName="fk_group_lead"/>
+            <dropIndex tableName="org_group" indexName="idx_group_org_lead"/>
+            <dropColumn tableName="org_group" columnName="lead_member_id"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-22" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="version"/></not></preConditions>
+        <addColumn tableName="org_group"><column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column></addColumn>
+        <rollback><dropColumn tableName="org_group" columnName="version"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-23" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="status"/></not></preConditions>
+        <addColumn tableName="org_group"><column name="status" type="varchar(12)" defaultValue="ACTIVE"><constraints nullable="false"/></column></addColumn>
+        <rollback><dropColumn tableName="org_group" columnName="status"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-24" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="icon"/></not></preConditions>
+        <addColumn tableName="org_group"><column name="icon" type="varchar(24)"/></addColumn>
+        <rollback><dropColumn tableName="org_group" columnName="icon"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-25" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="color"/></not></preConditions>
+        <addColumn tableName="org_group"><column name="color" type="varchar(16)"/></addColumn>
+        <rollback><dropColumn tableName="org_group" columnName="color"/></rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-26" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_group" indexName="idx_group_org_parent"/></not></preConditions>
+        <createIndex tableName="org_group" indexName="idx_group_org_parent">
+            <column name="org_id"/>
+            <column name="parent_group_id"/>
+        </createIndex>
+        <rollback><dropIndex tableName="org_group" indexName="idx_group_org_parent"/></rollback>
     </changeSet>
 </databaseChangeLog>

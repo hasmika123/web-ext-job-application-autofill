@@ -183,7 +183,7 @@ the API re-checks with scope) · **Entitlement / module** · **Empty state** · 
 | Employees → `/w/admin/employees` | `EmployeesPage` (15 §3) | `GET …/members` | `member.view_summary`, `members.invite` | — | "It's just you so far" | X4.3, X4.4, X4.6 |
 | Invitations → `/w/admin/invitations` | `InvitationsPage` (its own board, design/enterprise-admin/invitations.png: counters, table, invite panel, activity; `badge: attention` with the INVITED count) | `GET …/invitations`, `…/counts`, `…/activity` | `members.invite` | — | "No invitations yet" → [Invite your first teammate] | X4.12 |
 | Teams → `/w/admin/teams` | `TeamsPage` (15 §6; departments + teams on one page; §25's two items become one page with two sections — the Departments nav item deep-links `#departments`) | `GET …/groups` | `groups.manage` | — | "Group people into departments and teams" | X4.5 |
-| Departments → `/w/admin/teams#departments` | same | | | | | |
+| Departments → `/w/admin/departments` | same | | | | | |
 | Roles & Permissions → `/w/admin/roles` | `RolesPage` | `GET …/roles`, `GET …/roles/{id}` | `roles.manage` (view: `member.view_summary`) | `flag.enterprise.roles` | "Start from a template" | X4.1 |
 | Consultants → `/w/admin/consultants` | `ConsultantDirectory` (D, X7.1) scope ORG | `GET …/consultants` | `consultants.view` | marketing (directory itself is Phase 7) | "No consultants yet" → [Invite consultants] | X7.1 (D) |
 | Resumes → `/w/admin/resumes` | `OrgResumesPage` (D, X7.3) scope ORG | `GET …/resumes` | `resumes.view_for` | marketing | "No resumes shared with Acme yet" (explains consent) | X7.3 (D) |

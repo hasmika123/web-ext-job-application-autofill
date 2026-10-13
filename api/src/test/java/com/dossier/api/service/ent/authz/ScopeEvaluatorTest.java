@@ -200,4 +200,41 @@ class ScopeEvaluatorTest {
         assertThat(e.inScope(lead, PermissionScope.DEPARTMENT, 33L)).isFalse();
         assertThat(e.inScope(lead, PermissionScope.TEAM, 31L)).as("TEAM is narrower: I lead no team").isFalse();
     }
+
+    @Test
+    void theLeadOfMyTeamIsInMyTeamScopeEvenWithoutATeamLink() {
+        // X4.5 (acceptance): a Marketing Manager whose team has lead R. Iyer sees Iyer's rows under TEAM scope
+        AuthzFakes.Directory d = new AuthzFakes.Directory()
+            .member(50, 500L, 600L) // the manager, in team 500
+            .member(51, null, null) // R. Iyer: leads team 500 and has no team link of their own
+            .member(52, null, null) // leads a team of someone else's
+            .leadsTeam(51, 500L)
+            .leadsTeam(52, 501L);
+        AuthzFakes.Assignments a = new AuthzFakes.Assignments();
+        ScopeEvaluator e = new ScopeEvaluator(d, a);
+        OrgMembership manager = actor(50);
+        assertThat(e.inScope(manager, PermissionScope.TEAM, 51L)).isTrue();
+        assertThat(e.inScope(manager, PermissionScope.TEAM, 52L)).as("the lead of another team").isFalse();
+        assertThat(e.inScope(manager, PermissionScope.DEPARTMENT, 51L)).as("DEPARTMENT reaches whatever TEAM does").isTrue();
+        assertThat(e.inScope(manager, PermissionScope.ASSIGNED, 51L)).isFalse();
+    }
+
+    @Test
+    void theLeadOfMyDepartmentAndOfATeamInItAreInMyDepartmentScope() {
+        AuthzFakes.Directory d = new AuthzFakes.Directory()
+            .member(60, null, 700L) // in department 700
+            .member(61, null, null) // leads department 700, no department link of their own
+            .member(62, null, null) // leads team 701, which sits under department 700
+            .member(63, null, null) // leads department 799 (another)
+            .leadsDepartment(61, 700L)
+            .leadsTeam(62, 701L)
+            .leadsDepartment(63, 799L)
+            .teamUnder(700L, 701L);
+        ScopeEvaluator e = new ScopeEvaluator(d, new AuthzFakes.Assignments());
+        OrgMembership member = actor(60);
+        assertThat(e.inScope(member, PermissionScope.DEPARTMENT, 61L)).isTrue();
+        assertThat(e.inScope(member, PermissionScope.DEPARTMENT, 62L)).isTrue();
+        assertThat(e.inScope(member, PermissionScope.DEPARTMENT, 63L)).isFalse();
+        assertThat(e.inScope(member, PermissionScope.TEAM, 61L)).as("TEAM is narrower than a department lead").isFalse();
+    }
 }

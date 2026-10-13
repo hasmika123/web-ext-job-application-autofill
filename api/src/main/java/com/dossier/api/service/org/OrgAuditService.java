@@ -68,6 +68,10 @@ public class OrgAuditService {
     public static final String GROUP_CREATE = "GROUP_CREATE";
     public static final String GROUP_UPDATE = "GROUP_UPDATE";
     public static final String GROUP_DELETE = "GROUP_DELETE";
+    /** X4.5: people moved into or out of a group, or a team re-parented (one row per request, the ids in the details). */
+    public static final String GROUP_MOVE = "GROUP_MOVE";
+    /** X4.5: a group's lead changed (MEDIUM: the lead counts as a member of the group for TEAM / DEPARTMENT scope). */
+    public static final String GROUP_LEAD = "GROUP_LEAD";
 
     // --- Enterprise V2 tenancy (X1.2): hostnames and branding add their own keys in their stories ---
     public static final String ORG_SUBDOMAIN_SET = "ORG_SUBDOMAIN_SET";

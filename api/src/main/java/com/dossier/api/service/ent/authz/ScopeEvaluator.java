@@ -67,6 +67,7 @@ public class ScopeEvaluator {
         if (me.get().departmentGroupId() != null) myDepartments.add(me.get().departmentGroupId());
         if (myDepartments.isEmpty()) return false;
         if (target.get().departmentGroupId() != null && myDepartments.contains(target.get().departmentGroupId())) return true;
+        if (!java.util.Collections.disjoint(myDepartments, directory.departmentsLedBy(orgId, targetMemberId))) return true; // the department's lead counts as a member of it
         Set<Long> teamsInMyDepartments = directory.teamsUnder(orgId, myDepartments);
         if (target.get().teamGroupId() != null && teamsInMyDepartments.contains(target.get().teamGroupId())) return true;
         // consultants assigned to anyone in those teams are the department's too
@@ -76,6 +77,7 @@ public class ScopeEvaluator {
     private boolean inTeamScope(Long orgId, Set<Long> teams, ScopeDirectory.MemberFacts target, Long targetMemberId, Set<AssignmentKind> kinds) {
         if (teams.isEmpty()) return false;
         if (target.teamGroupId() != null && teams.contains(target.teamGroupId())) return true;
+        if (!java.util.Collections.disjoint(teams, directory.teamsLedBy(orgId, targetMemberId))) return true; // a team's lead counts as a member of it (05 section 4)
         Set<Long> teammates = directory.memberIdsInTeams(orgId, teams);
         return assignments.isAssignedToAny(orgId, teammates, targetMemberId, kinds);
     }

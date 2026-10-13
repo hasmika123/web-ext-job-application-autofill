@@ -160,6 +160,13 @@ OWNER: step 1 shows "Transfer ownership first" and links the transfer flow.
   `DELETE …/groups/{id}` (empty only), `POST …/groups/{id}/members {memberIds[]}` (bulk move
   shortcut). Permission `groups.manage` (exists) — `departments.manage`/`teams.manage` (05 §3)
   are aliases resolved to it by `EntPermissions` so HR templates work without a second key.
+- **As built (X4.5):** pages `/w/admin/departments` and `/w/admin/teams` (the boards in `design/enterprise-admin/`), API additions
+  `GET …/groups/directory` (filters kind, departmentId, status, q; sort name|members|created|lead|department; KPI `summary`),
+  `GET …/groups/structure`, `GET …/groups/{id}` (people + teams, ETag), `GET …/groups/people` (picker), `GET …/groups/pickers`,
+  `DELETE …/groups/{id}/members/{memberId}`; `POST …/groups/{id}/members` takes an `Idempotency-Key` and answers one row per id;
+  `PATCH` takes `clearParent` / `clearLead`; `If-Match` is required inside the Enterprise flag. Columns on `org_group`: `lead_member_id`,
+  `version`, `status`, `icon`, `color` (`parent_group_id` is X4.3's). Nothing is shown that no data backs: no open roles, workload %
+  or performance series.
 
 ## 7. Managers and scope
 - `manager_member_id` feeds `ScopeEvaluator` for the MANAGER assignment kind and approvals

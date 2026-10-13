@@ -103,6 +103,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
+// Every route is attacked by every caller: with the groups routes (X4.5) the sweeps outgrew the global 15 s default on a loaded machine.
+@org.junit.jupiter.api.Timeout(90)
 class OrgIsolationIT {
 
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
@@ -152,8 +154,16 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/close", Case.write(null, 200, OrgAuditService.ORG_CLOSE)),
         Map.entry("GET /api/orgs/{orgId}/groups", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/groups", Case.write("{\"name\":\"Hijack\"}", 201, OrgAuditService.GROUP_CREATE)),
-        Map.entry("PATCH /api/orgs/{orgId}/groups/{groupId}", Case.write("{\"name\":\"Hijack\"}", 200, OrgAuditService.GROUP_UPDATE)),
-        Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}", Case.write(null, 204, OrgAuditService.GROUP_DELETE)),
+        // Enterprise V2 X4.5: the flag is on in every world here, so a group edit or delete carries the group's ETag as If-Match.
+        Map.entry("PATCH /api/orgs/{orgId}/groups/{groupId}", Case.versioned(200, OrgAuditService.GROUP_UPDATE, w -> "{\"name\":\"Hijack\"}", w -> w.groupVersion)),
+        Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}", Case.versioned(204, OrgAuditService.GROUP_DELETE, w -> null, w -> w.groupVersion)),
+        Map.entry("GET /api/orgs/{orgId}/groups/directory", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/groups/structure", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/groups/pickers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/groups/people", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/groups/{groupId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/groups/{groupId}/members", Case.versioned(200, OrgAuditService.GROUP_MOVE, w -> "{\"memberIds\":[" + w.member.getId() + "]}", w -> null)),
+        Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}/members/{memberId}", Case.write(null, 204, null)),
         Map.entry("GET /api/orgs/{orgId}/roles", Case.read()),
         // Enterprise V2 X1.14: role writes and the Roles and Permissions board data. Role edits and deletes carry the role version as If-Match.
         Map.entry("GET /api/orgs/{orgId}/roles/overview", Case.read()),
@@ -213,6 +223,7 @@ class OrgIsolationIT {
     @Autowired private OrganizationRepository orgs;
     @Autowired private OrgMemberRepository members;
     @Autowired private OrgGroupRepository groups;
+    @Autowired private com.dossier.api.repository.org.OrgGroupPlacementRepository placements;
     @Autowired private OrgInviteBatchRepository batches;
     @Autowired private OrgJoinCodeRepository codes;
     @Autowired private OrgDomainRepository domains;
@@ -270,6 +281,8 @@ class OrgIsolationIT {
         Long roleId;
         String roleVersion;
         Long consultantRoleId;
+        /** X4.5: the weak ETag of this world's group, what a legitimate edit or delete sends as If-Match. */
+        String groupVersion;
         /** X4.3/X4.4: a department of this organization, the member's version (ETag), and one scheduled last day for the member. */
         OrgGroup department;
         String memberVersion;
@@ -307,6 +320,7 @@ class OrgIsolationIT {
             g.setName(prefix + " cohort");
             g.setKind(OrgGroupKind.COHORT);
             group = groups.saveAndFlush(g);
+            groupVersion = "W/\"" + group.getVersion() + "\"";
 
             OrgInviteBatch b = new OrgInviteBatch();
             b.setOrgId(org.getId());
@@ -466,6 +480,7 @@ class OrgIsolationIT {
             return MockMvcRequestBuilders.multipart(HttpMethod.valueOf(route.method()), uri).file(new MockMultipartFile("file", "logo.png", "image/png", samplePng()));
         }
         MockHttpServletRequestBuilder req = MockMvcRequestBuilders.request(HttpMethod.valueOf(route.method()), uri).contentType(MediaType.APPLICATION_JSON);
+        if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
         if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard"))) {
@@ -509,10 +524,10 @@ class OrgIsolationIT {
         StringBuilder s = new StringBuilder();
         Organization o = orgs.findByOrgId(w.org.getId()).orElseThrow();
         s.append("org:").append(o.getName()).append('|').append(o.getStatus()).append('|').append(o.getSettingsJson()).append('|').append(o.getClosedAt()).append('|').append(o.getWebsite()).append('|').append(o.getBillingEmail()).append('\n');
-        for (OrgGroup g : groups.findByOrgIdOrderBySortOrderAscNameAsc(w.org.getId())) s.append("group:").append(g.getId()).append('|').append(g.getName()).append('|').append(g.getKind()).append('|').append(g.getSortOrder()).append('\n');
+        for (OrgGroup g : groups.findByOrgIdOrderBySortOrderAscNameAsc(w.org.getId())) s.append("group:").append(g.getId()).append('|').append(g.getName()).append('|').append(g.getKind()).append('|').append(g.getSortOrder()).append('|').append(g.getParentGroupId()).append('|').append(g.getLeadMemberId()).append('|').append(g.getStatus()).append('|').append(g.getVersion()).append('\n');
         for (OrgMember m : w.everySeat()) {
             OrgMember row = members.findByOrgIdAndId(w.org.getId(), m.getId()).orElseThrow();
-            s.append("seat:").append(row.getId()).append('|').append(row.getRole()).append('|').append(row.getStatus()).append('|').append(row.getGroupId()).append('|').append(row.getDisplayLabel()).append('|').append(row.getSupportOwnerMemberId()).append('|').append(row.getInviteTokenHash()).append('|').append(row.getInviteSentAt()).append('|').append(row.getInviteResendCount()).append('\n');
+            s.append("seat:").append(row.getId()).append('|').append(row.getRole()).append('|').append(row.getStatus()).append('|').append(row.getGroupId()).append('|').append(row.getDepartmentGroupId()).append('|').append(row.getTeamGroupId()).append('|').append(row.getDisplayLabel()).append('|').append(row.getSupportOwnerMemberId()).append('|').append(row.getInviteTokenHash()).append('|').append(row.getInviteSentAt()).append('|').append(row.getInviteResendCount()).append('\n');
             s.append("share:").append(shares.findByOrgIdAndMemberId(w.org.getId(), m.getId()).map(d -> d.getScope() + "|" + d.getFullToMemberId() + "|" + d.getUpdatedAt()).orElse("none")).append('\n');
         }
         s.append("batches:").append(batches.findByOrgIdOrderByCreatedAtDesc(w.org.getId()).size()).append('\n');
@@ -702,7 +717,13 @@ class OrgIsolationIT {
             pendingA.setInviteTokenHash(keptHash);
             members.saveAndFlush(pendingA);
         }));
-        checks.put("OrgGroupRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdOrderBySortOrderAscNameAsc", "existsByOrgIdAndName", "countByOrgId", "deleteByOrgIdAndId"), () -> {
+        checks.put("OrgGroupPlacementRepository", new RepoCheck(Set.of("placements"), () -> {
+            assertThat(placements.placements(B, OrgMemberStatus.LIVE)).as("only B's own live seats, never A's").extracting(r -> (Long) r[0]).doesNotContain(a.owner.getId(), a.member.getId(), a.pending.getId());
+            assertThat(placements.placements(B, OrgMemberStatus.LIVE)).hasSize(3); // B's owner, member and pending invite
+        }));
+        checks.put("OrgGroupRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdOrderBySortOrderAscNameAsc", "existsByOrgIdAndName", "countByOrgId", "deleteByOrgIdAndId", "countByOrgIdAndParentGroupId", "findByOrgIdAndParentGroupIdOrderBySortOrderAscNameAsc"), () -> {
+            assertThat(groups.countByOrgIdAndParentGroupId(B, a.group.getId())).isZero();
+            assertThat(groups.findByOrgIdAndParentGroupIdOrderBySortOrderAscNameAsc(B, a.group.getId())).isEmpty();
             assertThat(groups.findByOrgIdAndId(B, a.group.getId())).isEmpty();
             assertThat(groups.findByOrgIdOrderBySortOrderAscNameAsc(B)).extracting(OrgGroup::getId).doesNotContain(a.group.getId());
             assertThat(groups.existsByOrgIdAndName(B, a.group.getName())).isFalse();

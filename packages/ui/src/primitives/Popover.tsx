@@ -148,7 +148,7 @@ export default function Popover({ label, trigger, children, align = "start", cla
               visibility: pos ? "visible" : "hidden",
             }}
             className={cn(
-              "scroll-slim z-[161] min-w-[16rem] overflow-y-auto rounded-[var(--radius)] border border-line bg-paper p-2 text-ink shadow-[var(--shadow-lg)] outline-none",
+              "scroll-slim z-[1100] min-w-[16rem] overflow-y-auto rounded-[var(--radius)] border border-line bg-paper p-2 text-ink shadow-[var(--shadow-lg)] outline-none",
               panelClassName,
             )}
           >
