@@ -163,7 +163,10 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/branding/discard", Case.write(null, 200, null)),
         Map.entry("POST /api/orgs/{orgId}/branding/versions/{versionNo}/restore", Case.write(null, 200, OrgAuditService.BRANDING_RESTORE)),
         Map.entry("POST /api/orgs/{orgId}/branding/assets/{kind}", Case.upload(200, OrgAuditService.BRANDING_ASSET)),
-        Map.entry("DELETE /api/orgs/{orgId}/branding/assets/{kind}", Case.write(null, 200, null))
+        Map.entry("DELETE /api/orgs/{orgId}/branding/assets/{kind}", Case.write(null, 200, null)),
+        // Enterprise V2 X2.4: the dashboard. Dismissing an alert is a personal preference of the caller, so it writes no audit row.
+        Map.entry("GET /api/orgs/{orgId}/dashboard", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -333,6 +336,7 @@ class OrgIsolationIT {
             ids.put("roleId", String.valueOf(roleId));
             ids.put("memberId", String.valueOf(member.getId()));
             ids.put("kind", "logo");
+            ids.put("alertKey", "MEMBERS_SUSPENDED");
             return ids;
         }
 
@@ -521,7 +525,7 @@ class OrgIsolationIT {
             if (ids.equals(b.ids())) continue; // the route has no row id: nothing of A's to name
             Matcher m = VAR.matcher(route.pattern());
             boolean hasRowId = false;
-            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind");
+            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("alertKey"); // kind and alertKey are fixed words, not rows
             if (!hasRowId) continue;
             assertGeneric404(hostile(route, uri(route, ids), a, user("bravo-owner")), route.key() + " as B's owner with B's orgId and A's row id");
             variants++;

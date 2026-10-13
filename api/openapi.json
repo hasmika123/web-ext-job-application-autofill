@@ -18,6 +18,9 @@
     "name" : "billing",
     "description" : "The current user's plan. Stripe is the source of truth; this reads our mirror of it."
   }, {
+    "name" : "org-dashboard",
+    "description" : "Organization dashboard: widgets with real data or an honest state, alerts and their dismissal."
+  }, {
     "name" : "demo",
     "description" : "Public demo accounts (only while an admin has switched them on)."
   }, {
@@ -4304,6 +4307,34 @@
         }
       }
     },
+    "/api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss" : {
+      "post" : {
+        "tags" : [ "org-dashboard" ],
+        "summary" : "Hide an alert for 7 days (for the caller only)",
+        "description" : "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT). Other administrators still see it. Unknown key, or no dashboard.view_org: 404.",
+        "operationId" : "dismiss_4",
+        "parameters" : [ {
+          "name" : "alertKey",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DismissResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/close" : {
       "post" : {
         "tags" : [ "org-resource" ],
@@ -8460,11 +8491,31 @@
         }
       }
     },
+    "/api/orgs/{orgId}/dashboard" : {
+      "get" : {
+        "tags" : [ "org-dashboard" ],
+        "summary" : "The Org Admin dashboard",
+        "description" : "{orgId, generatedAt, widgets: [{key, state: ok|empty|unavailable|error, reason?, module?, data?}]} in board order. dashboard.view_org required; each widget additionally needs its own permission (otherwise it is absent) and its module on (otherwise state unavailable, reason NOT_ENABLED, no data). data is present only when state is ok. 404 for everyone else, and whenever the enterprise or roles flag is off for the organization.",
+        "operationId" : "get_5",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/branding" : {
       "get" : {
         "tags" : [ "org-branding" ],
         "summary" : "Published values, the draft, its version and the publish history",
-        "operationId" : "get_5",
+        "operationId" : "get_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -8570,7 +8621,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_6",
+        "operationId" : "get_7",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -9957,7 +10008,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_7",
+        "operationId" : "get_8",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -13095,6 +13146,18 @@
           }
         }
       },
+      "DismissResponse" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "until" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "OrgBrandingDTO" : {
         "type" : "object",
         "properties" : {
@@ -15447,6 +15510,249 @@
           },
           "version" : {
             "type" : "string"
+          }
+        }
+      },
+      "ActivityData" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityItem"
+            }
+          }
+        }
+      },
+      "ActivityItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "actorLogin" : {
+            "type" : "string"
+          },
+          "actorName" : {
+            "type" : "string"
+          },
+          "targetType" : {
+            "type" : "string"
+          },
+          "targetLogin" : {
+            "type" : "string"
+          },
+          "targetName" : {
+            "type" : "string"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "AlertItem" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "AlertsData" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AlertItem"
+            }
+          }
+        }
+      },
+      "InvitesData" : {
+        "type" : "object",
+        "properties" : {
+          "invited" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "expiringSoon" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "suspended" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "QuickActionItem" : {
+        "type" : "object",
+        "description" : "available=false renders a 'soon' chip, never a dead link; soonModule names what it waits for",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "href" : {
+            "type" : "string"
+          },
+          "permission" : {
+            "type" : "string"
+          },
+          "available" : {
+            "type" : "boolean"
+          },
+          "soonModule" : {
+            "type" : "string"
+          }
+        }
+      },
+      "QuickActionsData" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QuickActionItem"
+            }
+          }
+        }
+      },
+      "Response" : {
+        "type" : "object",
+        "description" : "The widgets the caller may see, in board order. A widget the caller has no permission for is absent, never greyed.",
+        "properties" : {
+          "orgId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "generatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "widgets" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Widget"
+            }
+          }
+        }
+      },
+      "StatTileData" : {
+        "type" : "object",
+        "description" : "A count with its real change. previous is the same count 30 days ago (from seat start and end dates); deltaPct is null when previous is 0.",
+        "properties" : {
+          "value" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "previous" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deltaPct" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "sparkline" : {
+            "type" : "array",
+            "description" : "Eight weekly points, oldest first, the last equal to value",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "comparedTo" : {
+            "type" : "string"
+          },
+          "counts" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            },
+            "description" : "Named parts of the number, for example consultants: active, invited, suspended"
+          }
+        }
+      },
+      "SubscriptionSummaryData" : {
+        "type" : "object",
+        "description" : "Status only until billing is connected",
+        "properties" : {
+          "orgStatus" : {
+            "type" : "string"
+          },
+          "setupFeePaidAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Widget" : {
+        "type" : "object",
+        "description" : "One widget. data is present only when state is ok; its shape is named by key (see the *Data schemas).",
+        "properties" : {
+          "key" : {
+            "type" : "string",
+            "description" : "consultants.total, employees.active, applications.active, interviews.upcoming, placements, finance.summary, team.performance, pipeline.overview, quick.actions, alerts, activity.recent, invites.pending, subscription.summary"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "ok", "empty", "unavailable", "error" ]
+          },
+          "reason" : {
+            "type" : "string",
+            "description" : "Why the widget is empty or unavailable: NOT_ENABLED (its module is off or not built yet), NO_CONSULTANTS, NO_EMPLOYEES, NO_ALERTS, NO_ACTIVITY, NOTHING_PENDING, PROVIDER_FAILED"
+          },
+          "module" : {
+            "type" : "string",
+            "description" : "The module the widget belongs to, when it is unavailable because of it"
+          },
+          "data" : {
+            "description" : "consultants.total, employees.active: StatTile. invites.pending: Invites. activity.recent: Activity. alerts: Alerts. quick.actions: QuickActions. subscription.summary: SubscriptionSummary.",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/StatTileData"
+            }, {
+              "$ref" : "#/components/schemas/InvitesData"
+            }, {
+              "$ref" : "#/components/schemas/ActivityData"
+            }, {
+              "$ref" : "#/components/schemas/AlertsData"
+            }, {
+              "$ref" : "#/components/schemas/QuickActionsData"
+            }, {
+              "$ref" : "#/components/schemas/SubscriptionSummaryData"
+            } ]
           }
         }
       },
