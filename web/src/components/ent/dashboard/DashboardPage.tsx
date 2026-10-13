@@ -28,6 +28,7 @@ import {
   ZapIcon,
   BarChart,
   DonutChart,
+  chartColor,
   useToast,
   cn,
 } from "@kiwiply/ui";
@@ -45,9 +46,12 @@ import {
   dismissAlert,
   fetchDashboard,
   invitesOf,
+  lastMonths,
+  pipelineOf,
   quickActionsOf,
   relativeTime,
   subscriptionOf,
+  teamOf,
   widgetOf,
   type AlertItem,
   type DashboardView,
@@ -68,21 +72,22 @@ export const REVALIDATE_MS = 30_000;
 export const UNDO_MS = 6_000;
 
 const TILES: Record<TileKey, Omit<TileSpec, "key" | "title">> = {
-  "consultants.total": { icon: UsersIcon, tone: "violet" },
-  "employees.active": { icon: UserIcon, tone: "green" },
-  "applications.active": { icon: FileTextIcon, tone: "accent" },
-  "interviews.upcoming": { icon: CalendarIcon, tone: "amber" },
-  placements: { icon: BriefcaseIcon, tone: "violet" },
-  "finance.summary": { icon: DollarIcon, tone: "pink" },
+  "consultants.total": { icon: UsersIcon, tone: "violet", spark: "var(--color-v2-violet)" },
+  "employees.active": { icon: UserIcon, tone: "green", spark: "var(--color-v2-green)" },
+  "applications.active": { icon: FileTextIcon, tone: "accent", spark: "var(--brand-solid, var(--color-accent))" },
+  "interviews.upcoming": { icon: CalendarIcon, tone: "amber", spark: "var(--color-v2-amber)" },
+  placements: { icon: BriefcaseIcon, tone: "violet", spark: "var(--color-v2-violet)" },
+  "finance.summary": { icon: DollarIcon, tone: "pink", spark: "var(--color-v2-coral)" },
 };
 
-const ACTION_ICONS: Record<string, { icon: ComponentType<IconProps>; tone: IconTone }> = {
-  "invite-employee": { icon: UserIcon, tone: "accent" },
-  "assign-marketer": { icon: UsersIcon, tone: "green" },
-  "configure-licenses": { icon: GearIcon, tone: "violet" },
-  "review-applications": { icon: FileTextIcon, tone: "amber" },
-  "view-pipeline": { icon: BoardIcon, tone: "teal" },
-  "configure-organization": { icon: BuildingIcon, tone: "pink" },
+/** Quick action icon tiles: solid colour, white glyph (the board): brand, green, violet, the brand's second colour. */
+const ACTION_ICONS: Record<string, { icon: ComponentType<IconProps>; solid: string }> = {
+  "invite-employee": { icon: UserIcon, solid: "bg-[var(--brand-solid,var(--color-accent))]" },
+  "assign-marketer": { icon: UsersIcon, solid: "bg-[var(--color-v2-green)]" },
+  "configure-licenses": { icon: GearIcon, solid: "bg-[var(--color-v2-violet)]" },
+  "review-applications": { icon: FileTextIcon, solid: "bg-[var(--brand-2-solid,var(--color-v2-amber))]" },
+  "view-pipeline": { icon: BoardIcon, solid: "bg-[var(--color-v2-teal)]" },
+  "configure-organization": { icon: BuildingIcon, solid: "bg-[var(--color-v2-coral)]" },
 };
 
 /* ── data hook ─────────────────────────────────────────────────────────────────────── */
@@ -157,37 +162,44 @@ function stateBody({ loading, widget, onRetry }: CardBody, what: string, empty?:
   return null;
 }
 
-interface TeamData {
-  months: string[];
-  series: { key: string; label: string; values: number[] }[];
-}
-interface PipelineData {
-  total?: number;
-  slices: { key: string; label: string; value: number }[];
-}
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+/** Series colours by key: brand primary, status green, the brand's second colour. Distinct from each other whatever the tenant's colours are. */
+const TEAM_COLORS: Record<string, string> = { applications: chartColor(0), interviews: "var(--color-v2-green)", placements: chartColor(1) };
+/** Pipeline stages, left to right through the funnel: brand, blue, brand second colour, green, violet. */
+const STAGE_COLORS: Record<string, string> = { new: chartColor(0), in_review: "var(--color-v2-teal)", interviewing: chartColor(1), offered: "var(--color-v2-green)", hired: "var(--color-v2-violet)" };
 
-function teamOf(w: DashboardWidget): TeamData | null {
-  if (w.state !== "ok" || !isObj(w.data) || !Array.isArray(w.data.months) || !Array.isArray(w.data.series)) return null;
-  const series = w.data.series.filter((s): s is TeamData["series"][number] => isObj(s) && typeof s.key === "string" && typeof s.label === "string" && Array.isArray(s.values));
-  return series.length ? { months: w.data.months.map(String), series } : null;
-}
-function pipelineOf(w: DashboardWidget): PipelineData | null {
-  if (w.state !== "ok" || !isObj(w.data) || !Array.isArray(w.data.slices)) return null;
-  const slices = w.data.slices.filter((s): s is PipelineData["slices"][number] => isObj(s) && typeof s.key === "string" && typeof s.label === "string" && typeof s.value === "number");
-  return slices.length ? { total: typeof w.data.total === "number" ? w.data.total : undefined, slices } : null;
-}
+const RANGES = [
+  { months: 3, label: "Last 3 Months" },
+  { months: 6, label: "Last 6 Months" },
+] as const;
 
 function TeamPerformanceCard({ body }: { body: CardBody }) {
+  const [range, setRange] = useState<number>(6);
   const { widget } = body;
   if (!body.loading && !widget) return null;
   const shared = stateBody(body, "team performance");
-  const team = widget && !body.loading ? teamOf(widget) : null;
+  const full = !body.loading ? teamOf(widget) : null;
+  const team = full ? lastMonths(full, range) : null;
   return (
     <section aria-labelledby="dash-team" data-dash-card="team.performance" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5 lg:col-span-2 xl:col-span-1")}>
-      <CardHead id="dash-team" icon={BarChartIcon} title="Team Performance" />
+      <CardHead id="dash-team" icon={BarChartIcon} title="Team Performance">
+        {team ? (
+          <select
+            aria-label="Range"
+            data-team-range
+            value={range}
+            onChange={(e) => setRange(Number(e.target.value))}
+            className="min-h-9 flex-none rounded-lg border border-line bg-paper px-2.5 text-[13px] font-medium text-ink-soft hover:bg-paper-2"
+          >
+            {RANGES.filter((r) => r.months <= (full?.months.length ?? 0)).map((r) => (
+              <option key={r.months} value={r.months}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </CardHead>
       <div className="mt-3 flex flex-1 flex-col">
-        {shared ?? (team ? <BarChart label="Team performance by month" categories={team.months} series={team.series} /> : <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>)}
+        {shared ?? (team ? <BarChart label="Team performance by month" categories={team.months} series={team.series.map((x) => ({ ...x, color: TEAM_COLORS[x.key] }))} height={230} /> : <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>)}
       </div>
     </section>
   );
@@ -197,14 +209,14 @@ function PipelineCard({ body }: { body: CardBody }) {
   const { widget } = body;
   if (!body.loading && !widget) return null;
   const shared = stateBody(body, "the pipeline");
-  const pipe = widget && !body.loading ? pipelineOf(widget) : null;
+  const pipe = !body.loading ? pipelineOf(widget) : null;
   return (
     <section aria-labelledby="dash-pipeline" data-dash-card="pipeline.overview" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
       <CardHead id="dash-pipeline" icon={HandshakeIcon} title="Pipeline Overview" tone="teal" />
       <div className="mt-3 flex flex-1 flex-col">
         {shared ??
           (pipe ? (
-            <DonutChart label="Applications by stage" total={pipe.total} totalLabel="Total applications" slices={pipe.slices} />
+            <DonutChart size={150} label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
           ) : (
             <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>
           ))}
@@ -214,15 +226,14 @@ function PipelineCard({ body }: { body: CardBody }) {
 }
 
 const ACTIVITY_SHOWN = 6; // the board shows five or six; "View all" has the rest
-const QUICK_SHOWN = 4; // the board shows four; the rest the API sends sit behind "Show more"
+const QUICK_SHOWN = 4; // the board shows four; the rest the API sends are reachable from the menu
 
 function QuickActionsCard({ body }: { body: CardBody }) {
-  const [all, setAll] = useState(false);
   const { widget } = body;
   if (!body.loading && !widget) return null;
   const shared = stateBody(body, "your shortcuts");
   const every = widget && !body.loading ? quickActionsOf(widget) : [];
-  const items = all ? every : every.slice(0, QUICK_SHOWN);
+  const items = every.slice(0, QUICK_SHOWN);
   return (
     <section aria-labelledby="dash-quick" data-dash-card="quick.actions" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
       <CardHead id="dash-quick" icon={ZapIcon} title="Quick Actions" />
@@ -236,31 +247,26 @@ function QuickActionsCard({ body }: { body: CardBody }) {
             ))}
           </ul>
         )}
-        {!shared && every.length > QUICK_SHOWN ? (
-          <button type="button" onClick={() => setAll((v) => !v)} aria-expanded={all} className="mt-2 min-h-9 w-full rounded-lg px-2 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft">
-            {all ? "Show fewer" : `Show ${every.length - QUICK_SHOWN} more`}
-          </button>
-        ) : null}
       </div>
     </section>
   );
 }
 
 function ActionRow({ a }: { a: QuickActionItem }) {
-  const meta = ACTION_ICONS[a.key] ?? { icon: SparklesIcon, tone: "accent" as IconTone };
+  const meta = ACTION_ICONS[a.key] ?? { icon: SparklesIcon, solid: "bg-[var(--brand-solid,var(--color-accent))]" };
   const Icon = meta.icon;
   const inner = (
     <>
-      <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-[10px]", TONES[meta.tone])}>
-        <Icon size={19} />
+      <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-xl text-white", meta.solid)}>
+        <Icon size={22} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-semibold leading-tight text-ink">{a.label}</span>
-        <span className="line-clamp-2 text-[12.5px] leading-snug text-muted">{a.description}</span>
+        <span className="block text-[15.5px] font-semibold leading-tight text-ink">{a.label}</span>
+        <span className="line-clamp-2 text-[13px] leading-snug text-muted">{a.description}</span>
       </span>
     </>
   );
-  const row = "flex min-h-14 items-center gap-3 rounded-xl border border-line bg-paper px-3 py-2";
+  const row = "flex min-h-[60px] items-center gap-3.5 rounded-xl border border-line bg-paper px-3 py-2";
   if (!a.available)
     return (
       <div data-quick-action={a.key} data-available="false" aria-disabled="true" className={cn(row, "bg-paper-2/50")}>
@@ -286,15 +292,31 @@ const SEVERITY: Record<AlertItem["severity"], { icon: ComponentType<IconProps>; 
   info: { icon: InfoIcon, tone: "accent", word: "Info" },
 };
 
-function AlertsCard({ body, hidden, onDismiss }: { body: CardBody; hidden: Set<string>; onDismiss: (a: AlertItem) => void }) {
+const ALERTS_SHOWN = 4; // the board shows four; "View all" opens the rest
+
+function AlertsCard({ body, hidden, onDismiss, now }: { body: CardBody; hidden: Set<string>; onDismiss: (a: AlertItem) => void; now: number }) {
+  const [all, setAll] = useState(false);
   const { widget } = body;
   if (!body.loading && !widget) return null;
-  const items = widget && !body.loading ? alertsOf(widget).filter((a) => !hidden.has(a.key)) : [];
+  const every = widget && !body.loading ? alertsOf(widget).filter((a) => !hidden.has(a.key)) : [];
+  const items = all ? every : every.slice(0, ALERTS_SHOWN);
   const shared = stateBody(body, "your alerts");
   const allClear = !shared && items.length === 0;
   return (
     <section aria-labelledby="dash-alerts" data-dash-card="alerts" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
-      <CardHead id="dash-alerts" icon={AlertIcon} title="Activity & Alerts" tone="coral" />
+      <CardHead id="dash-alerts" icon={AlertIcon} title="Activity & Alerts" tone="coral">
+        {every.length > ALERTS_SHOWN ? (
+          <button
+            type="button"
+            data-alerts-view-all
+            aria-expanded={all}
+            onClick={() => setAll((v) => !v)}
+            className="flex-none rounded-lg border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 py-1.5 text-[12.5px] font-semibold text-accent-deep hover:bg-accent-soft/70"
+          >
+            {all ? "Show fewer" : "View all"}
+          </button>
+        ) : null}
+      </CardHead>
       <div className="mt-3 flex-1">
         {shared ??
           (allClear ? (
@@ -329,6 +351,11 @@ function AlertsCard({ body, hidden, onDismiss }: { body: CardBody; hidden: Set<s
                       </p>
                       {a.message ? <p className="mt-0.5 text-[12.5px] leading-snug text-muted">{a.message}</p> : null}
                     </div>
+                    {a.at ? (
+                      <time dateTime={a.at} title={new Date(a.at).toLocaleString()} className="mt-1 flex-none whitespace-nowrap text-[12px] text-muted">
+                        {relativeTime(a.at, now)}
+                      </time>
+                    ) : null}
                     <Tooltip content="Dismiss for 7 days" side="left">
                       <IconButton aria-label={`Dismiss for 7 days: ${a.title}`} onClick={() => onDismiss(a)} className="h-9 w-9 flex-none">
                         <XIcon size={15} />
@@ -350,7 +377,7 @@ function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: numbe
   const shared = stateBody(body, "recent activity");
   const items = widget && !body.loading ? activityOf(widget).slice(0, ACTIVITY_SHOWN) : [];
   return (
-    <section aria-labelledby="dash-activity" data-dash-card="activity.recent" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
+    <section aria-labelledby="dash-activity" data-dash-card="activity.recent" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
       <CardHead id="dash-activity" icon={ClockIcon} title="Recent Activity" tone="accent">
         {viewAll ? (
           <Link href={viewAll} className="flex-none rounded-lg border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 py-1.5 text-[12.5px] font-semibold text-accent-deep hover:bg-accent-soft/70">
@@ -379,7 +406,7 @@ function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: numbe
                 </>
               );
               return (
-                <li key={a.id} data-activity={a.id}>
+                <li key={`${a.source}-${a.id}`} data-activity={`${a.source}-${a.id}`}>
                   {href ? (
                     <Link href={href} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-paper-2/60">
                       {row}
@@ -397,9 +424,40 @@ function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: numbe
   );
 }
 
-function BeeHelpCard({ firstName, orgName }: { firstName: string; orgName: string }) {
+/** The help card's "dismissed" memory: per organization, in this browser only (a convenience, never state that matters). */
+const helpKey = (orgId: number) => `kiwiply.dashboard.help.dismissed.${orgId}`;
+
+function useHelpDismissed(orgId: number): { dismissed: boolean | null; dismiss: () => void } {
+  const [dismissed, setDismissed] = useState<boolean | null>(null); // null until the browser has been asked
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        setDismissed(window.localStorage.getItem(helpKey(orgId)) === "1");
+      } catch {
+        setDismissed(false);
+      }
+    }, 0);
+    return () => clearTimeout(t);
+  }, [orgId]);
+  const dismiss = useCallback(() => {
+    setDismissed(true);
+    try {
+      window.localStorage.setItem(helpKey(orgId), "1");
+    } catch {
+      /* private window or blocked storage: it simply comes back next time */
+    }
+  }, [orgId]);
+  return { dismissed, dismiss };
+}
+
+function BeeHelpCard({ firstName, orgName, onDismiss }: { firstName: string; orgName: string; onDismiss: () => void }) {
   return (
-    <section aria-label="Help" data-dash-card="help" className="flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper md:col-span-2 xl:col-span-1">
+    <section aria-label="Help" data-dash-card="help" className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line/70 bg-paper shadow-[0_1px_3px_rgb(16_24_40/0.06)] md:col-span-2 xl:col-span-1">
+      <ClaimsMascot />
+      <ClaimsHelpCard />
+      <IconButton aria-label="Dismiss the help card" data-help-dismiss onClick={onDismiss} className="absolute right-2 top-2 z-10 h-8 w-8 bg-paper/80">
+        <XIcon size={15} />
+      </IconButton>
       <div className="flex justify-center bg-accent-soft pt-3">
         <EnterpriseMascot pose="greet" size="lg" />
       </div>
@@ -428,14 +486,17 @@ export interface DashboardPageProps {
   firstName: string;
   /** The audit log page for "View all" on Recent Activity, when this member's menu has one. */
   auditHref?: string | null;
+  /** The applications page, where "View all" goes when there is no audit page. */
+  applicationsHref?: string | null;
   /** The sidebar page that lists the employees / invitations, for the slim status chips. */
   employeesHref?: string | null;
   invitationsHref?: string | null;
 }
 
-export default function DashboardPage({ orgId, orgName, firstName, auditHref = null, employeesHref = null, invitationsHref = null }: DashboardPageProps) {
+export default function DashboardPage({ orgId, orgName, firstName, auditHref = null, applicationsHref = null, employeesHref = null, invitationsHref = null }: DashboardPageProps) {
   const { view, status, updatedAt, refreshing, reload } = useDashboard(orgId);
   const toast = useToast();
+  const help = useHelpDismissed(orgId);
   const now = useNow();
   const loading = status === "loading";
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
@@ -517,8 +578,6 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
   return (
     <div data-dashboard data-status={status} className="flex flex-col gap-4 sm:gap-5">
       <PageHeader title="Organization Dashboard" subtitle={`Welcome back! Here's what's happening at ${orgName} today.`} />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
 
       <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <ul aria-label="Needs a look" className="flex min-w-0 flex-wrap gap-2">
@@ -550,16 +609,16 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
             ))}
           </section>
 
-          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1.1fr)]">
+          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.77fr)_minmax(0,1.16fr)_minmax(0,1fr)]">
             <TeamPerformanceCard body={body("team.performance")} />
             <PipelineCard body={body("pipeline.overview")} />
             <QuickActionsCard body={body("quick.actions")} />
           </div>
 
-          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1.2fr)_minmax(0,1fr)]">
-            <AlertsCard body={body("alerts")} hidden={hidden} onDismiss={dismiss} />
-            <RecentActivityCard body={body("activity.recent")} now={now} viewAll={auditHref} />
-            <BeeHelpCard firstName={firstName} orgName={orgName} />
+          <div className={cn("grid gap-4 sm:gap-5 lg:grid-cols-2", help.dismissed === false ? "xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1fr)]" : "xl:grid-cols-2")}>
+            <AlertsCard body={body("alerts")} hidden={hidden} onDismiss={dismiss} now={now} />
+            <RecentActivityCard body={body("activity.recent")} now={now} viewAll={auditHref ?? applicationsHref} />
+            {help.dismissed === false ? <BeeHelpCard firstName={firstName} orgName={orgName} onDismiss={help.dismiss} /> : null}
           </div>
         </>
       )}

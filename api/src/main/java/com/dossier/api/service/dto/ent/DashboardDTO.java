@@ -40,13 +40,13 @@ public final class DashboardDTO {
         String key,
         State state,
         @Schema(
-            description = "Why the widget is empty or unavailable: NOT_ENABLED (its module is off or not built yet), NO_CONSULTANTS, NO_EMPLOYEES, NO_ALERTS, NO_ACTIVITY, NOTHING_PENDING, PROVIDER_FAILED"
+            description = "Why the widget is empty or unavailable: NOT_ENABLED (its module is off or not built yet), NO_CONSULTANTS, NO_EMPLOYEES, NO_APPLICATIONS, NO_INTERVIEWS, NO_PLACEMENTS, NO_SPEND, NO_ALERTS, NO_ACTIVITY, NOTHING_PENDING, PROVIDER_FAILED"
         )
         String reason,
         @Schema(description = "The module the widget belongs to, when it is unavailable because of it")
         String module,
         @Schema(
-            oneOf = { StatTile.class, Invites.class, Activity.class, Alerts.class, QuickActions.class, SubscriptionSummary.class },
+            oneOf = { StatTile.class, TeamPerformance.class, Pipeline.class, Invites.class, Activity.class, Alerts.class, QuickActions.class, SubscriptionSummary.class },
             description = "consultants.total, employees.active: StatTile. invites.pending: Invites. activity.recent: Activity. alerts: Alerts. quick.actions: QuickActions. subscription.summary: SubscriptionSummary."
         )
         Object data
@@ -62,8 +62,15 @@ public final class DashboardDTO {
         Double deltaPct,
         @Schema(description = "Eight weekly points, oldest first, the last equal to value") List<Long> sparkline,
         String comparedTo,
-        @Schema(description = "Named parts of the number, for example consultants: active, invited, suspended") Map<String, Long> counts
-    ) {}
+        @Schema(description = "Named parts of the number, for example consultants: active, invited, suspended") Map<String, Long> counts,
+        @Schema(description = "null or 'count' for a plain count; 'money' when value is in minor units of currency") String unit,
+        String currency
+    ) {
+        /** A plain count tile (no unit). */
+        public StatTile(long value, Long previous, Double deltaPct, List<Long> sparkline, String comparedTo, Map<String, Long> counts) {
+            this(value, previous, deltaPct, sparkline, comparedTo, counts, null, null);
+        }
+    }
 
     @Schema(name = "InvitesData")
     public record Invites(long invited, long expiringSoon, long suspended) {}
@@ -78,14 +85,34 @@ public final class DashboardDTO {
         String targetType,
         String targetLogin,
         String targetName,
-        Instant at
-    ) {}
+        Instant at,
+        @Schema(description = "audit (the organization's own trail) or application (an application event)") String source,
+        @Schema(description = "What it was about, for example the job title; null for audit rows") String subject
+    ) {
+        public ActivityItem(Long id, String action, String label, String actorLogin, String actorName, String targetType, String targetLogin, String targetName, Instant at) {
+            this(id, action, label, actorLogin, actorName, targetType, targetLogin, targetName, at, "audit", null);
+        }
+    }
 
     @Schema(name = "ActivityData")
     public record Activity(List<ActivityItem> items) {}
 
     @Schema(name = "AlertItem")
-    public record Alert(String key, String severity, String title, String message, String href, long count) {}
+    public record Alert(String key, String severity, String title, String message, String href, long count, Instant at) {
+        public Alert(String key, String severity, String title, String message, String href, long count) {
+            this(key, severity, title, message, href, count, null);
+        }
+    }
+
+    @Schema(name = "TeamPerformanceData", description = "Counts per calendar month (UTC), oldest first, the last month being the current partial one")
+    public record TeamPerformance(List<String> months, List<Series> series) {}
+
+    public record Series(String key, String label, List<Long> values) {}
+
+    @Schema(name = "PipelineData", description = "Applications by stage; total is the sum of the slices")
+    public record Pipeline(long total, List<Slice> slices) {}
+
+    public record Slice(String key, String label, long value, Double pct) {}
 
     @Schema(name = "AlertsData")
     public record Alerts(List<Alert> items) {}

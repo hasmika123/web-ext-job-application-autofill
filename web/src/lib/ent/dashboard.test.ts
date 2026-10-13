@@ -56,7 +56,7 @@ describe("deltaFromPct", () => {
 describe("words", () => {
   it("compared-to text", () => {
     expect(comparedToText("30d")).toBe("vs last month");
-    expect(comparedToText("7d")).toBe("vs last 7 days");
+    expect(comparedToText("7d")).toBe("vs last week");
     expect(comparedToText("whatever")).toBe("vs earlier");
   });
   it("module names read as words", () => {
@@ -100,7 +100,7 @@ describe("lists", () => {
     expect(alertsOf(w({ state: "error", data: { items: [{ key: "D", severity: "danger", title: "d" }] } }))).toEqual([]);
   });
   it("activity links only for kinds that have a page", () => {
-    const a = (action: string) => ({ id: 1, action, label: "", actorLogin: null, actorName: null, targetType: null, targetLogin: null, targetName: null, at: "" });
+    const a = (action: string) => ({ id: 1, action, label: "", actorLogin: null, actorName: null, targetType: null, targetLogin: null, targetName: null, at: "", source: "audit", subject: null });
     expect(activityHref(a("MEMBER_INVITE_RESEND"))).toBe("/w/admin/invitations");
     expect(activityHref(a("MEMBER_ROLE"))).toBe("/w/admin/employees");
     expect(activityHref(a("BRANDING_PUBLISH"))).toBe("/w/admin/branding");

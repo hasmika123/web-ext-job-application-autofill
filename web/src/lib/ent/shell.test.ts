@@ -17,9 +17,13 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     expect(sections[0].items.map((i) => i.text)).toEqual([
       "Dashboard", "Employees", "Invitations", "Teams", "Departments", "Roles & Permissions", "Consultants", "Resumes", "Marketing Assignments", "Jobs", "Applications", "Interviews", "Clients", "Placements",
     ]);
-    // Acme has the billing module but not hrFinance / integrations / analytics: those rows are ABSENT, never greyed
-    expect(sections[1].items.map((i) => i.text)).toEqual(["Subscription Overview", "Consultant Licenses", "Billing", "Feature Usage", "Reports"]);
-    expect(sections[2].items.map((i) => i.text)).toEqual(["Organization Branding", "Domains", "Audit Logs", "Settings"]);
+    // the whole menu is shown (the board's order); what the member's modules do not open yet is flagged "soon", never hidden
+    expect(sections[1].items.map((i) => i.text)).toEqual(["Subscription Overview", "Consultant Licenses", "Billing", "Feature Usage", "HR", "Finance", "Reports"]);
+    expect(sections[2].items.map((i) => i.text)).toEqual(["Organization Branding", "Domains", "Integrations", "Audit Logs", "Settings"]);
+    const soon = sections.flatMap((s) => s.items).filter((i) => i.soon).map((i) => i.key);
+    expect(soon).toEqual(expect.arrayContaining(["hr", "finance", "integrations"]));
+    expect(sections.flatMap((s) => s.items).find((i) => i.key === "employees")?.soon).toBeUndefined();
+    expect(sections.flatMap((s) => s.items).find((i) => i.key === "hr")?.children).toBeUndefined();
   });
 
   it("a marketer has no Administration workspace and no admin pages anywhere in the menu", () => {
@@ -40,8 +44,10 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
 
   it("a workspace whose module is off disappears entirely (beta has no modules: only its own pages)", () => {
     const beta = me("beta.localhost", "owner@beta.com");
-    expect(keys(beta, "admin")).not.toContain("billing");
-    expect(keys(beta, "admin")).not.toContain("consultants");
+    // beta's modules are off: those pages are not open, they are flagged soon
+    const billing = navSections(ws(beta, "admin")).flatMap((s) => s.items).find((i) => i.key === "billing");
+    expect(billing?.soon).toBe(true);
+    expect(navSections(ws(beta, "admin")).flatMap((s) => s.items).find((i) => i.key === "consultants")?.soon).toBe(true);
   });
 
   it("HR and Finance are the expandable rows, only when the member holds the page (hrFinance module on)", () => {
@@ -49,7 +55,10 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     const withHr = { ...owner, workspaces: owner.workspaces.map((w) => (w.key === "admin" ? { ...w, nav: [...w.nav, { key: "hr", label: "HR", icon: "Heart", href: "/w/admin/hr" }] } : w)) };
     const hr = navSections(ws(withHr, "admin")).flatMap((s) => s.items).find((i) => i.key === "hr")!;
     expect(hr.children?.map((c) => c.text)).toEqual(["Overview", "Onboarding", "Documents", "Compliance"]);
-    expect(navSections(ws(owner, "admin")).flatMap((s) => s.items).some((i) => i.key === "hr")).toBe(false);
+    // without the page it is still listed, as a soon row with no children
+    const soonHr = navSections(ws(owner, "admin")).flatMap((s) => s.items).find((i) => i.key === "hr");
+    expect(soonHr?.soon).toBe(true);
+    expect(soonHr?.children).toBeUndefined();
   });
 
   it("the organization's terminology renames the entries it covers and nothing else", () => {
@@ -130,7 +139,8 @@ describe("the catch-all (pages not built yet)", () => {
     expect(catchAllPage(owner, "admin", [])).toEqual({ kind: "page", title: "Dashboard" });
   });
   it("a path the member's menu does not list is denied (no data, the API is the real gate)", () => {
-    expect(catchAllPage(owner, "admin", ["hr"])).toEqual({ kind: "denied" });
+    expect(catchAllPage(owner, "admin", ["hr"])).toEqual({ kind: "page", title: "HR" }); // listed as soon: the honest "on the way" page
+    expect(catchAllPage(owner, "admin", ["nothing-here"])).toEqual({ kind: "denied" });
     expect(catchAllPage(owner, "hr", [])).toEqual({ kind: "denied" });
   });
 });
