@@ -278,7 +278,7 @@ public class EnterpriseDemoSeeder {
             for (Person person : t.people()) {
                 Instant joined = now.minus(60 - index * 3L, ChronoUnit.DAYS);
                 if (person.status() == OrgMemberStatus.INVITED) {
-                    invitedSeat(org, t, person, now.minus(2, ChronoUnit.DAYS), counts);
+                    invitedSeat(org, t, person, now.minus(2, ChronoUnit.DAYS), seats.get("sarah"), counts);
                 } else {
                     User u = person == first ? owner : syntheticUser(t, person, passwordHash, userAuthority, counts);
                     seats.put(person.key(), seat(org, u, person, joined, counts));
@@ -472,9 +472,18 @@ public class EnterpriseDemoSeeder {
         }
     }
 
-    private void invitedSeat(Organization org, Tenant t, Person p, Instant invitedAt, int[] counts) {
+    private void invitedSeat(Organization org, Tenant t, Person p, Instant invitedAt, OrgMember inviter, int[] counts) {
         String email = p.email(t.orgKey());
-        if (!members.findByOrgIdAndInviteEmailAndStatusIn(org.getId(), email, List.of(OrgMemberStatus.INVITED)).isEmpty()) return;
+        List<OrgMember> existing = members.findByOrgIdAndInviteEmailAndStatusIn(org.getId(), email, List.of(OrgMemberStatus.INVITED));
+        if (!existing.isEmpty()) {
+            // a database seeded before the Invitations page: give the seat what the page lists (a send time, a name, who sent it)
+            OrgMember m = existing.get(0);
+            if (m.getInviteSentAt() == null) {
+                stampInvitation(m, p, invitedAt, inviter);
+                members.saveAndFlush(m);
+            }
+            return;
+        }
         OrgMember m = new OrgMember();
         m.setOrgId(org.getId());
         m.setRole(legacyRole(p.roles().get(0)));
@@ -482,9 +491,17 @@ public class EnterpriseDemoSeeder {
         m.setInviteEmail(email);
         m.setInviteExpiresAt(invitedAt.plus(14, ChronoUnit.DAYS));
         m.setDisplayLabel(p.roles().get(0));
+        stampInvitation(m, p, invitedAt, inviter);
         m = members.saveAndFlush(m);
         counts[1]++;
         applyRoles(org.getId(), m, p.roles(), counts); // an invitation holds its role row too (06 section 4: one primary per live seat)
+    }
+
+    /** What the Invitations page lists an invited seat by: when it was sent, to whom (by name), and by whom. No token: the demo link is never sent. */
+    private static void stampInvitation(OrgMember m, Person p, Instant invitedAt, OrgMember inviter) {
+        m.setInviteSentAt(invitedAt);
+        m.setInviteName(p.first() + " " + p.last());
+        if (inviter != null) m.setInvitedByMemberId(inviter.getId());
     }
 
     private void assign(Map<String, OrgMember> seats, String assigneeKey, String consultantKey, AssignmentKind kind, Instant now, int[] counts) {

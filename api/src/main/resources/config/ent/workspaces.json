@@ -42,7 +42,7 @@
           "key": "invitations",
           "label": "Invitations",
           "icon": "Mail",
-          "href": "/w/admin/employees?status=invited",
+          "href": "/w/admin/invitations",
           "needs": [
             "members.invite"
           ],
