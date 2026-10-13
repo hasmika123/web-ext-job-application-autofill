@@ -160,7 +160,7 @@ export default function Select({
             aria-label={ariaLabel}
             style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
             className={cn(
-              "scroll-slim z-[200] max-h-64 overflow-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
+              "scroll-slim z-[1100] max-h-64 overflow-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
               menuClassName,
             )}
           >

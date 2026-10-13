@@ -19,6 +19,7 @@ import { handleMeTenant, handleTenantNotifications, memberStatus, roleName } fro
 import { demoPeople } from "./fixtures/enterprise.mjs";
 import { MOCK_TENANTS, MOCK_TENANT_PASSWORD, MOCK_TENANT_USERS, mockTenantAsset } from "./mock-tenants.mjs";
 import { createBrandingMock } from "./mock-branding.mjs";
+import { createRolesMock } from "./mock-roles.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -247,6 +248,8 @@ const handleBranding = createBrandingMock({
     if (t) t.branding = { ...t.branding, primary: p.primary ?? null, secondary: p.secondary ?? null, theme: p.theme ?? "LIGHT", welcomeTitle: p.welcomeTitle ?? null, welcomeMessage: p.welcomeMessage ?? null, supportEmail: p.supportEmail ?? null, featureChips: p.featureChips ?? null, logoUrl: p.logoHash ? `/tenant-assets/logo?v=${p.logoHash}` : null };
   },
 });
+/* ── Roles & Permissions mock (X4.11: roles, catalog, diff, history, resync, member roles; scripts/mock-roles.mjs) ── */
+const handleRoles = createRolesMock({ json, withBody, hostOf });
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
 const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
 /* ── Job search mock (APP-E2E U4.0: search, suggest, detail, save, hide; scripts/mock-jobs.mjs) ── */
@@ -1967,6 +1970,7 @@ const server = http.createServer((req, res) => {
   // ETag / If-Match / 409 / 422 / 402 behave like ResumeDocResource. To force a 409 from outside:
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
   if (handleBranding(req, res, path, method)) return;
+  if (ENTERPRISE_ENABLED && handleRoles(req, res, path, method)) return;
   if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
   if (handleAi(req, res, path, method)) return;

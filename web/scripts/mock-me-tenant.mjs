@@ -30,7 +30,36 @@ function loadDefs() {
 }
 const DEFS = loadDefs();
 
-const ADMIN = ["org.settings.manage", "branding.manage", "domains.manage", "roles.manage", "members.invite", "members.import", "members.role.set", "members.remove", "members.suspend", "members.support_owner.set", "members.group.set", "members.manager.set", "groups.manage", "assignments.manage", "consultants.view", "consultants.edit", "resumes.view_for", "resumes.approve_request", "licenses.view", "licenses.manage", "billing.view", "billing.manage", "usage.view", "pipeline.view", "clients.view", "placements.view", "hr.view", "finance.view", "reports.view", "reports.export", "audit.view", "integrations.manage", "dashboard.view_org", "member.view_summary", "services.order_for_member", "ops.*", "self.share_scope.set", "self.leave"];
+/**
+ * The registry of permission keys (EntPermissions.java, read straight from the repo like the workspace definitions): ORG_ADMIN holds every
+ * key whose natural scope is not OWN at ORG except org.close / org.transfer_ownership (05 s3, the "admin role gap" decision).
+ */
+const REGISTRY_PATH = "api/src/main/java/com/dossier/api/service/ent/authz/EntPermissions.java";
+function loadRegistry() {
+  let src = null;
+  try {
+    src = readFileSync(new URL(`../../${REGISTRY_PATH}`, import.meta.url), "utf8");
+  } catch {
+    for (const base of ["..", "."]) {
+      try {
+        src = readFileSync(resolve(process.cwd(), base, REGISTRY_PATH), "utf8");
+        break;
+      } catch {
+        /* try the next */
+      }
+    }
+  }
+  if (!src) throw new Error(`mock-me-tenant: cannot read ${REGISTRY_PATH}`);
+  const out = [];
+  for (const m of src.matchAll(/d\.add\(def\("([^"]+)", "([^"]+)", "((?:[^"\\]|\\.)*)", (\w+), (true|false)(?:, (\w+))?\)\);/g)) {
+    out.push({ key: m[1], family: m[2], description: m[3].replace(/\\"/g, '"'), scope: m[4], dangerous: m[5] === "true", acting: m[6] ?? null });
+  }
+  if (out.length < 60) throw new Error("mock-me-tenant: the permission registry did not parse");
+  return out;
+}
+export const REGISTRY = loadRegistry();
+const OWNER_ONLY = ["org.close", "org.transfer_ownership"];
+const ADMIN = [...REGISTRY.filter((d) => d.scope !== "OWN" && !OWNER_ONLY.includes(d.key)).map((d) => d.key), "self.share_scope.set", "self.leave"];
 const at = (scope, keys) => Object.fromEntries(keys.map((k) => [k, scope]));
 const MARKETING = ["member.view_summary", "member.view_full", "member.act_for", "consultants.view", "resumes.view_for", "resumes.edit_for", "opportunities.manage", "matches.run", "submissions.prepare", "submissions.record", "followups.manage", "interviews.coordinate", "pipeline.view", "reports.view"];
 const SELF = ["self.share_scope.set", "self.leave"];
@@ -196,3 +225,6 @@ export function handleTenantNotifications(req, res, path, method, json) {
   const items = WITH_NOTICES.has(login) ? NOTICES(login) : [];
   return json(res, 200, { unread: items.filter((n) => !n.read).length, items }), true;
 }
+
+/** For the roles mock (mock-roles.mjs): the role grants, the members and the organizations this file serves. */
+export { ROLES, MEMBERS, ORGS, ROLE_ID };

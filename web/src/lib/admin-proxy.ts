@@ -24,6 +24,7 @@ export async function passthrough(res: Response): Promise<Response> {
   if (res.status === 401) {
     return Response.json({ error: "Your session expired — please sign in again." }, { status: 401 });
   }
+  if (res.status === 204) return new Response(null, { status: 204 }); // a null-body status cannot carry JSON
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
     const { detail, title, message, ...rest } = data;
