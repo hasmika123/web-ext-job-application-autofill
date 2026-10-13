@@ -1171,15 +1171,15 @@ public class TalentDemoSeeder {
                     }
                     default -> { }
                 }
-                long span = Math.max(180, ChronoUnit.MINUTES.between(a.getCreatedAt(), a.getStageChangedAt()));
-                int k = 0;
                 for (String round : past) {
-                    double lo = 0.25 + 0.3 * k;
-                    Instant at = a.getCreatedAt().plus((long) (span * (lo + rnd.nextDouble() * 0.25)), ChronoUnit.MINUTES);
+                    int[] w = { 8, 11, 15, 19, 25, 22 };
+                    int total = 100, x = rnd.nextInt(total), m = 0;
+                    for (; m < 5; m++) { x -= w[m]; if (x < 0) break; }
+                    Instant at = randomInMonth(5 - m);
+                    if (at.isBefore(a.getCreatedAt().plus(1, ChronoUnit.HOURS))) at = a.getCreatedAt().plus(between(1, 72), ChronoUnit.HOURS);
                     if (at.isAfter(now.minus(2, ChronoUnit.HOURS))) at = now.minus(between(3, 48), ChronoUnit.HOURS);
                     if (at.isBefore(a.getCreatedAt())) at = a.getCreatedAt().plus(1, ChronoUnit.HOURS);
                     rows.add(interview(a, c, round, at, rnd.nextDouble() < 0.08 ? "CANCELLED" : "COMPLETED", contact));
-                    k++;
                 }
                 if (upcoming) {
                     Instant at = now.plus(between(3, 13 * 24), ChronoUnit.HOURS);
@@ -1212,7 +1212,7 @@ public class TalentDemoSeeder {
         // ---- placements ----
 
         void seedPlacements() {
-            int[] monthWeights = { 8, 10, 14, 18, 22, 28 };
+            int[] monthWeights = { 4, 6, 9, 15, 24, 42 };
             List<ConsultantProfile> onProject = new ArrayList<>();
             List<ConsultantProfile> off = new ArrayList<>();
             for (ConsultantProfile c : cons) {

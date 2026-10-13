@@ -175,14 +175,20 @@ class TalentSchemaIT {
         LocalDate first = LocalDate.now(ZoneOffset.UTC).withDayOfMonth(1);
         List<Long> apps = new ArrayList<>();
         List<Long> places = new ArrayList<>();
+        List<Long> interviewsPerMonth = new ArrayList<>();
         for (int k = 5; k >= 0; k--) {
             LocalDate from = first.minusMonths(k);
             LocalDate to = from.plusMonths(1).minusDays(1);
             apps.add(applications.countByOrgIdAndAppliedOnBetween(acme, from, to));
             places.add(placements.countByOrgIdAndStartDateBetween(acme, from, to));
+            interviewsPerMonth.add(interviews.countByOrgIdAndScheduledAtBetween(acme, from.atStartOfDay().toInstant(ZoneOffset.UTC), to.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC)));
         }
         for (int i = 1; i < apps.size(); i++) assertThat(apps.get(i)).as("applications month " + i).isGreaterThan(apps.get(i - 1));
         assertThat(places.get(5)).isGreaterThan(places.get(0));
+        assertThat(places.get(3) + places.get(4) + places.get(5)).isGreaterThan(places.get(0) + places.get(1) + places.get(2));
+        assertThat(interviewsPerMonth.get(5)).isGreaterThan(interviewsPerMonth.get(0));
+        assertThat(interviewsPerMonth.get(3) + interviewsPerMonth.get(4) + interviewsPerMonth.get(5)).isGreaterThan(interviewsPerMonth.get(0) + interviewsPerMonth.get(1) + interviewsPerMonth.get(2));
+        for (int i = 1; i < interviewsPerMonth.size(); i++) assertThat(interviewsPerMonth.get(i)).as("interviews month " + i).isGreaterThanOrEqualTo(interviewsPerMonth.get(i - 1) - 2);
         assertThat(apps.stream().mapToLong(Long::longValue).sum()).isEqualTo(120L);
     }
 

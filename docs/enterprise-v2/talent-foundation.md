@@ -55,15 +55,15 @@ kept equal to `enterprise-demo.json`). Sign in as Sarah (Org Admin + Marketing M
 | assigned / unassigned consultants | 141 / 12 and 42 / 4. **Overloaded = workload >= 90 % of capacity** (`TalentDemoSeeder.OVERLOAD_PCT`): 3 and 2 |
 | clients (+2 contacts each) | 8 (TechCorp, Global Media, FinTech Solutions, HealthPlus, InnovateLab, RetailCo, ACME Internal, Northwind Logistics) / 3 |
 | jobs | 24 (13 OPEN, 3 IN_REVIEW, 2 ON_HOLD, 4 FILLED, 2 CLOSED; 6 posted in the last 7 days) / 8 |
-| matches | 274 / 41 (top 14 per job with score >= 70, plus every application pair as ASSIGNED, plus ~12 assigned without an application) |
+| matches | ~275 / 41 (top 14 per job with score >= 70, plus every application pair as ASSIGNED, plus ~12 assigned without an application) |
 | applications | 120 / 36; stages 14 ASSIGNED, 22 SUBMITTED, 24 UNDER_REVIEW, 26 INTERVIEWING, 10 OFFER, 24 CLOSED (10 HIRED, 8 REJECTED, 4 WITHDRAWN, 2 NO_RESPONSE) |
 | application events / notes | 541 / 143 and 164 / 45 |
-| interviews | 92 / 29: about 28 SCHEDULED in the next 13 days, the rest COMPLETED (some CANCELLED) over the 6 months |
+| interviews | ~90 / ~28: 28 / 10 SCHEDULED in the next 13 days, the rest COMPLETED (some CANCELLED) over the last 5 months, rising (4/8/14/20/46 per month at seed time; the current month includes the upcoming ones) |
 | placements | 108 / 33: one ACTIVE per ON_PROJECT consultant (hired applicants included), the rest ENDED |
 | resumes | 121 / 35 (v1-v4, ~14 % PENDING, ~12 % PRIVATE, ~28 % PUBLIC, one primary per consultant at most) + 303 experience rows |
 | spend entries | 18 / 18 (3 categories x 6 months) |
 
-Trend design: applications per calendar month (oldest to current) are 6/9/12/16/22/35 percent of the total, placements start 8/10/14/18/22/28 percent, so
+Trend design: applications per calendar month (oldest to current) are 6/9/12/16/22/35 percent of the total, placements start about 4/6/9/15/24/42 percent (ended ones fill the older months), so
 "vs last month" is positive and a Jan..Jun style bar chart rises. The current month is partial (to today) on purpose.
 
 ## 4. Permissions
@@ -147,3 +147,5 @@ Percent delta = `(current - previous) / previous`; show "n/a" when previous = 0.
 - Extra marketer members are not in the demo login tab (the roster is kept equal to `web/scripts/fixtures/enterprise-demo.json`); the web mock API has no talent data.
 - No photos, no phone numbers, no DOB, no document/bank numbers anywhere. Initials circles only.
 - Nav items (sidebar labels of the boards): Consultants, Resumes, Marketing Assignments, Jobs, Applications (route keys `consultants`, `resumes`, `marketing-assignments`, `jobs`, `applications`). Interviews, Clients and Placements are shown in the boards' sidebar; their tables exist (`talent_interview`, `client_account`, `talent_placement`) but their pages are not part of this foundation.
+
+- Counts of random-driven rows (matches, interviews, notes, resumes) vary by a few between runs because dates are relative to now; the headline numbers (consultants, assignments, jobs, applications and their stage mix, clients) are fixed.
