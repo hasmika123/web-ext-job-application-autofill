@@ -83,5 +83,6 @@
     <include file="config/liquibase/changelog/20261016090000_ent_dashboard.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261019010000_ent_talent.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261103010000_ent_cws_tasks.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103015000_ent_cws_saved_job.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

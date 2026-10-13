@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Consultant workspace: the jobs a consultant saved (Job Discovery "Save", Job Matches bookmark). Own rows only. 41-database-design.md R1-R10. -->
+    <changeSet id="ent-cws-2-cws_saved_job" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_saved_job"/></not></preConditions>
+        <createTable tableName="cws_saved_job">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_saved_job" baseColumnNames="org_id" constraintName="fk_cws_saved_job_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_saved_job" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_saved_job_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_saved_job" baseColumnNames="org_id, requirement_id" constraintName="fk_cws_saved_job_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_saved_job" columnNames="org_id, consultant_id, requirement_id" constraintName="uk_cws_saved_job"/>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>
