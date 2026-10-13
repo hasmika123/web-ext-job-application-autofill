@@ -24,6 +24,9 @@
     "name" : "tenant",
     "description" : "Public tenant branding for the host a visitor arrived on."
   }, {
+    "name" : "members",
+    "description" : "Employees: the directory, KPI tiles, detail sheet, single edits, bulk actions and the lifecycle."
+  }, {
     "name" : "resume-tailor",
     "description" : "Reword a resume for one job and save it as a new version (Pro)."
   }, {
@@ -4257,6 +4260,294 @@
         }
       }
     },
+    "/api/orgs/{orgId}/members/{memberId}/suspend" : {
+      "post" : {
+        "tags" : [ "members" ],
+        "summary" : "Suspend an employee",
+        "description" : "members.suspend. Body: reason (10 to 500 characters, required). ACTIVE to SUSPENDED; the seat and records stay, the person is refused at the next call and refresh. 409 SELF, 409 INVALID_TRANSITION {from,to,allowed}, 409 LAST_ADMIN, 422 ROLE_CEILING (reason TARGET_RANK). Audit MEMBER_SUSPEND, risk HIGH. Idempotency-Key optional.",
+        "operationId" : "suspend",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LifecycleResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/{memberId}/reinstate" : {
+      "post" : {
+        "tags" : [ "members" ],
+        "summary" : "Reinstate a suspended employee",
+        "description" : "members.suspend. Body: reason (optional). SUSPENDED to ACTIVE. 409 INVALID_TRANSITION otherwise. Audit MEMBER_REINSTATE, risk MEDIUM. Idempotency-Key optional.",
+        "operationId" : "reinstate",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReasonRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LifecycleResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/{memberId}/offboard" : {
+      "post" : {
+        "tags" : [ "members" ],
+        "summary" : "Offboard an employee",
+        "description" : "members.remove. Body: reason (10 to 500 characters), confirm (the person's name as the board shows it; 422 CONFIRM_MISMATCH), effectiveAt (absent or past = now; a future instant schedules the last day), reassignments[] (recorded for the assignments module). ACTIVE or SUSPENDED to REMOVED: the ordered offboarding hooks run, role rows end, records are kept. 409 SELF, OWNER_MUST_TRANSFER, LAST_ADMIN, INVALID_TRANSITION, OFFBOARDING_PENDING; 422 ROLE_CEILING. Audit MEMBER_REMOVE (risk HIGH) or MEMBER_OFFBOARD_SCHEDULED. Idempotency-Key required.",
+        "operationId" : "offboard",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/OffboardRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LifecycleResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/bulk/status" : {
+      "post" : {
+        "tags" : [ "members" ],
+        "summary" : "Suspend or reinstate many employees",
+        "description" : "members.suspend. Body: memberIds, action (SUSPEND or REINSTATE), reason (10 to 500 characters, required to suspend: 422 without). The caller (SELF), the last owner or administrator (LAST_ADMIN) and anyone above the caller's rank are skipped with a reason. One MEMBER_SUSPEND/MEMBER_REINSTATE row per changed member plus one MEMBER_BULK row. Idempotency-Key required.",
+        "operationId" : "status",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/bulk/roles" : {
+      "post" : {
+        "tags" : [ "members" ],
+        "summary" : "Add and remove roles on many employees",
+        "description" : "members.role.set at ORG scope, within the caller's ceiling. Body: memberIds (1 to 500), add[], remove[], primaryRoleId. Each member keeps their primary role when it survives; a member who would lose the last administrator is skipped (LAST_ADMIN), as is the caller (SELF) and any role beyond the ceiling (ROLE_CEILING). One ROLE_ASSIGN/ROLE_REVOKE audit row per changed member plus one MEMBER_BULK row. Idempotency-Key required.",
+        "operationId" : "roles",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkRolesRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/bulk/manager" : {
+      "post" : {
+        "tags" : [ "members" ],
+        "summary" : "Set the reporting manager of many employees",
+        "description" : "members.manager.set. Body: memberIds, managerMemberId (null clears). A manager who must be active and never a loop: MANAGER_CYCLE and MANAGER_INVALID skip the member. One MEMBER_MANAGER row per changed member plus one MEMBER_BULK row. Idempotency-Key required.",
+        "operationId" : "manager",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkManagerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/bulk/groups" : {
+      "post" : {
+        "tags" : [ "members" ],
+        "summary" : "Move many employees to a department and team",
+        "description" : "members.group.set. Body: memberIds, departmentGroupId, teamGroupId (a null clears; a team alone brings its department). 422 TEAM_NOT_IN_DEPARTMENT for a team outside the department (skipped per member); a group of another organization is NOT_FOUND per member. One MEMBER_GROUP row per changed member plus one MEMBER_BULK row. Idempotency-Key required.",
+        "operationId" : "groups",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BulkGroupsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/groups" : {
       "get" : {
         "tags" : [ "org-group-resource" ],
@@ -6963,7 +7254,7 @@
         "tags" : [ "onboarding" ],
         "summary" : "Onboarding status",
         "description" : "NONE / DRAFT / FINISHED, the persona, the draft summary (its state only with ?include=state), the dashboard card decision and the completeness thresholds. A dismissed card that comes back is counted once per showing.",
-        "operationId" : "status",
+        "operationId" : "status_1",
         "parameters" : [ {
           "name" : "include",
           "in" : "query",
@@ -7157,6 +7448,80 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/RoleDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/{memberId}" : {
+      "get" : {
+        "tags" : [ "members" ],
+        "summary" : "One employee: the detail sheet",
+        "description" : "Seat, roles, department, team, manager, direct reports, consent scope, what the caller may do with this seat (actions), and recent audit rows about the person (with audit.view or hr.view). phone, location and timezone are null: the platform stores none of them for a member. Never exposes a resume or an application. ETag = the version PATCH expects as If-Match. 404 outside the caller's scope.",
+        "operationId" : "get_5",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch" : {
+        "tags" : [ "members" ],
+        "summary" : "Edit one employee",
+        "description" : "Body: any of title, departmentGroupId, teamGroupId, managerMemberId (a JSON null clears it); any other key is 422. Title, department and team need members.group.set, the manager needs members.manager.set, each at a scope covering the person. If-Match (the sheet's ETag) is required: 428 without, 412 when stale. 422 TEAM_NOT_IN_DEPARTMENT, MANAGER_CYCLE, MANAGER_INVALID; a group or manager of another organization is the generic 404. One audit row per changed field family; a request that changes nothing writes none. Answers the new detail.",
+        "operationId" : "patch_3",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "If-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
                 }
               }
             }
@@ -8440,11 +8805,218 @@
         }
       }
     },
+    "/api/orgs/{orgId}/members" : {
+      "get" : {
+        "tags" : [ "members" ],
+        "summary" : "List employees",
+        "description" : "Paged, server-driven table of the Employees board. Needs a people permission (member.view_summary, hr.view or one of the members.* keys); the rows are only the seats inside the widest scope the caller holds it at. Query: q (name, email, title, role or department/team name; 2 to 80 characters), status (repeatable or comma separated: INVITED, ACTIVE, SUSPENDED, LEFT, REMOVED; default INVITED, ACTIVE, SUSPENDED), roleId, departmentId, teamId, managerId, sort=field,dir (repeatable; name, joined, status, lastActive; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 25). Answers a PageDTO and X-Total-Count. A row seen only through a summary scope carries no work email, manager or consent (summaryOnly = true).",
+        "operationId" : "list_7",
+        "parameters" : [ {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }, {
+          "name" : "roleId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "departmentId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "teamId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "managerId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/{memberId}/offboard-preview" : {
+      "get" : {
+        "tags" : [ "members" ],
+        "summary" : "What offboarding this employee will do",
+        "description" : "members.remove. The wizard's first step: blockers (SELF, OWNER_MUST_TRANSFER, LAST_ADMIN, ROLE_CEILING, INVALID_TRANSITION), the lines of every offboarding hook in the order they run (sessions, assignments, consent...), the roles that end, the consent that ends, what is kept, and the licence notice. Reads only.",
+        "operationId" : "preview",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OffboardPreview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/{memberId}/activity" : {
+      "get" : {
+        "tags" : [ "members" ],
+        "summary" : "Audit rows about an employee (direction=on) or done by them (direction=by)",
+        "description" : "Needs audit.view or hr.view at a scope covering the person. Paged (page from 0, size 1 to 100), newest first.",
+        "operationId" : "activity_1",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "direction",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ActivityPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/offboarding" : {
+      "get" : {
+        "tags" : [ "members" ],
+        "summary" : "Scheduled last days",
+        "description" : "members.remove. The pending offboardings of the people the caller may offboard, soonest first.",
+        "operationId" : "scheduled",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ScheduledList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/counts" : {
+      "get" : {
+        "tags" : [ "members" ],
+        "summary" : "The KPI tiles of the Employees board",
+        "description" : "Total, active, invited, suspended, departments and teams, each with the figure one month ago and the delta rebuilt from real history (seat timestamps and the audit trail). previous and the deltas are null when that history does not exist (an organization younger than a month, a seat that ended with no time recorded, a suspension nobody audited): never estimated.",
+        "operationId" : "counts",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Counts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/branding" : {
       "get" : {
         "tags" : [ "org-branding" ],
         "summary" : "Published values, the draft, its version and the publish history",
-        "operationId" : "get_5",
+        "operationId" : "get_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -8550,7 +9122,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_6",
+        "operationId" : "get_7",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -9729,7 +10301,7 @@
     "/api/admin/users/{login}/sessions" : {
       "get" : {
         "tags" : [ "admin-session-resource" ],
-        "operationId" : "list_7",
+        "operationId" : "list_8",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -9759,7 +10331,7 @@
     "/api/admin/subscribers" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "list_8",
+        "operationId" : "list_9",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -9845,7 +10417,7 @@
     "/api/admin/subscribers/counts" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "counts",
+        "operationId" : "counts_1",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9867,7 +10439,7 @@
     "/api/admin/settings" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "list_9",
+        "operationId" : "list_10",
         "parameters" : [ {
           "name" : "area",
           "in" : "query",
@@ -9937,7 +10509,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_7",
+        "operationId" : "get_8",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -9974,7 +10546,7 @@
     "/api/admin/inquiries" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "list_10",
+        "operationId" : "list_11",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -10034,7 +10606,7 @@
     "/api/admin/inquiries/counts" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "counts_1",
+        "operationId" : "counts_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -10056,7 +10628,7 @@
     "/api/admin/customers" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "list_11",
+        "operationId" : "list_12",
         "parameters" : [ {
           "name" : "filter",
           "in" : "query",
@@ -10142,7 +10714,7 @@
     "/api/admin/customers/counts" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "counts_2",
+        "operationId" : "counts_3",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -10164,7 +10736,7 @@
     "/api/admin/bug-reports" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "list_12",
+        "operationId" : "list_13",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -10224,7 +10796,7 @@
     "/api/admin/bug-reports/counts" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "counts_3",
+        "operationId" : "counts_4",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -10501,6 +11073,28 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/offboarding/{offboardingId}" : {
+      "delete" : {
+        "tags" : [ "members" ],
+        "summary" : "Cancel a scheduled last day",
+        "description" : "members.remove. 404 for another organization's row; 409 when it already ran or was cancelled. Audit MEMBER_OFFBOARD_CANCELLED.",
+        "operationId" : "cancel",
+        "parameters" : [ {
+          "name" : "offboardingId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
           }
         }
       }
@@ -13035,6 +13629,197 @@
           }
         }
       },
+      "ReasonRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "HookLine" : {
+        "type" : "object",
+        "properties" : {
+          "hook" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "text" : {
+            "type" : "string"
+          },
+          "data" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          }
+        }
+      },
+      "LifecycleResult" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "previousStatus" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "scheduled" : {
+            "$ref" : "#/components/schemas/ScheduledOffboarding"
+          },
+          "lines" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HookLine"
+            }
+          }
+        }
+      },
+      "ScheduledOffboarding" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "effectiveAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "OffboardRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          },
+          "effectiveAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "confirm" : {
+            "type" : "string"
+          },
+          "reassignments" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Reassignment"
+            }
+          }
+        }
+      },
+      "Reassignment" : {
+        "type" : "object",
+        "properties" : {
+          "consultantMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "newAssigneeMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "BulkStatusRequest" : {
+        "type" : "object",
+        "properties" : {
+          "memberIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "BulkRolesRequest" : {
+        "type" : "object",
+        "properties" : {
+          "memberIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "add" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "remove" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "primaryRoleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "BulkManagerRequest" : {
+        "type" : "object",
+        "properties" : {
+          "memberIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "managerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "BulkGroupsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "memberIds" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "departmentGroupId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "teamGroupId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "OrgGroupRequest" : {
         "type" : "object",
         "properties" : {
@@ -13700,6 +14485,217 @@
           },
           "settings" : {
             "$ref" : "#/components/schemas/JsonNode"
+          }
+        }
+      },
+      "Actions" : {
+        "type" : "object",
+        "properties" : {
+          "edit" : {
+            "type" : "boolean"
+          },
+          "manageRoles" : {
+            "type" : "boolean"
+          },
+          "suspend" : {
+            "type" : "boolean"
+          },
+          "reinstate" : {
+            "type" : "boolean"
+          },
+          "offboard" : {
+            "type" : "boolean"
+          },
+          "viewActivity" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ActivityItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "actor" : {
+            "$ref" : "#/components/schemas/PersonRef"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "risk" : {
+            "type" : "string"
+          },
+          "targetType" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Detail" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "initials" : {
+            "type" : "string"
+          },
+          "workEmail" : {
+            "type" : "string"
+          },
+          "phone" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "timezone" : {
+            "type" : "string"
+          },
+          "avatarUrl" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "statusSince" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RoleRef"
+            }
+          },
+          "primaryRoleKey" : {
+            "type" : "string"
+          },
+          "department" : {
+            "$ref" : "#/components/schemas/GroupRef"
+          },
+          "team" : {
+            "$ref" : "#/components/schemas/GroupRef"
+          },
+          "manager" : {
+            "$ref" : "#/components/schemas/PersonRef"
+          },
+          "directReports" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PersonRef"
+            }
+          },
+          "joinedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastActiveAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "leftAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "consentScope" : {
+            "type" : "string"
+          },
+          "consentFullTo" : {
+            "$ref" : "#/components/schemas/PersonRef"
+          },
+          "invite" : {
+            "$ref" : "#/components/schemas/InviteMeta"
+          },
+          "scheduledOffboarding" : {
+            "$ref" : "#/components/schemas/ScheduledOffboarding"
+          },
+          "actions" : {
+            "$ref" : "#/components/schemas/Actions"
+          },
+          "recentActivity" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityItem"
+            }
+          },
+          "summaryOnly" : {
+            "type" : "boolean"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        }
+      },
+      "GroupRef" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InviteMeta" : {
+        "type" : "object",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expired" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "PersonRef" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "avatarUrl" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RoleRef" : {
+        "type" : "object",
+        "properties" : {
+          "roleId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "primary" : {
+            "type" : "boolean"
           }
         }
       },
@@ -15387,6 +16383,265 @@
           }
         }
       },
+      "Page" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Row"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Row" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "initials" : {
+            "type" : "string"
+          },
+          "workEmail" : {
+            "type" : "string"
+          },
+          "avatarUrl" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "roles" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RoleRef"
+            }
+          },
+          "department" : {
+            "$ref" : "#/components/schemas/GroupRef"
+          },
+          "team" : {
+            "$ref" : "#/components/schemas/GroupRef"
+          },
+          "manager" : {
+            "$ref" : "#/components/schemas/PersonRef"
+          },
+          "joinedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastActiveAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "consentScope" : {
+            "type" : "string"
+          },
+          "invite" : {
+            "$ref" : "#/components/schemas/InviteMeta"
+          },
+          "summaryOnly" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Blocker" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OffboardPreview" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "blockers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Blocker"
+            }
+          },
+          "lines" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HookLine"
+            }
+          },
+          "rolesEnded" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "consentScope" : {
+            "type" : "string"
+          },
+          "recordsKept" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "licenseNotice" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ActivityPage" : {
+        "type" : "object",
+        "properties" : {
+          "direction" : {
+            "type" : "string"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ActivityItem"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Scheduled" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "effectiveAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ScheduledList" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Scheduled"
+            }
+          }
+        }
+      },
+      "Counts" : {
+        "type" : "object",
+        "properties" : {
+          "asOf" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "scope" : {
+            "type" : "string"
+          },
+          "total" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "active" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "invited" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "suspended" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "departments" : {
+            "$ref" : "#/components/schemas/Tile"
+          },
+          "teams" : {
+            "$ref" : "#/components/schemas/Tile"
+          }
+        }
+      },
+      "Tile" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "previous" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "delta" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deltaPercent" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
       "ColourCheck" : {
         "type" : "object",
         "properties" : {
@@ -16120,48 +17375,6 @@
           }
         }
       },
-      "Detail" : {
-        "type" : "object",
-        "properties" : {
-          "customer" : {
-            "$ref" : "#/components/schemas/Customer"
-          },
-          "timeline" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/TimelineEntry"
-            }
-          }
-        }
-      },
-      "TimelineEntry" : {
-        "type" : "object",
-        "properties" : {
-          "kind" : {
-            "type" : "string"
-          },
-          "at" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "title" : {
-            "type" : "string"
-          },
-          "body" : {
-            "type" : "string"
-          },
-          "amountCents" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "currency" : {
-            "type" : "string"
-          },
-          "failed" : {
-            "type" : "boolean"
-          }
-        }
-      },
       "AdminAuditEventDTO" : {
         "type" : "object",
         "properties" : {
@@ -16592,14 +17805,6 @@
           "percentOfProBudget" : {
             "type" : "integer",
             "format" : "int32"
-          }
-        }
-      },
-      "ReasonRequest" : {
-        "type" : "object",
-        "properties" : {
-          "reason" : {
-            "type" : "string"
           }
         }
       }

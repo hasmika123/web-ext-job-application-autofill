@@ -70,6 +70,26 @@ public class OrgMember implements Serializable {
     @Column(name = "landing_workspace", length = 20)
     private String landingWorkspace;
 
+    /** The org-set job title (Enterprise V2, X4.3); the person's own title lives on their profile. */
+    @Column(name = "title", length = 120)
+    private String title;
+
+    /** The department the person sits in (X4.3); null falls back to the legacy {@code group_id} when that group is a DEPARTMENT. */
+    @Column(name = "department_group_id")
+    private Long departmentGroupId;
+
+    /** The team the person sits in (X4.3); when both are set the team belongs to the department. */
+    @Column(name = "team_group_id")
+    private Long teamGroupId;
+
+    /** The reporting manager, another live seat of the same organization (X4.3); never a cycle. */
+    @Column(name = "manager_member_id")
+    private Long managerMemberId;
+
+    /** Written by the throttled last-active interceptor, at most hourly per member. */
+    @Column(name = "last_active_at")
+    private Instant lastActiveAt;
+
     @Column(name = "joined_at")
     private Instant joinedAt;
 
@@ -121,6 +141,16 @@ public class OrgMember implements Serializable {
     public void setLandingWorkspace(String landingWorkspace) { this.landingWorkspace = landingWorkspace; }
     public Long getSupportOwnerMemberId() { return supportOwnerMemberId; }
     public void setSupportOwnerMemberId(Long supportOwnerMemberId) { this.supportOwnerMemberId = supportOwnerMemberId; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public Long getDepartmentGroupId() { return departmentGroupId; }
+    public void setDepartmentGroupId(Long departmentGroupId) { this.departmentGroupId = departmentGroupId; }
+    public Long getTeamGroupId() { return teamGroupId; }
+    public void setTeamGroupId(Long teamGroupId) { this.teamGroupId = teamGroupId; }
+    public Long getManagerMemberId() { return managerMemberId; }
+    public void setManagerMemberId(Long managerMemberId) { this.managerMemberId = managerMemberId; }
+    public Instant getLastActiveAt() { return lastActiveAt; }
+    public void setLastActiveAt(Instant lastActiveAt) { this.lastActiveAt = lastActiveAt; }
     public Instant getJoinedAt() { return joinedAt; }
     public void setJoinedAt(Instant joinedAt) { this.joinedAt = joinedAt; }
     public Instant getLeftAt() { return leftAt; }

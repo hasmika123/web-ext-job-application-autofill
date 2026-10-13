@@ -114,24 +114,31 @@ class OrgIsolationIT {
         String auditAction,
         boolean multipart,
         java.util.function.Function<World, String> bodyFor,
-        java.util.function.Function<World, String> ifMatchFor
+        java.util.function.Function<World, String> ifMatchFor,
+        int auditRows,
+        java.util.function.Consumer<World> prepare
     ) {
         static Case read() {
-            return new Case(null, 200, null, false, null, null);
+            return new Case(null, 200, null, false, null, null, 1, null);
         }
 
         static Case write(String body, int status, String action) {
-            return new Case(body, status, action, false, null, null);
+            return new Case(body, status, action, false, null, null, 1, null);
         }
 
         /** A multipart upload (field "file", a small valid PNG) instead of a JSON body. */
         static Case upload(int status, String action) {
-            return new Case(null, status, action, true, null, null);
+            return new Case(null, status, action, true, null, null, 1, null);
         }
 
         /** A write whose body and If-Match version depend on the fixture world (role ids, role versions: X1.14). */
         static Case versioned(int status, String action, java.util.function.Function<World, String> bodyFor, java.util.function.Function<World, String> ifMatchFor) {
-            return new Case(null, status, action, false, bodyFor, ifMatchFor);
+            return new Case(null, status, action, false, bodyFor, ifMatchFor, 1, null);
+        }
+
+        /** X4.3/X4.4: a write that writes {@code auditRows} audit rows (the action's own plus a bulk summary), the newest being {@code action}, after {@code prepare} put the world in the state it needs. */
+        static Case people(int status, String action, int auditRows, java.util.function.Function<World, String> bodyFor, java.util.function.Function<World, String> ifMatchFor, java.util.function.Consumer<World> prepare) {
+            return new Case(null, status, action, false, bodyFor, ifMatchFor, auditRows, prepare);
         }
     }
 
@@ -155,6 +162,22 @@ class OrgIsolationIT {
         Map.entry("PATCH /api/orgs/{orgId}/roles/{roleId}", Case.versioned(200, "ROLE_UPDATE", w -> "{\"name\":\"Hijacked\"}", w -> w.roleVersion)),
         Map.entry("DELETE /api/orgs/{orgId}/roles/{roleId}", Case.versioned(204, "ROLE_DELETE", w -> null, w -> w.roleVersion)),
         Map.entry("PUT /api/orgs/{orgId}/members/{memberId}/roles", Case.versioned(200, "ROLE_ASSIGN", w -> "{\"roleIds\":[" + w.consultantRoleId + "],\"primaryRoleId\":" + w.consultantRoleId + "}", w -> null)),
+        // Enterprise V2 X4.3 / X4.4: the Employees board. Reads write no audit row; bulk calls write the action's own rows plus one MEMBER_BULK summary.
+        Map.entry("GET /api/orgs/{orgId}/members", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/members/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/members/{memberId}", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/members/{memberId}/activity", Case.read()),
+        Map.entry("PATCH /api/orgs/{orgId}/members/{memberId}", Case.people(200, "MEMBER_UPDATE", 1, w -> "{\"title\":\"Hijacked\"}", w -> w.memberVersion, null)),
+        Map.entry("POST /api/orgs/{orgId}/members/bulk/roles", Case.people(200, "MEMBER_BULK", 2, w -> "{\"memberIds\":[" + w.member.getId() + "],\"add\":[" + w.consultantRoleId + "]}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/members/bulk/groups", Case.people(200, "MEMBER_BULK", 2, w -> "{\"memberIds\":[" + w.member.getId() + "],\"departmentGroupId\":" + w.department.getId() + ",\"teamGroupId\":null}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/members/bulk/manager", Case.people(200, "MEMBER_BULK", 2, w -> "{\"memberIds\":[" + w.member.getId() + "],\"managerMemberId\":" + w.owner.getId() + "}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/members/bulk/status", Case.people(200, "MEMBER_BULK", 2, w -> "{\"memberIds\":[" + w.member.getId() + "],\"action\":\"SUSPEND\",\"reason\":\"Policy review pending\"}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/suspend", Case.people(200, "MEMBER_SUSPEND", 1, w -> "{\"reason\":\"Policy review pending\"}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/reinstate", Case.people(200, "MEMBER_REINSTATE", 1, w -> "{\"reason\":\"Review finished\"}", null, w -> w.suspendMember())),
+        Map.entry("GET /api/orgs/{orgId}/members/{memberId}/offboard-preview", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/offboard", Case.people(200, "MEMBER_REMOVE", 1, w -> "{\"reason\":\"Left the company\",\"confirm\":\"" + w.p + "-member\"}", null, null)),
+        Map.entry("GET /api/orgs/{orgId}/members/offboarding", Case.read()),
+        Map.entry("DELETE /api/orgs/{orgId}/members/offboarding/{offboardingId}", Case.people(204, "MEMBER_OFFBOARD_CANCELLED", 1, w -> null, null, null)),
         // Enterprise V2 X2.5: branding. Draft edits, discards and removing an absent asset write no audit row (by design).
         Map.entry("GET /api/orgs/{orgId}/branding", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/branding/preview-theme", Case.read()),
@@ -208,6 +231,8 @@ class OrgIsolationIT {
         for (AppSetting row : settingRows.findAll()) if (FLAG_WRITER.equals(row.getUpdatedBy())) settingRows.delete(row);
         settingsCache.invalidate();
     }
+    @Autowired private com.dossier.api.repository.ent.OrgMemberOffboardingRepository offboardingRows;
+    @Autowired private com.dossier.api.service.ent.members.OrgMemberQueryService memberQuery;
     @Autowired private OrgBrandingRepository brandings;
     @Autowired private OrgBrandingVersionRepository brandingVersions;
 
@@ -230,6 +255,10 @@ class OrgIsolationIT {
         Long roleId;
         String roleVersion;
         Long consultantRoleId;
+        /** X4.3/X4.4: a department of this organization, the member's version (ETag), and one scheduled last day for the member. */
+        OrgGroup department;
+        String memberVersion;
+        Long offboardingId;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -313,7 +342,27 @@ class OrgIsolationIT {
 
             // The member shares a summary with their org: one data_share row and its event.
             dataShare.grant(me(member), ShareScope.SUMMARY, null, OrgShareConsent.CURRENT, ShareContext.EMPTY);
+            // X4.3/X4.4: a department, the version of the member's sheet, and a scheduled last day (far ahead) for the member.
+            OrgGroup dept = new OrgGroup();
+            dept.setOrgId(org.getId());
+            dept.setName(prefix + " department");
+            dept.setKind(OrgGroupKind.DEPARTMENT);
+            department = groups.saveAndFlush(dept);
+            com.dossier.api.domain.ent.OrgMemberOffboarding sched = new com.dossier.api.domain.ent.OrgMemberOffboarding();
+            sched.setOrgId(org.getId());
+            sched.setMemberId(member.getId());
+            sched.setEffectiveAt(Instant.now().plusSeconds(86400L * 90));
+            sched.setReason("Scheduled for the isolation test");
+            sched.setCreatedByMemberId(owner.getId());
+            offboardingId = offboardingRows.saveAndFlush(sched).getId();
             em.flush();
+            memberVersion = memberQuery.currentVersion(org.getId(), member);
+        }
+
+        /** Puts the member in the SUSPENDED state (what a reinstate needs to find). */
+        void suspendMember() {
+            member.setStatus(OrgMemberStatus.SUSPENDED);
+            members.saveAndFlush(member);
         }
 
         OrgMembership me(OrgMember seat) {
@@ -332,6 +381,7 @@ class OrgIsolationIT {
             ids.put("versionNo", String.valueOf(brandingVersionNo));
             ids.put("roleId", String.valueOf(roleId));
             ids.put("memberId", String.valueOf(member.getId()));
+            ids.put("offboardingId", String.valueOf(offboardingId));
             ids.put("kind", "logo");
             return ids;
         }
@@ -390,6 +440,9 @@ class OrgIsolationIT {
         MockHttpServletRequestBuilder req = MockMvcRequestBuilders.request(HttpMethod.valueOf(route.method()), uri).contentType(MediaType.APPLICATION_JSON);
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard"))) {
+            req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
+        }
         if (c.ifMatchFor() != null) {
             String version = c.ifMatchFor().apply(world);
             if (version != null) req.header("If-Match", version);
@@ -564,6 +617,7 @@ class OrgIsolationIT {
             Case c = COVERAGE.get(route.key());
             assertThat(c).as(route.key() + " is not in COVERAGE").isNotNull();
             World w = new World("legit" + (n++), false); // a world of its own, so a close or a delete cannot break the next route
+            if (c.prepare() != null) c.prepare().accept(w);
             long before = audit.countByOrgId(w.org.getId());
             MvcResult r = mockMvc.perform(request(route, uri(route, w.ids()), w).with(user(w.p + "-owner"))).andReturn();
             assertThat(r.getResponse().getStatus()).as(route.key() + " legitimately -> " + r.getResponse().getContentAsString()).isEqualTo(c.legitStatus());
@@ -572,7 +626,7 @@ class OrgIsolationIT {
             if (c.auditAction() == null) {
                 assertThat(delta).as(route.key() + " is a read and must write no audit row").isZero();
             } else {
-                assertThat(delta).as(route.key() + " must write exactly one audit row").isEqualTo(1);
+                assertThat(delta).as(route.key() + " must write exactly " + c.auditRows() + " audit row(s)").isEqualTo(c.auditRows());
                 assertThat(com.dossier.api.service.org.OrgAuditAsserts.rows(audit, w.org.getId()).get(0).getAction()).as(route.key()).isEqualTo(c.auditAction());
             }
         }
@@ -607,7 +661,7 @@ class OrgIsolationIT {
             assertThat(groups.findByOrgIdAndId(B, a.group.getId())).isEmpty();
             assertThat(groups.findByOrgIdOrderBySortOrderAscNameAsc(B)).extracting(OrgGroup::getId).doesNotContain(a.group.getId());
             assertThat(groups.existsByOrgIdAndName(B, a.group.getName())).isFalse();
-            assertThat(groups.countByOrgId(B)).isEqualTo(1);
+            assertThat(groups.countByOrgId(B)).as("B's cohort and B's department (X4.3 fixtures)").isEqualTo(2);
             assertThat(groups.deleteByOrgIdAndId(B, a.group.getId())).as("a delete naming B and A's group row removes nothing").isZero();
             assertThat(groups.findByOrgIdAndId(A, a.group.getId())).isPresent();
         }));
