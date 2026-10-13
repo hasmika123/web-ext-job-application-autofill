@@ -42,13 +42,22 @@ Tenant-host only (PLATFORM → 404). Requires a `tid` token for the resolved ten
   "member": { "id", "status", "title", "departmentGroupId", "teamGroupId", "managerMemberId", "joinedAt" },
   "roles": [ { "id", "key", "name", "isPrimary", "workspaceKey" } ],
   "permissions": { "members.invite": "ORG", "resumes.view_for": "ASSIGNED", ... },
-  "modules": { "domains": true, "roles": true, "billing": false, "marketing": false, "hrFinance": false },
+  "modules": { "domains": true, "roles": true, "billing": false, "marketing": false, "hrFinance": false,
+               "extensionWorkspaces": false, "integrations": false, "analytics": false },
   "workspaces": [ { "key": "admin", "label": "Administration", "home": "/w/admin" }, { "key": "marketing", ... } ],
   "landing": "/w/admin",
   "consent": { "scope": "SUMMARY", "fullTo": null },
-  "features": { "pending": true }        // Phase 5 fills licensed feature keys for CONSULTANT members
+  "features": { "licensed": [], "pending": true }   // see below
 }
 ```
+- `modules` (09 row 2): exactly these eight booleans, each = the org is in the `flag.enterprise.<module>`
+  allow-list **∧** `ModuleGate.isOn(orgId, moduleKey)` (20 §6) where a module product exists
+  (`marketing` ↔ `module.talent_marketing`); `extensionWorkspaces`, `integrations`, `analytics` read
+  `flag.enterprise.extension_workspaces` / `flag.enterprise.integrations` / `flag.enterprise.analytics` only.
+- `features` (09 row 2): `{ licensed: [featureKey…], pending: boolean }`. Until X5.6 lands the API returns
+  `pending = true, licensed = []`; from X5.6 on, `licensed` = `EntitlementService.entitlementsOf(member)`
+  for CONSULTANT members (other members: `[]`, `pending = false`). The shell never gates on `features`
+  alone — the API is the gate (16 §2.4).
 - `workspaces` is computed server-side from the workspace definitions (16 §3) ∩ effective
   permissions ∩ enabled modules; `landing` = primary role's workspace home, overridden by the
   member's saved preference (`org_member.landing_workspace`, additive, X4.2) when still allowed.

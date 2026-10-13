@@ -19,7 +19,9 @@
 The org never writes the person's row. When the consultant **confirms** a slot, the API creates
 their `interview` row *under their own token* (`InterviewService.create(applicationId, body)` with
 `source = "ORG"` — new 3-char constant `SRC_ORG`, column is `varchar(12)`), stores
-`interview_slot.interview_id`, and from then on the two are reconciled one way: consultant edits
+`interview_slot.interview_id` — `interview.application_id` becomes **nullable** for this
+(`dropNotNullConstraint` in the Phase-9 changelog `20261023010000_ent_applications.xml`, X9.5; 09 row 20),
+because an org-coordinated interview may precede any application row — and from then on the two are reconciled one way: consultant edits
 to time/outcome propagate to the slot (SYSTEM), org edits to the slot create a **re-propose** the
 consultant confirms again.
 
@@ -76,7 +78,8 @@ org calendar. Without FULL, the org only sees `UPCOMING_INTERVIEW_COUNT` go up.
   kind) 24 h and 1 h before for person rows **with any source**, writing the existing
   `reminder_24h_sent_at`/`reminder_1h_sent_at` columns — this fulfils the parked U7 intent for
   everyone, not only consultants; and `ORG_INTERVIEW` to the slot's proposer 24 h before (grouped).
-- Org calendar page (`/org/interviews`, X9.6): week/agenda views built on the same `Calendar`
+- Org calendar page (`/w/{marketing|accounts|admin}/interviews` — one `OrgInterviewsPage` mounted in
+  three workspaces, 16 §7 / 09 row 1; X9.6): week/agenda views built on the same `Calendar`
   primitive the user app uses (`@kiwiply/ui`), rows = slots at TEAM/ORG scope **with consent
   projection**: SUMMARY viewers see "Interview · Anika" blocks without client names; FULL viewers
   see client + contact.

@@ -13,6 +13,10 @@
 
 ## 1. Shared rules for every page here
 
+- **Routes (09 row 1):** every page in this doc lives on the tenant host under
+  `/w/{marketing|marketing-mgmt|consultant|accounts|hr|finance|admin}/…` (files under
+  `web/src/app/(tenant)/_t/w/[workspace]/…`, 16 §2.3); Session B's eight workspace keys are canonical.
+  Shared components live in `web/src/components/ent/**`; primitives come from `@kiwiply/ui` (§7, owned by X2.15).
 - **Layout:** `PageFrame` with a title row (title · count chip · primary action as a compact `Button`
   size `sm`, never a large edit button), a filter row (`ChipInput`/`Select` inline; on 390 collapses
   to one "Filters" `BottomSheet`), then a list or board. Boards scroll horizontally on 390 with
@@ -208,7 +212,7 @@ approve only on clean rows.
 | Opportunities pipeline | "Nothing in flight. Find jobs for someone on your list." | Job Discovery |
 | Submissions | "No submissions recorded. When you present someone to a client, record it here." | Record submission |
 | Consultant home (nothing assigned) | "Nothing from Acme yet. Your own job search still works as always." | Jobs |
-| Assigned opportunities (all handled) | "All caught up." + mascot nod (no confetti) | — |
+| Assigned opportunities (all handled) | "All caught up." + `<MascotPose pose="greet" size="sm">` (no confetti; 09 row 5 — "nod" is not a pose) | — |
 | Interviews (consultant) | "No interviews scheduled." | — |
 | Placements (AM) | "No placements yet. They appear when someone accepts an offer." | Offers |
 | Workload (manager) | "No marketers on your team yet." | Team |
@@ -223,15 +227,20 @@ TERMINATED, overdue, or any finance screen.
 
 ## 7. New `@kiwiply/ui` primitives (add first, with tests, then use)
 
+> **Owned by X2.15** (09 row 14): the one enterprise UI-kit story ships every primitive below together
+> with Session B's kit and Session C's billing pieces. Two renames apply here: `PipelineBadge` is
+> `StatePill` (one primitive; each domain registers its own state→tone map) and `RateCell` is
+> `MoneyText` in **band mode**. Every D UI story depends on X2.15.
+
 | primitive | purpose | notes |
 |---|---|---|
-| `PipelineBadge` | one status→tone map for match/submission/interview/offer/placement/employment states | generated from `PipelineTransitions` state list (doc-sync test) |
+| `StatePill` (was `PipelineBadge`) | one status→tone map for match/submission/interview/offer/placement/employment states | tone map registered per domain, generated from `PipelineTransitions` state list (doc-sync test) |
 | `ConsentChip` | Summary / Full / Not shared + "Ask" affordance with cooldown state | wraps `Badge` + `Popover` |
 | `ReadinessRing` | 0–100 ring with `nextAction` line | wraps `Meter` |
 | `KanbanBoard` | columns with horizontal snap on 390, `CardStack` columns on 1440; no drag between columns | |
 | `WorkloadColumn` | capacity dots + drag chips (desktop) / menu (touch) | uses `DragHandle` |
 | `TimelineFeed` | merged `application_event` ∪ `pipeline_event` rows with actor tags | |
-| `RateCell` | minor-units money with currency, band-only mode for non-finance | never floats |
+| `MoneyText` band mode (was `RateCell`) | minor-units money with currency, band-only mode for non-finance | never floats; same `MoneyText` as 28 §0 |
 | `SensitiveTextField` | `Input`/`Textarea` with the TS `sensitive-patterns` pre-check and the 422 message | shared with H |
 
 Icons: add `briefcase`, `handshake`, `calendar-check`, `clipboard-check`, `shield-check`,

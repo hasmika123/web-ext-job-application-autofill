@@ -5,7 +5,7 @@
 > for **X5.4** (tables + `LicenseService`), **X5.11** (org modules), **X5.12** (bulk). Pricing is
 > `22-pricing-calculation.md`; the catalog is `21-feature-catalog.md`; Stripe is `26-…`; the state
 > machines in full are `27-subscription-lifecycle.md`. Money is always `long` minor units + ISO
-> currency; timestamps `DATETIME(6)` UTC. Liquibase: `202611xxxxxxxx_ent_licenses.xml` (additive).
+> currency; timestamps `DATETIME(6)` UTC. Liquibase: `20261019030000_ent_licenses.xml` (additive; Phase-5 bucket, 06 §4).
 
 ## 1. What a license is (and is not)
 
@@ -126,7 +126,9 @@ Modules that are **not** commercially restricted need no row: `module enabled = 
   already-paid period is free; after it, it is an add (prorated).
 - **Member leaves / is removed / is erased**: license → ENDED **now** with `end_reason`; features
   end now; Stripe quantities decrement with no proration (the org paid the period; documented in
-  the org terms — see billing.md §8, unchanged).
+  the org terms — see billing.md §8, unchanged). This is the rule everywhere (09 row 4): `LicenseService`
+  registers the Licenses `OffboardingHook` (15 §5) and the wizard copy is "License ends now; the paid
+  period isn't refunded".
 - **Org PAST_DUE**: licenses keep working until `org_billing_account.paid_through_at` (E11, 24 §4).
   **Org SUSPENDED/CLOSED**: every license → ENDED (`ORG_SUSPENDED`/`ORG_CLOSED`) and features stop
   now; paying again creates new rows (history stays).
@@ -172,6 +174,8 @@ Rules the service enforces (each is a unit test):
 - `ORG_MODULE` products carry `quantity_basis` and `role_key`. Draft catalog: `module.talent_marketing` (**the locked "Marketer seat"**, PER_ROLE `MARKETING_SPECIALIST`; quantity follows the role grants, so the Roles page shows "adding this role adds a paid seat" with the price before the grant is saved — same never-silent rule), `module.consultancy_ops` (FLAT + PER_ROLE `CONSULTANT` second line, Phase 23, prices admin-set), `module.clients_placements` and `module.hr_finance` (**included**, no product: enabled by flag allow-list).
 - A role grant that changes a PER_ROLE quantity goes through the same quote → confirm path (`Op.CHANGE_QUANTITY` on the module line); the Roles page calls `POST /licenses/quotes` with `moduleLines[]` and shows the delta before saving the role.
 - Modules never gate a *consultant* feature; they gate steps 6 (`MODULE_OFF`) of the evaluation order for employee actions (e.g. `submissions.prepare` needs `module.talent_marketing`).
+- **`ModuleGate`** (X5.11, 09 row 13): `ModuleGate.isOn(orgId, moduleKey)` = the org is in the module's `flag.enterprise.*` allow-list **∧** (no active ORG price is published for the module product **or** a live `org_module_license` exists). So a module with no published price is free-by-flag; once admin publishes a price it needs a license. Gated by it: every MARKETER/MANAGER actor transition in `PipelineTransitions` on `opportunity_match`, `candidate_submission`, `pipeline_task` (31 §2), the Marketing / Marketing-mgmt workspace homes (`MODULE_OFF` state), and `/api/me/tenant.modules.marketing` (12 §3).
+- **Marketer-side AI is charged to the module, not to a license** (09 row 9): `module.talent_marketing` has a `feature_definition` row (category MODULE, `pool_mode = ORG_POOL`, `usage_unit = operations`) whose allowance = `default_allowance × module quantity`; the marketer's inbox attribution (37 #9), advanced alerts (37 #11) and requirement enrichment (37 #14) reserve against it with beneficiary = the actor. Non-consultants never hold a consultant license (E3), so the "Talent Marketing Support" preset of 37 §4 is withdrawn.
 
 ## 7. APIs (all under the tenant, `@OrgPermissionRequired`)
 

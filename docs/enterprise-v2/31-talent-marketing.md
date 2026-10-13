@@ -42,6 +42,11 @@ transition below (mirrors `application_event`). `PipelineEventService.record(...
 - **Actor kinds:** `MARKETER` (= holder of the named permission at ASSIGNED+), `MANAGER`
   (`approvals.decide` TEAM+), `ACCOUNT_MANAGER`, `CONSULTANT` (OWN), `SYSTEM` (jobs, submit-detect).
 - Terminal states are never left except where a row says so. Nothing is deleted; "remove" = CLOSED/WITHDRAWN.
+- **Module gate (09 row 13):** every transition whose actor is MARKETER or MANAGER on
+  `opportunity_match`, `candidate_submission` or `pipeline_task` first passes
+  `ModuleGate.isOn(orgId, "module.talent_marketing")` (20 §6) — refused as step 6 `MODULE_OFF` (404).
+  The Marketing and Marketing-mgmt workspace homes render the same `MODULE_OFF` state. CONSULTANT and
+  SYSTEM transitions are not module-gated (a consultant can always answer what is already in flight).
 - Every transition that names a consultant as beneficiary is visible to that consultant in their
   own timeline ("What Acme did"), including the actor's name.
 
@@ -179,7 +184,7 @@ Interview slot and placement machines live in 33 and 35; they are in the same `P
   the HEAD check should ship on by default.
 - Boards that forbid third-party or agency applications: the opportunity card shows the board's
   "apply yourself" note (a static per-board policy table `BoardPolicy` in code, admin-editable JSON
-  setting `pipeline.board_policies`), and the marketer's packet cannot select `SUBMIT_RECORD` scope
+  setting `enterprise.pipeline.board_policies`), and the marketer's packet cannot select `SUBMIT_RECORD` scope
   for a JOB_POSTING opportunity (only `APPLY_SELF`). Client requirements (vendor channels) use
   `SUBMIT_RECORD`.
 - Autopilot batch-prepare for assigned jobs (X12.2) inherits every lock from
@@ -204,8 +209,9 @@ Reflection over every handler under `/api/orgs/**` and `/api/ent/**`:
    `adapters/base.js` still blocks submit-class controls; a jsdom fixture with a visible "Submit
    application" button asserts no click.
 6. Web: a lint rule in `web/` forbids the literal button labels "Submit application" / "Apply for"
-   under `src/app/(org)/**` (the only "Submit" buttons are form submits for org-owned records, which
-   are named "Save"/"Record").
+   under `src/app/(tenant)/**` and `src/components/ent/**` (09 row 1; the legacy `/org/*` console on
+   kiwiply.com is not a marketing surface) — the only "Submit" buttons are form submits for
+   org-owned records, which are named "Save"/"Record".
 
 `MarketerScopeTest` (sees only assigned + consented consultants; another marketer's → 404) stays
 from the prior art.
@@ -213,7 +219,9 @@ from the prior art.
 ## 11. Notifications (new `NotificationKind` values, X8.10)
 
 `ORG_ASSIGNMENT, ORG_CONSENT, ORG_RESUME, ORG_OPPORTUNITY, ORG_AUTHORIZATION, ORG_APPROVAL,
-ORG_INTERVIEW, ORG_OFFER, ORG_PLACEMENT, ORG_HR, ORG_FINANCE` — none locked; defaults in
+ORG_INTERVIEW, ORG_OFFER, ORG_PLACEMENT, ORG_HR, ORG_FINANCE` — **all registered up front by X2.10**
+together with `ORG_MEMBERSHIP, ORG_DOMAIN, ORG_BILLING` (09 row 18); X4.7, X7.4, X8.10 and later
+stories only *publish* them. None locked; defaults in
 `NOTIFY_DEFAULTS` in-app on, email "now" for `ORG_AUTHORIZATION`, `ORG_OFFER`, `ORG_INTERVIEW`,
 off otherwise. Org-side recipients are resolved member → `jhi_user.id`. Every payload carries
 `link` to the tenant host of the org (`org_hostname.is_primary`, Session B) and

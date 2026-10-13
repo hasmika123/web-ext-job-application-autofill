@@ -49,7 +49,8 @@ deliberate: the Kiwiply visual identity stays (requirements §26) and the attack
 `consultant` ("Consultant" → "Talent", "Associate"…), `consultants`, `marketer` ("Marketing
 Specialist" → "Bench Sales Rep"), `marketers`, `client` ("Client" → "Account"), `clients`,
 `placement`, `placements`, `opportunity`, `opportunities`, `submission`, `submissions`,
-`department`, `departments`, `team`, `teams`, `employee`, `employees`. The web uses `t('consultant')`
+`department`, `departments`, `team`, `teams`, `employee`, `employees`, `requirement`, `requirements`,
+`vendor`, `vendors` — **22 keys, nothing else** (the last four added for Session D's pages, 09 row 6). The web uses `t('consultant')`
 from `TenantTerminology` (context from the public DTO) everywhere a label is shown; plural keys are
 explicit (no auto-pluralising). Keys never change permission semantics.
 

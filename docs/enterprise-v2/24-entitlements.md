@@ -60,13 +60,13 @@ Steps **stop at the first failure**. Steps 1–6 and 9–10 are delegated to `Au
 | 3 | `OrgStateRules.allows(org.status, operationKind)`: ACTIVE → all; PAST_DUE → reads, billing, account and **feature use while `now < org_billing_account.paid_through_at`**; SUSPENDED/CLOSED/DRAFT/PENDING_SETUP_FEE → no feature use | `ORG_INACTIVE` (402 `SUBSCRIPTION_STATE` when the only failure is `paid_through_at` passed, see 11) |
 | 4 | actor's effective permission set contains `permissionKey` | `PERMISSION_DENIED` |
 | 5 | the target (beneficiary's record) is inside the actor's scope for that permission | `OUT_OF_SCOPE` |
-| 6 | the feature's module is enabled: `EnterpriseFeatureFlag` allow-list for the org **and**, when `feature_definition.category=MODULE` is commercially restricted, a live `org_module_license` | `MODULE_OFF` |
+| 6 | the feature's module is enabled: `ModuleGate.isOn(orgId, moduleKey)` (20 §6; 09 row 13) = `EnterpriseFeatureFlag` allow-list for the org **∧** (no active ORG price published for the module product **or** a live `org_module_license`) | `MODULE_OFF` |
 | 7 | beneficiary has a `consultant_license` with status `ACTIVE` (or `CANCEL_AT_PERIOD_END` before `ends_at`) and `starts_at ≤ now`, **and** a live `license_feature` for `featureKey` (`starts_at ≤ now < coalesce(ends_at, ∞)`); for `base.consultant` the license alone suffices; eligibility re-checked only at quote | `FEATURE_NOT_LICENSED` (details: `licensed=false|true`, `featureKey`, `canSelfServe=false`) |
 | 7b | every `INTEGRATION` dependency of the feature is satisfied for the beneficiary (`integration.inbox_connected` ⇔ an active `inbox_connection` for the beneficiary's user; `integration.extension_connected` ⇔ a live extension session, Phase 9) | `INTEGRATION_REQUIRED {integrationKey}` |
 | 8 | `quantity == 0` → skip; else `UsageLedgerService.reserve(...)` succeeds: `remaining ≥ quantity` across every `feature_definition_limit` row (DAY and PERIOD) under the right pool; on success `reservationId` is set | `FEATURE_ALLOWANCE_EXHAUSTED {limitKey, allowance, used, resetsAt}` |
 | 8b | `consumes_ai` → `AiBudgetService.decide(window)` for the **beneficiary's org window** (25 §6) is `OK` or `ECONOMY`; the reservation from 8 is released on refusal | `AI_BUDGET_EXHAUSTED {resetsAt}` (402) |
 | 9 | actor ≠ beneficiary → an open `org_assignment` (kind PRIMARY/BACKUP, or DELEGATE while valid) assignee=actor, consultant=beneficiary; skipped when actor = beneficiary | `NOT_ASSIGNED` |
-| 10 | actor ≠ beneficiary → `data_share` scope of the beneficiary allows it (SUMMARY/FULL per operation; FULL must name the actor) **and** every `CONSENT` dependency has a live `org_feature_consent (member=beneficiary, feature_key, granted_to ∈ {actor, NULL})` | `CONSENT_REQUIRED {beneficiary, consentKind}` |
+| 10 | actor ≠ beneficiary → `ConsentGate.allows(beneficiary, actor, consentKind)` for every `CONSENT` dependency of the feature (`feature_dependency` maps feature → consent kind, 21 §2.5): `consent.act_for` = the `data_share` FULL pairing naming the actor; every other kind needs a live `org_feature_consent (member=beneficiary, feature_key=<consent kind>, granted_to ∈ {actor, NULL})`. `ConsentGate` is an interface shipped by X5.6 with the FULL-pairing-only default; X7.6 ships the `org_feature_consent` implementation (09 row 10) | `CONSENT_REQUIRED {beneficiary, consentKind}` |
 | 11 | no `license_change` PENDING of kind SUSPEND/END effective now for the license; license not SUSPENDED; org not PAST_DUE past `paid_through_at`; `org_subscription.status ∉ {unpaid, canceled}` (unless LOCAL mode) | `SUBSCRIPTION_STATE {state}` |
 
 Personal context runs: 2' (user active) → 7' (`isProFor` or the personal feature map §7, and
@@ -99,7 +99,8 @@ transaction (`UsageLedgerService.release(reservationId, DENIED)`), which the tes
 @Target(METHOD) @Retention(RUNTIME)
 public @interface RequiresFeature {
   String value();                                   // feature key
-  Beneficiary beneficiary() default Beneficiary.SELF; // SELF | PATH_MEMBER ("{memberId}") | BODY_MEMBER (field "beneficiaryMemberId")
+  Beneficiary beneficiary() default Beneficiary.SELF; // the ONE enum shared with @OrgPermissionRequired (05 §6, 09 row 12):
+                                                     // NONE | SELF | PATH_MEMBER ("{memberId}") | BODY_MEMBER (field "beneficiaryMemberId") | QUERY_MEMBER (?for= / ?memberId=)
   long quantity() default 0;                        // 0 = access check; > 0 = reserve this many units
   String idempotencyHeader() default "Idempotency-Key"; // required when quantity > 0 (400 IDEMPOTENCY_KEY_REQUIRED if missing)
   String referenceType() default "";
@@ -165,7 +166,11 @@ existing `isPro`. `EntitlementServiceTest`'s existing matrix stays green; new te
 Personal path produces byte-identical `ProblemDetail`s to today's (`PRO_REQUIRED`, same message).
 
 `ai_call` gains `org_id BIGINT NULL`, `beneficiary_login VARCHAR(50) NULL`, `feature_key VARCHAR(60) NULL`,
-`usage_event_id BIGINT NULL` (additive). The personal path leaves them NULL.
+`usage_event_id BIGINT NULL` (additive, in `20261019040000_ent_usage.xml`). The personal path leaves them NULL.
+**X5.8 owns** (09 row 11) the record `AiCallContext(actorLogin, beneficiaryLogin, orgId, featureKey, usageEventId)`,
+the overloads `AiRouter.generate(…, AiCallContext ctx)` and `AiMeteringService.record(…, AiCallContext ctx)`
+(the existing signatures stay and delegate with a personal context), and these four columns. X7.10 (act-for AI)
+and X8.3 (matching) consume them and add nothing to `ai_call`.
 
 ## 8. Worked example (requirements §20)
 Sarah (MARKETING_SPECIALIST at Acme) → `POST /api/orgs/7/consultants/42/resumes/9/tailor` with

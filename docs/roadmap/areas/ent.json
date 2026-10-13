@@ -494,7 +494,8 @@
         "ScopeEvaluator.inScope(actorMembership, scope, targetMemberId) implementing OWN/ASSIGNED (reads org_assignment — table created here as an empty shell with the final columns, populated in X4.7)/TEAM/DEPARTMENT/ORG using org_member.team_group_id/department_group_id and org_group.lead_member_id.",
         "AuthorizationService.authorize(AuthzRequest) performs steps 1–5 and 9 (tenant, membership, org status via OrgStateRules, permission, scope, assignment) and leaves hooks (step interfaces) for 6–8, 10–11 to be filled by X5.6/X7.6; returns AuthzDecision with reasonCode; one ReasonToHttp mapper.",
         "OrgPermissionInterceptor builds AuthzRequest from @OrgPermissionRequired (new attributes beneficiary = NONE|PATH_MEMBER|SELF, scopeTarget) and calls authorize; stores the decision.",
-        "EntPermissions registry class (constants + family, description, defaultScope, dangerous) and a doc-sync test against 05 §3."
+        "EntPermissions registry class (constants + family, description, defaultScope, dangerous) and a doc-sync test against 05 §3.",
+        "One enum Beneficiary {NONE, SELF, PATH_MEMBER, BODY_MEMBER, QUERY_MEMBER} in service/ent/authz, used by @OrgPermissionRequired now and by @RequiresFeature in X5.6 (09 row 12); the interceptor resolves it once (path {memberId}, body field beneficiaryMemberId, query ?for=/?memberId=) and stores it on AuthzRequest."
       ],
       "ui": [],
       "backend": [
@@ -806,6 +807,56 @@
       "critical": false
     },
     {
+      "id": "X1.13",
+      "epic": "X1",
+      "title": "Ops endpoints hardening (E12): /management/prometheus needs ROLE_ADMIN or a scrape token; /api/internal/** refuses public Host/X-Forwarded-Host",
+      "status": "not_started",
+      "size": "S",
+      "complexity": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X1.3"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "persona": "Platform operator",
+      "objective": "No operational endpoint is reachable with a public hostname, and metrics need a credential (escalation E12 fix, 09 row 19).",
+      "story": "As the operator, I want metrics and internal endpoints to answer only to the box and to credentials I hold so that a tenant host can never expose them.",
+      "genz": "The back door is now a door.",
+      "functional": [
+        "SecurityConfiguration: /management/prometheus requires ROLE_ADMIN or a bearer scrape token (setting enterprise.ops.scrape_token, HIGH, hashed at rest; compared constant-time); /management/health stays permitAll with details hidden.",
+        "InternalSecurityConfiguration (existing X-Internal-Token chain for /api/internal/**) additionally refuses with 404 any request whose Host or X-Forwarded-Host is a public host (anything not in enterprise.hosts.internal, default [\"localhost\",\"api\",\"127.0.0.1\"]) — evaluated before the token check so the response is indistinguishable from an unknown route.",
+        "The edge path rule (BeeCompete Caddy) stays the user's runbook (E5); this story is the application-side guarantee and is independent of V2 flags (always on)."
+      ],
+      "ui": [],
+      "backend": [
+        "config/SecurityConfiguration, config/InternalSecurityConfiguration, EnterpriseSettingKeys.Ops"
+      ],
+      "db": [],
+      "apis": [
+        "GET /management/prometheus → 401 without credential; /api/internal/** → 404 on public hosts"
+      ],
+      "permissions": [
+        "ROLE_ADMIN or scrape token"
+      ],
+      "entitlements": [],
+      "ac": [
+        "GET /management/prometheus without credentials → 401; with ROLE_ADMIN or the scrape token → 200.",
+        "GET /api/internal/tenant-hosts/check with Host: api.kiwiply.com (or any tenant host) → 404 even with a valid X-Internal-Token; with Host: localhost + token → 200/404 per X1.3.",
+        "The ask endpoint used by the edge keeps working from the docker network (Host header = the internal service name)."
+      ],
+      "tests": [
+        "OpsEndpointsSecurityIT (prometheus 401/200), InternalHostGuardIT (public host → 404), SettingDefinitionsTest for the new keys."
+      ],
+      "tech": "Listed as the E12 fix story in the threat model (doc 42, Session E task 3). Keep OrgsEnabledFilter/EnterpriseEnabledFilter order unchanged.",
+      "dod": "CI green; DEPLOY.md ops note updated. Plus the common DoD in `06-phase-plan.md` §5.",
+      "design": "docs/enterprise-v2/04-tenancy-and-security.md",
+      "evidence": [],
+      "critical": true
+    },
+    {
       "status": "not_started",
       "critical": false,
       "evidence": [],
@@ -893,7 +944,8 @@
       "deps": [
         "X2.1",
         "X1.5",
-        "X1.6"
+        "X1.6",
+        "X2.15"
       ],
       "relates": [
         "O1.7"
@@ -909,7 +961,8 @@
         "EnterpriseShell (web/src/components/ent/shell/EnterpriseShell.tsx): sidebar 236px sticky h-dvh overflow-y-auto scroll-slim, collapsible 64px (localStorage, try/catch), org logo/name header, switcher (16 §4) only when workspaces.length > 1 else static eyebrow, nav groups, Need-help MascotCard, optional Powered-by footer; top bar 64px (quick-search slot hidden until a provider exists, NotificationBell, AccountMenu with \"My profile\" first); banners (PAST_DUE, draft branding, domain failing, access-changed) by permission; mobile: 56px top bar, nav BottomSheet, bottom tab bar = first four items + More with useBottomBar inset.",
         "Workspace layout web/src/app/(tenant)/_t/w/[workspace]/layout.tsx per 16 §2.4 (getTenant → getMeTenant → validate workspace → shell); not-part-of-your-role EmptyState (no redirect); re-validate /api/me/tenant on focus every 5 min and show the reload banner when the ETag changed.",
         "Promote the generic admin kit pieces to packages/ui: FilterBar, DataTable (table→cards), ReasonSheet, ConfirmTypedSheet, HistoryDrawer, PersonCell, StatusDot, QuickActionTiles (admin-v3 re-exports them; sample-lint unchanged); add web/src/lib/ent/use-save.ts (useAdminSaveEngine with the /api fetcher).",
-        "Tenant theme: the shell wrapper applies `.theme-v2 .theme-tenant` with inline --tenant-* variables from the public DTO (X2.12 provides the derivation; until merged, the wrapper applies the Kiwiply defaults)."
+        "Tenant theme: the shell wrapper applies `.theme-v2 .theme-tenant` with inline --tenant-* variables from the public DTO (X2.12 provides the derivation; until merged, the wrapper applies the Kiwiply defaults).",
+        "Contract of GET /api/me/tenant per 12 §3 as amended by 09 row 2: modules = exactly {domains, roles, billing, marketing, hrFinance, extensionWorkspaces, integrations, analytics}, each = flag allow-list ∧ ModuleGate.isOn where a module product exists; features = {licensed: [featureKey…], pending: boolean} — pending=true, licensed=[] until X5.6 lands, then licensed = EntitlementService.entitlementsOf for CONSULTANT members (others [] with pending=false)."
       ],
       "ac": [
         "acme-admin on acme.localhost lands on /w/admin; the sidebar lists exactly the ADMIN items whose needs ∩ permissions ≠ ∅ and whose module is on (table-driven test against 16 §5.1).",
@@ -918,7 +971,8 @@
         "The sidebar scrolls independently of the page (Playwright: scroll the page 2000 px, the sidebar scrollTop is unchanged; scroll inside the sidebar, the page does not move).",
         "Role change on the server → within 5 min of focus the shell shows \"Your access changed — reload\" (ETag test).",
         "MEMBER_SUSPENDED renders the paused panel with sign-out only; no org data in the DOM.",
-        "Every promoted kit component keeps its admin-v3 tests green via the re-exports."
+        "Every promoted kit component keeps its admin-v3 tests green via the re-exports.",
+        "MeTenantResourceIT asserts the eight module booleans and features {licensed: [], pending: true} before X5.6 (a doc-sync test pins the key list against 12 §3)."
       ],
       "tests": [
         "MeTenantResourceIT (workspaces ∩ permissions ∩ modules, ETag, suspended, non-member, PLATFORM 404)",
@@ -1041,7 +1095,8 @@
         "API: GET /api/orgs/{orgId}/dashboard (OrgDashboardService) returning per-widget {state: ok|empty|unavailable|error, data, reason} per 14 §2.2; module-gated widgets omitted; deltas computed from the previous 30 days; alerts per 14 §2.3 with per-member dismissal (org_setting-like table org_member_dismissal(org_id, member_id, key, until) additive); GET …/onboarding reworked per 14 §2.4 (new rows branding/roles/teams/domain/licenses; `available` flags).",
         "Rework 18f2123: re-verify OrgOverviewRepository consent-scoped counts (SUMMARY+ only), keep its OrgDashboardIT cases, drop sample data; dual-serve `/overview` for the kiwiply.com console until it is retired.",
         "Web: web/src/components/ent/dashboard/{OrgAdminDashboard.tsx, widgets.ts (registry), Alerts.tsx, Checklist.tsx}; page /w/admin; hero with MascotPose greet (first visit of the day, dismissable, localStorage try/catch); quick actions per 14 §2.5 shown by permission with \"soon\" chips for modules not yet built.",
-        "Add `dashboard.view_org` to OWNER/ORG_ADMIN templates (RoleTemplateSeeder + 05 §3 doc) — doc-sync test updated."
+        "Add `dashboard.view_org` to OWNER/ORG_ADMIN templates (RoleTemplateSeeder + 05 §3 doc) — doc-sync test updated.",
+        "Widget registry (09 row 3): bean interface DashboardWidgetProvider {key, permission, module, compute(orgId, membership)} in service/ent/dashboard; OrgDashboardService iterates the beans (missing bean → widget unavailable); this story ships the Phase-2 providers consultants.total, applications.active, interviews.upcoming, invites.pending, activity.recent, alerts, checklist. Later stories add one bean each: consultants.licensed + subscription.summary (X6.1), consultants.available (X7.2), marketing.activity7d (X8.6), approvals.pending (X8.5), placements (X10.4), finance.summary (X11.5), team.performance (X12.1)."
       ],
       "ac": [
         "E2E-A: acme-admin signs in on acme.localhost and the first rendered page is /w/admin with real tile values from the fixtures (42 consultants etc.); no /me, no generic home in between.",
@@ -1056,7 +1111,8 @@
         "OrgOnboardingServiceTest",
         "RoleTemplateDocSyncTest update",
         "web dashboard.test.tsx (widget states, greet once)",
-        "Playwright org-admin-home.spec.ts (E2E-A to dashboard; 390/1440)"
+        "Playwright org-admin-home.spec.ts (E2E-A to dashboard; 390/1440)",
+        "DashboardWidgetRegistryTest: registered keys ⊆ the key column of 14 §2.2 (doc-sync)."
       ],
       "tech": "14 §2; 18f2123 is prior art, not truth; 404 semantics on org routes; AnimatedNumber respects reduced motion.",
       "dod": "openapi regenerated; CI green; progress-tracker; 14 §2.2 table matches the widget registry (doc-sync test).",
@@ -1206,7 +1262,7 @@
         "web/rest/AccountProfileResource, AccountPhotoService, AccountSessionsResource, MyOrgService extension, AvatarPurgeJob"
       ],
       "db": [
-        "jhi_user.phone VARCHAR(32) NULL, title VARCHAR(80) NULL, avatar_key VARCHAR(255) NULL; refresh_token.org_id BIGINT NULL, user_agent VARCHAR(80) NULL, last_used_at DATETIME(6) NULL (additive, 20261016xxxxxx_ent_profile.xml)"
+        "jhi_user.phone VARCHAR(32) NULL, title VARCHAR(80) NULL, avatar_key VARCHAR(255) NULL; refresh_token.org_id BIGINT NULL, user_agent VARCHAR(80) NULL, last_used_at DATETIME(6) NULL (additive, 20261016010000_ent_profile.xml)"
       ],
       "apis": [
         "GET/PATCH /api/account/profile",
@@ -1396,7 +1452,7 @@
       "functional": [
         "service/ent/TenantUrls: base(org) = primary ACTIVE hostname with cert_state ISSUED → else SUBDOMAIN ACTIVE → else platform SITE_URL; joinLink, verifyLink, resetLink, workspaceLink(org, path); never reads TenantContext.host (T12).",
         "MailService templates take MailBranding {displayName, logoUrl (public asset URL, X2.13), primaryColor (published)} with Kiwiply defaults; subjects prefixed with the display name for org mails.",
-        "NotificationKind additions: ORG_INVITE_ACCEPTED, ORG_ROLE_CHANGED, ORG_SUSPENDED_ME, ORG_OFFBOARDED_ME, ORG_MANAGER_CHANGED, DOMAIN_VERIFIED, DOMAIN_SUSPENDED, DOMAIN_CERT_FAILED, BRANDING_PUBLISHED (admins, batched), LOGIN_MFA_CODE (transactional); payloads carry orgId for display only; the notification matrix gains an \"Organization\" group with defaults (in-app on, email on for DOMAIN_* and *_ME).",
+        "NotificationKind additions — the full enterprise list up front (09 row 18): ORG_MEMBERSHIP, ORG_DOMAIN, ORG_BILLING, ORG_ASSIGNMENT, ORG_CONSENT, ORG_RESUME, ORG_OPPORTUNITY, ORG_AUTHORIZATION, ORG_APPROVAL, ORG_INTERVIEW, ORG_OFFER, ORG_PLACEMENT, ORG_HR, ORG_FINANCE with NOTIFY_DEFAULTS per 31 §11 (email now for ORG_AUTHORIZATION, ORG_OFFER, ORG_INTERVIEW, ORG_BILLING; else in-app on, email off; later stories only publish, never add kinds), plus the fine-grained B kinds ORG_INVITE_ACCEPTED, ORG_ROLE_CHANGED, ORG_SUSPENDED_ME, ORG_OFFBOARDED_ME, ORG_MANAGER_CHANGED, DOMAIN_VERIFIED, DOMAIN_SUSPENDED, DOMAIN_CERT_FAILED, BRANDING_PUBLISHED (admins, batched), LOGIN_MFA_CODE (transactional); payloads carry orgId for display only; the notification matrix gains an \"Organization\" group with defaults (in-app on, email on for DOMAIN_* and *_ME).",
         "Web /api/auth/* and the join pages read `landing`/`next` from the API, never build cross-host URLs client-side."
       ],
       "ac": [
@@ -1639,6 +1695,57 @@
       "design": "docs/enterprise-v2/11-branding-and-login.md"
     },
     {
+      "id": "X2.15",
+      "epic": "X2",
+      "title": "Enterprise UI kit in packages/ui: FilterBar, DataTable, ReasonSheet, ConfirmTypedSheet, HistoryDrawer, PersonCell(+MemberAvatar), StatusDot, StatePill (tone maps per domain), QuickActionTiles, MoneyText (+band), PriceDelta, FeatureChip, AllowanceMeter, ConsentChip, ReadinessRing, KanbanBoard, WorkloadColumn, TimelineFeed, SensitiveTextField + 7 icons",
+      "status": "not_started",
+      "size": "M",
+      "complexity": "M",
+      "owners": [
+        "UI"
+      ],
+      "deps": [
+        "X2.1",
+        "X2.8"
+      ],
+      "relates": [],
+      "supersedes": [],
+      "persona": "Every enterprise page builder (Sessions B, C, D stories)",
+      "objective": "One owning story for every shared enterprise primitive so B/C/D pages import, never re-invent (09 row 14).",
+      "story": "As a Sonnet builder of any enterprise page, I want every shared primitive to already exist in @kiwiply/ui with tests so that pages differ only in data, not in chrome.",
+      "genz": "One kit. Every page looks like the same app because it is.",
+      "functional": [
+        "Promote the admin kit from web to packages/ui: FilterBar, DataTable, ReasonSheet, ConfirmTypedSheet, HistoryDrawer, PersonCell (+ MemberAvatar), StatusDot, QuickActionTiles (16 §7); useSave stays a web lib hook.",
+        "StatePill: one primitive with a registry of tone maps per domain (billing map from 28 §0 — ACTIVE green, PENDING amber, SUSPENDED grey, CANCEL_AT_PERIOD_END amber-outline, ENDED grey, PAST_DUE red, NONE grey; pipeline map generated from PipelineTransitions state list in X8.10). Replaces C's StatusPill and D's PipelineBadge.",
+        "MoneyText (minor, currency, tone, strike, band mode = D's RateCell: LOW/OK/GOOD label instead of the number; never floats), PriceDelta, FeatureChip (active / pending-removal dashed / pending-add dotted, allowance tooltip), AllowanceMeter (28 §0).",
+        "ConsentChip (Summary / Full / Not shared + Ask with cooldown), ReadinessRing (0–100 + nextAction), KanbanBoard (horizontal snap on 390, CardStack columns on 1440, no cross-column drag), WorkloadColumn (capacity dots, DragHandle on desktop, menu on touch), TimelineFeed (application_event ∪ pipeline_event with actor tags), SensitiveTextField (Input/Textarea with the TS sensitive-patterns pre-check and the 422 message; shared with product H) (38 §7).",
+        "Icons added to icons.tsx: briefcase, handshake, calendar-check, clipboard-check, shield-check, building, route (no inline <svg> in web).",
+        "QuoteSummary and CostConfirmSheet are NOT here — they are web composites in web/src/components/ent/billing (X6.3). MascotPose stays in X2.8."
+      ],
+      "ui": [
+        "Every primitive: light/dark, 390 and 1440 stories in the packages/ui playground, tooltips on icon-only controls, reduced-motion safe."
+      ],
+      "backend": [],
+      "db": [],
+      "apis": [],
+      "permissions": [],
+      "entitlements": [],
+      "ac": [
+        "packages/ui exports every primitive above with a vitest + testing-library test each; the web ESLint svg rule stays green.",
+        "StatePill with an unknown state renders the neutral tone and logs in dev (never throws); registering two maps under one domain key fails at module load.",
+        "MoneyText never renders a float: 1999 minor USD → \"$19.99\"; band mode renders the band label only.",
+        "X2.2 and every C/D UI story build on these imports (their deps list X2.15)."
+      ],
+      "tests": [
+        "packages/ui unit tests per primitive; a kit-coverage test asserts the export list matches 16 §7 (doc-sync)."
+      ],
+      "tech": "Consolidates 16 §7 (B), 28 §0 (C), 38 §7 (D). Keep APIs small; tone maps are data. No new deps.",
+      "dod": "npm test -w packages/ui green; web build green; 16 §7 / 28 §0 / 38 §7 reference this story.",
+      "design": "docs/enterprise-v2/16-ui-ux-page-inventory.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
       "status": "not_started",
       "critical": false,
       "evidence": [],
@@ -1649,7 +1756,7 @@
         "service/ent/OrgHostnameService, HostnameNames (normalise/validate), HostnameVerifier interface (+stub), web/rest/ent/OrgHostnameResource, DTOs"
       ],
       "db": [
-        "org_hostname.active_hostname_key (generated, unique), failing_since DATETIME(6) NULL, last_ask_at DATETIME(6) NULL, cert_issued_at DATETIME(6) NULL (additive 20261017xxxxxx_ent_domains.xml)"
+        "org_hostname.active_hostname_key (generated, unique), failing_since DATETIME(6) NULL, last_ask_at DATETIME(6) NULL, cert_issued_at DATETIME(6) NULL (additive 20261017010000_ent_domains.xml)"
       ],
       "apis": [
         "GET /api/orgs/{orgId}/hostnames",
@@ -2363,7 +2470,8 @@
       "functional": [
         "API: POST /api/orgs/{orgId}/members/{id}/suspend {reason} / reinstate; GET …/members/{id}/offboard-preview → {roles, assignments (D hook: count + list; empty until X4.7), consentEnds, resumeLinks (count), licenses (C hook: text), sessions}; POST …/members/{id}/offboard {reason, effectiveAt?, reassignments?: [{consultantMemberId, newAssigneeMemberId}]} → immediate (status REMOVED + effects: org_member_role ends_at, org_assignment ends (via D's service when present), org_resume links removed + audited, data_share ended, sessions revoked, overlay deleted, licenses handed to C's LicenseService.endAtPeriodEnd when the module exists) or scheduled via org_member_offboarding + OffboardingJob (hourly); OWNER → 409 OWNER_MUST_TRANSFER; self → 409 SELF; last ORG_ADMIN → 409 LAST_ADMIN; POST …/transfer-ownership {toMemberId, confirm} exists → ensure audit OWNER_TRANSFER HIGH and role rows move; revoke invitation (INVITED → REMOVED).",
         "Web: offboarding wizard per 15 §5 (Dialog ≥ md, 3 steps; reassign picker required when PRIMARY assignments exist; last-day date; ConfirmTypedSheet); suspend/reinstate from the sheet footer and row kebab (ReasonSheet / undo toast); scheduled offboardings list at /w/hr/offboarding and in the employee sheet; History tab shows the transitions.",
-        "Notifications: ORG_SUSPENDED_ME, ORG_OFFBOARDED_ME (email), ORG_INVITE_ACCEPTED batch (X2.10 kinds)."
+        "Notifications: ORG_SUSPENDED_ME, ORG_OFFBOARDED_ME (email), ORG_INVITE_ACCEPTED batch (X2.10 kinds).",
+        "OffboardingHook {preview(orgId, memberId) → List<Line>; apply(orgId, memberId, reason)} interface owned here (09 row 4), run in this fixed order by OffboardingService for offboard, leave and erase: Sessions (X2.7) → Assignments (X4.7) → Consent (DataShareService.endFor) → OrgResumeLinks (X7.3) → Licenses (X5.4: ENDED now, Stripe decrement now, no proration) → Pipeline (X8.13: open matches WITHDRAWN reason CONSULTANT_LEFT) → EmploymentRecord (X11.1). Beans register with an @Order; a missing bean is skipped. Wizard copy for the license line: \"License ends now; the paid period isn't refunded\"."
       ],
       "ac": [
         "Offboarding Anika immediately: status REMOVED, role rows ended, org_resume links gone and audited, data_share ended, her acme tid session 401 on next call, her personal resumes/applications untouched (PersonalDataUntouchedIT); the preview listed exactly those effects.",
@@ -2378,7 +2486,8 @@
         "OrgMemberResourceIT lifecycle",
         "PersonalDataUntouchedIT",
         "web offboarding wizard test",
-        "Playwright employees.spec.ts lifecycle steps"
+        "Playwright employees.spec.ts lifecycle steps",
+        "OffboardingHookOrderTest (order pinned; a hook throwing aborts the transaction and the preview lists the same lines as apply)."
       ],
       "tech": "15 §2, §5; ADR-009 link removal; D's X4.7 and C's X5.4 plug into the two hook interfaces defined here (AssignmentOffboardingHook, LicenseOffboardingHook) with no-op defaults.",
       "dod": "openapi regenerated; CI green; 15 §2 table = implemented transitions (doc-sync on the action enum).",
@@ -2549,11 +2658,11 @@
       "backend": [
         "domain/org/OrgAssignment + OrgAssignmentRepository (findOpen, findOpenForAssignee, countOpenByAssignee, history, isActingFor).",
         "service/org/OrgAssignmentService (create, reassign, end, expireDelegates, recheckRoles) + AssignmentHandoverJob (15 min, ShedLock-ready).",
-        "ScopeEvaluator ASSIGNED branch and AuthorizationService step 9 wired to the repository predicate; NotificationKind ORG_ASSIGNMENT, ORG_CONSENT added (NOTIFY_DEFAULTS: in-app on, email off).",
+        "ScopeEvaluator ASSIGNED branch and AuthorizationService step 9 wired to the repository predicate; NotificationKind ORG_ASSIGNMENT, ORG_CONSENT are already registered by X2.10 (09 row 18); this story only publishes them.",
         "OrgAuditService constants ASSIGNMENT_REASSIGN, ASSIGNMENT_CAP_OVERRIDE added; existing ASSIGNMENT_CREATE/END used."
       ],
       "db": [
-        "Changelog 202610xxxxxxxx_ent_assignments.xml: createTable org_assignment with the columns and generated keys of 17 §2; indexes (org_id, consultant_member_id, ends_at), (org_id, assignee_member_id, ends_at), (org_id, kind, ends_at).",
+        "Changelog 20261018010000_ent_assignments.xml (Phase-4 bucket, 06 §4): createTable org_assignment with the columns and generated keys of 17 §2; indexes (org_id, consultant_member_id, ends_at), (org_id, assignee_member_id, ends_at), (org_id, kind, ends_at).",
         "No change to org_member.support_owner_member_id (kept for STAFF)."
       ],
       "apis": [
@@ -2710,16 +2819,46 @@
       "title": "org_member_role becomes authoritative; legacy enum fallback removed from OrgAccessService; flag.enterprise.roles on by default for enterprise orgs",
       "status": "not_started",
       "size": "S",
-      "owners": [],
-      "deps": [],
-      "story": "",
-      "genz": "",
-      "ac": [],
-      "tests": [],
-      "tech": "",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X1.6",
+        "X4.1",
+        "X4.3"
+      ],
+      "story": "As the API, I want OrgAccessService to resolve roles from org_member_role alone so that the enum fallback can never disagree with the role editor.",
+      "genz": "One truth about who can do what.",
+      "ac": [
+        "A member whose org_member.role says ADMIN but who holds no org_member_role row gets 404 on admin routes (enum ignored).",
+        "Every role write still updates org_member.role to the primary template's legacy value (dual-write test unchanged).",
+        "Deleting a member's is_primary row makes the verify job write one ROLE_DRIFT audit row and the Tenant Health row shows it."
+      ],
+      "tests": [
+        "OrgMemberRoleAuthoritativeIT, OrgMemberRoleVerifyJobTest, LegacyRoleMirrorTest."
+      ],
+      "tech": "Dep X1.14 (role writes) replaces X1.6 here once the planned L→S/M split lands (09 \"Planned story work\").",
       "evidence": [],
-      "design": "docs/enterprise-v2/07-backlog.md",
-      "critical": false
+      "design": "docs/enterprise-v2/05-permission-model.md",
+      "critical": false,
+      "complexity": "S",
+      "persona": "The API (Phase 4 exit)",
+      "objective": "org_member_role is the only source of roles; the legacy enum is a mirror nobody reads (09 row 17).",
+      "functional": [
+        "Remove the enum fallback branch from OrgAccessService.resolve (reads org_member_role + org_role_permission only).",
+        "LegacyRoleMirror keeps dual-writing org_member.role on every role write (ADR-023); no read path uses it (a repository test asserts no finder on org_member.role remains outside the mirror).",
+        "flag.enterprise.roles resolves \"on\" for every org in the flag.enterprise allow list (the sub-flag becomes a kill switch only).",
+        "Verification job OrgMemberRoleVerifyJob (nightly): exactly one is_primary row per live member; drift logged as org_audit_event ROLE_DRIFT (HIGH) and surfaced on the admin Tenant Health row."
+      ],
+      "ui": [],
+      "backend": [
+        "service/org/OrgAccessService, service/ent/roles/LegacyRoleMirror, job OrgMemberRoleVerifyJob"
+      ],
+      "db": [],
+      "apis": [],
+      "permissions": [],
+      "entitlements": [],
+      "dod": "CI green; 06 §4 dual-write note updated to \"reads never use it\". Plus the common DoD in `06-phase-plan.md` §5."
     },
     {
       "status": "not_started",
@@ -2769,7 +2908,7 @@
         "config/CatalogProperties (local-publish)"
       ],
       "db": [
-        "Liquibase 202611010100_ent_catalog.xml: product, product_price, product_entitlement, bundle_item, entitlement_grant, promo_code, catalog_change, catalog_publish; seeds with preconditions; indexes per 03 §6."
+        "Liquibase 20261019010000_ent_catalog.xml: product, product_price, product_entitlement, bundle_item, entitlement_grant, promo_code, catalog_change, catalog_publish; seeds with preconditions; indexes per 03 §6."
       ],
       "apis": [
         "GET /api/admin/catalog",
@@ -2992,7 +3131,7 @@
         "service/ent/OrgStateRules"
       ],
       "db": [
-        "Liquibase 202611010300_ent_licenses.xml: consultant_license (generated active_key), license_feature (live + live_seq unique), license_quote, license_change, org_subscription, org_subscription_item (mirror tables created here so LOCAL mode can write them; X6.6 adds the Stripe columns if missing); indexes per 20 §2."
+        "Liquibase 20261019030000_ent_licenses.xml: consultant_license (generated active_key), license_feature (live + live_seq unique), license_quote, license_change, org_subscription, org_subscription_item (mirror tables created here so LOCAL mode can write them; X6.6 adds the Stripe columns if missing); indexes per 20 §2."
       ],
       "apis": [
         "GET /api/orgs/{orgId}/licenses",
@@ -3068,7 +3207,7 @@
         "web/rest/admin/AdminContractResource (API only; UI in X6.9)"
       ],
       "db": [
-        "Liquibase 202611010200_ent_contracts.xml: org_contract, org_contract_price, contract_event, org_discount, org_discount_redemption; license_quote lives in X5.4's changelog (QuoteService writes it once X5.4 lands; until then the engine returns DTOs only — X5.5 tests run in memory)."
+        "Liquibase 20261019020000_ent_contracts.xml: org_contract, org_contract_price, contract_event, org_discount, org_discount_redemption; license_quote lives in X5.4's changelog (QuoteService writes it once X5.4 lands; until then the engine returns DTOs only — X5.5 tests run in memory)."
       ],
       "apis": [
         "GET/POST/PUT /api/admin/contracts, POST /{id}/approve|activate|end|cancel, GET /{id}/events",
@@ -3132,7 +3271,9 @@
       "story": "As a marketer acting for a consultant, I want the server to decide in one place whether I may use a licensed feature for them — permission, assignment, license, allowance, consent, subscription state — so that the UI only reflects decisions and nothing leaks across tenants.",
       "functional": [
         "Contexts and resolution per 24 §1; request/decision records §2; the order and contracts §3 (delegating 1–6, 9–10 to AuthorizationService); reason codes and HTTP mapping §4; annotation, interceptor extension and UsageCommitAdvice §5; service shape §6 (no decision cache; 60 s catalog cache keyed by catalog_version); entitlement_decision_log sampled; entitlementsOf() for \"My Available Features\"; has() for menus/extension.",
-        "AuthzCoverageTest reflection gate."
+        "AuthzCoverageTest reflection gate.",
+        "ConsentGate interface (step 10, 24 §3; 09 row 10): allows(beneficiary, actor, consentKind) — default implementation in this story handles consent.act_for only (= the data_share FULL pairing naming the actor) and answers CONSENT_REQUIRED for any other kind; X7.6 replaces it with the org_feature_consent implementation. ConsentKinds constants (consent.act_for, consent.resume_edit, consent.resume_view_org, consent.ai_tailoring, consent.ai_optimization, consent.marketing_assist) live here.",
+        "@RequiresFeature uses the one Beneficiary enum from X1.7 {NONE, SELF, PATH_MEMBER, BODY_MEMBER, QUERY_MEMBER}; there is no @ActFor annotation (09 row 12). QUERY_MEMBER reads ?for= / ?memberId=."
       ],
       "ui": [
         "None (402/403 handling cards are in X6.3/X6.5 and the consultant workspace X9.1)."
@@ -3213,7 +3354,7 @@
         "web/rest/admin/AdminOrgUsageResource (credits)"
       ],
       "db": [
-        "Liquibase 202611010400_ent_usage.xml: usage_event, usage_counter; feature_definition.overage_product_id; org_billing_account.overage_opt_in (if X6.12 not yet present, added there instead — additive either way)."
+        "Liquibase 20261019040000_ent_usage.xml: usage_event, usage_counter; feature_definition.overage_product_id; org_billing_account.overage_opt_in (if X6.12 not yet present, added there instead — additive either way)."
       ],
       "apis": [
         "GET /api/orgs/{orgId}/usage?by=&period=",
@@ -3274,7 +3415,8 @@
       "functional": [
         "Replace requirePro in AiBudgetService, AiDraftService (MODULE_OFF on tenant hosts), ResumeAiService, FieldCacheSyncService (personal-only), JobFitService, JobMatchService, ResumeMatchService, ResumeTailorService per 24 §7; inbox connect gated by inbox.monitoring in ORG context.",
         "AiBudgetWindow per 25 §6 (sum of feature ai_budget_cents × quantity, period = org billing period, override), economy/soft-cap logic reused; ai_call columns written on the org path; usage_event_id back-link.",
-        "Feature Usage AI percent per consultant; platform admins see cents."
+        "Feature Usage AI percent per consultant; platform admins see cents.",
+        "Owns (09 row 11): record AiCallContext(actorLogin, beneficiaryLogin, orgId, featureKey, usageEventId); overloads AiRouter.generate(…, AiCallContext) and AiMeteringService.record(…, AiCallContext) (existing signatures delegate with a personal context); the four additive ai_call columns ship in 20261019040000_ent_usage.xml. X7.5/X7.10 and X8.3 consume, never extend."
       ],
       "ui": [
         "None."
@@ -3453,7 +3595,9 @@
       "functional": [
         "Table per 20 §2.5; PER_ROLE quantity recomputed on every role grant/revoke via a CHANGE_QUANTITY quote line (Roles page gets the delta first); FLAT modules; included modules need no row (flag allow-list).",
         "check() step 6 consults live rows for restricted modules; employee actions behind module.talent_marketing (submissions.prepare etc.) return MODULE_OFF (404) without it.",
-        "Seed product MOD_TALENT_MARKETING (no price), module.consultancy_ops definition inactive."
+        "Seed product MOD_TALENT_MARKETING (no price), module.consultancy_ops definition inactive.",
+        "ModuleGate.isOn(orgId, moduleKey) (20 §6, 09 row 13) = flag allow-list ∧ (no active ORG price published for the module product ∨ a live org_module_license); step 6 MODULE_OFF reads it, as do /api/me/tenant.modules.* (X2.2) and the Marketing / Marketing-mgmt workspace homes.",
+        "module.talent_marketing also gets a feature_definition row (category MODULE, pool_mode ORG_POOL, usage_unit operations, allowance = default_allowance × org_module_license.quantity, beneficiary = the acting employee) so marketer-side AI (37 #9, #11, #14) is charged to the module, never to a consultant license (09 row 9)."
       ],
       "ui": [
         "None here; Roles page (X4.1) consumes POST /modules/quotes to show \"adding this role adds a paid seat: $X/mo\" (Session B aligns)."
@@ -3568,7 +3712,8 @@
       "deps": [
         "X6.7",
         "X2.2",
-        "X2.4"
+        "X2.4",
+        "X2.15"
       ],
       "title": "Subscription Overview page: consultants/licensed/unlicensed tiles, monthly recurring, estimated next invoice (prorations, tax note), billing status + PAST_DUE banner, pending changes with undo, feature-usage top 5, contract summary — 390 and 1440",
       "persona": "Org admin / Finance",
@@ -3577,10 +3722,11 @@
       "story": "As an org admin, I want to see how many consultants are licensed, what we pay monthly and what the next invoice will be so that I can manage cost without opening Stripe.",
       "functional": [
         "28 §1 layouts and states; data from GET /api/orgs/{orgId}/subscription (new aggregate endpoint: counts, currentRecurringMinor, nextInvoiceEstimateMinor from the upcoming preview when Stripe is on else PricingEngine, pendingChanges[], usageTop[], contract, status, paidThroughAt).",
-        "Undo on a pending removal calls DELETE /licenses/changes/{id}."
+        "Undo on a pending removal calls DELETE /licenses/changes/{id}.",
+        "Registers the DashboardWidgetProvider bean(s) consultants.licensed and subscription.summary for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService."
       ],
       "ui": [
-        "web/src/app/(tenant)/admin/subscription/page.tsx; packages/ui additions MoneyText, PriceDelta, StatusPill map (28 §0); AnimatedNumber tiles; HBarList-equivalent from packages/ui (ask Session B before lifting admin-kit pieces)."
+        "web/src/app/(tenant)/admin/subscription/page.tsx; packages/ui primitives MoneyText, PriceDelta, StatePill with the billing tone map (28 §0; shipped by X2.15, 09 row 14); AnimatedNumber tiles; HBarList-equivalent from packages/ui (ask Session B before lifting admin-kit pieces)."
       ],
       "backend": [
         "web/rest/org/OrgSubscriptionResource (GET /subscription)",
@@ -3631,7 +3777,8 @@
       ],
       "deps": [
         "X6.1",
-        "X5.12"
+        "X5.12",
+        "X2.15"
       ],
       "title": "Consultant Licenses page: cards (390) / table (1440), filters, search, sort, status and pending-change chips, per-row actions, bulk bar → one BULK quote, unlicensed consultants with a License CTA",
       "persona": "Org admin",
@@ -3642,7 +3789,7 @@
         "28 §2 layouts, filters, sort, search (300 ms), row actions by state (27 §3), bulk selection bar producing a BULK quote and opening the confirm flow (X6.3 bulk mode), pending chips (dashed removal / dotted add)."
       ],
       "ui": [
-        "web/src/app/(tenant)/admin/licenses/page.tsx; FeatureChip, StatusPill from packages/ui; MemberAvatar from Session B."
+        "web/src/app/(tenant)/admin/licenses/page.tsx; FeatureChip, StatePill from packages/ui (X2.15); MemberAvatar from Session B."
       ],
       "backend": [
         "Uses X5.4/X5.12 endpoints; list endpoint gains sort/filter params if missing."
@@ -3686,7 +3833,8 @@
         "Web"
       ],
       "deps": [
-        "X6.2"
+        "X6.2",
+        "X2.15"
       ],
       "title": "Configure Consultant License: summary, base, feature picker with prices/allowances/dependency hints, presets, stackable quantity, debounced backend quotes, QuoteSummary impact preview, cost-confirmation sheet for COMMERCIAL deps, confirm with countdown, error handling (stale, item limit, unconfirmed deps), bulk mode",
       "persona": "Org admin",
@@ -3749,7 +3897,8 @@
       ],
       "deps": [
         "X6.6",
-        "X6.12"
+        "X6.12",
+        "X2.15"
       ],
       "title": "Billing & Invoices page: Account (status, currency, payment method via Stripe portal, tax status), Invoices with line snapshots and PDF links, Contract summary (+ server-generated PDF), Billing contacts (autosave), credits rows; setup-fee card when unpaid",
       "persona": "Finance",
@@ -3810,7 +3959,8 @@
       ],
       "deps": [
         "X5.7",
-        "X6.1"
+        "X6.1",
+        "X2.15"
       ],
       "title": "Feature Usage page (by consultant / feature / team / history, remaining allowances, AI budget as percent, consent projection, k≥3 team suppression) + consultant \"My Available Features\" with meters, ask-admin cards, consent toggles and integration cards",
       "persona": "Org admin / Consultant",
@@ -4266,7 +4416,7 @@
         "web/rest/org/OrgBillingResource (GET /billing, POST /billing/setup-fee)"
       ],
       "db": [
-        "Liquibase 202611020100_ent_org_billing.xml: org_billing_account (+paid_through_at, billing_mode, test_clock_id), stripe_event.org_id, org_invoice, org_invoice_line, org_stripe_discount, billing_drift."
+        "Liquibase 20261020010000_ent_org_billing.xml: org_billing_account (+paid_through_at, billing_mode, test_clock_id), stripe_event.org_id, org_invoice, org_invoice_line, org_stripe_discount, billing_drift."
       ],
       "apis": [
         "GET /api/orgs/{orgId}/billing",
@@ -4303,7 +4453,8 @@
       ],
       "deps": [
         "X7.2",
-        "X4.7"
+        "X4.7",
+        "X2.15"
       ],
       "persona": "Org Admin / Marketer / Marketing Manager",
       "objective": "One list that answers 'who can we market, who is ready, who is mine' with consent made visible.",
@@ -4369,7 +4520,9 @@
         "consultant_profile per 03 §2.3 + 30 §2 additions (resume_summary_json, readiness_json, readiness_score, photo_consent); one row per member, created on first CONSULTANT role grant, deleted on leave (ADR-006).",
         "Consultant edits own fields (autosave); marketer edits create consultant_profile_proposal rows the consultant accepts/rejects (PROFILE_SUGGESTION-style card).",
         "work_auth_category is a self-declared label list (setting pipeline.work_auth_categories) — no document numbers, no expiry documents; free text scanned by SensitiveContent.check.",
-        "Status effects: availability/marketing_status feed readiness (X7.7) and placement effects (35 §3)."
+        "Status effects: availability/marketing_status feed readiness (X7.7) and placement effects (35 §3).",
+        "Registers the DashboardWidgetProvider bean(s) consultants.available for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService.",
+        "Marketer proposals require member.act_for (ASSIGNED), not consultants.edit (05 §3.1, 09 row 8)."
       ],
       "ui": [
         "My Profile → 'For Acme' section in the consultant workspace (390 first): ChoiceGroup availability, MonthPicker/date for available_from, Switch marketing status, ChipInput skills/locations, rate band Select, photo consent Switch with the honest explanation.",
@@ -4379,7 +4532,7 @@
         "domain/org/ConsultantProfile, ConsultantProfileProposal; ConsultantProfileService (upsert own, propose, accept/reject); ResumeLifecycle listener stub for resume_summary (filled in X7.7)."
       ],
       "db": [
-        "Changelog 202610xxxxxxxx_ent_talent.xml changeSet 1: consultant_profile (columns 03 §2.3 + 30 §2) UNIQUE (org_id, member_id); consultant_profile_proposal (id, org_id, member_id, field, proposed_value_json, by_member_id, status, decided_at, created_at)."
+        "Changelog 20261021010000_ent_talent.xml changeSet 1: consultant_profile (columns 03 §2.3 + 30 §2) UNIQUE (org_id, member_id); consultant_profile_proposal (id, org_id, member_id, field, proposed_value_json, by_member_id, status, decided_at, created_at)."
       ],
       "apis": [
         "GET/PATCH /api/me/orgs/{orgId}/profile · GET /api/me/orgs/{orgId}/profile/proposals · POST …/proposals/{id}/accept|reject · GET /api/orgs/{orgId}/consultants/{memberId}/profile · POST …/profile/proposals (marketer)."
@@ -4428,7 +4581,7 @@
       "functional": [
         "org_resume per 30 §3 with kinds PERSONAL_SHARED|ORG_MANAGED, approval_status, approved_version_no, visibility ORG|ASSIGNED|PRIVATE, primary_for_org (one per member), edit_allowed, ended_at/end_reason.",
         "OrgResumeLinkService.syncPersonal creates PERSONAL_SHARED links for non-archived resumes with share_with_org=TRUE when FULL is granted and on ResumeLifecycle events; ends links on archive/unshare/consent drop/leave.",
-        "Reads go through ResumeAccessService.access → Via.ORG (FULL) and record ResumeViewEvent(ORG) + SHARE_READ_FULL; visibility ORG + org_feature_consent('resume.view_org') is the second qualifying path inside OrgShareResumeSharing.",
+        "Reads go through ResumeAccessService.access → Via.ORG (FULL) and record ResumeViewEvent(ORG) + SHARE_READ_FULL; visibility ORG + org_feature_consent('consent.resume_view_org') is the second qualifying path inside OrgShareResumeSharing.",
         "Print = web print stylesheet over the doc; download = rendered PDF only (409 PDF_NOT_READY passthrough); original upload is owner-only."
       ],
       "ui": [
@@ -4496,7 +4649,7 @@
         "Marketing Manager approvals list shows resume requests only when org.resume.manager_review=true (metadata only)."
       ],
       "backend": [
-        "OrgResumeApprovalService (request, approve, reject, markStale); NotificationKind ORG_RESUME; ResumeDocVersionService.keepIds extension."
+        "OrgResumeApprovalService (request, approve, reject, markStale); NotificationKind ORG_RESUME (registered by X2.10, published here); ResumeDocVersionService.keepIds extension."
       ],
       "db": [
         "None beyond X7.3 columns."
@@ -4549,7 +4702,7 @@
         "Edits blocked while PENDING_APPROVAL (409 RESUME_LOCKED); any edit on APPROVED → STALE."
       ],
       "ui": [
-        "Web route /org/resumes/{orgResumeId}/edit mounting the existing builder with mode='act-for': banner, AiDisclosure 'charged to Anika's license', SaveStatusChip; AI panel hidden when the beneficiary lacks the feature (402 → chip)."
+        "Web route /w/marketing/resumes/{orgResumeId}/edit on the tenant host ((tenant)/_t/w/[workspace]/resumes/[orgResumeId]/edit, 09 row 1) mounting the existing builder with mode='act-for': banner, AiDisclosure 'charged to Anika's license', SaveStatusChip; AI panel hidden when the beneficiary lacks the feature (402 → chip)."
       ],
       "backend": [
         "ActForResumeService (write facade; the only org path into Resume*Service writes); ResumeAiService entry points accept beneficiaryLogin; AiRouter AiCallContext (from X5 metering story) consumed."
@@ -4561,7 +4714,7 @@
         "PUT …/resumes/{resumeId}/doc · POST …/resumes · POST …/resumes/{resumeId}/ai/{rewrite|summary|suggest|tailor} (30 §9)."
       ],
       "permissions": [
-        "resumes.edit_for (ASSIGNED) + step 9 act-for assignment + step 10 FULL naming the actor and org_feature_consent('resume.edit_for') or link edit_allowed."
+        "resumes.edit_for (ASSIGNED) + step 9 act-for assignment + step 10 FULL naming the actor and org_feature_consent('consent.resume_edit') or link edit_allowed."
       ],
       "entitlements": [
         "resume.optimization (1 operation) and ai.resume_tailoring (1 tailoring), beneficiary = consultant, actor = marketer; CONSENT dependency on ai.resume_tailoring."
@@ -4607,7 +4760,8 @@
         "org_feature_consent per 03 §2.1 (feature_key, granted_to_member_id NULL = any assignee, consent_version, granted_at, revoked_at) + the missing HTTP route for DataShareService.grant (PUT /api/me/orgs/{orgId}/share).",
         "AuthorizationService step 10 consults it for CONSENT-dependency features and for resume.edit_for / resume.view_org; CONSENT_REQUIRED (403) response carries {beneficiary, consentKind, requestable, cooldownUntil}.",
         "Marketer 'Ask' creates a consent_request (member, feature, by, created_at) limited by org.consent.request_cooldown_days; the consultant gets ORG_CONSENT with one-tap grant.",
-        "Revoke takes effect on the next request (no cache), audited SHARE_SCOPE_CHANGED-style CONSENT_CHANGED; data_share_event-like consent_event keeps proof."
+        "Revoke takes effect on the next request (no cache), audited SHARE_SCOPE_CHANGED-style CONSENT_CHANGED; data_share_event-like consent_event keeps proof.",
+        "org_feature_consent.feature_key holds a consent kind from ConsentKinds (never a purchasable feature key; 09 row 10); ships the ConsentGate implementation that replaces X5.6's FULL-pairing-only default, reading feature_dependency CONSENT rows (feature → consent kind) from 21 §3.4."
       ],
       "ui": [
         "Consultant: Settings → Organizations → Acme → 'What Sarah may do' list of Switches (consent text version shown; 'can / can never' lists reused from O10.2 design); CONSENT_REQUIRED card in org pages ('Anika hasn't allowed this yet' + Ask button with cooldown state) via ConsentChip."
@@ -4711,7 +4865,8 @@
       "deps": [
         "X8.10",
         "X7.1",
-        "X2"
+        "X2",
+        "X2.15"
       ],
       "persona": "Marketer",
       "objective": "The marketer's home: their consultants, what needs them, and the switcher every other page keys off.",
@@ -4783,7 +4938,7 @@
         "Job Discovery per 38 §2.2 (Search tab + Bank tab); 'Add jobs' BottomSheet (paste links one per line, pick from matches, extension-saved items); SourceChip per origin; BoardPolicy note on cards."
       ],
       "backend": [
-        "service/org/pipeline/OpportunityService (createFromPosting/Pasted/Requirement, close), OrgJobBankService, OpportunityFreshnessJob, BoardPolicy (setting pipeline.board_policies)."
+        "service/org/pipeline/OpportunityService (createFromPosting/Pasted/Requirement, close), OrgJobBankService, OpportunityFreshnessJob, BoardPolicy (setting enterprise.pipeline.board_policies, 09 row 7)."
       ],
       "db": [
         "_ent_pipeline.xml changeSet: org_job_bank; job_opportunity already created in X8.10."
@@ -4838,7 +4993,8 @@
       "functional": [
         "OrgMatchService.matchOne(orgId, memberId, actor): candidates = open job_opportunity rows (bank + requirements) ∪ JobPrefilter.select over fresh postings; one AiTask.JOBS call via the decide→generate→record sequence with AiCallContext(actor, beneficiary); writes opportunity_match SUGGESTED rows (source SUGGESTED_AI, score, reason ≤ 300, model); rule-only fallback (SUGGESTED_RULE, JobRanker) when the feature is not licensed.",
         "EntitlementService.check(actor=marketer, beneficiary=consultant, ai.job_matching, 1) per run; OrgMatchJob nightly for consultants with marketing_status ACTIVE and the feature (explicit check; idempotency key per day).",
-        "Requires FULL (reads bio/resume) → otherwise CONSENT_REQUIRED and the rule fallback uses only consultant_profile skills."
+        "Requires FULL (reads bio/resume) → otherwise CONSENT_REQUIRED and the rule fallback uses only consultant_profile skills.",
+        "Metering per 37 #1 as resolved in 09 row 9: feature ai.job_matching, unit matches; a run reserves enterprise.matching.batch_size (default 20) units for the consultant and commits the scored count; AI calls pass X5.8's AiCallContext (beneficiary = consultant)."
       ],
       "ui": [
         "Job Matches tab per 38 §2.2 with AiDisclosure; 402 chip 'AI matching isn't on Anika's license'; SwipeCard select/dismiss at 390."
@@ -4892,9 +5048,10 @@
       "story": "As a marketer, I want to assign one or many opportunities to Anika with a default approved resume (overridable per job) and a note, and withdraw if needed, so that she gets one clear list and one notification.",
       "genz": "14 jobs, one ping, the right resume on each.",
       "functional": [
-        "Transitions SUGGESTED/—→ASSIGNED, →WITHDRAWN per 31 §4 registered; guards: ApprovalGate on the chosen org_resume (pins resume_version_no), assignments.open_max cap (409 ASSIGNMENT_CAP), DuplicateGuard rules 2 and 5 (existing application → link instead), BoardPolicy; manager approval hold when org.pipeline.manager_approval applies.",
+        "Transitions SUGGESTED/—→ASSIGNED, →WITHDRAWN per 31 §4 registered; guards: ApprovalGate on the chosen org_resume (pins resume_version_no), org.pipeline.open_matches_max cap (409 ASSIGNMENT_CAP; key renamed per 09 row 7), DuplicateGuard rules 2 and 5 (existing application → link instead), BoardPolicy; manager approval hold when org.pipeline.manager_approval applies.",
         "Batch endpoint creates N matches in one transaction with groupKey batch:{uuid} → exactly one ORG_OPPORTUNITY notification; opportunity → ASSIGNED.",
-        "Feature marketing.assisted_applications consumed once per batch (37 #7)."
+        "Feature marketing.assisted_applications consumed once per batch (37 #7).",
+        "Metering per 37 #7 as resolved in 09 row 9: marketing.assisted_applications, unit preparations — quantity = N for a batch of N match rows, 1 per submission packet (DRAFT), 0 (access check) for record/follow-ups/reads."
       ],
       "ui": [
         "Assign bar per 38 §2.2 (useBottomBar), resume picker (APPROVED only; STALE disabled with reason), note; Opportunities Kanban per 38 §2.3 (Suggested/Assigned columns live)."
@@ -4953,7 +5110,8 @@
       "functional": [
         "Transitions ASSIGNED→ACCEPTED/DECLINED, ACCEPTED→AUTHORIZED (scope APPLY_SELF|SUBMIT_RECORD|BOTH; SUBMIT_RECORD hidden for JOB_POSTING per BoardPolicy), →DECLINED(auth), manager approve/reject per 31 §4; guard RESUME_STALE on authorize.",
         "Notifications ORG_OPPORTUNITY (grouped to marketer), ORG_AUTHORIZATION (emailWorthy), ORG_APPROVAL to managers.",
-        "Consultant-side list and detail endpoints (32 §2 subset: accept/decline/authorize/withdraw)."
+        "Consultant-side list and detail endpoints (32 §2 subset: accept/decline/authorize/withdraw).",
+        "Registers the DashboardWidgetProvider bean(s) approvals.pending for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService."
       ],
       "ui": [
         "Consultant: assigned opportunity detail per 38 §3.2 (Accept/Decline/Authorize with ChoiceGroup); Home 'Needs you'; marketer Kanban columns Accepted/Authorized; manager Approvals page per 38 §4.2."
@@ -5007,7 +5165,8 @@
       "functional": [
         "pipeline_task CRUD per 31 §12 with auto-suggested follow-ups (org.pipeline.followup_days); FollowUpReminderJob daily (ORG_OPPORTUNITY digest) with alerts.advanced limit check for the richer digest (37 #11).",
         "Activity feed = pipeline_event by actor; status updates = transitions IN_PROGRESS→CLOSED_* by marketer with followups.manage.",
-        "Ghost rule: OpportunityFreshnessJob closes IN_PROGRESS rows with no event for 2×org.pipeline.no_response_days."
+        "Ghost rule: OpportunityFreshnessJob closes IN_PROGRESS rows with no event for 2×org.pipeline.no_response_days.",
+        "Registers the DashboardWidgetProvider bean(s) marketing.activity7d for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService."
       ],
       "ui": [
         "Follow-ups page (Today/Overdue/This week), Tasks sheet, Activities feed (TimelineFeed) per 38 §2.4; undo Toast on Done."
@@ -5163,7 +5322,7 @@
       "story": "As the security owner, I want CI to fail if any org route, transition or UI label could submit an application or act as a consultant, and a Playwright journey covering scenario D to 'Anika authorizes', so that the E1 decision is enforced by tests, not reviews.",
       "genz": "If it can submit, CI says no.",
       "functional": [
-        "NoSubmitSurfaceTest per 31 §10 rules 1–4 (reflection over /api/orgs/** and /api/ent/** handlers, injected bean types, JWT claims, registry actors); web lint rule for forbidden labels under src/app/(org)/** (rule 6).",
+        "NoSubmitSurfaceTest per 31 §10 rules 1–4 (reflection over /api/orgs/** and /api/ent/** handlers, injected bean types, JWT claims, registry actors); web lint rule for forbidden labels under src/app/(tenant)/** and src/components/ent/** (rule 6; 09 row 1).",
         "MarketerScopeTest (sees only assigned+consented; another marketer's → 404) from prior art.",
         "Playwright e2e-d.spec.ts over the mock API (X1.12 tenants): Sarah assigned Anika → opens profile → reviews authorized resume → finds matching jobs → assigns → Anika approves (accept + authorize) — tagged @critical."
       ],
@@ -5184,7 +5343,7 @@
       ],
       "entitlements": [],
       "ac": [
-        "Adding a handler named submitForConsultant under /api/orgs fails NoSubmitSurfaceTest (demonstrated by a temporary test fixture); adding a MANAGER→AUTHORIZED transition fails rule 4; a 'Submit application' button under (org) fails lint.",
+        "Adding a handler named submitForConsultant under /api/orgs fails NoSubmitSurfaceTest (demonstrated by a temporary test fixture); adding a MANAGER→AUTHORIZED transition fails rule 4; a 'Submit application' button under (tenant) or components/ent fails lint.",
         "e2e-d.spec.ts passes on CI against the mock; MarketerScopeTest green."
       ],
       "tests": [
@@ -5220,7 +5379,7 @@
       "functional": [
         "Tables: job_opportunity (31 §3), opportunity_match (31 §4), candidate_submission (31 §5), pipeline_application_link (32 §2), interview_slot (33 §2), offer (31 §7), placement + placement_extension (35 §2), pipeline_event, pipeline_task (31 §12), client_account/client_contact/client_relationship/client_requirement (34 §1–2) — all org_id-first, generated live keys as specified.",
         "PipelineTransitions registry (data) + PipelineService.transition(entity, id, to, actor, body) with AuthorizationService, guards, effects, pipeline_event, audit, after-commit notifications; 409 PIPELINE_TRANSITION on illegal moves.",
-        "NotificationKind ORG_OPPORTUNITY, ORG_AUTHORIZATION, ORG_APPROVAL, ORG_INTERVIEW, ORG_OFFER, ORG_PLACEMENT, ORG_HR, ORG_FINANCE (ORG_ASSIGNMENT/ORG_CONSENT/ORG_RESUME exist from X4.7/X7.4) with NOTIFY_DEFAULTS per 31 §11 and messages.properties keys notif.org.*.",
+        "Every ORG_* NotificationKind is already registered by X2.10 with NOTIFY_DEFAULTS per 31 §11 (09 row 18); this story adds only the messages.properties keys notif.org.* and publishes ORG_OPPORTUNITY, ORG_AUTHORIZATION, ORG_APPROVAL, ORG_INTERVIEW, ORG_OFFER, ORG_PLACEMENT, ORG_HR, ORG_FINANCE.",
         "PipelineStateMachineTest renders the registry and diffs it against the tables in 31/33/35 (and 34 §2, 36 §2) — ShareMatrixTest pattern."
       ],
       "ui": [
@@ -5230,7 +5389,7 @@
         "domain/org/pipeline/* entities + repositories (each with a REPOSITORY_CHECKS line in OrgIsolationIT); service/org/pipeline/{PipelineTransitions, PipelineService, PipelineEventService, Guards, Effects}; NotificationKind additions."
       ],
       "db": [
-        "Changelog 202610xxxxxxxx_ent_pipeline.xml (additive): all tables above with indexes from the docs; retention of pipeline_event 36 months via a *PurgeJob per 03 §6."
+        "Changelog 20261022010000_ent_pipeline.xml (additive): all tables above with indexes from the docs; retention of pipeline_event 36 months via a *PurgeJob per 03 §6."
       ],
       "apis": [
         "None public in this story (engine only); a dev-only POST /api/orgs/{orgId}/pipeline/_transition behind flag.enterprise.marketing allow-list for fixtures is NOT added — use service tests."
@@ -5267,7 +5426,8 @@
       ],
       "deps": [
         "X8.5",
-        "X2"
+        "X2",
+        "X2.15"
       ],
       "persona": "Consultant",
       "objective": "The consultant's org lens over their own app, branded by the org, with nothing copied.",
@@ -5401,7 +5561,7 @@
         "GET /api/orgs/{orgId}/applications?consultant=&status=&period= · GET /consultants/{memberId}/applications/{applicationId} · PATCH /api/profile/applications/{id}/notes/{nid} {sharedWithOrg}."
       ],
       "permissions": [
-        "pipeline.view / applications.view; FULL for rows; SUMMARY for counts."
+        "member.view_summary (consent projection; there is no applications.view key — 09 row 8) and pipeline.view for the board; FULL for rows; SUMMARY for counts."
       ],
       "entitlements": [],
       "ac": [
@@ -5500,7 +5660,7 @@
         "InterviewSlotService + transitions; IcsCalendar overload; InterviewReminderJob; Interview.SRC_ORG."
       ],
       "db": [
-        "interview_slot created in X8.10; additive: interview.application_id nullable (dropNotNullConstraint), interview_prep table deferred to X9.7."
+        "interview_slot created in X8.10; additive in 20261023010000_ent_applications.xml: interview.application_id nullable (dropNotNullConstraint; 09 row 20), interview_prep table deferred to X9.7."
       ],
       "apis": [
         "POST /api/orgs/{orgId}/interviews · POST …/{slotId}/repropose|cancel|no-show|outcome · GET …/{slotId}/ics · GET/POST /api/me/orgs/{orgId}/interviews[/{slotId}/confirm|decline|cancel|done|feedback]."
@@ -5975,7 +6135,8 @@
       "story": "As an account manager, I want placements created from accepted offers to go through pending start, active, extensions, end or termination, and redeployment into a new placement, so that the org's book of business is a record, not a spreadsheet.",
       "genz": "From yes to Monday to renewal, one record.",
       "functional": [
-        "placement machine per 35 §3 registered (PENDING_START/ACTIVE/ON_HOLD/EXTENDED chip/ENDED/TERMINATED), placement_extension log, redeployment chain, effects on consultant_profile (ON_PROJECT/PAUSED; back to ACTIVE only on consultant confirm), requirement filled count, PlacementStartJob/EndNudgeJob; bill_to_client_id; DTO redaction of bill rate."
+        "placement machine per 35 §3 registered (PENDING_START/ACTIVE/ON_HOLD/EXTENDED chip/ENDED/TERMINATED), placement_extension log, redeployment chain, effects on consultant_profile (ON_PROJECT/PAUSED; back to ACTIVE only on consultant confirm), requirement filled count, PlacementStartJob/EndNudgeJob; bill_to_client_id; DTO redaction of bill rate.",
+        "Registers the DashboardWidgetProvider bean(s) placements for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService."
       ],
       "ui": [
         "Placements board per 38 §5.1 (1440) and list (390); Extend/End/Terminate SideSheets; redeploy Menu."
@@ -6019,7 +6180,8 @@
       ],
       "deps": [
         "X10.4",
-        "X10.6"
+        "X10.6",
+        "X2.15"
       ],
       "persona": "Account Manager",
       "objective": "Assemble the AM pages into one workspace with the consent projection applied.",
@@ -6184,7 +6346,7 @@
         "OpsPlacementBridge (listener on placement transitions); H repositories reused."
       ],
       "db": [
-        "Additive changeSet in H's changelog (or a new _ent_ops_bridge.xml if H's file is frozen): ops_placement.pipeline_placement_id BIGINT NULL + index; client_account.ops_client_id/ops_vendor_id already present."
+        "Additive changeSet in the enterprise Phase-10 changelog 20261024010000_ent_placements.xml — never in product H's files (09 rows 16/20): ops_placement.pipeline_placement_id BIGINT NULL + index; client_account.ops_client_id/ops_vendor_id already present."
       ],
       "apis": [
         "GET /api/orgs/{orgId}/placements/{id}/timesheets (summary proxy)."
@@ -6241,7 +6403,7 @@
         "EmploymentRecordService + transitions; dual-write."
       ],
       "db": [
-        "Changelog 202610xxxxxxxx_ent_hr_finance.xml changeSet 1: employment_record (36 §2) with indexes (org_id, member_id, effective_from)."
+        "Changelog 20261025010000_ent_hr_finance.xml changeSet 1: employment_record (36 §2) with indexes (org_id, member_id, effective_from)."
       ],
       "apis": [
         "36 §7 /hr/employment routes."
@@ -6325,7 +6487,8 @@
         "API"
       ],
       "deps": [
-        "X11.2"
+        "X11.2",
+        "X2.15"
       ],
       "persona": "HR Specialist / Talent Acquisition",
       "objective": "Assemble the HR workspace and the TA talent pools.",
@@ -6375,7 +6538,8 @@
       ],
       "deps": [
         "X11.5",
-        "X6"
+        "X6",
+        "X2.15"
       ],
       "persona": "Finance Specialist",
       "objective": "Assemble the finance workspace from Session C's billing pages, H's pages and X11.5.",
@@ -6432,10 +6596,11 @@
       "story": "As finance, I want each placement's bill/pay rates, margin, invoice and payment records (from Timesheets) and a profit view, so that I see the money story without Kiwiply ever touching money.",
       "genz": "Rates, invoices, payments — recorded, never moved.",
       "functional": [
-        "Finance placements read model per 36 §4: placement snapshot + ops_placement_rate history + ops_invoice/ops_payment summaries by ops_placement_id; margin bands (org.finance.margin_bands) for non-finance viewers; FinanceVerbsTest (record/issue/void/export only); finance.* ⇒ ops.* permission mapping."
+        "Finance placements read model per 36 §4: placement snapshot + ops_placement_rate history + ops_invoice/ops_payment summaries by ops_placement_id; margin bands (org.finance.margin_bands) for non-finance viewers; FinanceVerbsTest (record/issue/void/export only); finance.* ⇒ ops.* permission mapping.",
+        "Registers the DashboardWidgetProvider bean(s) finance.summary for the Org Admin Dashboard (14 §2.2, 09 row 3) — no change to OrgDashboardService."
       ],
       "ui": [
-        "Finance placements table with RateCell (band mode for non-finance); detail with H6 summaries and deep links; 390/1440."
+        "Finance placements table with MoneyText in band mode for non-finance (X2.15; was RateCell); detail with H6 summaries and deep links; 390/1440."
       ],
       "backend": [
         "FinancePlacementService; permission mapping in EntPermissions."
@@ -6532,7 +6697,8 @@
         "Web"
       ],
       "deps": [
-        "X8.10"
+        "X8.10",
+        "X2.15"
       ],
       "persona": "Security",
       "objective": "Make 'a PII scanner runs on every path' a CI property before HR/Finance pages exist (E2 answered).",

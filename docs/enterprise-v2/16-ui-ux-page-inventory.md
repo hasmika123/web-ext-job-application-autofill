@@ -367,7 +367,7 @@ Consent and license chips per consultant tell the marketer what they may do befo
 | `ActivityFeed` | MARKETING, ADMIN dashboard (recent), employee sheet |
 | `AssignmentsPage` | ADMIN, MARKETING_MGMT |
 | `DashboardTiles` (`AdminStatTiles` promoted) | every Home |
-| Kit (promoted to `packages/ui` in X2.2): `FilterBar`, `DataTable`, `ReasonSheet`, `ConfirmTypedSheet`, `HistoryDrawer`, `PersonCell`, `StatusDot`, `QuickActionTiles`, `useSave` (web lib) | everything |
+| Kit (promoted to `packages/ui` in **X2.15**, the one enterprise UI-kit story — 09 row 14; X2.2 depends on it): `FilterBar`, `DataTable`, `ReasonSheet`, `ConfirmTypedSheet`, `HistoryDrawer`, `PersonCell` (+`MemberAvatar`), `StatusDot`, `StatePill` (tone maps per domain; merges C's `StatusPill` and D's `PipelineBadge`), `QuickActionTiles`, `MoneyText` (+ band mode), `PriceDelta`, `FeatureChip`, `AllowanceMeter`, `ConsentChip`, `ReadinessRing`, `KanbanBoard`, `WorkloadColumn`, `TimelineFeed`, `SensitiveTextField`, icons `briefcase, handshake, calendar-check, clipboard-check, shield-check, building, route`; `useSave` stays a web lib hook; `MascotPose` stays in X2.8 | everything |
 
 ## 8. Doc-sync and tests (X2.2, X2.11)
 - `workspaces.test.ts` asserts the nav tables in §5 (keys, order, needs, module) — update both

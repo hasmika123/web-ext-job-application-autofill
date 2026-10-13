@@ -5,7 +5,7 @@
 > budgets (`AiBudgetService`) stay a **second, independent guard** (§6). Nothing here moves money;
 > overage *hooks* exist, overage *billing* is Phase 12 (X12).
 
-## 1. Table `usage_event` (Liquibase `202611xxxxxxxx_ent_usage.xml`)
+## 1. Table `usage_event` (Liquibase `20261019040000_ent_usage.xml` — Phase-5 bucket, 06 §4)
 
 | column | type | notes |
 |---|---|---|
@@ -57,6 +57,9 @@ pool_mode       = org_contract_price.pool_mode_override ?: feature_definition.po
 PER_CONSULTANT: used = Σ quantity of usage_event(org, member, feature, limit_key, period_key, status ∈ {RESERVED, COMMITTED}, overage=false)
 ORG_POOL:       pool_allowance = Σ allowance(row) over every live license_feature of that feature in the org (adding a license grows the pool)
                 used = Σ quantity over the org (any member) for that feature/limit/period
+MODULE row:     (feature_definition.category = MODULE, always ORG_POOL; 09 row 9)
+                pool_allowance = default_allowance × org_module_license.quantity (live row for that module)
+                beneficiary = the acting employee (usage_event.member_id = actor); used as ORG_POOL above
 remaining       = allowance − used   (never below 0 in the DTO)
 ```
 Every live limit row must have `remaining ≥ quantity` for the reservation to succeed; the failing

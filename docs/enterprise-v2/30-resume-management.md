@@ -29,7 +29,10 @@
 5. **Consent is the gate for reading and for editing, separately.** Reading needs FULL naming the
    viewer (`ResumeAccessService.Via.ORG`, unchanged). Editing needs FULL **and** `org_resume.edit_allowed`
    **and** `resumes.edit_for` (ASSIGNED) **and** either the consultant's blanket edit consent
-   (`org_feature_consent(feature_key='resume.edit_for')`) or a per-link grant.
+   (`org_feature_consent(feature_key='consent.resume_edit')`) or a per-link grant. Consent kinds are
+   the `ConsentKinds` constants (21 §2.5, 09 row 10): `consent.resume_edit`, `consent.resume_view_org`,
+   `consent.ai_tailoring`, `consent.ai_optimization`, `consent.marketing_assist`; `consent.act_for` is
+   the FULL pairing itself (no row).
 
 ## 2. Consultant directory (X7.1)
 
@@ -105,10 +108,10 @@ How links appear:
 | action | permission (scope) | assignment (step 9) | consent (step 10) | link condition |
 |---|---|---|---|---|
 | list links / metadata (name, status, version no, dates) | `resumes.view_for` | ASSIGNED/TEAM/ORG per role | **none** (metadata is seat-level: the org knows a managed resume exists) | visibility |
-| open document / PDF / print | `resumes.view_for` | act-for kinds | FULL naming viewer (`Via.ORG`) **or** visibility ORG + `org_feature_consent('resume.view_org')` | visibility |
+| open document / PDF / print | `resumes.view_for` | act-for kinds | FULL naming viewer (`Via.ORG`) **or** visibility ORG + `org_feature_consent('consent.resume_view_org')` | visibility |
 | create ORG_MANAGED resume | `resumes.edit_for` (ASSIGNED) | PRIMARY/BACKUP/DELEGATE | FULL naming actor | — |
-| edit (builder act-for) | `resumes.edit_for` (ASSIGNED) | PRIMARY/BACKUP/DELEGATE | FULL naming actor + (`org_feature_consent('resume.edit_for', actor)` or link `edit_allowed`) | kind ORG_MANAGED (auto-promote) and status ≠ PENDING_APPROVAL |
-| AI tailor for the consultant | `resumes.edit_for` + feature `ai.resume_tailoring` (beneficiary = consultant) | as edit | as edit + `org_feature_consent('ai.resume_tailoring')` (CONSENT dependency) | as edit |
+| edit (builder act-for) | `resumes.edit_for` (ASSIGNED) | PRIMARY/BACKUP/DELEGATE | FULL naming actor + (`org_feature_consent('consent.resume_edit', actor)` or link `edit_allowed`) | kind ORG_MANAGED (auto-promote) and status ≠ PENDING_APPROVAL |
+| AI tailor for the consultant | `resumes.edit_for` + feature `ai.resume_tailoring` (beneficiary = consultant) | as edit | as edit + `org_feature_consent('consent.ai_tailoring')` (CONSENT dependency row `ai.resume_tailoring → consent.ai_tailoring`) | as edit |
 | request approval | `resumes.approve_request` | as edit | — | status DRAFT/REJECTED/STALE |
 | approve / reject | `resumes.manage` (OWN) — the consultant | — | — | status PENDING_APPROVAL |
 | set primary_for_org | consultant (OWN) **or** `resumes.edit_for` with the consultant's blanket consent | | | status APPROVED or NOT_REQUIRED |
@@ -118,8 +121,10 @@ How links appear:
 Every non-owner document read goes through `ResumeAccessService.access()` → `Via.ORG` and records
 `ResumeViewEvent(viewer_kind=ORG)` + `SHARE_READ_FULL` (existing). New: `Via.ORG` gains a second
 qualifying path — `OrgResumeLinkService.canView(orgResume, viewerMembership)` for visibility ORG with
-the `resume.view_org` feature consent — implemented inside `OrgShareResumeSharing` so
-`ResumeAccessService` itself does not change shape. Every marketer write audits
+the `consent.resume_view_org` consent kind — implemented inside `OrgShareResumeSharing` so
+`ResumeAccessService` itself does not change shape. Step 10 reads consent through the `ConsentGate`
+interface (X5.6 ships it with the FULL-pairing-only default; X7.6 ships the `org_feature_consent`
+implementation, 09 row 10). Every marketer write audits
 `MARKETER_RESUME_CREATE | MARKETER_RESUME_EDIT | MARKETER_RESUME_TAILOR | MARKETER_APPROVAL_REQUEST`
 with `beneficiary_login`.
 
@@ -151,20 +156,22 @@ APPROVED ──consultant edits own resume──▶ STALE (same rule: a submissi
 
 ## 6. Marketer edits via the builder (X7.5)
 
-- Web route `/org/resumes/{orgResumeId}/edit` mounts the existing builder with
+- Web route `/w/marketing/resumes/{orgResumeId}/edit` on the tenant host (file
+  `(tenant)/_t/w/[workspace]/resumes/[orgResumeId]/edit/page.tsx`, 09 row 1) mounts the existing builder with
   `mode = "act-for"`: banner "Editing Anika's resume as Acme — she approves before use", the
   consultant's name on the autosave chip, AI panel visible only when the beneficiary's entitlement
   allows (`37-entitlement-hooks.md`). The builder calls the **same** `PUT /api/profile/resumes/{id}/doc`
   path family, but through the org BFF: `PUT /api/orgs/{orgId}/consultants/{memberId}/resumes/{resumeId}/doc`
-  (annotated `@OrgPermissionRequired({RESUMES_EDIT_FOR}) @ActFor(beneficiary = PATH_MEMBER)`), which
+  (annotated `@OrgPermissionRequired(value = {RESUMES_EDIT_FOR}, beneficiary = Beneficiary.PATH_MEMBER)` —
+  there is no `@ActFor`; one `Beneficiary` enum serves both annotations, 05 §6 / 09 row 12), which
   runs steps 1–11 then delegates to `ResumeDocService.save(resume, body, actorLogin)` with
   `byLogin = marketer`. Versions record `reason = MARKETER` (new 8-char constant in
   `ResumeDocVersionService`; kind "named", never trimmed) with `name = "Edit by Sarah"`.
 - AI actions (rewrite, summary, tailor) call the same `ResumeAiService` entry points with an explicit
-  `beneficiaryLogin`; `AiRouter` gains an optional `AiCallContext(actorLogin, beneficiaryLogin, orgId, featureKey, usageEventId)`
-  so failures and successes are booked to the beneficiary with the actor recorded (fixes the
-  `recordFailure` → current-user caveat). `ai_call` gains `beneficiary_login`, `org_id`,
-  `feature_key`, `usage_event_id` (03 §5 migration map, Phase 5 changelog by Session C; X7.5 depends on it).
+  `beneficiaryLogin`; `AiRouter.generate(…, ctx)` takes the `AiCallContext(actorLogin, beneficiaryLogin, orgId, featureKey, usageEventId)`
+  **owned by X5.8** (24 §7, 09 row 11) so failures and successes are booked to the beneficiary with the actor recorded (fixes the
+  `recordFailure` → current-user caveat). The four additive `ai_call` columns (`beneficiary_login`, `org_id`,
+  `feature_key`, `usage_event_id`) ship in X5.8's Phase-5 usage changelog; X7.5 only consumes them.
 - Rate limits (`RATE_AI_PER_MIN`, `AI_CAP_RESUME_DAILY`) count against the **actor** (abuse control)
   while budget counts against the **beneficiary** (commercial rule, requirements §20).
 - Marketer-made resume PDF: the existing PDF job (`pdf_status`) runs under the owner; the marketer

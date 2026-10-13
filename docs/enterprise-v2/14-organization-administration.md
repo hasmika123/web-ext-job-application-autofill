@@ -63,6 +63,15 @@ rows (honest empty card); **ok** otherwise.
 | `alerts` | Important alerts | computed, see §2.3 | per alert | Phase 2 | hidden when none |
 | `checklist` | Activation checklist | `GET /api/orgs/{orgId}/onboarding` (18f2123 reworked, §2.4) | admin templates | Phase 2 | hides when complete; the slot shows "Pipeline this week" (Phase 8) or nothing |
 
+**Registry shape (09 row 3).** X2.4 ships the bean interface
+`DashboardWidgetProvider { String key(); String permission(); String module(); WidgetResult compute(long orgId, Membership m); }`
+plus the Phase-2 providers (`consultants.total`, `applications.active`, `interviews.upcoming`, `invites.pending`,
+`activity.recent`, `alerts`, `checklist`). Every later widget is **one bean in its owning story**, never a
+change to `OrgDashboardService`: `consultants.licensed` + `subscription.summary` (X6.1),
+`consultants.available` (X7.2), `marketing.activity7d` (X8.6), `approvals.pending` (X8.5),
+`placements` (X10.4), `finance.summary` (X11.5), `team.performance` (X12.1). A missing bean renders the
+widget `unavailable`. `DashboardWidgetRegistryTest` diffs the registered keys against this table's key column.
+
 ### 2.3 Alerts (computed server-side, each with a deep link and a dismiss-for-7-days per member)
 | Alert key | Condition | Severity | Link |
 |---|---|---|---|
@@ -79,7 +88,7 @@ rows (honest empty card); **ok** otherwise.
 Rows (computed, each `{key, done, count, total, href, available, optional}`): `activate` (setup fee
 paid or dev-activated) · `branding` (published at least once) · `admins` (≥ 2 admins; optional) ·
 `invite` (≥ 1 ACTIVE non-admin member; shows joined/invited) · `roles` (admin opened Roles &
-Permissions once — `org_setting` `ui.roles_reviewed_at`; optional) · `teams` (≥ 1 department or
+Permissions once — `org_setting` `org.ui.roles_reviewed_at`; optional) · `teams` (≥ 1 department or
 team; optional) · `domain` (any CUSTOM hostname ACTIVE; optional) · `licenses` (≥ 1 ACTIVE license;
 only when the billing module is on). `available=false` rows render "soon", never a dead link.
 Complete → the card hides; a one-time mascot `celebrate` + "Your workspace is set up" toast.

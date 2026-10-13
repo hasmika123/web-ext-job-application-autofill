@@ -96,16 +96,17 @@ Finance in Enterprise V2 is a **workspace**, not a new money model. The data is:
 | Consultant Subscriptions | Session C's `consultant_license` / `license_feature` (read) | `licenses.view` |
 | Billing, Invoices (Kiwiply → org) | Session C's `org_invoice` mirror, Stripe portal link | `billing.view/manage` |
 | Placements (rates) | `placement` snapshot + `ops_placement_rate` history | `finance.view` → `bill_rate`; `pay_rate` |
-| Timesheets, Approvals | product H pages embedded (`/org/ops/timesheets`, approver inbox) | `ops.timesheets.approve` |
+| Timesheets, Approvals | product H pages embedded at `/w/finance/timesheets` (+ approver inbox) on the tenant host; `/org/ops/timesheets` stays the legacy kiwiply.com console path (09 row 1) | `ops.timesheets.approve` |
 | Invoices (org → client) | `ops_invoice` + lines (H6.2): generate from approved sheets, **issue = mark sent**, void, needs-reissue | `ops.finance` |
 | Payments | `ops_payment` IN/OUT **records** (H6.3): amount, date, method label, memo (scanned) — "Record a payment you received/made elsewhere" | `ops.finance` |
 | Expenses | `ops_expense` (H6.3) | |
 | Profit | H6.4 view by consultant/client/month | |
 | Reports | H5 exports + X11.6 | |
 
-Permission mapping (05 §3 FINANCE_SPECIALIST holds `finance.view/manage` + `ops.*`): `finance.view` ⇒
+Permission mapping (05 §3.1 FINANCE_SPECIALIST holds `finance.view/manage` + `ops.*`): `finance.view` ⇒
 `ops.finance` read, `finance.manage` ⇒ `ops.finance` + `ops.placements` write. One template, both
-key families, so H's `OpsGate` stays untouched.
+key families, so H's `OpsGate` stays untouched. Setting keys used by this doc register in
+`EnterpriseSettingKeys.Hr` (`org.finance.margin_bands`, …; 09 row 7).
 
 Placement financial records (X11.5): `placement.bill_rate_minor/pay_rate_minor/currency/rate_basis`
 (35 §2) + per-placement margin = `(bill − pay) / bill` shown as a **label band** to marketers

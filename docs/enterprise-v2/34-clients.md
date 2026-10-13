@@ -26,7 +26,7 @@ chain it arrived through.
 `client_contact(id, org_id, client_id, name (120), title (80), work_email (254), phone (40),
 linkedin_url (300), role_label (40: HIRING_MANAGER|RECRUITER|VMS_ADMIN|AP|OTHER), status ACTIVE|LEFT,
 notes, created_at)` — business contact data only; `work_email` domain must not be a consumer domain
-list (`gmail.com`, … setting `pipeline.consumer_email_domains`) → 422 `WORK_EMAIL_REQUIRED` (we store
+list (`gmail.com`, … setting `enterprise.pipeline.consumer_email_domains`) → 422 `WORK_EMAIL_REQUIRED` (we store
 business contacts, not people's private addresses). Every text field is scanned.
 
 `client_relationship(id, org_id, from_client_id, to_client_id, kind SUBCONTRACTS_TO|SUPPLIES|MSP_FOR|PARTNERS_WITH,

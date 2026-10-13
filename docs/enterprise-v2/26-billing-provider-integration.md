@@ -23,7 +23,7 @@
 | setup fee | one-time Checkout (`mode=payment`) **or** a Stripe Invoice (`send_invoice`, 15 days) on the org customer — billing.md §2, adopted unchanged | precedes any license |
 | `org_subscription`, `org_subscription_item`, `org_invoice`, `org_invoice_line`, `org_stripe_discount` | mirrors | **written only by `OrgBillingWebhookHandler`** (and by `LocalBillingApplier` with `source=LOCAL` when Stripe is off) |
 
-## 2. `org_billing_account` (Liquibase `202611xxxxxxxx_ent_org_billing.xml`)
+## 2. `org_billing_account` (Liquibase `20261020010000_ent_org_billing.xml` — Phase-6 bucket, 06 §4)
 `org_id` UQ, `stripe_customer_id` UQ, `currency` CHAR(3) NOT NULL (set once at creation from `enterprise.billing.default_currency`=USD or the admin's choice; immutable while any license exists), `billing_email`, `billing_contacts_json`, `collection_method` `SEND_INVOICE` (default) | `CHARGE_AUTOMATICALLY`, `tax_status` `NONE|AUTOMATIC` (C3), `status` `NONE|ACTIVE|PAST_DUE|SUSPENDED|CLOSED`, `billing_mode` `SUBSCRIPTION_ITEMS|COMPUTED_INVOICE` (default from `enterprise.billing.mode_default`), `stripe_subscription_id` UQ NULL, `stripe_coupon_id` NULL, `current_period_start`, `current_period_end`, **`paid_through_at`** (end of the last paid period; E11), `last_invoice_at`, `overage_opt_in`, `test_clock_id` NULL (test mode only), `created_at`, `updated_at`. `organization.stripe_customer_id` / `billing_email` are mirrored both ways during Phase 5–6 (dual-write, ADR-023).
 
 ## 3. `StripeGateway` growth (one interface; every new method takes an `IdempotencyKey`)

@@ -35,7 +35,7 @@
 | Activate | INVITED → ACTIVE **by acceptance only** | — | an admin cannot "activate" someone who has not accepted; the UI offers **Resend** instead | | |
 | Suspend | ACTIVE → SUSPENDED | `members.suspend` | not self; not the last OWNER/ORG_ADMIN | seat kept; sessions with this user's `tid` revoked; licenses untouched (C decides suspension effects in X5.4) | `MEMBER_SUSPEND` (reason) |
 | Reinstate | SUSPENDED → ACTIVE | `members.suspend` | — | — | `MEMBER_REINSTATE` |
-| Deactivate / Offboard | ACTIVE/SUSPENDED → REMOVED | `members.remove` | not the last OWNER (transfer first); OWNER → `409 OWNER_MUST_TRANSFER` | **records kept**: audit rows, assignments ended (`ends_at`, D), `org_resume` links removed (ADR-009, audited), consent ended, licenses ended at period end (C), overlay deleted; the member's personal data untouched | `MEMBER_REMOVE` (reason) + the offboarding summary |
+| Deactivate / Offboard | ACTIVE/SUSPENDED → REMOVED | `members.remove` | not the last OWNER (transfer first); OWNER → `409 OWNER_MUST_TRANSFER` | **records kept**: audit rows, assignments ended (`ends_at`, D), `org_resume` links removed (ADR-009, audited), consent ended, licenses **`ENDED` now** (C, 20 §3; no proration, no refund — 09 row 4), overlay deleted; the member's personal data untouched. Runs the ordered `OffboardingHook` chain (§5) | `MEMBER_REMOVE` (reason) + the offboarding summary |
 | Reinstate after removal | REMOVED → (new INVITED) | `members.invite` | a removed person is **re-invited** (new seat row); history stays on the old row | | `MEMBER_INVITE` |
 | Leave | ACTIVE → LEFT | the member (`self.leave`) | OWNER cannot | as Deactivate | `MEMBER_LEFT` |
 | Transfer ownership | — | `org.transfer_ownership` (OWNER) | target ACTIVE admin; `ConfirmTypedSheet` | OWNER role moves | `OWNER_TRANSFER` (HIGH) |
@@ -117,8 +117,13 @@ Tabs: **Overview** · **Roles** · **Groups & manager** · **Access** · **Activ
 ## 5. Offboarding wizard (`Dialog` ≥ `md`, 3 steps; X4.4)
 1. **Review** — what will happen (read-only list computed by `GET …/members/{id}/offboard-preview`):
    roles ended · consultants assigned to them (D: N assignments will need a new marketer →
-   inline reassign picker, required if any PRIMARY) · their consent/links ended · licenses (C:
-   "ends at period end, no refund" wording from the locked rule) · sessions signed out · records kept.
+   inline reassign picker, required if any PRIMARY) · their consent/links ended · licenses (C, 20 §3:
+   copy **"License ends now; the paid period isn't refunded"**) · sessions signed out · records kept.
+   The preview and the apply both run the **`OffboardingHook {preview(), apply()}`** chain owned by
+   X4.4 (09 row 4), in this order: Sessions (X2.7) → Assignments (X4.7) → Consent
+   (`DataShareService.endFor`) → OrgResumeLinks (X7.3) → Licenses (X5.4, `ENDED` now, Stripe decrement
+   now) → Pipeline (X8.13: open matches `WITHDRAWN` reason `CONSULTANT_LEFT`) → EmploymentRecord (X11.1).
+   Each later story registers its hook bean; a missing bean is skipped. Leave and erase run the same chain.
 2. **Reason** — ReasonSheet-style text (10–500) + optional "last day" date (defaults today; a
    future date schedules the removal via a `member_offboarding` job row — additive table
    `org_member_offboarding(org_id, member_id, effective_at, reason, created_by, status)`).

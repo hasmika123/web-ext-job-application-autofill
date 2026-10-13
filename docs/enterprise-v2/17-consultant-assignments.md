@@ -5,7 +5,9 @@
 > (kept for the STAFF flow, never written for consultants), `service/org/OrgAuditService`
 > (`ASSIGNMENT_CREATE`, `ASSIGNMENT_END` exist, unused), `service/org/DataShareService`
 > (`full_to_member_id`, `endPairingsTo`), `05-permission-model.md` §4 (`ScopeEvaluator` ASSIGNED),
-> Liquibase changelog `202610xxxxxxxx_ent_assignments.xml` (additive).
+> Liquibase changelog `20261018010000_ent_assignments.xml` (additive; Phase-4 bucket, 06 §4). Setting keys
+introduced here register in `EnterpriseSettingKeys.Pipeline` — the open-match cap is
+`org.pipeline.open_matches_max` (renamed from `assignments.open_max`, 09 row 7).
 
 ## 1. What an assignment is
 

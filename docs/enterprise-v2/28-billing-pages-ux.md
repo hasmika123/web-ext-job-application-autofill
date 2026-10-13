@@ -13,7 +13,8 @@
 > apply to settings; **money changes are never autosaved** — they go through the quote → confirm flow.
 
 ## 0. Shared pieces (add to `packages/ui` first — Session B alignment)
-- `MoneyText` (`minor`, `currency`, `tone`, `strike`) · `PriceDelta` ("+$19.97/mo") · `FeatureChip` (name + allowance tooltip, states: active, pending-removal (dashed), pending-add (dotted)) · `AllowanceMeter` (Meter with "27 of 40 left · resets Dec 5") · `QuoteSummary` (the impact preview block, §7) · `CostConfirmSheet` (§9) · `StatusPill` map: ACTIVE green, PENDING amber, SUSPENDED grey, CANCEL_AT_PERIOD_END amber-outline, ENDED grey, PAST_DUE red, NONE grey.
+- **Owned by X2.15** (09 row 14): `MoneyText` (`minor`, `currency`, `tone`, `strike`; band mode for non-finance viewers) · `PriceDelta` ("+$19.97/mo") · `FeatureChip` (name + allowance tooltip, states: active, pending-removal (dashed), pending-add (dotted)) · `AllowanceMeter` (Meter with "27 of 40 left · resets Dec 5") · `StatePill` with the **billing tone map** (replaces this doc's `StatusPill`): ACTIVE green, PENDING amber, SUSPENDED grey, CANCEL_AT_PERIOD_END amber-outline, ENDED grey, PAST_DUE red, NONE grey.
+- Web composites in `web/src/components/ent/billing` (not `packages/ui`): `QuoteSummary` (the impact preview block, §7) · `CostConfirmSheet` (§9). Mascot poses are B's eight only (`welcome, greet, empty, encourage, celebrate, warn, error, peek`, 11 §6 / 09 row 5).
 - Data hooks (`web/src/lib/ent/billing.ts`): `useOrgSubscription`, `useLicenses(filter)`, `useLicense(id)`, `useOrgCatalog`, `useQuote()`, `useConfirmQuote()`, `useOrgBilling`, `useUsage(by, period)`. All call the BFF proxy; mocks in the mock API (`acme` fixtures: A/B/C/D consultants from 22 §9).
 
 ## 1. Subscription Overview — `/{tenant}/admin/subscription` (`billing.view`)
@@ -41,7 +42,7 @@ Nav: Org Admin → Subscription. Finance sees the same page.
 └──────────────────────────────┘
 ```
 **1440**: three columns — left: 4 stat tiles in a 2×2 grid + "Recurring by preset" HBarList; middle: Next invoice card (estimate, date, breakdown table by product: qty × unit = line, discount line, prorations, "Taxes: calculated by Stripe"), Pending changes list with Undo; right: Billing status card (account status, payment method via portal, contract summary), Feature usage top-5.
-Empty states: no licenses yet → `EmptyState` with the mascot *pointing* pose: "No consultant licenses yet. Pick a consultant to start — you'll see the exact price before anything is billed." [Choose a consultant]. Billing not enabled (flag UI-off) → "Billing is being set up for Acme — licenses can be configured, nothing is billed yet" (grey Pill `SETUP`).
+Empty states: no licenses yet → `EmptyState` with the mascot `encourage` pose (09 row 5): "No consultant licenses yet. Pick a consultant to start — you'll see the exact price before anything is billed." [Choose a consultant]. Billing not enabled (flag UI-off) → "Billing is being set up for Acme — licenses can be configured, nothing is billed yet" (grey Pill `SETUP`).
 Loading: `TileSkeleton` ×4 + `ListSkeleton`. Error: inline card with retry; never a redirect.
 
 ## 2. Consultant Licenses — `/{tenant}/admin/licenses` (`licenses.view`; actions need `licenses.manage`)

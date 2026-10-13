@@ -14,7 +14,7 @@
 4. Every write is a `contract_event` row + `admin_audit_event` (HIGH). Contracts hold **no PII**: a
    counter-party name, a reference number, notes (scanned by `SensitivePatterns`).
 
-## 2. Tables (in `202611xxxxxxxx_ent_catalog.xml`)
+## 2. Tables (in `20261019020000_ent_contracts.xml` — Phase-5 bucket, 06 §4)
 
 ### 2.1 `org_contract`
 | column | notes |

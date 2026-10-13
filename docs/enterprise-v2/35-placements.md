@@ -79,8 +79,9 @@ When a placement becomes ACTIVE **and** the org has Timesheets on (`flag.ops_tim
    → `ops_vendor`.
 2. `ops_placement` ← create with `consultant_member_id, client_id, vendor_id, title, start_date,
    end_date, pay_type_label` (from `offer.employment_label` → W2|1099|C2C|OTHER), `status ACTIVE`,
-   `pipeline_placement_id` (**additive column on `ops_placement`**, nullable, indexed; Session H's
-   changelog gets an `addColumn` from X10.8).
+   `pipeline_placement_id` (**additive column on `ops_placement`**, nullable, indexed; the
+   `addColumn` lives in the **enterprise Phase-10 changelog** `20261024010000_ent_placements.xml`
+   (X10.8), never in product H's files — 09 rows 16/20).
 3. `ops_placement_rate` ← one row `effective_from = start_date` with the snapshot rates (FINANCE-only
    visibility rules of H apply from here on).
 4. Later rate changes are made in H (`ops_placement_rate` history); the pipeline snapshot is not

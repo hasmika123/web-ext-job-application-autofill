@@ -24,7 +24,7 @@
 5. **Everything admin-configured.** Code ships keys, kinds and safe defaults; prices, allowances,
    dependencies, presets, tiers and eligibility are rows edited from Platform Pricing Admin.
 
-## 2. Tables (Liquibase `202611xxxxxxxx_ent_catalog.xml`, additive; Phase 18 tables created here if absent)
+## 2. Tables (Liquibase `20261019010000_ent_catalog.xml`, additive — Phase-5 bucket, 06 §4; Phase 18 tables created here if absent)
 
 ### 2.1 `product` (Phase 18 + enterprise kinds)
 `code` (UQ, e.g. `ORG_BASE_LICENSE`, `FEAT_AI_JOB_MATCHING`), `name`, `kind` `SUBSCRIPTION|SEAT|SERVICE|FEE|BUNDLE|BASE_LICENSE|FEATURE|ORG_MODULE`, `sold_to` `INDIVIDUAL|ORG|BOTH`, **`feature_key`** (FK `feature_definition`, NOT NULL for FEATURE/ORG_MODULE/BASE_LICENSE), **`quantity_basis`** `FLAT|PER_ROLE` (ORG_MODULE), **`role_key`** (PER_ROLE), `description`, `active`, `sort_order`, audit columns. `SEAT` stays for the legacy org seat rows; **no `SEAT` row is seeded for enterprise** (they became presets/features, E3).
@@ -45,7 +45,7 @@ Constraints: at most one *active* row per `(product_id, audience, billing_interv
 | usage_unit (24) | `tailorings`, `optimizations`, `matches`, `connections`, `preparations`, `sessions`, `alerts`, `reports`, `operations`, `credits`, `versions`, `none` |
 | default_allowance BIGINT NOT NULL | per `allowance_period`; `0` only when `usage_unit='none'` |
 | allowance_period | `PERIOD` (org billing period, default) `MONTH` (calendar UTC) `DAY` |
-| pool_mode | `PER_CONSULTANT` (default, E18) `ORG_POOL` |
+| pool_mode | `PER_CONSULTANT` (default, E18) `ORG_POOL`. A `category = MODULE` row (e.g. `module.talent_marketing`) is always `ORG_POOL` with allowance = `default_allowance × org_module_license.quantity`; its beneficiary is the acting employee (09 row 9) |
 | ai_budget_cents INT NOT NULL DEFAULT 0 | the model-cost budget this feature adds to the beneficiary's org AI budget per period; also the margin guard's worst-case AI cost |
 | reserve_ttl_seconds INT DEFAULT 900 | reservation timeout (25 §4) |
 | stackable BOOLEAN DEFAULT false, max_quantity INT NULL | only `ai.credits_extra` |
@@ -54,7 +54,7 @@ Constraints: at most one *active* row per `(product_id, audience, billing_interv
 | active BOOLEAN, catalog_version INT, created_at, updated_at, updated_by | |
 
 ### 2.5 `feature_dependency`
-`feature_key`, `requires_feature_key`, `kind` `TECHNICAL|COMMERCIAL|INTEGRATION|CONSENT`, `note` (200), `active`. PK `(feature_key, requires_feature_key, kind)`. Cycles are refused by the editor (DFS on save). `requires_feature_key` may name a non-purchasable key for INTEGRATION/CONSENT (`integration.inbox_connected`, `integration.extension_connected`, `consent.act_for`, `consent.resume_edit`) — those keys exist in `feature_definition` with `category=MODULE`, `usage_unit='none'`, no product.
+`feature_key`, `requires_feature_key`, `kind` `TECHNICAL|COMMERCIAL|INTEGRATION|CONSENT`, `note` (200), `active`. PK `(feature_key, requires_feature_key, kind)`. Cycles are refused by the editor (DFS on save). `requires_feature_key` may name a non-purchasable key for INTEGRATION/CONSENT (`integration.inbox_connected`, `integration.extension_connected`, and the **consent kinds** of `ConsentKinds`: `consent.act_for` (= the FULL pairing, no `org_feature_consent` row), `consent.resume_edit`, `consent.resume_view_org`, `consent.ai_tailoring`, `consent.ai_optimization`, `consent.marketing_assist`) — those keys exist in `feature_definition` with `category=MODULE`, `usage_unit='none'`, no product. `org_feature_consent.feature_key` always holds a consent kind, never a purchasable feature key (09 row 10); seeded CONSENT rows: `ai.resume_tailoring → consent.ai_tailoring`, `resume.optimization → consent.ai_optimization`, `marketing.assisted_applications → consent.act_for` (§3.4).
 
 ### 2.6 `license_preset`
 `key` (40, UQ), `name`, `description`, `feature_keys_json` (ordered), `mirrors_product_code` NULL (`PRO`/`AUTOPILOT` — enables the hard "above individual" check, §5), `active`, `sort_order`, `catalog_version`. A preset **has no price**: applying it produces ordinary `license_feature` rows at their own effective prices (ADR-012). Escalation C5 asks whether presets may carry a bundle discount later.
@@ -113,7 +113,9 @@ row for the feature.
 |---|---|---|---|
 | every FEATURE | `base.consultant` | TECHNICAL | a license always has a base (structural; the quote cannot violate it) |
 | `ai.resume_tailoring` | `resume.advanced_versions` | **none** (deliberately) | tailoring writes a new version within the base cap; above cap → `RESUME_VERSION_LIMIT` with an upsell card |
-| `marketing.assisted_applications` | `consent.act_for` | CONSENT | the consultant's FULL share naming the marketer (05 §5) |
+| `marketing.assisted_applications` | `consent.act_for` | CONSENT | the consultant's FULL share naming the marketer (05 §5); no row in `org_feature_consent` |
+| `ai.resume_tailoring` | `consent.ai_tailoring` | CONSENT | per-consultant kind in `org_feature_consent` (30 §4; 09 row 10) |
+| `resume.optimization` | `consent.ai_optimization` | CONSENT | as above |
 | `marketing.assisted_applications` | `ai.resume_tailoring` | **none** (recommended only) | packs use the org-approved resume as-is; tailoring is an upsell card, never a forced line — keeps §14's consultant B (Base + Email + Marketing + Interview) representable |
 | `automation.approved_apply` | `integration.extension_connected` | INTEGRATION | licensed, but `check()` → `INTEGRATION_REQUIRED` until the consultant's extension is connected (Phase 9) |
 | `automation.approved_apply` | `ai.job_matching` | COMMERCIAL | prepares only matched/approved jobs |
@@ -121,6 +123,8 @@ row for the feature.
 | `analytics.applications` | `inbox.monitoring` | none | analytics works without the inbox; it just has less data (documented in the description) |
 | `ai.credits_extra` | any `consumes_ai` feature | COMMERCIAL (rule `anyOf`) | refused with `DEPENDENCY_REQUIRED` when no AI feature is on the license |
 | `module.consultancy_ops` | `module.talent_marketing` | COMMERCIAL | Phase 23 |
+
+This graph is authoritative (09 row 9): Session D's proposed `automation.approved_apply → marketing.assisted_applications` TECHNICAL row is **dropped** (Autopilot prepare works from any approved match; the COMMERCIAL row on `ai.job_matching` above already covers "prepares only matched/approved jobs").
 
 ### 3.5 Presets (seeded inactive; admin activates)
 | key | features | mirrors |

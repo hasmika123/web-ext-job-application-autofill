@@ -19,7 +19,8 @@ Interviews (33), AI Interview Preparation (X9.7), Offers, Placements, My Availab
 (Session C's entitlement view), Notifications, Settings.
 
 The consultant workspace is the **user app with an org lens**, not a copy: on a tenant host the
-shell renders the user-area routes (`/applications`, `/resumes`, `/interviews`) inside the
+shell renders the user-area pages under `/w/consultant/{applications|resumes|interviews|…}`
+(files under `(tenant)/_t/w/[workspace]/…`, 16 §2.3 / 09 row 1) inside the
 enterprise shell with the org's branding, and the APIs are the existing `/api/profile/**` routes
 with the user's own token. Only the org-specific lists (`/api/me/orgs/{orgId}/…`) are new.
 
@@ -66,6 +67,9 @@ with the user's own token. Only the org-specific lists (`/api/me/orgs/{orgId}/�
   app's derived "ghosted" (never stored).
 - The org never sees: answers cache, custom answers, inbox mail, attachments, private notes
   (`ShareField.PRIVATE_DATA` rule, existing).
+- **`ShareField.OFFERS`** (X9.8, 09 row 20): SUMMARY = count of open offers, FULL = the offer rows
+  (client, title, rates the consultant accepted, dates); the row is added to
+  `docs/design/org/consent-data-sharing.md` §3 so `ShareMatrixTest` pins it.
 
 ## 4. Inbox and org workflows (`inbox.monitoring`)
 
@@ -111,7 +115,7 @@ mailbox for anyone, never reads a consultant's mail, and Kiwiply never sends, mo
 | POST | `/api/me/orgs/{orgId}/opportunities/{matchId}/accept` · `/decline` · `/authorize {scope}` · `/withdraw` | consultant | 31 §4 |
 | POST | `/api/me/orgs/{orgId}/opportunities/{matchId}/link {applicationId}` · `/unlink` | consultant | §2 |
 | GET | `/api/me/orgs/{orgId}/timeline` | consultant | "What Acme did" |
-| GET | `/api/orgs/{orgId}/applications?consultant=&status=&period=` | `pipeline.view` / `applications.view` | §3 |
+| GET | `/api/orgs/{orgId}/applications?consultant=&status=&period=` | `member.view_summary` (consent projection; **no `applications.view` key exists**, 09 row 8) — the pipeline board itself is `pipeline.view` | §3 |
 | GET | `/api/orgs/{orgId}/consultants/{memberId}/applications/{applicationId}` | FULL viewer | timeline merge |
 | PATCH | `/api/profile/applications/{id}/notes/{nid}` `{sharedWithOrg}` | owner | additive |
 | GET | `/api/profile/version` | extension | §5 |
