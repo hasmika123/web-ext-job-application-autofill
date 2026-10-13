@@ -104,13 +104,13 @@
  * and heading accent follow the organization's colours. The card keeps >= ~78 % opacity so text on the blurred scene is AA.
  */
 .theme-tenant .tenant-glass {
-  background: color-mix(in srgb, var(--brand-100, #d4e4f8) 26%, rgb(255 255 255 / 0.46));
-  border: 1.5px solid color-mix(in srgb, var(--brand-300, #a8c8f0) 50%, rgb(255 255 255 / 0.85));
+  background: color-mix(in srgb, var(--brand-100, #d4e4f8) 14%, rgb(255 255 255 / 0.34));
+  border: 1.5px solid rgb(255 255 255 / 0.78);
   box-shadow:
     0 28px 70px color-mix(in srgb, var(--brand-700, #0c4fa3) 20%, transparent),
     inset 0 1px 0 rgb(255 255 255 / 0.85);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  backdrop-filter: blur(20px) saturate(1.1);
 }
 .theme-tenant .tenant-glass-field {
   background: rgb(255 255 255 / 0.78);
@@ -147,10 +147,10 @@
 /* Desktop: the heading is pinned to the plate's own coordinates (the plate is object-cover at 42% / 14%), so it always sits in the
  * empty sky above the bee, whatever the window shape. --plate-s is the plate's scale (screen px per plate px). */
 @media (min-width: 1024px) {
-  .theme-tenant .tenant-sky { --plate-s: max(calc(100vw / 1448), calc(100dvh / 1086)); }
+  .theme-tenant .tenant-sky { --plate-s: max(calc(100vw / 1672), calc(100dvh / 941)); }
   .theme-tenant .tenant-login-heading {
-    left: calc((100vw - 1448 * var(--plate-s)) * 0.42 + 270 * var(--plate-s));
-    top: calc((100dvh - 1086 * var(--plate-s)) * 0.14 + 95 * var(--plate-s));
-    max-width: calc(480 * var(--plate-s));
+    left: calc((100vw - 1672 * var(--plate-s)) * 0.42 + 250 * var(--plate-s));
+    top: calc((100dvh - 941 * var(--plate-s)) * 0.14 + 90 * var(--plate-s));
+    max-width: calc(520 * var(--plate-s));
   }
 }

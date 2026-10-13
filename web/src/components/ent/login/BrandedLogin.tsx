@@ -70,26 +70,21 @@ export function chipLabels(custom?: string[] | null): string[] {
   return DEFAULT_CHIPS.map((d, i) => custom?.[i]?.trim() || d);
 }
 
-/** The clean background plates (design/enterprise-login/v2 with the text and the card removed): phone / tablet portrait, and desktop. */
-const PLATE_PHONE = { src: "/ent/login/plate-phone-2.webp", width: 941, height: 3432 };
-const PLATE_DESKTOP = { src: "/ent/login/plate-desktop-2.webp", width: 1448, height: 1086 };
+/** The scene (design/enterprise-login: bee, cat, desk and a sunlit window, sharp, no text and no card). The glass card blurs it live. */
+const SCENE = { src: "/ent/login/bg-scene.webp", width: 1672, height: 941 };
 
-/** Art-directed <picture>: only the plate for the current breakpoint is fetched (no double preload). Decorative. */
+/** One decorative image: a tall crop around the bee that fades into the sky on a phone, full-bleed cover on a desktop. */
 function LoginBackdrop() {
-  const phone = getImageProps({ ...PLATE_PHONE, alt: "", sizes: "100vw" });
-  const desktop = getImageProps({ ...PLATE_DESKTOP, alt: "", sizes: "100vw" });
+  const img = getImageProps({ ...SCENE, alt: "", sizes: "(min-width: 1024px) 100vw, 160vw", quality: 85 });
   return (
-    <picture className="pointer-events-none absolute inset-x-0 top-0 -z-10 block lg:inset-0">
-      <source media="(min-width: 1024px)" srcSet={desktop.props.srcSet} sizes="100vw" />
-      <img
-        {...phone.props}
-        alt=""
-        data-tenant-plate
-        loading="eager"
-        fetchPriority="high"
-        className="block h-auto w-full select-none lg:h-full lg:object-cover lg:[object-position:42%_14%]"
-      />
-    </picture>
+    <img
+      {...img.props}
+      alt=""
+      data-tenant-plate
+      loading="eager"
+      fetchPriority="high"
+      className="pointer-events-none absolute inset-x-0 top-0 -z-10 block h-[150vw] w-full select-none object-cover [object-position:24%_40%] [mask-image:linear-gradient(to_bottom,black_72%,transparent)] lg:inset-0 lg:h-full lg:[mask-image:none] lg:[object-position:42%_14%]"
+    />
   );
 }
 
@@ -219,7 +214,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
           className="tenant-login-rise tenant-login-heading flex min-h-[36vw] flex-col items-center px-6 pt-7 text-center lg:absolute lg:min-h-0 lg:items-start lg:p-0 lg:text-left"
           aria-labelledby={`${uid}-title`}
         >
-          <h1 id={`${uid}-title`} className="font-body relative max-w-[16ch] text-[32px] font-extrabold leading-[1.05] tracking-tight [text-shadow:0_0_10px_rgb(255_255_255/0.35)] sm:max-w-none sm:text-[48px] lg:text-[length:calc(var(--plate-s)*58)]">
+          <h1 id={`${uid}-title`} className="font-body relative max-w-[16ch] text-[32px] font-extrabold leading-[1.05] tracking-tight [text-shadow:0_0_10px_rgb(255_255_255/0.35)] sm:max-w-none sm:text-[48px] lg:text-[length:calc(var(--plate-s)*66)]">
             {title}
             <span aria-hidden className="relative inline-block h-0 w-0 align-top">
               <span className="tenant-spark absolute -top-1 left-2 h-9 w-9 sm:h-11 sm:w-11 lg:top-0">
@@ -229,11 +224,11 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
               </span>
             </span>
           </h1>
-          <p className="mt-2 max-w-[30ch] text-[15px] [text-shadow:0_0_8px_rgb(255_255_255/0.35)] leading-snug text-[var(--brand-800)] sm:max-w-[40ch] sm:text-[20px] lg:mt-3 lg:max-w-[26ch] lg:text-[length:calc(var(--plate-s)*26)]">{subtitle}</p>
+          <p className="mt-2 max-w-[30ch] text-[15px] [text-shadow:0_0_8px_rgb(255_255_255/0.35)] leading-snug text-[var(--brand-800)] sm:max-w-[40ch] sm:text-[20px] lg:mt-3 lg:max-w-[26ch] lg:text-[length:calc(var(--plate-s)*30)]">{subtitle}</p>
         </section>
 
         {/* the bee scene lives in the plate; this spacer keeps the card below it on a phone / tablet */}
-        <div aria-hidden className="h-[45vw] lg:hidden" />
+        <div aria-hidden className="h-[70vw] lg:hidden" />
 
         {/* ── sign-in card (overlaps the lower part of the scene on a phone) ── */}
         <section className="relative z-10 mx-auto w-full max-w-[480px] px-4 pb-10 sm:px-0 lg:col-start-2 lg:py-12" aria-label="Sign in">
