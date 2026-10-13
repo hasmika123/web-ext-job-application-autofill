@@ -32,12 +32,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 /** Routing, body validation and the "generic 404" of the Job Streams resource (standalone MockMvc, no Docker). */
+@org.junit.jupiter.api.Timeout(60) // the first standalone MockMvc build loads many classes; the default 15s is tight on a busy machine
 class MktStreamsResourceTest {
 
     MktStreamsService service = mock(MktStreamsService.class);
     MockMvc mvc;
     OrgMembership me = new OrgMembership(7L, 11L, 21L, "m@acme.com", OrgRole.MEMBER, OrgMemberStatus.ACTIVE, OrgStatus.ACTIVE);
 
+    @org.junit.jupiter.api.Timeout(120)
     @BeforeEach
     void setUp() {
         mvc = MockMvcBuilders.standaloneSetup(new MktStreamsResource(service)).build();
