@@ -67,7 +67,7 @@ export default function AccountMenu({ me, onSwitchWorkspace, compact = false }: 
           {compact ? null : (
             <span className="hidden min-w-0 leading-tight lg:block">
               <span className="block max-w-[150px] truncate text-[15px] font-semibold text-[color:var(--ent-title)]">{me.person.name}</span>
-              <span className="block max-w-[150px] truncate text-[13px] text-[#5b6896]">{role}</span>
+              <span className="block max-w-[150px] truncate text-[13px] text-[color:var(--ent-soft)]">{role}</span>
             </span>
           )}
           <ChevronDownIcon size={16} className="hidden flex-none text-[color:var(--ent-title)] lg:block" />
