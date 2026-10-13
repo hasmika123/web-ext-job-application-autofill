@@ -209,7 +209,8 @@ describe("Employees: the list", () => {
     expect(total.querySelector("[data-kpi-delta]")?.textContent).toContain("vs last month");
     expect(total.querySelector("[data-kpi-delta]")?.textContent).toContain("+33.3%");
     for (const k of ["invited", "suspended", "departments", "teams"]) expect(document.querySelector(`[data-kpi=${k}] [data-kpi-delta]`), k).toBeNull();
-    expect(document.querySelector("[data-kpi-tiles] svg[data-sparkline], [data-kpi-tiles] polyline")).toBeNull();
+    expect(total.querySelector("svg[data-sparkline]")).not.toBeNull(); // last month's and this month's figure: the two points the API holds
+    for (const k of ["invited", "suspended", "departments", "teams"]) expect(document.querySelector(`[data-kpi=${k}] svg[data-sparkline]`), k).toBeNull();
   });
 
   it("searches after the typing rests, and filters by status", async () => {
@@ -437,7 +438,7 @@ describe("Employees: the detail sheet", () => {
     const qa = document.querySelector("[data-quick-actions]")!;
     expect(qa.querySelector('[data-quick-action="reinstate"]')).toBeTruthy();
     expect(qa.querySelector('[data-quick-action="suspend"]')).toBeNull();
-    expect(qa.textContent).not.toMatch(/Reset Password/);
+    expect((qa.querySelector('[data-quick-action="reset"]') as HTMLButtonElement).disabled).toBe(true); // on the board, not built: drawn disabled
   });
 
   it("suspends with a reason and reinstates with an undo", async () => {

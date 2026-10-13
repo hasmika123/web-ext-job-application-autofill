@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowDownIcon, ArrowUpIcon, IconButton, Menu, MoreVerticalIcon, PersonCell, Select, useNarrow } from "@kiwiply/ui";
+import { ArrowDownIcon, ArrowUpIcon, IconButton, Menu, MoreHorizontalIcon, PersonCell, Select, useNarrow } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import { formatDate, pageCount as pagesOf, PAGE_SIZES, relativeTime, showingText, type MemberRow, type SortDir, type SortKey } from "@/lib/ent/members";
 import { ManagerCell, MemberStatusPill, RoleChips } from "./parts";
@@ -21,7 +21,7 @@ export interface TableProps {
   compact?: boolean;
 }
 
-const HEAD = "px-2.5 py-2.5 text-left text-[12px] font-semibold text-ink-soft";
+const HEAD = "px-3 py-3 text-left text-[13px] font-bold text-ink";
 
 function SortHead({ label, k, sort, onSort, className }: { label: string; k: SortKey; sort: TableProps["sort"]; onSort: TableProps["onSort"]; className?: string }) {
   const active = sort.key === k;
@@ -48,7 +48,7 @@ function Check({ checked, indeterminate, onChange, label }: { checked: boolean; 
       aria-label={label}
       onChange={(e) => onChange(e.target.checked)}
       onClick={(e) => e.stopPropagation()}
-      className="h-4 w-4 cursor-pointer rounded border-line accent-[var(--brand-primary,var(--color-accent))]"
+      className="h-[18px] w-[18px] cursor-pointer rounded-[5px] border-line accent-[var(--brand-primary,var(--color-accent))]"
     />
   );
 }
@@ -58,7 +58,7 @@ function Kebab({ items }: { items: MenuEntry[] }) {
     <Menu
       trigger={
         <IconButton aria-label="Row actions" title="Row actions">
-          <MoreVerticalIcon size={16} />
+          <MoreHorizontalIcon size={18} />
         </IconButton>
       }
       items={items}
@@ -106,27 +106,27 @@ export function EmployeesTable(p: TableProps) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-[var(--radius)] border border-line bg-paper">
-      <table aria-label="Employees" className="w-full border-collapse text-[13.5px]" data-employee-table>
-        <thead className="border-b border-line bg-paper-2/60">
+    <div className="overflow-x-auto rounded-xl border border-line bg-paper">
+      <table aria-label="Employees" className="w-full border-collapse text-[14px]" data-employee-table>
+        <thead className="border-b border-line bg-paper">
           <tr>
-            <th scope="col" className="w-10 px-2.5 py-2.5">
+            <th scope="col" className="w-11 px-3 py-3">
               <Check checked={allOn} indeterminate={someOn} onChange={p.onTogglePage} label="Select all employees on this page" />
             </th>
             <SortHead label="Employee" k="name" sort={p.sort} onSort={p.onSort} />
             <th scope="col" className={HEAD}>Role</th>
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>Department</th>
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>Team</th>
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>Manager</th>
+            <th scope="col" className={`${HEAD} hidden lg:table-cell`}>Department</th>
+            <th scope="col" className={`${HEAD} hidden xl:table-cell`}>Team</th>
+            <th scope="col" className={`${HEAD} hidden lg:table-cell`}>Manager</th>
             <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} />
             <SortHead label="Joined" k="joined" sort={p.sort} onSort={p.onSort} className="hidden md:table-cell" />
-            <SortHead label="Last active" k="lastActive" sort={p.sort} onSort={p.onSort} className="hidden 2xl:table-cell" />
-            <th scope="col" className="w-10 px-2">
-              <span className="sr-only">Actions</span>
+            <SortHead label="Last active" k="lastActive" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden 2xl:table-cell"} />
+            <th scope="col" className="w-20 px-2 py-3 text-center text-[13px] font-bold text-ink">
+              Actions
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-line/60">
+        <tbody className="divide-y divide-line/50">
           {p.rows.map((r) => {
             const open = p.openId === r.id;
             return (
@@ -142,28 +142,28 @@ export function EmployeesTable(p: TableProps) {
                     p.onOpen(r);
                   }
                 }}
-                className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? "bg-accent-soft/60" : p.selected.has(r.id) ? "bg-accent-soft/30" : "hover:bg-paper-2/50"}`}
+                className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open || p.selected.has(r.id) ? "bg-accent-soft/70" : "hover:bg-paper-2/60"}`}
               >
-                <td className="w-10 px-2.5 py-2.5">
+                <td className="w-11 px-3 py-[7px]">
                   <Check checked={p.selected.has(r.id)} onChange={() => p.onToggle(r.id)} label={`Select ${r.name}`} />
                 </td>
-                <td className="min-w-[11rem] px-2.5 py-2.5">
-                  <PersonCell name={r.name} avatarName={r.name} src={r.avatarUrl} sub={subOf(r)} />
+                <td className="min-w-[12rem] px-3 py-[7px]">
+                  <PersonCell name={r.name} avatarName={r.name} src={r.avatarUrl} sub={subOf(r)} size={40} />
                 </td>
-                <td className="max-w-[14rem] px-2.5 py-2.5">
+                <td className="max-w-[14rem] px-3 py-[7px]">
                   <RoleChips roles={r.roles} max={1} />
                 </td>
-                <td className={`max-w-[10rem] truncate px-2.5 py-2.5 text-ink-soft ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.department?.name ?? "—"}</td>
-                <td className={`max-w-[10rem] truncate px-2.5 py-2.5 text-ink-soft ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>{r.team?.name ?? "—"}</td>
-                <td className={`px-2.5 py-2.5 ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>
+                <td className={`max-w-[10rem] truncate px-3 py-[7px] text-ink-soft hidden lg:table-cell`}>{r.department?.name ?? "—"}</td>
+                <td className={`max-w-[10rem] truncate px-3 py-[7px] text-ink-soft hidden xl:table-cell`}>{r.team?.name ?? "—"}</td>
+                <td className="hidden px-3 py-[7px] lg:table-cell">
                   <ManagerCell manager={r.manager} />
                 </td>
-                <td className="px-2.5 py-2.5">
+                <td className="px-3 py-[7px]">
                   <MemberStatusPill status={r.status} />
                 </td>
-                <td className="hidden whitespace-nowrap px-2.5 py-2.5 text-ink-soft md:table-cell">{formatDate(r.joinedAt) || "—"}</td>
-                <td className="hidden whitespace-nowrap px-2.5 py-2.5 text-ink-soft 2xl:table-cell">{r.lastActiveAt ? relativeTime(r.lastActiveAt) : "—"}</td>
-                <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
+                <td className="hidden whitespace-nowrap px-3 py-[7px] text-ink-soft md:table-cell">{formatDate(r.joinedAt) || "—"}</td>
+                <td className={`whitespace-nowrap px-3 py-[7px] text-ink-soft ${p.compact ? "hidden" : "hidden 2xl:table-cell"}`}>{r.lastActiveAt ? relativeTime(r.lastActiveAt) : "—"}</td>
+                <td className="px-2 text-center" onClick={(e) => e.stopPropagation()}>
                   <Kebab items={p.rowMenu(r)} />
                 </td>
               </tr>
@@ -191,12 +191,12 @@ export function pageWindow(page: number, count: number): (number | "gap")[] {
 export function Pagination({ page, size, total, shown, onPage, onSize }: { page: number; size: number; total: number; shown: number; onPage: (p: number) => void; onSize: (s: number) => void }) {
   const count = pagesOf(total, size);
   return (
-    <div className="mt-3 flex flex-col gap-2 text-[13px] text-ink-soft sm:flex-row sm:items-center sm:justify-between" data-pagination>
+    <div className="mt-3 flex flex-col gap-2 px-1 text-[13.5px] text-ink-soft sm:flex-row sm:items-center sm:justify-between" data-pagination>
       <p aria-live="polite" data-showing>{showingText(total, page, size, shown)}</p>
       <div className="flex flex-wrap items-center gap-2">
         {count > 1 && (
           <nav aria-label="Pagination" className="flex items-center gap-1">
-            <button type="button" aria-label="Previous page" title="Previous page" disabled={page <= 0} onClick={() => onPage(page - 1)} className="grid h-8 min-w-8 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
+            <button type="button" aria-label="Previous page" title="Previous page" disabled={page <= 0} onClick={() => onPage(page - 1)} className="grid h-9 min-w-9 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
               {"‹"}
             </button>
             {pageWindow(page, count).map((p, i) =>
@@ -211,18 +211,18 @@ export function Pagination({ page, size, total, shown, onPage, onSize }: { page:
                   aria-label={`Page ${p + 1}`}
                   aria-current={p === page ? "page" : undefined}
                   onClick={() => onPage(p)}
-                  className={`grid h-8 min-w-8 place-items-center rounded-lg px-2 text-[13px] font-semibold tabular-nums ${p === page ? "bg-accent text-on-accent" : "border border-line hover:bg-paper-2"}`}
+                  className={`grid h-9 min-w-9 place-items-center rounded-lg px-2 text-[13px] font-semibold tabular-nums ${p === page ? "bg-accent text-on-accent shadow-sm" : "border border-line bg-paper hover:bg-paper-2"}`}
                 >
                   {p + 1}
                 </button>
               ),
             )}
-            <button type="button" aria-label="Next page" title="Next page" disabled={page >= count - 1} onClick={() => onPage(page + 1)} className="grid h-8 min-w-8 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
+            <button type="button" aria-label="Next page" title="Next page" disabled={page >= count - 1} onClick={() => onPage(page + 1)} className="grid h-9 min-w-9 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
               {"›"}
             </button>
           </nav>
         )}
-        <div className="w-36">
+        <div className="w-40">
           <Select aria-label="Rows per page" value={String(size)} onChange={(v) => onSize(Number(v))} options={PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} per page` }))} />
         </div>
       </div>

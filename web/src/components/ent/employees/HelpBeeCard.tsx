@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Dialog, ExternalLinkIcon, SparklesIcon } from "@kiwiply/ui";
+import { ChevronRightIcon, Dialog, ExternalLinkIcon, SparklesIcon } from "@kiwiply/ui";
 import { EnterpriseMascot } from "@/lib/ent/mascot";
 import { helpLinks } from "@/lib/ent/shell";
 import { ClaimsMascot } from "@/components/ent/shell/ShellContext";
@@ -15,20 +15,22 @@ export default function HelpBeeCard({ orgName, supportEmail, compact = false }: 
   const [open, setOpen] = useState(false);
   const links = helpLinks(supportEmail);
   return (
-    <section aria-label="Help" data-help-bee className={`flex items-center gap-3 overflow-hidden rounded-2xl border border-line bg-accent-soft/50 p-3 ${compact ? "flex-col text-center" : ""}`}>
+    <section aria-label="Help" data-help-bee className={`overflow-hidden rounded-2xl border border-brand-border/60 bg-accent-soft/60 p-3 ${compact ? "mt-4" : ""}`}>
       <ClaimsMascot />
-      <EnterpriseMascot pose="greet" size="md" />
-      <div className="min-w-0 flex-1">
-        <h2 className="text-[14.5px] font-bold leading-tight text-ink">Need help managing employees?</h2>
-        <p className="mt-0.5 text-[12.5px] leading-snug text-muted">Questions about people, roles or access at {orgName}? We can point you the right way.</p>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="mt-2 inline-flex min-h-10 items-center gap-2 rounded-xl border border-line bg-paper px-3 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft"
-        >
-          <SparklesIcon size={16} aria-hidden /> Ask a question...
-        </button>
+      <div className="flex items-center gap-3">
+        <EnterpriseMascot pose="greet" size="md" />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-bold leading-tight text-ink">Need help managing employees?</h2>
+          <p className="mt-1 text-[12.5px] leading-snug text-ink-soft">I can help you with user management, roles, permissions, or answer questions about {orgName}.</p>
+        </div>
       </div>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-3 flex h-11 w-full items-center gap-2.5 rounded-xl border border-brand-border/70 bg-paper px-3.5 text-[14.5px] font-medium text-accent hover:bg-accent-soft"
+      >
+        <SparklesIcon size={18} aria-hidden /> <span className="flex-1 text-left">Ask a question...</span> <ChevronRightIcon size={16} aria-hidden />
+      </button>
       <Dialog open={open} onClose={() => setOpen(false)} title="Need help?" description={`Questions about ${orgName}? Here is where to go.`}>
         <p className="text-[13.5px] leading-relaxed text-muted">The question assistant isn&apos;t switched on yet, so there is nothing to type into here. Until it is, these reach a person.</p>
         <ul className="mt-4 flex flex-col gap-2">
