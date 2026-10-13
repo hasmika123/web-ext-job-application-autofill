@@ -1,6 +1,7 @@
 package com.dossier.api.config;
 
 import com.dossier.api.service.ent.EnterpriseDemoSeeder;
+import com.dossier.api.service.ent.OpsDemoSeeder;
 import com.dossier.api.service.ent.RoleTemplateSeeder;
 import com.dossier.api.service.ent.TalentDemoSeeder;
 import org.slf4j.Logger;
@@ -26,12 +27,14 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final EnterpriseDemoSeeder seeder;
     private final RoleTemplateSeeder roleTemplates;
     private final TalentDemoSeeder talent;
+    private final OpsDemoSeeder ops;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, OpsDemoSeeder ops, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
+        this.ops = ops;
         this.createAccounts = createAccounts;
     }
 
@@ -50,6 +53,12 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             talent.seed(); // talent boards demo data: only after the tenants exist, same switches
         } catch (RuntimeException e) {
             LOG.error("Talent demo seed failed; the talent pages have no demo data.", e);
+            return; // the ops data is built on the talent rows
+        }
+        try {
+            ops.seed(); // HR, finance and reports demo data: built from the talent rows, same switches
+        } catch (RuntimeException e) {
+            LOG.error("Ops demo seed failed; the HR, finance and reports pages have no demo data.", e);
         }
     }
 }
