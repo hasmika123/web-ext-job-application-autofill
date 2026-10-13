@@ -433,6 +433,7 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
 
             <div className="space-y-2">
               <FilterBar
+                className="[&>div:first-child]:!w-full [&>div:first-child]:basis-full sm:[&>div:not(:first-child):not(:last-child)]:!w-auto sm:[&>div:not(:first-child):not(:last-child)]:!flex-1"
                 query={query.q}
                 onQueryChange={(q) => changeQuery({ q })}
                 values={filterValues}

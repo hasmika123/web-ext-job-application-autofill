@@ -14,7 +14,6 @@ import {
   MailIcon,
   MapPinIcon,
   MemberAvatar,
-  Meter,
   RestoreIcon,
   Select,
   SideSheet,
@@ -44,7 +43,7 @@ import {
   type LicenseStatus,
   type PatchBody,
 } from "@/lib/ent/consultants";
-import { AvailabilityPill, LicensePill } from "./parts";
+import { AvailabilityPill, LicensePill, ProfileRing } from "./parts";
 import { ActivityTab, ApplicationsTab, AssignmentsTab } from "./Tabs";
 import { useConsultantDetail, type SaveResult } from "./useConsultantDetail";
 
@@ -190,9 +189,7 @@ function Overview({ detail, canEdit, save, onSaved, onTab, onFlow }: { detail: C
 
       <Card icon={<CheckIcon size={16} />} title="Profile Completeness">
         <div className="flex items-center gap-4">
-          <Meter variant="ring" value={c.profileCompleteness} max={100} label="Profile completeness" valueText={`${c.profileCompleteness} percent`} size={84} neutral>
-            <span className="text-[18px] font-extrabold tabular-nums text-ink">{c.profileCompleteness}%</span>
-          </Meter>
+          <ProfileRing value={c.profileCompleteness} size={84} large />
           <ul className="min-w-0 flex-1 space-y-1 text-[12.5px]" aria-label="Profile checklist" data-checklist>
             {checklistRows(detail.checklist).map((r) => (
               <li key={r.key} className="flex items-center gap-1.5 text-ink-soft" data-done={r.done}>
@@ -262,7 +259,6 @@ export default function DetailSheet(p: DetailSheetProps) {
             <div className="flex flex-wrap items-center gap-1.5">
               <AvailabilityPill value={c.availability} />
               {c.status === "INACTIVE" && <span className="rounded-full bg-paper-2 px-2.5 py-[3px] text-[11.5px] font-semibold leading-none text-ink-soft">Inactive</span>}
-              {c.jobTitle && <span className="inline-flex max-w-full items-center truncate rounded-full bg-accent-soft px-2.5 py-[3px] text-[11.5px] font-semibold leading-none text-accent-deep">{c.jobTitle}</span>}
             </div>
             <ul className="space-y-0.5 text-[13px] text-ink-soft" data-contact>
               <li className="flex min-w-0 items-center gap-1.5">
@@ -280,10 +276,10 @@ export default function DetailSheet(p: DetailSheetProps) {
         </div>
         <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DetailTab)} variant="underline" className="mt-4">
           <TabList aria-label="Consultant details">
-            <Tab value="overview">Overview</Tab>
-            <Tab value="assignments">Assignments</Tab>
-            <Tab value="applications">Applications</Tab>
-            <Tab value="activity">Activity</Tab>
+            <Tab value="overview" className="!px-2">Overview</Tab>
+            <Tab value="assignments" className="!px-2">Assignments</Tab>
+            <Tab value="applications" className="!px-2">Applications</Tab>
+            <Tab value="activity" className="!px-2">Activity</Tab>
           </TabList>
           <TabPanel value="overview" className="pt-3">
             <Overview
@@ -327,7 +323,7 @@ export default function DetailSheet(p: DetailSheetProps) {
     );
   }
   const sheet = (
-    <SideSheet id="ent-consultant-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 400 : 480} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
+    <SideSheet id="ent-consultant-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 380 : 480} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
       {body}
     </SideSheet>
   );

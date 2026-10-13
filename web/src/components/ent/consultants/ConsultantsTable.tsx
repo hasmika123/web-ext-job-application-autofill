@@ -33,7 +33,7 @@ export interface TableProps {
   compact?: boolean;
 }
 
-const HEAD = "px-2.5 py-2.5 text-left text-[12px] font-semibold text-ink-soft";
+const HEAD = "px-2 py-2.5 text-left text-[12px] font-semibold text-ink-soft";
 
 function SortHead({ label, k, sort, onSort, className }: { label: string; k: SortKey; sort: TableProps["sort"]; onSort: TableProps["onSort"]; className?: string }) {
   const active = sort.key === k;
@@ -139,10 +139,10 @@ export function ConsultantsTable(p: TableProps) {
 
   return (
     <div className="overflow-x-auto rounded-[var(--radius)] border border-line bg-paper">
-      <table aria-label="Consultants" className="w-full border-collapse text-[13px]" data-consultant-table>
+      <table aria-label="Consultants" className="w-full border-collapse text-[12.5px]" data-consultant-table>
         <thead className="border-b border-line bg-paper-2/60">
           <tr>
-            <th scope="col" className="w-10 px-2.5 py-2.5">
+            <th scope="col" className="w-10 px-2 py-2">
               <Check checked={allOn} indeterminate={someOn} onChange={p.onTogglePage} label="Select all consultants on this page" />
             </th>
             <SortHead label="Consultant" k="name" sort={p.sort} onSort={p.onSort} />
@@ -178,31 +178,31 @@ export function ConsultantsTable(p: TableProps) {
                 }}
                 className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? "bg-accent-soft/60" : p.selected.has(r.id) ? "bg-accent-soft/30" : "hover:bg-paper-2/50"}`}
               >
-                <td className="w-10 px-2.5 py-2.5">
+                <td className="w-10 px-2 py-2">
                   <Check checked={p.selected.has(r.id)} onChange={() => p.onToggle(r.id)} label={`Select ${r.name}`} />
                 </td>
-                <td className="min-w-[11rem] px-2.5 py-2.5">
+                <td className="min-w-[10rem] max-w-[13.5rem] px-2 py-2">
                   <PersonCell name={r.name} avatarName={r.name} sub={r.email} />
                 </td>
-                <td className="px-2.5 py-2.5">
+                <td className="px-2 py-2">
                   <SkillChips skills={r.primarySkills} extra={Math.max(0, r.skillCount - r.primarySkills.length)} />
                 </td>
-                <td className={`whitespace-nowrap px-2.5 py-2.5 text-ink-soft ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>{experienceText(r.yearsExperience)}</td>
-                <td className={`max-w-[10rem] px-2.5 py-2.5 text-[12.5px] leading-snug text-ink-soft ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>{locationText(r.location, r.workMode)}</td>
-                <td className={`px-2.5 py-2.5 ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>
+                <td className={`whitespace-nowrap px-2 py-2 text-ink-soft ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>{experienceText(r.yearsExperience)}</td>
+                <td className={`max-w-[7.5rem] px-2 py-2 text-[12px] leading-snug text-ink-soft ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>{locationText(r.location, r.workMode)}</td>
+                <td className={`px-2 py-2 ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>
                   <MarketerCell marketer={r.marketer} />
                 </td>
-                <td className="px-2.5 py-2.5">
+                <td className="px-2 py-2">
                   <AvailabilityPill value={r.availability} />
                 </td>
-                <td className={`px-2.5 py-2.5 ${p.compact ? "hidden" : ""}`}>
+                <td className={`px-2 py-2 ${p.compact ? "hidden" : ""}`}>
                   <LicensePill value={r.license} />
                 </td>
-                <td className={`px-2.5 py-2.5 ${p.compact ? "hidden" : "hidden md:table-cell"}`}>
+                <td className={`px-2 py-2 ${p.compact ? "hidden" : "hidden md:table-cell"}`}>
                   <ProfileRing value={r.profileCompleteness} />
                 </td>
-                <td className={`px-2.5 py-2.5 tabular-nums text-ink ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.activeApplications}</td>
-                <td className={`px-2.5 py-2.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>
+                <td className={`px-2 py-2 tabular-nums text-ink ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.activeApplications}</td>
+                <td className={`px-2 py-2 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>
                   <NextInterviewCell row={r} />
                 </td>
                 <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>

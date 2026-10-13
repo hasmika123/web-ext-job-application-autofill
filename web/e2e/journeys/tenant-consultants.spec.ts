@@ -111,7 +111,7 @@ test.describe("consultants (real stack)", () => {
     await add.getByLabel("Job title").fill("QA Engineer");
     await add.getByRole("button", { name: "Add consultant" }).click();
     await expect(page.getByText(`Eve Journey${stamp} was added`)).toBeVisible();
-    await expect(sheet.locator("[data-detail-body]")).toContainText(`Eve Journey${stamp}`);
+    await expect(sheet).toContainText(`Eve Journey${stamp}`);
     await expect.poll(() => num(page, "total")).toBe(total + 1);
     await sheet.locator("[data-quick-action=deactivate]").click();
     const off = page.getByRole("dialog", { name: /Deactivate Eve Journey/ });
@@ -148,7 +148,13 @@ test.describe("consultants (real stack)", () => {
     await expect(page.locator("[data-consultant-cards] > li").first()).toBeVisible();
     await expect(page.locator("table")).toHaveCount(0);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
+    const wide = await page.evaluate(() =>
+      [...document.querySelectorAll("body *")]
+        .filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1)
+        .slice(0, 8)
+        .map((e) => `${e.tagName.toLowerCase()}.${String(e.className).slice(0, 60)} ${Math.round(e.getBoundingClientRect().right)}`),
+    );
+    expect(overflow, `elements wider than the phone: ${wide.join(" | ")}`).toBeLessThanOrEqual(1);
     await page.waitForTimeout(600);
     await page.screenshot({ path: resolve(shots, "consultants-390.png") });
     await page.locator("[data-consultant-cards] > li button.min-h-11").first().click();

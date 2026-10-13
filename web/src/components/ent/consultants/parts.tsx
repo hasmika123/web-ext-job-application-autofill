@@ -25,7 +25,7 @@ export function SkillChips({ skills, extra = 0, max = 2 }: { skills: string[]; e
   const shown = skills.slice(0, max);
   const more = skills.length - shown.length + extra;
   return (
-    <span className="flex max-w-[11rem] flex-wrap gap-1" data-skill-chips>
+    <span className="flex max-w-[9.5rem] flex-wrap gap-1" data-skill-chips>
       {shown.map((s) => (
         <span key={s} className="inline-flex max-w-full items-center truncate rounded-md bg-accent-soft px-2 py-[3px] text-[11.5px] font-semibold leading-none text-accent-deep">
           {s}
@@ -47,17 +47,17 @@ export function MarketerCell({ marketer, size = 24 }: { marketer: PersonRef | nu
   return (
     <span className="flex min-w-0 items-center gap-2">
       <MemberAvatar name={marketer.name} size={size} />
-      <span className="truncate text-[13px] text-ink">{marketer.name}</span>
+      <span className="max-w-[7rem] truncate text-[12.5px] text-ink">{marketer.name}</span>
     </span>
   );
 }
 
 /** The small profile-completeness ring of a row. */
-export function ProfileRing({ value, size = 34 }: { value: number; size?: number }) {
+export function ProfileRing({ value, size = 40, large = false }: { value: number; size?: number; large?: boolean }) {
   const pct = Math.round(Math.min(100, Math.max(0, value)));
   return (
     <Meter variant="ring" value={pct} max={100} label="Profile completeness" valueText={`${pct} percent`} size={size} neutral>
-      <span className="text-[10px] font-bold tabular-nums text-ink">{pct}%</span>
+      <span className={`font-sans font-bold tabular-nums text-ink ${large ? "text-[19px]" : "text-[9.5px] tracking-tight"}`}>{pct}%</span>
     </Meter>
   );
 }
