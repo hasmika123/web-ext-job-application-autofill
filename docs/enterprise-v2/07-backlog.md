@@ -280,8 +280,8 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 
 - **Tech notes:** Claims next to USER_ID_CLAIM in SecurityUtils; keep tokens stateless; 04 §3.
 - **Definition of Done:** openapi regenerated; CI green; 04 §3 matches code. Plus the common DoD in `06-phase-plan.md` §5.
-### X1.6 — Roles as data: org_role, org_role_permission, org_member_role; system templates seeded from the enum; backfill; OrgAccessService reads the join table; dual-write of org_member.role
-- **Epic:** X1 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X1.2
+### X1.6 — Roles as data (read side): org_role, org_role_permission, org_member_role; system templates seeded from the enum; backfill; OrgMembership/OrgAccessService read the join table
+- **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.2
 - **Persona:** The API
 - **Objective:** Stop building on the fixed enum without breaking anything that uses it.
 - **Story:** As the API, I want roles and their permissions stored as data and a member able to hold several roles so that enterprise roles are configurable and multi-role, while the existing enum callers keep working.
@@ -291,7 +291,7 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - RoleTemplateSeeder (idempotent, runs at startup, doc-sync test against 05 §3 like ShareMatrixTest) keeps system rows equal to code; org clones are untouched.
 - OrgMembership gains roles[] and permissions Map<String permissionKey, PermissionScope>; can(OrgPermission) and scopeOf() keep their signatures (mapped); permissionKeys() returns the union.
 - OrgAccessService.resolve builds the membership from org_member_role (fallback to the enum column when the member has no role rows — transitional), cached per request.
-- OrgRoleService: list templates/org roles, clone(templateKey), update permissions with the ceiling rule (every (key, scope) ⊆ actor's effective set), assign/revoke member roles with is_primary handling and the last-OWNER/ADMIN guard; every write dual-writes org_member.role = primary template's legacy enum (ORG_ADMIN→ADMIN, MARKETING_*→MARKETER, HR/ACCOUNT/TALENT/EXEC→STAFF, CONSULTANT→MEMBER, FINANCE_SPECIALIST→FINANCE).
+- Write side (clone, permission edits, assign/revoke, dual-write) is X1.14; this story ships the tables, the seeder, the backfill and the read path only, so nothing downstream is built on the enum.
 
 **UI requirements**
 - —
@@ -303,10 +303,7 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - Additive tables + backfill with preconditions.
 
 **APIs**
-- GET /api/orgs/{orgId}/roles (MEMBER_VIEW_SUMMARY)
-- POST /api/orgs/{orgId}/roles (roles.manage) {templateKey, name}
-- PATCH /api/orgs/{orgId}/roles/{roleId} (roles.manage) {name, permissions:[{key, scope}]}
-- PUT /api/orgs/{orgId}/members/{memberId}/roles (members.role.set) {roleIds[], primaryRoleId}
+- GET /api/orgs/{orgId}/roles (member.view_summary) — templates + org roles with permission rows (read-only in this story)
 
 **Permissions**
 - roles.manage (new), members.role.set (exists)
@@ -317,20 +314,64 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 **Acceptance criteria**
 - After backfill every live member has exactly one is_primary role row and OrgIsolationIT passes unchanged.
 - A member with ORG_ADMIN + MARKETING_MANAGER has the union of permissions and TEAM scope for assignments.manage widened to ORG (widest wins).
-- Ceiling rule: an ORG_ADMIN cannot add org.close to a cloned role (422 ROLE_CEILING {key}); OWNER system rows are read-only (409 ROLE_SYSTEM).
-- Removing the last OWNER/ORG_ADMIN role is refused (409 LAST_ADMIN).
-- Every role write produces one org_audit_event (ROLE_CREATE/ROLE_UPDATE/ROLE_ASSIGN/ROLE_REVOKE, risk HIGH for permission changes) and org_member.role mirrors the primary role.
 - RoleTemplateDocSyncTest fails if 05 §3 and the seeder disagree.
+- GET …/roles returns the 12 system templates with their permission rows for any member; write routes do not exist yet (404).
 
 **Test cases**
-- OrgRoleServiceTest (ceiling, last-admin, primary rules).
-- OrgRoleResourceIT (+ OrgIsolationIT coverage registry entries).
 - RoleTemplateDocSyncTest.
 - Backfill IT: seed enum members → run changeset → assert rows.
+- OrgMembershipTest (union, widest scope wins).
+- OrgRoleResourceIT (read) + OrgIsolationIT coverage registry entry.
 
-- **Tech notes:** Keep OrgRole enum as the legacy mirror; map in one class LegacyRoleMirror; 05-permission-model.md §3, §6.
-- **Definition of Done:** Behind flag.enterprise.roles for the write endpoints; reads always on; CI green. Plus the common DoD in `06-phase-plan.md` §5.
+- **Tech notes:** Split by Session E (09 "Planned story work"): X1.6 = read side, X1.14 = writes. Keep OrgRole enum as the legacy mirror; LegacyRoleMirror maps template ↔ enum (read direction here). 05-permission-model.md §3, §6.
+- **Definition of Done:** Reads always on; CI green; backfill verified on a copy of the prod dump shape. Plus the common DoD in `06-phase-plan.md` §5.
+### X1.14 — Role writes: OrgRoleService clone/update with the ceiling rule, member role assign/revoke with is_primary and last-admin guards, audit, dual-write of org_member.role
+- **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.6, X1.7 · **Relates:** X4.10
+- **Persona:** Org Admin (via the API; the page is X4.1/X4.11)
+- **Objective:** Roles can be created, edited and assigned safely before any UI exists, with the ceiling rule and the last-admin guard enforced server-side and the legacy enum column kept in sync.
+- **Story:** As an org admin, I want to clone a template, adjust its permissions within my own rights and assign roles to members so that access is configurable without ever exceeding what I hold.
 
+**Functional requirements**
+- OrgRoleService: list templates/org roles; clone(templateKey, name) → org role (org_id set) copying the template rows; updatePermissions(roleId, [{key, scope}]) with the ceiling rule — every (key, scope) must be ⊆ the actor's effective set (ScopeEvaluator.widerOrEqual), else 422 ROLE_CEILING {key, scope}; OWNER template immutable (409 ROLE_SYSTEM); org roles only (system templates are never edited — clone first).
+- Member roles: setRoles(memberId, roleIds[], primaryRoleId) creates/ends org_member_role rows (ends_at, never delete), exactly one is_primary; last-OWNER/ORG_ADMIN guard (409 LAST_ADMIN); the actor cannot grant a role containing permissions beyond their ceiling (422 ROLE_CEILING).
+- Dual-write (06 §4 step 3): every write sets org_member.role = LegacyRoleMirror.toEnum(primary template) (ORG_ADMIN→ADMIN, MARKETING_*→MARKETER, HR/ACCOUNT/TALENT/EXEC→STAFF, CONSULTANT→MEMBER, FINANCE_SPECIALIST→FINANCE); reads never use the enum once X1.6 is in.
+- Audit: ROLE_CREATE / ROLE_UPDATE (risk HIGH for permission changes, diff in details) / ROLE_ASSIGN / ROLE_REVOKE with actor, target member, before/after.
+- Write endpoints behind flag.enterprise.roles (per-org allow list); when off → 404 (EnterpriseEnabledFilter pattern).
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/ent/OrgRoleService (writes), LegacyRoleMirror, web/rest/ent/OrgRoleResource (POST/PATCH/PUT), OrgMemberRoleResource
+
+**Database changes**
+- None (tables from X1.6; org_member_role.ends_at used, rows never deleted).
+
+**APIs**
+- POST /api/orgs/{orgId}/roles (roles.manage) {templateKey, name} → 201
+- PATCH /api/orgs/{orgId}/roles/{roleId} (roles.manage) {name?, permissions:[{key, scope}]} → 200 | 422 ROLE_CEILING | 409 ROLE_SYSTEM
+- PUT /api/orgs/{orgId}/members/{memberId}/roles (members.role.set) {roleIds[], primaryRoleId} → 200 | 409 LAST_ADMIN | 422 ROLE_CEILING
+
+**Permissions**
+- roles.manage (ORG), members.role.set (ORG); ceiling rule on both
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Ceiling: an ORG_ADMIN cannot add org.close to a cloned role (422 ROLE_CEILING {key}); widening assignments.manage from TEAM to ORG succeeds only if the actor holds it at ORG.
+- Removing the last OWNER/ORG_ADMIN role is refused (409 LAST_ADMIN); setRoles with two is_primary → 422.
+- Every write produces exactly one org_audit_event (ROLE_* kinds, HIGH for permission changes) and org_member.role mirrors the primary template (LegacyRoleMirrorTest table).
+- With flag.enterprise.roles off for the org, POST/PATCH/PUT → 404; GET still works.
+- A member with ORG_ADMIN + MARKETING_MANAGER has the union of permissions and TEAM scope for assignments.manage widened to ORG after setRoles (widest wins).
+
+**Test cases**
+- OrgRoleServiceTest (ceiling matrix, system guard, last-admin, primary rules)
+- LegacyRoleMirrorTest
+- OrgRoleResourceIT + OrgMemberRoleResourceIT (+ OrgIsolationIT registry entries)
+
+- **Tech notes:** Split from X1.6 by Session E. Ceiling comparison uses PermissionScope ordering from X1.7. X4.10 later removes the enum fallback; X4.1/X4.11 add the page. 05 §3, §6; ADR-005; escalation E4 default (a).
+- **Definition of Done:** openapi regenerated; CI green; 05 §6 ceiling examples pass as tests. Plus the common DoD in `06-phase-plan.md` §5.
 ### X1.7 — Scope model: PermissionScope {OWN, ASSIGNED, TEAM, DEPARTMENT, ORG}, ScopeEvaluator, legacy OrgScope mapping, EntPermissions registry + AuthorizationService skeleton with the 11-step order
 - **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.6
 - **Persona:** The API
@@ -377,19 +418,17 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 
 - **Tech notes:** 05-permission-model.md §2, §4, §6; keep 404 semantics.
 - **Definition of Done:** CI green; 05 §2 table matches reason codes in code. Plus the common DoD in `06-phase-plan.md` §5.
-### X1.8 — Invitation framework: adopt branch B (a6a9a62) invites + join API, re-verify, add multi-role/department/team, email-match setting, tenant-aware links
-- **Epic:** X1 · **Size/Complexity:** L/L · **Owners:** API · **Deps:** X1.6, X1.3 · **Supersedes:** O2.2
+### X1.8 — Invitation framework: adopt branch B (a6a9a62) invites + join API, re-verify, tenant-aware links and tenant-host acceptance
+- **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.6, X1.3 · **Supersedes:** O2.2
 - **Persona:** Org Admin / HR inviting an employee
 - **Objective:** Invite people with the right roles and placement, from the tenant's own host, safely.
 - **Story:** As an org admin, I want to invite employees with roles, department and team so that they land in the right workspace on first sign-in, and I want invites to bind only to the invited email.
 
 **Functional requirements**
 - Cherry-pick a6a9a62 onto enterprise-v2 (changeset 20261014010000_org_invites.xml, InviteTokens, OrgInviteService, OrgMemberResource invite/resend, JoinResource previews/accepts, JoinRateLimiter, settings org.invite.*/org.join.*, orgInviteEmail.html, tests); resolve conflicts; run the full API suite.
-- Extend OrgInviteRequest with roleIds[] (default: CONSULTANT for consultancies, MEMBER otherwise), departmentGroupId, teamGroupId, managerMemberId; the ceiling rule applies to roleIds; accepting creates org_member_role rows and group columns.
-- Setting org.invite.require_email_match (BOOL, default true, org-overridable via org_setting): when true, accept requires the signed-in account's email to equal invite_email (case-insensitive) else 409 INVITE_EMAIL_MISMATCH {invitedEmailMasked}.
 - TenantUrls.joinLink(org, token): the email link uses the org's primary ACTIVE hostname when one exists (https://{host}/join/t/{token}), else https://kiwiply.com/join/t/{token}; mail template takes tenant branding name/logo (placeholder until X2.5).
 - Join accept on a TENANT host requires the invite's org to equal the tenant (else 404); on PLATFORM any org (today's behaviour).
-- Ceiling re-check at accept (42 T32): on accept, every invited role is re-validated against the inviter's current rights; roles the inviter can no longer grant are trimmed to MEMBER (or the org default), the accept proceeds, the inviter is notified ORG_MEMBERSHIP "roles trimmed", audit INVITE_ROLES_TRIMMED.
+- Multi-role/department/team/manager invites, the email-match setting and the ceiling re-check at accept are X1.15 (this story keeps the single default role: CONSULTANT for consultancies, MEMBER otherwise).
 
 **UI requirements**
 - —
@@ -401,7 +440,7 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - Branch B changeset (additive) + no new tables.
 
 **APIs**
-- POST /api/orgs/{orgId}/members/invite (members.invite) — body gains roleIds[], departmentGroupId, teamGroupId, managerMemberId
+- POST /api/orgs/{orgId}/members/invite (members.invite) (branch B body; extended in X1.15)
 - POST /api/orgs/{orgId}/members/{memberId}/resend
 - GET /api/join/{token}, GET /api/join/code/{code}, POST /api/join/{token}/accept, POST /api/join/code/{code} (branch B)
 
@@ -413,18 +452,60 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 
 **Acceptance criteria**
 - Full API suite green after the cherry-pick (JoinResourceIT, OrgInviteServiceTest, OrgInviteEmailIT, OrgIsolationIT, OrgHandlerGuardIT).
-- Invite with roleIds [MARKETING_SPECIALIST] by an HR_SPECIALIST (who lacks marketing permissions) → 422 ROLE_CEILING.
-- Accept with a different email when require_email_match=true → 409 INVITE_EMAIL_MISMATCH and the seat stays INVITED; with the setting false → accepted (audited with flag).
 - Email link uses careers.acme.com when acme has an ACTIVE primary hostname, otherwise kiwiply.com (unit test on TenantUrls).
 - Accepting an acme invite while on beta.localhost → 404.
-- Inviter loses MARKETING_MANAGER between invite and accept → the invitee joins with the remaining grantable roles only; the audit row lists the trimmed roles (InviteCeilingAtAcceptIT, SEC-22).
 
 **Test cases**
-- Branch B suites + OrgInviteServiceTest extensions + TenantUrlsTest + JoinResourceIT tenant cases.
-- InviteCeilingAtAcceptIT.
+- Branch B suites + TenantUrlsTest + JoinResourceIT tenant cases.
 
-- **Tech notes:** git cherry-pick a6a9a62; keep 01 §5 security note; settings via EnterpriseSettingKeys/org_setting.
+- **Tech notes:** Split by Session E: X1.8 = adopt + re-verify + tenant links; X1.15 = multi-role invites, email match, ceiling re-check. git cherry-pick a6a9a62; keep 01 §5 security note.
 - **Definition of Done:** openapi regenerated; CI green; 01 §5 row for a6a9a62 marked adopted. Plus the common DoD in `06-phase-plan.md` §5.
+### X1.15 — Multi-role invites with department/team/manager, org.invite.require_email_match, ceiling at invite and re-check at accept
+- **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.8, X1.14
+- **Persona:** Org Admin / HR Specialist inviting people
+- **Objective:** An invitation carries everything a seat needs (roles, department, team, manager), binds to the invited email by default, and can never grant more than the inviter holds — even if the inviter's rights shrink before acceptance.
+- **Story:** As an org admin, I want to invite someone as a marketer in the Boston team reporting to Priya so that they land with the right access on day one and nobody can escalate through an invite.
+
+**Functional requirements**
+- OrgInviteRequest gains roleIds[] (default per org type), departmentGroupId, teamGroupId, managerMemberId; the ceiling rule applies to roleIds at invite time (422 ROLE_CEILING); accepting creates org_member_role rows (one is_primary = first role) and sets the group/manager columns; manager cycle guard.
+- Setting org.invite.require_email_match (BOOL, default true, org-overridable via org_setting, EnterpriseSettingKeys.Org): when true, accept requires the signed-in account's email to equal invite_email (case-insensitive) else 409 INVITE_EMAIL_MISMATCH {invitedEmailMasked}; when false the accept is audited with the mismatch flag.
+- Ceiling re-check at accept (42 T32): every invited role is re-validated against the inviter's current rights; roles no longer grantable are trimmed to the org default, the accept proceeds, the inviter is notified ORG_MEMBERSHIP "roles trimmed", audit INVITE_ROLES_TRIMMED.
+- Invite preview (GET /api/join/{token}) returns the roles/groups it will grant (names only) for the branded join card (X2.6).
+
+**UI requirements**
+- —
+
+**Backend requirements**
+- service/org/OrgInviteService, OrgJoinService (extended), EnterpriseSettingKeys.Org, InviteCeilingChecker
+
+**Database changes**
+- org_invite gains role_ids_json, department_group_id, team_group_id, manager_member_id (additive, in 20261015040000_ent_invites.xml — Phase-1 bucket, 06 §4).
+
+**APIs**
+- POST /api/orgs/{orgId}/members/invite — body gains roleIds[], departmentGroupId, teamGroupId, managerMemberId
+- GET /api/join/{token} — preview gains roles[], department, team
+- POST /api/join/{token}/accept → 409 INVITE_EMAIL_MISMATCH when the setting requires it
+
+**Permissions**
+- members.invite (ORG); ceiling rule over roleIds; members.group.set / members.manager.set for the group/manager fields (X4.3 keys; until then ORG_ADMIN only)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Invite with roleIds [MARKETING_SPECIALIST] by an HR_SPECIALIST (who lacks marketing permissions) → 422 ROLE_CEILING.
+- Accept with a different email when require_email_match=true → 409 INVITE_EMAIL_MISMATCH and the seat stays INVITED; with the setting false → accepted (audited with flag).
+- Inviter loses MARKETING_MANAGER between invite and accept → the invitee joins with the remaining grantable roles only; the audit row lists the trimmed roles (InviteCeilingAtAcceptIT, SEC-22).
+- Accepted invite with department + team + manager → org_member columns set, one is_primary role row, manager cycle refused at invite (422 MANAGER_CYCLE).
+
+**Test cases**
+- OrgInviteServiceTest extensions (roles, groups, manager, ceiling)
+- InviteCeilingAtAcceptIT (SEC-22)
+- JoinResourceIT email-match cases
+- SettingDefinitionsTest for org.invite.require_email_match
+
+- **Tech notes:** Split from X1.8 by Session E. Escalation E7 default (a). Settings via EnterpriseSettingKeys/org_setting. 12 §5, 15 §2.
+- **Definition of Done:** openapi regenerated; CI green; 15 §2 invite row matches the request body (doc-sync constants). Plus the common DoD in `06-phase-plan.md` §5.
 ### X1.9 — Isolation test gate: HostUnknownIT, HostMismatchIT, ForgedHostHeaderIT, SuspendedHostnameIT, AskEndpointIT, TenantRepositoryContractTest, CrossTenantSweepIT, Playwright tenant-isolation.spec.ts
 - **Epic:** X1 · **Size/Complexity:** M/M · **Owners:** API, Web, QA · **Deps:** X1.3, X1.4, X1.5, X1.12
 - **Persona:** QA architect
@@ -599,7 +680,7 @@ X1.6/X1.7 (roles, scopes) can run in parallel with X1.3–X1.5 (tenancy) after X
 - **Definition of Done:** CI green; HANDOFF lists the accounts. Plus the common DoD in `06-phase-plan.md` §5.
 
 ### X1.13 — Ops endpoints off the public host: prometheus behind admin-or-scrape-token, /api/internal/** + non-health /management/** refused on public hosts, exposure allow-list tests (E12)
-- **Epic:** X1 · **Size/Complexity:** S/S · **Owners:** API, Ops · **Deps:** — · **Relates:** E12
+- **Epic:** X1 · **Size/Complexity:** S/S · **Owners:** API, Ops · **Deps:** —
 - **Persona:** Operator / security reviewer
 - **Objective:** Nothing operational or service-to-service is reachable from the internet through api.kiwiply.com, even if the shared edge's path rules are missing, and scraping stays possible with a dedicated credential.
 - **Story:** As the operator, I want Prometheus metrics and the internal API closed to public hosts so that a scanner or a leaked token cannot read internals or call service-only endpoints.
@@ -657,7 +738,7 @@ API/test/deploy specs and reviews every story) writes them. Sizes of unspecified
 ### X2 — Phase 2 — Branded login and dashboard shell
 _Runtime branding, one branded login, one enterprise shell with permission-driven workspaces, Org Admin lands on the Org Admin Dashboard, basic profile from the avatar menu, the Kiwiply character used compactly._
 
-**Session B (fully specified).** Build order: X2.1 → X2.8 → X2.12 → X2.13 → X2.2 → X2.10 → X2.3 → X2.6 → X2.7 → X2.9 → X2.4 → X2.5 → X2.14 → X2.11. X2.8/X2.12/X2.13 (UI + API foundations) can run in parallel after X2.1; X2.10 in parallel with X2.2; X2.4/X2.5 after X2.2; X2.11 closes the phase.
+**Session B (fully specified; L stories split by Session E).** Build order: X2.1 → X2.8 → X2.15 → X2.12 → X2.13 → X2.2 → X2.16 → X2.10 → X2.3 → X2.6 → X2.7 → X2.9 → X2.4 → X2.17 → X2.5 → X2.18 → X2.14 → X2.11. X2.8/X2.12/X2.13 (UI + API foundations) can run in parallel after X2.1; X2.10 in parallel with X2.2; X2.4/X2.5 after X2.2; X2.11 closes the phase.
 
 ### X2.1 — Consolidate the two parked web helper sets (org-types/org-api vs org-client/org-join/org-proxy, mock-orgs vs mock-org) into web/src/lib/ent/*
 - **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X1.4, X1.8 · **Relates:** O1.6
@@ -703,8 +784,8 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - **Tech notes:** 01-existing-system-audit.md §5 (which commit is verified); keep `decideOrgGate` for the kiwiply.com chooser only; tenant resolution never reads the kiwiply_org cookie.
 - **Definition of Done:** No behaviour change on kiwiply.com; CI green; 01 §5 rows marked consolidated. Plus the common DoD in `06-phase-plan.md` §5.
 
-### X2.2 — EnterpriseShell: tenant theme tokens, permission-driven nav from workspace definitions, switcher only when >1 workspace, avatar menu with basic profile
-- **Epic:** X2 · **Size/Complexity:** L/L · **Owners:** Web, API, UI · **Deps:** X2.1, X1.5, X1.6, X2.15 · **Relates:** O1.7
+### X2.2 — Tenant session contract: GET /api/me/tenant, workspace definitions as data, workspace layout with validation and ETag re-validation
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.1, X1.5, X1.6, X2.15 · **Relates:** O1.7
 - **Persona:** Any member on a tenant host (Sarah: Org Admin + Marketing Manager)
 - **Objective:** One shell for every role: viewport-height independently scrolling sidebar, nav derived from permissions and modules, a switcher only when it matters, the basic profile in the avatar menu.
 - **Story:** As a member, I want one consistent shell whose navigation shows only what I may open, lands me in my primary workspace and lets me switch when I hold several roles, so that every organization feels like one coherent app without ever hiding a permission check in a menu.
@@ -712,16 +793,12 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 **Functional requirements**
 - API: GET /api/me/tenant (tenant hosts only; tid token) per 12 §3 → org, member, roles, permissions map, modules, workspaces[], landing, consent; ETag = hash(roles, permissions, modules); 403 MEMBER_SUSPENDED; 404 non-member.
 - Web: web/src/lib/ent/workspaces.ts = the data in 16 §3/§5 (workspace_key → ordered NavItem{needs[], module?}); `workspacesFor(me)` = workspaces whose home is openable; `landingFor(me)`.
-- EnterpriseShell (web/src/components/ent/shell/EnterpriseShell.tsx): sidebar 236px sticky h-dvh overflow-y-auto scroll-slim, collapsible 64px (localStorage, try/catch), org logo/name header, switcher (16 §4) only when workspaces.length > 1 else static eyebrow, nav groups, Need-help MascotCard, optional Powered-by footer; top bar 64px (quick-search slot hidden until a provider exists, NotificationBell, AccountMenu with "My profile" first); banners (PAST_DUE, draft branding, domain failing, access-changed) by permission; mobile: 56px top bar, nav BottomSheet, bottom tab bar = first four items + More with useBottomBar inset.
-- Workspace layout web/src/app/(tenant)/%5Ft/w/[workspace]/layout.tsx per 16 §2.4 (getTenant → getMeTenant → validate workspace → shell); not-part-of-your-role EmptyState (no redirect); re-validate /api/me/tenant on focus every 5 min and show the reload banner when the ETag changed.
-- Promote the generic admin kit pieces to packages/ui: FilterBar, DataTable (table→cards), ReasonSheet, ConfirmTypedSheet, HistoryDrawer, PersonCell, StatusDot, QuickActionTiles (admin-v3 re-exports them; sample-lint unchanged); add web/src/lib/ent/use-save.ts (useAdminSaveEngine with the /api fetcher).
-- Tenant theme: the shell wrapper applies `.theme-v2 .theme-tenant` with inline --tenant-* variables from the public DTO (X2.12 provides the derivation; until merged, the wrapper applies the Kiwiply defaults).
+- Workspace layout web/src/app/(tenant)/%5Ft/w/[workspace]/layout.tsx per 16 §2.4 (getTenant → getMeTenant → validate workspace → shell slot; the EnterpriseShell component itself is X2.16 — until it lands the layout renders a minimal header + <main>); not-part-of-your-role EmptyState (no redirect); re-validate /api/me/tenant on focus every 5 min and show the reload banner when the ETag changed.
 - Contract of GET /api/me/tenant per 12 §3 as amended by 09 row 2: modules = exactly {domains, roles, billing, marketing, hrFinance, extensionWorkspaces, integrations, analytics}, each = flag allow-list ∧ ModuleGate.isOn where a module product exists; features = {licensed: [featureKey…], pending: boolean} — pending=true, licensed=[] until X5.6 lands, then licensed = EntitlementService.entitlementsOf for CONSULTANT members (others [] with pending=false).
+- Kit promotion (FilterBar, DataTable, …) is owned by X2.15 (09 row 14); this story consumes it. use-save.ts (useAdminSaveEngine with the /api fetcher) lands here in web/src/lib/ent/.
 
 **UI requirements**
-- Geometry and states per 16 §2.1/§2.5; switcher per 16 §4 (Menu ≥ md, BottomSheet < md, ⌘⇧W, "Open … first" preference with undo toast).
-- AccountMenu entries: My profile · Notifications · Security · (Switch workspace ▸ when >1) · Sign out; header "{org} · {primary role}".
-- 390 px: 16 px gutters, 44 px targets, no horizontal scroll; 1440: sidebar + content; reduced-motion safe.
+- Minimal layout chrome only (org name + sign-out) until X2.16; "This isn't part of your role" EmptyState per 16 §2.5.
 
 **Backend requirements**
 - web/rest/ent/MeTenantResource, service/ent/WorkspaceService (definitions mirrored from 16 §3 as a Java map with a doc-sync test), DTOs
@@ -739,23 +816,65 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - modules[] from EnterpriseFlags per org (domains, roles, billing, marketing, hrFinance)
 
 **Acceptance criteria**
-- acme-admin on acme.localhost lands on /w/admin; the sidebar lists exactly the ADMIN items whose needs ∩ permissions ≠ ∅ and whose module is on (table-driven test against 16 §5.1).
-- Sarah (ORG_ADMIN + MARKETING_MANAGER) sees the switcher with two rows; a single-workspace member sees no switcher (E2E-B half).
+- acme-admin on acme.localhost lands on /w/admin; workspacesFor(me) and the nav data list exactly the ADMIN items whose needs ∩ permissions ≠ ∅ and whose module is on (table-driven test against 16 §5.1).
 - Visiting /w/hr as Sarah renders "This isn't part of your role" with HTTP 200 inside the shell and no redirect; the API answers 404 for /api/orgs/{acme}/hr/*.
-- The sidebar scrolls independently of the page (Playwright: scroll the page 2000 px, the sidebar scrollTop is unchanged; scroll inside the sidebar, the page does not move).
 - Role change on the server → within 5 min of focus the shell shows "Your access changed — reload" (ETag test).
 - MEMBER_SUSPENDED renders the paused panel with sign-out only; no org data in the DOM.
-- Every promoted kit component keeps its admin-v3 tests green via the re-exports.
 - MeTenantResourceIT asserts the eight module booleans and features {licensed: [], pending: true} before X5.6 (a doc-sync test pins the key list against 12 §3).
+- Sarah (ORG_ADMIN + MARKETING_MANAGER): workspacesFor(me) = [ADMIN, MARKETING_MGMT] and landingFor(me) = ADMIN (E2E-B data half; the switcher UI is X2.16).
 
 **Test cases**
 - MeTenantResourceIT (workspaces ∩ permissions ∩ modules, ETag, suspended, non-member, PLATFORM 404)
 - WorkspaceDocSyncTest (Java map = 16 §3)
-- web workspaces.test.ts (doc-sync with 16 §5), EnterpriseShell.test.tsx (16 §8 list), use-save.test.ts
-- Playwright tenant-shell.spec.ts at 390/1440
+- web workspaces.test.ts (doc-sync with 16 §5), layout.test.tsx (validation, ETag banner), use-save.test.ts
 
-- **Tech notes:** Branch A OrgShell/OrgSwitcher/org-nav as the base; ADR-007; 16 §2–§4; keep pages as server components; the URL is the only workspace state.
-- **Definition of Done:** npm test + build green; Playwright green over the mock; 16 §5 tables and workspaces.ts in sync; 05 §7 behaviour verified. Plus the common DoD in `06-phase-plan.md` §5.
+- **Tech notes:** Split by Session E: X2.2 = contract + data + layout; X2.16 = the EnterpriseShell UI. ADR-007; 16 §2.2–§2.4, 12 §3; keep pages as server components; the URL is the only workspace state.
+- **Definition of Done:** openapi regenerated; npm test + build green; 16 §5 tables and workspaces.ts in sync. Plus the common DoD in `06-phase-plan.md` §5.
+### X2.16 — EnterpriseShell UI: sidebar (viewport-height, independently scrollable, collapsible), top bar, workspace switcher (only when >1), AccountMenu with My profile first, banners, mobile bottom bar, tenant theme wrapper
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web, UI · **Deps:** X2.2, X2.15, X2.8, X2.12
+- **Persona:** Every org member on a tenant host
+- **Objective:** One shell for every role that feels like the organization's own app: branded, permission-driven, phone-first, with the switcher only when it is needed.
+- **Story:** As Sarah, I want one sidebar that shows only what I can do and a switcher between my Admin and Marketing workspaces so that I never hunt for pages I cannot open.
+
+**Functional requirements**
+- EnterpriseShell (web/src/components/ent/shell/EnterpriseShell.tsx): sidebar 236 px sticky h-dvh overflow-y-auto scroll-slim, collapsible to 64 px (localStorage, try/catch), org logo/name header, switcher (16 §4) only when workspaces.length > 1 else a static eyebrow, nav groups from X2.2's data, Need-help MascotCard, optional Powered-by footer (org_branding.powered_by); top bar 64 px (quick-search slot hidden until a provider exists, NotificationBell, AccountMenu with "My profile" first); banners (PAST_DUE, draft branding, domain failing, access-changed) by permission.
+- Mobile (< md): 56 px top bar, nav BottomSheet, bottom tab bar = first four items + More with useBottomBar inset; 390 px: 16 px gutters, 44 px targets, no horizontal scroll.
+- Switcher per 16 §4: Menu ≥ md, BottomSheet < md, ⌘⇧W, "Open … first" preference (writes org_member.landing_workspace via X4.2's endpoint when it exists; until then local only) with undo toast.
+- Tenant theme: the shell wrapper applies `.theme-v2 .theme-tenant` with inline --tenant-* variables from the public DTO (X2.12 derivation); hex-literal lint from X2.12 runs over the shell.
+- AccountMenu entries: My profile · Notifications · Security · (Switch workspace ▸ when >1) · Sign out; header "{org} · {primary role}".
+
+**UI requirements**
+- Geometry and states per 16 §2.1/§2.5; reduced-motion safe; one mascot max per view; tenant tokens only (no hex).
+
+**Backend requirements**
+- — (X2.2 provides /api/me/tenant)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes GET /api/me/tenant (X2.2)
+
+**Permissions**
+- Nav items filtered by needs ∩ permissions and module flags (data from X2.2)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- acme-admin on acme.localhost sees the ADMIN sidebar with exactly the items X2.2's data allows (table-driven test against 16 §5.1).
+- Sarah (ORG_ADMIN + MARKETING_MANAGER) sees the switcher with two rows; a single-workspace member sees no switcher (E2E-B UI half).
+- The sidebar scrolls independently of the page (Playwright: scroll the page 2000 px, the sidebar scrollTop is unchanged; scroll inside the sidebar, the page does not move).
+- Role change on the server → within 5 min of focus the shell shows "Your access changed — reload" (X2.2 ETag) as a banner.
+- At 390 px the bottom bar shows the first four nav items + More; no horizontal scroll; axe reports no violations.
+- MEMBER_SUSPENDED renders the paused panel with sign-out only; no org data in the DOM.
+
+**Test cases**
+- EnterpriseShell.test.tsx (16 §8 list: nav filtering, switcher presence, banners by permission, mobile bar)
+- Playwright tenant-shell.spec.ts at 390/1440 (scroll independence, switcher, ⌘⇧W)
+
+- **Tech notes:** Split from X2.2 by Session E. Branch A OrgShell/OrgSwitcher/org-nav as the visual base; ADR-007; 16 §2–§4; 05 §7 behaviour.
+- **Definition of Done:** npm test + build green; Playwright green over the mock; 16 §2.1 geometry matches (snapshot at both sizes). Plus the common DoD in `06-phase-plan.md` §5.
 ### X2.3 — BrandedLogin component: runtime branding from GET /api/public/tenant, password + verification, NOT_A_MEMBER state, "Powered by Kiwiply" mark, mascot welcome pose
 - **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web, UI · **Deps:** X2.1, X1.5, X2.8
 - **Persona:** An Acme employee visiting careers.acme.com (or acme.localhost) signed out
@@ -805,8 +924,8 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 
 - **Tech notes:** 11 §3; branch `2672733` join/consent screens are reused later (X2.6); never render branding for a non-ACTIVE host.
 - **Definition of Done:** npm test + build green; Playwright green; 11 §3.2 table matches the component's state union (type-level exhaustiveness). Plus the common DoD in `06-phase-plan.md` §5.
-### X2.4 — Org Admin Dashboard on real data: tiles (consultants, licensed, available, activity, applications, interviews, placements, pending approvals), subscription summary, alerts, quick actions, activation checklist (reworked from 18f2123)
-- **Epic:** X2 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X2.2, X1.6, X1.10 · **Relates:** O2.7, O7.4
+### X2.4 — Org Admin Dashboard API: GET …/dashboard with the DashboardWidgetProvider registry, consent-scoped counts, alerts with per-member dismissal, reworked onboarding checklist, dashboard.view_org permission
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X2.2, X1.6, X1.10 · **Relates:** O2.7, O7.4
 - **Persona:** Org Admin (Priya) after sign-in
 - **Objective:** The landing page for administrators, every widget wired to a real source or an honest empty/unavailable state, never a fake number.
 - **Story:** As an org admin, I want to land on a dashboard that shows my organization's real state and the next things to do, so that I never have to visit a generic employee page first.
@@ -814,12 +933,12 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 **Functional requirements**
 - API: GET /api/orgs/{orgId}/dashboard (OrgDashboardService) returning per-widget {state: ok|empty|unavailable|error, data, reason} per 14 §2.2; module-gated widgets omitted; deltas computed from the previous 30 days; alerts per 14 §2.3 with per-member dismissal (org_setting-like table org_member_dismissal(org_id, member_id, key, until) additive); GET …/onboarding reworked per 14 §2.4 (new rows branding/roles/teams/domain/licenses; `available` flags).
 - Rework 18f2123: re-verify OrgOverviewRepository consent-scoped counts (SUMMARY+ only), keep its OrgDashboardIT cases, drop sample data; dual-serve `/overview` for the kiwiply.com console until it is retired.
-- Web: web/src/components/ent/dashboard/{OrgAdminDashboard.tsx, widgets.ts (registry), Alerts.tsx, Checklist.tsx}; page /w/admin; hero with MascotPose greet (first visit of the day, dismissable, localStorage try/catch); quick actions per 14 §2.5 shown by permission with "soon" chips for modules not yet built.
 - Add `dashboard.view_org` to OWNER/ORG_ADMIN templates (RoleTemplateSeeder + 05 §3 doc) — doc-sync test updated.
 - Widget registry (09 row 3): bean interface DashboardWidgetProvider {key, permission, module, compute(orgId, membership)} in service/ent/dashboard; OrgDashboardService iterates the beans (missing bean → widget unavailable); this story ships the Phase-2 providers consultants.total, applications.active, interviews.upcoming, invites.pending, activity.recent, alerts, checklist. Later stories add one bean each: consultants.licensed + subscription.summary (X6.1), consultants.available (X7.2), marketing.activity7d (X8.6), approvals.pending (X8.5), placements (X10.4), finance.summary (X11.5), team.performance (X12.1).
+- The page itself (tiles, hero, quick actions, checklist UI, E2E-A) is X2.17.
 
 **UI requirements**
-- Layout 14 §2.1 at 390/1440; AdminStatTiles (promoted) with real deltas only; per-widget skeleton/empty/error; natural page scroll; one mascot max.
+- —
 
 **Backend requirements**
 - service/ent/OrgDashboardService, OrgAlertsService, OrgOnboardingService (reworked), web/rest/ent/OrgDashboardResource; OrgIsolationIT coverage
@@ -839,38 +958,75 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - widgets licensed/available/activity/finance appear only when their module flag allows the org
 
 **Acceptance criteria**
-- E2E-A: acme-admin signs in on acme.localhost and the first rendered page is /w/admin with real tile values from the fixtures (42 consultants etc.); no /me, no generic home in between.
 - With flag.enterprise.billing off for acme, the licensed tile and subscription MRR are absent from the API response and the page shows the status-only subscription card; turning the flag on (allow list) makes the widget appear without a deploy.
 - A consultant who shares NONE is not counted in applications/interviews (consent test from 18f2123 kept).
-- Alerts: a SUSPENDED hostname produces DOMAIN_SUSPENDED linking to /w/admin/domains; dismissing hides it for 7 days for that member only.
-- Checklist hides when complete and the celebrate toast fires exactly once (session dedupe).
+- Alerts: a SUSPENDED hostname produces DOMAIN_SUSPENDED with link target /w/admin/domains; dismissing hides it for 7 days for that member only.
 - EXECUTIVE_VIEWER calling the endpoint gets counts-only payloads (no names in recent activity).
+- Widget payload states {ok|empty|unavailable|error} are exact per 14 §2.2; a widget whose provider bean is missing is `unavailable`, not an error.
 
 **Test cases**
 - OrgDashboardResourceIT (permission omission, module gating, consent counts, alerts, dismissal)
 - OrgOnboardingServiceTest
 - RoleTemplateDocSyncTest update
-- web dashboard.test.tsx (widget states, greet once)
-- Playwright org-admin-home.spec.ts (E2E-A to dashboard; 390/1440)
 - DashboardWidgetRegistryTest: registered keys ⊆ the key column of 14 §2.2 (doc-sync).
 
-- **Tech notes:** 14 §2; 18f2123 is prior art, not truth; 404 semantics on org routes; AnimatedNumber respects reduced motion.
-- **Definition of Done:** openapi regenerated; CI green; progress-tracker; 14 §2.2 table matches the widget registry (doc-sync test). Plus the common DoD in `06-phase-plan.md` §5.
-### X2.5 — Organization Branding page: logo/favicon/banner upload (S3 org/{id}/…), colours with contrast validation, welcome copy, terminology and nav prefs (allow-listed), draft → publish, config_version bump
-- **Epic:** X2 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X1.2, X2.2, X2.12, X2.13 · **Relates:** O13.1
+- **Tech notes:** Split by Session E: X2.4 = API + registry; X2.17 = page. 14 §2; 18f2123 is prior art, not truth; 404 semantics on org routes.
+- **Definition of Done:** openapi regenerated; CI green; 14 §2.2 table matches the widget registry (doc-sync test). Plus the common DoD in `06-phase-plan.md` §5.
+### X2.17 — Org Admin Dashboard page (/w/admin): stat tiles with real deltas, hero with the greet pose, alerts, quick actions by permission, activation checklist with one-time celebrate; E2E-A to the dashboard
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X2.4, X2.16, X2.15, X2.8
+- **Persona:** Organization Admin
+- **Objective:** The first page an admin sees after signing in answers "how is the org doing and what needs me" without scrolling through a wall of numbers.
+- **Story:** As an org admin, I want to land on my dashboard and see consultants, licenses, pipeline, alerts and quick actions so that I can act in one click.
+
+**Functional requirements**
+- web/src/components/ent/dashboard/{OrgAdminDashboard.tsx, widgets.ts (registry mirror of 14 §2.2), Alerts.tsx, Checklist.tsx}; page (tenant)/%5Ft/w/admin/page.tsx; hero with MascotPose greet (first visit of the day, dismissable, localStorage try/catch); AdminStatTiles (promoted kit) with real deltas only; per-widget skeleton/empty/error; quick actions per 14 §2.5 shown by permission with "soon" chips for modules not yet built; natural page scroll (not one viewport).
+- Alerts: list from the API with Dismiss (POST …/alerts/{key}/dismiss) and deep links; Checklist hides when complete and fires the celebrate toast exactly once (session dedupe).
+
+**UI requirements**
+- Layout 14 §2.1 at 390/1440; one mascot max; AnimatedNumber respects reduced motion; tenant tokens.
+
+**Backend requirements**
+- — (X2.4)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes GET /api/orgs/{orgId}/dashboard, …/onboarding, POST …/dashboard/alerts/{key}/dismiss
+
+**Permissions**
+- dashboard.view_org to open; quick actions filtered by the caller's permissions
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- E2E-A: acme-admin signs in on acme.localhost and the first rendered page is /w/admin with real tile values from the fixtures (42 consultants etc.); no /me, no generic home in between.
+- A widget in state `unavailable` renders the "not available yet" card, `empty` renders the empty copy with the mascot only for the first empty widget, `error` renders retry.
+- Dismissing DOMAIN_SUSPENDED hides it for that member for 7 days (reload keeps it hidden; another admin still sees it).
+- Checklist completion fires the celebrate toast once per session; the hero greet shows once per day.
+- At 390 px tiles stack 2-up, quick actions are 44 px targets, no horizontal scroll; axe clean.
+
+**Test cases**
+- web dashboard.test.tsx (widget states, greet once, dismissal)
+- Playwright org-admin-home.spec.ts (E2E-A to dashboard; 390/1440)
+
+- **Tech notes:** Split from X2.4 by Session E. 14 §2.1/§2.5; keep the page a server component with client widgets.
+- **Definition of Done:** npm test + build green; Playwright E2E-A segment green; progress-tracker. Plus the common DoD in `06-phase-plan.md` §5.
+### X2.5 — Organization Branding API: draft/publish/versions, asset uploads (raster only, re-encode, S3 org/{id}/…), contrast-validated colours, allow-listed terminology and nav prefs, config_version bump
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.2, X2.2, X2.12, X2.13 · **Relates:** O13.1
 - **Persona:** Org Admin configuring Acme's look
 - **Objective:** Brand the portal at runtime — draft, preview, publish, restore — with no deployment and no unreadable colour.
 - **Story:** As an org admin, I want to upload our logo, pick our colours and words, preview the login and publish when ready, so that employees see Acme's portal and I can undo a mistake.
 
 **Functional requirements**
 - API: GET /api/orgs/{orgId}/branding → {published, draft, draftVersion, versions[]}; PATCH …/branding/draft (If-Match draftVersion; partial object; validation per 11 §1.1; PII scan on text; terminology/nav keys allow-listed); POST …/branding/publish (full validation, derive theme (X2.12), copy draft→columns, published_at, org_branding_version row, config_version++, audit BRANDING_PUBLISH MEDIUM with changed keys); POST …/branding/discard; POST …/branding/versions/{n}/restore (into draft); POST …/branding/assets/{logo|favicon|banner} multipart (magic bytes, dimensions, size limits, re-encode, key org/{orgId}/branding/{kind}-{hash}.{ext}), DELETE same.
-- Web /w/admin/branding: sections Identity (display name), Logo/Favicon/Banner (ResumeUpload-style drop zones from packages/ui, previews), Colours (three pickers + hex input + "Adjusted for readability" chips from preview-theme), Welcome copy, Theme (LIGHT/DARK/SYSTEM), Terminology (allow-listed table), Navigation (hide/reorder per workspace, SortableList), Powered-by (LOGIN_ONLY/LOGIN_AND_FOOTER); live preview column (login card + shell header from the draft); header actions: "Open draft login", "Publish" (enabled only when draft ≠ published), "Discard draft"; History drawer with Restore.
-- Autosave per field into the draft (800 ms, If-Match, inline ✓, undo toast per field); publish = the only explicit action (it is a release, not a save).
 - Dashboard alert BRANDING_DRAFT when a draft is > 24 h old (X2.4 reads published_at vs draft updated_at).
 - Uploads (42 T54): raster only — PNG/JPEG/WebP, no SVG; magic-byte check, server-side re-encode (strips metadata, normalises dimensions), size ≤ 1 MB (setting ent.upload.max_bytes), served with X-Content-Type-Options: nosniff.
+- The Branding page (editor, preview, autosave UI, history drawer) is X2.18.
 
 **UI requirements**
-- 11 §1 fields and limits; draft-vs-published badge; preview at 390 width inside the page on desktop; reduced to stacked sections on phone; tenant tokens only.
+- —
 
 **Backend requirements**
 - service/ent/OrgBrandingService, BrandingAssets (ImageIO validation + re-encode), web/rest/ent/OrgBrandingResource, Terminology allow-list, NavPrefs allow-list
@@ -891,7 +1047,7 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 
 **Acceptance criteria**
 - Uploading a 3 MB banner → 413 BRANDING_ASSET_TOO_LARGE; an SVG logo → 415; a 40 px logo → 422 BRANDING_ASSET_TOO_SMALL; a valid PNG is stored under org/{acme}/branding/ and never under another org's prefix (isolation IT: beta cannot fetch it).
-- Changing the primary colour autosaves into the draft; GET /api/public/tenant still returns the published colour until publish; after publish the public DTO changes within one request (config_version eviction).
+- PATCH …/branding/draft with a new primary colour updates the draft only; GET /api/public/tenant still returns the published colour until publish; after publish the public DTO changes within one request (config_version eviction).
 - Publishing with a mid-grey primary succeeds and the response carries adjusted: ["primary"]; the login renders with the derived ink (contrast ≥ 4.5 asserted in the test).
 - Restore version 2 fills the draft; publish writes version 4 (versions are append-only).
 - Draft preview URL works only for a branding.manage member; a consultant gets the published login.
@@ -901,14 +1057,54 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 **Test cases**
 - OrgBrandingResourceIT (validation matrix, draft/publish/restore, assets, isolation, audit)
 - BrandingAssetsTest (magic bytes, re-encode strips EXIF)
-- web branding.test.tsx (autosave, preview, publish enablement)
-- Playwright branding.spec.ts (upload → publish → login shows it, 390/1440)
-- AssetUploadIT (SEC-46).
+- AssetUploadIT (SEC-46)
 
-- **Tech notes:** 11 §1; OrgStorageKeys prefix helper (04 §4); ImageIO + a WebP reader (TwelveMonkeys, Apache-2.0) are API-side additions; no SVG.
+- **Tech notes:** Split by Session E: X2.5 = API; X2.18 = page. 11 §1; OrgStorageKeys prefix helper (04 §4); ImageIO + TwelveMonkeys WebP reader (B7); no SVG (42 T54).
 - **Definition of Done:** openapi regenerated; CI green; 11 §1.1 limits match validators (doc-sync constants test). Plus the common DoD in `06-phase-plan.md` §5.
+### X2.18 — Organization Branding page (/w/admin/branding): identity, logo/favicon/banner drop zones, colour pickers with "adjusted for readability", welcome copy, theme, terminology, navigation prefs, powered-by, live preview, autosave draft, Publish/Discard, history with Restore
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X2.5, X2.16, X2.15, X2.12, X2.13
+- **Persona:** Organization Admin with branding.manage
+- **Objective:** An admin can make the portal theirs in minutes, see the result before anyone else does, and publish as one deliberate action.
+- **Story:** As an org admin, I want to upload our logo, pick our colours and preview the login before publishing so that employees see our brand without a deploy.
+
+**Functional requirements**
+- Sections per 11 §1: Identity (display name), Logo/Favicon/Banner (ResumeUpload-style drop zones from packages/ui, previews, typed errors from the API), Colours (three pickers + hex input + "Adjusted for readability" chips from the preview-theme endpoint), Welcome copy, Theme (LIGHT/DARK/SYSTEM), Terminology (allow-listed table of 22 keys, 11 §1.3), Navigation (hide/reorder per workspace, SortableList), Powered-by (LOGIN_ONLY/LOGIN_AND_FOOTER).
+- Live preview column (login card + shell header rendered from the draft); header actions "Open draft login" (branding.manage only), "Publish" (enabled only when draft ≠ published; confirm sheet lists changed keys), "Discard draft"; History drawer with Restore into draft.
+- Autosave per field into the draft (800 ms debounce, If-Match draftVersion, inline ✓, undo toast per field, 412 → reload prompt); publish is the only explicit action.
+
+**UI requirements**
+- Draft-vs-published badge; preview at 390 width inside the page on desktop; stacked sections on phone; tenant tokens only; no oversized edit buttons.
+
+**Backend requirements**
+- — (X2.5)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes GET/PATCH …/branding(/draft), POST …/publish | /discard | /versions/{n}/restore, POST/DELETE …/assets/{kind}, POST …/branding/preview-theme (X2.12)
+
+**Permissions**
+- branding.manage (ORG)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Changing the primary colour autosaves into the draft (✓ shown); GET /api/public/tenant still returns the published colour; after Publish the public login renders the new colour within one request.
+- Uploading an SVG shows the typed error inline; a valid PNG previews immediately and appears in the preview column.
+- A mid-grey primary shows the "Adjusted for readability" chip with the derived ink; the preview uses it.
+- Restore version 2 fills the draft and the badge reads "Draft differs"; Publish writes version 4 and the History drawer lists it.
+- Playwright: upload → publish → tenant login shows it at 390 and 1440; a consultant opening /w/admin/branding gets the not-part-of-your-role state.
+
+**Test cases**
+- web branding.test.tsx (autosave, preview, publish enablement, 412 handling)
+- Playwright branding.spec.ts (upload → publish → login shows it, 390/1440)
+
+- **Tech notes:** Split from X2.5 by Session E. 11 §1; Gen-Z/Notion rules (autosave, no Save buttons, undo toasts, versions in a menu).
+- **Definition of Done:** npm test + build green; Playwright green over the mock. Plus the common DoD in `06-phase-plan.md` §5.
 ### X2.6 — Login-first routing on tenant hosts: proxy rewrite to the tenant route tree, unauthenticated → BrandedLogin, authenticated member → primary workspace home, join pages branded (from 2672733, re-verified)
-- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X2.3, X1.8, X2.2, X1.4 · **Relates:** O2.3
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X2.3, X1.8, X2.2, X1.4, X1.15 · **Relates:** O2.3
 - **Persona:** Anyone visiting a tenant host; an invitee accepting on careers.acme.com
 - **Objective:** Every tenant URL is login-first and branded; invites are accepted on the tenant host without ever creating a tenant session for a non-member.
 - **Story:** As a visitor, I want any Acme address to show Acme's sign-in or take me straight to my workspace, and as an invitee I want to accept on Acme's own domain, so that I never land on the public site or another company.
@@ -1048,7 +1244,7 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - **Definition of Done:** packages/ui tests green; README in packages/ui lists MascotPose; no new assets required. Plus the common DoD in `06-phase-plan.md` §5.
 
 ### X2.9 — Organization Settings page (separate from the basic profile): name/display name, contact, addresses, timezone, policies (org_setting overrides), subdomain display
-- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.2, X1.2
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.16, X1.2
 - **Persona:** Org Admin
 - **Objective:** The organization profile and its policies, admin-configured and autosaving, clearly apart from the person's profile.
 - **Story:** As an org admin, I want to manage Acme's identity, contacts and policies in one settings page so that organization configuration never mixes with my own profile.
@@ -1138,7 +1334,7 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 - **Definition of Done:** CI green; 04 §6 T12 control implemented and tested. Plus the common DoD in `06-phase-plan.md` §5.
 
 ### X2.11 — E2E-A (to dashboard) and E2E-B (multi-role switcher) Playwright journeys over the mock at 390 px and desktop
-- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** QA, Web · **Deps:** X2.3, X2.4, X2.6, X2.7, X2.9, X1.12
+- **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** QA, Web · **Deps:** X2.3, X2.17, X2.6, X2.7, X2.9, X1.12, X2.16, X2.18
 - **Persona:** QA
 - **Objective:** Scenarios A (up to the dashboard and the separate settings/profile) and B are executable gates in CI at both viewports.
 - **Story:** As QA, I want the Phase 2 journeys automated over the mock so that branding, login-first routing, landing, the switcher and the profile/settings separation cannot regress.
@@ -1176,7 +1372,6 @@ _Runtime branding, one branded login, one enterprise shell with permission-drive
 
 - **Tech notes:** Playwright storage state per account; Host emulation helper from X1.12.
 - **Definition of Done:** CI green; HANDOFF lists the journeys; progress-tracker rows. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X2.12 — Contrast-safe tenant theme derivation (BrandingTheme) in the public DTO, theme-tenant.css token remap in packages/ui, hex-literal lint for tenant surfaces
 - **Epic:** X2 · **Size/Complexity:** M/M · **Owners:** API, UI · **Deps:** X1.3
 - **Persona:** The API and the design system
@@ -1364,7 +1559,7 @@ _careers.acme.com: registration, ownership verification, on-demand certificates 
 **Session B (fully specified).** Build order: X3.1 → X3.2 → X3.3 → X3.4 → X3.5 → X3.6 → X3.7 → X3.8. X3.6 (docs + rehearsal) may start with X3.3; the user applies the edge change (E5, answered 2026-10-12) once X3.3 is deployed; X3.7 is independent of X3.4–X3.5.
 
 ### X3.1 — Domains page + API: add custom hostname (PENDING), DNS instructions (TXT ownership token + CNAME to edge.kiwiply.com), verify now, status timeline
-- **Epic:** X3 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.2, X1.11, X2.2, X2.9 · **Relates:** O2.6
+- **Epic:** X3 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.2, X1.11, X2.16, X2.9 · **Relates:** O2.6
 - **Persona:** Org Admin adding careers.acme.com
 - **Objective:** Register a customer-owned hostname safely (unique, validated, never a platform name) and tell the customer exactly which DNS records to create.
 - **Story:** As an org admin, I want to add our own domain and get precise DNS instructions with a "verify now" button so that our portal lives at careers.acme.com.
@@ -1409,7 +1604,6 @@ _careers.acme.com: registration, ownership verification, on-demand certificates 
 
 - **Tech notes:** 10 §1–§4; OrgTenancyService from X1.11 is extended, not duplicated; dnsjava arrives in X3.2.
 - **Definition of Done:** openapi regenerated; CI green; 10 §3 JSON shape matches the DTO. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X3.2 — Ownership verification job: TXT + CNAME/A checks (dnsjava), VERIFYING → VERIFIED, auto-activate, re-check every enterprise.domains.recheck_hours, grace then SUSPENDED, audit
 - **Epic:** X3 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X3.1, X1.10
 - **Persona:** The API (domain checks)
@@ -1738,7 +1932,7 @@ _careers.acme.com: registration, ownership verification, on-demand certificates 
 ### X4 — Phase 4 — Roles, employees, departments, teams, assignments
 _Configurable role templates with a ceiling rule, employee lifecycle with bulk actions and audit, departments/teams, auditable consultant–marketer assignments._
 
-**Session B (fully specified).** Build order: X4.1 → X4.2 → X4.5 → X4.3 → X4.6 → X4.4 → X4.9 (then D's X4.7 → X4.8, then X4.10). X4.5 before X4.3 (the Employees filters need the tree); X4.9 can run any time after X2.2.
+**Session B (fully specified; L stories split by Session E).** Build order: X4.1 → X4.11 → X4.2 → X4.5 → X4.3 → X4.12 → X4.6 → X4.4 → X4.9 (then D's X4.7 → X4.13 → X4.8, then X4.10). X4.5 before X4.3 (the Employees filters need the tree); X4.9 can run any time after X2.2.
 
 Owned elsewhere (titles only here): 
 
@@ -1748,8 +1942,8 @@ Owned elsewhere (titles only here):
 | X4.8 | Workload balancing view for Marketing Managers: open assignments per marketer, caps from entitlement, drag/reassign with undo | M | D |
 | X4.10 | org_member_role becomes authoritative; legacy enum fallback removed from OrgAccessService; flag.enterprise.roles on by default for enterprise orgs | S | E (finalise; API-only cutover of org_member_role) |
 
-### X4.1 — Roles & Permissions page: templates, clone, edit permission/scope grid with ceiling rule, diff and history
-- **Epic:** X4 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X1.6, X1.7, X2.2
+### X4.1 — Roles & Permissions API: role detail with template diff, delete when unused, resync, history, permissions catalog filtered by the caller's ceiling (grantable flags)
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.14, X1.7
 - **Persona:** Org Admin tailoring roles
 - **Objective:** Configure roles from templates without ever granting more than you hold, with every change diffed and audited.
 - **Story:** As an org admin, I want to clone a template, rename it and adjust its permissions and scopes within my own ceiling so that Acme's roles match how we work.
@@ -1757,11 +1951,10 @@ Owned elsewhere (titles only here):
 **Functional requirements**
 - API (extends X1.6): GET /api/orgs/{orgId}/roles → system templates + org roles with permission rows, member counts, editable flag; GET …/roles/{id} (+ diff vs its template); POST …/roles {templateKey, name} (clone); PATCH …/roles/{id} {name?, description?, permissions:[{key, scope}]} with the ceiling rule (422 ROLE_CEILING {key, scope}), OWNER immutable (409 ROLE_SYSTEM), dangerous keys flagged; DELETE …/roles/{id} (org roles with 0 members; else 409 ROLE_IN_USE {count}); POST …/roles/{id}/resync (re-copy the template; diff shown first); every write audited ROLE_* (HIGH for permission changes) with the diff in details; GET …/roles/{id}/history.
 - EntPermissions registry exposes families, descriptions, default scopes, dangerous flags → GET /api/orgs/{orgId}/permissions (catalog for the grid; filtered to the caller's ceiling with a `grantable` flag per key/scope).
-- Web /w/admin/roles: left list (System templates | Acme roles) with member counts; detail: name/description (autosave), permission grid grouped by family (rows = keys, columns = scope radios OWN…ORG + "not granted"); rows the caller cannot grant are disabled with "beyond your access"; dangerous keys show a ReasonSheet on grant; "Compare with template" diff view (DiffText); History drawer; "Clone" from a template; "Delete" when unused; members-with-this-role link to Employees filter.
-- Primary role / member assignment stays on the Employees page (X4.3); this page never edits members.
+- The page is X4.11; member role assignment stays on the Employees page (X4.12).
 
 **UI requirements**
-- Grid is a table ≥ md and stacked cards per family < md; scope radios 44 px; autosave per cell with undo; HIGH changes via ReasonSheet; tenant tokens.
+- —
 
 **Backend requirements**
 - OrgRoleService extensions, EntPermissions catalog endpoint, OrgRoleResource
@@ -1780,23 +1973,61 @@ Owned elsewhere (titles only here):
 - flag.enterprise.roles
 
 **Acceptance criteria**
-- An ORG_ADMIN cloning MARKETING_MANAGER and adding org.close → 422 ROLE_CEILING; setting assignments.manage to ORG when the admin holds it at ORG → saved; an HR_SPECIALIST opening the page sees marketing keys as not grantable.
+- An ORG_ADMIN cloning MARKETING_MANAGER and adding org.close → 422 ROLE_CEILING; setting assignments.manage to ORG when the admin holds it at ORG → saved; GET …/permissions as an HR_SPECIALIST marks marketing keys grantable=false.
 - OWNER rows are read-only (409 on PATCH); deleting a role with 3 members → 409 ROLE_IN_USE 3.
-- Every permission change writes ROLE_UPDATE risk HIGH with {added, removed, scopeChanged}; the History drawer shows it with the actor.
-- Resync shows the diff and, on confirm, restores the template rows (audit ROLE_RESYNC).
-- Doc-sync: the grid's families/keys equal EntPermissions (test) and 05 §3 (existing EntPermissionsDocSyncTest).
+- Every permission change writes ROLE_UPDATE risk HIGH with {added, removed, scopeChanged}; GET …/roles/{id}/history returns it with the actor.
+- GET …/roles/{id} returns the diff vs template; POST …/resync restores the template rows (audit ROLE_RESYNC).
+- Doc-sync: GET …/permissions families/keys equal EntPermissions and 05 §3 (EntPermissionsDocSyncTest).
 
 **Test cases**
-- OrgRoleServiceTest (ceiling matrix, system guard, in-use)
+- OrgRoleServiceTest (in-use, resync, diff)
 - OrgRoleResourceIT (+coverage registry)
-- web roles.test.tsx (grantable disabling, autosave, diff)
-- Playwright roles.spec.ts (clone → edit → ceiling refusal → history, 390/1440)
+- EntPermissionsCatalogTest (grantable filter)
 
-- **Tech notes:** 05 §3, §6; ADR-005; E4 answered by default (a); keep 404 semantics for outsiders.
+- **Tech notes:** Split by Session E: X4.1 = API; X4.11 = page. 05 §3, §6; ADR-005; E4 default (a); 404 semantics for outsiders.
 - **Definition of Done:** openapi regenerated; CI green; 05 §3 amended if keys change. Plus the common DoD in `06-phase-plan.md` §5.
+### X4.11 — Roles & Permissions page (/w/admin/roles): templates and org roles list, permission/scope grid with ceiling-aware disabling, ReasonSheet on dangerous grants, compare-with-template diff, history drawer, clone/delete/resync
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X4.1, X2.16, X2.15
+- **Persona:** Organization Admin with roles.manage
+- **Objective:** Roles are editable in a grid that makes the ceiling rule visible ("beyond your access") so admins never hit a surprise 422.
+- **Story:** As an org admin, I want to clone Marketing Manager, tweak a few scopes and see what differs from the template so that our roles match how we actually work.
 
+**Functional requirements**
+- Left list (System templates | {org} roles) with member counts; detail: name/description (autosave), permission grid grouped by family (rows = keys, columns = scope radios OWN…ORG + "not granted"); rows the caller cannot grant are disabled with "beyond your access" (from the catalog's grantable flags); dangerous keys open a ReasonSheet on grant; "Compare with template" diff (DiffText); HistoryDrawer; Clone from a template; Delete when unused (409 copy → "Used by N people" link to Employees filter); Resync with diff-first confirm.
+- Autosave per cell with undo; HIGH changes via ReasonSheet; 422 ROLE_CEILING renders inline on the cell.
+
+**UI requirements**
+- Grid is a table ≥ md and stacked cards per family < md; scope radios 44 px; tenant tokens; empty state "Start from a template".
+
+**Backend requirements**
+- — (X4.1)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes X4.1 routes + GET /api/orgs/{orgId}/permissions
+
+**Permissions**
+- roles.manage to edit; member.view_summary to view
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- An HR_SPECIALIST opening the page sees marketing keys disabled with "beyond your access"; an ORG_ADMIN adding org.close to a clone gets the inline ceiling message.
+- OWNER rows render read-only; Delete on a role with 3 members shows "Used by 3 people" and links to the Employees filter.
+- Resync shows the diff first; confirm restores the template rows and the History drawer shows ROLE_RESYNC with the actor.
+- Playwright: clone → edit → ceiling refusal → history at 390/1440; axe clean.
+
+**Test cases**
+- web roles.test.tsx (grantable disabling, autosave, diff, ReasonSheet)
+- Playwright roles.spec.ts (390/1440)
+
+- **Tech notes:** Split from X4.1 by Session E. 05 §3, §6; 16 §5.1 row.
+- **Definition of Done:** npm test + build green; Playwright green over the mock. Plus the common DoD in `06-phase-plan.md` §5.
 ### X4.2 — Workspace definitions as data (workspace_key → nav → needs) with per-org nav preferences; primary role → landing; member landing preference
-- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.2, X2.5, X4.1
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X2.16, X2.18, X4.1
 - **Persona:** Org Admin shaping navigation; members with several roles
 - **Objective:** Navigation and landing come from data the org can tune (hide/reorder) and the member can prefer, never from code forks.
 - **Story:** As an org admin, I want to hide pages we don't use and order the rest, and as a member I want to choose which workspace opens first, so that the portal fits how Acme works.
@@ -1839,9 +2070,8 @@ Owned elsewhere (titles only here):
 
 - **Tech notes:** 16 §2.2, §3, §4; ADR-007; prefs never add pages.
 - **Definition of Done:** openapi regenerated; CI green; 16 §3 landing rule verified. Plus the common DoD in `06-phase-plan.md` §5.
-
-### X4.3 — Employees page on real data: list/filters/search, roles, department, team, manager, status, bulk actions (assign roles, move team, set manager, suspend, resend)
-- **Epic:** X4 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X1.6, X1.8, X2.2, X4.5 · **Relates:** O5.1
+### X4.3 — Members API on real data: list with filters/search/scope, bulk roles/groups/manager/status/resend with per-row results, single PATCH, CSV export, members.group.set/members.manager.set keys, last_active_at
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.6, X1.15, X2.2, X4.5 · **Relates:** O5.1
 - **Persona:** Org Admin / HR Specialist managing people
 - **Objective:** One Employees page shared by Admin, HR and Marketing-management (scope-driven), with server-side lists and audited bulk actions with undo.
 - **Story:** As an org admin, I want to find any employee quickly, see their roles, team and manager, and act on many at once with an undo, so that managing a growing organization stays fast and safe.
@@ -1849,11 +2079,11 @@ Owned elsewhere (titles only here):
 **Functional requirements**
 - API: GET /api/orgs/{orgId}/members (q, status, roleId, departmentId, teamId, managerId, licenseStatus (Phase 6), sort, page, size; scope-aware: TEAM scope returns only the caller's team rows); rows carry roles[], groups, manager, status, lastActiveAt, inviteMeta; POST …/members/bulk/roles | /groups | /manager | /status | /resend per 15 §3.2 with per-row results and MEMBER_BULK audit; PATCH …/members/{id} {title, departmentGroupId, teamGroupId, managerMemberId} (single edits, autosave); GET …/members/export.csv (reports.export, audited EXPORT); org_member.last_active_at updated by the interceptor at most hourly.
 - New permission keys members.group.set, members.manager.set in EntPermissions + templates (ORG_ADMIN, HR_SPECIALIST; MARKETING_MANAGER at TEAM for manager); manager cycle guard; team ⊂ department rule.
-- Web /w/admin/employees (+ /w/hr/employees, /w/marketing-mgmt/team preset): EmployeesPage per 15 §3.1 with FilterBar/DataTable (promoted kit), selection bar with bulk actions (sheets + ReasonSheet for suspend), Invite ▾ (email sheet with roles within ceiling, CSV import from branch B, join link/QR), Export; row kebab; URL-synced filters; cards < md.
-- Invite send is queued 15 s so the toast's Undo can revoke (OrgInviteService delay via the mail queue; a flag for tests).
+- Invite send queued 15 s so an Undo can revoke (OrgInviteService delay via the mail queue; a flag for tests).
+- The Employees page and its presets are X4.12.
 
 **UI requirements**
-- 15 §3.1 wireframes (390/1440); StatusDot statuses; PersonCell; sticky selection bar; EmptyState mascot "It's just you so far".
+- —
 
 **Backend requirements**
 - OrgMemberQueryService (paging/filters/scope), OrgMemberBulkService, OrgMemberResource extensions, EntPermissions keys, interceptor last_active throttle
@@ -1875,24 +2105,63 @@ Owned elsewhere (titles only here):
 
 **Acceptance criteria**
 - Filter status=invited&roleId=… returns only matching rows with correct paging headers; search "ani" finds Anika by name and "anika@" by email; a MARKETING_MANAGER with TEAM scope sees only their team.
-- Bulk roles on 12 members where one is the last ORG_ADMIN being demoted → 11 ok, 1 skipped LAST_ADMIN, 12+1 audit rows, Undo reverses the 11.
-- Bulk suspend requires a reason (422 without); undo reinstates; suspended members' tid sessions are revoked.
+- Bulk roles on 12 members where one is the last ORG_ADMIN being demoted → 11 ok, 1 skipped LAST_ADMIN, 12+1 audit rows; the undo endpoint reverses the 11.
+- Bulk suspend requires a reason (422 without); the undo endpoint reinstates; suspended members' tid sessions are revoked.
 - Setting a manager that creates a cycle → 422 MANAGER_CYCLE; moving to a team outside the chosen department → 422 TEAM_NOT_IN_DEPARTMENT.
 - Export CSV contains no phone/consent fields and writes one EXPORT audit row.
-- Invite 3 emails → toast with Undo; undo within 10 s → seats revoked, no mail sent (mail queue assertion).
+- Invite 3 emails → the mail is not sent for 15 s; revoke within the window → seats revoked, no mail (mail queue assertion).
 
 **Test cases**
 - OrgMemberQueryServiceTest (filters, scope)
 - OrgMemberBulkResourceIT (each action, skips, audit, undo)
 - OrgIsolationIT coverage
-- web employees.test.tsx (filters URL sync, selection bar, sheets)
-- Playwright employees.spec.ts (invite → appears → resend → bulk roles → suspend/reinstate, 390/1440)
 
-- **Tech notes:** 15 §2–§3; branch A TeamPage/TeamTable as visual prior art only; 404 semantics; keep OrgLimitsIT green.
+- **Tech notes:** Split by Session E: X4.3 = API; X4.12 = page. 15 §2–§3; 404 semantics; keep OrgLimitsIT green.
 - **Definition of Done:** openapi regenerated; CI green; 15 §3.2 table = implemented actions (doc-sync test on the bulk enum). Plus the common DoD in `06-phase-plan.md` §5.
+### X4.12 — Employees page (/w/admin/employees + /w/hr/employees + /w/marketing-mgmt/team presets): FilterBar/DataTable, selection bar with bulk sheets, Invite ▾ (email sheet, CSV import, join link/QR) with 15-s Undo, Export; Invitations nav item with the INVITED badge
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** Web · **Deps:** X4.3, X2.16, X2.15, X4.5
+- **Persona:** Organization Admin / HR Specialist / Marketing Manager (team scope)
+- **Objective:** One people page serves three workspaces through presets, with bulk actions that are undoable and an Invitations view that is just a filter — not a second page.
+- **Story:** As an org admin, I want to filter, invite and bulk-edit people from one table so that managing 200 seats takes minutes, not an afternoon.
 
+**Functional requirements**
+- EmployeesPage per 15 §3.1 with FilterBar/DataTable (X2.15), URL-synced filters, cards < md; selection bar with bulk actions (roles, groups, manager, status with ReasonSheet for suspend, resend) calling X4.3's bulk endpoints and showing per-row results + Undo toast; row kebab; Invite ▾ (email sheet with roles within the caller's ceiling, department/team/manager pickers — X1.15 body; CSV import from branch B; join link/QR); Export (audited).
+- Presets: /w/hr/employees (HR columns), /w/marketing-mgmt/team (roleKey=MARKETING_SPECIALIST, scope TEAM); Invitations nav item (16 §5.1) = the same page with status=invited preset and `badge: attention` carrying the INVITED count from /api/me/tenant counters (X2.2 adds `counts.invited`); empty state "No open invitations" → [Invite].
+- Invite toast with Undo (15 s) calls the revoke endpoint; after the window the toast says "Sent".
+
+**UI requirements**
+- 15 §3.1 wireframes (390/1440); StatusDot statuses; PersonCell; sticky selection bar; EmptyState mascot "It's just you so far"; tenant tokens.
+
+**Backend requirements**
+- — (X4.3; X2.2 counters.invited is a one-line addition to MeTenantDTO)
+
+**Database changes**
+- —
+
+**APIs**
+- Consumes X4.3 routes; GET /api/me/tenant counters.invited
+
+**Permissions**
+- member.view_summary to view (scope-aware); members.invite, members.role.set, members.group.set, members.manager.set, members.suspend per action; reports.export for CSV
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- Filter status=invited&roleId=… reflects in the URL and the table; search "ani" finds Anika; a MARKETING_MANAGER on /w/marketing-mgmt/team sees only their team.
+- Bulk roles on 12 members where one is the last ORG_ADMIN being demoted → 11 ok, 1 skipped with the LAST_ADMIN reason shown inline, Undo reverses the 11.
+- The Invitations nav item shows the badge "3" when three seats are INVITED; clicking it opens the preset filter; accepting an invite drops the badge on the next /api/me/tenant re-validation.
+- Invite 3 emails → toast with Undo; undo within 10 s → seats disappear from the table and no mail is sent (mock assertion).
+- Playwright: invite → appears → resend → bulk roles → suspend/reinstate at 390/1440; axe clean.
+
+**Test cases**
+- web employees.test.tsx (filters URL sync, selection bar, sheets, badge)
+- Playwright employees.spec.ts (390/1440)
+
+- **Tech notes:** Split from X4.3 by Session E. 15 §3; branch A TeamPage/TeamTable as visual prior art only. The Invitations item exists for §25 parity (16 §5.1 row).
+- **Definition of Done:** npm test + build green; Playwright green over the mock. Plus the common DoD in `06-phase-plan.md` §5.
 ### X4.4 — Employee lifecycle: suspend, reinstate, offboard wizard (records kept, scheduled last day), transfer ownership, last-admin guards, audit history
-- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X4.3, X4.6 · **Relates:** O5.2
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X4.12, X4.6, X4.3 · **Relates:** O5.2
 - **Persona:** Org Admin offboarding or pausing someone
 - **Objective:** Every lifecycle transition in 15 §2 is explicit, guarded, audited and keeps business records.
 - **Story:** As an org admin, I want to pause, reinstate or offboard an employee through a clear wizard that shows what will happen and keeps every record, so that leaving never destroys history.
@@ -1902,6 +2171,7 @@ Owned elsewhere (titles only here):
 - Web: offboarding wizard per 15 §5 (Dialog ≥ md, 3 steps; reassign picker required when PRIMARY assignments exist; last-day date; ConfirmTypedSheet); suspend/reinstate from the sheet footer and row kebab (ReasonSheet / undo toast); scheduled offboardings list at /w/hr/offboarding and in the employee sheet; History tab shows the transitions.
 - Notifications: ORG_SUSPENDED_ME, ORG_OFFBOARDED_ME (email), ORG_INVITE_ACCEPTED batch (X2.10 kinds).
 - OffboardingHook {preview(orgId, memberId) → List<Line>; apply(orgId, memberId, reason)} interface owned here (09 row 4), run in this fixed order by OffboardingService for offboard, leave and erase: Sessions (X2.7) → Assignments (X4.7) → Consent (DataShareService.endFor) → OrgResumeLinks (X7.3) → Licenses (X5.4: ENDED now, Stripe decrement now, no proration) → Pipeline (X8.13: open matches WITHDRAWN reason CONSULTANT_LEFT) → EmploymentRecord (X11.1). Beans register with an @Order; a missing bean is skipped. Wizard copy for the license line: "License ends now; the paid period isn't refunded".
+- Requirement §9 verbs map explicitly: invite → accept invitation (X1.8/X1.15); assign roles/department/team/manager (X4.3/X4.12); **activate** = the seat becomes ACTIVE on invite acceptance or on reinstate; **suspend** = this story; **deactivate** = suspend (reversible) or offboard with an immediate last day (records kept); **reinstate** = this story; **offboard** = this story (OffboardingHook chain).
 
 **UI requirements**
 - Wizard copy per 15 §5; reason 10–500; no undo for offboard (re-invite is the path); phone: full-screen steps.
@@ -1929,6 +2199,7 @@ Owned elsewhere (titles only here):
 - Offboarding the OWNER → 409 OWNER_MUST_TRANSFER; after transfer the former owner can be offboarded.
 - Revoking an INVITED seat frees the email (active_key) for a new invite.
 - Each transition writes one audit row with reason and the right risk; notifications to the person only.
+- Seat-state doc-sync: the transitions implemented equal 15 §2's table including the §9 verb mapping (SeatLifecycleDocSyncTest).
 
 **Test cases**
 - OrgMemberLifecycleServiceTest (guards)
@@ -1942,7 +2213,7 @@ Owned elsewhere (titles only here):
 - **Tech notes:** 15 §2, §5; ADR-009 link removal; D's X4.7 and C's X5.4 plug into the two hook interfaces defined here (AssignmentOffboardingHook, LicenseOffboardingHook) with no-op defaults.
 - **Definition of Done:** openapi regenerated; CI green; 15 §2 table = implemented transitions (doc-sync on the action enum). Plus the common DoD in `06-phase-plan.md` §5.
 ### X4.5 — Departments and teams: parent/child groups, leads, move members, counts, drag/undo
-- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.2, X2.2 · **Relates:** O5.3
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.2, X2.16 · **Relates:** O5.3
 - **Persona:** Org Admin / HR structuring the organization
 - **Objective:** Departments and teams as a two-level tree with leads and live counts, editable inline with undo, feeding TEAM/DEPARTMENT scopes.
 - **Story:** As an org admin, I want to create departments and teams, name leads and move people between them so that permissions scoped to a team or department mean something.
@@ -1989,9 +2260,8 @@ Owned elsewhere (titles only here):
 
 - **Tech notes:** 15 §6; cohorts untouched; keep OrgGroupResourceIT's existing cases.
 - **Definition of Done:** openapi regenerated; CI green. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X4.6 — Employee detail sheet: seat, roles (ceiling-aware), groups, manager, consent scope summary, sessions, audit of org actions on them
-- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X4.3, X4.1 · **Relates:** O5.8
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X4.12, X4.11 · **Relates:** O5.8
 - **Persona:** Org Admin / HR / Marketing Manager looking at one person
 - **Objective:** Everything about a seat in one sheet with autosaving edits, without ever exposing more than the caller's permission and the person's consent allow.
 - **Story:** As an org admin, I want to open an employee and adjust their roles, team and manager, see what they share and what happened to their seat, so that one person's administration never needs five pages.
@@ -2036,39 +2306,34 @@ Owned elsewhere (titles only here):
 
 - **Tech notes:** 15 §4; ShareField projection for consent-scoped fields; the sheet is shared by HR and Marketing management (scope decides).
 - **Definition of Done:** openapi regenerated; CI green. Plus the common DoD in `06-phase-plan.md` §5.
-
-### X4.7 — Consultant–marketer assignments: org_assignment CRUD (primary/backup/manager/delegate), effective dates, history, reassignment with consent re-point prompt
-- **Epic:** X4 · **Size/Complexity:** L/L · **Owners:** API, Web · **Deps:** X1.6, X1.7, X4.3
+### X4.7 — Consultant–marketer assignments (foundation): org_assignment table, repository predicates, create/end with role checks, ASSIGNED scope + AuthorizationService step 9 wired, audit and notifications
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X1.14, X1.7, X4.3 · **Relates:** O10.1
 - **Persona:** Org Admin / Marketing Manager
 - **Objective:** Replace the single support-owner field with an auditable, dated assignment entity so every act-for check and every scope evaluation has one source of truth.
 - **Story:** As a Marketing Manager, I want to assign a primary, a backup, a manager and temporary delegates to each consultant with effective dates and full history, so that reassignment never loses who did what and consent is never silently moved.
 
 **Functional requirements**
 - org_assignment per 17-consultant-assignments.md §2: kinds PRIMARY|BACKUP|MANAGER|DELEGATE, starts_at/ends_at, reason, end_reason, replaced_by_assignment_id, health; one open PRIMARY per consultant (generated primary_active_key); no duplicate open (consultant, assignee, kind).
-- DELEGATE requires ends_at ≤ org.assignments.delegate_max_days (default 90) and a reason; AssignmentHandoverJob expires delegates and ends scheduled handovers.
-- Reassign = end current + open new in one transaction (§3); scheduled starts end the current PRIMARY at the new starts_at.
-- Consent interaction (§4): FULL never moves; DataShareService.endPairingsTo only when the old assignee holds no other act-for row; ORG_CONSENT re-point notification to the consultant with one-tap grant; ORG_ASSIGNMENT notifications to consultant, new and previous assignee.
 - Assignee role check at create (must hold submissions.prepare for act-for kinds, approvals.decide for MANAGER); nightly re-check flags health=ROLE_LOST and notifies the manager.
 - ScopeEvaluator.ASSIGNED and AuthorizationService step 9 read the 'open and effective' predicate from OrgAssignmentRepository.isActingFor.
+- Create and end only in this story (one open PRIMARY per consultant; 409 PRIMARY_EXISTS; ASSIGNMENT_CREATE/END audit; ORG_ASSIGNMENT notification to consultant and assignee). Reassignment, delegation, the handover job, consent re-pointing and the UI are X4.13.
 
 **UI requirements**
-- Consultant card in Employees/Consultants shows PRIMARY/BACKUP/MANAGER chips with dates; 'Reassign…' SideSheet (new assignee, kind, reason, starts now/scheduled) with the consent note 'Anika will be asked to share with Priya'.
-- History tab: chain rows (who → who, kind, dates, reason, by whom) using TimelineFeed; 390 and 1440 per 38 §1.
-- Consultant side (user app Settings → Organizations): 'Sarah is now your marketer' card with 'Share resumes with Sarah' one-tap (existing share screen prefilled).
+- —
 
 **Backend requirements**
 - domain/org/OrgAssignment + OrgAssignmentRepository (findOpen, findOpenForAssignee, countOpenByAssignee, history, isActingFor).
-- service/org/OrgAssignmentService (create, reassign, end, expireDelegates, recheckRoles) + AssignmentHandoverJob (15 min, ShedLock-ready).
+- service/org/OrgAssignmentService (create, end, assigneeRoleCheck)
 - ScopeEvaluator ASSIGNED branch and AuthorizationService step 9 wired to the repository predicate; NotificationKind ORG_ASSIGNMENT, ORG_CONSENT are already registered by X2.10 (09 row 18); this story only publishes them.
-- OrgAuditService constants ASSIGNMENT_REASSIGN, ASSIGNMENT_CAP_OVERRIDE added; existing ASSIGNMENT_CREATE/END used.
+- OrgAuditService constants ASSIGNMENT_CREATE/END (existing).
 
 **Database changes**
 - Changelog 20261018010000_ent_assignments.xml (Phase-4 bucket, 06 §4): createTable org_assignment with the columns and generated keys of 17 §2; indexes (org_id, consultant_member_id, ends_at), (org_id, assignee_member_id, ends_at), (org_id, kind, ends_at).
 - No change to org_member.support_owner_member_id (kept for STAFF).
 
 **APIs**
-- GET /api/orgs/{orgId}/assignments?consultant=&assignee=&kind=&open= · GET /assignments/history?consultant= · POST /assignments · POST /assignments/reassign · POST /assignments/{id}/end · GET /assignments/mine (17 §6).
-- Errors: 409 ASSIGNMENT_CAP, 409 PRIMARY_EXISTS, 422 DELEGATE_NEEDS_END, 422 ASSIGNEE_ROLE.
+- GET /api/orgs/{orgId}/assignments?consultant=&assignee=&kind=&open= · GET /assignments/history?consultant= · POST /assignments · POST /assignments/{id}/end · GET /assignments/mine (17 §6)
+- Errors: 409 ASSIGNMENT_CAP, 409 PRIMARY_EXISTS, 422 ASSIGNEE_ROLE
 
 **Permissions**
 - assignments.manage (TEAM for Marketing Manager, ORG for Org Admin); consultants.view for reads; history readable by the consultant themself (self.*).
@@ -2077,21 +2342,63 @@ Owned elsewhere (titles only here):
 - —
 
 **Acceptance criteria**
-- Creating a second open PRIMARY for a consultant returns 409 PRIMARY_EXISTS; /reassign ends the old row with end_reason=REASSIGNED, sets replaced_by_assignment_id and opens the new row atomically (rollback test).
-- A DELEGATE without ends_at → 422; a delegate past ends_at is ended by the job with DELEGATION_EXPIRED and the cover-ended notification is sent once.
-- After a reassignment, data_share.full_to_member_id is unchanged; the consultant receives exactly one ORG_CONSENT re-point notification (dedupe consent:repoint:{member}:{assignee}); endPairingsTo runs only when the previous assignee has no other act-for row.
+- Creating a second open PRIMARY for a consultant returns 409 PRIMARY_EXISTS; ending sets ends_at + end_reason and never deletes.
 - AuthorizationService step 9 passes for PRIMARY/BACKUP/valid DELEGATE and fails (404 NOT_ASSIGNED) for MANAGER on an act-for operation and for an expired delegate.
-- Every write produces exactly one org_audit_event row; all six routes are in the OrgIsolationIT registry and an outsider gets 404.
+- Every write produces exactly one org_audit_event row; all five routes are in the OrgIsolationIT registry and an outsider gets 404.
+- An assignee without submissions.prepare (act-for kinds) or approvals.decide (MANAGER) → 422 ASSIGNEE_ROLE.
 
 **Test cases**
-- OrgAssignmentServiceTest, AssignmentConsentTest, AssignmentHandoverJobTest, ScopeEvaluatorAssignedTest, OrgIsolationIT lines, Playwright assignments.spec.ts (reassign sheet at 390, history at 1440).
+- OrgAssignmentServiceTest (create/end, role check)
+- ScopeEvaluatorAssignedTest
+- OrgAssignmentResourceIT + OrgIsolationIT lines
 
-- **Tech notes:** Follow 17-consultant-assignments.md exactly; the generated active-key pattern is org_member.active_key. Notifications after commit via @TransactionalEventListener.
-- **Definition of Done:** Assignments drive ASSIGNED scope end to end; consent never moves without the consultant; tracker row Completed with test paths. Plus the common DoD in `06-phase-plan.md` §5.
-- **Relates / supersedes:** O10.1
+- **Tech notes:** Split by Session E: X4.7 = schema + predicates + create/end; X4.13 = reassign/delegate/consent/UI/jobs. Follow 17 §2 exactly; generated active-key pattern as org_member.active_key. Notifications after commit via @TransactionalEventListener.
+- **Definition of Done:** ASSIGNED scope works end to end for act-for checks; openapi regenerated; CI green. Plus the common DoD in `06-phase-plan.md` §5.
+### X4.13 — Assignment lifecycle: reassign atomically with history chain, DELEGATE with max days + AssignmentHandoverJob, scheduled handovers, consent re-point prompt, nightly assignee role re-check (health), Reassign sheet + History tab + consultant-side "share with your marketer" card
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X4.7, X4.12, X2.15
+- **Persona:** Marketing Manager / Org Admin; the consultant on the receiving end
+- **Objective:** Reassigning a consultant preserves every record and never moves consent without the consultant; temporary cover expires by itself.
+- **Story:** As a marketing manager, I want to hand Anika from Sarah to Priya for two weeks and have everything — history, consent, workload — follow the rules so that nothing breaks while Sarah is away.
 
+**Functional requirements**
+- Reassign = end current + open new in one transaction (17 §3) with replaced_by_assignment_id and end_reason=REASSIGNED; scheduled starts end the current PRIMARY at the new starts_at.
+- DELEGATE requires ends_at ≤ org.assignments.delegate_max_days (default 90, EnterpriseSettingKeys.Org) and a reason; AssignmentHandoverJob (15 min, ShedLock-ready) expires delegates (DELEGATION_EXPIRED, cover-ended notification once) and applies scheduled handovers.
+- Consent interaction (17 §4): FULL never moves; DataShareService.endPairingsTo only when the old assignee holds no other act-for row; ORG_CONSENT re-point notification to the consultant with one-tap grant (dedupe consent:repoint:{member}:{assignee}); ORG_ASSIGNMENT notifications to consultant, new and previous assignee.
+- Nightly re-check flags health=ROLE_LOST when an assignee no longer holds the required permission and notifies the manager; audit ASSIGNMENT_REASSIGN, ASSIGNMENT_CAP_OVERRIDE.
+- Web: consultant card chips (PRIMARY/BACKUP/MANAGER with dates); "Reassign…" SideSheet (new assignee, kind, reason, starts now/scheduled) with the consent note "Anika will be asked to share with Priya"; History tab (TimelineFeed chain rows); AssignmentsPage at /w/admin/assignments and /w/marketing-mgmt/assignments (scope TEAM). Consultant side (user app Settings → Organizations): "Sarah is now your marketer" card with "Share resumes with Sarah" one-tap (existing share screen prefilled).
+
+**UI requirements**
+- 38 §1 at 390 and 1440; sheets 44 px targets; undo toast on reassign (ends the new row and reopens the old within 10 s).
+
+**Backend requirements**
+- OrgAssignmentService (reassign, expireDelegates, recheckRoles), AssignmentHandoverJob, OrgAssignmentResource (reassign)
+
+**Database changes**
+- None beyond X4.7 (health, replaced_by_assignment_id already in the table).
+
+**APIs**
+- POST /api/orgs/{orgId}/assignments/reassign · errors 422 DELEGATE_NEEDS_END
+
+**Permissions**
+- assignments.manage (ORG for admins, TEAM for managers)
+
+**Feature entitlements**
+- —
+
+**Acceptance criteria**
+- /reassign ends the old row with end_reason=REASSIGNED, sets replaced_by_assignment_id and opens the new row atomically (rollback test).
+- A DELEGATE without ends_at → 422; a delegate past ends_at is ended by the job with DELEGATION_EXPIRED and the cover-ended notification is sent once.
+- After a reassignment, data_share.full_to_member_id is unchanged; the consultant receives exactly one ORG_CONSENT re-point notification; endPairingsTo runs only when the previous assignee has no other act-for row.
+- An expired delegate fails AuthorizationService step 9 (404 NOT_ASSIGNED).
+- Playwright: reassign sheet at 390, history at 1440; the consultant-side card appears after the reassign.
+
+**Test cases**
+- OrgAssignmentServiceTest (reassign), AssignmentConsentTest, AssignmentHandoverJobTest, OrgIsolationIT line, web assignments.test.tsx, Playwright assignments.spec.ts
+
+- **Tech notes:** Split from X4.7 by Session E. 17 §3–§5; consent never moves without the consultant (ADR-008/009).
+- **Definition of Done:** Consent invariants proven by AssignmentConsentTest; tracker row Completed with test paths. Plus the common DoD in `06-phase-plan.md` §5.
 ### X4.8 — Workload balancing view for Marketing Managers: open assignments per marketer, caps from entitlement, drag/reassign with undo
-- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X4.7
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X4.13
 - **Persona:** Marketing Manager
 - **Objective:** Let a manager see and fix uneven load in one screen without losing history.
 - **Story:** As a Marketing Manager, I want a workload board of my marketers with their open consultants and caps, so that I can rebalance by dragging a consultant to another marketer and undo if I slip.
@@ -2131,9 +2438,8 @@ Owned elsewhere (titles only here):
 
 - **Tech notes:** Desktop drag uses pointer events with keyboard fallback (select chip, press 'm', pick marketer).
 - **Definition of Done:** Manager can rebalance in one screen; all moves audited; tracker row Completed. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X4.9 — Org audit log viewer (filters, risk, CSV export audited) for OWNER/ORG_ADMIN/FINANCE; Reports page exports hub
-- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.10, X2.2 · **Relates:** O13.4
+- **Epic:** X4 · **Size/Complexity:** M/M · **Owners:** API, Web · **Deps:** X1.10, X2.16 · **Relates:** O13.4
 - **Persona:** Org Admin / Finance reviewing what happened
 - **Objective:** Every org action is reviewable and exportable by the roles allowed to see it, with the export itself audited.
 - **Story:** As an org admin, I want to search our audit log by person, action, risk and date and export it, so that I can answer "who changed what, when and why".
@@ -2177,9 +2483,8 @@ Owned elsewhere (titles only here):
 
 - **Tech notes:** 04 §4 logs/audit row; X1.10 columns; streaming CSV; never include ip_hash or details beyond the safe subset.
 - **Definition of Done:** openapi regenerated; CI green. Plus the common DoD in `06-phase-plan.md` §5.
-
 ### X4.10 — org_member_role becomes authoritative; legacy enum fallback removed from OrgAccessService; flag.enterprise.roles on by default for enterprise orgs
-- **Epic:** X4 · **Size/Complexity:** S/S · **Owners:** API · **Deps:** X1.6, X4.1, X4.3
+- **Epic:** X4 · **Size/Complexity:** S/S · **Owners:** API · **Deps:** X1.14, X4.1, X4.3
 - **Persona:** The API (Phase 4 exit)
 - **Objective:** org_member_role is the only source of roles; the legacy enum is a mirror nobody reads (09 row 17).
 - **Story:** As the API, I want OrgAccessService to resolve roles from org_member_role alone so that the enum fallback can never disagree with the role editor.
@@ -2616,7 +2921,7 @@ Build order (dependencies first): X5.1 → X5.2 → X5.3 → X5.5 → X5.4 → X
 - **Tech notes:** Step 10 reads org_feature_consent only when the table exists (X7.6, Session D) — until then data_share FULL naming the actor is the whole consent check; keep the call behind a ConsentGate interface so X7.6 plugs in without touching check().
 - **Definition of Done:** check() is the only gate for every feature named in 24 §7; coverage test in CI. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 ### X5.11 — Org modules: org_module_license (FLAT / PER_ROLE quantity), the marketer seat as module.talent_marketing per MARKETING_SPECIALIST, quantity follows role grants through a quote, step 6 MODULE_OFF reads it
-- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.4, X1.6
+- **Epic:** X5 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X5.4, X1.14
 - **Persona:** Org admin
 - **Objective:** Commercially restricted org-level modules (the locked Marketer seat, Consultancy Ops later) licensed at org level without consuming consultant licenses.
 - **Story:** As an org admin, I want marketer seats to be priced per marketing specialist and shown before I grant the role so that employees never silently become paid seats.
@@ -3030,7 +3335,7 @@ Build order (dependencies first): X6.12 → X6.6 → X6.7 → X6.8 → X6.1 → 
 - **Definition of Done:** Drift visible in admin; dunning path proven with the LOCAL and Stripe fixtures. Plus the common DoD in 06-phase-plan.md §5 and the billing DoD (money in minor units, idempotent changes, valid price versions, invoice traceability, reconciliation, PersonalSubscriptionUnchangedIT green).
 
 ### X6.1 — Subscription Overview page: consultants/licensed/unlicensed tiles, monthly recurring, estimated next invoice (prorations, tax note), billing status + PAST_DUE banner, pending changes with undo, feature-usage top 5, contract summary — 390 and 1440
-- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.7, X2.2, X2.4, X2.15
+- **Epic:** X6 · **Size/Complexity:** M/M · **Owners:** Web, API · **Deps:** X6.7, X2.16, X2.17, X2.15
 - **Persona:** Org admin / Finance
 - **Objective:** One honest page for what the org pays, what changes next, and where usage stands.
 - **Story:** As an org admin, I want to see how many consultants are licensed, what we pay monthly and what the next invoice will be so that I can manage cost without opening Stripe.
