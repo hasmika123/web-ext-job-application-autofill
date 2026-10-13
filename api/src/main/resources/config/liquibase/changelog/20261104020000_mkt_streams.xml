@@ -5,8 +5,95 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-        Marketing workspace (streams) tables. Owned by the streams page ONLY; empty until that page adds its own changeSets.
+        Marketing workspace (streams) tables: the Job Streams board. Owned by the streams page ONLY.
         Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
         table names prefixed mkt_). Never edit another page's changelog.
+
+        mkt_job_stream is the CONTRACT other pages read (source_label, status, last_sync_at, new_openings, ...): do not rename its columns.
+        The tables record configuration and the sync history only; the actual sync from an ATS' public job-board API is a later connector
+        that calls MktStreamsService.recordSync. Nothing here is scraped and no secret is stored.
     -->
+
+    <!-- One configured job source feed per row (LinkedIn Jobs, Indeed, Client Portal, ...). -->
+    <changeSet id="mkt-streams-1-mkt_job_stream" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_job_stream"/></not></preConditions>
+        <createTable tableName="mkt_job_stream">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="source_label" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="subtitle" type="varchar(160)"/>
+            <column name="status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="active" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="sync_every_minutes" type="int" defaultValueNumeric="60"><constraints nullable="false"/></column>
+            <column name="keywords" type="text"/>
+            <column name="client_scope" type="varchar(160)"/>
+            <column name="last_sync_at" type="${datetimeType}"/>
+            <column name="new_openings" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="openings_delta_pct" type="decimal(7,2)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_job_stream" baseColumnNames="org_id" constraintName="fk_mkt_job_stream_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="mkt_job_stream" columnNames="org_id, id" constraintName="uk_mkt_job_stream_org_id"/>
+        <createIndex tableName="mkt_job_stream" indexName="ix_mkt_job_stream_status"><column name="org_id"/><column name="status"/><column name="active"/></createIndex>
+        <createIndex tableName="mkt_job_stream" indexName="ix_mkt_job_stream_created"><column name="org_id"/><column name="created_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- One row per sync run of a stream: when, how many openings it captured, OK or FAILED, and the message the board shows. -->
+    <changeSet id="mkt-streams-2-mkt_stream_sync_log" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_stream_sync_log"/></not></preConditions>
+        <createTable tableName="mkt_stream_sync_log">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="stream_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="synced_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="openings" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(10)" defaultValue="OK"><constraints nullable="false"/></column>
+            <column name="message" type="varchar(300)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_stream_sync_log" baseColumnNames="org_id" constraintName="fk_mkt_stream_sync_log_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_stream_sync_log" baseColumnNames="org_id, stream_id" constraintName="fk_mkt_stream_sync_log_stream" referencedTableName="mkt_job_stream" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_stream_sync_log" columnNames="org_id, id" constraintName="uk_mkt_stream_sync_log_org_id"/>
+        <createIndex tableName="mkt_stream_sync_log" indexName="ix_mkt_stream_sync_log_at"><column name="org_id"/><column name="synced_at"/></createIndex>
+        <createIndex tableName="mkt_stream_sync_log" indexName="ix_mkt_stream_sync_log_stream"><column name="org_id"/><column name="stream_id"/><column name="synced_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Stream Alerts & Warnings: raised when a sync fails or a rule trips; resolved_at is set when it is dealt with. -->
+    <changeSet id="mkt-streams-3-mkt_stream_alert" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_stream_alert"/></not></preConditions>
+        <createTable tableName="mkt_stream_alert">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="stream_id" type="bigint"/>
+            <column name="severity" type="varchar(10)" defaultValue="WARNING"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(400)"/>
+            <column name="raised_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="resolved_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_stream_alert" baseColumnNames="org_id" constraintName="fk_mkt_stream_alert_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_stream_alert" baseColumnNames="org_id, stream_id" constraintName="fk_mkt_stream_alert_stream" referencedTableName="mkt_job_stream" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_stream_alert" columnNames="org_id, id" constraintName="uk_mkt_stream_alert_org_id"/>
+        <createIndex tableName="mkt_stream_alert" indexName="ix_mkt_stream_alert_raised"><column name="org_id"/><column name="raised_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Stream Rules: one row per rule key per organization (default keywords, client mapping, duplicate detection, auto-publish). -->
+    <changeSet id="mkt-streams-4-mkt_stream_rule" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_stream_rule"/></not></preConditions>
+        <createTable tableName="mkt_stream_rule">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="rule_key" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="value" type="text"/>
+            <column name="enabled" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_stream_rule" baseColumnNames="org_id" constraintName="fk_mkt_stream_rule_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="mkt_stream_rule" columnNames="org_id, id" constraintName="uk_mkt_stream_rule_org_id"/>
+        <addUniqueConstraint tableName="mkt_stream_rule" columnNames="org_id, rule_key" constraintName="uk_mkt_stream_rule_key"/>
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>
