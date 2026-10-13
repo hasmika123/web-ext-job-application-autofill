@@ -405,7 +405,7 @@ class OrgIsolationIT {
             ids.put("memberId", String.valueOf(member.getId()));
             ids.put("offboardingId", String.valueOf(offboardingId));
             ids.put("kind", "logo");
-            ids.put("memberId", String.valueOf(pending.getId()));
+            ids.put("pendingMemberId", String.valueOf(pending.getId())); // X1.8's resend names the INVITED seat; every other {memberId} route is the ACTIVE member
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             return ids;
         }
@@ -444,7 +444,7 @@ class OrgIsolationIT {
     private static final Pattern VAR = Pattern.compile("\\{([A-Za-z]+)}");
 
     private static String uri(Route route, Map<String, String> ids) {
-        Matcher m = VAR.matcher(route.pattern());
+        Matcher m = VAR.matcher(route.pattern().replace("/members/{memberId}/resend", "/members/{pendingMemberId}/resend"));
         StringBuilder out = new StringBuilder();
         while (m.find()) {
             String id = ids.get(m.group(1));
