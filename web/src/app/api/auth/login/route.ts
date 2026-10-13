@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/config";
+import { authHostHeaders, isNotAMember, NOT_A_MEMBER_MESSAGE } from "@/lib/auth-host";
 import { setAuthCookies } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
   try {
     res = await fetch(apiUrl("/api/authenticate"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(await authHostHeaders()) },
       body: JSON.stringify({ username, password }),
       cache: "no-store",
     });
@@ -35,6 +36,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "Couldn't reach the server. Is the API running?" }, { status: 502 });
   }
 
+  if (await isNotAMember(res)) {
+    return Response.json({ error: NOT_A_MEMBER_MESSAGE, code: "NOT_A_MEMBER" }, { status: 403 });
+  }
   if (!res.ok) {
     return Response.json({ error: "Incorrect username or password." }, { status: 401 });
   }

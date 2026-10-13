@@ -349,7 +349,7 @@
       "id": "X1.5",
       "epic": "X1",
       "title": "Tenant-bound sessions: tid/hid claims on tenant-host login, decoder validation, refresh keeps tid, interceptor enforces tid = path org",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API",

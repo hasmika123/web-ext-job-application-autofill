@@ -14,6 +14,7 @@ import java.util.Map;
  *   <li>{@code SLUG_TAKEN} (409) - carries a {@code suggestion}.</li>
  *   <li>{@code GROUP_NAME_TAKEN} (409), {@code ORG_NOT_EDITABLE} (409) - state conflicts.</li>
  *   <li>{@code ORG_LIMIT_REACHED} (422) - an admin-configured cap was hit ({@code limit} names it, {@code max} is its value).</li>
+ *   <li>{@code NOT_A_MEMBER} (403) - sign-in on a tenant host by someone with no active seat (the only non-404 there; carries nothing).</li>
  *   <li>{@code SUBDOMAIN_TAKEN} (409) - another organization already owns that {@code kiwiply.com} label (Enterprise V2).</li>
  * </ul>
  */
@@ -29,6 +30,7 @@ public class OrgException extends RuntimeException {
     public static final String CODE_ORG_NOT_EDITABLE = "ORG_NOT_EDITABLE";
     public static final String CODE_ORG_LIMIT_REACHED = "ORG_LIMIT_REACHED";
     public static final String CODE_SUBDOMAIN_TAKEN = "SUBDOMAIN_TAKEN";
+    public static final String CODE_NOT_A_MEMBER = "NOT_A_MEMBER";
 
     private final int status;
     private final String code;
@@ -44,6 +46,11 @@ public class OrgException extends RuntimeException {
     /** A value the product does not accept yet (tenant-model.md decision 10). */
     public static OrgException reserved(String field, String value) {
         return new OrgException(422, CODE_RESERVED_VALUE, value + " is reserved and cannot be used yet", Map.of("field", field));
+    }
+
+    /** Enterprise V2 (X1.5): valid credentials on an organization's host, but no active seat there. Carries no organization data. */
+    public static OrgException notAMember() {
+        return new OrgException(403, CODE_NOT_A_MEMBER, "You are not a member of this workspace", Map.of());
     }
 
     public static OrgException invalid(String field, String message) {

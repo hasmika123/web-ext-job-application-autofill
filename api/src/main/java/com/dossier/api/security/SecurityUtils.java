@@ -28,6 +28,12 @@ public final class SecurityUtils {
     // strict resource-server decoder in SecurityJwtConfiguration).
     public static final String TOKEN_TYPE_CLAIM = "token_type";
 
+    // Enterprise V2 (X1.5): a session minted on a tenant host is bound to that tenant. tid = organization id, hid = the
+    // hostname row it was minted on. Absent on every personal / extension token (the extension never carries tid).
+    public static final String TENANT_CLAIM = "tid";
+
+    public static final String HOSTNAME_CLAIM = "hid";
+
     public static final String ACCESS_TOKEN_TYPE = "access";
 
     public static final String REFRESH_TOKEN_TYPE = "refresh";

@@ -61,6 +61,9 @@ public class OrgAuditService {
 
     // --- Enterprise V2 tenancy (X1.2): hostnames and branding add their own keys in their stories ---
     public static final String ORG_SUBDOMAIN_SET = "ORG_SUBDOMAIN_SET";
+    /** X1.5: correct credentials on this organization's host by someone with no active seat (recorded in the tenant's own trail). */
+    public static final String LOGIN_DENIED_NOT_MEMBER = "LOGIN_DENIED_NOT_MEMBER";
+    public static final String TARGET_SESSION = "SESSION";
 
     // --- Target kinds ---
     public static final String TARGET_ORG = "ORG";
@@ -135,6 +138,15 @@ public class OrgAuditService {
         OrgAuditEvent saved = repository.save(e);
         LOG.info("ORG AUDIT org={} actor='{}' action='{}' target='{}:{}'", orgId, actorLogin, action, targetType, targetId);
         return saved;
+    }
+
+    /** A denied sign-in on a tenant host: no signed-in caller exists yet, so the actor is the login that tried; carries the hostname row. */
+    @Transactional
+    public OrgAuditEvent recordHostEvent(Long orgId, Long hostnameId, String actorLogin, String action, String risk, String details) {
+        OrgAuditEvent saved = record(orgId, actorLogin, null, action, TARGET_SESSION, actorLogin, null, details, null);
+        saved.setHostnameId(hostnameId);
+        saved.setRisk(risk == null ? "LOW" : risk);
+        return repository.save(saved);
     }
 
     /** One page of an org's trail, newest first (the Pageable carries the sort). Always scoped to {@code orgId}. */

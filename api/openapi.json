@@ -8302,7 +8302,7 @@
       "get" : {
         "tags" : [ "config" ],
         "summary" : "Public feature switches",
-        "description" : "{orgs, demo}: whether organization features and the demo accounts are on. No authentication; cached for 5 minutes; never per-user.",
+        "description" : "{orgs, demo, enterprise}: whether organization features, the demo accounts and the enterprise master flag are on. No authentication; cached for 5 minutes; never per-user.",
         "operationId" : "publicConfig",
         "responses" : {
           "200" : {
@@ -14737,6 +14737,9 @@
             "type" : "boolean"
           },
           "demo" : {
+            "type" : "boolean"
+          },
+          "enterprise" : {
             "type" : "boolean"
           }
         }

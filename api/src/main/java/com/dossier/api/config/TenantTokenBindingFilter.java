@@ -1,0 +1,80 @@
+package com.dossier.api.config;
+
+import com.dossier.api.service.ent.TenantContext;
+import com.dossier.api.service.ent.TenantContextHolder;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Optional;
+import java.util.regex.Pattern;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+/**
+ * The path-dependent half of token-to-tenant binding (X1.5, 04-tenancy-and-security.md section 3), run right after bearer
+ * authentication. It only looks at JWT-authenticated requests and only while a tenant context was resolved (enterprise on).
+ *
+ * <ul>
+ *   <li>TENANT host, an organization route ({@code /api/orgs}, {@code /api/me/orgs}, {@code /api/join}, {@code /api/ent}):
+ *       a token without {@code tid} is unauthenticated here (401, so the web sends the visitor to the tenant login); a token
+ *       for another tenant is 401 (the decoder already refuses it; this is the second wall). {@code /api/account} and every
+ *       other route are untouched: that is the login-first hand-off.</li>
+ *   <li>Any other context: a token WITH {@code tid} may not touch {@code /api/orgs/{id}/...} or {@code /api/ent/...}: 404,
+ *       the same generic answer as for an organization that does not exist. User-scoped routes stay available.</li>
+ * </ul>
+ */
+public class TenantTokenBindingFilter extends OncePerRequestFilter {
+
+    private static final Pattern ORG_SCOPED = Pattern.compile("^/api/(orgs/[0-9]+(/.*)?|ent(/.*)?)$");
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
+        Optional<TenantContext> context = TenantContextHolder.current();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (context.isEmpty() || !(auth instanceof JwtAuthenticationToken jwtAuth)) {
+            chain.doFilter(request, response);
+            return;
+        }
+        String path = pathOf(request);
+        Long tid = TenantTokenBinding.tenantOf(jwtAuth.getToken());
+        TenantContext c = context.get();
+        if (c.isTenant()) {
+            if (OrgsEnabledFilter.isOrgPath(path) || path.equals("/api/ent") || path.startsWith("/api/ent/")) {
+                if (tid == null) {
+                    unauthorized(response, "TOKEN_TENANT_REQUIRED");
+                    return;
+                }
+                if (!tid.equals(c.orgId())) {
+                    unauthorized(response, TenantTokenBinding.MISMATCH);
+                    return;
+                }
+            }
+        } else if (tid != null && ORG_SCOPED.matcher(path).matches()) {
+            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+            response.setContentType("application/problem+json");
+            response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+            response.getWriter().write(OrgsEnabledFilter.body(request.getRequestURI()));
+            return;
+        }
+        chain.doFilter(request, response);
+    }
+
+    private static void unauthorized(HttpServletResponse response, String code) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setHeader("WWW-Authenticate", "Bearer error=\"invalid_token\", error_description=\"" + code + "\"");
+        response.setContentType("application/problem+json");
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write("{\"status\":401,\"title\":\"Unauthorized\",\"code\":\"" + code + "\"}");
+    }
+
+    private static String pathOf(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String context = request.getContextPath();
+        return OrgsEnabledFilter.normalise(context != null && !context.isEmpty() && path.startsWith(context) ? path.substring(context.length()) : path);
+    }
+}

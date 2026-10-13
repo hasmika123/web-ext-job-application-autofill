@@ -63,3 +63,14 @@ export function isRewriteExempt(pathname: string): boolean {
 export function isTenantRoutePath(pathname: string): boolean {
   return pathname === TENANT_ROUTE_PREFIX || pathname.startsWith(`${TENANT_ROUTE_PREFIX}/`);
 }
+
+/**
+ * The `X-Kiwiply-Host` header an auth BFF call must carry so the API can bind the session to the tenant (X1.5).
+ * `proxy.ts` does not run on `/api/auth/*`, so the browser's `x-kiwiply-host` is NEVER trusted here: the host is
+ * recomputed from the raw request (`x-forwarded-host` / `host`). A platform host (or none) sends nothing, so
+ * today's sign-in is byte-for-byte unchanged and an unlisted staging host can not turn into a 404.
+ */
+export function authHostHeader(headers: { get(name: string): string | null }): Record<string, string> {
+  const host = requestHost(headers);
+  return host && !isPlatformHost(host) ? { "X-Kiwiply-Host": host } : {};
+}

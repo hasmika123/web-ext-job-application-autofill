@@ -2,8 +2,10 @@ package com.dossier.api.web.rest;
 
 import static com.dossier.api.security.SecurityUtils.ACCESS_TOKEN_TYPE;
 import static com.dossier.api.security.SecurityUtils.AUTHORITIES_CLAIM;
+import static com.dossier.api.security.SecurityUtils.HOSTNAME_CLAIM;
 import static com.dossier.api.security.SecurityUtils.JWT_ALGORITHM;
 import static com.dossier.api.security.SecurityUtils.REFRESH_TOKEN_TYPE;
+import static com.dossier.api.security.SecurityUtils.TENANT_CLAIM;
 import static com.dossier.api.security.SecurityUtils.TOKEN_TYPE_CLAIM;
 import static com.dossier.api.security.SecurityUtils.USER_ID_CLAIM;
 
@@ -11,6 +13,8 @@ import com.dossier.api.security.DomainUserDetailsService.UserWithId;
 import com.dossier.api.service.AdminMfaService;
 import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.RefreshTokenService;
+import com.dossier.api.service.ent.TenantBinding;
+import com.dossier.api.service.ent.TenantSessionService;
 import com.dossier.api.web.rest.vm.LoginVM;
 import com.dossier.api.web.rest.vm.MfaVM;
 import com.dossier.api.web.rest.vm.RefreshVM;
@@ -26,6 +30,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -82,14 +87,19 @@ public class AuthenticateController {
 
     private final DemoGuard demoGuard;
 
+    // Optional on purpose: this controller's constructor is pinned by the sliced AuthenticationIntegrationTest.
+    private final ObjectProvider<TenantSessionService> tenantSessions;
+
     public AuthenticateController(
         JwtEncoder jwtEncoder,
         @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
         AuthenticationManagerBuilder authenticationManagerBuilder,
         RefreshTokenService refreshTokenService,
         AdminMfaService adminMfaService,
-        DemoGuard demoGuard
+        DemoGuard demoGuard,
+        ObjectProvider<TenantSessionService> tenantSessions
     ) {
+        this.tenantSessions = tenantSessions;
         this.jwtEncoder = jwtEncoder;
         this.refreshTokenDecoder = refreshTokenDecoder;
         this.authenticationManagerBuilder = authenticationManagerBuilder;
@@ -116,6 +126,9 @@ public class AuthenticateController {
 
         String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
         Long userId = authentication.getPrincipal() instanceof UserWithId user ? user.getId() : null;
+
+        // X1.5: on a tenant host the user needs an active seat in that org (403 NOT_A_MEMBER) BEFORE any MFA mail goes out.
+        bindingFor(userId, authentication.getName());
 
         // Admin email-OTP MFA (Phase 9.X.3) — when enabled, an admin gets an emailed code instead
         // of tokens here, and completes sign-in at /authenticate/mfa. If they have no email on file,
@@ -147,17 +160,28 @@ public class AuthenticateController {
 
     /** Build the access + refresh token pair (new rotation family) and the bearer header. */
     private ResponseEntity<TokenResponse> issueTokens(String subject, String authorities, Long userId) {
-        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
+        TenantBinding binding = bindingFor(userId, subject).orElse(null);
+        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding);
         // New login starts a new rotation family. The refresh token carries a jti recorded
         // server-side so it can be rotated and revoked.
         String family = UUID.randomUUID().toString();
         String refreshJti = UUID.randomUUID().toString();
         refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti);
+        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti, binding);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
         return new ResponseEntity<>(new TokenResponse(accessToken, refreshToken), httpHeaders, HttpStatus.OK);
+    }
+
+    private Optional<TenantBinding> bindingFor(Long userId, String login) {
+        TenantSessionService sessions = tenantSessions.getIfAvailable();
+        return sessions == null ? Optional.empty() : sessions.bindingForLogin(userId, login);
+    }
+
+    private static Long longClaim(Jwt jwt, String name) {
+        Object raw = jwt.getClaim(name);
+        return raw instanceof Number n ? n.longValue() : null;
     }
 
     /**
@@ -188,6 +212,18 @@ public class AuthenticateController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
+        // X1.5: a tenant-bound refresh token only works on its own tenant's host, while the seat is still active, and keeps its binding.
+        Long tid = longClaim(jwt, TENANT_CLAIM);
+        Long hid = longClaim(jwt, HOSTNAME_CLAIM);
+        if (tid != null) {
+            TenantSessionService sessions = tenantSessions.getIfAvailable();
+            Object uid = jwt.getClaim(USER_ID_CLAIM);
+            if (sessions == null || !sessions.refreshAllowed(tid, uid instanceof Number n ? n.longValue() : null)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+        }
+        TenantBinding binding = tid == null ? null : new TenantBinding(tid, hid);
+
         // Rotate: spend the presented token and continue its family. Unknown / already-used
         // (reuse) / expired tokens are rejected (reuse also revokes the family).
         var family = refreshTokenService.rotateAndGetFamily(jwt.getId());
@@ -199,10 +235,10 @@ public class AuthenticateController {
         Object rawUserId = jwt.getClaim(USER_ID_CLAIM);
         Long userId = rawUserId instanceof Number n ? n.longValue() : null;
 
-        String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
+        String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding);
         String newRefreshJti = UUID.randomUUID().toString();
         refreshTokenService.record(newRefreshJti, family.get(), userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(jwt.getSubject(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, newRefreshJti);
+        String refreshToken = buildToken(jwt.getSubject(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, newRefreshJti, binding);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
@@ -267,19 +303,19 @@ public class AuthenticateController {
         }
         String subject = authentication.getName();
 
-        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
+        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, null); // never tid: the extension is not tenant-bound
         // New family — independent of the web session's refresh rotation.
         String family = UUID.randomUUID().toString();
         String refreshJti = UUID.randomUUID().toString();
         refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti);
+        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti, null);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
         return new ResponseEntity<>(new TokenResponse(accessToken, refreshToken), httpHeaders, HttpStatus.OK);
     }
 
-    private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti) {
+    private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti, TenantBinding binding) {
         Instant now = Instant.now();
         Instant validity = now.plus(validityInSeconds, ChronoUnit.SECONDS);
 
@@ -292,6 +328,10 @@ public class AuthenticateController {
             .claim(TOKEN_TYPE_CLAIM, tokenType);
         if (userId != null) {
             builder.claim(USER_ID_CLAIM, userId);
+        }
+        if (binding != null && binding.orgId() != null) {
+            builder.claim(TENANT_CLAIM, binding.orgId());
+            if (binding.hostnameId() != null) builder.claim(HOSTNAME_CLAIM, binding.hostnameId());
         }
         if (jti != null) {
             builder.id(jti); // standard "jti" claim — recorded for rotation/revocation
