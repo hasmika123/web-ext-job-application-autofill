@@ -22,6 +22,7 @@ import { createBrandingMock } from "./mock-branding.mjs";
 import { createInvitationsMock } from "./mock-invitations.mjs";
 import { createDashboardMock } from "./mock-dashboard.mjs";
 import { createMembersMock } from "./mock-members.mjs";
+import { createResumesMock } from "./mock-resumes.mjs";
 import { createGroupsMock } from "./mock-groups.mjs";
 import { createRolesMock } from "./mock-roles.mjs";
 import { readFileSync } from "node:fs";
@@ -265,6 +266,8 @@ const handleInvitations = createInvitationsMock({
 const handleDashboard = createDashboardMock({ json, subOf: bearerSub });
 /* Employees mock (X4.12: members list, tiles, detail, bulk, lifecycle for Acme; scripts/mock-members.mjs) */
 const handleMembers = createMembersMock({ json, subOf: bearerSub });
+/* Resumes mock (talent pages: honest empty answers, no invented data; scripts/mock-resumes.mjs) */
+const handleResumes = createResumesMock({ json });
 /* ── Departments and Teams mock (X4.5: groups, leads, moves for Acme; scripts/mock-groups.mjs) ── */
 const handleGroups = createGroupsMock({ json, withBody, subOf: bearerSub });
 /* ── Roles & Permissions mock (X4.11: roles, catalog, diff, history, resync, member roles; scripts/mock-roles.mjs) ── */
@@ -1992,6 +1995,7 @@ const server = http.createServer((req, res) => {
   if (ENTERPRISE_ENABLED && handleInvitations(req, res, path, method)) return;
   if (handleDashboard(req, res, path, method)) return;
   if (handleMembers(req, res, path, method)) return;
+  if (handleResumes(req, res, path, method)) return;
   if (handleGroups(req, res, path, method)) return;
   if (ENTERPRISE_ENABLED && handleRoles(req, res, path, method)) return;
   if (handleSources(req, res, path, method)) return;
