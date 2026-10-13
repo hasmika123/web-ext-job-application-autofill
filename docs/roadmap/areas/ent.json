@@ -2552,7 +2552,7 @@
       "design": "docs/enterprise-v2/10-domain-routing.md"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "critical": false,
       "evidence": [],
       "ui": [],
@@ -2610,7 +2610,7 @@
       "design": "docs/enterprise-v2/05-permission-model.md"
     },
     {
-      "status": "not_started",
+      "status": "done",
       "relates": [],
       "supersedes": [],
       "ui": [
