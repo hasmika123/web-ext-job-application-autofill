@@ -108,18 +108,30 @@ class OrgIsolationIT {
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
 
     /** How to attack a route, and what a legitimate call by the org's owner must do. */
-    private record Case(String body, int legitStatus, String auditAction, boolean multipart) {
+    private record Case(
+        String body,
+        int legitStatus,
+        String auditAction,
+        boolean multipart,
+        java.util.function.Function<World, String> bodyFor,
+        java.util.function.Function<World, String> ifMatchFor
+    ) {
         static Case read() {
-            return new Case(null, 200, null, false);
+            return new Case(null, 200, null, false, null, null);
         }
 
         static Case write(String body, int status, String action) {
-            return new Case(body, status, action, false);
+            return new Case(body, status, action, false, null, null);
         }
 
         /** A multipart upload (field "file", a small valid PNG) instead of a JSON body. */
         static Case upload(int status, String action) {
-            return new Case(null, status, action, true);
+            return new Case(null, status, action, true, null, null);
+        }
+
+        /** A write whose body and If-Match version depend on the fixture world (role ids, role versions: X1.14). */
+        static Case versioned(int status, String action, java.util.function.Function<World, String> bodyFor, java.util.function.Function<World, String> ifMatchFor) {
+            return new Case(null, status, action, false, bodyFor, ifMatchFor);
         }
     }
 
@@ -136,6 +148,13 @@ class OrgIsolationIT {
         Map.entry("PATCH /api/orgs/{orgId}/groups/{groupId}", Case.write("{\"name\":\"Hijack\"}", 200, OrgAuditService.GROUP_UPDATE)),
         Map.entry("DELETE /api/orgs/{orgId}/groups/{groupId}", Case.write(null, 204, OrgAuditService.GROUP_DELETE)),
         Map.entry("GET /api/orgs/{orgId}/roles", Case.read()),
+        // Enterprise V2 X1.14: role writes and the Roles and Permissions board data. Role edits and deletes carry the role version as If-Match.
+        Map.entry("GET /api/orgs/{orgId}/roles/overview", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/roles/{roleId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/roles", Case.write("{\"name\":\"Hijack\",\"templateKey\":\"EXECUTIVE_VIEWER\"}", 201, "ROLE_CREATE")),
+        Map.entry("PATCH /api/orgs/{orgId}/roles/{roleId}", Case.versioned(200, "ROLE_UPDATE", w -> "{\"name\":\"Hijacked\"}", w -> w.roleVersion)),
+        Map.entry("DELETE /api/orgs/{orgId}/roles/{roleId}", Case.versioned(204, "ROLE_DELETE", w -> null, w -> w.roleVersion)),
+        Map.entry("PUT /api/orgs/{orgId}/members/{memberId}/roles", Case.versioned(200, "ROLE_ASSIGN", w -> "{\"roleIds\":[" + w.consultantRoleId + "],\"primaryRoleId\":" + w.consultantRoleId + "}", w -> null)),
         // Enterprise V2 X2.5: branding. Draft edits, discards and removing an absent asset write no audit row (by design).
         Map.entry("GET /api/orgs/{orgId}/branding", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/branding/preview-theme", Case.read()),
@@ -164,6 +183,9 @@ class OrgIsolationIT {
     @Autowired private DataShareEventRepository shareEvents;
     @Autowired private DataShareService dataShare;
     @Autowired private OrgResumeSharing resumeSharing;
+    @Autowired private com.dossier.api.service.ent.OrgRoleService roleService;
+    @Autowired private com.dossier.api.repository.ent.OrgRoleRepository roleRepo;
+    @Autowired private com.dossier.api.repository.ent.OrgRolePermissionRepository permissionRepo;
     @Autowired private AppSettingRepository settingRows;
     @Autowired private ResumeBuilderSettings settingsCache;
 
@@ -204,6 +226,10 @@ class OrgIsolationIT {
         final OrgDomain domain;
         final OrgAuditEvent auditRow;
         int brandingVersionNo;
+        /** X1.14: one custom role of this organization, its version, and the id of the CONSULTANT template (what a legitimate PUT hands to the member). */
+        Long roleId;
+        String roleVersion;
+        Long consultantRoleId;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -270,6 +296,21 @@ class OrgIsolationIT {
             brandingVersions.save(bv);
             brandingVersionNo = bv.getVersionNo();
 
+            // X1.14: every seat reads its roles from data (the write routes need a data-backed caller), and the org owns one custom role.
+            for (OrgMember seat : everySeat()) roleService.syncFromLegacy(seat);
+            consultantRoleId = roleRepo.findSystemByRoleKey(com.dossier.api.service.ent.RoleTemplates.CONSULTANT).orElseThrow().getId();
+            com.dossier.api.domain.ent.OrgRoleDefinition custom = new com.dossier.api.domain.ent.OrgRoleDefinition();
+            custom.setOrgId(org.getId());
+            custom.setRoleKey("CUSTOM_" + prefix.toUpperCase());
+            custom.setName(prefix + " custom role");
+            custom.setTemplateKey(com.dossier.api.service.ent.RoleTemplates.EXECUTIVE_VIEWER);
+            custom = roleRepo.saveAndFlush(custom);
+            com.dossier.api.domain.ent.OrgRolePermission customRow = permissionRepo.saveAndFlush(
+                new com.dossier.api.domain.ent.OrgRolePermission(custom.getId(), "reports.view", com.dossier.api.domain.enumeration.PermissionScope.ORG, null, null)
+            );
+            roleId = custom.getId();
+            roleVersion = com.dossier.api.service.ent.OrgRoleWriteService.versionOf(custom, java.util.List.of(customRow));
+
             // The member shares a summary with their org: one data_share row and its event.
             dataShare.grant(me(member), ShareScope.SUMMARY, null, OrgShareConsent.CURRENT, ShareContext.EMPTY);
             em.flush();
@@ -289,6 +330,8 @@ class OrgIsolationIT {
             ids.put("orgId", String.valueOf(org.getId()));
             ids.put("groupId", String.valueOf(group.getId()));
             ids.put("versionNo", String.valueOf(brandingVersionNo));
+            ids.put("roleId", String.valueOf(roleId));
+            ids.put("memberId", String.valueOf(member.getId()));
             ids.put("kind", "logo");
             return ids;
         }
@@ -340,12 +383,17 @@ class OrgIsolationIT {
 
     // ---- requests -------------------------------------------------------------------------------------------------
 
-    private MockHttpServletRequestBuilder request(Route route, String uri) {
+    private MockHttpServletRequestBuilder request(Route route, String uri, World world) {
         if (COVERAGE.get(route.key()).multipart()) {
             return MockMvcRequestBuilders.multipart(HttpMethod.valueOf(route.method()), uri).file(new MockMultipartFile("file", "logo.png", "image/png", samplePng()));
         }
         MockHttpServletRequestBuilder req = MockMvcRequestBuilders.request(HttpMethod.valueOf(route.method()), uri).contentType(MediaType.APPLICATION_JSON);
-        String body = COVERAGE.get(route.key()).body();
+        Case c = COVERAGE.get(route.key());
+        String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
+        if (c.ifMatchFor() != null) {
+            String version = c.ifMatchFor().apply(world);
+            if (version != null) req.header("If-Match", version);
+        }
         return body == null ? req : req.content(body);
     }
 
@@ -360,8 +408,8 @@ class OrgIsolationIT {
         }
     }
 
-    private MvcResult hostile(Route route, String uri, org.springframework.test.web.servlet.request.RequestPostProcessor caller) throws Exception {
-        return mockMvc.perform(request(route, uri).with(caller)).andReturn();
+    private MvcResult hostile(Route route, String uri, World world, org.springframework.test.web.servlet.request.RequestPostProcessor caller) throws Exception {
+        return mockMvc.perform(request(route, uri, world).with(caller)).andReturn();
     }
 
     private static void assertGeneric404(MvcResult r, String what) throws Exception {
@@ -449,7 +497,7 @@ class OrgIsolationIT {
                 if (!allowed) callers.put("A's " + seat.getRole() + " (lacks " + route.required() + ")", user(a.loginOf(seat)));
             }
             for (var caller : callers.entrySet()) {
-                assertGeneric404(hostile(route, target, caller.getValue()), route.key() + " as " + caller.getKey());
+                assertGeneric404(hostile(route, target, a, caller.getValue()), route.key() + " as " + caller.getKey());
                 calls++;
             }
         }
@@ -475,7 +523,7 @@ class OrgIsolationIT {
             boolean hasRowId = false;
             while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind");
             if (!hasRowId) continue;
-            assertGeneric404(hostile(route, uri(route, ids), user("bravo-owner")), route.key() + " as B's owner with B's orgId and A's row id");
+            assertGeneric404(hostile(route, uri(route, ids), a, user("bravo-owner")), route.key() + " as B's owner with B's orgId and A's row id");
             variants++;
         }
         assertThat(variants).as("routes that name a row id").isGreaterThanOrEqualTo(2);
@@ -491,7 +539,7 @@ class OrgIsolationIT {
             for (String bad : List.of("0", "-1", "999999999", "abc", "0x1", "9999999999999999999999")) {
                 Map<String, String> ids = new LinkedHashMap<>(a.ids());
                 ids.put("orgId", bad);
-                MvcResult r = hostile(route, uri(route, ids), user("alpha-owner"));
+                MvcResult r = hostile(route, uri(route, ids), a, user("alpha-owner"));
                 assertThat(r.getResponse().getStatus()).as(route.key() + " with orgId " + bad).isEqualTo(404);
             }
         }
@@ -517,7 +565,7 @@ class OrgIsolationIT {
             assertThat(c).as(route.key() + " is not in COVERAGE").isNotNull();
             World w = new World("legit" + (n++), false); // a world of its own, so a close or a delete cannot break the next route
             long before = audit.countByOrgId(w.org.getId());
-            MvcResult r = mockMvc.perform(request(route, uri(route, w.ids())).with(user(w.p + "-owner"))).andReturn();
+            MvcResult r = mockMvc.perform(request(route, uri(route, w.ids()), w).with(user(w.p + "-owner"))).andReturn();
             assertThat(r.getResponse().getStatus()).as(route.key() + " legitimately -> " + r.getResponse().getContentAsString()).isEqualTo(c.legitStatus());
             em.flush();
             long delta = audit.countByOrgId(w.org.getId()) - before;

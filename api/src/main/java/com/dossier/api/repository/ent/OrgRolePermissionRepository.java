@@ -34,4 +34,9 @@ public interface OrgRolePermissionRepository extends Repository<OrgRolePermissio
     @Modifying(flushAutomatically = true)
     @Query("delete from OrgRolePermission p where p.roleId = :roleId and p.permissionKey in :keys and p.roleId in (select r.id from OrgRoleDefinition r where r.orgId is null)")
     int deleteSystemRolePermissions(@Param("roleId") Long roleId, @Param("keys") Collection<String> keys);
+
+    /** X1.14: remove every row of one of the organization's OWN roles (a system template's rows are never touched). */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from OrgRolePermission p where p.roleId = :roleId and p.roleId in (select r.id from OrgRoleDefinition r where r.orgId = :orgId)")
+    int deleteForOwnedRole(@Param("orgId") Long orgId, @Param("roleId") Long roleId);
 }

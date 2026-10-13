@@ -40,7 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * X1.6 through the real chain: {@code GET /api/orgs/{orgId}/roles} shows the twelve system templates with their permission
  * rows to any ACTIVE member, is the same generic 404 as a missing organization for everybody else and whenever the roles flag
- * is off, never shows another organization's roles, and has no write routes yet.
+ * is off, never shows another organization's roles. (The write routes are covered by OrgRoleWriteIT.)
  */
 @IntegrationTest
 @AutoConfigureMockMvc
@@ -169,18 +169,10 @@ class OrgRoleResourceIT {
     }
 
     @Test
-    void thereAreNoWriteRoutesYet() throws Exception {
-        for (MockHttpServletRequestBuilder req : new MockHttpServletRequestBuilder[] {
-            post(uri(a)).content("{\"templateKey\":\"ORG_ADMIN\",\"name\":\"x\"}"),
-            patch(uri(a) + "/1").content("{\"name\":\"x\"}"),
-            put(uri(a) + "/1/permissions").content("{}"),
-            delete(uri(a) + "/1"),
-            get(uri(a) + "/1"),
-        }) {
-            MvcResult r = call("roles-a-owner", req);
-            assertThat(r.getResponse().getStatus()).as(req.toString() + " -> " + r.getResponse().getContentAsString()).isIn(404, 405);
-        }
-        // and nothing changed: still twelve system rows, none owned by an organization
+    void thePermissionGridRouteOfTheDesignDocIsNotBuiltYet() throws Exception {
+        // X1.14 builds create / edit / delete; the separate permissions sub-route of doc 40 is X4.1 and answers nothing yet.
+        MvcResult r = call("roles-a-owner", put(uri(a) + "/1/permissions").content("{}"));
+        assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isIn(404, 405);
         assertThat(om.readTree(call("roles-a-owner", get(uri(a))).getResponse().getContentAsString())).hasSize(12);
     }
 
