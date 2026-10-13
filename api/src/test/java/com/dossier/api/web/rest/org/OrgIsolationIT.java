@@ -264,7 +264,7 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/filters", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/kpis", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/workload", Case.read()),
-        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/marketers", Case.people(201, "MARKETER_ADD", 1, w -> "{\"memberId\":" + w.member.getId() + ",\"capacity\":9}", null, w -> w.mktMarketingRole())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/marketers", Case.people(201, "MARKETER_ADD", 1, w -> "{\"memberId\":" + w.mktFreshMarketer() + ",\"capacity\":9}", null, null)),
         Map.entry("PATCH /api/orgs/{orgId}/marketing-assignments/marketers/{memberId}", Case.people(200, "MARKETER_UPDATE", 1, w -> "{\"capacity\":7}", null, w -> w.mktCapacity())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/update", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"priority\":\"HIGH\"}", null, w -> w.mktAssigned())),
@@ -510,7 +510,7 @@ class OrgIsolationIT {
             // Jobs page: one client, one consultant, one OPEN job and one suggested match
             com.dossier.api.domain.ent.talent.ClientAccount jc = new com.dossier.api.domain.ent.talent.ClientAccount();
             jc.setOrgId(org.getId());
-            jc.setName(prefix + " client");
+            jc.setName(prefix + " jobs-board client");
             jobClientId = jobClients.saveAndFlush(jc).getId();
             com.dossier.api.domain.ent.talent.ConsultantProfile jp = new com.dossier.api.domain.ent.talent.ConsultantProfile();
             jp.setOrgId(org.getId());
@@ -533,10 +533,12 @@ class OrgIsolationIT {
             jobId = jr.getId();
             matchId = jm.getId();
             jobVersion = com.dossier.api.service.ent.jobs.JobBoardService.versionOf(jr);
+            appTalent = com.dossier.api.web.rest.ent.ApplicationItSupport.seed(em, org.getId(), owner.getId());
         }
 
         /** ent-marketing: the id of this world's consultant profile (a made-up id until a prepare created it, which must also give a generic answer). */
         Long mktConsultantId = 1L;
+        Long mktFresh;
 
         /** The world's member holds a marketing role (what "add a marketer" promotes). */
         void mktMarketingRole() {
@@ -547,13 +549,26 @@ class OrgIsolationIT {
         }
 
         /** A marketer (capacity row) for the world's member, plus one consultant profile. */
+        /** A second active seat with a marketing role and no capacity row yet (the member itself already has one from the Consultants fixture). */
+        Long mktFreshMarketer() {
+            if (mktFresh == null) {
+                OrgMember seat = fx.active(org, p + "-mkt-new", OrgRole.MARKETER);
+                roleService.syncFromLegacy(seat);
+                em.flush();
+                mktFresh = seat.getId();
+            }
+            return mktFresh;
+        }
+
         void mktCapacity() {
             mktMarketingRole();
-            com.dossier.api.domain.ent.talent.MarketerCapacity c = new com.dossier.api.domain.ent.talent.MarketerCapacity();
-            c.setOrgId(org.getId());
-            c.setMemberId(member.getId());
-            c.setCapacity(5);
-            mktCapacities.saveAndFlush(c);
+            if (mktCapacities.findByOrgIdAndMemberId(org.getId(), member.getId()).isEmpty()) { // the Consultants fixture may have added it already
+                com.dossier.api.domain.ent.talent.MarketerCapacity c = new com.dossier.api.domain.ent.talent.MarketerCapacity();
+                c.setOrgId(org.getId());
+                c.setMemberId(member.getId());
+                c.setCapacity(5);
+                mktCapacities.saveAndFlush(c);
+            }
             com.dossier.api.domain.ent.talent.ConsultantProfile k = new com.dossier.api.domain.ent.talent.ConsultantProfile();
             k.setOrgId(org.getId());
             k.setDisplayName(p + " consultant");
@@ -568,7 +583,6 @@ class OrgIsolationIT {
             a.setConsultantId(mktConsultantId);
             a.setMarketerMemberId(member.getId());
             mktAssignments.saveAndFlush(a);
-            appTalent = com.dossier.api.web.rest.ent.ApplicationItSupport.seed(em, org.getId(), owner.getId());
         }
 
         /** Puts the member in the SUSPENDED state (what a reinstate needs to find). */
