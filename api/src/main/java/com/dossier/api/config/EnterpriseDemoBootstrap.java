@@ -3,6 +3,7 @@ package com.dossier.api.config;
 import com.dossier.api.service.ent.EnterpriseDemoSeeder;
 import com.dossier.api.service.ent.RoleTemplateSeeder;
 import com.dossier.api.service.ent.TalentDemoSeeder;
+import com.dossier.api.service.ent.clients.ClientsDemoSeeder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,12 +27,14 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final EnterpriseDemoSeeder seeder;
     private final RoleTemplateSeeder roleTemplates;
     private final TalentDemoSeeder talent;
+    private final ClientsDemoSeeder clientsDemo;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ClientsDemoSeeder clientsDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
+        this.clientsDemo = clientsDemo;
         this.createAccounts = createAccounts;
     }
 
@@ -50,6 +53,12 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             talent.seed(); // talent boards demo data: only after the tenants exist, same switches
         } catch (RuntimeException e) {
             LOG.error("Talent demo seed failed; the talent pages have no demo data.", e);
+            return;
+        }
+        try {
+            clientsDemo.seed(); // the Clients page's extra demo clients, contacts and notes (idempotent)
+        } catch (RuntimeException e) {
+            LOG.error("Clients demo seed failed; the Clients page shows only the foundation's clients.", e);
         }
     }
 }
