@@ -1080,3 +1080,15 @@ export const RouteIcon = makeIcon("RouteIcon", {
     </>
   ),
 });
+
+/** Picture frame with a sun and hills - the "your logo goes here" placeholder (tenant login logo slot, editor preview). */
+export const ImageIcon = makeIcon("ImageIcon", {
+  strokeWidth: 1.8,
+  node: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <circle cx="9" cy="10" r="1.8" />
+      <path d="M3.5 17.5l5-4.5 3.5 3 3-2.5 5.5 4.5" />
+    </>
+  ),
+});

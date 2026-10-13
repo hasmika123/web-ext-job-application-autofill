@@ -23,11 +23,37 @@ export default function TenantLogo({
 }: {
   name: string;
   logoUrl?: string | null;
-  size?: "md" | "lg";
+  /** "slot": fills its parent box (login card logo slot) - object-contain with the wordmark centred and wrapped. */
+  size?: "md" | "lg" | "slot";
   className?: string;
 }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const height = size === "lg" ? 56 : 44;
+  if (logoUrl && failedUrl !== logoUrl && size === "slot") {
+    return (
+      <span className={cn("flex h-full w-full items-center justify-center", className)} data-tenant-logo="image">
+        <Image
+          src={logoUrl}
+          alt={name}
+          width={160}
+          height={64}
+          unoptimized
+          onError={() => setFailedUrl(logoUrl)}
+          className="h-auto max-h-full w-auto max-w-full object-contain"
+        />
+      </span>
+    );
+  }
+  if (size === "slot" && !(logoUrl && failedUrl !== logoUrl)) {
+    return (
+      <span
+        data-tenant-logo="wordmark"
+        className={cn("line-clamp-3 w-full break-words text-center font-body text-[15px] font-extrabold leading-tight tracking-tight text-[var(--brand-700)]", className)}
+      >
+        {name}
+      </span>
+    );
+  }
   if (logoUrl && failedUrl !== logoUrl) {
     return (
       <span className={cn("inline-flex items-center", className)} data-tenant-logo="image">
