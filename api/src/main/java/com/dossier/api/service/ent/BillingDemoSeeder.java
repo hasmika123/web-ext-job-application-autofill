@@ -1054,7 +1054,8 @@ public class BillingDemoSeeder {
                         frac = Math.max(0.1, Math.min(1.0, (now.getEpochSecond() - f.getStartsAt().getEpochSecond()) / span));
                     }
                     long used;
-                    if (prev > 0) used = Math.round(prev * (1.0 + 0.24 + (rnd.nextDouble() - 0.5) * 0.5) * (0.4 + 0.6 * dayFraction()));
+                    // month to date is seeded at full-month pace so that "vs last month" is a real +24 % (+/- noise), not a partial-month dip
+                    if (prev > 0) used = Math.round(prev * (1.0 + 0.24 + (rnd.nextDouble() - 0.5) * 0.5));
                     else used = Math.round(allowance * p0 * frac);
                     used = Math.max(1, Math.min(allowance, used));
                     UsageCounter c = counter(l, f, key(curStart), used, allowance);
@@ -1114,10 +1115,6 @@ public class BillingDemoSeeder {
                 alerts.add(a);
             }
             alertRepo.saveAll(alerts);
-        }
-
-        double dayFraction() {
-            return Math.min(1.0, (now.getEpochSecond() - at(firstThis).getEpochSecond()) / (double) (at(firstThis.plusMonths(1)).getEpochSecond() - at(firstThis).getEpochSecond()));
         }
 
         UsageCounter counter(ConsultantLicense l, LicenseFeature f, String period, long used, long allowance) {
