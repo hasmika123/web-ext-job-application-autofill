@@ -217,7 +217,19 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/invitations/bulk/revoke", Case.write("{\"ids\":[1]}", 200, null)),
         // Enterprise V2 X2.4: the dashboard. Dismissing an alert is a personal preference of the caller, so it writes no audit row.
         Map.entry("GET /api/orgs/{orgId}/dashboard", Case.read()),
-        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null))
+        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null)),
+        // Talent pages: the Resumes board (ent-resumes). The world holds one approved, non-primary, internal resume of one consultant.
+        Map.entry("GET /api/orgs/{orgId}/resumes", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/consultants", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/{resumeId}", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/{resumeId}/export", Case.write(null, 200, "RESUME_EXPORT")),
+        Map.entry("PUT /api/orgs/{orgId}/resumes/{resumeId}/primary", Case.write("{\"primary\":true}", 200, "RESUME_PRIMARY")),
+        Map.entry("PUT /api/orgs/{orgId}/resumes/{resumeId}/visibility", Case.write("{\"visibility\":\"PUBLIC\"}", 200, "RESUME_VISIBILITY")),
+        Map.entry("POST /api/orgs/{orgId}/resumes/{resumeId}/decision", Case.write("{\"decision\":\"REOPEN\"}", 200, "RESUME_REOPEN")),
+        Map.entry("POST /api/orgs/{orgId}/resumes", Case.versioned(201, "RESUME_CREATE", w -> "{\"consultantId\":" + w.consultantProfileId + ",\"name\":\"Isolation resume\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/resumes/bulk", Case.people(200, "RESUME_BULK", 2, w -> "{\"ids\":[" + w.resumeId + "],\"action\":\"VISIBILITY\",\"visibility\":\"PUBLIC\"}", null, null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -267,6 +279,8 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.service.ent.members.OrgMemberQueryService memberQuery;
     @Autowired private OrgBrandingRepository brandings;
     @Autowired private OrgBrandingVersionRepository brandingVersions;
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository talentConsultants;
+    @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository talentResumes;
 
     private OrgFixtures fx;
 
@@ -293,6 +307,9 @@ class OrgIsolationIT {
         OrgGroup department;
         String memberVersion;
         Long offboardingId;
+        /** Resumes board: one consultant of this organization and one approved, non-primary, internal resume of theirs. */
+        Long consultantProfileId;
+        Long resumeId;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -402,6 +419,17 @@ class OrgIsolationIT {
             offboardingId = offboardingRows.saveAndFlush(sched).getId();
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
+            com.dossier.api.domain.ent.talent.ConsultantProfile cp = new com.dossier.api.domain.ent.talent.ConsultantProfile();
+            cp.setOrgId(org.getId());
+            cp.setDisplayName(prefix + " consultant");
+            cp.setEmail(prefix + "-consultant@example.org");
+            consultantProfileId = talentConsultants.saveAndFlush(cp).getId();
+            com.dossier.api.domain.ent.talent.OrgResume rs = new com.dossier.api.domain.ent.talent.OrgResume();
+            rs.setOrgId(org.getId());
+            rs.setConsultantId(consultantProfileId);
+            rs.setName(prefix + " resume");
+            rs.setOwnerMemberId(member.getId());
+            resumeId = talentResumes.saveAndFlush(rs).getId();
         }
 
         /** Puts the member in the SUSPENDED state (what a reinstate needs to find). */
@@ -431,6 +459,7 @@ class OrgIsolationIT {
             ids.put("pendingMemberId", String.valueOf(pending.getId())); // X1.8's resend names the INVITED seat; every other {memberId} route is the ACTIVE member
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             ids.put("alertKey", "MEMBERS_SUSPENDED");
+            ids.put("resumeId", String.valueOf(resumeId));
             return ids;
         }
 
@@ -486,7 +515,7 @@ class OrgIsolationIT {
             return MockMvcRequestBuilders.multipart(HttpMethod.valueOf(route.method()), uri).file(new MockMultipartFile("file", "logo.png", "image/png", samplePng()));
         }
         MockHttpServletRequestBuilder req = MockMvcRequestBuilders.request(HttpMethod.valueOf(route.method()), uri).contentType(MediaType.APPLICATION_JSON);
-        if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
+        if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members") || route.key().equals("POST /api/orgs/{orgId}/resumes") || route.key().equals("POST /api/orgs/{orgId}/resumes/bulk")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
         if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard"))) {
