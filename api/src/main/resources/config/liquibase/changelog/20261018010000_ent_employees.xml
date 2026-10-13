@@ -5,54 +5,229 @@
     xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
 
     <!--
-        Enterprise V2 X4.5 - departments and teams (docs/enterprise-v2/41-database-design.md changelog 4 "ent_employees",
-        15-employees-and-teams.md section 6). The org_group half of that changelog; the org_member half (title, employment status,
-        last_active_at, search columns) belongs to X4.3 and is added to THIS file behind columnExists preconditions.
+        Enterprise V2 X4.3 / X4.4 - employees (docs/enterprise-v2/41-database-design.md changelog 4 "ent_employees",
+        15-employees-and-teams.md sections 2, 3, 5).
 
-        Additive only, nothing is backfilled, every new column is nullable or has a default, so the legacy org console and every
-        existing group behave as before.
+        Additive only. org_member gains the org-set title, the department and team the person sits in, the reporting manager and the
+        throttled "last active" time (all nullable: every existing row keeps today's behaviour; the Employees board falls back to the
+        legacy single group_id when the new links are empty). org_group gains parent_group_id so a team can belong to a department
+        (X4.5 owns the group editor; the members API only needs the link to enforce "team inside department" and DEPARTMENT scope).
+        Two new tables: org_member_offboarding (a scheduled last day; one PENDING row per member, a database fact) and
+        idempotency_record (the 24 h ledger of Idempotency-Key replies, 40-api-specs.md section 6).
 
-        org_group.parent_group_id  a TEAM may sit under one DEPARTMENT (one level of nesting; the service refuses anything else).
-        org_group.lead_member_id   the one member who leads the group (an ACTIVE seat of the same organization, checked by the service);
-                                   a lead counts as a member of the group for TEAM / DEPARTMENT scope (05 section 4).
-        org_group.version          optimistic-concurrency counter behind the ETag / If-Match of group edits (40 section 5).
-        org_group.status           ACTIVE or INACTIVE ("archived": hidden from pickers, members keep their placement).
-        org_group.icon, color      the fixed picker the Departments and Teams cards show (validated against a closed list by the service).
-
-        R3 (41 section 1): a child row can never point at another tenant's parent. That needs (org_id, id) to be unique on the
-        parents, so org_group and org_member get uk_*_org_id first, then the two foreign keys are composite and RESTRICT.
-        Rollbacks drop in reverse order.
+        Every changeSet has a precondition (MARK_RAN) and a rollback. No DATE OF BIRTH, no government id, no bank number anywhere.
     -->
 
     <changeSet id="20261018010000-1" author="dossier">
-        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_group" indexName="uk_group_org_id"/></not></preConditions>
-        <addUniqueConstraint tableName="org_group" columnNames="org_id, id" constraintName="uk_group_org_id"/>
-        <rollback><dropUniqueConstraint tableName="org_group" constraintName="uk_group_org_id"/></rollback>
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_member" columnName="title"/></not>
+        </preConditions>
+        <addColumn tableName="org_member">
+            <column name="title" type="varchar(120)"/>
+        </addColumn>
+        <rollback><dropColumn tableName="org_member" columnName="title"/></rollback>
     </changeSet>
 
     <changeSet id="20261018010000-2" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_member" columnName="department_group_id"/></not>
+        </preConditions>
+        <addColumn tableName="org_member">
+            <column name="department_group_id" type="bigint"/>
+            <column name="team_group_id" type="bigint"/>
+            <column name="manager_member_id" type="bigint"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="department_group_id"
+            constraintName="fk_member_department" referencedTableName="org_group" referencedColumnNames="id" onDelete="SET NULL"/>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="team_group_id"
+            constraintName="fk_member_team" referencedTableName="org_group" referencedColumnNames="id" onDelete="SET NULL"/>
+        <addForeignKeyConstraint baseTableName="org_member" baseColumnNames="manager_member_id"
+            constraintName="fk_member_manager" referencedTableName="org_member" referencedColumnNames="id" onDelete="SET NULL"/>
+        <createIndex tableName="org_member" indexName="ix_member_org_department">
+            <column name="org_id"/>
+            <column name="status"/>
+            <column name="department_group_id"/>
+        </createIndex>
+        <createIndex tableName="org_member" indexName="ix_member_org_team">
+            <column name="org_id"/>
+            <column name="team_group_id"/>
+        </createIndex>
+        <createIndex tableName="org_member" indexName="ix_member_org_manager">
+            <column name="org_id"/>
+            <column name="manager_member_id"/>
+        </createIndex>
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_manager"/>
+            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_team"/>
+            <dropForeignKeyConstraint baseTableName="org_member" constraintName="fk_member_department"/>
+            <dropIndex tableName="org_member" indexName="ix_member_org_manager"/>
+            <dropIndex tableName="org_member" indexName="ix_member_org_team"/>
+            <dropIndex tableName="org_member" indexName="ix_member_org_department"/>
+            <dropColumn tableName="org_member" columnName="manager_member_id"/>
+            <dropColumn tableName="org_member" columnName="team_group_id"/>
+            <dropColumn tableName="org_member" columnName="department_group_id"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-3" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_member" columnName="last_active_at"/></not>
+        </preConditions>
+        <addColumn tableName="org_member">
+            <column name="last_active_at" type="${datetimeType}"/>
+        </addColumn>
+        <createIndex tableName="org_member" indexName="ix_member_org_last_active">
+            <column name="org_id"/>
+            <column name="last_active_at"/>
+        </createIndex>
+        <rollback>
+            <dropIndex tableName="org_member" indexName="ix_member_org_last_active"/>
+            <dropColumn tableName="org_member" columnName="last_active_at"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-4" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_group" columnName="parent_group_id"/></not>
+        </preConditions>
+        <addColumn tableName="org_group">
+            <column name="parent_group_id" type="bigint"/>
+        </addColumn>
+        <addForeignKeyConstraint baseTableName="org_group" baseColumnNames="parent_group_id"
+            constraintName="fk_org_group_parent" referencedTableName="org_group" referencedColumnNames="id" onDelete="SET NULL"/>
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_group" constraintName="fk_org_group_parent"/>
+            <dropColumn tableName="org_group" columnName="parent_group_id"/>
+        </rollback>
+    </changeSet>
+
+    <!-- A scheduled last day: the seat stays ACTIVE until effective_at, then the offboarding job applies it. -->
+    <changeSet id="20261018010000-5" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="org_member_offboarding"/></not>
+        </preConditions>
+        <createTable tableName="org_member_offboarding">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="member_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="effective_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="varchar(500)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="status" type="varchar(12)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="outcome" type="varchar(200)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="done_at" type="${datetimeType}"/>
+        </createTable>
+        <createIndex tableName="org_member_offboarding" indexName="ix_member_offboarding_due">
+            <column name="org_id"/>
+            <column name="status"/>
+            <column name="effective_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="org_member_offboarding" baseColumnNames="org_id"
+            constraintName="fk_member_offboarding_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_member_offboarding" baseColumnNames="member_id"
+            constraintName="fk_member_offboarding_member" referencedTableName="org_member" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="org_member_offboarding" baseColumnNames="created_by_member_id"
+            constraintName="fk_member_offboarding_creator" referencedTableName="org_member" referencedColumnNames="id" onDelete="SET NULL"/>
+        <rollback>
+            <dropTable tableName="org_member_offboarding"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-6" author="dossier" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <not><columnExists tableName="org_member_offboarding" columnName="pending_key"/></not>
+        </preConditions>
+        <sql>
+            ALTER TABLE org_member_offboarding ADD COLUMN pending_key BIGINT
+                GENERATED ALWAYS AS (IF(status = 'PENDING', member_id, NULL)) STORED
+        </sql>
+        <rollback>
+            <dropColumn tableName="org_member_offboarding" columnName="pending_key"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20261018010000-7" author="dossier" dbms="mysql">
+        <preConditions onFail="MARK_RAN">
+            <not><indexExists tableName="org_member_offboarding" indexName="uk_member_offboarding_pending"/></not>
+        </preConditions>
+        <createIndex tableName="org_member_offboarding" indexName="uk_member_offboarding_pending" unique="true">
+            <column name="pending_key"/>
+        </createIndex>
+        <rollback>
+            <dropIndex tableName="org_member_offboarding" indexName="uk_member_offboarding_pending"/>
+        </rollback>
+    </changeSet>
+
+    <!-- The Idempotency-Key ledger (40-api-specs.md section 6): one reply per (actor, key); purged after 24 h. -->
+    <changeSet id="20261018010000-8" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not><tableExists tableName="idempotency_record"/></not>
+        </preConditions>
+        <createTable tableName="idempotency_record">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint"/>
+            <column name="actor_login" type="varchar(254)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="key_hash" type="char(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="request_hash" type="char(64)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="response_json" type="text"/>
+            <column name="state" type="varchar(12)" defaultValue="DONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addUniqueConstraint tableName="idempotency_record" columnNames="actor_login, key_hash" constraintName="uk_idempotency_actor_key"/>
+        <createIndex tableName="idempotency_record" indexName="ix_idempotency_expires">
+            <column name="expires_at"/>
+        </createIndex>
+        <rollback>
+            <dropTable tableName="idempotency_record"/>
+        </rollback>
+    </changeSet>
+
+    <!--
+        X4.5 (departments and teams) adds, on top of X4.3's columns and the org_group.parent_group_id above: the unique (org_id, id) key
+        on org_member so a lead can be a composite tenant foreign key (41 section 1, R3), org_group.lead_member_id (the one member who
+        leads the group; a lead counts as a member of it for TEAM / DEPARTMENT scope), version (the ETag behind If-Match), status
+        (ACTIVE / INACTIVE), and icon / color (closed picker lists validated by the service). Additive, nothing backfilled.
+    -->
+    <changeSet id="20261018010000-20" author="dossier">
         <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_member" indexName="uk_member_org_id"/></not></preConditions>
         <addUniqueConstraint tableName="org_member" columnNames="org_id, id" constraintName="uk_member_org_id"/>
         <rollback><dropUniqueConstraint tableName="org_member" constraintName="uk_member_org_id"/></rollback>
     </changeSet>
 
-    <changeSet id="20261018010000-3" author="dossier">
-        <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="parent_group_id"/></not></preConditions>
-        <addColumn tableName="org_group"><column name="parent_group_id" type="bigint"/></addColumn>
-        <addForeignKeyConstraint baseTableName="org_group" baseColumnNames="org_id, parent_group_id" constraintName="fk_group_parent"
-            referencedTableName="org_group" referencedColumnNames="org_id, id" onDelete="RESTRICT"/>
-        <createIndex tableName="org_group" indexName="idx_group_org_parent">
-            <column name="org_id"/>
-            <column name="parent_group_id"/>
-        </createIndex>
-        <rollback>
-            <dropIndex tableName="org_group" indexName="idx_group_org_parent"/>
-            <dropForeignKeyConstraint baseTableName="org_group" constraintName="fk_group_parent"/>
-            <dropColumn tableName="org_group" columnName="parent_group_id"/>
-        </rollback>
-    </changeSet>
-
-    <changeSet id="20261018010000-4" author="dossier">
+    <changeSet id="20261018010000-21" author="dossier">
         <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="lead_member_id"/></not></preConditions>
         <addColumn tableName="org_group"><column name="lead_member_id" type="bigint"/></addColumn>
         <addForeignKeyConstraint baseTableName="org_group" baseColumnNames="org_id, lead_member_id" constraintName="fk_group_lead"
@@ -68,45 +243,36 @@
         </rollback>
     </changeSet>
 
-    <changeSet id="20261018010000-5" author="dossier">
+    <changeSet id="20261018010000-22" author="dossier">
         <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="version"/></not></preConditions>
         <addColumn tableName="org_group"><column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column></addColumn>
         <rollback><dropColumn tableName="org_group" columnName="version"/></rollback>
     </changeSet>
 
-    <changeSet id="20261018010000-6" author="dossier">
+    <changeSet id="20261018010000-23" author="dossier">
         <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="status"/></not></preConditions>
         <addColumn tableName="org_group"><column name="status" type="varchar(12)" defaultValue="ACTIVE"><constraints nullable="false"/></column></addColumn>
         <rollback><dropColumn tableName="org_group" columnName="status"/></rollback>
     </changeSet>
 
-    <changeSet id="20261018010000-7" author="dossier">
+    <changeSet id="20261018010000-24" author="dossier">
         <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="icon"/></not></preConditions>
         <addColumn tableName="org_group"><column name="icon" type="varchar(24)"/></addColumn>
         <rollback><dropColumn tableName="org_group" columnName="icon"/></rollback>
     </changeSet>
 
-    <changeSet id="20261018010000-8" author="dossier">
+    <changeSet id="20261018010000-25" author="dossier">
         <preConditions onFail="MARK_RAN"><not><columnExists tableName="org_group" columnName="color"/></not></preConditions>
         <addColumn tableName="org_group"><column name="color" type="varchar(16)"/></addColumn>
         <rollback><dropColumn tableName="org_group" columnName="color"/></rollback>
     </changeSet>
 
-    <changeSet id="20261018010000-9" author="dossier">
-        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_member" indexName="idx_member_org_team"/></not></preConditions>
-        <createIndex tableName="org_member" indexName="idx_member_org_team">
+    <changeSet id="20261018010000-26" author="dossier">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_group" indexName="idx_group_org_parent"/></not></preConditions>
+        <createIndex tableName="org_group" indexName="idx_group_org_parent">
             <column name="org_id"/>
-            <column name="team_group_id"/>
+            <column name="parent_group_id"/>
         </createIndex>
-        <rollback><dropIndex tableName="org_member" indexName="idx_member_org_team"/></rollback>
-    </changeSet>
-
-    <changeSet id="20261018010000-10" author="dossier">
-        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_member" indexName="idx_member_org_department"/></not></preConditions>
-        <createIndex tableName="org_member" indexName="idx_member_org_department">
-            <column name="org_id"/>
-            <column name="department_group_id"/>
-        </createIndex>
-        <rollback><dropIndex tableName="org_member" indexName="idx_member_org_department"/></rollback>
+        <rollback><dropIndex tableName="org_group" indexName="idx_group_org_parent"/></rollback>
     </changeSet>
 </databaseChangeLog>

@@ -27,6 +27,10 @@ public class OrgGroup implements Serializable {
     @Column(name = "kind", length = 20, nullable = false)
     private OrgGroupKind kind = OrgGroupKind.TEAM;
 
+    /** The department a TEAM belongs to (Enterprise V2, X4.3/X4.5); null for departments, cohorts and unassigned teams. */
+    @Column(name = "parent_group_id")
+    private Long parentGroupId;
+
     @Column(name = "sort_order", nullable = false)
     private int sortOrder = 0;
 
@@ -64,6 +68,8 @@ public class OrgGroup implements Serializable {
     public void setName(String name) { this.name = name; }
     public OrgGroupKind getKind() { return kind; }
     public void setKind(OrgGroupKind kind) { this.kind = kind; }
+    public Long getParentGroupId() { return parentGroupId; }
+    public void setParentGroupId(Long parentGroupId) { this.parentGroupId = parentGroupId; }
     public int getSortOrder() { return sortOrder; }
     public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
     public Instant getCreatedAt() { return createdAt; }

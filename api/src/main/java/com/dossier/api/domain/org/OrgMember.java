@@ -114,6 +114,14 @@ public class OrgMember implements Serializable {
     @Column(name = "invite_ended_at")
     private Instant inviteEndedAt;
 
+    /** The org-set job title (Enterprise V2, X4.3); the person's own title lives on their profile. */
+    @Column(name = "title", length = 120)
+    private String title;
+
+    /** Written by the throttled last-active interceptor, at most hourly per member. */
+    @Column(name = "last_active_at")
+    private Instant lastActiveAt;
+
     @Column(name = "joined_at")
     private Instant joinedAt;
 
@@ -177,6 +185,8 @@ public class OrgMember implements Serializable {
     public void setSupportOwnerMemberId(Long supportOwnerMemberId) { this.supportOwnerMemberId = supportOwnerMemberId; }
     public String getInviteRoleIdsJson() { return inviteRoleIdsJson; }
     public void setInviteRoleIdsJson(String inviteRoleIdsJson) { this.inviteRoleIdsJson = inviteRoleIdsJson; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
     public Long getDepartmentGroupId() { return departmentGroupId; }
     public void setDepartmentGroupId(Long departmentGroupId) { this.departmentGroupId = departmentGroupId; }
     public Long getTeamGroupId() { return teamGroupId; }
@@ -189,6 +199,8 @@ public class OrgMember implements Serializable {
     public void setInviteEndedReason(String inviteEndedReason) { this.inviteEndedReason = inviteEndedReason; }
     public Instant getInviteEndedAt() { return inviteEndedAt; }
     public void setInviteEndedAt(Instant inviteEndedAt) { this.inviteEndedAt = inviteEndedAt; }
+    public Instant getLastActiveAt() { return lastActiveAt; }
+    public void setLastActiveAt(Instant lastActiveAt) { this.lastActiveAt = lastActiveAt; }
     public Instant getJoinedAt() { return joinedAt; }
     public void setJoinedAt(Instant joinedAt) { this.joinedAt = joinedAt; }
     public Instant getLeftAt() { return leftAt; }

@@ -51,4 +51,18 @@ public interface OrgScopeRepository extends Repository<OrgMember, Long> {
         "select g.id from OrgGroup g where g.orgId = :orgId and g.kind = com.dossier.api.domain.enumeration.OrgGroupKind.TEAM and g.parentGroupId in :departmentIds"
     )
     List<Long> findTeamIdsUnder(@Param("orgId") Long orgId, @Param("departmentIds") Collection<Long> departmentIds);
+
+    /** X4.3: live members linked to any of these groups by any of the three links (the candidates a TEAM or DEPARTMENT scope can reach). */
+    @Query(
+        "select m.id from OrgMember m where m.orgId = :orgId and (m.groupId in :groupIds or m.teamGroupId in :groupIds or m.departmentGroupId in :groupIds) and m.status in " +
+        "(com.dossier.api.domain.enumeration.OrgMemberStatus.INVITED, com.dossier.api.domain.enumeration.OrgMemberStatus.ACTIVE, com.dossier.api.domain.enumeration.OrgMemberStatus.SUSPENDED)"
+    )
+    List<Long> findLiveMemberIdsLinkedToGroups(@Param("orgId") Long orgId, @Param("groupIds") Collection<Long> groupIds);
+
+    /** X4.3: consultants that have at least one effective assignment (the candidates ASSIGNED scope, and the assignment half of TEAM scope, can reach). */
+    @Query(
+        "select distinct a.consultantMemberId from OrgAssignment a where a.orgId = :orgId and a.startsAt <= :now and (a.endsAt is null or a.endsAt > :now) " +
+        "and a.health = com.dossier.api.domain.enumeration.AssignmentHealth.OK"
+    )
+    List<Long> findConsultantIdsWithEffectiveAssignments(@Param("orgId") Long orgId, @Param("now") java.time.Instant now);
 }

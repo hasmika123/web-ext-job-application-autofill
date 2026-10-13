@@ -317,6 +317,15 @@ public class OrgRoleWriteService {
      */
     @Transactional
     public RoleWriteDTO.MemberRoles setMemberRoles(OrgMembership me, Long memberId, RoleWriteDTO.MemberRolesRequest req) {
+        return applyMemberRoles(me, memberId, req);
+    }
+
+    /**
+     * {@link #setMemberRoles} without a transaction boundary of its own, for a caller that already runs inside one and expects some refusals to be
+     * handled, not fatal (the bulk call of X4.3 answers one refused member with a reason and carries on with the rest). A refusal here is thrown
+     * before anything is written, so the surrounding transaction is never left half-done or marked rollback-only by the refusal.
+     */
+    public RoleWriteDTO.MemberRoles applyMemberRoles(OrgMembership me, Long memberId, RoleWriteDTO.MemberRolesRequest req) {
         Long orgId = me.orgId();
         RoleCeiling actor = gate(me, PERM_MEMBERS_ROLE_SET);
         OrgMember seat = members.findByOrgIdAndId(orgId, memberId).orElseThrow(OrgNotFoundException::new);
