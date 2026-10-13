@@ -482,12 +482,10 @@ if (pid) {
     must(dto.pdf?.status === "READY", `a rename must not stale the PDF (${dto.pdf?.status})`);
     return "name + primary persisted, PDF still READY";
   });
-  let link;
   await step("share link opens publicly, then 404 after revoke", async () => {
     const mk = await web("POST", `/api/resumes/${pid}/access/link`, { body: { label: "smoke", allowDownload: true } });
     const g = await json(mk);
     must(mk.status === 201, `create -> ${mk.status} ${JSON.stringify(g).slice(0, 200)}`);
-    link = g;
     const token = /\/r\/([A-Za-z0-9]+)/.exec(g.url ?? "")?.[1];
     must(token, `no token in url ${g.url}`);
     const pub = await fetch(`${WEB}/r/${token}`);
