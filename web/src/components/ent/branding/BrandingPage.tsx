@@ -161,7 +161,7 @@ export function BrandingEditorView({ orgId, orgName, initial, previewSrc }: { or
     <div className="flex flex-col gap-5" data-branding-page>
       <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <h1 className="text-xl font-bold text-ink sm:text-2xl">Branding</h1>
+          <h2 className="sr-only">Branding status</h2>
           <Badge variant={ed.differs ? "review" : "ready"} data-draft-badge={ed.differs ? "differs" : "live"}>
             {liveState}
           </Badge>

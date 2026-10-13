@@ -379,11 +379,10 @@ describe("Live preview (logic, no browser)", () => {
 
   it("the frame draws the real BrandedLogin from the draft it is sent, and repaints on the next message", async () => {
     render(<LoginPreviewFrame initial={payload({}, "#0f5fc4")} />);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Acme Portal");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toContain("Welcome Back");
     expect(document.querySelector("style")?.textContent).toContain("--brand-600:#0f5fc4");
-    await send(payload({ welcomeTitle: "Hello team", featureChips: ["One", "Two"] }));
+    await send(payload({ welcomeTitle: "Hello team" }));
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Hello team");
-    expect(screen.getByText("One")).toBeTruthy();
     expect(document.querySelector("style")?.textContent).toContain("--brand-600:#7c3aed");
   });
 

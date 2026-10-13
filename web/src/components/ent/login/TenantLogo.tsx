@@ -23,12 +23,12 @@ export default function TenantLogo({
 }: {
   name: string;
   logoUrl?: string | null;
-  /** "slot": fills its parent box (login card logo slot) - object-contain with the wordmark centred and wrapped. */
-  size?: "md" | "lg" | "slot";
+  /** "slot": fills its parent box (login card logo slot) - object-contain with the wordmark centred and wrapped. "bar": the shell's sidebar / top bar (32 px tall, at most 148 px wide). */
+  size?: "md" | "lg" | "slot" | "bar";
   className?: string;
 }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const height = size === "lg" ? 56 : 44;
+  const height = size === "lg" ? 56 : size === "bar" ? 32 : 44;
   if (logoUrl && failedUrl !== logoUrl && size === "slot") {
     return (
       <span className={cn("flex h-full w-full items-center justify-center", className)} data-tenant-logo="image">
@@ -66,7 +66,7 @@ export default function TenantLogo({
           unoptimized
           priority
           onError={() => setFailedUrl(logoUrl)}
-          className="h-auto w-auto max-w-[220px] object-contain"
+          className={cn("h-auto w-auto object-contain", size === "bar" ? "max-w-[148px]" : "max-w-[220px]")}
           style={{ maxHeight: height }}
         />
       </span>
@@ -77,7 +77,7 @@ export default function TenantLogo({
       data-tenant-logo="wordmark"
       className={cn(
         "inline-block max-w-full truncate font-body font-extrabold tracking-tight text-[var(--brand-700)]",
-        size === "lg" ? "text-[34px] leading-[1.1]" : "text-[26px] leading-[1.1]",
+        size === "lg" ? "text-[34px] leading-[1.1]" : size === "bar" ? "text-[22px] leading-[1.1]" : "text-[26px] leading-[1.1]",
         className,
       )}
     >
