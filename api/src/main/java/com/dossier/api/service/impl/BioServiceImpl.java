@@ -46,6 +46,11 @@ public class BioServiceImpl implements BioService {
     public BioDTO update(BioDTO bioDTO) {
         LOG.debug("Request to update Bio : {}", bioDTO);
         Bio bio = bioMapper.toEntity(bioDTO);
+        // meta_json is server-only (not in BioDTO): a full-replace update must not wipe it.
+        if (bio.getId() != null) {
+            String meta = bioRepository.findById(bio.getId()).map(Bio::getMetaJson).orElse(null);
+            bio.setMetaJson(meta);
+        }
         bio = bioRepository.save(bio);
         return bioMapper.toDto(bio);
     }

@@ -33,6 +33,10 @@ services:
     build:
       context: ./api
     restart: unless-stopped
+    volumes:
+      # User files (resumes, attachments, built-resume PDFs). This is user data: it is NOT in the
+      # MySQL dump, so back this volume up separately and never `docker compose down -v`.
+      - uploads:/srv/uploads
     environment:
       - SPRING_PROFILES_ACTIVE=prod,api-docs
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/dossierApi?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true
@@ -43,12 +47,17 @@ services:
       # NOT a secret (it ships in the web bundle too); defaulted here so it works without a
       # .env entry, overridable via GOOGLE_CLIENT_ID. Empty ⇒ Google sign-in returns 503.
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-482405713424-qtq3seoa0d8bg0e26f2bpisnqvjgt15o.apps.googleusercontent.com}
-      # AWS S3 (private bucket). Endpoint stays empty so the SDK uses the default AWS
-      # endpoint for the region.
+      # File storage (FileStorage seam). Default driver = local disk on the `uploads` volume, so
+      # no cloud account or credentials are needed. To switch to AWS S3 later, set
+      # DOSSIER_STORAGE_DRIVER=s3 in .env together with the S3_* values below (config only).
+      - DOSSIER_STORAGE_DRIVER=${DOSSIER_STORAGE_DRIVER:-local}
+      - DOSSIER_STORAGE_LOCAL_ROOT=/srv/uploads
+      # Only used when the driver is s3 (blank otherwise). Endpoint stays empty so the SDK uses
+      # the default AWS endpoint for the region.
       - DOSSIER_STORAGE_REGION=${S3_REGION:-us-east-1}
-      - DOSSIER_STORAGE_BUCKET=${S3_BUCKET:?set S3_BUCKET in .env}
-      - DOSSIER_STORAGE_ACCESS_KEY=${S3_ACCESS_KEY:?set S3_ACCESS_KEY in .env}
-      - DOSSIER_STORAGE_SECRET_KEY=${S3_SECRET_KEY:?set S3_SECRET_KEY in .env}
+      - DOSSIER_STORAGE_BUCKET=${S3_BUCKET:-dossier-resumes}
+      - DOSSIER_STORAGE_ACCESS_KEY=${S3_ACCESS_KEY:-}
+      - DOSSIER_STORAGE_SECRET_KEY=${S3_SECRET_KEY:-}
       - DOSSIER_STORAGE_PATH_STYLE_ACCESS=false
       # CORS is for the browser extension's direct calls. Set to the published extension id
       # at launch, e.g. chrome-extension://<id>.
@@ -90,12 +99,21 @@ services:
       - DOSSIER_AI_MODEL_TAILOR=${DOSSIER_AI_MODEL_TAILOR:-}
       - DOSSIER_AI_MODEL_JOBS=${DOSSIER_AI_MODEL_JOBS:-}
       - DOSSIER_AI_MODEL_INBOX=${DOSSIER_AI_MODEL_INBOX:-}
+      - DOSSIER_AI_MODEL_REWRITE=${DOSSIER_AI_MODEL_REWRITE:-}
+      - DOSSIER_AI_MODEL_SUMMARY=${DOSSIER_AI_MODEL_SUMMARY:-}
+      - DOSSIER_AI_MODEL_SUGGEST=${DOSSIER_AI_MODEL_SUGGEST:-}
+      - DOSSIER_AI_MODEL_COVER=${DOSSIER_AI_MODEL_COVER:-}
+      - DOSSIER_AI_MODEL_TRANSLATE=${DOSSIER_AI_MODEL_TRANSLATE:-}
       - DOSSIER_AI_MAX_OUTPUT_TOKENS=${DOSSIER_AI_MAX_OUTPUT_TOKENS:-400}
       - DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS=${DOSSIER_AI_PARSE_MAX_OUTPUT_TOKENS:-4000}
       # Nightly job-board read for daily job matches (13.6a). On unless set to false.
       - DOSSIER_JOBS_ENABLED=${DOSSIER_JOBS_ENABLED:-true}
       - DOSSIER_JOBS_FETCH_CRON=${DOSSIER_JOBS_FETCH_CRON:-0 0 2 * * *}
       - DOSSIER_JOBS_MATCH_CRON=${DOSSIER_JOBS_MATCH_CRON:-0 0 4 * * *}
+      # Service-to-service secret for /api/internal/** (the web's resume-PDF worker, Resume Builder R3.7).
+      # The SAME value is set on the web service below. Blank = the internal routes refuse everything
+      # and no PDF is generated in the background (manual "Export PDF" still works). Only in the box's .env.
+      - DOSSIER_INTERNAL_TOKEN=${DOSSIER_INTERNAL_TOKEN:-}
       # Inbox encryption key (14.2). Lives only in the box's .env and the password manager.
       - DOSSIER_INBOX_KEY=${DOSSIER_INBOX_KEY:-}
       - DOSSIER_INBOX_KEY_VERSION=${DOSSIER_INBOX_KEY_VERSION:-1}
@@ -120,6 +138,9 @@ services:
       # boot, so only the one-click login works.
       - DEMO_ENABLED=${DEMO_ENABLED:-false}
       - DEMO_PASSWORD=${DEMO_PASSWORD:-}
+      # Organization features (E2E-O1.9): OFF in production (default false). An admin-stored
+      # `feature.orgs.enabled` setting overrides this; while off, /api/orgs/** answers 404.
+      - ORGS_ENABLED=${ORGS_ENABLED:-false}
       # Email-OTP MFA for admin sign-in (Phase 9.X.3). OFF by default; enable only once admin email
       # delivery is confirmed (the code is emailed). Recover by setting back to false + recreate.
       - ADMIN_MFA_ENABLED=${ADMIN_MFA_ENABLED:-false}
@@ -143,8 +164,57 @@ services:
       # Server-side only: the web's Next route handlers call the API over the internal
       # network. The browser never hits this URL directly.
       - DOSSIER_API_URL=http://api:8080
+      # PDF export (Resume Builder R0.6): the web prints resumes in the `chromium` sidecar below.
+      # No depends_on on purpose: if the sidecar is down the site keeps running and "Export PDF"
+      # answers 503 "needs the pdf service". The knobs are the future admin settings
+      # resume.pdf.timeoutMs / maxConcurrent / queueMax / maxFitSteps; defaults are the safe ones.
+      - PDF_BROWSER_URL=${PDF_BROWSER_URL:-ws://chromium:3000}
+      - RESUME_PDF_TIMEOUT_MS=${RESUME_PDF_TIMEOUT_MS:-20000}
+      - RESUME_PDF_MAX_CONCURRENT=${RESUME_PDF_MAX_CONCURRENT:-1}
+      - RESUME_PDF_QUEUE_MAX=${RESUME_PDF_QUEUE_MAX:-10}
+      - RESUME_PDF_MAX_FIT_STEPS=${RESUME_PDF_MAX_FIT_STEPS:-3}
+      # Patience for a COLD sidecar (its first Chromium launch after a restart/idle takes ~14 s, not ~1.3 s) and warm-up on boot.
+      - RESUME_PDF_CONNECT_TIMEOUT_MS=${RESUME_PDF_CONNECT_TIMEOUT_MS:-30000}
+      - RESUME_PDF_CONNECT_ATTEMPTS=${RESUME_PDF_CONNECT_ATTEMPTS:-5}
+      - RESUME_PDF_CONNECT_BACKOFF_MS=${RESUME_PDF_CONNECT_BACKOFF_MS:-500}
+      - RESUME_PDF_CONNECT_BUDGET_MS=${RESUME_PDF_CONNECT_BUDGET_MS:-60000}
+      - RESUME_PDF_WARMUP=${RESUME_PDF_WARMUP:-1}
+      # Async PDF worker (Resume Builder R3.7): this container polls the API's /api/internal queue and
+      # renders the PDFs that saves leave pending. EXACTLY ONE web container sets RESUME_PDF_WORKER=1
+      # (several would be safe - claims are leased - but only waste Chromium time). It needs the same
+      # DOSSIER_INTERNAL_TOKEN as the api service; without it the worker logs an error and does not start.
+      - RESUME_PDF_WORKER=${RESUME_PDF_WORKER:-1}
+      - DOSSIER_INTERNAL_TOKEN=${DOSSIER_INTERNAL_TOKEN:-}
     depends_on:
       - api
+    networks: [internal]
+
+  # Headless Chromium that prints the resume HTML to PDF (R0.6). INTERNAL NETWORK ONLY: no
+  # `ports:`, and it is deliberately NOT in docker-compose.shared-edge.yml, so neither this stack's
+  # Caddy nor the shared edge can route to it - only the web container talks to it
+  # (ws://chromium:3000). Pinned by version AND digest (the multi-arch index digest of v2.57.0);
+  # bump both together and re-run the "PDF service" checks in DEPLOY.md.
+  chromium:
+    image: ghcr.io/browserless/chromium:v2.57.0@sha256:6bac628b3d8293f8fb251d3a6b63030dfc5a1cb0c7e5c39abe5efd8f4b25360b
+    restart: unless-stopped
+    init: true
+    # Shared box (BeeCompete lives here too): cap it. ~260 MB idle-after-print in testing; a
+    # print of a long resume peaks well under 1 GB. /dev/shm must be larger than Docker's 64 MB
+    # default or Chromium crashes on big pages.
+    mem_limit: 1g
+    cpus: 1.5
+    shm_size: 512m
+    environment:
+      # browserless' own admission control, a second wall behind the web's queue (1 + 10).
+      - CONCURRENT=2
+      - QUEUED=4
+      - TIMEOUT=30000
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/pressure >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     networks: [internal]
 
   caddy:
@@ -168,6 +238,7 @@ services:
 
 volumes:
   mysql-data:
+  uploads:
   caddy-data:
   caddy-config:
 

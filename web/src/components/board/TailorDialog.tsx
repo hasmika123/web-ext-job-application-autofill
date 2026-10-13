@@ -141,7 +141,7 @@ export default function TailorDialog({
     load.state === "ready" && !saved ? (
       <div className="flex flex-wrap items-center justify-end gap-2">
         {error && (
-          <span role="alert" className="mr-auto text-[12.5px] font-medium text-danger">
+          <span role="alert" className="mr-auto text-[12.5px] font-medium text-danger-text">
             {error}
           </span>
         )}

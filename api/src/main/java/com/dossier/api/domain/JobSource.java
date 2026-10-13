@@ -62,8 +62,17 @@ public class JobSource implements Serializable {
 
     public JobSource() {}
 
+    /** The lower-cased {@code ats} (greenhouse, lever, ashby): the name the extension's adapters go by. */
+    @Column(name = "platform", length = 24)
+    private String platform;
+
+    public String getPlatform() {
+        return platform != null ? platform : ats == null ? null : ats.toLowerCase(java.util.Locale.ROOT);
+    }
+
     public JobSource(String ats, String boardToken, String companyName, String origin) {
         this.ats = ats;
+        this.platform = ats == null ? null : ats.toLowerCase(java.util.Locale.ROOT);
         this.boardToken = boardToken;
         this.companyName = companyName;
         this.origin = origin;

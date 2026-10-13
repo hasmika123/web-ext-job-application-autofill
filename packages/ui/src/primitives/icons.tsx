@@ -169,6 +169,12 @@ export const ArrowsUpDownIcon = makeIcon("ArrowsUpDownIcon", {
   node: <path d="M7 4v14M7 18l-3-3M7 18l3-3M17 20V6M17 6l-3 3M17 6l3 3" />,
 });
 
+/** Two opposing horizontal arrows: "Swap Section" in the Resume Builder's top bar. */
+export const SwapIcon = makeIcon("SwapIcon", {
+  strokeWidth: 2,
+  node: <path d="M17 3l4 4-4 4M21 7H8M7 21l-4-4 4-4M3 17h13" />,
+});
+
 export const TrashIcon = makeIcon("TrashIcon", {
   strokeWidth: 2,
   node: (
@@ -308,6 +314,24 @@ export const MailIcon = makeIcon("MailIcon", {
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="M4 7l8 6 8-6" />
     </>
+  ),
+});
+
+/** Move up / move down - the section and item reorder buttons of the resume canvas. */
+export const ArrowUpIcon = makeIcon("ArrowUpIcon", {
+  strokeWidth: 2,
+  node: <path d="M12 19V5M5.5 11.5L12 5l6.5 6.5" />,
+});
+
+export const ArrowDownIcon = makeIcon("ArrowDownIcon", {
+  strokeWidth: 2,
+  node: <path d="M12 5v14M5.5 12.5L12 19l6.5-6.5" />,
+});
+
+/** A telephone handset - the phone number in the resume header (Resume Builder canvas). */
+export const PhoneIcon = makeIcon("PhoneIcon", {
+  node: (
+    <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.8.7a2 2 0 0 1 1.7 2z" />
   ),
 });
 
@@ -601,6 +625,17 @@ export const HelpCircleIcon = makeIcon("HelpCircleIcon", {
   ),
 });
 
+/** A circled "i" - tip and info boxes. */
+export const InfoIcon = makeIcon("InfoIcon", {
+  node: (
+    <>
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M12 11v5.2" />
+      <path d="M12 7.6h.01" />
+    </>
+  ),
+});
+
 export const BuildingIcon = makeIcon("BuildingIcon", {
   node: (
     <>
@@ -795,6 +830,21 @@ export const PlusIcon = makeIcon("PlusIcon", {
   node: <path d="M12 5v14M5 12h14" />,
 });
 
+export const MinusIcon = makeIcon("MinusIcon", {
+  strokeWidth: 2.2,
+  node: <path d="M5 12h14" />,
+});
+
+export const PrinterIcon = makeIcon("PrinterIcon", {
+  node: (
+    <>
+      <path d="M6 9V3h12v6" />
+      <rect x="3" y="9" width="18" height="9" rx="2" />
+      <path d="M7 14h10v7H7z" />
+    </>
+  ),
+});
+
 export const ArrowUpRightIcon = makeIcon("ArrowUpRightIcon", {
   strokeWidth: 2.2,
   node: <path d="M7 17L17 7M8 7h9v9" />,
@@ -910,6 +960,70 @@ export const LifebuoyIcon = makeIcon("LifebuoyIcon", {
       <circle cx="12" cy="12" r="9" />
       <circle cx="12" cy="12" r="3.6" />
       <path d="M5.6 5.6l3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9" />
+    </>
+  ),
+});
+
+/** Counter-clockwise arrow (undo). */
+export const UndoIcon = makeIcon("UndoIcon", {
+  strokeWidth: 2,
+  node: (
+    <>
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+    </>
+  ),
+});
+
+/** Two overlapping sheets (duplicate / copy). */
+export const CopyIcon = makeIcon("CopyIcon", {
+  node: (
+    <>
+      <rect x="9" y="9" width="11" height="12" rx="2" />
+      <path d="M5 15V5a2 2 0 0 1 2-2h8" />
+    </>
+  ),
+});
+
+/** Clockwise arrow (redo). */
+export const RedoIcon = makeIcon("RedoIcon", {
+  strokeWidth: 2,
+  node: (
+    <>
+      <path d="M15 14l5-5-5-5" />
+      <path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13" />
+    </>
+  ),
+});
+
+/* ── Text formatting (the resume editor's mark toolbar) ───────────────────────────── */
+
+export const BoldIcon = makeIcon("BoldIcon", {
+  strokeWidth: 2.4,
+  node: <path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z" />,
+});
+
+export const ItalicIcon = makeIcon("ItalicIcon", {
+  strokeWidth: 2.2,
+  node: <path d="M10 5h8M6 19h8M15 5l-6 14" />,
+});
+
+export const UnderlineIcon = makeIcon("UnderlineIcon", {
+  strokeWidth: 2.2,
+  node: (
+    <>
+      <path d="M7 4v7a5 5 0 0 0 10 0V4" />
+      <path d="M5 20h14" />
+    </>
+  ),
+});
+
+/** Numbered list (1. 2. 3.); the bulleted one is `ListIcon`. */
+export const ListOrderedIcon = makeIcon("ListOrderedIcon", {
+  node: (
+    <>
+      <path d="M11 6h9M11 12h9M11 18h9" />
+      <path d="M4 5.2l1.4-.7V9M4 15.5a1.4 1.4 0 0 1 2.7.3c0 .8-.6 1.2-1.3 1.7L4 18.4h2.9" strokeWidth={1.5} />
     </>
   ),
 });

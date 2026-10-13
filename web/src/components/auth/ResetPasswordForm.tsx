@@ -121,7 +121,7 @@ export default function ResetPasswordForm({ resetKey }: { resetKey: string }) {
           error={show("confirm") ? errs.confirm : undefined}
         />
         {error && (
-          <p role="alert" className="mb-3 text-sm font-medium text-danger">
+          <p role="alert" className="mb-3 text-sm font-medium text-danger-text">
             {error}
           </p>
         )}

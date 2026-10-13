@@ -50,7 +50,7 @@ export default function CustomerBilling({ login, detail }: { login: string; deta
                 <div className="flex flex-wrap items-baseline gap-x-2">
                   <span className={`text-sm ${e.kind === "NOTE" ? "font-semibold text-ink" : "text-ink"}`}>{e.title}</span>
                   {e.amountCents != null && <span className="text-sm font-medium text-ink-soft">{money(e.amountCents, e.currency)}</span>}
-                  {e.failed && <span className="rounded-full bg-danger/15 px-2 py-0.5 text-[11px] font-semibold text-danger">Not applied</span>}
+                  {e.failed && <span className="rounded-full bg-danger/15 px-2 py-0.5 text-[11px] font-semibold text-danger-text">Not applied</span>}
                 </div>
                 {e.body && <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink-soft">{e.body}</p>}
               </div>

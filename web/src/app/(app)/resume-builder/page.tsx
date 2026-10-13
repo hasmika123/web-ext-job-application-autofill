@@ -1,23 +1,35 @@
 import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
 import { getPlan } from "@/lib/billing";
+import { getBuilderConfig } from "@/lib/resume-builder-config";
+import { getCompleteness, getProfileItems } from "@/lib/profile-items-server";
+import { summarizeProfile } from "@/components/app-v3/resume-builder/new-resume/model";
 import type { Resume } from "@/components/ResumeList";
-import type { Application } from "@/components/ApplicationBoard";
-import ResumeBuilderPage from "@/components/app-v3/resume-builder/ResumeBuilderPage";
+import type { Application } from "@/lib/applications";
+import ResumeList from "@/components/app-v3/resume-builder/ResumeList";
 
 export const metadata: Metadata = { title: "Resume Builder" };
 
 /**
- * Resume Builder (APP-V3-SPEC 2.7). Fetches what the existing /resumes page does (resumes,
+ * Resume Builder list (APP-V3-SPEC 2.7). Fetches what the existing /resumes page does (resumes,
  * applications for the per-resume usage count, the base profile for the review step, the plan)
- * so "Manage resumes" / "Create New Resume" can host `ResumesWorkspace` in a side panel unchanged.
+ * so "Manage resumes" can host `ResumesWorkspace` in a side panel unchanged, plus the builder config (plan,
+ * cap, templates, Quick Tips) and the profile items + meter the start chooser describes. "New Resume" opens the
+ * four-source chooser (profile / upload / copy / scratch) and lands in `/resume-builder/[id]`. `?template=<id>` (the
+ * template gallery's "Use this template", R3.13) opens that chooser with the template preselected; `?new=profile` (the profile setup's "Build a resume") opens it on "Use my profile".
  */
-export default async function Page() {
-  const [resumesRes, appsRes, profileRes, plan] = await Promise.all([
+export default async function Page({ searchParams }: { searchParams: Promise<{ template?: string | string[]; new?: string | string[] }> }) {
+  const q = await searchParams;
+  const template = Array.isArray(q.template) ? q.template[0] : q.template;
+  const wantedNew = Array.isArray(q.new) ? q.new[0] : q.new;
+  const [resumesRes, appsRes, profileRes, plan, config, items, completeness] = await Promise.all([
     serverApiFetch("/api/profile/resumes"),
     serverApiFetch("/api/profile/applications"),
     serverApiFetch("/api/profile"),
     getPlan(),
+    getBuilderConfig(),
+    getProfileItems(),
+    getCompleteness(),
   ]);
 
   const resumes: Resume[] = resumesRes.ok ? (((await resumesRes.json().catch(() => [])) as Resume[]) ?? []) : [];
@@ -43,5 +55,9 @@ export default async function Page() {
     if (typeof id === "number") usage[id] = (usage[id] ?? 0) + 1;
   }
 
-  return <ResumeBuilderPage resumes={resumes} usage={usage} baseProfile={baseProfile} isPro={plan.plan === "PRO"} />;
+  // The start chooser's "Use my profile" card: counts from the profile items, the meter, and the headline a resume made from it is named after.
+  const headline = typeof baseProfile.headline === "string" ? baseProfile.headline : typeof baseProfile.currentTitle === "string" ? baseProfile.currentTitle : null;
+  const profile = summarizeProfile(items ?? [], completeness, headline);
+
+  return <ResumeList resumes={resumes} usage={usage} baseProfile={baseProfile} isPro={plan.plan === "PRO"} config={config} profile={profile} initialTemplate={template ?? null} initialNew={wantedNew === "profile" ? "profile" : null} />;
 }

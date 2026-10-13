@@ -20,6 +20,24 @@ const nextConfig: NextConfig = {
     root: repoRoot,
   },
   outputFileTracingRoot: repoRoot,
+  // PDF export (R0.6, src/lib/pdf.ts): playwright-core stays a plain runtime require (it carries
+  // its own dynamic loading), and the route reads resume.css + the fonts from disk, which the file
+  // tracer cannot see. Include them so the standalone image has them at ../packages/ui (relative to
+  // the server's cwd, web/).
+  serverExternalPackages: ["playwright-core"],
+  outputFileTracingIncludes: {
+    "/api/resumes/[id]/export": [
+      "../packages/ui/styles/resume.css",
+      "../packages/ui/fonts/*.woff2",
+      // pdf.ts loads react + react-dom/server by name at runtime (Next won't let the route import
+      // react-dom/server), so the tracer can't see them.
+      "./node_modules/react/**/*",
+      "./node_modules/react-dom/**/*",
+      "../node_modules/react/**/*",
+      "../node_modules/react-dom/**/*",
+      "../node_modules/scheduler/**/*",
+    ],
+  },
 };
 
 export default nextConfig;

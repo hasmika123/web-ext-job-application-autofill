@@ -212,7 +212,28 @@ public class JobMatchService {
     @Transactional
     public Long save(Long matchId) {
         JobMatch m = ownedMatch(matchId);
-        JobPosting p = m.getPosting();
+        Long appId = saveToBoard(m.getPosting(), "match");
+        m.setStatus(JobMatch.SAVED);
+        return appId;
+    }
+
+    /**
+     * Save a posting the user found by searching (E2E-U4.0): the same code path as saving a nightly match, so the
+     * board's dedup and the copied fields are identical. If the nightly run had also scored this posting for them,
+     * that match is marked SAVED too, so it leaves their matches list.
+     *
+     * @return the application's id
+     */
+    @Transactional
+    public Long saveFromSearch(JobPosting posting) {
+        Long appId = saveToBoard(posting, "search");
+        User user = currentUser();
+        matches.findOneByUserIdAndPostingId(user.getId(), posting.getId()).ifPresent(m -> m.setStatus(JobMatch.SAVED));
+        return appId;
+    }
+
+    /** The one place a posting becomes a SAVED application: built from the stored posting, never from what the browser sends. */
+    private Long saveToBoard(JobPosting p, String source) {
         ApplicationDTO dto = new ApplicationDTO();
         dto.setCompany(p.getCompany());
         // Postings allow longer titles and location lists than the board keeps (200 each).
@@ -224,11 +245,10 @@ public class JobMatchService {
         dto.setJobDescription(p.getDescriptionText());
         dto.setExternalJobId(p.getExternalId());
         dto.setAtsPlatform(p.getSource().getAts());
-        dto.setSource("match");
+        dto.setSource(source);
+        dto.setPostingId(p.getId());
         dto.setStatus(ApplicationStatus.SAVED);
-        Long appId = applicationSync.upsertApplication(dto).getId();
-        m.setStatus(JobMatch.SAVED);
-        return appId;
+        return applicationSync.upsertApplication(dto).getId();
     }
 
     private JobMatch ownedMatch(Long matchId) {

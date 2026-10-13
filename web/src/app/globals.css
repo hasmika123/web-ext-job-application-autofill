@@ -8,6 +8,10 @@
 @import "@kiwiply/ui/styles/tokens.css";
 /* "Kiwiply Bright" - scoped to .theme-v2 (the (marketing) layout wrapper). Landing v2. */
 @import "@kiwiply/ui/styles/theme-v2.css";
+/* The onboarding delight layer's shared motion (SpeechBubble, CardStack, SwipeCard, AnimatedNumber): reduced-motion safe. */
+@import "@kiwiply/ui/styles/delight.css";
+/* ...and the web-only companion motion (the mascot's poses). */
+@import "./onboarding-delight.css";
 
 /* Scan the shared UI package so Tailwind generates the classes used inside @kiwiply/ui
    (e.g. the ResumeUpload form + primitives), which live outside web/src. */
@@ -118,5 +122,91 @@ html { --u: calc(100cqw / 1088); }
   button:disabled,
   [aria-disabled="true"] {
     cursor: not-allowed;
+  }
+}
+
+/* Resume Builder: the green flash on an item or section that was just moved (Swap Section, DECISIONS #31).
+ * ~1.2 s; `FLASH_MS` in app-v3/resume-builder/moveLink.ts clears the attribute at the same moment. Under
+ * prefers-reduced-motion there is no fade: the outline just stays for the same time. */
+@keyframes rb-flash {
+  from {
+    background-color: color-mix(in srgb, var(--color-v2-green) 28%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-v2-green) 70%, transparent);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+[data-flash="true"] {
+  outline: 2px solid var(--color-v2-green);
+  outline-offset: 2px;
+  border-radius: 0.75rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-flash="true"] {
+    outline: none;
+    animation: rb-flash 1.2s ease-out both;
+  }
+}
+/* The canvas item whose Swap Section row is hovered or focused. */
+[data-link="true"] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-v2-green) 45%, transparent);
+  border-radius: 0.75rem;
+}
+
+/* Onboarding v2 (R1.10, DESIGN 13): a screen change slides 16 px in the direction of travel and fades, 180 ms ease-out;
+ * with reduced motion it is a 120 ms crossfade and the bar jumps (the bar's own transition is `motion-reduce:transition-none`).
+ * The payoff mascot pops once (400 ms); nothing else on these screens moves. */
+@keyframes ob-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ob-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ob-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ob-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ob-screen {
+  animation: ob-fade 120ms ease-out both;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ob-screen[data-dir="forward"] {
+    animation: ob-in-forward 180ms ease-out both;
+  }
+  .ob-screen[data-dir="back"] {
+    animation: ob-in-back 180ms ease-out both;
+  }
+  .ob-pop-in {
+    animation: ob-pop-in 400ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
   }
 }

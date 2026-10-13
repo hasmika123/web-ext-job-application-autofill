@@ -33,7 +33,21 @@ extension ─https─> Caddy ─┘                                          └
   ```
 - This repo on the box (`git clone …`).
 
-## 1. AWS S3 (private bucket)
+## 1. File storage (local disk by default; AWS S3 optional)
+Every uploaded or built file (resumes, application attachments, built-resume PDFs) goes through the
+API's `FileStorage` seam. The default driver is **local disk**: files live in the `uploads` Docker volume,
+mounted at `/srv/uploads` in the `api` container. It needs **no cloud account and no new `.env` secrets**
+(`DOSSIER_STORAGE_DRIVER` defaults to `local`; `S3_*` are optional).
+
+- The volume is **user data**, not covered by the MySQL dump (`backup-db.sh`). Back it up too, and never
+  run `docker compose down -v` (it deletes the volume). Plain `up -d` / `pull` / recreate keep it.
+- Files written by the old S3 driver stay in the bucket. With `driver=local` those older resumes are not
+  served (the download returns 404 `FILE_MISSING`); to keep serving them, set `DOSSIER_STORAGE_DRIVER=s3`
+  with the S3 values. Moving files between drivers is a separate story (P5.4).
+- Local dev: files go to `~/.dossier/uploads` (override with `DOSSIER_STORAGE_LOCAL_ROOT`); to exercise
+  the S3 driver against MinIO, set `DOSSIER_STORAGE_DRIVER=s3`.
+
+### 1.1 Switching to AWS S3 (optional, config only)
 1. Create a **private** bucket (e.g. `dossier-resumes`) in your region (e.g. `us-east-1`).
    Leave "Block all public access" ON — downloads are proxied through the API.
 2. Create an IAM user with programmatic keys and this least-privilege policy (replace the
@@ -508,6 +522,104 @@ it is never shipped in the extension. Provider is Google Gemini (swappable via e
 > quota** and makes **no provider call**, which also softens Gemini's per-minute rate limits for
 > common questions. Nothing to configure; it's automatic.
 
+### 10.1 Resume Builder AI (R4.1) - models and switches
+
+The builder's Pro AI (Rewrite with AI, generated summaries; AI Suggestions, cover letters and translation
+follow in later stories) runs on the same provider, key and per-period budget as everything above, as five
+more tasks. **`AiPolicy.models` keys** (`dossier.ai.policy.models.<task>`, env `DOSSIER_AI_MODEL_<TASK>`):
+
+| Task (key) | Env var | Default |
+|---|---|---|
+| `rewrite` | `DOSSIER_AI_MODEL_REWRITE` | `DOSSIER_AI_MODEL` (Flash-Lite) |
+| `summary` | `DOSSIER_AI_MODEL_SUMMARY` | `DOSSIER_AI_MODEL` |
+| `suggest` | `DOSSIER_AI_MODEL_SUGGEST` | `DOSSIER_AI_MODEL` |
+| `cover` | `DOSSIER_AI_MODEL_COVER` | `DOSSIER_AI_MODEL` |
+| `translate` | `DOSSIER_AI_MODEL_TRANSLATE` | `DOSSIER_AI_MODEL` |
+
+Blank = the default model. Past the soft cap the economy model (`DOSSIER_AI_ECONOMY_MODEL`) replaces them,
+as for every task. `DOSSIER_AI_DISABLED_TASKS` accepts the same five names as a kill switch (the call answers
+`disabled`, nothing is sent). **Admin settings** (`app_setting`, read within a minute): `ai.feature.resume.enabled`
+(true; the builder-wide switch), `ai.cap.resume.daily` (40 calls a user a day across rewrite / summary /
+suggest), `resume.ai.rewriteMaxRefs` (12 lines a call), `ai.output_tokens_max.rewrite` (3000; the output
+ceiling for rewrite and summary), `resume.rate.aiPerMin` (20 calls a user a minute, then `429 RATE_LIMITED`).
+Every call is metered like the rest (`ai_call`, tasks `rewrite` / `summary`); a repeated request is answered
+from its stored proposal and costs nothing. A Free user always gets `402 PRO_REQUIRED`.
+
+### 10.2 Runtime routing from `/admin/ai/providers`
+
+Which model answers each task is an **admin setting**, not a redeploy (design: `docs/AI-ADMIN-CONFIG-DESIGN.md`).
+Open `/admin/ai/providers` (admins only): provider cards with **Test connection**, a routing table (provider,
+model, fallback, max tokens, on/off per task), per-model prices, the **Server AI** switch and a recent-calls panel
+read from the `ai_call` ledger. Every control autosaves; turning something off asks for a reason; every change is
+written to `app_setting_history` and audited as `AI_CONFIG_CHANGE`.
+
+- **What is env and what is runtime.** The **key** is env only (`DOSSIER_AI_API_KEY`; the page shows "Key present"
+  and the variable's *name*, never a value, and you cannot type, view or test-type a key there). Everything else
+  (models, routes, fallback, base URL, timeout, prices, economy model, soft cap, kill switches) resolves
+  **runtime row > env > code default**, and an edit applies on the very next call with no restart (the settings
+  snapshot is dropped on write; a second API instance would see it within 60 s). "Reset" on a field deletes the
+  runtime row and falls back to env.
+- **The env master rule.** `DOSSIER_AI_ENABLED=false` is a deployment master: runtime settings can only *lower*
+  it. With it false the page shows an amber note and the Server AI switch is disabled; nothing an admin session
+  does can turn server AI on in a deployment whose operator turned it off.
+- **Rotate or add a key:** edit `.env` on the box, then recreate the API (step 3 above). Not from the page.
+- **Never-collected values** (SSN/ITIN, bank routing or account numbers, tax ids, passport/visa numbers, date of
+  birth) are stripped from every prompt and resume text in `AiRouter` before any provider is called. A PDF sent as
+  a file cannot be read there, so the provider itself sees that input.
+
+### 10.3 Prove it: the stub run (CI-safe) and the live Gemini pass
+
+`web/scripts/ai-smoke.mjs` exercises every server-side AI flow through the real web routes and reads the
+`ai_call` ledger the way the admin page does: parse, rewrite + apply, summary, suggestions + apply/dismiss,
+job-fit, resume-match, tailor + apply, the two ATS scores, the extension's paste-a-JD fit/match and
+draft / pick / map / enrich, daily job matches; then Test connection, the route switch (change a model, the next
+call uses it, reset) and the kill switch. Each flow checks the response shape, a new ledger row (provider, model,
+success, latency, cost), the meter, the truth checks (no invented numbers or employers), that a Free user gets
+`402 PRO_REQUIRED` (parse is the free exception) and that a never-collected value never reaches the provider.
+Inbox reading is reported SKIP: its AI step only runs in the IMAP poller on a connected mailbox.
+
+The **stub** (`ai-stub` Spring profile, `StubAiProvider`) answers every task deterministically with no key, no
+network and no cost. It refuses to start next to the `prod` profile, and the Gemini card then reads "Google
+Gemini (stub)". A local stack on free ports (never the demo's):
+
+```bash
+docker run --rm -d --name ai-proof-mysql -e MYSQL_ROOT_PASSWORD=aiproof -e MYSQL_DATABASE=dossierApi -p 127.0.0.1:34511:3306 mysql:9.2.0 mysqld --lower_case_table_names=1 --skip-mysqlx --character_set_server=utf8mb4 --explicit_defaults_for_timestamp
+# the API with the stub (plus your usual SPRING_DATASOURCE_*, SERVER_PORT, DOSSIER_STORAGE_LOCAL_ROOT)
+SPRING_DATASOURCE_URL='jdbc:mysql://127.0.0.1:34511/dossierApi?useSSL=false&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true' SPRING_DATASOURCE_PASSWORD=aiproof SERVER_PORT=18281 node scripts/dev/api-local.mjs --stub
+# the web
+cd web && DOSSIER_API_URL=http://127.0.0.1:18281 npx next dev -p 13311
+# the smoke, in a second shell (AI_ADMIN_* = a dev admin, the seeded `admin` on a local dev API; AI_MYSQL_* only for the ATS scores + job matches)
+cd web && AI_API=http://127.0.0.1:18281 AI_WEB=http://127.0.0.1:13311 AI_ADMIN_USER=admin AI_ADMIN_PASS=... AI_MYSQL_CONTAINER=ai-proof-mysql AI_MYSQL_PASSWORD=aiproof node scripts/ai-smoke.mjs --stub
+```
+
+On first use the script registers and admin-activates two throwaway users (a "Pro" one through an admin AI-budget
+override, and a Free one) and keeps their logins in the gitignored `web/.env.ai-smoke`; it never prints a
+password. The web allows 10 sign-ins per 5 minutes per IP and the script uses 3, so back-to-back runs wait. It
+refuses `NODE_ENV=production`, any non-local host unless `AI_ALLOW_REMOTE=1`, a `--stub` run against a stack that
+talks to real Gemini, and a `--live` run against a stub. Exit 0 only when no row FAILs (SKIP rows are fine).
+
+**The live pass on the demo (real Gemini; you run this).** Put the key where only the API reads it:
+
+1. Create `api/.env.ai.local` (gitignored by `.env.*`):
+   ```
+   DOSSIER_AI_ENABLED=true
+   DOSSIER_AI_PROVIDER=gemini
+   DOSSIER_AI_API_KEY=<your AIza... key>
+   ```
+2. Restart the demo API **through the launcher**, so the file is loaded into the API's environment only (it prints
+   the variable *names*, never the values). Stop the old demo API first, keep the demo's own datasource env as you
+   started it before, and do not pass `--stub`: `SERVER_PORT=18181 node scripts/dev/api-local.mjs`.
+3. Run the live pass. The script never reads `api/.env.ai.local`: it only asks the API whether a key is present,
+   and prints `SKIP: no Gemini key (DOSSIER_AI_API_KEY) — put it in api/.env.ai.local` and exits 0 if not.
+   ```bash
+   cd web && AI_API=http://127.0.0.1:18181 AI_WEB=http://127.0.0.1:13211 AI_ADMIN_USER=<dev admin> AI_ADMIN_PASS=<its password> node scripts/ai-smoke.mjs --live
+   ```
+   Add `AI_MYSQL_CONTAINER=rb-demo-mysql AI_MYSQL_PASSWORD=<that container's root password>` to also run the two ATS
+   scores and the daily job matches (they need a real Pro subscription row, which the script writes and removes).
+   If `web/.env.rb-smoke` exists, its throwaway account is the Pro user (its resumes and applications are cleared
+   first). Cost guard: about 25 small calls on Flash-Lite, a few cents at most; the ledger total is printed at the
+   end, and the Pro user's budget override is 100 cents.
+
 ## 11. Billing (Phase 12, Stripe) — ⚠️ sandbox ready, NOT live yet
 
 > **A blank `STRIPE_SECRET_KEY` disables billing, and that is a valid running state.** The API
@@ -918,8 +1030,14 @@ organization admin), that anyone can open from the login page without signing up
   upload/delete and the AI resume parse. The application board (status changes, notes) stays live.
 - **Reset:** "Reset demo data" on the admin card (a data operation, still in admin and audited as
   `DEMO_RESET`; disabled while the demo is off) wipes both accounts' rows and re-seeds the job seeker
-  (Jordan Lee, 8 applications, 2 resumes with no file behind them). Do it whenever visitors have left the
+  (Priya Sharma, 8 applications, 2 resumes with no file behind them). Do it whenever visitors have left the
   board in a mess.
+- **Demo organization:** when the demo AND the org feature (`ORGS_ENABLED`) are on, and the `prod` Spring profile is
+  NOT active, the same seed also creates `demo-bootcamp` (a bootcamp owned by `demo-org`: two cohorts, two staff,
+  twelve synthetic members of whom nine share a summary, two share nothing and one is still invited, plus Priya as a
+  summary-sharing member). It is idempotent, never overwrites a member's own sharing choice, and the synthetic
+  people are non-activated accounts on `example.com` that nobody can sign in as. Production never gets it:
+  `ORGS_ENABLED` defaults to false and the profile check refuses regardless.
 - **Local demo (no API, no database):** `npm ci` at the repo root, then `npm run dev:demo -w web`. It starts
   `web/scripts/mock-api.mjs` (a stand-in for the Spring API on `:8080`, demo switched on unless `MOCK_DEMO_ENABLED=false`, fixed data for
   Priya Sharma and the org admin, every write refused with `DEMO_READ_ONLY`) and `next dev` pointed at it.
@@ -1004,3 +1122,114 @@ $COMPOSE up -d api web
 The dump re-creates the database exactly as it was, which removes the new tables' changelog rows,
 so Liquibase stays consistent with the old code. Then `git reset --hard 4de5b60` on the box's checkout
 so the next deploy starts from a known place, and revert the promotion on `main`.
+
+## 14. PDF service (Resume Builder export, R0.6)
+
+"Export PDF" in the resume editor makes the PDF with a headless Chromium: the web renders the
+same HTML as the live preview and the `chromium` sidecar prints it. The PDF is then stored through
+the API's `FileStorage` (the `uploads` volume by default) so the extension can attach it.
+
+**What runs.** One extra container in `docker-compose.prod.yml`, `chromium`
+(`ghcr.io/browserless/chromium`, pinned by version **and** digest: `v2.57.0@sha256:6bac628b...`).
+It is on the `internal` network only: no `ports:`, and it is **not** in
+`docker-compose.shared-edge.yml`, so neither the standalone Caddy nor the shared edge can reach it.
+The web talks to it at `PDF_BROWSER_URL` (default `ws://chromium:3000`). The overlay needs no change;
+`up -d` with both files starts it with the rest. There is no `depends_on` from web: if the sidecar is
+down the site is fine and only "Export PDF" fails (503 "needs the pdf service").
+
+**Memory and limits.** `mem_limit: 1g`, `cpus: 1.5`, `shm_size: 512m` (Chromium crashes on big
+pages with Docker's default 64 MB `/dev/shm`). Measured on v2.57.0: about 260 MB after a few prints.
+Admission control is two walls: the web prints one PDF at a time with a queue of 10 (a full queue is
+a 503 with `Retry-After`), and browserless itself takes 2 at once with 4 queued. A print that takes
+more than 20 s is cut off (504). These are env now and become admin settings later:
+
+| Env on the web container | Future admin key | Default |
+|---|---|---|
+| `RESUME_PDF_TIMEOUT_MS` | `resume.pdf.timeoutMs` | `20000` |
+| `RESUME_PDF_MAX_CONCURRENT` | `resume.pdf.maxConcurrent` | `1` |
+| `RESUME_PDF_QUEUE_MAX` | `resume.pdf.queueMax` | `10` |
+| `RESUME_PDF_MAX_FIT_STEPS` | `resume.pdf.maxFitSteps` | `3` |
+| `RESUME_PDF_CONNECT_TIMEOUT_MS` | `resume.pdf.connectTimeoutMs` | `30000` |
+| `RESUME_PDF_CONNECT_ATTEMPTS` | `resume.pdf.connectAttempts` | `5` |
+| `RESUME_PDF_CONNECT_BACKOFF_MS` | `resume.pdf.connectBackoffMs` | `500` |
+| `RESUME_PDF_CONNECT_BUDGET_MS` | `resume.pdf.connectBudgetMs` | `60000` |
+| `RESUME_PDF_WARMUP` | `resume.pdf.warmup` | `1` |
+
+The first connect after the sidecar starts (or sits idle) launches a COLD Chromium: ~14 s on the demo box against ~1.3 s
+warm. The connect therefore waits up to `connectTimeoutMs` per try, retries with doubling backoff, and the web server
+warms the sidecar once on boot so the first export after a deploy finds it ready.
+
+**Restart.** `restart: unless-stopped` plus a healthcheck (`curl /pressure` every 30 s, 3 strikes).
+Docker restarts a crashed container but does not restart an unhealthy one; if it shows `unhealthy`,
+`$COMPOSE restart chromium`. A restart loses nothing (no state, nothing is stored in it).
+
+**Health check, from the box**
+```bash
+$COMPOSE ps chromium                     # STATUS should say "(healthy)"
+$COMPOSE exec chromium curl -s localhost:3000/pressure     # "isAvailable": true, "running": 0
+$COMPOSE exec web node -e "fetch('http://chromium:3000/pressure').then(r=>console.log(r.status))"   # 200: web can reach it
+$COMPOSE port chromium 3000              # prints nothing: it is not published
+```
+
+**Verify an export end to end** (after a deploy or an image bump): sign in, open any built resume,
+press **Export PDF**. Expect a download named after the resume, a "PDF ready" toast, and in
+`$COMPOSE logs web` a line `{"event":"resume.export.pdf","pages":1,...}`. Then
+`https://kiwiply.com/resume-builder` shows no "PDF out of date" chip on that resume until you edit it.
+A `resume.fit.mismatch` line means Chromium needed more pages than the editor preview predicted and the
+export stepped the fit ladder down; it is information, not an error.
+
+**Bumping the image.** Pick the new tag, resolve its digest with
+`docker buildx imagetools inspect ghcr.io/browserless/chromium:<tag>` (the top "Digest"), change both
+in the compose file, `docker compose ... pull chromium && up -d chromium`, then run the checks above.
+Chromium versions move the layout by a hair at most; the one-page fixture test
+(`PDF_SMOKE=1 PDF_BROWSER_URL=ws://localhost:3000 npm run test:unit -w web -- pdf.browser`, with the
+sidecar's port published temporarily on a dev machine) must still say 1 page.
+
+**Backups.** The sidecar holds nothing. The PDFs themselves are in the `uploads` volume (§1), which is
+not in the MySQL dump.
+
+### 14.1 Async PDF on every save (Resume Builder R3.7)
+
+Every save of a built resume updates the database at once and leaves a **PENDING** marker on its
+`resume_doc` row (15 s after the last keystroke - `resume.pdf.settleMs`; immediately for a template switch
+or when the editor is left). A worker inside the **web** container claims the row, prints it in the
+`chromium` sidecar and posts the bytes to the API, which stores them through `FileStorage` (the `uploads`
+volume or S3) as the resume's file - the object the extension attaches. The old object is deleted on
+replace; there is no PDF history.
+
+**Two env values make it run** (both in `docker-compose.prod.yml`, both read from the box's `.env`):
+
+| Env | Where | What |
+|---|---|---|
+| `DOSSIER_INTERNAL_TOKEN` | `api` **and** `web` (the same value) | Shared secret for `/api/internal/**`, sent as `X-Internal-Token`, compared in constant time. Generate once: `openssl rand -hex 32`; keep it in the password manager (GitHub secrets are write-only). **Blank = the API refuses every internal request and the worker logs an error and does not start**; manual "Export PDF" and the rest of the site are unaffected. |
+| `RESUME_PDF_WORKER` | `web` | `1` (the compose default) turns the polling loop on. Exactly one web container should set it (several would be safe, claims are leased, but waste Chromium time). |
+
+**Never publish `/api/internal/*`.** The web reaches it over the Compose network (`DOSSIER_API_URL=http://api:8080`).
+`api.kiwiply.com` is a deliberate public exception for the extension, so the shared edge's Caddyfile
+(`~/beecompete-edge/Caddyfile`, outside this repo) should answer `404` for `/api/internal/*`; the token
+makes the routes useless without it, the block makes them invisible. (Not changed from this repo: the
+shared edge is not ours to edit casually.)
+
+**Tunables** are admin settings (`app_setting`, default in parentheses), read within a minute:
+`resume.pdf.settleMs` (15000), `.pollMs` (5000), `.leaseMs` (120000), `.backoffBaseMs` (30000),
+`.backoffMaxMs` (900000), `.maxAttempts` (5), `.busyRetryMs` (10000), `.statusPollMs` (5000, the editor),
+`.statusWindowMs` (180000, the editor). A render the limiter refuses (busy) costs no attempt; a timeout or
+error backs off `min(backoffMax, backoffBase * 2^attempts)` and the job is **FAILED** after `maxAttempts`
+(the editor then offers "Retry"). A worker that dies leaves its lease to expire (`leaseMs`) and the row is
+claimed again - that counts as an attempt, so a render that crashes the worker cannot loop forever.
+
+**Queue stats and alerts.**
+```bash
+# admin JWT required; {pending, running, failed, oldestPendingAge (seconds)}
+curl -s -H "authorization: Bearer $ADMIN_JWT" https://api.kiwiply.com/api/admin/resume-pdf-jobs/stats
+$COMPOSE logs web | grep 'pdf-job'      # "pdf-job 12 ready pages=1 ms=840" / "pdf-job 12 ERROR ..."
+$COMPOSE logs api | grep 'PDF queue is stuck'   # WARN when the oldest pending request is > 10 min old
+```
+Metrics (Prometheus, `/management/prometheus`): `resume_pdf_job_claimed_total`, `_ready_total`,
+`_failed_total`, `_busy_total`, `_discarded_total`, `resume_pdf_job_latency_seconds`, gauge
+`resume_pdf_queue_pending`. A growing `pending` with nothing `running` means the worker is not polling
+(token missing? `RESUME_PDF_WORKER` unset? web unhealthy?).
+
+**Verify after a deploy.** Edit a resume in the builder, wait ~20 s: the top bar shows "· PDF updating…"
+and then clears; `$COMPOSE logs web` has a `pdf-job <id> ready` line; `GET /api/profile/resumes` shows
+`"pdf":{"status":"READY"}` for it. Rolling back the web image is safe: PENDING rows simply wait.

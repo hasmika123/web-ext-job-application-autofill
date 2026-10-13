@@ -193,7 +193,7 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
                 </div>
               </div>
             ) : (
-              <button type="button" onClick={() => setConfirming(true)} className="text-[13px] font-semibold text-danger hover:underline">
+              <button type="button" onClick={() => setConfirming(true)} className="text-[13px] font-semibold text-danger-text hover:underline">
                 Disconnect this inbox
               </button>
             )}
@@ -275,7 +275,7 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
           />
         </Field>
         {error && (
-          <p role="alert" className="text-[13px] font-medium text-danger">
+          <p role="alert" className="text-[13px] font-medium text-danger-text">
             {error}
           </p>
         )}

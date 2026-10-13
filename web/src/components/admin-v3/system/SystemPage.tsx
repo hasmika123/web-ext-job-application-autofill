@@ -28,6 +28,7 @@ import { DataTable, Sparkline, TONE, type Tone } from "@/components/app-v2/commo
 import DemoAccountsCard from "@/components/admin/DemoAccountsCard";
 import type { DemoAdminState } from "@/lib/demo";
 import { AdminHero, AdminPanel, AdminStatTiles, SampleTag, StatusDot } from "../common";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until E2E-A10.0 removes it (ADMIN-E2E-PLAN 3.5)
 import { DEPLOYMENTS, ENV_SAMPLE, EVENTS, HEALTH_FALLBACK, JOBS, LEVEL_TONE, RESOURCES, SYSTEM_TILES as T } from "./sample-data";
 
 export interface SystemData {
@@ -79,10 +80,10 @@ export default function SystemPage({ data }: { data: SystemData }) {
 
       <AdminStatTiles
         stats={[
-          { label: "Application uptime", value: data.uptime, icon: <ZapIcon size={26} />, tone: "blue", delta: T.uptime.delta, caption: "sample trend", sparkline: T.uptime.spark },
-          { label: "API latency (P95)", value: T.latency.value, icon: <BarChartIcon size={26} />, tone: "green", delta: T.latency.delta, caption: "sample data", sparkline: T.latency.spark },
-          { label: "Background jobs", value: T.jobs.value, icon: <GearIcon size={26} />, tone: "amber", delta: T.jobs.delta, caption: "sample data", sparkline: T.jobs.spark },
-          { label: "Error rate", value: T.errors.value, icon: <AlertIcon size={26} />, tone: "coral", delta: T.errors.delta, caption: "sample data", sparkline: T.errors.spark },
+          { label: "Application uptime", value: data.uptime, icon: <ZapIcon size={26} />, tone: "blue" },
+          { label: "API latency (P95)", value: T.latency.value, icon: <BarChartIcon size={26} />, tone: "green" },
+          { label: "Background jobs", value: T.jobs.value, icon: <GearIcon size={26} />, tone: "amber" },
+          { label: "Error rate", value: T.errors.value, icon: <AlertIcon size={26} />, tone: "coral" },
         ]}
       />
 

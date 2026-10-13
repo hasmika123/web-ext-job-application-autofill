@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { serverApiFetch } from "@/lib/api";
-import DeleteAccountButton from "@/components/DeleteAccountButton";
 import BillingCard from "@/components/billing/BillingCard";
 import { getPlan } from "@/lib/billing";
 import { getAiUsage } from "@/lib/ai-usage";
@@ -10,7 +9,13 @@ import AiUsageMeter from "@/components/settings/AiUsageMeter";
 import { isDemoLogin } from "@/lib/demo";
 import { InitialsAvatar } from "@/components/app-v2/common";
 import SettingsV3Page, { type SettingsTabKey } from "@/components/app-v3/settings/SettingsV3Page";
-import { DemoNote, ExtensionSettingRow, SettingsCard, SoonRow } from "@/components/app-v3/settings/panels";
+import { DemoNote, ExtensionSettingRow, SettingsCard } from "@/components/app-v3/settings/panels";
+import NotificationPrefsProvider from "@/components/app-v3/settings/NotificationPrefsProvider";
+import NotificationsPanel from "@/components/app-v3/settings/NotificationsPanel";
+import TimeZoneField from "@/components/app-v3/settings/TimeZoneField";
+import PrivacyPanel from "@/components/app-v3/settings/PrivacyPanel";
+import HelpPanel from "@/components/app-v3/settings/HelpPanel";
+import { getNotificationPreferences } from "@/lib/notification-preferences-server";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -36,11 +41,12 @@ export default async function SettingsPage() {
   const account: Account | null = res.ok ? await res.json() : null;
   // A public demo account: nothing here is saved, and the destructive/billing actions are hidden.
   const demo = isDemoLogin(account?.login);
-  const [plan, aiUsage, inboxRes, bioRes] = await Promise.all([
+  const [plan, aiUsage, inboxRes, bioRes, notificationPrefs] = await Promise.all([
     getPlan(),
     getAiUsage(),
     serverApiFetch("/api/profile/inbox"),
     serverApiFetch("/api/profile"),
+    getNotificationPreferences(),
   ]);
   const inbox = inboxRes.ok
     ? ((await inboxRes.json().catch(() => null)) as { connected?: boolean; address?: string | null; status?: string | null } | null)
@@ -80,7 +86,9 @@ export default async function SettingsPage() {
               <dt className="text-v2-muted">Location</dt>
               <dd className="font-medium text-v2-navy">{location || "Not set"}</dd>
               <dt className="text-v2-muted">Time zone</dt>
-              <dd className="font-medium text-v2-navy">Automatic (from your browser)</dd>
+              <dd className="min-w-0 font-medium text-v2-navy">
+                <TimeZoneField />
+              </dd>
             </dl>
           </div>
         ) : (
@@ -129,42 +137,11 @@ export default async function SettingsPage() {
           {inbox?.connected ? "Manage inbox →" : plan.plan === "PRO" ? "Connect an inbox →" : "See how it works →"}
         </Link>
       </SettingsCard>
-      <SettingsCard title="Notifications">
-        <SoonRow title="Email digests" desc="A short summary of new matches and application updates." />
-        <SoonRow title="Interview reminders" desc="A nudge before an interview on your calendar." />
-        <SoonRow title="Product updates" desc="News about new Kiwiply features." last />
-      </SettingsCard>
+      <NotificationsPanel />
     </>
   );
 
-  const privacy = (
-    <SettingsCard title="Privacy & data">
-      <p className="text-sm text-ink-soft">
-        Your data is yours. Read what we collect and how it&apos;s handled in the{" "}
-        <Link href="/privacy" className="font-medium text-v2-blue hover:underline">Privacy Policy</Link>.
-      </p>
-      {demo ? (
-        <div className="mt-4">
-          <DemoNote />
-        </div>
-      ) : (
-        <>
-          <div className="mt-4">
-            <a
-              href="/api/account/export"
-              className="inline-flex items-center gap-2 rounded-full border border-v2-line px-4 py-2 text-sm font-medium text-v2-navy hover:bg-paper-2"
-            >
-              Download my data
-            </a>
-            <p className="mt-1.5 text-xs text-ink-soft">A JSON copy of your profile, resumes, applications, and activity.</p>
-          </div>
-          <div className="mt-5">
-            <DeleteAccountButton />
-          </div>
-        </>
-      )}
-    </SettingsCard>
-  );
+  const privacy = <PrivacyPanel demo={demo} />;
 
   const jobPreferences = (
     <>
@@ -190,16 +167,7 @@ export default async function SettingsPage() {
 
   const billing = <SettingsCard title="Billing">{demo ? <DemoNote /> : <BillingCard plan={plan} />}</SettingsCard>;
 
-  const help = (
-    <SettingsCard title="Help & Support">
-      <p className="text-[13.5px] text-ink-soft">Stuck, or found something off? We read every message.</p>
-      <ul className="mt-3 flex flex-col gap-2 text-[13.5px]">
-        <li><Link href="/contact" className="font-semibold text-v2-blue hover:underline">Contact us →</Link></li>
-        <li><Link href="/privacy" className="font-semibold text-v2-blue hover:underline">Privacy Policy →</Link></li>
-        <li><Link href="/terms" className="font-semibold text-v2-blue hover:underline">Terms of Service →</Link></li>
-      </ul>
-    </SettingsCard>
-  );
+  const help = <HelpPanel />;
 
   const panels: Record<SettingsTabKey, React.ReactNode> = {
     account: account_,
@@ -209,5 +177,9 @@ export default async function SettingsPage() {
     billing,
     help,
   };
-  return <SettingsV3Page panels={panels} />;
+  return (
+    <NotificationPrefsProvider initial={notificationPrefs} demo={demo}>
+      <SettingsV3Page panels={panels} />
+    </NotificationPrefsProvider>
+  );
 }

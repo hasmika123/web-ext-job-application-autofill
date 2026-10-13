@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        AI admin config (docs/AI-ADMIN-CONFIG-DESIGN.md 3.1; stories I1.9 + I1.10). Two additive changes.
+
+        1. app_setting_history: one row per runtime-setting write - key, old value, new value, who, why,
+           when. This is A5.1's settings-history DDL verbatim, so the settings registry adopts the table
+           without a data migration. old_value NULL = there was no row (the value came from env);
+           new_value NULL = the row was deleted (back to env).
+
+        2. ai_call learns what served a call and whether it worked: provider, latency_ms, success and a
+           short error_kind (an enum-like code, never a provider message - nothing that could carry a key
+           or a prompt). Failure rows have success = false and cost 0. Existing rows are successes served
+           by Gemini, so the column defaults say exactly that.
+    -->
+    <changeSet id="20261013020000-1" author="dossier">
+        <createTable tableName="app_setting_history">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="setting_key" type="varchar(100)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="old_value" type="varchar(1000)"/>
+            <column name="new_value" type="varchar(1000)"/>
+            <column name="actor_login" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="varchar(500)"/>
+            <column name="changed_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="app_setting_history" indexName="ix_app_setting_history_key">
+            <column name="setting_key"/>
+            <column name="changed_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261013020000-2" author="dossier">
+        <addColumn tableName="ai_call">
+            <column name="provider" type="varchar(20)" defaultValue="gemini">
+                <constraints nullable="false"/>
+            </column>
+            <column name="latency_ms" type="integer"/>
+            <column name="success" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+            <column name="error_kind" type="varchar(24)"/>
+        </addColumn>
+        <createIndex tableName="ai_call" indexName="ix_ai_call_provider_created">
+            <column name="provider"/>
+            <column name="created_at"/>
+        </createIndex>
+        <createIndex tableName="ai_call" indexName="ix_ai_call_success_created">
+            <column name="success"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

@@ -1,29 +1,49 @@
 import type { ReactNode } from "react";
-import { cn } from "@kiwiply/ui";
-import { Sparkline, TONE, type Tone } from "@/components/app-v2/common";
+import { DeltaChip, cn, deltaOf } from "@kiwiply/ui";
+import { TONE } from "@/components/app-v2/common";
+import type { Tone } from "@/components/app-v2/common";
+
+/**
+ * A tile's comparison with the previous window (E2E-A15.0; ADMIN-E2E-PLAN D-8). The chip is COMPUTED from `value` and
+ * `previous`; when `previous` is not a number there is nothing real to compare and no chip is drawn. Nobody types a
+ * percentage in.
+ */
+export interface StatDelta {
+  /** The tile's number, as a number. */
+  value: number;
+  /** The same metric over the previous window. null / undefined: the API has none yet, so no chip. */
+  previous?: number | null;
+  /** `relative` (default) shows a percent change; `points` the plain difference, for values that are already percentages. */
+  mode?: "relative" | "points";
+  /** True for failed logins, error rate, churn: down is good. */
+  lowerIsBetter?: boolean;
+  /** Text after the chip, shown only when the chip is: "vs previous 30 days". */
+  label?: string;
+}
 
 export interface AdminStat {
   label: string;
   value: ReactNode;
   icon: ReactNode;
   tone: Tone;
-  /** `dir` is the arrow; `good` (default: dir === "up") picks green vs coral (failed logins down = good). */
-  delta?: { value: string; dir: "up" | "down"; good?: boolean };
-  /** Text after the chip, e.g. "vs last 30 days". */
+  delta?: StatDelta;
+  /** Always-on small line under the number ("of 12 sources", "last read failed"). Never a trend: that is `delta`. */
   caption?: string;
-  sparkline?: number[];
 }
 
 /**
- * Row of KPI tiles (4 -> 2 -> 1 columns): tinted wash, coloured icon tile, uppercase label, big
- * number, delta chip + caption and a sparkline at the right.
+ * Row of KPI tiles (4 -> 2 -> 1 columns): tinted wash, coloured icon tile, uppercase label, big number, an optional
+ * real delta chip and an optional caption. Server-component safe (no hooks).
+ *
+ *   <AdminStatTiles stats={[{ label: "Total users", value: n(total), icon: <UsersIcon size={26} />, tone: "blue",
+ *                             delta: { value: total, previous: summary.previous?.total, label: "vs previous 30 days" } }]} />
  */
 export default function AdminStatTiles({ stats, className }: { stats: AdminStat[]; className?: string }) {
   return (
     <div className={cn("grid grid-cols-2 gap-2.5 sm:gap-3.5 xl:grid-cols-4", className)}>
       {stats.map((s) => {
         const t = TONE[s.tone];
-        const good = s.delta ? (s.delta.good ?? s.delta.dir === "up") : true;
+        const d = s.delta ? deltaOf(s.delta.value, s.delta.previous, { mode: s.delta.mode }) : null;
         return (
           <div
             key={s.label}
@@ -32,26 +52,14 @@ export default function AdminStatTiles({ stats, className }: { stats: AdminStat[
             <span className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl sm:h-[52px] sm:w-[52px] sm:rounded-2xl bg-paper/80", t.ink)}>{s.icon}</span>
             <div className="w-full min-w-0 flex-1">
               <div className="text-[11px] leading-tight sm:truncate sm:text-[11.5px] font-semibold uppercase tracking-wide text-ink-soft">{s.label}</div>
-              <div className="mt-0.5 flex items-end justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-display text-[24px] font-extrabold leading-none sm:text-[28px] tracking-tight text-ink">{s.value}</div>
-                  {s.delta && (
-                    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span
-                        className={cn(
-                          "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[11.5px] font-bold leading-none",
-                          good ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-coral-soft text-v2-coral-ink",
-                        )}
-                      >
-                        <span aria-hidden>{s.delta.dir === "up" ? "↑" : "↓"}</span>
-                        {s.delta.value}
-                      </span>
-                      {s.caption && <span className="text-[11.5px] text-ink-soft">{s.caption}</span>}
-                    </div>
-                  )}
-                </div>
-                {s.sparkline && s.sparkline.length > 1 && (
-                  <Sparkline points={s.sparkline} tone={s.tone} width={72} height={34} className="hidden sm:block" />
+              <div className="mt-0.5 min-w-0">
+                <div className="font-display text-[24px] font-extrabold leading-none sm:text-[28px] tracking-tight text-ink">{s.value}</div>
+                {(d || s.caption) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {d && <DeltaChip delta={d} lowerIsBetter={s.delta?.lowerIsBetter} />}
+                    {d && s.delta?.label && <span className="text-[11.5px] text-ink-soft">{s.delta.label}</span>}
+                    {s.caption && <span className="text-[11.5px] text-ink-soft">{s.caption}</span>}
+                  </div>
                 )}
               </div>
             </div>

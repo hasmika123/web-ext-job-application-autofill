@@ -32,6 +32,32 @@ export interface Resume {
   starred?: boolean | null;
   defaultResume?: boolean | null;
   parsedJson?: string | null;
+  /** `BUILT` = authored in the Resume Builder (has a document); `UPLOADED` = a file. Absent on older APIs. */
+  kind?: "BUILT" | "UPLOADED" | null;
+  templateId?: string | null;
+  /** BUILT only (R0.6): the document's content hash, and the hash of the last exported PDF. */
+  contentHash?: string | null;
+  exportedHash?: string | null;
+  exportedAt?: string | null;
+  /** Resume metadata (R3.9). All optional: an older API sends none of them. */
+  /** Last modified (the resume row's `updated_at`); null on rows that predate it. */
+  updatedAt?: string | null;
+  /** The web's word for `defaultResume` (same value). */
+  primary?: boolean | null;
+  target?: string | null;
+  tags?: string[] | null;
+  role?: "MASTER" | "TAILORED" | null;
+  /** Derived server-side: `ARCHIVED` | `DRAFT` | `ACTIVE`. */
+  lifecycle?: "ARCHIVED" | "DRAFT" | "ACTIVE" | null;
+  createdBy?: { login: string; label: string } | null;
+  updatedBy?: { login: string; label: string } | null;
+  shareWithOrg?: boolean | null;
+  /** BUILT only (R3.7): the stored PDF's job state. Absent on an older API. */
+  pdf?: { status: "NONE" | "PENDING" | "RUNNING" | "READY" | "FAILED" | "STALE"; hash?: string | null; error?: string | null } | null;
+  /** BUILT only (R2.5): the last Resume Score (0-100) the editor's save stored; null/absent until the first scored save. */
+  score?: number | null;
+  /** BUILT only (R3.13): the render hash the card thumbnail shows; null/absent until the first PDF job made one. */
+  thumbHash?: string | null;
 }
 
 function statusBadge(status?: string | null) {
@@ -532,7 +558,7 @@ export default function ResumeList({
                 Restore
               </button>
             )}
-            <button onClick={bulkDelete} className="rounded-lg border border-line bg-paper px-3 py-1.5 text-[12.5px] font-semibold text-danger hover:bg-paper-2">
+            <button onClick={bulkDelete} className="rounded-lg border border-line bg-paper px-3 py-1.5 text-[12.5px] font-semibold text-danger-text hover:bg-paper-2">
               Delete
             </button>
             <button onClick={() => setSelected(new Set())} className="rounded-lg px-3 py-1.5 text-[12.5px] font-semibold text-muted hover:text-ink">

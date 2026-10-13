@@ -23,6 +23,19 @@ export interface ParsedResume {
   rawText: string;
   /** How the structure was produced: server-side AI, or the local heuristic parser. */
   source?: "ai" | "heuristic";
+  /** The extracted text looked shredded (scanned or broken PDF): the structure is probably poor. */
+  garbled?: boolean;
+}
+
+/**
+ * Hooks for callers that must control what leaves the browser (the profile setup wizard, which strips
+ * never-collected values first - Resume Builder R1.4). Existing callers pass nothing and behave as before.
+ */
+export interface ParseOptions {
+  /** Called with the extracted text before it is structured or sent anywhere; return the text to use. */
+  prepareText?: (raw: string) => string;
+  /** Never send the original file to the AI parser (it cannot be redacted); use the text only. */
+  textOnly?: boolean;
 }
 
 async function extractPdf(file: File): Promise<string> {
@@ -72,8 +85,13 @@ export async function extractText(file: File): Promise<string> {
 }
 
 /** Full pipeline: file → text → structured resume + bio, all in the browser. */
-export async function parseResume(file: File): Promise<ParsedResume> {
-  const rawText = await extractText(file);
+export async function parseResume(file: File, opts: ParseOptions = {}): Promise<ParsedResume> {
+  const rawText = (opts.prepareText ?? ((t: string) => t))(await extractText(file));
+  return parseText(rawText);
+}
+
+/** The local (heuristic) parse of text that is already in hand: nothing leaves the browser. */
+export function parseText(rawText: string): ParsedResume {
   return {
     structured: heuristicStructure(rawText),
     bio: parseBio(rawText),
@@ -157,7 +175,7 @@ async function fileToBase64(file: File): Promise<string> {
  * quota, network, 5xx — falls back to the local heuristic parse, never blocking the
  * upload flow.
  */
-export async function parseResumeWithAi(file: File): Promise<ParsedResume> {
+export async function parseResumeWithAi(file: File, opts: ParseOptions = {}): Promise<ParsedResume> {
   const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
   let rawText = "";
   try {
@@ -166,12 +184,24 @@ export async function parseResumeWithAi(file: File): Promise<ParsedResume> {
     // Unreadable in-browser (e.g. odd PDF) — a PDF can still go to the server whole.
     if (!isPdf) throw new Error("Couldn't read that file.");
   }
+  rawText = (opts.prepareText ?? ((t: string) => t))(rawText);
 
-  const useFile = isPdf && looksGarbled(rawText);
+  const garbled = looksGarbled(rawText);
+  // `textOnly` (the setup wizard): the original file cannot be redacted, so it is never sent.
+  const useFile = isPdf && garbled && !opts.textOnly;
   const body = useFile
     ? { fileBase64: await fileToBase64(file), fileMimeType: "application/pdf", consent: true }
     : { text: cleanForLlm(rawText), consent: true };
+  return { ...(await aiParse(body, rawText)), garbled };
+}
 
+/** As `parseResumeWithAi` for text that was typed or pasted: the (cleaned) text is sent, never a file. */
+export async function parseTextWithAi(rawText: string): Promise<ParsedResume> {
+  return aiParse({ text: cleanForLlm(rawText), consent: true }, rawText);
+}
+
+/** POST the body to the AI parser; any failure short of a parsed result falls back to the local parse. */
+async function aiParse(body: Record<string, unknown>, rawText: string): Promise<ParsedResume> {
   try {
     const res = await fetch("/api/ai/parse-resume", {
       method: "POST",
@@ -194,10 +224,5 @@ export async function parseResumeWithAi(file: File): Promise<ParsedResume> {
   }
 
   // Anything short of a successful AI parse: use the local heuristic.
-  return {
-    structured: heuristicStructure(rawText),
-    bio: parseBio(rawText),
-    rawText,
-    source: "heuristic",
-  };
+  return parseText(rawText);
 }

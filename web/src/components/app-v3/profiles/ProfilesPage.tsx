@@ -1,23 +1,21 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import Link from "next/link";
-import { BriefcaseIcon, GraduationCapIcon, LayersIcon, cn } from "@kiwiply/ui";
+import { useCallback, useMemo, useState } from "react";
+import { BriefcaseIcon, GraduationCapIcon, LayersIcon, ListIcon, TrophyIcon, cn } from "@kiwiply/ui";
 import BioEditor, { type Bio } from "@/components/BioEditor";
 import { UnderlineTabs } from "../../app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
-import OverviewTab, { type ProfileTabKey } from "./OverviewTab";
-import type { ProfileView } from "./derive";
-
-const TABS: { id: ProfileTabKey; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "personal", label: "Personal Info" },
-  { id: "work", label: "Work Experience" },
-  { id: "education", label: "Education" },
-  { id: "skills", label: "Skills" },
-  { id: "projects", label: "Projects" },
-  { id: "preferences", label: "Preferences" },
-];
+import { fetchCompleteness, type Completeness, type ProfileItem } from "@/lib/profile-items";
+import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
+import type { Persona } from "@/lib/onboarding/persona";
+import OverviewTab from "./OverviewTab";
+import { PROFILE_TABS, tabFromHref, type ProfileTabKey } from "./tabs";
+import SectionTab from "./SectionTab";
+import SetupPreferences from "./SetupPreferences";
+import SkillsChips from "./SkillsChips";
+import { buildTiles, type ProfileView } from "./derive";
+import type { DraftLimits } from "./itemSchema";
+import { useProfileItems } from "./useProfileItems";
 
 /** Which BioEditor sections each tab shows. One editor instance stays mounted so autosave survives tab switches. */
 const EDITOR_SECTIONS: Partial<Record<ProfileTabKey, string[]>> = {
@@ -27,14 +25,67 @@ const EDITOR_SECTIONS: Partial<Record<ProfileTabKey, string[]>> = {
 };
 
 /**
- * My Profiles (APP-V3-SPEC section 2.4). Overview is the board; Personal Info, Skills and
- * Preferences reuse the existing bio editor sections (same autosave, shared with the extension).
- * Work Experience, Education and Projects show what the default resume holds, read-only, with a
- * "Coming soon" note for in-place editing (those live in the resume today).
+ * My Profiles (APP-V3-SPEC section 2.4, Resume Builder R1.2). Overview is the board with the API's
+ * completeness meter; Personal Info and Preferences keep the bio editor (same autosave, shared with the
+ * extension). Work Experience, Education, Projects and More (certifications, languages, awards, other)
+ * are editable lists of profile items; Skills are chips in named groups, with the bio editor's "Base
+ * skills" (what the extension autofills) kept underneath. `?tab=` opens a tab (the meter's next action
+ * links to it).
  */
-export default function ProfilesPage({ profile, bio }: { profile: ProfileView; bio: Bio }) {
-  const [tab, setTab] = useState<ProfileTabKey>("overview");
+export default function ProfilesPage({
+  profile,
+  bio,
+  bioProvenance,
+  items: initialItems,
+  itemsLoaded,
+  completeness: initialCompleteness,
+  config,
+  initialTab,
+  persona = null,
+}: {
+  profile: ProfileView;
+  bio: Bio;
+  /** `bio.meta_json.provenance` from GET /api/profile: the source chips on the bio fields (R1.6). */
+  bioProvenance?: Record<string, string>;
+  items: ProfileItem[];
+  /** False when the items could not be loaded: the lists say so and Add is off. */
+  itemsLoaded: boolean;
+  completeness: Completeness | null;
+  config: ResumeBuilderConfig;
+  initialTab: ProfileTabKey;
+  /** The setup flow's persona (`GET /api/profile/onboarding`), for the Preferences tab's "I'm a ..." row. */
+  persona?: Persona | null;
+}) {
+  const [tab, setTabState] = useState<ProfileTabKey>(initialTab);
+  const [completeness, setCompleteness] = useState<Completeness | null>(initialCompleteness);
+
+  const refreshMeter = useCallback(() => {
+    fetchCompleteness()
+      .then(setCompleteness)
+      .catch(() => undefined); // keep the last meter; the next write or tab visit tries again
+  }, []);
+
+  const api = useProfileItems(initialItems, refreshMeter);
+
+  const setTab = (next: ProfileTabKey) => {
+    setTabState(next);
+    if (next === "overview" || next === "personal" || next === "preferences" || next === "skills") refreshMeter(); // bio edits move the meter too
+    const url = new URL(window.location.href);
+    if (next === "overview") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState(null, "", url);
+  };
+
   const editorShow = EDITOR_SECTIONS[tab] ?? [];
+  const limits: DraftLimits = { bullets: config.limits.bullets, bulletChars: config.limits.bulletChars };
+  const maxItems = config.profile.maxItemsPerUser;
+  const atCap = api.count >= maxItems;
+  const loadFailed = !itemsLoaded;
+
+  const tiles = useMemo(() => buildTiles(completeness, api.items), [completeness, api.items]);
+  const nextAction = completeness?.nextAction ? { label: completeness.nextAction.label, tab: tabFromHref(completeness.nextAction.href) } : null;
+
+  const shared = { api, limits, atCap, maxItems, loadFailed };
 
   return (
     <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4">
@@ -44,80 +95,66 @@ export default function ProfilesPage({ profile, bio }: { profile: ProfileView; b
         mascot="mascot-grad"
       />
       <UnderlineTabs
-        tabs={TABS}
+        tabs={PROFILE_TABS}
         value={tab}
         onChange={(t) => setTab(t as ProfileTabKey)}
         padded
         ariaLabel="Profile sections"
       />
 
-      {tab === "overview" && <OverviewTab profile={profile} onTab={setTab} />}
+      {tab === "overview" && (
+        <OverviewTab profile={profile} tiles={tiles} percent={completeness?.score ?? null} nextAction={nextAction} onTab={setTab} />
+      )}
+
+      {tab === "work" && (
+        <SectionTab
+          {...shared}
+          section="EXPERIENCE"
+          title="Work Experience"
+          icon={<BriefcaseIcon className="h-5 w-5" />}
+          empty="Nothing here yet. Add a role, or upload a resume and Kiwiply fills this in for you."
+        />
+      )}
+      {tab === "education" && (
+        <SectionTab
+          {...shared}
+          section="EDUCATION"
+          title="Education"
+          icon={<GraduationCapIcon className="h-5 w-5" />}
+          empty="Nothing here yet. Add your schooling, or upload a resume and Kiwiply fills this in for you."
+        />
+      )}
+      {tab === "projects" && (
+        <SectionTab
+          {...shared}
+          section="PROJECT"
+          title="Projects"
+          icon={<LayersIcon className="h-5 w-5" />}
+          empty="Nothing here yet. Add a project, or upload a resume and Kiwiply fills this in for you."
+        />
+      )}
+      {tab === "preferences" && <SetupPreferences persona={persona} />}
+      {tab === "skills" && <SkillsChips api={api} atCap={atCap} loadFailed={loadFailed} />}
+
+      {tab === "more" && (
+        <div className="flex flex-col gap-4">
+          <SectionTab {...shared} hideHeading section="CERTIFICATION" title="Certifications" icon={<TrophyIcon className="h-4 w-4" />} empty="No certifications yet." />
+          <SectionTab {...shared} hideHeading section="LANGUAGE" title="Languages" icon={<GraduationCapIcon className="h-4 w-4" />} empty="No languages yet." />
+          <SectionTab {...shared} hideHeading section="ACHIEVEMENT" title="Awards" icon={<TrophyIcon className="h-4 w-4" />} empty="No awards yet." />
+          <SectionTab {...shared} hideHeading section="CUSTOM" title="Other" icon={<ListIcon className="h-4 w-4" />} empty="Volunteering, publications or anything else worth a line." />
+        </div>
+      )}
 
       {/* Always mounted (hidden off its tabs) so unsaved edits are never dropped by a tab switch. */}
       <div className={cn(editorShow.length === 0 && "hidden")}>
-        <BioEditor initialBio={bio} show={editorShow} />
+        {tab === "skills" && (
+          <div className="mb-2 mt-1">
+            <h3 className="text-[14px] font-bold text-v2-navy">Base skills for autofill</h3>
+            <p className="text-[12.5px] text-v2-muted">The short list the extension uses on application forms. Your resume skills above are separate.</p>
+          </div>
+        )}
+        <BioEditor initialBio={bio} show={editorShow} provenance={bioProvenance} summaryMax={config.limits.summaryChars} />
       </div>
-
-      {tab === "work" && (
-        <ReadOnlyPanel icon={<BriefcaseIcon className="h-5 w-5" />} title="Work Experience" empty={profile.experience.length === 0}>
-          {profile.experience.map((e, i) => (
-            <Entry key={i} heading={[e.title, e.company].filter(Boolean).join(" · ") || "Role"} meta={[e.dates, e.location].filter(Boolean).join(" · ")} bullets={e.bullets} />
-          ))}
-        </ReadOnlyPanel>
-      )}
-      {tab === "education" && (
-        <ReadOnlyPanel icon={<GraduationCapIcon className="h-5 w-5" />} title="Education" empty={profile.education.length === 0}>
-          {profile.education.map((e, i) => (
-            <Entry key={i} heading={e.school || "School"} meta={[e.degree, e.dates, e.gpa && `GPA ${e.gpa}`].filter(Boolean).join(" · ")} bullets={[]} />
-          ))}
-        </ReadOnlyPanel>
-      )}
-      {tab === "projects" && (
-        <ReadOnlyPanel icon={<LayersIcon className="h-5 w-5" />} title="Projects" empty={profile.projects.length === 0}>
-          {profile.projects.map((p, i) => (
-            <Entry key={i} heading={p.name || "Project"} meta="" bullets={p.bullets} />
-          ))}
-        </ReadOnlyPanel>
-      )}
     </div>
-  );
-}
-
-function ReadOnlyPanel({ icon, title, empty, children }: { icon: ReactNode; title: string; empty: boolean; children: ReactNode }) {
-  return (
-    <section className="rounded-2xl border border-v2-line/70 bg-paper p-5 shadow-v2-soft">
-      <div className="flex items-center gap-2 text-v2-navy">
-        {icon}
-        <h2 className="font-display text-[17px] font-extrabold">{title}</h2>
-        <span className="ml-auto rounded-full bg-paper-2 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-v2-muted">Editing: coming soon</span>
-      </div>
-      {empty ? (
-        <p className="mt-4 text-[13.5px] text-v2-ink-soft">
-          Nothing here yet. Upload a resume and Kiwiply fills this in for you.{" "}
-          <Link href="/resume-builder" className="font-semibold text-v2-blue hover:underline">Go to Resume Builder</Link>
-        </p>
-      ) : (
-        <>
-          <p className="mt-1 text-[12.5px] text-v2-muted">Read from your default resume. Editing in place is on the way.</p>
-          <ul className="mt-4 flex flex-col gap-4">{children}</ul>
-        </>
-      )}
-    </section>
-  );
-}
-
-function Entry({ heading, meta, bullets }: { heading: string; meta: string; bullets: string[] }) {
-  return (
-    <li className="border-t border-v2-line/60 pt-4 first:border-t-0 first:pt-0">
-      <p className="text-[14.5px] font-bold text-v2-navy">{heading}</p>
-      {meta && <p className="text-[12.5px] text-v2-muted">{meta}</p>}
-      {bullets.length > 0 && (
-        <ul className="mt-2 list-disc space-y-1 pl-5 text-[13.5px] text-v2-ink-soft">
-          {bullets.map((b, i) => (
-            <li key={i}>{b}</li>
-          ))}
-        </ul>
-      )}
-    </li>
   );
 }

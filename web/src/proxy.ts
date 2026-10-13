@@ -80,5 +80,5 @@ async function tryRefresh(refreshToken: string): Promise<{ accessToken: string; 
 export const config = {
   // Run on app pages and data routes, but NOT on the auth endpoints (login/logout/refresh
   // manage cookies themselves — refreshing there would be circular) or on static assets.
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|opengraph-image|api/auth).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|opengraph-image|api/auth).*)"],
 };

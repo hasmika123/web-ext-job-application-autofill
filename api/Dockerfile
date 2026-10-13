@@ -25,6 +25,9 @@ FROM eclipse-temurin:17-jre AS runtime
 WORKDIR /app
 RUN groupadd -r app && useradd -r -g app app
 COPY --from=build /workspace/app.jar app.jar
+# Local FileStorage root. Created and owned by `app` here so a fresh named volume mounted at
+# /srv/uploads inherits writable, owner-only permissions (Docker copies them on first mount).
+RUN mkdir -p /srv/uploads && chown app:app /srv/uploads && chmod 700 /srv/uploads
 USER app
 
 EXPOSE 8080

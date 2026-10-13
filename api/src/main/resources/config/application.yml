@@ -43,6 +43,10 @@ management:
           - caches
           - liquibase
   endpoint:
+    env:
+      # Belt and braces: the AI provider keys are env-only and must never appear in /management/env,
+      # whatever show-values says. (The defaults are listed too, because setting this replaces them.)
+      keys-to-sanitize: password,secret,key,token,.*credentials.*,vcap_services,sun.java.command,DOSSIER_AI_API_KEY,DOSSIER_AI_OPENAI_COMPAT_API_KEY
     health:
       show-details: when_authorized
       roles: 'ROLE_ADMIN'
@@ -259,9 +263,25 @@ dossier:
     enabled: ${DEMO_ENABLED:false}
     password: ${DEMO_PASSWORD:kiwiply-demo}
     create-accounts: ${DEMO_CREATE_ACCOUNTS:true}
-  # S3-compatible resume blob store. In prod these come from env (Cloudflare R2);
-  # dev/tests override the endpoint + credentials (MinIO). Never commit real keys.
+  # Organization features (E2E-O1.9). OFF unless ORGS_ENABLED=true (the dev profile turns it on). This is only the
+  # environment default: an admin-stored `feature.orgs.enabled` setting, when present, wins (OrgFeatureFlag). While off,
+  # /api/orgs/**, /api/join/** and /api/me/orgs/** answer 404 and the web hides the org navigation.
+  orgs:
+    enabled: ${ORGS_ENABLED:false}
+  # Service-to-service secret for /api/internal/** (the web's resume-PDF worker, Resume Builder R3.7).
+  # Sent as X-Internal-Token; the same value is the web container's DOSSIER_INTERNAL_TOKEN. Blank (the
+  # default) = the internal routes refuse every request. Never exposed by the edge proxy.
+  internal:
+    token: ${DOSSIER_INTERNAL_TOKEN:}
+  # File storage seam (FileStorage): every uploaded / built file goes through it.
+  #   driver=local (default) -> files under local.root, no cloud account or credentials needed.
+  #   driver=s3              -> an S3-compatible bucket, configured by the keys below. Switching is
+  #                             config-only (DOSSIER_STORAGE_DRIVER=s3). Never commit real keys.
   storage:
+    driver: ${DOSSIER_STORAGE_DRIVER:local}
+    local:
+      # Dev default: ~/.dossier/uploads (created 0700). Prod sets /srv/uploads (a Docker volume).
+      root: ${DOSSIER_STORAGE_LOCAL_ROOT:${user.home}/.dossier/uploads}
     endpoint: ${STORAGE_ENDPOINT:}
     region: ${STORAGE_REGION:auto}
     bucket: ${STORAGE_BUCKET:dossier-resumes}

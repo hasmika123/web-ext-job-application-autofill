@@ -14,12 +14,15 @@ import org.springframework.transaction.annotation.Transactional;
 /** In-app notifications (Phase 14.6). */
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    List<Notification> findTop30ByUserIdOrderByCreatedAtDesc(Long userId);
+    /** The bell: newest first, without the kinds the user switched off in-app. */
+    List<Notification> findTop30ByUserIdAndInappMutedFalseOrderByCreatedAtDesc(Long userId);
 
     /** All of a user's notifications, for their data export (14.7). */
     List<Notification> findByUserIdOrderByCreatedAtDesc(Long userId);
 
-    long countByUserIdAndReadAtIsNull(Long userId);
+    long countByUserIdAndReadAtIsNullAndInappMutedFalse(Long userId);
+
+    boolean existsByUserIdAndDedupeKey(Long userId, String dedupeKey);
 
     boolean existsByUserIdAndApplicationIdAndStatus(Long userId, Long applicationId, String status);
 

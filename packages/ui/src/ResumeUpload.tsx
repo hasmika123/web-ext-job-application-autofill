@@ -385,7 +385,7 @@ function GpaField({ value, onChange }: { value: string; onChange: (v: string) =>
         }}
         className={cn(compactInput, invalid && "border-danger")}
       />
-      {invalid && <span className="text-[11.5px] font-medium text-danger">GPA must be between 0.00 and 4.99</span>}
+      {invalid && <span className="text-[11.5px] font-medium text-danger-text">GPA must be between 0.00 and 4.99</span>}
     </label>
   );
 }
@@ -899,7 +899,7 @@ export default function ResumeUpload({
           <div className="w-full max-w-sm rounded-[var(--radius-lg)] border border-line bg-paper p-6 text-center shadow-[var(--shadow-lg)]">
             {error ? (
               <>
-                <p role="alert" className="text-sm font-medium text-danger">{error}</p>
+                <p role="alert" className="text-sm font-medium text-danger-text">{error}</p>
                 <button type="button" onClick={handleClose} className={cn(buttonVariants("ghost"), "mt-4")}>Close</button>
               </>
             ) : (
@@ -957,7 +957,7 @@ export default function ResumeUpload({
         )}
         {parsing && <p className="text-sm text-muted">Reading your resume…</p>}
         {error && (
-          <p role="alert" className="text-sm font-medium text-danger">
+          <p role="alert" className="text-sm font-medium text-danger-text">
             {error}
           </p>
         )}
@@ -1168,7 +1168,7 @@ export default function ResumeUpload({
                 </p>
               )}
               {saveError && (
-                <p role="alert" className="min-w-0 flex-1 basis-full text-[13px] font-medium leading-snug text-danger sm:basis-0">
+                <p role="alert" className="min-w-0 flex-1 basis-full text-[13px] font-medium leading-snug text-danger-text sm:basis-0">
                   {saveError}
                   {saveCta && (
                     <>

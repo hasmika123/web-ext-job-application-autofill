@@ -110,6 +110,17 @@ dossier:
     enabled: false
     password: test-demo-password
     create-accounts: false
+  # Org features are on in the suite; the flag tests switch it with the admin setting.
+  orgs:
+    enabled: true
+  # The service-to-service secret for /api/internal/** (ResumePdfJobIT sends it).
+  internal:
+    token: test-internal-token
+  # Uploads go through the local-filesystem FileStorage driver (the default) into a throwaway dir.
+  storage:
+    driver: local
+    local:
+      root: ${dossier.test.uploads-root:${java.io.tmpdir}/dossier-test-uploads}
 management:
   health:
     mail:

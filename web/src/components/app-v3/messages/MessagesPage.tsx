@@ -1,19 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeftIcon, SendIcon, cn } from "@kiwiply/ui";
+import { ArrowLeftIcon, EmptyState, SendIcon, cn } from "@kiwiply/ui";
 import { CompanyTile, InitialsAvatar, SearchInput } from "../../app-v2/common";
 import { HeroBand } from "@/components/app-v2/common";
-import { CONVERSATIONS, MESSAGES_NOTE, type ChatMessage, type Conversation } from "../sample-data";
+import type { ChatMessage, Conversation } from "../sample-data";
+import { useSamples } from "../SamplesProvider";
 
 /**
  * Messages (APP-V3-SPEC 2.9). Two panes from `md` up: the conversation list and the open thread.
  * Below `md` they stack: the list shows first and tapping a conversation opens the thread with a
- * back button. All client state over sample data; sending only appends to the local thread.
+ * back button. Conversations have no API yet (U10.1), so the threads are client state over sample data and
+ * sending only appends to the local thread: shown to a demo account on a sample-enabled build only (`samples()`,
+ * U0.5); a real account sees an honest empty state.
  */
 export default function MessagesPage() {
-  const [convos, setConvos] = useState<Conversation[]>(CONVERSATIONS);
-  const [selectedId, setSelectedId] = useState(CONVERSATIONS[0].id);
+  const sample = useSamples();
+  const initial = useMemo(() => sample("CONVERSATIONS"), [sample]);
+  const note = sample("MESSAGES_NOTE");
+  const [convos, setConvos] = useState<Conversation[]>(initial);
+  const [selectedId, setSelectedId] = useState(initial[0]?.id ?? "");
   // Phones only: which pane is showing. The desktop layout always shows both.
   const [view, setView] = useState<"list" | "thread">("list");
   const [query, setQuery] = useState("");
@@ -21,7 +27,7 @@ export default function MessagesPage() {
   const endRef = useRef<HTMLDivElement>(null);
   const nextId = useRef(1);
 
-  const selected = convos.find((c) => c.id === selectedId) ?? convos[0];
+  const selected: Conversation | undefined = convos.find((c) => c.id === selectedId) ?? convos[0];
   const unreadCount = convos.filter((c) => c.unread).length;
 
   const filtered = useMemo(() => {
@@ -34,7 +40,7 @@ export default function MessagesPage() {
   useEffect(() => {
     const el = endRef.current?.parentElement;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [selected.messages.length, selectedId, view]);
+  }, [selected?.messages.length, selectedId, view]);
 
   const open = (id: string) => {
     setSelectedId(id);
@@ -44,7 +50,7 @@ export default function MessagesPage() {
 
   const send = () => {
     const text = draft.trim();
-    if (!text) return;
+    if (!text || !selected) return;
     const msg: ChatMessage = { id: `me-${nextId.current++}`, from: "me", text, time: "Just now" };
     setConvos((list) =>
       list.map((c) => (c.id === selected.id ? { ...c, messages: [...c.messages, msg], preview: text, ago: "Just now" } : c)),
@@ -52,14 +58,27 @@ export default function MessagesPage() {
     setDraft("");
   };
 
+  const hero = (
+    <HeroBand
+      title="Messages"
+      subtitle="Communication with recruiters and hiring teams."
+      mascot="mascot-heart"
+      note="Say hello!"
+    />
+  );
+
+  if (!selected) {
+    return (
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
+        {hero}
+        <EmptyState mascot title="No messages yet" description="Replies from recruiters and hiring teams show up here." />
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
-      <HeroBand
-        title="Messages"
-        subtitle="Communication with recruiters and hiring teams."
-        mascot="mascot-heart"
-        note="Say hello!"
-      />
+      {hero}
 
       <div className="grid h-[min(660px,calc(100dvh-17rem))] md:h-[min(660px,calc(100dvh-13rem))] min-h-[460px] overflow-hidden rounded-2xl border border-v2-line/70 bg-paper shadow-v2-soft grid-cols-[minmax(0,1fr)] md:grid-cols-[340px_minmax(0,1fr)]">
         {/* Conversation list */}
@@ -183,7 +202,7 @@ export default function MessagesPage() {
                 <SendIcon size={19} />
               </button>
             </form>
-            <p className="mt-2 text-center text-[12px] text-v2-muted">{MESSAGES_NOTE}</p>
+            {note && <p className="mt-2 text-center text-[12px] text-v2-muted">{note}</p>}
           </div>
         </section>
       </div>

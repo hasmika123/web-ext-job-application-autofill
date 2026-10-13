@@ -132,6 +132,25 @@ public class MailService {
         sendEmailSync(user.getEmail(), subject, content, false, true);
     }
 
+    /**
+     * E2E-U7.0: a notice of any kind the user has switched email on for (and that is not held back by quiet
+     * hours). The subject is the notice's own title; {@code kindTitle} names what it is about. Sent to the
+     * account's own address.
+     */
+    @Async
+    public void sendNotificationEmail(User user, String kindTitle, String title, String body, String link) {
+        if (user.getEmail() == null) return;
+        Locale locale = Locale.forLanguageTag(user.getLangKey() == null ? "en" : user.getLangKey());
+        Context context = new Context(locale);
+        context.setVariable("name", user.getFirstName() != null && !user.getFirstName().isBlank() ? user.getFirstName() : user.getLogin());
+        context.setVariable("kind", kindTitle);
+        context.setVariable("subject", title);
+        context.setVariable("body", body);
+        context.setVariable("link", link);
+        String content = templateEngine.process("mail/notificationEmail", context);
+        sendEmailSync(user.getEmail(), title, content, false, true);
+    }
+
     @Async
     public void sendPasswordResetMail(User user) {
         LOG.debug("Sending password reset email to '{}'", user.getEmail());

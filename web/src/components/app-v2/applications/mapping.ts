@@ -1,4 +1,4 @@
-import type { Application } from "@/components/ApplicationBoard";
+import type { Application } from "@/lib/applications";
 import type { AppStatusKey, ApplicationRowSample } from "../sample-data";
 
 /**

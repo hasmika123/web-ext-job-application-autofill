@@ -5,117 +5,10 @@
  * Real data (name, applications, resumes, Pro matches, profile, account, billing) is merged over
  * this in the pages; when a real list is empty the sample rows render so the page matches the board.
  */
-import type { SampleJob, WorkMode, AppStatusKey } from "@/components/app-v2/sample-data";
+import type { SampleJob, WorkMode } from "@/components/app-v2/sample-data";
 import type { Tone } from "@/components/app-v2/common";
 
 /* ═══ Dashboard + Job Search ═══ */
-/* ── Dashboard (2.1) ─────────────────────────────────────────────────────────────────────── */
-
-export interface DashStat {
-  id: "applications" | "interviews" | "offers" | "saved";
-  value: string;
-  label: string;
-  note: string;
-  tone: Tone;
-}
-
-export const DASH_STATS: DashStat[] = [
-  { id: "applications", value: "42", label: "Applications", note: "+12% this week", tone: "blue" },
-  { id: "interviews", value: "8", label: "Interviews", note: "2 this week", tone: "green" },
-  { id: "offers", value: "5", label: "Offers", note: "1 new", tone: "violet" },
-  { id: "saved", value: "18", label: "Saved Jobs", note: "+6 this week", tone: "amber" },
-];
-
-/** Application Activity: Applied / Interviews / Offers per bucket (Last 30 days). */
-export const DASH_ACTIVITY: { label: string; values: number[] }[] = [
-  { label: "Sep 10", values: [18, 6, 2] },
-  { label: "Sep 17", values: [22, 7, 3] },
-  { label: "Sep 24", values: [15, 5, 1] },
-  { label: "Oct 1", values: [26, 9, 4] },
-  { label: "Oct 8", values: [30, 10, 5] },
-];
-
-/**
- * Application Activity per period. 30 days is the board; the 7 and 90 day sets are sample values in
- * the same shape so the period select has something to switch to.
- */
-export const DASH_ACTIVITY_PERIODS: Record<string, { label: string; values: number[] }[]> = {
-  "Last 7 days": [
-    { label: "Oct 4", values: [4, 1, 0] },
-    { label: "Oct 5", values: [6, 2, 1] },
-    { label: "Oct 6", values: [3, 1, 0] },
-    { label: "Oct 7", values: [7, 2, 1] },
-    { label: "Oct 8", values: [9, 3, 1] },
-  ],
-  "Last 30 days": DASH_ACTIVITY,
-  "Last 90 days": [
-    { label: "Jul 20", values: [42, 12, 4] },
-    { label: "Aug 15", values: [55, 17, 6] },
-    { label: "Sep 10", values: [48, 15, 5] },
-    { label: "Sep 24", values: [63, 21, 8] },
-    { label: "Oct 8", values: [71, 24, 9] },
-  ],
-};
-
-export const DASH_STATUS: { label: string; value: number; tone: Tone }[] = [
-  { label: "Applied", value: 18, tone: "blue" },
-  { label: "Under Review", value: 10, tone: "amber" },
-  { label: "Interview", value: 8, tone: "green" },
-  { label: "Offer", value: 5, tone: "violet" },
-  { label: "Rejected", value: 1, tone: "coral" },
-];
-
-export const DASH_INSIGHTS: { text: string; href: string }[] = [
-  { text: "You have 3 upcoming interviews. Prepare with AI.", href: "/interview-prep" },
-  { text: "Your resume is a strong match (85%+) for 5 similar roles.", href: "/resume-builder" },
-  { text: "Try applying to 8 more high-match jobs this week.", href: "/jobs" },
-];
-
-export interface DashRecent {
-  id: string;
-  title: string;
-  company: string;
-  status: string;
-  /** Short date, "Oct 8". */
-  date: string;
-}
-
-export const DASH_RECENT: DashRecent[] = [
-  { id: "s0", title: "Software Engineer", company: "Google", status: "Interview", date: "Oct 8" },
-  { id: "s1", title: "Frontend Developer", company: "Microsoft", status: "Under Review", date: "Oct 6" },
-  { id: "s2", title: "Software Engineer", company: "Airbnb", status: "Applied", date: "Oct 4" },
-  { id: "s3", title: "SDE II", company: "Amazon", status: "Applied", date: "Oct 3" },
-  { id: "s4", title: "Frontend Engineer", company: "Meta", status: "Rejected", date: "Oct 1" },
-];
-
-/** Recommended for You: sample rows (id = a V3_JOBS id, so the row opens its panel in Job Search). */
-export const DASH_RECOMMENDED: { id: string; title: string; company: string; score: number }[] = [
-  { id: "google-swe", title: "Software Engineer", company: "Google", score: 95 },
-  { id: "airbnb-fe", title: "Frontend Developer", company: "Airbnb", score: 88 },
-  { id: "amazon-sde2", title: "SDE II", company: "Amazon", score: 86 },
-];
-
-export const DASH_PROFILE_CHECKS: { id: string; label: string; done: boolean }[] = [
-  { id: "resume", label: "Resume uploaded", done: true },
-  { id: "skills", label: "Skills added", done: true },
-  { id: "experience", label: "Work experience added", done: true },
-  { id: "portfolio", label: "Add portfolio or projects", done: false },
-  { id: "titles", label: "Add target job titles", done: false },
-  { id: "location", label: "Add location preference", done: false },
-];
-export const DASH_PROFILE_PCT = 78;
-
-export const DASH_INTERVIEWS: { company: string; title: string; when: string }[] = [
-  { company: "Google", title: "Software Engineer", when: "Oct 10, 10:00 AM" },
-  { company: "Microsoft", title: "Frontend Developer", when: "Oct 14, 2:00 PM" },
-];
-
-export const DASH_ALERTS: { title: string; count: number; ago: string }[] = [
-  { title: "Python Developer", count: 3, ago: "2h ago" },
-  { title: "Frontend Engineer (Remote)", count: 5, ago: "5h ago" },
-  { title: "Software Engineer", count: 12, ago: "Yesterday" },
-];
-
 /* ── Job Search (2.2) ────────────────────────────────────────────────────────────────────── */
 
 export type JobType = "Full-time" | "Part-time" | "Contract" | "Internship";
@@ -262,37 +155,7 @@ export const GOOGLE_V3_DETAIL: V3Detail = {
 };
 
 
-/* ═══ Applications, My Profiles, Saved Jobs, Settings ═══ */
-
-/* ── 2.3 Applications ───────────────────────────────────────────────────────────────────────── */
-
-export interface V3ApplicationSample {
-  id: string;
-  title: string;
-  company: string;
-  sub: string;
-  status: AppStatusKey;
-  appliedOn: string;
-  nextStep: string;
-  nextStepDetail?: string;
-  href?: string | null;
-}
-
-export const V3_APPLICATION_ROWS: V3ApplicationSample[] = [
-  { id: "a3-1", title: "Software Engineer", company: "Google", sub: "Full-time · Mountain View, CA", status: "interview", appliedOn: "Oct 8, 2026", nextStep: "Oct 10, 10:00 AM", nextStepDetail: "Video Interview" },
-  { id: "a3-2", title: "Frontend Developer", company: "Microsoft", sub: "Full-time · Redmond, WA", status: "in-review", appliedOn: "Oct 6, 2026", nextStep: "—" },
-  { id: "a3-3", title: "SDE II", company: "Amazon", sub: "Full-time · Seattle, WA", status: "applied", appliedOn: "Oct 3, 2026", nextStep: "—" },
-  { id: "a3-4", title: "Product Engineer", company: "Microsoft", sub: "Full-time · Remote", status: "applied", appliedOn: "Oct 2, 2026", nextStep: "—" },
-  { id: "a3-5", title: "Frontend Engineer", company: "Meta", sub: "Full-time · Remote", status: "rejected", appliedOn: "Oct 1, 2026", nextStep: "—" },
-  { id: "a3-6", title: "Full Stack Developer", company: "Netflix", sub: "Full-time · Los Gatos, CA", status: "in-review", appliedOn: "Sep 28, 2026", nextStep: "—" },
-  { id: "a3-7", title: "Software Engineer", company: "Uber", sub: "Full-time · San Francisco, CA", status: "interview", appliedOn: "Sep 25, 2026", nextStep: "Oct 12, 3:00 PM", nextStepDetail: "Technical" },
-  { id: "a3-8", title: "Frontend Developer", company: "Shopify", sub: "Full-time · Remote", status: "applied", appliedOn: "Sep 22, 2026", nextStep: "—" },
-  { id: "a3-9", title: "Software Engineer", company: "Tesla", sub: "Full-time · Palo Alto, CA", status: "offer", appliedOn: "Sep 20, 2026", nextStep: "Review offer" },
-  { id: "a3-10", title: "Backend Engineer", company: "Stripe", sub: "Full-time · Remote", status: "applied", appliedOn: "Sep 18, 2026", nextStep: "—" },
-];
-
-/** Tab counts as drawn on the board (used only with the sample rows). */
-export const V3_APPLICATION_SAMPLE_COUNTS = { all: 42, applied: 18, "in-review": 10, interview: 8, offer: 5, rejected: 1 } as const;
+/* ═══ My Profiles, Settings ═══ */
 
 /* ── 2.4 My Profiles ────────────────────────────────────────────────────────────────────────── */
 
@@ -312,60 +175,6 @@ export const V3_RESUME_VERSION_SAMPLES = [
   { id: -1, label: "Frontend Developer Resume", date: "Sep 30, 2026", isDefault: false },
   { id: -2, label: "Product Manager Resume", date: "Sep 12, 2026", isDefault: false },
 ];
-
-/* ── 2.10 Saved Jobs ────────────────────────────────────────────────────────────────────────── */
-
-export type V3SavedState = "to-apply" | "applied" | "not-interested";
-
-export interface V3SavedJob {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  mode: string;
-  salary?: string;
-  tags: string[];
-  /** Sort key for "Recently Saved" (0 = today). */
-  savedDaysAgo: number;
-  savedLabel: string;
-  state: V3SavedState;
-}
-
-const J = (
-  id: number,
-  title: string,
-  company: string,
-  location: string,
-  mode: string,
-  tags: string[],
-  savedDaysAgo: number,
-  savedLabel: string,
-  state: V3SavedState,
-  salary?: string,
-): V3SavedJob => ({ id: `s3-${id}`, title, company, location, mode, salary, tags, savedDaysAgo, savedLabel, state });
-
-/** The first six are the board's rows; the rest bring the tab counts to 18 / 12 / 4 / 2. */
-export const V3_SAVED_JOBS: V3SavedJob[] = [
-  J(1, "Software Engineer", "Google", "Mountain View, CA", "Remote", ["React", "TypeScript", "Next.js"], 2, "2 days ago", "to-apply", "$140K–$180K"),
-  J(2, "Frontend Developer", "Microsoft", "Redmond, WA", "Hybrid", ["React", "Tailwind", "JavaScript"], 3, "3 days ago", "to-apply"),
-  J(3, "Full Stack Engineer", "Airbnb", "San Francisco, CA", "Remote", ["Node.js", "React", "AWS"], 5, "5 days ago", "to-apply"),
-  J(4, "Product Engineer", "Stripe", "San Francisco, CA", "Hybrid", ["React", "Node.js", "System Design"], 7, "1 week ago", "to-apply"),
-  J(5, "SDE II", "Amazon", "Seattle, WA", "Full-time", ["Java", "AWS"], 8, "1 week ago", "to-apply"),
-  J(6, "Software Engineer", "Netflix", "Los Gatos, CA", "On-site", ["Python", "React", "Node.js"], 14, "2 weeks ago", "to-apply"),
-  J(7, "Frontend Engineer", "Meta", "Menlo Park, CA", "Hybrid", ["React", "GraphQL", "TypeScript"], 15, "2 weeks ago", "to-apply"),
-  J(8, "Backend Engineer", "Uber", "San Francisco, CA", "Remote", ["Go", "Kafka", "AWS"], 16, "2 weeks ago", "to-apply"),
-  J(9, "Software Engineer II", "Shopify", "Remote", "Remote", ["Ruby", "React", "GraphQL"], 18, "2 weeks ago", "to-apply"),
-  J(10, "Platform Engineer", "Databricks", "San Francisco, CA", "Hybrid", ["Scala", "Spark", "Kubernetes"], 20, "3 weeks ago", "to-apply"),
-  J(11, "Web Developer", "Adobe", "San Jose, CA", "Hybrid", ["JavaScript", "React", "CSS"], 21, "3 weeks ago", "to-apply"),
-  J(12, "Full Stack Developer", "Atlassian", "Remote", "Remote", ["Java", "React", "AWS"], 24, "3 weeks ago", "to-apply"),
-  J(13, "Software Engineer", "Apple", "Cupertino, CA", "On-site", ["Swift", "iOS"], 26, "4 weeks ago", "applied"),
-  J(14, "Frontend Developer", "Spotify", "New York, NY", "Hybrid", ["React", "TypeScript"], 28, "4 weeks ago", "applied"),
-  J(15, "SDE I", "Amazon", "Seattle, WA", "Full-time", ["Java", "DynamoDB"], 30, "1 month ago", "applied"),
-  J(16, "Product Engineer", "Notion", "San Francisco, CA", "Hybrid", ["TypeScript", "React"], 32, "1 month ago", "applied"),
-  J(17, "Data Engineer", "Salesforce", "San Francisco, CA", "Hybrid", ["Python", "SQL"], 35, "1 month ago", "not-interested"),
-  J(18, "Support Engineer", "Oracle", "Austin, TX", "On-site", ["SQL", "Linux"], 40, "1 month ago", "not-interested"),
-];
-
 
 /* ═══ AI Assistant, Job Alerts, Messages ═══ */
 
@@ -641,80 +450,7 @@ export const CONVERSATIONS: Conversation[] = [
 export const MESSAGES_NOTE = "Messaging launches with Inbox v2 — these are examples";
 
 
-/* ═══ Resume Builder, Interview Prep, Explore, Analytics ═══ */
-
-/* ── Resume Builder (spec 2.7) ─────────────────────────────────────────────────────── */
-
-export const RB_TABS = [
-  { id: "builder", label: "Builder" },
-  { id: "templates", label: "Templates" },
-  { id: "ai-suggestions", label: "AI Suggestions" },
-  { id: "cover-letter", label: "Cover Letter" },
-];
-
-export const RB_SECTIONS = [
-  "Personal Info",
-  "Professional Summary",
-  "Work Experience",
-  "Education",
-  "Skills",
-  "Projects",
-  "Certifications",
-  "Achievements",
-];
-
-export const RB_DEFAULT_SECTION = "Professional Summary";
-
-export const RB_SECTION_TEXT: Record<string, string> = {
-  "Personal Info": "Priya Sharma\nSoftware Engineer\nSan Francisco, CA  |  priya@email.com  |  linkedin.com/in/priya",
-  "Professional Summary":
-    "Results-driven Software Engineer with 5+ years of experience building scalable web applications using React, Node.js, and cloud technologies. Passionate about creating intuitive user experiences and solving complex problems.",
-  "Work Experience":
-    "Senior Software Engineer, Northwind Labs (2022 - Present)\n- Led a team of four engineers to rebuild the checkout flow in React, cutting load time by 38%.\n- Designed Node.js services handling 2M requests a day on AWS.\n\nSoftware Engineer, Brightpath (2020 - 2022)\n- Shipped a customer dashboard used by 15,000 accounts.",
-  Education: "B.S. in Computer Science, University of California, Davis (2016 - 2020)",
-  Skills: "React, TypeScript, Next.js, Node.js, AWS, PostgreSQL, GraphQL, System Design",
-  Projects: "Open-source component library (2.1k GitHub stars)\nPersonal finance tracker built with Next.js and Plaid",
-  Certifications: "AWS Certified Developer - Associate (2024)",
-  Achievements: "Engineering Excellence Award, Northwind Labs (2024)\nSpeaker at ReactConf Local (2023)",
-};
-
-export const RB_EXAMPLES: { role: string; text: string }[] = [
-  {
-    role: "Software Engineer",
-    text: "Results-driven Software Engineer with 5+ years of experience building scalable web applications using React, Node.js, and cloud technologies. Passionate about creating intuitive user experiences and solving complex problems.",
-  },
-  {
-    role: "Frontend Developer",
-    text: "Frontend Developer with 4+ years of experience crafting fast, accessible interfaces in React and TypeScript. Obsessed with design systems, performance budgets and pixel-level polish.",
-  },
-  {
-    role: "Full Stack Developer",
-    text: "Full Stack Developer with 5+ years of experience shipping end-to-end features across React, Node.js and PostgreSQL. Comfortable owning a project from database schema to deployed UI.",
-  },
-  {
-    role: "Product Engineer",
-    text: "Product-minded engineer with 5+ years of experience turning customer problems into shipped features. Works closely with design and data to measure what matters and iterate quickly.",
-  },
-];
-
-export const RB_TEMPLATES = ["Modern", "Classic", "Professional", "Minimal", "Creative"];
-
-export const RB_AI_SUGGESTIONS: { title: string; sub: string; tone: Tone }[] = [
-  { title: "Make it 30% stronger", sub: "Tighten wording and lead with impact", tone: "violet" },
-  { title: "Tailor for this job", sub: "Match keywords from a job description", tone: "blue" },
-  { title: "Improve bullet points", sub: "Add action verbs and measurable results", tone: "green" },
-  { title: "Fix grammar & tone", sub: "Catch typos and keep a confident voice", tone: "amber" },
-];
-
-/** Shown only while the account has no resumes yet. */
-export const RB_SAMPLE_VERSIONS = [
-  { id: -1, label: "Software Engineer Resume", date: "Oct 5, 2026", version: 3, isDefault: true },
-  { id: -2, label: "Frontend Developer Resume", date: "Sep 28, 2026", version: 2, isDefault: false },
-  { id: -3, label: "Product Manager Resume", date: "Sep 12, 2026", version: 1, isDefault: false },
-];
-
-export const RB_COVER_LETTER =
-  "Dear Hiring Manager,\n\nI am excited to apply for the Software Engineer role. Over the past five years I have built and shipped scalable web applications with React, Node.js and AWS, and I would love to bring that experience to your team.\n\nThank you for your time and consideration.\n\nSincerely,\nPriya Sharma";
+/* ═══ Interview Prep, Explore, Analytics ═══ */
 
 /* ── Interview Prep (spec 2.8) ─────────────────────────────────────────────────────── */
 
@@ -815,66 +551,3 @@ export const EX_RESOURCES = [
   { title: "Salary negotiation 101", sub: "Know your worth and ask with confidence" },
   { title: "Networking playbook", sub: "Reach out to the right people the right way" },
 ];
-
-/* ── Analytics (spec 2.12) ─────────────────────────────────────────────────────────── */
-
-export const AN_TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "applications", label: "Applications" },
-  { id: "interviews", label: "Interviews" },
-  { id: "offers", label: "Offers" },
-];
-
-export interface AnalyticsData {
-  /** True when computed from the signed-in user's own applications. */
-  real: boolean;
-  stats: {
-    applications: { value: string; delta?: { value: string; up: boolean } };
-    interviews: { value: string; delta?: { value: string; up: boolean } };
-    offers: { value: string; delta?: { value: string; up: boolean } };
-    response: { value: string; delta?: { value: string; up: boolean } };
-  };
-  overTime: { label: string; values: number[] }[];
-  responseByCompany: { name: string; pct: number }[];
-  status: { label: string; value: number; tone: Tone }[];
-}
-
-export const AN_SAMPLE: AnalyticsData = {
-  real: false,
-  stats: {
-    applications: { value: "42", delta: { value: "12%", up: true } },
-    interviews: { value: "8", delta: { value: "3", up: true } },
-    offers: { value: "5", delta: { value: "1", up: true } },
-    response: { value: "19%", delta: { value: "4%", up: true } },
-  },
-  overTime: [
-    { label: "Sep 10", values: [18, 6, 2] },
-    { label: "Sep 17", values: [22, 7, 3] },
-    { label: "Sep 24", values: [15, 5, 1] },
-    { label: "Oct 1", values: [26, 9, 4] },
-    { label: "Oct 8", values: [30, 10, 5] },
-  ],
-  responseByCompany: [
-    { name: "Google", pct: 60 },
-    { name: "Microsoft", pct: 45 },
-    { name: "Amazon", pct: 40 },
-    { name: "Meta", pct: 25 },
-    { name: "Airbnb", pct: 50 },
-  ],
-  status: [
-    { label: "Applied", value: 18, tone: "blue" },
-    { label: "Under Review", value: 10, tone: "amber" },
-    { label: "Interview", value: 8, tone: "green" },
-    { label: "Offer", value: 5, tone: "violet" },
-    { label: "Rejected", value: 1, tone: "coral" },
-  ],
-};
-
-export const AN_SKILLS = [
-  { name: "React", pct: 92 },
-  { name: "TypeScript", pct: 88 },
-  { name: "Node.js", pct: 76 },
-  { name: "AWS", pct: 64 },
-  { name: "Python", pct: 58 },
-];
-

@@ -92,6 +92,11 @@ const NAV: NavItem[] = [
   { href: "/settings", label: "Settings", icon: <GearIcon className={ICON} /> },
 ];
 
+/** `/resume-builder/<id>` (the editor), not the list and not its sub-pages (e.g. `/preview`). */
+export function isEditorPath(pathname: string): boolean {
+  return /^\/resume-builder\/\d+\/?$/.test(pathname);
+}
+
 function initialFor(account?: AppAccount | null): string {
   const src = account?.firstName || account?.login || account?.email || "?";
   return src.charAt(0).toUpperCase();
@@ -105,11 +110,14 @@ function firstNameOf(account?: AppAccount | null): string {
 export default function AppShell({
   account,
   isPro = false,
+  orgsEnabled = false,
   children,
 }: {
   account?: AppAccount | null;
   /** Hides the Upgrade card and adds a Pro pill. Display only: entitlement is enforced server-side. */
   isPro?: boolean;
+  /** The API's org feature flag; while it is off the account menu has no organization entry. */
+  orgsEnabled?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -134,6 +142,18 @@ export default function AppShell({
     e.preventDefault();
     const q = query.trim();
     router.push(q ? `/jobs?q=${encodeURIComponent(q)}` : "/jobs");
+  }
+
+  // The Resume Builder editor is full-bleed (DESIGN 1 / 10.1): no sidebar, no top bar. It draws its
+  // own top bar (`resume-builder/[id]/layout.tsx` + `EditorTopBar`); the session gate and theme in
+  // the (app) layout above still apply.
+  if (isEditorPath(pathname)) {
+    return (
+      <>
+        {demo && <DemoReadOnlyToaster />}
+        {children}
+      </>
+    );
   }
 
   return (
@@ -283,6 +303,7 @@ export default function AppShell({
               name={firstNameOf(account)}
               isPro={isPro}
               demo={demo}
+              orgsEnabled={orgsEnabled}
               onNavigate={() => setOpen(false)}
             />
           </div>

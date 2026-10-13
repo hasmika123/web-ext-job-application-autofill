@@ -1,198 +1,247 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FunnelIcon, cn } from "@kiwiply/ui";
-import type { AppStatusKey } from "../../app-v2/sample-data";
-import type { ApplicationRow } from "../../app-v2/applications/mapping";
+import { Button, EmptyState, ErrorState, StarIcon, TableSkeleton, cn, useToast } from "@kiwiply/ui";
 import {
   CompanyTile,
   DataTable,
   FilterSelect,
+  HeroBand,
   KebabMenu,
+  Pagination,
   SearchInput,
   StatusChip,
   UnderlineTabs,
   type DataColumn,
-  type Tone,
-} from "../../app-v2/common";
-import { V3_APPLICATION_ROWS, V3_APPLICATION_SAMPLE_COUNTS, type V3ApplicationSample } from "../sample-data";
-import { HeroBand } from "@/components/app-v2/common";
+} from "@/components/app-v2/common";
+import {
+  TRACKER_PAGE_SIZE,
+  asListPage,
+  dayAndTime,
+  patchApplication,
+  shortDay,
+  statusLabel,
+  statusTone,
+  type Application,
+} from "@/lib/applications";
+import { useListQuery, type Filters } from "@/lib/list-query";
+import { undoToast } from "@/lib/undo-toast";
+import ApplicationDetail from "./ApplicationDetail";
 
-type TabKey = "all" | "applied" | "in-review" | "interview" | "offer" | "rejected";
-type Row = ApplicationRow | V3ApplicationSample;
+type TabKey = "all" | "applied" | "in-review" | "interview" | "offer" | "rejected" | "archived";
 
-const TABS: { value: TabKey; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "applied", label: "Applied" },
-  { value: "in-review", label: "Under Review" },
-  { value: "interview", label: "Interviews" },
-  { value: "offer", label: "Offers" },
-  { value: "rejected", label: "Rejected" },
+/** What each tab asks the list for, and which summary count it shows. */
+const TABS: { value: TabKey; label: string; status?: string; archived?: boolean; summary: string }[] = [
+  { value: "all", label: "All", summary: "ALL" },
+  { value: "applied", label: "Applied", status: "APPLIED", summary: "APPLIED" },
+  { value: "in-review", label: "Under review", status: "IN_REVIEW", summary: "IN_REVIEW" },
+  { value: "interview", label: "Interviews", status: "INTERVIEW", summary: "INTERVIEW" },
+  { value: "offer", label: "Offers", status: "OFFER", summary: "OFFER" },
+  { value: "rejected", label: "Rejected", status: "REJECTED", summary: "REJECTED" },
+  { value: "archived", label: "Archived", archived: true, summary: "ARCHIVED" },
 ];
 
-const STATUS_CHIP: Record<AppStatusKey, { label: string; tone: Tone }> = {
-  applied: { label: "Applied", tone: "blue" },
-  "in-review": { label: "Under Review", tone: "amber" },
-  interview: { label: "Interview", tone: "green" },
-  offer: { label: "Offer", tone: "violet" },
-  rejected: { label: "Rejected", tone: "coral" },
-  withdrawn: { label: "Withdrawn", tone: "slate" },
-  draft: { label: "Draft", tone: "slate" },
-};
+const SORTS = [
+  { label: "Recently updated", value: "updatedAt,desc" },
+  { label: "Recently applied", value: "appliedAt,desc" },
+  { label: "Oldest first", value: "createdAt,asc" },
+  { label: "Company A-Z", value: "company,asc" },
+  { label: "By status", value: "status,asc" },
+] as const;
+const DEFAULT_SORT = SORTS[0].value;
 
-const RANGES = ["Last 7 days", "Last 30 days", "Last 90 days", "All time"] as const;
-const RANGE_DAYS: Record<string, number> = { "Last 7 days": 7, "Last 30 days": 30, "Last 90 days": 90 };
-const SORTS = ["Recently Updated", "Oldest First", "Company", "Status"] as const;
+const csv = (v: Filters[string]): string => (Array.isArray(v) ? v.join(",") : (v ?? ""));
+
+/** Which tab the list's filters describe. */
+export function tabOf(filters: Filters): TabKey {
+  if (csv(filters.archived) === "true") return "archived";
+  const status = csv(filters.status);
+  return TABS.find((t) => t.status && t.status === status)?.value ?? "all";
+}
 
 /**
- * My Applications (APP-V3-SPEC section 2.3). `rows` are the REAL applications mapped by the v2
- * `mapApplications` (SAVED rows are bookmarks and left out); with none yet the board's sample rows
- * render (`usingSample`) so the page still looks like the design. Next Step follows the board: the
- * interview slot, "Review offer", else an em dash. Below `md` the table becomes stacked cards.
+ * My Applications (APP-V3-SPEC 2.3, U6.3). The list is the server's: real paging, search, sort and the per-tab
+ * counts all come from `GET /api/applications` (list v2), so nothing here invents a number. A row opens the detail
+ * (a side panel on a desktop, a bottom sheet on a phone; `?app=<id>` deep-links to it). A real account with no
+ * applications gets the mascot empty state, never a sample row.
  */
-export default function ApplicationsV3Page({ rows: realRows }: { rows: ApplicationRow[] }) {
+export default function ApplicationsV3Page({ initialOpenId = null, isPro = false }: { initialOpenId?: number | null; isPro?: boolean }) {
   const router = useRouter();
-  const usingSample = realRows.length === 0;
-  const all: Row[] = useMemo(() => {
-    if (usingSample) return V3_APPLICATION_ROWS;
-    // Board rule: only an interview or an offer has a "next step"; everything else shows a dash.
-    return realRows.map((r) => ({
-      ...r,
-      nextStep: r.status === "interview" ? "Interview in progress" : r.status === "offer" ? "Review offer" : "—",
-    }));
-  }, [realRows, usingSample]);
+  const toast = useToast();
+  const list = useListQuery<Application>("/api/applications", {
+    size: TRACKER_PAGE_SIZE,
+    sort: DEFAULT_SORT,
+    filters: { status: undefined, archived: undefined, ghosted: undefined },
+  });
+  const [openId, setOpenId] = useState<number | null>(initialOpenId);
+  const returnRef = useRef<HTMLElement | null>(null);
 
-  const [tab, setTab] = useState<TabKey>("all");
-  const [query, setQuery] = useState("");
-  const [status, setStatus] = useState("");
-  const [company, setCompany] = useState("");
-  const [range, setRange] = useState<string>(usingSample ? "Last 30 days" : "All time");
-  const [onlyNext, setOnlyNext] = useState(false);
-  const [sort, setSort] = useState<string>(SORTS[0]);
-  const [mountedAt] = useState(() => Date.now());
+  const tab = tabOf(list.filters);
+  const ghostedOnly = csv(list.filters.ghosted) === "true";
+  const summary = list.summary;
+  const page = asListPage(list.data);
 
-  const count = (s: AppStatusKey) => all.filter((r) => r.status === s).length;
-  const counts: Record<TabKey, number> = usingSample
-    ? { ...V3_APPLICATION_SAMPLE_COUNTS }
-    : {
-        all: all.length,
-        applied: count("applied"),
-        "in-review": count("in-review"),
-        interview: count("interview"),
-        offer: count("offer"),
-        rejected: count("rejected"),
-      };
+  const setTab = (next: string) => {
+    const t = TABS.find((x) => x.value === next);
+    if (!t) return;
+    list.setFilter("status", t.status);
+    list.setFilter("archived", t.archived ? "true" : undefined);
+  };
 
-  const companies = useMemo(() => Array.from(new Set(all.map((r) => r.company))).sort(), [all]);
+  const openApp = useCallback((id: number | null) => {
+    if (id !== null) returnRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setOpenId(id);
+    const p = new URLSearchParams(window.location.search);
+    if (id === null) p.delete("app");
+    else p.set("app", String(id));
+    const qs = p.toString();
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`);
+  }, []);
 
-  const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const days = RANGE_DAYS[range];
-    const cutoff = days && !usingSample ? mountedAt - days * 86400000 : null;
-    const list = all.filter(
-      (r) =>
-        (tab === "all" || r.status === tab) &&
-        (!status || STATUS_CHIP[r.status].label === status) &&
-        (!company || r.company === company) &&
-        (!q || `${r.title} ${r.company} ${r.sub}`.toLowerCase().includes(q)) &&
-        (!onlyNext || r.nextStep !== "—") &&
-        (cutoff === null || !("sortKey" in r) || !r.sortKey || new Date(r.sortKey).getTime() >= cutoff),
-    );
-    if (sort === "Oldest First") return [...list].reverse();
-    if (sort === "Company") return [...list].sort((a, b) => a.company.localeCompare(b.company));
-    if (sort === "Status") return [...list].sort((a, b) => STATUS_CHIP[a.status].label.localeCompare(STATUS_CHIP[b.status].label));
-    return list; // newest first already (mapper sorts real rows; sample rows are in board order)
-  }, [all, tab, query, status, company, range, onlyNext, sort, usingSample, mountedAt]);
+  const { optimistic, refetch } = list;
+  const onRow = useCallback((id: number, patch: Partial<Application>) => void optimistic(id, patch), [optimistic]);
 
-  const columns: DataColumn<Row>[] = [
+  /** Archive / restore straight from a row's menu: the row leaves at once, Undo brings it back. */
+  async function archiveRow(a: Application) {
+    const to = !a.archived;
+    const rollback = optimistic(a.id, null);
+    const r = await patchApplication(a.id, { archived: to });
+    if (r.kind === "error") {
+      rollback();
+      toast({ title: to ? "Couldn't archive that" : "Couldn't restore that", description: r.message, variant: "error" });
+      return;
+    }
+    refetch();
+    undoToast(toast, {
+      title: to ? "Application archived" : "Application restored",
+      onUndo: () => void patchApplication(a.id, { archived: !to }).then(() => refetch()),
+    });
+  }
+
+  async function starRow(a: Application) {
+    const to = !a.starred;
+    const rollback = optimistic(a.id, { starred: to });
+    const r = await patchApplication(a.id, { starred: to });
+    if (r.kind === "error") {
+      rollback();
+      toast({ title: "Couldn't update the star", description: r.message, variant: "error" });
+    }
+  }
+
+  const seed = openId === null ? null : (list.items.find((a) => a.id === openId) ?? null);
+  const pages = Math.max(1, Math.ceil(list.total / Math.max(1, page.size || list.size)));
+  const hero = (
+    <HeroBand mascotHeight={124} title="My Applications" subtitle="Track, manage, and never miss an update." mascot="mascot-apps" note="Keep going. You're closer than you think!" />
+  );
+
+  const trulyEmpty = !list.isLoading && !list.error && list.total === 0 && !list.q && tab === "all" && !ghostedOnly && (summary?.ALL ?? 0) === 0 && (summary?.ARCHIVED ?? 0) === 0;
+
+  const columns: DataColumn<Application>[] = [
     {
       key: "title",
       primary: true,
-      className: "w-[28%]",
-      header: "Job Title",
-      render: (r) => (
+      className: "w-[34%]",
+      header: "Job",
+      render: (a) => (
         <span className="flex items-center gap-3">
-          <CompanyTile name={r.company} size={40} />
+          <CompanyTile name={a.company} size={40} />
           <span className="min-w-0 text-left">
-            <span className="block truncate text-[14px] font-bold leading-snug text-v2-navy">{r.title}</span>
+            <button
+              type="button"
+              onClick={() => openApp(a.id)}
+              className="block max-w-full text-left md:truncate text-[14px] font-bold leading-snug text-v2-navy hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              {a.starred && <StarIcon aria-label="Starred" className="mr-1 inline h-3.5 w-3.5 fill-current text-v2-amber" />}
+              {a.roleTitle}
+            </button>
             <span className="block truncate text-[12.5px] text-v2-ink-soft">
-              <span className="xl:hidden">{r.company}{r.sub ? " · " : ""}</span>
-              {r.sub}
+              {a.company}
+              {a.location ? ` · ${a.location}` : ""}
             </span>
           </span>
         </span>
       ),
     },
-    { key: "company", className: "hidden w-[14%] xl:table-cell", header: "Company", render: (r) => <span className="text-[13.5px] text-v2-navy">{r.company}</span> },
     {
       key: "status",
-      className: "w-[14%] whitespace-nowrap",
+      className: "w-[16%]",
       header: "Status",
-      render: (r) => {
-        const c = STATUS_CHIP[r.status];
-        return (
-          <StatusChip tone={c.tone} dot>
-            {c.label}
+      render: (a) => (
+        <span className="flex flex-wrap items-center gap-1">
+          <StatusChip tone={statusTone(a.status)} dot>
+            {statusLabel(a.status)}
           </StatusChip>
-        );
-      },
+          {a.ghosted && <StatusChip tone="amber">Gone quiet</StatusChip>}
+        </span>
+      ),
     },
-    { key: "applied", className: "w-[14%] whitespace-nowrap", header: "Applied Date", render: (r) => <span className="text-[13.5px] text-v2-ink-soft">{r.appliedOn}</span> },
+    { key: "applied", className: "w-[14%] whitespace-nowrap", header: "Applied", render: (a) => <span className="text-[13.5px] text-v2-ink-soft">{shortDay(a.appliedAt) || "—"}</span> },
     {
       key: "next",
-      className: "w-[18%]",
-      header: "Next Step",
-      render: (r) => (
+      className: "w-[22%]",
+      header: "Next step",
+      render: (a) => (
         <span className="text-[13px] leading-snug text-v2-ink-soft">
-          {r.nextStep}
-          {"nextStepDetail" in r && r.nextStepDetail && (
-            <span className="block text-[12px] text-v2-muted">{r.nextStepDetail}</span>
-          )}
+          {a.nextStep ? a.nextStep.label : "—"}
+          {a.nextStep?.at && <span className="block text-[12px] text-v2-muted">{dayAndTime(a.nextStep.at)}</span>}
         </span>
       ),
     },
   ];
 
-  const rowAction = (r: Row) => {
-    const cls =
-      "inline-flex h-9 min-w-[64px] items-center justify-center rounded-lg bg-v2-blue-soft px-3.5 text-[13px] font-semibold text-v2-blue hover:brightness-95";
-    const target = r.href ?? (usingSample ? "/jobs" : null);
+  const rowAction = (a: Application) => (
+    // The row itself opens the detail; its buttons must not also bubble a row click.
+    <span className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => openApp(a.id)}
+        className="inline-flex h-10 min-w-[64px] items-center justify-center rounded-lg bg-v2-blue-soft px-3.5 text-[13px] font-semibold text-v2-blue hover:brightness-95 sm:h-9"
+      >
+        View
+      </button>
+      <KebabMenu
+        label={`More actions for ${a.roleTitle} at ${a.company}`}
+        items={[
+          ...(a.jobUrl ? [{ label: "Open job posting", onSelect: () => window.open(a.jobUrl!, "_blank", "noopener,noreferrer") }] : []),
+          { label: a.starred ? "Remove star" : "Star it", onSelect: () => void starRow(a) },
+          { label: "Prepare for interview", onSelect: () => router.push("/interview-prep") },
+          { separator: true },
+          { label: a.archived ? "Restore" : "Archive", onSelect: () => void archiveRow(a) },
+        ]}
+      />
+    </span>
+  );
+
+  const detail = <ApplicationDetail id={openId} seed={seed} isPro={isPro} onClose={() => openApp(null)} onRow={onRow} onStale={refetch} returnFocusTo={returnRef} />;
+
+  if (trulyEmpty) {
     return (
-      <span className="inline-flex items-center gap-1">
-        {target ? (
-          target.startsWith("/") ? (
-            <Link href={target} className={cls}>
-              View
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
+        {hero}
+        <EmptyState
+          mascot
+          title="No applications yet"
+          description="Apply with the Kiwiply extension, or add a job you are chasing, and it lands here with its whole story."
+          action={
+            <Link href="/jobs" className="inline-flex h-10 items-center rounded-xl bg-v2-lime px-5 text-[13.5px] font-bold text-v2-navy hover:brightness-95">
+              Find jobs
             </Link>
-          ) : (
-            <a href={target} target="_blank" rel="noopener noreferrer" className={cls}>
-              View
-            </a>
-          )
-        ) : (
-          <span className={cn(cls, "opacity-50")}>View</span>
-        )}
-        <KebabMenu
-          label={`More actions for ${r.title} at ${r.company}`}
-          items={[
-            ...(r.href ? [{ label: "Open job posting", onSelect: () => window.open(r.href!, "_blank", "noopener,noreferrer") }] : []),
-            { label: "Prepare for interview", onSelect: () => router.push("/interview-prep") },
-          ]}
+          }
         />
-      </span>
+        {detail}
+      </div>
     );
-  };
+  }
+
+  const from = list.total === 0 ? 0 : page.page * (page.size || list.size) + 1;
+  const to = Math.min(list.total, from + page.items.length - 1);
+  const footerText = `Showing ${from}–${to} of ${list.total} application${list.total === 1 ? "" : "s"}`;
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4">
-      <HeroBand mascotHeight={124}
-        title="My Applications"
-        subtitle="Track, manage, and never miss an update."
-        mascot="mascot-apps"
-        note="Keep going. You're closer than you think!"
-      />
+      {hero}
 
       <section className="min-w-0 rounded-2xl border border-v2-line bg-white shadow-v2-card">
         <UnderlineTabs
@@ -200,63 +249,98 @@ export default function ApplicationsV3Page({ rows: realRows }: { rows: Applicati
           counts="pill"
           ariaLabel="Application status"
           value={tab}
-          onChange={(v) => setTab(v as TabKey)}
+          onChange={setTab}
           className="px-2 sm:px-4"
-          tabs={TABS.map((t) => ({ ...t, count: counts[t.value] }))}
+          tabs={TABS.map((t) => ({ id: t.value, label: t.label, count: summary ? (summary[t.summary] ?? 0) : undefined }))}
         />
 
         <div className="flex flex-wrap items-center gap-2 p-3 sm:p-4">
           <SearchInput
             size="sm"
             aria-label="Search applications"
-            placeholder="Search applications..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="h-10 w-full bg-white sm:w-60"
+            placeholder="Search applications…"
+            value={list.q}
+            onChange={(e) => list.setQuery(e.target.value)}
+            className="h-10 w-full bg-white sm:w-72"
           />
-          <FilterSelect placeholder label="All Status" options={Object.values(STATUS_CHIP).map((c) => c.label)} value={status} onChange={setStatus} />
-          <FilterSelect placeholder label="All Companies" options={companies} value={company} onChange={setCompany} />
-          <FilterSelect label="Date range" options={[...RANGES]} value={range} onChange={setRange} />
-          <button
-            type="button"
-            aria-pressed={onlyNext}
-            onClick={() => setOnlyNext((v) => !v)}
-            className={cn(
-              "inline-flex h-10 items-center gap-2 rounded-[10px] border px-3.5 text-[13px] font-medium",
-              onlyNext ? "border-v2-blue/40 bg-v2-blue-soft text-v2-blue" : "border-[#DCE2EE] bg-white text-v2-navy hover:bg-[#F1F5FB]",
-            )}
-            title="Only show applications with a next step"
-          >
-            <FunnelIcon className="h-4 w-4" /> Filter
-          </button>
+          {((summary?.GHOSTED ?? 0) > 0 || ghostedOnly) && (
+            <button
+              type="button"
+              aria-pressed={ghostedOnly}
+              onClick={() => list.setFilter("ghosted", ghostedOnly ? undefined : "true")}
+              className={cn(
+                "inline-flex h-10 items-center gap-2 rounded-[10px] border px-3.5 text-[13px] font-medium",
+                ghostedOnly ? "border-v2-amber/60 bg-v2-amber-soft text-v2-amber-ink" : "border-[#DCE2EE] bg-white text-v2-navy hover:bg-[#F1F5FB]",
+              )}
+            >
+              Gone quiet
+              <span className="rounded-full bg-paper-2 px-1.5 text-[11.5px] font-bold tabular-nums text-ink-soft">{summary?.GHOSTED ?? 0}</span>
+            </button>
+          )}
           <div className="flex items-center gap-2 sm:ml-auto">
             <span className="text-[12.5px] text-v2-ink-soft">Sort by:</span>
-            <FilterSelect label="Sort by" options={[...SORTS]} value={sort} onChange={setSort} />
+            <FilterSelect
+              label="Sort by"
+              options={SORTS.map((s) => s.label)}
+              value={SORTS.find((s) => s.value === (list.sort ?? DEFAULT_SORT))?.label ?? SORTS[0].label}
+              onChange={(label) => list.setSort(SORTS.find((s) => s.label === label)?.value)}
+            />
           </div>
         </div>
 
-        <div className="px-3 pb-4 sm:px-4">
-          {shown.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-v2-line px-4 py-10 text-center text-[14px] text-v2-ink-soft">
-              No applications match these filters.
-            </p>
-          ) : (
-            <DataTable
-              columns={columns}
-              rows={shown}
-              rowKey={(r) => r.id}
-              actions={rowAction}
-              actionsHeader={<span className="pr-2">Actions</span>}
-              aria-label="Applications"
-              footer={
-                <p className="text-[13px] text-v2-muted">
-                  Showing {shown.length} of {usingSample ? counts[tab] : all.length} application{shown.length === 1 ? "" : "s"}
-                </p>
+        <div className="px-3 pb-4 sm:px-4" aria-busy={list.isFetching}>
+          {list.isLoading ? (
+            <TableSkeleton label="Loading your applications" columns={4} />
+          ) : list.error && !list.data ? (
+            <ErrorState what="your applications" description={list.error.message} requestId={list.error.requestId} onRetry={refetch} />
+          ) : list.items.length === 0 ? (
+            <EmptyState
+              variant="inline"
+              title={list.q ? `Nothing matches "${list.q}"` : tab === "archived" ? "Nothing archived" : ghostedOnly ? "Nobody has gone quiet" : "Nothing in this tab yet"}
+              description={
+                list.q
+                  ? "Try a different word, or clear the search."
+                  : tab === "archived"
+                    ? "Applications you archive wait here, and you can bring them back."
+                    : ghostedOnly
+                      ? "When an application hears nothing for a few weeks, it shows up here for a nudge."
+                      : "Move an application to this stage and it will show up here."
               }
+              action={
+                list.q ? (
+                  <Button size="sm" variant="ghost" onClick={() => list.setQuery("")} className="min-h-10">
+                    Clear search
+                  </Button>
+                ) : undefined
+              }
+              className="py-10"
             />
+          ) : (
+            <>
+              {list.error && <ErrorState variant="inline" what="the latest applications" description="Showing what we had." onRetry={refetch} />}
+              <DataTable
+                columns={columns}
+                rows={list.items}
+                rowKey={(a) => a.id}
+                actions={rowAction}
+                actionsHeader={<span className="pr-2">Actions</span>}
+                onRowClick={(a) => openApp(a.id)}
+                isActive={(a) => a.id === openId}
+                aria-label="Applications"
+                footer={
+                  pages > 1 ? (
+                    <Pagination page={list.page + 1} pages={pages} summary={footerText} onPageChange={(p) => list.setPage(p - 1)} />
+                  ) : (
+                    <p className="text-[13px] text-v2-muted">{footerText}</p>
+                  )
+                }
+              />
+            </>
           )}
         </div>
       </section>
+      {detail}
     </div>
   );
 }
+

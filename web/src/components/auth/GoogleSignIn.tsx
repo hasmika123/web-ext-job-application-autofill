@@ -160,7 +160,7 @@ export default function GoogleSignIn({ next, variant = "default" }: { next?: str
     <div className="flex flex-col items-center gap-2">
       <div ref={ref} className="flex min-h-[40px] w-full justify-center" />
       {error && (
-        <p role="alert" className="text-sm font-medium text-danger">
+        <p role="alert" className="text-sm font-medium text-danger-text">
           {error}
         </p>
       )}

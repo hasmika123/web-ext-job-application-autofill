@@ -64,6 +64,9 @@ public class InboxService {
     /** Published after a successful connect, so the first read starts now rather than at the next quarter hour. */
     public record Connected(Long userId) {}
 
+    /** The Inbox page's email switch moved; notification preferences carry it into their matrix (E2E-U7.0). */
+    public record NotifyEmailChanged(Long userId, boolean on) {}
+
     /** Why a connect didn't happen — a code for the page, and the sentence to show. */
     public record Refusal(String code, String message, HttpStatus status) {}
 
@@ -222,7 +225,9 @@ public class InboxService {
             .findById(user.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No inbox connected"));
         c.setNotifyEmail(on);
-        return view(connections.save(c));
+        InboxConnection saved = connections.save(c);
+        events.publishEvent(new NotifyEmailChanged(user.getId(), on));
+        return view(saved);
     }
 
     /** Forget the inbox: the connection, its password, and every message read from it. */

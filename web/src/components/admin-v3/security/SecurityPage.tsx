@@ -26,6 +26,7 @@ import {
   SampleTag,
   StatusDot,
 } from "../common";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until E2E-A9.0 removes it (ADMIN-E2E-PLAN 3.5)
 import {
   BLOCKED_IPS,
   PASSWORD_RESETS,
@@ -71,10 +72,10 @@ export default function SecurityPage() {
       </p>
       <AdminStatTiles
         stats={[
-          { label: "Active sessions", value: T.sessions.value, icon: <UsersIcon size={26} />, tone: "blue", delta: T.sessions.delta, caption: "vs last 30 days", sparkline: T.sessions.spark },
-          { label: "Failed login attempts", value: T.failed.value, icon: <ShieldCheckIcon size={26} />, tone: "green", delta: T.failed.delta, caption: "vs last 30 days", sparkline: T.failed.spark },
-          { label: "MFA adoption", value: T.mfa.value, icon: <LockIcon size={26} />, tone: "violet", delta: T.mfa.delta, caption: "vs last 30 days", sparkline: T.mfa.spark },
-          { label: "Access requests", value: T.requests.value, icon: <UserIcon size={26} />, tone: "amber", delta: T.requests.delta, caption: "vs last 30 days", sparkline: T.requests.spark },
+          { label: "Active sessions", value: T.sessions.value, icon: <UsersIcon size={26} />, tone: "blue" },
+          { label: "Failed login attempts", value: T.failed.value, icon: <ShieldCheckIcon size={26} />, tone: "green" },
+          { label: "MFA adoption", value: T.mfa.value, icon: <LockIcon size={26} />, tone: "violet" },
+          { label: "Access requests", value: T.requests.value, icon: <UserIcon size={26} />, tone: "amber" },
         ]}
       />
       <AdminTabs tabs={TABS} value={tab} onChange={setTab} ariaLabel="Security sections" />

@@ -65,7 +65,7 @@ export default function UpgradeButton({ plan, label = "Upgrade to Pro", variant 
       <Button onClick={start} disabled={busy} variant={variant} className={className}>
         {busy ? "Starting…" : label}
       </Button>
-      {error ? <p className="text-[12.5px] text-danger">{error}</p> : null}
+      {error ? <p className="text-[12.5px] text-danger-text">{error}</p> : null}
     </div>
   );
 }

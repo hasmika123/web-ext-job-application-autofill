@@ -6,7 +6,7 @@ import { cn } from "./cn";
  * self-contained; primitives unify into the design system in W5.1. Classes resolve against
  * the shared tokens (styles/tokens.css).
  */
-export type ButtonVariant = "primary" | "accent" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "accent" | "accent-soft" | "ghost" | "danger";
 export type ButtonSize = "lg" | "md" | "sm";
 
 const BASE =
@@ -21,6 +21,8 @@ const VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-ink text-paper hover:shadow-[var(--shadow)]",
   // Text/icons ON the lime fill must be charcoal (--on-accent), never white.
   accent: "bg-accent text-on-accent hover:brightness-95",
+  // The calmer second choice next to an accent button: a lime tint, deep-green text.
+  "accent-soft": "bg-accent-soft text-accent-deep border border-accent/40 hover:brightness-95",
   ghost: "bg-transparent text-ink border border-line hover:bg-paper-2",
   danger: "bg-danger text-paper hover:brightness-95",
 };

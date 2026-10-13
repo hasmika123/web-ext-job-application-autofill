@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consent for what a member shares with their organization, O6.1 (docs/design/org/consent-data-sharing.md section 2).
+
+        data_share        one CURRENT scope per seat (NONE | SUMMARY | FULL), set only by the member. member_id is unique.
+                          FULL names the one person it is shared with (full_to_member_id); when that seat ends the service
+                          drops the scope to SUMMARY. Erasure deletes the row (tenant-model.md section 6). The seat row
+                          stays, so the foreign keys to the seats and the organization are plain RESTRICT.
+        data_share_event  append-only accountability record (GDPR Art. 7(1) proof of consent, Art. 30). Keyed by login
+                          STRINGS with no foreign key to a person, like org_audit_event, so it survives account erasure. It
+                          holds no profile data: scopes, logins, a consent version and two one-way hashes.
+
+        No sensitive personal data is stored here (no SSN, bank, tax id, passport number or date of birth). Additive; no
+        data migration (there are no orgs yet).
+    -->
+    <changeSet id="20261013020000-1" author="dossier">
+        <createTable tableName="data_share">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="member_id" type="bigint">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uk_data_share_member"/>
+            </column>
+            <column name="scope" type="varchar(10)" defaultValue="NONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="full_to_member_id" type="bigint"/>
+            <column name="consent_version" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="granted_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="data_share" indexName="ix_data_share_org">
+            <column name="org_id"/>
+        </createIndex>
+        <createIndex tableName="data_share" indexName="ix_data_share_full_to">
+            <column name="full_to_member_id"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="data_share" baseColumnNames="org_id"
+            constraintName="fk_data_share_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="data_share" baseColumnNames="member_id"
+            constraintName="fk_data_share_member" referencedTableName="org_member" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="data_share" baseColumnNames="full_to_member_id"
+            constraintName="fk_data_share_full_to" referencedTableName="org_member" referencedColumnNames="id"
+            onDelete="SET NULL"/>
+    </changeSet>
+
+    <changeSet id="20261013020000-2" author="dossier">
+        <createTable tableName="data_share_event">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="org_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="member_login" type="varchar(50)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="from_scope" type="varchar(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="to_scope" type="varchar(10)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="full_to_login" type="varchar(50)"/>
+            <column name="actor" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="varchar(40)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="consent_version" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="ip_hash" type="char(64)"/>
+            <column name="user_agent_hash" type="char(64)"/>
+            <column name="created_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <createIndex tableName="data_share_event" indexName="ix_share_event_org_member">
+            <column name="org_id"/>
+            <column name="member_login"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="data_share_event" baseColumnNames="org_id"
+            constraintName="fk_share_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+    </changeSet>
+</databaseChangeLog>

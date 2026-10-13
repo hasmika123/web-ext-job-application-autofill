@@ -1,0 +1,148 @@
+/* Onboarding delight (R1.14+, ONBOARDING-DELIGHT-DESIGN 2.4): the companion's motion vocabulary. Imported by globals.css.
+ *
+ * There are no shrug / think / unclipped cheer pictures yet, so a pose is an existing picture plus one of these motions. ALL of it
+ * is `no-preference` only: under reduced motion the picture still swaps with the pose and nothing moves. A reaction is one-shot
+ * (`both`); only the resting breath (3 s) and the thinking sway (1.6 s) loop. The shared primitives' keyframes (bubble, card stack,
+ * flip digits) live with the primitives, in @kiwiply/ui styles/delight.css. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes ob-m-idle {
+    0%,
+    100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.02);
+    }
+  }
+  @keyframes ob-m-peek {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes ob-m-cheer {
+    0% {
+      transform: translateY(0);
+    }
+    25% {
+      transform: translateY(-10px);
+    }
+    50% {
+      transform: translateY(0);
+    }
+    75% {
+      transform: translateY(-6px);
+    }
+    100% {
+      transform: translateY(0);
+    }
+  }
+  @keyframes ob-m-shrug {
+    0%,
+    100% {
+      transform: rotate(0);
+    }
+    50% {
+      transform: rotate(-5deg);
+    }
+  }
+  @keyframes ob-m-think {
+    0%,
+    100% {
+      transform: rotate(-3deg);
+    }
+    50% {
+      transform: rotate(3deg);
+    }
+  }
+  @keyframes ob-m-look {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    12.5% {
+      transform: translateX(-3px);
+    }
+    37.5% {
+      transform: translateX(3px);
+    }
+    62.5% {
+      transform: translateX(-3px);
+    }
+    87.5% {
+      transform: translateX(3px);
+    }
+  }
+  @keyframes ob-m-wave {
+    0%,
+    100% {
+      transform: rotate(0);
+    }
+    25% {
+      transform: rotate(6deg);
+    }
+    50% {
+      transform: rotate(-4deg);
+    }
+    75% {
+      transform: rotate(6deg);
+    }
+  }
+  @keyframes ob-m-dance {
+    0% {
+      transform: translateY(0) rotate(0);
+    }
+    16% {
+      transform: translateY(-12px) rotate(5deg);
+    }
+    33% {
+      transform: translateY(0) rotate(0);
+    }
+    50% {
+      transform: translateY(-8px) rotate(-5deg);
+    }
+    66% {
+      transform: translateY(0) rotate(0);
+    }
+    83% {
+      transform: translateY(-4px) rotate(5deg);
+    }
+    100% {
+      transform: translateY(0) rotate(0);
+    }
+  }
+  .ob-m-idle {
+    transform-origin: 50% 100%;
+    animation: ob-m-idle 3s ease-in-out infinite;
+  }
+  .ob-m-peek {
+    animation: ob-m-peek 240ms ease-out both;
+  }
+  .ob-m-cheer {
+    transform-origin: 50% 100%;
+    animation: ob-m-cheer 480ms ease-out both;
+  }
+  .ob-m-shrug {
+    transform-origin: 50% 100%;
+    animation: ob-m-shrug 300ms ease-in-out both;
+  }
+  .ob-m-think {
+    transform-origin: 50% 100%;
+    animation: ob-m-think 1.6s ease-in-out infinite;
+  }
+  .ob-m-look {
+    animation: ob-m-look 800ms ease-in-out both;
+  }
+  .ob-m-wave {
+    transform-origin: 0 100%;
+    animation: ob-m-wave 600ms ease-in-out both;
+  }
+  .ob-m-dance {
+    transform-origin: 50% 100%;
+    animation: ob-m-dance 900ms ease-out both;
+  }
+}

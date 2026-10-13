@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Input, Field, Select } from "@/components/ui";
+import { Input, Field, Select, inputClass } from "@/components/ui";
 import { buttonVariants } from "@/components/ui/Button";
-import { CheckIcon as SharedCheckIcon, Spinner as SharedSpinner } from "@kiwiply/ui";
+import { CheckIcon as SharedCheckIcon, SENSITIVE_LABELS, SourceChip, Spinner as SharedSpinner, scanSensitiveField, useBottomBar, type SensitiveClass } from "@kiwiply/ui";
 import { cn } from "@/lib/cn";
 import { isEmail, isUrl, isPhone, LIMITS } from "@/lib/validate";
 import { parseResume } from "@/lib/resume-parse";
@@ -17,7 +17,7 @@ export type Bio = Record<string, unknown>;
 type FieldDef = {
   key: string;
   label: string;
-  kind?: "text" | "email" | "tel" | "url" | "select";
+  kind?: "text" | "email" | "tel" | "url" | "select" | "textarea";
   options?: string[];
   wide?: boolean;
   required?: boolean;
@@ -37,6 +37,9 @@ const SECTIONS: { id: string; title: string; fields: FieldDef[] }[] = [
       { key: "preferredName", label: "Preferred name" },
       { key: "email", label: "Email", kind: "email", required: true },
       { key: "phone", label: "Phone", kind: "tel" },
+      // The words every resume starts from (Resume Builder R1.6): the headline under your name, the summary paragraph.
+      { key: "headline", label: "Headline", wide: true, max: LIMITS.headline, placeholder: "e.g. Backend engineer, payments" },
+      { key: "summary", label: "Summary", kind: "textarea", wide: true, max: LIMITS.profileSummary, placeholder: "Two or three sentences about what you do and what you are looking for." },
     ],
   },
   {
@@ -100,6 +103,9 @@ const EEO_FIELDS: FieldDef[] = [
   { key: "disabilityStatus", label: "Disability status", kind: "select", options: DISABILITY },
 ];
 
+/** Free-text bio fields: scanned for never-collected values before they are saved (SensitivePatterns). */
+const FREE_TEXT_KEYS = ["headline", "summary"];
+
 const STRING_KEYS = new Set(
   [...SECTIONS.flatMap((s) => s.fields), ...EEO_FIELDS].map((f) => f.key),
 );
@@ -129,7 +135,8 @@ function inputType(kind?: FieldDef["kind"]): string {
 }
 
 /** Per-field character cap (input maxLength) — explicit `max`, else a sane default by kind. */
-function fieldMax(f: FieldDef): number {
+function fieldMax(f: FieldDef, summaryMax?: number): number {
+  if (f.key === "summary" && summaryMax) return summaryMax;
   if (f.max) return f.max;
   if (f.kind === "email") return LIMITS.emailMax;
   if (f.kind === "url") return LIMITS.url;
@@ -161,9 +168,24 @@ function CheckIcon() {
  * autosave persist as the visible subset changes. Without it the full editor renders (the legacy
  * `/profile` page).
  */
-export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?: string[] }) {
+export default function BioEditor({
+  initialBio,
+  show,
+  provenance,
+  summaryMax,
+}: {
+  initialBio: Bio;
+  show?: string[];
+  /** Where each saved value came from (`bio.meta_json.provenance`, via GET /api/profile): shown as a source chip beside the field. */
+  provenance?: Record<string, string>;
+  /** The summary's character cap from the builder settings (`limits.summaryChars`); defaults to the schema constant. */
+  summaryMax?: number;
+}) {
   const router = useRouter();
   const vis = (id: string) => !show || show.includes(id);
+  // The docked save bar sticks to the window's bottom: toasts and the bug-report button stay above it.
+  const saveBarRef = useRef<HTMLDivElement>(null);
+  useBottomBar(saveBarRef);
 
   const [values, setValues] = useState<Record<string, string>>(() => {
     const seed: Record<string, string> = {};
@@ -236,6 +258,12 @@ export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?
         const merged: Bio = { ...initialBio };
         for (const key of STRING_KEYS) {
           const val = (vals[key] ?? "").trim();
+          // Free text never carries a number we refuse to store (SSN, bank account, passport ...): keep the saved value.
+          if (FREE_TEXT_KEYS.includes(key) && scanSensitiveField(key, val).length > 0) {
+            if (typeof initialBio[key] === "string") merged[key] = initialBio[key];
+            else delete merged[key];
+            continue;
+          }
           if (val) merged[key] = val;
           else delete merged[key];
         }
@@ -304,16 +332,38 @@ export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?
       else if (trimmed && f.kind === "url" && !isUrl(val)) err = "Enter a valid URL";
       else if (trimmed && f.kind === "tel" && !isPhone(val)) err = "Enter a valid phone number";
     }
+    if (!err && FREE_TEXT_KEYS.includes(f.key)) {
+      const hit = scanSensitiveField(f.key, val)[0];
+      if (hit) err = `We never store ${SENSITIVE_LABELS[hit.cls as SensitiveClass] ?? "that kind of value"} — please remove it. It was not saved.`;
+    }
+    const max = fieldMax(f, summaryMax);
+    // A value you have just edited reads as yours at once; the server stamps it "user" on save.
+    const source = trimmed !== asString(initialBio[f.key]).trim() ? "user" : provenance?.[f.key];
     const label = f.required ? (
       <>
-        {f.label} <span className="text-danger" aria-hidden>*</span>
+        {f.label} <span className="text-danger-text" aria-hidden>*</span>
       </>
     ) : (
       f.label
     );
+    const hint = f.kind === "textarea" ? `${val.length} / ${max}` : f.hint;
     return (
-      <Field key={f.key} label={label} htmlFor={id} error={err} hint={f.hint} className={cn("mb-0", f.wide && "sm:col-span-2")}>
-        {f.kind === "select" ? (
+      <div key={f.key} className={cn("relative", f.wide && "sm:col-span-2")}>
+      {trimmed && source ? <SourceChip provenance={source} data-source={f.key} className="absolute right-0 top-0" /> : null}
+      <Field label={label} htmlFor={id} error={err} hint={hint} className="mb-0">
+        {f.kind === "textarea" ? (
+          <textarea
+            id={id}
+            rows={4}
+            maxLength={max}
+            placeholder={f.placeholder}
+            value={val}
+            onChange={(e) => setField(f.key, e.target.value)}
+            onBlur={() => touch(f.key)}
+            aria-invalid={!!err}
+            className={`${inputClass} resize-y`}
+          />
+        ) : f.kind === "select" ? (
           <Select
             id={id}
             aria-label={typeof f.label === "string" ? f.label : f.key}
@@ -329,7 +379,7 @@ export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?
           <Input
             id={id}
             type={inputType(f.kind)}
-            maxLength={fieldMax(f)}
+            maxLength={max}
             placeholder={f.placeholder}
             value={val}
             onChange={(e) => setField(f.key, e.target.value)}
@@ -339,6 +389,7 @@ export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?
           />
         )}
       </Field>
+      </div>
     );
   }
 
@@ -397,7 +448,7 @@ export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?
           />
         </div>
         {parseMsg && (
-          <p className={cn("mb-4 text-[12.5px]", parseErr ? "font-medium text-danger" : "text-accent-deep")} role={parseErr ? "alert" : undefined}>
+          <p className={cn("mb-4 text-[12.5px]", parseErr ? "font-medium text-danger-text" : "text-accent-deep")} role={parseErr ? "alert" : undefined}>
             {parseMsg}
           </p>
         )}
@@ -415,7 +466,7 @@ export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?
         </div>
 
         <p className="mb-4 text-[12px] text-muted">
-          <span className="text-danger">*</span> Required field
+          <span className="text-danger-text">*</span> Required field
         </p>
         </>)}
 
@@ -454,7 +505,7 @@ export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?
 
         {/* Docked save bar — opaque (was translucent, which let fields show through as you
             scrolled under it). Sticks to the bottom; content scrolls hidden behind it. */}
-        <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 border-t border-line bg-app-bg py-3.5 shadow-[0_-10px_16px_-14px_rgba(45,49,51,0.2)]">
+        <div ref={saveBarRef} className="sticky bottom-0 z-10 flex flex-wrap items-center justify-end gap-3 border-t border-line bg-app-bg py-3.5 shadow-[0_-10px_16px_-14px_rgba(45,49,51,0.2)]">
           <div className="mr-auto flex items-center gap-1.5 text-[12.5px] text-muted">
             {saving ? (
               <>
@@ -472,7 +523,7 @@ export default function BioEditor({ initialBio, show }: { initialBio: Bio; show?
               <span>Autosaves as you type</span>
             )}
           </div>
-          {error && <span role="alert" className="text-sm font-medium text-danger">{error}</span>}
+          {error && <span role="alert" className="text-sm font-medium text-danger-text">{error}</span>}
           <button
             type="button"
             onClick={() => void commit(values, skills)}

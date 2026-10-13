@@ -6,7 +6,7 @@ import com.dossier.api.repository.AiCallRepository;
 import com.dossier.api.repository.AiQuotaOverrideRepository;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.service.ai.AiPolicy;
-import com.dossier.api.service.ai.AiProvider;
+import com.dossier.api.service.ai.AiRuntimeSettings;
 import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.service.billing.StripeProperties;
 import java.time.Instant;
@@ -33,7 +33,9 @@ import org.springframework.transaction.annotation.Transactional;
  *       resume parsing (the free exception), limited to {@code dossier.ai.free-monthly-quota}
  *       parses a month. Every other task is Pro.</li>
  * </ul>
- * A task listed in {@link AiPolicy#getDisabledTasks()} is refused for everyone, before anything else.
+ * A task switched off ({@code ai.route.<task>.enabled}, defaulting to the env kill list {@link AiPolicy#getDisabledTasks()})
+ * is refused for everyone, before anything else. The routed model, the economy model and the soft cap are read from
+ * {@link AiRuntimeSettings} (stored row, then env, then code), so an admin edit applies on the next call.
  */
 @Service
 @Transactional(readOnly = true)
@@ -70,7 +72,7 @@ public class AiBudgetService {
     record Window(long budgetMicros, Instant start, Instant resetsAt) {}
 
     private final AiPolicy policy;
-    private final AiProvider provider;
+    private final AiRuntimeSettings runtime;
     private final AiQuotaOverrideRepository overrideRepository;
     private final EntitlementService entitlementService;
     private final AiCallRepository callRepository;
@@ -81,7 +83,7 @@ public class AiBudgetService {
 
     public AiBudgetService(
         AiPolicy policy,
-        AiProvider provider,
+        AiRuntimeSettings runtime,
         AiQuotaOverrideRepository overrideRepository,
         EntitlementService entitlementService,
         AiCallRepository callRepository,
@@ -91,7 +93,7 @@ public class AiBudgetService {
         @Value("${dossier.ai.free-monthly-quota:50}") int freeMonthlyQuota
     ) {
         this.policy = policy;
-        this.provider = provider;
+        this.runtime = runtime;
         this.overrideRepository = overrideRepository;
         this.entitlementService = entitlementService;
         this.callRepository = callRepository;
@@ -110,7 +112,7 @@ public class AiBudgetService {
         }
         Window w = window.get();
         int pct = percent(callRepository.costSince(login, w.start()), w.budgetMicros());
-        boolean economy = policy.hasEconomyModel() && pct >= policy.getSoftCapPercent() && pct < 100;
+        boolean economy = runtime.economyModel().isPresent() && pct >= runtime.softCapPercent() && pct < 100;
         return new Usage("budget", pct, 100, w.resetsAt(), economy);
     }
 
@@ -154,12 +156,12 @@ public class AiBudgetService {
     public Decision decide(String login, AiTask task) {
         Instant now = Instant.now();
         Instant resets = resetsAt(now);
-        if (policy.isDisabled(task)) {
+        if (!runtime.taskEnabled(task)) {
             return new Decision(Verdict.TASK_DISABLED, null, false, 0, 0, resets, false);
         }
 
         Optional<Window> window = window(login, now);
-        String routed = policy.modelFor(task, provider.defaultModel());
+        String routed = runtime.route(task).model();
 
         if (window.isEmpty()) {
             if (task != AiTask.PARSE) {
@@ -176,8 +178,8 @@ public class AiBudgetService {
         if (spent >= budget) {
             return new Decision(Verdict.EXHAUSTED, null, true, pct, 100, w.resetsAt(), false);
         }
-        boolean economy = policy.hasEconomyModel() && pct >= policy.getSoftCapPercent();
-        return new Decision(Verdict.OK, economy ? policy.getEconomyModel().trim() : routed, true, pct, 100, w.resetsAt(), economy);
+        boolean economy = runtime.economyModel().isPresent() && pct >= runtime.softCapPercent();
+        return new Decision(Verdict.OK, economy ? runtime.economyModel().get() : routed, true, pct, 100, w.resetsAt(), economy);
     }
 
     /** Whole percent of a budget spent, 0–100. A zero budget (an override of $0) is fully spent. */

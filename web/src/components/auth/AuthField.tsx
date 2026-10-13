@@ -56,7 +56,7 @@ export default function AuthField({ id, label, icon, error, aside, password, typ
         )}
       </div>
       {error && (
-        <p id={msgId} className="mt-1.5 text-[12.5px] font-medium text-danger">
+        <p id={msgId} className="mt-1.5 text-[12.5px] font-medium text-danger-text">
           {error}
         </p>
       )}

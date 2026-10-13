@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Resume Builder R2.7 (docs/RESUME-BUILDER-DESIGN.md sections 3.6 and 8.1) - the v2 document
+        contract's columns. Additive only; nothing is rewritten.
+
+        resume_doc.schema_version: 1 until the first v2 write. A v1 row is upgraded in memory on every read
+        and stored as v2 on the next save (DESIGN 3.6) - there is deliberately no batch migration.
+        photo_key mirrors basics.photo.key so a resume/account delete can remove the file without parsing
+        doc_json. parent_resume_id + parent_hash_at_copy + source_kind: tailored copies and where a document
+        came from (no FK: a copy outlives its base). score_json + score: the denormalised Insights score
+        for the list badge (written by a later story).
+
+        resume_ai_proposal.title/body/kind/ai_call_id: the AI Suggestions cards (a later story). The open
+        index serves "this resume's open cards, newest first".
+    -->
+    <changeSet id="20261012040000-1" author="dossier">
+        <addColumn tableName="resume_doc">
+            <column name="schema_version" type="int" defaultValueNumeric="1">
+                <constraints nullable="false"/>
+            </column>
+            <column name="photo_key" type="varchar(255)"/>
+            <column name="parent_resume_id" type="bigint"/>
+            <column name="parent_hash_at_copy" type="varchar(64)"/>
+            <column name="source_kind" type="varchar(10)" defaultValue="PROFILE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="score_json" type="json"/>
+            <column name="score" type="smallint"/>
+        </addColumn>
+        <createIndex tableName="resume_doc" indexName="ix_resume_doc_parent">
+            <column name="parent_resume_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261012040000-2" author="dossier">
+        <addColumn tableName="resume_ai_proposal">
+            <column name="title" type="varchar(80)"/>
+            <column name="body" type="varchar(240)"/>
+            <column name="kind" type="varchar(12)"/>
+            <column name="ai_call_id" type="bigint"/>
+        </addColumn>
+        <createIndex tableName="resume_ai_proposal" indexName="ix_resume_ai_proposal_open">
+            <column name="resume_id"/>
+            <column name="status"/>
+            <column name="created_at"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

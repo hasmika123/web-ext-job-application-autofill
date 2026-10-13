@@ -58,5 +58,19 @@
     <include file="config/liquibase/changelog/20261005010000_sales_inquiry.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261006010000_customer_timeline.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261011010000_app_setting.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012010000_resume_builder_profile_item.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012020000_resume_builder_resume_doc.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012030000_resume_builder_columns.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012040000_resume_builder_v2_doc.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012050000_resume_builder_pdf_jobs.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012060000_resume_builder_meta.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012070000_resume_builder_access.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261012110000_onboarding_draft.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261013010000_org_core.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261013020000_org_data_share.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261013020000_ai_runtime_config.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261013030000_application_events.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261013040000_notification_preference.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261013050000_job_posting_search.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

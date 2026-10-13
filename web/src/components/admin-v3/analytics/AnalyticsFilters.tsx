@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { BarChartIcon, CalendarIcon, CrownIcon, MapPinIcon, ShareNodesIcon, cn, useToast } from "@kiwiply/ui";
 import { FilterSelect, IconTile } from "@/components/app-v2/common";
+// eslint-disable-next-line no-restricted-imports -- sample data stays on this page until E2E-A11.0 removes it (ADMIN-E2E-PLAN 3.5)
 import { FILTERS } from "./sample-data";
 
 const ICON: Record<string, ReactNode> = {

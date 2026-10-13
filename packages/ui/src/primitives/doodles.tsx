@@ -149,3 +149,42 @@ export function CircleScribble(props: DoodleProps) {
     </Doodle>
   );
 }
+
+const MASCOT_BODY = "var(--color-accent)";
+const MASCOT_BELLY = "var(--color-accent-soft)";
+const MASCOT_INK = "var(--color-on-accent)";
+
+/**
+ * The Kiwiply mascot cheering, with a couple of sparkles (the Resume Builder's Insights card, DESIGN
+ * 10.7). Unlike the stroke doodles it is a small filled illustration in the kiwi accent colours; it is
+ * decorative (`aria-hidden`) and sized with `className` (`h-20 w-20`).
+ */
+export function MascotCheer({ className, ...props }: DoodleProps) {
+  return (
+    <svg viewBox="0 0 96 96" aria-hidden focusable="false" className={className} {...props}>
+      {/* sparkles */}
+      <path d="M80 8l2.6 7.4L90 18l-7.4 2.6L80 28l-2.6-7.4L70 18l7.4-2.6z" fill="#F5C842" />
+      <path d="M12 30l1.8 5.2L19 37l-5.2 1.8L12 44l-1.8-5.2L5 37l5.2-1.8z" fill="#F5C842" />
+      {/* arms up */}
+      <path d="M22 52c-8-4-12-12-10-20" stroke={MASCOT_BODY} strokeWidth={8} strokeLinecap="round" fill="none" />
+      <path d="M74 52c8-4 12-12 10-20" stroke={MASCOT_BODY} strokeWidth={8} strokeLinecap="round" fill="none" />
+      {/* leaf sprout */}
+      <path d="M48 18c-2-7 2-13 10-14 1 8-3 13-10 14z" fill={MASCOT_BODY} stroke={MASCOT_INK} strokeWidth={2} strokeLinejoin="round" />
+      <path d="M48 18c-6-1-10-5-10-11 7 0 11 4 10 11z" fill={MASCOT_BELLY} stroke={MASCOT_INK} strokeWidth={2} strokeLinejoin="round" />
+      {/* body */}
+      <ellipse cx="48" cy="56" rx="29" ry="30" fill={MASCOT_BODY} stroke={MASCOT_INK} strokeWidth={2.5} />
+      <ellipse cx="48" cy="66" rx="19" ry="17" fill={MASCOT_BELLY} />
+      {/* face */}
+      <ellipse cx="38" cy="50" rx="3.4" ry="4.4" fill={MASCOT_INK} />
+      <ellipse cx="58" cy="50" rx="3.4" ry="4.4" fill={MASCOT_INK} />
+      <circle cx="39" cy="48.5" r="1.1" fill="#fff" />
+      <circle cx="59" cy="48.5" r="1.1" fill="#fff" />
+      <path d="M40 60c3 5 13 5 16 0" stroke={MASCOT_INK} strokeWidth={2.4} strokeLinecap="round" fill="none" />
+      <ellipse cx="31" cy="58" rx="4" ry="2.6" fill="#F4A6A0" opacity={0.7} />
+      <ellipse cx="65" cy="58" rx="4" ry="2.6" fill="#F4A6A0" opacity={0.7} />
+      {/* feet */}
+      <ellipse cx="36" cy="86" rx="8" ry="4" fill={MASCOT_INK} />
+      <ellipse cx="60" cy="86" rx="8" ry="4" fill={MASCOT_INK} />
+    </svg>
+  );
+}

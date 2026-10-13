@@ -5,6 +5,8 @@ import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.service.ResumeService;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.mapper.ResumeMapper;
+import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.StoredFileEraser;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +28,18 @@ public class ResumeServiceImpl implements ResumeService {
 
     private final ResumeMapper resumeMapper;
 
-    public ResumeServiceImpl(ResumeRepository resumeRepository, ResumeMapper resumeMapper) {
+    private final FileStorage storage;
+
+    private final StoredFileEraser storedFileEraser;
+
+    public ResumeServiceImpl(
+        ResumeRepository resumeRepository,
+        ResumeMapper resumeMapper,
+        FileStorage storage,
+        StoredFileEraser storedFileEraser
+    ) {
+        this.storage = storage;
+        this.storedFileEraser = storedFileEraser;
         this.resumeRepository = resumeRepository;
         this.resumeMapper = resumeMapper;
     }
@@ -43,6 +56,14 @@ public class ResumeServiceImpl implements ResumeService {
     public ResumeDTO update(ResumeDTO resumeDTO) {
         LOG.debug("Request to update Resume : {}", resumeDTO);
         Resume resume = resumeMapper.toEntity(resumeDTO);
+        // The metadata a DTO round trip does not carry (R3.9) keeps its stored value instead of resetting.
+        Resume existing = resumeRepository.findById(resumeDTO.getId()).orElse(null);
+        if (existing != null) {
+            resume.setCreatedByLogin(existing.getCreatedByLogin());
+            resume.setUpdatedByLogin(existing.getUpdatedByLogin());
+            resume.setShareWithOrg(existing.getShareWithOrg());
+            if (resume.getRole() == null) resume.setRole(existing.getRole());
+        }
         resume = resumeRepository.save(resume);
         return resumeMapper.toDto(resume);
     }
@@ -83,6 +104,14 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     public void delete(Long id) {
         LOG.debug("Request to delete Resume : {}", id);
+        // The raw (admin-only) CRUD must not orphan files either: blobs before the row, so a storage failure rolls back.
+        resumeRepository
+            .findById(id)
+            .ifPresent(resume -> {
+                String key = resume.getr2ObjectKey();
+                if (key != null && !key.isBlank()) storage.delete(key);
+                if (resume.getUser() != null) storedFileEraser.deleteResumeFiles(resume.getUser().getId(), id);
+            });
         resumeRepository.deleteById(id);
     }
 }

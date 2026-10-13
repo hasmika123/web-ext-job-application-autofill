@@ -1,5 +1,7 @@
 package com.dossier.api.service;
 
+import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.Subscription;
 import com.dossier.api.domain.User;
@@ -17,6 +19,7 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.billing.StripeGateway;
 import com.dossier.api.service.inbox.InboxService;
+import com.dossier.api.service.org.OrgMembershipPrivacyService;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,7 +48,7 @@ public class AccountDeletionService {
     private final ApplicationRepository applicationRepository;
     private final AiAnswerRepository aiAnswerRepository;
     private final FieldCacheRepository fieldCacheRepository;
-    private final ResumeStorageService storageService;
+    private final FileStorage storageService;
     private final UserService userService;
     private final UserRepository userRepository;
     private final RefreshTokenService refreshTokenService;
@@ -62,6 +65,10 @@ public class AccountDeletionService {
     private final NotificationService notificationService;
     private final StripeEventRepository stripeEventRepository;
     private final CustomerNoteRepository customerNoteRepository;
+    private final ResumeBuilderDataService resumeBuilderDataService;
+    private final OrgMembershipPrivacyService orgMembershipPrivacyService;
+    private final TrackerDataService trackerDataService;
+    private final com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -69,7 +76,7 @@ public class AccountDeletionService {
         ApplicationRepository applicationRepository,
         AiAnswerRepository aiAnswerRepository,
         FieldCacheRepository fieldCacheRepository,
-        ResumeStorageService storageService,
+        FileStorage storageService,
         UserService userService,
         UserRepository userRepository,
         RefreshTokenService refreshTokenService,
@@ -85,7 +92,11 @@ public class AccountDeletionService {
         InboxService inboxService,
         NotificationService notificationService,
         StripeEventRepository stripeEventRepository,
-        CustomerNoteRepository customerNoteRepository
+        CustomerNoteRepository customerNoteRepository,
+        ResumeBuilderDataService resumeBuilderDataService,
+        OrgMembershipPrivacyService orgMembershipPrivacyService,
+        TrackerDataService trackerDataService,
+        com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -109,6 +120,10 @@ public class AccountDeletionService {
         this.notificationService = notificationService;
         this.stripeEventRepository = stripeEventRepository;
         this.customerNoteRepository = customerNoteRepository;
+        this.resumeBuilderDataService = resumeBuilderDataService;
+        this.orgMembershipPrivacyService = orgMembershipPrivacyService;
+        this.trackerDataService = trackerDataService;
+        this.jobSearchDataService = jobSearchDataService;
     }
 
     /**
@@ -159,6 +174,13 @@ public class AccountDeletionService {
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
         );
 
+        // Resume Builder rows first (R0.1): documents reference their resume, and clearing them
+        // before the resumes load keeps no stale builder entity in the session.
+        // That call also removes EVERY stored file the user owns (resume uploads and built PDFs, originals, photos,
+        // thumbnails, application attachments) by prefix, before any row goes.
+        userRepository.findOneByLogin(login).map(User::getId).ifPresent(resumeBuilderDataService::deleteAllForUser);
+        resumeBuilderDataService.deleteSharingAsViewer(login); // grants made to this user + views that name them (R3.11)
+
         // Resume files live in object storage — delete the blobs BEFORE their rows so a
         // storage failure rolls the whole transaction back (no orphaned bytes, no
         // half-deleted account).
@@ -173,7 +195,11 @@ public class AccountDeletionService {
         // Child rows first (FK user_id), then the user.
         resumeRepository.deleteAll(resumes);
         bioRepository.deleteAll(bioRepository.findByUserIsCurrentUser());
-        applicationRepository.deleteAll(applicationRepository.findByUserIsCurrentUser());
+        // The tracker's events, notes and interviews hang off the applications (and the user): erase them first.
+        userRepository.findOneByLogin(login).map(User::getId).ifPresent(trackerDataService::deleteAllForUser);
+        List<Application> applications = applicationRepository.findByUserIsCurrentUser();
+        deleteAttachmentBlobs(applications);
+        applicationRepository.deleteAll(applications);
         aiAnswerRepository.deleteAll(aiAnswerRepository.findByUserIsCurrentUser());
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserIsCurrentUser());
         // Refresh tokens are keyed by user id (the FK also cascades on user delete, but
@@ -188,8 +214,10 @@ public class AccountDeletionService {
                 jobFitService.deleteAllForUser(id);
                 resumeTailorService.deleteAllForUser(id);
                 jobMatchService.deleteAllForUser(id);
+                jobSearchDataService.deleteAllForUser(id);
                 inboxService.deleteAllForUser(id);
                 notificationService.deleteAllForUser(id);
+                orgMembershipPrivacyService.eraseFor(id, login); // org seats are anonymised before the user row goes (tenant-model.md section 6)
                 forgetAiUsage(login);
                 endBilling(id);
             });
@@ -209,6 +237,9 @@ public class AccountDeletionService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such user"));
         Long userId = user.getId();
 
+        resumeBuilderDataService.deleteAllForUser(userId); // before the resumes (and removes every stored file): see deleteCurrentUserAccount
+        resumeBuilderDataService.deleteSharingAsViewer(login);
+
         List<Resume> resumes = resumeRepository.findByUserId(userId);
         for (Resume resume : resumes) {
             String key = resume.getr2ObjectKey();
@@ -219,7 +250,10 @@ public class AccountDeletionService {
 
         resumeRepository.deleteAll(resumes);
         bioRepository.deleteAll(bioRepository.findByUserId(userId));
-        applicationRepository.deleteAll(applicationRepository.findByUserId(userId));
+        trackerDataService.deleteAllForUser(userId); // events, notes, interviews: before the applications they hang off
+        List<Application> applications = applicationRepository.findByUserId(userId);
+        deleteAttachmentBlobs(applications);
+        applicationRepository.deleteAll(applications);
         aiAnswerRepository.deleteAll(aiAnswerRepository.findByUserId(userId));
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserId(userId));
         refreshTokenService.deleteAllForUser(userId);
@@ -228,12 +262,24 @@ public class AccountDeletionService {
         jobFitService.deleteAllForUser(userId);
         resumeTailorService.deleteAllForUser(userId);
         jobMatchService.deleteAllForUser(userId);
+        jobSearchDataService.deleteAllForUser(userId);
         inboxService.deleteAllForUser(userId);
         notificationService.deleteAllForUser(userId);
+        orgMembershipPrivacyService.eraseFor(userId, login);
         forgetAiUsage(login);
         endBilling(userId);
         userService.deleteUser(login);
 
         LOG.info("Admin deleted account and all data for user: {}", login);
+    }
+
+    /** Application attachments are files too: remove their bytes via the storage seam before the rows go. */
+    private void deleteAttachmentBlobs(List<Application> applications) {
+        for (Application application : applications) {
+            String key = application.getAttachmentObjectKey();
+            if (key != null && !key.isBlank()) {
+                storageService.delete(key);
+            }
+        }
     }
 }

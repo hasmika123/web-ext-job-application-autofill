@@ -1,0 +1,9 @@
+{
+  "schema": 2,
+  "meta": {"title": "Invalid fixture"},
+  "basics": {"name": "Test Person"},
+  "sections": [
+    {"id": "s_experience", "kind": "EXPERIENCE", "items": []},
+    {"id": "s_experie2", "kind": "EXPERIENCE", "items": []}
+  ]
+}

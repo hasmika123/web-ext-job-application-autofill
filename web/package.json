@@ -13,24 +13,35 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/sync-parser-core.mjs && tsc --noEmit && eslint ."
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test": "node scripts/sync-parser-core.mjs && tsc --noEmit && eslint . && npm run test:unit"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@kiwiply/ui": "*",
     "mammoth": "^1.12.0",
     "next": "16.2.9",
     "pdfjs-dist": "^5.6.205",
+    "playwright-core": "1.64.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
+    "jsdom": "^28.1.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^5.0.3"
   }
 }

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import SuccessPoller from "@/components/billing/SuccessPoller";
 
-export const metadata: Metadata = { title: "Welcome to Pro — Kiwiply", robots: { index: false } };
+export const metadata: Metadata = { title: "Welcome to Pro", robots: { index: false } };
 
 /**
  * Where Stripe returns after a completed checkout (Phase 12.3).

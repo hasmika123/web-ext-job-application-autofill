@@ -1,5 +1,6 @@
 package com.dossier.api.service;
 
+import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.Bio;
@@ -20,6 +21,7 @@ import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.inbox.InboxService;
+import com.dossier.api.service.org.DemoOrgSeeder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
@@ -100,7 +102,7 @@ public class DemoAccountService {
     private final BioRepository bioRepository;
     private final AiAnswerRepository aiAnswerRepository;
     private final FieldCacheRepository fieldCacheRepository;
-    private final ResumeStorageService storageService;
+    private final FileStorage storageService;
     private final RefreshTokenService refreshTokenService;
     private final ProfileSuggestionService profileSuggestionService;
     private final ResumeMatchService resumeMatchService;
@@ -111,6 +113,9 @@ public class DemoAccountService {
     private final NotificationService notificationService;
     private final AiUsageRepository aiUsageRepository;
     private final AiCallRepository aiCallRepository;
+    private final TrackerDataService trackerData;
+    private final com.dossier.api.service.jobs.DemoJobSeeder jobSeeder;
+    private final DemoOrgSeeder orgSeeder;
     private final ObjectMapper objectMapper;
 
     private final String demoPassword;
@@ -127,7 +132,7 @@ public class DemoAccountService {
         BioRepository bioRepository,
         AiAnswerRepository aiAnswerRepository,
         FieldCacheRepository fieldCacheRepository,
-        ResumeStorageService storageService,
+        FileStorage storageService,
         RefreshTokenService refreshTokenService,
         ProfileSuggestionService profileSuggestionService,
         ResumeMatchService resumeMatchService,
@@ -138,6 +143,9 @@ public class DemoAccountService {
         NotificationService notificationService,
         AiUsageRepository aiUsageRepository,
         AiCallRepository aiCallRepository,
+        TrackerDataService trackerData,
+        com.dossier.api.service.jobs.DemoJobSeeder jobSeeder,
+        DemoOrgSeeder orgSeeder,
         ObjectMapper objectMapper,
         @Value("${dossier.demo.password:kiwiply-demo}") String demoPassword,
         @Value("${dossier.demo.enabled:false}") boolean enabled
@@ -162,6 +170,9 @@ public class DemoAccountService {
         this.notificationService = notificationService;
         this.aiUsageRepository = aiUsageRepository;
         this.aiCallRepository = aiCallRepository;
+        this.trackerData = trackerData;
+        this.jobSeeder = jobSeeder;
+        this.orgSeeder = orgSeeder;
         this.objectMapper = objectMapper;
         // A blank DEMO_PASSWORD (the production default) means "no usable password": a random one per boot,
         // so the only way into a demo account is the one-click login, never a typed password.
@@ -221,6 +232,13 @@ public class DemoAccountService {
         if (demo.isPresent() && applicationRepository.findByUserId(demo.get().getId()).isEmpty()) {
             resetData();
         }
+        seedOrg(); // idempotent and cheap once seeded; refuses unless the demo and org features are on and this is not prod
+        jobSeeder.seedIfStale(); // one count when the store already has live postings
+    }
+
+    /** The demo organization (O1.8): {@code demo-bootcamp}, owned by {@code demo-org}, with {@code demo} as a member. */
+    private void seedOrg() {
+        orgSeeder.seed(userRepository.findOneByLogin(LOGIN_ORG).orElse(null), userRepository.findOneByLogin(LOGIN_JOB_SEEKER).orElse(null));
     }
 
     // ---- accounts -----------------------------------------------------------------------------
@@ -239,7 +257,7 @@ public class DemoAccountService {
                 authority.setName(AuthoritiesConstants.USER);
                 return authorityRepository.save(authority);
             });
-        ensureAccount(LOGIN_JOB_SEEKER, "Demo", "Job seeker", userAuthority);
+        ensureAccount(LOGIN_JOB_SEEKER, "Priya", "Sharma", userAuthority); // the demo persona (D47)
         ensureAccount(LOGIN_ORG, "Demo", "Organization", userAuthority);
     }
 
@@ -248,6 +266,11 @@ public class DemoAccountService {
         if (existing.isPresent()) {
             User user = existing.get();
             boolean dirty = false;
+            if (!java.util.Objects.equals(firstName, user.getFirstName()) || !java.util.Objects.equals(lastName, user.getLastName())) {
+                user.setFirstName(firstName); // an account made before the persona was renamed (Jordan, then "Demo") follows the seed
+                user.setLastName(lastName);
+                dirty = true;
+            }
             if (user.getPassword() == null || !passwordEncoder.matches(demoPassword, user.getPassword())) {
                 user.setPassword(passwordEncoder.encode(demoPassword));
                 dirty = true;
@@ -283,7 +306,7 @@ public class DemoAccountService {
 
     /**
      * Wipe both demo accounts' data (applications, resumes, profile, notifications, inbox, AI
-     * rows) and re-seed the job seeker: a profile for the fictional Jordan Lee, two resumes
+     * rows) and re-seed the job seeker: a profile for the fictional Priya Sharma (D47), two resumes
      * (label and parsed content only, no file) and eight applications across the board.
      */
     @Transactional
@@ -293,12 +316,15 @@ public class DemoAccountService {
             wipe(userRepository.findOneByLogin(account.login()).orElseThrow());
         }
         seed(userRepository.findOneByLogin(LOGIN_JOB_SEEKER).orElseThrow());
+        jobSeeder.seedIfStale(); // postings for the demo to search when no board read has run here
+        seedOrg();
         LOG.info("Demo data reset: {} applications seeded for '{}'", SEEDED_APPLICATIONS, LOGIN_JOB_SEEKER);
     }
 
     private void wipe(User user) {
         Long id = user.getId();
-        // Applications reference resumes, so they go first.
+        // Applications reference resumes, so they go first (their events, notes and interviews before them).
+        trackerData.deleteAllForUser(id);
         applicationRepository.deleteAll(applicationRepository.findByUserId(id));
         List<Resume> resumes = resumeRepository.findByUserId(id);
         for (Resume resume : resumes) {
@@ -316,6 +342,7 @@ public class DemoAccountService {
         jobFitService.deleteAllForUser(id);
         resumeTailorService.deleteAllForUser(id);
         jobMatchService.deleteAllForUser(id);
+        jobSeeder.wipeUser(id);
         inboxService.deleteAllForUser(id);
         notificationService.deleteAllForUser(id);
         aiUsageRepository.deleteByLoginValue(user.getLogin());
@@ -331,18 +358,19 @@ public class DemoAccountService {
         bio.setPayload(toJson(bioPayload()));
         bioRepository.save(bio);
 
-        Resume primary = resume(demo, "Jordan Lee - Product Designer", true, now.minus(40, ChronoUnit.DAYS), resumeJson(true));
-        Resume systems = resume(demo, "Jordan Lee - Design Systems focus", false, now.minus(12, ChronoUnit.DAYS), resumeJson(false));
+        Resume primary = resume(demo, "Priya Sharma - Product Designer", true, now.minus(40, ChronoUnit.DAYS), resumeJson(true));
+        Resume systems = resume(demo, "Priya Sharma - Design Systems focus", false, now.minus(12, ChronoUnit.DAYS), resumeJson(false));
 
         // Newest-first story: an offer, two interviews, two applied, a draft, a saved job, a rejection.
-        application(demo, now, "Lumen Health", "Senior Product Designer", ApplicationStatus.OFFER, 34, 30, "Austin, TX", JobMode.HYBRID, "$150,000 - $170,000", "Greenhouse", "https://boards.greenhouse.io/lumenhealth/jobs/4012001", primary);
-        application(demo, now, "Northwind Labs", "Product Designer, Growth", ApplicationStatus.INTERVIEW, 21, 18, "Remote (US)", JobMode.REMOTE, "$135,000 - $155,000", "Lever", "https://jobs.lever.co/northwindlabs/6f1a0c2e", primary);
-        application(demo, now, "Brightpath Learning", "Lead UX Designer", ApplicationStatus.INTERVIEW, 16, 13, "Austin, TX", JobMode.ON_SITE, "$140,000", "Workday", "https://brightpath.wd5.myworkdayjobs.com/en-US/careers/job/Austin-TX/Lead-UX-Designer_R-10442", systems);
+        Application lumen = application(demo, now, "Lumen Health","Senior Product Designer", ApplicationStatus.OFFER, 34, 30, "Austin, TX", JobMode.HYBRID, "$150,000 - $170,000", "Greenhouse", "https://boards.greenhouse.io/lumenhealth/jobs/4012001", primary);
+        Application northwind = application(demo, now, "Northwind Labs","Product Designer, Growth", ApplicationStatus.INTERVIEW, 21, 18, "Remote (US)", JobMode.REMOTE, "$135,000 - $155,000", "Lever", "https://jobs.lever.co/northwindlabs/6f1a0c2e", primary);
+        Application brightpath = application(demo, now, "Brightpath Learning","Lead UX Designer", ApplicationStatus.INTERVIEW, 16, 13, "Austin, TX", JobMode.ON_SITE, "$140,000", "Workday", "https://brightpath.wd5.myworkdayjobs.com/en-US/careers/job/Austin-TX/Lead-UX-Designer_R-10442", systems);
         application(demo, now, "Cobalt Payments", "Senior Product Designer", ApplicationStatus.APPLIED, 9, 8, "Remote (US)", JobMode.REMOTE, "$145,000 - $165,000", "Ashby", "https://jobs.ashbyhq.com/cobalt/2c7e9b1a", primary);
         application(demo, now, "Fernhill Mobility", "Product Designer", ApplicationStatus.APPLIED, 6, 5, "Dallas, TX", JobMode.HYBRID, "$125,000 - $140,000", "SmartRecruiters", "https://jobs.smartrecruiters.com/FernhillMobility/743999", systems);
         application(demo, now, "Atlas Commerce", "Design Systems Designer", ApplicationStatus.DRAFT, 2, -1, "Remote (US)", JobMode.REMOTE, null, "Greenhouse", "https://boards.greenhouse.io/atlascommerce/jobs/5108822", systems);
         application(demo, now, "Juniper Cloud", "Staff Product Designer", ApplicationStatus.SAVED, 3, -1, "Austin, TX", JobMode.HYBRID, "$170,000 - $190,000", "Lever", "https://jobs.lever.co/junipercloud/a93d00b7", null);
-        application(demo, now, "Quill and Co", "Product Designer", ApplicationStatus.REJECTED, 28, 25, "Houston, TX", JobMode.ON_SITE, "$115,000", "Workable", "https://apply.workable.com/quillandco/j/8821F0", primary);
+        seedTracker(lumen, northwind, brightpath, now);
+        application(demo, now, "Quill and Co","Product Designer", ApplicationStatus.REJECTED, 28, 25, "Houston, TX", JobMode.ON_SITE, "$115,000", "Workable", "https://apply.workable.com/quillandco/j/8821F0", primary);
     }
 
     private Resume resume(User user, String label, boolean isDefault, Instant createdAt, String parsedJson) {
@@ -359,8 +387,25 @@ public class DemoAccountService {
         return resumeRepository.save(resume);
     }
 
+    /**
+     * The demo's tracker memory (APP-E2E U6.1): notes and interviews on the three applications that have a
+     * story, so the dashboard's "interviews" and the detail sheet are real for the demo. Dates are relative
+     * to now, so a reset always leaves some interviews ahead and some behind.
+     */
+    private void seedTracker(Application lumen, Application northwind, Application brightpath, Instant now) {
+        String tz = "America/Chicago";
+        Instant hour = now.truncatedTo(ChronoUnit.HOURS);
+        trackerData.seedDemoInterview(lumen, "PHONE", hour.minus(24, ChronoUnit.DAYS), 30, tz, "Phone", "Maya Ortiz (recruiter)", "PASSED");
+        trackerData.seedDemoInterview(lumen, "ONSITE", hour.minus(15, ChronoUnit.DAYS), 180, tz, "Lumen Health, 100 Main St, Austin", "Design team panel", "PASSED");
+        trackerData.seedDemoNote(lumen, "Offer call went well. Ask about the design systems budget and the review at six months before answering.", true, now.minus(3, ChronoUnit.DAYS));
+        trackerData.seedDemoInterview(northwind, "PHONE", hour.minus(10, ChronoUnit.DAYS), 30, tz, "Phone", "Sam Rivera", "PASSED");
+        trackerData.seedDemoInterview(northwind, "VIDEO", hour.plus(2, ChronoUnit.DAYS), 60, tz, "Video call (link in the invite)", "Sam Rivera", null);
+        trackerData.seedDemoNote(northwind, "Prep: growth experiments portfolio piece, the onboarding redesign story.", false, now.minus(1, ChronoUnit.DAYS));
+        trackerData.seedDemoInterview(brightpath, "ONSITE", hour.plus(5, ChronoUnit.DAYS), 240, tz, "Brightpath Learning, 500 Congress Ave, Austin", "Priya Shah", null);
+    }
+
     @SuppressWarnings("java:S107")
-    private void application(
+    private Application application(
         User user,
         Instant now,
         String company,
@@ -401,24 +446,29 @@ public class DemoAccountService {
             a.setSubmissionConfirmed(false);
         }
         applicationRepository.save(a);
+        // History: created, then applied, then the move to where it stands now (the same dates the row shows).
+        Instant applied = appliedDaysAgo >= 0 ? now.minus(appliedDaysAgo, ChronoUnit.DAYS) : null;
+        Instant moved = applied != null && status != ApplicationStatus.APPLIED ? a.getUpdatedAt() : null;
+        trackerData.seedDemoHistory(a, created, applied, moved);
+        return a;
     }
 
     // ---- the fictional person -----------------------------------------------------------------
 
     private Map<String, Object> bioPayload() {
         Map<String, Object> bio = new LinkedHashMap<>();
-        bio.put("firstName", "Jordan");
-        bio.put("lastName", "Lee");
-        bio.put("preferredName", "Jordan");
-        bio.put("email", "jordan.lee@example.com");
+        bio.put("firstName", "Priya");
+        bio.put("lastName", "Sharma");
+        bio.put("preferredName", "Priya");
+        bio.put("email", "priya.sharma@example.com");
         bio.put("phone", "(512) 555-0142");
         bio.put("addressLine1", "1200 Example Street");
         bio.put("city", "Austin");
         bio.put("state", "TX");
         bio.put("postalCode", "78701");
         bio.put("country", "United States");
-        bio.put("linkedin", "https://www.linkedin.com/in/jordan-lee-example");
-        bio.put("website", "https://jordanlee.example.com");
+        bio.put("linkedin", "https://www.linkedin.com/in/priya-sharma-example");
+        bio.put("website", "https://priyasharma.example.com");
         bio.put("authorizedToWork", "Yes");
         bio.put("requireSponsorship", "No");
         bio.put("desiredSalary", "$150,000");

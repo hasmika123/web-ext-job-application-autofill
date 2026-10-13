@@ -12,6 +12,9 @@ const POS_KEY = "kiwiply_bugpos";
 type Corner = "bottom-right" | "bottom-left" | "top-right" | "top-left";
 const CORNERS: Corner[] = ["bottom-right", "bottom-left", "top-right", "top-left"];
 const OFFSET = 20; // matches the old bottom-5/right-5 (5 * 4px)
+// On a phone the button rides 96 px up (clear of a bottom tab bar), and higher still above whatever sticky bottom bar the page has
+// (`useBottomBar` in @kiwiply/ui publishes `--kiwi-bottom-inset`): it never covers a sticky Continue / Save.
+const PHONE_LIFT = "max-sm:bottom-[max(6rem,calc(var(--kiwi-bottom-inset,0px)+1rem))]!";
 
 function cornerStyle(c: Corner): CSSProperties {
   return {
@@ -107,6 +110,17 @@ export default function BugReportWidget() {
     setError(null);
   }
 
+  // Other parts of the app (Settings > Help & Support) open this same dialog instead of building a second report form.
+  useEffect(() => {
+    const openFromElsewhere = () => {
+      setNudge(false);
+      reset();
+      setOpen(true);
+    };
+    window.addEventListener("kiwiply:open-bug-report", openFromElsewhere);
+    return () => window.removeEventListener("kiwiply:open-bug-report", openFromElsewhere);
+  }, []);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!message.trim()) {
@@ -146,7 +160,7 @@ export default function BugReportWidget() {
   return (
     <>
       <div
-        className={`group fixed z-[200] flex items-center gap-2 ${corner.endsWith("left") ? "flex-row-reverse" : ""} ${!drag && corner.startsWith("bottom") ? "max-sm:bottom-24!" : ""}`}
+        className={`group fixed z-[200] flex items-center gap-2 ${corner.endsWith("left") ? "flex-row-reverse" : ""} ${!drag && corner.startsWith("bottom") ? PHONE_LIFT : ""}`}
         style={drag ? { left: drag.x, top: drag.y, transform: "translate(-50%, -50%)" } : cornerStyle(corner)}
       >
         {!open &&
@@ -280,7 +294,7 @@ export default function BugReportWidget() {
                   <span>Include this page&apos;s address and my browser info to help us debug.</span>
                 </label>
 
-                {error && <p role="alert" className="mb-3 text-sm font-medium text-danger">{error}</p>}
+                {error && <p role="alert" className="mb-3 text-sm font-medium text-danger-text">{error}</p>}
 
                 <div className="flex justify-end gap-2">
                   <button type="button" onClick={() => setOpen(false)} className="rounded-full border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-paper-2">

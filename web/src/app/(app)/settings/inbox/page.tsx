@@ -4,7 +4,7 @@ import { serverApiFetch } from "@/lib/api";
 import { getPlan } from "@/lib/billing";
 import InboxConnect, { type InboxView } from "@/components/settings/InboxConnect";
 
-export const metadata: Metadata = { title: "Inbox · Settings · Kiwiply" };
+export const metadata: Metadata = { title: "Inbox · Settings" };
 
 /**
  * Connect a dedicated Gmail (Phase 14.1, Pro) so replies from employers update the board by

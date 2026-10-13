@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import {
   BriefcaseIcon,
   CheckCircleIcon,
+  EmptyState,
   FileTextIcon,
   GraduationCapIcon,
   LayersIcon,
@@ -21,10 +22,10 @@ import {
   useToast,
 } from "@kiwiply/ui";
 import { BrandTile, InitialsAvatar, Progress, SectionCard, StatusChip, TONE, type Tone } from "../../app-v2/common";
-import { V3_PROFILE_FALLBACK, V3_PROFILE_VARIANTS, V3_RESUME_VERSION_SAMPLES } from "../sample-data";
+import { useSamples } from "../SamplesProvider";
 import type { CompletenessTile, ProfileView } from "./derive";
+import type { ProfileTabKey } from "./tabs";
 
-export type ProfileTabKey = "overview" | "personal" | "work" | "education" | "skills" | "projects" | "preferences";
 
 const TILE_ICON: Record<CompletenessTile["key"], { icon: ReactNode; tone: Tone; tab: ProfileTabKey }> = {
   personal: { icon: <UserIcon className="h-5 w-5" />, tone: "blue", tab: "personal" },
@@ -37,20 +38,37 @@ const TILE_ICON: Record<CompletenessTile["key"], { icon: ReactNode; tone: Tone; 
 
 /**
  * My Profiles > Overview (APP-V3-SPEC section 2.4). Real: name, email, location, completeness,
- * skills, About (default resume's summary), resume versions and the LinkedIn / GitHub / Portfolio
- * links. Sample (board text): the job title / location / About / skills when the user has none yet,
- * and the "Multiple Profiles" row (that feature is not built).
+ * skills, About, resume versions and the LinkedIn / GitHub / Portfolio links, and (R1.2) the meter and
+ * its tiles, which are the API's profile completeness - `percent` is `null` when the API could not be
+ * reached. Sample (board text): the job title / location / About / skills / resume versions when the user has
+ * none yet, for a demo account on a sample-enabled build only (`samples()`, U0.5); a real account sees what it
+ * has, or "Not set" / an honest empty line.
+ * "Targets" replaces the board's "Multiple Profiles" row: the built resumes, one per role aimed at
+ * (DESIGN v1 2.6 - there are no profile variants).
  */
-export default function OverviewTab({ profile, onTab }: { profile: ProfileView; onTab: (t: ProfileTabKey) => void }) {
+export default function OverviewTab({
+  profile,
+  tiles,
+  percent,
+  nextAction,
+  onTab,
+}: {
+  profile: ProfileView;
+  tiles: CompletenessTile[];
+  percent: number | null;
+  nextAction: { label: string; tab: ProfileTabKey } | null;
+  onTab: (t: ProfileTabKey) => void;
+}) {
   const toast = useToast();
   const comingSoon = (what: string) => toast({ title: "Coming soon", description: `${what} is on the way.` });
 
-  const title = profile.title || V3_PROFILE_FALLBACK.title;
-  const location = profile.location || V3_PROFILE_FALLBACK.location;
-  const about = profile.about || V3_PROFILE_FALLBACK.about;
-  const skills = profile.skills.length > 0 ? profile.skills : V3_PROFILE_FALLBACK.skills;
-  const versions = profile.versions.length > 0 ? profile.versions : V3_RESUME_VERSION_SAMPLES;
-  const variants = [title, ...V3_PROFILE_VARIANTS.filter((v) => v !== title)].slice(0, 3);
+  const sample = useSamples();
+  const fallback = sample("V3_PROFILE_FALLBACK");
+  const title = profile.title || fallback?.title || "";
+  const location = profile.location || fallback?.location || "";
+  const about = profile.about || fallback?.about || "";
+  const skills = profile.skills.length > 0 ? profile.skills : (fallback?.skills ?? []);
+  const versions = profile.versions.length > 0 ? profile.versions : sample("V3_RESUME_VERSION_SAMPLES");
 
   const linked: { name: string; url: string }[] = [
     { name: "LinkedIn", url: profile.links.linkedin },
@@ -76,13 +94,15 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
             <InitialsAvatar name={profile.name} size={72} tone="blue" />
             <div className="min-w-0">
               <h2 className="truncate font-display text-[20px] font-extrabold leading-tight tracking-normal text-v2-navy">{profile.name}</h2>
-              <p className="text-[14px] text-v2-ink-soft">{title}</p>
+              {title && <p className="text-[14px] text-v2-ink-soft">{title}</p>}
             </div>
           </div>
           <ul className="mt-4 space-y-2 text-[13.5px] text-v2-ink-soft">
-            <li className="flex items-center gap-2">
-              <MapPinIcon className="h-4 w-4 flex-none text-v2-muted" /> {location}
-            </li>
+            {location && (
+              <li className="flex items-center gap-2">
+                <MapPinIcon className="h-4 w-4 flex-none text-v2-muted" /> {location}
+              </li>
+            )}
             {profile.email && (
               <li className="flex items-center gap-2">
                 <MailIcon className="h-4 w-4 flex-none text-v2-muted" /> <span className="min-w-0 truncate">{profile.email}</span>
@@ -104,10 +124,21 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
         </section>
 
         {/* Completeness */}
-        <SectionCard title="Profile completeness" headerExtra={<span className="font-display text-[22px] font-extrabold text-v2-green-ink">{profile.percent}%</span>}>
-          <Progress value={profile.percent} tone="green" label="Profile completeness" className="h-2" />
+        <SectionCard
+          title="Profile completeness"
+          headerExtra={<span className="font-display text-[22px] font-extrabold text-v2-green-ink">{percent === null ? "—" : `${percent}%`}</span>}
+        >
+          <Progress value={percent ?? 0} tone="green" label="Profile completeness" className="h-2" />
+          {nextAction && (
+            <p className="mt-3 text-[13px] text-v2-ink-soft">
+              Next:{" "}
+              <button type="button" onClick={() => onTab(nextAction.tab)} className="font-semibold text-v2-blue hover:underline max-sm:min-h-11 max-sm:py-2">
+                {nextAction.label}
+              </button>
+            </p>
+          )}
           <ul className="mt-4 grid grid-cols-2 gap-2.5 min-[1280px]:grid-cols-3">
-            {profile.tiles.map((t) => {
+            {tiles.map((t) => {
               const meta = TILE_ICON[t.key];
               const done = t.status === "done";
               return (
@@ -147,12 +178,13 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
               <InitialsAvatar name={profile.name} size={48} tone="blue" />
               <div className="min-w-0">
                 <p className="truncate text-[15px] font-bold text-v2-navy">{profile.name}</p>
-                <p className="text-[13px] text-v2-ink-soft">{title}</p>
+                {title && <p className="text-[13px] text-v2-ink-soft">{title}</p>}
               </div>
             </div>
             <h3 className="mt-4 text-[13px] font-bold tracking-normal text-v2-navy">About</h3>
-            <p className="mt-1 line-clamp-4 text-[13.5px] leading-relaxed text-v2-ink-soft">{about}</p>
+            <p className="mt-1 line-clamp-4 text-[13.5px] leading-relaxed text-v2-ink-soft">{about || "Not added yet."}</p>
             <h3 className="mt-4 text-[13px] font-bold tracking-normal text-v2-navy">Skills</h3>
+            {skills.length === 0 && <p className="mt-1 text-[13.5px] text-v2-ink-soft">None added yet.</p>}
             <ul className="mt-1.5 flex flex-wrap gap-1.5">
               {skills.slice(0, 8).map((s) => (
                 <li key={s} className="rounded-md bg-v2-blue-soft px-2 py-0.5 text-[12px] font-medium text-v2-blue">
@@ -172,6 +204,17 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
 
         {/* Resume versions */}
         <SectionCard title="Resume Versions" action={{ label: "Manage", href: "/resume-builder" }}>
+          {versions.length === 0 && (
+            <EmptyState
+              variant="inline"
+              title="No resumes yet"
+              action={
+                <Link href="/resume-builder" className="text-[13px] font-bold text-v2-blue hover:underline">
+                  Create a resume
+                </Link>
+              }
+            />
+          )}
           <ul className="divide-y divide-v2-line/60">
             {versions.map((r) => (
               <li key={r.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
@@ -193,12 +236,12 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
         </div>
 
         <div className="flex min-w-0 flex-col gap-4">
-          {/* Job preferences (board 1): real bio answers, the board's text while unset */}
+          {/* Job preferences (board 1): real bio answers, "Not set" while unset */}
           <SectionCard title="Job Preferences">
             <ul className="space-y-2 text-[13.5px] text-v2-ink-soft">
-              <li><span className="text-v2-muted">Work: </span>{profile.prefs.workPreference || "Full-time, Remote, Hybrid"}</li>
-              <li><span className="text-v2-muted">Salary: </span>{profile.prefs.desiredSalary || "$120K - $180K"}</li>
-              <li><span className="text-v2-muted">Relocation: </span>{profile.prefs.relocate || "Open to relocate"}</li>
+              <li><span className="text-v2-muted">Work: </span>{profile.prefs.workPreference || "Not set"}</li>
+              <li><span className="text-v2-muted">Salary: </span>{profile.prefs.desiredSalary || "Not set"}</li>
+              <li><span className="text-v2-muted">Relocation: </span>{profile.prefs.relocate || "Not set"}</li>
             </ul>
             <div className="mt-3 flex items-center justify-between rounded-xl bg-[#F1F6FF] px-3 py-2.5">
               <span className="text-[13px] font-semibold text-v2-navy">Profile visibility: Visible to employers</span>
@@ -207,29 +250,26 @@ export default function OverviewTab({ profile, onTab }: { profile: ProfileView; 
             <button type="button" onClick={() => onTab("preferences")} className="mt-3 text-[13px] font-semibold text-v2-blue hover:underline">Edit preferences</button>
           </SectionCard>
 
-          {/* Multiple profiles */}
-          <SectionCard title="Multiple Profiles">
+          {/* Targets: the built resumes, one per role aimed at (replaces the board's "Multiple Profiles") */}
+          <SectionCard title="Targets" subtitle="One resume per kind of role you're going for.">
             <ul className="flex flex-wrap items-center gap-2">
-              {variants.map((v, i) => (
-                <li
-                  key={v}
-                  className={cn(
-                    "inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-[13.5px] font-semibold",
-                    i === 0 ? "border-v2-blue/40 bg-v2-blue-soft text-v2-blue" : "border-v2-line bg-white text-v2-navy",
-                  )}
-                >
-                  {v}
-                  {i === 0 && <span className="text-[11.5px] font-medium text-v2-ink-soft">(Default)</span>}
+              {profile.built.map((r) => (
+                <li key={r.id} className="min-w-0 max-w-full">
+                  <Link
+                    href={`/resume-builder/${r.id}`}
+                    className="inline-flex max-w-full items-center rounded-xl border border-v2-line bg-white px-3.5 py-2 text-[13.5px] font-semibold text-v2-navy hover:bg-v2-blue-soft max-sm:min-h-11"
+                  >
+                    <span className="truncate">{r.label}</span>
+                  </Link>
                 </li>
               ))}
               <li>
-                <button
-                  type="button"
-                  onClick={() => comingSoon("Multiple profiles")}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-v2-blue/50 px-3.5 py-2 text-[13.5px] font-semibold text-v2-blue hover:bg-v2-blue-soft"
+                <Link
+                  href="/resume-builder"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-v2-blue/50 px-3.5 py-2 text-[13.5px] font-semibold text-v2-blue hover:bg-v2-blue-soft max-sm:min-h-11"
                 >
-                  <PlusIcon className="h-4 w-4" /> Create Profile
-                </button>
+                  <PlusIcon className="h-4 w-4" /> New resume
+                </Link>
               </li>
             </ul>
           </SectionCard>

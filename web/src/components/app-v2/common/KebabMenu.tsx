@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, MoreVerticalIcon, cn, type MenuEntry } from "@kiwiply/ui";
+import { Menu, MoreVerticalIcon, Tooltip, cn, type MenuEntry } from "@kiwiply/ui";
 
 const TRIGGER =
   "inline-flex h-8 w-8 items-center justify-center rounded-lg text-v2-ink-soft hover:bg-paper-2 hover:text-ink";
@@ -20,22 +20,26 @@ export function KebabMenu({
 }) {
   if (!items) {
     return (
-      <button type="button" aria-label={label} className={cn(TRIGGER, className)}>
-        <MoreVerticalIcon size={16} />
-      </button>
+      <Tooltip content={label}>
+        <button type="button" aria-label={label} className={cn(TRIGGER, className)}>
+          <MoreVerticalIcon size={16} />
+        </button>
+      </Tooltip>
     );
   }
   return (
-    <Menu
-      align="end"
-      items={items}
-      trigger={
-        <span className={cn(TRIGGER, className)}>
-          <span className="sr-only">{label}</span>
-          <MoreVerticalIcon aria-hidden size={16} />
-        </span>
-      }
-    />
+    <Tooltip content={label}>
+      <Menu
+        align="end"
+        items={items}
+        trigger={
+          <span className={cn(TRIGGER, className)}>
+            <span className="sr-only">{label}</span>
+            <MoreVerticalIcon aria-hidden size={16} />
+          </span>
+        }
+      />
+    </Tooltip>
   );
 }
 

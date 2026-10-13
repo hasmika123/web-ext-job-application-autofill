@@ -1,0 +1,41 @@
+Priya Sharma
+Software Engineer
+priya@example.com | +1 415 555 0100 | San Francisco, CA | LinkedIn: https://linkedin.com/in/priya | https://github.com/priya
+
+SUMMARY
+- Results-driven backend engineer with 6 years of experience.
+- Built payment systems used by 2M people.
+- Loves clean APIs (https://example.com/apis).
+
+WORK EXPERIENCE
+Software Engineer — Google · Mountain View, CA · 2022-06 – Present
+- Led migration of the billing service to Kubernetes, cutting p99 latency by 40%.
+- Built an internal tool used (https://example.com/tool) by 300 engineers.
+- Wrote the runbook (https://example.com/runbook) (and the postmortem template) the whole team now uses.
+
+Backend Developer — Acme Corp · Zürich, Switzerland · 2019 – 2022-05
+1. Designed a ledger service handling 2M transactions a day.
+2. Mentored three junior engineers – two were promoted.
+
+EDUCATION
+B.S. in Computer Science — Stanford University · Stanford, CA · 2014-09 – 2018-06 · GPA: 3.8
+- Dean's List, six quarters.
+
+SKILLS
+Languages: Java, Go, Python
+Cloud: AWS, Kubernetes
+
+PROJECTS
+Open-source CLI · https://github.com/priya/cli
+- Reached 2k GitHub stars.
+
+ACHIEVEMENTS
+- Won the 2023 company hackathon. · 2023
+- Speaker at GopherCon.
+
+INTERESTS
+Chess, Trail running, Open source
+
+VOLUNTEERING
+Mentor — Code.org · 2020-01
+- Weekly coaching sessions for first-time programmers.

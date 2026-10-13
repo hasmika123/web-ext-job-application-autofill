@@ -3,6 +3,7 @@ package com.dossier.api.service;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.AiAnswerRepository;
 import com.dossier.api.service.inbox.InboxService;
+import com.dossier.api.service.org.OrgMembershipPrivacyService;
 import com.dossier.api.service.mapper.AiAnswerMapper;
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -31,6 +32,11 @@ public class AccountExportService {
     private final ProfileSuggestionService profileSuggestionService;
     private final InboxService inboxService;
     private final NotificationService notificationService;
+    private final NotificationPreferenceService notificationPreferenceService;
+    private final ResumeBuilderDataService resumeBuilderDataService;
+    private final OrgMembershipPrivacyService orgMembershipPrivacyService;
+    private final TrackerDataService trackerDataService;
+    private final com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService;
 
     public AccountExportService(
         UserService userService,
@@ -41,7 +47,12 @@ public class AccountExportService {
         AiAnswerMapper aiAnswerMapper,
         ProfileSuggestionService profileSuggestionService,
         InboxService inboxService,
-        NotificationService notificationService
+        NotificationService notificationService,
+        NotificationPreferenceService notificationPreferenceService,
+        ResumeBuilderDataService resumeBuilderDataService,
+        OrgMembershipPrivacyService orgMembershipPrivacyService,
+        TrackerDataService trackerDataService,
+        com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService
     ) {
         this.userService = userService;
         this.profileService = profileService;
@@ -52,6 +63,11 @@ public class AccountExportService {
         this.profileSuggestionService = profileSuggestionService;
         this.inboxService = inboxService;
         this.notificationService = notificationService;
+        this.notificationPreferenceService = notificationPreferenceService;
+        this.resumeBuilderDataService = resumeBuilderDataService;
+        this.orgMembershipPrivacyService = orgMembershipPrivacyService;
+        this.trackerDataService = trackerDataService;
+        this.jobSearchDataService = jobSearchDataService;
     }
 
     public Map<String, Object> exportCurrentUser() {
@@ -73,11 +89,26 @@ public class AccountExportService {
         out.put("bio", profileService.getProfile().orElse(null));
         out.put("resumes", profileService.listResumes());
         out.put("applications", applicationSyncService.listApplications());
+        // APP-E2E U6.1: the tracker's memory - timeline events, notes and interviews.
+        out.putAll(trackerDataService.exportForUser(u.getId()));
+        // E2E-U4.0: what the user hid in job search.
+        out.putAll(jobSearchDataService.exportForUser(u.getId()));
         out.put("fieldCache", fieldCacheSyncService.list());
+        // Resume Builder (R0.1): the Common Profile's structured items and the built documents.
+        out.put("profileItems", resumeBuilderDataService.exportProfileItems(u.getId()));
+        out.put("resumeDocs", resumeBuilderDataService.exportResumeDocs(u.getId()));
+        // R3.11: who the user shared their resumes with (never the link tokens - those are credentials).
+        out.put("resumeShares", resumeBuilderDataService.exportResumeShares(u.getId()));
+        // Onboarding v2: the unfinished setup draft (the user's own unconfirmed data), or null.
+        out.put("onboardingDraft", resumeBuilderDataService.exportOnboardingDraft(u.getId()));
         out.put("profileSuggestions", profileSuggestionService.exportCurrentUser());
         // 14.7 — the connected inbox (never its password) and everything read from it, and notifications.
         out.put("inbox", inboxService.exportCurrentUser());
         out.put("notifications", notificationService.exportCurrentUser());
+        // E2E-U7.0: which notifications reach the user (the switches, quiet hours, time zone); null when never saved.
+        out.put("notificationPreferences", notificationPreferenceService.exportCurrentUser());
+        // Org tenant model (O1.3): the organizations the user belongs to / belonged to, with role, state, dates and what they share (O6.1).
+        out.put("organizations", orgMembershipPrivacyService.exportFor(u.getId(), u.getLogin()));
         out.put("aiAnswers", aiAnswerRepository.findByUserIsCurrentUser().stream().map(aiAnswerMapper::toDto).toList());
         return out;
     }

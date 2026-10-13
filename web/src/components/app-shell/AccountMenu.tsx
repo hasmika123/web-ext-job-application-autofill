@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BuildingIcon, ChevronDownIcon, GearIcon, SignOutIcon, UserIcon, cn } from "@kiwiply/ui";
 import { notifyExtension } from "@/lib/extension-signal";
+import { clearOnboardingMirror } from "@/lib/onboarding/mirror";
 import DemoBadge from "@/components/demo/DemoBadge";
 import { DEMO_NOTE } from "@/lib/demo";
 
@@ -18,6 +19,7 @@ export default function AccountMenu({
   name,
   isPro,
   demo = false,
+  orgsEnabled = false,
   onNavigate,
 }: {
   initial: string;
@@ -26,6 +28,8 @@ export default function AccountMenu({
   isPro: boolean;
   /** A public demo account: shows a Demo badge and a "changes aren't saved" line. */
   demo?: boolean;
+  /** The API's org feature flag (`/api/config/public`): the "Kiwiply for Organizations" entry is hidden while it is off. */
+  orgsEnabled?: boolean;
   onNavigate?: () => void;
 }) {
   const router = useRouter();
@@ -52,6 +56,7 @@ export default function AccountMenu({
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       notifyExtension("signedOut"); // the extension drops its own session at once (11.1)
+      clearOnboardingMirror(); // a half-built profile on this device is not for the next person to see (Onboarding v2 R1.9)
       router.push("/login");
       router.refresh();
     } finally {
@@ -110,10 +115,12 @@ export default function AccountMenu({
             <GearIcon size={17} className="text-ink-soft" />
             Settings
           </Link>
-          <Link role="menuitem" href="/org" onClick={close} className={item}>
-            <BuildingIcon size={17} className="text-v2-blue" />
-            Kiwiply for Organizations
-          </Link>
+          {orgsEnabled && (
+            <Link role="menuitem" href="/org" onClick={close} className={item}>
+              <BuildingIcon size={17} className="text-v2-blue" />
+              Kiwiply for Organizations
+            </Link>
+          )}
           <div className="my-1 border-t border-line" />
           <button type="button" role="menuitem" onClick={signOut} disabled={busy} className={cn(item, "disabled:opacity-50")}>
             <SignOutIcon size={17} className="text-ink-soft" />

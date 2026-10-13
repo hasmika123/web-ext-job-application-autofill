@@ -164,6 +164,7 @@ public class JobIngestService {
             jp.setDescriptionText(p.description() == null || p.description().isBlank() ? null : p.description());
             jp.setPublishedAt(p.publishedAt());
             jp.setDedupKey(key);
+            jp.setSearchText(JobSearchText.of(p.title(), p.company(), p.location(), jp.getDescriptionText()));
             postings.save(jp);
             added++;
         }
