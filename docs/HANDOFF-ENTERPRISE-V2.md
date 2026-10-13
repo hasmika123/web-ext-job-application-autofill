@@ -8,7 +8,7 @@
 
 ## START HERE
 
-**Build branch:** `ev2-build-p1` (cut from `enterprise-v2` at `834e2fa`; not pushed). **Last story done:** X1.2 (`ev2-x1.2: ...`; X1.1 before it; `git log --oneline -4`). **Next story:** X1.3 (TenantResolver, public tenant endpoint, ask endpoint). Design branch `enterprise-v2` is the Phase 0 design only.
+**Build branch:** `ev2-build-p1` (cut from `enterprise-v2` at `834e2fa`; not pushed). **Verified and done:** X1.1 (`ev2-x1.1`) and X1.2 (`ev2-x1.2`), both with full `test integrationTest` green (X1.2: one unrelated 15 s `OrgLimitsIT` timeout under load, green alone). **WIP, unverified:** X1.3 (`wip: ev2-x1.3 ...` commit on top): all code and tests are written but NEVER compiled or run. **Resume:** `cd api && ./gradlew test --tests '*Tenant*' --tests '*OrgTenancyServiceTest'` then `integrationTest --tests '*TenantResolutionIT' --tests '*InternalTenantHostResourceIT'`, fix what breaks, run the full suites, regenerate `api/openapi.json` (OpenApiContractIT writes it), set `--set X1.3=done`, add the PROGRESS.md line, commit `ev2-x1.3: ...`. Design choices to review are in the X1.3 resolver javadoc (platform hosts before DB lookups; allow list exclusive; missing host = legacy). Then X1.4. Design branch `enterprise-v2` is the Phase 0 design only.
 
 **First commands**
 ```bash

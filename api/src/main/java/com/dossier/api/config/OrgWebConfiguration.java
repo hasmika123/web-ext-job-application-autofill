@@ -1,6 +1,7 @@
 package com.dossier.api.config;
 
 import com.dossier.api.service.ent.EnterpriseFeatureFlag;
+import com.dossier.api.service.ent.TenantResolver;
 import com.dossier.api.service.org.OrgAccessService;
 import com.dossier.api.service.org.OrgFeatureFlag;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -21,11 +22,13 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
     private final OrgAccessService accessService;
     private final OrgFeatureFlag orgFeatureFlag;
     private final EnterpriseFeatureFlag enterpriseFeatureFlag;
+    private final TenantResolver tenantResolver;
 
-    public OrgWebConfiguration(OrgAccessService accessService, OrgFeatureFlag orgFeatureFlag, EnterpriseFeatureFlag enterpriseFeatureFlag) {
+    public OrgWebConfiguration(OrgAccessService accessService, OrgFeatureFlag orgFeatureFlag, EnterpriseFeatureFlag enterpriseFeatureFlag, TenantResolver tenantResolver) {
         this.accessService = accessService;
         this.orgFeatureFlag = orgFeatureFlag;
         this.enterpriseFeatureFlag = enterpriseFeatureFlag;
+        this.tenantResolver = tenantResolver;
     }
 
     @Override
@@ -48,6 +51,18 @@ public class OrgWebConfiguration implements WebMvcConfigurer {
         FilterRegistrationBean<EnterpriseEnabledFilter> bean = new FilterRegistrationBean<>(new EnterpriseEnabledFilter(enterpriseFeatureFlag));
         bean.addUrlPatterns("/api/*");
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 51);
+        return bean;
+    }
+
+    /**
+     * Derives the tenant from the forwarded host (X1.3, ADR-003) for every API request while enterprise is on, ahead of
+     * Spring Security so the answer is known before authentication. A no-op while the master flag is off.
+     */
+    @Bean
+    public FilterRegistrationBean<TenantResolverFilter> tenantResolverFilter() {
+        FilterRegistrationBean<TenantResolverFilter> bean = new FilterRegistrationBean<>(new TenantResolverFilter(tenantResolver, enterpriseFeatureFlag));
+        bean.addUrlPatterns("/api/*");
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 52);
         return bean;
     }
 }

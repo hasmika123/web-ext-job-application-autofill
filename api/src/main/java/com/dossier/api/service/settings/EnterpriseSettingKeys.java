@@ -39,6 +39,10 @@ public final class EnterpriseSettingKeys {
 
     /** Hostnames that are the platform itself (kiwiply.com and friends): they never resolve to a tenant. */
     public static final String HOSTS_PLATFORM = "enterprise.hosts.platform";
+    /** Base domains under which {@code {label}.<base>} may name a tenant subdomain. */
+    public static final String HOSTS_TENANT_BASE_DOMAINS = "enterprise.hosts.tenant_base_domains";
+    public static final String TENANT_CACHE_SECONDS = "enterprise.tenant.cache_seconds";
+    public static final String TENANT_RATE_PER_MIN = "enterprise.tenant.rate_per_min";
     public static final String DOMAINS_SUBDOMAINS_PER_DAY = "enterprise.domains.subdomains_per_day";
     public static final String DOMAINS_RECHECK_HOURS = "enterprise.domains.recheck_hours";
     public static final String DOMAINS_GRACE_HOURS_BEFORE_SUSPEND = "enterprise.domains.grace_hours_before_suspend";
@@ -50,6 +54,9 @@ public final class EnterpriseSettingKeys {
 
     /** The default of {@link #HOSTS_PLATFORM} (06-phase-plan.md section 3). */
     public static final String DEFAULT_PLATFORM_HOSTS = "[\"kiwiply.com\",\"www.kiwiply.com\",\"app.kiwiply.com\",\"api.kiwiply.com\",\"localhost\"]";
+
+    /** The default of {@link #HOSTS_TENANT_BASE_DOMAINS}: production, plus {@code acme.localhost} for development. */
+    public static final String DEFAULT_TENANT_BASE_DOMAINS = "[\"kiwiply.com\",\"localhost\"]";
 
     private static final Pattern HOSTNAME = Pattern.compile("(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*");
     private static final Pattern ORG_ID_TEXT = Pattern.compile("[1-9][0-9]{0,18}");
@@ -64,7 +71,7 @@ public final class EnterpriseSettingKeys {
         flag(k, FLAG_ENTERPRISE, Risk.HIGH,
             "Master switch for Enterprise V2: tenant resolution from the request host, GET /api/public/tenant and every enterprise route. "
                 + "on = enabled; an allow list of organization ids narrows it to those organizations (a pilot); deny always wins. Off = those routes answer 404.");
-        flag(k, FLAG_DOMAINS, Risk.HIGH, "Custom-domain lifecycle and the certificate 'ask' endpoint answering for custom hostnames. Needs the master flag." + NOT_ENFORCED);
+        flag(k, FLAG_DOMAINS, Risk.HIGH, "Custom-domain lifecycle and the certificate 'ask' endpoint answering for custom hostnames. Needs the master flag.");
         flag(k, FLAG_ROLES, Risk.MEDIUM, "Roles stored as data become authoritative and the role editor appears. Needs the master flag." + NOT_ENFORCED);
         flag(k, FLAG_BILLING, Risk.HIGH, "Enterprise license APIs and Stripe organization billing. Needs the master flag." + NOT_ENFORCED);
         flag(k, FLAG_MARKETING, Risk.MEDIUM, "Talent marketing and pipeline modules. Needs the master flag." + NOT_ENFORCED);
@@ -72,8 +79,13 @@ public final class EnterpriseSettingKeys {
         flag(k, FLAG_EXTENSION_WORKSPACES, Risk.MEDIUM, "Workspaces on /api/profile/version and the extension workspace header. Needs the master flag." + NOT_ENFORCED);
 
         k.add(new Key(HOSTS_PLATFORM, Type.JSON, DEFAULT_PLATFORM_HOSTS, null, null, null,
-            "Hostnames that are the platform itself (never a tenant), as a JSON list of lower-case hostnames. A request for one of them is the personal product and the platform console." + NOT_ENFORCED,
+            "Hostnames that are the platform itself (never a tenant), as a JSON list of lower-case hostnames. A request for one of them is the personal product and the platform console.",
             EnterpriseSettingKeys::hostList, Risk.HIGH));
+        k.add(new Key(HOSTS_TENANT_BASE_DOMAINS, Type.JSON, DEFAULT_TENANT_BASE_DOMAINS, null, null, null,
+            "Base domains under which {label}.<base> can name an organization's subdomain, as a JSON list. Include 'localhost' only for development hosts such as acme.localhost.",
+            EnterpriseSettingKeys::hostList, Risk.HIGH));
+        integer(k, TENANT_CACHE_SECONDS, 60, 0, 600, Risk.LOW, "Seconds the API remembers which tenant a hostname belongs to. 0 = no caching. A tenant, hostname or status change evicts the entry at once on that instance.");
+        integer(k, TENANT_RATE_PER_MIN, 120, 10, 6000, Risk.MEDIUM, "Requests per minute per hostname and visitor IP on GET /api/public/tenant.");
         integer(k, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
         integer(k, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
         integer(k, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);

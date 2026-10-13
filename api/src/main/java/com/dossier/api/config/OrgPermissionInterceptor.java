@@ -1,6 +1,8 @@
 package com.dossier.api.config;
 
 import com.dossier.api.service.ent.EnterpriseFeatureFlag;
+import com.dossier.api.service.ent.TenantContext;
+import com.dossier.api.service.ent.TenantContextHolder;
 import com.dossier.api.service.org.OrgAccessService;
 import com.dossier.api.service.org.OrgFeatureFlag;
 import com.dossier.api.service.org.OrgMembership;
@@ -54,6 +56,10 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         if (!(handler instanceof HandlerMethod method)) return true;
         if (!featureFlag.isEnabled()) throw new OrgNotFoundException(); // the flag is off: the org API does not exist (OrgsEnabledFilter answers first; this is the second wall)
+        // Enterprise V2 (X1.3): the host the BFF forwarded decides the tenant candidate; a host that is given but not served
+        // is a 404, whatever the handler (the filter already answered for most paths; this is the second wall).
+        TenantContext tenant = request.getAttribute(TenantContextHolder.REQUEST_ATTRIBUTE) instanceof TenantContext c ? c : null;
+        if (tenant != null && tenant.isExplicitlyUnknown()) throw new OrgNotFoundException();
         OrgPermissionRequired required = method.getMethodAnnotation(OrgPermissionRequired.class);
         if (required == null) {
             if (method.hasMethodAnnotation(OrgUnscoped.class)) return true;
@@ -63,6 +69,9 @@ public class OrgPermissionInterceptor implements HandlerInterceptor {
         Map<String, String> vars = (Map<String, String>) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
         String raw = vars == null ? null : vars.get("orgId");
         Long orgId = parse(raw);
+        // Enterprise V2 (X1.3): on a tenant host the path organization MUST be that tenant: a member of another org, or of
+        // this one on another org's host, gets the same generic 404 as for an org that does not exist.
+        if (tenant != null && tenant.isTenant() && !tenant.orgId().equals(orgId)) throw new OrgNotFoundException();
         // Enterprise V2 (X1.1): the per-org wall behind EnterpriseEnabledFilter. The org is known here, so an organization
         // outside the flag's allow list (or on its deny list) sees the enterprise routes as if they did not exist.
         if (EnterpriseEnabledFilter.isOrgEnterprisePath(pathOf(request)) && (enterpriseFlag == null || !enterpriseFlag.isEnabled(orgId))) {
