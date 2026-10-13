@@ -209,7 +209,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
     <main className="tenant-sky relative isolate min-h-dvh overflow-x-hidden text-[var(--brand-900)]" data-tenant-login>
       <LoginBackdrop />
       <div className="mx-auto flex min-h-dvh w-full max-w-[1600px] flex-col">
-        <div className="tenant-panel contents lg:absolute lg:inset-y-0 lg:right-0 lg:z-10 lg:flex lg:w-[clamp(420px,34vw,520px)] lg:flex-col lg:justify-center lg:px-12 lg:py-10">
+        <div className="tenant-panel contents lg:absolute lg:inset-y-0 lg:right-6 xl:right-10 lg:z-10 lg:flex lg:w-[clamp(420px,34vw,520px)] lg:flex-col lg:justify-center lg:px-12 lg:py-10">
         {/* ── heading (real text: the plate has none) ── */}
         <section
           className="tenant-login-rise flex min-h-[36vw] flex-col items-center px-6 pt-7 text-center lg:mb-8 lg:min-h-0 lg:items-start lg:p-0 lg:text-left"

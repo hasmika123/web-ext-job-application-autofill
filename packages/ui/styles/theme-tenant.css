@@ -149,8 +149,10 @@
 @media (min-width: 1024px) {
   .theme-tenant .tenant-panel {
     background: color-mix(in srgb, var(--brand-100, #d4e4f8) 14%, rgb(255 255 255 / 0.36));
-    border-left: 1.5px solid rgb(255 255 255 / 0.78);
-    box-shadow: -24px 0 60px color-mix(in srgb, var(--brand-700, #0c4fa3) 14%, transparent);
+    border: 1.5px solid rgb(255 255 255 / 0.78);
+    border-top-width: 0;
+    border-bottom-width: 0;
+    box-shadow: 0 0 60px color-mix(in srgb, var(--brand-700, #0c4fa3) 14%, transparent);
     -webkit-backdrop-filter: blur(20px) saturate(1.1);
     backdrop-filter: blur(20px) saturate(1.1);
   }
