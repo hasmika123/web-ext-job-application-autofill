@@ -17,7 +17,7 @@ interface TileDef {
 }
 
 const TILES: TileDef[] = [
-  { key: "openJobs", label: "Open Jobs", icon: <BriefcaseIcon size={20} />, tone: "bg-v2-blue-soft text-v2-blue-ink", spark: "var(--color-v2-blue)", mode: "count", vs: "vs last month" },
+  { key: "openJobs", label: "Open Jobs", icon: <BriefcaseIcon size={20} />, tone: "bg-accent-soft text-accent-deep", spark: "var(--brand-solid, var(--color-accent))", mode: "count", vs: "vs last month" },
   { key: "newThisWeek", label: "New This Week", icon: <FileTextIcon size={20} />, tone: "bg-v2-green-soft text-v2-green-ink", spark: "var(--color-v2-green)", mode: "percent", vs: "vs last week" },
   { key: "assignedOpportunities", label: "Assigned Opportunities", icon: <UsersIcon size={20} />, tone: "bg-v2-violet-soft text-v2-violet-ink", spark: "var(--color-v2-violet)", mode: "count", vs: "vs last month" },
   { key: "highMatchJobs", label: "High Match Jobs", icon: <StarIcon size={20} />, tone: "bg-v2-amber-soft text-v2-amber-ink", spark: "var(--color-v2-amber)", mode: "count", vs: "vs last month" },
@@ -35,16 +35,16 @@ export default function KpiTiles({ summary, loading, error }: { summary: JobSumm
         const delta = tileDelta(tile, t.mode);
         return (
           <li key={t.key} data-kpi={t.key}>
-            <Card className="flex h-full items-stretch justify-between gap-2 !p-4">
+            <Card className="flex h-full items-stretch justify-between gap-2 !rounded-2xl !p-5">
               <div className="flex min-w-0 flex-col gap-1">
-                <span aria-hidden className={`mb-1 inline-grid h-10 w-10 flex-none place-items-center rounded-xl ${t.tone}`}>
+                <span aria-hidden className={`mb-2 inline-grid h-11 w-11 flex-none place-items-center rounded-xl ${t.tone}`}>
                   {t.icon}
                 </span>
-                <span className="text-[13.5px] font-medium leading-tight text-ink-soft">{t.label}</span>
+                <span className="text-[14px] font-medium leading-tight text-ink-soft">{t.label}</span>
                 {loading ? (
                   <Skeleton className="mt-1 h-8 w-14" />
                 ) : (
-                  <span className="text-[30px] font-extrabold leading-none tracking-tight text-ink tabular-nums" data-kpi-value>
+                  <span className="text-[32px] font-bold leading-none tracking-tight text-ink tabular-nums" data-kpi-value>
                     {tile ? tile.value.toLocaleString("en-US") : error ? "—" : ""}
                   </span>
                 )}
@@ -56,8 +56,8 @@ export default function KpiTiles({ summary, loading, error }: { summary: JobSumm
                 )}
               </div>
               {tile && tile.series.length >= 2 && (
-                <div className="mt-auto w-20 flex-none self-end sm:w-24" data-kpi-spark>
-                  <Sparkline values={tile.series} color={t.spark} label={`${t.label}, last ${tile.series.length} weeks`} />
+                <div className="mt-auto w-24 flex-none self-end" data-kpi-spark>
+                  <Sparkline smooth className="h-11" values={tile.series} color={t.spark} label={`${t.label}, last ${tile.series.length} weeks`} />
                 </div>
               )}
             </Card>

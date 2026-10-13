@@ -107,8 +107,8 @@ describe("text helpers", () => {
     expect(postedText(null)).toBe("");
     expect(initialsOf("Jessica Davis")).toBe("JD");
     expect(initialsOf("Cher")).toBe("CH");
-    expect(showingText(24, 0, 10, 10)).toBe("1-10 of 24 jobs");
-    expect(showingText(1, 0, 10, 1)).toBe("1-1 of 1 job");
+    expect(showingText(24, 0, 10, 10)).toBe("1–10 of 24 jobs");
+    expect(showingText(1, 0, 10, 1)).toBe("1–1 of 1 job");
     expect(showingText(0, 0, 10, 0)).toBe("0 jobs");
     expect(pageCount(24, 10)).toBe(3);
     expect(pageCount(0, 10)).toBe(1);

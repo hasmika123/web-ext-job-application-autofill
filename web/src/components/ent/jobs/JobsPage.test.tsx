@@ -189,7 +189,7 @@ describe("Jobs: the list and the tiles", () => {
     expect(document.querySelector("[data-kpi=newThisWeek] [data-kpi-delta]")?.textContent).toContain("vs last week");
     expect(document.querySelector("[data-kpi=assignedOpportunities] [data-kpi-delta]")).toBeNull();
     expect(rows().map((r) => r.getAttribute("data-row-id"))).toEqual(["1", "2", "3"]);
-    expect(screen.getAllByText("1-3 of 3 jobs").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1–3 of 3 jobs").length).toBeGreaterThan(0);
     const first = listCalls()[0];
     expect(first.params.get("sort")).toBe("posted");
     expect(first.params.get("dir")).toBe("desc");
@@ -296,8 +296,8 @@ describe("Jobs: the drawer", () => {
     await mount();
     fireEvent.click(rows()[0]);
     await settle();
-    fireEvent.click(within(document.querySelector("[data-detail-body]") as HTMLElement).getByRole("button", { name: "Status" }));
-    fireEvent.click(screen.getByRole("option", { name: "On Hold" }));
+    fireEvent.click(document.querySelector("[data-status-menu]") as HTMLElement);
+    fireEvent.click(screen.getByRole("menuitem", { name: "On Hold" }));
     await settle();
     const patch = calls.find((c) => c.method === "PATCH" && c.path === "/jobs/1")!;
     expect(patch.body).toEqual({ status: "ON_HOLD" });
@@ -335,7 +335,8 @@ describe("Jobs: the drawer", () => {
     await settle();
     expect(screen.queryByRole("button", { name: /Edit job/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Assign/ })).toBeNull();
-    expect(document.querySelector("[data-detail-body] [data-job-status]")?.textContent).toBe("Open");
+    expect(document.querySelector("#ent-job-sheet [data-job-status]")?.textContent).toBe("Open");
+    expect(document.querySelector("[data-status-menu]")).toBeNull();
   });
 });
 

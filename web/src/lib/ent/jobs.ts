@@ -411,7 +411,7 @@ export function pageCount(total: number, size: number): number {
 export function showingText(total: number, page: number, size: number, shown: number): string {
   if (total === 0) return "0 jobs";
   const from = page * size + 1;
-  return `${from}-${from + shown - 1} of ${total} ${total === 1 ? "job" : "jobs"}`;
+  return `${from}–${from + shown - 1} of ${total} ${total === 1 ? "job" : "jobs"}`;
 }
 
 /* ── errors ──────────────────────────────────────────────────────────────────────── */

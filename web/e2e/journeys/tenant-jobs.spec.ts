@@ -33,21 +33,24 @@ test.describe("jobs (real stack)", () => {
 
     // the four tiles come from the seeded rows
     const kpi = (k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
-    await expect(kpi("openJobs")).toHaveText("13");
-    await expect(kpi("newThisWeek")).toHaveText("6");
+    await expect(kpi("openJobs")).toHaveText(/^\d+$/);
+    const open0 = Number(await kpi("openJobs").innerText());
+    const fresh0 = Number(await kpi("newThisWeek").innerText());
+    expect(open0).toBeGreaterThan(0);
     await expect(page.locator("[data-kpi=openJobs] [data-kpi-delta]")).toContainText("vs last month");
     await expect(rows(page)).toHaveCount(10);
-    await expect(page.locator("[data-showing]")).toHaveText("1-10 of 24 jobs");
+    const total0 = Number(((await page.locator("[data-showing]").first().innerText()).match(/of (\d+) jobs/) ?? [])[1]);
+    expect(total0).toBeGreaterThanOrEqual(24); // a fresh seed has 24; earlier runs add the jobs they created
     await page.screenshot({ path: resolve(shots, "jobs-list.png") });
 
     // filter by status through the dropdown: the address and the count follow
     await page.locator('[data-filters] button[aria-label="Status"]').click();
     await page.getByRole("option", { name: /^Open \(/ }).click();
-    await expect(page.locator("[data-showing]")).toHaveText("1-10 of 13 jobs");
+    await expect(page.locator("[data-showing]").first()).toHaveText(new RegExp(`of ${open0} jobs$`));
     expect(page.url()).toContain("status=OPEN");
     // search narrows further (and a shared link would reproduce it)
     await page.getByLabel("Search jobs").fill("react");
-    await expect(page.locator("[data-showing]")).not.toHaveText("1-10 of 13 jobs");
+    await expect(page.locator("[data-showing]").first()).not.toHaveText(new RegExp(`of ${open0} jobs$`));
     const filteredCount = await rows(page).count();
     expect(filteredCount).toBeGreaterThan(0);
     await expect(rows(page).first()).toContainText(/react/i);
@@ -82,12 +85,12 @@ test.describe("jobs (real stack)", () => {
 
     // status from the drawer autosaves, and Undo puts it back
     await page.getByRole("tab", { name: "Overview" }).click();
-    await drawer.getByRole("button", { name: "Status" }).click();
-    await page.getByRole("option", { name: "On Hold" }).click();
+    await page.locator("[data-status-menu]").click();
+    await page.getByRole("menuitem", { name: "On Hold" }).click();
     await expect(page.getByText("Status is now On Hold")).toBeVisible();
     await page.getByRole("button", { name: "Undo" }).click();
     await expect(page.getByText("Undone")).toBeVisible();
-    await expect(drawer.locator("[data-job-status], button[aria-label=Status]").first()).toContainText("Open");
+    await expect(page.locator("[data-status-menu]")).toContainText("Open");
 
     // create a job: it opens in the drawer and the list shows it first
     await page.locator("[data-clear-filters]").click();
@@ -99,7 +102,7 @@ test.describe("jobs (real stack)", () => {
     await expect(page.getByText("Journey Platform Engineer was created")).toBeVisible();
     await expect(page.locator("[data-detail-body] h1, [data-detail-body]").first()).toBeVisible();
     await expect(rows(page).first()).toContainText("Journey Platform Engineer");
-    await expect(kpi("newThisWeek")).toHaveText("7");
+    await expect(kpi("newThisWeek")).toHaveText(String(fresh0 + 1));
     await page.screenshot({ path: resolve(shots, "jobs-created.png") });
 
     // a phone gets cards and a bottom sheet

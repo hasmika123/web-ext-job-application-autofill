@@ -8,15 +8,15 @@ import {
   BuildingIcon,
   Button,
   CalendarIcon,
-  ChartIcon,
+  ChevronDownIcon,
   ErrorState,
   GlobeIcon,
   GraduationCapIcon,
-  MailIcon,
+  UserIcon,
+  Menu,
   MapPinIcon,
   MemberAvatar,
   PencilIcon,
-  Select,
   SideSheet,
   Skeleton,
   Tab,
@@ -75,12 +75,12 @@ const OPEN_STATES = new Set(["OPEN", "IN_REVIEW"]);
 function Fact({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 items-start gap-2.5">
-      <span aria-hidden className="mt-0.5 flex-none text-muted">
+      <span aria-hidden className="mt-0.5 flex-none text-ink-soft">
         {icon}
       </span>
       <div className="min-w-0">
         <dt className="text-[12.5px] text-muted">{label}</dt>
-        <dd className="text-[14px] font-semibold leading-snug text-ink">{children}</dd>
+        <dd className="mt-0.5 text-[14px] font-semibold leading-snug text-ink">{children}</dd>
       </div>
     </div>
   );
@@ -101,14 +101,14 @@ function Loading() {
 function MatchRow({ m, job, canAssign, busy, onAssign, onDismiss, onRestore }: { m: TopMatch; job: JobDetail; canAssign: boolean; busy: boolean; onAssign: () => void; onDismiss: () => void; onRestore: () => void }) {
   const jobOpen = OPEN_STATES.has(job.status);
   return (
-    <li data-match-row={m.matchId} className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-line bg-paper p-2.5 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
-      <MemberAvatar name={m.name} size={40} />
+    <li data-match-row={m.matchId} className={`flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
+      <MemberAvatar name={m.name} size={44} />
       <div className="min-w-[8.5rem] flex-1">
         <p className="truncate text-[14px] font-bold leading-tight text-ink">{m.name}</p>
         <p className="truncate text-[12.5px] text-muted">{[m.title, m.availability ? AVAILABILITY_LABEL[m.availability] ?? m.availability : null].filter(Boolean).join(" · ")}</p>
         {m.reason && <p className="mt-0.5 truncate text-[12px] text-ink-soft" title={m.reason}>{m.reason}</p>}
       </div>
-      <span className="flex-none text-[13.5px] font-bold text-accent-deep tabular-nums" data-match-score>
+      <span className="flex-none text-[13.5px] font-semibold text-v2-green-ink tabular-nums" data-match-score>
         {m.score}% match
       </span>
       {m.status === "ASSIGNED" ? (
@@ -124,7 +124,7 @@ function MatchRow({ m, job, canAssign, busy, onAssign, onDismiss, onRestore }: {
       ) : (
         canAssign && (
           <>
-            <Button type="button" size="sm" onClick={onAssign} disabled={busy || !jobOpen} title={jobOpen ? undefined : "Reopen the job to assign someone"} aria-label={`Assign ${m.name}`}>
+            <Button type="button" size="sm" variant="accent" className="!px-4" onClick={onAssign} disabled={busy || !jobOpen} title={jobOpen ? undefined : "Reopen the job to assign someone"} aria-label={`Assign ${m.name}`}>
               Assign
             </Button>
             <Kebab label={`More for ${m.name}`} items={[{ label: "Not a fit (dismiss)", onSelect: onDismiss }]} />
@@ -149,7 +149,7 @@ function MatchList({ orgId, job, limit, onChanged, replace }: { orgId: number | 
   }
 
   return (
-    <ul className="space-y-2" data-match-list>
+    <ul className="divide-y divide-line/70" data-match-list>
       {rows.map((m) => (
         <MatchRow
           key={m.matchId}
@@ -218,43 +218,39 @@ function Overview({ orgId, d, replace, onChanged, onTab, save, contacts, editing
   if (editing) return <EditForm key={d.id} detail={d} contacts={contacts} save={save as (b: PatchBody) => ReturnType<typeof save>} />;
   return (
     <div className="space-y-5" data-overview>
-      <dl className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
-        <Fact icon={<BriefcaseIcon size={17} />} label="Job Type">
+      <dl className="grid grid-cols-2 gap-x-5 gap-y-4">
+        <Fact icon={<BriefcaseIcon size={18} />} label="Job Type">
           {employmentLabel(d.employment) || "Not set"}
         </Fact>
-        <Fact icon={<GraduationCapIcon size={17} />} label="Experience Level">
+        <Fact icon={<GraduationCapIcon size={18} />} label="Experience Level">
           {experienceLabel(d.experienceLevel) || "Not set"}
         </Fact>
-        <Fact icon={<CalendarIcon size={17} />} label="Duration">
+        <Fact icon={<CalendarIcon size={18} />} label="Duration">
           {d.durationLabel || "Not set"}
         </Fact>
-        <Fact icon={<DollarIcon size={17} />} label="Compensation">
+        <Fact icon={<DollarIcon size={18} />} label="Compensation">
           {rate || "Not stated"}
         </Fact>
-        <Fact icon={<ChartIcon size={17} />} label="Positions">
-          {d.filled} filled of {d.positions}
-        </Fact>
-        <Fact icon={<ClockIcon size={17} />} label="Posted">
-          {postedText(d.postedAt)}
+        <div data-client-contact>
+          <Fact icon={<UserIcon size={18} />} label="Client Contact">
+            {d.contact ? (
+              <span className="mt-1 flex items-center gap-2">
+                <MemberAvatar name={d.contact.name} size={30} />
+                <span className="min-w-0">
+                  <span className="block truncate text-[13px] font-semibold leading-tight text-ink">{d.contact.name}</span>
+                  <span className="block truncate text-[11.5px] font-normal leading-tight text-muted">{d.contact.email ?? d.contact.title ?? ""}</span>
+                </span>
+              </span>
+            ) : (
+              <span className="font-normal text-muted">No contact set</span>
+            )}
+          </Fact>
+        </div>
+        <Fact icon={<ClockIcon size={18} />} label="Skills">
+          {d.skills.length > 0 ? <SkillChips skills={d.skills} max={4} /> : <span className="font-normal text-muted">None listed</span>}
         </Fact>
       </dl>
-      <section aria-label="Client contact" data-client-contact>
-        <h3 className="mb-1.5 text-[12.5px] font-semibold text-muted">Client Contact</h3>
-        {d.contact ? (
-          <div className="flex items-center gap-2.5">
-            <MemberAvatar name={d.contact.name} size={36} />
-            <div className="min-w-0">
-              <p className="truncate text-[14px] font-semibold text-ink">{d.contact.name}</p>
-              <p className="flex min-w-0 items-center gap-1 truncate text-[12.5px] text-muted">
-                <MailIcon aria-hidden size={12} className="flex-none" /> {d.contact.email ?? d.contact.title ?? ""}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-[13px] text-muted">No contact is set for this job.</p>
-        )}
-      </section>
-      <section aria-label="Top Consultant Matches" data-top-matches>
+      <section aria-label="Top Consultant Matches" data-top-matches className="rounded-2xl border border-line bg-paper p-3.5">
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-[15px] font-bold text-ink">Top Consultant Matches</h3>
           {d.topMatches.length > 3 && (
@@ -331,6 +327,46 @@ export default function JobDrawer(p: JobDrawerProps) {
     replace(d);
   };
 
+  async function changeStatus(d: JobDetail, v: string) {
+    const prev = d.status;
+    const r = await save({ status: v as JobDetail["status"] });
+    if (!r.ok) {
+      toast({ title: "Couldn't change the status", description: r.error, variant: "error" });
+      return;
+    }
+    p.onChanged();
+    toast({
+      title: `Status is now ${STATUS_LABEL[v] ?? v}`,
+      variant: "success",
+      duration: UNDO_MS,
+      action: {
+        label: "Undo",
+        onClick: () =>
+          void save({ status: prev }).then((u) => {
+            toast(u.ok ? { title: "Undone", variant: "success" } : { title: "Couldn't undo", description: u.error, variant: "error" });
+            p.onChanged();
+          }),
+      },
+    });
+  }
+
+  /** The status pill of the header: a menu that changes the status (autosave, with Undo) for someone who may edit, a plain pill otherwise. */
+  const statusControl =
+    state.status === "ok" ? (
+      state.detail.access.canEdit ? (
+        <Menu
+          trigger={
+            <button type="button" aria-label="Status" data-status-menu className="inline-flex items-center gap-1 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+              <StatusPill status={state.detail.status} className="gap-1 !pr-2.5" trailing={<ChevronDownIcon aria-hidden size={13} />} />
+            </button>
+          }
+          items={Object.entries(STATUS_LABEL).map(([value, label]) => ({ label, onSelect: () => void changeStatus((state as { detail: JobDetail }).detail, value), disabled: value === state.detail.status }))}
+        />
+      ) : (
+        <StatusPill status={state.detail.status} />
+      )
+    ) : null;
+
   const body = (() => {
     if (state.status === "idle" || state.status === "loading") return <Loading />;
     if (state.status === "gone") return <ErrorState variant="inline" what="this job" description="It is no longer in your view. It may have been removed." />;
@@ -339,71 +375,36 @@ export default function JobDrawer(p: JobDrawerProps) {
     const contacts = p.clientOptions.find((c) => c.id === d.client.id)?.contacts ?? (d.contact ? [d.contact] : []);
     return (
       <div data-detail-body data-job-id={d.id}>
-        <div className="space-y-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            {d.access.canEdit ? (
-              <div className="w-40">
-                <Select
-                  aria-label="Status"
-                  value={d.status}
-                  onChange={async (v) => {
-                    const prev = d.status;
-                    const r = await save({ status: v as JobDetail["status"] });
-                    if (!r.ok) {
-                      toast({ title: "Couldn't change the status", description: r.error, variant: "error" });
-                      return;
-                    }
-                    p.onChanged();
-                    toast({
-                      title: `Status is now ${STATUS_LABEL[v] ?? v}`,
-                      variant: "success",
-                      duration: UNDO_MS,
-                      action: {
-                        label: "Undo",
-                        onClick: () =>
-                          void save({ status: prev }).then((u) => {
-                            toast(u.ok ? { title: "Undone", variant: "success" } : { title: "Couldn't undo", description: u.error, variant: "error" });
-                            p.onChanged();
-                          }),
-                      },
-                    });
-                  }}
-                  options={Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label }))}
-                />
-              </div>
-            ) : (
-              <StatusPill status={d.status} />
-            )}
-            {d.access.canEdit && (
-              <Button type="button" size="sm" variant="ghost" aria-pressed={editing} onClick={() => setEditing((e) => !e)} data-edit-toggle>
-                <PencilIcon size={14} aria-hidden /> {editing ? "Done editing" : "Edit job"}
-              </Button>
-            )}
-          </div>
-          <ul className="space-y-1 text-[13.5px] text-ink-soft" data-job-facts>
+        <div className="space-y-3">
+          {p.mode === "sheet" && <div className="flex items-center gap-2">{statusControl}</div>}
+          <ul className="space-y-1.5 text-[13.5px] text-ink-soft" data-job-facts>
             <li className="flex items-center gap-1.5">
-              <BuildingIcon aria-hidden size={14} className="flex-none text-muted" /> <span className="font-semibold text-ink">{d.client.name}</span>
-              {d.clientIndustry && <span className="text-muted">· {d.clientIndustry}</span>}
+              <BuildingIcon aria-hidden size={15} className="flex-none text-ink-soft" /> <span className="font-semibold text-ink">{d.client.name}</span>
+              {d.access.canEdit && (
+                <button type="button" aria-pressed={editing} onClick={() => setEditing((e) => !e)} data-edit-toggle className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12.5px] font-semibold text-accent-deep hover:bg-accent-soft">
+                  <PencilIcon size={13} aria-hidden /> {editing ? "Done editing" : "Edit job"}
+                </button>
+              )}
             </li>
-            <li className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+            <li className="flex flex-wrap items-center gap-x-4 gap-y-1">
               {d.location && (
-                <span className="inline-flex items-center gap-1">
-                  <MapPinIcon aria-hidden size={14} className="text-muted" /> {d.location}
+                <span className="inline-flex items-center gap-1.5">
+                  <MapPinIcon aria-hidden size={15} className="text-ink-soft" /> {d.location}
                 </span>
               )}
               {d.workMode && (
-                <span className="inline-flex items-center gap-1">
-                  <GlobeIcon aria-hidden size={14} className="text-muted" /> {workModeLabel(d.workMode)}
+                <span className="inline-flex items-center gap-1.5">
+                  <GlobeIcon aria-hidden size={15} className="text-ink-soft" /> {workModeLabel(d.workMode)}
                 </span>
               )}
-              <span className="inline-flex items-center gap-1">
-                <CalendarIcon aria-hidden size={14} className="text-muted" /> Posted {postedText(d.postedAt)}
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarIcon aria-hidden size={15} className="text-ink-soft" /> Posted {postedText(d.postedAt)}
               </span>
             </li>
           </ul>
-          <SkillChips skills={d.skills} max={8} size="md" />
+          <SkillChips skills={d.skills} max={4} size="md" />
           {d.description && !editing && (
-            <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-ink-soft" data-description>
+            <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink-soft" data-description>
               {d.description}
             </p>
           )}
@@ -428,7 +429,7 @@ export default function JobDrawer(p: JobDrawerProps) {
             <ActivityTab d={d} />
           </TabPanel>
         </Tabs>
-        <div className="mt-5">
+        <div className="mt-4">
           <HelpBeeCard orgName={p.orgName} supportEmail={p.supportEmail} forJob />
         </div>
       </div>
@@ -446,7 +447,7 @@ export default function JobDrawer(p: JobDrawerProps) {
     );
   }
   const sheet = (
-    <SideSheet id="ent-job-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 460 : 500} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
+    <SideSheet id="ent-job-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 430 : 500} open={open} onClose={p.onClose} title={title} headerExtra={statusControl} returnFocusTo={p.returnFocusTo}>
       {body}
     </SideSheet>
   );

@@ -1,23 +1,25 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { IconButton, Menu, MemberAvatar, MoreVerticalIcon, Tooltip } from "@kiwiply/ui";
+import type { ReactNode } from "react";
+import { IconButton, Menu, MemberAvatar, MoreHorizontalIcon, Tooltip } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import { skillChips, statusLabel, type MatchSummary } from "@/lib/ent/jobs";
 
 /** One tone per job status, from the tenant-aware v2 tokens (never a literal colour). */
 const STATUS_TONE: Record<string, string> = {
   OPEN: "bg-v2-green-soft text-v2-green-ink",
-  IN_REVIEW: "bg-v2-blue-soft text-v2-blue-ink",
+  IN_REVIEW: "bg-accent-soft text-accent-deep",
   ON_HOLD: "bg-v2-amber-soft text-v2-amber-ink",
   FILLED: "bg-v2-violet-soft text-v2-violet-ink",
   CLOSED: "bg-paper-2 text-ink-soft",
 };
 
-export function StatusPill({ status, className = "" }: { status: string; className?: string }) {
+export function StatusPill({ status, className = "", trailing }: { status: string; className?: string; trailing?: ReactNode }) {
   return (
-    <span data-job-status={status} className={`inline-flex items-center rounded-full px-3 py-1 text-[12px] font-semibold leading-none ${STATUS_TONE[status] ?? STATUS_TONE.CLOSED} ${className}`}>
+    <span data-job-status={status} className={`inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-[12.5px] font-medium leading-none whitespace-nowrap ${STATUS_TONE[status] ?? STATUS_TONE.CLOSED} ${className}`}>
       {statusLabel(status)}
+      {trailing}
     </span>
   );
 }
@@ -26,7 +28,7 @@ export function StatusPill({ status, className = "" }: { status: string; classNa
 export function SkillChips({ skills, max = 3, size = "sm" }: { skills: string[]; max?: number; size?: "sm" | "md" }) {
   if (skills.length === 0) return null;
   const { shown, more } = skillChips(skills, max);
-  const cls = `inline-flex items-center rounded-md bg-v2-blue-soft font-medium leading-none text-v2-blue-ink ${size === "md" ? "px-2.5 py-1.5 text-[12.5px]" : "px-2 py-1 text-[11.5px]"}`;
+  const cls = `inline-flex items-center rounded-md bg-accent-soft font-medium leading-none text-accent-deep ${size === "md" ? "px-2.5 py-1.5 text-[12.5px]" : "px-2.5 py-1.5 text-[12px]"}`;
   return (
     <ul aria-label="Skills" className="flex flex-wrap items-center gap-1.5" data-skill-chips>
       {shown.map((s) => (
@@ -37,7 +39,7 @@ export function SkillChips({ skills, max = 3, size = "sm" }: { skills: string[];
       {more > 0 && (
         <li>
           <Tooltip content={skills.slice(max).join(", ")} side="top">
-            <span tabIndex={0} aria-label={`${more} more skills: ${skills.slice(max).join(", ")}`} className="inline-flex items-center rounded-md bg-paper-2 px-2 py-1 text-[11.5px] font-semibold leading-none text-ink-soft">
+            <span tabIndex={0} aria-label={`${more} more skills: ${skills.slice(max).join(", ")}`} className="inline-flex items-center rounded-md bg-paper-2 px-2 py-1.5 text-[12px] font-medium leading-none text-ink-soft">
               +{more}
             </span>
           </Tooltip>
@@ -60,16 +62,16 @@ export function MatchStack({ matches }: { matches: MatchSummary }) {
   return (
     <div className="flex flex-col items-start gap-1" data-match-stack>
       <div className="flex items-center">
-        <ul aria-label="Best matching consultants" className="flex -space-x-2.5">
+        <ul aria-label="Best matching consultants" className="flex -space-x-2">
           {matches.top.map((m) => (
             <li key={m.consultantId} title={`${m.name} (${m.score}%)`} className="rounded-full ring-2 ring-paper">
-              <MemberAvatar name={m.name} size={32} />
+              <MemberAvatar name={m.name} size={30} />
             </li>
           ))}
         </ul>
-        {rest > 0 && <span className="ml-1.5 text-[12px] font-semibold text-ink-soft">+{rest}</span>}
+        {rest > 0 && <span className="ml-1.5 text-[12px] font-medium text-ink-soft">+{rest}</span>}
       </div>
-      <span className="text-[13px] font-bold text-accent-deep tabular-nums" data-best-score>
+      <span className="text-[13px] font-semibold text-v2-green-ink tabular-nums" data-best-score>
         {matches.best}% match
       </span>
     </div>
@@ -99,8 +101,8 @@ export function Kebab({ items, label = "Row actions" }: { items: MenuEntry[]; la
   return (
     <Menu
       trigger={
-        <IconButton aria-label={label} title={label}>
-          <MoreVerticalIcon size={16} />
+        <IconButton aria-label={label} title={label} className="!h-9 !w-9 border border-line bg-paper text-ink-soft">
+          <MoreHorizontalIcon size={16} />
         </IconButton>
       }
       items={items}

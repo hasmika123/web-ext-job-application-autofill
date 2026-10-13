@@ -46,8 +46,8 @@ export interface JobsPageProps {
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: JobRow[]; total: number };
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: "posted,desc", label: "Posted date, newest" },
-  { value: "posted,asc", label: "Posted date, oldest" },
+  { value: "posted,desc", label: "Posted Date" },
+  { value: "posted,asc", label: "Posted Date (oldest)" },
   { value: "title,asc", label: "Title A to Z" },
   { value: "client,asc", label: "Client A to Z" },
   { value: "submissions,desc", label: "Most submissions" },
@@ -307,24 +307,24 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
                       change({ q: searchText });
                     } else if (e.key === "Escape" && searchText !== "") setSearchText("");
                   }}
-                  className="pl-9"
+                  className="min-h-11 !rounded-xl !bg-accent-soft/40 pl-10 sm:!min-h-11"
                 />
               </div>
               {canCreate && (
-                <Button type="button" onClick={() => setCreateOpen(true)} data-create-job>
+                <Button type="button" variant="accent" className="min-h-11 !rounded-xl !px-5" onClick={() => setCreateOpen(true)} data-create-job>
                   <PlusIcon size={16} aria-hidden /> Create Job
                 </Button>
               )}
             </div>
             {searchText.trim().length === 1 && <p className="text-[12px] text-muted">Type one more character to search.</p>}
 
-            <div className="flex flex-wrap items-center gap-2.5" data-filters>
+            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap" data-filters>
               {filterSelects.map((fs) => (
-                <div key={fs.name} className="min-w-0 flex-1 basis-[calc(50%-0.3rem)] sm:w-40 sm:flex-none sm:basis-auto">
-                  <Select aria-label={fs.label} value={query[fs.name]} onChange={(v) => change({ [fs.name]: v } as Partial<JobQuery>)} options={[{ value: "", label: fs.all }, ...fs.options]} />
+                <div key={fs.name} className="min-w-0 flex-1 basis-[calc(50%-0.3rem)] sm:basis-0">
+                  <Select className="!min-h-11 !rounded-xl !pl-3 !pr-8 !text-[13px] sm:!min-h-11" aria-label={fs.label} value={query[fs.name]} onChange={(v) => change({ [fs.name]: v } as Partial<JobQuery>)} options={[{ value: "", label: fs.all }, ...fs.options]} />
                 </div>
               ))}
-              <Button type="button" variant="ghost" size="sm" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
+              <Button type="button" variant="ghost" size="sm" className="min-h-11 flex-none !rounded-xl bg-paper !px-3.5 !text-[13px]" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
                 <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
               </Button>
               {filtersOn && (
@@ -349,12 +349,13 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
 
             <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-soft">
               <p aria-live="polite" data-count>
-                {list.status === "ok" ? (total === 0 ? "0 jobs" : `${query.page * query.size + 1}-${query.page * query.size + rows.length} of ${total} ${total === 1 ? "job" : "jobs"}`) : " "}
+                {list.status === "ok" ? (total === 0 ? "0 jobs" : `${query.page * query.size + 1}–${query.page * query.size + rows.length} of ${total} ${total === 1 ? "job" : "jobs"}`) : " "}
               </p>
               <label className="flex items-center gap-2">
                 <span>Sort by:</span>
-                <div className="w-52">
+                <div className="w-44">
                   <Select
+                    className="!border-transparent !bg-transparent !pl-1 !shadow-none font-semibold !text-ink sm:!min-h-9"
                     aria-label="Sort by"
                     value={sortValue}
                     onChange={(v) => {

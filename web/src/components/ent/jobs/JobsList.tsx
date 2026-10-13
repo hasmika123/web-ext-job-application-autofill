@@ -23,16 +23,16 @@ export interface JobsListProps {
  * The jobs as a list of cards (a row on a desktop, the same card stacked on a phone): checkbox, title with client, location and work mode,
  * skill chips, submissions, the best matches, status, posted date and the row menu. The whole row opens the drawer (Enter or Space too).
  */
-export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpen, rowMenu, compact }: JobsListProps) {
+export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpen, rowMenu }: JobsListProps) {
   const allOn = rows.length > 0 && rows.every((r) => selected.has(r.id));
   const someOn = !allOn && rows.some((r) => selected.has(r.id));
   return (
     <div data-jobs-list>
-      <div className="mb-1.5 flex items-center gap-2 px-3.5 text-[12.5px] text-ink-soft">
+      <div className="sr-only focus-within:not-sr-only focus-within:mb-1.5 focus-within:flex focus-within:items-center focus-within:gap-2 focus-within:px-3.5 focus-within:text-[12.5px] focus-within:text-ink-soft">
         <Check checked={allOn} indeterminate={someOn} onChange={onTogglePage} label="Select all jobs on this page" />
-        <span>Select page</span>
+        <span aria-hidden>Select page</span>
       </div>
-      <ul aria-label="Jobs" className="divide-y divide-line/70 overflow-hidden rounded-[var(--radius)] border border-line bg-paper">
+      <ul aria-label="Jobs" className="divide-y divide-line/70 overflow-hidden rounded-2xl border border-line bg-paper shadow-[var(--shadow)]">
         {rows.map((r) => {
           const open = openId === r.id;
           return (
@@ -48,12 +48,12 @@ export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpe
                   onOpen(r);
                 }
               }}
-              className={`flex cursor-pointer flex-wrap items-start gap-x-4 gap-y-3 p-3.5 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? "bg-accent-soft/60" : selected.has(r.id) ? "bg-accent-soft/30" : "hover:bg-paper-2/50"}`}
+              className={`flex cursor-pointer flex-wrap items-center gap-x-3.5 gap-y-3 px-4 py-4 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent lg:grid lg:grid-cols-[22px_minmax(0,1fr)_60px_112px_84px_88px_36px] ${open || selected.has(r.id) ? "bg-accent-soft/60" : "hover:bg-paper-2/50"}`}
             >
-              <div className="pt-1">
+              <div>
                 <Check checked={selected.has(r.id)} onChange={() => onToggle(r.id)} label={`Select ${r.title} at ${r.client.name}`} />
               </div>
-              <div className="min-w-0 flex-1 basis-60 space-y-1.5">
+              <div className="min-w-0 flex-1 basis-56 space-y-1.5">
                 <div>
                   <h3 className="truncate text-[15px] font-bold leading-tight text-ink" data-job-title>
                     {r.title}
@@ -74,26 +74,22 @@ export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpe
                 </p>
                 <SkillChips skills={r.skills} max={3} />
               </div>
-              <div className="flex flex-none flex-wrap items-start gap-x-5 gap-y-3 sm:flex-nowrap">
-                <div className="min-w-[4.5rem] text-center" data-submissions>
-                  <p className="text-[17px] font-bold leading-tight text-ink tabular-nums">{r.submissions}</p>
-                  <p className="text-[11.5px] text-muted">{r.submissions === 1 ? "Submission" : "Submissions"}</p>
-                </div>
-                <div className={compact ? "min-w-[6.5rem]" : "min-w-[8.5rem]"}>
-                  <MatchStack matches={r.matches} />
-                </div>
-                <div className="min-w-[5.5rem]">
-                  <StatusPill status={r.status} />
-                </div>
-                {!compact && (
-                  <div className="hidden min-w-[6.5rem] text-[12.5px] lg:block" data-posted>
-                    <p className="text-muted">Posted</p>
-                    <p className="font-medium text-ink">{postedText(r.postedAt)}</p>
-                  </div>
-                )}
-                <div onClick={(e) => e.stopPropagation()} className="-mt-1">
-                  <Kebab items={rowMenu(r)} label={`Actions for ${r.title}`} />
-                </div>
+              <div className="text-center" data-submissions>
+                <p className="text-[18px] font-bold leading-tight text-ink tabular-nums">{r.submissions}</p>
+                <p className="text-[11.5px] text-muted">{r.submissions === 1 ? "Submission" : "Submissions"}</p>
+              </div>
+              <div>
+                <MatchStack matches={r.matches} />
+              </div>
+              <div className="flex">
+                <StatusPill status={r.status} />
+              </div>
+              <div className="text-[12.5px]" data-posted>
+                <p className="text-muted">Posted</p>
+                <p className="whitespace-nowrap font-medium text-ink">{postedText(r.postedAt)}</p>
+              </div>
+              <div onClick={(e) => e.stopPropagation()} className="justify-self-end">
+                <Kebab items={rowMenu(r)} label={`Actions for ${r.title}`} />
               </div>
             </li>
           );
@@ -113,7 +109,7 @@ export function Pagination({ page, size, total, shown, onPage, onSize }: { page:
       <div className="flex flex-wrap items-center gap-2">
         {count > 1 && (
           <nav aria-label="Pagination" className="flex items-center gap-1">
-            <button type="button" aria-label="Previous page" title="Previous page" disabled={page <= 0} onClick={() => onPage(page - 1)} className="grid h-9 min-w-9 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
+            <button type="button" aria-label="Previous page" title="Previous page" disabled={page <= 0} onClick={() => onPage(page - 1)} className="grid h-10 min-w-10 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
               {"‹"}
             </button>
             {pageWindow(page, count).map((p, i) =>
@@ -128,13 +124,13 @@ export function Pagination({ page, size, total, shown, onPage, onSize }: { page:
                   aria-label={`Page ${p + 1}`}
                   aria-current={p === page ? "page" : undefined}
                   onClick={() => onPage(p)}
-                  className={`grid h-9 min-w-9 place-items-center rounded-lg px-2 text-[13px] font-semibold tabular-nums ${p === page ? "bg-accent text-on-accent" : "border border-line hover:bg-paper-2"}`}
+                  className={`grid h-10 min-w-10 place-items-center rounded-lg px-2 text-[13px] font-semibold tabular-nums ${p === page ? "bg-accent text-on-accent" : "border border-line hover:bg-paper-2"}`}
                 >
                   {p + 1}
                 </button>
               ),
             )}
-            <button type="button" aria-label="Next page" title="Next page" disabled={page >= count - 1} onClick={() => onPage(page + 1)} className="grid h-9 min-w-9 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
+            <button type="button" aria-label="Next page" title="Next page" disabled={page >= count - 1} onClick={() => onPage(page + 1)} className="grid h-10 min-w-10 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
               {"›"}
             </button>
           </nav>
