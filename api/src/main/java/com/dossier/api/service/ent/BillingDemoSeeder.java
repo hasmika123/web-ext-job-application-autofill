@@ -333,6 +333,7 @@ public class BillingDemoSeeder {
         final List<ConsultantLicense> licenses = new ArrayList<>();
         final Map<Long, List<LicenseFeature>> featuresOf = new HashMap<>();
         final Map<Long, ConsultantProfile> consultantById = new HashMap<>();
+        int oldestLeft = 2; // guarantees the oldest invoice month has licenses
 
         Gen(Spec spec, Organization org, List<ConsultantProfile> cons) {
             this.spec = spec;
@@ -608,7 +609,7 @@ public class BillingDemoSeeder {
                     l.setSuspendedAt(daysAgo(2 + rnd.nextInt(18)));
                     l.setSuspendReason(pick(SUSPEND_REASONS));
                 }
-                default -> start = startInBucket(startBucket());
+                default -> start = startInBucket(oldestLeft-- > 0 ? spec.months() : startBucket());
             }
             l.setStartsAt(start);
             if (l.getRenewsAt() == null) {
