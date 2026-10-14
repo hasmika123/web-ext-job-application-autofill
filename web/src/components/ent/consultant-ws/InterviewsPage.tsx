@@ -203,7 +203,7 @@ function UpcomingTable({ view, onOpen }: { view: InterviewsView; onOpen: (id: nu
       {rows.length === 0 ? (
         <Empty>No upcoming interviews. When your marketer or a client books one, it will appear here.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[700px] 2xl:min-w-[900px]")}>
             {/* Round and Mode only from 2xl: below it the card is too narrow and would clip the actions; both stay in the side sheet */}
             <thead>

@@ -237,7 +237,7 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice }: { view
       {view.rows.length === 0 ? (
         <Empty>No opportunities are assigned to you yet. When your marketer assigns a job, it shows up here for you to respond to.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[560px] 2xl:min-w-[760px]")}>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">

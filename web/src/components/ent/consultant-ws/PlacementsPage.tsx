@@ -330,7 +330,7 @@ function ActivityCard({ items, onView }: { items: Activity[]; onView: (a: Activi
       {items.length === 0 ? (
         <Empty>Nothing has happened on this placement yet. Updates you post will show up here.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[560px]")}>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">

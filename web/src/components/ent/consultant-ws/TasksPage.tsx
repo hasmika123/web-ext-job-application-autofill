@@ -267,7 +267,7 @@ const initials = (name: string): string =>
 
 function TaskTable({ rows, busy, f, onSort, a, self }: { rows: TaskRow[]; busy: Set<number>; f: Filters; onSort: (k: SortKey) => void; a: Actions; self: string }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className={cn(TABLE, "min-w-[680px]")}>
         <thead>
           <tr>

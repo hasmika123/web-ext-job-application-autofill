@@ -255,7 +255,7 @@ function OffersTable({ rows, selected, a }: { rows: OfferRow[]; selected: number
   const heads = ["Company", "Role", "Package Summary", "Work Mode", "Start Date", "Offer Deadline", "Status", "Actions"];
   const wide = (c: string) => c === "Package Summary" || c === "Start Date";
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className={cn(TABLE, "min-w-[620px]")}>
         <thead>
           <tr className="text-left text-[12px] font-semibold text-muted">
@@ -437,7 +437,7 @@ function YourOffers({ orgId, view, selected, a, notice }: { orgId: number; view:
 
 function CompareTable({ view, selected, a }: { view: OffersView; selected: number[]; a: Actions }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className={cn(TABLE, "min-w-[560px]")}>
         <thead>
           <tr className="text-left text-[12px] font-semibold text-muted">
@@ -501,7 +501,7 @@ function SideBySide({ rows, onClear }: { rows: OfferRow[]; onClear: () => void }
           Clear selection
         </button>
       </div>
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className={cn(TABLE, "min-w-[420px]")}>
           <thead>
             <tr className="text-left text-[12px] font-semibold text-muted">

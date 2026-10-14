@@ -148,7 +148,7 @@ function RecommendedMatches({ view }: { view: HomeView }) {
       {view.recommendedMatches.length === 0 ? (
         <Empty>No new matches right now. Updating your profile and resume helps us find more.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={TABLE}>
             <TableHead cols={["Job Title", "Company", "Match", "Location", "Type", "Actions"]} />
             <tbody className="divide-y divide-line">
@@ -193,7 +193,7 @@ function AssignedOpportunities({ view }: { view: HomeView }) {
       {view.assignedOpportunities.length === 0 ? (
         <Empty>Nothing assigned to you yet. Your marketer will line up roles here.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={TABLE}>
             <TableHead cols={["Role / Company", "Status", "Assigned Date", "Actions"]} />
             <tbody className="divide-y divide-line">
@@ -237,7 +237,7 @@ function MyApplications({ view }: { view: HomeView }) {
       {view.applications.length === 0 ? (
         <Empty>No applications yet. They appear here once you or your marketer apply.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={TABLE}>
             <TableHead cols={["Job Title", "Company", "Status", "Applied Date", "Actions"]} />
             <tbody className="divide-y divide-line">
@@ -279,7 +279,7 @@ function UpcomingInterviews({ view }: { view: HomeView }) {
       {view.interviews.length === 0 ? (
         <Empty>No interviews scheduled.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={TABLE}>
             <TableHead cols={["Date & Time", "Role / Company", "Mode", "Actions"]} />
             <tbody className="divide-y divide-line">
@@ -372,7 +372,7 @@ function TasksCard({ view }: { view: HomeView }) {
       {view.tasks.length === 0 ? (
         <Empty>All caught up. New follow-ups will show up here.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={TABLE}>
             <TableHead cols={["Task", "Due Date", "Priority", "Status"]} />
             <tbody className="divide-y divide-line">

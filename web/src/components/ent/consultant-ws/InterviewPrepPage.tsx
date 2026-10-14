@@ -271,7 +271,7 @@ function History({ view, onReview, onAgain }: { view: PrepView; onReview: (s: Se
       {view.history.length === 0 ? (
         <Empty>No practice sessions yet. Start a practice above and your self-scored sessions will be listed here.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[600px] 2xl:min-w-[760px]")} data-history>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">

@@ -197,7 +197,7 @@ interface RowActions {
 
 function ResumeTable({ rows, actions }: { rows: ResumeRow[]; actions: RowActions }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className={TABLE}>
         <TableHead cols={["Resume Title", "Primary", "Last Updated", "Visibility", "Versions", "Actions"]} />
         <tbody className="divide-y divide-line">

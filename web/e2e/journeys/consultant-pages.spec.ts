@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
 /**
@@ -39,14 +40,25 @@ async function signInAs(page: Page, who: string) {
   await page.waitForURL((u) => u.pathname.startsWith("/w/"));
 }
 
+/** One demo sign-in for the whole file: the login page's demo-account list is rate-limited, and 20+ sign-ins in a few minutes trip it. */
+const STATE = resolve(mkdtempSync(resolve(tmpdir(), "cws-pw-")), "anika.json");
+
 test.describe("consultant pages (real stack)", () => {
+  test.beforeAll(async ({ browser }) => {
+    const ctx = await browser.newContext();
+    const page = await ctx.newPage();
+    await signInAs(page, "Anika Rao");
+    await ctx.storageState({ path: STATE });
+    await ctx.close();
+  });
+
   for (const p of PAGES) {
-    test(`${p.slug}: Anika's own page at 1440 and 390`, async ({ page }) => {
+    test(`${p.slug}: Anika's own page at 1440 and 390`, async ({ browser }) => {
       mkdirSync(shots, { recursive: true });
+      const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
+      const page = await context.newPage();
       const errors: string[] = [];
       page.on("pageerror", (e) => errors.push(e.message));
-      await page.setViewportSize({ width: 1440, height: 900 });
-      await signInAs(page, "Anika Rao");
       await page.goto(`${base}/w/consultant/${p.slug}`);
       const root = page.locator(`${p.root}[data-status=ready]`);
       await expect(root).toBeVisible();
@@ -58,6 +70,7 @@ test.describe("consultant pages (real stack)", () => {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow, `${p.slug} scrolls sideways on a phone`).toBeLessThanOrEqual(1);
       await page.screenshot({ path: resolve(shots, `${p.slug}-390.png`), fullPage: true });
+      await context.close();
       expect(errors, "uncaught page errors").toEqual([]);
     });
   }

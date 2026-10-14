@@ -274,7 +274,7 @@ function FocusOpportunities({ view }: { view: MarketerView }) {
           you appear here.
         </Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={TABLE}>
             <TableHead
               cols={[
@@ -433,7 +433,7 @@ function Followups({ view }: { view: MarketerView }) {
           All caught up. Follow-ups on your applications and tasks appear here.
         </Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={TABLE}>
             <TableHead
               cols={[

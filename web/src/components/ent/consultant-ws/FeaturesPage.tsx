@@ -196,7 +196,7 @@ function FeaturesTable({ view }: { view: FeaturesView }) {
       {rows.length === 0 ? (
         <Empty>{filter === "attention" ? "Nothing needs your attention right now." : "No features match this filter."}</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[640px]")} data-features-table>
             <TableHead cols={["Feature", "Status", "Included allowance / usage", "Renewal / availability", ""]} />
             <tbody>

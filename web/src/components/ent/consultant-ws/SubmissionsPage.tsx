@@ -235,7 +235,7 @@ interface Actions {
 
 function PendingTable({ rows, busy, a, now }: { rows: SubRow[]; busy: Set<number>; a: Actions; now: number }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className={cn(TABLE, "min-w-[660px]")}>
         <thead>
           <tr className="text-left text-[12px] font-semibold text-muted">
@@ -342,7 +342,7 @@ function Awaiting({ view, busy, a, notice, now }: { view: SubmissionsView; busy:
 
 function PastTable({ page, a }: { page: PastPage; a: Actions }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className={cn(TABLE, "min-w-[640px]")}>
         <thead>
           <tr className="text-left text-[12px] font-semibold text-muted">

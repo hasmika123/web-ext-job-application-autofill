@@ -478,7 +478,7 @@ function UpcomingCard({ view, onEdit, onDelete }: { view: AvailabilityView; onEd
       {rows.length === 0 ? (
         <Empty>No time off scheduled. Use Add Blocked Dates to mark vacation or other commitments.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[560px]")}>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">
@@ -549,7 +549,7 @@ function HistoryCard({ view }: { view: AvailabilityView }) {
       {view.history.length === 0 ? (
         <Empty>No changes yet. Each time you update your availability here, it is recorded.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[360px]")}>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">

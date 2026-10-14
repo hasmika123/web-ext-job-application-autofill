@@ -290,7 +290,7 @@ function MatchedJobs({ view, selected, compare, busy, a, notice }: { view: Match
       ) : rows.length === 0 ? (
         <Empty>No matches fit these filters.</Empty>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className={cn(TABLE, "min-w-[640px] 2xl:min-w-[860px]")}>
             {/* Type and Posted only from 2xl: below it the card is too narrow and would clip the actions */}
             <thead>
@@ -364,7 +364,7 @@ function CompareSheet({ rows, onRemove, onClear }: { rows: MatchRow[]; onRemove:
   return (
     <Card id="matches-compare" title="Compare Jobs" icon={SwapIcon} extra={<button type="button" onClick={onClear} className="ml-auto text-[13px] font-semibold text-accent-deep hover:underline">Clear all</button>}>
       {rows.length < 2 ? <p className="mb-2 text-[13px] text-muted">Choose at least one more job to compare side by side (up to {MAX_COMPARE}).</p> : null}
-      <div className="overflow-x-auto">
+      <div className="relative overflow-x-auto">
         <table className={cn(TABLE, "min-w-[520px]")} data-compare-sheet>
           <thead>
             <tr>
