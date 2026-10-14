@@ -336,6 +336,8 @@
   --ent-nav-text: #3a4778;
   --ent-nav-icon: #3a4778;
   --ent-title: #0b1445;
+  --ent-soft: #5b6896; /* secondary text: roles, placeholders */
+  --ent-soft: #5b6896; /* secondary text: roles, placeholders */
 
   /* surfaces */
   --ent-card-radius: 16px;
@@ -553,8 +555,8 @@
 .theme-tenant .ent-kpi-chip[data-tone="orange"] { background: var(--ent-kpi-orange-bg); color: var(--ent-kpi-orange-fg); }
 .theme-tenant .ent-kpi-chip[data-tone="indigo"] { background: var(--ent-kpi-indigo-bg); color: var(--ent-kpi-indigo-fg); }
 .theme-tenant .ent-kpi-chip[data-tone="pink"] { background: var(--ent-kpi-pink-bg); color: var(--ent-kpi-pink-fg); }
-.theme-tenant .ent-kpi-label { font-size: 14.5px; font-weight: 500; color: #2a3667; }
-.theme-tenant .ent-kpi-value { font-size: 30px; font-weight: 800; line-height: 1; letter-spacing: -0.01em; color: var(--ent-title); font-variant-numeric: tabular-nums; }
+.theme-tenant .ent-kpi-label { font-size: clamp(13px, 0.87vw, 14.5px); font-weight: 500; color: #2a3667; }
+.theme-tenant .ent-kpi-value { font-size: clamp(26px, 1.8vw, 30px); font-weight: 800; line-height: 1; letter-spacing: -0.01em; color: var(--ent-title); font-variant-numeric: tabular-nums; }
 .theme-tenant .ent-kpi-delta[data-good="true"] { color: var(--ent-kpi-good); }
 .theme-tenant .ent-kpi-delta[data-good="false"] { color: var(--ent-kpi-bad); }
 

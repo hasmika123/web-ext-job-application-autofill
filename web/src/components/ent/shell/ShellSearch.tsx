@@ -98,7 +98,7 @@ export default function ShellSearch({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKey}
-          className="min-w-0 flex-1 bg-transparent text-[length:inherit] text-ink placeholder:text-[#5b6896] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+          className="min-w-0 flex-1 bg-transparent text-[length:inherit] text-ink placeholder:text-[color:var(--ent-soft)] focus:outline-none [&::-webkit-search-cancel-button]:hidden"
         />
       </div>
       {open ? (
