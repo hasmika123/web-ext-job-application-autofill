@@ -50,7 +50,7 @@ public class OrgResume implements Serializable {
     private String visibility = "INTERNAL";
 
     @Column(name = "approval_status", length = 20, nullable = false)
-    private String approvalStatus = "APPROVED";
+    private String approvalStatus = "PENDING";
 
     @Column(name = "approved_at")
     private Instant approvedAt;

@@ -65,6 +65,20 @@ public class TalentApplication implements Serializable {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Column(name = "personal_application_id")
+    private Long personalApplicationId;
+
+    @Column(name = "entry_path", length = 20, nullable = false)
+    private String entryPath = "MARKETER";
+
+    @Column(name = "stage_source", length = 12, nullable = false)
+    private String stageSource = "MARKETER";
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
+
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();
@@ -104,4 +118,12 @@ public class TalentApplication implements Serializable {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public Long getPersonalApplicationId() { return personalApplicationId; }
+    public void setPersonalApplicationId(Long personalApplicationId) { this.personalApplicationId = personalApplicationId; }
+    public String getEntryPath() { return entryPath; }
+    public void setEntryPath(String entryPath) { this.entryPath = entryPath; }
+    public String getStageSource() { return stageSource; }
+    public void setStageSource(String stageSource) { this.stageSource = stageSource; }
+    public long getVersion() { return version; }
+    public void setVersion(long version) { this.version = version; }
 }

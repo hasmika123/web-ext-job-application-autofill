@@ -36,6 +36,8 @@ public final class EnterpriseSettingKeys {
     public static final String FLAG_ROLES = "flag.enterprise.roles";
     public static final String FLAG_BILLING = "flag.enterprise.billing";
     public static final String FLAG_MARKETING = "flag.enterprise.marketing";
+    /** Release 1, Phase 1: the consultant's assigned-jobs API (/api/orgs/{id}/con/**) and the lifecycle behind it. Read by ConScope; not one of the eight tenant modules. */
+    public static final String FLAG_CONSULTANT_JOBS = "flag.enterprise.consultant_jobs";
     public static final String FLAG_HR_FINANCE = "flag.enterprise.hr_finance";
     public static final String FLAG_EXTENSION_WORKSPACES = "flag.enterprise.extension_workspaces";
     /** X2.2: the module booleans of {@code GET /api/me/tenant} read these two as well (12-identity.md section 3); declared, not offered in admin yet. */
@@ -88,6 +90,7 @@ public final class EnterpriseSettingKeys {
         flag(k, FLAG_ROLES, Risk.MEDIUM, "Organization member permissions are read from role data (several roles per member, scopes) instead of the fixed role enum, and GET /api/orgs/{id}/roles answers. A member whose role data is missing or disagrees with the enum keeps the enum. Needs the master flag.");
         flag(d, FLAG_BILLING, Risk.HIGH, "Enterprise license APIs and Stripe organization billing. Needs the master flag." + NOT_ENFORCED);
         flag(k, FLAG_MARKETING, Risk.MEDIUM, "Talent marketing workspace: the Marketing pages and the /api/orgs/{id}/mkt/** APIs. Needs the master flag.");
+        flag(k, FLAG_CONSULTANT_JOBS, Risk.MEDIUM, "Consultant assigned jobs: the /api/orgs/{id}/con/** APIs, the consultant's Opportunities page and the extension's assigned-jobs list. Needs the master flag and the roles flag.");
         flag(d, FLAG_HR_FINANCE, Risk.MEDIUM, "HR and Finance record modules. Needs the master flag." + NOT_ENFORCED);
         flag(d, FLAG_EXTENSION_WORKSPACES, Risk.MEDIUM, "Workspaces on /api/profile/version and the extension workspace header. Needs the master flag." + NOT_ENFORCED);
 

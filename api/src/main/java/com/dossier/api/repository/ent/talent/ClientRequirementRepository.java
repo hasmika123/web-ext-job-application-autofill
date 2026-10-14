@@ -20,6 +20,12 @@ public interface ClientRequirementRepository extends Repository<ClientRequiremen
 
     long countByOrgId(Long orgId);
 
+    /** The job with this normalized URL key hash ({@code UrlKeys}), if the organization already has it. */
+    Optional<ClientRequirement> findByOrgIdAndUrlKeyHash(Long orgId, String urlKeyHash);
+
+    /** The job with this ATS platform and external job id, if the organization already has it. */
+    Optional<ClientRequirement> findByOrgIdAndAtsPlatformAndExternalJobId(Long orgId, String atsPlatform, String externalJobId);
+
     List<ClientRequirement> findByOrgIdAndStatusOrderByPostedAtDesc(Long orgId, String status);
 
     long countByOrgIdAndStatus(Long orgId, String status);

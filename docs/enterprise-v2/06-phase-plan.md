@@ -60,6 +60,7 @@
 | `flag.enterprise.roles` | FLAG | off | MEDIUM | `org_member_role` authoritative + role editor |
 | `flag.enterprise.billing` | FLAG | off | HIGH | license APIs, Stripe org billing; when off, licenses can be *configured* in dev (`dossier.orgs.dev-activate` pattern) but never charged |
 | `flag.enterprise.marketing` | FLAG | off | MEDIUM | talent/pipeline modules |
+| `flag.enterprise.consultant_jobs` | FLAG | off | MEDIUM | consultant assigned jobs: `/api/orgs/{id}/con/**` + lifecycle (Release 1 Phase 1, doc 60); LIVE, read by `ConScope`, not a tenant module |
 | `flag.enterprise.hr_finance` | FLAG | off | MEDIUM | HR/Finance modules |
 | `flag.enterprise.extension_workspaces` | FLAG | off | MEDIUM | `workspaces[]` on `/api/profile/version`, `X-Kiwiply-Workspace` |
 | `enterprise.hosts.platform` | JSON list | `["kiwiply.com","www.kiwiply.com","app.kiwiply.com","api.kiwiply.com","localhost"]` | HIGH | reserved platform hosts |

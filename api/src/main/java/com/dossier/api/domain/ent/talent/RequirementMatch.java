@@ -46,6 +46,11 @@ public class RequirementMatch implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }
@@ -68,4 +73,6 @@ public class RequirementMatch implements Serializable {
     public void setAssignedAt(Instant assignedAt) { this.assignedAt = assignedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public long getVersion() { return version; }
+    public void setVersion(long version) { this.version = version; }
 }

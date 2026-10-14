@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Release 1, Phase 1 (docs/enterprise-v2/60-job-phase1-contract.md section 1): a job gets an identity (url_key_hash / ats_platform + external_job_id),
+        an opportunity gets a lifecycle (state), a talent application can point at the consultant's own application, and pipeline_application_link
+        ties a mkt_opportunity to that application. Additive only; one precondition-guarded changeSet per table (R8), the unique keys and the backfill
+        in their own guarded changeSets so a half-applied DDL is repaired by a re-run. Every index starts with org_id (R1/R2). MySQL 9.2.
+
+        Backfill rule (contract section 1): mkt_opportunity.state comes from the legacy interest (INTERESTED / VERY_INTERESTED -> INTERESTED,
+        NOT_INTERESTED -> DECLINED, anything else stays ASSIGNED). SUGGESTED-only overlays keep state ASSIGNED and are kept out of consultant lists by
+        requirement_match.status = 'ASSIGNED'.
+    -->
+
+    <!-- client_requirement: the job's identity and where it was captured from. -->
+    <changeSet id="phase1-job-identity-1-client_requirement" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="client_requirement" columnName="version"/></not></preConditions>
+        <addColumn tableName="client_requirement">
+            <column name="job_url" type="varchar(1000)"/>
+            <column name="url_key" type="varchar(1000)"/>
+            <column name="url_key_hash" type="char(64)"/>
+            <column name="external_job_id" type="varchar(200)"/>
+            <column name="ats_platform" type="varchar(40)"/>
+            <!-- MANUAL / CLIENT / EXTENSION / CONSULTANT -->
+            <column name="capture_source" type="varchar(20)" defaultValue="MANUAL"><constraints nullable="false"/></column>
+            <column name="captured_by_member_id" type="bigint"/>
+            <column name="posted_on" type="date"/>
+            <column name="pay_label" type="varchar(80)"/>
+            <column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+    <!-- MySQL allows many NULLs in a unique key: only jobs that have a URL key / an ATS id compete. -->
+    <changeSet id="phase1-job-identity-2-uk_req_url" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="client_requirement" indexName="uk_req_url"/></not></preConditions>
+        <addUniqueConstraint tableName="client_requirement" columnNames="org_id, url_key_hash" constraintName="uk_req_url"/>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-3-uk_req_ext" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="client_requirement" indexName="uk_req_ext"/></not></preConditions>
+        <addUniqueConstraint tableName="client_requirement" columnNames="org_id, ats_platform, external_job_id" constraintName="uk_req_ext"/>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-4-captured_by_fk" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><foreignKeyConstraintExists foreignKeyTableName="client_requirement" foreignKeyName="fk_client_requirement_captured_by"/></not></preConditions>
+        <addForeignKeyConstraint baseTableName="client_requirement" baseColumnNames="org_id, captured_by_member_id" constraintName="fk_client_requirement_captured_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <rollback/>
+    </changeSet>
+
+    <!-- requirement_match: optimistic locking. -->
+    <changeSet id="phase1-job-identity-5-requirement_match" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="requirement_match" columnName="version"/></not></preConditions>
+        <addColumn tableName="requirement_match">
+            <column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <!-- mkt_opportunity: the lifecycle the consultant and the marketer both read. -->
+    <changeSet id="phase1-job-identity-6-mkt_opportunity" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="mkt_opportunity" columnName="version"/></not></preConditions>
+        <addColumn tableName="mkt_opportunity">
+            <!-- ASSIGNED / VIEWED / INTERESTED / NEEDS_INFO / DECLINED / APPLIED / CLOSED -->
+            <column name="state" type="varchar(20)" defaultValue="ASSIGNED"><constraints nullable="false"/></column>
+            <column name="marketer_note" type="varchar(1000)"/>
+            <column name="priority" type="varchar(10)" defaultValue="MEDIUM"><constraints nullable="false"/></column>
+            <column name="due_on" type="date"/>
+            <column name="viewed_at" type="${datetimeType}"/>
+            <column name="posting_opened_at" type="${datetimeType}"/>
+            <column name="applied_at" type="${datetimeType}"/>
+            <column name="closed_at" type="${datetimeType}"/>
+            <column name="decline_reason" type="varchar(40)"/>
+            <column name="info_request" type="varchar(500)"/>
+            <column name="info_answer" type="varchar(1000)"/>
+            <column name="closed_reason" type="varchar(30)"/>
+            <column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-7-mkt_opportunity_state_ix" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="mkt_opportunity" indexName="ix_mkt_opportunity_state"/></not></preConditions>
+        <createIndex tableName="mkt_opportunity" indexName="ix_mkt_opportunity_state"><column name="org_id"/><column name="state"/></createIndex>
+        <rollback/>
+    </changeSet>
+    <!-- Backfill (idempotent: only rows still at the column default are touched, only once the legacy interest says otherwise). -->
+    <changeSet id="phase1-job-identity-8-mkt_opportunity_state_backfill" author="enterprise" runInTransaction="false">
+        <sql>UPDATE mkt_opportunity SET state = 'INTERESTED' WHERE state = 'ASSIGNED' AND interest IN ('INTERESTED', 'VERY_INTERESTED')</sql>
+        <sql>UPDATE mkt_opportunity SET state = 'DECLINED' WHERE state = 'ASSIGNED' AND interest = 'NOT_INTERESTED'</sql>
+        <rollback/>
+    </changeSet>
+
+    <!-- talent_application: a row can point at the consultant's own application (person-owned table, so no FK). -->
+    <changeSet id="phase1-job-identity-9-talent_application" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="talent_application" columnName="version"/></not></preConditions>
+        <addColumn tableName="talent_application">
+            <column name="personal_application_id" type="bigint"/>
+            <!-- MARKETER / LINKED / CONSULTANT_DIRECT -->
+            <column name="entry_path" type="varchar(20)" defaultValue="MARKETER"><constraints nullable="false"/></column>
+            <!-- MARKETER / CONSULTANT / SYSTEM: the last writer of the stage -->
+            <column name="stage_source" type="varchar(12)" defaultValue="MARKETER"><constraints nullable="false"/></column>
+            <column name="version" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-10-talent_application_personal_ix" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="talent_application" indexName="ix_talent_application_personal"/></not></preConditions>
+        <createIndex tableName="talent_application" indexName="ix_talent_application_personal"><column name="org_id"/><column name="personal_application_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- pipeline_application_link: an opportunity and the consultant's own application. At most one LIVE link per opportunity (live_key). -->
+    <changeSet id="phase1-job-identity-11-pipeline_application_link" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="pipeline_application_link"/></not></preConditions>
+        <createTable tableName="pipeline_application_link">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="opportunity_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <!-- Person-owned application (no FK, R6: the person deleting it must never be blocked). -->
+            <column name="personal_application_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="talent_application_id" type="bigint"/>
+            <!-- SUBMIT_DETECT / CONSULTANT / LINKER -->
+            <column name="source" type="varchar(16)"><constraints nullable="false"/></column>
+            <column name="linked_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="unlinked_at" type="${datetimeType}"/>
+        </createTable>
+        <!-- Generated column: Liquibase has no portable syntax, so plain MySQL DDL (same as org_hostname.live_hostname_key). -->
+        <sql dbms="mysql">
+            ALTER TABLE pipeline_application_link ADD COLUMN live_key BIGINT
+                GENERATED ALWAYS AS (IF(unlinked_at IS NULL, opportunity_id, NULL)) STORED
+        </sql>
+        <addForeignKeyConstraint baseTableName="pipeline_application_link" baseColumnNames="org_id" constraintName="fk_pal_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="pipeline_application_link" baseColumnNames="org_id, opportunity_id" constraintName="fk_pal_opportunity" referencedTableName="mkt_opportunity" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="pipeline_application_link" baseColumnNames="org_id, consultant_id" constraintName="fk_pal_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="pipeline_application_link" baseColumnNames="org_id, talent_application_id" constraintName="fk_pal_talent_application" referencedTableName="talent_application" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="pipeline_application_link" columnNames="org_id, live_key" constraintName="uk_pal_live"/>
+        <createIndex tableName="pipeline_application_link" indexName="ix_pal_personal"><column name="org_id"/><column name="personal_application_id"/></createIndex>
+        <createIndex tableName="pipeline_application_link" indexName="ix_pal_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>
