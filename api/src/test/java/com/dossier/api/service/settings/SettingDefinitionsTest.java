@@ -166,7 +166,7 @@ class SettingDefinitionsTest {
     void theEnterpriseFlagsAreOffJsonFlagsWithOrgIdLists() {
         List<Key> flags = SettingDefinitions.all().stream().filter(k -> k.key().equals("flag.enterprise") || k.key().startsWith("flag.enterprise.")).toList();
         assertThat(flags).extracting(Key::key).containsExactlyInAnyOrder(
-            "flag.enterprise", "flag.enterprise.domains", "flag.enterprise.roles", "flag.enterprise.marketing"
+            "flag.enterprise", "flag.enterprise.domains", "flag.enterprise.roles", "flag.enterprise.marketing", "flag.enterprise.consultant_jobs"
         );
         for (Key k : flags) {
             assertThat(k.type()).as(k.key()).isEqualTo(Type.JSON);

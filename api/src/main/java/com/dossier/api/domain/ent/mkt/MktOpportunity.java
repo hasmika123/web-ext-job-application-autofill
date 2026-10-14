@@ -3,6 +3,7 @@ package com.dossier.api.domain.ent.mkt;
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
 
 /**
  * Marketing state of one opportunity (a {@code requirement_match} row): what the consultant said about it, who on the marketing side owns
@@ -47,6 +48,47 @@ public class MktOpportunity implements Serializable {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    @Column(name = "state", length = 20, nullable = false)
+    private String state = "ASSIGNED";
+
+    @Column(name = "marketer_note", length = 1000)
+    private String marketerNote;
+
+    @Column(name = "priority", length = 10, nullable = false)
+    private String priority = "MEDIUM";
+
+    @Column(name = "due_on")
+    private LocalDate dueOn;
+
+    @Column(name = "viewed_at")
+    private Instant viewedAt;
+
+    @Column(name = "posting_opened_at")
+    private Instant postingOpenedAt;
+
+    @Column(name = "applied_at")
+    private Instant appliedAt;
+
+    @Column(name = "closed_at")
+    private Instant closedAt;
+
+    @Column(name = "decline_reason", length = 40)
+    private String declineReason;
+
+    @Column(name = "info_request", length = 500)
+    private String infoRequest;
+
+    @Column(name = "info_answer", length = 1000)
+    private String infoAnswer;
+
+    @Column(name = "closed_reason", length = 30)
+    private String closedReason;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
+
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();
@@ -72,4 +114,30 @@ public class MktOpportunity implements Serializable {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public String getState() { return state; }
+    public void setState(String state) { this.state = state; }
+    public String getMarketerNote() { return marketerNote; }
+    public void setMarketerNote(String marketerNote) { this.marketerNote = marketerNote; }
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
+    public LocalDate getDueOn() { return dueOn; }
+    public void setDueOn(LocalDate dueOn) { this.dueOn = dueOn; }
+    public Instant getViewedAt() { return viewedAt; }
+    public void setViewedAt(Instant viewedAt) { this.viewedAt = viewedAt; }
+    public Instant getPostingOpenedAt() { return postingOpenedAt; }
+    public void setPostingOpenedAt(Instant postingOpenedAt) { this.postingOpenedAt = postingOpenedAt; }
+    public Instant getAppliedAt() { return appliedAt; }
+    public void setAppliedAt(Instant appliedAt) { this.appliedAt = appliedAt; }
+    public Instant getClosedAt() { return closedAt; }
+    public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
+    public String getDeclineReason() { return declineReason; }
+    public void setDeclineReason(String declineReason) { this.declineReason = declineReason; }
+    public String getInfoRequest() { return infoRequest; }
+    public void setInfoRequest(String infoRequest) { this.infoRequest = infoRequest; }
+    public String getInfoAnswer() { return infoAnswer; }
+    public void setInfoAnswer(String infoAnswer) { this.infoAnswer = infoAnswer; }
+    public String getClosedReason() { return closedReason; }
+    public void setClosedReason(String closedReason) { this.closedReason = closedReason; }
+    public long getVersion() { return version; }
+    public void setVersion(long version) { this.version = version; }
 }

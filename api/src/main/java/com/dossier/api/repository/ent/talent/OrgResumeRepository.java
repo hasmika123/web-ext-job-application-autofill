@@ -22,6 +22,9 @@ public interface OrgResumeRepository extends Repository<OrgResume, Long> {
 
     long countByOrgIdAndApprovalStatus(Long orgId, String approvalStatus);
 
+    /** True when the consultant has at least one resume with this approval status (the assignment gate asks for APPROVED). */
+    boolean existsByOrgIdAndConsultantIdAndApprovalStatus(Long orgId, Long consultantId, String approvalStatus);
+
     long countByOrgIdAndPrimaryForOrgTrue(Long orgId);
 
     long countByOrgIdAndUpdatedAtGreaterThanEqual(Long orgId, Instant since);

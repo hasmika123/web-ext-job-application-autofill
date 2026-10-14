@@ -3,6 +3,7 @@ package com.dossier.api.domain.ent.talent;
 import jakarta.persistence.*;
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
 
 /** A client job (34 section 2); the Jobs board. status adds IN_REVIEW to the doc list. Table {@code client_requirement}; see docs/enterprise-v2/talent-foundation.md. Every query goes through an org-scoped repository method. */
 @Entity
@@ -85,6 +86,38 @@ public class ClientRequirement implements Serializable {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    @Column(name = "job_url", length = 1000)
+    private String jobUrl;
+
+    @Column(name = "url_key", length = 1000)
+    private String urlKey;
+
+    @Column(name = "url_key_hash", length = 64)
+    private String urlKeyHash;
+
+    @Column(name = "external_job_id", length = 200)
+    private String externalJobId;
+
+    @Column(name = "ats_platform", length = 40)
+    private String atsPlatform;
+
+    @Column(name = "capture_source", length = 20, nullable = false)
+    private String captureSource = "MANUAL";
+
+    @Column(name = "captured_by_member_id")
+    private Long capturedByMemberId;
+
+    @Column(name = "posted_on")
+    private LocalDate postedOn;
+
+    @Column(name = "pay_label", length = 80)
+    private String payLabel;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
+
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();
@@ -138,4 +171,24 @@ public class ClientRequirement implements Serializable {
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
     public Instant getClosedAt() { return closedAt; }
     public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
+    public String getJobUrl() { return jobUrl; }
+    public void setJobUrl(String jobUrl) { this.jobUrl = jobUrl; }
+    public String getUrlKey() { return urlKey; }
+    public void setUrlKey(String urlKey) { this.urlKey = urlKey; }
+    public String getUrlKeyHash() { return urlKeyHash; }
+    public void setUrlKeyHash(String urlKeyHash) { this.urlKeyHash = urlKeyHash; }
+    public String getExternalJobId() { return externalJobId; }
+    public void setExternalJobId(String externalJobId) { this.externalJobId = externalJobId; }
+    public String getAtsPlatform() { return atsPlatform; }
+    public void setAtsPlatform(String atsPlatform) { this.atsPlatform = atsPlatform; }
+    public String getCaptureSource() { return captureSource; }
+    public void setCaptureSource(String captureSource) { this.captureSource = captureSource; }
+    public Long getCapturedByMemberId() { return capturedByMemberId; }
+    public void setCapturedByMemberId(Long capturedByMemberId) { this.capturedByMemberId = capturedByMemberId; }
+    public LocalDate getPostedOn() { return postedOn; }
+    public void setPostedOn(LocalDate postedOn) { this.postedOn = postedOn; }
+    public String getPayLabel() { return payLabel; }
+    public void setPayLabel(String payLabel) { this.payLabel = payLabel; }
+    public long getVersion() { return version; }
+    public void setVersion(long version) { this.version = version; }
 }

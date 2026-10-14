@@ -4,6 +4,8 @@ import com.dossier.api.domain.ent.talent.RequirementMatch;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,6 +17,17 @@ public interface RequirementMatchRepository extends Repository<RequirementMatch,
     <S extends RequirementMatch> S saveAndFlush(S entity);
 
     Optional<RequirementMatch> findByOrgIdAndId(Long orgId, Long id);
+
+    /** The pair's match, whatever its status (the unique key {@code uk_requirement_match_pair}). */
+    Optional<RequirementMatch> findByOrgIdAndRequirementIdAndConsultantId(Long orgId, Long requirementId, Long consultantId);
+
+    /**
+     * {@code SELECT ... FOR UPDATE}: reads the latest committed row even when this transaction's snapshot predates it (a row another request
+     * just inserted), and attaches it to this persistence context. Used by the find-or-create retry in {@code OpportunityAssignmentService}.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from RequirementMatch m where m.orgId = :orgId and m.id = :id")
+    Optional<RequirementMatch> lockByOrgIdAndId(@Param("orgId") Long orgId, @Param("id") Long id);
 
     List<RequirementMatch> findByOrgId(Long orgId);
 

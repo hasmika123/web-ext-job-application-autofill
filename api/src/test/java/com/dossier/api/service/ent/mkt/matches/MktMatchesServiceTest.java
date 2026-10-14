@@ -29,6 +29,7 @@ import com.dossier.api.repository.ent.mkt.MktMatchRequirementRepository;
 import com.dossier.api.repository.ent.mkt.MktMatchResumeRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
+import com.dossier.api.service.ent.jobs.AssignmentWorld;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.ent.mkt.MktScope.View;
 import com.dossier.api.service.ent.mkt.matches.MktMatchesDto.Response;
@@ -65,6 +66,7 @@ class MktMatchesServiceTest {
     private final ConsultantSkillRepository consultantSkills = mock(ConsultantSkillRepository.class);
     private final RequirementSkillRepository requirementSkills = mock(RequirementSkillRepository.class);
     private final OrgAuditService audit = mock(OrgAuditService.class);
+    private final AssignmentWorld world = new AssignmentWorld(1L, Clock.fixed(NOW, ZoneOffset.UTC));
 
     private Set<Long> pageIds = Set.of(10L, 11L);
     private Set<Long> assignIds = Set.of(10L, 11L);
@@ -151,14 +153,23 @@ class MktMatchesServiceTest {
 
     @BeforeEach
     void world() {
-        service = new MktMatchesService(scope, matches, consultants, requirements, clients, resumes, applications, consultantSkills, requirementSkills, audit, Clock.fixed(NOW, ZoneOffset.UTC));
+        for (long consultantId : new long[] { 10, 11, 12 }) {
+            world.consultant(consultantId, "ACTIVE", "ACTIVE");
+            world.approve(consultantId);
+        }
+        world.job(100, "OPEN", "MANUAL");
+        world.job(101, "CLOSED", "MANUAL");
+        service = new MktMatchesService(scope, world.service(audit), matches, consultants, requirements, clients, resumes, applications, consultantSkills, requirementSkills, audit, Clock.fixed(NOW, ZoneOffset.UTC));
         // 10 Alex: available, Java; 11 Priya: on notice for 3 weeks, Business Analysis; 12 Zed: NOT assigned to the caller
         live.add(match(1, 10, 100, 96, "SUGGESTED", 2));
         live.add(match(2, 11, 101, 78, "SUGGESTED", 10));
         live.add(match(3, 10, 101, 60, "ASSIGNED", 40));
         live.add(match(4, 12, 100, 99, "SUGGESTED", 3));
         when(matches.findLive(eq(1L), anyCollection())).thenReturn(live);
-        for (RequirementMatch m : live) when(matches.findByOrgIdAndId(1L, m.getId())).thenReturn(Optional.of(m));
+        for (RequirementMatch m : live) {
+            when(matches.findByOrgIdAndId(1L, m.getId())).thenReturn(Optional.of(m));
+            world.addMatch(m); // the assignment service works on the same rows
+        }
         when(consultants.findByOrgIdAndIdIn(eq(1L), anyCollection())).thenAnswer(i -> {
             Set<Long> want = Set.copyOf(i.<java.util.Collection<Long>>getArgument(1));
             return List.of(
@@ -303,11 +314,13 @@ class MktMatchesServiceTest {
         assertThat(m.getStatus()).isEqualTo("ASSIGNED");
         assertThat(m.getAssignedByMemberId()).isEqualTo(7L);
         assertThat(m.getAssignedAt()).isEqualTo(NOW);
-        verify(matches).save(m);
+        verify(world.matches).save(m);
+        assertThat(world.eventKinds()).containsExactly("ASSIGNED");
+        assertThat(world.oppStore.values()).extracting(o -> o.getMatchId()).as("the opportunity overlay exists now").containsExactly(1L);
         verify(audit).record(eq(me), eq("MKT_MATCH_ASSIGN"), eq("MATCH"), eq(null), eq("1"), any());
         // idempotent: a second call changes nothing and writes no second audit row
         service.assign(me, 1L);
-        verify(matches).save(any());
+        verify(world.matches).save(any());
         verify(audit).record(any(OrgMembership.class), any(), any(), any(), any(), any());
     }
 
@@ -327,6 +340,29 @@ class MktMatchesServiceTest {
         live.get(1).setStatus("DISMISSED");
         assertThatThrownBy(() -> service.assign(me, 2L)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("MATCH_STATE"));
         verify(matches, never()).save(any());
+    }
+
+    @Test
+    void assignKeepsTheResumeGateTheActiveConsultantGateAndReopensADeclinedOpportunity() {
+        world.approved.clear();
+        assertThatThrownBy(() -> service.assign(me, 1L)).isInstanceOfSatisfying(OrgException.class, e -> {
+            assertThat(e.getStatus()).isEqualTo(409);
+            assertThat(e.getCode()).isEqualTo("RESUME_NOT_APPROVED");
+        });
+        assertThat(live.get(0).getStatus()).isEqualTo("SUGGESTED");
+
+        world.approve(10);
+        world.people.get(10L).setMarketingStatus("PAUSED");
+        assertThatThrownBy(() -> service.assign(me, 1L)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("CONSULTANT_INACTIVE"));
+        assertThat(live.get(0).getStatus()).isEqualTo("SUGGESTED");
+
+        // an ASSIGNED match whose consultant declined is put back in front of them (same rows, a REASSIGNED event)
+        world.people.get(10L).setMarketingStatus("ACTIVE");
+        world.jobs.get(101L).setStatus("OPEN");
+        com.dossier.api.domain.ent.mkt.MktOpportunity declined = world.opportunity(3L, "DECLINED");
+        service.assign(me, 3L);
+        assertThat(declined.getState()).isEqualTo("ASSIGNED");
+        assertThat(world.eventKinds()).containsExactly("REASSIGNED");
     }
 
     @Test

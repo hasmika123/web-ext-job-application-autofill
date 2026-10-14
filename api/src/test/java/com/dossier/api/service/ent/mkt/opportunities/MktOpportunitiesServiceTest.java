@@ -32,6 +32,9 @@ import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.repository.ent.talent.OrgResumeRepository;
+import com.dossier.api.service.ent.jobs.JobIdentityTx;
+import com.dossier.api.service.ent.jobs.OpportunityAssignmentService;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.ent.mkt.opportunities.MktOpportunitiesDTO.ActionResult;
 import com.dossier.api.service.ent.mkt.opportunities.MktOpportunitiesDTO.BulkResult;
@@ -76,6 +79,8 @@ class MktOpportunitiesServiceTest {
     OrgMemberRepository members = mock(OrgMemberRepository.class);
     UserRepository users = mock(UserRepository.class);
     OrgAuditService audit = mock(OrgAuditService.class);
+    OrgResumeRepository orgResumes = mock(OrgResumeRepository.class);
+    JobIdentityTx tx = mock(JobIdentityTx.class);
     MktOpportunitiesService service;
     OrgMembership me = new OrgMembership(ORG, ME, 700L, "marketer", OrgRole.MARKETER, OrgMemberStatus.ACTIVE, OrgStatus.ACTIVE);
 
@@ -83,21 +88,34 @@ class MktOpportunitiesServiceTest {
     List<MktResumeFact> resumes = new ArrayList<>();
     List<MktOpportunityEvent> saved = new ArrayList<>();
     AtomicLong ids = new AtomicLong(1000);
+    java.util.Map<Long, MktOpportunity> oppStore = new java.util.HashMap<>();
+    String consultantStatus = "ACTIVE";
 
     @BeforeEach
     void wire() {
-        service = new MktOpportunitiesService(scope, repo, events, matches, consultants, requirements, clients, consultantSkills, requirementSkills, members, users, audit, Clock.fixed(NOW, ZoneOffset.UTC));
+        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
+        OpportunityAssignmentService assignment = new OpportunityAssignmentService(matches, repo, events, requirements, consultants, orgResumes, tx, audit, clock);
+        service = new MktOpportunitiesService(scope, assignment, repo, events, matches, consultants, requirements, clients, consultantSkills, requirementSkills, members, users, audit, Clock.fixed(NOW, ZoneOffset.UTC));
         when(scope.resolve(any(), eq(MktOpportunitiesService.PERMISSION))).thenReturn(new MktScope.View(ORG, ME, true, Set.of()));
         doRequireLikeScope();
         lenient().when(repo.findRows(ORG)).thenAnswer(i -> List.copyOf(rows));
         lenient().when(repo.findRow(eq(ORG), anyLong())).thenAnswer(i -> rows.stream().filter(r -> r.matchId().equals(i.getArgument(1))).findFirst());
         lenient().when(repo.findResumeFacts(ORG)).thenAnswer(i -> List.copyOf(resumes));
-        lenient().when(repo.findByOrgIdAndMatchId(eq(ORG), anyLong())).thenReturn(Optional.empty());
+        lenient().when(repo.findByOrgIdAndMatchId(eq(ORG), anyLong())).thenAnswer(i -> oppStore.values().stream().filter(o -> o.getMatchId().equals(i.getArgument(1))).findFirst());
         lenient().when(repo.save(any(MktOpportunity.class))).thenAnswer(i -> {
             MktOpportunity o = i.getArgument(0);
             if (o.getId() == null) o.setId(ids.incrementAndGet());
+            oppStore.put(o.getId(), o);
             return o;
         });
+        // the overlay is inserted in its own transaction and attached again with a locking read: both are the in-memory store here
+        lenient().when(tx.insertOpportunity(any(MktOpportunity.class))).thenAnswer(i -> repo.save(i.getArgument(0)).getId());
+        lenient().when(repo.lockByOrgIdAndId(eq(ORG), anyLong())).thenAnswer(i -> Optional.ofNullable(oppStore.get(i.getArgument(1))));
+        // the pair rules read the job, the consultant and the pair's match from the rows the test registered
+        lenient().when(requirements.findByOrgIdAndId(eq(ORG), anyLong())).thenAnswer(i -> rows.stream().filter(r -> r.requirementId().equals(i.getArgument(1))).findFirst().map(this::job));
+        lenient().when(consultants.findByOrgIdAndId(eq(ORG), anyLong())).thenAnswer(i -> rows.stream().filter(r -> r.consultantId().equals(i.getArgument(1))).findFirst().map(this::consultant));
+        lenient().when(matches.findByOrgIdAndRequirementIdAndConsultantId(eq(ORG), anyLong(), anyLong())).thenAnswer(i ->
+            rows.stream().filter(r -> r.requirementId().equals(i.getArgument(1)) && r.consultantId().equals(i.getArgument(2))).findFirst().map(this::match));
         lenient().when(events.save(any(MktOpportunityEvent.class))).thenAnswer(i -> {
             saved.add(i.getArgument(0));
             return i.getArgument(0);
@@ -116,6 +134,23 @@ class MktOpportunitiesServiceTest {
             if (!v.sees(i.getArgument(1))) throw new OrgNotFoundException();
             return null;
         }).when(scope).require(any(), any());
+    }
+
+    private ClientRequirement job(MktOpportunityRow r) {
+        ClientRequirement j = new ClientRequirement();
+        j.setId(r.requirementId());
+        j.setOrgId(ORG);
+        j.setStatus(r.requirementStatus());
+        return j;
+    }
+
+    private ConsultantProfile consultant(MktOpportunityRow r) {
+        ConsultantProfile c = new ConsultantProfile();
+        c.setId(r.consultantId());
+        c.setOrgId(ORG);
+        c.setDisplayName(r.consultantName());
+        c.setStatus(consultantStatus);
+        return c;
     }
 
     private RequirementMatch match(MktOpportunityRow r) {
@@ -148,6 +183,7 @@ class MktOpportunitiesServiceTest {
 
     void approvedResume(long consultantId) {
         resumes.add(new MktResumeFact(consultantId, "APPROVED", true, NOW.minus(DAY.multipliedBy(10))));
+        lenient().when(orgResumes.existsByOrgIdAndConsultantIdAndApprovalStatus(ORG, consultantId, "APPROVED")).thenReturn(true);
     }
 
     ListResponse list(Query q) {
@@ -506,9 +542,58 @@ class MktOpportunitiesServiceTest {
         RequirementMatch dup = new RequirementMatch();
         dup.setId(88L);
         dup.setStatus("ASSIGNED");
-        when(repo.findMatchByPair(ORG, 6L, 1L)).thenReturn(Optional.of(dup));
+        dup.setConsultantId(1L);
+        when(matches.findByOrgIdAndRequirementIdAndConsultantId(ORG, 6L, 1L)).thenReturn(Optional.of(dup));
         assertThatThrownBy(() -> service.create(me, 1L, 6L)).extracting(e -> ((OrgException) e).getCode()).isEqualTo("OPPORTUNITY_EXISTS");
         assertThatThrownBy(() -> service.create(me, null, 6L)).isInstanceOf(OrgException.class);
+    }
+
+    @Test
+    void assigningAnAssignedOpportunityWhoseConsultantDeclinedReopensItInsteadOfRefusing() {
+        approvedResume(1);
+        add(row(1, 1, "Alex", 1, "TechCorp", 92, "ASSIGNED", "NOT_INTERESTED", 1, 5));
+        MktOpportunity declined = new MktOpportunity();
+        declined.setId(900L);
+        declined.setOrgId(ORG);
+        declined.setMatchId(1L);
+        declined.setState("DECLINED");
+        declined.setInterest("NOT_INTERESTED");
+        declined.setDeclineReason("RATE");
+        oppStore.put(900L, declined);
+        ActionResult r = service.assign(me, 1L);
+        assertThat(r.changed()).isTrue();
+        assertThat(declined.getState()).isEqualTo("ASSIGNED");
+        assertThat(declined.getInterest()).isEqualTo("NO_RESPONSE");
+        assertThat(declined.getDeclineReason()).isNull();
+        assertThat(saved).extracting(MktOpportunityEvent::getKind).containsExactly("REASSIGNED", "INTEREST_REQUESTED");
+    }
+
+    @Test
+    void anInactiveConsultantIsA409OnTheSingleAssignAndSkippedInTheBatch() {
+        approvedResume(1);
+        add(row(1, 1, "Alex", 1, "TechCorp", 92, "SUGGESTED", null, 1, 5));
+        consultantStatus = "INACTIVE";
+        assertThatThrownBy(() -> service.assign(me, 1L)).isInstanceOfSatisfying(OrgException.class, e -> {
+            assertThat(e.getStatus()).isEqualTo(409);
+            assertThat(e.getCode()).isEqualTo("CONSULTANT_INACTIVE");
+        });
+        BulkResult r = service.bulkAssign(me, List.of(1L));
+        assertThat(r.done()).isZero();
+        assertThat(r.skipped()).extracting(MktOpportunitiesDTO.Skipped::code).containsExactly("CONSULTANT_INACTIVE");
+        verify(matches, never()).save(any());
+    }
+
+    @Test
+    void theBatchKeepsGoingAfterARefusedRowAndWritesOneAuditRowForTheBatch() {
+        approvedResume(1);
+        add(row(1, 1, "A", 1, "C", 90, "SUGGESTED", "OPEN", 1, 5));
+        add(row(2, 2, "B", 2, "C", 90, "SUGGESTED", "OPEN", 1, 5)); // consultant 2 has no approved resume
+        add(row(3, 1, "A", 3, "C", 90, "SUGGESTED", "OPEN", 1, 5));
+        BulkResult r = service.bulkAssign(me, List.of(1L, 2L, 3L));
+        assertThat(r.done()).isEqualTo(2);
+        assertThat(r.skipped()).extracting(MktOpportunitiesDTO.Skipped::code).containsExactly("RESUME_NOT_APPROVED");
+        verify(audit).record(any(OrgMembership.class), eq("MARKETER_OPPORTUNITY_BULK_ASSIGN"), any(), any(), any(), eq("2 assigned"));
+        verify(audit, org.mockito.Mockito.times(1)).record(any(OrgMembership.class), any(), any(), any(), any(), any());
     }
 
     // ---- export ----
