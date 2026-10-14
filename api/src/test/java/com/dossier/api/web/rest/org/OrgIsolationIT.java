@@ -441,7 +441,22 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/reschedule", Case.people(200, "INTERVIEW_RESCHEDULE", 1, w -> "{\"scheduledAt\":\"" + java.time.Instant.now().plus(java.time.Duration.ofDays(12)).truncatedTo(java.time.temporal.ChronoUnit.HOURS) + "\"}", null, w -> w.interviewState("SCHEDULED"))),
         Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/status", Case.people(200, "INTERVIEW_STATUS", 1, w -> "{\"status\":\"IN_PROGRESS\"}", null, w -> w.interviewState("SCHEDULED"))),
         Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/reminder", Case.people(200, "INTERVIEW_REMINDER", 1, w -> "{}", null, w -> w.interviewState("SCHEDULED"))),
-        Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/feedback", Case.people(201, "INTERVIEW_FEEDBACK", 1, w -> "{\"rating\":4,\"recommendation\":\"ADVANCE\"}", null, w -> w.interviewState("COMPLETED")))
+        Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/feedback", Case.people(201, "INTERVIEW_FEEDBACK", 1, w -> "{\"rating\":4,\"recommendation\":\"ADVANCE\"}", null, w -> w.interviewState("COMPLETED"))),
+        // Enterprise V2 Placements page (docs/enterprise-v2/page-placements.md): reads write no audit row; every mutation writes one PLACEMENT_* row.
+        Map.entry("GET /api/orgs/{orgId}/placements", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/placements/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/placements/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/placements/pickers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/placements/{placementId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/placements", Case.versioned(201, "PLACEMENT_CREATE", w -> "{\"consultantId\":" + w.plTalent.spareConsultantId() + ",\"clientId\":" + w.plTalent.clientId() + ",\"roleTitle\":\"Hijack\",\"startDate\":\"2026-01-05\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/extend", Case.versioned(200, "PLACEMENT_EXTEND", w -> "{\"endDate\":\"" + java.time.LocalDate.now().plusDays(400) + "\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/extension-requests", Case.people(201, "PLACEMENT_EXTENSION_REQUEST", 1, w -> "{\"requestedEndDate\":\"" + java.time.LocalDate.now().plusDays(400) + "\"}", w -> null, World::clearPlacementExtensions)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/extensions/{extensionId}/decision", Case.versioned(200, "PLACEMENT_EXTENSION_DECIDE", w -> "{\"decision\":\"APPROVE\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/complete", Case.versioned(200, "PLACEMENT_COMPLETE", w -> "{\"note\":\"Hijacked\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/redeploy", Case.versioned(200, "PLACEMENT_REDEPLOY", w -> "{}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/redeploy/cancel", Case.people(200, "PLACEMENT_REDEPLOY_CANCEL", 1, w -> null, w -> null, World::putPlacementInPool)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/notes", Case.versioned(201, "PLACEMENT_NOTE", w -> "{\"body\":\"Hijacked note\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/undo", Case.people(200, "PLACEMENT_UNDO", 1, w -> "{\"eventId\":" + w.plUndoEventId + "}", w -> null, World::preparePlacementUndo))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -588,6 +603,28 @@ class OrgIsolationIT {
         com.dossier.api.web.rest.ent.ApplicationItSupport.Rows appTalent;
         /** Interviews page: one SCHEDULED interview of that application. */
         Long interviewId;
+        /** Placements page: one client, two consultants, an ACTIVE placement and a REQUESTED extension of it (the id of an undoable event is made by the route prepare step). */
+        com.dossier.api.web.rest.ent.PlacementItSupport.Rows plTalent;
+        Long plUndoEventId = 1L;
+
+        /** The Undo route needs the callers own latest, still undoable change. */
+        void preparePlacementUndo() {
+            plUndoEventId = com.dossier.api.web.rest.ent.PlacementItSupport.undoableEvent(em, org.getId(), plTalent.placementId(), owner.getId());
+        }
+
+        /** The request an extension route needs a placement with no extension waiting. */
+        void clearPlacementExtensions() {
+            em.createQuery("update PlacementExtension e set e.status = 'CANCELLED' where e.orgId = :o").setParameter("o", org.getId()).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        /** The leave the pool route needs a consultant who is in it. */
+        void putPlacementInPool() {
+            em.createQuery("update TalentPlacement p set p.redeploymentPool = true where p.orgId = :o").setParameter("o", org.getId()).executeUpdate();
+            em.flush();
+            em.clear();
+        }
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -904,6 +941,7 @@ class OrgIsolationIT {
             em.createQuery("update TalentInterview i set i.status = :s, i.reminderRequestedAt = null, i.scheduledAt = :t where i.orgId = :o and i.id = :id")
                 .setParameter("s", status).setParameter("t", java.time.Instant.now().plus(java.time.Duration.ofDays(10)).truncatedTo(java.time.temporal.ChronoUnit.HOURS)).setParameter("o", org.getId()).setParameter("id", interviewId).executeUpdate();
             em.clear();
+            plTalent = com.dossier.api.web.rest.ent.PlacementItSupport.seed(em, org.getId(), owner.getId());
         }
 
         /** ent-marketing: the id of this world's consultant profile (a made-up id until a prepare created it, which must also give a generic answer). */
@@ -1050,6 +1088,8 @@ class OrgIsolationIT {
             ids.put("matchId", String.valueOf(matchId));
             ids.put("applicationId", String.valueOf(appTalent.applicationId()));
             ids.put("interviewId", String.valueOf(interviewId));
+            ids.put("placementId", String.valueOf(plTalent.placementId()));
+            ids.put("extensionId", String.valueOf(plTalent.extensionId()));
             return ids;
         }
 
@@ -1178,6 +1218,7 @@ class OrgIsolationIT {
         s.append("audit:").append(audit.countByOrgId(w.org.getId())).append('\n');
         s.append("events:").append(shareEvents.countByOrgId(w.org.getId())).append('\n');
         s.append(com.dossier.api.web.rest.ent.ApplicationItSupport.fingerprint(em, w.org.getId()));
+        s.append(com.dossier.api.web.rest.ent.PlacementItSupport.fingerprint(em, w.org.getId()));
         return s.toString();
     }
 

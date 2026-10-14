@@ -4,6 +4,7 @@ import com.dossier.api.service.ent.BillingDemoSeeder;
 import com.dossier.api.service.ent.EnterpriseDemoSeeder;
 import com.dossier.api.service.ent.OpsDemoSeeder;
 import com.dossier.api.service.ent.RoleTemplateSeeder;
+import com.dossier.api.service.ent.PlacementDemoSeeder;
 import com.dossier.api.service.ent.TalentDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsInterviewPrepDemoSeeder;
@@ -51,9 +52,10 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final BillingDemoSeeder billing;
     private final OpsDemoSeeder ops;
     private final ClientsDemoSeeder clientsDemo;
+    private final PlacementDemoSeeder placementDemo;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, OpsDemoSeeder ops, ClientsDemoSeeder clientsDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, OpsDemoSeeder ops, ClientsDemoSeeder clientsDemo, PlacementDemoSeeder placementDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
@@ -61,6 +63,7 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
         this.billing = billing;
         this.ops = ops;
         this.clientsDemo = clientsDemo;
+        this.placementDemo = placementDemo;
         // the consultant workspace pages' own demo rows, in dependency order (all after ConsultantWsDemoSeeder: matches build on its matches)
         this.consultantPages = java.util.List.of(profileSeed::seed, resumesSeed::seed, marketerSeed::seed, matchesSeed::seed, discoverySeed::seed, interviewsSeed::seed, prepSeed::seed, submissionsSeed::seed, opportunitiesSeed::seed, tasksSeed::seed, availabilitySeed::seed, offersSeed::seed, placementSeed::seed, settingsSeed::seed, notificationsSeed::seed, jobSourceSeed::seed);
         this.createAccounts = createAccounts;
@@ -110,6 +113,11 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             clientsDemo.seed(); // the Clients page's extra demo clients, contacts and notes (idempotent)
         } catch (RuntimeException e) {
             LOG.error("Clients demo seed failed; the Clients page shows only the foundation's clients.", e);
+        }
+        try {
+            placementDemo.seed(); // Placements page demo data (end dates, upcoming, extensions, pool): after the talent rows exist
+        } catch (RuntimeException e) {
+            LOG.error("Placements demo seed failed; the Placements page has only the foundation rows.", e);
         }
     }
 }

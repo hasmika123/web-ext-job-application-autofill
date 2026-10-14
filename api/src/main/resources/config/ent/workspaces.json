@@ -150,9 +150,9 @@
           "icon": "Trophy",
           "href": "/w/admin/placements",
           "needs": [
-            "placements.view"
-          ],
-          "module": "marketing"
+            "placements.view",
+            "placements.manage"
+          ]
         },
         {
           "key": "subscription",

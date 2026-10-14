@@ -1,0 +1,24 @@
+/* Placements page tokens (docs/enterprise-v2/page-placements.md). The board's blue-grey text, hairlines and status colours as variables, so the
+ * components carry no colour literals (the tenant lint rule) and the organization's brand still drives every accent through --brand-* / --color-accent.
+ * Scoped to `.theme-tenant`: the sheets and menus the page opens render in portals under the same root. */
+.theme-tenant {
+  --pl-soft: #46527e; /* secondary text on the board */
+  --pl-body: #2a3667; /* table and filter text */
+  --pl-value: #1c2a5c; /* values in the drawer */
+  --pl-link-soft: #3b5bb5; /* the small blue second lines (job title under a name, drawer labels) */
+  --pl-icon: #3a4778;
+  --pl-subtle: #8a97b8; /* the inactive view toggle */
+  --pl-disabled: #b4bfd6;
+  --pl-input-line: var(--ent-control-border, #dde5f1);
+  --pl-btn-line: #e3eaf6;
+  --pl-blue-line: #cfe0f7;
+  --pl-check-line: #c9d5e8;
+  --pl-track: #e3ebf8; /* the unreached part of the engagement timeline */
+  --pl-row-hover: #f9fbfe;
+  --pl-sky: #cfe3f7;
+  --pl-sun: #f5b72b;
+  --pl-green: #19b36f; /* a reached point of the engagement timeline */
+  --pl-good: #12a05c; /* "Available for redeployment" */
+  --pl-amber: #f28c1c; /* an end date inside the ending-soon window */
+  --pl-red: #e5304f; /* an end date inside the urgent window */
+}
