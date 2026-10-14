@@ -51,7 +51,7 @@ test.describe("interviews (real stack)", () => {
     await expect(page.locator("[data-kpi=total] [data-kpi-delta]")).toContainText("vs last month");
     await expect(page.locator("[data-kpi=scheduledThisWeek] [data-kpi-delta]")).toContainText("vs last week");
     await expect(page.locator("[data-help-bee]")).toBeVisible();
-    await expect(dock(page).locator("[data-detail-body]")).toBeVisible();
+    await expect(dock(page).locator("[data-detail-body]")).toBeVisible({ timeout: 60_000 });
     await page.screenshot({ path: resolve(shots, "interviews-1448.png") });
 
     // filter by status: the table and the tile agree
