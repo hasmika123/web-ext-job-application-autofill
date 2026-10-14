@@ -1,0 +1,39 @@
+<!doctype html>
+<!--
+  "Your account is ready" - sent when an organization account is created for someone: the owner (by the Kiwiply app admin)
+  or an employee (by an Org Admin). It NEVER contains the temporary password: the creator shares it separately (it is shown
+  to them once), so an inbox on its own is not enough to sign in.
+  Model: subject, theme ("enterprise"), name (nullable), orgName, creatorName, roleLabel, owner (boolean), signInUrl,
+  expires (text), brand (nullable hex), logoUrl (nullable), assetBase (art folder URL), helpUrl/privacyUrl/termsUrl (optional).
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+  <head>
+    <title th:text="${subject}">Your account is ready</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+  </head>
+  <body style="margin: 0; padding: 0">
+    <div th:replace="~{mail/fragments :: preheader(#{email.created.preheader(${orgName})})}"></div>
+    <th:block th:with="accent=${brand} ?: '#0d63e8', btnText='#ffffff', heroBg='#eaf3fd', stripBg='#e7f3ee'">
+      <th:block th:replace="~{mail/fragments :: shell(${theme} ?: 'enterprise', ${brand}, ${logoUrl}, ${orgName}, ${assetBase}, ~{::section})}">
+        <section>
+          <table th:replace="~{mail/fragments :: hero(${heroBg}, ${assetBase} + '/ent-hero-welcome.png', 250, #{email.created.kicker(${orgName})}, #{email.created.hero1(${orgName})}, #{email.created.hero2}, ${accent}, ${owner} ? #{email.created.owner(${creatorName}, ${orgName})} : #{email.created.employee(${creatorName}, ${orgName}, ${roleLabel})}, ${signInUrl}, #{email.created.button}, ${accent}, ${btnText})}"></table>
+          <table th:replace="~{mail/fragments :: strip(${stripBg}, #{email.created.strip.title}, #{email.created.strip.text(${expires})})}"></table>
+          <th:block th:if="${owner}">
+            <table th:replace="~{mail/fragments :: row(${assetBase} + '/ent-row1.png', #{email.created.o1.title}, #{email.created.o1.text}, ${signInUrl}, #{email.created.o1.label}, '#e6f0fe', ${accent})}"></table>
+            <table th:replace="~{mail/fragments :: row(${assetBase} + '/ent-row2.png', #{email.created.o2.title}, #{email.created.o2.text}, ${signInUrl}, #{email.created.o2.label}, '#e6f0fe', ${accent})}"></table>
+            <table th:replace="~{mail/fragments :: row(${assetBase} + '/ent-row3.png', #{email.created.o3.title}, #{email.created.o3.text}, ${signInUrl}, #{email.created.o3.label}, '#e6f0fe', ${accent})}"></table>
+          </th:block>
+          <th:block th:unless="${owner}">
+            <table th:replace="~{mail/fragments :: row(${assetBase} + '/ent-row1.png', #{email.created.e1.title}, #{email.created.e1.text}, ${signInUrl}, #{email.created.e1.label}, '#e6f0fe', ${accent})}"></table>
+            <table th:replace="~{mail/fragments :: row(${assetBase} + '/ent-row2.png', #{email.created.e2.title}, #{email.created.e2.text(${orgName})}, ${signInUrl}, #{email.created.e2.label}, '#e6f0fe', ${accent})}"></table>
+            <table th:replace="~{mail/fragments :: row(${assetBase} + '/ent-row3.png', #{email.created.e3.title}, #{email.created.e3.text}, ${signInUrl}, #{email.created.e3.label}, '#e6f0fe', ${accent})}"></table>
+          </th:block>
+          <table th:replace="~{mail/fragments :: support('#e4effc', ${assetBase} + '/ent-support.png', #{email.created.support.title}, #{email.created.support.text}, ${signInUrl}, #{email.created.button}, ${accent}, ${btnText})}"></table>
+          <p style="margin: 0; padding: 0 28px 18px 28px; font-size: 12px; color: #6b726e" th:text="#{email.created.notyou}">Not expecting this? Tell your administrator.</p>
+        </section>
+      </th:block>
+    </th:block>
+  </body>
+</html>

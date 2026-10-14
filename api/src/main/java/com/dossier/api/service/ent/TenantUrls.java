@@ -103,7 +103,23 @@ public class TenantUrls {
         return true;
     }
 
-    private String firstBaseDomain() {
+    /**
+     * The base domain a platform admin provisions new addresses under: {@code localhost} when development hosts are allowed AND
+     * configured (so a new organization is reachable at {@code label.localhost} and its hostname row is the one the dev host uses),
+     * otherwise the first configured base domain. Production (localhost never allowed) is always {@link #firstBaseDomain}.
+     */
+    public String provisioningBaseDomain() {
+        if (allowLocalhostTenants) {
+            JsonNode n = settings.getJson(EnterpriseSettingKeys.HOSTS_TENANT_BASE_DOMAINS, JsonNode.class);
+            if (n != null && n.isArray()) {
+                for (JsonNode e : n) if (e.isTextual() && "localhost".equals(HostNames.normalise(e.textValue()))) return "localhost";
+            }
+        }
+        return firstBaseDomain();
+    }
+
+    /** The first configured tenant base domain (such as kiwiply.com), or null when none is usable; localhost only where development hosts are allowed. */
+    public String firstBaseDomain() {
         JsonNode n = settings.getJson(EnterpriseSettingKeys.HOSTS_TENANT_BASE_DOMAINS, JsonNode.class);
         if (n != null && n.isArray()) {
             for (JsonNode e : n) {
@@ -114,6 +130,14 @@ public class TenantUrls {
             }
         }
         return null;
+    }
+
+    /** The origin to sign in at for a host (built from stored data only): https for a real host; http for a development host, carrying the platform base URL's port so acme.localhost:3200 works. */
+    public String originForHost(String host) {
+        boolean dev = "localhost".equals(host) || host.endsWith(".localhost");
+        if (!dev) return "https://" + host;
+        java.net.URI u = java.net.URI.create(platformBase);
+        return "http://" + host + (u.getPort() > 0 ? ":" + u.getPort() : "");
     }
 
     private static String originOf(String host) {

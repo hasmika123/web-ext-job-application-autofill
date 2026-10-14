@@ -196,4 +196,56 @@ public class MailService {
         LOG.debug("Sending password reset email to '{}'", user.getEmail());
         sendEmailFromTemplateSync(user, "mail/passwordResetEmail", "email.reset.title");
     }
+
+    /**
+     * "Your account is ready": an administrator created an account for this person (the owner, by the Kiwiply app admin; an
+     * employee, by an Org Admin). The e-mail NEVER carries the temporary password or any other secret: the creator gives it to
+     * the person separately, so an inbox alone cannot sign in. A mail failure is logged (no address, no secret) and never
+     * fails the caller.
+     */
+    @Async
+    public void sendAccountCreatedEmail(String to, String name, String orgName, String creatorName, String roleLabel, boolean owner, String signInUrl, String expiresText, TenantMailBrand brand) {
+        if (to == null || to.isBlank()) return;
+        try {
+            Locale locale = Locale.ENGLISH;
+            Context context = accountContext(locale, name, orgName, signInUrl, expiresText, brand);
+            context.setVariable("creatorName", creatorName == null || creatorName.isBlank() ? "Your administrator" : creatorName);
+            context.setVariable("roleLabel", roleLabel);
+            context.setVariable("owner", owner);
+            String subject = messageSource.getMessage("email.created.title", new Object[] { orgName }, locale);
+            context.setVariable("subject", subject);
+            sendEmailSync(to, subject, templateEngine.process("mail/accountCreatedEmail", context), false, true);
+        } catch (RuntimeException e) {
+            LOG.warn("Account-created e-mail could not be sent ({})", e.getClass().getSimpleName());
+        }
+    }
+
+    /** "Your password was reset by an administrator". Like {@link #sendAccountCreatedEmail} it never carries the new password. */
+    @Async
+    public void sendAdminPasswordResetEmail(String to, String name, String orgName, String actorName, String signInUrl, String expiresText, TenantMailBrand brand) {
+        if (to == null || to.isBlank()) return;
+        try {
+            Locale locale = Locale.ENGLISH;
+            Context context = accountContext(locale, name, orgName, signInUrl, expiresText, brand);
+            context.setVariable("actorName", actorName == null || actorName.isBlank() ? "Your administrator" : actorName);
+            String subject = messageSource.getMessage("email.adminreset.title", null, locale);
+            context.setVariable("subject", subject);
+            sendEmailSync(to, subject, templateEngine.process("mail/passwordResetByAdminEmail", context), false, true);
+        } catch (RuntimeException e) {
+            LOG.warn("Admin password-reset e-mail could not be sent ({})", e.getClass().getSimpleName());
+        }
+    }
+
+    private static Context accountContext(Locale locale, String name, String orgName, String signInUrl, String expiresText, TenantMailBrand brand) {
+        TenantMailBrand b = brand == null ? TenantMailBrand.KIWIPLY : brand;
+        Context context = new Context(locale);
+        context.setVariable("name", name == null || name.isBlank() ? null : name);
+        context.setVariable("orgName", orgName);
+        context.setVariable("signInUrl", signInUrl);
+        context.setVariable("expires", expiresText);
+        context.setVariable("brand", b.brandHex());
+        context.setVariable("bannerUrl", b.bannerUrl());
+        context.setVariable("logoUrl", b.logoUrl());
+        return context;
+    }
 }
