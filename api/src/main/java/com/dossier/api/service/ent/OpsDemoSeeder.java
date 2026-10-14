@@ -432,6 +432,7 @@ public class OpsDemoSeeder {
                 if (dept == null && MARKETING_KEYS.contains(pm.key())) dept = deptIds.get("Marketing");
                 e.setDepartmentGroupId(dept);
                 Long mgr = m.getManagerMemberId();
+                if (linked != null && marketerOf.get(linked.getId()) != null) mgr = marketerOf.get(linked.getId());
                 if (mgr == null && admin != null && !pm.key().equals(admin.key())) mgr = admin.seat().getId();
                 e.setManagerMemberId(mgr);
                 String[] city = linked != null && linked.getLocationLabel() != null ? splitLocation(linked.getLocationLabel()) : STAFF_CITIES[rnd.nextInt(STAFF_CITIES.length)];
@@ -485,6 +486,7 @@ public class OpsDemoSeeder {
                     continue;
                 }
                 Instant started = at(e.getStartDate(), 9);
+                if (started.isAfter(now)) started = now.minus(1, ChronoUnit.HOURS);
                 int dur = e.getStartDate().isBefore(today.minusDays(60)) ? 14 : between(11, 28);
                 Instant completed = started.plus(dur, ChronoUnit.DAYS);
                 e.setOnboardingStartedAt(started);
