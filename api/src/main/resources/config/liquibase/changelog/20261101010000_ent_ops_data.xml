@@ -1,0 +1,503 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 ops data foundation (branch ent-ops-data): the org-owned tables behind the HR, Finance and Reports boards.
+        See docs/enterprise-v2/ops-data-foundation.md. Same rules as the talent foundation (41-database-design.md): org_id NOT NULL on every
+        table, FK to organization, every secondary index starts with org_id, every FK from one org-owned table to another is composite
+        (org_id, parent_id) to the parent's (org_id, id) unique key, statuses are varchar enum names, timestamps DATETIME(6) UTC, money is
+        *_minor + currency and is RECORDED, never moved. RECORD-ONLY (E2): no phone, date of birth, identity-document, tax-id, bank or routing
+        column anywhere (OpsSchemaIT scans for it). One precondition-guarded changeSet per table, empty rollbacks (flag off, data inert).
+    -->
+
+    <!-- talent_placement had no (org_id, id) key yet; the finance tables reference it. -->
+    <changeSet id="ent-ops-0-uk_talent_placement_org_id" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="talent_placement" indexName="uk_talent_placement_org_id"/></not></preConditions>
+        <addUniqueConstraint tableName="talent_placement" columnNames="org_id, id" constraintName="uk_talent_placement_org_id"/>
+        <rollback/>
+    </changeSet>
+
+    <!-- HR record of one employee: a staff seat (member_id) and/or a consultant (consultant_id). Directory fields only, record-only (E2): no phone, no date of birth, no document or bank data. -->
+    <changeSet id="ent-ops-1-hr_employee" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="hr_employee"/></not></preConditions>
+        <createTable tableName="hr_employee">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="member_id" type="bigint"/>
+            <column name="consultant_id" type="bigint"/>
+            <column name="display_name" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="work_email" type="varchar(254)"><constraints nullable="false"/></column>
+            <column name="job_title" type="varchar(120)"/>
+            <column name="employment_type" type="varchar(20)" defaultValue="FULL_TIME"><constraints nullable="false"/></column>
+            <column name="department_group_id" type="bigint"/>
+            <column name="manager_member_id" type="bigint"/>
+            <column name="work_city" type="varchar(80)"/>
+            <column name="work_region" type="varchar(40)"/>
+            <column name="start_date" type="date"><constraints nullable="false"/></column>
+            <column name="end_date" type="date"/>
+            <column name="employment_status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="onboarding_stage" type="varchar(20)" defaultValue="NOT_STARTED"><constraints nullable="false"/></column>
+            <column name="onboarding_started_at" type="${datetimeType}"/>
+            <column name="onboarding_completed_at" type="${datetimeType}"/>
+            <column name="last_activity_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="hr_employee" baseColumnNames="org_id" constraintName="fk_hr_employee_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="hr_employee" baseColumnNames="org_id, member_id" constraintName="fk_hr_employee_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="hr_employee" baseColumnNames="org_id, consultant_id" constraintName="fk_hr_employee_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="hr_employee" baseColumnNames="org_id, department_group_id" constraintName="fk_hr_employee_department_group" referencedTableName="org_group" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="hr_employee" baseColumnNames="org_id, manager_member_id" constraintName="fk_hr_employee_manager_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="hr_employee" columnNames="org_id, id" constraintName="uk_hr_employee_org_id"/>
+        <addUniqueConstraint tableName="hr_employee" columnNames="org_id, member_id" constraintName="uk_hr_employee_member_id"/>
+        <addUniqueConstraint tableName="hr_employee" columnNames="org_id, consultant_id" constraintName="uk_hr_employee_consultant_id"/>
+        <createIndex tableName="hr_employee" indexName="ix_hr_employee_status"><column name="org_id"/><column name="employment_status"/></createIndex>
+        <createIndex tableName="hr_employee" indexName="ix_hr_employee_stage"><column name="org_id"/><column name="onboarding_stage"/></createIndex>
+        <createIndex tableName="hr_employee" indexName="ix_hr_employee_dept"><column name="org_id"/><column name="department_group_id"/></createIndex>
+        <createIndex tableName="hr_employee" indexName="ix_hr_employee_start"><column name="org_id"/><column name="start_date"/></createIndex>
+        <createIndex tableName="hr_employee" indexName="ix_hr_employee_name"><column name="org_id"/><column name="display_name"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- A note on an employee (Notes tab). Free text goes through the PII scanner on write. -->
+    <changeSet id="ent-ops-2-hr_employee_note" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="hr_employee_note"/></not></preConditions>
+        <createTable tableName="hr_employee_note">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="employee_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="author_member_id" type="bigint"/>
+            <column name="body" type="varchar(1000)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="hr_employee_note" baseColumnNames="org_id" constraintName="fk_hr_employee_note_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="hr_employee_note" baseColumnNames="org_id, employee_id" constraintName="fk_hr_employee_note_employee" referencedTableName="hr_employee" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="hr_employee_note" baseColumnNames="org_id, author_member_id" constraintName="fk_hr_employee_note_author_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="hr_employee_note" columnNames="org_id, id" constraintName="uk_hr_employee_note_org_id"/>
+        <createIndex tableName="hr_employee_note" indexName="ix_hr_employee_note_employee"><column name="org_id"/><column name="employee_id"/><column name="created_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- One onboarding checklist item of an employee (title, due date, done). -->
+    <changeSet id="ent-ops-3-hr_onboarding_item" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="hr_onboarding_item"/></not></preConditions>
+        <createTable tableName="hr_onboarding_item">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="employee_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="due_date" type="date"/>
+            <column name="done" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="done_at" type="${datetimeType}"/>
+            <column name="required" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="hr_onboarding_item" baseColumnNames="org_id" constraintName="fk_hr_onboarding_item_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="hr_onboarding_item" baseColumnNames="org_id, employee_id" constraintName="fk_hr_onboarding_item_employee" referencedTableName="hr_employee" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="hr_onboarding_item" columnNames="org_id, id" constraintName="uk_hr_onboarding_item_org_id"/>
+        <createIndex tableName="hr_onboarding_item" indexName="ix_hr_onboarding_item_employee"><column name="org_id"/><column name="employee_id"/><column name="sort_order"/></createIndex>
+        <createIndex tableName="hr_onboarding_item" indexName="ix_hr_onboarding_item_due"><column name="org_id"/><column name="done"/><column name="due_date"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- A required document of an employee, tracked by TYPE and STATUS only (PENDING / COMPLETED / VERIFIED). Never contents, numbers or files (E2). -->
+    <changeSet id="ent-ops-4-hr_document_requirement" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="hr_document_requirement"/></not></preConditions>
+        <createTable tableName="hr_document_requirement">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="employee_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="doc_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="status_at" type="${datetimeType}"/>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="hr_document_requirement" baseColumnNames="org_id" constraintName="fk_hr_document_requirement_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="hr_document_requirement" baseColumnNames="org_id, employee_id" constraintName="fk_hr_document_requirement_employee" referencedTableName="hr_employee" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="hr_document_requirement" columnNames="org_id, id" constraintName="uk_hr_document_requirement_org_id"/>
+        <addUniqueConstraint tableName="hr_document_requirement" columnNames="org_id, employee_id, doc_type" constraintName="uk_hr_document_requirement_employee_id_doc_type"/>
+        <createIndex tableName="hr_document_requirement" indexName="ix_hr_document_requirement_status"><column name="org_id"/><column name="status"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Compliance training catalog (Annual Policy Acknowledgment, Data Security Training, Code of Conduct). -->
+    <changeSet id="ent-ops-5-hr_training" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="hr_training"/></not></preConditions>
+        <createTable tableName="hr_training">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="training_key" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="cadence" type="varchar(20)" defaultValue="ANNUAL"><constraints nullable="false"/></column>
+            <column name="required" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="active" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="hr_training" baseColumnNames="org_id" constraintName="fk_hr_training_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="hr_training" columnNames="org_id, id" constraintName="uk_hr_training_org_id"/>
+        <addUniqueConstraint tableName="hr_training" columnNames="org_id, training_key" constraintName="uk_hr_training_training_key"/>
+        <rollback/>
+    </changeSet>
+
+    <!-- One employee's status on one training: due date and completed date (COMPLETED / PENDING / OVERDUE). -->
+    <changeSet id="ent-ops-6-hr_training_record" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="hr_training_record"/></not></preConditions>
+        <createTable tableName="hr_training_record">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="employee_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="training_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="due_on" type="date"><constraints nullable="false"/></column>
+            <column name="completed_on" type="date"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="hr_training_record" baseColumnNames="org_id" constraintName="fk_hr_training_record_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="hr_training_record" baseColumnNames="org_id, employee_id" constraintName="fk_hr_training_record_employee" referencedTableName="hr_employee" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="hr_training_record" baseColumnNames="org_id, training_id" constraintName="fk_hr_training_record_training" referencedTableName="hr_training" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="hr_training_record" columnNames="org_id, id" constraintName="uk_hr_training_record_org_id"/>
+        <addUniqueConstraint tableName="hr_training_record" columnNames="org_id, employee_id, training_id" constraintName="uk_hr_training_record_employee_id_training_id"/>
+        <createIndex tableName="hr_training_record" indexName="ix_hr_training_record_due"><column name="org_id"/><column name="due_on"/></createIndex>
+        <createIndex tableName="hr_training_record" indexName="ix_hr_training_record_employee"><column name="org_id"/><column name="employee_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- An offboarding task of an employee in OFFBOARDING (the board's Offboarding Tasks tile counts the open ones). -->
+    <changeSet id="ent-ops-7-hr_offboarding_task" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="hr_offboarding_task"/></not></preConditions>
+        <createTable tableName="hr_offboarding_task">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="employee_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="due_date" type="date"/>
+            <column name="done" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="done_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="hr_offboarding_task" baseColumnNames="org_id" constraintName="fk_hr_offboarding_task_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="hr_offboarding_task" baseColumnNames="org_id, employee_id" constraintName="fk_hr_offboarding_task_employee" referencedTableName="hr_employee" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="hr_offboarding_task" columnNames="org_id, id" constraintName="uk_hr_offboarding_task_org_id"/>
+        <createIndex tableName="hr_offboarding_task" indexName="ix_hr_offboarding_task_employee"><column name="org_id"/><column name="employee_id"/></createIndex>
+        <createIndex tableName="hr_offboarding_task" indexName="ix_hr_offboarding_task_open"><column name="org_id"/><column name="done"/><column name="created_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Append-only lifecycle timeline of an employee (hired, onboarding started/completed, leave, title or department change, offboarding). -->
+    <changeSet id="ent-ops-8-hr_lifecycle_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="hr_lifecycle_event"/></not></preConditions>
+        <createTable tableName="hr_lifecycle_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="employee_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="event_type" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="from_value" type="varchar(60)"/>
+            <column name="to_value" type="varchar(60)"/>
+            <column name="detail" type="varchar(200)"/>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="hr_lifecycle_event" baseColumnNames="org_id" constraintName="fk_hr_lifecycle_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="hr_lifecycle_event" baseColumnNames="org_id, employee_id" constraintName="fk_hr_lifecycle_event_employee" referencedTableName="hr_employee" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="hr_lifecycle_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_hr_lifecycle_event_actor_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="hr_lifecycle_event" columnNames="org_id, id" constraintName="uk_hr_lifecycle_event_org_id"/>
+        <createIndex tableName="hr_lifecycle_event" indexName="ix_hr_lifecycle_event_employee"><column name="org_id"/><column name="employee_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="hr_lifecycle_event" indexName="ix_hr_lifecycle_event_time"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Finance terms of a placement that talent_placement does not carry: pay rate, account manager, payment terms. Rates are records, never money movement. -->
+    <changeSet id="ent-ops-9-finance_placement_terms" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="finance_placement_terms"/></not></preConditions>
+        <createTable tableName="finance_placement_terms">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="pay_rate_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="rate_unit" type="varchar(10)" defaultValue="HOUR"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="account_manager_member_id" type="bigint"/>
+            <column name="terms_days" type="smallint" defaultValueNumeric="30"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="finance_placement_terms" baseColumnNames="org_id" constraintName="fk_finance_placement_terms_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="finance_placement_terms" baseColumnNames="org_id, placement_id" constraintName="fk_finance_placement_terms_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_placement_terms" baseColumnNames="org_id, account_manager_member_id" constraintName="fk_finance_placement_terms_account_manager_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="finance_placement_terms" columnNames="org_id, id" constraintName="uk_finance_placement_terms_org_id"/>
+        <addUniqueConstraint tableName="finance_placement_terms" columnNames="org_id, placement_id" constraintName="uk_finance_placement_terms_placement_id"/>
+        <rollback/>
+    </changeSet>
+
+    <!-- An invoice record org to client (issue = marked sent by the org; Kiwiply never sends or collects). -->
+    <changeSet id="ent-ops-10-finance_invoice" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="finance_invoice"/></not></preConditions>
+        <createTable tableName="finance_invoice">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="code" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="client_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="period_start" type="date"><constraints nullable="false"/></column>
+            <column name="amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="ISSUED"><constraints nullable="false"/></column>
+            <column name="issued_on" type="date"><constraints nullable="false"/></column>
+            <column name="due_on" type="date"><constraints nullable="false"/></column>
+            <column name="paid_on" type="date"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="finance_invoice" baseColumnNames="org_id" constraintName="fk_finance_invoice_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="finance_invoice" baseColumnNames="org_id, client_id" constraintName="fk_finance_invoice_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_invoice" baseColumnNames="org_id, placement_id" constraintName="fk_finance_invoice_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="finance_invoice" columnNames="org_id, id" constraintName="uk_finance_invoice_org_id"/>
+        <addUniqueConstraint tableName="finance_invoice" columnNames="org_id, code" constraintName="uk_finance_invoice_code"/>
+        <createIndex tableName="finance_invoice" indexName="ix_finance_invoice_status"><column name="org_id"/><column name="status"/><column name="due_on"/></createIndex>
+        <createIndex tableName="finance_invoice" indexName="ix_finance_invoice_placement"><column name="org_id"/><column name="placement_id"/><column name="period_start"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Monthly timesheet of a consultant on a placement: hours and approval (PENDING / APPROVED / REJECTED). -->
+    <changeSet id="ent-ops-11-finance_timesheet" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="finance_timesheet"/></not></preConditions>
+        <createTable tableName="finance_timesheet">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="period_start" type="date"><constraints nullable="false"/></column>
+            <column name="hours" type="decimal(9,2)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="submitted_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="decided_at" type="${datetimeType}"/>
+            <column name="decided_by_member_id" type="bigint"/>
+            <column name="reject_reason" type="varchar(120)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="finance_timesheet" baseColumnNames="org_id" constraintName="fk_finance_timesheet_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="finance_timesheet" baseColumnNames="org_id, placement_id" constraintName="fk_finance_timesheet_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_timesheet" baseColumnNames="org_id, consultant_id" constraintName="fk_finance_timesheet_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_timesheet" baseColumnNames="org_id, decided_by_member_id" constraintName="fk_finance_timesheet_decided_by_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="finance_timesheet" columnNames="org_id, id" constraintName="uk_finance_timesheet_org_id"/>
+        <addUniqueConstraint tableName="finance_timesheet" columnNames="org_id, placement_id, period_start" constraintName="uk_finance_timesheet_placement_id_period_start"/>
+        <createIndex tableName="finance_timesheet" indexName="ix_finance_timesheet_status"><column name="org_id"/><column name="status"/><column name="submitted_at"/></createIndex>
+        <createIndex tableName="finance_timesheet" indexName="ix_finance_timesheet_period"><column name="org_id"/><column name="period_start"/></createIndex>
+        <createIndex tableName="finance_timesheet" indexName="ix_finance_timesheet_consultant"><column name="org_id"/><column name="consultant_id"/><column name="period_start"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- The Placement Finance row: one placement in one calendar month (rate snapshot, hours, revenue, payout, margin, invoice status). The month series are sums over these rows. -->
+    <changeSet id="ent-ops-12-finance_placement_period" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="finance_placement_period"/></not></preConditions>
+        <createTable tableName="finance_placement_period">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="client_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="period_start" type="date"><constraints nullable="false"/></column>
+            <column name="bill_rate_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="pay_rate_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="rate_unit" type="varchar(10)" defaultValue="HOUR"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="hours" type="decimal(9,2)"><constraints nullable="false"/></column>
+            <column name="revenue_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="payout_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="margin_bps" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="invoice_status" type="varchar(20)" defaultValue="PENDING_INVOICE"><constraints nullable="false"/></column>
+            <column name="invoice_id" type="bigint"/>
+            <column name="timesheet_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="finance_placement_period" baseColumnNames="org_id" constraintName="fk_finance_placement_period_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="finance_placement_period" baseColumnNames="org_id, placement_id" constraintName="fk_finance_placement_period_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_placement_period" baseColumnNames="org_id, client_id" constraintName="fk_finance_placement_period_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_placement_period" baseColumnNames="org_id, consultant_id" constraintName="fk_finance_placement_period_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_placement_period" baseColumnNames="org_id, invoice_id" constraintName="fk_finance_placement_period_invoice" referencedTableName="finance_invoice" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_placement_period" baseColumnNames="org_id, timesheet_id" constraintName="fk_finance_placement_period_timesheet" referencedTableName="finance_timesheet" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="finance_placement_period" columnNames="org_id, id" constraintName="uk_finance_placement_period_org_id"/>
+        <addUniqueConstraint tableName="finance_placement_period" columnNames="org_id, placement_id, period_start" constraintName="uk_finance_placement_period_placement_id_period_start"/>
+        <createIndex tableName="finance_placement_period" indexName="ix_finance_placement_period_period"><column name="org_id"/><column name="period_start"/><column name="invoice_status"/></createIndex>
+        <createIndex tableName="finance_placement_period" indexName="ix_finance_placement_period_client"><column name="org_id"/><column name="client_id"/><column name="period_start"/></createIndex>
+        <createIndex tableName="finance_placement_period" indexName="ix_finance_placement_period_consultant"><column name="org_id"/><column name="consultant_id"/><column name="period_start"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- A payment RECORD: IN = received from a client against an invoice, OUT = a consultant payout. Recorded, never moved (no bank data, no payment provider). -->
+    <changeSet id="ent-ops-13-finance_payment" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="finance_payment"/></not></preConditions>
+        <createTable tableName="finance_payment">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="direction" type="varchar(3)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"/>
+            <column name="invoice_id" type="bigint"/>
+            <column name="period_start" type="date"><constraints nullable="false"/></column>
+            <column name="due_on" type="date"/>
+            <column name="paid_on" type="date"/>
+            <column name="method_label" type="varchar(40)"/>
+            <column name="memo" type="varchar(120)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="finance_payment" baseColumnNames="org_id" constraintName="fk_finance_payment_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="finance_payment" baseColumnNames="org_id, placement_id" constraintName="fk_finance_payment_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_payment" baseColumnNames="org_id, consultant_id" constraintName="fk_finance_payment_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="finance_payment" baseColumnNames="org_id, invoice_id" constraintName="fk_finance_payment_invoice" referencedTableName="finance_invoice" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="finance_payment" columnNames="org_id, id" constraintName="uk_finance_payment_org_id"/>
+        <createIndex tableName="finance_payment" indexName="ix_finance_payment_open"><column name="org_id"/><column name="direction"/><column name="status"/><column name="due_on"/></createIndex>
+        <createIndex tableName="finance_payment" indexName="ix_finance_payment_placement"><column name="org_id"/><column name="placement_id"/><column name="period_start"/></createIndex>
+        <createIndex tableName="finance_payment" indexName="ix_finance_payment_paid"><column name="org_id"/><column name="paid_on"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- Forecast tab inputs per future month (assumptions the page multiplies with the current run rate). -->
+    <changeSet id="ent-ops-14-finance_forecast_input" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="finance_forecast_input"/></not></preConditions>
+        <createTable tableName="finance_forecast_input">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="month_start" type="date"><constraints nullable="false"/></column>
+            <column name="expected_placements" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="expected_hours_per_placement" type="decimal(9,2)"><constraints nullable="false"/></column>
+            <column name="bill_rate_change_bps" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="pay_rate_change_bps" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="notes" type="varchar(200)"/>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="finance_forecast_input" baseColumnNames="org_id" constraintName="fk_finance_forecast_input_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="finance_forecast_input" columnNames="org_id, id" constraintName="uk_finance_forecast_input_org_id"/>
+        <addUniqueConstraint tableName="finance_forecast_input" columnNames="org_id, month_start" constraintName="uk_finance_forecast_input_month_start"/>
+        <rollback/>
+    </changeSet>
+
+    <!-- A saved report (Reports Library row): type, owner, description, schedule and the last-run summary. source_key names the built-in computation. -->
+    <changeSet id="ent-ops-15-report_definition" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="report_definition"/></not></preConditions>
+        <createTable tableName="report_definition">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="description" type="varchar(300)"/>
+            <column name="report_type" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="source_key" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="owner_member_id" type="bigint"/>
+            <column name="status" type="varchar(20)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="schedule_frequency" type="varchar(10)" defaultValue="NONE"><constraints nullable="false"/></column>
+            <column name="schedule_day" type="smallint"/>
+            <column name="schedule_time" type="varchar(5)"/>
+            <column name="last_run_at" type="${datetimeType}"/>
+            <column name="last_run_status" type="varchar(20)"/>
+            <column name="last_run_summary" type="varchar(200)"/>
+            <column name="next_run_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="report_definition" baseColumnNames="org_id" constraintName="fk_report_definition_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="report_definition" baseColumnNames="org_id, owner_member_id" constraintName="fk_report_definition_owner_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="report_definition" columnNames="org_id, id" constraintName="uk_report_definition_org_id"/>
+        <addUniqueConstraint tableName="report_definition" columnNames="org_id, name" constraintName="uk_report_definition_name"/>
+        <createIndex tableName="report_definition" indexName="ix_report_definition_type"><column name="org_id"/><column name="report_type"/><column name="status"/></createIndex>
+        <createIndex tableName="report_definition" indexName="ix_report_definition_lastrun"><column name="org_id"/><column name="last_run_at"/></createIndex>
+        <createIndex tableName="report_definition" indexName="ix_report_definition_owner"><column name="org_id"/><column name="owner_member_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- A metric a report includes (the Included Metrics bullets). -->
+    <changeSet id="ent-ops-16-report_metric" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="report_metric"/></not></preConditions>
+        <createTable tableName="report_metric">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="definition_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="report_metric" baseColumnNames="org_id" constraintName="fk_report_metric_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="report_metric" baseColumnNames="org_id, definition_id" constraintName="fk_report_metric_definition" referencedTableName="report_definition" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="report_metric" columnNames="org_id, id" constraintName="uk_report_metric_org_id"/>
+        <createIndex tableName="report_metric" indexName="ix_report_metric_definition"><column name="org_id"/><column name="definition_id"/><column name="sort_order"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- A member who receives a scheduled report (in-app / email to members only). -->
+    <changeSet id="ent-ops-17-report_recipient" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="report_recipient"/></not></preConditions>
+        <createTable tableName="report_recipient">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="definition_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="report_recipient" baseColumnNames="org_id" constraintName="fk_report_recipient_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="report_recipient" baseColumnNames="org_id, definition_id" constraintName="fk_report_recipient_definition" referencedTableName="report_definition" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="report_recipient" baseColumnNames="org_id, member_id" constraintName="fk_report_recipient_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="report_recipient" columnNames="org_id, id" constraintName="uk_report_recipient_org_id"/>
+        <addUniqueConstraint tableName="report_recipient" columnNames="org_id, definition_id, member_id" constraintName="uk_report_recipient_definition_id_member_id"/>
+        <rollback/>
+    </changeSet>
+
+    <!-- One run of a report (History tab, Last Run Summary): status, trigger, who, summary. -->
+    <changeSet id="ent-ops-18-report_run" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="report_run"/></not></preConditions>
+        <createTable tableName="report_run">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="definition_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="COMPLETED"><constraints nullable="false"/></column>
+            <column name="trigger_kind" type="varchar(20)" defaultValue="SCHEDULED"><constraints nullable="false"/></column>
+            <column name="run_by_member_id" type="bigint"/>
+            <column name="started_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="finished_at" type="${datetimeType}"/>
+            <column name="charts_count" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="tables_count" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="summary" type="varchar(200)"/>
+            <column name="error_label" type="varchar(160)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="report_run" baseColumnNames="org_id" constraintName="fk_report_run_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="report_run" baseColumnNames="org_id, definition_id" constraintName="fk_report_run_definition" referencedTableName="report_definition" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="report_run" baseColumnNames="org_id, run_by_member_id" constraintName="fk_report_run_run_by_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="report_run" columnNames="org_id, id" constraintName="uk_report_run_org_id"/>
+        <createIndex tableName="report_run" indexName="ix_report_run_definition"><column name="org_id"/><column name="definition_id"/><column name="started_at"/></createIndex>
+        <createIndex tableName="report_run" indexName="ix_report_run_time"><column name="org_id"/><column name="started_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!-- An export record (Exports tab): metadata only, no file bytes; READY until expires_at (24 h), then EXPIRED. -->
+    <changeSet id="ent-ops-19-report_export" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="report_export"/></not></preConditions>
+        <createTable tableName="report_export">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="definition_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="run_id" type="bigint"/>
+            <column name="format" type="varchar(10)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(20)" defaultValue="READY"><constraints nullable="false"/></column>
+            <column name="requested_by_member_id" type="bigint"/>
+            <column name="requested_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="file_name" type="varchar(160)"/>
+            <column name="size_kb" type="int"/>
+            <column name="expires_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="report_export" baseColumnNames="org_id" constraintName="fk_report_export_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="report_export" baseColumnNames="org_id, definition_id" constraintName="fk_report_export_definition" referencedTableName="report_definition" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="report_export" baseColumnNames="org_id, run_id" constraintName="fk_report_export_run" referencedTableName="report_run" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="report_export" baseColumnNames="org_id, requested_by_member_id" constraintName="fk_report_export_requested_by_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="report_export" columnNames="org_id, id" constraintName="uk_report_export_org_id"/>
+        <createIndex tableName="report_export" indexName="ix_report_export_time"><column name="org_id"/><column name="requested_at"/></createIndex>
+        <createIndex tableName="report_export" indexName="ix_report_export_definition"><column name="org_id"/><column name="definition_id"/><column name="requested_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+</databaseChangeLog>

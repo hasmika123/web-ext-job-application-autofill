@@ -195,7 +195,14 @@ public class TalentDemoSeeder {
     private static final String[] EMPLOYERS = {
         "Northgate Systems", "Bluepeak Consulting", "Harbor Analytics", "Quillon Labs", "Evergreen Digital", "Sunrise Partners", "Redwood Technologies", "Meridian Group", "Kestrel Software", "Alder & Finch"
     };
-    private static final String[] SOURCES = { "Company Website", "Vendor Portal", "Referral", "Job Board", "Direct Outreach" };
+    /** Application source labels in the Reports board's mix (LinkedIn 32, Company Website 24, Referral 18, Job Board 14, Recruiter 8, Other 4 percent). */
+    private static final String[] SOURCES = weighted(new String[] { "LinkedIn", "Company Website", "Referral", "Job Board", "Recruiter", "Other" }, new int[] { 32, 24, 18, 14, 8, 4 });
+
+    private static String[] weighted(String[] labels, int[] weights) {
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < labels.length; i++) for (int k = 0; k < weights[i]; k++) out.add(labels[i]);
+        return out.toArray(new String[0]);
+    }
     private static final String[] NOTES = {
         "Spoke with the hiring manager; positive feedback on the resume.", "Client asked for a shorter profile summary; updated and resent.",
         "Consultant confirmed availability and rate.", "Waiting on the vendor for the interview slots.", "Client liked the portfolio, asking about start date.",
