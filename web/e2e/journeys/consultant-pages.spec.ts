@@ -91,6 +91,22 @@ test.describe("consultant pages (real stack)", () => {
     await context.close();
   });
 
+  test("Ben (on a project) sees his active placement, with no rate or amount anywhere", async ({ browser }) => {
+    mkdirSync(shots, { recursive: true });
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await signInAs(page, "Ben Okafor");
+    await page.goto(`${base}/w/consultant/placements`);
+    await expect(page.locator("[data-consultant-placements][data-status=ready]")).toBeVisible();
+    await expect(page.locator("[data-no-placement]")).toHaveCount(0);
+    await expect(page.locator("[data-milestone]").first()).toBeVisible();
+    await expect(page.locator("[data-meeting]").first()).toBeVisible();
+    const text = await page.locator("[data-consultant-placements]").innerText();
+    expect(text, "a consultant never sees a bill rate").not.toMatch(/\$\s?\d|per hour|\/hr|bill rate/i);
+    await page.screenshot({ path: resolve(shots, "placements-ben-1440.png"), fullPage: true });
+    await context.close();
+  });
+
   test("an Org Admin gets 404 from every consultant API and no page", async ({ page }) => {
     await signInAs(page, "Sarah Chen");
     const statuses = await page.evaluate(async (paths) => {
