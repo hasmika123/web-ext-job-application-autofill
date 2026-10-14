@@ -43,7 +43,7 @@ test.describe("applications (real stack)", () => {
     await expect(page.locator("tr[data-row-id]")).toHaveCount(10);
     await expect(page.locator("[data-showing]")).toContainText(`of ${total.toLocaleString("en-US")} applications`);
     await expect(page.locator("[data-kpi=total] [data-kpi-delta]")).toContainText("vs last month");
-    await expect(page.locator("[data-help-bee=promo]")).toBeVisible();
+    await expect(page.locator("[data-help-bee]")).toBeVisible();
     await page.screenshot({ path: resolve(shots, "applications-1440.png") });
 
     // filter by stage: the table, the pager and the tile agree

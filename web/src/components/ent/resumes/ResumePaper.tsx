@@ -12,7 +12,7 @@ function Bars({ n, last = 62 }: { n: number; last?: number }) {
   return (
     <span aria-hidden className="mt-[3px] block space-y-[3px]">
       {Array.from({ length: n }, (_, i) => (
-        <span key={i} className="block h-[3px] rounded-full bg-[#e4e9f2]" style={{ width: i === n - 1 ? `${last}%` : "100%" }} />
+        <span key={i} className="block h-[3px] rounded-full bg-[var(--ent-x-e4e9f2)]" style={{ width: i === n - 1 ? `${last}%` : "100%" }} />
       ))}
     </span>
   );
@@ -24,10 +24,10 @@ function Thumbnail({ detail }: { detail: ResumeDetail }) {
   const c = row.consultant;
   const lines = Math.min(3, Math.max(2, Math.ceil((preview.summary ?? "").length / 70)));
   return (
-    <article aria-label={`Generated preview of ${row.name}`} data-resume-paper data-thumb className="rounded-[7px] border border-[#e6ecf5] bg-white p-3 text-[#1a2556] shadow-[0_2px_8px_rgba(30,64,120,0.1)]">
+    <article aria-label={`Generated preview of ${row.name}`} data-resume-paper data-thumb className="rounded-[7px] border border-[var(--ent-x-e6ecf5)] bg-white p-3 text-[var(--ent-x-1a2556)] shadow-[0_2px_8px_rgba(30,64,120,0.1)]">
       <h3 className="text-[15px] font-bold leading-tight">{c.name}</h3>
       {preview.headline && <p className="text-[9px] font-semibold leading-snug">{preview.headline}</p>}
-      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[6.5px] text-[#6a7699]">
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[6.5px] text-[var(--ent-x-6a7699)]">
         {c.email && (
           <span className="inline-flex items-center gap-0.5">
             <MailIcon aria-hidden size={7} /> {c.email}
@@ -41,7 +41,7 @@ function Thumbnail({ detail }: { detail: ResumeDetail }) {
       </p>
       {preview.summary && (
         <section className="mt-2.5">
-          <h4 className="text-[6.5px] font-bold uppercase tracking-wide text-[#1a2556]">Professional summary</h4>
+          <h4 className="text-[6.5px] font-bold uppercase tracking-wide text-[var(--ent-x-1a2556)]">Professional summary</h4>
           <p className="sr-only">{preview.summary}</p>
           <Bars n={lines} />
         </section>
@@ -51,7 +51,7 @@ function Thumbnail({ detail }: { detail: ResumeDetail }) {
           <h4 className="text-[6.5px] font-bold uppercase tracking-wide">Key skills</h4>
           <ul className="mt-1 flex flex-wrap gap-[3px]">
             {preview.skills.map((s) => (
-              <li key={s} className="rounded-[3px] border border-[#e1e8f3] bg-[#f6f8fc] px-1 py-px text-[6px] text-[#46527e]">
+              <li key={s} className="rounded-[3px] border border-[var(--ent-x-e1e8f3)] bg-[var(--ent-x-f6f8fc)] px-1 py-px text-[6px] text-[var(--ent-x-46527e)]">
                 {s}
               </li>
             ))}
@@ -67,9 +67,9 @@ function Thumbnail({ detail }: { detail: ResumeDetail }) {
                 <span className="flex items-start justify-between gap-2">
                   <span className="min-w-0">
                     <span className="block truncate text-[7px] font-bold">{e.title}</span>
-                    <span className="block truncate text-[6px] text-[#6a7699]">{e.employer}</span>
+                    <span className="block truncate text-[6px] text-[var(--ent-x-6a7699)]">{e.employer}</span>
                   </span>
-                  <span className="flex-none text-[6px] text-[#6a7699]">{yearsText(e)}</span>
+                  <span className="flex-none text-[6px] text-[var(--ent-x-6a7699)]">{yearsText(e)}</span>
                 </span>
                 <Bars n={2} last={48} />
               </li>
@@ -78,7 +78,7 @@ function Thumbnail({ detail }: { detail: ResumeDetail }) {
         </section>
       )}
       {!preview.summary && preview.skills.length === 0 && preview.experience.length === 0 && (
-        <p className="mt-3 text-[8px] text-[#6a7699]">This record has no summary, skills or experience yet, so there is nothing more to preview.</p>
+        <p className="mt-3 text-[8px] text-[var(--ent-x-6a7699)]">This record has no summary, skills or experience yet, so there is nothing more to preview.</p>
       )}
     </article>
   );

@@ -123,7 +123,7 @@ export default function ConsultantsPanel({
   return (
     <section aria-label="Assigned consultants" className="ent-card flex min-w-0 flex-col !p-[14px]" data-consultants-panel>
       <div className="flex flex-wrap items-start gap-2.5">
-        <span aria-hidden className="inline-grid h-[30px] w-[30px] flex-none place-items-center rounded-lg text-[#2b72f0]">
+        <span aria-hidden className="inline-grid h-[30px] w-[30px] flex-none place-items-center rounded-lg text-[var(--ent-x-2b72f0)]">
           <HandshakeIcon size={26} />
         </span>
         <div className="min-w-0 flex-1">

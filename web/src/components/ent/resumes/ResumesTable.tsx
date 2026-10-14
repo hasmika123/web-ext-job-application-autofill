@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowDownIcon, ArrowUpIcon, IconButton, Menu, MoreHorizontalIcon, Select, useNarrow } from "@kiwiply/ui";
+import { ArrowDownIcon, ArrowUpIcon, IconButton, Menu, MoreHorizontalIcon, useNarrow } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import TalentPagination from "@/components/ent/shell/TalentPagination";
 import { formatDate, PAGE_SIZES, showingText, versionText, type ResumeRow, type SortDir, type SortKey } from "@/lib/ent/resumes";

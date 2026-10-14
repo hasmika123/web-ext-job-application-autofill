@@ -82,17 +82,17 @@ export function ProgressSteps({ steps }: { steps: Step[] }) {
         const current = s.state === "CURRENT";
         return (
           <li key={s.stage} data-step={s.stage} data-step-state={s.state} aria-current={current ? "step" : undefined} className="relative flex min-w-0 flex-1 flex-col items-center text-center">
-            {i > 0 && <span aria-hidden className={`absolute left-[-50%] right-[50%] top-[10px] h-[2px] ${steps[i - 1].state === "DONE" ? "bg-[#22b36b]" : "bg-[#dfe6f1]"}`} />}
+            {i > 0 && <span aria-hidden className={`absolute left-[-50%] right-[50%] top-[10px] h-[2px] ${steps[i - 1].state === "DONE" ? "bg-[var(--ent-x-22b36b)]" : "bg-[var(--ent-x-dfe6f1)]"}`} />}
             <span
               className={`relative z-10 grid h-[22px] w-[22px] place-items-center rounded-full border text-[10.5px] font-bold ${
-                done ? "border-[#22b36b] bg-[#22b36b] text-white" : current ? "border-[#2b6df0] bg-[#2b6df0] text-white ring-[3px] ring-[#dbe8ff]" : "border-[#cfd8e8] bg-white text-[var(--ent-soft)]"
+                done ? "border-[var(--ent-x-22b36b)] bg-[var(--ent-x-22b36b)] text-white" : current ? "border-[var(--ent-x-2b6df0)] bg-[var(--ent-x-2b6df0)] text-white ring-[3px] ring-[var(--ent-x-dbe8ff)]" : "border-[var(--ent-x-cfd8e8)] bg-white text-[var(--ent-soft)]"
               }`}
             >
               {done ? "\u2713" : i + 1}
             </span>
-            <span className={`mt-1 text-[9px] font-medium leading-[1.15] ${current ? "text-[var(--ent-title)]" : "text-[#46527e]"}`}>{s.label}</span>
+            <span className={`mt-1 text-[9px] font-medium leading-[1.15] ${current ? "text-[var(--ent-title)]" : "text-[var(--ent-x-46527e)]"}`}>{s.label}</span>
             <span className="text-[8.5px] leading-tight text-[var(--ent-soft)]">{s.reachedAt ? formatShort(s.reachedAt) : " "}</span>
-            {current && <span className="mt-0.5 rounded-[4px] bg-[#e1edff] px-1.5 py-px text-[8.5px] font-semibold text-[#1d57c2]">Current</span>}
+            {current && <span className="mt-0.5 rounded-[4px] bg-[var(--ent-x-e1edff)] px-1.5 py-px text-[8.5px] font-semibold text-[var(--ent-x-1d57c2)]">Current</span>}
           </li>
         );
       })}
@@ -103,7 +103,7 @@ export function ProgressSteps({ steps }: { steps: Step[] }) {
 function Row({ label, children, testId }: { label: string; children: ReactNode; testId?: string }) {
   return (
     <div className="grid grid-cols-[104px_1fr] items-center gap-x-3 py-[5px] text-[11px]" data-field={testId}>
-      <dt className="text-[#46527e]">{label}</dt>
+      <dt className="text-[var(--ent-x-46527e)]">{label}</dt>
       <dd className="min-w-0 text-[var(--ent-title)]">{children}</dd>
     </div>
   );
@@ -344,7 +344,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
       <div data-detail-body data-application-id={d.id} className="space-y-3">
         <div className="ent-card p-3.5">
         <div className="flex items-start gap-2.5 pr-7" data-drawer-head>
-          <span aria-hidden className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-[#ece6ff] text-[#7a4cf0]">
+          <span aria-hidden className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-[var(--ent-x-ece6ff)] text-[var(--ent-x-7a4cf0)]">
             <ShieldCheckIcon size={20} />
           </span>
           <div className="min-w-0 flex-1">
@@ -363,7 +363,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
             <span className="block text-[10px] font-normal text-[var(--ent-soft)]">{p.orgName}</span>
           </p>
           {p.jobsHref && (
-            <Link href={p.jobsHref} className="inline-flex flex-none items-center gap-1 text-[10.5px] font-semibold text-[#2b5fd6] hover:underline">
+            <Link href={p.jobsHref} className="inline-flex flex-none items-center gap-1 text-[10.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline">
               View Job <ArrowRightIcon size={12} aria-hidden />
             </Link>
           )}
@@ -405,7 +405,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
               <div className="mb-1 flex items-center justify-between">
                 <h4 id="details-h" className="text-[12px] font-bold text-[var(--ent-title)]">Application Details</h4>
                 {d.actions.edit && (
-                  <button type="button" onClick={() => setEditFor(editing ? null : d.id)} aria-pressed={editing} className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[#2b5fd6] hover:underline" data-edit-toggle>
+                  <button type="button" onClick={() => setEditFor(editing ? null : d.id)} aria-pressed={editing} className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline" data-edit-toggle>
                     <PencilIcon size={12} aria-hidden /> {editing ? "Done" : "Edit"}
                   </button>
                 )}
@@ -418,7 +418,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                       <span className="truncate font-semibold">{d.consultant.name}</span>
                     </span>
                     {p.consultantsHref && (
-                      <Link href={p.consultantsHref} className="inline-flex flex-none items-center gap-1 text-[10.5px] font-semibold text-[#2b5fd6] hover:underline">
+                      <Link href={p.consultantsHref} className="inline-flex flex-none items-center gap-1 text-[10.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline">
                         View Profile <ArrowRightIcon size={12} aria-hidden />
                       </Link>
                     )}

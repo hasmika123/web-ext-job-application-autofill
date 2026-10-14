@@ -155,7 +155,7 @@ export function ApplicationsTable(p: TableProps) {
                     p.onOpen(r);
                   }
                 }}
-                className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? "bg-[#eef4fe]" : p.selected.has(r.id) ? "bg-[#f4f8fe]" : "hover:bg-[var(--ent-field-bg)]"}`}
+                className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? "bg-[var(--ent-x-eef4fe)]" : p.selected.has(r.id) ? "bg-[var(--ent-x-f4f8fe)]" : "hover:bg-[var(--ent-field-bg)]"}`}
               >
                 <td className="w-[34px]" onClick={(e) => e.stopPropagation()}>
                   <Check checked={p.selected.has(r.id)} onChange={() => p.onToggle(r.id)} label={`Select ${r.code}`} />

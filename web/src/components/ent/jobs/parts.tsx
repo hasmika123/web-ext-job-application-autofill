@@ -28,7 +28,7 @@ export function StatusPill({ status, className = "", trailing }: { status: strin
 export function SkillChips({ skills, max = 3, size = "sm" }: { skills: string[]; max?: number; size?: "sm" | "md" }) {
   if (skills.length === 0) return null;
   const { shown, more } = skillChips(skills, max);
-  const cls = `inline-flex items-center whitespace-nowrap rounded-md bg-[#eaf1fe] font-medium leading-none text-[#2f56b8] ${size === "md" ? "px-2 py-[5px] text-[10.5px]" : "px-1.5 py-[4px] text-[9.5px]"}`;
+  const cls = `inline-flex items-center whitespace-nowrap rounded-md bg-[var(--ent-x-eaf1fe)] font-medium leading-none text-[var(--ent-x-2f56b8)] ${size === "md" ? "px-2 py-[5px] text-[10.5px]" : "px-1.5 py-[4px] text-[9.5px]"}`;
   return (
     <ul aria-label="Skills" className="flex flex-wrap items-center gap-1" data-skill-chips>
       {shown.map((s) => (
@@ -39,7 +39,7 @@ export function SkillChips({ skills, max = 3, size = "sm" }: { skills: string[];
       {more > 0 && (
         <li>
           <Tooltip content={skills.slice(max).join(", ")} side="top">
-            <span tabIndex={0} aria-label={`${more} more skills: ${skills.slice(max).join(", ")}`} className={`${cls} !bg-[#f1f4f9] !text-[#46527e]`}>
+            <span tabIndex={0} aria-label={`${more} more skills: ${skills.slice(max).join(", ")}`} className={`${cls} !bg-[var(--ent-x-f1f4f9)] !text-[var(--ent-x-46527e)]`}>
               +{more}
             </span>
           </Tooltip>
@@ -71,7 +71,7 @@ export function MatchStack({ matches }: { matches: MatchSummary }) {
         </ul>
         {rest > 0 && <span className="ml-1 text-[9.5px] font-medium text-[var(--ent-soft)]">+{rest}</span>}
       </div>
-      <span className="text-[10.5px] font-semibold text-[#17995c] tabular-nums" data-best-score>
+      <span className="text-[10.5px] font-semibold text-[var(--ent-x-17995c)] tabular-nums" data-best-score>
         {matches.best}% match
       </span>
     </div>

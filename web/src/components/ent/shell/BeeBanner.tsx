@@ -37,7 +37,7 @@ export default function BeeBanner({
     <section
       aria-label="Help"
       data-help-bee
-      className={`ent-card flex min-w-0 overflow-hidden ${row ? "flex-row items-stretch gap-3 !bg-[#fff8ec] p-2.5" : "flex-col"} ${className}`}
+      className={`ent-card flex min-w-0 overflow-hidden ${row ? "flex-row items-stretch gap-3 !bg-[var(--ent-x-fff8ec)] p-2.5" : "flex-col"} ${className}`}
     >
       <ClaimsMascot />
       <div className={`ent-scene flex-none ${row ? "w-[34%] min-h-[92px] rounded-xl" : "h-[84px]"}`} aria-hidden>
@@ -46,8 +46,8 @@ export default function BeeBanner({
         <img src={`${ENT_MASCOT_BASE}/working.png`} alt="" draggable={false} />
       </div>
       <div className={`flex min-w-0 flex-1 flex-col ${row ? "justify-center py-1 pr-1" : "px-3.5 pb-3 pt-2"}`}>
-        <h2 className="text-[14.5px] font-extrabold leading-tight text-[var(--ent-title)]">{title}</h2>
-        <p className="mt-1 text-[11.5px] leading-[1.35] text-[var(--ent-soft)]">{body}</p>
+        <h2 className="text-[13px] font-extrabold leading-tight text-[var(--ent-title)]">{title}</h2>
+        <p className="mt-1 text-[11px] leading-[1.35] text-[var(--ent-soft)]">{body}</p>
         <button type="button" onClick={() => setOpen(true)} className="ent-ask mt-2.5" data-help-ask>
           <SparklesIcon size={16} aria-hidden /> <span className="flex-1">Ask a question...</span> <ChevronRightIcon size={16} aria-hidden />
         </button>

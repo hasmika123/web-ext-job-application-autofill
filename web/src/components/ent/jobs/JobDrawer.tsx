@@ -75,7 +75,7 @@ const OPEN_STATES = new Set(["OPEN", "IN_REVIEW"]);
 function Fact({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 items-start gap-2.5">
-      <span aria-hidden className="mt-0.5 flex-none text-[#4b5a8a]">
+      <span aria-hidden className="mt-0.5 flex-none text-[var(--ent-x-4b5a8a)]">
         {icon}
       </span>
       <div className="min-w-0">
@@ -107,7 +107,7 @@ function MatchRow({ m, job, canAssign, busy, onAssign, onDismiss, onRestore }: {
         <p className="truncate text-[11.5px] font-bold leading-tight text-[var(--ent-title)]">{m.name}</p>
         <p className="truncate text-[10px] text-[var(--ent-soft)]" title={[m.reason, m.availability ? AVAILABILITY_LABEL[m.availability] ?? m.availability : null].filter(Boolean).join(" \u00b7 ")}>{m.title ?? ""}</p>
       </div>
-      <span className="flex-none text-[11px] font-semibold text-[#17995c] tabular-nums" data-match-score>
+      <span className="flex-none text-[11px] font-semibold text-[var(--ent-x-17995c)] tabular-nums" data-match-score>
         {m.score}% match
       </span>
       {m.status === "ASSIGNED" ? (
@@ -375,9 +375,9 @@ export default function JobDrawer(p: JobDrawerProps) {
                 <div className="flex-none">{statusControl}</div>
               </div>
             )}
-            <ul className="space-y-1.5 text-[11px] text-[#46527e]" data-job-facts>
+            <ul className="space-y-1.5 text-[11px] text-[var(--ent-x-46527e)]" data-job-facts>
               <li className="flex items-center gap-1.5">
-                <BuildingIcon aria-hidden size={14} className="flex-none text-[#4b5a8a]" /> <span className="font-semibold text-[var(--ent-title)]">{d.client.name}</span>
+                <BuildingIcon aria-hidden size={14} className="flex-none text-[var(--ent-x-4b5a8a)]" /> <span className="font-semibold text-[var(--ent-title)]">{d.client.name}</span>
                 {d.access.canEdit && (
                   <button type="button" aria-pressed={editing} onClick={() => setEditing((e) => !e)} data-edit-toggle className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10.5px] font-semibold text-accent-deep hover:bg-accent-soft">
                     <PencilIcon size={12} aria-hidden /> {editing ? "Done editing" : "Edit job"}
@@ -387,22 +387,22 @@ export default function JobDrawer(p: JobDrawerProps) {
               <li className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 {d.location && (
                   <span className="inline-flex items-center gap-1.5">
-                    <MapPinIcon aria-hidden size={13} className="text-[#4b5a8a]" /> {d.location}
+                    <MapPinIcon aria-hidden size={13} className="text-[var(--ent-x-4b5a8a)]" /> {d.location}
                   </span>
                 )}
                 {d.workMode && (
                   <span className="inline-flex items-center gap-1.5">
-                    <GlobeIcon aria-hidden size={13} className="text-[#4b5a8a]" /> {workModeLabel(d.workMode)}
+                    <GlobeIcon aria-hidden size={13} className="text-[var(--ent-x-4b5a8a)]" /> {workModeLabel(d.workMode)}
                   </span>
                 )}
                 <span className="inline-flex items-center gap-1.5">
-                  <CalendarIcon aria-hidden size={13} className="text-[#4b5a8a]" /> Posted {postedText(d.postedAt)}
+                  <CalendarIcon aria-hidden size={13} className="text-[var(--ent-x-4b5a8a)]" /> Posted {postedText(d.postedAt)}
                 </span>
               </li>
             </ul>
             <SkillChips skills={d.skills} max={4} size="md" />
             {d.description && !editing && (
-              <p className="whitespace-pre-line text-[11px] leading-[1.5] text-[#46527e]" data-description>
+              <p className="whitespace-pre-line text-[11px] leading-[1.5] text-[var(--ent-x-46527e)]" data-description>
                 {d.description}
               </p>
             )}
@@ -433,7 +433,7 @@ export default function JobDrawer(p: JobDrawerProps) {
           <div className="mb-1 flex items-center justify-between">
             <h3 className="text-[12.5px] font-bold text-[var(--ent-title)]">Top Consultant Matches</h3>
             {d.topMatches.length > 3 && (
-              <button type="button" onClick={() => p.onTab("matches")} className="text-[10.5px] font-semibold text-[#2b5fd6] hover:underline">
+              <button type="button" onClick={() => p.onTab("matches")} className="text-[10.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline">
                 View All Matches ›
               </button>
             )}

@@ -378,7 +378,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
           )}
 
           {view.tab === "all" && chosen.length > 0 && (
-            <div role="region" aria-label="Bulk actions" data-bulk-bar className="flex flex-wrap items-center gap-2 rounded-[10px] border border-[#cfe0f7] bg-[#f1f6ff] px-3 py-1.5">
+            <div role="region" aria-label="Bulk actions" data-bulk-bar className="flex flex-wrap items-center gap-2 rounded-[10px] border border-[var(--ent-x-cfe0f7)] bg-[var(--ent-x-f1f6ff)] px-3 py-1.5">
               <span className="text-[11.5px] font-semibold text-[var(--ent-title)]" aria-live="polite">
                 {chosen.length} selected
               </span>

@@ -14,8 +14,6 @@ import {
   ErrorState,
   EyeIcon,
   FileTextIcon,
-  MailIcon,
-  MapPinIcon,
   MemberAvatar,
   PrinterIcon,
   Select,
@@ -68,7 +66,7 @@ type State = { status: "idle" } | { status: "loading" } | { status: "gone" } | {
 function Field({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-2 text-[11px]">
-      <span aria-hidden className="mt-0.5 flex-none text-[#4b5a8a]">
+      <span aria-hidden className="mt-0.5 flex-none text-[var(--ent-x-4b5a8a)]">
         {icon}
       </span>
       <div className="min-w-0">
@@ -316,9 +314,9 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
           </div>
         </div>
 
-        <div className="relative max-h-[345px] overflow-hidden rounded-[9px] border border-[#e6ecf5] bg-[#f3f6fb] p-2" data-preview-frame>
+        <div className="relative max-h-[345px] overflow-hidden rounded-[9px] border border-[var(--ent-x-e6ecf5)] bg-[var(--ent-x-f3f6fb)] p-2" data-preview-frame>
           <ResumePaper detail={d} />
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[#f3f6fb] to-transparent" />
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[var(--ent-x-f3f6fb)] to-transparent" />
         </div>
         <p className="sr-only">Preview drawn from this record&apos;s summary, skills and experience. No file is stored.</p>
 
@@ -353,7 +351,7 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
         <div className="space-y-2.5 border-t border-[var(--ent-table-line)] pt-3">
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-[11.5px] font-medium text-[var(--ent-title)]">
-              <StarIcon aria-hidden size={14} className="text-[#4b5a8a]" /> Primary Resume
+              <StarIcon aria-hidden size={14} className="text-[var(--ent-x-4b5a8a)]" /> Primary Resume
             </span>
             <span className="flex items-center gap-2 text-[11px] text-[var(--ent-title)]">
               <Switch
@@ -369,7 +367,7 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
 
           <div className="flex items-center justify-between gap-2">
             <span className="flex flex-none items-center gap-2 text-[11.5px] font-medium text-[var(--ent-title)]">
-              <EyeIcon aria-hidden size={14} className="text-[#4b5a8a]" /> Visibility
+              <EyeIcon aria-hidden size={14} className="text-[var(--ent-x-4b5a8a)]" /> Visibility
             </span>
             <div className="ent-vis w-[148px] min-w-0">
               <Select
@@ -384,7 +382,7 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
 
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-[11.5px] font-medium text-[var(--ent-title)]">
-              <ShieldIcon aria-hidden size={14} className="text-[#4b5a8a]" /> Approval Status
+              <ShieldIcon aria-hidden size={14} className="text-[var(--ent-x-4b5a8a)]" /> Approval Status
             </span>
             <span className="flex flex-wrap items-center justify-end gap-1.5">
               <ApprovalPill status={r.approvalStatus} />

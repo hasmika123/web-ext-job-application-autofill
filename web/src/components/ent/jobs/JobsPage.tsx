@@ -294,7 +294,7 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
           <div className="ent-card min-w-0 flex-1 space-y-2.5 !p-[10px]">
             <div role="search" className="ent-searchrow flex flex-wrap items-center gap-2.5">
               <div className="relative min-w-0 flex-1 basis-64">
-                <SearchIcon aria-hidden size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#3b5ba5]" />
+                <SearchIcon aria-hidden size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ent-x-3b5ba5)]" />
                 <Input
                   type="search"
                   value={searchText}

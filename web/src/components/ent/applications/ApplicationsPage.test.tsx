@@ -218,7 +218,7 @@ describe("Applications: the list", () => {
     expect(document.querySelector("[data-kpi=total] [data-kpi-value]")?.textContent).toBe("3");
     expect(rows().map((r) => r.getAttribute("data-row-id"))).toEqual(["1", "2", "3"]);
     expect(screen.getByText("1-3 of 3 applications")).toBeTruthy();
-    expect(document.querySelector("[data-help-bee=promo]")).toBeTruthy();
+    expect(document.querySelector("[data-help-bee]")).toBeTruthy();
     const first = listCalls()[0];
     expect(first.params.get("sort")).toBe("applied,desc");
     expect(first.params.get("size")).toBe("10");

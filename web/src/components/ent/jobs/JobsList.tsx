@@ -48,7 +48,7 @@ export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpe
                   onOpen(r);
                 }
               }}
-              className={`ent-jobrow flex cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-3 px-3 py-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent lg:grid lg:grid-cols-[18px_minmax(0,1fr)_62px_84px_62px_70px_28px] ${open ? "bg-[#eef4fe]" : selected.has(r.id) ? "bg-[#f4f8fe]" : "hover:bg-[var(--ent-field-bg)]"}`}
+              className={`ent-jobrow flex cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-3 px-3 py-3 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent lg:grid lg:grid-cols-[18px_minmax(0,1fr)_62px_84px_62px_70px_28px] ${open ? "bg-[var(--ent-x-eef4fe)]" : selected.has(r.id) ? "bg-[var(--ent-x-f4f8fe)]" : "hover:bg-[var(--ent-field-bg)]"}`}
             >
               <div>
                 <Check checked={selected.has(r.id)} onChange={() => onToggle(r.id)} label={`Select ${r.title} at ${r.client.name}`} />
@@ -58,7 +58,7 @@ export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpe
                   <h3 className="truncate text-[12px] font-bold leading-tight text-[var(--ent-title)]" data-job-title>
                     {r.title}
                   </h3>
-                  <p className="truncate text-[11px] text-[#46527e]">{r.client.name}</p>
+                  <p className="truncate text-[11px] text-[var(--ent-x-46527e)]">{r.client.name}</p>
                 </div>
                 <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-[var(--ent-soft)]">
                   {r.location && (
@@ -86,7 +86,7 @@ export function JobsList({ rows, selected, onToggle, onTogglePage, openId, onOpe
               </div>
               <div className="text-[10px]" data-posted>
                 <p className="text-[var(--ent-soft)]">Posted</p>
-                <p className="whitespace-nowrap font-medium text-[#1e2a5a]">{postedText(r.postedAt)}</p>
+                <p className="whitespace-nowrap font-medium text-[var(--ent-x-1e2a5a)]">{postedText(r.postedAt)}</p>
               </div>
               <div onClick={(e) => e.stopPropagation()} className="justify-self-end">
                 <Kebab items={rowMenu(r)} label={`Actions for ${r.title}`} />

@@ -56,7 +56,7 @@ export default function MarketersPanel({
   return (
     <section aria-label="Marketing specialists" className="ent-card flex min-w-0 flex-col !p-[14px]" data-marketers-panel>
       <div className="flex items-start gap-2.5">
-        <span aria-hidden className="inline-grid h-[30px] w-[30px] flex-none place-items-center rounded-lg text-[#2b72f0]">
+        <span aria-hidden className="inline-grid h-[30px] w-[30px] flex-none place-items-center rounded-lg text-[var(--ent-x-2b72f0)]">
           <UsersIcon size={26} />
         </span>
         <div className="min-w-0 flex-1">
@@ -121,7 +121,7 @@ export default function MarketersPanel({
                   key={m.memberId}
                   data-marketer={m.memberId}
                   data-selected={selected || undefined}
-                  className={`flex items-center gap-1 rounded-[10px] border px-1.5 py-1 ${selected ? "border-[#3b79ee] bg-[#f3f7ff] shadow-[inset_0_0_0_1px_rgba(59,121,238,0.25)]" : "border-transparent hover:bg-[var(--ent-field-bg)]"}`}
+                  className={`flex items-center gap-1 rounded-[10px] border px-1.5 py-1 ${selected ? "border-[var(--ent-x-3b79ee)] bg-[var(--ent-x-f3f7ff)] shadow-[inset_0_0_0_1px_rgba(59,121,238,0.25)]" : "border-transparent hover:bg-[var(--ent-field-bg)]"}`}
                 >
                   <button
                     type="button"
@@ -171,9 +171,9 @@ export default function MarketersPanel({
       </div>
 
       {data && (
-        <div className="mt-4 rounded-xl bg-[#eef4fd] p-2.5" data-marketers-summary>
+        <div className="mt-4 rounded-xl bg-[var(--ent-x-eef4fd)] p-2.5" data-marketers-summary>
           <div className="flex items-start gap-2.5">
-            <span aria-hidden className="inline-grid h-[34px] w-[34px] flex-none place-items-center rounded-lg bg-[#dbe9fd] text-[#2b72f0]">
+            <span aria-hidden className="inline-grid h-[34px] w-[34px] flex-none place-items-center rounded-lg bg-[var(--ent-x-dbe9fd)] text-[var(--ent-x-2b72f0)]">
               <UsersIcon size={20} />
             </span>
             <div className="min-w-0">
@@ -204,7 +204,7 @@ export default function MarketersPanel({
                 <dt className="mt-1 text-[10.5px] text-[var(--ent-soft)]">Overloaded</dt>
               </div>
             </dl>
-            <button type="button" onClick={onReport} className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-[11.5px] font-semibold text-[#2b5fd6] hover:underline sm:min-h-0">
+            <button type="button" onClick={onReport} className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-[11.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline sm:min-h-0">
               View Workload Report <ArrowRightIcon size={13} aria-hidden />
             </button>
           </div>

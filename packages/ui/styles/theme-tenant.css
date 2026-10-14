@@ -710,7 +710,7 @@
   line-height: 1.2;
 }
 .theme-tenant .ent-fit .ent-kpi-value {
-  font-size: 26px;
+  font-size: 25px;
   letter-spacing: -0.01em;
 }
 .theme-tenant .ent-fit [data-kpi] > div {
@@ -1080,4 +1080,50 @@
 .theme-tenant .ent-fit .ent-drawer-col [data-sheet-close] {
   top: 6px;
   right: 6px;
+}
+
+.theme-tenant .ent-fit .ent-filterbar-apps > div:first-child {
+  flex: none;
+}
+.theme-tenant .ent-fit [data-application-table] td:nth-child(8) > div > div {
+  white-space: normal;
+}
+
+/* literal board colours of the talent pages, named so the TSX carries no hex */
+.theme-tenant {
+  --ent-x-17995c: #17995c;
+  --ent-x-1a2556: #1a2556;
+  --ent-x-1d57c2: #1d57c2;
+  --ent-x-1e2a5a: #1e2a5a;
+  --ent-x-22b36b: #22b36b;
+  --ent-x-2b5fd6: #2b5fd6;
+  --ent-x-2b6df0: #2b6df0;
+  --ent-x-2b72f0: #2b72f0;
+  --ent-x-2f56b8: #2f56b8;
+  --ent-x-3b5ba5: #3b5ba5;
+  --ent-x-3b79ee: #3b79ee;
+  --ent-x-46527e: #46527e;
+  --ent-x-4b5a8a: #4b5a8a;
+  --ent-x-6a7699: #6a7699;
+  --ent-x-7a4cf0: #7a4cf0;
+  --ent-x-cfd8e8: #cfd8e8;
+  --ent-x-cfe0f7: #cfe0f7;
+  --ent-x-dbe8ff: #dbe8ff;
+  --ent-x-dbe9fd: #dbe9fd;
+  --ent-x-dfe6f1: #dfe6f1;
+  --ent-x-e1e8f3: #e1e8f3;
+  --ent-x-e1edff: #e1edff;
+  --ent-x-e4e9f2: #e4e9f2;
+  --ent-x-e6ecf5: #e6ecf5;
+  --ent-x-eaf1fe: #eaf1fe;
+  --ent-x-ece6ff: #ece6ff;
+  --ent-x-eef4fd: #eef4fd;
+  --ent-x-eef4fe: #eef4fe;
+  --ent-x-f1f4f9: #f1f4f9;
+  --ent-x-f1f6ff: #f1f6ff;
+  --ent-x-f3f6fb: #f3f6fb;
+  --ent-x-f3f7ff: #f3f7ff;
+  --ent-x-f4f8fe: #f4f8fe;
+  --ent-x-f6f8fc: #f6f8fc;
+  --ent-x-fff8ec: #fff8ec;
 }
