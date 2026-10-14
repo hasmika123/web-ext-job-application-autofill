@@ -17,3 +17,4 @@ Thumbs.db
 web/.auth-stories/
 web/test-results-stories/
 web/playwright-report-stories/
+web/e2e/.auth-stories/
