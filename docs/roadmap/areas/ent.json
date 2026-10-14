@@ -3,7 +3,7 @@
   "name": "Enterprise V2 — multi-tenant portals, roles, consultant licensing, talent marketing",
   "prefix": "X",
   "summary": "Multi-tenant enterprise portals on the one shared deployment: each organization gets its own domain and branded login, configurable multi-role workspaces, consultant licenses priced as a base plus feature add-ons, and the talent-marketing pipeline (consultants submit; marketers prepare; HR and Finance record only). DESIGN COMPLETE: 46 design docs, 154 stories, every part of the requirements covered. BUILD: Phase 1 foundation under way (X1.1-X1.5 done: flags, tenancy schema, tenant resolution, branded-host web routing, tenant-bound sessions).",
-  "updated": "2026-10-13",
+  "updated": "2026-10-14",
   "epics": [
     {
       "id": "X0",
@@ -822,7 +822,7 @@
       "id": "X1.11",
       "epic": "X1",
       "title": "Platform admin: Organizations & hostnames — list, tenant detail, provision subdomain, enterprise allow-list toggle, reason-sheet audited",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API",
