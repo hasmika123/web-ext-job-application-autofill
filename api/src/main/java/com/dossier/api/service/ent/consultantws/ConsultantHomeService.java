@@ -1,5 +1,7 @@
 package com.dossier.api.service.ent.consultantws;
 
+import com.dossier.api.domain.ent.consultantws.CwsInterviewDetail;
+import com.dossier.api.domain.ent.consultantws.CwsSubmission;
 import com.dossier.api.domain.ent.consultantws.CwsTask;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
@@ -9,6 +11,8 @@ import com.dossier.api.domain.ent.talent.RequirementMatch;
 import com.dossier.api.domain.ent.talent.TalentApplication;
 import com.dossier.api.domain.ent.talent.TalentInterview;
 import com.dossier.api.domain.ent.talent.TalentPlacement;
+import com.dossier.api.repository.ent.consultantws.CwsInterviewDetailRepository;
+import com.dossier.api.repository.ent.consultantws.CwsSubmissionRepository;
 import com.dossier.api.repository.ent.consultantws.CwsTaskRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
@@ -85,6 +89,8 @@ public class ConsultantHomeService {
     private final OrgResumeExperienceRepository experience;
     private final ConsultantSkillRepository skills;
     private final CwsTaskRepository tasks;
+    private final CwsSubmissionRepository submissions;
+    private final CwsInterviewDetailRepository interviewDetails;
     private final Clock clock;
 
     @Autowired
@@ -101,9 +107,11 @@ public class ConsultantHomeService {
         OrgResumeRepository resumes,
         OrgResumeExperienceRepository experience,
         ConsultantSkillRepository skills,
-        CwsTaskRepository tasks
+        CwsTaskRepository tasks,
+        CwsSubmissionRepository submissions,
+        CwsInterviewDetailRepository interviewDetails
     ) {
-        this(roles, authorization, consultants, matches, requirements, clients, applications, interviews, placements, resumes, experience, skills, tasks, Clock.systemUTC());
+        this(roles, authorization, consultants, matches, requirements, clients, applications, interviews, placements, resumes, experience, skills, tasks, submissions, interviewDetails, Clock.systemUTC());
     }
 
     ConsultantHomeService(
@@ -120,6 +128,8 @@ public class ConsultantHomeService {
         OrgResumeExperienceRepository experience,
         ConsultantSkillRepository skills,
         CwsTaskRepository tasks,
+        CwsSubmissionRepository submissions,
+        CwsInterviewDetailRepository interviewDetails,
         Clock clock
     ) {
         this.roles = roles;
@@ -135,6 +145,8 @@ public class ConsultantHomeService {
         this.experience = experience;
         this.skills = skills;
         this.tasks = tasks;
+        this.submissions = submissions;
+        this.interviewDetails = interviewDetails;
         this.clock = clock;
     }
 
@@ -174,8 +186,9 @@ public class ConsultantHomeService {
         Tile assignedTile = tile(assigned.size(), assigned.stream().map(m -> m.getAssignedAt() != null ? m.getAssignedAt() : m.getCreatedAt()).toList(), now, false);
         Tile activeAppsTile = tile(activeApps.size(), activeApps.stream().map(TalentApplication::getCreatedAt).toList(), now, false);
         Tile interviewTile = tile(myInterviews.size(), myInterviews.stream().map(TalentInterview::getScheduledAt).toList(), now, false);
-        // SAMPLE: the approvals workflow belongs to the Submissions & Approvals page and the marketer role
-        Tile submissionsPending = new Tile(0, null, null, List.of(), true);
+        // the consultant's own submissions awaiting their approval (Submissions & Approvals page; the rows themselves are created by the marketer role)
+        List<CwsSubmission> pending = submissions.findByOrgIdAndConsultantIdAndStatusOrderByDueAtAscIdAsc(org, c.getId(), CwsSubmission.PENDING);
+        Tile submissionsPending = tile(pending.size(), pending.stream().map(CwsSubmission::getCreatedAt).toList(), now, false);
         long activePlacements = myPlacements.stream().filter(p -> "ACTIVE".equals(p.getStatus())).count();
         Tiles tiles = new Tiles(jobMatches, assignedTile, activeAppsTile, interviewTile, submissionsPending, new Placement(activePlacements, activePlacements > 0 ? "On track" : null));
 
@@ -203,8 +216,9 @@ public class ConsultantHomeService {
             TalentApplication a = i.getApplicationId() == null ? null : appById.get(i.getApplicationId());
             ClientRequirement r = a == null ? null : reqs.get(a.getRequirementId());
             ClientAccount cl = clientById.get(i.getClientId());
-            // SAMPLE: the interview mode is not stored on talent_interview yet; shown as Video until the Interviews page owns it
-            return new InterviewRow(i.getId(), i.getScheduledAt(), i.getDurationMinutes(), r != null ? r.getTitle() : "Interview", cl != null ? cl.getName() : null, i.getRoundLabel(), "VIDEO", true);
+            // the mode the consultant stored on the Interviews page; NOT_SET until they pick one (talent_interview itself has no mode)
+            String mode = interviewDetails.findByOrgIdAndInterviewId(org, i.getId()).map(CwsInterviewDetail::getMode).filter(m -> m != null && !m.isBlank()).orElse("NOT_SET");
+            return new InterviewRow(i.getId(), i.getScheduledAt(), i.getDurationMinutes(), r != null ? r.getTitle() : "Interview", cl != null ? cl.getName() : null, i.getRoundLabel(), mode, false);
         }).toList();
 
         List<CwsTask> openTasks = tasks.findByOrgIdAndConsultantIdAndStatusNotOrderByDueOnAsc(org, c.getId(), "DONE");

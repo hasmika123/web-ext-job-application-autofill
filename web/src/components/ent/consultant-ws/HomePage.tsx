@@ -310,9 +310,9 @@ function UpcomingInterviews({ view }: { view: HomeView }) {
                     </td>
                     <td className={TD}>
                       <span className="inline-flex flex-wrap items-center gap-1.5">
-                        <Pill tone="blue">
-                          <VideoIcon size={13} className="mr-1" />
-                          Video
+                        <Pill tone={i.mode === "NOT_SET" ? "slate" : "blue"}>
+                          {i.mode === "NOT_SET" ? null : <VideoIcon size={13} className="mr-1" />}
+                          {{ VIDEO: "Video", ONSITE: "Onsite", PHONE: "Phone" }[i.mode] ?? "Not set"}
                         </Pill>
                         {i.modeSample ? <SampleMark /> : null}
                       </span>

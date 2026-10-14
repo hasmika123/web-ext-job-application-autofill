@@ -335,7 +335,7 @@ class ConsultantHomeResourceIT {
         assertThat(t.path("activePlacement").path("label").asText()).isEqualTo("On track");
 
         JsonNode sub = t.path("submissionsPending");
-        assertThat(sub.path("sample").asBoolean()).as("approvals belong to another role's module").isTrue();
+        assertThat(sub.path("sample").asBoolean()).as("the tile now counts the consultant's own pending submissions").isFalse();
         assertThat(sub.path("value").asLong()).isZero();
         assertThat(sub.path("deltaPct").isNull()).isTrue();
         assertThat(sub.path("sparkline")).isEmpty();
@@ -368,7 +368,8 @@ class ConsultantHomeResourceIT {
         assertThat(iv.get(0).path("company").asText()).isEqualTo("Acme Corp");
         assertThat(iv.get(0).path("durationMinutes").asInt()).isEqualTo(45);
         assertThat(iv.get(0).path("mode").asText()).isEqualTo("VIDEO");
-        assertThat(iv.get(0).path("modeSample").asBoolean()).as("the interview mode is not stored yet").isTrue();
+        assertThat(iv.get(0).path("modeSample").asBoolean()).as("the mode comes from the consultant's own interview detail").isFalse();
+        assertThat(iv.get(0).path("mode").asText()).isEqualTo("NOT_SET");
 
         JsonNode taskRows = h.path("tasks");
         assertThat(texts(taskRows, "title")).containsExactly("Update rate card");
