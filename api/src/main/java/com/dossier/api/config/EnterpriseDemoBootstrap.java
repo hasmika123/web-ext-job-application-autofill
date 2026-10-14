@@ -14,6 +14,8 @@ import com.dossier.api.service.ent.consultantws.ConsultantWsProfileDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsResumesDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsSubmissionsDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsPlacementDemoSeeder;
+import com.dossier.api.service.ent.consultantws.ConsultantWsSettingsDemoSeeder;
+import com.dossier.api.service.ent.consultantws.ConsultantWsNotificationsDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsOffersDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsAvailabilityDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsTasksDemoSeeder;
@@ -44,13 +46,13 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final java.util.List<Runnable> consultantPages;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
         this.consultantWs = consultantWs;
         // the consultant workspace pages' own demo rows, in dependency order (all after ConsultantWsDemoSeeder: matches build on its matches)
-        this.consultantPages = java.util.List.of(profileSeed::seed, resumesSeed::seed, marketerSeed::seed, matchesSeed::seed, discoverySeed::seed, interviewsSeed::seed, prepSeed::seed, submissionsSeed::seed, opportunitiesSeed::seed, tasksSeed::seed, availabilitySeed::seed, offersSeed::seed, placementSeed::seed);
+        this.consultantPages = java.util.List.of(profileSeed::seed, resumesSeed::seed, marketerSeed::seed, matchesSeed::seed, discoverySeed::seed, interviewsSeed::seed, prepSeed::seed, submissionsSeed::seed, opportunitiesSeed::seed, tasksSeed::seed, availabilitySeed::seed, offersSeed::seed, placementSeed::seed, settingsSeed::seed, notificationsSeed::seed);
         this.createAccounts = createAccounts;
     }
 
