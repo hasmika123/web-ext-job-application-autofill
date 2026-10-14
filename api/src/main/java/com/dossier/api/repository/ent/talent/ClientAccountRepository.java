@@ -17,6 +17,10 @@ public interface ClientAccountRepository extends Repository<ClientAccount, Long>
 
     List<ClientAccount> findByOrgId(Long orgId);
 
+    /** Several clients of the organization in one read (names for the job data audit page). */
+    @org.springframework.data.jpa.repository.Query("select a from ClientAccount a where a.orgId = :orgId and a.id in :ids")
+    List<ClientAccount> findByOrgIdAndIdIn(@org.springframework.data.repository.query.Param("orgId") Long orgId, @org.springframework.data.repository.query.Param("ids") java.util.Collection<Long> ids);
+
     long countByOrgId(Long orgId);
 
     List<ClientAccount> findByOrgIdOrderByNameAsc(Long orgId);

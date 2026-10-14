@@ -95,5 +95,6 @@
     <include file="config/liquibase/changelog/20261104120000_mkt_activity.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261104130000_mkt_performance.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261105010000_phase1_job_identity.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261105020000_job_provenance_ledger.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

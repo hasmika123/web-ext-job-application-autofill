@@ -113,6 +113,31 @@ public class ClientRequirement implements Serializable {
     @Column(name = "pay_label", length = 80)
     private String payLabel;
 
+    /** Provenance (docs/enterprise-v2/61 section 2): when and how this job's data came in, and what we hold of it. */
+    @Column(name = "captured_at")
+    private Instant capturedAt;
+
+    /** USER_CLICK | MANUAL_ENTRY | IMPORT | FEED. */
+    @Column(name = "capture_method", length = 20, nullable = false)
+    private String captureMethod = "MANUAL_ENTRY";
+
+    @Column(name = "extension_version", length = 20)
+    private String extensionVersion;
+
+    /** SHA-256 (hex) of the canonical JSON the extension sent. */
+    @Column(name = "capture_payload_hash", length = 64)
+    private String capturePayloadHash;
+
+    /** MINIMAL | FULL (docs/enterprise-v2/60 section 10). */
+    @Column(name = "detail_level", length = 10, nullable = false)
+    private String detailLevel = "MINIMAL";
+
+    @Column(name = "detail_level_changed_at")
+    private Instant detailLevelChangedAt;
+
+    @Column(name = "detail_level_changed_by")
+    private Long detailLevelChangedBy;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -189,6 +214,20 @@ public class ClientRequirement implements Serializable {
     public void setPostedOn(LocalDate postedOn) { this.postedOn = postedOn; }
     public String getPayLabel() { return payLabel; }
     public void setPayLabel(String payLabel) { this.payLabel = payLabel; }
+    public Instant getCapturedAt() { return capturedAt; }
+    public void setCapturedAt(Instant capturedAt) { this.capturedAt = capturedAt; }
+    public String getCaptureMethod() { return captureMethod; }
+    public void setCaptureMethod(String captureMethod) { this.captureMethod = captureMethod; }
+    public String getExtensionVersion() { return extensionVersion; }
+    public void setExtensionVersion(String extensionVersion) { this.extensionVersion = extensionVersion; }
+    public String getCapturePayloadHash() { return capturePayloadHash; }
+    public void setCapturePayloadHash(String capturePayloadHash) { this.capturePayloadHash = capturePayloadHash; }
+    public String getDetailLevel() { return detailLevel; }
+    public void setDetailLevel(String detailLevel) { this.detailLevel = detailLevel; }
+    public Instant getDetailLevelChangedAt() { return detailLevelChangedAt; }
+    public void setDetailLevelChangedAt(Instant detailLevelChangedAt) { this.detailLevelChangedAt = detailLevelChangedAt; }
+    public Long getDetailLevelChangedBy() { return detailLevelChangedBy; }
+    public void setDetailLevelChangedBy(Long detailLevelChangedBy) { this.detailLevelChangedBy = detailLevelChangedBy; }
     public long getVersion() { return version; }
     public void setVersion(long version) { this.version = version; }
 }
