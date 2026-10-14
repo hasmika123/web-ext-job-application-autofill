@@ -140,6 +140,18 @@ Tests: `npm test -w packages/ui` (vitest + jsdom, this package only; web runs it
 - Gates: `web` — `npm test` (tsc + eslint, incl. the no-inline-svg rule); `job-autofill` —
   `npm run typecheck`. Both compile this package as source, so breakage here fails both.
 
+## Enterprise look tokens (`styles/theme-tenant.css`, `.theme-tenant` only)
+
+The boards' look is a token set the tenant pages share (the regular app never sets `.theme-tenant`, so it cannot change):
+
+- **Shell**: `--ent-sidebar-w` (15.4 % of the width, 216-258 px), `--ent-shell-px`, `--ent-page-bg`, `--ent-nav-text`, `--ent-title`, `--ent-soft`.
+- **Cards**: `.ent-card` (`--ent-card-radius / -border / -shadow`). **Tables / filter bars**: `--ent-table-head-bg`, `--ent-control-h / -radius / -border`, `--ent-field-bg`.
+- **KPI tiles**: `<KpiTile tone="violet|green|blue|orange|indigo|pink">` or, for a page's own markup, `<span className="ent-kpi-chip" data-tone="green">` +
+  `kpiLine("green")` as the sparkline colour. Fixed palette: `--ent-kpi-<tone>-bg|fg|line`; `--ent-kpi-good|bad` for deltas.
+- **Pills**: `<span className="ent-pill" data-tone="green|amber|red|purple|blue|pink|grey">` (add `data-shape="round"` for a capsule) and `StatePill`
+  (tones green, amber, red, purple, blue, grey). Tokens `--ent-pill-<tone>-bg|fg`.
+- **Sparkline**: smooth gradient curve by default inside a tenant page (`SparklineDefaultsProvider` in the tenant root); `smooth={false}` forces the straight line.
+
 ## Workspace
 
 An npm-workspaces package under the repo-root `package.json`. Run `npm install` at the
