@@ -2,7 +2,7 @@ import { test, expect, narrate } from "../_support/story";
 import { PORT } from "../_support/personas";
 import { ROOTS, bff, noSidewaysScroll, openPage, orgIdOf, pageTitle } from "./_helpers";
 
-/** The 19 sidebar items in the boards' order (web/e2e/journeys/consultant-pages.spec.ts pins the same list). */
+/** The 20 sidebar items in the boards' order (web/e2e/journeys/consultant-pages.spec.ts pins the same list). */
 const SIDEBAR = [
   ["", "Home"],
   ["profile", "My Career Profile"],
@@ -20,6 +20,7 @@ const SIDEBAR = [
   ["availability", "Availability"],
   ["tasks", "Tasks & Follow-ups"],
   ["activity-timeline", "Activity Timeline"],
+  ["inbox", "Inbox"],
   ["features", "My Features"],
   ["notifications", "Notifications"],
   ["settings", "Settings"],
@@ -82,11 +83,11 @@ test("CON-02 Anika jumps from Home into her work with Quick Actions and View All
   await expect(page.locator(`${ROOTS.resumes}[data-status=ready]`)).toBeVisible();
 });
 
-test("CON-03 Anika walks the 19-item consultant sidebar and every page opens with its data", async ({ as }) => {
+test("CON-03 Anika walks the 20-item consultant sidebar and every page opens with its data", async ({ as }) => {
   const { page, go } = await as("anika");
   await openPage(page, go, "");
   const items = page.locator('[data-shell-sidebar] a[href^="/w/consultant"]');
-  await expect(items.filter({ hasText: /\S/ })).toHaveCount(19);
+  await expect(items.filter({ hasText: /\S/ })).toHaveCount(20);
   const labels = (await items.allInnerTexts()).map((x) => x.trim()).filter(Boolean);
   expect(labels).toEqual(SIDEBAR.map(([, l]) => l));
 

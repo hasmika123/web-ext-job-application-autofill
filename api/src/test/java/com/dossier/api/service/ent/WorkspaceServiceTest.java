@@ -120,7 +120,7 @@ class WorkspaceServiceTest {
         assertThat(slugs(r)).containsExactly("consultant");
         assertThat(navKeys(r, "consultant")).containsExactly(
             "home", "profile", "resumes", "marketer", "job-discovery", "matches", "opportunities", "applications", "submissions", "interviews", "interview-prep", "offers", "placements",
-            "availability", "tasks", "activity-timeline", "features", "notifications", "settings"
+            "availability", "tasks", "activity-timeline", "inbox", "features", "notifications", "settings"
         );
         assertThat(r.landingHome()).isEqualTo("/w/consultant");
     }

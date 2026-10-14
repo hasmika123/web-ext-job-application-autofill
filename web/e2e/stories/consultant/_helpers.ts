@@ -23,6 +23,7 @@ export const ROOTS: Record<string, string> = {
   availability: "[data-consultant-availability]",
   tasks: "[data-consultant-tasks]",
   "activity-timeline": "[data-consultant-activity-timeline]",
+  inbox: "[data-consultant-inbox]",
   features: "[data-consultant-features]",
   notifications: "[data-consultant-notifications]",
   settings: "[data-consultant-settings]",

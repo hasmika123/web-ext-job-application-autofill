@@ -29,6 +29,7 @@ const PAGES = [
   { slug: "placements", root: "[data-consultant-placements]", api: "placements" },
   { slug: "notifications", root: "[data-consultant-notifications]", api: "notifications" },
   { slug: "activity-timeline", root: "[data-consultant-activity-timeline]", api: "activity-timeline" },
+  { slug: "inbox", root: "[data-consultant-inbox]", api: "inbox" },
   { slug: "features", root: "[data-consultant-features]", api: "features" },
   { slug: "settings", root: "[data-consultant-settings]", api: "settings" },
 ];
@@ -81,12 +82,12 @@ test.describe("consultant pages (real stack)", () => {
     await page.goto(`${base}/w/consultant`);
     await expect(page.locator("[data-consultant-home][data-status=ready]")).toBeVisible();
     const items = page.locator('aside a[href^="/w/consultant"]');
-    await expect(items.filter({ hasText: /\S/ })).toHaveCount(19);
+    await expect(items.filter({ hasText: /\S/ })).toHaveCount(20);
     const labels = (await items.allInnerTexts()).map((x) => x.trim()).filter(Boolean);
     expect(labels).toEqual([
       "Home", "My Career Profile", "My Resumes", "My Marketer", "Job Discovery", "Job Matches", "Assigned Opportunities", "My Applications",
       "Submissions & Approvals", "Interviews", "Interview Prep", "Offers", "My Placement", "Availability", "Tasks & Follow-ups", "Activity Timeline",
-      "My Features", "Notifications", "Settings",
+      "Inbox", "My Features", "Notifications", "Settings",
     ]);
     await context.close();
   });

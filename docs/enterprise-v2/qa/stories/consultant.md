@@ -11,7 +11,7 @@
 
 **Access rule (applies to every story):** the API gate is `ConsultantHomeService.requireSelf`: an ACTIVE member with permission `opportunities.respond`, linked to a consultant profile. Anyone else, another tenant, or flags off gets a generic **404** (never 403). In the UI that is "This page isn't part of your role".
 
-**Pages that exist (19, sidebar order of the boards):** Home `/w/consultant`, My Career Profile `profile`, My Resumes `resumes`, My Marketer `marketer`, Job Discovery `job-discovery`, Job Matches `matches`, Assigned Opportunities `opportunities` (+ `opportunities/{id}`), My Applications `applications`, Submissions & Approvals `submissions`, Interviews `interviews`, Interview Prep `interview-prep`, Offers `offers`, My Placement `placements`, Availability `availability`, Tasks & Follow-ups `tasks`, Activity Timeline `activity-timeline`, My Features `features`, Notifications `notifications`, Settings `settings`. BFF/API for each: `/api/orgs/{orgId}/me-workspace/<home|profile|resumes|marketer|job-discovery/...|matches|opportunities|applications|submissions|interviews|interview-prep|offers|placements|availability|tasks|activity-timeline|features|notifications|settings>`.
+**Pages that exist (20, sidebar order of the boards; Inbox was added by ent-inbox):** Home `/w/consultant`, My Career Profile `profile`, My Resumes `resumes`, My Marketer `marketer`, Job Discovery `job-discovery`, Job Matches `matches`, Assigned Opportunities `opportunities` (+ `opportunities/{id}`), My Applications `applications`, Submissions & Approvals `submissions`, Interviews `interviews`, Interview Prep `interview-prep`, Offers `offers`, My Placement `placements`, Availability `availability`, Tasks & Follow-ups `tasks`, Activity Timeline `activity-timeline`, Inbox `inbox`, My Features `features`, Notifications `notifications`, Settings `settings`. BFF/API for each: `/api/orgs/{orgId}/me-workspace/<home|profile|resumes|marketer|job-discovery/...|matches|opportunities|applications|submissions|interviews|interview-prep|offers|placements|availability|tasks|activity-timeline|features|notifications|settings>`.
 
 **Not built / stand-ins (be honest in demos):** the marketer's side of the relationship does not exist yet, so the following are **seeded stand-ins marked `Sample` on screen**: marketer messages, shared action plan, collaboration notes and the "Responsive" badge; the source link, source name and quick info on jobs (`cws_job_source`, `https://jobs.example.com/demo-acme/<requirementId>`); the marketer-created submissions and client updates; offers and their timeline; placement project, manager, meetings and milestones; APPROVED/PENDING on vacation entries; My Features allowances. Send Message / Schedule Call open an honest "not connected" dialog. There is **no** in-app Apply (removed), no in-app job search beyond the marketer-loaded jobs, no AI-scored practice, no create-resume-from-scratch, no connected tools, no password/2FA on Settings, no placement documents. The extension step that turns "applied via the link" into an application is **not part of this branch** (documented gap in `consultant-job-source-flow.md`).
 
@@ -39,7 +39,7 @@
 |---|---|---|---|---|
 | CON-01 | Home dashboard at a glance | Anika | `home-and-access.story.ts` CON-01 | AUTOMATED |
 | CON-02 | Jump into work from Home | Anika | `home-and-access.story.ts` CON-02 | AUTOMATED |
-| CON-03 | Walk the 19-item sidebar | Anika | `home-and-access.story.ts` CON-03 | AUTOMATED |
+| CON-03 | Walk the 20-item sidebar | Anika | `home-and-access.story.ts` CON-03 | AUTOMATED |
 | CON-04 | Org Admin is told "not part of your role"; API 404 | Sarah | `home-and-access.story.ts` CON-04 | AUTOMATED |
 | CON-05 | Another tenant's host cannot read Acme's data | Anika / beta host | `home-and-access.story.ts` CON-05 | AUTOMATED |
 | CON-06 | Phone width: no sideways scroll | Anika | `home-and-access.story.ts` CON-06 | AUTOMATED |
@@ -83,6 +83,14 @@
 | CON-55 | Notifications triage and preferences | Anika | `workday.story.ts` CON-55 | AUTOMATED |
 | CON-56 | Settings overview, honest security/tools | Anika | `workday.story.ts` CON-56 | AUTOMATED |
 | CON-57 | Privacy and analytics choices | Anika | `workday.story.ts` CON-57 | AUTOMATED |
+| CON-70 | Guided connect of her own Gmail; wrong or blocked code gets a calm sentence | Anika | `inbox.story.ts` CON-70 | AUTOMATED |
+| CON-71 | Connect: live Gmail check passes, mailbox read, password never shown again | Anika | `inbox.story.ts` CON-71 | AUTOMATED |
+| CON-72 | Mail moves her applications and offers new ones, "from your inbox"; add at Interview; dismiss | Anika | `inbox.story.ts` CON-72 | AUTOMATED (consumes the Harbor Cloud suggestion once) |
+| CON-73 | Disconnect forgets the password and every message | Anika | `inbox.story.ts` CON-73 | AUTOMATED |
+| CON-74 | The organization sees none of it (Org Admin and marketer: 404, no mail in their pages) | Sarah, Omar, Anika | `inbox.story.ts` CON-74 | AUTOMATED |
+| CON-75 | Taking the add-on off stops the inbox and says why; putting it back resumes it | Anika | `inbox.story.ts` CON-75 | AUTOMATED (needs docker + the QA MySQL container; skips itself otherwise) |
+| CON-76 | A license without the add-on: locked state, API 402 | Ben | `inbox.story.ts` CON-76 | AUTOMATED |
+| CON-77 | One consultant's mailbox is invisible to another | Anika, Ben | `inbox.story.ts` CON-77 | AUTOMATED |
 | CON-60 | Apply on the source site with the extension; application appears in My Applications | Anika | none | BLOCKED: needs the extension loaded on a live ATS page, and tracked-application-to-job matching is not built (`pipeline_application_link`, doc 59 section 5) |
 | CON-61 | Marketer enters the job source link and quick info | Omar | none | NOT-BUILT: no marketer write for `cws_job_source` (Marketing workspace; `consultant-job-source-flow.md` "What the marketer role must later write") |
 | CON-62 | Marketer captures a job with the extension and assigns it | Omar, Anika | none | NOT-BUILT: doc 59/60, stories X9.x |
@@ -111,9 +119,9 @@
 - **Expected:** each link lands on the matching page with its data loaded; the focus checkbox is local (not saved).
 - **Pages:** Home, Interview Prep, Applications, Resumes. **Automation:** `home-and-access.story.ts` "CON-02 ...". **Status:** AUTOMATED.
 
-### CON-03 Anika walks the 19-item sidebar
+### CON-03 Anika walks the 20-item sidebar
 - **Goal:** the menu is complete and honest. **Steps:** open Home, read the sidebar, click every item.
-- **Expected:** exactly 19 items in board order (Home, My Career Profile, My Resumes, My Marketer, Job Discovery, Job Matches, Assigned Opportunities, My Applications, Submissions & Approvals, Interviews, Interview Prep, Offers, My Placement, Availability, Tasks & Follow-ups, Activity Timeline, My Features, Notifications, Settings); each opens its page with `data-status=ready` (none shows "on the way").
+- **Expected:** exactly 20 items in board order (Home, My Career Profile, My Resumes, My Marketer, Job Discovery, Job Matches, Assigned Opportunities, My Applications, Submissions & Approvals, Interviews, Interview Prep, Offers, My Placement, Availability, Tasks & Follow-ups, Activity Timeline, Inbox, My Features, Notifications, Settings); each opens its page with `data-status=ready` (none shows "on the way").
 - **Automation:** `home-and-access.story.ts` "CON-03 ...". **Status:** AUTOMATED.
 
 ### CON-04 Sarah (Org Admin, not a consultant) is told "not part of your role"; the consultant API answers 404
@@ -291,6 +299,41 @@
 ### CON-57 Anika changes her privacy choices and puts them back
 - **Steps:** Profile Visibility -> Private (hint "hidden from everyone but you..."); toggle Allow Analytics Usage; Recent Account Activity shows a privacy entry; restore both.
 - **Expected:** values flip and restore; activity gains an entry. **Pages / APIs:** `PUT .../settings/privacy`. **Automation:** `workday.story.ts` "CON-57 ...". **Status:** AUTOMATED.
+
+---
+
+### CON-70 Anika connects her own Gmail the guided way
+- **Setup:** the demo stack's sample mailbox (`DemoImapGateway`): the one address in `api/src/main/resources/demo/inbox-demo.json`, any 16 letters connect, a code starting `zzzz` is a wrong password, `yyyy` is "Gmail wants an app password". All test values, no real Gmail is contacted. Anika's license carries the add-on `inbox.monitoring` (seeded by `ConsultantInboxDemoSeeder`).
+- **Steps:** open Inbox from the menu; read the privacy panel ("Only you see your mail"); see the three guided steps and the demo's sample address; submit a wrong code, then a real-looking Google password, then the "needs an app password" code.
+- **Expected:** each refusal is its own calm sentence (Gmail did not accept / paste the 16-letter app password / Gmail wants an app password); the typed code never appears on the page; nothing is stored (API says not connected). **Pages / APIs:** `/w/consultant/inbox`, `POST .../me-workspace/inbox`. **Automation:** `inbox.story.ts` "CON-70 ...". **Status:** AUTOMATED.
+
+### CON-71 Anika connects and the password is never shown again
+- **Steps:** paste the sample address and `abcd efgh ijkl mnop` (spaces allowed) and press Check and connect.
+- **Expected:** the connected card shows the address, "Connected", last-checked; neither page nor API ever carries the code, `passwordEnc` or a `v1:` ciphertext. **Automation:** `inbox.story.ts` "CON-71 ...". **Status:** AUTOMATED.
+
+### CON-72 Mail moves her applications and offers new ones
+- **Steps:** after connecting, reload until the first read finishes; read "Updated from your inbox" and "Found in your mail"; add the Harbor Cloud interview invite to the board; dismiss the Lumen Health confirmation.
+- **Expected:** Orbit Freight (her tracked application) moved to **Interview** and Cedar Analytics to **Rejected**, each row labelled "from your inbox"; Lumen Health and Harbor Cloud are offered, not added behind her back; "Add to my board as Interview" puts Harbor Cloud on her board at Interview and lists it with the others; Dismiss removes a suggestion. **Not covered here:** the organization's mirror of the stage (needs a linked opportunity with FULL consent): covered by `PipelineApplicationLinkerTest` and `LinkedApplicationProjectionInboxTest`. **Automation:** `inbox.story.ts` "CON-72 ...". **Status:** AUTOMATED; the Harbor step consumes a seeded suggestion (re-seed to repeat; the spec handles a repeat run).
+
+### CON-73 Disconnect forgets everything
+- **Steps:** Disconnect this inbox, read the sentence about what it deletes, confirm.
+- **Expected:** the guided form returns; the API says not connected and returns no address, suggestions or updates. **Automation:** `inbox.story.ts` "CON-73 ...". **Status:** AUTOMATED.
+
+### CON-74 The organization sees none of it
+- **Steps:** with Anika connected and her mail read, Sarah (Org Admin) and Omar (marketer) call every inbox route and fetch the organization's consultant, application, interview, member, audit and marketing lists.
+- **Expected:** every inbox route (read, connect, disconnect) is the generic 404 for them and Inbox is not in their menu; none of their responses contains the address, a sender, a subject or a line of a message. **Automation:** `inbox.story.ts` "CON-74 ...". **Status:** AUTOMATED. The exhaustive version (every readable organization route, the audit trail, a structural ArchUnit rule) is `ConsultantInboxResourceIT` and `TechnicalStructureTest`.
+
+### CON-75 Taking the add-on off stops the inbox
+- **Steps:** with Anika connected, set her `inbox.monitoring` license feature to not live (SQL on the QA MySQL container), reload; set it back.
+- **Expected:** the page says "Your organization no longer includes inbox tracking", the badge reads Stopped, no suggestions are offered, the API reports `status=NO_ENTITLEMENT` and `entitled=false`; she can still disconnect; with the add-on back the connection is Connected again. The poller itself (it must not read) is `InboxPollerReconcileTest` and `ConsultantInboxResourceIT`. **Automation:** `inbox.story.ts` "CON-75 ...". **Status:** AUTOMATED where docker and the QA container are reachable.
+
+### CON-76 A license without the add-on
+- **Steps:** Ben opens Inbox.
+- **Expected:** "Inbox tracking isn't part of your license", no form; `POST` answers 402 `FEATURE_NOT_LICENSED`; nothing is stored. **Automation:** `inbox.story.ts` "CON-76 ...". **Status:** AUTOMATED.
+
+### CON-77 Mailboxes are personal
+- **Steps:** Anika connects; Ben reads his own Inbox page.
+- **Expected:** Ben sees no connection, address, suggestion or update of hers. **Automation:** `inbox.story.ts` "CON-77 ...". **Status:** AUTOMATED.
 
 ---
 
