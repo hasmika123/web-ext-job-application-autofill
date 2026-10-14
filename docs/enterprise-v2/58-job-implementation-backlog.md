@@ -1,4 +1,16 @@
-# 58 — Implementation strategy and agile backlog (PLAN, proposal — nothing approved or built)
+# 58 — Implementation strategy and agile backlog
+
+> **Revision 2 (2026-10-13) supersedes the ordering below for Release 1.** Owner decision: search, discovery, connectors, the matching engine and licensing overlays are **Phase 2**. Release-1 (Phase 1) work packages (details in `59-job-phase1-extension-flow.md` and `adr/ADR-024-revision-2.md`):
+> - **WP0** tenant-contract fix of the 17 talent repositories (branch `fix-talent-repo-contract`).
+> - **WP1** correctness + schema foundation: `version NOT NULL DEFAULT 0`; URL identity columns and unique keys on `client_requirement`; reduced lifecycle columns on `mkt_opportunity`; `pipeline_application_link`; one `OpportunityAssignmentService` for all assign paths; `@ControllerAdvice` conflict translation; `MktScope` honours assignment `status`; consultant-active checks; `OrgResume` default PENDING; consent gate in opportunities/matches; resume edit marks un-submitted authorizations STALE.
+> - **WP2** `POST /api/orgs/{orgId}/mkt/opportunities/from-extension` (trimmed capture, find-or-create job, assign, idempotent).
+> - **WP3** `con` backend: flag `flag.enterprise.consultant_jobs`, `ConScope`, `con/opportunities` API, `PipelineApplicationLinker`, link/unlink routes, `GET /api/profile/assigned-jobs`, `NoSubmitSurfaceTest`, DTO-reflection test.
+> - **WP4** consultant web: `/w/consultant/opportunities` (+ canonical detail route/drawer), BFF, registry, nav.
+> - **WP5** extension (X9.12): TrackingProvider methods, workspace chip + storage partition, marketer "Save for consultant…", consultant assigned jobs + "Assigned by" chip, link on submit-detect, `no_submit`/`account_clear` tests, version bump.
+> - **Phase 1b:** consultant submission authorization with `authorization_scope` and ORG_ATTESTED (ADR-024 D-10 amended).
+> Everything below is the **Phase 2+** backlog; the old P0 block maps to WP1 (J-P01…J-P07), J-P08 and WP0.
+
+# (pre-revision) 58 — Implementation strategy and agile backlog
 
 > Phases are adjusted to what exists (verified): the marketer pages are built; the consultant side, connectors, scorer, link columns and consultant authorization are not. Story ids `J-<phase><n>`; each story is small, independently testable, additive, and lists **Depends**, **Acceptance**, **Verify**. Priority P0 = correctness/security fixes of the current build, P1 = needed for the consultant views, P2 = hardening/scale. Environment note: stories that say "IT" need Docker.
 
