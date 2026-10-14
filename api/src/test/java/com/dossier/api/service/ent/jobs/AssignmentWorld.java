@@ -55,6 +55,8 @@ public class AssignmentWorld {
     public final Map<Long, RequirementMatch> matchStore = new LinkedHashMap<>();
     public final Map<Long, MktOpportunity> oppStore = new LinkedHashMap<>();
     public final Set<Long> approved = new HashSet<>();
+    /** Jobs committed by a nested transaction after the caller's snapshot: a plain read in the caller misses them, only a fresh-snapshot read ({@code tx.readRequirement}) finds them. */
+    public final Set<Long> invisibleToSnapshot = new HashSet<>();
     public final List<MktOpportunityEvent> eventLog = new ArrayList<>();
 
     private final AtomicLong ids = new AtomicLong(5000);
@@ -157,7 +159,11 @@ public class AssignmentWorld {
     // ---- the mocks -------------------------------------------------------------------------------------------------------------
 
     private void wire() {
-        lenient().when(requirements.findByOrgIdAndId(eq(orgId), anyLong())).thenAnswer(i -> Optional.ofNullable(jobs.get(i.<Long>getArgument(1))));
+        lenient().when(requirements.findByOrgIdAndId(eq(orgId), anyLong())).thenAnswer(i -> {
+            Long id = i.getArgument(1);
+            return invisibleToSnapshot.contains(id) ? Optional.empty() : Optional.ofNullable(jobs.get(id));
+        });
+        lenient().when(tx.readRequirement(eq(orgId), anyLong())).thenAnswer(i -> Optional.ofNullable(jobs.get(i.<Long>getArgument(1))));
         lenient().when(consultants.findByOrgIdAndId(eq(orgId), anyLong())).thenAnswer(i -> Optional.ofNullable(people.get(i.<Long>getArgument(1))));
         lenient().when(resumes.existsByOrgIdAndConsultantIdAndApprovalStatus(eq(orgId), anyLong(), eq("APPROVED"))).thenAnswer(i -> approved.contains(i.<Long>getArgument(1)));
 

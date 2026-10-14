@@ -186,7 +186,7 @@ public class MktFromExtensionService {
         List<ConsultantResult> results = new ArrayList<>();
         int assigned = 0;
         for (Long consultantId : c.consultantIds()) {
-            ConsultantResult r = assignOne(view, me, j.getId(), consultantId, c);
+            ConsultantResult r = assignOne(view, me, j, consultantId, c);
             if (r.reason() == null && !r.existing()) assigned++;
             results.add(r);
         }
@@ -201,13 +201,13 @@ public class MktFromExtensionService {
         return new Response(j.getId(), job.existing(), List.copyOf(results));
     }
 
-    private ConsultantResult assignOne(MktScope.View view, OrgMembership me, Long jobId, Long consultantId, Clean c) {
+    private ConsultantResult assignOne(MktScope.View view, OrgMembership me, ClientRequirement job, Long consultantId, Clean c) {
         if (!view.sees(consultantId)) return new ConsultantResult(consultantId, null, false, REASON_NOT_IN_SCOPE);
         OpportunityAssignmentService.Options options = OpportunityAssignmentService.Options.none()
             .withNewMatch(null, "Saved by a marketer from the browser extension", "MANUAL")
             .withOpportunity(c.keyInfo(), c.priority(), c.dueOn());
         try {
-            OpportunityAssignmentService.Result r = assignment.assign(view, me, jobId, consultantId, options);
+            OpportunityAssignmentService.Result r = assignment.assign(view, me, job, consultantId, options); // the entity, not its id: a job created in this request is invisible to a plain re-read
             if (r.refused()) return new ConsultantResult(consultantId, null, false, r.reason());
             return new ConsultantResult(consultantId, r.opportunityId(), r.existing(), null);
         } catch (OrgNotFoundException gone) {

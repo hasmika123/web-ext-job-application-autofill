@@ -192,14 +192,40 @@ public class OpportunityAssignmentService {
 
     // ---- assign ------------------------------------------------------------------------------------------------------------------
 
-    /** Put the job in front of the consultant: see the class comment for the gates and the pair rules. */
+    /**
+     * Put the job in front of the consultant: see the class comment for the gates and the pair rules.
+     *
+     * <p>The job is looked up with a plain read and, when that misses, with a fresh-snapshot read ({@link JobIdentityTx#readRequirement}): a job
+     * another transaction committed after this one's snapshot (MySQL REPEATABLE READ) is invisible to the plain read. It is deliberately NOT a
+     * locking read: the match insert runs in a transaction of its own and its foreign key to the job would wait on this transaction's lock.
+     * A caller that has just created the job passes the entity itself ({@link #assign(AssignmentScope, OrgMembership, ClientRequirement, Long, Options)}).
+     */
     @Transactional(noRollbackFor = OrgException.class)
     public Result assign(AssignmentScope scope, OrgMembership me, Long jobId, Long consultantId, Options options) {
         Long orgId = orgOf(scope, me);
-        Options o = options == null ? Options.none() : options;
         if (jobId == null || consultantId == null) throw OrgException.coded(400, "VALIDATION", "Choose a consultant and a job.", Map.of());
         if (!scope.sees(consultantId)) throw new OrgNotFoundException();
-        ClientRequirement job = requirements.findByOrgIdAndId(orgId, jobId).orElseThrow(OrgNotFoundException::new);
+        ClientRequirement job = requirements.findByOrgIdAndId(orgId, jobId).or(() -> tx.readRequirement(orgId, jobId)).orElseThrow(OrgNotFoundException::new);
+        return assignChecked(scope, me, job, consultantId, options);
+    }
+
+    /**
+     * {@link #assign(AssignmentScope, OrgMembership, Long, Long, Options)} for a job the caller already holds (it created or found it in this very
+     * request): nothing is re-read, so a job committed by a nested transaction after this one's snapshot is not lost.
+     */
+    @Transactional(noRollbackFor = OrgException.class)
+    public Result assign(AssignmentScope scope, OrgMembership me, ClientRequirement job, Long consultantId, Options options) {
+        Long orgId = orgOf(scope, me);
+        if (job == null || job.getId() == null || consultantId == null) throw OrgException.coded(400, "VALIDATION", "Choose a consultant and a job.", Map.of());
+        if (!scope.sees(consultantId)) throw new OrgNotFoundException();
+        if (!orgId.equals(job.getOrgId())) throw new OrgNotFoundException();
+        return assignChecked(scope, me, job, consultantId, options);
+    }
+
+    private Result assignChecked(AssignmentScope scope, OrgMembership me, ClientRequirement job, Long consultantId, Options options) {
+        Long orgId = scope.orgId();
+        Long jobId = job.getId();
+        Options o = options == null ? Options.none() : options;
         ConsultantProfile consultant = consultants.findByOrgIdAndId(orgId, consultantId).orElseThrow(OrgNotFoundException::new);
         if (!OPEN_JOB.contains(job.getStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open.", Map.of());
         if (!"ACTIVE".equals(consultant.getStatus()) || !"ACTIVE".equals(consultant.getMarketingStatus())) return Result.refused(jobId, consultantId, CONSULTANT_INACTIVE);

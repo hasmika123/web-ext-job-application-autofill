@@ -92,6 +92,12 @@ public class JobIdentityTx {
         return accounts.findByOrgIdAndNameKey(orgId, nameKey);
     }
 
+    /** A job by id in a fresh snapshot: one another transaction committed after the caller's snapshot is visible here. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Optional<ClientRequirement> readRequirement(Long orgId, Long id) {
+        return requirements.findByOrgIdAndId(orgId, id);
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Optional<ClientRequirement> readRequirementByUrlKey(Long orgId, String urlKeyHash) {
         return requirements.findByOrgIdAndUrlKeyHash(orgId, urlKeyHash);

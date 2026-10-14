@@ -150,6 +150,7 @@ public class FromExtensionWorld {
     private Long store(ClientRequirement j) {
         j.setId(ids.incrementAndGet());
         world.jobs.put(j.getId(), j);
+        world.invisibleToSnapshot.add(j.getId()); // created by a REQUIRES_NEW insert: the outer transaction's snapshot predates it
         return j.getId();
     }
 

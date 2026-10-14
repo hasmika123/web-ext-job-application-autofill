@@ -86,7 +86,7 @@ class OpportunityAssignmentServiceTest {
     void aMissingJobOrConsultantIsTheGenericNotFound() {
         assertThatThrownBy(() -> service.assign(all, me, 999L, CON, null)).isInstanceOf(OrgNotFoundException.class);
         assertThatThrownBy(() -> service.assign(all, me, JOB, 999L, null)).isInstanceOf(OrgNotFoundException.class);
-        assertThatThrownBy(() -> service.assign(all, me, null, CON, null)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("VALIDATION"));
+        assertThatThrownBy(() -> service.assign(all, me, (Long) null, CON, null)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("VALIDATION"));
         assertThatThrownBy(() -> service.assign(all, me, JOB, null, null)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("VALIDATION"));
     }
 
@@ -434,5 +434,37 @@ class OpportunityAssignmentServiceTest {
         MktOpportunity o = service.ensureOpportunity(all, 1L, ME);
         assertThat(o.getState()).isEqualTo("INTERESTED");
         assertThat(world.oppStore).hasSize(1);
+    }
+
+    // ---- a job created in the caller's own request ----------------------------------------------------------------------------
+
+    @Test
+    void aJobPassedAsAnEntityIsNeverReReadThroughAPlainRead() {
+        // the job was inserted by a REQUIRES_NEW transaction after the caller's snapshot: a plain findByOrgIdAndId would not see it
+        world.invisibleToSnapshot.add(JOB);
+        Result r = service.assign(all, me, world.jobs.get(JOB), CON, null);
+        assertThat(r.created()).isTrue();
+        verify(world.requirements, never()).findByOrgIdAndId(any(), any());
+        verify(world.tx, never()).readRequirement(any(), any());
+    }
+
+    @Test
+    void anIdLookupFallsBackToAFreshSnapshotWhenThePlainReadMisses() {
+        world.invisibleToSnapshot.add(JOB);
+        Result r = service.assign(all, me, JOB, CON, null);
+        assertThat(r.created()).isTrue();
+        verify(world.tx).readRequirement(ORG, JOB);
+        // and a job that is really missing is still the generic 404
+        assertThatThrownBy(() -> service.assign(all, me, 999L, CON, null)).isInstanceOf(OrgNotFoundException.class);
+    }
+
+    @Test
+    void aJobEntityOfAnotherOrganizationOrNullIsRefused() {
+        var foreign = world.jobs.get(JOB);
+        foreign.setOrgId(ORG + 1);
+        assertThatThrownBy(() -> service.assign(all, me, foreign, CON, null)).isInstanceOf(OrgNotFoundException.class);
+        foreign.setOrgId(ORG);
+        assertThatThrownBy(() -> service.assign(all, me, (com.dossier.api.domain.ent.talent.ClientRequirement) null, CON, null))
+            .isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("VALIDATION"));
     }
 }
