@@ -52,9 +52,14 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p><b>Scope and consent.</b> Reads need {@code member.view_summary} (the {@link MktScope} gate: generic 404 and the consultants the
  * caller may see) and {@code pipeline.view}. Per consultant the effective consent is read through {@link DataShareService}: a
- * consultant who is not a seat (an org-managed profile, {@code member_id} null) has no one to consent, so the org's own record is FULL;
+ * consultant who is not a seat (an org-managed profile, {@code member_id} null) has no account to consent or to apply with, so it is
+ * SUMMARY at most (doc 60 section 0.8: informational in Phase 1, never FULL by default; the day it gets a seat sharing starts at NONE);
  * a seat is FULL / SUMMARY / NONE by what they shared. SUMMARY shows the stage only (the employer, role, source, dates and next action
  * are null); NONE is left out of every list and count and only counted in {@code notShared}.
+ *
+ * <p><b>Stage ownership.</b> A row that carries a {@code personal_application_id} follows the consultant's OWN application (it is SYSTEM-owned,
+ * {@code PipelineApplicationLinker}): a marketer's {@link #recordStage} answers 409 {@code STAGE_OWNED_BY_CONSULTANT}. Rows without a link
+ * (the marketer's own records, including those of a profile without a seat) keep being recorded by the marketer.
  *
  * <p><b>Writes are records (E1).</b> A marketer adds a note, sets a next action and due date, marks a follow-up done
  * ({@code followups.manage}) and RECORDS a stage the consultant already reached ({@code submissions.record}). Nothing here submits
@@ -68,6 +73,7 @@ public class MktApplicationsService {
     static final String PIPELINE_KEY = "pipeline.view";
     static final String FOLLOWUPS_KEY = "followups.manage";
     static final String RECORD_KEY = "submissions.record";
+    public static final String STAGE_OWNED_BY_CONSULTANT = "STAGE_OWNED_BY_CONSULTANT";
     static final int DEFAULT_SIZE = 8;
     static final int MAX_SIZE = 100;
     static final int LIST_LIMIT = 5;
@@ -226,9 +232,9 @@ public class MktApplicationsService {
         return new Loaded(visible, notShared, people(orgId, memberIds));
     }
 
-    /** FULL for an org-managed profile (no seat, so nobody to ask); a seat's effective scope otherwise. */
+    /** SUMMARY for a profile without a seat (nobody to ask, nothing to carry over: doc 60 section 0.8); a seat's effective scope otherwise. */
     private ShareScope consentOf(Long orgId, ConsultantProfile c) {
-        if (c.getMemberId() == null) return ShareScope.FULL;
+        if (c.getMemberId() == null) return ShareScope.SUMMARY;
         ShareScope s = shares.scopeOf(orgId, c.getMemberId());
         return s == null ? ShareScope.NONE : s;
     }
@@ -482,7 +488,11 @@ public class MktApplicationsService {
     @Transactional
     public Row recordStage(OrgMembership me, Long applicationId, StageRequest req) {
         TalentApplication app = writable(me, RECORD_KEY, applicationId);
-        Group g = req == null || req.stage() == null ? null : Group.ofKey(req.stage()).orElse(null);
+        if (app.getPersonalApplicationId() != null) {
+            // the row follows the consultant's own application (SYSTEM-owned): the consultant's record is the truth, a marketer never overwrites it
+            throw OrgException.coded(409, STAGE_OWNED_BY_CONSULTANT, "This stage follows the consultant's own application and can not be recorded by a marketer.", java.util.Map.of());
+        }
+        Group g =req == null || req.stage() == null ? null : Group.ofKey(req.stage()).orElse(null);
         if (g == null) throw OrgException.invalid("stage", "is not a stage of the board");
         String reason = null;
         if (g == Group.HIRED) reason = "HIRED";
@@ -508,7 +518,9 @@ public class MktApplicationsService {
         TalentApplication app = apps.findByOrgIdAndId(view.orgId(), applicationId).orElseThrow(OrgNotFoundException::new);
         scope.require(view, app.getConsultantId());
         ConsultantProfile c = consultants.findByOrgIdAndIdIn(view.orgId(), List.of(app.getConsultantId())).stream().findFirst().orElseThrow(OrgNotFoundException::new);
-        if (consentOf(view.orgId(), c) != ShareScope.FULL) throw new OrgNotFoundException();
+        // A seat must share FULL before the org writes on its records. A profile WITHOUT a seat has nobody to consent and nothing private to protect:
+        // the marketer's own record of it stays writable (these rows never carry a personal application, so recordStage's ownership rule never bites).
+        if (c.getMemberId() != null && consentOf(view.orgId(), c) != ShareScope.FULL) throw new OrgNotFoundException();
         return app;
     }
 

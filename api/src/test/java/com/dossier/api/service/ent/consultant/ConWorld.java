@@ -174,6 +174,17 @@ class ConWorld {
         lenient().when(repo.findByAtsAndExternalId(eq(ORG), anyLong(), anyString(), anyString())).thenAnswer(i ->
             opps.values().stream().filter(x -> x.consultantId.equals(i.<Long>getArgument(1)) && "greenhouse".equals(i.<String>getArgument(2)) && String.valueOf(x.jobId).equals(i.<String>getArgument(3))).map(this::row).toList()
         );
+        lenient().when(repo.findNotIn(eq(ORG), anyLong(), anyCollection())).thenAnswer(i -> {
+            Long cid = i.getArgument(1);
+            java.util.Collection<String> excluded = i.getArgument(2);
+            return opps.values().stream().filter(x -> x.consultantId.equals(cid) && !excluded.contains(x.o.getState())).map(this::row).toList();
+        });
+        lenient().when(links.findByOrgIdAndPersonalApplicationIdAndUnlinkedAtIsNull(eq(ORG), anyLong())).thenAnswer(i ->
+            linkStore.stream().filter(l -> l.getUnlinkedAt() == null && l.getPersonalApplicationId().equals(i.<Long>getArgument(1))).toList()
+        );
+        lenient().when(events.findByOrgIdAndOpportunityIdOrderByOccurredAtDesc(eq(ORG), anyLong())).thenAnswer(i ->
+            eventLog.stream().filter(e -> e.getOpportunityId().equals(i.<Long>getArgument(1))).toList()
+        );
         lenient().when(repo.findLiveLinks(eq(ORG), anyLong(), anyCollection())).thenAnswer(i -> {
             java.util.Collection<Long> ids = i.getArgument(2);
             return linkStore.stream().filter(l -> l.getUnlinkedAt() == null && ids.contains(l.getOpportunityId())).toList();
