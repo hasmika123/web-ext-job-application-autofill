@@ -133,6 +133,8 @@ public class OpportunityAssignmentService {
     private final JobIdentityTx tx;
     private final OrgAuditService audit;
     private final Clock clock;
+    /** The job data ledger (doc 61): every assign path writes its {@code ASSIGNED} row here. Null only in unit tests built with the constructor that has no ledger. */
+    private final JobDataLedger ledger;
 
     @Autowired
     public OpportunityAssignmentService(
@@ -143,11 +145,13 @@ public class OpportunityAssignmentService {
         ConsultantProfileRepository consultants,
         OrgResumeRepository resumes,
         JobIdentityTx tx,
-        OrgAuditService audit
+        OrgAuditService audit,
+        JobDataLedger ledger
     ) {
-        this(matches, opportunities, events, requirements, consultants, resumes, tx, audit, Clock.systemUTC());
+        this(matches, opportunities, events, requirements, consultants, resumes, tx, audit, Clock.systemUTC(), ledger);
     }
 
+    /** Without a ledger: for tests of callers that do not look at it. */
     public OpportunityAssignmentService(
         RequirementMatchRepository matches,
         MktOpportunityRepository opportunities,
@@ -159,6 +163,22 @@ public class OpportunityAssignmentService {
         OrgAuditService audit,
         Clock clock
     ) {
+        this(matches, opportunities, events, requirements, consultants, resumes, tx, audit, clock, null);
+    }
+
+    public OpportunityAssignmentService(
+        RequirementMatchRepository matches,
+        MktOpportunityRepository opportunities,
+        MktOpportunityEventRepository events,
+        ClientRequirementRepository requirements,
+        ConsultantProfileRepository consultants,
+        OrgResumeRepository resumes,
+        JobIdentityTx tx,
+        OrgAuditService audit,
+        Clock clock,
+        JobDataLedger ledger
+    ) {
+        this.ledger = ledger;
         this.matches = matches;
         this.opportunities = opportunities;
         this.events = events;
@@ -263,6 +283,8 @@ public class OpportunityAssignmentService {
 
         boolean again = reopened || fromDismissed;
         record(opp, again ? EVENT_REASSIGNED : EVENT_ASSIGNED, me.memberId(), again ? "was assigned to this opportunity again" : "was assigned to this opportunity", now);
+        // The job's data ledger, in this same transaction (docs/enterprise-v2/61 section 3): written exactly when the assignment changed.
+        if (ledger != null) ledger.assigned(orgId, jobId, me.memberId(), consultantId, again);
         if (o.askInterest()) {
             opp.setInterestRequestedAt(now);
             opp.setNextActionAt(now.plus(ASK_FOLLOW_UP));

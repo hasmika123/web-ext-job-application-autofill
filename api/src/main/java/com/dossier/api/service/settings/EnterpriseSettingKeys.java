@@ -58,6 +58,12 @@ public final class EnterpriseSettingKeys {
     public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
     public static final String USAGE_RETENTION_MONTHS = "enterprise.usage.retention_months";
+    /**
+     * Release 1, WP2 (docs/enterprise-v2/60 section 10): the most job detail an organization's pages may show, MINIMAL (facts and the link) or FULL.
+     * The level actually shown is the lower of this and the job's stored {@code detail_level}; read by {@code JobDetailMapper} / {@code JobDetailCap}.
+     * An organization may override it in {@code org_setting}.
+     */
+    public static final String JOBS_DETAIL_CAP = "enterprise.jobs.detail_cap";
 
     /** The default of {@link #HOSTS_PLATFORM} (06-phase-plan.md section 3). */
     public static final String DEFAULT_PLATFORM_HOSTS = "[\"kiwiply.com\",\"www.kiwiply.com\",\"app.kiwiply.com\",\"api.kiwiply.com\"]";
@@ -105,6 +111,10 @@ public final class EnterpriseSettingKeys {
             EnterpriseSettingKeys::hostList, Risk.HIGH));
         integer(k, TENANT_CACHE_SECONDS, 60, 0, 600, Risk.LOW, "Seconds the API remembers which tenant a hostname belongs to. 0 = no caching. A tenant, hostname or status change evicts the entry at once on that instance.");
         integer(k, TENANT_RATE_PER_MIN, 120, 10, 6000, Risk.MEDIUM, "Requests per minute per hostname and visitor IP on GET /api/public/tenant.");
+        k.add(new Key(JOBS_DETAIL_CAP, Type.ENUM, "MINIMAL", null, null, List.of("MINIMAL", "FULL"),
+            "The most job detail the organization's pages show: MINIMAL (title, employer, location, work mode, employment type, pay, link, skills) or FULL. "
+                + "The level shown is the lower of this and what the job itself holds, so FULL shows nothing more for a job captured with the extension. An organization can override it in org_setting.",
+            null, Risk.HIGH));
         integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
         integer(d, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
         integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Release 1, WP2 (docs/enterprise-v2/60-job-phase1-contract.md sections 10 and 11, 61-job-data-collection-and-audit.md sections 2 and 3):
+        where a job came from (provenance columns on client_requirement), how much of it we hold (detail_level), and the append-only ledger
+        job_data_event that records what happened to the job's data. Additive only; one precondition-guarded changeSet per table (R8), the
+        indexes and foreign keys in their own guarded changeSets so a half-applied DDL is repaired by a re-run. Every index starts with org_id
+        (R1/R2). MySQL 9.2.
+
+        job_data_event is append-only: the application only inserts and reads (the repository has no delete or update, a test keeps it so). The
+        ledger holds names of fields, never values, and never job text. Its actor column has no foreign key on purpose: an erased member must not
+        be blocked by, nor be able to rewrite, the lineage of the data (the same reason org_audit_event has none).
+    -->
+
+    <!-- client_requirement: provenance (61 section 2) and the stored detail level (60 section 10). -->
+    <changeSet id="job-provenance-1-client_requirement" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="client_requirement" columnName="detail_level"/></not></preConditions>
+        <addColumn tableName="client_requirement">
+            <column name="captured_at" type="${datetimeType}"/>
+            <!-- USER_CLICK / MANUAL_ENTRY / IMPORT / FEED -->
+            <column name="capture_method" type="varchar(20)" defaultValue="MANUAL_ENTRY"><constraints nullable="false"/></column>
+            <column name="extension_version" type="varchar(20)"/>
+            <!-- SHA-256 (hex) of the canonical JSON the extension sent: proves what was received without keeping extra content -->
+            <column name="capture_payload_hash" type="char(64)"/>
+            <!-- MINIMAL / FULL -->
+            <column name="detail_level" type="varchar(10)" defaultValue="MINIMAL"><constraints nullable="false"/></column>
+            <column name="detail_level_changed_at" type="${datetimeType}"/>
+            <column name="detail_level_changed_by" type="bigint"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <!-- job_data_event: the append-only data-lineage ledger (61 section 3). -->
+    <changeSet id="job-provenance-2-job_data_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="job_data_event"/></not></preConditions>
+        <createTable tableName="job_data_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <!-- CAPTURED / EDITED / ENRICHED_FULL / DOWNGRADED / FULL_PURGED / ASSIGNED / UNASSIGNED / EXPORTED / TAKEDOWN_RECEIVED / TAKEDOWN_APPLIED / DELETED / CAP_CHANGED -->
+            <column name="event_type" type="varchar(24)"><constraints nullable="false"/></column>
+            <!-- No foreign key (see the comment above): a plain id, null for a system or feed actor. -->
+            <column name="actor_member_id" type="bigint"/>
+            <!-- MEMBER / SYSTEM / EXTENSION / FEED -->
+            <column name="actor_kind" type="varchar(10)"><constraints nullable="false"/></column>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="detail_level_before" type="varchar(10)"/>
+            <column name="detail_level_after" type="varchar(10)"/>
+            <!-- Names of the fields set / changed / purged, never values. -->
+            <column name="fields" type="varchar(300)"/>
+            <column name="source_ref" type="varchar(200)"/>
+            <column name="terms_ref" type="varchar(80)"/>
+            <column name="request_id" type="varchar(64)"/>
+            <column name="note" type="varchar(200)"/>
+        </createTable>
+        <rollback/>
+    </changeSet>
+    <changeSet id="job-provenance-3-job_data_event_fk_org" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><foreignKeyConstraintExists foreignKeyTableName="job_data_event" foreignKeyName="fk_jde_org"/></not></preConditions>
+        <addForeignKeyConstraint baseTableName="job_data_event" baseColumnNames="org_id" constraintName="fk_jde_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <rollback/>
+    </changeSet>
+    <changeSet id="job-provenance-4-job_data_event_fk_requirement" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><foreignKeyConstraintExists foreignKeyTableName="job_data_event" foreignKeyName="fk_jde_requirement"/></not></preConditions>
+        <addForeignKeyConstraint baseTableName="job_data_event" baseColumnNames="org_id, requirement_id" constraintName="fk_jde_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <rollback/>
+    </changeSet>
+    <changeSet id="job-provenance-5-job_data_event_ix_requirement" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="job_data_event" indexName="ix_jde_requirement"/></not></preConditions>
+        <createIndex tableName="job_data_event" indexName="ix_jde_requirement"><column name="org_id"/><column name="requirement_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+    <changeSet id="job-provenance-6-job_data_event_ix_occurred" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="job_data_event" indexName="ix_jde_occurred"/></not></preConditions>
+        <createIndex tableName="job_data_event" indexName="ix_jde_occurred"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+    <changeSet id="job-provenance-7-job_data_event_ix_type" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="job_data_event" indexName="ix_jde_type"/></not></preConditions>
+        <createIndex tableName="job_data_event" indexName="ix_jde_type"><column name="org_id"/><column name="event_type"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

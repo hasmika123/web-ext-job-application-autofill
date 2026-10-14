@@ -18,6 +18,10 @@ public interface ClientRequirementRepository extends Repository<ClientRequiremen
 
     List<ClientRequirement> findByOrgId(Long orgId);
 
+    /** Several jobs of the organization in one read (the job data audit page). */
+    @Query("select r from ClientRequirement r where r.orgId = :orgId and r.id in :ids")
+    List<ClientRequirement> findByOrgIdAndIdIn(@Param("orgId") Long orgId, @Param("ids") java.util.Collection<Long> ids);
+
     long countByOrgId(Long orgId);
 
     /** The job with this normalized URL key hash ({@code UrlKeys}), if the organization already has it. */

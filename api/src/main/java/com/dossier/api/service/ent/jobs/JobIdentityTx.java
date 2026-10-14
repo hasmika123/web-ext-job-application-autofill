@@ -3,12 +3,15 @@ package com.dossier.api.service.ent.jobs;
 import com.dossier.api.domain.ent.mkt.MktOpportunity;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
+import com.dossier.api.domain.ent.talent.JobDataEvent;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
+import com.dossier.api.repository.ent.talent.JobDataEventRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
 import java.util.Optional;
+import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,17 +35,20 @@ public class JobIdentityTx {
     private final ClientRequirementRepository requirements;
     private final RequirementMatchRepository matches;
     private final MktOpportunityRepository opportunities;
+    private final JobDataEventRepository ledger;
 
     public JobIdentityTx(
         ClientAccountRepository accounts,
         ClientRequirementRepository requirements,
         RequirementMatchRepository matches,
-        MktOpportunityRepository opportunities
+        MktOpportunityRepository opportunities,
+        JobDataEventRepository ledger
     ) {
         this.accounts = accounts;
         this.requirements = requirements;
         this.matches = matches;
         this.opportunities = opportunities;
+        this.ledger = ledger;
     }
 
     // ---- inserts: throw DataIntegrityViolationException on a lost race --------------------------------------------------------------
@@ -55,6 +61,18 @@ public class JobIdentityTx {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Long insertRequirement(ClientRequirement requirement) {
         return requirements.saveAndFlush(requirement).getId();
+    }
+
+    /**
+     * {@link #insertRequirement(ClientRequirement)} plus its ledger row in the SAME transaction: the job and the {@code CAPTURED} event commit
+     * together or not at all (the job insert is a transaction of its own, so a ledger row written by the caller could be lost while the job stays).
+     * {@code ledgerRow} builds the event from the saved job (it needs the new id).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Long insertRequirement(ClientRequirement requirement, Function<ClientRequirement, JobDataEvent> ledgerRow) {
+        ClientRequirement saved = requirements.saveAndFlush(requirement);
+        ledger.save(ledgerRow.apply(saved));
+        return saved.getId();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

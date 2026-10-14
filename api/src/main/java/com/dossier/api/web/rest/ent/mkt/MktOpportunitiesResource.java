@@ -135,6 +135,13 @@ public class MktOpportunitiesResource {
         return service.requestFromConsultant(me, id, body == null ? null : body.kind());
     }
 
+    @Operation(summary = "Answer the consultant's question (state stays NEEDS_INFO; the consultant moves on). 409 NO_OPEN_INFO_REQUEST when nothing is waiting; 422 SENSITIVE_CONTENT. Never changes the consultant's state.")
+    @PostMapping("/{id}/answer-info")
+    @OrgPermissionRequired
+    public ActionResult answerInfo(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long id, @RequestBody AnswerInfoRequest body) {
+        return service.answerInfo(me, id, body == null ? null : body.answer());
+    }
+
     @Operation(summary = "Record that the marketer reviewed the opportunity.")
     @PostMapping("/{id}/review")
     @OrgPermissionRequired
