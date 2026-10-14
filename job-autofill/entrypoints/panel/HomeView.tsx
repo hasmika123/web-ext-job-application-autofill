@@ -41,6 +41,17 @@ import {
   type JobFitOutcome,
 } from "./home-actions";
 import { SaveJobDialog } from "./SaveJobDialog";
+import { MarketerView } from "./MarketerView";
+import { AssignedChip, AssignedJobsList } from "./AssignedJobs";
+import {
+  readWorkspaceState,
+  refreshWorkspaces,
+  chooseWorkspace,
+  loadAssigned,
+  matchAssigned,
+  type WorkspaceState,
+  type AssignedJob,
+} from "./workspace-actions";
 import type { Handoff } from "./services";
 
 const WEB = "https://kiwiply.com";
@@ -76,9 +87,80 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     setJobFit(null);
   }, [selectedId]);
 
+  // WP5 — org workspaces. `ws` is Personal (no orgs, or chosen) or one of the user's orgs. The mode
+  // decides the drawer: personal/consultant = today's fill drawer (consultant adds the Jobs tab and
+  // the "Assigned by" chip); marketer-only = ONLY "Save for consultant…" (no resumes, no fill, and
+  // no profile/mirror read at all — see loadHome's guard).
+  const [ws, setWs] = useState<WorkspaceState>({ workspaces: [], setting: "personal" });
+  const [tab, setTab] = useState<"fill" | "jobs">("fill");
+  const [match, setMatch] = useState<{ job: AssignedJob; by: string } | null>(null);
+  const mode = window.JAF.workspace.modeOf(ws.workspaces, ws.setting) as {
+    kind: "personal" | "marketer" | "consultant" | "org";
+    org: { orgId: number; name: string } | null;
+  };
+  const modeKind = useRef(mode.kind);
+  modeKind.current = mode.kind;
+  const homeLoaded = useRef(false);
+
   const toast = useToast();
   const activeTab = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // The personal data path: refresh the mirror of the signed-in user's OWN profile, then read it.
+  // Never runs in a marketer-only workspace (the caller checks `modeKind`), and only once.
+  async function loadHome() {
+    if (homeLoaded.current) return;
+    homeLoaded.current = true;
+    await refreshMirror();
+    const d = await loadData();
+    setData(d);
+    setAutoAdv(!!d.settings.autoAdvance);
+    const pickable = d.resumes;
+    // Preselect: the last-used resume if still available, else the user's default/base resume,
+    // else the first one.
+    if (d.settings.lastResumeId && pickable.some((r) => r.id === d.settings.lastResumeId)) {
+      setSelectedId(d.settings.lastResumeId);
+    } else {
+      const preferred = pickable.find((r) => r.defaultResume) ?? pickable[0];
+      if (preferred) setSelectedId(preferred.id);
+    }
+    // After the picker is ready, so a slow score never delays filling. Never auto-selects:
+    // it suggests, and the user decides.
+    matchResumesForPage(pickable).then(setFit);
+  }
+
+  async function onPickWorkspace(value: string) {
+    const setting = value === "personal" ? "personal" : Number(value);
+    await chooseWorkspace(setting);
+    setTab("fill");
+    setMatch(null);
+    setWs((w) => ({ ...w, setting }));
+    const next = window.JAF.workspace.modeOf(ws.workspaces, setting);
+    if (next.kind !== "marketer") void loadHome();
+  }
+
+  // Consultant workspace: is THIS page one of my assigned jobs? (Identity, then normalised URL.)
+  useEffect(() => {
+    setMatch(null);
+    if (mode.kind !== "consultant" || !mode.org) return;
+    const orgId = mode.org.orgId;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await loadAssigned(orgId);
+        if (!r || !alive) return;
+        const cap = await capturePage();
+        if (!cap.ok || !alive) return;
+        const m = await matchAssigned(r.items, cap.capture);
+        if (alive) setMatch(m);
+      } catch {
+        /* the chip is a convenience; the Jobs tab still lists everything */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [mode.kind, mode.org?.orgId]);
 
   useEffect(() => {
     // Orphaned drawer (extension reloaded/updated while open) → chrome.* is dead; bow out.
@@ -99,26 +181,18 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     // The background re-pulled the mirror because the web app signalled a change (11.1) —
     // repaint from the fresh store so a resume saved on kiwiply.com appears here at once.
     const onMirror = (msg: { type?: string }) => {
-      if (msg && msg.type === "KIWIPLY_MIRROR_UPDATED") loadData().then(setData);
+      if (msg && msg.type === "KIWIPLY_MIRROR_UPDATED" && modeKind.current !== "marketer") loadData().then(setData);
     };
     chrome.runtime.onMessage.addListener(onMirror);
     (async () => {
-      await refreshMirror();
-      const d = await loadData();
-      setData(d);
-      setAutoAdv(!!d.settings.autoAdvance);
-      const pickable = d.resumes;
-      // Preselect: the last-used resume if still available, else the user's default/base resume,
-      // else the first one.
-      if (d.settings.lastResumeId && pickable.some((r) => r.id === d.settings.lastResumeId)) {
-        setSelectedId(d.settings.lastResumeId);
-      } else {
-        const preferred = pickable.find((r) => r.defaultResume) ?? pickable[0];
-        if (preferred) setSelectedId(preferred.id);
-      }
-      // After the picker is ready, so a slow score never delays filling. Never auto-selects:
-      // it suggests, and the user decides.
-      matchResumesForPage(pickable).then(setFit);
+      // Local read first (instant, offline-safe): decides whether the personal data path may run.
+      const local = await readWorkspaceState();
+      setWs(local);
+      if (window.JAF.workspace.modeOf(local.workspaces, local.setting).kind !== "marketer") void loadHome();
+      // Then the server's current memberships; a role change flips the drawer without a reopen.
+      const fresh = await refreshWorkspaces();
+      setWs(fresh);
+      if (window.JAF.workspace.modeOf(fresh.workspaces, fresh.setting).kind !== "marketer") void loadHome();
     })();
     return () => {
       chrome.storage.onChanged.removeListener(onChange);
@@ -151,7 +225,10 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
       // cap not ok → let fillPage surface the real error below.
     }
     setStatus({ msg: "Scanning page…", kind: "neutral" });
-    const res = await fillPage(selectedResume, data.bio, autoAdv);
+    // A consultant filling an assigned job: the fill carries {orgId,id} so the confirmed submit can
+    // be reported. Still their OWN profile and resume — nothing about the marketer's side changes it.
+    const opportunity = mode.kind === "consultant" && mode.org && match ? { orgId: mode.org.orgId, id: match.job.id } : null;
+    const res = await fillPage(selectedResume, data.bio, autoAdv, opportunity);
     if (res.ok) {
       // Close the drawer so the on-page fill-review overlay (the field list) is unobstructed.
       closePanel();
@@ -199,9 +276,8 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
 
   const statusColor = status.kind === "err" ? "text-danger-text" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
 
-  return (
-    <div className="kiwi-fade-in flex min-h-screen w-full flex-col gap-4 bg-app-bg px-4 pb-4 pt-4 font-body text-ink">
-      {/* Header — logo (left) + account chip · settings · close (right), all on one row */}
+  // Header — logo (left) + account chip · settings · close (right), all on one row
+  const headerEl = (
       <header className="flex items-center justify-between gap-2">
         <BrandLogo height={24} />
         <div className="flex min-w-0 items-center gap-1">
@@ -224,6 +300,82 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
           </IconButton>
         </div>
       </header>
+  );
+
+  // Workspace chip: Personal / <Org>. Shown only for users who belong to an org — everyone else
+  // sees the drawer exactly as before.
+  const wsRow =
+    ws.workspaces.length > 0 ? (
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-bold uppercase tracking-[.1em] text-muted">Workspace</span>
+        <Select
+          variant="pill"
+          aria-label="Workspace"
+          value={ws.setting === "personal" ? "personal" : String(ws.setting)}
+          onChange={(v) => void onPickWorkspace(v)}
+        >
+          <option value="personal">Personal</option>
+          {ws.workspaces.map((w) => (
+            <option key={w.orgId} value={String(w.orgId)}>
+              {w.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+    ) : null;
+
+  const rootCls = "kiwi-fade-in flex min-h-screen w-full flex-col gap-4 bg-app-bg px-4 pb-4 pt-4 font-body text-ink";
+
+  // Marketer-only workspace: ONLY "Save for consultant…". No resumes, no fill, no profile read.
+  if (mode.kind === "marketer" && mode.org) {
+    return (
+      <div className={rootCls}>
+        {headerEl}
+        {wsRow}
+        <MarketerView key={mode.org.orgId} orgId={mode.org.orgId} orgName={mode.org.name} />
+        <footer className="mt-auto border-t border-line px-1 pt-3 text-[11px] text-muted">
+          Saving hands a job to your consultant · they apply themselves
+        </footer>
+      </div>
+    );
+  }
+
+  return (
+    <div className={rootCls}>
+      {headerEl}
+      {wsRow}
+
+      {/* Consultant workspace: Autofill | Jobs */}
+      {mode.kind === "consultant" && mode.org && (
+        <div role="tablist" aria-label="Drawer sections" className="flex gap-1 rounded-full bg-paper-2 p-1">
+          {(["fill", "jobs"] as const).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={`min-h-[36px] flex-1 rounded-full text-[12.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+                tab === t ? "bg-paper text-ink shadow-sm" : "text-muted hover:text-ink"
+              }`}
+            >
+              {t === "fill" ? "Autofill" : "Jobs"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {mode.kind === "consultant" && mode.org && tab === "jobs" && <AssignedJobsList orgId={mode.org.orgId} orgName={mode.org.name} />}
+
+      {mode.kind === "consultant" && mode.org && tab === "fill" && match && (
+        <AssignedChip
+          orgId={mode.org.orgId}
+          job={match.job}
+          manualApplied={window.JAF.workspace.needsManualApplied(match.job.atsPlatform)}
+          onApplied={() => setMatch(null)}
+        />
+      )}
+
+      {!(mode.kind === "consultant" && tab === "jobs") && (<>
 
       {/* Connect prompt — the sign-in path (no in-extension login); also where an expired session
           lands once its tokens are cleared. Only until an account is connected. */}
@@ -440,6 +592,8 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
           Report a bug
         </button>
       </footer>
+
+      </>)}
 
       {/* Save-a-job confirmation modal */}
       {saveModal && (

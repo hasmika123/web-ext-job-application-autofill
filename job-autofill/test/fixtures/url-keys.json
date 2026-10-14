@@ -1,0 +1,21 @@
+{
+  "about": "Golden cases for the job URL key (docs/enterprise-v2/60 §2 UrlKeys; extension implementation: JAF.workspace.urlKey in src/lib/workspace.js). Shared so the server's UrlKeys.normalize can run the SAME cases. key = lower-cased scheme + host (leading www. dropped) + non-default port + path (trailing slashes dropped, case kept) + the query WITHOUT tracking parameters (original order and case kept), no fragment, capped at 1000 chars. '' means 'not a usable http(s) link'. Tracking parameters (case-insensitive): utm_*, gh_src, source, src, ref, referrer, lever-source, lever-origin, trk, trackingid, refid, from, iis, iisn. currentJobId is NOT tracking: it is the job identity on LinkedIn collection URLs and stays. The scheme is part of the key (http and https are different keys) - if the server keeps ApplicationKeys.url's scheme-less form, only the 'https://' / 'http://' prefix differs.",
+  "maxLength": 1000,
+  "cases": [
+    { "name": "uppercase scheme/host, www, trailing slash, utm, fragment", "input": "HTTPS://WWW.Example.COM/Jobs/123/?utm_source=x&gh_jid=77#apply", "key": "https://example.com/Jobs/123?gh_jid=77" },
+    { "name": "linkedin collection keeps currentJobId, drops trk/refId", "input": "https://www.linkedin.com/jobs/collections/recommended/?currentJobId=3856789012&trk=abc&refId=XYZ", "key": "https://linkedin.com/jobs/collections/recommended?currentJobId=3856789012" },
+    { "name": "linkedin view drops trackingId/refId/utm_medium", "input": "https://www.linkedin.com/jobs/view/3856789012/?trackingId=abc&refId=1&utm_medium=x", "key": "https://linkedin.com/jobs/view/3856789012" },
+    { "name": "indeed keeps jk and vjk, drops from", "input": "https://www.indeed.com/viewjob?jk=abc123&from=serp&vjk=def", "key": "https://indeed.com/viewjob?jk=abc123&vjk=def" },
+    { "name": "lever drops lever-source and source", "input": "https://jobs.lever.co/acme/0c1d2e3f?lever-source=LinkedIn&source=li", "key": "https://jobs.lever.co/acme/0c1d2e3f" },
+    { "name": "greenhouse drops gh_src and UTM_ in any case", "input": "https://boards.greenhouse.io/acme/jobs/4012345?gh_src=abc&UTM_Campaign=x", "key": "https://boards.greenhouse.io/acme/jobs/4012345" },
+    { "name": "http, non-default port, double trailing slash, surrounding spaces", "input": "  http://Example.com:8080/a/b//?q=1 ", "key": "http://example.com:8080/a/b?q=1" },
+    { "name": "bare host with only a tracking param", "input": "https://example.com/?utm_source=x", "key": "https://example.com" },
+    { "name": "empty and trailing query parts are skipped", "input": "https://example.com/j?a=1&&b=2&", "key": "https://example.com/j?a=1&b=2" },
+    { "name": "parameter name and value case is kept", "input": "https://example.com/j?ID=AbC", "key": "https://example.com/j?ID=AbC" },
+    { "name": "subdomain is kept, ref and fragment dropped", "input": "https://careers.example.com/jobs/view/9?ref=abc#section", "key": "https://careers.example.com/jobs/view/9" },
+    { "name": "mailto is not a job link", "input": "mailto:a@b.com", "key": "" },
+    { "name": "javascript: is not a job link", "input": "javascript:alert(1)", "key": "" },
+    { "name": "garbage", "input": "not a url", "key": "" },
+    { "name": "empty", "input": "", "key": "" }
+  ]
+}
