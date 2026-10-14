@@ -6,25 +6,27 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Button,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   ClipboardCheckIcon,
   EmptyState,
   ErrorState,
-  FileTextIcon,
   FilterBar,
   FilterIcon,
   LayoutGridIcon,
   ListIcon,
   PlusIcon,
   Select,
+  ShieldIcon,
   Tab,
   TabList,
   Tabs,
   TableSkeleton,
   UploadIcon,
+  UsersIcon,
   useMediaQuery,
   useNarrow,
   useToast,
-  ClockIcon,
 } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import PageHeader from "@/components/ent/shell/ShellContext";
@@ -51,12 +53,12 @@ import {
   type Visibility,
 } from "@/lib/ent/resumes";
 import ResumeDrawer, { printHtml } from "./ResumeDrawer";
-import ResumeHelpCard from "./ResumeHelpCard";
+import BeeBanner from "@/components/ent/shell/BeeBanner";
 import ResumeKpiTiles from "./ResumeKpiTiles";
 import { Pagination, ResumesTable } from "./ResumesTable";
 import UploadResumeDialog from "./UploadResumeDialog";
 
-const WIDE_QUERY = "(min-width: 1400px)"; // config-literal-ok: the width at which the drawer docks beside the table instead of floating over it
+const WIDE_QUERY = "(min-width: 1280px)"; // config-literal-ok: the width at which the drawer docks beside the table instead of floating over it
 const UNDO_MS = 9000; // config-literal-ok: how long an Undo stays offered (UI timing)
 
 export interface ResumesPageProps {
@@ -272,55 +274,62 @@ export default function ResumesPage({ orgName, orgId, permissions, supportEmail 
   const to = list.status === "ok" ? state.page * state.size + rows.length : 0;
 
   return (
-    <div ref={root} data-resumes-page>
+    <div ref={root} data-resumes-page className="ent-fit">
       <PageHeader title="Resumes" subtitle="Manage and organize consultant resumes, track versions, and control visibility across your organization." />
-      <div className="flex items-start">
-        <div className="min-w-0 flex-1 space-y-4">
-          <div className={`grid gap-3 ${docked || sheetOpen ? "" : "xl:grid-cols-[minmax(0,4fr)_minmax(0,1.05fr)]"}`}>
-            <ResumeKpiTiles compact={docked || sheetOpen} counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
-            {!sheetOpen && <ResumeHelpCard orgName={orgName} supportEmail={supportEmail} />}
-          </div>
+      <div className="grid items-start gap-[15px] xl:grid-cols-[minmax(0,3.43fr)_minmax(0,1fr)]">
+        <ResumeKpiTiles compact={false} counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
+        <BeeBanner
+          title="Manage consultant resumes"
+          body="Store, review, and control resume visibility. Set primary resumes and approve updates for your team."
+          topic="resumes"
+          orgName={orgName}
+          supportEmail={supportEmail}
+        />
+      </div>
 
-          <section aria-label="Resumes" className="space-y-3 rounded-2xl border border-line bg-paper p-3 sm:p-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Tabs value={state.tab} onValueChange={(v) => apply({ tab: v as TabKey })} variant="underline" className="min-w-0 max-w-full overflow-x-auto">
+      <div className="mt-[18px] flex items-start">
+        <div className="min-w-0 flex-1">
+          <section aria-label="Resumes" className="ent-card space-y-3 !p-2 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ent-table-line)] pl-1.5">
+              <Tabs value={state.tab} onValueChange={(v) => apply({ tab: v as TabKey })} variant="underline" className="ent-tabs min-w-0 max-w-full overflow-x-auto">
                 <TabList aria-label="Resume views">
                   <Tab value="all">
-                    <span className="inline-flex items-center gap-1.5">
-                      <FileTextIcon aria-hidden size={15} className="hidden sm:block" /> {TAB_LABEL.all}
+                    <span className="inline-flex items-center gap-2">
+                      <UsersIcon aria-hidden size={17} className="hidden sm:block" /> {TAB_LABEL.all}
                     </span>
                   </Tab>
                   <Tab value="pending">
-                    <span className="inline-flex items-center gap-1.5">
-                      <ClipboardCheckIcon aria-hidden size={15} className="hidden sm:block" /> {TAB_LABEL.pending}
+                    <span className="inline-flex items-center gap-2">
+                      <ShieldIcon aria-hidden size={17} className="hidden sm:block" /> {TAB_LABEL.pending}
                     </span>
                   </Tab>
                   <Tab value="recent">
-                    <span className="inline-flex items-center gap-1.5">
-                      <ClockIcon aria-hidden size={15} className="hidden sm:block" /> {TAB_LABEL.recent}
+                    <span className="inline-flex items-center gap-2">
+                      <ClipboardCheckIcon aria-hidden size={17} className="hidden sm:block" /> {TAB_LABEL.recent}
                     </span>
                   </Tab>
                 </TabList>
               </Tabs>
               {canUpload && (
-                <Button type="button" variant="accent" onClick={() => setUploadOpen(true)} data-upload-open>
-                  <PlusIcon aria-hidden size={16} /> Upload Resume
+                <Button type="button" variant="accent" onClick={() => setUploadOpen(true)} data-upload-open className="ent-btn mb-1.5 mr-1.5">
+                  <PlusIcon aria-hidden size={15} /> Upload Resume
                 </Button>
               )}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 px-1">
               <FilterBar
                 compact
+                className="ent-filterbar"
                 query={state.q}
                 onQueryChange={(q) => apply({ q })}
                 values={filterValues}
                 onFilterChange={onFilter}
-                search={{ placeholder: "Search name, role, or skills...", label: "Search resumes" }}
+                search={{ placeholder: "Search resumes by name, consultant, role, or skills...", label: "Search resumes" }}
                 filters={filters}
                 actions={
-                  <Button type="button" variant="ghost" size="sm" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
-                    <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
+                  <Button type="button" variant="ghost" size="sm" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters className="ent-ctl-btn">
+                    <FilterIcon size={14} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
                   </Button>
                 }
               />
@@ -381,13 +390,13 @@ export default function ResumesPage({ orgName, orgId, permissions, supportEmail 
               </div>
             )}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-soft">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1.5 text-[11.5px] text-[var(--ent-soft)]">
               <p aria-live="polite" data-range>
-                {list.status === "ok" ? (total === 0 ? "No resumes" : `${from}-${to} of ${total} ${total === 1 ? "resume" : "resumes"}`) : " "}
+                {list.status === "ok" ? (total === 0 ? "No resumes" : `${from}-${to} of ${total} ${total === 1 ? "resume" : "resumes"}`) : " "}
               </p>
               <div className="flex items-center gap-2">
                 <span className="hidden sm:inline">Sort by:</span>
-                <div className="w-48">
+                <div className="ent-sort w-[150px]">
                   <Select
                     aria-label="Sort by"
                     value={SORT_OPTIONS.some((o) => o.value === sortValue) ? sortValue : ""}
@@ -399,33 +408,21 @@ export default function ResumesPage({ orgName, orgId, permissions, supportEmail 
                     options={SORT_OPTIONS}
                   />
                 </div>
-                <div role="group" aria-label="View" className="flex overflow-hidden rounded-lg border border-line">
-                  <button
-                    type="button"
-                    aria-label="List view"
-                    aria-pressed={state.view === "list"}
-                    onClick={() => apply({ view: "list" }, false)}
-                    className={`grid h-9 w-9 place-items-center ${state.view === "list" ? "bg-accent-soft text-accent-deep" : "text-ink-soft hover:bg-paper-2"}`}
-                  >
-                    <ListIcon aria-hidden size={16} />
+                <div role="group" aria-label="View" className="ent-seg flex overflow-hidden">
+                  <button type="button" aria-label="List view" aria-pressed={state.view === "list"} onClick={() => apply({ view: "list" }, false)}>
+                    <ListIcon aria-hidden size={15} />
                   </button>
-                  <button
-                    type="button"
-                    aria-label="Grid view"
-                    aria-pressed={state.view === "grid"}
-                    onClick={() => apply({ view: "grid" }, false)}
-                    className={`grid h-9 w-9 place-items-center border-l border-line ${state.view === "grid" ? "bg-accent-soft text-accent-deep" : "text-ink-soft hover:bg-paper-2"}`}
-                  >
-                    <LayoutGridIcon aria-hidden size={16} />
+                  <button type="button" aria-label="Grid view" aria-pressed={state.view === "grid"} onClick={() => apply({ view: "grid" }, false)}>
+                    <LayoutGridIcon aria-hidden size={15} />
                   </button>
                 </div>
                 {pageNav && (
-                  <div className="flex items-center gap-1">
-                    <button type="button" aria-label="Previous page" disabled={state.page <= 0} onClick={() => apply({ page: state.page - 1 })} className="grid h-9 w-9 place-items-center rounded-lg border border-line hover:bg-paper-2 disabled:opacity-40">
-                      {"‹"}
+                  <div className="flex items-center gap-1.5">
+                    <button type="button" aria-label="Previous page" disabled={state.page <= 0} onClick={() => apply({ page: state.page - 1 })} className="ent-sq">
+                      <ChevronLeftIcon size={14} aria-hidden />
                     </button>
-                    <button type="button" aria-label="Next page" disabled={to >= total} onClick={() => apply({ page: state.page + 1 })} className="grid h-9 w-9 place-items-center rounded-lg border border-line hover:bg-paper-2 disabled:opacity-40">
-                      {"›"}
+                    <button type="button" aria-label="Next page" disabled={to >= total} onClick={() => apply({ page: state.page + 1 })} className="ent-sq">
+                      <ChevronRightIcon size={14} aria-hidden />
                     </button>
                   </div>
                 )}

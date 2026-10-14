@@ -47,13 +47,15 @@ export interface KpiTileProps {
   seriesLabel?: string;
   /** Shown in the top-right corner of the tile (the board's "Add Employee" button on the last Employees tile). */
   action?: ReactNode;
+  /** The curve's colour when it is not the tone's own line colour (the talent boards draw it in the icon's colour). */
+  lineColor?: string;
   loading?: boolean;
   /** `data-kpi` of the tile (the page's journeys find a tile by it). */
   id?: string;
   className?: string;
 }
 
-export function KpiTile({ tone, label, icon, value, delta, series, seriesLabel, action, loading = false, id, className }: KpiTileProps) {
+export function KpiTile({ tone, label, icon, value, delta, series, seriesLabel, action, lineColor, loading = false, id, className }: KpiTileProps) {
   const good = delta ? (delta.dir === "flat" ? null : (delta.good ?? null)) : null;
   return (
     <div data-kpi={id} data-kpi-tone={tone} className={cn("ent-card relative flex h-full flex-col p-4", className)}>
@@ -63,7 +65,7 @@ export function KpiTile({ tone, label, icon, value, delta, series, seriesLabel, 
       <span className="ent-kpi-label mt-3 leading-tight">{label}</span>
       <div className="mt-1.5 flex items-end justify-between gap-2">
         {loading ? <Skeleton className="h-8 w-14" /> : <span className="ent-kpi-value" data-kpi-value>{value}</span>}
-        {!loading && series && series.length >= 2 ? <Sparkline values={series} color={kpiLine(tone)} label={seriesLabel} className="mb-0.5 !h-9 !w-[88px] flex-none" /> : null}
+        {!loading && series && series.length >= 2 ? <Sparkline values={series} color={lineColor ?? kpiLine(tone)} label={seriesLabel} className="mb-0.5 !h-9 !w-[88px] flex-none" /> : null}
       </div>
       {delta && !loading ? (
         <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[12.5px] text-[#46527e]" data-kpi-delta data-delta={delta.dir} data-good={good === null ? undefined : String(good)}>

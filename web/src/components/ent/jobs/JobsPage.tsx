@@ -30,12 +30,12 @@ import {
   type SortKey,
 } from "@/lib/ent/jobs";
 import CreateJobDialog from "./CreateJobDialog";
-import HelpBeeCard from "./HelpBeeCard";
+import BeeBanner from "@/components/ent/shell/BeeBanner";
 import JobDrawer, { UNDO_MS, type DrawerTab } from "./JobDrawer";
 import { JobsList, Pagination } from "./JobsList";
 import KpiTiles from "./KpiTiles";
 
-const WIDE_QUERY = "(min-width: 1400px)"; // config-literal-ok: the width at which the drawer docks beside the list instead of floating over it
+const WIDE_QUERY = "(min-width: 1280px)"; // config-literal-ok: the width at which the drawer docks beside the list instead of floating over it
 
 export interface JobsPageProps {
   orgId: number;
@@ -285,16 +285,16 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
   );
 
   return (
-    <div ref={root} data-jobs-page>
+    <div ref={root} data-jobs-page className="ent-fit">
       <PageHeader title="Jobs" subtitle="Manage job postings, track submissions, and find the best consultants for your opportunities." />
-      <div className="space-y-4">
+      <div className="space-y-[14px]">
         <KpiTiles summary={summary.data} loading={summary.status === "loading"} error={summary.status === "error"} />
 
         <div className="flex items-start">
-          <div className="min-w-0 flex-1 space-y-3">
-            <div role="search" className="flex flex-wrap items-center gap-2.5">
+          <div className="ent-card min-w-0 flex-1 space-y-2.5 !p-[10px]">
+            <div role="search" className="ent-searchrow flex flex-wrap items-center gap-2.5">
               <div className="relative min-w-0 flex-1 basis-64">
-                <SearchIcon aria-hidden size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+                <SearchIcon aria-hidden size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#3b5ba5]" />
                 <Input
                   type="search"
                   value={searchText}
@@ -307,25 +307,25 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
                       change({ q: searchText });
                     } else if (e.key === "Escape" && searchText !== "") setSearchText("");
                   }}
-                  className="min-h-11 !rounded-xl !bg-accent-soft/40 pl-10 sm:!min-h-11"
+                  className="ent-search !rounded-[10px] pl-10"
                 />
               </div>
               {canCreate && (
-                <Button type="button" variant="accent" className="min-h-11 !rounded-xl !px-5" onClick={() => setCreateOpen(true)} data-create-job>
-                  <PlusIcon size={16} aria-hidden /> Create Job
+                <Button type="button" variant="accent" className="ent-btn ent-btn-lg" onClick={() => setCreateOpen(true)} data-create-job>
+                  <PlusIcon size={15} aria-hidden /> Create Job
                 </Button>
               )}
             </div>
             {searchText.trim().length === 1 && <p className="text-[12px] text-muted">Type one more character to search.</p>}
 
-            <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap" data-filters>
+            <div className="ent-filterrow flex flex-wrap items-center gap-2 sm:flex-nowrap" data-filters>
               {filterSelects.map((fs) => (
-                <div key={fs.name} className="min-w-0 flex-1 basis-[calc(50%-0.3rem)] sm:basis-0">
-                  <Select className="!min-h-11 !rounded-xl !pl-2.5 !pr-7 !text-[12.5px] sm:!min-h-11" aria-label={fs.label} value={query[fs.name]} onChange={(v) => change({ [fs.name]: v } as Partial<JobQuery>)} options={[{ value: "", label: fs.all }, ...fs.options]} />
+                <div key={fs.name} className="min-w-0 flex-1 basis-[calc(50%-0.3rem)] sm:basis-auto">
+                  <Select aria-label={fs.label} value={query[fs.name]} onChange={(v) => change({ [fs.name]: v } as Partial<JobQuery>)} options={[{ value: "", label: fs.all }, ...fs.options]} />
                 </div>
               ))}
-              <Button type="button" variant="ghost" size="sm" className="min-h-11 flex-none !rounded-xl bg-paper !px-3 !text-[12.5px]" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
-                <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
+              <Button type="button" variant="ghost" size="sm" className="ent-ctl-btn flex-1 !h-[30px] sm:flex-auto" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
+                <FilterIcon size={14} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
               </Button>
               {filtersOn && (
                 <Button type="button" variant="ghost" size="sm" onClick={clearAll} data-clear-filters>
@@ -347,15 +347,15 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
               </div>
             )}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-ink-soft">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-[11px] text-[var(--ent-soft)]">
               <p aria-live="polite" data-count>
                 {list.status === "ok" ? (total === 0 ? "0 jobs" : `${query.page * query.size + 1}–${query.page * query.size + rows.length} of ${total} ${total === 1 ? "job" : "jobs"}`) : " "}
               </p>
               <label className="flex items-center gap-2">
                 <span>Sort by:</span>
-                <div className="w-44">
+                <div className="ent-sort w-[140px]">
                   <Select
-                    className="!border-transparent !bg-transparent !pl-1 !shadow-none font-semibold !text-ink sm:!min-h-9"
+                    className="font-semibold"
                     aria-label="Sort by"
                     value={sortValue}
                     onChange={(v) => {
@@ -419,7 +419,7 @@ export default function JobsPage({ orgId, orgName, supportEmail }: JobsPageProps
                 }
               />
             )}
-            {list.status === "ok" && rows.length > 0 && !drawerOpen && <HelpBeeCard orgName={orgName} supportEmail={supportEmail} />}
+            {list.status === "ok" && rows.length > 0 && !drawerOpen && <BeeBanner layout="row" title="Need help with your jobs?" body={`Questions about jobs, matches or submissions at ${orgName}? We can point you the right way.`} topic="jobs" orgName={orgName} supportEmail={supportEmail} />}
           </div>
 
           <JobDrawer

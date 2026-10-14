@@ -48,6 +48,11 @@ export interface SideSheetProps {
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
+  /**
+   * The content draws its own header (the board's drawers start with the person or the job, not a title bar): no title bar and no padding
+   * around the children; the title still names the panel for assistive tech and the close button keeps its place top-right.
+   */
+  bare?: boolean;
 }
 
 export const FOCUSABLE =
@@ -122,6 +127,7 @@ export default function SideSheet({
   children,
   footer,
   className,
+  bare = false,
 }: SideSheetProps) {
   const reduced = usePrefersReducedMotion();
   const ms = reduced ? SIDE_SHEET_REDUCED_MS : SIDE_SHEET_MS;
@@ -224,6 +230,11 @@ export default function SideSheet({
 
   const body = (
     <>
+      {bare ? (
+        <h2 id={titleId} className="sr-only">
+          {title}
+        </h2>
+      ) : (
       <header className="flex items-start gap-3 py-4 pl-5 pr-14">
         {icon != null && (
           <span
@@ -243,8 +254,9 @@ export default function SideSheet({
         </div>
         {headerExtra != null && <div className="shrink-0">{headerExtra}</div>}
       </header>
+      )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">{children}</div>
+      <div className={bare ? "min-h-0 flex-1 overflow-y-auto" : "min-h-0 flex-1 overflow-y-auto px-5 pb-4"}>{children}</div>
 
       {footer != null && (
         <footer className="flex items-center gap-2 border-t border-line px-5 py-3">{footer}</footer>

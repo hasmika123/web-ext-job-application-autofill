@@ -337,12 +337,12 @@ export default function MarketingAssignmentsPage({ orgId, orgName, workspace, pe
   const backup = dialog.kind === "backup" ? dialog : null;
 
   return (
-    <div data-marketing-assignments-page className="space-y-4">
+    <div data-marketing-assignments-page className="ent-fit space-y-[14px]">
       <PageHeader title="Marketing Assignments" subtitle="Assign consultants to marketing specialists and manage workloads, coverage, and performance." />
 
       <KpiRow kpis={kpis.data} loading={kpis.status === "loading"} error={kpis.status === "error"} onRetry={() => void loadKpis()} orgName={orgName} />
 
-      <div className="grid grid-cols-1 gap-4 min-[1400px]:grid-cols-[minmax(0,0.31fr)_minmax(0,0.69fr)]">
+      <div className="grid grid-cols-1 items-start gap-[18px] min-[1200px]:grid-cols-[minmax(0,398fr)_minmax(0,765fr)]">
         <MarketersPanel
           state={marketers}
           selectedId={marketer?.memberId ?? null}

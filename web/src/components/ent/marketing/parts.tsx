@@ -7,7 +7,7 @@ import { PRIORITY_LABEL, STATUS_LABEL, type Person } from "@/lib/ent/marketing-a
 
 /** One chip for the assignment status and one for the priority (the StatePill's tones: green, amber, red, grey). */
 if (!hasStateMap("assignment")) registerStateMap("assignment", { ACTIVE: "green", PAUSED: "grey" });
-if (!hasStateMap("assignment-priority")) registerStateMap("assignment-priority", { HIGH: "red", MEDIUM: "amber", LOW: "grey" });
+if (!hasStateMap("assignment-priority")) registerStateMap("assignment-priority", { HIGH: "red", MEDIUM: "amber", LOW: "blue" });
 
 export function AssignmentStatusPill({ status }: { status: string | null }) {
   if (!status) return <span className="text-muted">{"—"}</span>;
@@ -25,7 +25,7 @@ export function PersonChip({ person, size = 20, none = "—" }: { person: Person
   return (
     <span className="flex min-w-0 max-w-[7.25rem] items-center gap-1.5" title={person.name}>
       <MemberAvatar name={person.name} size={size} />
-      <span className="truncate text-[12px] text-ink">{person.name}</span>
+      <span className="truncate text-[11px] text-[var(--ent-title)]">{person.name}</span>
     </span>
   );
 }
@@ -75,8 +75,8 @@ export function CompactFilters({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text]);
   return (
-    <div role="search" className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-[9rem] flex-1">
+    <div role="search" className="ent-filterbar flex flex-wrap items-center gap-2">
+      <div className="relative min-w-[8rem] flex-1">
         <SearchIcon aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
         <Input
           type="search"

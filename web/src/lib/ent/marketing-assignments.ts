@@ -288,9 +288,8 @@ export function formatDay(iso: string | null | undefined): string {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  // this year's dates drop the year (a narrow column); older ones keep it
-  const sameYear = d.getUTCFullYear() === new Date().getUTCFullYear();
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }), timeZone: "UTC" });
+  // the board writes the year on every date ("Apr 18, 2024")
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
 export interface TileView {

@@ -45,7 +45,7 @@ import {
   type TopMatch,
 } from "@/lib/ent/jobs";
 import EditForm from "./EditForm";
-import HelpBeeCard from "./HelpBeeCard";
+import BeeBanner from "@/components/ent/shell/BeeBanner";
 import { Kebab, SkillChips, StatusPill } from "./parts";
 import { useJobDetail } from "./useJobDetail";
 
@@ -75,12 +75,12 @@ const OPEN_STATES = new Set(["OPEN", "IN_REVIEW"]);
 function Fact({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <div className="flex min-w-0 items-start gap-2.5">
-      <span aria-hidden className="mt-0.5 flex-none text-ink-soft">
+      <span aria-hidden className="mt-0.5 flex-none text-[#4b5a8a]">
         {icon}
       </span>
       <div className="min-w-0">
-        <dt className="text-[12.5px] text-muted">{label}</dt>
-        <dd className="mt-0.5 text-[14px] font-semibold leading-snug text-ink">{children}</dd>
+        <dt className="text-[10.5px] text-[var(--ent-soft)]">{label}</dt>
+        <dd className="mt-0.5 text-[11.5px] font-semibold leading-snug text-[var(--ent-title)]">{children}</dd>
       </div>
     </div>
   );
@@ -101,29 +101,29 @@ function Loading() {
 function MatchRow({ m, job, canAssign, busy, onAssign, onDismiss, onRestore }: { m: TopMatch; job: JobDetail; canAssign: boolean; busy: boolean; onAssign: () => void; onDismiss: () => void; onRestore: () => void }) {
   const jobOpen = OPEN_STATES.has(job.status);
   return (
-    <li data-match-row={m.matchId} className={`flex flex-wrap items-center gap-x-2.5 gap-y-2 py-2.5 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
-      <MemberAvatar name={m.name} size={40} />
-      <div className="min-w-[6rem] flex-1">
-        <p className="truncate text-[14px] font-bold leading-tight text-ink">{m.name}</p>
-        <p className="truncate text-[12.5px] text-muted" title={[m.reason, m.availability ? AVAILABILITY_LABEL[m.availability] ?? m.availability : null].filter(Boolean).join(" · ")}>{m.title ?? ""}</p>
+    <li data-match-row={m.matchId} className={`flex flex-wrap items-center gap-x-2.5 gap-y-2 py-2 ${m.status === "DISMISSED" ? "opacity-60" : ""}`}>
+      <MemberAvatar name={m.name} size={36} />
+      <div className="min-w-[5rem] flex-1">
+        <p className="truncate text-[11.5px] font-bold leading-tight text-[var(--ent-title)]">{m.name}</p>
+        <p className="truncate text-[10px] text-[var(--ent-soft)]" title={[m.reason, m.availability ? AVAILABILITY_LABEL[m.availability] ?? m.availability : null].filter(Boolean).join(" \u00b7 ")}>{m.title ?? ""}</p>
       </div>
-      <span className="flex-none text-[13.5px] font-semibold text-v2-green-ink tabular-nums" data-match-score>
+      <span className="flex-none text-[11px] font-semibold text-[#17995c] tabular-nums" data-match-score>
         {m.score}% match
       </span>
       {m.status === "ASSIGNED" ? (
-        <span data-match-assigned className="flex-none rounded-full bg-v2-violet-soft px-2.5 py-1 text-[12px] font-semibold text-v2-violet-ink">
-          Assigned{m.applicationCode ? ` · ${m.applicationCode}` : ""}
+        <span data-match-assigned className="ent-pill" data-tone="purple" data-shape="round">
+          Assigned{m.applicationCode ? ` \u00b7 ${m.applicationCode}` : ""}
         </span>
       ) : m.status === "DISMISSED" ? (
         canAssign && (
-          <Button type="button" size="sm" variant="ghost" onClick={onRestore} disabled={busy}>
+          <Button type="button" size="sm" variant="ghost" className="ent-ctl-btn !h-[28px]" onClick={onRestore} disabled={busy}>
             Restore
           </Button>
         )
       ) : (
         canAssign && (
           <>
-            <Button type="button" size="sm" variant="accent" className="!px-4" onClick={onAssign} disabled={busy || !jobOpen} title={jobOpen ? undefined : "Reopen the job to assign someone"} aria-label={`Assign ${m.name}`}>
+            <Button type="button" size="sm" variant="accent" className="ent-btn !h-[28px] !px-4" onClick={onAssign} disabled={busy || !jobOpen} title={jobOpen ? undefined : "Reopen the job to assign someone"} aria-label={`Assign ${m.name}`}>
               Assign
             </Button>
             <Kebab label={`More for ${m.name}`} items={[{ label: "Not a fit (dismiss)", onSelect: onDismiss }]} />
@@ -141,14 +141,14 @@ function MatchList({ orgId, job, limit, onChanged, replace }: { orgId: number | 
   const rows = limit ? live.slice(0, limit) : job.topMatches;
   if (job.topMatches.length === 0) {
     return (
-      <p className="rounded-xl bg-paper-2 p-3 text-[13px] text-ink-soft" data-no-matches>
+      <p className="rounded-xl bg-paper-2 p-3 text-[11.5px] text-ink-soft" data-no-matches>
         No consultants are matched to this job yet.
       </p>
     );
   }
 
   return (
-    <ul className="divide-y divide-line/70" data-match-list>
+    <ul className="divide-y divide-[var(--ent-table-line)]" data-match-list>
       {rows.map((m) => (
         <MatchRow
           key={m.matchId}
@@ -212,32 +212,32 @@ function MatchList({ orgId, job, limit, onChanged, replace }: { orgId: number | 
   );
 }
 
-function Overview({ orgId, d, replace, onChanged, onTab, save, contacts, editing }: { orgId: number | string; d: JobDetail; replace: (x: JobDetail) => void; onChanged: () => void; onTab: (t: DrawerTab) => void; save: ReturnType<typeof useJobDetail>["save"]; contacts: ClientOption["contacts"]; editing: boolean }) {
+function Overview({ d, save, contacts, editing }: { d: JobDetail; save: ReturnType<typeof useJobDetail>["save"]; contacts: ClientOption["contacts"]; editing: boolean }) {
   const rate = rateText(d.rate);
   if (editing) return <EditForm key={d.id} detail={d} contacts={contacts} save={save as (b: PatchBody) => ReturnType<typeof save>} />;
   return (
-    <div className="space-y-5" data-overview>
-      <dl className="grid grid-cols-2 gap-x-5 gap-y-4">
-        <Fact icon={<BriefcaseIcon size={18} />} label="Job Type">
+    <div className="space-y-4" data-overview>
+      <dl className="grid grid-cols-2 gap-x-5 gap-y-3.5">
+        <Fact icon={<BriefcaseIcon size={16} />} label="Job Type">
           {employmentLabel(d.employment) || "Not set"}
         </Fact>
-        <Fact icon={<GraduationCapIcon size={18} />} label="Experience Level">
+        <Fact icon={<GraduationCapIcon size={16} />} label="Experience Level">
           {experienceLabel(d.experienceLevel) || "Not set"}
         </Fact>
-        <Fact icon={<CalendarIcon size={18} />} label="Duration">
+        <Fact icon={<CalendarIcon size={16} />} label="Duration">
           {d.durationLabel || "Not set"}
         </Fact>
-        <Fact icon={<DollarIcon size={18} />} label="Compensation">
+        <Fact icon={<DollarIcon size={16} />} label="Compensation">
           {rate || "Not stated"}
         </Fact>
         <div data-client-contact>
-          <Fact icon={<UserIcon size={18} />} label="Client Contact">
+          <Fact icon={<UserIcon size={16} />} label="Client Contact">
             {d.contact ? (
               <span className="mt-1 flex items-center gap-2">
-                <MemberAvatar name={d.contact.name} size={28} />
+                <MemberAvatar name={d.contact.name} size={26} />
                 <span className="min-w-0">
-                  <span className="block truncate text-[13px] font-semibold leading-tight text-ink">{d.contact.name}</span>
-                  <span className="block truncate text-[11px] font-normal leading-tight tracking-tight text-muted">{d.contact.email ?? d.contact.title ?? ""}</span>
+                  <span className="block truncate text-[10.5px] font-semibold leading-tight text-[var(--ent-title)]">{d.contact.name}</span>
+                  <span className="block break-all text-[9px] font-normal leading-tight text-[var(--ent-soft)]">{d.contact.email ?? d.contact.title ?? ""}</span>
                 </span>
               </span>
             ) : (
@@ -245,21 +245,10 @@ function Overview({ orgId, d, replace, onChanged, onTab, save, contacts, editing
             )}
           </Fact>
         </div>
-        <Fact icon={<ClockIcon size={18} />} label="Skills">
-          {d.skills.length > 0 ? <SkillChips skills={d.skills} max={4} /> : <span className="font-normal text-muted">None listed</span>}
+        <Fact icon={<ClockIcon size={16} />} label="Skills">
+          {d.skills.length > 0 ? <SkillChips skills={d.skills} max={4} size="md" /> : <span className="font-normal text-muted">None listed</span>}
         </Fact>
       </dl>
-      <section aria-label="Top Consultant Matches" data-top-matches className="rounded-2xl border border-line bg-paper p-3.5">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-[15px] font-bold text-ink">Top Consultant Matches</h3>
-          {d.topMatches.length > 3 && (
-            <button type="button" onClick={() => onTab("matches")} className="text-[13px] font-semibold text-accent-deep hover:underline">
-              View All Matches ›
-            </button>
-          )}
-        </div>
-        <MatchList orgId={orgId} job={d} limit={3} onChanged={onChanged} replace={replace} />
-      </section>
     </div>
   );
 }
@@ -373,64 +362,93 @@ export default function JobDrawer(p: JobDrawerProps) {
     const d = state.detail;
     const contacts = p.clientOptions.find((c) => c.id === d.client.id)?.contacts ?? (d.contact ? [d.contact] : []);
     return (
-      <div data-detail-body data-job-id={d.id}>
-        <div className="space-y-3">
-          {p.mode === "sheet" && <div className="flex items-center gap-2">{statusControl}</div>}
-          <ul className="space-y-1.5 text-[13.5px] text-ink-soft" data-job-facts>
-            <li className="flex items-center gap-1.5">
-              <BuildingIcon aria-hidden size={15} className="flex-none text-ink-soft" /> <span className="font-semibold text-ink">{d.client.name}</span>
-              {d.access.canEdit && (
-                <button type="button" aria-pressed={editing} onClick={() => setEditing((e) => !e)} data-edit-toggle className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12.5px] font-semibold text-accent-deep hover:bg-accent-soft">
-                  <PencilIcon size={13} aria-hidden /> {editing ? "Done editing" : "Edit job"}
-                </button>
-              )}
-            </li>
-            <li className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              {d.location && (
+      <div data-detail-body data-job-id={d.id} className="space-y-3">
+        <div className="ent-card p-3.5">
+          <div className="space-y-2.5">
+            {p.mode === "sheet" ? (
+              <div className="flex items-center gap-2">{statusControl}</div>
+            ) : (
+              <div className="flex items-start gap-2 pr-8">
+                <h3 className="min-w-0 flex-1 text-[15px] font-bold leading-tight text-[var(--ent-title)]" data-job-heading>
+                  {d.title}
+                </h3>
+                <div className="flex-none">{statusControl}</div>
+              </div>
+            )}
+            <ul className="space-y-1.5 text-[11px] text-[#46527e]" data-job-facts>
+              <li className="flex items-center gap-1.5">
+                <BuildingIcon aria-hidden size={14} className="flex-none text-[#4b5a8a]" /> <span className="font-semibold text-[var(--ent-title)]">{d.client.name}</span>
+                {d.access.canEdit && (
+                  <button type="button" aria-pressed={editing} onClick={() => setEditing((e) => !e)} data-edit-toggle className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10.5px] font-semibold text-accent-deep hover:bg-accent-soft">
+                    <PencilIcon size={12} aria-hidden /> {editing ? "Done editing" : "Edit job"}
+                  </button>
+                )}
+              </li>
+              <li className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                {d.location && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <MapPinIcon aria-hidden size={13} className="text-[#4b5a8a]" /> {d.location}
+                  </span>
+                )}
+                {d.workMode && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <GlobeIcon aria-hidden size={13} className="text-[#4b5a8a]" /> {workModeLabel(d.workMode)}
+                  </span>
+                )}
                 <span className="inline-flex items-center gap-1.5">
-                  <MapPinIcon aria-hidden size={15} className="text-ink-soft" /> {d.location}
+                  <CalendarIcon aria-hidden size={13} className="text-[#4b5a8a]" /> Posted {postedText(d.postedAt)}
                 </span>
-              )}
-              {d.workMode && (
-                <span className="inline-flex items-center gap-1.5">
-                  <GlobeIcon aria-hidden size={15} className="text-ink-soft" /> {workModeLabel(d.workMode)}
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarIcon aria-hidden size={15} className="text-ink-soft" /> Posted {postedText(d.postedAt)}
-              </span>
-            </li>
-          </ul>
-          <SkillChips skills={d.skills} max={4} size="md" />
-          {d.description && !editing && (
-            <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink-soft" data-description>
-              {d.description}
-            </p>
-          )}
+              </li>
+            </ul>
+            <SkillChips skills={d.skills} max={4} size="md" />
+            {d.description && !editing && (
+              <p className="whitespace-pre-line text-[11px] leading-[1.5] text-[#46527e]" data-description>
+                {d.description}
+              </p>
+            )}
+          </div>
+          <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DrawerTab)} variant="underline" className="ent-tabs ent-tabs-sm mt-3">
+            <TabList aria-label="Job details">
+              <Tab value="overview">Overview</Tab>
+              <Tab value="matches">Top Matches ({d.topMatches.filter((m) => m.status !== "DISMISSED").length})</Tab>
+              <Tab value="submissions">Submissions ({d.submissionCount})</Tab>
+              <Tab value="activity">Activity</Tab>
+            </TabList>
+            <TabPanel value="overview" className="pt-3.5">
+              <Overview d={d} save={save} contacts={contacts} editing={editing} />
+            </TabPanel>
+            <TabPanel value="matches" className="pt-3">
+              <MatchList orgId={p.orgId} job={d} onChanged={p.onChanged} replace={replaceAndNotify} />
+            </TabPanel>
+            <TabPanel value="submissions" className="pt-3">
+              <SubmissionsTab d={d} />
+            </TabPanel>
+            <TabPanel value="activity" className="pt-3">
+              <ActivityTab d={d} />
+            </TabPanel>
+          </Tabs>
         </div>
-        <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DrawerTab)} variant="underline" className="mt-4">
-          <TabList aria-label="Job details">
-            <Tab value="overview" className="!px-2 !text-[12.5px]">Overview</Tab>
-            <Tab value="matches" className="!px-2 !text-[12.5px]">Top Matches ({d.topMatches.filter((m) => m.status !== "DISMISSED").length})</Tab>
-            <Tab value="submissions" className="!px-2 !text-[12.5px]">Submissions ({d.submissionCount})</Tab>
-            <Tab value="activity" className="!px-2 !text-[12.5px]">Activity</Tab>
-          </TabList>
-          <TabPanel value="overview" className="pt-4">
-            <Overview orgId={p.orgId} d={d} replace={replaceAndNotify} onChanged={p.onChanged} onTab={p.onTab} save={save} contacts={contacts} editing={editing} />
-          </TabPanel>
-          <TabPanel value="matches" className="pt-4">
-            <MatchList orgId={p.orgId} job={d} onChanged={p.onChanged} replace={replaceAndNotify} />
-          </TabPanel>
-          <TabPanel value="submissions" className="pt-4">
-            <SubmissionsTab d={d} />
-          </TabPanel>
-          <TabPanel value="activity" className="pt-4">
-            <ActivityTab d={d} />
-          </TabPanel>
-        </Tabs>
-        <div className="mt-4">
-          <HelpBeeCard orgName={p.orgName} supportEmail={p.supportEmail} forJob />
-        </div>
+
+        <section aria-label="Top Consultant Matches" data-top-matches className="ent-card p-3.5">
+          <div className="mb-1 flex items-center justify-between">
+            <h3 className="text-[12.5px] font-bold text-[var(--ent-title)]">Top Consultant Matches</h3>
+            {d.topMatches.length > 3 && (
+              <button type="button" onClick={() => p.onTab("matches")} className="text-[10.5px] font-semibold text-[#2b5fd6] hover:underline">
+                View All Matches ›
+              </button>
+            )}
+          </div>
+          <MatchList orgId={p.orgId} job={d} limit={3} onChanged={p.onChanged} replace={replaceAndNotify} />
+        </section>
+
+        <BeeBanner
+          layout="row"
+          title="Need help finding the right consultants for this job?"
+          body="I can help you find top matches, review submissions, or suggest skills to improve your reach."
+          topic="this job"
+          orgName={p.orgName}
+          supportEmail={p.supportEmail}
+        />
       </div>
     );
   })();
@@ -446,12 +464,12 @@ export default function JobDrawer(p: JobDrawerProps) {
     );
   }
   const sheet = (
-    <SideSheet id="ent-job-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 430 : 500} open={open} onClose={p.onClose} title={title} headerExtra={statusControl} returnFocusTo={p.returnFocusTo}>
+    <SideSheet id="ent-job-sheet" side="right" mode={p.mode} bare className="ent-drawer ent-drawer-col" width={p.mode === "push" ? 426 : 480} open={open} onClose={p.onClose} title={title} returnFocusTo={p.returnFocusTo}>
       {body}
     </SideSheet>
   );
   if (p.mode === "push") {
-    return <div className={`sticky top-4 h-[calc(100dvh-7rem)] shrink-0 self-start ${open ? "ml-4" : ""}`}>{sheet}</div>;
+    return <div className={`ent-drawer-slot sticky top-2 shrink-0 self-start ${open ? "ml-[12px]" : ""}`}>{sheet}</div>;
   }
   return sheet;
 }
