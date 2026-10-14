@@ -65,7 +65,17 @@ Writes additionally check the family permission (`resumes.manage`, `submissions.
 - Web: `npx vitest run src/lib/ent/consultant-ws src/components/ent/consultant-ws` (373 tests).
 - Real stack: `web/playwright.real.consultant.config.ts` (24 journeys: every page at 1440 and 390, the 19-item sidebar, Org Admin gets 404, another tenant
   cannot read). Demo logins: Anika Rao and Ben Okafor (Sam Whitfield is suspended); only they have seeded consultant data.
-- Not run by me: the full Gradle `test` suite and the full web `npm test`. `mascot-isolation.test.ts` can time out under load (passes alone).
+- Full runs before this merge (2026-10-14): web `npm test` = type-check and lint clean (0 errors), 2,877 tests pass and 2 fail; API `./gradlew test` (unit) =
+  1,814 tests, 2 fail. The 4 failures are all **pre-existing at the old base `3df7a684`** (the files they read are byte-identical to it), not from this branch:
+  - `EntRepositoryContractTest` (2 tests): the rule says repositories under `repository.ent` must extend the bare `Repository` (no `findById`/`findAll`) and take
+    `orgId` first. The 17 talent repositories already extend `JpaRepository`; the 35 consultant repositories follow the same pattern (org-first methods, but
+    `JpaRepository` underneath), so the offender list is longer. Converting all of them to bare `Repository` + explicit `save` is a cross-cutting refactor: your call.
+  - `web/src/lib/resume-doc.test.ts` (`blob.text is not a function`, a Node/jsdom gap) and `TenantThemeProvider.test.tsx` (an `@media` rule in
+    `packages/ui/styles/theme-tenant.css` fails the ".theme-tenant only" assertion).
+  - `mascot-isolation.test.ts` can time out under load but passes alone.
+- The integration suite was run per page and for `OrgIsolationIT` / `MeTenantResourceIT`, not as one full `integrationTest` run.
+- Shell note (not touched): at 1440px the sidebar label "Submissions & Approvals" is cut off by the shell's sidebar width.
+- My Placement shows its empty state for Anika (not on a project); sign in as **Ben Okafor** to see the full page (`placements-ben-1440.png`).
 
 ## Known gaps
 Pixel-exact match against the boards is close, not exact. The extension step that turns "applied via the link" into an application is not part of this branch.

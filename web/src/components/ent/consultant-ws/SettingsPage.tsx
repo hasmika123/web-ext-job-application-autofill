@@ -168,7 +168,7 @@ function CareerCard({ view }: { view: SettingsView }) {
     <Card id="settings-career" title="Career Preferences" icon={BriefcaseIcon} tone="accent" extra={<EditLink href={`${BASE}/profile`} label="Edit career preferences on your profile" />}>
       <dl className="grid gap-2.5">
         <Fact label="Preferred Job Types" value={employmentText(c.employmentTypes)} />
-        <Fact label="Preferred Work Mode" value={c.workMode} />
+        <Fact label="Preferred Work Mode" value={c.workMode ? c.workMode.charAt(0) + c.workMode.slice(1).toLowerCase() : c.workMode} />
         <Fact label="Target Roles" value={listText(c.targetRoles)} />
         <Fact label="Target Locations" value={listText(c.locations)} />
         <Fact label="Expected Rate (Hourly)" value={rateText(c.rateMinMinor, c.rateMaxMinor)} />
