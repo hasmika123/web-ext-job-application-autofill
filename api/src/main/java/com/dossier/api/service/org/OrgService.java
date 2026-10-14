@@ -311,7 +311,7 @@ public class OrgService {
 
     // ---- field cleaning (every free-text value is scanned for never-collected data) ------------------------------
 
-    static String cleanName(String raw) {
+    public static String cleanName(String raw) {
         String name = raw == null ? "" : raw.strip().replaceAll("\\s+", " ");
         if (name.isEmpty()) throw OrgException.invalid("name", "is required");
         if (name.length() > 120) throw OrgException.invalid("name", "must be at most 120 characters");

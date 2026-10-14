@@ -39,6 +39,10 @@ public class OrgAuditService {
     public static final String ORG_SETTINGS = "ORG_SETTINGS";
     public static final String MEMBER_INVITE = "MEMBER_INVITE";
     public static final String MEMBER_INVITE_RESEND = "MEMBER_INVITE_RESEND";
+    /** An Org Admin created an account for a person with a temporary password (HIGH; details carry the address and roles, never the password). */
+    public static final String MEMBER_ACCOUNT_CREATE = "MEMBER_ACCOUNT_CREATE";
+    /** An Org Admin issued a new temporary password to a member who had not yet chosen their own (HIGH). */
+    public static final String MEMBER_PASSWORD_RESET = "MEMBER_PASSWORD_RESET";
     /** X1.15: an admin withdrew a pending invitation. */
     public static final String MEMBER_INVITE_REVOKE = "MEMBER_INVITE_REVOKE";
     /** X1.15: the expiry job ended invitations whose link ran out (one row per organization per run, actor {@code system}). */
@@ -75,6 +79,15 @@ public class OrgAuditService {
 
     // --- Enterprise V2 tenancy (X1.2): hostnames and branding add their own keys in their stories ---
     public static final String ORG_SUBDOMAIN_SET = "ORG_SUBDOMAIN_SET";
+    /** X1.11: the Kiwiply platform admin acted on this organization (HIGH, in the tenant's own trail; the actor is the admin's login). */
+    public static final String ADMIN_ORG_CREATE = "ADMIN_ORG_CREATE";
+    public static final String ADMIN_OWNER_PASSWORD_RESET = "ADMIN_OWNER_PASSWORD_RESET";
+    public static final String ADMIN_SUBDOMAIN_PROVISION = "ADMIN_SUBDOMAIN_PROVISION";
+    public static final String ADMIN_ENTERPRISE_ON = "ADMIN_ENTERPRISE_ON";
+    public static final String ADMIN_ENTERPRISE_OFF = "ADMIN_ENTERPRISE_OFF";
+    public static final String ADMIN_HOSTNAME_SUSPEND = "ADMIN_HOSTNAME_SUSPEND";
+    public static final String ADMIN_HOSTNAME_RESUME = "ADMIN_HOSTNAME_RESUME";
+    public static final String TARGET_HOSTNAME = "HOSTNAME";
     /** X1.5: correct credentials on this organization's host by someone with no active seat (recorded in the tenant's own trail). */
     public static final String LOGIN_DENIED_NOT_MEMBER = "LOGIN_DENIED_NOT_MEMBER";
     public static final String TARGET_SESSION = "SESSION";

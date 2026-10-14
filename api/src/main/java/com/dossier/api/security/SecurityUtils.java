@@ -22,6 +22,8 @@ public final class SecurityUtils {
     public static final String AUTHORITIES_CLAIM = "auth";
 
     public static final String USER_ID_CLAIM = "userId";
+    /** Present (true) on the tokens of an account that must change an administrator-issued temporary password before doing anything else. */
+    public static final String PASSWORD_CHANGE_CLAIM = "pcr";
 
     // Distinguishes a short-lived access token from a long-lived refresh token.
     // A refresh token must never be accepted as an access token (enforced by the

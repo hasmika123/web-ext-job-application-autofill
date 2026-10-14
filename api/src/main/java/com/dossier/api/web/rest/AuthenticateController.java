@@ -7,6 +7,7 @@ import static com.dossier.api.security.SecurityUtils.JWT_ALGORITHM;
 import static com.dossier.api.security.SecurityUtils.REFRESH_TOKEN_TYPE;
 import static com.dossier.api.security.SecurityUtils.TENANT_CLAIM;
 import static com.dossier.api.security.SecurityUtils.TOKEN_TYPE_CLAIM;
+import static com.dossier.api.security.SecurityUtils.PASSWORD_CHANGE_CLAIM;
 import static com.dossier.api.security.SecurityUtils.USER_ID_CLAIM;
 
 import com.dossier.api.security.DomainUserDetailsService.UserWithId;
@@ -90,6 +91,10 @@ public class AuthenticateController {
     // Optional on purpose: this controller's constructor is pinned by the sliced AuthenticationIntegrationTest.
     private final ObjectProvider<TenantSessionService> tenantSessions;
 
+    // Field-injected and optional: the sliced test pins the constructor. Used only to re-read the must-change-password flag on refresh.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.repository.UserRepository userRepository;
+
     public AuthenticateController(
         JwtEncoder jwtEncoder,
         @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
@@ -127,6 +132,14 @@ public class AuthenticateController {
         String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
         Long userId = authentication.getPrincipal() instanceof UserWithId user ? user.getId() : null;
 
+        boolean passwordChangeRequired = false;
+        if (authentication.getPrincipal() instanceof com.dossier.api.security.DomainUserDetailsService.UserWithId pu) {
+            if (pu.isTempPasswordExpired()) {
+                throw com.dossier.api.service.org.OrgException.coded(403, "TEMP_PASSWORD_EXPIRED", "This temporary password has expired. Ask your administrator to issue a new one.", java.util.Map.of());
+            }
+            passwordChangeRequired = pu.isPasswordChangeRequired();
+        }
+
         // X1.5: on a tenant host the user needs an active seat in that org (403 NOT_A_MEMBER) BEFORE any MFA mail goes out.
         bindingFor(userId, authentication.getName(), true);
 
@@ -140,7 +153,7 @@ public class AuthenticateController {
             }
         }
 
-        return issueTokens(authentication.getName(), authorities, userId);
+        return issueTokens(authentication.getName(), authorities, userId, passwordChangeRequired);
     }
 
     /**
@@ -155,19 +168,19 @@ public class AuthenticateController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         AdminMfaService.VerifiedClaims c = claims.get();
-        return issueTokens(c.login(), c.authorities(), c.userId());
+        return issueTokens(c.login(), c.authorities(), c.userId(), false);
     }
 
     /** Build the access + refresh token pair (new rotation family) and the bearer header. */
-    private ResponseEntity<TokenResponse> issueTokens(String subject, String authorities, Long userId) {
+    private ResponseEntity<TokenResponse> issueTokens(String subject, String authorities, Long userId, boolean pcr) {
         TenantBinding binding = bindingFor(userId, subject, false).orElse(null);
-        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding);
+        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding, pcr);
         // New login starts a new rotation family. The refresh token carries a jti recorded
         // server-side so it can be rotated and revoked.
         String family = UUID.randomUUID().toString();
         String refreshJti = UUID.randomUUID().toString();
         refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti, binding);
+        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti, binding, pcr);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
@@ -243,10 +256,18 @@ public class AuthenticateController {
         Object rawUserId = jwt.getClaim(USER_ID_CLAIM);
         Long userId = rawUserId instanceof Number n ? n.longValue() : null;
 
-        String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding);
+        boolean pcr = false;
+        if (userRepository != null && userId != null) {
+            com.dossier.api.domain.User u = userRepository.findById(userId).orElse(null);
+            if (u != null && u.isPasswordChangeRequired()) {
+                if (com.dossier.api.service.UserService.tempPasswordExpired(u)) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+                pcr = true;
+            }
+        }
+        String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding, pcr);
         String newRefreshJti = UUID.randomUUID().toString();
         refreshTokenService.record(newRefreshJti, family.get(), userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(jwt.getSubject(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, newRefreshJti, binding);
+        String refreshToken = buildToken(jwt.getSubject(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, newRefreshJti, binding, pcr);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
@@ -324,6 +345,10 @@ public class AuthenticateController {
     }
 
     private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti, TenantBinding binding) {
+        return buildToken(subject, authorities, userId, tokenType, validityInSeconds, jti, binding, false);
+    }
+
+    private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti, TenantBinding binding, boolean pcr) {
         Instant now = Instant.now();
         Instant validity = now.plus(validityInSeconds, ChronoUnit.SECONDS);
 
@@ -340,6 +365,9 @@ public class AuthenticateController {
         if (binding != null && binding.orgId() != null) {
             builder.claim(TENANT_CLAIM, binding.orgId());
             if (binding.hostnameId() != null) builder.claim(HOSTNAME_CLAIM, binding.hostnameId());
+        }
+        if (pcr) {
+            builder.claim(PASSWORD_CHANGE_CLAIM, true); // the session may only change the password (PasswordChangeRequiredFilter)
         }
         if (jti != null) {
             builder.id(jti); // standard "jti" claim — recorded for rotation/revocation

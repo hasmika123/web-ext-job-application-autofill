@@ -58,10 +58,22 @@ public class DomainUserDetailsService implements UserDetailsService {
     public static class UserWithId extends org.springframework.security.core.userdetails.User {
 
         private final Long id;
+        private boolean passwordChangeRequired;
+        private boolean tempPasswordExpired;
 
         public UserWithId(String login, String password, Collection<? extends GrantedAuthority> authorities, Long id) {
             super(login, password, authorities);
             this.id = id;
+        }
+
+        /** True while the account holds an administrator-issued temporary password (the session may only change it). */
+        public boolean isPasswordChangeRequired() {
+            return passwordChangeRequired;
+        }
+
+        /** True when that temporary password has run out: sign-in is refused until an administrator issues a new one. */
+        public boolean isTempPasswordExpired() {
+            return tempPasswordExpired;
         }
 
         public Long getId() {
@@ -79,12 +91,15 @@ public class DomainUserDetailsService implements UserDetailsService {
         }
 
         public static UserWithId fromUser(User user) {
-            return new UserWithId(
+            UserWithId principal = new UserWithId(
                 user.getLogin(),
                 user.getPassword(),
                 user.getAuthorities().stream().map(Authority::getName).map(SimpleGrantedAuthority::new).toList(),
                 user.getId()
             );
+            principal.passwordChangeRequired = user.isPasswordChangeRequired();
+            principal.tempPasswordExpired = user.isPasswordChangeRequired() && user.getPasswordTempExpiresAt() != null && user.getPasswordTempExpiresAt().isBefore(java.time.Instant.now());
+            return principal;
         }
     }
 }

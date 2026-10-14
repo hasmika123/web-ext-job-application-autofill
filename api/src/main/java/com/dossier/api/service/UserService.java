@@ -77,6 +77,8 @@ public class UserService {
                 user.setPassword(passwordEncoder.encode(newPassword));
                 user.setResetKey(null);
                 user.setResetDate(null);
+                user.setPasswordChangeRequired(false);
+                user.setPasswordTempExpiresAt(null);
                 this.clearUserCaches(user);
                 return user;
             });
@@ -321,8 +323,13 @@ public class UserService {
                 if (!passwordEncoder.matches(currentClearTextPassword, currentEncryptedPassword)) {
                     throw new InvalidPasswordException();
                 }
+                if (user.isPasswordChangeRequired() && passwordEncoder.matches(newPassword, currentEncryptedPassword)) {
+                    throw new InvalidPasswordException(); // a forced change must actually change it
+                }
                 String encryptedPassword = passwordEncoder.encode(newPassword);
                 user.setPassword(encryptedPassword);
+                user.setPasswordChangeRequired(false);
+                user.setPasswordTempExpiresAt(null);
                 this.clearUserCaches(user);
                 LOG.debug("Changed password for User: {}", user);
             });
@@ -378,5 +385,101 @@ public class UserService {
         if (user.getEmail() != null) {
             Objects.requireNonNull(cacheManager.getCache(UserRepository.USERS_BY_EMAIL_CACHE)).evictIfPresent(user.getEmail());
         }
+    }
+
+    // ---- administrator-issued temporary passwords (X1.11 owner onboarding, employee direct-create) -------------------
+
+    private static final java.security.SecureRandom TEMP_RANDOM = new java.security.SecureRandom();
+    private static final String TEMP_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    private static final String TEMP_LOWER = "abcdefghijkmnopqrstuvwxyz";
+    private static final String TEMP_DIGIT = "23456789";
+    private static final String TEMP_SYMBOL = "!#$%*+-=?@";
+    public static final int TEMP_PASSWORD_LENGTH = 16;
+
+    /** What creating (or finding) an account for an administrator produced. {@code tempPassword} is null when the account already existed (its password is untouched). */
+    public record TempAccount(User user, String tempPassword, boolean created) {}
+
+    /** A random 16-character password with at least one upper-case letter, lower-case letter, digit and symbol; no look-alike characters (0 O 1 l I). */
+    public static String generateTempPassword() {
+        String all = TEMP_UPPER + TEMP_LOWER + TEMP_DIGIT + TEMP_SYMBOL;
+        char[] out = new char[TEMP_PASSWORD_LENGTH];
+        String[] required = { TEMP_UPPER, TEMP_LOWER, TEMP_DIGIT, TEMP_SYMBOL };
+        for (int i = 0; i < out.length; i++) {
+            String pool = i < required.length ? required[i] : all;
+            out[i] = pool.charAt(TEMP_RANDOM.nextInt(pool.length()));
+        }
+        for (int i = out.length - 1; i > 0; i--) { // shuffle so the required classes are not always first
+            int j = TEMP_RANDOM.nextInt(i + 1);
+            char t = out[i];
+            out[i] = out[j];
+            out[j] = t;
+        }
+        return new String(out);
+    }
+
+    /**
+     * The account for {@code email}: the existing one untouched (no new password, no flag), or a NEW activated account (no email
+     * verification step) whose password is {@code password} - the server-generated one, or an administrator-chosen one the caller
+     * has already checked against the password rules - flagged "must change on first sign-in" and expiring at {@code expiresAt}.
+     */
+    @Transactional
+    public TempAccount createTempAccount(String email, String firstName, String lastName, String password, Instant expiresAt) {
+        String mail = email.strip().toLowerCase(Locale.ROOT);
+        Optional<User> existing = userRepository.findOneByEmailIgnoreCase(mail);
+        if (existing.isPresent()) {
+            Hibernate.initialize(existing.get().getAuthorities());
+            return new TempAccount(existing.get(), null, false);
+        }
+        String temp = password == null ? generateTempPassword() : password;
+        User user = new User();
+        user.setLogin(freeLogin(mail));
+        user.setPassword(passwordEncoder.encode(temp));
+        user.setFirstName(trimTo(firstName, 50));
+        user.setLastName(trimTo(lastName, 50));
+        user.setEmail(mail);
+        user.setLangKey("en");
+        user.setActivated(true);
+        user.setPasswordChangeRequired(true);
+        user.setPasswordTempExpiresAt(expiresAt);
+        Set<Authority> authorities = new HashSet<>();
+        authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add);
+        user.setAuthorities(authorities);
+        userRepository.save(user);
+        clearUserCaches(user);
+        return new TempAccount(user, temp, true);
+    }
+
+    /** Gives the account a new temporary password (server-generated unless {@code password} is given), flags it for change and sets its expiry. Returns the clear-text password for the one-time display; it is stored hashed only. */
+    @Transactional
+    public String resetTempPassword(User user, String password, Instant expiresAt) {
+        String temp = password == null ? generateTempPassword() : password;
+        user.setPassword(passwordEncoder.encode(temp));
+        user.setPasswordChangeRequired(true);
+        user.setPasswordTempExpiresAt(expiresAt);
+        userRepository.save(user);
+        clearUserCaches(user);
+        return temp;
+    }
+
+    /** True when the account still holds an administrator-issued password that has run out (sign-in must be refused). */
+    public static boolean tempPasswordExpired(User user) {
+        return user.isPasswordChangeRequired() && user.getPasswordTempExpiresAt() != null && user.getPasswordTempExpiresAt().isBefore(Instant.now());
+    }
+
+    private String freeLogin(String mail) {
+        String login = mail.length() <= 50 ? mail : mail.substring(0, 40);
+        if (mail.length() <= 50 && userRepository.findOneByLogin(login).isEmpty()) return login;
+        String head = login.length() > 40 ? login.substring(0, 40) : login;
+        for (int i = 0; i < 50; i++) {
+            String candidate = head + "-" + (1000 + TEMP_RANDOM.nextInt(9000));
+            if (userRepository.findOneByLogin(candidate).isEmpty()) return candidate;
+        }
+        throw new IllegalStateException("could not find a free login");
+    }
+
+    private static String trimTo(String s, int max) {
+        if (s == null || s.isBlank()) return null;
+        String t = s.strip();
+        return t.length() > max ? t.substring(0, max) : t;
     }
 }

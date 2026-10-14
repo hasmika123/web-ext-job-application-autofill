@@ -81,6 +81,32 @@ public class User extends AbstractAuditingEntity<Long> implements Serializable {
     @Column(name = "reset_date")
     private Instant resetDate = null;
 
+    /** True while the account holds an administrator-issued temporary password (X1.11): the session may only change the password. */
+    @JsonIgnore
+    @Column(name = "password_change_required", nullable = false)
+    private boolean passwordChangeRequired = false;
+
+    /** When the temporary password stops working; null for an ordinary account. */
+    @JsonIgnore
+    @Column(name = "password_temp_expires_at")
+    private Instant passwordTempExpiresAt;
+
+    public boolean isPasswordChangeRequired() {
+        return passwordChangeRequired;
+    }
+
+    public void setPasswordChangeRequired(boolean passwordChangeRequired) {
+        this.passwordChangeRequired = passwordChangeRequired;
+    }
+
+    public Instant getPasswordTempExpiresAt() {
+        return passwordTempExpiresAt;
+    }
+
+    public void setPasswordTempExpiresAt(Instant passwordTempExpiresAt) {
+        this.passwordTempExpiresAt = passwordTempExpiresAt;
+    }
+
     @JsonIgnore
     @ManyToMany
     @JoinTable(

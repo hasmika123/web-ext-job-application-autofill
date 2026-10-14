@@ -61,6 +61,14 @@ public class AdminAuditService {
     // The AI page keeps AI_CONFIG_CHANGE; both write the same app_setting rows.
     public static final String TARGET_SETTING = "SETTING";
     public static final String SETTING_CHANGE = "SETTING_CHANGE";
+    // Platform admin: organizations and hostnames (X1.11). The tenant's own trail gets a matching ADMIN_* row.
+    public static final String TARGET_ORG = "ORG";
+    public static final String ORG_CREATE = "ORG_CREATE";
+    public static final String ORG_SUBDOMAIN_PROVISION = "ORG_SUBDOMAIN_PROVISION";
+    public static final String ORG_OWNER_PASSWORD_RESET = "ORG_OWNER_PASSWORD_RESET";
+    public static final String ORG_ENTERPRISE_SET = "ORG_ENTERPRISE_SET";
+    public static final String ORG_HOSTNAME_SUSPEND = "ORG_HOSTNAME_SUSPEND";
+    public static final String ORG_HOSTNAME_RESUME = "ORG_HOSTNAME_RESUME";
     public static final String TARGET_AI_PROVIDER = "AI_PROVIDER";
     public static final String AI_PROVIDER_TEST = "AI_PROVIDER_TEST";
 
