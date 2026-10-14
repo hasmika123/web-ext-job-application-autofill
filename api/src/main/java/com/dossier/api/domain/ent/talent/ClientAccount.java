@@ -40,6 +40,19 @@ public class ClientAccount implements Serializable {
     @Column(name = "notes", length = 1000)
     private String notes;
 
+    /** Added by ent_clients: where the client is based, its size band (1-50 ... 5000+), when the relationship began and a short description. */
+    @Column(name = "location", length = 120)
+    private String location;
+
+    @Column(name = "size_band", length = 20)
+    private String sizeBand;
+
+    @Column(name = "client_since")
+    private java.time.LocalDate clientSince;
+
+    @Column(name = "about", length = 1000)
+    private String about;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -72,6 +85,14 @@ public class ClientAccount implements Serializable {
     public void setOwnerMemberId(Long ownerMemberId) { this.ownerMemberId = ownerMemberId; }
     public String getNotes() { return notes; }
     public void setNotes(String notes) { this.notes = notes; }
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+    public String getSizeBand() { return sizeBand; }
+    public void setSizeBand(String sizeBand) { this.sizeBand = sizeBand; }
+    public java.time.LocalDate getClientSince() { return clientSince; }
+    public void setClientSince(java.time.LocalDate clientSince) { this.clientSince = clientSince; }
+    public String getAbout() { return about; }
+    public void setAbout(String about) { this.about = about; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }

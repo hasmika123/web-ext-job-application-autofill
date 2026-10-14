@@ -1,0 +1,1 @@
+{"code":"WORK_EMAIL_REQUIRED","field":"email","path":"/api/orgs/2/clients/3/contacts","error":"Use a work e-mail: we keep business contacts, not private mailboxes."}

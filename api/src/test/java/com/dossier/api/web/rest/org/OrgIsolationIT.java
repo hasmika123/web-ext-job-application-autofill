@@ -391,6 +391,18 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/jobs/bulk/status", Case.people(200, "JOB_BULK", 2, w -> "{\"ids\":[" + w.jobId + "],\"status\":\"ON_HOLD\"}", null, null)),
         Map.entry("POST /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}/assign", Case.people(200, "JOB_ASSIGN", 1, null, null, null)),
         Map.entry("PATCH /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}", Case.versioned(200, "JOB_MATCH_DISMISS", w -> "{\"status\":\"DISMISSED\"}", w -> null)),
+        // Enterprise V2 (ent-clients): the Clients page. Reads write no audit row; each change writes its own CLIENT_* row (target type CLIENT).
+        Map.entry("GET /api/orgs/{orgId}/clients", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/clients/summary", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/clients/contacts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/clients/requirements", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/clients/activity", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/clients/{clientId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/clients", Case.versioned(201, "CLIENT_CREATE", w -> "{\"name\":\"Hijack client\"}", w -> null)),
+        Map.entry("PATCH /api/orgs/{orgId}/clients/{clientId}", Case.versioned(200, "CLIENT_UPDATE", w -> "{\"about\":\"Hijacked\"}", w -> w.clientVersion)),
+        Map.entry("POST /api/orgs/{orgId}/clients/{clientId}/contacts", Case.versioned(201, "CLIENT_CONTACT_ADD", w -> "{\"name\":\"Mallory Contact\"}", w -> null)),
+        Map.entry("PATCH /api/orgs/{orgId}/clients/{clientId}/contacts/{contactId}", Case.versioned(200, "CLIENT_CONTACT_UPDATE", w -> "{\"status\":\"LEFT\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/clients/{clientId}/notes", Case.versioned(201, "CLIENT_NOTE_ADD", w -> "{\"body\":\"Hijack note\"}", w -> null)),
         // Enterprise V2 (ent-marketing): the Marketing Assignments board. Reads write no audit row; every change writes its own rows plus one MARKETING_BULK summary (marketer admin: one row).
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/marketers", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/marketers/candidates", Case.read()),
@@ -478,6 +490,8 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.OrgMemberOffboardingRepository offboardingRows;
     // Jobs page (talent board): one client, consultant, job and suggested match per world
     @Autowired private com.dossier.api.repository.ent.talent.ClientAccountRepository jobClients;
+    @Autowired private com.dossier.api.repository.ent.talent.ClientContactRepository clientContactRows;
+    @Autowired private com.dossier.api.repository.ent.talent.ClientNoteRepository clientNoteRows;
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository jobConsultants;
     @Autowired private com.dossier.api.repository.ent.talent.ClientRequirementRepository jobRows;
     @Autowired private com.dossier.api.repository.ent.talent.RequirementMatchRepository jobMatches;
@@ -567,6 +581,9 @@ class OrgIsolationIT {
         Long jobClientId;
         Long jobId;
         String jobVersion;
+        /** Clients page: the version (ETag) of that client and one contact of it. */
+        String clientVersion;
+        Long clientContactId;
         /** Applications page: one client, job, two consultants and an ASSIGNED application of this organization. */
         com.dossier.api.web.rest.ent.ApplicationItSupport.Rows appTalent;
         /** Interviews page: one SCHEDULED interview of that application. */
@@ -839,7 +856,14 @@ class OrgIsolationIT {
             com.dossier.api.domain.ent.talent.ClientAccount jc = new com.dossier.api.domain.ent.talent.ClientAccount();
             jc.setOrgId(org.getId());
             jc.setName(prefix + " jobs-board client");
-            jobClientId = jobClients.saveAndFlush(jc).getId();
+            jc = jobClients.saveAndFlush(jc);
+            jobClientId = jc.getId();
+            com.dossier.api.domain.ent.talent.ClientContact cc = new com.dossier.api.domain.ent.talent.ClientContact();
+            cc.setOrgId(org.getId());
+            cc.setClientId(jobClientId);
+            cc.setName(prefix + " client contact");
+            cc.setWorkEmail(prefix.replaceAll("[^A-Za-z0-9]", "") + "@client.example.com");
+            clientContactId = clientContactRows.saveAndFlush(cc).getId();
             com.dossier.api.domain.ent.talent.ConsultantProfile jp = new com.dossier.api.domain.ent.talent.ConsultantProfile();
             jp.setOrgId(org.getId());
             jp.setDisplayName(prefix + " consultant");
@@ -858,6 +882,8 @@ class OrgIsolationIT {
             jm = jobMatches.saveAndFlush(jm);
             em.flush();
             em.refresh(jr); // the version is the stored (microsecond) instant, not the in-memory one
+            em.refresh(jc);
+            clientVersion = com.dossier.api.service.ent.clients.ClientBoardService.versionOf(jc);
             jobId = jr.getId();
             matchId = jm.getId();
             jobVersion = com.dossier.api.service.ent.jobs.JobBoardService.versionOf(jr);
@@ -1019,6 +1045,8 @@ class OrgIsolationIT {
             ids.put("consultantId", String.valueOf(consultantId));
             ids.put("resumeId", String.valueOf(resumeId));
             ids.put("jobId", String.valueOf(jobId));
+            ids.put("clientId", String.valueOf(jobClientId));
+            ids.put("contactId", String.valueOf(clientContactId));
             ids.put("matchId", String.valueOf(matchId));
             ids.put("applicationId", String.valueOf(appTalent.applicationId()));
             ids.put("interviewId", String.valueOf(interviewId));
@@ -1090,7 +1118,7 @@ class OrgIsolationIT {
         if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members") || route.key().equals("POST /api/orgs/{orgId}/resumes") || route.key().equals("POST /api/orgs/{orgId}/resumes/bulk")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {
@@ -1143,6 +1171,9 @@ class OrgIsolationIT {
         brandings.findByOrgId(w.org.getId()).ifPresent(b -> s.append("branding:").append(b.getPrimaryColor()).append('|').append(b.getWelcomeTitle()).append('|').append(b.getDraftJson()).append('|').append(b.getDraftVersion()).append('|').append(b.getPublishedAt()).append('|').append(b.getLogoKey()).append('\n'));
         s.append("brandingVersions:").append(brandingVersions.findAllByOrgIdNewestFirst(w.org.getId()).stream().map(v -> v.getVersionNo() + "|" + v.getSnapshotJson()).toList()).append('\n');
         s.append("jobs:").append(jobRows.findByOrgId(w.org.getId()).stream().map(r -> r.getId() + "|" + r.getTitle() + "|" + r.getStatus() + "|" + r.getUpdatedAt()).toList()).append('\n');
+        s.append("clients:").append(jobClients.findByOrgId(w.org.getId()).stream().map(c -> c.getId() + "|" + c.getName() + "|" + c.getAbout() + "|" + c.getStatus() + "|" + c.getUpdatedAt()).toList()).append('\n');
+        s.append("clientContacts:").append(clientContactRows.findByOrgId(w.org.getId()).stream().map(c -> c.getId() + "|" + c.getName() + "|" + c.getStatus()).toList()).append('\n');
+        s.append("clientNotes:").append(clientNoteRows.countByOrgId(w.org.getId())).append('\n');
         s.append("jobMatches:").append(jobMatches.findByOrgId(w.org.getId()).stream().map(m -> m.getId() + "|" + m.getStatus() + "|" + m.getAssignedAt()).toList()).append('\n');
         s.append("audit:").append(audit.countByOrgId(w.org.getId())).append('\n');
         s.append("events:").append(shareEvents.countByOrgId(w.org.getId())).append('\n');

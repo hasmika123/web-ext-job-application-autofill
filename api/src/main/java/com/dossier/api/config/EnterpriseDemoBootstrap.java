@@ -22,6 +22,7 @@ import com.dossier.api.service.ent.consultantws.ConsultantWsNotificationsDemoSee
 import com.dossier.api.service.ent.consultantws.ConsultantWsOffersDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsAvailabilityDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantWsTasksDemoSeeder;
+import com.dossier.api.service.ent.clients.ClientsDemoSeeder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,15 +50,17 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final java.util.List<Runnable> consultantPages;
     private final BillingDemoSeeder billing;
     private final OpsDemoSeeder ops;
+    private final ClientsDemoSeeder clientsDemo;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, OpsDemoSeeder ops, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, OpsDemoSeeder ops, ClientsDemoSeeder clientsDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
         this.consultantWs = consultantWs;
         this.billing = billing;
         this.ops = ops;
+        this.clientsDemo = clientsDemo;
         // the consultant workspace pages' own demo rows, in dependency order (all after ConsultantWsDemoSeeder: matches build on its matches)
         this.consultantPages = java.util.List.of(profileSeed::seed, resumesSeed::seed, marketerSeed::seed, matchesSeed::seed, discoverySeed::seed, interviewsSeed::seed, prepSeed::seed, submissionsSeed::seed, opportunitiesSeed::seed, tasksSeed::seed, availabilitySeed::seed, offersSeed::seed, placementSeed::seed, settingsSeed::seed, notificationsSeed::seed, jobSourceSeed::seed);
         this.createAccounts = createAccounts;
@@ -102,6 +105,11 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             billing.seed(); // billing boards demo data (licenses, invoices, usage): after the talent seed, it links to its consultants
         } catch (RuntimeException e) {
             LOG.error("Billing demo seed failed; the billing pages have no demo data.", e);
+        }
+        try {
+            clientsDemo.seed(); // the Clients page's extra demo clients, contacts and notes (idempotent)
+        } catch (RuntimeException e) {
+            LOG.error("Clients demo seed failed; the Clients page shows only the foundation's clients.", e);
         }
     }
 }

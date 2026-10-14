@@ -66,10 +66,12 @@ export interface CreateJobDialogProps {
   onClose: () => void;
   clients: ClientOption[];
   onCreated: (job: JobDetail) => void;
+  /** Opens with this client already chosen (the Clients page's "Create Requirement"). */
+  presetClientId?: number | null;
 }
 
 /** Create Job: one sheet with the fields of the board. One Idempotency-Key per opening, so a double click or a retry creates one job. */
-export default function CreateJobDialog({ orgId, open, onClose, clients, onCreated }: CreateJobDialogProps) {
+export default function CreateJobDialog({ orgId, open, onClose, clients, onCreated, presetClientId = null }: CreateJobDialogProps) {
   const [form, setForm] = useState<Form>(EMPTY);
   const [key, setKey] = useState(() => newKey());
   const [busy, setBusy] = useState(false);
@@ -79,13 +81,13 @@ export default function CreateJobDialog({ orgId, open, onClose, clients, onCreat
   useEffect(() => {
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- a fresh form and a fresh Idempotency-Key every time the dialog opens
-      setForm(EMPTY);
+      setForm({ ...EMPTY, clientId: presetClientId ? String(presetClientId) : "" });
       setKey(newKey());
       setError(null);
       setTouched(false);
       setBusy(false);
     }
-  }, [open]);
+  }, [open, presetClientId]);
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const bad = problems(form);

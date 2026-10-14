@@ -63,6 +63,10 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_INTERVIEWS_MAX_DURATION_MINUTES = "org.interviews.max_duration_minutes";
     public static final String ORG_INTERVIEWS_MAX_INTERVIEWERS = "org.interviews.max_interviewers";
     public static final String ORG_INTERVIEWS_REMINDER_COOLDOWN_MINUTES = "org.interviews.reminder_cooldown_minutes";
+    /** Clients page: the days of quiet within which a client with work in flight reads Healthy, the days of quiet after which it reads At Risk, and the work e-mail rule (consumer mail domains refused for a contact). An organization may override the two day counts in org_setting. */
+    public static final String ORG_CLIENTS_HEALTHY_DAYS = "org.clients.healthy_days";
+    public static final String ORG_CLIENTS_AT_RISK_DAYS = "org.clients.at_risk_days";
+    public static final String ORG_CLIENTS_CONSUMER_DOMAINS = "org.clients.consumer_email_domains";
     public static final String ORG_CONSENT_REQUEST_COOLDOWN_DAYS = "org.consent.request_cooldown_days";
     public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
@@ -85,6 +89,8 @@ public final class EnterpriseSettingKeys {
      * the source of truth and the two must be kept in step (documented in DEPLOY.md and web/.env.example).
      */
     public static final String DEFAULT_TENANT_BASE_DOMAINS = "[\"kiwiply.com\"]";
+
+    public static final String DEFAULT_CONSUMER_DOMAINS = "[\"gmail.com\",\"googlemail.com\",\"yahoo.com\",\"hotmail.com\",\"outlook.com\",\"live.com\",\"icloud.com\",\"me.com\",\"aol.com\",\"proton.me\",\"protonmail.com\",\"gmx.com\",\"mail.com\"]";
 
     private static final Pattern HOSTNAME = Pattern.compile("(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*");
     private static final Pattern ORG_ID_TEXT = Pattern.compile("[1-9][0-9]{0,18}");
@@ -136,6 +142,11 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_INTERVIEWS_MAX_DURATION_MINUTES, 480, 15, 1440, Risk.LOW, "Interviews: the longest interview (minutes) that may be scheduled. An organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_MAX_INTERVIEWERS, 6, 1, 20, Risk.LOW, "Interviews: the most interviewers one interview may list. An organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_REMINDER_COOLDOWN_MINUTES, 60, 1, 1440, Risk.LOW, "Interviews: minutes before a reminder may be requested again for the same interview (the request is a record; no email is sent). An organization can override it in org_setting.");
+        integer(k, ORG_CLIENTS_HEALTHY_DAYS, 14, 1, 365, Risk.LOW, "Clients page health: an active client whose last activity is at most this many days old and that has an open requirement or a consultant placed reads Healthy. An organization can override it in org_setting.");
+        integer(k, ORG_CLIENTS_AT_RISK_DAYS, 45, 2, 730, Risk.LOW, "Clients page health: an active client with no activity for this many days or more reads At Risk (everything between Healthy and At Risk reads Neutral). Must stay above the Healthy days. An organization can override it in org_setting.");
+        k.add(new Key(ORG_CLIENTS_CONSUMER_DOMAINS, Type.JSON, DEFAULT_CONSUMER_DOMAINS, null, null, null,
+            "Clients page: e-mail domains that are private mailboxes, as a JSON list of lower-case hostnames. A client contact must have a work e-mail, so these are refused (422 WORK_EMAIL_REQUIRED): we keep business contacts, not people's private addresses.",
+            EnterpriseSettingKeys::hostList, Risk.LOW));
         integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
         d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));

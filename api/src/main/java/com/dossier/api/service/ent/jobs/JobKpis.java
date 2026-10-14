@@ -99,6 +99,11 @@ public final class JobKpis {
 
     public record Tiles(JobDTO.Tile open, JobDTO.Tile fresh, JobDTO.Tile assigned, JobDTO.Tile high) {}
 
+    /** {@link #weekEnd} for the other boards' KPI classes (the same eight weekly points). */
+    public static Instant weekEndOf(Instant now, int i) {
+        return weekEnd(now, i);
+    }
+
     /** The end of week {@code i} of {@link #WEEKS}: the last one ends now, the first {@code WEEKS - 1} weeks earlier. */
     static Instant weekEnd(Instant now, int i) {
         return now.minus(WEEK.multipliedBy(WEEKS - 1 - i));
