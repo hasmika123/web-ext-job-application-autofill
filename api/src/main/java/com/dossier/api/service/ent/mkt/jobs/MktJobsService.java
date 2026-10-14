@@ -16,6 +16,8 @@ import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
+import com.dossier.api.service.ent.jobs.JobDetailCap;
+import com.dossier.api.service.ent.jobs.JobDetailMapper;
 import com.dossier.api.service.ent.jobs.OpportunityAssignmentService;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.ent.mkt.jobs.MktJobsDTO.*;
@@ -89,6 +91,7 @@ public class MktJobsService {
     private final MktJobMatchRepository matches;
     private final OrgAuditService audit;
     private final ObjectMapper mapper;
+    private final JobDetailCap detailCap;
     private final Clock clock;
 
     @Autowired
@@ -104,9 +107,10 @@ public class MktJobsService {
         MktSavedSearchRepository searches,
         MktJobMatchRepository matches,
         OrgAuditService audit,
-        ObjectMapper mapper
+        ObjectMapper mapper,
+        JobDetailCap detailCap
     ) {
-        this(scope, assignment, requirements, accounts, requirementSkills, consultants, consultantSkills, metas, searches, matches, audit, mapper, Clock.systemUTC());
+        this(scope, assignment, requirements, accounts, requirementSkills, consultants, consultantSkills, metas, searches, matches, audit, mapper, detailCap, Clock.systemUTC());
     }
 
     MktJobsService(
@@ -122,6 +126,7 @@ public class MktJobsService {
         MktJobMatchRepository matches,
         OrgAuditService audit,
         ObjectMapper mapper,
+        JobDetailCap detailCap,
         Clock clock
     ) {
         this.scope = scope;
@@ -136,6 +141,7 @@ public class MktJobsService {
         this.matches = matches;
         this.audit = audit;
         this.mapper = mapper;
+        this.detailCap = detailCap;
         this.clock = clock;
     }
 
@@ -154,7 +160,8 @@ public class MktJobsService {
         int size = query.size() <= 0 ? DEFAULT_PAGE_SIZE : Math.min(query.size(), MAX_PAGE_SIZE);
         int page = Math.max(0, query.page());
         int from = (int) Math.min((long) page * size, filtered.size());
-        List<Job> items = filtered.subList(from, Math.min(filtered.size(), from + size)).stream().map(v -> toJob(v, d)).toList();
+        String cap = detailCap.capFor(orgId);
+        List<Job> items = filtered.subList(from, Math.min(filtered.size(), from + size)).stream().map(v -> toJob(v, d, cap)).toList();
 
         List<MktSavedSearch> mine = searches.findByOrgIdAndOwnerMemberIdOrderByCreatedAtDesc(orgId, me.memberId());
         List<SavedSearch> savedCards = new ArrayList<>();
@@ -205,7 +212,14 @@ public class MktJobsService {
             if (rows.size() == 5) break;
         }
         ClientRequirement r = v.r();
-        return new Detail(toJob(v, d), r.getDescriptionText(), r.getEmploymentLabel(), r.getDurationLabel(), r.getExperienceLevel(), rows);
+        // The one display mapper decides what this page may show (doc 60 section 10): the posting's text only when the effective level is FULL. A job whose
+        // STORED level is MINIMAL holds no posting text at all, only the marketer's own summary (description_text), which stays available to the marketer.
+        String cap = detailCap.capFor(orgId);
+        JobDetailMapper.View shown = JobDetailMapper.view(r, v.clientName(), v.skills(), cap);
+        boolean full = JobDetailMapper.FULL.equals(shown.detailLevel());
+        String description = full ? r.getDescriptionText() : null;
+        String summaryNote = !full && JobDetailMapper.MINIMAL.equals(r.getDetailLevel()) ? r.getDescriptionText() : null;
+        return new Detail(toJob(v, d, cap), description, r.getEmploymentLabel(), r.getDurationLabel(), r.getExperienceLevel(), rows, summaryNote);
     }
 
     // ------------------------------------------------------------------ assign
@@ -337,7 +351,7 @@ public class MktJobsService {
         return new Data(views, clients, all, skills);
     }
 
-    private static Job toJob(JobView v, Data d) {
+    private static Job toJob(JobView v, Data d, String cap) {
         ClientRequirement r = v.r();
         ClientAccount c = d.clients.get(r.getClientId());
         return new Job(
@@ -354,7 +368,8 @@ public class MktJobsService {
             v.visa(),
             v.skills(),
             r.getPositions(),
-            r.getStatus()
+            r.getStatus(),
+            JobDetailMapper.effectiveLevel(r.getDetailLevel(), cap)
         );
     }
 

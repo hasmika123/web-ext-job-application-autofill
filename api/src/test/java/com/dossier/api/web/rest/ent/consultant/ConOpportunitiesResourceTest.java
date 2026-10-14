@@ -50,7 +50,7 @@ class ConOpportunitiesResourceTest {
     static ConOpportunityDTO dto(String state) {
         return new ConOpportunityDTO(
             5L, state,
-            new ConOpportunityDTO.Job(101L, "Java Developer", "Acme", "Austin, TX", "REMOTE", "CONTRACT", "$70-80/hr", "https://boards.greenhouse.io/acme/jobs/1", "greenhouse", "1", null, List.of("Java")),
+            new ConOpportunityDTO.Job(101L, "Java Developer", "Acme", "Austin, TX", "REMOTE", "CONTRACT", "$70-80/hr", "https://boards.greenhouse.io/acme/jobs/1", "greenhouse", "1", null, List.of("Java"), "MINIMAL"),
             "note", new ConOpportunityDTO.AssignedBy(9L, "Sarah"), Instant.parse("2026-10-13T10:00:00Z"), "MEDIUM", null, null, null, null, null, List.of("VIEWED"), 2
         );
     }

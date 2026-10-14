@@ -60,6 +60,7 @@ class ConWorld {
         Long consultantId = CONSULTANT;
         Long jobId;
         String jobStatus = "OPEN";
+        String detailLevel = "MINIMAL";
         String urlKeyHash;
     }
 
@@ -85,13 +86,14 @@ class ConWorld {
     ShareScope consent = ShareScope.FULL;
     List<com.dossier.api.domain.ent.talent.RequirementSkill> skillRows = new ArrayList<>();
     final ConJobDtoFactory jobs = new ConJobDtoFactory();
+    final com.dossier.api.service.ent.jobs.JobDetailCap detailCap = mock(com.dossier.api.service.ent.jobs.JobDetailCap.class);
 
     ConWorld() {
         wire();
     }
 
     ConOpportunityService service() {
-        return new ConOpportunityService(scope, repo, opportunities, events, links, skills, members, users, applications, shares, projection, jobs, audit, clock);
+        return new ConOpportunityService(scope, repo, opportunities, events, links, skills, members, users, applications, shares, projection, jobs, detailCap, audit, clock);
     }
 
     Opp opp(long id, String state) {
@@ -139,7 +141,7 @@ class ConWorld {
         return new ConOpportunityRow(
             o.getId(), o.getMatchId(), x.consultantId, x.jobId, o.getState(), o.getMarketerNote(), o.getPriority(), o.getDueOn(), o.getInfoRequest(), o.getInfoAnswer(),
             o.getAppliedAt(), o.getVersion(), NOW.minusSeconds(3600), MARKETER, "Java Developer", "Acme Corp", "Austin, TX", "REMOTE", "CONTRACT", "$70-80/hr",
-            "https://boards.greenhouse.io/acme/jobs/" + x.jobId, "greenhouse", String.valueOf(x.jobId), null, x.jobStatus
+            "https://boards.greenhouse.io/acme/jobs/" + x.jobId, "greenhouse", String.valueOf(x.jobId), null, x.jobStatus, x.detailLevel
         );
     }
 

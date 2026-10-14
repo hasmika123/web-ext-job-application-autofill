@@ -17,6 +17,7 @@ import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
 import com.dossier.api.repository.ent.mkt.MktPipelineApplicationLinkRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.service.ent.jobs.JobDetailCap;
 import com.dossier.api.service.ent.jobs.UrlKeys;
 import com.dossier.api.service.org.DataShareService;
 import com.dossier.api.service.org.OrgAuditService;
@@ -90,6 +91,7 @@ public class ConOpportunityService {
     private final DataShareService shares;
     private final LinkedApplicationProjection projection;
     private final ConJobDtoFactory jobs;
+    private final JobDetailCap detailCap;
     private final OrgAuditService audit;
     private final Clock clock;
 
@@ -97,15 +99,15 @@ public class ConOpportunityService {
     public ConOpportunityService(
         ConScope scope, ConOpportunityRepository repo, MktOpportunityRepository opportunities, MktOpportunityEventRepository events,
         MktPipelineApplicationLinkRepository links, RequirementSkillRepository skills, OrgMemberRepository members, UserRepository users,
-        ApplicationRepository applications, DataShareService shares, LinkedApplicationProjection projection, ConJobDtoFactory jobs, OrgAuditService audit
+        ApplicationRepository applications, DataShareService shares, LinkedApplicationProjection projection, ConJobDtoFactory jobs, JobDetailCap detailCap, OrgAuditService audit
     ) {
-        this(scope, repo, opportunities, events, links, skills, members, users, applications, shares, projection, jobs, audit, Clock.systemUTC());
+        this(scope, repo, opportunities, events, links, skills, members, users, applications, shares, projection, jobs, detailCap, audit, Clock.systemUTC());
     }
 
     ConOpportunityService(
         ConScope scope, ConOpportunityRepository repo, MktOpportunityRepository opportunities, MktOpportunityEventRepository events,
         MktPipelineApplicationLinkRepository links, RequirementSkillRepository skills, OrgMemberRepository members, UserRepository users,
-        ApplicationRepository applications, DataShareService shares, LinkedApplicationProjection projection, ConJobDtoFactory jobs, OrgAuditService audit, Clock clock
+        ApplicationRepository applications, DataShareService shares, LinkedApplicationProjection projection, ConJobDtoFactory jobs, JobDetailCap detailCap, OrgAuditService audit, Clock clock
     ) {
         this.scope = scope;
         this.repo = repo;
@@ -119,6 +121,7 @@ public class ConOpportunityService {
         this.shares = shares;
         this.projection = projection;
         this.jobs = jobs;
+        this.detailCap = detailCap;
         this.audit = audit;
         this.clock = clock;
     }
@@ -449,13 +452,14 @@ public class ConOpportunityService {
         Map<Long, Long> linkedApp = new HashMap<>();
         for (MktPipelineApplicationLink l : repo.findLiveLinks(orgId, view.consultantId(), oppIds)) linkedApp.put(l.getOpportunityId(), l.getPersonalApplicationId());
         Map<Long, String> names = memberNames(orgId, markerIds);
+        String cap = detailCap.capFor(orgId); // read once per call; raising or lowering the cap takes effect at once
         List<ConOpportunityDTO> out = new ArrayList<>();
         for (ConOpportunityRow r : rows) {
             boolean linked = linkedApp.containsKey(r.opportunityId());
             out.add(new ConOpportunityDTO(
                 r.opportunityId(),
                 r.state(),
-                jobs.job(r, skillsOf.get(r.jobId())),
+                jobs.job(r, skillsOf.get(r.jobId()), cap),
                 r.marketerNote(),
                 r.assignedByMemberId() == null ? null : new ConOpportunityDTO.AssignedBy(r.assignedByMemberId(), names.get(r.assignedByMemberId())),
                 r.assignedAt(),

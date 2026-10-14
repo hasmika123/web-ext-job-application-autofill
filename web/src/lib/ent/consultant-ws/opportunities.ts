@@ -52,6 +52,8 @@ export interface ConJob {
   externalJobId: string;
   postedOn: string | null;
   skills: string[];
+  /** The level this job is shown at (the lower of its stored level and the organization's cap). Display only: "MINIMAL" = say "view the full posting on the source". */
+  detailLevel: "MINIMAL" | "FULL";
 }
 export interface ConTimelineEntry { id: string; at: string; text: string; actor: string }
 export interface ConOpportunityDTO {
@@ -95,6 +97,7 @@ function parseJob(x: unknown): ConJob {
     externalJobId: str(j.externalJobId),
     postedOn: orNull(j.postedOn),
     skills: Array.isArray(j.skills) ? j.skills.filter((s): s is string => typeof s === "string" && s !== "") : [],
+    detailLevel: str(j.detailLevel).toUpperCase() === "FULL" ? "FULL" : "MINIMAL", // fail closed: anything else is the smaller level
   };
 }
 

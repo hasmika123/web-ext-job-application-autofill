@@ -40,7 +40,9 @@ public record ConOpportunityDTO(
         String atsPlatform,
         String externalJobId,
         LocalDate postedOn,
-        List<String> skills
+        List<String> skills,
+        /** The effective display level of this job (MINIMAL or FULL): the lower of the job's stored level and the organization's cap. Display only. */
+        String detailLevel
     ) {}
 
     /** The marketer who assigned it. */

@@ -21,7 +21,7 @@ public interface ConOpportunityRepository extends Repository<MktOpportunity, Lon
         "select new com.dossier.api.repository.ent.consultant.ConOpportunityRow("
             + "o.id, m.id, m.consultantId, r.id, o.state, o.marketerNote, o.priority, o.dueOn, o.infoRequest, o.infoAnswer, o.appliedAt, o.version, "
             + "m.assignedAt, m.assignedByMemberId, r.title, c.name, r.location, r.workMode, r.employmentLabel, r.payLabel, r.jobUrl, r.atsPlatform, "
-            + "r.externalJobId, r.postedOn, r.status) "
+            + "r.externalJobId, r.postedOn, r.status, r.detailLevel) "
             + "from MktOpportunity o "
             + "join RequirementMatch m on m.orgId = o.orgId and m.id = o.matchId "
             + "join ClientRequirement r on r.orgId = m.orgId and r.id = m.requirementId "

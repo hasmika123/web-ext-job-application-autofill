@@ -73,9 +73,10 @@ class MktJobsServiceTest {
     private final MktSavedSearchRepository searches = mock(MktSavedSearchRepository.class);
     private final MktJobMatchRepository matches = mock(MktJobMatchRepository.class);
     private final OrgAuditService audit = mock(OrgAuditService.class);
+    private final com.dossier.api.service.ent.jobs.JobDetailCap detailCap = mock(com.dossier.api.service.ent.jobs.JobDetailCap.class);
     private final AssignmentWorld world = new AssignmentWorld(ORG, Clock.fixed(NOW, ZoneOffset.UTC));
     private final OpportunityAssignmentService assignment = new OpportunityAssignmentService(world.matches, world.opportunities, world.events, requirements, consultants, world.resumes, world.tx, audit, Clock.fixed(NOW, ZoneOffset.UTC));
-    private final MktJobsService service = new MktJobsService(scope, assignment, requirements, accounts, reqSkills, consultants, consSkills, metas, searches, matches, audit, new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC));
+    private final MktJobsService service = new MktJobsService(scope, assignment, requirements, accounts, reqSkills, consultants, consSkills, metas, searches, matches, audit, new ObjectMapper(), detailCap, Clock.fixed(NOW, ZoneOffset.UTC));
 
     private final MktScope.View assigned = new MktScope.View(ORG, ME, false, Set.of(100L));
     private final MktScope.View everyone = new MktScope.View(ORG, ME, true, Set.of());
@@ -325,6 +326,34 @@ class MktJobsServiceTest {
         Detail d = service.detail(me("matches.run"), 10L);
         assertThat(d.matches()).extracting(MatchRow::name).containsExactly("Alex Morgan");
         assertThatThrownBy(() -> service.detail(me("matches.run"), 999L)).isInstanceOf(OrgNotFoundException.class);
+    }
+
+    @Test
+    void theJobTextOnlyReachesThePageWhenTheEffectiveLevelIsFullAndTheMarketersOwnSummaryAlwaysDoes() {
+        ClientRequirement r = jobs.get(0);
+        r.setDescriptionText("Full posting text from a licensed source. Responsibilities: many.");
+        // stored MINIMAL (a captured page): the text is the marketer's own summary, shown as the summary note, never as the posting description
+        r.setDetailLevel("MINIMAL");
+        when(detailCap.capFor(ORG)).thenReturn("FULL");
+        Detail minimal = service.detail(me("matches.run"), 10L);
+        assertThat(minimal.description()).isNull();
+        assertThat(minimal.summaryNote()).isEqualTo(r.getDescriptionText());
+        assertThat(minimal.job().detailLevel()).isEqualTo("MINIMAL");
+        // stored FULL but the organization caps its pages at MINIMAL: nothing of the text reaches the page, not even as a note
+        r.setDetailLevel("FULL");
+        when(detailCap.capFor(ORG)).thenReturn("MINIMAL");
+        Detail capped = service.detail(me("matches.run"), 10L);
+        assertThat(capped.description()).isNull();
+        assertThat(capped.summaryNote()).isNull();
+        assertThat(capped.job().detailLevel()).isEqualTo("MINIMAL");
+        // stored FULL and cap FULL: the text is shown
+        when(detailCap.capFor(ORG)).thenReturn("FULL");
+        Detail full = service.detail(me("matches.run"), 10L);
+        assertThat(full.description()).isEqualTo(r.getDescriptionText());
+        assertThat(full.summaryNote()).isNull();
+        assertThat(full.job().detailLevel()).isEqualTo("FULL");
+        // the list rows carry the effective level too
+        assertThat(service.list(me("matches.run"), all()).items()).extracting(Job::detailLevel).containsOnly("FULL", "MINIMAL");
     }
 
     @Test

@@ -92,8 +92,8 @@ class MktJobsResourceTest {
         when(service.candidates(me, 10L, "al")).thenReturn(List.of(new MktJobsDTO.Candidate(100L, "Alex Morgan", "Java Developer", "AVAILABLE", 92, null)));
         mvc.perform(get("/api/orgs/1/mkt/jobs/10/candidates").param("q", "al").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, me)).andExpect(status().isOk()).andExpect(jsonPath("$[0].name").value("Alex Morgan"));
 
-        MktJobsDTO.Job job = new MktJobsDTO.Job(10L, "Senior Java Developer", new MktJobsDTO.Client(1L, "TechCorp", null), "New York, NY", "HYBRID", "$90 - $110/hr", new MktJobsDTO.Rate(9000L, 11000L, "HOUR", "USD"), "LinkedIn Jobs", Instant.parse("2026-10-13T10:00:00Z"), "HIGH", null, List.of("Java"), 1, "OPEN");
-        when(service.detail(me, 10L)).thenReturn(new MktJobsDTO.Detail(job, "text", "CONTRACT", "6 months", "SENIOR", List.of()));
+        MktJobsDTO.Job job = new MktJobsDTO.Job(10L, "Senior Java Developer", new MktJobsDTO.Client(1L, "TechCorp", null), "New York, NY", "HYBRID", "$90 - $110/hr", new MktJobsDTO.Rate(9000L, 11000L, "HOUR", "USD"), "LinkedIn Jobs", Instant.parse("2026-10-13T10:00:00Z"), "HIGH", null, List.of("Java"), 1, "OPEN", "MINIMAL");
+        when(service.detail(me, 10L)).thenReturn(new MktJobsDTO.Detail(job, "text", "CONTRACT", "6 months", "SENIOR", List.of(), null));
         mvc.perform(get("/api/orgs/1/mkt/jobs/10").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, me)).andExpect(status().isOk()).andExpect(jsonPath("$.job.title").value("Senior Java Developer")).andExpect(jsonPath("$.job.postedAt").value("2026-10-13T10:00:00Z"));
 
         when(service.createSavedSearch(eq(me), any())).thenReturn(new MktJobsDTO.SavedSearch(5L, "Java East", new MktJobsDTO.Criteria(null, List.of("Java"), null, null, null, null, null, null), 0));

@@ -133,6 +133,31 @@ class JobDetailMapperTest {
     }
 
     @Test
+    void theConsultantJobDtoIsBuiltThroughTheMapperAndCarriesTheEffectiveLevelAndNoJobText() throws Exception {
+        com.dossier.api.repository.ent.consultant.ConOpportunityRow row = new com.dossier.api.repository.ent.consultant.ConOpportunityRow(
+            1L, 2L, 3L, 55L, "ASSIGNED", "note", "MEDIUM", null, null, null, null, 0L, null, 9L, "Senior Java Engineer", "Acme Corp", "Austin, TX", "HYBRID", "Contract",
+            "$70-80/hr", "https://boards.greenhouse.io/acme/jobs/1", "greenhouse", "1", LocalDate.parse("2026-10-10"), "OPEN", "FULL"
+        );
+        var factory = new com.dossier.api.service.ent.consultant.ConJobDtoFactory();
+        ObjectMapper json = JsonMapper.builder().addModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule()).build();
+        // stored FULL, organization cap MINIMAL (and an unknown cap): the page is MINIMAL
+        for (String cap : new String[] { "MINIMAL", null, "junk" }) {
+            var dto = factory.job(row, List.of("Java"), cap);
+            assertThat(dto.detailLevel()).as("cap %s", cap).isEqualTo("MINIMAL");
+            String out = json.writeValueAsString(dto);
+            for (String f : JobDetailMapper.FULL_ONLY_FIELDS) assertThat(out).as("field %s", f).doesNotContain("\"" + f + "\"");
+            assertThat(out).doesNotContain("payMinMinor").doesNotContain("payMaxMinor").doesNotContain("rate");
+        }
+        assertThat(factory.job(row, List.of(), "FULL").detailLevel()).isEqualTo("FULL");
+        // a stored MINIMAL job is MINIMAL under any cap
+        var minimalRow = new com.dossier.api.repository.ent.consultant.ConOpportunityRow(
+            1L, 2L, 3L, 55L, "ASSIGNED", null, "MEDIUM", null, null, null, null, 0L, null, 9L, "T", "E", null, null, null, null, null, null, null, null, "OPEN", "MINIMAL"
+        );
+        assertThat(factory.job(minimalRow, List.of(), "FULL").detailLevel()).isEqualTo("MINIMAL");
+        assertThat(factory.job(minimalRow, List.of(), "FULL").skills()).isEmpty();
+    }
+
+    @Test
     void aNewJobDefaultsToMinimalAndManualEntry() {
         ClientRequirement j = new ClientRequirement();
         assertThat(j.getDetailLevel()).isEqualTo("MINIMAL");
