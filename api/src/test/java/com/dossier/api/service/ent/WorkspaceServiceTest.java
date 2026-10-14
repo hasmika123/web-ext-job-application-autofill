@@ -119,7 +119,8 @@ class WorkspaceServiceTest {
         WorkspaceService.Result r = compute(ALL_ON, "CONSULTANT");
         assertThat(slugs(r)).containsExactly("consultant");
         assertThat(navKeys(r, "consultant")).containsExactly(
-            "home", "profile", "resumes", "matches", "opportunities", "applications", "interviews", "interview-prep", "offers", "placements", "features", "notifications", "settings"
+            "home", "profile", "resumes", "marketer", "job-discovery", "matches", "opportunities", "applications", "submissions", "interviews", "interview-prep", "offers", "placements",
+            "availability", "tasks", "activity-timeline", "features", "notifications", "settings"
         );
         assertThat(r.landingHome()).isEqualTo("/w/consultant");
     }

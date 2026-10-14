@@ -75,6 +75,22 @@ test.describe("consultant pages (real stack)", () => {
     });
   }
 
+  test("the sidebar lists all 19 pages in the boards' order and each one opens", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
+    const page = await context.newPage();
+    await page.goto(`${base}/w/consultant`);
+    await expect(page.locator("[data-consultant-home][data-status=ready]")).toBeVisible();
+    const items = page.locator('aside a[href^="/w/consultant"]');
+    await expect(items.filter({ hasText: /\S/ })).toHaveCount(19);
+    const labels = (await items.allInnerTexts()).map((x) => x.trim()).filter(Boolean);
+    expect(labels).toEqual([
+      "Home", "My Career Profile", "My Resumes", "My Marketer", "Job Discovery", "Job Matches", "Assigned Opportunities", "My Applications",
+      "Submissions & Approvals", "Interviews", "Interview Prep", "Offers", "My Placement", "Availability", "Tasks & Follow-ups", "Activity Timeline",
+      "My Features", "Notifications", "Settings",
+    ]);
+    await context.close();
+  });
+
   test("an Org Admin gets 404 from every consultant API and no page", async ({ page }) => {
     await signInAs(page, "Sarah Chen");
     const statuses = await page.evaluate(async (paths) => {
