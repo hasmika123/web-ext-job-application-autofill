@@ -11,7 +11,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.RecordComponent;
 import java.util.ArrayList;
 import java.util.List;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
@@ -31,7 +30,6 @@ import org.springframework.web.bind.annotation.RestController;
  * its mapping (no compile-time reference to WP2's classes), then asserts on its {@code @RequestBody} type: no {@code state}, {@code appliedAt} or {@code status}
  * component, and a strict mapper (the one the application configures: fail on unknown properties) refuses a body that carries them.
  */
-@Disabled("enable after WP2 merge (the from-extension endpoint is not on this branch)")
 class NoSubmitFromExtensionTest {
 
     private static final List<String> FORBIDDEN = List.of("state", "appliedAt", "status", "applied", "closedAt");
@@ -51,7 +49,9 @@ class NoSubmitFromExtensionTest {
             }
         }
         assertThat(found).as("POST .../mkt/opportunities/from-extension with a @RequestBody").hasSize(1);
-        return found.get(0);
+        // the handler takes the raw bytes and the service parses them against the whitelist record below
+        assertThat(found.get(0)).isEqualTo(byte[].class);
+        return com.dossier.api.service.ent.mkt.opportunities.MktFromExtensionDTO.Request.class;
     }
 
     @Test

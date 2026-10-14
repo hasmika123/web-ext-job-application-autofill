@@ -104,7 +104,7 @@ class WorkspaceServiceTest {
         WorkspaceService.Result r = compute(ALL_ON, "MARKETING_SPECIALIST");
         assertThat(slugs(r)).containsExactly("marketing");
         assertThat(navKeys(r, "marketing")).containsExactly(
-            "home", "talent", "resumes", "jobs", "matches", "opportunities", "submissions", "applications", "interviews", "followups", "tasks", "activity", "performance"
+            "home", "talent", "resumes", "jobs", "matches", "opportunities", "streams", "submissions", "applications", "interviews", "followups", "tasks", "activity", "performance"
         );
         assertThat(r.landingHome()).isEqualTo("/w/marketing");
         // the module is part of the home page: with marketing off she has no workspace at all, and nothing leaks in instead
