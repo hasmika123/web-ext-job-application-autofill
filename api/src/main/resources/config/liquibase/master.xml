@@ -92,5 +92,9 @@
     <include file="config/liquibase/changelog/20261103080000_ent_cws_interview_prep.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261103100000_ent_cws_submissions.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261103110000_ent_cws_opportunities.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103120000_ent_cws_tasks_v2.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103130000_ent_cws_availability.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103140000_ent_cws_offers.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103150000_ent_cws_placement.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
