@@ -398,16 +398,33 @@ class ConOpportunityServiceTest {
     }
 
     @Test
-    void theProjectionIsWrittenOnlyAtFullConsent() {
-        for (ShareScope scope : List.of(ShareScope.SUMMARY, ShareScope.NONE)) {
-            w.linkStore.clear();
-            w.consent = scope;
-            w.application(55, ConWorld.USER);
-            w.opp(1, "ASSIGNED");
-            ConOpportunityDTO dto = service.applied(w.me, 1L, 55L, null);
-            assertThat(dto.state()).as("an explicit click is itself the share of that one fact (" + scope + ")").isEqualTo("APPLIED");
-            assertThat(w.linkStore.get(0).getTalentApplicationId()).as(scope.name()).isNull();
-        }
+    void theProjectionIsWrittenOnlyAtFullConsentAndALinkNeedsAtLeastSummary() {
+        w.consent = ShareScope.SUMMARY;
+        w.application(55, ConWorld.USER);
+        w.opp(1, "ASSIGNED");
+        ConOpportunityDTO dto = service.applied(w.me, 1L, 55L, null);
+        assertThat(dto.state()).isEqualTo("APPLIED");
+        assertThat(w.linkStore).hasSize(1);
+        assertThat(w.linkStore.get(0).getTalentApplicationId()).as("SUMMARY: a link, no projection").isNull();
+        verifyNoInteractions(w.projection);
+    }
+
+    @Test
+    void atNoConsentTheAppliedStateIsRecordedButNoLinkRowAndNoProjectionExist() {
+        w.consent = ShareScope.NONE;
+        w.application(55, ConWorld.USER);
+        w.opp(1, "ASSIGNED");
+        ConOpportunityDTO dto = service.applied(w.me, 1L, 55L, null);
+        assertThat(dto.state()).as("the consultant's own click is still recorded on the opportunity").isEqualTo("APPLIED");
+        assertThat(dto.linkedApplicationId()).isNull();
+        assertThat(dto.allowedActions()).containsExactly("LINK");
+        assertThat(w.linkStore).as("NONE => no link").isEmpty();
+        assertThat(w.eventKinds()).containsExactly("APPLIED_UNLINKED");
+        // asking again, or linking explicitly, still creates nothing and writes no second event
+        assertThat(service.applied(w.me, 1L, 55L, null).state()).isEqualTo("APPLIED");
+        assertThat(service.link(w.me, 1L, 55L, null).linkedApplicationId()).isNull();
+        assertThat(w.linkStore).isEmpty();
+        assertThat(w.eventKinds()).containsExactly("APPLIED_UNLINKED");
         verifyNoInteractions(w.projection);
     }
 

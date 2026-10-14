@@ -309,6 +309,8 @@ public class ConOpportunityService {
         }
         boolean flip = !"APPLIED".equals(from);
         if (flip) requireOpenJob(view, id); // recording that they applied to a posting that is gone is not an action on an open job
+        ShareScope consent = app == null ? null : shares.scopeOf(view.orgId(), view.memberId());
+        if (!flip && consent != null && !consent.atLeast(ShareScope.SUMMARY)) return one(view, id); // nothing to record: already applied, and no link is allowed
         Instant now = clock.instant();
         if (flip) {
             opp.setState("APPLIED");
@@ -321,6 +323,13 @@ public class ConOpportunityService {
             audit(me, "CONSULTANT_OPPORTUNITY_APPLIED", opp, "from " + from + ", unlinked");
             return one(view, id);
         }
+        if (!consent.atLeast(ShareScope.SUMMARY)) {
+            // Consent NONE (doc 60 section 0.3 c): the consultant's own "I applied" is recorded on the opportunity, but no link row ties the organization to
+            // their personal application, and nothing is projected. The honest state is "applied, no application shown".
+            record(opp, "APPLIED_UNLINKED", view, "says they applied (the application is not shared with the organization)", now);
+            audit(me, "CONSULTANT_OPPORTUNITY_APPLIED", opp, "from " + from + ", unlinked (consent)");
+            return one(view, id);
+        }
         MktPipelineApplicationLink created = new MktPipelineApplicationLink();
         created.setOrgId(view.orgId());
         created.setOpportunityId(opp.getId());
@@ -329,7 +338,7 @@ public class ConOpportunityService {
         created.setSource(MktPipelineApplicationLink.SOURCE_CONSULTANT);
         created.setLinkedAt(now);
         ConOpportunityRow row = repo.findRow(view.orgId(), view.consultantId(), id).orElseThrow(OrgNotFoundException::new);
-        if (shares.scopeOf(view.orgId(), view.memberId()) == ShareScope.FULL) {
+        if (consent == ShareScope.FULL) {
             created.setTalentApplicationId(projection.upsert(view.orgId(), opp.getId(), row.jobId(), view.consultantId(), row.assignedByMemberId(), app.getId(), opp.getAppliedAt()));
         }
         links.save(created);
