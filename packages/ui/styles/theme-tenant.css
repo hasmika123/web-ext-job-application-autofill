@@ -545,9 +545,9 @@
   display: grid;
   place-items: center;
   flex: none;
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
+  width: var(--ent-kpi-chip, 46px);
+  height: var(--ent-kpi-chip, 46px);
+  border-radius: var(--ent-kpi-chip-r, 12px);
 }
 .theme-tenant .ent-kpi-chip[data-tone="violet"] { background: var(--ent-kpi-violet-bg); color: var(--ent-kpi-violet-fg); }
 .theme-tenant .ent-kpi-chip[data-tone="green"] { background: var(--ent-kpi-green-bg); color: var(--ent-kpi-green-fg); }
@@ -555,8 +555,8 @@
 .theme-tenant .ent-kpi-chip[data-tone="orange"] { background: var(--ent-kpi-orange-bg); color: var(--ent-kpi-orange-fg); }
 .theme-tenant .ent-kpi-chip[data-tone="indigo"] { background: var(--ent-kpi-indigo-bg); color: var(--ent-kpi-indigo-fg); }
 .theme-tenant .ent-kpi-chip[data-tone="pink"] { background: var(--ent-kpi-pink-bg); color: var(--ent-kpi-pink-fg); }
-.theme-tenant .ent-kpi-label { font-size: clamp(13px, 0.87vw, 14.5px); font-weight: 500; color: #2a3667; }
-.theme-tenant .ent-kpi-value { font-size: clamp(26px, 1.8vw, 30px); font-weight: 800; line-height: 1; letter-spacing: -0.01em; color: var(--ent-title); font-variant-numeric: tabular-nums; }
+.theme-tenant .ent-kpi-label { font-size: var(--ent-kpi-label-fs, clamp(13px, 0.87vw, 14.5px)); font-weight: var(--ent-kpi-label-fw, 500); color: #2a3667; }
+.theme-tenant .ent-kpi-value { font-size: var(--ent-kpi-value-fs, clamp(26px, 1.8vw, 30px)); font-weight: 800; line-height: 1; letter-spacing: -0.01em; color: var(--ent-title); font-variant-numeric: tabular-nums; }
 .theme-tenant .ent-kpi-delta[data-good="true"] { color: var(--ent-kpi-good); }
 .theme-tenant .ent-kpi-delta[data-good="false"] { color: var(--ent-kpi-bad); }
 
@@ -614,5 +614,81 @@
   border-color: var(--ent-control-border);
   border-radius: var(--ent-control-radius);
   min-height: var(--ent-control-h);
-  font-size: 13.5px;
+  font-size: var(--ent-control-fs, 13.5px);
 }
+
+/* ── Exact-match pages: Teams, Departments, Roles & Permissions, Consultants (tenant-scoped, token driven) ─────────────
+ * Each page root carries data-page / data-ent-page and sets the sizing variables its board uses (KPI chip, fonts, control height).
+ * `.ent-help` is the boards' "Need help with ...?" card; `.ent-bee-scene` approximates the blurred room behind the bee. */
+.theme-tenant [data-ent-page="teams"] {
+  --ent-kpi-chip: 36px;
+  --ent-kpi-chip-r: 10px;
+  --ent-kpi-label-fs: 14px;
+  --ent-kpi-label-fw: 600;
+  --ent-kpi-value-fs: 26px;
+  --ent-control-h: 32px;
+  --ent-control-radius: 8px;
+  --ent-control-fs: 12.5px;
+}
+.theme-tenant [data-ent-page="departments"] {
+  --ent-kpi-chip: 48px;
+  --ent-kpi-chip-r: 12px;
+  --ent-kpi-label-fs: 15px;
+  --ent-kpi-label-fw: 600;
+  --ent-kpi-value-fs: 30px;
+  --ent-control-h: 38px;
+  --ent-control-radius: 10px;
+  --ent-control-fs: 13.5px;
+}
+.theme-tenant [data-ent-page="roles"] {
+  --ent-kpi-chip: 52px;
+  --ent-kpi-chip-r: 14px;
+  --ent-kpi-label-fs: 16px;
+  --ent-kpi-label-fw: 600;
+  --ent-kpi-value-fs: 32px;
+  --ent-control-h: 38px;
+  --ent-control-radius: 10px;
+}
+.theme-tenant [data-ent-page="consultants"] {
+  --ent-kpi-chip: 42px;
+  --ent-kpi-chip-r: 12px;
+  --ent-kpi-label-fs: 14px;
+  --ent-kpi-label-fw: 600;
+  --ent-kpi-value-fs: 28px;
+  --ent-control-h: 38px;
+  --ent-control-radius: 10px;
+  --ent-control-fs: 13px;
+}
+.theme-tenant .ent-bee-scene {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(55% 95% at 90% 78%, rgba(98, 168, 82, 0.6) 0 30%, transparent 64%),
+    radial-gradient(40% 70% at 72% 10%, rgba(255, 255, 255, 0.9), transparent 70%),
+    radial-gradient(40% 80% at 6% 35%, rgba(137, 196, 120, 0.35), transparent 65%),
+    linear-gradient(100deg, #f3dcc4 0%, #f7ead8 35%, #e6eef2 65%, #d9e9d3 100%);
+}
+.theme-tenant .ent-help-scene { display: flex; align-items: flex-end; justify-content: flex-start; padding-left: 14%; height: 104px; }
+.theme-tenant .ent-help[data-layout="stacked"] .ent-help-scene { border-radius: 14px 14px 0 0; }
+.theme-tenant .ent-help .ent-help-bee { height: 96px !important; width: auto !important; }
+.theme-tenant .ent-help-body { padding: 10px 14px 14px; }
+.theme-tenant .ent-help-title { font-size: 16px; font-weight: 800; line-height: 1.2; color: var(--ent-title); }
+.theme-tenant .ent-help-text { margin-top: 4px; font-size: 12.5px; line-height: 1.35; color: var(--ent-soft); }
+.theme-tenant .ent-help-ask {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 38px; margin-top: 10px; padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, #dde5f1); border-radius: 10px;
+  background: color-mix(in srgb, var(--color-accent-soft) 70%, white); color: var(--color-accent-deep);
+  font-size: 14px; font-weight: 600;
+}
+.theme-tenant .ent-help-ask:hover { background: var(--color-accent-soft); }
+.theme-tenant .ent-help-close {
+  position: absolute; right: 8px; top: 8px; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9); color: var(--ent-soft);
+}
+.theme-tenant .ent-help-row { display: grid; grid-template-columns: minmax(0, 42%) 1fr; gap: 14px; padding: 12px; align-items: start; }
+.theme-tenant .ent-help-row .ent-help-scene { border-radius: 12px; height: 150px; padding-left: 8%; }
+.theme-tenant .ent-help-row .ent-help-body { padding: 0; }
+.theme-tenant .ent-help[data-layout="drawer"] .ent-help-row { grid-template-columns: 96px 1fr; }
+.theme-tenant .ent-help[data-layout="drawer"] .ent-help-scene { height: 88px; padding-left: 4px; }
+.theme-tenant .ent-help[data-layout="drawer"] .ent-help-bee { height: 80px !important; }
+.theme-tenant .ent-help-foot { grid-column: 1 / -1; }
