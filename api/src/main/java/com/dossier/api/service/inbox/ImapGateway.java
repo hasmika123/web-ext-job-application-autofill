@@ -50,4 +50,9 @@ public interface ImapGateway {
     default boolean isDemoSandbox() {
         return false;
     }
+
+    /** The one address the demo sandbox accepts (a test value from the demo fixture), shown on the demo stack's page; null for a real gateway. */
+    default String sandboxAddress() {
+        return null;
+    }
 }

@@ -30,9 +30,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 /**
  * The consultant's own Gmail inbox inside the organization workspace (ent-inbox, docs/enterprise-v2/18-consultant-inbox.md): the SAME connection,
@@ -108,7 +110,7 @@ public class ConsultantInboxService {
     private View viewOf(OrgMembership me) {
         boolean orgGrants = entitlement.orgGrants(me.orgId(), me.userId());
         InboxService.View v = inbox.mine();
-        if (!v.connected()) return new View(orgGrants, v.available(), false, null, null, null, null, null, null, 0, true, imap.isDemoSandbox());
+        if (!v.connected()) return new View(orgGrants, v.available(), false, null, null, null, null, null, null, 0, true, imap.isDemoSandbox(), imap.sandboxAddress());
         // The organization no longer grants it: unless their own plan does, the connection is stopped. The poller marks it too; this is the live truth.
         boolean entitled = orgGrants || entitlement.decide(me.userId(), me.login()).allowed();
         String status = v.status();
@@ -119,7 +121,7 @@ public class ConsultantInboxService {
         } else if (InboxConnection.NO_ENTITLEMENT.equals(status)) {
             status = InboxConnection.CONNECTED; // granted again; the poller picks it up on its next round
         }
-        return new View(entitled, v.available(), true, v.address(), status, v.connectedAt(), v.lastCheckedAt(), v.lastError(), note, v.messages(), v.notifyEmail(), imap.isDemoSandbox());
+        return new View(entitled, v.available(), true, v.address(), status, v.connectedAt(), v.lastCheckedAt(), v.lastError(), note, v.messages(), v.notifyEmail(), imap.isDemoSandbox(), imap.sandboxAddress());
     }
 
     /** Connect through this organization's license. The address and app password are checked against Gmail and kept only encrypted. */
@@ -141,6 +143,7 @@ public class ConsultantInboxService {
 
     public View setNotify(OrgMembership me, Boolean email) {
         requireSelf(me);
+        if (!inbox.mine().connected()) throw new ResponseStatusException(HttpStatus.CONFLICT, "No inbox connected");
         inbox.setNotifyEmail(email == null || email);
         return viewOf(me);
     }

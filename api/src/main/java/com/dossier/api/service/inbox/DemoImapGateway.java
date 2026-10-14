@@ -83,6 +83,11 @@ public class DemoImapGateway implements ImapGateway {
         return true;
     }
 
+    @Override
+    public String sandboxAddress() {
+        return demoAddress();
+    }
+
     public String demoAddress() {
         return fixture.path("address").asText();
     }

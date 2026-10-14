@@ -321,6 +321,16 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/reopen", new Case(null, 200, null, false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.declineAssignedOpportunity(); })),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/request-resume-update", Case.consultantWrite("{\"note\":\"Hijacked update\"}", 200)),
         // The last eight consultant pages. {id} means the task / calendar entry / offer / notification by route prefix (see uri()).
+        // ent-inbox: the consultant's OWN Gmail. Only the consultant reaches any of it (every other caller is the generic 404 below); the legitimate owner-as-consultant
+        // has no license add-on in this world, so connecting is the 402 FEATURE_NOT_LICENSED, notify has no inbox to switch (409), a suggestion id nobody owns is 404.
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox", Case.consultantWrite("{\"address\":\"hijack.jobs@gmail.com\",\"appPassword\":\"abcdefghijklmnop\"}", 402)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/inbox", Case.consultantWrite(null, 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/inbox/notify", Case.consultantWrite("{\"email\":false}", 409)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/suggestions", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/accept", Case.consultantWrite("{\"company\":\"Hijack Co\",\"roleTitle\":\"Hijacked\"}", 404)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/dismiss", Case.consultantWrite(null, 404)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/updates", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/tasks", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/tasks/list", Case.consultantRead()),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/tasks", Case.consultantWrite("{\"title\":\"A valid title\"}", 201)),
@@ -930,6 +940,7 @@ class OrgIsolationIT {
             matchId = jm.getId();
             jobVersion = com.dossier.api.service.ent.jobs.JobBoardService.versionOf(jr);
             appTalent = com.dossier.api.web.rest.ent.ApplicationItSupport.seed(em, org.getId(), owner.getId());
+            plTalent = com.dossier.api.web.rest.ent.PlacementItSupport.seed(em, org.getId(), owner.getId()); // (a merge had moved this line into interviewState)
             com.dossier.api.domain.ent.talent.TalentInterview iv = new com.dossier.api.domain.ent.talent.TalentInterview();
             iv.setOrgId(org.getId());
             iv.setApplicationId(appTalent.applicationId());
@@ -946,7 +957,6 @@ class OrgIsolationIT {
             em.createQuery("update TalentInterview i set i.status = :s, i.reminderRequestedAt = null, i.scheduledAt = :t where i.orgId = :o and i.id = :id")
                 .setParameter("s", status).setParameter("t", java.time.Instant.now().plus(java.time.Duration.ofDays(10)).truncatedTo(java.time.temporal.ChronoUnit.HOURS)).setParameter("o", org.getId()).setParameter("id", interviewId).executeUpdate();
             em.clear();
-            plTalent = com.dossier.api.web.rest.ent.PlacementItSupport.seed(em, org.getId(), owner.getId());
         }
 
         /** ent-marketing: the id of this world's consultant profile (a made-up id until a prepare created it, which must also give a generic answer). */
@@ -1065,6 +1075,7 @@ class OrgIsolationIT {
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             ids.put("alertKey", "MEMBERS_SUSPENDED");
             ids.put("id", "999999999"); // the consultant routes' opportunity id: nobody's, and the routes answer 404 before looking (the flag is off in this world)
+            ids.put("suggestionId", "999999999"); // an inbox suggestion nobody owns: the routes answer 404 for the legitimate caller too
             ids.put("skillId", String.valueOf(skillId));
             ids.put("certId", String.valueOf(certId));
             ids.put("prefId", String.valueOf(prefId));
@@ -1434,7 +1445,9 @@ class OrgIsolationIT {
             assertThat(domains.findByOrgIdAndId(B, a.domain.getId())).isEmpty();
             assertThat(domains.findByOrgIdOrderByDomain(B)).extracting(OrgDomain::getId).doesNotContain(a.domain.getId());
         }));
-        checks.put("OrgAuditEventRepository", new RepoCheck(Set.of("findByOrgId", "findByOrgIdAndAction", "findByOrgIdAndActionIn", "findByOrgIdAndTargetTypeAndTargetId", "countByOrgId", "countByOrgIdAndActorLogin"), () -> {
+        checks.put("OrgAuditEventRepository", new RepoCheck(Set.of("findByOrgId", "findByOrgIdAndAction", "findByOrgIdAndActionIn", "findByOrgIdAndTargetTypeAndTargetId", "countByOrgId", "countByOrgIdAndActorLogin", "countByOrgIdAndActionInAndCreatedAtAfter"), () -> {
+            List<String> roleActions = List.of("ROLE_CREATE", "ROLE_UPDATE", "ROLE_ASSIGN", "ROLE_DELETE", "ROLE_RESYNC");
+            assertThat(audit.countByOrgIdAndActionInAndCreatedAtAfter(B, roleActions, java.time.Instant.EPOCH)).as("counts B's own rows of those actions only, never A's").isEqualTo(audit.findByOrgIdAndActionIn(B, roleActions, PageRequest.of(0, 1000)).getTotalElements());
             assertThat(audit.findByOrgIdAndActionIn(B, List.of("ROLE_CREATE", "ROLE_UPDATE", "ROLE_ASSIGN", "ROLE_DELETE", "ROLE_RESYNC"), PageRequest.of(0, 100)).getContent()).extracting(OrgAuditEvent::getOrgId).doesNotContain(A);
             assertThat(audit.findByOrgIdAndTargetTypeAndTargetId(B, "ROLE", String.valueOf(a.roleId), PageRequest.of(0, 100)).getContent()).as("A role id in B has no rows").isEmpty();
             assertThat(audit.findByOrgId(B, PageRequest.of(0, 100)).getContent()).extracting(OrgAuditEvent::getOrgId).containsOnly(B);

@@ -18,6 +18,7 @@ public final class ConsultantInboxDTO {
      * @param status      CONNECTED | ERROR | NEEDS_RECONNECT | NO_ENTITLEMENT, or null when nothing is connected
      * @param stoppedNote the sentence for a stopped connection ("Your organization no longer includes inbox tracking."), else null
      * @param sandbox     true on the demo stack, where the mailbox is a built-in sample and no real Gmail is ever contacted
+     * @param sandboxAddress the one sample address that stack accepts (a test value), else null
      */
     public record View(
         boolean entitled,
@@ -31,7 +32,8 @@ public final class ConsultantInboxDTO {
         String stoppedNote,
         long messages,
         boolean notifyEmail,
-        boolean sandbox
+        boolean sandbox,
+        String sandboxAddress
     ) {}
 
     /** A job the consultant's mail shows that their board does not track yet. */

@@ -1,6 +1,5 @@
 package com.dossier.api.service.ent.consultantws;
 
-import com.dossier.api.domain.Application;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.billing.FeatureDefinition;
 import com.dossier.api.domain.ent.billing.Product;
@@ -9,7 +8,6 @@ import com.dossier.api.domain.ent.billing.LicenseFeature;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.domain.org.Organization;
-import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.catalog.FeatureDefinitionRepository;
 import com.dossier.api.repository.catalog.ProductRepository;
@@ -18,12 +16,12 @@ import com.dossier.api.repository.ent.billing.LicenseFeatureRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.ent.EnterpriseDemoSeeder;
+import com.dossier.api.service.inbox.DemoInboxApplications;
 import com.dossier.api.service.inbox.InboxEntitlement;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.InputStream;
-import java.time.Duration;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +52,7 @@ public class ConsultantInboxDemoSeeder {
     private final LicenseFeatureRepository features;
     private final FeatureDefinitionRepository featureDefs;
     private final ProductRepository products;
-    private final ApplicationRepository applications;
+    private final DemoInboxApplications demoApplications;
 
     public ConsultantInboxDemoSeeder(
         OrganizationRepository orgs,
@@ -64,7 +62,7 @@ public class ConsultantInboxDemoSeeder {
         LicenseFeatureRepository features,
         FeatureDefinitionRepository featureDefs,
         ProductRepository products,
-        ApplicationRepository applications
+        DemoInboxApplications demoApplications
     ) {
         this.orgs = orgs;
         this.users = users;
@@ -73,7 +71,7 @@ public class ConsultantInboxDemoSeeder {
         this.features = features;
         this.featureDefs = featureDefs;
         this.products = products;
-        this.applications = applications;
+        this.demoApplications = demoApplications;
     }
 
     @Transactional
@@ -152,25 +150,7 @@ public class ConsultantInboxDemoSeeder {
     }
 
     private int ensureApplication(User user, JsonNode spec) {
-        String company = spec.path("company").asText();
-        String role = spec.path("role").asText();
-        boolean exists = applications.findByUserId(user.getId()).stream().anyMatch(a -> company.equalsIgnoreCase(a.getCompany()) && role.equalsIgnoreCase(a.getRoleTitle()));
-        if (exists) return 0;
-        Instant at = Instant.now().minus(Duration.ofDays(spec.path("daysAgo").asLong(7)));
-        Application a = new Application();
-        a.setUser(user);
-        a.setCompany(company);
-        a.setRoleTitle(role);
-        a.setStatus(ApplicationStatus.valueOf(spec.path("status").asText("APPLIED")));
-        a.setSource("demo");
-        a.setStarred(false);
-        a.setArchived(false);
-        a.setSubmissionConfirmed(false);
-        a.setAppliedAt(at);
-        a.setCreatedAt(at);
-        a.setUpdatedAt(at);
-        applications.save(a);
-        return 1;
+        return demoApplications.ensure(user, spec.path("company").asText(), spec.path("role").asText(), ApplicationStatus.valueOf(spec.path("status").asText("APPLIED")), spec.path("daysAgo").asLong(7));
     }
 
     private static JsonNode fixture() {

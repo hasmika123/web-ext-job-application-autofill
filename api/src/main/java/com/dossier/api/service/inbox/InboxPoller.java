@@ -96,7 +96,7 @@ public class InboxPoller {
      *       connection is never purged here.</li>
      * </ul>
      */
-    boolean reconcile(InboxConnection c) {
+    public boolean reconcile(InboxConnection c) {
         Long userId = c.getUserId();
         if (c.getConnectedViaOrgId() != null && seatEnded(userId, c.getConnectedViaOrgId())) {
             service.purgeConnectedVia(userId, c.getConnectedViaOrgId());
