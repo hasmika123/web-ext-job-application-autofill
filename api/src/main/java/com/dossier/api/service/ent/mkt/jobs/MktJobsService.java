@@ -16,6 +16,7 @@ import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
+import com.dossier.api.service.ent.jobs.OpportunityAssignmentService;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.ent.mkt.jobs.MktJobsDTO.*;
 import com.dossier.api.service.ent.mkt.jobs.MktJobsLogic.JobView;
@@ -77,6 +78,7 @@ public class MktJobsService {
     private static final List<String> WORK_TYPES = List.of("ON_SITE", "HYBRID", "REMOTE");
 
     private final MktScope scope;
+    private final OpportunityAssignmentService assignment;
     private final ClientRequirementRepository requirements;
     private final ClientAccountRepository accounts;
     private final RequirementSkillRepository requirementSkills;
@@ -92,6 +94,7 @@ public class MktJobsService {
     @Autowired
     public MktJobsService(
         MktScope scope,
+        OpportunityAssignmentService assignment,
         ClientRequirementRepository requirements,
         ClientAccountRepository accounts,
         RequirementSkillRepository requirementSkills,
@@ -103,11 +106,12 @@ public class MktJobsService {
         OrgAuditService audit,
         ObjectMapper mapper
     ) {
-        this(scope, requirements, accounts, requirementSkills, consultants, consultantSkills, metas, searches, matches, audit, mapper, Clock.systemUTC());
+        this(scope, assignment, requirements, accounts, requirementSkills, consultants, consultantSkills, metas, searches, matches, audit, mapper, Clock.systemUTC());
     }
 
     MktJobsService(
         MktScope scope,
+        OpportunityAssignmentService assignment,
         ClientRequirementRepository requirements,
         ClientAccountRepository accounts,
         RequirementSkillRepository requirementSkills,
@@ -121,6 +125,7 @@ public class MktJobsService {
         Clock clock
     ) {
         this.scope = scope;
+        this.assignment = assignment;
         this.requirements = requirements;
         this.accounts = accounts;
         this.requirementSkills = requirementSkills;
@@ -236,33 +241,14 @@ public class MktJobsService {
         Long orgId = me.orgId();
         if (consultantId == null) throw invalid("consultantId", "Choose a consultant.");
         scope.require(view, consultantId);
-        ClientRequirement job = requirements.findByOrgIdAndId(orgId, jobId).orElseThrow(OrgNotFoundException::new);
-        ConsultantProfile person = consultants.findByOrgIdAndId(orgId, consultantId).orElseThrow(OrgNotFoundException::new);
-        if (!"ACTIVE".equals(person.getStatus())) throw new OrgNotFoundException();
-        if (!"OPEN".equals(job.getStatus())) throw new OrgException(409, "JOB_NOT_OPEN", "This job is no longer open.", Map.of());
-
-        Instant now = clock.instant();
-        RequirementMatch m = matches.findByOrgIdAndRequirementIdAndConsultantId(orgId, jobId, consultantId).orElse(null);
-        boolean created = m == null;
-        if (created) {
-            m = new RequirementMatch();
-            m.setOrgId(orgId);
-            m.setRequirementId(jobId);
-            m.setConsultantId(consultantId);
-            m.setScore(overlapScore(orgId, jobId, consultantId));
-            m.setReason("Assigned by a marketer");
-            m.setSource("MANUAL");
-            m.setCreatedAt(now);
-        }
-        boolean changed = created || !"ASSIGNED".equals(m.getStatus());
-        if (changed) {
-            m.setStatus("ASSIGNED");
-            m.setAssignedByMemberId(me.memberId());
-            m.setAssignedAt(now);
-            m = matches.save(m);
-            audit.record(me, AUDIT_ASSIGN, TARGET, null, String.valueOf(jobId), "{\"consultantId\":" + consultantId + ",\"created\":" + created + "}");
-        }
-        return new AssignResult(m.getId(), jobId, consultantId, m.getStatus(), m.getScore(), created);
+        // The gates and the pair rules (open job, active consultant, approved resume, reopening, the opportunity overlay) live in one place.
+        OpportunityAssignmentService.Result assigned = assignment.assign(view, me, jobId, consultantId,
+            OpportunityAssignmentService.Options.none()
+                .withNewMatch(() -> overlapScore(orgId, jobId, consultantId), "Assigned by a marketer", "MANUAL")
+                .withAudit(new OpportunityAssignmentService.Audit(AUDIT_ASSIGN, TARGET, String.valueOf(jobId),
+                    r -> "{\"consultantId\":" + consultantId + ",\"created\":" + r.created() + "}")));
+        if (assigned.refused()) throw new OrgNotFoundException(); // an inactive consultant is not found here, as before
+        return new AssignResult(assigned.matchId(), jobId, consultantId, "ASSIGNED", assigned.score(), assigned.created());
     }
 
     private int overlapScore(Long orgId, Long jobId, Long consultantId) {

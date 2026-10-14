@@ -31,6 +31,8 @@ import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
+import com.dossier.api.service.ent.jobs.AssignmentWorld;
+import com.dossier.api.service.ent.jobs.OpportunityAssignmentService;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.ent.mkt.jobs.MktJobsDTO.*;
 import com.dossier.api.service.org.OrgAuditService;
@@ -71,7 +73,9 @@ class MktJobsServiceTest {
     private final MktSavedSearchRepository searches = mock(MktSavedSearchRepository.class);
     private final MktJobMatchRepository matches = mock(MktJobMatchRepository.class);
     private final OrgAuditService audit = mock(OrgAuditService.class);
-    private final MktJobsService service = new MktJobsService(scope, requirements, accounts, reqSkills, consultants, consSkills, metas, searches, matches, audit, new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC));
+    private final AssignmentWorld world = new AssignmentWorld(ORG, Clock.fixed(NOW, ZoneOffset.UTC));
+    private final OpportunityAssignmentService assignment = new OpportunityAssignmentService(world.matches, world.opportunities, world.events, requirements, consultants, world.resumes, world.tx, audit, Clock.fixed(NOW, ZoneOffset.UTC));
+    private final MktJobsService service = new MktJobsService(scope, assignment, requirements, accounts, reqSkills, consultants, consSkills, metas, searches, matches, audit, new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC));
 
     private final MktScope.View assigned = new MktScope.View(ORG, ME, false, Set.of(100L));
     private final MktScope.View everyone = new MktScope.View(ORG, ME, true, Set.of());
@@ -145,6 +149,8 @@ class MktJobsServiceTest {
 
     @BeforeEach
     void world() {
+        world.approve(100);
+        world.approve(101);
         jobs = new ArrayList<>(List.of(
             job(10, 1, "Senior Java Developer", "OPEN", NOW.minusSeconds(2 * 3600)),
             job(11, 2, "Data Analyst", "OPEN", NOW.minusSeconds(3 * 3600)),
@@ -340,23 +346,19 @@ class MktJobsServiceTest {
 
     @Test
     void assignCreatesAnAssignedMatchRecordAndNothingElse() {
-        when(matches.findByOrgIdAndRequirementIdAndConsultantId(ORG, 10L, 100L)).thenReturn(Optional.empty());
         when(consSkills.findByOrgIdAndConsultantIdIn(eq(ORG), any())).thenReturn(List.of(skillOf("Java")));
-        when(matches.save(any())).thenAnswer(i -> {
-            RequirementMatch m = i.getArgument(0);
-            m.setId(77L);
-            return m;
-        });
         AssignResult r = service.assign(me("opportunities.manage"), 10L, 100L);
         assertThat(r.created()).isTrue();
         assertThat(r.status()).isEqualTo("ASSIGNED");
-        assertThat(r.matchId()).isEqualTo(77L);
+        assertThat(r.matchId()).isNotNull();
         assertThat(r.score()).as("1 of the job's 2 skills (Java, AWS)").isEqualTo(50);
-        org.mockito.ArgumentCaptor<RequirementMatch> saved = org.mockito.ArgumentCaptor.forClass(RequirementMatch.class);
-        verify(matches).save(saved.capture());
-        assertThat(saved.getValue().getAssignedByMemberId()).isEqualTo(ME);
-        assertThat(saved.getValue().getAssignedAt()).isEqualTo(NOW);
-        assertThat(saved.getValue().getSource()).isEqualTo("MANUAL");
+        RequirementMatch saved = world.matchStore.get(r.matchId());
+        assertThat(saved.getAssignedByMemberId()).isEqualTo(ME);
+        assertThat(saved.getAssignedAt()).isEqualTo(NOW);
+        assertThat(saved.getSource()).isEqualTo("MANUAL");
+        assertThat(saved.getReason()).isEqualTo("Assigned by a marketer");
+        assertThat(world.oppStore.values()).as("the consultant's opportunity exists now").extracting(o -> o.getMatchId()).containsExactly(r.matchId());
+        assertThat(world.eventKinds()).containsExactly("ASSIGNED");
         verify(audit).record(any(OrgMembership.class), eq("MKT_JOB_ASSIGN"), eq("REQUIREMENT"), isNull(), eq("10"), anyString());
     }
 
@@ -369,7 +371,8 @@ class MktJobsServiceTest {
     @Test
     void assigningAConsultantOutsideTheCallersScopeIs404AndWritesNothing() {
         assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 10L, 101L)).isInstanceOf(OrgNotFoundException.class);
-        verify(matches, never()).save(any());
+        assertThat(world.matchStore).isEmpty();
+        assertThat(world.oppStore).isEmpty();
         verify(audit, never()).record(any(OrgMembership.class), anyString(), anyString(), any(), any(), any());
     }
 
@@ -377,21 +380,21 @@ class MktJobsServiceTest {
     void assignNeedsOpportunitiesManage() {
         when(scope.resolve(any(), eq("opportunities.manage"))).thenThrow(new OrgNotFoundException());
         assertThatThrownBy(() -> service.assign(me("matches.run"), 10L, 100L)).isInstanceOf(OrgNotFoundException.class);
-        verify(matches, never()).save(any());
+        assertThat(world.matchStore).isEmpty();
     }
 
     @Test
     void assignIsIdempotentAndRevivesADismissedMatch() {
         RequirementMatch already = match(5, 10, 100, 90, "ASSIGNED", NOW.minusSeconds(100));
-        when(matches.findByOrgIdAndRequirementIdAndConsultantId(ORG, 10L, 100L)).thenReturn(Optional.of(already));
+        world.addMatch(already);
         AssignResult again = service.assign(me("opportunities.manage"), 10L, 100L);
         assertThat(again.created()).isFalse();
         assertThat(again.matchId()).isEqualTo(5L);
-        verify(matches, never()).save(any());
+        verify(world.matches, never()).save(any(RequirementMatch.class));
+        verify(audit, never()).record(any(OrgMembership.class), anyString(), anyString(), any(), any(), any());
 
         RequirementMatch dismissed = match(6, 11, 100, 70, "DISMISSED", null);
-        when(matches.findByOrgIdAndRequirementIdAndConsultantId(ORG, 11L, 100L)).thenReturn(Optional.of(dismissed));
-        when(matches.save(any())).thenAnswer(i -> i.getArgument(0));
+        world.addMatch(dismissed);
         AssignResult revived = service.assign(me("opportunities.manage"), 11L, 100L);
         assertThat(revived.created()).isFalse();
         assertThat(revived.status()).isEqualTo("ASSIGNED");
@@ -403,7 +406,26 @@ class MktJobsServiceTest {
         assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 13L, 100L)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getStatus()).isEqualTo(409));
         assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 999L, 100L)).isInstanceOf(OrgNotFoundException.class);
         assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 10L, null)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getStatus()).isEqualTo(422));
-        verify(matches, never()).save(any());
+        assertThat(world.matchStore).isEmpty();
+    }
+
+    @Test
+    void anInactiveConsultantIsStill404AndAPausedMarketingStatusToo() {
+        ConsultantProfile alex = consultants.findByOrgId(ORG).get(0);
+        alex.setStatus("INACTIVE");
+        assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 10L, 100L)).isInstanceOf(OrgNotFoundException.class);
+        alex.setStatus("ACTIVE");
+        alex.setMarketingStatus("PAUSED");
+        assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 10L, 100L)).isInstanceOf(OrgNotFoundException.class);
+        assertThat(world.matchStore).isEmpty();
+    }
+
+    @Test
+    void assigningNeedsAnApprovedResumeUnlessTheExtensionCapturedTheJob() {
+        world.approved.clear();
+        assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 10L, 100L)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("RESUME_NOT_APPROVED"));
+        jobs.get(0).setCaptureSource("EXTENSION");
+        assertThat(service.assign(me("opportunities.manage"), 10L, 100L).created()).isTrue();
     }
 
     // ---------------------------------------------------------------- saved searches

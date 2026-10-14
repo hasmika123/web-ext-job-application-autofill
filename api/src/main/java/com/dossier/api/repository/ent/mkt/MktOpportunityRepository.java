@@ -4,6 +4,8 @@ import com.dossier.api.domain.ent.mkt.MktOpportunity;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import java.util.List;
 import java.util.Optional;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,6 +27,11 @@ public interface MktOpportunityRepository extends Repository<MktOpportunity, Lon
             + "where m.orgId = :orgId and m.status in ('ASSIGNED', 'SUGGESTED')";
 
     Optional<MktOpportunity> findByOrgIdAndId(Long orgId, Long id);
+
+    /** {@code SELECT ... FOR UPDATE}: the latest committed row, attached to this persistence context (see {@code RequirementMatchRepository.lockByOrgIdAndId}). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from MktOpportunity o where o.orgId = :orgId and o.id = :id")
+    Optional<MktOpportunity> lockByOrgIdAndId(@Param("orgId") Long orgId, @Param("id") Long id);
 
     Optional<MktOpportunity> findByOrgIdAndMatchId(Long orgId, Long matchId);
 

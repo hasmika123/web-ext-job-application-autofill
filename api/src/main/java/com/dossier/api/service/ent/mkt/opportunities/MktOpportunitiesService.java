@@ -23,6 +23,7 @@ import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.service.ent.jobs.OpportunityAssignmentService;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.ent.mkt.opportunities.MktOpportunitiesDTO.*;
 import com.dossier.api.service.org.OrgAuditService;
@@ -92,6 +93,7 @@ public class MktOpportunitiesService {
     }
 
     private final MktScope scope;
+    private final OpportunityAssignmentService assignment;
     private final MktOpportunityRepository repo;
     private final MktOpportunityEventRepository events;
     private final RequirementMatchRepository matches;
@@ -107,19 +109,20 @@ public class MktOpportunitiesService {
 
     @Autowired
     public MktOpportunitiesService(
-        MktScope scope, MktOpportunityRepository repo, MktOpportunityEventRepository events, RequirementMatchRepository matches, ConsultantProfileRepository consultants,
+        MktScope scope, OpportunityAssignmentService assignment, MktOpportunityRepository repo, MktOpportunityEventRepository events, RequirementMatchRepository matches, ConsultantProfileRepository consultants,
         ClientRequirementRepository requirements, ClientAccountRepository clients, ConsultantSkillRepository consultantSkills, RequirementSkillRepository requirementSkills,
         OrgMemberRepository members, UserRepository users, OrgAuditService audit
     ) {
-        this(scope, repo, events, matches, consultants, requirements, clients, consultantSkills, requirementSkills, members, users, audit, Clock.systemUTC());
+        this(scope, assignment, repo, events, matches, consultants, requirements, clients, consultantSkills, requirementSkills, members, users, audit, Clock.systemUTC());
     }
 
     MktOpportunitiesService(
-        MktScope scope, MktOpportunityRepository repo, MktOpportunityEventRepository events, RequirementMatchRepository matches, ConsultantProfileRepository consultants,
+        MktScope scope, OpportunityAssignmentService assignment, MktOpportunityRepository repo, MktOpportunityEventRepository events, RequirementMatchRepository matches, ConsultantProfileRepository consultants,
         ClientRequirementRepository requirements, ClientAccountRepository clients, ConsultantSkillRepository consultantSkills, RequirementSkillRepository requirementSkills,
         OrgMemberRepository members, UserRepository users, OrgAuditService audit, Clock clock
     ) {
         this.scope = scope;
+        this.assignment = assignment;
         this.repo = repo;
         this.events = events;
         this.matches = matches;
@@ -233,31 +236,15 @@ public class MktOpportunitiesService {
         MktScope.View view = scope.resolve(me, PERMISSION);
         if (consultantId == null || requirementId == null) throw OrgException.coded(400, "VALIDATION", "Choose a consultant and a job.", Map.of());
         scope.require(view, consultantId);
-        ConsultantProfile consultant = consultants.findByOrgIdAndId(view.orgId(), consultantId).orElseThrow(OrgNotFoundException::new);
-        ClientRequirement job = requirements.findByOrgIdAndId(view.orgId(), requirementId).orElseThrow(OrgNotFoundException::new);
-        if (!OPEN_JOB.contains(job.getStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open.", Map.of());
         Instant now = clock.instant();
-        RequirementMatch match = repo.findMatchByPair(view.orgId(), requirementId, consultant.getId()).orElse(null);
-        if (match != null && !"DISMISSED".equals(match.getStatus())) {
-            throw OrgException.coded(409, "OPPORTUNITY_EXISTS", "That consultant already has this opportunity.", Map.of("opportunityId", match.getId()));
+        OpportunityAssignmentService.Options options = OpportunityAssignmentService.Options.none()
+            .withNewMatch(() -> overlapScore(view.orgId(), consultantId, requirementId), "Added by a marketer", "MANUAL")
+            .withAudit(new OpportunityAssignmentService.Audit("MARKETER_OPPORTUNITY_CREATE", "OPPORTUNITY", null, r -> "consultant " + consultantId + ", job " + requirementId));
+        OpportunityAssignmentService.Result added = assignment.suggest(view, me, requirementId, consultantId, options);
+        if (added.existing()) {
+            throw OrgException.coded(409, "OPPORTUNITY_EXISTS", "That consultant already has this opportunity.", Map.of("opportunityId", added.matchId()));
         }
-        if (match == null) {
-            match = new RequirementMatch();
-            match.setOrgId(view.orgId());
-            match.setRequirementId(requirementId);
-            match.setConsultantId(consultantId);
-            match.setScore(overlapScore(view.orgId(), consultantId, requirementId));
-            match.setReason("Added by a marketer");
-            match.setSource("MANUAL");
-        }
-        match.setStatus("SUGGESTED");
-        match.setAssignedAt(null);
-        match.setAssignedByMemberId(null);
-        match = matches.save(match);
-        MktOpportunity opp = ensure(view.orgId(), match.getId(), me.memberId(), now);
-        record(opp, "CREATED", me.memberId(), "was added as an opportunity", now);
-        audit.record(me, "MARKETER_OPPORTUNITY_CREATE", "OPPORTUNITY", null, String.valueOf(match.getId()), "consultant " + consultantId + ", job " + requirementId);
-        return result(view, match.getId(), "Opportunity added.", true, now);
+        return result(view, added.matchId(), "Opportunity added.", true, now);
     }
 
     /** SUGGESTED to ASSIGNED, then ask the consultant for their interest. Needs an approved resume (the approval gate of 31 section 4). */
@@ -266,9 +253,9 @@ public class MktOpportunitiesService {
         MktScope.View view = scope.resolve(me, PERMISSION);
         Instant now = clock.instant();
         Row row = require(view, id, now);
-        String why = assignOne(view, me, row, now);
+        OpportunityAssignmentService.Audit auditRow = new OpportunityAssignmentService.Audit("MARKETER_OPPORTUNITY_ASSIGN", "OPPORTUNITY", String.valueOf(id), r -> "consultant " + row.r().consultantId());
+        String why = assignOne(view, me, row, auditRow);
         if (why != null) throw assignError(why);
-        audit.record(me, "MARKETER_OPPORTUNITY_ASSIGN", "OPPORTUNITY", null, String.valueOf(id), "consultant " + row.r().consultantId());
         return result(view, id, "Assigned. " + row.r().consultantName() + " was asked for their interest.", true, now);
     }
 
@@ -289,7 +276,7 @@ public class MktOpportunitiesService {
                 skipped.add(new Skipped(id, "NOT_FOUND"));
                 continue;
             }
-            String why = assignOne(view, me, row, now);
+            String why = assignOne(view, me, row, null); // one audit row for the whole batch, below
             if (why == null) done++;
             else skipped.add(new Skipped(id, why));
         }
@@ -315,7 +302,7 @@ public class MktOpportunitiesService {
             }
         }
         String eventKind = k.equals("INTEREST") ? "INTEREST_REQUESTED" : "RESUME_REQUESTED";
-        MktOpportunity opp = ensure(view.orgId(), id, row.r().assignedMarketerId() != null ? row.r().assignedMarketerId() : me.memberId(), now);
+        MktOpportunity opp = ensure(view, id, row.r().assignedMarketerId() != null ? row.r().assignedMarketerId() : me.memberId(), now);
         boolean repeat = events.findByOrgIdAndOpportunityIdOrderByOccurredAtDesc(view.orgId(), opp.getId()).stream()
             .anyMatch(e -> e.getKind().equals(eventKind) && Duration.between(e.getOccurredAt(), now).compareTo(DEDUPE) < 0);
         if (repeat) return result(view, id, "Already requested a moment ago.", false, now);
@@ -339,7 +326,7 @@ public class MktOpportunitiesService {
                 skippedCount++;
                 continue;
             }
-            MktOpportunity opp = ensure(view.orgId(), r.id(), r.r().assignedMarketerId() != null ? r.r().assignedMarketerId() : me.memberId(), now);
+            MktOpportunity opp = ensure(view, r.id(), r.r().assignedMarketerId() != null ? r.r().assignedMarketerId() : me.memberId(), now);
             requestOne(opp, "INTEREST_REQUESTED", me.memberId(), now);
             done++;
         }
@@ -354,7 +341,7 @@ public class MktOpportunitiesService {
         MktScope.View view = scope.resolve(me, PERMISSION);
         Instant now = clock.instant();
         Row row = require(view, id, now);
-        MktOpportunity opp = ensure(view.orgId(), id, row.r().assignedMarketerId() != null ? row.r().assignedMarketerId() : me.memberId(), now);
+        MktOpportunity opp = ensure(view, id, row.r().assignedMarketerId() != null ? row.r().assignedMarketerId() : me.memberId(), now);
         record(opp, "REVIEWED", me.memberId(), "reviewed opportunity", now);
         opp.setUpdatedAt(now);
         repo.save(opp);
@@ -370,7 +357,7 @@ public class MktOpportunitiesService {
         if (at != null && (at.isAfter(now.plus(Duration.ofDays(365))) || at.isBefore(now.minus(Duration.ofDays(30))))) {
             throw OrgException.coded(400, "VALIDATION", "Pick a date within the next year.", Map.of());
         }
-        MktOpportunity opp = ensure(view.orgId(), id, row.r().assignedMarketerId() != null ? row.r().assignedMarketerId() : me.memberId(), now);
+        MktOpportunity opp = ensure(view, id, row.r().assignedMarketerId() != null ? row.r().assignedMarketerId() : me.memberId(), now);
         opp.setNextActionAt(at);
         opp.setUpdatedAt(now);
         repo.save(opp);
@@ -379,21 +366,18 @@ public class MktOpportunitiesService {
 
     // ---- internals --------------------------------------------------------------------------------------------------------------
 
-    /** Null when assigned; otherwise the reason code. */
-    private String assignOne(MktScope.View view, OrgMembership me, Row row, Instant now) {
+    /** Null when assigned; otherwise the reason code. The pair rules and every gate live in {@link OpportunityAssignmentService}. */
+    private String assignOne(MktScope.View view, OrgMembership me, Row row, OpportunityAssignmentService.Audit auditRow) {
         if (!row.open()) return "JOB_NOT_OPEN";
-        if ("ASSIGNED".equals(row.r().matchStatus())) return "ALREADY_ASSIGNED";
-        if (!row.approvedResume()) return "RESUME_NOT_APPROVED";
-        RequirementMatch match = matches.findByOrgIdAndId(view.orgId(), row.id()).orElse(null);
-        if (match == null) return "NOT_FOUND";
-        match.setStatus("ASSIGNED");
-        match.setAssignedByMemberId(me.memberId());
-        match.setAssignedAt(now);
-        matches.save(match);
-        MktOpportunity opp = ensure(view.orgId(), row.id(), row.r().assignedMarketerId() != null ? row.r().assignedMarketerId() : me.memberId(), now);
-        record(opp, "ASSIGNED", me.memberId(), "was assigned to this opportunity", now);
-        requestOne(opp, "INTEREST_REQUESTED", me.memberId(), now);
-        return null;
+        Long owner = row.r().assignedMarketerId() != null ? row.r().assignedMarketerId() : me.memberId();
+        OpportunityAssignmentService.Result assigned;
+        try {
+            assigned = assignment.assign(view, me, row.r().requirementId(), row.r().consultantId(), OpportunityAssignmentService.Options.none().withOwner(owner).askingInterest().withAudit(auditRow));
+        } catch (OrgException refused) {
+            return refused.getCode(); // JOB_NOT_OPEN, RESUME_NOT_APPROVED, NOT_FOUND: the batch reports it, the single call raises it
+        }
+        if (assigned.refused()) return assigned.reason();
+        return assigned.existing() ? "ALREADY_ASSIGNED" : null;
     }
 
     private static OrgException assignError(String code) {
@@ -401,6 +385,7 @@ public class MktOpportunitiesService {
             case "ALREADY_ASSIGNED" -> OrgException.coded(409, code, "This opportunity is already assigned.", Map.of());
             case "RESUME_NOT_APPROVED" -> OrgException.coded(409, code, "The consultant needs an approved resume before this can be assigned.", Map.of());
             case "JOB_NOT_OPEN" -> OrgException.coded(409, code, "That job is not open.", Map.of());
+            case OpportunityAssignmentService.CONSULTANT_INACTIVE -> OrgException.coded(409, code, "That consultant is not active, so nothing can be assigned.", Map.of());
             default -> new OrgNotFoundException();
         };
     }
@@ -413,16 +398,8 @@ public class MktOpportunitiesService {
         record(opp, eventKind, actor, "INTEREST_REQUESTED".equals(eventKind) ? "was asked for their interest" : "was asked to update their resume", now);
     }
 
-    private MktOpportunity ensure(Long orgId, Long matchId, Long owner, Instant now) {
-        return repo.findByOrgIdAndMatchId(orgId, matchId).orElseGet(() -> {
-            MktOpportunity o = new MktOpportunity();
-            o.setOrgId(orgId);
-            o.setMatchId(matchId);
-            o.setOwnerMemberId(owner);
-            o.setCreatedAt(now);
-            o.setUpdatedAt(now);
-            return repo.save(o);
-        });
+    private MktOpportunity ensure(MktScope.View view, Long matchId, Long owner, Instant now) {
+        return assignment.ensureOpportunity(view, matchId, owner);
     }
 
     private void record(MktOpportunity opp, String kind, Long actor, String text, Instant now) {

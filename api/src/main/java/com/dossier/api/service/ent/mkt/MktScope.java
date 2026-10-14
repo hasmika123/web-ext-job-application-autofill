@@ -4,6 +4,7 @@ import com.dossier.api.domain.enumeration.PermissionScope;
 import com.dossier.api.domain.ent.talent.MarketerAssignment;
 import com.dossier.api.repository.ent.talent.MarketerAssignmentRepository;
 import com.dossier.api.service.ent.OrgRoleService;
+import com.dossier.api.service.ent.jobs.AssignmentScope;
 import com.dossier.api.service.ent.TenantModule;
 import com.dossier.api.service.ent.TenantModules;
 import com.dossier.api.service.ent.authz.AuthorizationService;
@@ -33,7 +34,8 @@ import org.springframework.stereotype.Service;
 public class MktScope {
 
     /** What the caller may see. {@code all} means every consultant of the org (then {@code consultantIds} is empty and unused). */
-    public record View(Long orgId, Long memberId, boolean all, Set<Long> consultantIds) {
+    public record View(Long orgId, Long memberId, boolean all, Set<Long> consultantIds) implements AssignmentScope {
+        @Override
         public boolean sees(Long consultantId) {
             return all || consultantIds.contains(consultantId);
         }
@@ -58,9 +60,14 @@ public class MktScope {
         PermissionScope scope = me.scopeFor(permissionKey).orElseThrow(OrgNotFoundException::new);
         if (scope == PermissionScope.ORG) return new View(me.orgId(), me.memberId(), true, Set.of());
         Set<Long> ids = new HashSet<>();
-        for (MarketerAssignment a : assignments.findByOrgIdAndMarketerMemberId(me.orgId(), me.memberId())) ids.add(a.getConsultantId());
-        for (MarketerAssignment a : assignments.findByOrgIdAndBackupMemberId(me.orgId(), me.memberId())) ids.add(a.getConsultantId());
+        // A PAUSED (or otherwise not ACTIVE) assignment no longer gives its marketer or backup sight of the consultant.
+        for (MarketerAssignment a : assignments.findByOrgIdAndMarketerMemberId(me.orgId(), me.memberId())) if (active(a)) ids.add(a.getConsultantId());
+        for (MarketerAssignment a : assignments.findByOrgIdAndBackupMemberId(me.orgId(), me.memberId())) if (active(a)) ids.add(a.getConsultantId());
         return new View(me.orgId(), me.memberId(), false, Set.copyOf(ids));
+    }
+
+    private static boolean active(MarketerAssignment a) {
+        return "ACTIVE".equals(a.getStatus());
     }
 
     /** A consultant id the caller may not see is the same 404 as one that does not exist. */

@@ -16,6 +16,7 @@ import com.dossier.api.repository.ent.mkt.MktMatchRequirementRepository;
 import com.dossier.api.repository.ent.mkt.MktMatchResumeRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
+import com.dossier.api.service.ent.jobs.OpportunityAssignmentService;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.ent.mkt.MktScope.View;
 import com.dossier.api.service.ent.mkt.matches.MktMatchRules.ClientHistory;
@@ -81,6 +82,7 @@ public class MktMatchesService {
     private static final List<String> LIVE = List.of("SUGGESTED", "ASSIGNED");
 
     private final MktScope scope;
+    private final OpportunityAssignmentService assignment;
     private final MktMatchRepository matches;
     private final MktMatchConsultantRepository consultants;
     private final MktMatchRequirementRepository requirements;
@@ -95,6 +97,7 @@ public class MktMatchesService {
     @Autowired
     public MktMatchesService(
         MktScope scope,
+        OpportunityAssignmentService assignment,
         MktMatchRepository matches,
         MktMatchConsultantRepository consultants,
         MktMatchRequirementRepository requirements,
@@ -105,11 +108,12 @@ public class MktMatchesService {
         RequirementSkillRepository requirementSkills,
         OrgAuditService audit
     ) {
-        this(scope, matches, consultants, requirements, clients, resumes, applications, consultantSkills, requirementSkills, audit, Clock.systemUTC());
+        this(scope, assignment, matches, consultants, requirements, clients, resumes, applications, consultantSkills, requirementSkills, audit, Clock.systemUTC());
     }
 
     MktMatchesService(
         MktScope scope,
+        OpportunityAssignmentService assignment,
         MktMatchRepository matches,
         MktMatchConsultantRepository consultants,
         MktMatchRequirementRepository requirements,
@@ -122,6 +126,7 @@ public class MktMatchesService {
         Clock clock
     ) {
         this.scope = scope;
+        this.assignment = assignment;
         this.matches = matches;
         this.consultants = consultants;
         this.requirements = requirements;
@@ -202,16 +207,18 @@ public class MktMatchesService {
         RequirementMatch m = matches.findByOrgIdAndId(me.orgId(), matchId).orElseThrow(OrgNotFoundException::new);
         scope.require(page, m.getConsultantId());
         scope.require(write, m.getConsultantId());
-        if ("ASSIGNED".equals(m.getStatus())) return rowOf(me.orgId(), m);
-        if (!"SUGGESTED".equals(m.getStatus())) throw conflict("MATCH_STATE", "Only a suggested match can be assigned", m.getStatus());
-        ClientRequirement req = requirements.findByOrgIdAndId(me.orgId(), m.getRequirementId()).orElseThrow(OrgNotFoundException::new);
-        if (!"OPEN".equals(req.getStatus())) throw conflict("REQUIREMENT_CLOSED", "This job is no longer open", req.getStatus());
-        m.setStatus("ASSIGNED");
-        m.setAssignedByMemberId(me.memberId());
-        m.setAssignedAt(clock.instant());
-        matches.save(m);
-        audit.record(me, "MKT_MATCH_ASSIGN", "MATCH", null, String.valueOf(m.getId()), "consultantId=" + m.getConsultantId() + ";requirementId=" + m.getRequirementId() + ";score=" + m.getScore());
-        return rowOf(me.orgId(), m);
+        if (!"ASSIGNED".equals(m.getStatus()) && !"SUGGESTED".equals(m.getStatus())) throw conflict("MATCH_STATE", "Only a suggested match can be assigned", m.getStatus());
+        if ("SUGGESTED".equals(m.getStatus())) {
+            ClientRequirement req = requirements.findByOrgIdAndId(me.orgId(), m.getRequirementId()).orElseThrow(OrgNotFoundException::new);
+            if (!OpportunityAssignmentService.OPEN_JOB.contains(req.getStatus())) throw conflict("REQUIREMENT_CLOSED", "This job is no longer open", req.getStatus());
+        }
+        // The pair rules (resume gate, active consultant, reopening a declined or closed pair, the opportunity overlay, audit) live in one place.
+        // An already ASSIGNED match comes back existing=true and answers as before; a declined or closed one is reopened.
+        OpportunityAssignmentService.Result assigned = assignment.assign(write, me, m.getRequirementId(), m.getConsultantId(),
+            OpportunityAssignmentService.Options.none().withAudit(new OpportunityAssignmentService.Audit("MKT_MATCH_ASSIGN", "MATCH", String.valueOf(m.getId()),
+                r -> "consultantId=" + r.consultantId() + ";requirementId=" + r.jobId() + ";score=" + r.score())));
+        if (assigned.refused()) throw conflict(assigned.reason(), "This consultant is not active, so nothing can be assigned", null);
+        return rowOf(me.orgId(), matches.findByOrgIdAndId(me.orgId(), matchId).orElseThrow(OrgNotFoundException::new));
     }
 
     /** SUGGESTED to DISMISSED (the suggestion is not a fit). Idempotent for a dismissed match; an assigned one stays assigned. */
