@@ -1,5 +1,7 @@
 # 59 — Phase 1 design: marketer captures with the extension, consultant applies with the extension, we track (DESIGN, revision 2)
 
+> **Superseded in part by `60-job-phase1-contract.md` (Fable review, 2026-10-13):** §5 consent rules, §7 lifecycle, §8 API surface and §9 extension flows are replaced by doc 60. Read doc 60 before coding.
+
 > Owner decision 2026-10-13: **job search/discovery, public pools, connectors and matching engines move to Phase 2.** Phase 1 = (1) the **marketer** captures the *important details* of a job from the source page with our browser extension and assigns it to a consultant; (2) the **consultant** opens the source link and applies with their own extension (or applies on any job site on their own); (3) we **track** the application progress. This document supersedes the Phase-1 parts of ADR-024 (D-2…D-4, D-6, D-10, D-15 deferred or amended: see ADR-024 "Revision 2") and aligns with the **already-written** backlog stories X9.2, X9.9 and X9.12 (`07-backlog.md` lines 5085, 5358, 5400) and `32-applications.md` §2 (`pipeline_application_link`, submit-detect). Evidence labels: V = read in code/docs, A = assumed.
 
 ## 1. The flow
