@@ -67,7 +67,9 @@ function Banner({ tone, children, onDismiss, id }: { tone: "info" | "warn"; chil
  * tenant session (`GET /api/me/tenant`, X2.2) and the public tenant view: the menu is the API's filtered nav, the words are the
  * organization's terminology, the logo is the published one, the switcher exists only for members with several workspaces.
  *
- *   >= lg   236 px sidebar (sticky, viewport tall, scrolls by itself) + 64 px top bar
+ *   >= lg   sidebar of 15.4 % of the width, 216-258 px (the boards' 258 of 1672; sticky, viewport tall, scrolls by itself) + header
+ *           with the title, one-line subtitle, search, bell and profile chip (no workspace chip and no help card: the boards have none;
+ *           switching workspace lives in the profile menu, the help card is each page's own)
  *   md      the sidebar is a 64 px icon rail (expandable)
  *   < md    56 px top bar, the menu in a sheet, a bottom tab bar (first four items + More)
  *
@@ -95,8 +97,9 @@ export default function EnterpriseShell({
 
   const [collapsedPref, setCollapsedPref] = useState<boolean | null>(null);
   const [header, setHeader] = useState<PageHeaderValue | null>(null);
-  const [mascotClaimed, setMascotClaimed] = useState(false);
-  const [helpClaimed, setHelpClaimed] = useState(false);
+  // pages that draw their own bee / help card claim them (ClaimsMascot / ClaimsHelpCard); the shell draws neither any more
+  const [, setMascotClaimed] = useState(false);
+  const [, setHelpClaimed] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -141,7 +144,7 @@ export default function EnterpriseShell({
         setSwitcherOpen(true);
       } else if (mod && !e.shiftKey && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        if (window.matchMedia("(min-width: 1280px)").matches) document.getElementById(SEARCH_INPUT_ID)?.focus();
+        if (window.matchMedia("(min-width: 1360px)").matches) document.getElementById(SEARCH_INPUT_ID)?.focus();
         else setSearchOpen(true);
       }
     };
@@ -188,7 +191,7 @@ export default function EnterpriseShell({
   };
 
   const logo = <TenantLogo name={tenant.displayName} logoUrl={tenant.logoUrl} size="bar" />;
-  const switcher = (variant: "sidebar" | "bar") => (
+  const switcher = (variant: "panel" | "bar") => (
     <WorkspaceSwitcher
       rows={rows}
       open={switcherOpen && (variant === "bar") === phone}
@@ -196,14 +199,13 @@ export default function EnterpriseShell({
       onChoose={choose}
       onPrefer={prefer}
       variant={variant}
-      collapsed={variant === "sidebar" && collapsed}
       currentLabel={workspace.label}
     />
   );
 
   return (
     <ShellSlotContext.Provider value={slot}>
-      <div data-enterprise-shell data-collapsed={collapsed ? "true" : "false"} className="min-h-dvh bg-app-bg text-ink [--color-app-bg:color-mix(in_srgb,var(--brand-50,white)_55%,white)] [--color-paper-2:color-mix(in_srgb,var(--brand-50,white)_70%,white)] [--color-paper:white] md:flex">
+      <div data-enterprise-shell data-collapsed={collapsed ? "true" : "false"} className="min-h-dvh bg-app-bg text-ink md:flex">
         <a
           href="#main-content"
           className="sr-only z-[70] rounded-lg bg-paper px-4 py-2 text-sm font-semibold text-accent-deep shadow-lg focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
@@ -215,10 +217,11 @@ export default function EnterpriseShell({
         <aside
           aria-label="Sidebar"
           data-shell-sidebar
-          className={cn("sticky top-0 z-40 hidden h-dvh flex-none flex-col overflow-hidden border-r border-line bg-paper md:flex", collapsed ? "w-16" : "w-[256px]")}
+          data-rail={collapsed ? "true" : "false"}
+          className="ent-sidebar sticky top-0 z-40 hidden h-dvh flex-none flex-col overflow-hidden md:flex"
         >
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className={cn("flex h-[88px] flex-none items-center", collapsed ? "justify-center" : "justify-between gap-2 pl-6 pr-3")}>
+            <div className={cn("ent-sidebar-head flex flex-none items-center", collapsed ? "justify-center" : "justify-between gap-2")}>
               <Link href={workspace.home} aria-label={`${tenant.displayName} home`} className="flex min-w-0 items-center rounded-lg" data-shell-logo>
                 {collapsed ? (
                   <span aria-hidden className="grid h-9 w-9 place-items-center rounded-[10px] bg-accent text-[16px] font-extrabold text-on-accent">
@@ -228,7 +231,7 @@ export default function EnterpriseShell({
                   <>
                     {logo}
                     {tenant.logoUrl ? (
-                      <span aria-hidden data-shell-wordmark className="ml-2.5 min-w-0 truncate text-[24px] font-extrabold uppercase leading-none tracking-tight text-ink">
+                      <span aria-hidden data-shell-wordmark className="ent-wordmark ml-2.5 min-w-0 truncate font-extrabold uppercase leading-none tracking-tight">
                         {tenant.displayName.split(/\s+/)[0]}
                       </span>
                     ) : null}
@@ -252,31 +255,25 @@ export default function EnterpriseShell({
                 </Tooltip>
               </div>
             ) : null}
-            {multi ? (
-              <div className="pb-1">{switcher("sidebar")}</div>
-            ) : null}
-            {/* the menu scrolls by itself; the header above and the help card below stay put (16 s2.1) */}
-            <div data-shell-scroll className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scroll-slim">
+            {/* the menu scrolls by itself; the logo above stays put (16 s2.1) */}
+            <div data-shell-scroll className="ent-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
               <ShellNav sections={sections} active={active} collapsed={collapsed} />
-            </div>
-            <div className="flex-none pt-2">
-              <HelpCard firstName={firstName} orgName={tenant.displayName} supportEmail={tenant.supportEmail} bee={!mascotClaimed} cardHidden={helpClaimed} collapsed={collapsed} />
             </div>
           </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* ── top bar, md and up ───────────────────────────────────────────────────────────── */}
-          <header data-shell-topbar className="sticky top-0 z-30 hidden min-h-[96px] items-center gap-5 bg-app-bg/95 px-6 py-3 backdrop-blur md:flex lg:px-8">
+          <header data-shell-topbar className="ent-header sticky top-0 z-30 hidden items-center bg-app-bg/95 py-3 backdrop-blur md:flex">
             <div className="min-w-0 flex-1" data-page-header>
-              <h1 className="truncate text-[26px] font-extrabold leading-tight tracking-tight text-ink xl:text-[34px]">{title}</h1>
-              {subtitle ? <p className="mt-1 text-[14px] leading-snug text-ink-soft xl:text-[16px]">{subtitle}</p> : null}
+              <h1 className="ent-title" title={title}>{title}</h1>
+              {subtitle ? <p className="ent-subtitle" title={subtitle}>{subtitle}</p> : null}
             </div>
-            <div className="hidden w-[min(440px,32vw)] flex-none xl:block">
+            <div className="ent-search-wrap hidden flex-none min-[1360px]:block">
               <ShellSearch me={me} inputId={SEARCH_INPUT_ID} />
             </div>
-            <Tooltip content="Search" side="bottom" className="xl:hidden">
-              <IconButton aria-label="Search" onClick={() => setSearchOpen(true)} className="h-11 w-11 rounded-xl text-ink/80 xl:hidden">
+            <Tooltip content="Search" side="bottom" className="min-[1360px]:hidden">
+              <IconButton aria-label="Search" onClick={() => setSearchOpen(true)} className="h-11 w-11 rounded-xl text-ink/80 min-[1360px]:hidden">
                 <SearchIcon size={20} />
               </IconButton>
             </Tooltip>
@@ -335,7 +332,7 @@ export default function EnterpriseShell({
             ref={mainRef}
             tabIndex={-1}
             data-shell-main
-            className="min-w-0 flex-1 px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-4 focus:outline-none sm:px-6 md:pb-10 md:pt-6 lg:px-8"
+            className="min-w-0 flex-1 px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-4 focus:outline-none sm:px-6 md:pb-10 md:pt-2"
           >
             <div className="mb-4 md:hidden" data-page-header-phone>
               <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-ink">{title}</h1>
@@ -344,6 +341,11 @@ export default function EnterpriseShell({
             {children}
           </main>
         </div>
+
+        {/* the help panel the pages' own "Ask a question..." cards open (the sidebar card is gone; this is only the panel) */}
+        <HelpCard firstName={firstName} orgName={tenant.displayName} supportEmail={tenant.supportEmail} cardHidden />
+        {/* the workspace switcher (desktop): opened from the profile menu, or Ctrl+Shift+W */}
+        {multi ? switcher("panel") : null}
 
         {/* ── bottom tab bar (phone) ───────────────────────────────────────────────────────── */}
         <nav

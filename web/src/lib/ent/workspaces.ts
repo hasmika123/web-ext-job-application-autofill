@@ -39,6 +39,8 @@ export interface MeRole {
   id: number | null;
   key: string;
   name: string;
+  /** A short label for tight places (the profile chip); the API may send it, else the shell derives one from `name`. */
+  shortName?: string | null;
   isPrimary: boolean;
   workspaceKey: string | null;
 }

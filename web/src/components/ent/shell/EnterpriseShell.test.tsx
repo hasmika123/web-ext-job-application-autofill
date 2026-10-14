@@ -15,7 +15,7 @@ import { meTenantFor as untyped } from "../../../../scripts/mock-me-tenant.mjs";
 import { parseMeTenant } from "@/lib/ent/tenant-session-core";
 import type { MeTenant } from "@/lib/ent/workspaces";
 import EnterpriseShell from "./EnterpriseShell";
-import PageHeader from "./ShellContext";
+import PageHeader, { openHelpPanel } from "./ShellContext";
 import { ComingSoon, NotYourRole } from "./ShellStates";
 
 const meTenantFor = untyped as (host: string, login: string) => { body: unknown; etag: string } | null;
@@ -121,20 +121,42 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     expect(nav.push).toHaveBeenCalledWith("/w/admin/billing");
   });
 
-  it("the Need help card carries the bee and opens a help panel that says there is no assistant yet", () => {
-    const { container } = mount("owner@acme.com");
-    const card = container.querySelector("[data-help-card]")!;
-    expect(within(card as HTMLElement).getByText("Need help, Olivia?")).toBeTruthy();
-    expect(card.querySelector("[data-mascot-pose]")).toBeTruthy();
-    fireEvent.click(within(card as HTMLElement).getByText("Ask a question..."));
+  it("the boards have no sidebar help card and no workspace chip: the sidebar is logo + menu only", () => {
+    const { container } = mount("sarah@acme.com");
+    const side = container.querySelector("[data-shell-sidebar]")!;
+    expect(side.querySelector("[data-help-card]")).toBeNull();
+    expect(side.querySelector("[data-mascot-pose]")).toBeNull();
+    expect(side.querySelector("[data-workspace-switcher]")).toBeNull();
+    expect(screen.queryByText(/Need help, /)).toBeNull();
+    expect(side.querySelector("[data-shell-scroll] nav")).toBeTruthy();
+  });
+
+  it("a page's own help card still opens the shared help panel that says there is no assistant yet", () => {
+    mount("owner@acme.com");
+    act(() => openHelpPanel());
     expect(screen.getByRole("dialog").textContent).toContain("isn't switched on yet");
     expect(screen.getByRole("dialog").querySelector('a[href="mailto:it@acme.com"]')).toBeTruthy();
   });
 
-  it("drops the card's bee when the page shows its own (one mascot per view)", () => {
-    const { container } = mount("owner@acme.com", { children: <ComingSoon title="Jobs" /> });
-    expect(container.querySelector("[data-help-card] [data-mascot-pose]")).toBeNull();
-    expect(container.querySelectorAll("[data-mascot-pose]")).toHaveLength(1);
+  it("the menu is separated into the board's three groups by rules", () => {
+    const { container } = mount("owner@acme.com");
+    const nav = container.querySelector("[data-shell-sidebar] nav")!;
+    const sections = nav.querySelectorAll("[data-nav-section]");
+    expect(sections.length).toBeGreaterThanOrEqual(3);
+    expect(nav.querySelectorAll("hr.ent-nav-sep").length).toBe(sections.length - 1);
+    expect(sections[0].textContent).toContain("Dashboard");
+    expect(sections[0].textContent).toContain("Placements");
+    expect(sections[1].textContent).toContain("Subscription Overview");
+    expect(sections[1].textContent).toContain("Reports");
+    expect(sections[2].textContent).toContain("Organization Branding");
+    expect(sections[2].textContent).toContain("Settings");
+  });
+
+  it("the profile chip names the member and a short role (Org Admin, from the role's own name)", () => {
+    const { container } = mount("owner@acme.com");
+    const trigger = container.querySelector<HTMLElement>("[data-account-menu]")!;
+    expect(trigger.className).toContain("ent-profile");
+    expect(trigger.textContent).not.toContain("Organization");
   });
 
   it("user menu: avatar, name and role, then My profile first; Sign out last", () => {
@@ -162,11 +184,12 @@ describe("workspace switcher (16 s4)", () => {
     expect(container.querySelector("[data-workspace-eyebrow]")).toBeNull();
   });
 
-  it("Sarah (admin + marketing manager) gets the switcher with two rows and lands on the first", () => {
+  it("Sarah (admin + marketing manager) switches from the profile menu: two rows, the first is current", () => {
     const { container } = mount("sarah@acme.com");
-    const chip = container.querySelector<HTMLElement>("[data-workspace-switcher=\"sidebar\"]")!;
-    expect(chip.textContent).toContain("Administration");
-    fireEvent.click(chip);
+    expect(container.querySelector("[data-workspace-switcher=\"panel\"]")).toBeNull();
+    fireEvent.click(container.querySelector<HTMLElement>("[data-account-menu]")!);
+    fireEvent.click(screen.getByRole("menuitem", { name: /Switch workspace/ }));
+    expect(container.querySelector("[data-workspace-switcher=\"panel\"]")).toBeTruthy();
     const rows = screen.getAllByRole("menuitemradio");
     expect(rows.map((r) => r.textContent)).toEqual([expect.stringContaining("Administration"), expect.stringContaining("Marketing management")]);
     expect(rows[0].getAttribute("aria-checked")).toBe("true");

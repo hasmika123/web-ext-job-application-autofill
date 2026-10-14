@@ -1,4 +1,4 @@
-import { tenantThemeCss } from "@kiwiply/ui";
+import { SparklineDefaultsProvider, tenantThemeCss } from "@kiwiply/ui";
 
 /**
  * The root of every tenant page (X2.12). It carries `.theme-tenant` (the token remap in
@@ -23,7 +23,8 @@ export default function TenantThemeProvider({
   return (
     <div data-tenant-root className="theme-tenant">
       <style dangerouslySetInnerHTML={{ __html: tenantThemeCss("[data-tenant-root]", primary, secondary) }} />
-      {children}
+      {/* the boards' sparkline: a smooth curve with a soft fill (an explicit `smooth={false}` still draws the straight line) */}
+      <SparklineDefaultsProvider smooth>{children}</SparklineDefaultsProvider>
     </div>
   );
 }

@@ -36,3 +36,5 @@ export { WeekBarChart } from "./week-bars";
 export type { WeekBarChartProps } from "./week-bars";
 export { MiniBars, AlarmClockIcon } from "./task-visuals";
 export type { MiniBarsProps } from "./task-visuals";
+export { KpiTile, KPI_TONES, kpiLine } from "./KpiTile";
+export type { KpiTileProps, KpiTone, KpiDelta } from "./KpiTile";
