@@ -1,5 +1,6 @@
 package com.dossier.api.config;
 
+import com.dossier.api.service.ent.BillingDemoSeeder;
 import com.dossier.api.service.ent.EnterpriseDemoSeeder;
 import com.dossier.api.service.ent.RoleTemplateSeeder;
 import com.dossier.api.service.ent.TalentDemoSeeder;
@@ -45,13 +46,15 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final TalentDemoSeeder talent;
     private final ConsultantWsDemoSeeder consultantWs;
     private final java.util.List<Runnable> consultantPages;
+    private final BillingDemoSeeder billing;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
         this.consultantWs = consultantWs;
+        this.billing = billing;
         // the consultant workspace pages' own demo rows, in dependency order (all after ConsultantWsDemoSeeder: matches build on its matches)
         this.consultantPages = java.util.List.of(profileSeed::seed, resumesSeed::seed, marketerSeed::seed, matchesSeed::seed, discoverySeed::seed, interviewsSeed::seed, prepSeed::seed, submissionsSeed::seed, opportunitiesSeed::seed, tasksSeed::seed, availabilitySeed::seed, offersSeed::seed, placementSeed::seed, settingsSeed::seed, notificationsSeed::seed, jobSourceSeed::seed);
         this.createAccounts = createAccounts;
@@ -85,6 +88,11 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             } catch (RuntimeException e) {
                 LOG.error("A consultant workspace page demo seed failed; that page has less demo data.", e);
             }
+        }
+        try {
+            billing.seed(); // billing boards demo data (licenses, invoices, usage): after the talent seed, it links to its consultants
+        } catch (RuntimeException e) {
+            LOG.error("Billing demo seed failed; the billing pages have no demo data.", e);
         }
     }
 }
