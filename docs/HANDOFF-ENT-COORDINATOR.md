@@ -48,8 +48,8 @@ mock-ups, which is fine; layout, fonts, sizes, colour roles, spacing, radii, sha
 | Consultants | yes | no | `ent-consultants` 28d3e4f5; `ent-exact-b` |
 | Resumes, Marketing Assignments, Jobs, Applications | yes | no | their `ent-*` branches; WIP polish on `ent-exact-c` 3669384b |
 | Interviews | page in progress | no | `ent-interviews` c927eb8d (WIP, not finished) |
-| Clients | page in progress | no | `ent-clients` 13101384 (WIP) |
-| Placements | page in progress | no | `ent-placements` 91cac9b5 (WIP) |
+| Clients | page in progress | no | `ent-clients` 0471e466 (WIP) |
+| Placements | page in progress | no | `ent-placements` 539c05ca (WIP) |
 | Subscription Overview, Consultant Licenses, Billing, Feature Usage | **NOT started** (data layer done) | no | data on `ent-billing-data` dcc5d7f7 |
 | HR, Finance, Reports | **NOT started** (data layer done) | no | data on `ent-ops-data` 70de110c |
 The first 11 pages (rows 1-9 above except Interviews/Clients/Placements = Dashboard, Employees, Invitations, Teams, Departments, Roles,
@@ -66,7 +66,7 @@ Boards: `ent-boards` a665a931 (= ent-all + `design/enterprise-more/`).
 Pages: `ent-consultants` 28d3e4f5, `ent-resumes` e0117276, `ent-jobs` d3773396, `ent-marketing` daf1262a (**this is the admin Marketing Assignments page, not the marketer role**), `ent-applications` ef05bdbf, `ent-dashboard` 502e2cf2.
 Polish: `ent-pol-employees` 2ec74731, `ent-pol-invitations` 43cc8799, `ent-pol-groups` 0998d805, `ent-pol-roles` 26232421.
 Exact-match WIP (cut from ent-final): `ent-exact-a` 6eb26ab1 (Dashboard/Employees/Invitations), `ent-exact-b` 72764048 (Teams/Departments/Roles/Consultants; structural only, never checked visually; production build never finished), `ent-exact-c` 3669384b (Resumes/Marketing/Jobs/Applications).
-New pages WIP (cut from ent-boards): `ent-interviews` c927eb8d, `ent-clients` 13101384, `ent-placements` 91cac9b5.
+New pages WIP (cut from ent-boards): `ent-interviews` c927eb8d, `ent-clients` 0471e466, `ent-placements` 539c05ca.
 Data layers (cut from ent-boards, no REST/UI): `ent-billing-data` dcc5d7f7, `ent-ops-data` 70de110c.
 
 ## Other machines (isolated work; you merge)
@@ -101,3 +101,10 @@ No sensitive PII (no SSN/bank/tax/passport/DOB; HR/Finance are record-only; card
 
 ## Decisions still open for the user
 Whether/when to merge enterprise into `version2` (and resolve the 3 conflicts); `ORG_ADMIN` role holds all permissions except `org.close`/`org.transfer_ownership` (side effect: `member.view_full`/`member.act_for`, consent-gated) — confirm; `docs/enterprise-v2/08-decisions-for-user.md` (D2, E8, E21–E29, esp. E27 point-in-time backup, E28 least-privilege MySQL user before real money); edge work only the user can do (E12 deny rule, `KIWIPLY_ASK_TOKEN`, no `X-Frame-Options: DENY` on tenant hosts, host secret on api+web before enabling the flag in prod); `demo-admin` account is for testing only — remove (`DEMO_ADMIN_ENABLED` unset) before production.
+
+## Repo hygiene audit (2026-10-14) — nothing is lost
+- Every local branch of consequence is on `origin`. The old per-story branches (`ent-x*`, `ent-login-v2`, `ent-fix-merge`, `ent-integ`, `demo-sandbox`, `ev2-build-p1`, `ev2-design-e`, `enterprise-v2` lineage) are fully contained in `ent-all`/`origin` history.
+- 11 old agent scratch branches held 1 commit each that was on no remote. They are now pushed (not merged) under `origin/archive/worktree-agent-*`: roadmap-area work (`pay`, `plat`, `mob`, `ext`, `ai`, `sup`, `trust`, `mkt` areas + the reconciliation pass `3c577344`), `rb0.3` resume-doc endpoints with ETag/If-Match (`73f07938`), and the `23.0` consultancy-ops timesheets-first design proposal (`f035de06`). The user earlier decided NOT to merge the roadmap-area branches; keep them as archive unless asked.
+- The stop-time WIP snapshot accidentally committed Playwright output in `ent-clients` and `ent-placements` (`web/test-results-real-*`); removed in follow-up commits and `web/.gitignore` now ignores `test-results-real-*/`. Other WIP snapshots (`ent-exact-a/c`, `ent-interviews`) were checked: no logs/artifacts committed.
+- Untracked scratch files that are intentionally NOT committed: agent `*.log` files in worktree roots, `web/shot-inv.mjs` (ent-pol-invitations), the user's local `.claude/launch.json`, `kiwiply-2026-10-12.bundle`.
+- `version2` on origin = eaec3922 (regular app + `demo-admin`). Enterprise is not merged into it by the user's instruction.
