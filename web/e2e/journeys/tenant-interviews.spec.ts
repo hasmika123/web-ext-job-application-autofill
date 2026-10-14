@@ -21,6 +21,14 @@ async function signInAsSarah(page: Page) {
   }).toPass({ timeout: 120_000 });
 }
 
+/** A cold API can miss the shell's first call ("We couldn't load your workspace"): load the page again until the board shows. */
+async function openBoard(page: Page, marker: string) {
+  await expect(async () => {
+    await page.goto(`${base}/w/admin/interviews`);
+    await expect(page.locator(marker).first()).toBeVisible({ timeout: 20_000 });
+  }).toPass({ timeout: 120_000 });
+}
+
 const kpi = (page: Page, k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
 const dock = (page: Page) => page.locator("[data-drawer-dock]");
 const num = async (loc: ReturnType<Page["locator"]>) => Number((await loc.innerText()).replace(/,/g, ""));
@@ -32,8 +40,7 @@ test.describe("interviews (real stack)", () => {
     test.slow(); // a loaded shared machine: triple the timeout
     mkdirSync(shots, { recursive: true });
     await signInAsSarah(page);
-    await page.goto(`${base}/w/admin/interviews`);
-    await expect(page.locator("[data-interviews-page]")).toBeVisible();
+    await openBoard(page, "[data-interviews-page]");
 
     // the real tiles, the first page of the table, the bee card and the first interview already open in the drawer
     await expect(kpi(page, "total")).not.toHaveText("");
@@ -111,7 +118,11 @@ test.describe("interviews (real stack)", () => {
     // feedback on a completed interview
     await page.locator('[role=search] button[aria-label="Status"]').click();
     await page.getByRole("option", { name: "Completed" }).click();
-    await page.locator("tr[data-row-id]").first().click();
+    const done = page.locator('tr[data-row-id][data-status="COMPLETED"]').first();
+    await expect(done).toBeVisible();
+    const doneId = await done.getAttribute("data-row-id");
+    await done.click();
+    await expect(dock(page).locator(`[data-interview-id="${doneId}"]`)).toBeVisible();
     await dock(page).locator('[data-action="feedback"]').click();
     const fb = page.getByRole("dialog");
     await fb.getByRole("radio", { name: "4 of 5" }).click();
@@ -158,8 +169,7 @@ test.describe("interviews (real stack)", () => {
     mkdirSync(shots, { recursive: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await signInAsSarah(page);
-    await page.goto(`${base}/w/admin/interviews`);
-    await expect(page.locator("[data-interview-cards] li").first()).toBeVisible();
+    await openBoard(page, "[data-interview-cards] li");
     await expect(page.locator("[data-interview-table]")).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.screenshot({ path: resolve(shots, "interviews-390.png") });
