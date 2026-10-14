@@ -11,6 +11,7 @@ import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.JobDataEventRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -75,14 +76,46 @@ public class JobIdentityTx {
         return saved.getId();
     }
 
+    /**
+     * {@link #insertRequirement(ClientRequirement, Function)} that also runs {@code alsoInThisTransaction} with the saved job (the skills): whatever
+     * it writes commits or rolls back with the job. May be null.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Long insertRequirement(
+        ClientRequirement requirement,
+        Function<ClientRequirement, JobDataEvent> ledgerRow,
+        Consumer<ClientRequirement> alsoInThisTransaction
+    ) {
+        ClientRequirement saved = requirements.saveAndFlush(requirement);
+        if (ledgerRow != null) ledger.save(ledgerRow.apply(saved));
+        if (alsoInThisTransaction != null) alsoInThisTransaction.accept(saved);
+        return saved.getId();
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Long insertMatch(RequirementMatch match) {
         return matches.saveAndFlush(match).getId();
     }
 
+    /** {@link #insertMatch(RequirementMatch)} that also runs {@code alsoInThisTransaction} (the ASSIGNED ledger row) in the same transaction. May be null. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Long insertMatch(RequirementMatch match, Consumer<RequirementMatch> alsoInThisTransaction) {
+        RequirementMatch saved = matches.saveAndFlush(match);
+        if (alsoInThisTransaction != null) alsoInThisTransaction.accept(saved);
+        return saved.getId();
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Long insertOpportunity(MktOpportunity opportunity) {
         return opportunities.save(opportunity).getId();
+    }
+
+    /** {@link #insertOpportunity(MktOpportunity)} that also runs {@code alsoInThisTransaction} (the ASSIGNED event) in the same transaction. May be null. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public Long insertOpportunity(MktOpportunity opportunity, Consumer<MktOpportunity> alsoInThisTransaction) {
+        MktOpportunity saved = opportunities.save(opportunity);
+        if (alsoInThisTransaction != null) alsoInThisTransaction.accept(saved);
+        return saved.getId();
     }
 
     // ---- fresh reads (a new snapshot, so a row committed a moment ago is visible) -------------------------------------------------

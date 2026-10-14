@@ -110,6 +110,12 @@ class MktOpportunitiesServiceTest {
         });
         // the overlay is inserted in its own transaction and attached again with a locking read: both are the in-memory store here
         lenient().when(tx.insertOpportunity(any(MktOpportunity.class))).thenAnswer(i -> repo.save(i.getArgument(0)).getId());
+        lenient().when(tx.insertOpportunity(any(MktOpportunity.class), any())).thenAnswer(i -> {
+            MktOpportunity saved = repo.save(i.getArgument(0));
+            java.util.function.Consumer<MktOpportunity> alsoInThisTransaction = i.getArgument(1);
+            if (alsoInThisTransaction != null) alsoInThisTransaction.accept(saved);
+            return saved.getId();
+        });
         lenient().when(repo.lockByOrgIdAndId(eq(ORG), anyLong())).thenAnswer(i -> Optional.ofNullable(oppStore.get(i.getArgument(1))));
         // the pair rules read the job, the consultant and the pair's match from the rows the test registered
         lenient().when(requirements.findByOrgIdAndId(eq(ORG), anyLong())).thenAnswer(i -> rows.stream().filter(r -> r.requirementId().equals(i.getArgument(1))).findFirst().map(this::job));

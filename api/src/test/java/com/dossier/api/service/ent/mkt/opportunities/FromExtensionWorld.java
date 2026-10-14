@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -112,7 +113,9 @@ public class FromExtensionWorld {
         lenient().when(ledgerRepo.save(any(JobDataEvent.class))).thenAnswer(i -> {
             JobDataEvent e = i.getArgument(0);
             if (e.getId() == null) e.setId(ids.incrementAndGet());
-            pending.add(e);
+            // a row saved while the match insert runs is committed with the match (its own transaction), not with the idempotency transaction
+            if (world.inNewTransaction) committed.add(e);
+            else pending.add(e);
             return e;
         });
         lenient().when(skills.save(any(RequirementSkill.class))).thenAnswer(i -> {
@@ -142,6 +145,20 @@ public class FromExtensionWorld {
             JobDataEvent e = row.apply(j);
             e.setId(ids.incrementAndGet());
             committed.add(e); // the job insert is its own transaction: the job and its CAPTURED row commit together
+            return id;
+        });
+        // the same with a callback (the job's skills): they run in the job's own transaction and so commit with the job
+        lenient().when(world.tx.insertRequirement(any(ClientRequirement.class), any(), any())).thenAnswer(i -> {
+            ClientRequirement j = i.getArgument(0);
+            Function<ClientRequirement, JobDataEvent> row = i.getArgument(1);
+            Consumer<ClientRequirement> also = i.getArgument(2);
+            Long id = store(j);
+            if (row != null) {
+                JobDataEvent e = row.apply(j);
+                e.setId(ids.incrementAndGet());
+                committed.add(e);
+            }
+            if (also != null) also.accept(j);
             return id;
         });
         wireIdempotency();

@@ -207,7 +207,9 @@ class OpportunityAssignmentServiceTest {
         assertThat(world.oppStore).hasSize(1);
         assertThat(world.eventKinds()).containsExactly("ASSIGNED");
         verify(world.tx, never()).insertMatch(any());
+        verify(world.tx, never()).insertMatch(any(), any());
         verify(world.tx, never()).insertOpportunity(any());
+        verify(world.tx, never()).insertOpportunity(any(), any());
     }
 
     @Test
@@ -343,7 +345,7 @@ class OpportunityAssignmentServiceTest {
 
     @Test
     void aConflictThatLeavesNoWinnerIsNotSwallowed() {
-        org.mockito.Mockito.doThrow(new org.springframework.dao.DataIntegrityViolationException("something else")).when(world.tx).insertMatch(any());
+        org.mockito.Mockito.doThrow(new org.springframework.dao.DataIntegrityViolationException("something else")).when(world.tx).insertMatch(any(), any());
         assertThatThrownBy(() -> assign(null)).isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 

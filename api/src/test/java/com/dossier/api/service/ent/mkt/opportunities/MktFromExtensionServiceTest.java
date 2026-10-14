@@ -312,23 +312,55 @@ class MktFromExtensionServiceTest {
     // ---- the ledger and the transaction ----------------------------------------------------------------------------------------
 
     @Test
-    void aFailureInTheMiddleDropsTheAssignedRowsAndTheStoredReplyAndARetryWorks() {
+    void aFailureInTheMiddleLeavesEveryCommittedRowWholeAndARetryCompletesTheRest() {
         lenient().when(w.world.consultants.findByOrgIdAndId(eq(ORG), eq(11L))).thenThrow(new IllegalStateException("boom"));
 
         assertThatThrownBy(() -> run(KEY, request(List.of(10L, 11L)))).isInstanceOf(IllegalStateException.class).hasMessage("boom");
 
         assertThat(w.rollbacks).isEqualTo(1);
         assertThat(w.commits).isZero();
-        assertThat(w.pending).isEmpty(); // consultant 10's ASSIGNED row was rolled back with the call
-        assertThat(w.committed("ASSIGNED")).isEmpty();
-        assertThat(w.committed("CAPTURED")).hasSize(1); // the job commits in its own transaction, together with its CAPTURED row
+        assertThat(w.pending).isEmpty();
         assertThat(w.records).isEmpty(); // no stored reply, so the same key can be retried
+        // The job commits in its own transaction with its CAPTURED row AND its skills; consultant 10's match, overlay, event and ASSIGNED row commit
+        // in theirs. Nothing is half-written: every row that survived has the rows that describe it.
+        assertThat(w.committed("CAPTURED")).hasSize(1);
+        assertThat(w.skillRows).hasSize(3);
+        assertThat(w.committed("ASSIGNED")).hasSize(1);
+        assertThat(w.world.matchStore).hasSize(1);
+        assertThat(w.world.oppStore).hasSize(1);
+        assertThat(w.world.eventKinds()).containsExactly("ASSIGNED");
+        assertThat(w.world.matchStore.values().iterator().next().getConsultantId()).isEqualTo(10L);
 
         org.mockito.Mockito.doReturn(Optional.of(w.world.people.get(11L))).when(w.world.consultants).findByOrgIdAndId(ORG, 11L);
         Response retry = run(KEY, request(List.of(10L, 11L)));
         assertThat(retry.existingJob()).isTrue();
-        assertThat(w.committed("CAPTURED")).hasSize(1); // still exactly one
         assertThat(retry.results()).extracting(ConsultantResult::consultantId).containsExactly(10L, 11L);
+        assertThat(retry.results().get(0).existing()).isTrue(); // consultant 10 was already assigned: a replay writes nothing for them
+        assertThat(retry.results().get(1).existing()).isFalse();
+        assertThat(w.committed("CAPTURED")).hasSize(1); // still exactly one
+        assertThat(w.skillRows).hasSize(3); // skills are not written again for an existing job
+        assertThat(w.committed("ASSIGNED")).hasSize(2); // one per consultant, never two for the same
+        assertThat(w.world.matchStore).hasSize(2);
+        assertThat(w.world.oppStore).hasSize(2);
+        assertThat(w.world.eventKinds()).containsExactly("ASSIGNED", "ASSIGNED");
+        assertThat(w.records).hasSize(1);
+    }
+
+    @Test
+    void aCreatedMatchAndOverlayAlwaysCarryTheirLedgerRowAndEventFromTheirOwnTransaction() {
+        run(KEY, request(List.of(10L)));
+        // both were written while the nested insert ran, so they never depend on the idempotency transaction
+        assertThat(w.committed("ASSIGNED")).hasSize(1);
+        assertThat(w.world.eventKinds()).containsExactly("ASSIGNED");
+        assertThat(w.pending).isEmpty();
+    }
+
+    @Test
+    void aClosedJobFoundByTheLinkCreatesNoEmployerRow() {
+        ClientRequirement closed = w.world.job(500, "CLOSED", "EXTENSION");
+        closed.setUrlKeyHash(UrlKeys.keyHash("https://boards.greenhouse.io/acme/jobs/4012345", "4012345"));
+        assertThatThrownBy(() -> run(KEY, request(List.of(10L)))).isInstanceOf(OrgException.class);
+        assertThat(w.clientStore).isEmpty();
     }
 
     @Test

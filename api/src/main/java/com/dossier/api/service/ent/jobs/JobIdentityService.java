@@ -9,6 +9,7 @@ import com.dossier.api.service.org.OrgException;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -95,18 +96,44 @@ public class JobIdentityService {
         Supplier<ClientRequirement> factory,
         Function<ClientRequirement, JobDataEvent> ledgerRow
     ) {
+        return findOrCreateRequirement(scope, urlKeyHash, atsPlatform, externalJobId, factory, ledgerRow, null);
+    }
+
+    /** The job already stored for this identity, if any: the same lookup as {@code findOrCreateRequirement} without creating anything. */
+    public Optional<ClientRequirement> findRequirement(AssignmentScope scope, String urlKeyHash, String atsPlatform, String externalJobId) {
         Long orgId = scope.orgId();
         boolean byUrl = urlKeyHash != null && !urlKeyHash.isBlank();
         boolean byExt = atsPlatform != null && !atsPlatform.isBlank() && externalJobId != null && !externalJobId.isBlank();
         Optional<ClientRequirement> found = Optional.empty();
         if (byUrl) found = requirements.findByOrgIdAndUrlKeyHash(orgId, urlKeyHash);
         if (found.isEmpty() && byExt) found = requirements.findByOrgIdAndAtsPlatformAndExternalJobId(orgId, atsPlatform, externalJobId);
+        return found;
+    }
+
+    /**
+     * The full form: {@code alsoInThisTransaction} runs with the saved job inside the job's own insert transaction (the job's skills), so the job,
+     * its {@code CAPTURED} row and its skills commit together or not at all. Not run for a job that already existed.
+     */
+    public Found<ClientRequirement> findOrCreateRequirement(
+        AssignmentScope scope,
+        String urlKeyHash,
+        String atsPlatform,
+        String externalJobId,
+        Supplier<ClientRequirement> factory,
+        Function<ClientRequirement, JobDataEvent> ledgerRow,
+        Consumer<ClientRequirement> alsoInThisTransaction
+    ) {
+        Long orgId = scope.orgId();
+        boolean byUrl = urlKeyHash != null && !urlKeyHash.isBlank();
+        boolean byExt = atsPlatform != null && !atsPlatform.isBlank() && externalJobId != null && !externalJobId.isBlank();
+        Optional<ClientRequirement> found = findRequirement(scope, urlKeyHash, atsPlatform, externalJobId);
         if (found.isPresent()) return new Found<>(found.get(), true);
         ClientRequirement fresh = factory.get();
         fresh.setOrgId(orgId);
         try {
-            if (ledgerRow == null) tx.insertRequirement(fresh);
-            else tx.insertRequirement(fresh, ledgerRow);
+            if (ledgerRow == null && alsoInThisTransaction == null) tx.insertRequirement(fresh);
+            else if (alsoInThisTransaction == null) tx.insertRequirement(fresh, ledgerRow);
+            else tx.insertRequirement(fresh, ledgerRow, alsoInThisTransaction);
             return new Found<>(fresh, false);
         } catch (DataIntegrityViolationException lost) {
             Optional<ClientRequirement> winner = Optional.empty();

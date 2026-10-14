@@ -168,20 +168,28 @@ public class MktFromExtensionService {
         UrlKeys.Key key = UrlKeys.of(c.jobUrl(), c.externalJobId());
         if (key == null) throw MktFromExtensionDTO.invalid("jobUrl", "enter the link of the job posting");
 
-        Found<ClientAccount> client = identity.findOrCreateClient(view, c.company(), () -> newClient(me, now));
-        Found<ClientRequirement> job = identity.findOrCreateRequirement(
-            view,
-            key.hash(),
-            c.atsPlatform(),
-            c.externalJobId(),
-            () -> newJob(me, c, client.value().getId(), key, now),
-            created -> ledger.capturedEvent(created, me.memberId(), requestId, capturedFields(c))
-        );
+        // The job first: a job that is already stored needs no employer row (none is created for a request that ends in JOB_NOT_OPEN), and a closed
+        // one is refused before anything is written.
+        Found<ClientRequirement> job = identity
+            .findRequirement(view, key.hash(), c.atsPlatform(), c.externalJobId())
+            .map(found -> new Found<>(found, true))
+            .orElse(null);
+        if (job == null) {
+            Found<ClientAccount> client = identity.findOrCreateClient(view, c.company(), () -> newClient(me, now));
+            job = identity.findOrCreateRequirement(
+                view,
+                key.hash(),
+                c.atsPlatform(),
+                c.externalJobId(),
+                () -> newJob(me, c, client.value().getId(), key, now),
+                created -> ledger.capturedEvent(created, me.memberId(), requestId, capturedFields(c)),
+                created -> saveSkills(created, c.skills()) // in the job's own insert transaction: job, CAPTURED row and skills commit together
+            );
+        }
         ClientRequirement j = job.value();
         if (job.existing() && !OpportunityAssignmentService.OPEN_JOB.contains(j.getStatus())) {
             throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open.", Map.of());
         }
-        if (!job.existing()) saveSkills(j, c.skills());
 
         List<ConsultantResult> results = new ArrayList<>();
         int assigned = 0;

@@ -254,7 +254,8 @@ public class OpportunityAssignmentService {
             fresh.setAssignedAt(now);
             fresh.setCreatedAt(now);
             try {
-                matchId = tx.insertMatch(fresh);
+                // the ASSIGNED ledger row is written INSIDE the insert's own transaction: a match that exists always has its ledger row
+                matchId = tx.insertMatch(fresh, ledger == null ? null : saved -> ledger.assigned(orgId, jobId, me.memberId(), consultantId, false));
                 matchInserted = true;
             } catch (DataIntegrityViolationException lost) {
                 matchId = tx.readMatchId(orgId, jobId, consultantId).orElseThrow(() -> lost);
@@ -266,11 +267,21 @@ public class OpportunityAssignmentService {
         // ---- the opportunity overlay: inserted BEFORE this transaction updates or locks the match row (the insert's foreign key to the match
         // would otherwise wait on this transaction's own lock, because it runs in a transaction of its own)
         boolean oppInserted = false;
+        boolean eventInInsert = false; // the ASSIGNED / REASSIGNED event was written by the overlay's own insert transaction
         MktOpportunity opp = opportunities.findByOrgIdAndMatchId(orgId, matchId).orElse(null);
         Long oppId;
         if (opp == null) {
+            // A new overlay for a pair that is being assigned now gets its event in the same transaction as the insert, so an overlay never exists without it.
+            boolean assigningNow = matchInserted || (match != null && !"ASSIGNED".equals(match.getStatus()));
+            boolean again = match != null && "DISMISSED".equals(match.getStatus());
             try {
-                oppId = tx.insertOpportunity(newOpportunity(orgId, matchId, owner, now, o));
+                oppId = tx.insertOpportunity(
+                    newOpportunity(orgId, matchId, owner, now, o),
+                    assigningNow
+                        ? saved -> record(saved, again ? EVENT_REASSIGNED : EVENT_ASSIGNED, me.memberId(), again ? "was assigned to this opportunity again" : "was assigned to this opportunity", now)
+                        : null
+                );
+                eventInInsert = assigningNow;
                 oppInserted = true;
             } catch (DataIntegrityViolationException lost) {
                 oppId = tx.readOpportunityId(orgId, matchId).orElseThrow(() -> lost);
@@ -308,9 +319,10 @@ public class OpportunityAssignmentService {
         if (existing) return result;
 
         boolean again = reopened || fromDismissed;
-        record(opp, again ? EVENT_REASSIGNED : EVENT_ASSIGNED, me.memberId(), again ? "was assigned to this opportunity again" : "was assigned to this opportunity", now);
-        // The job's data ledger, in this same transaction (docs/enterprise-v2/61 section 3): written exactly when the assignment changed.
-        if (ledger != null) ledger.assigned(orgId, jobId, me.memberId(), consultantId, again);
+        if (!eventInInsert) record(opp, again ? EVENT_REASSIGNED : EVENT_ASSIGNED, me.memberId(), again ? "was assigned to this opportunity again" : "was assigned to this opportunity", now);
+        // The job's data ledger (docs/enterprise-v2/61 section 3): written exactly when the assignment changed. A created match already has its row
+        // (written by the match insert); every other change writes it here, in this transaction.
+        if (ledger != null && !matchInserted) ledger.assigned(orgId, jobId, me.memberId(), consultantId, again);
         if (o.askInterest()) {
             opp.setInterestRequestedAt(now);
             opp.setNextActionAt(now.plus(ASK_FOLLOW_UP));
