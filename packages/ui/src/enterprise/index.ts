@@ -30,3 +30,7 @@ export { HourglassIcon, TeamsIcon } from "./followup-icons";
 export { CodeBracketsIcon } from "./interviewIcons";
 export { default as BandBar } from "./bandbar";
 export type { BandBarProps } from "./bandbar";
+export { LineChart, spreadBubbles } from "./line-chart";
+export type { LineChartProps, LineSeries } from "./line-chart";
+export { WeekBarChart } from "./week-bars";
+export type { WeekBarChartProps } from "./week-bars";
