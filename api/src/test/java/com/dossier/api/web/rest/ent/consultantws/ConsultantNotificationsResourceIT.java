@@ -358,7 +358,7 @@ class ConsultantNotificationsResourceIT {
     }
 
     private CwsNotification fresh(long id) {
-        return notifications.findById(id).orElseThrow();
+        return notifications.findByOrgIdAndId(a.getId(), id).orElseThrow();
     }
 
     private JsonNode firstPageAll() throws Exception {

@@ -414,7 +414,7 @@ class ConsultantPlacementResourceIT {
         assertThat(r.getResponse().getContentAsString()).doesNotContain("Hidden").doesNotContain("Globex").doesNotContain("Robin Two");
 
         assertGeneric404(send(put(path(a.getId(), "/checklist/" + hiddenItem.getId())), "cws-p-a-c1", TICK), "tick another consultant's item");
-        assertThat(checklist.findById(hiddenItem.getId()).orElseThrow().getCompletedAt()).isNull();
+        assertThat(checklist.findByOrgIdAndId(hiddenItem.getOrgId(), hiddenItem.getId()).orElseThrow().getCompletedAt()).isNull();
 
         JsonNode p2 = page("cws-p-a-c2", a);
         assertThat(p2.path("active").path("roleTitle").asText()).isEqualTo("Hidden Secret Role");
@@ -440,7 +440,7 @@ class ConsultantPlacementResourceIT {
                 assertGeneric404(send(req, login, body), login + " " + route[0] + " " + route[1]);
             }
         }
-        assertThat(checklist.findById(open1.getId()).orElseThrow().getCompletedAt()).as("nobody else could tick it").isNull();
+        assertThat(checklist.findByOrgIdAndId(open1.getOrgId(), open1.getId()).orElseThrow().getCompletedAt()).as("nobody else could tick it").isNull();
         assertThat(activity.countByOrgIdAndPlacementId(a.getId(), active1.getId())).isEqualTo(12);
         assertGeneric404(send(get(path(999999999L, "")), "cws-p-a-c1", null), "an organization that does not exist");
         assertGeneric404(send(put(path(a.getId(), "/checklist/987654321")), "cws-p-a-c1", TICK), "an item id that does not exist");
@@ -456,7 +456,7 @@ class ConsultantPlacementResourceIT {
         assertGeneric404(send(put(path(a.getId(), "/checklist/" + open1.getId())), "cws-p-a-c1", TICK), "roles flag off, write");
         flags(false, true);
         assertGeneric404(send(get(path(a.getId(), "")), "cws-p-a-c1", null), "master flag off");
-        assertThat(checklist.findById(open1.getId()).orElseThrow().getCompletedAt()).isNull();
+        assertThat(checklist.findByOrgIdAndId(open1.getOrgId(), open1.getId()).orElseThrow().getCompletedAt()).isNull();
     }
 
     // ---- (e) empty consultant -------------------------------------------------------------------------------------
@@ -487,18 +487,18 @@ class ConsultantPlacementResourceIT {
         JsonNode ticked = ok(send(put(url), "cws-p-a-c1", TICK), "tick");
         assertThat(ticked.path("id").asLong()).isEqualTo(open1.getId());
         assertThat(ticked.path("completedAt").asText()).isNotBlank();
-        Instant first = checklist.findById(open1.getId()).orElseThrow().getCompletedAt();
+        Instant first = checklist.findByOrgIdAndId(open1.getOrgId(), open1.getId()).orElseThrow().getCompletedAt();
         assertThat(first).isNotNull();
 
         ok(send(put(url), "cws-p-a-c1", TICK), "tick again");
-        assertThat(checklist.findById(open1.getId()).orElseThrow().getCompletedAt()).as("a second tick keeps the first time").isEqualTo(first);
+        assertThat(checklist.findByOrgIdAndId(open1.getOrgId(), open1.getId()).orElseThrow().getCompletedAt()).as("a second tick keeps the first time").isEqualTo(first);
 
         JsonNode unticked = ok(send(put(url), "cws-p-a-c1", UNTICK), "untick");
         assertThat(unticked.get("completedAt").isNull()).isTrue();
-        assertThat(checklist.findById(open1.getId()).orElseThrow().getCompletedAt()).isNull();
+        assertThat(checklist.findByOrgIdAndId(open1.getOrgId(), open1.getId()).orElseThrow().getCompletedAt()).isNull();
         ok(send(put(url), "cws-p-a-c1", UNTICK), "untick again");
 
-        assertThat(checklist.findById(done1.getId()).orElseThrow().getCompletedAt()).as("other items untouched").isNotNull();
+        assertThat(checklist.findByOrgIdAndId(done1.getOrgId(), done1.getId()).orElseThrow().getCompletedAt()).as("other items untouched").isNotNull();
         JsonNode reread = page("cws-p-a-c1", a);
         assertThat(reread.path("checklist").get(1).get("completedAt").isNull()).isTrue();
     }
@@ -509,13 +509,13 @@ class ConsultantPlacementResourceIT {
         String url = path(a.getId(), "/checklist/" + open1.getId());
         assertStatus(send(put(url), "cws-p-a-c1", "{}"), 422, "missing completed");
         assertStatus(send(put(url), "cws-p-a-c1", "{\"completed\":null}"), 422, "null completed");
-        assertThat(checklist.findById(open1.getId()).orElseThrow().getCompletedAt()).isNull();
+        assertThat(checklist.findByOrgIdAndId(open1.getOrgId(), open1.getId()).orElseThrow().getCompletedAt()).isNull();
 
         CwsPlacementChecklist endedItem = item(ended1, "Old item", 0, false);
         MvcResult r = send(put(path(a.getId(), "/checklist/" + endedItem.getId())), "cws-p-a-c1", TICK);
         assertStatus(r, 409, "an ended placement");
         assertThat(r.getResponse().getContentAsString()).contains("PLACEMENT_NOT_ACTIVE");
-        assertThat(checklist.findById(endedItem.getId()).orElseThrow().getCompletedAt()).isNull();
+        assertThat(checklist.findByOrgIdAndId(endedItem.getOrgId(), endedItem.getId()).orElseThrow().getCompletedAt()).isNull();
     }
 
     @Test

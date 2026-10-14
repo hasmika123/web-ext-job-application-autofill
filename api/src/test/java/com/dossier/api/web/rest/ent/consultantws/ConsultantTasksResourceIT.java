@@ -451,7 +451,7 @@ class ConsultantTasksResourceIT {
         assertGeneric404(send(put(url), "cws-t-a-c1", body("Taken over", 1, "HIGH", "OTHER", null)), "edit another's task");
         assertGeneric404(send(put(url + "/status"), "cws-t-a-c1", "{\"status\":\"DONE\"}"), "complete another's task");
         assertGeneric404(send(delete(url), "cws-t-a-c1", null), "delete another's task");
-        CwsTask fresh = tasks.findById(hidden.getId()).orElseThrow();
+        CwsTask fresh = tasks.findByOrgIdAndId(hidden.getOrgId(), hidden.getId()).orElseThrow();
         assertThat(fresh.getTitle()).isEqualTo("Hidden Secret Task");
         assertThat(fresh.getStatus()).isEqualTo("NOT_STARTED");
 
@@ -475,7 +475,7 @@ class ConsultantTasksResourceIT {
             assertGeneric404(send(put(path(a.getId(), "/" + id + "/status")), login, "{\"status\":\"DONE\"}"), login + " status");
             assertGeneric404(send(delete(path(a.getId(), "/" + id)), login, null), login + " delete");
         }
-        assertThat(tasks.findById(tB.getId()).orElseThrow().getStatus()).as("nobody else could move it").isEqualTo("PENDING");
+        assertThat(tasks.findByOrgIdAndId(tB.getOrgId(), tB.getId()).orElseThrow().getStatus()).as("nobody else could move it").isEqualTo("PENDING");
         assertThat(tasks.findByOrgIdAndConsultantId(a.getId(), c1.getId())).hasSize(6);
         assertGeneric404(send(get(path(999999999L, "")), "cws-t-a-c1", null), "an organization that does not exist");
         assertGeneric404(send(put(path(a.getId(), "/987654321/status")), "cws-t-a-c1", "{\"status\":\"DONE\"}"), "a task id that does not exist");
@@ -535,7 +535,7 @@ class ConsultantTasksResourceIT {
         assertThat(row.path("assignedBy").path("kind").asText()).isEqualTo("SELF");
         assertThat(row.path("dueOn").asText()).isEqualTo(today.plusDays(1).toString());
 
-        CwsTask saved = tasks.findById(row.path("id").asLong()).orElseThrow();
+        CwsTask saved = tasks.findByOrgIdAndId(a.getId(), row.path("id").asLong()).orElseThrow();
         assertThat(saved.getConsultantId()).isEqualTo(c1.getId());
         assertThat(saved.getOrgId()).isEqualTo(a.getId());
         CwsTaskDetail d = details.findByOrgIdAndTaskId(a.getId(), saved.getId()).orElseThrow();
@@ -584,7 +584,7 @@ class ConsultantTasksResourceIT {
         assertThat(r.path("type").asText()).isEqualTo("INTERVIEW_COORDINATION");
         assertThat(r.path("jobTitle").asText()).isEqualTo("Cloud Architect");
         assertThat(r.path("status").asText()).as("editing never changes the status").isEqualTo("NOT_STARTED");
-        assertThat(tasks.findById(tC.getId()).orElseThrow().getDueOn()).isEqualTo(today.plusDays(7));
+        assertThat(tasks.findByOrgIdAndId(tC.getOrgId(), tC.getId()).orElseThrow().getDueOn()).isEqualTo(today.plusDays(7));
 
         JsonNode cleared = ok(send(put(url), "cws-t-a-c1", body("Prepare for the panel", null, "low", "INTERVIEW_COORDINATION", null)), "clear due date and job");
         assertThat(cleared.get("dueOn").isNull()).isTrue();
@@ -598,7 +598,7 @@ class ConsultantTasksResourceIT {
         assertStatus(pii, 422, "pii");
         assertThat(pii.getResponse().getContentAsString()).contains("SENSITIVE_CONTENT");
         assertGeneric404(send(put(url), "cws-t-a-c1", body("Valid title", null, null, null, reqOtherOrg.getId())), "job from another tenant");
-        assertThat(tasks.findById(tC.getId()).orElseThrow().getTitle()).isEqualTo("Prepare for the panel");
+        assertThat(tasks.findByOrgIdAndId(tC.getOrgId(), tC.getId()).orElseThrow().getTitle()).isEqualTo("Prepare for the panel");
     }
 
     @Test
@@ -612,11 +612,11 @@ class ConsultantTasksResourceIT {
         JsonNode done = ok(send(put(url), "cws-t-a-c1", "{\"status\":\"done\"}"), "complete");
         assertThat(done.path("status").asText()).isEqualTo("DONE");
         assertThat(done.path("completedAt").asText()).isNotBlank();
-        Instant stamp = tasks.findById(tB.getId()).orElseThrow().getCompletedAt();
+        Instant stamp = tasks.findByOrgIdAndId(tB.getOrgId(), tB.getId()).orElseThrow().getCompletedAt();
         assertThat(stamp).isNotNull();
 
         ok(send(put(url), "cws-t-a-c1", "{\"status\":\"DONE\"}"), "complete again");
-        assertThat(tasks.findById(tB.getId()).orElseThrow().getCompletedAt()).as("the first completion time is kept").isEqualTo(stamp);
+        assertThat(tasks.findByOrgIdAndId(tB.getOrgId(), tB.getId()).orElseThrow().getCompletedAt()).as("the first completion time is kept").isEqualTo(stamp);
 
         JsonNode after = home("cws-t-a-c1", a);
         assertThat(texts(after.path("tasks"), "title")).doesNotContain("Approve submission for Cloud Architect");
@@ -631,13 +631,13 @@ class ConsultantTasksResourceIT {
         JsonNode reopened = ok(send(put(url), "cws-t-a-c1", "{\"status\":\"IN_PROGRESS\"}"), "reopen");
         assertThat(reopened.path("status").asText()).isEqualTo("IN_PROGRESS");
         assertThat(reopened.get("completedAt").isNull()).isTrue();
-        assertThat(tasks.findById(tB.getId()).orElseThrow().getCompletedAt()).isNull();
+        assertThat(tasks.findByOrgIdAndId(tB.getOrgId(), tB.getId()).orElseThrow().getCompletedAt()).isNull();
         assertThat(texts(home("cws-t-a-c1", a).path("tasks"), "title")).contains("Approve submission for Cloud Architect");
 
         assertStatus(send(put(url), "cws-t-a-c1", "{\"status\":\"NOPE\"}"), 422, "unknown status");
         assertStatus(send(put(url), "cws-t-a-c1", "{}"), 422, "no status");
         assertStatus(send(put(url), "cws-t-a-c1", null), 422, "no body");
-        assertThat(tasks.findById(tB.getId()).orElseThrow().getStatus()).isEqualTo("IN_PROGRESS");
+        assertThat(tasks.findByOrgIdAndId(tB.getOrgId(), tB.getId()).orElseThrow().getStatus()).isEqualTo("IN_PROGRESS");
     }
 
     @Test
@@ -645,7 +645,7 @@ class ConsultantTasksResourceIT {
         seedC1();
         String url = path(a.getId(), "/" + tA.getId());
         assertStatus(send(delete(url), "cws-t-a-c1", null), 204, "delete");
-        assertThat(tasks.findById(tA.getId())).isEmpty();
+        assertThat(tasks.findByOrgIdAndId(tA.getOrgId(), tA.getId())).isEmpty();
         assertThat(details.findByOrgIdAndTaskId(a.getId(), tA.getId())).isEmpty();
         assertGeneric404(send(delete(url), "cws-t-a-c1", null), "delete twice");
         assertThat(page("cws-t-a-c1", a, "").path("tasks").path("total").asLong()).isEqualTo(5);

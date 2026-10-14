@@ -366,8 +366,8 @@ class ConsultantSettingsResourceIT {
     @Test
     void theDemoSeederIsIdempotent() {
         seeder.seed();
-        long once = cwsSettings.count();
+        long once = cwsSettings.countByOrgId(a.getId());
         assertThat(seeder.seed()).isZero();
-        assertThat(cwsSettings.count()).isEqualTo(once);
+        assertThat(cwsSettings.countByOrgId(a.getId())).isEqualTo(once);
     }
 }

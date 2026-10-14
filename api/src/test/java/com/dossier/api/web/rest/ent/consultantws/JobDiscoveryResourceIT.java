@@ -503,7 +503,7 @@ class JobDiscoveryResourceIT {
         assertThat(created.path("filters").path("q").asText()).isEqualTo("java");
 
         // a matching job posted after the save counts as new
-        savedSearches.findById(id).ifPresent(row -> {
+        savedSearches.findByOrgIdAndId(a.getId(), id).ifPresent(row -> {
             row.setCreatedAt(now.minus(Duration.ofDays(30)));
             row.setLastUsedAt(now.minus(Duration.ofDays(30)));
             savedSearches.saveAndFlush(row);

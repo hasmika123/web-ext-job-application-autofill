@@ -614,9 +614,9 @@ class ActivityTimelineResourceIT {
     @Test
     void thePageIsReadOnly() throws Exception {
         seedC1();
-        int before = (int) offerEvents.count();
+        int before = (int) offerEvents.countByOrgId(a.getId());
         MvcResult r = send(post(path(a.getId(), "")).content("{}"), "cws-t-a-c1");
         assertThat(r.getResponse().getStatus()).isIn(404, 405);
-        assertThat((int) offerEvents.count()).isEqualTo(before);
+        assertThat((int) offerEvents.countByOrgId(a.getId())).isEqualTo(before);
     }
 }

@@ -231,7 +231,7 @@ class ConsultantOffersResourceIT {
     }
 
     private CwsOffer fresh(CwsOffer o) {
-        return offers.findById(o.getId()).orElseThrow();
+        return offers.findByOrgIdAndId(o.getOrgId(), o.getId()).orElseThrow();
     }
 
     private long eventCount(CwsOffer o) {
@@ -422,14 +422,14 @@ class ConsultantOffersResourceIT {
     @Test
     void acceptingRecordsTheAnswerOnlyCreatesNoPlacementAndASecondAcceptIs409() throws Exception {
         seedC1();
-        long before = offers.count();
+        long before = offers.countByOrgId(a.getId());
         JsonNode done = ok(send(post(path(a.getId(), "/" + o1.getId() + "/accept")), "cws-o-a-c1", null), "accept");
         assertThat(done.path("status").asText()).isEqualTo("ACCEPTED");
         assertThat(done.path("respondedAt").asText()).isNotBlank();
         CwsOffer row = fresh(o1);
         assertThat(row.getStatus()).isEqualTo(CwsOffer.ACCEPTED);
         assertThat(row.getRespondedAt()).isNotNull();
-        assertThat(offers.count()).as("accepting creates no other offer row").isEqualTo(before);
+        assertThat(offers.countByOrgId(a.getId())).as("accepting creates no other offer row").isEqualTo(before);
         assertThat(eventCount(o1)).isEqualTo(1);
         assertThat(events.findByOrgIdAndConsultantIdAndOfferIdOrderByOccurredAtDescIdDesc(a.getId(), c1.getId(), o1.getId()).get(0).getKind()).isEqualTo("ACCEPTED");
 
@@ -532,10 +532,10 @@ class ConsultantOffersResourceIT {
 
     @Test
     void theDemoSeederIsIdempotentAndMarksEveryRowAsSample() {
-        long before = offers.count();
+        long before = offers.countByOrgId(a.getId());
         assertThat(seeder.seed()).isGreaterThanOrEqualTo(0);
         assertThat(seeder.seed()).as("a second run adds nothing").isZero();
-        assertThat(offers.count()).isGreaterThanOrEqualTo(before);
-        assertThat(offers.findAll().stream().filter(o -> o.getOrgId().equals(a.getId()))).as("the seeder never touches a test organization").isEmpty();
+        assertThat(offers.countByOrgId(a.getId())).isGreaterThanOrEqualTo(before);
+        assertThat(offers.findByOrgId(a.getId()).stream().filter(o -> o.getOrgId().equals(a.getId()))).as("the seeder never touches a test organization").isEmpty();
     }
 }
