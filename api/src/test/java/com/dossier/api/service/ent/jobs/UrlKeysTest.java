@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dossier.api.service.org.OrgException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.InputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -12,6 +15,74 @@ import org.junit.jupiter.params.provider.ValueSource;
 class UrlKeysTest {
 
     private static final String LI_ID = "3912345678";
+
+    // ---- the golden file shared with the extension ------------------------------------------------------------------------------
+
+    /**
+     * {@code src/test/resources/url-keys.json} is a byte-for-byte copy of {@code job-autofill/test/fixtures/url-keys.json}, which the extension's
+     * suite runs against {@code JAF.workspace.urlKey}. A change to one must be copied to the other ({@link #theCopyOfTheFixtureMatchesTheExtensionsOriginal}).
+     */
+    private static JsonNode fixture() throws Exception {
+        try (InputStream in = UrlKeysTest.class.getResourceAsStream("/url-keys.json")) {
+            assertThat(in).as("src/test/resources/url-keys.json").isNotNull();
+            return new ObjectMapper().readTree(in);
+        }
+    }
+
+    @Test
+    void everyGoldenCaseGivesTheSameKeyAndHashAsTheExtension() throws Exception {
+        JsonNode golden = fixture();
+        assertThat(golden.get("maxLength").asInt()).isEqualTo(UrlKeys.MAX_KEY);
+        assertThat(golden.get("cases").size()).isGreaterThanOrEqualTo(25);
+        for (JsonNode c : golden.get("cases")) {
+            String name = c.get("name").asText();
+            String expectedKey = c.get("key").asText();
+            String key = UrlKeys.normalize(c.get("input").asText());
+            if (expectedKey.isEmpty()) {
+                assertThat(key).as(name).isNull(); // the extension's '' = "not a usable http(s) link"
+                continue;
+            }
+            assertThat(key).as(name).isEqualTo(expectedKey);
+            assertThat(UrlKeys.hash(key)).as("hash of " + name).isEqualTo(c.get("hash").asText());
+            assertThat(UrlKeys.normalize(key)).as("idempotent: " + name).isEqualTo(key);
+        }
+    }
+
+    @Test
+    void theServerNeverRejectsAnHttpsLinkTheExtensionAcceptedAndKeysTheSameWay() throws Exception {
+        for (JsonNode c : fixture().get("cases")) {
+            String input = c.get("input").asText();
+            if (c.get("key").asText().isEmpty() || !input.trim().startsWith("https://")) continue;
+            // the gate's own policy (not the key's): no spaces (a browser's href never has one), no user-info, no non-standard port
+            if (input.chars().anyMatch(ch -> ch <= 0x20) || input.contains("@") || input.matches("^https://[^/?]*:(?!443(/|\\?|$))\\d+.*")) continue;
+            assertThat(UrlKeys.isAllowed(input)).as(c.get("name").asText()).isTrue();
+            assertThat(UrlKeys.of(input, null)).as(c.get("name").asText()).isNotNull();
+        }
+    }
+
+    @Test
+    void theCopyOfTheFixtureMatchesTheExtensionsOriginal() throws Exception {
+        java.nio.file.Path original = java.nio.file.Path.of("..", "job-autofill", "test", "fixtures", "url-keys.json");
+        if (!java.nio.file.Files.exists(original)) return; // run from outside the monorepo: nothing to compare with
+        JsonNode theirs = new ObjectMapper().readTree(original.toFile());
+        assertThat(fixture()).as("api/src/test/resources/url-keys.json must equal job-autofill/test/fixtures/url-keys.json").isEqualTo(theirs);
+    }
+
+    @Test
+    void portsAreKeptOnlyWhenTheyAreNotTheSchemesDefault() {
+        assertThat(UrlKeys.normalize("https://example.com:443/a")).isEqualTo("https://example.com/a");
+        assertThat(UrlKeys.normalize("http://example.com:80/a")).isEqualTo("http://example.com/a");
+        assertThat(UrlKeys.normalize("https://example.com:8443/a")).isEqualTo("https://example.com:8443/a");
+        assertThat(UrlKeys.normalize("https://example.com:99999/a")).as("not a port").isNull();
+        assertThat(UrlKeys.normalize("https://example.com:abc/a")).isNull();
+    }
+
+    @Test
+    void unsafeCharactersAreEncodedNeverRejected() {
+        assertThat(UrlKeys.normalize("https://example.com/a|b^c{d}e")).isEqualTo("https://example.com/a%7Cb%5Ec%7Bd%7De");
+        assertThat(UrlKeys.isAllowed("https://example.com/a|b^c{d}e?q=|{}^")).isTrue();
+        assertThat(UrlKeys.normalize("https://example.com/jobs/Señor")).isEqualTo("https://example.com/jobs/Se%C3%B1or");
+    }
 
     @Test
     void schemeHostCaseWwwFragmentAndTrailingSlashAreNormalized() {

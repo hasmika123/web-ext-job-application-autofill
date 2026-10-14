@@ -93,6 +93,13 @@ public final class ApplicationKeys {
         return !ca.isEmpty() && !ta.isEmpty() && ca.equals(cb) && ta.equals(tb) && locationsCompatible(locationA, locationB);
     }
 
+    /** True for a query parameter that only tracks where a visitor came from (case-insensitive name, no value): the one list the job URL key shares. */
+    public static boolean isTrackingParam(String name) {
+        if (name == null) return false;
+        String key = name.toLowerCase(Locale.ROOT);
+        return TRACKING.contains(key) || key.startsWith("utm_");
+    }
+
     /** A link without its tracking noise, for comparing; the input when it isn't a URL. */
     public static String url(String link) {
         if (link == null) return "";

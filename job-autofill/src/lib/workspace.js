@@ -62,15 +62,27 @@
   }
 
   // ---- URL keys (mirrors the server rules, docs/enterprise-v2/60 §2 `UrlKeys`) --------------
-  // key = lower-cased scheme + host (no "www."), path with trailing slashes dropped (case kept),
-  // query without tracking parameters (original order/case kept), no fragment, capped at 1000.
+  // key = lower-cased scheme + host (no "www.") + NON-default port + path (dot segments resolved, trailing
+  // slashes dropped, case kept) + query without tracking parameters (original order/case kept), no
+  // fragment, capped at 1000. Path and query are percent-encoded the way the URL parser does (space ->
+  // %20, "Señor" -> "Se%C3%B1or") and, on top, the characters some parser versions leave raw — a double
+  // quote, < > ` ^ | { } and a backslash — are ALWAYS encoded, so the Java side (which parses by hand) can
+  // produce the identical key. Existing %XX sequences are never touched.
   // `currentJobId` is NOT tracking: it is the job identity on LinkedIn collection URLs, so it stays.
-  // Golden cases: test/fixtures/url-keys.json (shared with the server team).
+  // Golden cases (key AND sha-256 hash): test/fixtures/url-keys.json, run by this suite and by the
+  // server's UrlKeysTest.
   const TRACKING = [
     "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content", "gh_src", "source", "src", "ref", "referrer",
     "lever-source", "lever-origin", "trk", "trackingid", "refid", "from", "iis", "iisn",
   ];
   const URL_KEY_MAX = 1000;
+
+  // The characters that must be percent-encoded in the key's path and query (see above). After the URL
+  // parser ran, the only ones left are the ASCII ones listed here; encodeURIComponent encodes them all.
+  const UNSAFE = /[\u0000-\u0020\u007f-\uffff"<>`^|{}\\]/g;
+  function encodeUnsafe(s) {
+    return s.replace(UNSAFE, (ch) => { try { return encodeURIComponent(ch); } catch (e) { return "%EF%BF%BD"; } });
+  }
 
   function urlKey(link) {
     if (link == null) return "";
@@ -79,14 +91,14 @@
     if (u.protocol !== "https:" && u.protocol !== "http:") return "";
     const host = u.hostname.toLowerCase().replace(/^www\./, "");
     if (!host) return "";
-    const path = u.pathname.replace(/\/+$/, "");
+    const path = encodeUnsafe(u.pathname.replace(/\/+$/, ""));
     let q = "";
     if (u.search && u.search.length > 1) {
       for (const part of u.search.slice(1).split("&")) {
         if (!part) continue;
         const k = part.split("=", 1)[0].toLowerCase();
         if (TRACKING.indexOf(k) !== -1 || k.indexOf("utm_") === 0) continue;
-        q += (q ? "&" : "?") + part;
+        q += (q ? "&" : "?") + encodeUnsafe(part);
       }
     }
     const key = u.protocol + "//" + host + (u.port ? ":" + u.port : "") + path + q;

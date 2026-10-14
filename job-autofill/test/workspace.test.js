@@ -28,6 +28,12 @@ function win(html, url) {
   const golden = JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", "url-keys.json"), "utf8"));
   ok("golden file has cases", golden.cases.length >= 10);
   for (const c of golden.cases) eq("urlKey: " + c.name, WS.urlKey(c.input), c.key);
+  // the server's url_key_hash is the SHA-256 hex of the key: the fixture carries it so both sides check the same bytes
+  const sha = (k) => require("crypto").createHash("sha256").update(k, "utf8").digest("hex");
+  for (const c of golden.cases) if (c.key) eq("urlKey hash: " + c.name, sha(WS.urlKey(c.input)), c.hash);
+  ok("golden has the port, encoding and unsafe-character cases",
+    ["non-default https port is kept", "non-ASCII path and query are percent-encoded as UTF-8", "pipe, caret and braces are encoded (never rejected)"]
+      .every((n) => golden.cases.some((c) => c.name === n)));
   eq("urlKey: null/undefined -> ''", [WS.urlKey(null), WS.urlKey(undefined)], ["", ""]);
   const long = "https://example.com/jobs?x=" + "a".repeat(1500);
   eq("urlKey: capped at the golden maxLength", WS.urlKey(long).length, golden.maxLength);
