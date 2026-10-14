@@ -13,6 +13,9 @@ import { createMktSubmissionsMock } from "./mock-mkt-submissions.mjs";
 import { createMktApplicationsMock } from "./mock-mkt-applications.mjs";
 import { createMktInterviewsMock } from "./mock-mkt-interviews.mjs";
 import { createMktFollowupsMock } from "./mock-mkt-followups.mjs";
+import { createMktTasksMock } from "./mock-mkt-tasks.mjs";
+import { createMktActivitiesMock } from "./mock-mkt-activity.mjs";
+import { createMktPerformanceMock } from "./mock-mkt-performance.mjs";
 
 export function createMktMock(deps) {
   const handlers = [
@@ -27,6 +30,9 @@ export function createMktMock(deps) {
     createMktApplicationsMock(deps),
     createMktInterviewsMock(deps),
     createMktFollowupsMock(deps),
+    createMktTasksMock(deps),
+    createMktActivitiesMock(deps),
+    createMktPerformanceMock(deps),
   ];
   return function handle(req, res, path, method) {
     return handlers.some((h) => h(req, res, path, method));

@@ -10,11 +10,14 @@ import SubmissionsPage from "./submissions/SubmissionsPage";
 import ApplicationsPage from "./applications/ApplicationsPage";
 import InterviewsPage from "./interviews/InterviewsPage";
 import FollowupsPage from "./followups/FollowupsPage";
+import TasksPage from "./tasks/TasksPage";
+import ActivitiesPage from "./activity/ActivitiesPage";
+import PerformancePage from "./performance/PerformancePage";
 import type { MktPageProps } from "./parts";
 
 /**
  * The Marketing workspace's real pages, keyed by the first path segment under `/w/marketing`. The catch-all route calls this once;
- * a page that is not listed (tasks, activity, performance for now) keeps the "on the way" screen. One page = one folder here, so
+ * a page that is not listed keeps the "on the way" screen. One page = one folder here, so
  * pages never edit the same file.
  */
 export function marketingPage(slug: string[], props: MktPageProps): ReactNode | null {
@@ -41,6 +44,12 @@ export function marketingPage(slug: string[], props: MktPageProps): ReactNode | 
       return <InterviewsPage {...props} />;
     case "followups":
       return <FollowupsPage {...props} />;
+    case "tasks":
+      return <TasksPage {...props} />;
+    case "activity":
+      return <ActivitiesPage {...props} />;
+    case "performance":
+      return <PerformancePage {...props} />;
     default:
       return null;
   }
