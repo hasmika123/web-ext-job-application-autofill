@@ -2,12 +2,15 @@ package com.dossier.api.web.rest.org;
 
 import com.dossier.api.domain.enumeration.OrgPermission;
 import com.dossier.api.service.DemoGuard;
+import com.dossier.api.service.dto.org.OrgAccountDTOs;
 import com.dossier.api.service.dto.org.OrgInviteRequest;
 import com.dossier.api.service.dto.org.OrgInviteResultDTO;
+import com.dossier.api.service.org.OrgAccountService;
 import com.dossier.api.service.org.OrgInviteService;
 import com.dossier.api.service.org.OrgMembership;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
@@ -27,8 +30,10 @@ public class OrgMemberResource {
 
     private final OrgInviteService inviteService;
     private final DemoGuard demoGuard;
+    private final OrgAccountService accountService;
 
-    public OrgMemberResource(OrgInviteService inviteService, DemoGuard demoGuard) {
+    public OrgMemberResource(OrgInviteService inviteService, DemoGuard demoGuard, OrgAccountService accountService) {
+        this.accountService = accountService;
         this.inviteService = inviteService;
         this.demoGuard = demoGuard;
     }
@@ -50,5 +55,35 @@ public class OrgMemberResource {
     public OrgInviteResultDTO.Invited resend(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long memberId) {
         demoGuard.assertNotDemo();
         return inviteService.resend(me, memberId);
+    }
+
+    @Operation(
+        summary = "Create an account for a person now, with a temporary password",
+        description = "Same roles, team and manager as an invitation, validated the same way (role ceiling). A new address gets an ACTIVE account that must change the temporary password at first sign-in (mode ACCOUNT_CREATED); an address that already has a Kiwiply account keeps its own password and receives a normal invitation (mode INVITED). The password is hashed on arrival and never returned again."
+    )
+    @PostMapping("/account")
+    @OrgPermissionRequired(OrgPermission.MEMBERS_INVITE)
+    public OrgAccountDTOs.CreateResult createAccount(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @RequestBody OrgAccountDTOs.CreateRequest request) {
+        demoGuard.assertNotDemo();
+        return accountService.create(me, request);
+    }
+
+    @Operation(summary = "A generated temporary password for the form to show", description = "Nothing is stored; the admin may overwrite it.")
+    @GetMapping("/temp-password")
+    @OrgPermissionRequired(OrgPermission.MEMBERS_INVITE)
+    public org.springframework.http.ResponseEntity<OrgAccountDTOs.Suggestion> tempPassword(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {
+        return org.springframework.http.ResponseEntity.ok().header("Cache-Control", "no-store").body(accountService.suggest());
+    }
+
+    @Operation(summary = "Reset a temporary password", description = "Only for a member who has not yet chosen their own (409 PASSWORD_ALREADY_SET otherwise). The new password is in this response only.")
+    @PostMapping("/{memberId}/reset-password")
+    @OrgPermissionRequired(OrgPermission.MEMBERS_INVITE)
+    public org.springframework.http.ResponseEntity<OrgAccountDTOs.ResetResult> resetPassword(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long memberId,
+        @RequestBody OrgAccountDTOs.ResetRequest request
+    ) {
+        demoGuard.assertNotDemo();
+        return org.springframework.http.ResponseEntity.ok().header("Cache-Control", "no-store").body(accountService.reset(me, memberId, request == null ? null : request.reason()));
     }
 }

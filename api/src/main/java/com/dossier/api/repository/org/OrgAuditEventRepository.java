@@ -25,4 +25,7 @@ public interface OrgAuditEventRepository extends Repository<OrgAuditEvent, Long>
     long countByOrgId(Long orgId);
 
     long countByOrgIdAndActorLogin(Long orgId, String actorLogin);
+
+    /** How many rows of any of {@code actions} the organization wrote since {@code since} (the per-hour cap on direct account creation). */
+    long countByOrgIdAndActionInAndCreatedAtAfter(Long orgId, java.util.Collection<String> actions, java.time.Instant since);
 }

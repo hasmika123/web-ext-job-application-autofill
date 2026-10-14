@@ -467,7 +467,7 @@ public class OrgInviteService {
     // ---- roles on the seat --------------------------------------------------------------------------------------------------
 
     /** Writes the live role rows of a new invitation seat (first = primary); with no templates, falls back to the legacy dual write. */
-    private void writeRoleRows(OrgMember seat, List<RoleView> views, Long grantedBy) {
+    void writeRoleRows(OrgMember seat, List<RoleView> views, Long grantedBy) {
         if (views.isEmpty()) {
             roleService.syncFromLegacy(seat);
             return;
@@ -539,7 +539,7 @@ public class OrgInviteService {
     }
 
     /** A live seat already uses this address, or the person behind this account address already holds one. */
-    private boolean holdsALiveSeat(Long orgId, String email) {
+    boolean holdsALiveSeat(Long orgId, String email) {
         if (!members.findByOrgIdAndInviteEmailAndStatusIn(orgId, email, OrgMemberStatus.LIVE).isEmpty()) return true;
         return users
             .findOneByEmailIgnoreCase(email)
@@ -626,7 +626,7 @@ public class OrgInviteService {
     }
 
     /** "a Marketing Specialist" for a data role (its own name), else the legacy word. */
-    private static String roleWord(Plan plan) {
+    static String roleWord(Plan plan) {
         return wordFor(plan.views(), plan.mirror());
     }
 

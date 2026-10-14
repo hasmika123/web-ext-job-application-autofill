@@ -228,6 +228,11 @@ class OrgIsolationIT {
         Map.entry("DELETE /api/orgs/{orgId}/branding/assets/{kind}", Case.write(null, 200, null)),
         Map.entry("POST /api/orgs/{orgId}/members/invite", Case.write("{\"emails\":[\"newcomer@example.org\"],\"role\":\"MEMBER\"}", 200, OrgAuditService.MEMBER_INVITE)),
         Map.entry("POST /api/orgs/{orgId}/members/{memberId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND)),
+        // Direct account creation with a temporary password: the legitimate call creates an account (HIGH audit row); a reset of a member who
+        // already chose a password is a 409 that changes nothing (the reset itself is covered in OrgAccountResourceIT).
+        Map.entry("POST /api/orgs/{orgId}/members/account", Case.write("{\"email\":\"newhire.iso@example.org\",\"role\":\"MEMBER\"}", 200, OrgAuditService.MEMBER_ACCOUNT_CREATE)),
+        Map.entry("GET /api/orgs/{orgId}/members/temp-password", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/reset-password", Case.write("{\"reason\":\"Isolation sweep, nothing to reset\"}", 409, null)),
         // Enterprise V2 X1.15: the Invitations page. The bulk bodies name an id that is nobody's, so a legitimate call changes nothing
         // (their real behaviour is in OrgInvitationResourceIT).
         Map.entry("GET /api/orgs/{orgId}/invitations", Case.read()),
