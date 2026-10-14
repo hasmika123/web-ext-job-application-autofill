@@ -9,4 +9,36 @@
         Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
         table names prefixed mkt_). Never edit another page's changelog.
     -->
+
+    <!--
+        Manual activity entries of the Marketing Activities page ("Log Activity"). RECORD ONLY: a marketer notes work they did for one of their consultants
+        (a call, a resume touch, a status note); nothing here submits, mails or signs in for anyone. The rest of the feed is read from the existing event
+        tables, so this is the only table the page owns. Status is COMPLETED, SCHEDULED (a planned item, shown under Upcoming) or CANCELLED.
+    -->
+    <changeSet id="mkt-activity-1-mkt_activity" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_activity"/></not></preConditions>
+        <createTable tableName="mkt_activity">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="client_account_id" type="bigint"/>
+            <column name="activity_type" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(200)"/>
+            <column name="tags" type="varchar(100)"/>
+            <column name="status" type="varchar(12)" defaultValue="COMPLETED"><constraints nullable="false"/></column>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="actor_member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_activity" baseColumnNames="org_id" constraintName="fk_mkt_activity_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_activity" baseColumnNames="org_id, consultant_id" constraintName="fk_mkt_activity_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_activity" baseColumnNames="org_id, client_account_id" constraintName="fk_mkt_activity_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_activity" baseColumnNames="org_id, actor_member_id" constraintName="fk_mkt_activity_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_activity" columnNames="org_id, id" constraintName="uk_mkt_activity_org_id"/>
+        <createIndex tableName="mkt_activity" indexName="ix_mkt_activity_when"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="mkt_activity" indexName="ix_mkt_activity_consultant"><column name="org_id"/><column name="consultant_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="mkt_activity" indexName="ix_mkt_activity_status"><column name="org_id"/><column name="status"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>
