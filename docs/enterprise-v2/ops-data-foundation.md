@@ -58,7 +58,19 @@ Same switches as the talent demo (`DEMO_ENABLED=true ENT_DEMO_SEED=true`, never 
 idempotent on its own (HR skipped when `hr_employee` has rows, finance when `finance_placement_period` has, reports when `report_definition` has). Dates are
 relative to now, six calendar months of history, the random stream is seeded per org. Sign in as Sarah (Org Admin) or Hana (HR) / Felix (Finance).
 
-@@COUNTS@@
+| Seeded (Acme / Beta) | |
+|---|---|
+| `hr_employee` | 167 / 49 (17 seats + 150 consultants without a seat in Acme; the 3 consultants holding a seat share their seat's record). Acme: 3 OFFBOARDING, 4 ON_LEAVE + the suspended seat, NOT_STARTED >= 1, IN_PROGRESS about 5-15 |
+| onboarding items / documents | 835 / 245 (5 per employee) and 1002 / 294 (6 per employee) |
+| trainings / records | 3 / 3 and 492 / 144 (compliance about 90-95 %) |
+| offboarding tasks / lifecycle events / notes | 12 / 12, 509 / 152, 23 / 9 |
+| finance placement terms / periods | 108 / 32 and 288 / 81 (a row per placement per month of the last six) |
+| timesheets / invoices / payments | 203 / 53, 193 / 57, 390 / 113 (IN + OUT) |
+| forecast inputs | 6 / 6 |
+| report definitions / metrics / recipients | 12 / 5, 42 / 21, 37 / 14 |
+| report runs / exports | 84 / 42, 10 / 3 |
+
+Counts of random-driven rows vary by a few between runs; the headline numbers (employees, placements, definitions) are fixed by the talent data.
 
 Design of the story (all derived, nothing hand-set per row):
 - **HR**: a record for every seat (ACTIVE/SUSPENDED/INVITED; SUSPENDED = ON_LEAVE, INVITED = NOT_STARTED with a future start) and for every consultant

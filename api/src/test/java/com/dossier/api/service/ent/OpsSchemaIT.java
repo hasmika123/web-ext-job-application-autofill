@@ -355,7 +355,7 @@ class OpsSchemaIT {
         assertThat(q("select count(*) from hr_employee e join consultant_profile c on c.id = e.consultant_id where e.org_id <> c.org_id", new Object[0])).isZero();
         assertThat(q("select count(*) from finance_payment p join talent_placement t on t.id = p.placement_id where p.org_id <> t.org_id", new Object[0])).isZero();
         assertThat(q("select count(*) from report_recipient r join org_member m on m.id = r.member_id where r.org_id <> m.org_id", new Object[0])).isZero();
-        assertThat(definitions.findByOrgId(beta)).extracting(ReportDefinition::getName).doesNotContain("Revenue Summary").contains("Application Funnel Report");
+        assertThat(definitions.findByOrgId(beta)).extracting(ReportDefinition::getName).contains("Application Funnel Report", "Revenue Summary").doesNotContain("Top Clients by Revenue");
     }
 
     /**
