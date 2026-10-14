@@ -12,3 +12,8 @@ Thumbs.db
 
 # Local Claude Code tooling (per-machine launch config; not shared)
 .claude/
+
+# QA story runs
+web/.auth-stories/
+web/test-results-stories/
+web/playwright-report-stories/
