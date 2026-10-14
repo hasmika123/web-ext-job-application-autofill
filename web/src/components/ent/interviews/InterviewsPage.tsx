@@ -322,7 +322,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, supportEma
 
   const filterRow = (
     <div role="search" aria-label="Filter interviews" className="flex flex-wrap items-center gap-2.5" data-filter-row>
-      <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search interviews" placeholder="Search interviews by role, consultant, client, or interviewer..." />
+      <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search interviews" placeholder="Search by role, consultant, client or interviewer..." />
       <Popover
         label="Date range"
         align="end"

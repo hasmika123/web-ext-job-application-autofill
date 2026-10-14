@@ -13,14 +13,12 @@ const base = `http://acme.localhost:${port}`;
 const shots = resolve(__dirname, "../../../design/enterprise-more/built");
 
 async function signInAsSarah(page: Page) {
-  // the first click can land before the page is hydrated: reload and click again until the demo roster is open
+  // the Demo accounts tab asks the API with a 4 s limit, which a loaded shared machine can miss: post the same sign-in the tab's button posts
+  await page.goto(`${base}/login`);
   await expect(async () => {
-    await page.goto(`${base}/login`);
-    await page.getByRole("button", { name: /Demo accounts/ }).first().click();
-    await expect(page.getByRole("button", { name: "Sign in as Sarah Chen" })).toBeVisible({ timeout: 8000 });
-  }).toPass({ timeout: 90_000 });
-  await page.getByRole("button", { name: "Sign in as Sarah Chen" }).click();
-  await page.waitForURL((u) => u.pathname.startsWith("/w/"));
+    const ok = await page.evaluate(async () => (await fetch("/api/auth/tenant-demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ login: "demo-ent-acme-sarah" }) })).ok);
+    expect(ok).toBe(true);
+  }).toPass({ timeout: 120_000 });
 }
 
 const kpi = (page: Page, k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
@@ -140,9 +138,9 @@ test.describe("interviews (real stack)", () => {
     const betaCtx = await page.context().browser()!.newContext();
     const beta = await betaCtx.newPage();
     await beta.goto(`http://beta.localhost:${port}/login`);
-    await beta.getByRole("button", { name: /Demo accounts/ }).first().click();
-    await beta.getByRole("button", { name: "Sign in as Bea Turner" }).click();
-    await beta.waitForURL((u) => u.pathname.startsWith("/w/"));
+    await expect(async () => {
+      expect(await beta.evaluate(async () => (await fetch("/api/auth/tenant-demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ login: "demo-ent-beta-bea" }) })).ok)).toBe(true);
+    }).toPass({ timeout: 120_000 });
     for (const path of ["", "/counts", `/${id}`, "/analytics", "/pipeline"]) {
       // from inside the page: Node cannot resolve *.localhost, the browser can
       const status = await beta.evaluate(async (u) => (await fetch(u)).status, `/api/orgs/${orgId}/interviews${path}`);

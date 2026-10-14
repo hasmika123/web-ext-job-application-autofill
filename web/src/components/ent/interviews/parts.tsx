@@ -31,8 +31,8 @@ export function TwoLine({ top, sub, strong = true }: { top: ReactNode; sub?: Rea
 
 export function ConsultantCell({ consultant }: { consultant: PersonRef }) {
   return (
-    <span className="flex min-w-0 items-center gap-2">
-      <MemberAvatar name={consultant.name} size={30} />
+    <span className="flex min-w-0 items-center gap-1.5">
+      <MemberAvatar name={consultant.name} size={28} />
       <TwoLine top={consultant.name} sub="Consultant" />
     </span>
   );
@@ -56,7 +56,7 @@ export function InterviewerStack({ people, max = 2 }: { people: Interviewer[]; m
     <span className="flex items-center" title={people.map((p) => p.name).join(", ")} data-interviewers>
       <span className="flex -space-x-1.5">
         {shown.map((p, i) => (
-          <MemberAvatar key={`${p.name}-${i}`} name={p.name} size={24} className="ring-2 ring-paper" />
+          <MemberAvatar key={`${p.name}-${i}`} name={p.name} size={22} className="ring-2 ring-paper" />
         ))}
       </span>
       {more > 0 && <span className="ml-1 text-[11.5px] font-semibold text-ink-soft">+{more}</span>}

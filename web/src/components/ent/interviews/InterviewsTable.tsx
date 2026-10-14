@@ -60,7 +60,7 @@ export function RoleCell({ row }: { row: InterviewRow }) {
 
 /** The next step wraps in two lines like the board ("Send prep / materials"). */
 export function NextStepCell({ text }: { text: string }) {
-  return <span className="line-clamp-2 max-w-[6rem] whitespace-normal text-[11.5px] leading-snug text-ink-soft">{text}</span>;
+  return <span className="line-clamp-2 whitespace-normal text-[11.5px] leading-snug text-ink-soft">{text}</span>;
 }
 
 export function InterviewsTable(p: TableProps) {
@@ -101,22 +101,22 @@ export function InterviewsTable(p: TableProps) {
 
   return (
     <div className="overflow-x-auto rounded-xl border border-[var(--ent-table-line,var(--color-line))] bg-paper">
-      <table aria-label="Interviews" className="w-full border-collapse text-[13px]" data-interview-table>
+      <table aria-label="Interviews" className="w-full table-fixed border-collapse text-[13px]" data-interview-table>
         <thead className="border-b border-[var(--ent-table-line,var(--color-line))]">
           <tr>
-            <th scope="col" className="w-9 py-2.5 pl-3 pr-1">
+            <th scope="col" className="w-[3.4%] min-w-8 py-2 pl-3 pr-1">
               <input type="checkbox" aria-label="Select all interviews on this page" className={CHECK} checked={allOn} onChange={(e) => p.onToggleAll(e.target.checked)} />
             </th>
-            <SortHead label="Role" k="role" sort={p.sort} onSort={p.onSort} />
-            <SortHead label="Consultant" k="consultant" sort={p.sort} onSort={p.onSort} />
-            <SortHead label="Client" k="client" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden lg:table-cell"} />
-            <SortHead label="Round" k="round" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden lg:table-cell"} />
-            <SortHead label="Scheduled Date" k="scheduled" sort={p.sort} onSort={p.onSort} />
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>Interviewer</th>
-            <SortHead label="Mode" k="mode" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden xl:table-cell"} />
-            <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} />
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>Next Step</th>
-            <th scope="col" className={`${HEAD} text-center`}>Actions</th>
+            <SortHead label="Role" k="role" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[26%]" : "w-[12.5%]"} />
+            <SortHead label="Consultant" k="consultant" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[30%]" : "w-[15%]"} />
+            <SortHead label="Client" k="client" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[11%] lg:table-cell"} />
+            <SortHead label="Round" k="round" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[9.5%] lg:table-cell"} />
+            <SortHead label="Scheduled Date" k="scheduled" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[22%]" : "w-[10.5%]"} />
+            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden w-[8.5%] xl:table-cell"}`}>Interviewer</th>
+            <SortHead label="Mode" k="mode" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[7%] xl:table-cell"} />
+            <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[22%]" : "w-[9.5%]"} />
+            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden w-[8%] xl:table-cell"}`}>Next Step</th>
+            <th scope="col" className={`${HEAD} w-[5%] min-w-12 text-center`}>Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--ent-table-line,var(--color-line))]">
@@ -141,10 +141,10 @@ export function InterviewsTable(p: TableProps) {
                 <td className="py-1.5 pl-3 pr-1" onClick={(e) => e.stopPropagation()}>
                   <input type="checkbox" aria-label={`Select ${r.jobTitle ?? r.code}`} className={CHECK} checked={p.selected.has(r.id)} onChange={() => p.onToggle(r.id)} />
                 </td>
-                <td className="max-w-[9.5rem] px-1.5 py-1.5"><RoleCell row={r} /></td>
+                <td className="px-1.5 py-1.5"><RoleCell row={r} /></td>
                 <td className="px-1.5 py-1.5"><ConsultantCell consultant={r.consultant} /></td>
                 <td className={`px-1.5 py-1.5 ${p.compact ? "hidden" : "hidden lg:table-cell"}`}><ClientCell client={r.client} /></td>
-                <td className={`max-w-[5.5rem] px-1.5 py-1.5 text-[11.5px] leading-snug text-ink-soft ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.round ?? <span className="text-muted">{"—"}</span>}</td>
+                <td className={`px-1.5 py-1.5 text-[11.5px] leading-snug text-ink-soft ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.round ?? <span className="text-muted">{"—"}</span>}</td>
                 <td className="whitespace-nowrap px-1.5 py-1.5"><WhenCell at={r.scheduledAt} /></td>
                 <td className={`px-1.5 py-1.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}><InterviewerStack people={r.interviewers} /></td>
                 <td className={`px-1.5 py-1.5 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}><ModeCell mode={r.mode} /></td>

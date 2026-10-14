@@ -359,20 +359,21 @@ export default function DetailDrawer(p: DetailDrawerProps) {
             <Section
               title="Interview Progress"
               testId="progress"
-              action={
-                statusOptions.length > 0 ? (
+            >
+              <ProgressSteps steps={d.steps} />
+              {statusOptions.length > 0 && (
+                <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-[var(--ent-table-line,var(--color-line))] pt-2">
+                  <span className="text-[11.5px] text-muted">Status: {statusLabel(d.status)}</span>
                   <Menu
                     trigger={
                       <Button type="button" variant="accent-soft" size="sm" data-status-trigger>
-                        {statusLabel(d.status)} <ChevronDownIcon size={13} aria-hidden />
+                        Record a change <ChevronDownIcon size={13} aria-hidden />
                       </Button>
                     }
                     items={statusOptions.map((s) => ({ label: `Record as ${statusLabel(s)}`, onSelect: () => void move(d.id, s) }))}
                   />
-                ) : null
-              }
-            >
-              <ProgressSteps steps={d.steps} />
+                </div>
+              )}
             </Section>
 
             <Section
@@ -387,7 +388,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
               }
             >
               <dl className="mt-2 space-y-2 text-[12.5px]">
-                <div className="grid grid-cols-[4.6rem_1fr] items-center gap-x-2">
+                <div className="grid grid-cols-[5.2rem_1fr] items-center gap-x-2">
                   <dt className="text-muted">Mode</dt>
                   <dd className="flex items-center gap-1.5 text-ink">
                     <span aria-hidden className="grid h-7 w-7 place-items-center rounded-lg bg-accent-soft text-accent-deep">
@@ -397,20 +398,20 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                   </dd>
                 </div>
                 {d.mode === "VIDEO" && (
-                  <div className="grid grid-cols-[4.6rem_1fr] items-start gap-x-2">
-                    <dt className="pt-1.5 text-muted">Meeting Link</dt>
+                  <div className="grid grid-cols-[5.2rem_1fr] items-start gap-x-1.5">
+                    <dt className="whitespace-nowrap pt-1.5 text-[11.5px] text-muted">Meeting Link</dt>
                     <dd className="min-w-0">
                       {editing && d.actions.edit ? (
                         <AutosaveField label="Meeting link" value={d.meetingLink ?? ""} field="meetingLink" save={saveAndNote} maxLength={300} placeholder="https://" />
                       ) : d.meetingLink ? (
                         <span className="flex items-center gap-1.5">
-                          <a href={d.meetingLink} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate rounded-lg border border-accent/25 bg-accent-soft/40 px-2 py-1.5 text-[11.5px] text-accent-deep hover:underline" data-meeting-link>
+                          <a href={d.meetingLink} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate rounded-lg border border-accent/25 bg-accent-soft/40 px-1.5 py-1.5 text-[10.5px] text-accent-deep hover:underline" data-meeting-link>
                             {d.meetingLink}
                           </a>
                           <IconButton
                             aria-label="Copy meeting link"
                             title="Copy meeting link"
-                            className="border border-accent/25 text-accent-deep"
+                            className="!h-8 !w-8 flex-none border border-accent/25 text-accent-deep"
                             onClick={() => {
                               void navigator.clipboard?.writeText(d.meetingLink ?? "").then(
                                 () => toast({ title: "Link copied", variant: "success" }),
@@ -428,7 +429,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                   </div>
                 )}
                 {d.mode === "ONSITE" && (
-                  <div className="grid grid-cols-[4.6rem_1fr] items-start gap-x-2">
+                  <div className="grid grid-cols-[5.2rem_1fr] items-start gap-x-2">
                     <dt className="pt-1.5 text-muted">Location</dt>
                     <dd className="min-w-0 text-ink">
                       {editing && d.actions.edit ? <AutosaveField label="Location" value={d.interviewLocation ?? ""} field="location" save={saveAndNote} maxLength={200} /> : (d.interviewLocation ?? <span className="text-muted">Not recorded</span>)}
@@ -436,7 +437,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                   </div>
                 )}
                 {editing && d.actions.edit && (
-                  <div className="grid grid-cols-[4.6rem_1fr] items-center gap-x-2">
+                  <div className="grid grid-cols-[5.2rem_1fr] items-center gap-x-2">
                     <dt className="text-muted">Change mode</dt>
                     <dd className="flex flex-wrap gap-1.5">
                       {(["VIDEO", "ONSITE", "PHONE"] as const).map((m) => (
@@ -532,30 +533,48 @@ export default function DetailDrawer(p: DetailDrawerProps) {
     );
   })();
 
-  const footer =
-    detail && (detail.actions.reschedule || detail.actions.remind || detail.actions.feedback) ? (
-      <div className="space-y-2" data-drawer-actions>
-        {(detail.actions.reschedule || detail.actions.remind) && (
-          <div className="grid grid-cols-2 gap-2">
-            {detail.actions.reschedule && (
-              <Button type="button" variant="accent-soft" onClick={() => p.onReschedule(detail)} data-action="reschedule" className="w-full !border !border-accent/40 !bg-paper">
-                <CalendarIcon size={16} aria-hidden /> Reschedule
-              </Button>
-            )}
-            {detail.actions.remind && (
-              <Button type="button" variant="accent-soft" onClick={() => void remind(detail.id)} data-action="remind" className="w-full !border !border-accent/40 !bg-paper">
-                <SendIcon size={16} aria-hidden /> Send Reminder
-              </Button>
-            )}
-          </div>
-        )}
-        {detail.actions.feedback && (
-          <Button type="button" variant="accent" onClick={() => p.onFeedback(detail)} data-action="feedback" className="w-full">
-            <MessageIcon size={16} aria-hidden /> Add Feedback
-          </Button>
-        )}
+  /* the three actions of the board: always drawn for someone who may edit, greyed with the reason when the interview's status does not allow one */
+  const footer = detail && detail.actions.edit ? (
+    <div className="space-y-2" data-drawer-actions>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          type="button"
+          variant="accent-soft"
+          size="sm"
+          disabled={!detail.actions.reschedule}
+          title={detail.actions.reschedule ? undefined : "Only a scheduled or cancelled interview can be rescheduled"}
+          onClick={() => p.onReschedule(detail)}
+          data-action="reschedule"
+          className="w-full !gap-1.5 !border !border-accent/40 !bg-paper !px-2 whitespace-nowrap"
+        >
+          <CalendarIcon size={15} aria-hidden /> Reschedule
+        </Button>
+        <Button
+          type="button"
+          variant="accent-soft"
+          size="sm"
+          disabled={!detail.actions.remind}
+          title={detail.actions.remind ? undefined : "A reminder can be recorded for a scheduled interview"}
+          onClick={() => void remind(detail.id)}
+          data-action="remind"
+          className="w-full !gap-1.5 !border !border-accent/40 !bg-paper !px-2 whitespace-nowrap"
+        >
+          <SendIcon size={15} aria-hidden /> Send Reminder
+        </Button>
       </div>
-    ) : null;
+      <Button
+        type="button"
+        variant="accent"
+        disabled={!detail.actions.feedback}
+        title={detail.actions.feedback ? undefined : "Feedback can be added once the interview has started"}
+        onClick={() => p.onFeedback(detail)}
+        data-action="feedback"
+        className="w-full"
+      >
+        <MessageIcon size={16} aria-hidden /> Add Feedback
+      </Button>
+    </div>
+  ) : null;
 
   const header = detail ? (
     <div className="flex items-start gap-2.5" data-drawer-head>
