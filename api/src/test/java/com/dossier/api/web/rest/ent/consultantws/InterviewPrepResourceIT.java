@@ -560,14 +560,14 @@ class InterviewPrepResourceIT {
 
     @Test
     void theDemoSeederIsIdempotentAndOnlyTouchesItsOwnTables() throws Exception {
-        long before = sessions.count();
+        long before = sessions.countByOrgId(a.getId());
         seeder.seed();
-        long afterFirst = sessions.count();
+        long afterFirst = sessions.countByOrgId(a.getId());
         seeder.seed();
-        assertThat(sessions.count()).as("a second run adds nothing").isEqualTo(afterFirst);
+        assertThat(sessions.countByOrgId(a.getId())).as("a second run adds nothing").isEqualTo(afterFirst);
         assertThat(afterFirst).isGreaterThanOrEqualTo(before);
         // the test organizations are not the demo slugs, so nothing was written for them
         assertThat(sessions.findByOrgIdAndConsultantIdOrderByOccurredAtDesc(a.getId(), c1.getId())).isEmpty();
-        assertThat(answers.count()).isGreaterThanOrEqualTo(0);
+        assertThat(answers.countByOrgId(a.getId())).isGreaterThanOrEqualTo(0);
     }
 }

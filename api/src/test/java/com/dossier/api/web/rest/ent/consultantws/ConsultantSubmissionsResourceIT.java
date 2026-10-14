@@ -283,7 +283,7 @@ class ConsultantSubmissionsResourceIT {
     }
 
     private String statusOf(CwsSubmission s) {
-        return submissions.findById(s.getId()).orElseThrow().getStatus();
+        return submissions.findByOrgIdAndId(s.getOrgId(), s.getId()).orElseThrow().getStatus();
     }
 
     // ---- (a) correct values ---------------------------------------------------------------------------------------
@@ -461,7 +461,7 @@ class ConsultantSubmissionsResourceIT {
         JsonNode done = ok(send(post(path(a.getId(), "/" + p1.getId() + "/approve")), "cws-s-a-c1", null), "approve");
         assertThat(done.path("status").asText()).isEqualTo("APPROVED");
         assertThat(done.path("decidedAt").asText()).isNotBlank();
-        CwsSubmission row = submissions.findById(p1.getId()).orElseThrow();
+        CwsSubmission row = submissions.findByOrgIdAndId(p1.getOrgId(), p1.getId()).orElseThrow();
         assertThat(row.getStatus()).isEqualTo(CwsSubmission.APPROVED);
         assertThat(row.getDecidedAt()).isNotNull();
         assertThat(row.getSubmittedOn()).as("approving submits nothing").isNull();
@@ -470,7 +470,7 @@ class ConsultantSubmissionsResourceIT {
         MvcResult again = send(post(path(a.getId(), "/" + p1.getId() + "/approve")), "cws-s-a-c1", null);
         assertStatus(again, 409, "approve twice");
         assertThat(again.getResponse().getContentAsString()).contains("SUBMISSION_NOT_PENDING").contains("already approved");
-        assertThat(submissions.findById(p1.getId()).orElseThrow().getDecidedAt()).as("the first decision time is kept").isEqualTo(row.getDecidedAt());
+        assertThat(submissions.findByOrgIdAndId(p1.getOrgId(), p1.getId()).orElseThrow().getDecidedAt()).as("the first decision time is kept").isEqualTo(row.getDecidedAt());
 
         MvcResult declineAfter = send(post(path(a.getId(), "/" + p1.getId() + "/decline")), "cws-s-a-c1", "{\"reason\":\"changed my mind\"}");
         assertStatus(declineAfter, 409, "decline after approve");
@@ -502,7 +502,7 @@ class ConsultantSubmissionsResourceIT {
 
         JsonNode done = ok(send(post(url), "cws-s-a-c1", "{\"reason\":\"  The rate is too low for this role.  \"}"), "decline");
         assertThat(done.path("status").asText()).isEqualTo("DECLINED");
-        CwsSubmission row = submissions.findById(p2.getId()).orElseThrow();
+        CwsSubmission row = submissions.findByOrgIdAndId(p2.getOrgId(), p2.getId()).orElseThrow();
         assertThat(row.getDeclineReason()).isEqualTo("The rate is too low for this role.");
         assertThat(row.getDecidedAt()).isNotNull();
 
@@ -511,7 +511,7 @@ class ConsultantSubmissionsResourceIT {
         assertThat(again.getResponse().getContentAsString()).contains("SUBMISSION_NOT_PENDING").contains("already declined");
         assertStatus(send(post(path(a.getId(), "/" + p2.getId() + "/approve")), "cws-s-a-c1", null), 409, "approve after decline");
         assertThat(statusOf(p2)).isEqualTo(CwsSubmission.DECLINED);
-        assertThat(row.getDeclineReason()).isEqualTo(submissions.findById(p2.getId()).orElseThrow().getDeclineReason());
+        assertThat(row.getDeclineReason()).isEqualTo(submissions.findByOrgIdAndId(p2.getOrgId(), p2.getId()).orElseThrow().getDeclineReason());
 
         // a row that already moved on (client side) cannot be decided either
         assertStatus(send(post(path(a.getId(), "/" + past1.getId() + "/approve")), "cws-s-a-c1", null), 409, "approve a submitted row");
@@ -525,10 +525,10 @@ class ConsultantSubmissionsResourceIT {
 
     @Test
     void theDemoSeederIsIdempotentAndMarksEveryRowAsSample() throws Exception {
-        long before = submissions.count();
+        long before = submissions.countByOrgId(a.getId());
         // the seeder only touches the named demo organizations; here it must simply be a no-op that does not fail
         assertThat(seeder.seed()).isGreaterThanOrEqualTo(0);
         assertThat(seeder.seed()).as("a second run adds nothing").isZero();
-        assertThat(submissions.count()).isGreaterThanOrEqualTo(before);
+        assertThat(submissions.countByOrgId(a.getId())).isGreaterThanOrEqualTo(before);
     }
 }

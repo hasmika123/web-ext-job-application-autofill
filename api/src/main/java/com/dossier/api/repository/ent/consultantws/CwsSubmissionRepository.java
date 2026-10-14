@@ -6,13 +6,23 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.repository.Repository;
 
 /** Org-scoped access to {@code cws_submission}: every method takes the organization id first, then the consultant id. */
-public interface CwsSubmissionRepository extends JpaRepository<CwsSubmission, Long> {
+public interface CwsSubmissionRepository extends Repository<CwsSubmission, Long> {
+    <S extends CwsSubmission> S save(S entity);
+
+    <S extends CwsSubmission> S saveAndFlush(S entity);
+
+    void flush();
+
+    <S extends CwsSubmission> List<S> saveAll(Iterable<S> entities);
+
+    void delete(CwsSubmission entity);
+
     List<CwsSubmission> findByOrgIdAndConsultantId(Long orgId, Long consultantId);
 
     Optional<CwsSubmission> findByOrgIdAndConsultantIdAndId(Long orgId, Long consultantId, Long id);
@@ -44,4 +54,8 @@ public interface CwsSubmissionRepository extends JpaRepository<CwsSubmission, Lo
         @Param("orgId") Long orgId, @Param("consultantId") Long consultantId, @Param("id") Long id, @Param("from") String from,
         @Param("to") String to, @Param("at") Instant at, @Param("reason") String reason
     );
+
+    long countByOrgId(Long orgId);
+
+    Optional<CwsSubmission> findByOrgIdAndId(Long orgId, Long id);
 }

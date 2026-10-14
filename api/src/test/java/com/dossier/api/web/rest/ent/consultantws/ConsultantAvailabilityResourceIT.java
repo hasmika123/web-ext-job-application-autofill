@@ -379,8 +379,8 @@ class ConsultantAvailabilityResourceIT {
 
         assertGeneric404(send(put(path(a.getId(), "/blocks/" + hidden.getId())), "cws-av-a-c1", blockBody("PERSONAL", 100, 100, "mine now")), "edit another's block");
         assertGeneric404(send(delete(path(a.getId(), "/blocks/" + hidden.getId())), "cws-av-a-c1", null), "delete another's block");
-        assertThat(blocks.findById(hidden.getId())).isPresent();
-        assertThat(blocks.findById(hidden.getId()).orElseThrow().getReason()).isEqualTo("Hidden holiday plan");
+        assertThat(blocks.findByOrgIdAndId(hidden.getOrgId(), hidden.getId())).isPresent();
+        assertThat(blocks.findByOrgIdAndId(hidden.getOrgId(), hidden.getId()).orElseThrow().getReason()).isEqualTo("Hidden holiday plan");
 
         JsonNode p2 = page("cws-av-a-c2", a);
         assertThat(texts(p2.path("blocks"), "reason")).containsExactly("Hidden holiday plan");
@@ -413,7 +413,7 @@ class ConsultantAvailabilityResourceIT {
                 assertGeneric404(send(req, login, route[2]), login + " " + route[0] + " " + route[1]);
             }
         }
-        assertThat(blocks.findById(Long.parseLong(id))).as("nobody else could remove it").isPresent();
+        assertThat(blocks.findByOrgIdAndId(a.getId(), Long.parseLong(id))).as("nobody else could remove it").isPresent();
         assertThat(workPrefs.findByOrgIdAndConsultantId(a.getId(), c1.getId())).isEmpty();
         assertGeneric404(send(get(path(999999999L, "")), "cws-av-a-c1", null), "an organization that does not exist");
         // another tenant's consultant cannot reach this org's block through their own org either
@@ -570,25 +570,25 @@ class ConsultantAvailabilityResourceIT {
         String url = path(a.getId(), "/blocks/" + vac.getId());
 
         ok(send(put(url), "cws-av-a-c1", blockBody("VACATION", 10, 12, "New reason")), "reason only");
-        CwsAvailabilityBlock same = blocks.findById(vac.getId()).orElseThrow();
+        CwsAvailabilityBlock same = blocks.findByOrgIdAndId(vac.getOrgId(), vac.getId()).orElseThrow();
         assertThat(same.getStatus()).isEqualTo("APPROVED");
         assertThat(same.isSampleData()).isTrue();
         assertThat(same.getReason()).isEqualTo("New reason");
 
         JsonNode moved = ok(send(put(url), "cws-av-a-c1", blockBody("VACATION", 10, 13, "Longer")), "dates changed");
-        CwsAvailabilityBlock changed = blocks.findById(vac.getId()).orElseThrow();
+        CwsAvailabilityBlock changed = blocks.findByOrgIdAndId(vac.getOrgId(), vac.getId()).orElseThrow();
         assertThat(changed.getStatus()).as("a changed vacation needs approval again").isEqualTo("PENDING");
         assertThat(changed.isSampleData()).isFalse();
         assertThat(moved.path("blocks").get(0).path("days").asLong()).isEqualTo(4);
 
         ok(send(put(url), "cws-av-a-c1", blockBody("PERSONAL", 10, 13, "Now personal")), "kind changed");
-        assertThat(blocks.findById(vac.getId()).orElseThrow().getStatus()).isEqualTo("APPROVED");
+        assertThat(blocks.findByOrgIdAndId(vac.getOrgId(), vac.getId()).orElseThrow().getStatus()).isEqualTo("APPROVED");
 
         // an entry never overlaps itself, but it cannot move onto another one
         CwsAvailabilityBlock other = block(c1, "PERSONAL", 30, 31, "Other", "APPROVED");
         assertStatus(send(put(url), "cws-av-a-c1", blockBody("PERSONAL", 31, 32, "x")), 409, "move onto another entry");
         assertStatus(send(put(url), "cws-av-a-c1", blockBody("PERSONAL", 10, 13, "my SSN 123-45-6789")), 422, "pii on edit");
-        assertThat(blocks.findById(vac.getId()).orElseThrow().getReason()).isEqualTo("Now personal");
+        assertThat(blocks.findByOrgIdAndId(vac.getOrgId(), vac.getId()).orElseThrow().getReason()).isEqualTo("Now personal");
         assertThat(other.getId()).isNotEqualTo(vac.getId());
     }
 
@@ -598,7 +598,7 @@ class ConsultantAvailabilityResourceIT {
         block(c1, "PERSONAL", 20, 20, "B", "APPROVED");
         JsonNode done = ok(send(delete(path(a.getId(), "/blocks/" + x.getId())), "cws-av-a-c1", null), "delete");
         assertThat(texts(done.path("blocks"), "reason")).containsExactly("B");
-        assertThat(blocks.findById(x.getId())).isEmpty();
+        assertThat(blocks.findByOrgIdAndId(x.getOrgId(), x.getId())).isEmpty();
         assertGeneric404(send(delete(path(a.getId(), "/blocks/" + x.getId())), "cws-av-a-c1", null), "second delete");
     }
 
@@ -624,7 +624,7 @@ class ConsultantAvailabilityResourceIT {
         assertThat(replaced.path("preferences").path("workMode").asText()).isEqualTo("ONSITE");
         assertThat(replaced.path("preferences").get("rateMinMinor").isNull()).isTrue();
         assertThat(replaced.path("preferences").path("travelPercent").asInt()).isZero();
-        assertThat(workPrefs.findAll().stream().filter(w -> c1.getId().equals(w.getConsultantId())).count()).isEqualTo(1);
+        assertThat(workPrefs.findByOrgId(a.getId()).stream().filter(w -> c1.getId().equals(w.getConsultantId())).count()).isEqualTo(1);
 
         assertStatus(send(put(url), "cws-av-a-c1", "{\"workMode\":\"MOON\"}"), 422, "unknown work mode");
         assertStatus(send(put(url), "cws-av-a-c1", "{\"noticeWeeks\":-1}"), 422, "negative notice");
@@ -645,10 +645,10 @@ class ConsultantAvailabilityResourceIT {
 
     @Test
     void theDemoSeederIsIdempotentAndMarksEveryRowAsSample() throws Exception {
-        long before = blocks.count();
+        long before = blocks.countByOrgId(a.getId());
         assertThat(seeder.seed()).isGreaterThanOrEqualTo(0);
         assertThat(seeder.seed()).as("a second run adds nothing").isZero();
-        assertThat(blocks.count()).isGreaterThanOrEqualTo(before);
-        assertThat(blocks.findAll().stream().filter(x -> x.getOrgId().equals(a.getId()))).as("the seeder only touches the named demo organizations").isEmpty();
+        assertThat(blocks.countByOrgId(a.getId())).isGreaterThanOrEqualTo(before);
+        assertThat(blocks.findByOrgId(a.getId()).stream().filter(x -> x.getOrgId().equals(a.getId()))).as("the seeder only touches the named demo organizations").isEmpty();
     }
 }

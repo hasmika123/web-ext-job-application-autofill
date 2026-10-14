@@ -8,13 +8,23 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.repository.Repository;
 
 /** Org-scoped access to {@code cws_offer}: every method takes the organization id first, then the consultant id. */
-public interface CwsOfferRepository extends JpaRepository<CwsOffer, Long> {
+public interface CwsOfferRepository extends Repository<CwsOffer, Long> {
+    <S extends CwsOffer> S save(S entity);
+
+    <S extends CwsOffer> S saveAndFlush(S entity);
+
+    void flush();
+
+    <S extends CwsOffer> List<S> saveAll(Iterable<S> entities);
+
+    void delete(CwsOffer entity);
+
     List<CwsOffer> findByOrgIdAndConsultantId(Long orgId, Long consultantId);
 
     Optional<CwsOffer> findByOrgIdAndConsultantIdAndId(Long orgId, Long consultantId, Long id);
@@ -49,4 +59,10 @@ public interface CwsOfferRepository extends JpaRepository<CwsOffer, Long> {
         @Param("orgId") Long orgId, @Param("consultantId") Long consultantId, @Param("id") Long id, @Param("from") Collection<String> from,
         @Param("to") String to, @Param("at") Instant at, @Param("note") String note, @Param("today") LocalDate today
     );
+
+    long countByOrgId(Long orgId);
+
+    List<CwsOffer> findByOrgId(Long orgId);
+
+    Optional<CwsOffer> findByOrgIdAndId(Long orgId, Long id);
 }
