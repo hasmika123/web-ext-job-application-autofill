@@ -125,7 +125,7 @@ test("CON-71 Anika connects: the live Gmail check passes, the mailbox is read, a
   await expect(page.getByText("Disconnect this inbox")).toBeVisible({ timeout: 20_000 });
   await expect(page.locator("[data-consultant-inbox][data-connection=CONNECTED]")).toBeVisible();
   await expect(page.getByText(ADDRESS)).toBeVisible();
-  await expect(page.getByText("Connected", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-consultant-inbox] span").filter({ hasText: /^Connected$/ })).toBeVisible(); // the badge (the term "Connected" above its date is a different element)
 
   await narrate(page, "The page, the API and the browser never hold the code again");
   await expect(page.locator("body")).not.toContainText(GOOD_CODE);
@@ -147,20 +147,20 @@ test("CON-72 Mail moves her applications and offers new ones, all marked 'from y
   await connectFromThePage(page, ADDRESS, GOOD_CODE);
   await expect(page.getByText("Disconnect this inbox")).toBeVisible({ timeout: 20_000 });
 
-  await narrate(page, "The first read runs straight after connecting; the page shows what the mail did");
+  await narrate(page, "The first read runs straight after connecting; the page lists the applications the mail is tracking");
   await expect(async () => {
     await page.reload();
     await expect(page.locator(READY)).toBeVisible();
     await expect(page.locator("[data-update]").first()).toBeVisible({ timeout: 3000 });
   }).toPass({ timeout: 60_000 });
 
-  await narrate(page, "Orbit Freight sent an interview invitation: her application moved to Interview");
+  await narrate(page, "Orbit Freight sent an interview invitation: her application stands at Interview");
   const orbit = page.locator("[data-update]").filter({ hasText: "Orbit Freight" });
   await expect(orbit).toHaveAttribute("data-stage", "INTERVIEW");
   await expect(orbit.locator("[data-from-inbox]")).toHaveText("from your inbox");
   await expect(orbit).toContainText("Interview invite");
 
-  await narrate(page, "Cedar Analytics sent a rejection: moved to Rejected");
+  await narrate(page, "Cedar Analytics sent a rejection: it stands at Rejected");
   const cedar = page.locator("[data-update]").filter({ hasText: "Cedar Analytics" });
   await expect(cedar).toHaveAttribute("data-stage", "REJECTED");
   await expect(cedar.locator("[data-from-inbox]")).toBeVisible();

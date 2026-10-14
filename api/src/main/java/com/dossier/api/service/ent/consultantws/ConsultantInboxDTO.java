@@ -39,7 +39,7 @@ public final class ConsultantInboxDTO {
     /** A job the consultant's mail shows that their board does not track yet. */
     public record Suggestion(Long id, String company, String role, String category, String stage, String subject, String fromName, String fromAddress, Instant sentAt) {}
 
-    /** One application the mail moved, as the consultant sees it: always "from your inbox"; the organization sees only the resulting stage elsewhere. */
+    /** One application the mail is tracking, as the consultant sees it: its current stage and how the newest matched mail was read, always "from your inbox"; the organization sees only the resulting stage elsewhere. */
     public record Update(Long applicationId, String company, String role, String stage, String stageLabel, String reading, Instant at, String source) {}
 
     public record Page(View inbox, List<Suggestion> suggestions, List<Update> updates) {}

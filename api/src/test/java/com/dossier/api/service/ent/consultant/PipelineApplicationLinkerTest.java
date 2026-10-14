@@ -287,6 +287,19 @@ class PipelineApplicationLinkerTest {
         verify(w.projection).mirror(ConWorld.ORG, APP_ID, ApplicationStatus.INTERVIEW, "INBOX");
     }
 
+    @Test
+    void anOpportunityClosedByARejectionMailSaysOnlyThatTheSourceWasTheInbox() {
+        w.opp(1, "APPLIED");
+        w.liveLink(1, APP_ID);
+        Application a = new Application();
+        a.setId(APP_ID);
+        a.setStatus(ApplicationStatus.REJECTED);
+        when(applications.findById(APP_ID)).thenReturn(Optional.of(a));
+        linker.onApplicationEvent(new ApplicationEventRecorded(ConWorld.USER, APP_ID, "STATUS", ApplicationStatus.INTERVIEW, ApplicationStatus.REJECTED, "INBOX"));
+        assertThat(w.opps.get(1L).o.getState()).isEqualTo("CLOSED");
+        assertThat(w.eventLog.get(0).getText()).isEqualTo("closed: the application ended (REJECTED), source INBOX");
+    }
+
     // ---- company + title is a suggestion only ----------------------------------------------------------------------------------
 
     @Test

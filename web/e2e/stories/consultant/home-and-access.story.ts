@@ -86,7 +86,7 @@ test("CON-02 Anika jumps from Home into her work with Quick Actions and View All
 test("CON-03 Anika walks the 20-item consultant sidebar and every page opens with its data", async ({ as }) => {
   const { page, go } = await as("anika");
   await openPage(page, go, "");
-  const items = page.locator('[data-shell-sidebar] a[href^="/w/consultant"]');
+  const items = page.locator('[data-shell-sidebar] nav[aria-label="Main"] a[href^="/w/consultant"]'); // the menu only (the brand link above it also points at the Home)
   await expect(items.filter({ hasText: /\S/ })).toHaveCount(20);
   const labels = (await items.allInnerTexts()).map((x) => x.trim()).filter(Boolean);
   expect(labels).toEqual(SIDEBAR.map(([, l]) => l));

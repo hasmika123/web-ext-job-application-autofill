@@ -144,7 +144,7 @@ public class PipelineApplicationLinkWork {
                 opp.setClosedReason(APPLICATION_TERMINAL);
                 opp.setUpdatedAt(now);
                 opportunities.save(opp);
-                record(opp, "CLOSED", "closed: the application ended (" + f.status() + ")", now);
+                record(opp, "CLOSED", "closed: the application ended (" + f.status() + ")" + (com.dossier.api.domain.ApplicationEvent.SRC_INBOX.equals(f.source()) ? ", source INBOX" : ""), now);
                 audit.record(orgId, OrgAuditService.SYSTEM_ACTOR, null, "LINKER_OPPORTUNITY_CLOSED", "OPPORTUNITY", null, String.valueOf(opp.getId()), APPLICATION_TERMINAL, null);
             }
         }

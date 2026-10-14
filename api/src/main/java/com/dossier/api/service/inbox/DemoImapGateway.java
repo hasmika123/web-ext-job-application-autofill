@@ -25,6 +25,7 @@ import java.util.Locale;
 import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
@@ -58,6 +59,7 @@ public class DemoImapGateway implements ImapGateway {
     private final JsonNode fixture;
     private final Session session = Session.getInstance(new Properties());
 
+    @Autowired
     public DemoImapGateway(Environment environment) {
         if (environment.acceptsProfiles(Profiles.of("prod"))) throw new IllegalStateException("The demo mailbox must never run under the prod profile");
         this.fixture = load(RESOURCE);

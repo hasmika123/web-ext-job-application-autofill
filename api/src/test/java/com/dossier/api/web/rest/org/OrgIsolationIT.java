@@ -104,7 +104,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @AutoConfigureMockMvc
 @Transactional
 // Every route is attacked by every caller: with the groups routes (X4.5) and the talent boards the sweeps outgrew the global 15 s default on a loaded machine.
-@org.junit.jupiter.api.Timeout(300)
+@org.junit.jupiter.api.Timeout(900) // 300 s was not enough for the legitimate-call sweep on a loaded machine (it creates a world per route)
 class OrgIsolationIT {
 
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
@@ -621,6 +621,8 @@ class OrgIsolationIT {
         /** Placements page: one client, two consultants, an ACTIVE placement and a REQUESTED extension of it (the id of an undoable event is made by the route prepare step). */
         com.dossier.api.web.rest.ent.PlacementItSupport.Rows plTalent;
         Long plUndoEventId = 1L;
+        /** The consultant workspace's own RequirementMatch (the owner-as-consultant's matches routes mean this one, not the jobs page's match). */
+        Long cwsMatchId, cwsResumeId, cwsRequirementId, cwsApplicationId, cwsConsultantId;
 
         /** The Undo route needs the callers own latest, still undoable change. */
         void preparePlacementUndo() {
@@ -780,6 +782,7 @@ class OrgIsolationIT {
             rs.setName(prefix + " resume");
             rs.setPrimaryForOrg(true);
             resumeId = orgResumes.saveAndFlush(rs).getId();
+            cwsResumeId = resumeId;
             com.dossier.api.domain.ent.talent.ClientAccount ca = new com.dossier.api.domain.ent.talent.ClientAccount();
             ca.setOrgId(org.getId());
             ca.setName(prefix + " client");
@@ -789,6 +792,7 @@ class OrgIsolationIT {
             rq.setClientId(ca.getId());
             rq.setTitle(prefix + " Java Developer");
             requirementId = clientRequirements.saveAndFlush(rq).getId();
+            cwsRequirementId = requirementId;
             com.dossier.api.domain.ent.talent.RequirementMatch rm = new com.dossier.api.domain.ent.talent.RequirementMatch();
             rm.setOrgId(org.getId());
             rm.setRequirementId(requirementId);
@@ -797,6 +801,7 @@ class OrgIsolationIT {
             rm.setStatus("SUGGESTED");
             rm.setReason("Skills align with this role.");
             matchId = requirementMatches.saveAndFlush(rm).getId();
+            cwsMatchId = matchId; // a merge let the jobs page's `matchId = jm.getId()` overwrite this one, so the consultant's own match routes got another consultant's match
             com.dossier.api.domain.ent.consultantws.CwsSavedSearch ss = new com.dossier.api.domain.ent.consultantws.CwsSavedSearch();
             ss.setOrgId(org.getId());
             ss.setConsultantId(cp.getId());
@@ -805,6 +810,7 @@ class OrgIsolationIT {
             ss.setKeyword("java");
             savedSearchId = cwsSavedSearches.saveAndFlush(ss).getId();
             consultantId = cp.getId();
+            cwsConsultantId = consultantId; // the Consultants page's fixture below overwrites consultantId; the consultant workspace helpers mean this one
             clientId = ca.getId();
             com.dossier.api.domain.ent.talent.ClientRequirement rq2 = new com.dossier.api.domain.ent.talent.ClientRequirement();
             rq2.setOrgId(org.getId());
@@ -828,6 +834,7 @@ class OrgIsolationIT {
             app.setStage("SUBMITTED");
             app.setAppliedOn(java.time.LocalDate.now().minusDays(3));
             applicationId = talentApplications.saveAndFlush(app).getId();
+            cwsApplicationId = applicationId;
             scheduledInterviewId = interview(app, "SCHEDULED", Instant.now().plusSeconds(86400L * 2));
             completedInterviewId = interview(app, "COMPLETED", Instant.now().minusSeconds(86400L * 2));
             com.dossier.api.domain.ent.consultantws.CwsPrepSession ps = new com.dossier.api.domain.ent.consultantws.CwsPrepSession();
@@ -1012,7 +1019,7 @@ class OrgIsolationIT {
             com.dossier.api.domain.ent.talent.TalentInterview iv = new com.dossier.api.domain.ent.talent.TalentInterview();
             iv.setOrgId(org.getId());
             iv.setApplicationId(app.getId());
-            iv.setConsultantId(consultantId);
+            iv.setConsultantId(cwsConsultantId);
             iv.setClientId(clientId);
             iv.setScheduledAt(at);
             iv.setStatus(status);
@@ -1026,7 +1033,7 @@ class OrgIsolationIT {
             com.dossier.api.domain.ent.consultantws.CwsInterviewFeedback f = new com.dossier.api.domain.ent.consultantws.CwsInterviewFeedback();
             f.setOrgId(org.getId());
             f.setInterviewId(completedInterviewId);
-            f.setConsultantId(consultantId);
+            f.setConsultantId(cwsConsultantId);
             f.setOutcome("NEUTRAL");
             f.setSummary("Went fine.");
             cwsInterviewFeedback.saveAndFlush(f);
@@ -1036,7 +1043,7 @@ class OrgIsolationIT {
         void declineAssignedOpportunity() {
             com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse r = new com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse();
             r.setOrgId(org.getId());
-            r.setConsultantId(consultantId);
+            r.setConsultantId(cwsConsultantId);
             r.setRequirementId(assignedRequirementId);
             r.setStatus(com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse.DECLINED);
             r.setDeclineReason("Not for me.");
@@ -1089,6 +1096,12 @@ class OrgIsolationIT {
             ids.put("sessionId", String.valueOf(prepSessionId));
             ids.put("itemKey", "review-jd"); // a fixed checklist word, not a row
             ids.put("submissionId", String.valueOf(submissionId)); // {id} of the submissions routes (see uri())
+            // The consultant workspace routes (/me-workspace/**) mean the consultant's OWN rows; the same variable names on the org pages mean the pages' rows, assigned later in the constructor (see uri()).
+            ids.put("cwsMatchId", String.valueOf(cwsMatchId));
+            ids.put("cwsResumeId", String.valueOf(cwsResumeId));
+            ids.put("cwsRequirementId", String.valueOf(cwsRequirementId));
+            ids.put("cwsApplicationId", String.valueOf(cwsApplicationId));
+            ids.put("cwsInterviewId", String.valueOf(scheduledInterviewId));
             ids.put("opportunityMatchId", String.valueOf(assignedMatchId)); // {matchId} of the opportunities routes (see uri())
             ids.put("taskId", String.valueOf(taskId)); // {id} of the tasks routes (see uri())
             ids.put("availabilityBlockId", String.valueOf(availabilityBlockId)); // {id} of the availability/blocks routes (see uri())
@@ -1153,6 +1166,9 @@ class OrgIsolationIT {
             .replace("/offers/{id}", "/offers/{offerId}")
             .replace("/notifications/{id}", "/notifications/{notificationId}")
             .replace("/interviews/{interviewId}/feedback", "/interviews/{completedInterviewId}/feedback");
+        if (pattern.contains("/me-workspace/")) {
+            pattern = pattern.replace("{matchId}", "{cwsMatchId}").replace("{resumeId}", "{cwsResumeId}").replace("{requirementId}", "{cwsRequirementId}").replace("{applicationId}", "{cwsApplicationId}").replace("{interviewId}", "{cwsInterviewId}");
+        }
         Matcher m = VAR.matcher(pattern);
         StringBuilder out = new StringBuilder();
         while (m.find()) {

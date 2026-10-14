@@ -165,9 +165,9 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
             </>
           ) : null}
           {v.inbox.connected ? (
-            <Card id="inbox-updates" title="Updated from your inbox" icon={MailIcon} tone="green">
+            <Card id="inbox-updates" title="Applications your mail is tracking" icon={MailIcon} tone="green">
               {v.updates.length === 0 ? (
-                <Empty>No application has been moved by your mail yet.</Empty>
+                <Empty>None of your applications has a matching email yet.</Empty>
               ) : (
                 <ul data-updates>
                   {v.updates.map((u) => (

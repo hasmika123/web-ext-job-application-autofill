@@ -180,23 +180,27 @@ public class ConsultantInboxService {
         return updates(me.userId());
     }
 
-    /** Applications a mail moved (or created from a suggestion), newest first: company, role and stage only. */
+    /**
+     * The applications the mail is tracking, newest mail first: company, role, the application's CURRENT stage and how the newest matched mail was read
+     * (for example "Interview invite"). One row per application, only mail that arrived (not sent mail). Never a subject, sender or snippet.
+     */
     private List<Update> updates(Long userId) {
-        List<InboxMessage> moved = messages
+        List<InboxMessage> matched = messages
             .findByUserIdOrderBySentAtDesc(userId)
             .stream()
-            .filter(m -> m.getStatusChange() != null && m.getApplicationId() != null)
-            .limit(40)
+            .filter(m -> InboxMessage.IN.equals(m.getDirection()) && m.getApplicationId() != null && m.getCategory() != null)
+            .limit(200)
             .toList();
-        if (moved.isEmpty()) return List.of();
+        if (matched.isEmpty()) return List.of();
         Map<Long, Application> byId = applications.findByUserId(userId).stream().collect(Collectors.toMap(Application::getId, a -> a, (a, b) -> a));
         List<Update> out = new ArrayList<>();
         Set<Long> seen = new HashSet<>();
-        for (InboxMessage m : moved) {
+        for (InboxMessage m : matched) {
             Application a = byId.get(m.getApplicationId());
-            if (a == null || !seen.add(a.getId())) continue; // one row per application: the newest mail that moved it
-            String stage = m.getStatusChange();
+            if (a == null || Boolean.TRUE.equals(a.getArchived()) || a.getStatus() == null || !seen.add(a.getId())) continue; // the newest mail speaks for the application
+            String stage = a.getStatus().name();
             out.add(new Update(a.getId(), a.getCompany(), a.getRoleTitle(), stage, label(stage), reading(m.getCategory()), m.getSentAt(), "INBOX"));
+            if (out.size() >= 40) break;
         }
         return out;
     }

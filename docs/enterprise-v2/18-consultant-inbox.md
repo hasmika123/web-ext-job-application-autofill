@@ -74,7 +74,7 @@ platform `ROLE_ADMIN`, no account) gets the **same generic 404** as for an organ
 
 | Verb + path | What |
 |---|---|
-| `GET` | the page: connection (never its password), `entitled`, `stoppedNote`, suggestions, applications the mail moved |
+| `GET` | the page: connection (never its password), `entitled`, `stoppedNote`, suggestions, the applications the mail is tracking (current stage + how the newest mail was read) |
 | `POST` `{address, appPassword}` | connect through this organization's license; refusals as `{code, message}`: 400 `NOT_GMAIL` / `APP_PASSWORD_FORMAT`, 402 `FEATURE_NOT_LICENSED`, 422 `BAD_CREDENTIALS` / `APP_PASSWORD_REQUIRED` / `WEB_LOGIN_REQUIRED` / `IMAP_DISABLED`, 429 `TOO_MANY_ATTEMPTS`, 502 `UNREACHABLE`, 503 `UNAVAILABLE` |
 | `DELETE` | disconnect: connection, encrypted password, folder states and every message are deleted |
 | `PUT /notify` `{email}` | emails about interviews and offers on or off (409 when nothing is connected) |

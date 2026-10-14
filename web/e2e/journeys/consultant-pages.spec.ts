@@ -81,7 +81,7 @@ test.describe("consultant pages (real stack)", () => {
     const page = await context.newPage();
     await page.goto(`${base}/w/consultant`);
     await expect(page.locator("[data-consultant-home][data-status=ready]")).toBeVisible();
-    const items = page.locator('aside a[href^="/w/consultant"]');
+    const items = page.locator('aside nav[aria-label="Main"] a[href^="/w/consultant"]'); // the menu only (the brand link above it also points at the Home)
     await expect(items.filter({ hasText: /\S/ })).toHaveCount(20);
     const labels = (await items.allInnerTexts()).map((x) => x.trim()).filter(Boolean);
     expect(labels).toEqual([

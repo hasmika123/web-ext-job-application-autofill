@@ -37,7 +37,7 @@ public class ConsultantInboxResource {
         this.service = service;
     }
 
-    @Operation(summary = "Inbox page", description = "The connection (never its password), what the mail suggests and the applications it moved.")
+    @Operation(summary = "Inbox page", description = "The connection (never its password), what the mail suggests and the applications it is tracking.")
     @GetMapping
     @OrgPermissionRequired
     public ConsultantInboxDTO.Page page(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {
@@ -98,7 +98,7 @@ public class ConsultantInboxResource {
         return Map.of("ok", true);
     }
 
-    @Operation(summary = "Applications the mail moved", description = "Company, role and stage only, always from the consultant's own inbox.")
+    @Operation(summary = "Applications the mail is tracking", description = "Company, role, current stage and how the newest matched mail was read; always from the consultant's own inbox.")
     @GetMapping("/updates")
     @OrgPermissionRequired
     public List<ConsultantInboxDTO.Update> updates(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {

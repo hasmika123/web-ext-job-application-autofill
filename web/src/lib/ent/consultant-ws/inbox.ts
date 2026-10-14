@@ -24,7 +24,7 @@ export interface InboxSuggestion {
   sentAt: string | null;
 }
 
-/** One application the mail moved. `source` is always INBOX: it is shown as "from your inbox" on this page and nowhere else. */
+/** One application the mail is tracking (its current stage and how the newest matching mail was read). `source` is always INBOX: it is shown as "from your inbox" on this page and nowhere else. */
 export interface InboxUpdate {
   applicationId: number;
   company: string;
