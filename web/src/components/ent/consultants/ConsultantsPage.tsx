@@ -407,25 +407,25 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
   const helpCard = <HelpBeeCard orgName={orgName} supportEmail={supportEmail} compact={drawerOpen && mode === "push"} />;
 
   return (
-    <div ref={root} data-consultants-page>
+    <div ref={root} data-consultants-page data-ent-page="consultants">
       <PageHeader title="Consultants" subtitle="Manage your consultant network, track availability, assignments, and performance." />
       <div className="flex items-start">
         <div className="min-w-0 flex-1 space-y-4">
           <KpiTiles compact={drawerOpen && mode === "push"} counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
 
-          <section aria-label="Consultant directory" className="rounded-2xl border border-line bg-paper p-3 sm:p-4">
+          <section aria-label="Consultant directory" className="ent-card p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
                   <UsersIcon size={20} />
                 </span>
                 <div className="min-w-0">
-                  <h2 className="text-[17px] font-bold leading-tight text-ink">Consultant Directory</h2>
+                  <h2 className="text-[17px] font-extrabold leading-tight text-[var(--ent-title)]">Consultant Directory</h2>
                   <p className="text-[12.5px] text-muted">View and manage all consultants in your organization.</p>
                 </div>
               </div>
               {canEdit && (
-                <Button type="button" onClick={() => setAddOpen(true)} data-add-consultant>
+                <Button type="button" variant="accent" onClick={() => setAddOpen(true)} data-add-consultant>
                   <PlusIcon size={16} aria-hidden /> Add Consultant
                 </Button>
               )}

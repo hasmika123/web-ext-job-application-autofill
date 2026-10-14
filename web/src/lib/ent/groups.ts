@@ -259,3 +259,20 @@ export function shortDate(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "–" : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
+
+/**
+ * A tile's trend from the groups' own creation dates (there is no other history): eight weekly cumulative counts and the change against
+ * thirty days ago. Nothing to compare against (nobody that old) or a flat line means no delta and no curve: the tile shows the figure alone.
+ */
+export function createdTrend(dates: string[], now: number = Date.now()): { series: number[] | null; delta: { text: string; dir: "up" | "down" | "flat"; good: boolean | null } | null } {
+  const ts = dates.map((d) => new Date(d).getTime()).filter((t) => !Number.isNaN(t));
+  const DAY = 86_400_000; // config-literal-ok: milliseconds in a day
+  const at = (cut: number) => ts.filter((t) => t <= cut).length;
+  const series = Array.from({ length: 8 }, (_, i) => at(now - (7 - i) * 7 * DAY));
+  const prev = at(now - 30 * DAY);
+  const cur = ts.length;
+  const flat = series.every((v) => v === series[0]);
+  if (prev === 0) return { series: flat ? null : series, delta: null };
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  return { series: flat ? null : series, delta: { text: `${pct > 0 ? "+" : ""}${pct}%`, dir: pct > 0 ? "up" : pct < 0 ? "down" : "flat", good: pct === 0 ? null : pct > 0 } };
+}

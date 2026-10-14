@@ -10,6 +10,7 @@ import {
   EmptyState,
   ErrorState,
   FilterBar,
+  KpiTile,
   IconButton,
   Menu,
   MoreVerticalIcon,
@@ -28,10 +29,11 @@ import {
   type MenuEntry,
 } from "@kiwiply/ui";
 import { ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { plural, type Group } from "@/lib/ent/groups";
+import { createdTrend, plural, type Group } from "@/lib/ent/groups";
 import CreateGroupSheet from "./CreateGroupSheet";
 import GroupDetailSheet from "./GroupDetailSheet";
-import { AvatarStack, GroupStatus, GroupTile, Kpi, PageHelpCard, SectionHead } from "./GroupVisuals";
+import HelpBanner from "@/components/ent/shared/HelpBanner";
+import { AvatarStack, GroupStatus, GroupTile, SectionHead } from "./GroupVisuals";
 import { StructureTree } from "./StructureViews";
 import { useGroupActions, useGroupsData } from "./useGroups";
 
@@ -65,6 +67,7 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
   const departments = useMemo(() => structure?.departments.map((d) => d.group) ?? [], [structure]);
   const teams = useMemo(() => (structure ? [...structure.departments.flatMap((d) => d.teams), ...structure.unassignedTeams] : []), [structure]);
   const s = directory?.summary;
+  const trend = useMemo(() => createdTrend(teams.map((t) => t.createdAt)), [teams]);
 
   const shownTeams = useMemo(() => {
     const needle = cq.trim().toLowerCase();
@@ -119,16 +122,17 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
   const cardFilters = cq !== "" || cDept !== "" || cStatus !== "";
 
   return (
-    <div className="grp-page flex flex-col gap-5" data-page="teams">
-      <section aria-label="Team numbers" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grp-page flex flex-col gap-[14px]" data-page="teams" data-ent-page="teams">
+      <section aria-label="Team numbers" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:gap-[14px]">
         {!s ? (
-          [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[124px] w-full rounded-2xl" />)
+          [0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[124px] w-full rounded-2xl" />)
         ) : (
           <>
-            <Kpi icon={<UsersIcon size={20} />} label="Total Teams" value={s.teams} tone="secondary" hint={s.inactive > 0 ? `${s.inactive} archived` : undefined} />
-            <Kpi icon={<UserIcon size={20} />} label="Total Team Members" value={s.teamMembers} tone="success" hint={s.employees > s.teamMembers ? `${s.employees - s.teamMembers} of ${s.employees} employees are in no team` : undefined} />
-            <Kpi icon={<NetworkIcon size={20} />} label="Team Leads" value={s.teamLeads} tone="primary" />
-            <Kpi icon={<BarChartIcon size={20} />} label="Avg. Team Size" value={s.averageTeamSize == null ? "–" : s.averageTeamSize} tone="warning" hint={s.averageTeamSize == null ? "No teams yet" : "people per team"} />
+            <KpiTile id="Total Teams" tone="violet" label="Total Teams" icon={<UsersIcon size={20} />} value={s.teams} delta={trend.delta} series={trend.series} />
+            <KpiTile id="Total Team Members" tone="green" label="Total Team Members" icon={<UserIcon size={20} />} value={s.teamMembers} />
+            <KpiTile id="Team Leads" tone="blue" label="Team Leads" icon={<NetworkIcon size={20} />} value={s.teamLeads} />
+            <KpiTile id="Avg. Team Size" tone="orange" label="Avg. Team Size" icon={<BarChartIcon size={20} />} value={s.averageTeamSize == null ? "–" : s.averageTeamSize} />
+            <KpiTile id="Not in a team" tone="pink" label="Not in a Team" icon={<UserIcon size={20} />} value={Math.max(0, s.employees - s.teamMembers)} />
           </>
         )}
       </section>
@@ -144,9 +148,9 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
           />
         </>
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_clamp(300px,19.4vw,330px)] xl:gap-[14px]">
           <div className="flex min-w-0 flex-col gap-5">
-            <section aria-label="Teams overview" className="grp-card p-4 sm:p-5">
+            <section aria-label="Teams overview" className="ent-card p-4 sm:p-5">
               <SectionHead icon={<UsersIcon size={26} />} title="Teams Overview" subtitle="Manage your teams and their members.">
                 <div className="flex min-w-0 flex-wrap items-center gap-2.5">
                   <FilterBar
@@ -176,7 +180,7 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
               ) : (
                 <ul aria-label="Teams" className="mt-4 grid grid-cols-1 gap-3.5 sm:grid-cols-[repeat(auto-fill,minmax(228px,1fr))]">
                   {shownTeams.map((t) => (
-                    <li key={t.id} data-team-card={t.name} className="grp-card relative flex flex-col gap-3 !rounded-[14px] p-3.5">
+                    <li key={t.id} data-team-card={t.name} className="ent-card relative flex flex-col gap-3 !rounded-[14px] p-3.5">
                       <div className="flex items-start gap-3">
                         <GroupTile icon={t.icon} color={t.color} size={48} fallback="users" />
                         <button type="button" onClick={() => setOpenId(t.id)} className="min-w-0 flex-1 pt-0.5 text-left focus-visible:outline-2 focus-visible:outline-accent">
@@ -208,7 +212,7 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
               )}
             </section>
 
-            <section aria-label="Team directory" className="grp-card p-4 sm:p-5">
+            <section aria-label="Team directory" className="ent-card p-4 sm:p-5">
               <SectionHead icon={<UsersIcon size={26} />} title="Team Directory" subtitle="Every team, its department, lead and size.">
               <FilterBar
                 compact
@@ -259,7 +263,7 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
           </div>
 
           <div className="flex min-w-0 flex-col gap-5">
-            <section aria-label="Team performance" className="grp-card p-4 sm:p-5">
+            <section aria-label="Team performance" className="ent-card p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
                   <BarChartIcon size={22} className="text-accent" /> Team Performance
@@ -273,14 +277,14 @@ export default function TeamsPage({ orgId, canManage }: { orgId: number | string
               </p>
             </section>
 
-            <section aria-label="Team structure" className="grp-card p-4 sm:p-5">
+            <section aria-label="Team structure" className="ent-card p-4 sm:p-5">
               <h2 className="mb-3 flex items-center gap-2.5 text-[17px] font-extrabold text-ink">
                 <NetworkIcon size={22} className="text-accent" /> Team Structure
               </h2>
               {structure ? <StructureTree structure={structure} onOpen={(g) => setOpenId(g.id)} /> : <Skeleton className="h-40 w-full" />}
             </section>
 
-            <PageHelpCard topic="Teams" text="I can help you create teams, assign members, manage permissions, or answer questions." />
+            <HelpBanner topic="Teams" text="I can help you create teams, assign members, manage permissions, or answer questions." />
           </div>
         </div>
       )}
