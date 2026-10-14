@@ -188,12 +188,12 @@ export function BarChart({ categories, series, label, height = 190, className, v
             </span>
           ))}
         </div>
-        <div className={cn("relative flex min-w-0 flex-1 items-end border-b", board ? "gap-0 border-[#d5dff0]" : "gap-1 border-line sm:gap-3")}>
+        <div className={cn("relative flex min-w-0 flex-1 items-end border-b", board ? "gap-0 border-line" : "gap-1 border-line sm:gap-3")}>
           {ticks.slice(0, -1).map((t, i) => (
-            <span key={t} className={cn("pointer-events-none absolute inset-x-0 border-t", board ? "border-[#e8eef6]" : "border-line/70")} style={{ top: `${(i / TICKS) * 100}%` }} />
+            <span key={t} className={cn("pointer-events-none absolute inset-x-0 border-t", board ? "border-line/60" : "border-line/70")} style={{ top: `${(i / TICKS) * 100}%` }} />
           ))}
           {categories.map((c, ci) => (
-            <div key={c} className={cn("relative flex h-full min-w-0 flex-1 items-end justify-center", board ? "gap-[3px] border-l border-[#e8eef6] first:border-l-0" : "gap-[2px] sm:gap-1")}>
+            <div key={c} className={cn("relative flex h-full min-w-0 flex-1 items-end justify-center", board ? "gap-[3px] border-l border-line/60 first:border-l-0" : "gap-[2px] sm:gap-1")}>
               {series.map((s, si) => {
                 const v = s.values[ci];
                 const ok = Number.isFinite(v);
@@ -288,7 +288,7 @@ export function DonutChart({ slices, total, totalLabel, label, size = 150, class
   const sum = slices.reduce((a, s) => a + (Number.isFinite(s.value) && s.value > 0 ? s.value : 0), 0);
   let offset = 0;
   return (
-    <div data-donut-chart data-variant={variant} className={cn("flex items-center gap-y-4", board ? "flex-nowrap gap-x-7" : "flex-wrap gap-x-6", className)}>
+    <div data-donut-chart data-variant={variant} className={cn("flex items-center gap-y-4", board ? "flex-nowrap gap-x-5" : "flex-wrap gap-x-6", className)}>
       <div className="relative flex-none" style={{ width: size, height: size }}>
         <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={`${label}: ${slices.map((s) => `${s.label} ${s.value}`).join(", ")}`} className="-rotate-90">
           <circle cx={50} cy={50} r={r} fill="none" stroke="currentColor" strokeWidth={sw} className="text-paper-2" />
@@ -314,16 +314,16 @@ export function DonutChart({ slices, total, totalLabel, label, size = 150, class
         </svg>
         <div aria-hidden className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
           <span className={cn("font-bold leading-none tabular-nums text-ink", board ? "text-[30px]" : "text-[26px]")}>{total ?? sum}</span>
-          {totalLabel ? <span className={cn("mt-1 leading-tight text-muted", board ? "max-w-[84px] text-[14px]" : "max-w-[80px] text-[11.5px]")}>{totalLabel}</span> : null}
+          {totalLabel ? <span className={cn("mt-1 leading-tight text-muted", board ? "max-w-[76px] text-[12.5px]" : "max-w-[80px] text-[11.5px]")}>{totalLabel}</span> : null}
         </div>
       </div>
       <ul className={cn("flex-1", board ? "min-w-0" : "min-w-[10rem]")}>
         {slices.map((s, i) => (
-          <li key={s.key} className={cn("flex items-center text-ink-soft", board ? "gap-2.5 py-[7px] text-[15px]" : "gap-2 py-1 text-[13px]")}>
+          <li key={s.key} className={cn("flex items-center text-ink-soft", board ? "gap-2 py-[6px] text-[14.5px]" : "gap-2 py-1 text-[13px]")}>
             <span aria-hidden className={cn("flex-none rounded-full", board ? "h-3.5 w-3.5" : "h-2.5 w-2.5")} style={{ background: s.color ?? chartColor(i) }} />
             <span className="min-w-0 flex-1 leading-tight">{s.label}</span>
-            <span className={cn("w-8 text-right tabular-nums text-ink", board ? "font-bold" : "font-semibold")}>{s.value}</span>
-            <span className={cn("text-right tabular-nums text-muted", board ? "w-11" : "w-10")}>{Math.round(parts[i] * 100)}%</span>
+            <span className={cn("text-right tabular-nums text-ink", board ? "w-6 font-bold" : "w-8 font-semibold")}>{s.value}</span>
+            <span className={cn("text-right tabular-nums text-muted", board ? "w-10" : "w-10")}>{Math.round(parts[i] * 100)}%</span>
           </li>
         ))}
       </ul>

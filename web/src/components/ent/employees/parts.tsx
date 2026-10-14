@@ -48,7 +48,7 @@ export function RoleChips({ roles, max = 1, className }: { roles: RoleRef[]; max
   return (
     <span className={`inline-flex min-w-0 flex-wrap items-center gap-1 ${className ?? ""}`} data-role-chips>
       {shown.map((r) => (
-        <span key={`${r.roleId}-${r.key}`} className={`inline-flex max-w-full items-center truncate rounded-full px-3 py-[6px] text-[12.5px] font-medium leading-none ${roleTone(r.name)}`}>
+        <span key={`${r.roleId}-${r.key}`} className={`inline-flex max-w-full items-center truncate rounded-full px-3.5 py-[7px] text-[13.5px] font-medium leading-none ${roleTone(r.name)}`}>
           {r.name}
         </span>
       ))}

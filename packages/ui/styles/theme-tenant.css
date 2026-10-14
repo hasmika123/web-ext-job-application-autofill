@@ -273,6 +273,7 @@
 }
 .theme-tenant [data-invitations-page] [data-invite-panel] label {
   font-size: 14px;
+  line-height: 17px;
   font-weight: 500;
   color: var(--color-ink);
 }
@@ -658,3 +659,17 @@
     radial-gradient(90px 80px at 52% 8%, rgb(255 255 255 / 0.85), transparent 70%),
     linear-gradient(180deg, #fbe9d9 0%, #e8eef9 55%, #dbe7f8 100%);
 }
+
+/* the board's "Ask a question..." button: pale blue plate with a blue hairline */
+.theme-tenant .ent-ask-btn {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--ent-primary) 20%, #dbe6f7);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ent-primary) 7%, #ffffff);
+  color: var(--ent-primary);
+}
+.theme-tenant .ent-ask-btn:hover { background: color-mix(in srgb, var(--ent-primary) 12%, #ffffff); }

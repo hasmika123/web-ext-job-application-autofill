@@ -195,7 +195,7 @@ export function StatTile({ spec, widget, loading, onRetry, index }: { spec: Tile
           <Sparkline values={tile.sparkline} smooth color={tile.deltaPct !== null && tile.deltaPct < 0 ? "var(--ent-kpi-bad)" : kpiLine(spec.tone)} className="!h-[34px]" />
         </div>
       </div>
-      <p className="mt-auto flex min-h-5 flex-wrap items-center gap-x-2 pt-2.5 text-[12.5px] text-[#46527e]">
+      <p className="mt-auto flex min-h-5 flex-wrap items-center gap-x-2 pt-2.5 text-[12.5px] text-ink-soft">
         {delta ? (
           <>
             <span data-delta={delta.dir} data-good={delta.dir === "up" ? "true" : delta.dir === "down" ? "false" : undefined} className="ent-kpi-delta inline-flex items-center gap-1 text-[14.5px] font-bold">

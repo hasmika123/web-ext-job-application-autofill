@@ -98,7 +98,7 @@ export default function InvitePanel({
   }
 
   return (
-    <form onSubmit={submit} noValidate data-invite-panel aria-labelledby={headingId ?? `${uid}-h`} className="flex flex-col gap-3">
+    <form onSubmit={submit} noValidate data-invite-panel aria-labelledby={headingId ?? `${uid}-h`} className="flex flex-col gap-2.5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h2 id={headingId ?? `${uid}-h`} className="flex items-center gap-3 text-[20px] font-bold text-ink">
@@ -107,7 +107,7 @@ export default function InvitePanel({
             </span>
             Invite Employee
           </h2>
-          <p className="mt-2 text-[14px] text-muted">Send an invitation to join your organization.</p>
+          <p className="mt-1.5 whitespace-nowrap text-[13px] text-muted">Send an invitation to join your organization.</p>
         </div>
         {onClose && (
           <Tooltip content="Close">
@@ -118,7 +118,7 @@ export default function InvitePanel({
         )}
       </div>
 
-      <Field className="mb-0" label="Email Address" required error={errors.email} htmlFor={`${uid}-email`}>
+      <Field className="!mb-0" label="Email Address" required error={errors.email} htmlFor={`${uid}-email`}>
         <Input
           id={`${uid}-email`}
           ref={emailRef}
@@ -134,12 +134,13 @@ export default function InvitePanel({
         />
       </Field>
 
-      <Field className="mb-0" label={<>Full Name <span className="font-normal text-muted">(Optional)</span></>} htmlFor={`${uid}-name`}>
+      <Field className="!mb-0" label={<>Full Name <span className="font-normal text-muted">(Optional)</span></>} htmlFor={`${uid}-name`}>
         <Input id={`${uid}-name`} autoComplete="off" placeholder="Enter full name" value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={120} />
       </Field>
 
       <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         <Field
+          className="!mb-0"
           label="Role"
           required
           error={errors.role}
@@ -152,6 +153,7 @@ export default function InvitePanel({
           <span />
         </Field>
         <Field
+          className="!mb-0"
           label="Department"
           required={needsDept}
           error={errors.dept}
@@ -174,14 +176,14 @@ export default function InvitePanel({
       </div>
 
       <Field
-        className="mb-0"
+        className="!mb-0"
         label={<>Personal Message <span className="font-normal text-muted">(Optional)</span></>}
         htmlFor={`${uid}-msg`}
         render={({ id }) => (
           <div className="relative">
             <Textarea
               id={id}
-              rows={3}
+              rows={2}
               maxLength={MESSAGE_MAX}
               placeholder="Add a personal message to your invitation..."
               value={message}

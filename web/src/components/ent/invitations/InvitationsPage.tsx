@@ -286,7 +286,7 @@ export default function InvitationsPage({ orgId, orgName, supportEmail, canInvit
   const to = Math.min(list.total, query.page * query.size);
 
   return (
-    <div data-invitations-page className="flex min-w-0 flex-col gap-4">
+    <div data-invitations-page className="ent-page flex min-w-0 flex-col gap-4">
       <PageHeader title="Invitations" subtitle="Invite and manage your organization's team members." />
       <ClaimsMascot />
 

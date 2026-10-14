@@ -387,7 +387,7 @@ export default function EmployeesPage({ orgId, orgName, workspace, selfMemberId,
   ];
 
   return (
-    <div ref={root} data-employees-page>
+    <div ref={root} data-employees-page className="ent-page">
       <PageHeader title="Employees" subtitle="Manage your organization's employees, roles, and access permissions." />
       <div className="space-y-4">
         <KpiTiles
@@ -404,7 +404,7 @@ export default function EmployeesPage({ orgId, orgName, workspace, selfMemberId,
           }
         />
         <div className="flex items-start">
-        <div className="min-w-0 flex-1 space-y-3 rounded-2xl border border-line bg-paper p-3 shadow-[0_1px_3px_rgba(16,24,64,.06)]">
+        <div className="ent-card min-w-0 flex-1 space-y-3 p-3">
           {scheduled.length > 0 && (
             <div className="flex justify-end">
               <Button type="button" variant="ghost" size="sm" onClick={() => setQueueOpen(true)} data-scheduled-button>

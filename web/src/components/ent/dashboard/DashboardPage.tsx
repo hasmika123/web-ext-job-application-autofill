@@ -221,7 +221,7 @@ function PipelineCard({ body }: { body: CardBody }) {
       <div className="mt-3 flex flex-1 flex-col justify-center">
         {shared ??
           (pipe ? (
-            <DonutChart variant="board" size={160} label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
+            <DonutChart variant="board" size={152} label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
           ) : (
             <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>
           ))}
@@ -240,9 +240,9 @@ function QuickActionsCard({ body }: { body: CardBody }) {
   const every = widget && !body.loading ? quickActionsOf(widget) : [];
   const items = every.slice(0, QUICK_SHOWN);
   return (
-    <section aria-labelledby="dash-quick" data-dash-card="quick.actions" className={cn(CARD, "flex min-w-0 flex-col px-3 pb-3 pt-3 xl:min-h-[297px]")}>
+    <section aria-labelledby="dash-quick" data-dash-card="quick.actions" className={cn(CARD, "flex min-w-0 flex-col px-3 pb-3 pt-2.5 xl:min-h-[297px]")}>
       <CardHead id="dash-quick" icon={BoltSolidIcon} title="Quick Actions" tile={false} />
-      <div className="mt-2.5 flex-1">
+      <div className="mt-0.5 flex-1">
         {shared ?? (
           <ul className="flex flex-col gap-1.5">
             {items.map((a) => (
@@ -267,17 +267,17 @@ function ActionRow({ a }: { a: QuickActionItem }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-[16px] font-bold leading-tight text-ink">{a.label}</span>
-        <span className="line-clamp-2 text-[14px] leading-snug text-muted">{a.description}</span>
+        <span className="line-clamp-1 text-[14px] leading-snug text-muted">{a.description}</span>
       </span>
     </>
   );
-  const row = "flex min-h-[56px] items-center gap-3.5 rounded-xl border border-[#e7edf6] bg-paper px-2 py-[5px] shadow-[0_1px_2px_rgba(20,33,79,0.03)]";
+  const row = "flex min-h-[54px] items-center gap-3.5 rounded-xl border border-line/80 bg-paper px-2 py-[3px] shadow-[0_1px_2px_rgba(20,33,79,0.03)]";
   if (!a.available)
     return (
       <div data-quick-action={a.key} data-available="false" aria-disabled="true" className={cn(row, "bg-paper-2/50")}>
         {inner}
         <Tooltip content={a.soonModule ? `Arrives with ${a.soonModule}` : "Coming soon"} side="left">
-          <span tabIndex={0} data-soon-chip className="flex-none rounded-full bg-paper-2 px-2 py-0.5 text-[11.5px] font-bold text-ink-soft ring-1 ring-line">
+          <span tabIndex={0} data-soon-chip className="mr-1 flex-none rounded-full bg-paper-2 px-2 py-0.5 text-[11.5px] font-bold text-ink-soft ring-1 ring-line">
             Soon
           </span>
         </Tooltip>
@@ -329,7 +329,7 @@ function AlertsCard({ body, hidden, onDismiss, now }: { body: CardBody; hidden: 
               <CheckCircleIcon size={18} className="text-v2-green-ink" /> All clear. Nothing needs your attention.
             </p>
           ) : (
-            <ul className="divide-y divide-[#edf1f7]" aria-live="polite">
+            <ul className="divide-y divide-line/60" aria-live="polite">
               {items.map((a) => {
                 const s = SEVERITY[a.severity];
                 const Icon = s.icon;
@@ -411,7 +411,7 @@ function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: numbe
       </CardHead>
       <div className="mt-2 flex-1">
         {shared ?? (
-          <ul className="divide-y divide-[#edf1f7]">
+          <ul className="divide-y divide-line/60">
             {items.map((a) => {
               const t = activityText(a);
               const href = activityHref(a);
@@ -492,7 +492,7 @@ function BeeHelpCard({ firstName, orgName, onDismiss }: { firstName: string; org
         <button
           type="button"
           onClick={openHelpPanel}
-          className="mt-auto flex min-h-10 w-full items-center gap-2.5 rounded-[10px] border border-[#cfe0fb] bg-[#eef4ff] px-3.5 text-left text-[16px] font-semibold text-accent hover:bg-[#e6efff]"
+          className="mt-auto flex min-h-10 w-full items-center gap-2.5 rounded-[10px] ent-ask-btn px-3.5 text-left text-[16px] font-semibold"
         >
           <SparklesIcon size={20} className="flex-none" />
           <span className="min-w-0 flex-1 truncate">Ask a question...</span>
