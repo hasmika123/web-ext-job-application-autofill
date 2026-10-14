@@ -33,6 +33,7 @@
     "R2.4",
     "R2.5",
     "R2.6",
+    "R2.13",
     "R3.7",
     "R3.9",
     "R3.11",
@@ -1312,6 +1313,35 @@
         "resume.list.quickTips",
         "resume.list.virtualizeAbove"
       ]
+    },
+    {
+      "id": "R2.13",
+      "epic": "R2",
+      "title": "Edit an uploaded resume in the builder (convert on Edit / on open) + friendly resume-cap dialog",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "star": false,
+      "deps": [
+        "R2.6"
+      ],
+      "depsNote": "Reuses R2.6's POST /api/profile/resumes/:id/doc/import.",
+      "story": "As a user, I want Edit on ANY resume to open the real builder, and when I am at my plan's resume limit I want a clear friendly message with a way forward instead of a click that does nothing.",
+      "ac": [
+        "`POST /api/profile/resumes/:id/doc/import` is idempotent: a resume that already has a document returns it (200, same version/hash); the original upload stays downloadable; same resume id so applications, primary flag and usage are untouched; 404 for someone else's resume; demo accounts allowed.",
+        "Card Edit on an uploaded resume converts then opens `/resume-builder/:id` (busy state, no modal); `/resume-builder/:id` converts an uploaded file on open instead of 404 (still 404 when not the caller's).",
+        "At the plan cap, New Resume (both buttons, empty state), Duplicate, Copy and Upload show one friendly dialog 'You've used N of N resumes' with See plans / Upgrade and Manage resumes; N comes from the server's builder config; a 402 from built/upload/duplicate opens the same dialog."
+      ],
+      "tech": "ResumeDocService.importUploaded; web `list/actions.ts` openInBuilder, `list/CapDialog.tsx`, `[id]/page.tsx` loadDoc.",
+      "tests": "ResumeSourcesIT (idempotent import), DemoSandboxIT (demo import twice), web ResumeCard/MyResumesPage/page tests, rb-smoke 'convert uploaded' row.",
+      "relates": [],
+      "supersedes": [],
+      "benchmark": "",
+      "design": "docs/RESUME-BUILDER-DESIGN.md",
+      "settings": []
     },
     {
       "id": "R3.7",

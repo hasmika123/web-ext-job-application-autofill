@@ -266,6 +266,8 @@ dossier:
     # Sandbox: demo accounts may use the Resume Builder and profile (see DemoGuard). Account, billing, inbox and orgs stay read-only.
     # DEMO_ALLOW_WRITES=true lifts even that (global dev override; never in production).
     allow-writes: ${DEMO_ALLOW_WRITES:false}
+    # Offers a real ROLE_ADMIN `demo-admin` account on the login page so the app admin console can be tested. Never in production.
+    admin-enabled: ${DEMO_ADMIN_ENABLED:false}
     # Nightly UTC reset of the demo accounts to the seed (cron; blank = off).
     reset-cron: ${DEMO_RESET_CRON:0 0 4 * * *}
     # Cap on AI calls per demo account per UTC day, on top of the plan/budget (0 = no AI for demo).

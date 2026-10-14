@@ -76,7 +76,7 @@ public class ResumeDocResource {
     }
 
     /** {@code POST /api/profile/resumes/:id/doc/import} : turn an uploaded resume into a built one, in place. */
-    @Operation(summary = "Open an uploaded resume in the builder", description = "Builds a document from the uploaded resume's parsed structure and makes it BUILT (same id). 409 ALREADY_BUILT when it already is; 404 if not owned.")
+    @Operation(summary = "Open an uploaded resume in the builder", description = "Builds a document from the uploaded resume's parsed structure and makes it BUILT (same id). Idempotent: an already built resume returns its existing document (200). 404 if not owned.")
     @PostMapping("/{id}/doc/import")
     public ResponseEntity<BuiltResumeDTO> importUploaded(@PathVariable("id") Long id) {
         BuiltResumeDTO built = resumeDocService.importUploaded(id);

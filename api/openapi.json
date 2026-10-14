@@ -2795,7 +2795,7 @@
       "post" : {
         "tags" : [ "resume-builder" ],
         "summary" : "Open an uploaded resume in the builder",
-        "description" : "Builds a document from the uploaded resume's parsed structure and makes it BUILT (same id). 409 ALREADY_BUILT when it already is; 404 if not owned.",
+        "description" : "Builds a document from the uploaded resume's parsed structure and makes it BUILT (same id). Idempotent: an already built resume returns its existing document (200). 404 if not owned.",
         "operationId" : "importUploaded",
         "parameters" : [ {
           "name" : "id",

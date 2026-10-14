@@ -281,13 +281,19 @@ public class ResumeDocService {
      * "Open in builder" on an uploaded resume ({@code POST .../doc/import}): the file's parsed structure becomes
      * a document and the resume becomes BUILT in place (same id, name, target, flags and applications). The
      * uploaded file is kept as {@code meta.originalFileKey}; the resume's own file slot is then free for the
-     * generated PDF. 409 {@code ALREADY_BUILT} when it already is.
+     * generated PDF. Idempotent: when it already is built, returns its existing document.
      */
     public BuiltResumeDTO importUploaded(Long resumeId) {
         User user = currentUser();
         Resume resume = ownedResume(user, resumeId, "$.id");
-        if (resume.getKind() == ResumeKind.BUILT || resumeDocRepository.existsById(resumeId)) {
-            throw new ResumeDocException(409, "ALREADY_BUILT", "This resume is already in the builder", java.util.Map.of());
+        // Idempotent: a second call (another tab, a retry, a reload) returns the document the first one made.
+        java.util.Optional<ResumeDoc> existing = resumeDocRepository.findByResumeIdAndUserId(resumeId, user.getId());
+        if (existing.isPresent()) {
+            ResumeDoc d = existing.get();
+            ResumeDTO dto = profileService.listResumes().stream().filter(r -> resumeId.equals(r.getId())).findFirst().orElseGet(ResumeDTO::new);
+            dto.setKind(ResumeKind.BUILT);
+            dto.setTemplateId(d.getTemplateId());
+            return new BuiltResumeDTO(dto, toDto(d, resume));
         }
         Instant now = Instant.now();
         JsonNode structured = parseQuietly(resume.getParsedJson());

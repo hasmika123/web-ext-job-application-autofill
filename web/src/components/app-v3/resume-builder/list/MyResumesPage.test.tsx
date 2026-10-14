@@ -299,10 +299,21 @@ describe("My Resumes: cards", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
-  it("Edit on an uploaded file opens the manage panel", () => {
+  it("Edit on an uploaded file converts it and opens the builder, not the manage panel", async () => {
+    api.importUploaded.mockResolvedValue({ kind: "ok" });
     renderPage();
     fireEvent.click(within(card(3)).getByRole("button", { name: "Edit Data Analyst" }));
-    expect(screen.getByTestId("drawer")).toBeTruthy();
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/resume-builder/3"));
+    expect(api.importUploaded).toHaveBeenCalledWith(3);
+    expect(screen.queryByTestId("drawer")).toBeNull();
+  });
+
+  it("a failed conversion stays on the list with an error", async () => {
+    api.importUploaded.mockResolvedValue({ kind: "error", message: "nope" });
+    renderPage();
+    fireEvent.click(within(card(3)).getByRole("button", { name: "Edit Data Analyst" }));
+    expect(await screen.findByText("Couldn't open it in the builder")).toBeTruthy();
+    expect(push).not.toHaveBeenCalledWith("/resume-builder/3");
   });
 
   it("Duplicate makes a copy and opens it in the editor", async () => {
@@ -317,7 +328,8 @@ describe("My Resumes: cards", () => {
     api.duplicateResume.mockResolvedValue({ kind: "limit", plan: "FREE", message: "Free accounts keep up to 3 resumes." });
     renderPage();
     fireEvent.click(within(card(1)).getByRole("button", { name: "Duplicate Software Engineer" }));
-    expect((await screen.findByRole("alert")).textContent).toContain("Free accounts keep up to 3 resumes.");
+    // the server's 402 (a stale client count) opens the same dialog
+    expect(await screen.findByRole("dialog", { name: /used \d+ of \d+ resumes/ })).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
   });
 });
@@ -492,7 +504,7 @@ describe("My Resumes: Popular Templates and Quick Tips", () => {
       </ToastProvider>,
     );
     expect(screen.queryByRole("dialog", { name: "Start your resume from" })).toBeNull();
-    expect(screen.getByRole("alert").textContent).toContain("You've reached 3 resumes");
+    expect(screen.getByRole("dialog", { name: "You've used 3 of 3 resumes" })).toBeTruthy();
   });
 });
 
@@ -587,20 +599,35 @@ describe("My Resumes: empty state and New Resume", () => {
     expect(within(dialog).getByRole("radio", { name: /Start from scratch/ }).getAttribute("aria-checked")).toBe("true");
   });
 
-  it("at the plan's cap New Resume shows the upgrade prompt and never the chooser", () => {
+  it("at the plan's cap New Resume shows the friendly cap dialog and never the chooser", () => {
     renderPage(resumes(), cfg({ plan: "FREE", resumes: { count: 3, max: 3 } }));
     fireEvent.click(screen.getAllByRole("button", { name: /New Resume/ })[0]);
-    expect(screen.getByRole("alert").textContent).toContain("You've reached 3 resumes");
-    expect(screen.getByRole("link", { name: "See Pro" }).getAttribute("href")).toBe("/pricing");
-    expect(screen.queryByRole("dialog")).toBeNull();
+    const dialog = screen.getByRole("dialog", { name: "You've used 3 of 3 resumes" });
+    expect(within(dialog).getByRole("link", { name: "See plans" }).getAttribute("href")).toBe("/pricing");
+    expect(within(dialog).getByRole("button", { name: "Manage resumes" })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Start your resume from" })).toBeNull();
     expect(createBuilt).not.toHaveBeenCalled();
   });
 
-  it("on Pro the cap prompt says to archive one", () => {
+  it("the cap number comes from the server config, not the code", () => {
     renderPage(resumes(), cfg({ plan: "PRO", resumes: { count: 25, max: 25 } }));
     fireEvent.click(screen.getAllByRole("button", { name: /New Resume/ })[0]);
-    expect(screen.getByRole("alert").textContent).toContain("archive one to make room");
-    expect(screen.getByRole("button", { name: "Archive a resume" })).toBeTruthy();
-    expect(screen.queryByRole("dialog")).toBeNull();
+    const dialog = screen.getByRole("dialog", { name: "You've used 25 of 25 resumes" });
+    expect(within(dialog).getByRole("link", { name: "Upgrade" })).toBeTruthy();
+  });
+
+  it("at the cap Duplicate shows the dialog without calling the server", () => {
+    renderPage(resumes(), cfg({ plan: "FREE", resumes: { count: 3, max: 3 } }));
+    fireEvent.click(within(card(1)).getByRole("button", { name: "Duplicate Software Engineer" }));
+    expect(screen.getByRole("dialog", { name: /used 3 of 3 resumes/ })).toBeTruthy();
+    expect(api.duplicateResume).not.toHaveBeenCalled();
+  });
+
+  it("Manage resumes closes the dialog and opens the manage panel", () => {
+    renderPage(resumes(), cfg({ plan: "FREE", resumes: { count: 3, max: 3 } }));
+    fireEvent.click(screen.getAllByRole("button", { name: /New Resume/ })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Manage resumes" }));
+    expect(screen.queryByRole("dialog", { name: /used 3 of 3/ })).toBeNull();
+    expect(screen.getByTestId("drawer")).toBeTruthy();
   });
 });

@@ -92,7 +92,7 @@ public class DemoResource {
             tenantHeaders.setBearerAuth(tenantPair.accessToken());
             return new ResponseEntity<>(tenantPair, tenantHeaders, HttpStatus.OK);
         }
-        if (!demoAccountService.isDemo(login) || TenantContextHolder.current().map(c -> c.isTenant()).orElse(false)) {
+        if (!demoAccountService.isDemo(login) || TenantContextHolder.current().map(c -> c.isTenant()).orElse(false) || (DemoAccountService.LOGIN_ADMIN.equals(login) && !demoAccountService.isAdminDemoEnabled())) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // the personal demo accounts never sign in on a tenant host
         }
         if (DemoAccountService.LOGIN_JOB_SEEKER.equals(login)) {
