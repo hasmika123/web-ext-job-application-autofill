@@ -54,9 +54,14 @@ export function useWorkspaceData<T>(fetcher: () => Promise<Fetched<T>>) {
   const [status, setStatus] = useState<Status>("loading");
   const last = useRef(0);
   const inflight = useRef(false);
+  const queued = useRef(false);
+  const loadRef = useRef<() => Promise<void>>(async () => {});
 
   const load = useCallback(async () => {
-    if (inflight.current) return;
+    if (inflight.current) {
+      queued.current = true; // a filter changed while a load was running: run again with the latest fetcher when it ends
+      return;
+    }
     inflight.current = true;
     const r = await fetcher();
     inflight.current = false;
@@ -66,7 +71,15 @@ export function useWorkspaceData<T>(fetcher: () => Promise<Fetched<T>>) {
       setStatus("ready");
     } else if (r.kind === "DENIED") setStatus("denied");
     else setStatus((s) => (s === "ready" ? s : "failed")); // a failed refresh keeps what is on screen
+    if (queued.current) {
+      queued.current = false;
+      void loadRef.current();
+    }
   }, [fetcher]);
+
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
 
   useEffect(() => {
     const t = setTimeout(() => void load(), 0);

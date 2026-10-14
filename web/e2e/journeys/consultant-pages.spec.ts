@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 /**
- * The ten consultant pages after Home (Profile, Resumes, Marketer, Job Discovery, Job Matches, Applications, Interviews, Interview Prep, Submissions, Assigned Opportunities) against the REAL stack: Anika Rao
+ * The eighteen consultant pages after Home (all the sidebar pages the boards cover) against the REAL stack: Anika Rao
  * (Consultant) signs in through the Demo accounts tab; each page loads its data (status=ready), shows its own cards at 1440 and does not
  * scroll sideways at 390; an Org Admin is not shown them and the API answers 404. Run with `playwright.real.consultant.config.ts`.
  */
@@ -22,6 +22,14 @@ const PAGES = [
   { slug: "interview-prep", root: "[data-consultant-interview-prep]", api: "interview-prep" },
   { slug: "submissions", root: "[data-consultant-submissions]", api: "submissions" },
   { slug: "opportunities", root: "[data-consultant-opportunities]", api: "opportunities" },
+  { slug: "tasks", root: "[data-consultant-tasks]", api: "tasks" },
+  { slug: "availability", root: "[data-consultant-availability]", api: "availability" },
+  { slug: "offers", root: "[data-consultant-offers]", api: "offers" },
+  { slug: "placements", root: "[data-consultant-placements]", api: "placements" },
+  { slug: "notifications", root: "[data-consultant-notifications]", api: "notifications" },
+  { slug: "activity-timeline", root: "[data-consultant-activity-timeline]", api: "activity-timeline" },
+  { slug: "features", root: "[data-consultant-features]", api: "features" },
+  { slug: "settings", root: "[data-consultant-settings]", api: "settings" },
 ];
 
 async function signInAs(page: Page, who: string) {
