@@ -295,3 +295,18 @@ For all of 80 to 90 the only automated check is ADM-05 and ADM-06 (the menu entr
 5. Branding "Organization name" input has the accessible name "Organization name" (it is rendered through the shared `Field` label); the Welcome title field is found by label text `/Welcome title/`.
 6. Interviews page marker `[data-interviews-page]` (taken from the journey's `openBoard("[data-interviews-page]")`).
 7. The API runs with `DEMO_ALLOW_WRITES=true`; otherwise every write story fails with a demo-sandbox refusal.
+
+---
+
+## Employee accounts with a temporary password (ADM-19, ADM-19b)
+
+Spec: `web/e2e/stories/admin/employee-accounts.story.ts` (serial: the two stories share one new person; the temporary password is read from the
+shown-once dialog at run time, never hard-coded or printed). The invitation panel opens in **Create account now** (default); **Send invitation**
+is the unchanged flow behind ADM-15..18 (those stories now pick that mode first).
+
+| Id | Story | Status |
+|---|---|---|
+| ADM-19 | Org admin adds an employee: generated password in the field, a weak one refused, role and department, Create Account, password shown once with Copy, Reset Password issues a second one once | AUTOMATED |
+| ADM-19b | The employee signs in on the tenant host, is held on Choose your password (pages come back, the API answers 403 PASSWORD_CHANGE_REQUIRED), chooses a password, lands on `/w/hr`; the temporary password no longer works; Reset Password now says they chose their own | AUTOMATED |
+
+Not built: the invitation form has no Team or Manager field (department only), so ADM-19 sets role and department.

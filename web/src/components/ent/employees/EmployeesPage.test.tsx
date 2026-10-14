@@ -432,13 +432,44 @@ describe("Employees: the detail sheet", () => {
     expect(calledWith("PUT", "/members/3/roles")[0].body).toEqual({ roleIds: [10, 4], primaryRoleId: 4 });
   });
 
+  it("Reset Password asks for a reason, shows the new temporary password once, and explains a refusal", async () => {
+    await mount();
+    overrides.push((c) => (c.path === "/members/3/reset-password" ? { status: 200, body: { memberId: 3, email: "ben@acme.test", tempPassword: "Zq7!hTn4-Wm2+Rp9", tempPasswordExpiresAt: "2026-10-21T10:00:00Z" } } : undefined));
+    await open("Ben Okafor");
+    fireEvent.click(document.querySelector('[data-quick-action="reset"]') as HTMLElement);
+    const sheet = screen.getByRole("dialog", { name: /Reset Ben Okafor/ });
+    expect((within(sheet).getByRole("button", { name: "Reset password" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(within(sheet).getByLabelText("Reason (required)"), { target: { value: "They never received it" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Reset password" }));
+    await settle();
+    const shown = screen.getByTestId("temp-password") as HTMLInputElement;
+    expect(shown.value).toBe("Zq7!hTn4-Wm2+Rp9");
+    expect(calledWith("POST", "/members/3/reset-password")[0].body).toEqual({ reason: "They never received it" });
+    fireEvent.click(screen.getByRole("button", { name: "I have copied it" }));
+    await settle();
+    expect(document.body.textContent).not.toContain("Zq7!hTn4-Wm2+Rp9");
+  });
+
+  it("Reset Password says so when the person already chose their own password", async () => {
+    await mount();
+    overrides.push((c) => (c.path === "/members/3/reset-password" ? { status: 409, body: { error: "x", code: "PASSWORD_ALREADY_SET" } } : undefined));
+    await open("Ben Okafor");
+    fireEvent.click(document.querySelector('[data-quick-action="reset"]') as HTMLElement);
+    const sheet = screen.getByRole("dialog", { name: /Reset Ben Okafor/ });
+    fireEvent.change(within(sheet).getByLabelText("Reason (required)"), { target: { value: "They never received it" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Reset password" }));
+    await settle();
+    expect(within(screen.getByRole("dialog", { name: /Reset Ben Okafor/ })).getByText(/already chosen their own password/)).toBeTruthy();
+    expect(screen.queryByTestId("temp-password")).toBeNull();
+  });
+
   it("only lists the quick actions the API allows", async () => {
     await mount();
     await open("Sam Whitfield"); // suspended: reinstate, not suspend
     const qa = document.querySelector("[data-quick-actions]")!;
     expect(qa.querySelector('[data-quick-action="reinstate"]')).toBeTruthy();
     expect(qa.querySelector('[data-quick-action="suspend"]')).toBeNull();
-    expect((qa.querySelector('[data-quick-action="reset"]') as HTMLButtonElement).disabled).toBe(true); // on the board, not built: drawn disabled
+    expect(qa.querySelector('[data-quick-action="reset"]')).toBeNull(); // a suspended person has nothing to reset
   });
 
   it("suspends with a reason and reinstates with an undo", async () => {

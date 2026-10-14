@@ -21,7 +21,14 @@ const ROUTES: { method: string; pattern: RegExp; body: boolean }[] = [
   { method: "PUT", pattern: new RegExp(`^${ID}/roles$`), body: true },
   { method: "POST", pattern: new RegExp(`^${ID}/(suspend|reinstate|offboard)$`), body: true },
   { method: "POST", pattern: /^bulk\/(roles|groups|manager|status)$/, body: true },
+  // Direct account creation with a temporary password (employee onboarding): the answers carry a one-time password, so no-store.
+  { method: "GET", pattern: /^temp-password$/, body: false },
+  { method: "POST", pattern: /^account$/, body: true },
+  { method: "POST", pattern: new RegExp(`^${ID}/reset-password$`), body: true },
 ];
+
+/** Routes whose answer may hold a password: never cacheable. */
+const SECRET_ANSWER = [/^temp-password$/, /^account$/, new RegExp(`^${ID}/reset-password$`)];
 
 export const orgOk = (orgId: string): boolean => /^\d{1,18}$/.test(orgId);
 export const notFound = () => Response.json({ error: "Not found." }, { status: 404 });
@@ -60,5 +67,7 @@ export async function handle(request: Request, ctx: { params: Promise<{ orgId: s
     }
     return res.status === 204 ? new Response(null, { status: 204 }) : passthrough(res);
   }
-  return forward(target, init);
+  const res = await forward(target, init);
+  if (SECRET_ANSWER.some((p) => p.test(rest))) res.headers.set("cache-control", "no-store");
+  return res;
 }

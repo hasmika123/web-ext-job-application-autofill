@@ -2,8 +2,12 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Button, Field, IconButton, Input, MailIcon, SendIcon, Select, Textarea, Tooltip, XIcon } from "@kiwiply/ui";
-import { invitationsApi, isEmail, problemText, rowProblem, type FormOptions, type InviteBody } from "@/lib/ent/invitations";
+import { accountsApi, invitationsApi, isEmail, passwordIssue, problemText, rowProblem, type AccountBody, type FormOptions, type InviteBody } from "@/lib/ent/invitations";
+import TempPasswordDialog from "@/components/ent/shared/TempPasswordDialog";
 import RoleSelect from "./RoleSelect";
+
+/** How a person is added: an account now (temporary password, the default) or the invitation e-mail they accept themselves. */
+export type AddMode = "account" | "invite";
 
 export const MESSAGE_MAX = 500;
 
@@ -43,12 +47,33 @@ export default function InvitePanel({
   const [dept, setDept] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; role?: string; dept?: string; form?: string }>({});
+  const [errors, setErrors] = useState<{ email?: string; role?: string; dept?: string; password?: string; form?: string }>({});
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [mode, setMode] = useState<AddMode>("account");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [creds, setCreds] = useState<{ who: string; password: string | null; expiresAt: string | null } | null>(null);
+  const [createdNote, setCreatedNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (focusSignal > 0) emailRef.current?.focus();
   }, [focusSignal]);
+
+  /** A fresh generated password for the field (nothing is stored on the server for it). */
+  async function suggest() {
+    const r = await accountsApi.suggest(orgId);
+    if (r.ok) setPassword(r.data.password);
+  }
+  useEffect(() => {
+    if (mode !== "account") return;
+    let live = true;
+    void accountsApi.suggest(orgId).then((r) => {
+      if (live && r.ok) setPassword((current) => current || r.data.password); // fetched once per switch to account mode; never over what was typed
+    });
+    return () => {
+      live = false;
+    };
+  }, [mode, orgId]);
 
   const departments = options?.departments ?? [];
   const needsDept = departments.length > 0;
@@ -61,9 +86,48 @@ export default function InvitePanel({
     else if (!isEmail(email)) next.email = "That doesn't look like an email address.";
     if (roleIds.length === 0) next.role = "Pick at least one role.";
     if (needsDept && !dept) next.dept = "Pick a department.";
+    if (mode === "account") {
+      const issue = passwordIssue(password);
+      if (issue) next.password = issue;
+    }
     setErrors(next);
     if (Object.keys(next).length > 0) {
       (document.getElementById(`${uid}-${next.email ? "email" : next.role ? "role" : "dept"}`) as HTMLElement | null)?.focus();
+      return;
+    }
+    if (mode === "account") {
+      const account: AccountBody = {
+        email: email.trim(),
+        password,
+        roleIds,
+        ...(fullName.trim() ? { fullName: fullName.trim() } : {}),
+        ...(dept ? { departmentGroupId: Number(dept) } : {}),
+      };
+      setBusy(true);
+      setSentTo(null);
+      setCreatedNote(null);
+      const made = await accountsApi.create(orgId, account);
+      setBusy(false);
+      if (!made.ok) {
+        setErrors(made.code === "ROLE_CEILING" ? { role: problemText(made) } : made.code === "ALREADY_MEMBER" ? { email: "Already a member of this organization." } : made.code === "ORG_INVALID" && /password/i.test(made.message) ? { password: made.message } : { form: problemText(made) });
+        return;
+      }
+      const who = email.trim();
+      setErrors({});
+      setEmail("");
+      setFullName("");
+      setPassword("");
+      if (made.data.mode === "ACCOUNT_CREATED") {
+        setCreds({ who, password: made.data.tempPassword ?? account.password ?? null, expiresAt: made.data.tempPasswordExpiresAt });
+        setCreatedNote(`Account created for ${who}.`);
+        void suggest();
+      } else {
+        // The address already had a Kiwiply account: it keeps its own password and was sent the normal invitation.
+        setCreatedNote(`${who} already has a Kiwiply account, so an invitation was sent instead. They sign in with their existing password.`);
+        onSent({ email: who, body: { emails: [who], roleIds, ...(dept ? { departmentGroupId: Number(dept) } : {}) } });
+        void suggest();
+      }
+      emailRef.current?.focus();
       return;
     }
     const body: InviteBody = {
@@ -107,7 +171,7 @@ export default function InvitePanel({
             </span>
             Invite Employee
           </h2>
-          <p className="mt-1.5 whitespace-nowrap text-[13px] text-muted">Send an invitation to join your organization.</p>
+          <p className="mt-1.5 text-[13px] text-muted">{mode === "account" ? "Create their account now with a temporary password." : "Send an invitation to join your organization."}</p>
         </div>
         {onClose && (
           <Tooltip content="Close">
@@ -117,6 +181,24 @@ export default function InvitePanel({
           </Tooltip>
         )}
       </div>
+
+      <fieldset className="m-0 min-w-0 border-0 p-0" data-invite-mode-group>
+        <legend className="sr-only">How to add this person</legend>
+        <div role="radiogroup" aria-label="How to add this person" className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-paper-2 p-1 text-[13px] font-semibold">
+          {(
+            [
+              ["account", "Create account now", "temporary password"],
+              ["invite", "Send invitation", "they accept by e-mail"],
+            ] as const
+          ).map(([value, label, sub]) => (
+            <label key={value} className={`flex min-h-11 cursor-pointer flex-col justify-center rounded-lg px-2.5 py-1 leading-tight ${mode === value ? "bg-paper text-accent-deep shadow-sm" : "text-ink-soft"}`}>
+              <input type="radio" name={`${uid}-mode`} value={value} checked={mode === value} onChange={() => { setMode(value); setErrors({}); setCreatedNote(null); }} data-invite-mode={value} className="sr-only" />
+              <span>{label}</span>
+              <span className="text-[11px] font-normal text-muted">({sub})</span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <Field className="!mb-0" label="Email Address" required error={errors.email} htmlFor={`${uid}-email`}>
         <Input
@@ -175,6 +257,36 @@ export default function InvitePanel({
         </Field>
       </div>
 
+      {mode === "account" && (
+        <Field className="!mb-0" label="Temporary password" required error={errors.password} htmlFor={`${uid}-pw`} hint="They must choose their own at first sign-in. You will see it once after saving." render={({ id, describedBy, invalid }) => (
+          <div className="flex items-stretch gap-2">
+            <Input
+              id={id}
+              aria-describedby={describedBy}
+              aria-invalid={invalid || undefined}
+              type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
+              spellCheck={false}
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (errors.password) setErrors((x) => ({ ...x, password: undefined }));
+              }}
+              className="min-w-0 flex-1 font-mono"
+            />
+            <Button type="button" variant="ghost" size="sm" onClick={() => setShowPassword((v) => !v)} aria-pressed={showPassword} className="min-h-11 flex-none sm:min-h-0">
+              {showPassword ? "Hide" : "Show"}
+            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => void suggest()} className="min-h-11 flex-none sm:min-h-0">
+              Generate
+            </Button>
+          </div>
+        )}>
+          <span />
+        </Field>
+      )}
+
+      {mode === "invite" && (
       <Field
         className="!mb-0"
         label={<>Personal Message <span className="font-normal text-muted">(Optional)</span></>}
@@ -198,6 +310,7 @@ export default function InvitePanel({
       >
         <span />
       </Field>
+      )}
 
       {errors.form && (
         <p role="alert" className="text-[13px] text-danger-text">
@@ -206,11 +319,20 @@ export default function InvitePanel({
       )}
       <Button type="submit" variant="accent" size="lg" disabled={busy} className="w-full">
         <SendIcon aria-hidden size={18} />
-        {busy ? "Sending…" : "Send Invitation"}
+        {mode === "account" ? (busy ? "Creating…" : "Create Account") : busy ? "Sending…" : "Send Invitation"}
       </Button>
       <p role="status" aria-live="polite" className="min-h-4 text-center text-[12.5px] text-accent-deep">
-        {sentTo ? `Invitation sent to ${sentTo}.` : ""}
+        {mode === "invite" && sentTo ? `Invitation sent to ${sentTo}.` : mode === "account" ? (createdNote ?? "") : ""}
       </p>
+      <TempPasswordDialog
+        open={creds !== null}
+        title="Account created"
+        who={creds?.who ?? ""}
+        password={creds?.password ?? null}
+        expiresAt={creds?.expiresAt}
+        hint="They sign in with their e-mail and this password, then choose their own."
+        onClose={() => setCreds(null)}
+      />
     </form>
   );
 }

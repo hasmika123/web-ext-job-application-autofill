@@ -208,3 +208,33 @@ export function bulkSummary(results: BulkItem[], verb: "resent" | "revoked"): st
   const head = `${ok === 1 ? "1 invitation" : `${ok} invitations`} ${verb}`;
   return failed === 0 ? `${head}.` : `${head}. ${failed} couldn't be ${verb}.`;
 }
+
+/* ── direct account creation (employee onboarding with a temporary password) ───────────────────────── */
+
+export interface AccountBody {
+  email: string;
+  fullName?: string;
+  /** The password the form showed (server-generated, possibly overwritten). Omit to let the server generate one and return it once. */
+  password?: string;
+  roleIds: number[];
+  departmentGroupId?: number;
+}
+/** `ACCOUNT_CREATED`: active at once, must change the temporary password. `INVITED`: the address already had an account, so a normal invitation was sent instead. */
+export interface AccountResult { memberId: number | null; email: string; mode: "ACCOUNT_CREATED" | "INVITED"; tempPassword: string | null; tempPasswordExpiresAt: string | null; roleIds: number[] }
+export interface PasswordResetResult { memberId: number; email: string; tempPassword: string; tempPasswordExpiresAt: string }
+
+const membersBase = (orgId: number | string) => `/api/orgs/${orgId}/members`;
+
+/** The calls behind "Create account now" and "Reset password". The answers carry a one-time password: callers keep it in memory only while their dialog is open. */
+export const accountsApi = {
+  suggest: (orgId: number | string) => call<{ password: string }>(`${membersBase(orgId)}/temp-password`),
+  create: (orgId: number | string, body: AccountBody) => call<AccountResult>(`${membersBase(orgId)}/account`, post(body)),
+  reset: (orgId: number | string, memberId: number, reason: string) => call<PasswordResetResult>(`${membersBase(orgId)}/${memberId}/reset-password`, post({ reason })),
+};
+
+/** The platform password rule (4 to 100 characters), mirrored so the button is not lit for a password the API will refuse. */
+export function passwordIssue(p: string): string | null {
+  if (p.length < 4) return "At least 4 characters.";
+  if (p.length > 100) return "At most 100 characters.";
+  return null;
+}

@@ -310,6 +310,7 @@ describe("the bulk bar", () => {
 describe("inviting", () => {
   async function fill(email: string) {
     const panel = screen.getByRole("complementary", { name: "Invite Employee" });
+    fireEvent.click(within(panel).getByRole("radio", { name: /Send invitation/ })); // the panel opens in "Create account now"; these tests are the invitation flow
     fireEvent.change(within(panel).getByLabelText(/Email Address/), { target: { value: email } });
     fireEvent.click(within(panel).getByRole("button", { name: /^Role/ }));
     fireEvent.click(await within(panel).findByRole("checkbox", { name: /Marketing Specialist/ }));
@@ -346,6 +347,7 @@ describe("inviting", () => {
     mount();
     await ready("Emily Carter");
     const panel = screen.getByRole("complementary", { name: "Invite Employee" });
+    fireEvent.click(within(panel).getByRole("radio", { name: /Send invitation/ })); // the invitation flow
     fireEvent.click(within(panel).getByRole("button", { name: /Send Invitation/ }));
     expect(await within(panel).findByText("Enter the person's email address.")).toBeTruthy();
     expect(within(panel).getByText("Pick at least one role.")).toBeTruthy();
@@ -381,6 +383,7 @@ describe("inviting", () => {
     mount();
     await ready("Emily Carter");
     const panel = screen.getByRole("complementary", { name: "Invite Employee" });
+    fireEvent.click(within(panel).getByRole("radio", { name: /Send invitation/ })); // the invitation flow
     await within(panel).findByText(/No departments yet/);
     fireEvent.change(within(panel).getByLabelText(/Email Address/), { target: { value: "a@acme.com" } });
     fireEvent.click(within(panel).getByRole("button", { name: /^Role/ }));

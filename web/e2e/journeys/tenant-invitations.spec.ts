@@ -55,12 +55,14 @@ test.describe("Sarah on Acme", () => {
     // send one
     email = `e2e.invite.${Date.now()}@example.com`;
     const panel = page.getByRole("complementary", { name: "Invite Employee" });
+    await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the panel opens in "Create account now"; this story is the invitation flow
     await panel.getByLabel(/Email Address/).fill(email);
     await panel.getByLabel(/Full Name/).fill("Eli Example");
     await panel.getByRole("button", { name: /^Role/ }).click();
     await panel.getByRole("checkbox", { name: /^Consultant/ }).check();
     const dept = panel.getByRole("button", { name: "Department" });
     if (await dept.isEnabled()) {
+      await dept.evaluate((el) => el.scrollIntoView({ block: "center" })); // the list opens under the trigger and closes on scroll
       await dept.click();
       await page.getByRole("option").first().click();
     }
@@ -106,11 +108,13 @@ test.describe("Sarah on Acme", () => {
     const pending0 = await kpi(page, "PENDING");
     const undoEmail = `e2e.undo.${Date.now()}@example.com`;
     const panel = page.getByRole("complementary", { name: "Invite Employee" });
+    await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the panel opens in "Create account now"; this story is the invitation flow
     await panel.getByLabel(/Email Address/).fill(undoEmail);
     await panel.getByRole("button", { name: /^Role/ }).click();
     await panel.getByRole("checkbox", { name: /^Consultant/ }).check();
     const dept = panel.getByRole("button", { name: "Department" });
     if (await dept.isEnabled()) {
+      await dept.evaluate((el) => el.scrollIntoView({ block: "center" })); // the list opens under the trigger and closes on scroll
       await dept.click();
       await page.getByRole("option").first().click();
     }
@@ -127,6 +131,7 @@ test.describe("Sarah on Acme", () => {
     await demoSignIn(page, acme, "Sarah Chen");
     await page.goto(`${acme}/w/admin/invitations`);
     const panel = page.getByRole("complementary", { name: "Invite Employee" });
+    await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the panel opens in "Create account now"; this story is the invitation flow
     await expect(panel).toBeVisible();
     await panel.getByLabel(/Email Address/).fill("not-an-email");
     await panel.getByRole("button", { name: /Send Invitation/ }).click();

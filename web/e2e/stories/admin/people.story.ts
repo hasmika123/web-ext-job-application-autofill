@@ -135,12 +135,14 @@ test("ADM-15 Org admin invites an employee, resends and revokes the invitation",
   const email = `story.invite.${Date.now()}@example.com`;
   await narrate(page, "Sarah fills in the Invite Employee panel");
   const panel = page.getByRole("complementary", { name: "Invite Employee" });
+  await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the panel opens in "Create account now"; this story is the invitation flow
   await panel.getByLabel(/Email Address/).fill(email);
   await panel.getByLabel(/Full Name/).fill("Eli Story");
   await panel.getByRole("button", { name: /^Role/ }).click();
   await panel.getByRole("checkbox", { name: /^Consultant/ }).check();
   const dept = panel.getByRole("button", { name: "Department" });
   if (await dept.isEnabled()) {
+    await dept.evaluate((el) => el.scrollIntoView({ block: "center" })); // the list opens under the trigger and closes on scroll
     await dept.click();
     await page.getByRole("option").first().click();
   }
@@ -179,6 +181,7 @@ test("ADM-16 An incomplete invitation is refused field by field and nothing is s
   const { page, go } = await as("sarah");
   await go("/w/admin/invitations");
   const panel = page.getByRole("complementary", { name: "Invite Employee" });
+  await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the panel opens in "Create account now"; this story is the invitation flow
   await expect(panel).toBeVisible();
   await narrate(page, "Sarah types something that is not an email");
   await panel.getByLabel(/Email Address/).fill("not-an-email");
@@ -195,12 +198,14 @@ test("ADM-17 Sending an invitation can be undone from the toast", async ({ as })
   const pending0 = await invKpi(page, "PENDING");
   const email = `story.undo.${stamp()}${Date.now()}@example.com`;
   const panel = page.getByRole("complementary", { name: "Invite Employee" });
+  await panel.getByRole("radio", { name: /Send invitation/ }).check({ force: true }); // the panel opens in "Create account now"; this story is the invitation flow
   await narrate(page, "Sarah sends an invitation");
   await panel.getByLabel(/Email Address/).fill(email);
   await panel.getByRole("button", { name: /^Role/ }).click();
   await panel.getByRole("checkbox", { name: /^Consultant/ }).check();
   const dept = panel.getByRole("button", { name: "Department" });
   if (await dept.isEnabled()) {
+    await dept.evaluate((el) => el.scrollIntoView({ block: "center" })); // the list opens under the trigger and closes on scroll
     await dept.click();
     await page.getByRole("option").first().click();
   }

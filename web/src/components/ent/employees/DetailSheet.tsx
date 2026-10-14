@@ -32,6 +32,10 @@ import {
   XIcon,
   ZapIcon,
 } from "@kiwiply/ui";
+import ReasonSheet from "@/components/admin-v3/common/ReasonSheet";
+import type { ReasonSpec } from "@/components/admin-v3/common/ReasonSheet";
+import TempPasswordDialog from "@/components/ent/shared/TempPasswordDialog";
+import { accountsApi } from "@/lib/ent/invitations";
 import { formatDate, joinedText, relativeTime, type GroupOption, type MemberDetail, type PatchBody, type PersonRef, type RoleOption } from "@/lib/ent/members";
 import AccessRolesTab from "./AccessRolesTab";
 import ActivityTab from "./ActivityTab";
@@ -273,14 +277,14 @@ function Overview({ detail, save, onSaved, groups, loadManagers, onCancelSchedul
   );
 }
 
-function QuickActions({ detail, onEdit, onRoles, onFlow }: { detail: MemberDetail; onEdit: () => void; onRoles: () => void; onFlow: DetailSheetProps["onFlow"] }) {
+function QuickActions({ detail, selfId, onEdit, onRoles, onFlow, onReset }: { detail: MemberDetail; selfId: number; onEdit: () => void; onRoles: () => void; onFlow: DetailSheetProps["onFlow"]; onReset: (d: MemberDetail) => void }) {
   const a = detail.actions;
   const left = detail.status === "LEFT" || detail.status === "REMOVED" || detail.status === "ERASED";
   const rows: { key: string; label: string; icon: ReactNode; run?: () => void; danger?: boolean; soon?: boolean }[] = [];
   if (a.edit && !left) rows.push({ key: "edit", label: "Edit Employee", icon: <PencilIcon size={18} />, run: onEdit });
   if (a.manageRoles && !left) rows.push({ key: "roles", label: "Manage Roles & Permissions", icon: <ShieldIcon size={18} />, run: onRoles });
-  // On the board; the API has no employee password reset yet (people reset their own password from the sign-in page), so it is drawn honestly disabled.
-  if (a.edit && !left) rows.push({ key: "reset", label: "Reset Password", icon: <KeyIcon size={18} />, soon: true });
+  // A new temporary password, only for a person who has not chosen their own yet (the API answers 409 otherwise) and never for yourself.
+  if (a.edit && !left && detail.status === "ACTIVE" && detail.id !== selfId) rows.push({ key: "reset", label: "Reset Password", icon: <KeyIcon size={18} />, run: () => onReset(detail) });
   if (a.suspend && detail.status === "ACTIVE") rows.push({ key: "suspend", label: "Suspend Employee", icon: <MinusCircleIcon size={18} />, run: () => onFlow("suspend", detail), danger: true });
   if (a.reinstate && detail.status === "SUSPENDED") rows.push({ key: "reinstate", label: "Reinstate Employee", icon: <RestoreIcon size={18} />, run: () => onFlow("reinstate", detail) });
   if (a.offboard && (detail.status === "ACTIVE" || detail.status === "SUSPENDED")) rows.push({ key: "offboard", label: "Delete Employee", icon: <TrashIcon size={18} />, run: () => onFlow("offboard", detail), danger: true });
@@ -332,6 +336,27 @@ export default function DetailSheet(p: DetailSheetProps) {
   useEffect(() => {
     if (focusTitle > 0 && p.tab === "overview") titleRef.current?.focus();
   }, [focusTitle, p.tab]);
+
+  const [resetSpec, setResetSpec] = useState<ReasonSpec | null>(null);
+  const [creds, setCreds] = useState<{ who: string; password: string; expiresAt: string } | null>(null);
+  function askReset(d: MemberDetail) {
+    setResetSpec({
+      title: `Reset ${d.name}'s password?`,
+      body: "Issues a new temporary password, shown once. The old one stops working and they must choose their own at the next sign-in. Only possible while they have not chosen their own yet.",
+      confirmLabel: "Reset password",
+      tone: "primary",
+      placeholder: "e.g. They never received the first password",
+      run: async (reason) => {
+        const r = await accountsApi.reset(p.orgId, d.id, reason);
+        if (!r.ok) {
+          const error = r.code === "PASSWORD_ALREADY_SET" ? "They have already chosen their own password. They can use Forgot password on the sign-in page." : r.message;
+          return { ok: false, status: r.status, code: r.code ?? null, error, extra: {} };
+        }
+        setCreds({ who: r.data.email, password: r.data.tempPassword, expiresAt: r.data.tempPasswordExpiresAt });
+        return { ok: true };
+      },
+    });
+  }
 
   const saveAndNote = async (b: PatchBody) => {
     const r = await save(b);
@@ -415,6 +440,8 @@ export default function DetailSheet(p: DetailSheetProps) {
         </Tabs>
         <QuickActions
           detail={d}
+          selfId={p.selfId}
+          onReset={askReset}
           onEdit={() => {
             p.onTab("overview");
             setFocusTitle((n) => n + 1);
@@ -423,6 +450,8 @@ export default function DetailSheet(p: DetailSheetProps) {
           onFlow={p.onFlow}
         />
         {p.footer}
+        <ReasonSheet spec={resetSpec} onClose={() => setResetSpec(null)} />
+        <TempPasswordDialog open={creds !== null} title="New temporary password" who={creds?.who ?? ""} password={creds?.password ?? null} expiresAt={creds?.expiresAt} onClose={() => setCreds(null)} />
       </div>
     );
   })();
