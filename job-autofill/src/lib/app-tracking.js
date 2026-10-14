@@ -112,7 +112,32 @@
     });
   }
 
+  // --- consultant: assigned-job link (WP5c) ---------------------------------
+  // The drawer tells the fill which assigned job (if any) this page is. Only two positive integers
+  // are kept — anything else from a message is dropped, so a malformed ref can never reach a URL.
+  function opportunityRef(o) {
+    if (!o || typeof o !== "object") return null;
+    const orgId = Number(o.orgId), id = Number(o.id);
+    return Number.isInteger(orgId) && orgId > 0 && Number.isInteger(id) && id > 0 ? { orgId, id } : null;
+  }
+
+  // After the user's OWN submit was confirmed on their OWN application, tell the org that the
+  // assigned job was applied to. Strictly best-effort: the user's flow has already succeeded, so a
+  // failure here is swallowed (the server linker is the fallback). Returns true when linked.
+  async function linkOpportunityAfterSubmit(provider, entry) {
+    const ref = opportunityRef(entry && entry.opportunity);
+    if (!ref || !provider || typeof provider.linkOpportunity !== "function") return false;
+    try {
+      await provider.linkOpportunity(ref.orgId, ref.id, entry.serverId != null ? { applicationId: entry.serverId } : {});
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   JAF.appTracking = {
+    opportunityRef,
+    linkOpportunityAfterSubmit,
     isSuccessUrl,
     hasSuccessSignal,
     buildApplication,

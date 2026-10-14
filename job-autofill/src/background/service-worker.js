@@ -650,7 +650,7 @@ function aiLimitMessage(r) {
   return `Monthly AI limit reached (${r.used}/${r.quota}).`;
 }
 
-async function logFill(capture, resume, tabId) {
+async function logFill(capture, resume, tabId, opportunity) {
   const provider = await trackingProvider();
   if (!provider) return; // not configured / not signed in
   capture = await enrichCapture(capture); // opt-in gap-fill; no-op unless enabled
@@ -659,6 +659,10 @@ async function logFill(capture, resume, tabId) {
   if (saved && saved.serverId != null && tabId != null) {
     const pend = await pendGet();
     pend[tabId] = { serverId: saved.serverId, externalJobId: saved.externalJobId || null, jobUrl: saved.jobUrl || null, ts: Date.now() };
+    // WP5c: the consultant filled an ASSIGNED job from the drawer — remember which one, so the
+    // confirmed submit can report it. Only {orgId,id}; sanitised, never the page's own data.
+    const ref = self.JAF.appTracking.opportunityRef(opportunity);
+    if (ref) pend[tabId].opportunity = ref;
     await sSet(PENDING_KEY, pend);
   }
 }
@@ -687,6 +691,8 @@ async function confirmForTab(tabId) {
   track("application_submitted", {});
   delete pend[tabId];
   await sSet(PENDING_KEY, pend);
+  // WP5c: best-effort — never affects the user's own flow, which has already succeeded above.
+  try { await self.JAF.appTracking.linkOpportunityAfterSubmit(provider, p); } catch (e) { /* the server linker is the fallback */ }
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -694,7 +700,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   const tabId = sender && sender.tab ? sender.tab.id : null;
   if (msg.type === "JAF_LOG_FILL") {
     track("autofill", { ats: (msg.capture && msg.capture.atsPlatform) || "unknown" });
-    logFill(msg.capture, msg.resume, tabId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    logFill(msg.capture, msg.resume, tabId, msg.opportunity).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
     return true; // async
   }
   if (msg.type === "JAF_SUBMIT_DETECTED") {

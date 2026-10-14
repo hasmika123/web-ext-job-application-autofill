@@ -176,7 +176,9 @@
       try {
         if (JAF.jobCapture && typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
           const capture = JAF.jobCapture.captureJob();
-          chrome.runtime.sendMessage({ type: "JAF_LOG_FILL", capture, resume: opts.resume || null });
+          // `opportunity` ({orgId,id}) is set by the drawer only when the consultant is filling the
+          // assigned job this page matched; the service worker links it after the confirmed submit.
+          chrome.runtime.sendMessage({ type: "JAF_LOG_FILL", capture, resume: opts.resume || null, opportunity: opts.opportunity || null });
           if (JAF.submitDetect) JAF.submitDetect.arm();
         }
       } catch (e) {}
