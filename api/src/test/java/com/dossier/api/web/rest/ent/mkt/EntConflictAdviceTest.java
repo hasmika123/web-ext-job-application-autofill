@@ -80,6 +80,6 @@ class EntConflictAdviceTest {
     @Test
     void theAdviceIsLimitedToTheMktAndConPackages() {
         org.springframework.web.bind.annotation.RestControllerAdvice a = EntConflictAdvice.class.getAnnotation(org.springframework.web.bind.annotation.RestControllerAdvice.class);
-        org.assertj.core.api.Assertions.assertThat(a.basePackages()).containsExactlyInAnyOrder("com.dossier.api.web.rest.ent.mkt", "com.dossier.api.web.rest.ent.con");
+        org.assertj.core.api.Assertions.assertThat(a.basePackages()).containsExactlyInAnyOrder("com.dossier.api.web.rest.ent.mkt", "com.dossier.api.web.rest.ent.consultant");
     }
 }

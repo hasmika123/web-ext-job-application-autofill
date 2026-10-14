@@ -23,11 +23,11 @@ import org.springframework.web.context.request.NativeWebRequest;
  *   <li>{@link ObjectOptimisticLockingFailureException} ({@code @Version}) to 409 {@code VERSION_CONFLICT}.</li>
  * </ul>
  *
- * Limited to the {@code mkt} and {@code con} controllers so the rest of the API keeps its existing error mapping. Services never rely on this alone:
+ * Limited to the {@code mkt} and {@code consultant} controllers so the rest of the API keeps its existing error mapping. Services never rely on this alone:
  * they find-or-create with a re-read ({@code JobIdentityService}, {@code OpportunityAssignmentService}); this only catches what slips through.
  * The body is the usual problem document, produced by {@link ExceptionTranslator} from an {@link OrgException}, so clients branch on {@code code}.
  */
-@RestControllerAdvice(basePackages = { "com.dossier.api.web.rest.ent.mkt", "com.dossier.api.web.rest.ent.con" })
+@RestControllerAdvice(basePackages = { "com.dossier.api.web.rest.ent.mkt", "com.dossier.api.web.rest.ent.consultant" })
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class EntConflictAdvice {
 
