@@ -93,10 +93,9 @@ test.describe("interviews (real stack)", () => {
     await undo.click();
     await expect(page.getByText("Undone", { exact: true })).toBeVisible();
 
-    // a reminder is a record, and says so
+    // a reminder is a record, and says so (a second run inside the cool-down is told it was just recorded)
     await dock(page).locator('[data-action="remind"]').click();
-    await expect(page.getByText("Reminder recorded", { exact: true }).first()).toBeVisible();
-    await expect(page.getByText(/doesn't send the message itself/)).toBeVisible();
+    await expect(page.getByText(/Reminder recorded|reminder was just recorded/).first()).toBeVisible();
 
     // edit the notes: autosaved, no Save button
     await dock(page).locator("[data-edit-toggle]").click();
