@@ -166,7 +166,12 @@ export async function loadData(): Promise<HomeData> {
 
 export type FillResult = { ok: true; adapter: string } | { ok: false; error: string };
 
-export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Promise<FillResult> {
+export async function fillPage(
+  resume: any,
+  bio: any,
+  autoAdvance: boolean,
+  opportunity?: { orgId: number; id: number } | null,
+): Promise<FillResult> {
   const S = JAF().storage;
   const SCH = JAF().schema;
   const settings = await S.getSettings();
@@ -201,7 +206,7 @@ export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Pro
   const resumeRef = { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label };
   const resp = await sendTo(
     tab.id,
-    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef, salary } },
+    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef, salary, opportunity: opportunity || null } },
     frameId,
   );
   if (resp && resp.ok) return { ok: true, adapter: resp.adapter };

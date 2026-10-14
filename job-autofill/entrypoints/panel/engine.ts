@@ -9,6 +9,7 @@ import "../../src/lib/schema.js";
 import "../../src/lib/tracking.js";
 import "../../src/lib/sync.js";
 import "../../src/lib/app-tracking.js";
+import "../../src/lib/workspace.js"; // org workspaces: marketer trim/save + consultant matching (WP5)
 import "../../src/lib/parser-core.js";
 import "../../src/lib/parser.js";
 // The drawer syncs the learned-answer cache to the server (home-actions.refreshMirror),
