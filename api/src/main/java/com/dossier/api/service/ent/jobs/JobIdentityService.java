@@ -2,12 +2,14 @@ package com.dossier.api.service.ent.jobs;
 
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
+import com.dossier.api.domain.ent.talent.JobDataEvent;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.service.org.OrgException;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -77,6 +79,22 @@ public class JobIdentityService {
         String externalJobId,
         Supplier<ClientRequirement> factory
     ) {
+        return findOrCreateRequirement(scope, urlKeyHash, atsPlatform, externalJobId, factory, null);
+    }
+
+    /**
+     * {@link #findOrCreateRequirement(AssignmentScope, String, String, String, Supplier)} that also appends a ledger row when this call creates the
+     * job: {@code ledgerRow} builds it from the saved job and it is written in the job's own insert transaction, so the job and its {@code CAPTURED}
+     * event are one commit. A job that already existed (found, or won by another request) gets no row from here.
+     */
+    public Found<ClientRequirement> findOrCreateRequirement(
+        AssignmentScope scope,
+        String urlKeyHash,
+        String atsPlatform,
+        String externalJobId,
+        Supplier<ClientRequirement> factory,
+        Function<ClientRequirement, JobDataEvent> ledgerRow
+    ) {
         Long orgId = scope.orgId();
         boolean byUrl = urlKeyHash != null && !urlKeyHash.isBlank();
         boolean byExt = atsPlatform != null && !atsPlatform.isBlank() && externalJobId != null && !externalJobId.isBlank();
@@ -87,7 +105,8 @@ public class JobIdentityService {
         ClientRequirement fresh = factory.get();
         fresh.setOrgId(orgId);
         try {
-            tx.insertRequirement(fresh);
+            if (ledgerRow == null) tx.insertRequirement(fresh);
+            else tx.insertRequirement(fresh, ledgerRow);
             return new Found<>(fresh, false);
         } catch (DataIntegrityViolationException lost) {
             Optional<ClientRequirement> winner = Optional.empty();
