@@ -97,11 +97,11 @@ describe("catch-all: a menu page that is not built yet", () => {
     expect(html).toContain("data-coming-soon");
     expect(html).toContain("This page is on the way");
   });
-  it("the Admin workspace home is the Organization Dashboard (X2.17); another workspace home stays \"on the way\"", async () => {
+  it("the Admin workspace home is the Organization Dashboard (X2.17); the Marketing home is built (no longer \"on the way\")", async () => {
     state.session = ok("owner@acme.com");
     expect(await catchAll("admin")).toContain("data-dashboard");
     state.session = ok("marketer@acme.com");
-    expect(await catchAll("marketing")).toContain("data-coming-soon");
+    expect(await catchAll("marketing")).not.toContain("data-coming-soon");
   });
   it("a page that is not in the member's menu is 'not part of your role'", async () => {
     state.session = ok("marketer@acme.com");
