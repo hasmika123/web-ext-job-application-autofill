@@ -16,6 +16,7 @@ const SARAH = { memberId: 103, name: "Sarah Singh" };
 const job = (id, title, company, location, workMode, employmentType, payLabel, jobUrl, atsPlatform, externalJobId, skills, postedDaysAgo) => ({
   id, title, company, location, workMode, employmentType, payLabel, jobUrl, atsPlatform, externalJobId,
   postedOn: new Date(Date.now() - postedDaysAgo * DAY).toISOString().slice(0, 10), skills,
+  detailLevel: "MINIMAL",
 });
 
 const seed = () => [

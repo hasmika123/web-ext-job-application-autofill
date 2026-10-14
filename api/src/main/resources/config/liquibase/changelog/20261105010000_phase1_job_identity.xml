@@ -141,4 +141,79 @@
         <createIndex tableName="pipeline_application_link" indexName="ix_pal_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
         <rollback/>
     </changeSet>
+
+    <!--
+        Repair sets for changeSet 11 above. Set 11 is one non-transactional changeSet guarded only by tableExists: if it stopped half-way (MySQL
+        DDL cannot roll back) the table exists, set 11 is then MARK_RAN on the next start, and the missing live_key column, foreign keys, unique key
+        or indexes would never be created. Set 11 is left byte-for-byte as it was (its checksum is already recorded on databases that ran it); each
+        piece below is guarded on its own, so it is a no-op on a database where set 11 completed and finishes the job where it did not.
+    -->
+    <changeSet id="phase1-job-identity-12-pipeline_application_link_live_key" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="pipeline_application_link"/>
+            <not><columnExists tableName="pipeline_application_link" columnName="live_key"/></not>
+        </preConditions>
+        <sql dbms="mysql">
+            ALTER TABLE pipeline_application_link ADD COLUMN live_key BIGINT
+                GENERATED ALWAYS AS (IF(unlinked_at IS NULL, opportunity_id, NULL)) STORED
+        </sql>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-13-pipeline_application_link_fk_org" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="pipeline_application_link"/>
+            <not><foreignKeyConstraintExists foreignKeyTableName="pipeline_application_link" foreignKeyName="fk_pal_org"/></not>
+        </preConditions>
+        <addForeignKeyConstraint baseTableName="pipeline_application_link" baseColumnNames="org_id" constraintName="fk_pal_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-14-pipeline_application_link_fk_opportunity" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="pipeline_application_link"/>
+            <not><foreignKeyConstraintExists foreignKeyTableName="pipeline_application_link" foreignKeyName="fk_pal_opportunity"/></not>
+        </preConditions>
+        <addForeignKeyConstraint baseTableName="pipeline_application_link" baseColumnNames="org_id, opportunity_id" constraintName="fk_pal_opportunity" referencedTableName="mkt_opportunity" referencedColumnNames="org_id, id"/>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-15-pipeline_application_link_fk_consultant" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="pipeline_application_link"/>
+            <not><foreignKeyConstraintExists foreignKeyTableName="pipeline_application_link" foreignKeyName="fk_pal_consultant"/></not>
+        </preConditions>
+        <addForeignKeyConstraint baseTableName="pipeline_application_link" baseColumnNames="org_id, consultant_id" constraintName="fk_pal_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-16-pipeline_application_link_fk_talent_application" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="pipeline_application_link"/>
+            <not><foreignKeyConstraintExists foreignKeyTableName="pipeline_application_link" foreignKeyName="fk_pal_talent_application"/></not>
+        </preConditions>
+        <addForeignKeyConstraint baseTableName="pipeline_application_link" baseColumnNames="org_id, talent_application_id" constraintName="fk_pal_talent_application" referencedTableName="talent_application" referencedColumnNames="org_id, id"/>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-17-pipeline_application_link_uk_live" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="pipeline_application_link"/>
+            <columnExists tableName="pipeline_application_link" columnName="live_key"/>
+            <not><indexExists tableName="pipeline_application_link" indexName="uk_pal_live"/></not>
+        </preConditions>
+        <addUniqueConstraint tableName="pipeline_application_link" columnNames="org_id, live_key" constraintName="uk_pal_live"/>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-18-pipeline_application_link_ix_personal" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="pipeline_application_link"/>
+            <not><indexExists tableName="pipeline_application_link" indexName="ix_pal_personal"/></not>
+        </preConditions>
+        <createIndex tableName="pipeline_application_link" indexName="ix_pal_personal"><column name="org_id"/><column name="personal_application_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+    <changeSet id="phase1-job-identity-19-pipeline_application_link_ix_consultant" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="pipeline_application_link"/>
+            <not><indexExists tableName="pipeline_application_link" indexName="ix_pal_consultant"/></not>
+        </preConditions>
+        <createIndex tableName="pipeline_application_link" indexName="ix_pal_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>

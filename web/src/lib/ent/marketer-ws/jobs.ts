@@ -47,7 +47,14 @@ export interface JobsView {
 }
 
 export interface MatchRow { consultantId: number; name: string; score: number; status: string }
-export interface JobDetail { job: JobRow; description: string | null; employment: string | null; duration: string | null; experienceLevel: string | null; matches: MatchRow[] }
+export interface JobDetail {
+  job: JobRow;
+  /** The posting's text: present only when the job is shown at the FULL level. */
+  description: string | null;
+  /** The marketer's own summary of the job (always theirs to read). */
+  summaryNote: string | null;
+  employment: string | null; duration: string | null; experienceLevel: string | null; matches: MatchRow[];
+}
 export interface Candidate { consultantId: number; name: string; title: string | null; availability: string | null; score: number | null; matchStatus: string | null }
 export interface AssignResult { matchId: number; requirementId: number; consultantId: number; status: string; score: number; created: boolean }
 
@@ -122,7 +129,7 @@ export function parseJobs(raw: unknown): JobsView | null {
 export function parseDetail(raw: unknown): JobDetail | null {
   if (!isObj(raw) || !isObj(raw.job)) return null;
   return {
-    job: parseJob(raw.job), description: strOrNull(raw.description), employment: strOrNull(raw.employment), duration: strOrNull(raw.duration), experienceLevel: strOrNull(raw.experienceLevel),
+    job: parseJob(raw.job), description: strOrNull(raw.description), summaryNote: strOrNull(raw.summaryNote), employment: strOrNull(raw.employment), duration: strOrNull(raw.duration), experienceLevel: strOrNull(raw.experienceLevel),
     matches: arr(raw.matches).map((m) => ({ consultantId: num(m.consultantId), name: str(m.name), score: num(m.score), status: str(m.status) })),
   };
 }

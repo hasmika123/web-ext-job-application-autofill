@@ -76,7 +76,7 @@ class Phase1JobIdentityIT {
     @Test
     void everyChangeSetOfTheFileRan() {
         Long ran = jdbc.queryForObject("select count(*) from DATABASECHANGELOG where id like 'phase1-job-identity-%'", Long.class);
-        assertThat(ran).isEqualTo(11L);
+        assertThat(ran).isEqualTo(19L); // 11 original sets + 8 guarded repair sets (12 to 19) for the pieces of the link table
     }
 
     @Test

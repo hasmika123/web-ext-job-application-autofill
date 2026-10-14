@@ -53,6 +53,12 @@ public class OpportunityAssignmentService {
     public static final String CONSULTANT_INACTIVE = "CONSULTANT_INACTIVE";
     public static final String EVENT_ASSIGNED = "ASSIGNED";
     public static final String EVENT_REASSIGNED = "REASSIGNED";
+    public static final String EVENT_CLOSED = "CLOSED";
+    /** {@code mkt_opportunity.closed_reason}: the job was closed or filled / the marketer took the assignment back. */
+    public static final String CLOSED_JOB = "JOB_CLOSED";
+    public static final String CLOSED_WITHDRAWN = "WITHDRAWN";
+    /** The states a close may end: the consultant has neither said no (DECLINED is theirs) nor applied (APPLIED is a fact) nor is it closed already. */
+    public static final Set<String> CLOSABLE = Set.of("ASSIGNED", "VIEWED", "INTERESTED", "NEEDS_INFO");
     private static final Duration ASK_FOLLOW_UP = Duration.ofDays(3);
 
     /** The audit row to write when something changed. {@code targetId} null = the match id; {@code details} null = a short default. */
@@ -192,14 +198,40 @@ public class OpportunityAssignmentService {
 
     // ---- assign ------------------------------------------------------------------------------------------------------------------
 
-    /** Put the job in front of the consultant: see the class comment for the gates and the pair rules. */
+    /**
+     * Put the job in front of the consultant: see the class comment for the gates and the pair rules.
+     *
+     * <p>The job is looked up with a plain read and, when that misses, with a fresh-snapshot read ({@link JobIdentityTx#readRequirement}): a job
+     * another transaction committed after this one's snapshot (MySQL REPEATABLE READ) is invisible to the plain read. It is deliberately NOT a
+     * locking read: the match insert runs in a transaction of its own and its foreign key to the job would wait on this transaction's lock.
+     * A caller that has just created the job passes the entity itself ({@link #assign(AssignmentScope, OrgMembership, ClientRequirement, Long, Options)}).
+     */
     @Transactional(noRollbackFor = OrgException.class)
     public Result assign(AssignmentScope scope, OrgMembership me, Long jobId, Long consultantId, Options options) {
         Long orgId = orgOf(scope, me);
-        Options o = options == null ? Options.none() : options;
         if (jobId == null || consultantId == null) throw OrgException.coded(400, "VALIDATION", "Choose a consultant and a job.", Map.of());
         if (!scope.sees(consultantId)) throw new OrgNotFoundException();
-        ClientRequirement job = requirements.findByOrgIdAndId(orgId, jobId).orElseThrow(OrgNotFoundException::new);
+        ClientRequirement job = requirements.findByOrgIdAndId(orgId, jobId).or(() -> tx.readRequirement(orgId, jobId)).orElseThrow(OrgNotFoundException::new);
+        return assignChecked(scope, me, job, consultantId, options);
+    }
+
+    /**
+     * {@link #assign(AssignmentScope, OrgMembership, Long, Long, Options)} for a job the caller already holds (it created or found it in this very
+     * request): nothing is re-read, so a job committed by a nested transaction after this one's snapshot is not lost.
+     */
+    @Transactional(noRollbackFor = OrgException.class)
+    public Result assign(AssignmentScope scope, OrgMembership me, ClientRequirement job, Long consultantId, Options options) {
+        Long orgId = orgOf(scope, me);
+        if (job == null || job.getId() == null || consultantId == null) throw OrgException.coded(400, "VALIDATION", "Choose a consultant and a job.", Map.of());
+        if (!scope.sees(consultantId)) throw new OrgNotFoundException();
+        if (!orgId.equals(job.getOrgId())) throw new OrgNotFoundException();
+        return assignChecked(scope, me, job, consultantId, options);
+    }
+
+    private Result assignChecked(AssignmentScope scope, OrgMembership me, ClientRequirement job, Long consultantId, Options options) {
+        Long orgId = scope.orgId();
+        Long jobId = job.getId();
+        Options o = options == null ? Options.none() : options;
         ConsultantProfile consultant = consultants.findByOrgIdAndId(orgId, consultantId).orElseThrow(OrgNotFoundException::new);
         if (!OPEN_JOB.contains(job.getStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open.", Map.of());
         if (!"ACTIVE".equals(consultant.getStatus()) || !"ACTIVE".equals(consultant.getMarketingStatus())) return Result.refused(jobId, consultantId, CONSULTANT_INACTIVE);
@@ -228,7 +260,8 @@ public class OpportunityAssignmentService {
             fresh.setAssignedAt(now);
             fresh.setCreatedAt(now);
             try {
-                matchId = tx.insertMatch(fresh);
+                // the ASSIGNED ledger row is written INSIDE the insert's own transaction: a match that exists always has its ledger row
+                matchId = tx.insertMatch(fresh, ledger == null ? null : saved -> ledger.assigned(orgId, jobId, me.memberId(), consultantId, false));
                 matchInserted = true;
             } catch (DataIntegrityViolationException lost) {
                 matchId = tx.readMatchId(orgId, jobId, consultantId).orElseThrow(() -> lost);
@@ -240,11 +273,21 @@ public class OpportunityAssignmentService {
         // ---- the opportunity overlay: inserted BEFORE this transaction updates or locks the match row (the insert's foreign key to the match
         // would otherwise wait on this transaction's own lock, because it runs in a transaction of its own)
         boolean oppInserted = false;
+        boolean eventInInsert = false; // the ASSIGNED / REASSIGNED event was written by the overlay's own insert transaction
         MktOpportunity opp = opportunities.findByOrgIdAndMatchId(orgId, matchId).orElse(null);
         Long oppId;
         if (opp == null) {
+            // A new overlay for a pair that is being assigned now gets its event in the same transaction as the insert, so an overlay never exists without it.
+            boolean assigningNow = matchInserted || (match != null && !"ASSIGNED".equals(match.getStatus()));
+            boolean again = match != null && "DISMISSED".equals(match.getStatus());
             try {
-                oppId = tx.insertOpportunity(newOpportunity(orgId, matchId, owner, now, o));
+                oppId = tx.insertOpportunity(
+                    newOpportunity(orgId, matchId, owner, now, o),
+                    assigningNow
+                        ? saved -> record(saved, again ? EVENT_REASSIGNED : EVENT_ASSIGNED, me.memberId(), again ? "was assigned to this opportunity again" : "was assigned to this opportunity", now)
+                        : null
+                );
+                eventInInsert = assigningNow;
                 oppInserted = true;
             } catch (DataIntegrityViolationException lost) {
                 oppId = tx.readOpportunityId(orgId, matchId).orElseThrow(() -> lost);
@@ -282,9 +325,10 @@ public class OpportunityAssignmentService {
         if (existing) return result;
 
         boolean again = reopened || fromDismissed;
-        record(opp, again ? EVENT_REASSIGNED : EVENT_ASSIGNED, me.memberId(), again ? "was assigned to this opportunity again" : "was assigned to this opportunity", now);
-        // The job's data ledger, in this same transaction (docs/enterprise-v2/61 section 3): written exactly when the assignment changed.
-        if (ledger != null) ledger.assigned(orgId, jobId, me.memberId(), consultantId, again);
+        if (!eventInInsert) record(opp, again ? EVENT_REASSIGNED : EVENT_ASSIGNED, me.memberId(), again ? "was assigned to this opportunity again" : "was assigned to this opportunity", now);
+        // The job's data ledger (docs/enterprise-v2/61 section 3): written exactly when the assignment changed. A created match already has its row
+        // (written by the match insert); every other change writes it here, in this transaction.
+        if (ledger != null && !matchInserted) ledger.assigned(orgId, jobId, me.memberId(), consultantId, again);
         if (o.askInterest()) {
             opp.setInterestRequestedAt(now);
             opp.setNextActionAt(now.plus(ASK_FOLLOW_UP));
@@ -366,6 +410,56 @@ public class OpportunityAssignmentService {
         RequirementMatch match = matches.findByOrgIdAndId(orgId, matchId).orElseThrow(OrgNotFoundException::new);
         if (!scope.sees(match.getConsultantId())) throw new OrgNotFoundException();
         return ensureOpportunityFor(orgId, matchId, ownerMemberId, clock.instant());
+    }
+
+    // ---- closing ---------------------------------------------------------------------------------------------------------------
+
+    /**
+     * The job was closed or filled: every opportunity of it that is still open for the consultant ({@link #CLOSABLE}) becomes CLOSED with reason
+     * {@link #CLOSED_JOB}, one {@code mkt_opportunity_event} and one audit row each, in the caller's transaction. DECLINED and APPLIED opportunities are
+     * left as the consultant made them. Call it from the code that sets the job's status to CLOSED or FILLED; today nothing in the application does (there
+     * is no job-status editor yet), so this has no caller until that screen exists.
+     *
+     * @return the number of opportunities closed
+     */
+    @Transactional(noRollbackFor = OrgException.class)
+    public int closeForJob(AssignmentScope scope, OrgMembership me, Long jobId) {
+        Long orgId = orgOf(scope, me);
+        if (jobId == null) throw OrgException.coded(400, "VALIDATION", "Choose a job.", Map.of());
+        Instant now = clock.instant();
+        int closed = 0;
+        for (MktOpportunity opp : opportunities.lockByRequirementAndStates(orgId, jobId, CLOSABLE)) {
+            close(me, opp, CLOSED_JOB, "closed: the job is no longer open", now);
+            closed++;
+        }
+        return closed;
+    }
+
+    /**
+     * The marketer takes an assignment back: the opportunity becomes CLOSED with reason {@link #CLOSED_WITHDRAWN}. 404 outside the caller's scope;
+     * 409 {@code ILLEGAL_TRANSITION} when the consultant already declined or applied or it is closed (nothing to withdraw). The match stays ASSIGNED, so a
+     * later assign of the same pair reopens these rows. There is no HTTP route for it yet (the Opportunities board has no withdraw action).
+     */
+    @Transactional(noRollbackFor = OrgException.class)
+    public void withdraw(AssignmentScope scope, OrgMembership me, Long opportunityId) {
+        Long orgId = orgOf(scope, me);
+        MktOpportunity opp = opportunities.lockByOrgIdAndId(orgId, opportunityId == null ? -1L : opportunityId).orElseThrow(OrgNotFoundException::new);
+        RequirementMatch match = matches.findByOrgIdAndId(orgId, opp.getMatchId()).orElseThrow(OrgNotFoundException::new);
+        if (!scope.sees(match.getConsultantId())) throw new OrgNotFoundException();
+        if (!CLOSABLE.contains(opp.getState())) {
+            throw OrgException.coded(409, "ILLEGAL_TRANSITION", "That is not possible from the opportunity's current state.", Map.of("state", opp.getState(), "target", "CLOSED"));
+        }
+        close(me, opp, CLOSED_WITHDRAWN, "was withdrawn by the marketer", clock.instant());
+    }
+
+    private void close(OrgMembership me, MktOpportunity opp, String reason, String eventText, Instant now) {
+        opp.setState("CLOSED");
+        opp.setClosedAt(now);
+        opp.setClosedReason(reason);
+        opp.setUpdatedAt(now);
+        opportunities.save(opp);
+        record(opp, EVENT_CLOSED, me.memberId(), eventText, now);
+        audit.record(me, "OPPORTUNITY_CLOSED", "OPPORTUNITY", null, String.valueOf(opp.getId()), reason);
     }
 
     // ---- internals ---------------------------------------------------------------------------------------------------------------

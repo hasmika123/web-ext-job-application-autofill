@@ -272,6 +272,7 @@ export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign
         {error ? <p role="alert" className="text-[13px] text-v2-pink-ink">{error}</p> : null}
         {!detail && !error ? <p aria-busy="true" className="flex items-center gap-2 text-[13px] text-muted"><Spinner /> Loading the job...</p> : null}
         {detail?.description ? <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-ink-soft">{detail.description}</p> : null}
+        {detail?.summaryNote && !detail.description ? <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-ink-soft">{detail.summaryNote}</p> : null}
         {detail ? (
           <section aria-label="Best matches">
             <h3 className="mb-2 text-[14px] font-bold text-ink">Best matches among your consultants</h3>

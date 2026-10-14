@@ -168,25 +168,33 @@ public class MktFromExtensionService {
         UrlKeys.Key key = UrlKeys.of(c.jobUrl(), c.externalJobId());
         if (key == null) throw MktFromExtensionDTO.invalid("jobUrl", "enter the link of the job posting");
 
-        Found<ClientAccount> client = identity.findOrCreateClient(view, c.company(), () -> newClient(me, now));
-        Found<ClientRequirement> job = identity.findOrCreateRequirement(
-            view,
-            key.hash(),
-            c.atsPlatform(),
-            c.externalJobId(),
-            () -> newJob(me, c, client.value().getId(), key, now),
-            created -> ledger.capturedEvent(created, me.memberId(), requestId, capturedFields(c))
-        );
+        // The job first: a job that is already stored needs no employer row (none is created for a request that ends in JOB_NOT_OPEN), and a closed
+        // one is refused before anything is written.
+        Found<ClientRequirement> job = identity
+            .findRequirement(view, key.hash(), c.atsPlatform(), c.externalJobId())
+            .map(found -> new Found<>(found, true))
+            .orElse(null);
+        if (job == null) {
+            Found<ClientAccount> client = identity.findOrCreateClient(view, c.company(), () -> newClient(me, now));
+            job = identity.findOrCreateRequirement(
+                view,
+                key.hash(),
+                c.atsPlatform(),
+                c.externalJobId(),
+                () -> newJob(me, c, client.value().getId(), key, now),
+                created -> ledger.capturedEvent(created, me.memberId(), requestId, capturedFields(c)),
+                created -> saveSkills(created, c.skills()) // in the job's own insert transaction: job, CAPTURED row and skills commit together
+            );
+        }
         ClientRequirement j = job.value();
         if (job.existing() && !OpportunityAssignmentService.OPEN_JOB.contains(j.getStatus())) {
             throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open.", Map.of());
         }
-        if (!job.existing()) saveSkills(j, c.skills());
 
         List<ConsultantResult> results = new ArrayList<>();
         int assigned = 0;
         for (Long consultantId : c.consultantIds()) {
-            ConsultantResult r = assignOne(view, me, j.getId(), consultantId, c);
+            ConsultantResult r = assignOne(view, me, j, consultantId, c);
             if (r.reason() == null && !r.existing()) assigned++;
             results.add(r);
         }
@@ -201,13 +209,13 @@ public class MktFromExtensionService {
         return new Response(j.getId(), job.existing(), List.copyOf(results));
     }
 
-    private ConsultantResult assignOne(MktScope.View view, OrgMembership me, Long jobId, Long consultantId, Clean c) {
+    private ConsultantResult assignOne(MktScope.View view, OrgMembership me, ClientRequirement job, Long consultantId, Clean c) {
         if (!view.sees(consultantId)) return new ConsultantResult(consultantId, null, false, REASON_NOT_IN_SCOPE);
         OpportunityAssignmentService.Options options = OpportunityAssignmentService.Options.none()
             .withNewMatch(null, "Saved by a marketer from the browser extension", "MANUAL")
             .withOpportunity(c.keyInfo(), c.priority(), c.dueOn());
         try {
-            OpportunityAssignmentService.Result r = assignment.assign(view, me, jobId, consultantId, options);
+            OpportunityAssignmentService.Result r = assignment.assign(view, me, job, consultantId, options); // the entity, not its id: a job created in this request is invisible to a plain re-read
             if (r.refused()) return new ConsultantResult(consultantId, null, false, r.reason());
             return new ConsultantResult(consultantId, r.opportunityId(), r.existing(), null);
         } catch (OrgNotFoundException gone) {

@@ -50,7 +50,7 @@ class ConOpportunitiesResourceTest {
     static ConOpportunityDTO dto(String state) {
         return new ConOpportunityDTO(
             5L, state,
-            new ConOpportunityDTO.Job(101L, "Java Developer", "Acme", "Austin, TX", "REMOTE", "CONTRACT", "$70-80/hr", "https://boards.greenhouse.io/acme/jobs/1", "greenhouse", "1", null, List.of("Java")),
+            new ConOpportunityDTO.Job(101L, "Java Developer", "Acme", "Austin, TX", "REMOTE", "CONTRACT", "$70-80/hr", "https://boards.greenhouse.io/acme/jobs/1", "greenhouse", "1", null, List.of("Java"), "MINIMAL"),
             "note", new ConOpportunityDTO.AssignedBy(9L, "Sarah"), Instant.parse("2026-10-13T10:00:00Z"), "MEDIUM", null, null, null, null, null, List.of("VIEWED"), 2
         );
     }
@@ -139,6 +139,21 @@ class ConOpportunitiesResourceTest {
         mvc.perform(post("/api/orgs/1/con/opportunities/5/applied").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, me)).andExpect(status().isOk());
         verify(service).link(me, 5L, 55L, null);
         verify(service).applied(me, 5L, null, null);
+    }
+
+    @Test
+    void theIdempotencyRequestCoversTheRouteTheApplicationAndTheIfMatchVersion() throws Exception {
+        when(service.applied(any(), any(), any(), any())).thenReturn(dto("APPLIED"));
+        org.mockito.ArgumentCaptor<Object> request = org.mockito.ArgumentCaptor.forClass(Object.class);
+        org.mockito.ArgumentCaptor<String> path = org.mockito.ArgumentCaptor.forClass(String.class);
+        for (String version : new String[] { "3", "4" }) {
+            mvc.perform(post("/api/orgs/1/con/opportunities/5/applied").header("Idempotency-Key", "11111111-2222-3333-4444-555555555555").header("If-Match", version)
+                .content("{\"applicationId\":55}").contentType(MediaType.APPLICATION_JSON).requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, me)).andExpect(status().isOk());
+        }
+        verify(idempotency, org.mockito.Mockito.times(2)).execute(eq(me), anyString(), eq(false), eq("POST"), path.capture(), request.capture(), eq(200), eq(ConOpportunityDTO.class), any());
+        org.assertj.core.api.Assertions.assertThat(request.getAllValues().get(0)).as("another If-Match is another request, so the ledger answers 422 instead of replaying").isNotEqualTo(request.getAllValues().get(1));
+        org.assertj.core.api.Assertions.assertThat(request.getAllValues().get(0).toString()).contains("55").contains("3");
+        org.assertj.core.api.Assertions.assertThat(path.getAllValues().get(0)).isEqualTo("/api/orgs/1/con/opportunities/5/applied");
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

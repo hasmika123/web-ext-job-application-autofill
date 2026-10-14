@@ -17,6 +17,7 @@ import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
 import com.dossier.api.repository.ent.mkt.MktPipelineApplicationLinkRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.service.ent.jobs.JobDetailCap;
 import com.dossier.api.service.ent.jobs.UrlKeys;
 import com.dossier.api.service.org.DataShareService;
 import com.dossier.api.service.org.OrgAuditService;
@@ -49,7 +50,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><b>Matrix</b> (state, actor C): viewed ASSIGNED to VIEWED; interest ASSIGNED, VIEWED, NEEDS_INFO to INTERESTED (and DECLINED to INTERESTED while the
  * job is open); request-info ASSIGNED, VIEWED, INTERESTED to NEEDS_INFO; decline ASSIGNED, VIEWED, INTERESTED, NEEDS_INFO to DECLINED; applied and link ASSIGNED,
  * VIEWED, INTERESTED, NEEDS_INFO to APPLIED. The same target is a 200 no-op that writes nothing. Anything else is 409 {@code ILLEGAL_TRANSITION}. A stale
- * {@code If-Match} or a concurrent write is 409 {@code VERSION_CONFLICT}. Each real transition is one transaction: the row, one
+ * {@code If-Match} or a concurrent write is 409 {@code VERSION_CONFLICT}. Interest, request-info and applied act on an open posting: while the job is not OPEN or
+ * IN_REVIEW they are 409 {@code JOB_NOT_OPEN} (viewed and decline stay possible, so the consultant can still say no to a job that closed). Each real transition is one transaction: the row, one
  * {@code mkt_opportunity_event} and one {@code org_audit_event}.
  *
  * <p><b>Applied without an application.</b> {@code pipeline_application_link.personal_application_id} is NOT NULL, so "I applied" with no
@@ -90,6 +92,7 @@ public class ConOpportunityService {
     private final DataShareService shares;
     private final LinkedApplicationProjection projection;
     private final ConJobDtoFactory jobs;
+    private final JobDetailCap detailCap;
     private final OrgAuditService audit;
     private final Clock clock;
 
@@ -97,15 +100,15 @@ public class ConOpportunityService {
     public ConOpportunityService(
         ConScope scope, ConOpportunityRepository repo, MktOpportunityRepository opportunities, MktOpportunityEventRepository events,
         MktPipelineApplicationLinkRepository links, RequirementSkillRepository skills, OrgMemberRepository members, UserRepository users,
-        ApplicationRepository applications, DataShareService shares, LinkedApplicationProjection projection, ConJobDtoFactory jobs, OrgAuditService audit
+        ApplicationRepository applications, DataShareService shares, LinkedApplicationProjection projection, ConJobDtoFactory jobs, JobDetailCap detailCap, OrgAuditService audit
     ) {
-        this(scope, repo, opportunities, events, links, skills, members, users, applications, shares, projection, jobs, audit, Clock.systemUTC());
+        this(scope, repo, opportunities, events, links, skills, members, users, applications, shares, projection, jobs, detailCap, audit, Clock.systemUTC());
     }
 
     ConOpportunityService(
         ConScope scope, ConOpportunityRepository repo, MktOpportunityRepository opportunities, MktOpportunityEventRepository events,
         MktPipelineApplicationLinkRepository links, RequirementSkillRepository skills, OrgMemberRepository members, UserRepository users,
-        ApplicationRepository applications, DataShareService shares, LinkedApplicationProjection projection, ConJobDtoFactory jobs, OrgAuditService audit, Clock clock
+        ApplicationRepository applications, DataShareService shares, LinkedApplicationProjection projection, ConJobDtoFactory jobs, JobDetailCap detailCap, OrgAuditService audit, Clock clock
     ) {
         this.scope = scope;
         this.repo = repo;
@@ -119,6 +122,7 @@ public class ConOpportunityService {
         this.shares = shares;
         this.projection = projection;
         this.jobs = jobs;
+        this.detailCap = detailCap;
         this.audit = audit;
         this.clock = clock;
     }
@@ -192,6 +196,8 @@ public class ConOpportunityService {
             if (!OPEN_JOB.contains(row.jobStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open any more.", Map.of());
         } else if (!"ASSIGNED".equals(from) && !"VIEWED".equals(from) && !"NEEDS_INFO".equals(from)) {
             throw illegal(from, "INTERESTED");
+        } else {
+            requireOpenJob(view, id);
         }
         Instant now = clock.instant();
         opp.setState("INTERESTED");
@@ -215,6 +221,7 @@ public class ConOpportunityService {
         String from = opp.getState();
         if ("NEEDS_INFO".equals(from)) return one(view, id);
         if (!"ASSIGNED".equals(from) && !"VIEWED".equals(from) && !"INTERESTED".equals(from)) throw illegal(from, "NEEDS_INFO");
+        requireOpenJob(view, id);
         Instant now = clock.instant();
         opp.setState("NEEDS_INFO");
         opp.setInfoRequest(q);
@@ -300,8 +307,11 @@ public class ConOpportunityService {
         } else if (!BEFORE_APPLY.contains(from)) {
             throw illegal(from, "APPLIED");
         }
-        Instant now = clock.instant();
         boolean flip = !"APPLIED".equals(from);
+        if (flip) requireOpenJob(view, id); // recording that they applied to a posting that is gone is not an action on an open job
+        ShareScope consent = app == null ? null : shares.scopeOf(view.orgId(), view.memberId());
+        if (!flip && consent != null && !consent.atLeast(ShareScope.SUMMARY)) return one(view, id); // nothing to record: already applied, and no link is allowed
+        Instant now = clock.instant();
         if (flip) {
             opp.setState("APPLIED");
             opp.setAppliedAt(app != null && app.getAppliedAt() != null ? app.getAppliedAt() : now);
@@ -313,6 +323,13 @@ public class ConOpportunityService {
             audit(me, "CONSULTANT_OPPORTUNITY_APPLIED", opp, "from " + from + ", unlinked");
             return one(view, id);
         }
+        if (!consent.atLeast(ShareScope.SUMMARY)) {
+            // Consent NONE (doc 60 section 0.3 c): the consultant's own "I applied" is recorded on the opportunity, but no link row ties the organization to
+            // their personal application, and nothing is projected. The honest state is "applied, no application shown".
+            record(opp, "APPLIED_UNLINKED", view, "says they applied (the application is not shared with the organization)", now);
+            audit(me, "CONSULTANT_OPPORTUNITY_APPLIED", opp, "from " + from + ", unlinked (consent)");
+            return one(view, id);
+        }
         MktPipelineApplicationLink created = new MktPipelineApplicationLink();
         created.setOrgId(view.orgId());
         created.setOpportunityId(opp.getId());
@@ -321,7 +338,7 @@ public class ConOpportunityService {
         created.setSource(MktPipelineApplicationLink.SOURCE_CONSULTANT);
         created.setLinkedAt(now);
         ConOpportunityRow row = repo.findRow(view.orgId(), view.consultantId(), id).orElseThrow(OrgNotFoundException::new);
-        if (shares.scopeOf(view.orgId(), view.memberId()) == ShareScope.FULL) {
+        if (consent == ShareScope.FULL) {
             created.setTalentApplicationId(projection.upsert(view.orgId(), opp.getId(), row.jobId(), view.consultantId(), row.assignedByMemberId(), app.getId(), opp.getAppliedAt()));
         }
         links.save(created);
@@ -336,10 +353,11 @@ public class ConOpportunityService {
     public static List<String> allowedActions(String state, boolean linked, boolean jobOpen) {
         if (state == null) return List.of();
         return switch (state) {
-            case "ASSIGNED" -> List.of("VIEWED", "INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK");
-            case "VIEWED" -> List.of("INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK");
-            case "INTERESTED" -> List.of("DECLINE", "REQUEST_INFO", "APPLIED", "LINK");
-            case "NEEDS_INFO" -> List.of("INTEREST", "DECLINE", "APPLIED", "LINK");
+            // while the job is not open only the two actions that do not act on the posting stay: mark it seen and say no
+            case "ASSIGNED" -> jobOpen ? List.of("VIEWED", "INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK") : List.of("VIEWED", "DECLINE");
+            case "VIEWED" -> jobOpen ? List.of("INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK") : List.of("DECLINE");
+            case "INTERESTED" -> jobOpen ? List.of("DECLINE", "REQUEST_INFO", "APPLIED", "LINK") : List.of("DECLINE");
+            case "NEEDS_INFO" -> jobOpen ? List.of("INTEREST", "DECLINE", "APPLIED", "LINK") : List.of("DECLINE");
             case "DECLINED" -> jobOpen ? List.of("INTEREST") : List.of();
             case "APPLIED" -> List.of(linked ? "UNLINK" : "LINK");
             default -> List.of();
@@ -347,6 +365,12 @@ public class ConOpportunityService {
     }
 
     // ---- internals -----------------------------------------------------------------------------------------------------------
+
+    /** 409 {@code JOB_NOT_OPEN} unless the opportunity's job is OPEN or IN_REVIEW. */
+    private void requireOpenJob(ConScope.View view, Long id) {
+        ConOpportunityRow row = repo.findRow(view.orgId(), view.consultantId(), id).orElseThrow(OrgNotFoundException::new);
+        if (!OPEN_JOB.contains(row.jobStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open any more.", Map.of());
+    }
 
     private MktOpportunity load(ConScope.View view, Long id, String ifMatch) {
         if (id == null) throw new OrgNotFoundException();
@@ -449,13 +473,14 @@ public class ConOpportunityService {
         Map<Long, Long> linkedApp = new HashMap<>();
         for (MktPipelineApplicationLink l : repo.findLiveLinks(orgId, view.consultantId(), oppIds)) linkedApp.put(l.getOpportunityId(), l.getPersonalApplicationId());
         Map<Long, String> names = memberNames(orgId, markerIds);
+        String cap = detailCap.capFor(orgId); // read once per call; raising or lowering the cap takes effect at once
         List<ConOpportunityDTO> out = new ArrayList<>();
         for (ConOpportunityRow r : rows) {
             boolean linked = linkedApp.containsKey(r.opportunityId());
             out.add(new ConOpportunityDTO(
                 r.opportunityId(),
                 r.state(),
-                jobs.job(r, skillsOf.get(r.jobId())),
+                jobs.job(r, skillsOf.get(r.jobId()), cap),
                 r.marketerNote(),
                 r.assignedByMemberId() == null ? null : new ConOpportunityDTO.AssignedBy(r.assignedByMemberId(), names.get(r.assignedByMemberId())),
                 r.assignedAt(),

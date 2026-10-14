@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import org.springframework.dao.DataIntegrityViolationException;
 
 /**
@@ -55,6 +56,8 @@ public class AssignmentWorld {
     public final Map<Long, RequirementMatch> matchStore = new LinkedHashMap<>();
     public final Map<Long, MktOpportunity> oppStore = new LinkedHashMap<>();
     public final Set<Long> approved = new HashSet<>();
+    /** Jobs committed by a nested transaction after the caller's snapshot: a plain read in the caller misses them, only a fresh-snapshot read ({@code tx.readRequirement}) finds them. */
+    public final Set<Long> invisibleToSnapshot = new HashSet<>();
     public final List<MktOpportunityEvent> eventLog = new ArrayList<>();
 
     private final AtomicLong ids = new AtomicLong(5000);
@@ -157,7 +160,11 @@ public class AssignmentWorld {
     // ---- the mocks -------------------------------------------------------------------------------------------------------------
 
     private void wire() {
-        lenient().when(requirements.findByOrgIdAndId(eq(orgId), anyLong())).thenAnswer(i -> Optional.ofNullable(jobs.get(i.<Long>getArgument(1))));
+        lenient().when(requirements.findByOrgIdAndId(eq(orgId), anyLong())).thenAnswer(i -> {
+            Long id = i.getArgument(1);
+            return invisibleToSnapshot.contains(id) ? Optional.empty() : Optional.ofNullable(jobs.get(id));
+        });
+        lenient().when(tx.readRequirement(eq(orgId), anyLong())).thenAnswer(i -> Optional.ofNullable(jobs.get(i.<Long>getArgument(1))));
         lenient().when(consultants.findByOrgIdAndId(eq(orgId), anyLong())).thenAnswer(i -> Optional.ofNullable(people.get(i.<Long>getArgument(1))));
         lenient().when(resumes.existsByOrgIdAndConsultantIdAndApprovalStatus(eq(orgId), anyLong(), eq("APPROVED"))).thenAnswer(i -> approved.contains(i.<Long>getArgument(1)));
 
@@ -173,17 +180,13 @@ public class AssignmentWorld {
             matchStore.put(m.getId(), m);
             return m;
         });
-        lenient().when(tx.insertMatch(any(RequirementMatch.class))).thenAnswer(i -> {
+        lenient().when(tx.insertMatch(any(RequirementMatch.class))).thenAnswer(i -> insertMatchRow(i.getArgument(0)));
+        // the form with a callback: it runs in the insert's own transaction (what it writes is committed with the row, whatever the caller does later)
+        lenient().when(tx.insertMatch(any(RequirementMatch.class), any())).thenAnswer(i -> {
             RequirementMatch m = i.getArgument(0);
-            if (raceMatch.getAndSet(false)) {
-                matchWinner.setRequirementId(m.getRequirementId());
-                matchWinner.setConsultantId(m.getConsultantId());
-                matchStore.put(matchWinner.getId(), matchWinner);
-                throw new DataIntegrityViolationException("uk_requirement_match_pair");
-            }
-            m.setId(ids.incrementAndGet());
-            matchStore.put(m.getId(), m);
-            return m.getId();
+            Long id = insertMatchRow(m);
+            runInNewTransaction(i.<Consumer<RequirementMatch>>getArgument(1), m);
+            return id;
         });
         lenient().when(tx.readMatchId(eq(orgId), anyLong(), anyLong())).thenAnswer(i ->
             matchStore.values().stream().filter(m -> m.getRequirementId().equals(i.getArgument(1)) && m.getConsultantId().equals(i.getArgument(2))).findFirst().map(RequirementMatch::getId));
@@ -193,22 +196,24 @@ public class AssignmentWorld {
             return oppStore.values().stream().filter(o -> o.getMatchId().equals(i.getArgument(1))).findFirst();
         });
         lenient().when(opportunities.lockByOrgIdAndId(eq(orgId), anyLong())).thenAnswer(i -> Optional.ofNullable(oppStore.get(i.<Long>getArgument(1))));
+        lenient().when(opportunities.lockByRequirementAndStates(eq(orgId), anyLong(), any())).thenAnswer(i -> {
+            java.util.Collection<String> states = i.getArgument(2);
+            return oppStore.values().stream()
+                .filter(o -> states.contains(o.getState()) && matchStore.get(o.getMatchId()) != null && matchStore.get(o.getMatchId()).getRequirementId().equals(i.getArgument(1)))
+                .toList();
+        });
         lenient().when(opportunities.save(any(MktOpportunity.class))).thenAnswer(i -> {
             MktOpportunity o = i.getArgument(0);
             if (o.getId() == null) o.setId(ids.incrementAndGet());
             oppStore.put(o.getId(), o);
             return o;
         });
-        lenient().when(tx.insertOpportunity(any(MktOpportunity.class))).thenAnswer(i -> {
+        lenient().when(tx.insertOpportunity(any(MktOpportunity.class))).thenAnswer(i -> insertOpportunityRow(i.getArgument(0)));
+        lenient().when(tx.insertOpportunity(any(MktOpportunity.class), any())).thenAnswer(i -> {
             MktOpportunity o = i.getArgument(0);
-            if (raceOpp.getAndSet(false)) {
-                oppWinner.setMatchId(o.getMatchId());
-                oppStore.put(oppWinner.getId(), oppWinner);
-                throw new DataIntegrityViolationException("uk_mkt_opportunity_match");
-            }
-            o.setId(ids.incrementAndGet());
-            oppStore.put(o.getId(), o);
-            return o.getId();
+            Long id = insertOpportunityRow(o);
+            runInNewTransaction(i.<Consumer<MktOpportunity>>getArgument(1), o);
+            return id;
         });
         lenient().when(tx.readOpportunityId(eq(orgId), anyLong())).thenAnswer(i ->
             oppStore.values().stream().filter(o -> o.getMatchId().equals(i.getArgument(1))).findFirst().map(MktOpportunity::getId));
@@ -218,6 +223,42 @@ public class AssignmentWorld {
             eventLog.add(e);
             return e;
         });
+    }
+
+    private Long insertMatchRow(RequirementMatch m) {
+        if (raceMatch.getAndSet(false)) {
+            matchWinner.setRequirementId(m.getRequirementId());
+            matchWinner.setConsultantId(m.getConsultantId());
+            matchStore.put(matchWinner.getId(), matchWinner);
+            throw new DataIntegrityViolationException("uk_requirement_match_pair");
+        }
+        m.setId(ids.incrementAndGet());
+        matchStore.put(m.getId(), m);
+        return m.getId();
+    }
+
+    private Long insertOpportunityRow(MktOpportunity o) {
+        if (raceOpp.getAndSet(false)) {
+            oppWinner.setMatchId(o.getMatchId());
+            oppStore.put(oppWinner.getId(), oppWinner);
+            throw new DataIntegrityViolationException("uk_mkt_opportunity_match");
+        }
+        o.setId(ids.incrementAndGet());
+        oppStore.put(o.getId(), o);
+        return o.getId();
+    }
+
+    /** True while a callback of a REQUIRES_NEW insert runs: what is saved then commits with the insert, not with the caller. */
+    public boolean inNewTransaction;
+
+    private <T> void runInNewTransaction(Consumer<T> callback, T saved) {
+        if (callback == null) return;
+        inNewTransaction = true;
+        try {
+            callback.accept(saved);
+        } finally {
+            inNewTransaction = false;
+        }
     }
 
     public Instant now() {

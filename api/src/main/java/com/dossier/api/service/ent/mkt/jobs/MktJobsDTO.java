@@ -33,7 +33,9 @@ public final class MktJobsDTO {
         String visa,
         List<String> skills,
         Integer positions,
-        String status
+        String status,
+        /** The effective display level of this job for the organization (MINIMAL or FULL): the lower of the stored level and the org cap. */
+        String detailLevel
     ) {}
 
     /** A KPI tile: the number, the percent change against the comparison window (null = nothing to compare) and the last 8 buckets. */
@@ -72,7 +74,7 @@ public final class MktJobsDTO {
     /** One consultant's match to the job, restricted to consultants the caller may see. */
     public record MatchRow(Long consultantId, String name, int score, String status) {}
 
-    public record Detail(Job job, String description, String employment, String duration, String experienceLevel, List<MatchRow> matches) {}
+    public record Detail(Job job, String description, String employment, String duration, String experienceLevel, List<MatchRow> matches, String summaryNote) {}
 
     /** A consultant the caller may assign; {@code score}/{@code matchStatus} are null when there is no match row yet. */
     public record Candidate(Long consultantId, String name, String title, String availability, Integer score, String matchStatus) {}

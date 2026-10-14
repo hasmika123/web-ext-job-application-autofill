@@ -33,5 +33,7 @@ public record ConOpportunityRow(
     String atsPlatform,
     String externalJobId,
     LocalDate postedOn,
-    String jobStatus
+    String jobStatus,
+    /** The job's STORED detail level; the page shows the lower of this and the organization's cap ({@code JobDetailMapper}). */
+    String detailLevel
 ) {}
