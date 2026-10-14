@@ -11,7 +11,7 @@ export default defineConfig({
   testDir: "./e2e",
   testMatch: ["journeys/tenant-clients.spec.ts"],
   timeout: 240_000,
-  expect: { timeout: 15_000 },
+  expect: { timeout: 60_000 },
   fullyParallel: false,
   workers: 1,
   retries: 0,

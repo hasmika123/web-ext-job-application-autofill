@@ -106,15 +106,15 @@ export function ClientsTable({ rows, selected, onToggle, onTogglePage, openId, o
         <table className="w-full table-fixed border-collapse text-left">
           <caption className="sr-only">Clients</caption>
           <colgroup>
-            <col style={{ width: "5%" }} />
-            <col style={{ width: "21%" }} />
-            <col style={{ width: "14%" }} />
-            <col style={{ width: "10.5%" }} />
-            <col style={{ width: "10.5%" }} />
-            <col style={{ width: "16%" }} />
-            <col style={{ width: "10%" }} />
+            <col style={{ width: "4%" }} />
+            <col style={{ width: "19.5%" }} />
+            <col style={{ width: "11.5%" }} />
             <col style={{ width: "11%" }} />
-            <col style={{ width: "6%" }} />
+            <col style={{ width: "11%" }} />
+            <col style={{ width: "16.5%" }} />
+            <col style={{ width: "9%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "7.5%" }} />
           </colgroup>
           <thead>
             <tr className="h-[46px] bg-paper-2">
@@ -124,7 +124,7 @@ export function ClientsTable({ rows, selected, onToggle, onTogglePage, openId, o
               {COLS.map((c) => {
                 const active = c.key !== null && sort.key === c.key;
                 return (
-                  <th key={c.label} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined} className={`px-1.5 text-[12.5px] font-semibold leading-[1.15] text-[var(--ent-title)] ${c.className}`}>
+                  <th key={c.label} scope="col" aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined} className={`px-1.5 text-[12px] font-semibold leading-[1.15] text-[var(--ent-title)] ${c.className}`}>
                     {c.key ? (
                       <button type="button" onClick={() => onSort(nextSort(sort, c.key as SortKey))} className="inline-flex items-center gap-1 text-left font-semibold hover:text-accent-deep" data-sort={c.key}>
                         {c.lines ? (
@@ -297,7 +297,7 @@ export function Pagination({ page, size, total, shown, onPage, onSize, noun = "c
             </button>
           </nav>
         )}
-        <div className="w-[118px]">
+        <div className="w-[132px]">
           <Select aria-label="Clients per page" className="!min-h-8 !rounded-lg !text-[12.5px] sm:!min-h-8" value={String(size)} onChange={(v) => onSize(Number(v))} options={PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} per page` }))} />
         </div>
       </div>

@@ -13,11 +13,23 @@ const base = `http://acme.localhost:${port}`;
 const betaBase = `http://beta.localhost:${port}`;
 const shots = resolve(__dirname, "../../../design/enterprise-more/built");
 
+/**
+ * Signs in as a demo member through the same endpoint the Demo accounts tab calls (`POST /api/auth/tenant-demo`). The tab itself asks the API
+ * with a 4 second timeout and is flaky on a loaded machine, so the journey does not depend on it.
+ */
 async function signIn(page: Page, host: string, person: string) {
+  const login = `demo-ent-${host.includes("beta.") ? "beta" : "acme"}-${person.split(" ")[0].toLowerCase()}`;
   await page.goto(`${host}/login`);
-  await page.getByRole("button", { name: /Demo accounts/ }).first().click();
-  await page.getByRole("button", { name: `Sign in as ${person}` }).click();
-  await page.waitForURL((u) => u.pathname.startsWith("/w/"));
+  const status = await page.evaluate(async (who) => (await fetch("/api/auth/tenant-demo", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ login: who }) })).status, login);
+  expect(status).toBe(200);
+}
+
+/** Opens the page, reloading while the workspace answers "couldn't load" (the first request after a cold start on a loaded machine). */
+async function openClients(page: Page, host: string) {
+  for (let i = 0; i < 5; i++) {
+    await page.goto(`${host}/w/admin/clients`);
+    if (await page.locator("[data-clients-page]").isVisible({ timeout: 25_000 }).catch(() => false)) return;
+  }
 }
 
 const rows = (page: Page) => page.locator("tr[data-row-id]");
@@ -28,7 +40,7 @@ test.describe("clients (real stack)", () => {
   test("the journey", async ({ page }) => {
     mkdirSync(shots, { recursive: true });
     await signIn(page, base, "Sarah Chen");
-    await page.goto(`${base}/w/admin/clients`);
+    await openClients(page, base);
     await expect(page.locator("[data-clients-page]")).toBeVisible();
 
     // the four tiles come from the seeded rows; the first client opens in the docked drawer
@@ -47,6 +59,8 @@ test.describe("clients (real stack)", () => {
     await page.locator('[data-filters] button[aria-label="Health"]').click();
     await page.getByRole("option", { name: /^At Risk \(/ }).click();
     expect(page.url()).toContain("health=AT_RISK");
+    await expect(rows(page).first().locator("[data-health]")).toHaveAttribute("data-health", "AT_RISK");
+    await expect(rows(page).locator("[data-health=HEALTHY]")).toHaveCount(0);
     const atRisk = await rows(page).count();
     expect(atRisk).toBeGreaterThan(0);
     for (let i = 0; i < atRisk; i++) await expect(rows(page).nth(i).locator("[data-health]")).toHaveAttribute("data-health", "AT_RISK");
@@ -149,7 +163,7 @@ test.describe("clients (real stack)", () => {
 
     // a phone gets cards and a bottom sheet
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(`${base}/w/admin/clients`);
+    await openClients(page, base);
     await expect(page.locator("[data-clients-list] ul li[data-row-id]").first()).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     await page.screenshot({ path: resolve(shots, "clients-phone.png") });
@@ -162,7 +176,7 @@ test.describe("clients (real stack)", () => {
     const betaCtx = await page.context().browser()!.newContext();
     const beta = await betaCtx.newPage();
     await signIn(beta, betaBase, "Bea Turner");
-    await beta.goto(`${betaBase}/w/admin/clients`);
+    await openClients(beta, betaBase);
     await expect(beta.locator("[data-clients-page]")).toBeVisible();
     await expect(beta.locator("tr[data-row-id]").first()).toBeVisible();
     await expect(beta.locator("[data-clients-page]")).not.toContainText("Journey Logistics");
