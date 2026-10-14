@@ -386,3 +386,4 @@
 - 2026-10-13 ent-marketer interviews (branch mkt-interviews): Marketing Interviews page + mkt API (mkt_interview_* tables, demo seeder, 32 unit + 15 web tests green; ITs written, not run). See page-mkt-interviews.md.
 
 - 2026-10-13 ent-marketer: resumes: Marketing Resumes page (board: 4 tiles, filters, table, preview/edit drawer, approval request, Recent Resume Activity) with API `/api/orgs/{orgId}/mkt/resumes`, table `mkt_resume_event`, demo seeder, unit tests; Testcontainers IT written, not run. See `page-mkt-resumes.md`.
+- 2026-10-13 — Marketing Opportunities page (branch `mkt-opportunities`, Sonnet): `/w/marketing/opportunities` board + `/api/orgs/{orgId}/mkt/opportunities` (tables `mkt_opportunity`, `mkt_opportunity_event`, demo seeder, requests only per E1). See `page-mkt-opportunities.md`. API unit tests green; ITs compiled, not run (no Docker).
