@@ -273,6 +273,7 @@
 }
 .theme-tenant [data-invitations-page] [data-invite-panel] label {
   font-size: 14px;
+  line-height: 17px;
   font-weight: 500;
   color: var(--color-ink);
 }
@@ -616,3 +617,59 @@
   min-height: var(--ent-control-h);
   font-size: 13.5px;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+ * ENT PAGE SCOPE (exact-match pass: Dashboard, Employees, Invitations). `.ent-page` on a page root gives the board's navy text
+ * roles to everything inside it (the kit's utilities read these variables), without touching the shell or any other page.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════ */
+.theme-tenant .ent-page {
+  --color-ink: var(--ent-title);
+  --color-ink-soft: #33407a;
+  --color-muted: var(--ent-soft);
+  --color-line: #e3e9f3;
+  --color-paper: #ffffff;
+  --color-paper-2: #f2f6fb;
+  color: var(--ent-title);
+}
+/* the board's small "View all" button: a pale blue plate, a blue hairline, 8 px radius, 14 px medium blue text */
+.theme-tenant .ent-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-height: 28px;
+  padding: 3px 14px;
+  border: 1px solid color-mix(in srgb, var(--ent-primary) 22%, #dbe6f7);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ent-primary) 5%, #ffffff);
+  color: var(--ent-primary);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.theme-tenant .ent-chip-btn:hover { background: color-mix(in srgb, var(--ent-primary) 10%, #ffffff); }
+/* the board's help picture: a soft pastel "room" the bee sits in (the plants and window blur are gradients, no extra art) */
+.theme-tenant .ent-help-plate {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  background:
+    radial-gradient(60px 70px at 14% 78%, rgb(120 190 140 / 0.55), transparent 70%),
+    radial-gradient(70px 90px at 90% 70%, rgb(90 170 110 / 0.6), transparent 72%),
+    radial-gradient(90px 80px at 52% 8%, rgb(255 255 255 / 0.85), transparent 70%),
+    linear-gradient(180deg, #fbe9d9 0%, #e8eef9 55%, #dbe7f8 100%);
+}
+
+/* the board's "Ask a question..." button: pale blue plate with a blue hairline */
+.theme-tenant .ent-ask-btn {
+  display: flex;
+  width: 100%;
+  min-height: 40px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid color-mix(in srgb, var(--ent-primary) 20%, #dbe6f7);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ent-primary) 7%, #ffffff);
+  color: var(--ent-primary);
+}
+.theme-tenant .ent-ask-btn:hover { background: color-mix(in srgb, var(--ent-primary) 12%, #ffffff); }

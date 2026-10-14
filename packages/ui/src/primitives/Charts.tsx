@@ -151,6 +151,8 @@ export interface BarChartProps {
   /** Plot height in px. */
   height?: number;
   className?: string;
+  /** "board": the enterprise boards' larger legend, axis text, rounded bars and column rules (a look only). */
+  variant?: "board";
 }
 
 const TICKS = 4;
@@ -164,33 +166,34 @@ export function niceMax(max: number): number {
   return unit * TICKS;
 }
 
-export function BarChart({ categories, series, label, height = 190, className }: BarChartProps) {
+export function BarChart({ categories, series, label, height = 190, className, variant }: BarChartProps) {
   const top = niceMax(Math.max(0, ...series.flatMap((s) => s.values.filter((v) => Number.isFinite(v)))));
   const ticks = Array.from({ length: TICKS + 1 }, (_, i) => (top / TICKS) * (TICKS - i));
+  const board = variant === "board";
   return (
-    <figure data-bar-chart className={cn("m-0", className)}>
-      <ul aria-hidden className="mb-3 flex flex-wrap gap-x-4 gap-y-1">
+    <figure data-bar-chart data-variant={variant} className={cn("m-0", className)}>
+      <ul aria-hidden className={cn("flex flex-wrap gap-y-1", board ? "mb-3.5 gap-x-7" : "mb-3 gap-x-4")}>
         {series.map((s, i) => (
-          <li key={s.key} className="flex items-center gap-1.5 text-[12.5px] text-ink-soft">
-            <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: s.color ?? chartColor(i) }} />
+          <li key={s.key} className={cn("flex items-center text-ink-soft", board ? "gap-2 text-[14px]" : "gap-1.5 text-[12.5px]")}>
+            <span className={cn("flex-none rounded-full", board ? "h-3 w-3" : "h-2.5 w-2.5")} style={{ background: s.color ?? chartColor(i) }} />
             {s.label}
           </li>
         ))}
       </ul>
-      <div aria-hidden className="flex gap-2" style={{ height }}>
-        <div className="flex w-7 flex-none flex-col justify-between text-right text-[11px] tabular-nums text-muted">
+      <div aria-hidden className={cn("flex gap-2", board && "pt-2")} style={{ height: board ? height + 8 : height }}>
+        <div className={cn("flex flex-none flex-col justify-between text-right tabular-nums text-muted", board ? "w-8 text-[14px]" : "w-7 text-[11px]")}>
           {ticks.map((t) => (
-            <span key={t} className="-translate-y-1/2 first:translate-y-0 last:translate-y-0">
+            <span key={t} className={cn("-translate-y-1/2", !board && "first:translate-y-0 last:translate-y-0")}>
               {t}
             </span>
           ))}
         </div>
-        <div className="relative flex min-w-0 flex-1 items-end gap-1 border-b border-line sm:gap-3">
+        <div className={cn("relative flex min-w-0 flex-1 items-end border-b", board ? "gap-0 border-line" : "gap-1 border-line sm:gap-3")}>
           {ticks.slice(0, -1).map((t, i) => (
-            <span key={t} className="pointer-events-none absolute inset-x-0 border-t border-line/70" style={{ top: `${(i / TICKS) * 100}%` }} />
+            <span key={t} className={cn("pointer-events-none absolute inset-x-0 border-t", board ? "border-line/60" : "border-line/70")} style={{ top: `${(i / TICKS) * 100}%` }} />
           ))}
           {categories.map((c, ci) => (
-            <div key={c} className="relative flex h-full min-w-0 flex-1 items-end justify-center gap-[2px] sm:gap-1">
+            <div key={c} className={cn("relative flex h-full min-w-0 flex-1 items-end justify-center", board ? "gap-[3px] border-l border-line/60 first:border-l-0" : "gap-[2px] sm:gap-1")}>
               {series.map((s, si) => {
                 const v = s.values[ci];
                 const ok = Number.isFinite(v);
@@ -198,7 +201,7 @@ export function BarChart({ categories, series, label, height = 190, className }:
                   <span
                     key={s.key}
                     data-bar={`${s.key}:${c}`}
-                    className="block w-full max-w-5 rounded-t-[3px]"
+                    className={cn("block w-full", board ? "max-w-[17px] rounded-t-[6px]" : "max-w-5 rounded-t-[3px]")}
                     style={{ height: ok ? `${(Math.max(0, v) / top) * 100}%` : 0, background: s.color ?? chartColor(si) }}
                   />
                 );
@@ -207,7 +210,7 @@ export function BarChart({ categories, series, label, height = 190, className }:
           ))}
         </div>
       </div>
-      <div aria-hidden className="mt-1.5 flex gap-2 pl-9 text-[11.5px] text-muted">
+      <div aria-hidden className={cn("flex gap-2 text-muted", board ? "mt-2 pl-10 text-[14px]" : "mt-1.5 pl-9 text-[11.5px]")}>
         {categories.map((c) => (
           <span key={c} className="min-w-0 flex-1 truncate text-center">
             {c}
@@ -265,10 +268,14 @@ export interface DonutChartProps {
   /** Text after the middle number ("%"). */
   totalSuffix?: string;
   className?: string;
+  /** "board": the enterprise boards' thicker ring, larger centre figure and roomier legend (a look only). */
+  variant?: "board";
 }
 
 const R = 42;
 const CIRC = 2 * Math.PI * R;
+const R_BOARD = 40;
+const CIRC_BOARD = 2 * Math.PI * R_BOARD;
 
 /** Each slice's share (0..1) of the slices' sum; a zero sum gives zeros. Pure. */
 export function shares(values: number[]): number[] {
@@ -276,28 +283,32 @@ export function shares(values: number[]): number[] {
   return values.map((v) => (sum > 0 && Number.isFinite(v) && v > 0 ? v / sum : 0));
 }
 
-export function DonutChart({ slices, total, totalLabel, label, size = 150, legend = true, totalSuffix, className }: DonutChartProps): ReactNode {
+export function DonutChart({ slices, total, totalLabel, label, size = 150, legend = true, totalSuffix, className, variant }: DonutChartProps): ReactNode {
+  const board = variant === "board";
+  const r = board ? R_BOARD : R;
+  const circ = board ? CIRC_BOARD : CIRC;
+  const sw = board ? 19 : 14;
   const parts = shares(slices.map((s) => s.value));
   const sum = slices.reduce((a, s) => a + (Number.isFinite(s.value) && s.value > 0 ? s.value : 0), 0);
   let offset = 0;
   return (
-    <div data-donut-chart className={cn("flex flex-wrap items-center gap-x-6 gap-y-4", className)}>
+    <div data-donut-chart data-variant={variant} className={cn("flex items-center gap-y-4", board ? "flex-nowrap gap-x-5" : "flex-wrap gap-x-6", className)}>
       <div className="relative flex-none" style={{ width: size, height: size }}>
         <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label={`${label}: ${slices.map((s) => `${s.label} ${s.value}`).join(", ")}`} className="-rotate-90">
-          <circle cx={50} cy={50} r={R} fill="none" stroke="currentColor" strokeWidth={14} className="text-paper-2" />
+          <circle cx={50} cy={50} r={r} fill="none" stroke="currentColor" strokeWidth={sw} className="text-paper-2" />
           {slices.map((s, i) => {
-            const len = parts[i] * CIRC;
+            const len = parts[i] * circ;
             const el =
               len > 0 ? (
                 <circle
                   key={s.key}
                   cx={50}
                   cy={50}
-                  r={R}
+                  r={r}
                   fill="none"
-                  strokeWidth={14}
+                  strokeWidth={sw}
                   stroke={s.color ?? chartColor(i)}
-                  strokeDasharray={`${Math.max(0, len - 0.6)} ${CIRC - Math.max(0, len - 0.6)}`}
+                  strokeDasharray={`${Math.max(0, len - 0.6)} ${circ - Math.max(0, len - 0.6)}`}
                   strokeDashoffset={-offset}
                 />
               ) : null;
@@ -306,18 +317,18 @@ export function DonutChart({ slices, total, totalLabel, label, size = 150, legen
           })}
         </svg>
         <div aria-hidden className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-[26px] font-bold leading-none tabular-nums text-ink">{total ?? sum}{totalSuffix}</span>
-          {totalLabel ? <span className="mt-1 max-w-[80px] text-[11.5px] leading-tight text-muted">{totalLabel}</span> : null}
+          <span className={cn("font-bold leading-none tabular-nums text-ink", board ? "text-[30px]" : "text-[26px]")}>{total ?? sum}{totalSuffix}</span>
+          {totalLabel ? <span className={cn("mt-1 leading-tight text-muted", board ? "max-w-[76px] text-[12.5px]" : "max-w-[80px] text-[11.5px]")}>{totalLabel}</span> : null}
         </div>
       </div>
       {legend ? (
-      <ul className="min-w-[10rem] flex-1">
+      <ul className={cn("flex-1", board ? "min-w-0" : "min-w-[10rem]")}>
         {slices.map((s, i) => (
-          <li key={s.key} className="flex items-center gap-2 py-1 text-[13px] text-ink-soft">
-            <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: s.color ?? chartColor(i) }} />
+          <li key={s.key} className={cn("flex items-center text-ink-soft", board ? "gap-2 py-[6px] text-[14.5px]" : "gap-2 py-1 text-[13px]")}>
+            <span aria-hidden className={cn("flex-none rounded-full", board ? "h-3.5 w-3.5" : "h-2.5 w-2.5")} style={{ background: s.color ?? chartColor(i) }} />
             <span className="min-w-0 flex-1 leading-tight">{s.label}</span>
-            <span className="w-8 text-right font-semibold tabular-nums text-ink">{s.value}</span>
-            <span className="w-10 text-right tabular-nums text-muted">{Math.round(parts[i] * 100)}%</span>
+            <span className={cn("text-right tabular-nums text-ink", board ? "w-6 font-bold" : "w-8 font-semibold")}>{s.value}</span>
+            <span className={cn("text-right tabular-nums text-muted", board ? "w-10" : "w-10")}>{Math.round(parts[i] * 100)}%</span>
           </li>
         ))}
       </ul>
