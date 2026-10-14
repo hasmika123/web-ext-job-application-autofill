@@ -149,7 +149,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
     setError(null);
     try {
       const res = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; mfaRequired?: boolean; mfaToken?: string };
+      const data = (await res.json().catch(() => ({}))) as { error?: string; code?: string; mfaRequired?: boolean; mfaToken?: string; passwordChangeRequired?: boolean };
       return { res, data };
     } catch {
       setView("unavailable");
@@ -170,6 +170,12 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
     if (res.status >= 500) return setView("unavailable");
     if (res.status === 429) return setError("Too many attempts. Wait a few minutes and try again.");
     if (!res.ok) return setError(res.status === 401 ? "Incorrect email or password." : (data.error ?? "Sign in failed."));
+    if (data.passwordChangeRequired) {
+      // An administrator-issued temporary password: the only thing the session can do is choose a new one.
+      router.push("/change-password");
+      router.refresh();
+      return;
+    }
     if (data.mfaRequired && data.mfaToken) {
       setMfaToken(data.mfaToken);
       setView("mfa");

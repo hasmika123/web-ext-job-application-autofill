@@ -32,3 +32,12 @@ export function hasTenantClaim(jwt: string | undefined): boolean {
   const tid = jwtClaims(jwt)?.tid;
   return (typeof tid === "number" && Number.isFinite(tid)) || (typeof tid === "string" && tid.length > 0);
 }
+
+/**
+ * Does the token say "this account must change an administrator-issued temporary password first" (`pcr`)? Routing only, like
+ * the rest of this file: the API enforces it on every call (403 PASSWORD_CHANGE_REQUIRED), the web just sends the person to the
+ * change-password screen instead of letting them hit refusals.
+ */
+export function passwordChangeRequired(jwt: string | undefined): boolean {
+  return jwtClaims(jwt)?.pcr === true;
+}

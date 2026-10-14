@@ -4,7 +4,7 @@ import { SURFACE_HEADER, isRewriteExempt, isTenantRoutePath, isTenantPublicPath,
 import { resolveHost } from "@/lib/tenant";
 import { clientIpFromHeaders } from "@/lib/rate-limit";
 import { ACCESS_COOKIE, REFRESH_COOKIE, sessionCookieNames, sessionCookieOptions, sessionCookieOptionsFor } from "@/lib/cookies";
-import { hasTenantClaim, isExpired } from "@/lib/jwt-claims";
+import { hasTenantClaim, isExpired, passwordChangeRequired } from "@/lib/jwt-claims";
 import { sameOriginForUnsafe } from "@/lib/origin-check";
 import { loginRedirectPath } from "@/lib/tenant-urls";
 
@@ -65,7 +65,7 @@ function tenantHeaders(res: NextResponse): NextResponse {
   return res;
 }
 
-type TenantSession = { authed: boolean; hadCookies: boolean; renewed?: { accessToken: string; refreshToken?: string } };
+type TenantSession = { authed: boolean; hadCookies: boolean; renewed?: { accessToken: string; refreshToken?: string }; /** The account holds an administrator-issued temporary password: only the change-password screen works. */ mustChangePassword?: boolean };
 
 /**
  * Cheap session read on a tenant host: a still-valid tid-bound access token, else one refresh attempt that carries the host
@@ -78,12 +78,16 @@ async function tenantSession(request: NextRequest, host: string): Promise<Tenant
   const access = request.cookies.get(names.access)?.value;
   const refresh = request.cookies.get(names.refresh)?.value;
   const hadCookies = Boolean(access || refresh);
-  if (access && !isExpired(access) && hasTenantClaim(access)) return { authed: true, hadCookies };
+  if (access && !isExpired(access) && hasTenantClaim(access)) {
+    // A token that says "change the temporary password" keeps the person on the change-password screen. No refresh is attempted here
+    // (a refresh rotates the token, and parallel requests would trip reuse detection): the change itself swaps the cookies.
+    return { authed: true, hadCookies, mustChangePassword: passwordChangeRequired(access) };
+  }
   if (!refresh) return { authed: false, hadCookies };
   const renewed = await tryRefresh(refresh, tenantApiHeaders(host, clientIpFromHeaders(request.headers)));
   // A refreshed pair that is not tid-bound is not a tenant session (the API always binds on a tenant host): refuse it.
   if (!renewed || !hasTenantClaim(renewed.accessToken)) return { authed: false, hadCookies };
-  return { authed: true, hadCookies, renewed };
+  return { authed: true, hadCookies, renewed, mustChangePassword: passwordChangeRequired(renewed.accessToken) };
 }
 
 async function tenantRequest(request: NextRequest, host: string, pathname: string, served: boolean) {
@@ -115,6 +119,20 @@ async function tenantRequest(request: NextRequest, host: string, pathname: strin
   }
 
   const isApi = pathname === "/api" || pathname.startsWith("/api/");
+  if (session.authed && session.mustChangePassword && !isApi && pathname !== "/change-password") {
+    // A temporary password: nothing else works until the person chooses their own (the API refuses it too).
+    const url = request.nextUrl.clone();
+    url.pathname = "/change-password";
+    url.search = "";
+    const redirect = NextResponse.redirect(url, 307);
+    if (session.renewed) {
+      const names = sessionCookieNames(true);
+      const opts = sessionCookieOptionsFor(true);
+      redirect.cookies.set(names.access, session.renewed.accessToken, opts);
+      if (session.renewed.refreshToken) redirect.cookies.set(names.refresh, session.renewed.refreshToken, opts);
+    }
+    return tenantHeaders(redirect);
+  }
   let response: NextResponse;
   if (!session.authed && !isApi && !isTenantPublicPath(pathname)) {
     // Login-first: a signed-out visitor to any tenant path goes to the tenant's own sign-in, then back (same-host paths only).

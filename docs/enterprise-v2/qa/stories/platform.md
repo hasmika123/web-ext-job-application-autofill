@@ -360,3 +360,21 @@ Admin Subscription/Licenses/Billing/Usage: Session C (docs 24, 28). Audit Logs v
 | AUTOMATED | 44 | PLT-01 to PLT-44 (PLT-23, PLT-24 call the API directly; PLT-25, 33, 34, 38 assert the honest placeholder for unbuilt pages) |
 | BLOCKED | 4 | PLT-45, 46, 53, 54 |
 | NOT-BUILT | 6 | PLT-47 (HR), 48 (Finance), 49 (Accounts), 50 (Executive), 51 (Audit Logs page), 52 (Licence config) |
+
+---
+
+## 11. APP: the Kiwiply app admin (Organizations and hostnames, X1.11)
+
+Spec: `web/e2e/stories/platform/app-admin-organizations.story.ts`. The app admin signs in on the **platform** host (`http://localhost:3200`, not a tenant)
+with the seeded `admin` account (`STORY_ADMIN_LOGIN` / `STORY_ADMIN_PASSWORD` override). Each story creates its own organization with a unique label.
+Temporary passwords are read from the shown-once dialog at run time and never printed.
+
+| Id | Story | Status |
+|---|---|---|
+| APP-01 | List organizations, search, open Acme: counts and hostnames, no member names, History opens | AUTOMATED |
+| APP-02 | Provision an address: a reserved label and a taken label are refused live (with a suggestion), a free one goes live and the old one is retired | AUTOMATED |
+| APP-03 | Enterprise switch asks for a 10+ character reason, the organization address answers after it, History records it | AUTOMATED |
+| APP-04 | Create organization: shown-once temporary password (copy), owner signs in on the new address, is held on the change-password screen (pages and API refused), chooses a password, lands on the Organization Dashboard; the temporary password no longer works; a reset is refused once the owner chose their own. (The dashboard has no activation checklist yet: NOT-BUILT.) | AUTOMATED |
+| APP-04b | Reset owner password before first sign-in: new password shown once | AUTOMATED |
+| APP-05 | Suspend a hostname (address answers 404 at once) and resume it, each with a reason | AUTOMATED |
+| APP-06 | 390 px: cards, bottom sheets, no sideways scroll | AUTOMATED |

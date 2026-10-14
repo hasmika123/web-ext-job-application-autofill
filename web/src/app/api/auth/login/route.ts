@@ -2,6 +2,7 @@ import { apiUrl } from "@/lib/config";
 import { authHostHeaders, isNotAMember, NOT_A_MEMBER_MESSAGE } from "@/lib/auth-host";
 import { setAuthCookies } from "@/lib/auth";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
+import { passwordChangeRequired } from "@/lib/jwt-claims";
 
 /**
  * POST /api/auth/login — proxy the Spring authenticate endpoint and stash the JWT
@@ -39,6 +40,9 @@ export async function POST(request: Request) {
   if (await isNotAMember(res)) {
     return Response.json({ error: NOT_A_MEMBER_MESSAGE, code: "NOT_A_MEMBER" }, { status: 403 });
   }
+  if (res.status === 403 && ((await res.clone().json().catch(() => ({}))) as { code?: string }).code === "TEMP_PASSWORD_EXPIRED") {
+    return Response.json({ error: "Your temporary password has expired. Ask your administrator for a new one.", code: "TEMP_PASSWORD_EXPIRED" }, { status: 403 });
+  }
   if (!res.ok) {
     return Response.json({ error: "Incorrect username or password." }, { status: 401 });
   }
@@ -53,6 +57,16 @@ export async function POST(request: Request) {
 
   if (!data.accessToken) {
     return Response.json({ error: "Unexpected response from the server." }, { status: 502 });
+  }
+
+  // An administrator-issued temporary password: the session may only change the password, and that screen lives on the organization
+  // address (the platform has none), so a platform sign-in is turned away without setting a session.
+  if (passwordChangeRequired(data.accessToken)) {
+    if (Object.keys(await authHostHeaders()).length === 0) {
+      return Response.json({ error: "Sign in at your organization address to choose your own password first.", code: "USE_ORG_ADDRESS" }, { status: 403 });
+    }
+    await setAuthCookies(data.accessToken, data.refreshToken ?? null);
+    return Response.json({ ok: true, passwordChangeRequired: true });
   }
 
   await setAuthCookies(data.accessToken, data.refreshToken ?? null);

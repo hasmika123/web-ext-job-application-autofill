@@ -332,3 +332,42 @@ describe("platform behaviour is unchanged (X2.6 regression)", () => {
     expect((await proxy(req("/api/account", "localhost:3100", {}, "POST"))).status).toBe(200);
   });
 });
+
+describe("forced password change on a tenant host (administrator-issued temporary password)", () => {
+  const mustChange = cookie({ "__Host-kiwiply_access": jwt({ sub: "owner", tid: 12, pcr: true }) });
+
+  it("every page goes to /change-password while the token says the temporary password stands", async () => {
+    stubApi(true);
+    for (const path of ["/", "/w/admin", "/w/admin/employees"]) {
+      const res = await proxy(req(path, "acme.localhost:3100", mustChange));
+      expect(res.status).toBe(307);
+      expect(new URL(location(res)!).pathname).toBe("/change-password");
+    }
+    expect(calls.some((c) => c.url.endsWith("/api/refresh"))).toBe(false); // no refresh: it would rotate the token on every request
+  });
+
+  it("the change-password screen itself is served (rewritten into the tenant tree), and so is the BFF", async () => {
+    stubApi(true);
+    const page = await proxy(req("/change-password", "acme.localhost:3100", mustChange));
+    expect(location(page)).toBeNull();
+    expect(new URL(rewritten(page)!).pathname).toBe("/_t/change-password");
+    const api = await proxy(req("/api/auth/change-password", "acme.localhost:3100", mustChange, "POST"));
+    expect(location(api)).toBeNull();
+  });
+
+  it("a token without the claim is untouched", async () => {
+    stubApi(true);
+    const res = await proxy(req("/w/admin", "acme.localhost:3100", signedIn));
+    expect(location(res)).toBeNull();
+    expect(new URL(rewritten(res)!).pathname).toBe("/_t/w/admin");
+  });
+
+  it("a refresh that returns a clean pair after the change lets the person through", async () => {
+    stubApi(true);
+    refreshAnswer = () => Response.json({ accessToken: tenantAccess(), refreshToken: "r2" });
+    const expired = cookie({ "__Host-kiwiply_access": jwt({ sub: "owner", tid: 12, pcr: true }, -600), "__Host-kiwiply_refresh": "r1" });
+    const res = await proxy(req("/w/admin", "acme.localhost:3100", expired));
+    expect(location(res)).toBeNull();
+    expect(new URL(rewritten(res)!).pathname).toBe("/_t/w/admin");
+  });
+});

@@ -30,7 +30,7 @@ export interface HistoryLoader {
 }
 
 /** Mounted only while the drawer is open, so every opening reads the newest changes. */
-function HistoryBody({ load, formatKey, emptyTitle, emptyDescription, what }: { load: HistoryLoader; formatKey: (k: string) => string; emptyTitle: string; emptyDescription: string; what: string }) {
+function HistoryBody({ load, formatKey, emptyTitle, emptyDescription, what, events }: { load: HistoryLoader; formatKey: (k: string) => string; emptyTitle: string; emptyDescription: string; what: string; events: boolean }) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<State>({ status: "loading" });
   const loadRef = useRef(load);
@@ -80,9 +80,13 @@ function HistoryBody({ load, formatKey, emptyTitle, emptyDescription, what }: { 
               {new Date(h.changedAt).toLocaleString("en-US", WHEN)}
             </time>
           </div>
+          {events ? (
+            h.newValue ? <p className="mt-0.5 break-words text-ink-soft">{h.newValue}</p> : null
+          ) : (
           <p className="mt-0.5 break-words text-ink-soft">
             <span className="text-v2-muted">{shortValue(h.oldValue)}</span> → <span className="font-medium text-ink">{shortValue(h.newValue)}</span>
           </p>
+          )}
           <p className="mt-0.5 text-[12px] text-v2-muted">
             by {h.actorLogin ?? "system"}
             {h.reason ? ` · “${h.reason}”` : ""}
@@ -108,6 +112,8 @@ export interface HistoryDrawerProps {
   emptyDescription?: string;
   /** For the error line: "Couldn't load {what}". */
   what?: string;
+  /** Rows are events (an action and its details), not value changes: no old-to-new line. */
+  events?: boolean;
 }
 
 /** The change history of a group of settings (who, what, why), newest first: a drawer on a desktop, full screen on a phone. */
@@ -123,6 +129,7 @@ export default function HistoryDrawer({
   emptyTitle = "No changes yet.",
   emptyDescription = "Every change shows up here with who made it and why.",
   what = "the change history",
+  events = false,
 }: HistoryDrawerProps) {
   const narrow = useNarrow();
   return (
@@ -137,7 +144,7 @@ export default function HistoryDrawer({
       description={description}
       returnFocusTo={returnFocusTo}
     >
-      {open && <HistoryBody load={load} formatKey={formatKey} emptyTitle={emptyTitle} emptyDescription={emptyDescription} what={what} />}
+      {open && <HistoryBody load={load} formatKey={formatKey} emptyTitle={emptyTitle} emptyDescription={emptyDescription} what={what} events={events} />}
     </SideSheet>
   );
 }
