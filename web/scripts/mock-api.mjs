@@ -22,6 +22,7 @@ import { createBrandingMock } from "./mock-branding.mjs";
 import { createInvitationsMock } from "./mock-invitations.mjs";
 import { createDashboardMock } from "./mock-dashboard.mjs";
 import { createMktMock } from "./mock-mkt.mjs";
+import { createConOpportunitiesMock } from "./mock-con-opportunities.mjs";
 import { createMembersMock } from "./mock-members.mjs";
 import { createGroupsMock } from "./mock-groups.mjs";
 import { createRolesMock } from "./mock-roles.mjs";
@@ -265,6 +266,8 @@ const handleInvitations = createInvitationsMock({
 /* ── Organization dashboard mock (X2.17: GET .../dashboard + alert dismiss for the acme/beta tenant members; scripts/mock-dashboard.mjs) ── */
 const handleDashboard = createDashboardMock({ json, subOf: bearerSub });
 const handleMkt = createMktMock({ json, subOf: bearerSub });
+/* Consultant Assigned Opportunities mock (doc 60: GET/POST .../con/opportunities for consultant@acme.com; scripts/mock-con-opportunities.mjs) */
+const handleCon = createConOpportunitiesMock({ json, subOf: bearerSub });
 /* Employees mock (X4.12: members list, tiles, detail, bulk, lifecycle for Acme; scripts/mock-members.mjs) */
 const handleMembers = createMembersMock({ json, subOf: bearerSub });
 /* ── Departments and Teams mock (X4.5: groups, leads, moves for Acme; scripts/mock-groups.mjs) ── */
@@ -1994,6 +1997,7 @@ const server = http.createServer((req, res) => {
   if (ENTERPRISE_ENABLED && handleInvitations(req, res, path, method)) return;
   if (handleDashboard(req, res, path, method)) return;
   if (handleMkt(req, res, path, method)) return;
+  if (handleCon(req, res, path, method)) return;
   if (handleMembers(req, res, path, method)) return;
   if (handleGroups(req, res, path, method)) return;
   if (ENTERPRISE_ENABLED && handleRoles(req, res, path, method)) return;
