@@ -14,8 +14,6 @@ import {
   ErrorState,
   EyeIcon,
   FileTextIcon,
-  MailIcon,
-  MapPinIcon,
   MemberAvatar,
   PrinterIcon,
   Select,
@@ -67,13 +65,13 @@ type State = { status: "idle" } | { status: "loading" } | { status: "gone" } | {
 
 function Field({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
-    <div className="flex items-start gap-2.5 text-[13px]">
-      <span aria-hidden className="mt-0.5 text-muted">
+    <div className="flex items-start gap-2 text-[11px]">
+      <span aria-hidden className="mt-0.5 flex-none text-[var(--ent-x-4b5a8a)]">
         {icon}
       </span>
       <div className="min-w-0">
-        <dt className="text-[12px] text-muted">{label}</dt>
-        <dd className="min-w-0 break-words font-medium text-ink">{children}</dd>
+        <dt className="text-[10px] text-[var(--ent-soft)]">{label}</dt>
+        <dd className="min-w-0 break-words text-[11px] font-semibold text-[var(--ent-title)]">{children}</dd>
       </div>
     </div>
   );
@@ -287,25 +285,27 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
     const c = r.consultant;
     const approved = r.approvalStatus === "APPROVED";
     return (
-      <div data-detail-body data-resume-id={r.id} className="space-y-4">
-        <div className="flex items-start gap-3">
-          <MemberAvatar name={c.name} size={52} />
-          <div className="min-w-0 flex-1 space-y-1">
+      <div data-detail-body data-resume-id={r.id} className="space-y-3 p-3">
+        <div className="flex items-start gap-2.5 pr-8">
+          <MemberAvatar name={c.name} size={46} />
+          <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h3 className="truncate text-[17px] font-bold text-ink">{c.name}</h3>
-              {c.status === "ACTIVE" && <span className="rounded-full bg-accent-soft px-2.5 py-[3px] text-[11.5px] font-semibold leading-none text-accent-deep">Active</span>}
-              {c.jobTitle && <span className="rounded-full bg-paper-2 px-2.5 py-[3px] text-[11.5px] font-semibold leading-none text-ink-soft">{c.jobTitle}</span>}
-            </div>
-            <ul className="space-y-0.5 text-[12.5px] text-ink-soft" data-contact>
-              {c.email && (
-                <li className="flex min-w-0 items-center gap-1.5">
-                  <MailIcon aria-hidden size={13} className="flex-none text-muted" />
-                  <span className="truncate">{c.email}</span>
-                </li>
+              <h3 className="truncate text-[12.5px] font-bold text-[var(--ent-title)]">{c.name}</h3>
+              {c.status === "ACTIVE" && (
+                <span className="ent-pill" data-tone="green" data-shape="round">
+                  Active
+                </span>
               )}
+            </div>
+            {c.jobTitle && (
+              <span className="ent-pill" data-tone="purple" data-shape="round">
+                {c.jobTitle}
+              </span>
+            )}
+            <ul className="sr-only" data-contact>
+              {c.email && <li>{c.email}</li>}
               {c.location && (
-                <li className="flex items-center gap-1.5">
-                  <MapPinIcon aria-hidden size={13} className="flex-none text-muted" />
+                <li>
                   {c.location}
                   {c.workMode ? ` (${c.workMode.toLowerCase()})` : ""}
                 </li>
@@ -314,29 +314,29 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
           </div>
         </div>
 
-        <div className="relative max-h-72 overflow-hidden rounded-xl bg-paper-2/70 p-3" data-preview-frame>
+        <div className="relative max-h-[345px] overflow-hidden rounded-[9px] border border-[var(--ent-x-e6ecf5)] bg-[var(--ent-x-f3f6fb)] p-2" data-preview-frame>
           <ResumePaper detail={d} />
-          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-paper-2/90 to-transparent" />
+          <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-[var(--ent-x-f3f6fb)] to-transparent" />
         </div>
-        <p className="-mt-2 text-[11.5px] text-muted">Preview drawn from this record&apos;s summary, skills and experience. No file is stored.</p>
+        <p className="sr-only">Preview drawn from this record&apos;s summary, skills and experience. No file is stored.</p>
 
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-3" data-facts>
-          <Field icon={<FileTextIcon size={15} />} label="File Name">
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5" data-facts>
+          <Field icon={<FileTextIcon size={14} />} label="File Name">
             {r.fileName ?? <span className="font-normal text-muted">No file name</span>}
           </Field>
-          <Field icon={<CalendarIcon size={15} />} label="Created">
+          <Field icon={<CalendarIcon size={14} />} label="Created">
             {formatDate(r.createdAt) || "—"}
           </Field>
-          <Field icon={<ShieldIcon size={15} />} label="Version">
+          <Field icon={<ShieldIcon size={14} />} label="Version">
             {versionText(r.version)} (Latest)
           </Field>
-          <Field icon={<ClockIcon size={15} />} label="Last Modified">
+          <Field icon={<ClockIcon size={14} />} label="Last Modified">
             {formatDate(r.updatedAt) || "—"}
           </Field>
-          <Field icon={<FileTextIcon size={15} />} label="File Size">
+          <Field icon={<FileTextIcon size={14} />} label="File Size">
             {fileSizeText(r.fileSizeKb) || <span className="font-normal text-muted">Not stored</span>}
           </Field>
-          <Field icon={<UserIcon size={15} />} label="Owner">
+          <Field icon={<UserIcon size={14} />} label="Owner">
             {r.owner ? (
               <span className="flex items-center gap-1.5">
                 <MemberAvatar name={r.owner.name} size={22} />
@@ -348,12 +348,12 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
           </Field>
         </dl>
 
-        <div className="space-y-3 border-t border-line pt-3">
+        <div className="space-y-2.5 border-t border-[var(--ent-table-line)] pt-3">
           <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-[13.5px] font-medium text-ink">
-              <StarIcon aria-hidden size={16} className="text-accent-deep" /> Primary Resume
+            <span className="flex items-center gap-2 text-[11.5px] font-medium text-[var(--ent-title)]">
+              <StarIcon aria-hidden size={14} className="text-[var(--ent-x-4b5a8a)]" /> Primary Resume
             </span>
-            <span className="flex items-center gap-2 text-[13px] text-ink-soft">
+            <span className="flex items-center gap-2 text-[11px] text-[var(--ent-title)]">
               <Switch
                 aria-label="Primary resume"
                 checked={r.primary}
@@ -363,13 +363,13 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
               {r.primary ? "Yes" : "No"}
             </span>
           </div>
-          {!approved && d.actions.setPrimary && !r.primary && <p className="-mt-1.5 text-[12px] text-muted">Only an approved resume can be the primary one.</p>}
+          {!approved && d.actions.setPrimary && !r.primary && <p className="-mt-1.5 text-[10.5px] text-muted">Only an approved resume can be the primary one.</p>}
 
-          <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-[13.5px] font-medium text-ink">
-              <EyeIcon aria-hidden size={16} className="text-accent-deep" /> Visibility
+          <div className="flex items-center justify-between gap-2">
+            <span className="flex flex-none items-center gap-2 text-[11.5px] font-medium text-[var(--ent-title)]">
+              <EyeIcon aria-hidden size={14} className="text-[var(--ent-x-4b5a8a)]" /> Visibility
             </span>
-            <div className="w-56 max-w-[60%]">
+            <div className="ent-vis w-[148px] min-w-0">
               <Select
                 aria-label="Visibility"
                 value={r.visibility}
@@ -381,32 +381,32 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-[13.5px] font-medium text-ink">
-              <ShieldIcon aria-hidden size={16} className="text-accent-deep" /> Approval Status
+            <span className="flex items-center gap-2 text-[11.5px] font-medium text-[var(--ent-title)]">
+              <ShieldIcon aria-hidden size={14} className="text-[var(--ent-x-4b5a8a)]" /> Approval Status
             </span>
-            <span className="flex flex-wrap items-center justify-end gap-2">
+            <span className="flex flex-wrap items-center justify-end gap-1.5">
               <ApprovalPill status={r.approvalStatus} />
               {d.actions.decide && r.approvalStatus === "PENDING" && (
                 <>
-                  <Button type="button" size="sm" variant="accent-soft" disabled={busy === "decision"} onClick={() => void decide(d, "APPROVE")}>
+                  <Button type="button" size="sm" variant="accent-soft" className="!px-2.5 !py-1 !text-[11px]" disabled={busy === "decision"} onClick={() => void decide(d, "APPROVE")}>
                     Approve
                   </Button>
-                  <Button type="button" size="sm" variant="ghost" disabled={busy === "decision"} onClick={() => void decide(d, "REJECT")}>
+                  <Button type="button" size="sm" variant="ghost" className="!px-2.5 !py-1 !text-[11px]" disabled={busy === "decision"} onClick={() => void decide(d, "REJECT")}>
                     Reject
                   </Button>
                 </>
               )}
               {d.actions.decide && r.approvalStatus !== "PENDING" && (
-                <button type="button" disabled={busy === "decision"} onClick={() => void decide(d, "REOPEN")} className="text-[12px] font-semibold text-accent-deep underline disabled:opacity-50">
+                <button type="button" disabled={busy === "decision"} onClick={() => void decide(d, "REOPEN")} className="text-[10.5px] font-semibold text-accent-deep underline disabled:opacity-50">
                   Move back to pending
                 </button>
               )}
             </span>
           </div>
-          {r.approvalStatus === "PENDING" && !d.actions.decide && <p className="text-[12px] text-muted">Waiting for someone with approval access. The person who prepared a resume cannot approve it.</p>}
+          {r.approvalStatus === "PENDING" && !d.actions.decide && <p className="text-[10.5px] text-muted">Waiting for someone with approval access. The person who prepared a resume cannot approve it.</p>}
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5" data-actions>
+        <div className="ent-actions grid grid-cols-2 gap-2" data-actions>
           <Button type="button" variant="accent" size="md" onClick={() => setPreview(true)}>
             <EyeIcon aria-hidden size={16} /> Preview
           </Button>
@@ -447,12 +447,12 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
     );
   }
   const sheet = (
-    <SideSheet id="ent-resume-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 420 : 480} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
+    <SideSheet id="ent-resume-sheet" side="right" mode={p.mode} bare className="ent-drawer" width={p.mode === "push" ? 287 : 400} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
       {body}
     </SideSheet>
   );
   if (p.mode === "push") {
-    return <div className={`sticky top-4 h-[calc(100dvh-7rem)] shrink-0 self-start ${open ? "ml-4" : ""}`}>{sheet}</div>;
+    return <div className={`ent-drawer-slot sticky top-2 shrink-0 self-start ${open ? "ml-[15px]" : ""}`}>{sheet}</div>;
   }
   return sheet;
 }

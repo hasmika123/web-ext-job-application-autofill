@@ -5,15 +5,15 @@ import type { ReactNode } from "react";
 import { Input, MemberAvatar, SEARCH_DEBOUNCE_MS, SearchIcon, StatePill, Tooltip, hasStateMap, registerStateMap } from "@kiwiply/ui";
 import { REASON_LABEL, stageLabel, type ClientRef, type Marketer, type PersonRef } from "@/lib/ent/applications";
 
-/** The application stage map of the StatePill: grey Assigned/Closed, amber Submitted/Interviewing, grey Under Review, green Offer. */
+/** The application stage map of the StatePill (the board): Assigned and Closed grey, Under Review blue, Submitted purple, Interviewing amber, Offer green. */
 if (!hasStateMap("application")) {
   registerStateMap("application", {
-    ASSIGNED: "grey-outline",
-    SUBMITTED: "amber-outline",
-    UNDER_REVIEW: "grey",
+    ASSIGNED: "grey",
+    SUBMITTED: "purple",
+    UNDER_REVIEW: "blue",
     INTERVIEWING: "amber",
     OFFER: "green",
-    CLOSED: "grey-outline",
+    CLOSED: "grey",
   });
 }
 
@@ -33,7 +33,7 @@ export function StagePill({ stage, reason }: { stage: string; reason?: string | 
 }
 
 /** No logos exist for a client: an initials tile in the same colour logic as the people avatars. */
-export function ClientTile({ client, size = 34 }: { client: ClientRef; size?: number }) {
+export function ClientTile({ client, size = 30 }: { client: ClientRef; size?: number }) {
   return <MemberAvatar name={client.name} size={size} className="!rounded-[10px]" />;
 }
 
@@ -41,8 +41,8 @@ export function ClientTile({ client, size = 34 }: { client: ClientRef; size?: nu
 export function TwoLine({ top, sub }: { top: ReactNode; sub?: ReactNode }) {
   return (
     <div className="min-w-0 leading-tight">
-      <div className="truncate text-[13.5px] font-semibold text-ink">{top}</div>
-      {sub != null && sub !== "" && <div className="truncate text-[12px] text-muted">{sub}</div>}
+      <div className="truncate text-[11px] font-bold text-[var(--ent-title)]">{top}</div>
+      {sub != null && sub !== "" && <div className="truncate text-[9.5px] text-[var(--ent-soft)]">{sub}</div>}
     </div>
   );
 }
@@ -50,7 +50,7 @@ export function TwoLine({ top, sub }: { top: ReactNode; sub?: ReactNode }) {
 export function ConsultantCell({ consultant }: { consultant: PersonRef }) {
   return (
     <span className="flex min-w-0 items-center gap-2.5">
-      <MemberAvatar name={consultant.name} size={34} />
+      <MemberAvatar name={consultant.name} size={30} />
       <TwoLine top={consultant.name} sub="Consultant" />
     </span>
   );
@@ -70,8 +70,8 @@ export function MarketerCell({ marketer, withName = false }: { marketer: Markete
   if (!marketer) return <span className="text-muted">{"—"}</span>;
   return (
     <span className="flex min-w-0 items-center gap-2" title={marketer.name}>
-      <MemberAvatar name={marketer.name} size={28} />
-      {withName && <span className="truncate text-[13px] text-ink">{marketer.name}</span>}
+      <MemberAvatar name={marketer.name} size={30} />
+      {withName && <span className="truncate text-[11px] text-[var(--ent-title)]">{marketer.name}</span>}
       {!withName && <span className="sr-only">{marketer.name}</span>}
     </span>
   );
@@ -103,7 +103,7 @@ export function SearchBox({ value, onChange, label, placeholder }: { value: stri
   }, [text]);
   return (
     <div role="search" className="relative min-w-0 flex-1">
-      <SearchIcon aria-hidden size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+      <SearchIcon aria-hidden size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ent-x-3b5ba5)]" />
       <Input
         type="search"
         value={text}
@@ -119,7 +119,7 @@ export function SearchBox({ value, onChange, label, placeholder }: { value: stri
             }
           } else if (e.key === "Escape" && text !== "") setText("");
         }}
-        className="pl-9"
+        className="ent-search pl-10"
       />
     </div>
   );

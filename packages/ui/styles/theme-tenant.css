@@ -673,3 +673,513 @@
   color: var(--ent-primary);
 }
 .theme-tenant .ent-ask-btn:hover { background: color-mix(in srgb, var(--ent-primary) 12%, #ffffff); }
+/* ── EXACT-MATCH PASS (talent pages: Resumes, Marketing Assignments, Jobs, Applications) ──────────────────────────────
+ * `.ent-fit` lays a page out at the boards' own pixel sizes (the talent boards are 1448 px wide) and scales it with the viewport, so
+ * the page at 1672 px is the board at 1.155x, the way the shell is. Below 1024 px there is no scaling (phone and tablet layouts).
+ * Pop-ups that render in a portal (Select, Menu, Popover) are outside the zoom and keep the normal size, which is intended.
+ */
+.theme-tenant .ent-fit {
+  --ent-zoom: clamp(0.9, tan(atan2(100vw, 1448px)), 1.155);
+  zoom: var(--ent-zoom);
+}
+@media (max-width: 1023px) {
+  .theme-tenant .ent-fit {
+    --ent-zoom: 1;
+  }
+}
+
+/* the bee help banner: a scenic strip (window, plant, desk) with the laptop bee on it */
+.theme-tenant .ent-scene {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 34% 60% at 90% 78%, #7fbf6a 0 55%, transparent 56%),
+    radial-gradient(ellipse 22% 52% at 82% 86%, #5aa84e 0 55%, transparent 56%),
+    radial-gradient(ellipse 18% 46% at 96% 92%, #9bd07f 0 55%, transparent 56%),
+    linear-gradient(to top, #f3dcc0 0 17%, transparent 17%),
+    linear-gradient(115deg, #cfe5fb 0%, #e6f1fd 48%, #fdf0dc 100%);
+}
+.theme-tenant .ent-scene::before {
+  content: "";
+  position: absolute;
+  left: 6%;
+  top: 8%;
+  width: 34%;
+  height: 52%;
+  border-radius: 6px;
+  background:
+    linear-gradient(to right, transparent 48%, rgba(255, 255, 255, 0.9) 48% 52%, transparent 52%),
+    linear-gradient(to bottom, #f6fbff, #dcecfb);
+  opacity: 0.85;
+}
+.theme-tenant .ent-scene > img {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  height: 96%;
+  width: auto;
+  max-width: none;
+  transform: translateX(-52%);
+  filter: drop-shadow(0 3px 4px rgba(20, 33, 79, 0.18));
+}
+.theme-tenant .ent-ask {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #cfe0f7;
+  border-radius: 10px;
+  background: #f1f6ff;
+  color: var(--color-accent-deep);
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+}
+.theme-tenant .ent-ask:hover {
+  background: var(--color-accent-soft);
+}
+
+/* the talent boards' own sizes (board px; `.ent-fit` scales them with the viewport) */
+.theme-tenant .ent-fit {
+  font-size: 12px;
+  color: var(--ent-title);
+}
+.theme-tenant .ent-fit .ent-card {
+  border-radius: 12px;
+}
+/* KPI tile: 214 x 150 on the board */
+.theme-tenant .ent-fit .ent-kpi-chip {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+.theme-tenant .ent-fit [data-kpi] {
+  padding: 13px 16px 12px;
+  border-radius: 12px;
+}
+.theme-tenant .ent-fit .ent-kpi-label {
+  margin-top: 9px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.theme-tenant .ent-fit .ent-kpi-value {
+  font-size: 25px;
+  letter-spacing: -0.01em;
+}
+.theme-tenant .ent-fit [data-kpi] > div {
+  margin-top: 2px;
+}
+.theme-tenant .ent-fit [data-kpi] [data-kpi-delta] {
+  margin-top: 6px;
+  font-size: 11.5px;
+  gap: 5px;
+}
+.theme-tenant .ent-fit [data-kpi] [data-sparkline] {
+  width: 76px !important;
+  height: 34px !important;
+}
+/* pills */
+.theme-tenant .ent-fit .ent-pill,
+.theme-tenant .ent-fit [data-state-pill] {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 5px;
+  line-height: 1.35;
+}
+/* tabs: icon + label, a 2 px underline in the brand colour */
+.theme-tenant .ent-fit .ent-tabs [role="tablist"] {
+  border-bottom: 0;
+  gap: 8px;
+}
+.theme-tenant .ent-fit .ent-tabs [role="tab"] {
+  height: 44px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-bottom-width: 2px;
+  border-color: transparent;
+  color: #4b5a8a;
+  margin-bottom: 0;
+}
+.theme-tenant .ent-fit .ent-tabs [role="tab"][aria-selected="true"] {
+  color: var(--color-accent-deep);
+  border-color: var(--color-accent);
+}
+.theme-tenant .ent-fit .ent-tabs [role="tab"] svg {
+  color: currentColor;
+}
+/* buttons */
+.theme-tenant .ent-fit .ent-btn {
+  height: 30px;
+  padding: 0 14px;
+  gap: 6px;
+  border-radius: 8px;
+  background: var(--ent-primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.theme-tenant .ent-fit .ent-btn:hover {
+  filter: brightness(1.06);
+}
+.theme-tenant .ent-fit .ent-ctl-btn {
+  height: 32px;
+  padding: 0 14px;
+  gap: 7px;
+  border-radius: 8px;
+  border: 1px solid #dbe3f0;
+  background: #fff;
+  color: var(--ent-title);
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.theme-tenant .ent-fit .ent-ctl-btn:hover {
+  background: var(--ent-field-bg);
+}
+/* filter bar: one search field that takes the room, selects as wide as their label */
+.theme-tenant .ent-fit .ent-filterbar {
+  gap: 8px;
+}
+.theme-tenant .ent-fit .ent-filterbar > div:first-child {
+  flex: 1 1 200px;
+  width: auto;
+  min-width: 0;
+}
+.theme-tenant .ent-fit .ent-filterbar > div:not(:first-child):not(.ml-auto) {
+  flex: none;
+  width: auto;
+}
+.theme-tenant .ent-fit .ent-filterbar > .ml-auto {
+  margin-left: 0;
+}
+.theme-tenant .ent-fit .ent-filterbar input[type="search"] {
+  height: 32px;
+  min-height: 0;
+  padding: 0 12px 0 34px;
+  border-radius: 8px;
+  border: 1px solid #d6e3f8;
+  background: var(--ent-field-bg);
+  font-size: 11.5px;
+  color: var(--ent-title);
+}
+.theme-tenant .ent-fit .ent-filterbar input::placeholder {
+  color: var(--ent-soft);
+}
+.theme-tenant .ent-fit .ent-filterbar [role="search"] svg,
+.theme-tenant .ent-fit [role="search"] > div > svg {
+  color: #3b5ba5;
+}
+.theme-tenant .ent-fit button[aria-haspopup="listbox"] {
+  height: 32px;
+  min-height: 0;
+  padding: 0 30px 0 12px;
+  border-radius: 8px;
+  border: 1px solid #dbe3f0;
+  background: #fff;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--ent-title);
+  white-space: nowrap;
+}
+.theme-tenant .ent-fit button[aria-haspopup="listbox"] > span:last-child svg {
+  width: 14px;
+  height: 14px;
+}
+/* square buttons: pager, prev/next */
+.theme-tenant .ent-fit .ent-sq {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid #dbe3f0;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ent-title);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.theme-tenant .ent-fit .ent-sq:hover:not(:disabled) {
+  background: var(--ent-field-bg);
+}
+.theme-tenant .ent-fit .ent-sq[data-active="true"] {
+  background: var(--ent-primary);
+  border-color: var(--ent-primary);
+  color: #fff;
+}
+.theme-tenant .ent-fit .ent-sq:disabled {
+  opacity: 0.45;
+}
+.theme-tenant .ent-fit .ent-perpage button[aria-haspopup="listbox"],
+.theme-tenant .ent-fit .ent-sort button[aria-haspopup="listbox"] {
+  height: 28px;
+  padding-left: 10px;
+}
+.theme-tenant .ent-fit .ent-sort button[aria-haspopup="listbox"] {
+  border-color: transparent;
+  background: transparent;
+  font-weight: 700;
+}
+/* list / grid switch */
+.theme-tenant .ent-fit .ent-seg {
+  border: 1px solid #dbe3f0;
+  border-radius: 8px;
+  background: #fff;
+}
+.theme-tenant .ent-fit .ent-seg button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 28px;
+  color: #4b5a8a;
+}
+.theme-tenant .ent-fit .ent-seg button + button {
+  border-left: 1px solid #dbe3f0;
+}
+.theme-tenant .ent-fit .ent-seg button[aria-pressed="true"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-deep);
+}
+/* kebab: a small outlined square with three dots */
+.theme-tenant .ent-fit .ent-kebab {
+  width: 26px;
+  height: 26px;
+  border: 1px solid #dbe3f0;
+  border-radius: 7px;
+  background: #fff;
+  color: #4b5a8a;
+}
+/* tables */
+.theme-tenant .ent-fit .ent-table,
+.theme-tenant .ent-fit .ent-dt table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 11px;
+}
+.theme-tenant .ent-fit .ent-table thead th,
+.theme-tenant .ent-fit .ent-dt table thead th {
+  height: 28px;
+  padding: 0 8px;
+  background: var(--ent-table-head-bg);
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1e2a5a;
+  white-space: nowrap;
+}
+.theme-tenant .ent-fit .ent-table thead th:first-child,
+.theme-tenant .ent-fit .ent-dt table thead th:first-child {
+  border-radius: 8px 0 0 8px;
+  padding-left: 12px;
+}
+.theme-tenant .ent-fit .ent-table thead th:last-child,
+.theme-tenant .ent-fit .ent-dt table thead th:last-child {
+  border-radius: 0 8px 8px 0;
+}
+.theme-tenant .ent-fit .ent-table thead th button,
+.theme-tenant .ent-fit .ent-dt table thead th button {
+  font: inherit;
+  color: inherit;
+}
+.theme-tenant .ent-fit .ent-table tbody td,
+.theme-tenant .ent-fit .ent-dt table tbody td {
+  padding: 5px 8px;
+  height: 46px;
+  font-size: 11px;
+  border-bottom: 1px solid var(--ent-table-line);
+  vertical-align: middle;
+}
+.theme-tenant .ent-fit .ent-table tbody td:first-child,
+.theme-tenant .ent-fit .ent-dt table tbody td:first-child {
+  padding-left: 12px;
+}
+.theme-tenant .ent-fit .ent-table tbody tr:last-child td,
+.theme-tenant .ent-fit .ent-dt table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.theme-tenant .ent-fit .ent-table input[type="checkbox"],
+.theme-tenant .ent-fit .ent-dt table input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+/* drawers: a card beside the table, content starts at the person / job (the SideSheet is `bare`) */
+.theme-tenant .ent-fit .ent-drawer > div {
+  border-radius: 12px;
+  border-color: var(--ent-card-border);
+  background: #fff;
+}
+.theme-tenant .ent-fit .ent-drawer [data-sheet-close] {
+  width: 26px;
+  height: 26px;
+  color: #3a4778;
+}
+.theme-tenant .ent-fit .ent-actions > * {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  gap: 7px;
+}
+.theme-tenant .ent-fit .ent-vis button[aria-haspopup="listbox"] {
+  height: 26px;
+  font-size: 10.5px;
+  padding: 0 24px 0 9px;
+  border-radius: 7px;
+}
+
+.theme-tenant .ent-fit .ent-meter {
+  height: 4px;
+  background: #e6edf8;
+}
+.theme-tenant .ent-fit .ent-meter > div {
+  background: #3b79ee;
+}
+.theme-tenant .ent-fit .ent-meter[aria-valuenow] > div[style*="100%"] {
+  background: var(--color-danger);
+}
+.theme-tenant .ent-fit .ent-dt table th:not([aria-sort]) button svg {
+  display: none;
+}
+.theme-tenant .ent-fit .ent-dt > div {
+  overflow-x: auto;
+  border-radius: 0;
+}
+.theme-tenant .ent-fit .ent-dt table thead {
+  background: transparent;
+  text-transform: none;
+  letter-spacing: 0;
+  color: inherit;
+}
+.theme-tenant .ent-fit .ent-dt table thead th {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.theme-tenant .ent-fit .ent-dt table thead th button {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.theme-tenant .ent-fit [data-marketer] [data-state-pill] {
+  border-radius: 999px;
+}
+.theme-tenant .ent-fit .ent-dt table tbody tr:hover {
+  background: var(--ent-field-bg);
+}
+
+/* Jobs */
+.theme-tenant .ent-fit .ent-searchrow input[type="search"],
+.theme-tenant .ent-fit input.ent-search {
+  height: 36px;
+  min-height: 0;
+  border-radius: 10px;
+  border: 1px solid #d6e3f8;
+  background: var(--ent-field-bg);
+  font-size: 11.5px;
+  color: var(--ent-title);
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.theme-tenant .ent-fit input.ent-search::placeholder {
+  color: var(--ent-soft);
+}
+.theme-tenant .ent-fit .ent-btn-lg {
+  height: 36px;
+  padding: 0 22px;
+  border-radius: 9px;
+  font-size: 12.5px;
+}
+.theme-tenant .ent-fit .ent-filterrow button[aria-haspopup="listbox"] {
+  height: 30px;
+  padding-left: 10px;
+  font-size: 11px;
+}
+.theme-tenant .ent-fit .ent-filterrow > div {
+  flex: 1 1 auto;
+}
+.theme-tenant .ent-fit .ent-joblist {
+  border-top: 1px solid var(--ent-table-line);
+}
+.theme-tenant .ent-fit .ent-joblist > li + li {
+  border-top: 1px solid var(--ent-table-line);
+}
+.theme-tenant .ent-fit .ent-pill-lg {
+  min-width: 56px;
+  padding: 4px 12px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+.theme-tenant .ent-fit .ent-tabs-sm [role="tablist"] {
+  gap: 0;
+  border-bottom: 1px solid var(--ent-table-line);
+  justify-content: space-between;
+}
+.theme-tenant .ent-fit .ent-tabs-sm [role="tab"] {
+  height: 34px;
+  padding: 0 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  margin-bottom: -1px;
+}
+/* a drawer made of several cards: the sheet itself is only a frame */
+.theme-tenant .ent-fit .ent-drawer-col > div {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.theme-tenant .ent-fit .ent-drawer-col [data-sheet-close] {
+  top: 6px;
+  right: 6px;
+}
+
+.theme-tenant .ent-fit .ent-filterbar-apps > div:first-child {
+  flex: none;
+}
+.theme-tenant .ent-fit [data-application-table] td:nth-child(8) > div > div {
+  white-space: normal;
+}
+
+/* literal board colours of the talent pages, named so the TSX carries no hex */
+.theme-tenant {
+  --ent-x-17995c: #17995c;
+  --ent-x-1a2556: #1a2556;
+  --ent-x-1d57c2: #1d57c2;
+  --ent-x-1e2a5a: #1e2a5a;
+  --ent-x-22b36b: #22b36b;
+  --ent-x-2b5fd6: #2b5fd6;
+  --ent-x-2b6df0: #2b6df0;
+  --ent-x-2b72f0: #2b72f0;
+  --ent-x-2f56b8: #2f56b8;
+  --ent-x-3b5ba5: #3b5ba5;
+  --ent-x-3b79ee: #3b79ee;
+  --ent-x-46527e: #46527e;
+  --ent-x-4b5a8a: #4b5a8a;
+  --ent-x-6a7699: #6a7699;
+  --ent-x-7a4cf0: #7a4cf0;
+  --ent-x-cfd8e8: #cfd8e8;
+  --ent-x-cfe0f7: #cfe0f7;
+  --ent-x-dbe8ff: #dbe8ff;
+  --ent-x-dbe9fd: #dbe9fd;
+  --ent-x-dfe6f1: #dfe6f1;
+  --ent-x-e1e8f3: #e1e8f3;
+  --ent-x-e1edff: #e1edff;
+  --ent-x-e4e9f2: #e4e9f2;
+  --ent-x-e6ecf5: #e6ecf5;
+  --ent-x-eaf1fe: #eaf1fe;
+  --ent-x-ece6ff: #ece6ff;
+  --ent-x-eef4fd: #eef4fd;
+  --ent-x-eef4fe: #eef4fe;
+  --ent-x-f1f4f9: #f1f4f9;
+  --ent-x-f1f6ff: #f1f6ff;
+  --ent-x-f3f6fb: #f3f6fb;
+  --ent-x-f3f7ff: #f3f7ff;
+  --ent-x-f4f8fe: #f4f8fe;
+  --ent-x-f6f8fc: #f6f8fc;
+  --ent-x-fff8ec: #fff8ec;
+}

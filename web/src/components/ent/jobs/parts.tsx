@@ -6,18 +6,18 @@ import { IconButton, Menu, MemberAvatar, MoreHorizontalIcon, Tooltip } from "@ki
 import type { MenuEntry } from "@kiwiply/ui";
 import { skillChips, statusLabel, type MatchSummary } from "@/lib/ent/jobs";
 
-/** One tone per job status, from the tenant-aware v2 tokens (never a literal colour). */
+/** One tone per job status (the boards' pills: Open green, In Review blue, Filled purple, On Hold amber, Closed grey). */
 const STATUS_TONE: Record<string, string> = {
-  OPEN: "bg-v2-green-soft text-v2-green-ink",
-  IN_REVIEW: "bg-accent-soft text-accent-deep",
-  ON_HOLD: "bg-v2-amber-soft text-v2-amber-ink",
-  FILLED: "bg-v2-violet-soft text-v2-violet-ink",
-  CLOSED: "bg-paper-2 text-ink-soft",
+  OPEN: "green",
+  IN_REVIEW: "blue",
+  ON_HOLD: "amber",
+  FILLED: "purple",
+  CLOSED: "grey",
 };
 
 export function StatusPill({ status, className = "", trailing }: { status: string; className?: string; trailing?: ReactNode }) {
   return (
-    <span data-job-status={status} className={`inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-[12.5px] font-medium leading-none whitespace-nowrap ${STATUS_TONE[status] ?? STATUS_TONE.CLOSED} ${className}`}>
+    <span data-job-status={status} className={`ent-pill ent-pill-lg justify-center ${className}`} data-tone={STATUS_TONE[status] ?? "grey"} data-shape="round">
       {statusLabel(status)}
       {trailing}
     </span>
@@ -28,9 +28,9 @@ export function StatusPill({ status, className = "", trailing }: { status: strin
 export function SkillChips({ skills, max = 3, size = "sm" }: { skills: string[]; max?: number; size?: "sm" | "md" }) {
   if (skills.length === 0) return null;
   const { shown, more } = skillChips(skills, max);
-  const cls = `inline-flex items-center rounded-md bg-accent-soft font-medium leading-none text-accent-deep ${size === "md" ? "px-2.5 py-1.5 text-[12.5px]" : "px-2 py-1.5 text-[11.5px]"}`;
+  const cls = `inline-flex items-center whitespace-nowrap rounded-md bg-[var(--ent-x-eaf1fe)] font-medium leading-none text-[var(--ent-x-2f56b8)] ${size === "md" ? "px-2 py-[5px] text-[10.5px]" : "px-1.5 py-[4px] text-[9.5px]"}`;
   return (
-    <ul aria-label="Skills" className="flex flex-wrap items-center gap-1.5" data-skill-chips>
+    <ul aria-label="Skills" className="flex flex-wrap items-center gap-1" data-skill-chips>
       {shown.map((s) => (
         <li key={s} className={cls}>
           {s}
@@ -39,7 +39,7 @@ export function SkillChips({ skills, max = 3, size = "sm" }: { skills: string[];
       {more > 0 && (
         <li>
           <Tooltip content={skills.slice(max).join(", ")} side="top">
-            <span tabIndex={0} aria-label={`${more} more skills: ${skills.slice(max).join(", ")}`} className="inline-flex items-center rounded-md bg-paper-2 px-2 py-1.5 text-[12px] font-medium leading-none text-ink-soft">
+            <span tabIndex={0} aria-label={`${more} more skills: ${skills.slice(max).join(", ")}`} className={`${cls} !bg-[var(--ent-x-f1f4f9)] !text-[var(--ent-x-46527e)]`}>
               +{more}
             </span>
           </Tooltip>
@@ -53,7 +53,7 @@ export function SkillChips({ skills, max = 3, size = "sm" }: { skills: string[];
 export function MatchStack({ matches }: { matches: MatchSummary }) {
   if (matches.count === 0 || matches.best === null) {
     return (
-      <span className="text-[12.5px] text-muted" data-no-matches>
+      <span className="text-[10.5px] text-[var(--ent-soft)]" data-no-matches>
         No matches yet
       </span>
     );
@@ -62,16 +62,16 @@ export function MatchStack({ matches }: { matches: MatchSummary }) {
   return (
     <div className="flex flex-col items-start gap-1" data-match-stack>
       <div className="flex items-center">
-        <ul aria-label="Best matching consultants" className="flex -space-x-2">
+        <ul aria-label="Best matching consultants" className="flex -space-x-1.5">
           {matches.top.map((m) => (
-            <li key={m.consultantId} title={`${m.name} (${m.score}%)`} className="rounded-full ring-2 ring-paper">
-              <MemberAvatar name={m.name} size={30} />
+            <li key={m.consultantId} title={`${m.name} (${m.score}%)`} className="rounded-full ring-2 ring-white">
+              <MemberAvatar name={m.name} size={24} />
             </li>
           ))}
         </ul>
-        {rest > 0 && <span className="ml-1.5 text-[12px] font-medium text-ink-soft">+{rest}</span>}
+        {rest > 0 && <span className="ml-1 text-[9.5px] font-medium text-[var(--ent-soft)]">+{rest}</span>}
       </div>
-      <span className="text-[13px] font-semibold text-v2-green-ink tabular-nums" data-best-score>
+      <span className="text-[10.5px] font-semibold text-[var(--ent-x-17995c)] tabular-nums" data-best-score>
         {matches.best}% match
       </span>
     </div>
@@ -92,7 +92,7 @@ export function Check({ checked, indeterminate, onChange, label }: { checked: bo
       aria-label={label}
       onChange={(e) => onChange(e.target.checked)}
       onClick={(e) => e.stopPropagation()}
-      className="h-4 w-4 cursor-pointer rounded border-line accent-[var(--brand-primary,var(--color-accent))]"
+      className="h-[14px] w-[14px] cursor-pointer rounded border-line accent-[var(--brand-primary,var(--color-accent))]"
     />
   );
 }
@@ -101,8 +101,8 @@ export function Kebab({ items, label = "Row actions" }: { items: MenuEntry[]; la
   return (
     <Menu
       trigger={
-        <IconButton aria-label={label} title={label} className="!h-8 !w-8 border border-line bg-paper text-ink-soft">
-          <MoreHorizontalIcon size={16} />
+        <IconButton aria-label={label} title={label} className="ent-kebab">
+          <MoreHorizontalIcon size={15} />
         </IconButton>
       }
       items={items}

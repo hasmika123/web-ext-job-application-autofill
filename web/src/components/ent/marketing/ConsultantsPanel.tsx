@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, ChevronDownIcon, DataTable, EmptyState, FilterIcon, HandshakeIcon, MemberAvatar, Menu, Select, useNarrow } from "@kiwiply/ui";
+import TalentPagination from "@/components/ent/shell/TalentPagination";
 import type { DataTableColumn, MenuEntry } from "@kiwiply/ui";
 import { AssignmentStatusPill, Check, CompactFilters, PersonChip, PriorityPill } from "./parts";
 import {
@@ -9,7 +10,6 @@ import {
   formatDay,
   nextSort,
   PAGE_SIZES,
-  pageCount as pagesOf,
   showingText,
   type BoardQuery,
   type Filters,
@@ -84,7 +84,7 @@ export default function ConsultantsPanel({
       key: "select",
       header: canManage ? <Check checked={allOn} indeterminate={someOn} onChange={onTogglePage} label="Select all consultants on this page" /> : "",
       headerLabel: "Select",
-      className: "w-9",
+      className: "w-[34px]",
       hideOnMobile: true,
       render: (r) => (canManage ? <Check checked={selected.has(r.consultantId)} onChange={() => onToggle(r.consultantId)} label={`Select ${r.name}`} /> : null),
     },
@@ -96,10 +96,10 @@ export default function ConsultantsPanel({
       render: (r) => (
         <span className="flex min-w-0 items-center gap-2.5">
           {canManage && narrow && <Check checked={selected.has(r.consultantId)} onChange={() => onToggle(r.consultantId)} label={`Select ${r.name}`} />}
-          <MemberAvatar name={r.name} size={30} />
-          <span className="min-w-0 max-w-[6rem]" title={r.jobTitle ? `${r.name}, ${r.jobTitle}` : r.name}>
-            <span className="block truncate text-[13px] font-bold text-ink">{r.name}</span>
-            <span className="block truncate text-[11.5px] font-normal text-muted">{r.jobTitle ?? (r.availability ? AVAILABILITY_LABEL[r.availability] : "")}</span>
+          <MemberAvatar name={r.name} size={32} />
+          <span className="min-w-0 max-w-[104px]" title={r.jobTitle ? `${r.name}, ${r.jobTitle}` : r.name}>
+            <span className="block truncate text-[11px] font-bold text-[var(--ent-title)]">{r.name}</span>
+            <span className="block truncate text-[9.5px] font-normal text-[var(--ent-soft)]">{r.jobTitle ?? (r.availability ? AVAILABILITY_LABEL[r.availability] : "")}</span>
           </span>
         </span>
       ),
@@ -108,8 +108,8 @@ export default function ConsultantsPanel({
     { key: "backup", header: "Backup Marketer", render: (r) => <PersonChip person={r.backup} none="No backup" /> },
     { key: "status", header: "Status", sortable: true, render: (r) => <AssignmentStatusPill status={r.status} /> },
     { key: "priority", header: "Priority", sortable: true, render: (r) => <PriorityPill priority={r.priority} /> },
-    { key: "activeApps", header: <span className="inline-block text-center leading-tight">Active<br />Apps</span>, headerLabel: "Active Apps", sortable: true, className: "text-center tabular-nums", render: (r) => <span className="tabular-nums">{r.activeApps}</span> },
-    { key: "lastActivity", header: "Last Activity", sortable: true, render: (r) => <span className="whitespace-nowrap text-[12px] text-ink-soft">{formatDay(r.lastActivityAt) || "—"}</span> },
+    { key: "activeApps", header: <span className="inline-block text-center leading-tight">Active Apps</span>, headerLabel: "Active Apps", sortable: true, className: "text-center tabular-nums", render: (r) => <span className="tabular-nums">{r.activeApps}</span> },
+    { key: "lastActivity", header: "Last Activity", sortable: true, render: (r) => <span className="whitespace-nowrap text-[11px] text-[var(--ent-soft)]">{formatDay(r.lastActivityAt) || "—"}</span> },
   ];
 
   const filterDefs = [
@@ -120,17 +120,15 @@ export default function ConsultantsPanel({
   const values = { status: query.status, priority: query.priority, client: query.clientId };
   const onFilter = (name: string, v: string) => onChange(name === "client" ? { clientId: v } : ({ [name]: v } as Partial<BoardQuery>));
 
-  const count = pagesOf(total, query.size);
-
   return (
-    <section aria-label="Assigned consultants" className="flex min-w-0 flex-col rounded-2xl border border-line bg-paper p-3.5" data-consultants-panel>
+    <section aria-label="Assigned consultants" className="ent-card flex min-w-0 flex-col !p-[14px]" data-consultants-panel>
       <div className="flex flex-wrap items-start gap-2.5">
-        <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
-          <HandshakeIcon size={22} />
+        <span aria-hidden className="inline-grid h-[30px] w-[30px] flex-none place-items-center rounded-lg text-[var(--ent-x-2b72f0)]">
+          <HandshakeIcon size={26} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[16.5px] font-extrabold leading-tight text-ink">Assigned Consultants</h2>
-          <p className="mt-0.5 text-[12px] leading-snug text-muted" data-consultants-subtitle>
+          <h2 className="text-[14.5px] font-extrabold leading-tight text-[var(--ent-title)]">Assigned Consultants</h2>
+          <p className="mt-0.5 text-[11px] leading-snug text-[var(--ent-soft)]" data-consultants-subtitle>
             {marketer ? `Consultants assigned to ${marketer.name} (${marketer.assigned} total)` : "Pick a marketer to see their consultants."}
           </p>
         </div>
@@ -138,13 +136,13 @@ export default function ConsultantsPanel({
           <div className="flex flex-wrap items-center gap-2">
             <Menu
               trigger={
-                <Button type="button" variant="ghost" size="sm" data-bulk-actions>
+                <Button type="button" variant="ghost" size="sm" className="ent-ctl-btn !min-w-[124px] justify-between" data-bulk-actions>
                   Bulk Actions <ChevronDownIcon size={14} aria-hidden />
                 </Button>
               }
               items={bulkMenu}
             />
-            <Button type="button" size="sm" onClick={onAssign} disabled={!marketer || marketer.status === "PAUSED"} data-assign-consultants>
+            <Button type="button" size="sm" className="ent-btn !h-[32px]" onClick={onAssign} disabled={!marketer || marketer.status === "PAUSED"} data-assign-consultants>
               Assign Consultants
             </Button>
           </div>
@@ -163,8 +161,8 @@ export default function ConsultantsPanel({
           active={applied}
           onClear={() => onChange({ q: "", status: "", priority: "", clientId: "", availability: "", noBackup: false })}
           actions={
-            <Button type="button" variant="ghost" size="sm" className="flex-none" aria-expanded={moreOpen} onClick={onMore} data-more-filters>
-              <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
+            <Button type="button" variant="ghost" size="sm" className="ent-ctl-btn flex-none" aria-expanded={moreOpen} onClick={onMore} data-more-filters>
+              <FilterIcon size={14} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
             </Button>
           }
         />
@@ -186,7 +184,7 @@ export default function ConsultantsPanel({
         )}
       </div>
 
-      <div className="mt-3 flex-1" data-consultants-table>
+      <div className="ent-dt mt-3 flex-1" data-consultants-table>
         <DataTable<Row>
           label="Assigned consultants"
           what="the consultants"
@@ -198,6 +196,8 @@ export default function ConsultantsPanel({
           onRetry={onRetry}
           hasFilters={applied}
           dense
+          variant="board"
+          actionsIcon="horizontal"
           rowActions={canManage ? rowMenu : undefined}
           sort={query.sort}
           onSort={(k) => onChange({ sort: nextSort(query.sort, k as SortKey) })}
@@ -225,44 +225,16 @@ export default function ConsultantsPanel({
       </div>
 
       {state.status === "ok" && total > 0 && (
-        <div className="mt-3 flex flex-col gap-2 text-[13px] text-ink-soft sm:flex-row sm:items-center sm:justify-between" data-pagination>
-          <p aria-live="polite" data-showing>
-            {showingText(total, query.page, query.size, rows.length)}
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            {count > 1 && (
-              <nav aria-label="Pagination" className="flex items-center gap-1">
-                <button type="button" aria-label="Previous page" title="Previous page" disabled={query.page <= 0} onClick={() => onChange({ page: query.page - 1 })} className="grid h-8 min-w-8 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
-                  {"‹"}
-                </button>
-                {pageWindow(query.page, count).map((p, i) =>
-                  p === "gap" ? (
-                    <span key={`g${i}`} aria-hidden className="px-1 text-muted">
-                      {"…"}
-                    </span>
-                  ) : (
-                    <button
-                      key={p}
-                      type="button"
-                      aria-label={`Page ${p + 1}`}
-                      aria-current={p === query.page ? "page" : undefined}
-                      onClick={() => onChange({ page: p })}
-                      className={`grid h-8 min-w-8 place-items-center rounded-lg px-2 text-[13px] font-semibold tabular-nums ${p === query.page ? "bg-accent text-on-accent" : "border border-line hover:bg-paper-2"}`}
-                    >
-                      {p + 1}
-                    </button>
-                  ),
-                )}
-                <button type="button" aria-label="Next page" title="Next page" disabled={query.page >= count - 1} onClick={() => onChange({ page: query.page + 1 })} className="grid h-8 min-w-8 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
-                  {"›"}
-                </button>
-              </nav>
-            )}
-            <div className="w-36">
-              <Select aria-label="Rows per page" value={String(query.size)} onChange={(v) => onChange({ size: Number(v), page: 0 })} options={PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} per page` }))} />
-            </div>
-          </div>
-        </div>
+        <TalentPagination
+          className="mt-3"
+          page={query.page}
+          size={query.size}
+          total={total}
+          showing={showingText(total, query.page, query.size, rows.length)}
+          sizes={PAGE_SIZES}
+          onPage={(page) => onChange({ page })}
+          onSize={(size) => onChange({ size, page: 0 })}
+        />
       )}
     </section>
   );

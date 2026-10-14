@@ -16,6 +16,7 @@ import {
   MemberAvatar,
   PencilIcon,
   Select,
+  ShieldCheckIcon,
   SideSheet,
   Skeleton,
   Tab,
@@ -43,7 +44,7 @@ import {
   type PickerItem,
   type Step,
 } from "@/lib/ent/applications";
-import HelpBeeCard from "./HelpBeeCard";
+import BeeBanner from "@/components/ent/shell/BeeBanner";
 import { useApplicationDetail, useStageMove, type SaveResult } from "./hooks";
 import { ClientTile, StagePill } from "./parts";
 
@@ -81,17 +82,17 @@ export function ProgressSteps({ steps }: { steps: Step[] }) {
         const current = s.state === "CURRENT";
         return (
           <li key={s.stage} data-step={s.stage} data-step-state={s.state} aria-current={current ? "step" : undefined} className="relative flex min-w-0 flex-1 flex-col items-center text-center">
-            {i > 0 && <span aria-hidden className={`absolute left-[-50%] right-[50%] top-[13px] h-0.5 ${steps[i - 1].state === "DONE" || done || current ? "bg-accent" : "bg-line"}`} />}
+            {i > 0 && <span aria-hidden className={`absolute left-[-50%] right-[50%] top-[10px] h-[2px] ${steps[i - 1].state === "DONE" ? "bg-[var(--ent-x-22b36b)]" : "bg-[var(--ent-x-dfe6f1)]"}`} />}
             <span
-              className={`relative z-10 grid h-7 w-7 place-items-center rounded-full border-2 text-[12px] font-bold ${
-                done ? "border-accent bg-accent text-on-accent" : current ? "border-accent bg-accent text-on-accent ring-4 ring-accent-soft" : "border-line bg-paper text-muted"
+              className={`relative z-10 grid h-[22px] w-[22px] place-items-center rounded-full border text-[10.5px] font-bold ${
+                done ? "border-[var(--ent-x-22b36b)] bg-[var(--ent-x-22b36b)] text-white" : current ? "border-[var(--ent-x-2b6df0)] bg-[var(--ent-x-2b6df0)] text-white ring-[3px] ring-[var(--ent-x-dbe8ff)]" : "border-[var(--ent-x-cfd8e8)] bg-white text-[var(--ent-soft)]"
               }`}
             >
-              {done ? "✓" : i + 1}
+              {done ? "\u2713" : i + 1}
             </span>
-            <span className={`mt-1.5 text-[10.5px] font-semibold leading-tight sm:text-[11.5px] ${current ? "text-ink" : "text-ink-soft"}`}>{s.label}</span>
-            <span className="text-[10.5px] leading-tight text-muted sm:text-[11px]">{s.reachedAt ? formatShort(s.reachedAt) : current ? "Current" : " "}</span>
-            {current && s.reachedAt && <span className="mt-0.5 rounded-full bg-accent-soft px-2 text-[10.5px] font-semibold text-accent-deep">Current</span>}
+            <span className={`mt-1 text-[9px] font-medium leading-[1.15] ${current ? "text-[var(--ent-title)]" : "text-[var(--ent-x-46527e)]"}`}>{s.label}</span>
+            <span className="text-[8.5px] leading-tight text-[var(--ent-soft)]">{s.reachedAt ? formatShort(s.reachedAt) : " "}</span>
+            {current && <span className="mt-0.5 rounded-[4px] bg-[var(--ent-x-e1edff)] px-1.5 py-px text-[8.5px] font-semibold text-[var(--ent-x-1d57c2)]">Current</span>}
           </li>
         );
       })}
@@ -101,9 +102,9 @@ export function ProgressSteps({ steps }: { steps: Step[] }) {
 
 function Row({ label, children, testId }: { label: string; children: ReactNode; testId?: string }) {
   return (
-    <div className="grid grid-cols-[7.5rem_1fr] items-center gap-x-3 py-1.5 text-[13.5px]" data-field={testId}>
-      <dt className="text-ink-soft">{label}</dt>
-      <dd className="min-w-0 text-ink">{children}</dd>
+    <div className="grid grid-cols-[104px_1fr] items-center gap-x-3 py-[5px] text-[11px]" data-field={testId}>
+      <dt className="text-[var(--ent-x-46527e)]">{label}</dt>
+      <dd className="min-w-0 text-[var(--ent-title)]">{children}</dd>
     </div>
   );
 }
@@ -340,26 +341,35 @@ export default function DetailDrawer(p: DetailDrawerProps) {
     const d = state.detail;
     const options = d.actions.moveStage ? moveOptions(d.nextStages) : [];
     return (
-      <div data-detail-body data-application-id={d.id}>
-        <div className="flex items-start gap-3" data-drawer-head>
-          <ClientTile client={d.client} size={44} />
+      <div data-detail-body data-application-id={d.id} className="space-y-3">
+        <div className="ent-card p-3.5">
+        <div className="flex items-start gap-2.5 pr-7" data-drawer-head>
+          <span aria-hidden className="grid h-[34px] w-[34px] flex-none place-items-center rounded-[9px] bg-[var(--ent-x-ece6ff)] text-[var(--ent-x-7a4cf0)]">
+            <ShieldCheckIcon size={20} />
+          </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13.5px] font-semibold text-ink">
-              {d.client.name} <span className="font-normal text-muted">({p.orgName})</span>
-            </p>
+            <h3 className="truncate text-[12.5px] font-bold leading-tight text-[var(--ent-title)]" data-drawer-title>{d.jobTitle}</h3>
+            <p className="text-[10px] text-[var(--ent-soft)]">{d.code}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <StagePill stage={d.stage} reason={d.closedReason} />
-              {d.employmentLabel && <span className="rounded-full bg-paper-2 px-2.5 py-[3px] text-[11.5px] font-semibold leading-none text-ink-soft">{EMPLOYMENT[d.employmentLabel] ?? d.employmentLabel}</span>}
+              {d.employmentLabel && <span className="ent-pill" data-tone="grey">{EMPLOYMENT[d.employmentLabel] ?? d.employmentLabel}</span>}
             </div>
           </div>
+        </div>
+        <div className="mt-2.5 flex items-center gap-2.5">
+          <ClientTile client={d.client} size={32} />
+          <p className="min-w-0 flex-1 truncate text-[11.5px] font-bold text-[var(--ent-title)]">
+            {d.client.name}
+            <span className="block text-[10px] font-normal text-[var(--ent-soft)]">{p.orgName}</span>
+          </p>
           {p.jobsHref && (
-            <Link href={p.jobsHref} className="inline-flex flex-none items-center gap-1 text-[13px] font-semibold text-accent-deep hover:underline">
-              View Job <ArrowRightIcon size={14} aria-hidden />
+            <Link href={p.jobsHref} className="inline-flex flex-none items-center gap-1 text-[10.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline">
+              View Job <ArrowRightIcon size={12} aria-hidden />
             </Link>
           )}
         </div>
 
-        <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DetailTab)} variant="underline" className="mt-4">
+        <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DetailTab)} variant="underline" className="ent-tabs ent-tabs-sm mt-3">
           <TabList aria-label="Application details">
             <Tab value="overview">Overview</Tab>
             <Tab value="timeline">Timeline</Tab>
@@ -368,11 +378,11 @@ export default function DetailDrawer(p: DetailDrawerProps) {
           </TabList>
 
           <TabPanel value="overview" className="pt-3">
-            <section aria-labelledby="progress-h" className="rounded-xl border border-line p-3">
+            <section aria-labelledby="progress-h">
               <div className="mb-2 flex items-center justify-between">
-                <h4 id="progress-h" className="text-[14px] font-bold text-ink">Application Progress</h4>
-                <IconButton aria-label={progressOpen ? "Hide progress" : "Show progress"} aria-expanded={progressOpen} onClick={() => setProgressOpen((o) => !o)}>
-                  {progressOpen ? <ChevronUpIcon size={16} /> : <ChevronDownIcon size={16} />}
+                <h4 id="progress-h" className="text-[12px] font-bold text-[var(--ent-title)]">Application Progress</h4>
+                <IconButton aria-label={progressOpen ? "Hide progress" : "Show progress"} aria-expanded={progressOpen} onClick={() => setProgressOpen((o) => !o)} className="!h-6 !w-6">
+                  {progressOpen ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
                 </IconButton>
               </div>
               {progressOpen && <ProgressSteps steps={d.steps} />}
@@ -391,12 +401,12 @@ export default function DetailDrawer(p: DetailDrawerProps) {
               )}
             </section>
 
-            <section aria-labelledby="details-h" className="mt-3 rounded-xl border border-line p-3">
+            <section aria-labelledby="details-h" className="mt-3">
               <div className="mb-1 flex items-center justify-between">
-                <h4 id="details-h" className="text-[14px] font-bold text-ink">Application Details</h4>
+                <h4 id="details-h" className="text-[12px] font-bold text-[var(--ent-title)]">Application Details</h4>
                 {d.actions.edit && (
-                  <button type="button" onClick={() => setEditFor(editing ? null : d.id)} aria-pressed={editing} className="inline-flex items-center gap-1 text-[13px] font-semibold text-accent-deep hover:underline" data-edit-toggle>
-                    <PencilIcon size={14} aria-hidden /> {editing ? "Done" : "Edit"}
+                  <button type="button" onClick={() => setEditFor(editing ? null : d.id)} aria-pressed={editing} className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline" data-edit-toggle>
+                    <PencilIcon size={12} aria-hidden /> {editing ? "Done" : "Edit"}
                   </button>
                 )}
               </div>
@@ -404,12 +414,12 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                 <Row label="Consultant" testId="consultant">
                   <span className="flex items-center justify-between gap-2">
                     <span className="flex min-w-0 items-center gap-2">
-                      <MemberAvatar name={d.consultant.name} size={24} />
-                      <span className="truncate font-medium">{d.consultant.name}</span>
+                      <MemberAvatar name={d.consultant.name} size={22} />
+                      <span className="truncate font-semibold">{d.consultant.name}</span>
                     </span>
                     {p.consultantsHref && (
-                      <Link href={p.consultantsHref} className="inline-flex flex-none items-center gap-1 text-[13px] font-semibold text-accent-deep hover:underline">
-                        View Profile <ArrowRightIcon size={13} aria-hidden />
+                      <Link href={p.consultantsHref} className="inline-flex flex-none items-center gap-1 text-[10.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline">
+                        View Profile <ArrowRightIcon size={12} aria-hidden />
                       </Link>
                     )}
                   </span>
@@ -423,8 +433,8 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                     <MarketerField orgId={p.orgId} detail={d} save={saveAndNote} />
                   ) : d.marketer ? (
                     <span className="flex items-center gap-2">
-                      <MemberAvatar name={d.marketer.name} size={24} />
-                      <span className="font-medium">{d.marketer.name}</span>
+                      <MemberAvatar name={d.marketer.name} size={22} />
+                      <span className="font-semibold">{d.marketer.name}</span>
                     </span>
                   ) : (
                     <span className="text-muted">Unassigned</span>
@@ -465,9 +475,15 @@ export default function DetailDrawer(p: DetailDrawerProps) {
             <TimelineFeed events={toFeed(d.activity, "a")} empty="Nothing has happened on this application yet." />
           </TabPanel>
         </Tabs>
-        <div className="mt-3">
-          <HelpBeeCard variant="help" orgName={p.orgName} supportEmail={p.supportEmail} />
         </div>
+        <BeeBanner
+          layout="row"
+          title="Need help with this application?"
+          body="I can help you understand the application status, suggest next steps, or find similar candidates."
+          topic="this application"
+          orgName={p.orgName}
+          supportEmail={p.supportEmail}
+        />
       </div>
     );
   })();
@@ -483,12 +499,12 @@ export default function DetailDrawer(p: DetailDrawerProps) {
     );
   }
   const sheet = (
-    <SideSheet id="ent-application-sheet" side="right" mode={p.mode} width={p.mode === "push" ? 420 : 500} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
+    <SideSheet id="ent-application-sheet" side="right" mode={p.mode} bare className="ent-drawer ent-drawer-col" width={p.mode === "push" ? 380 : 480} open={open} onClose={p.onClose} title={title} description={description} returnFocusTo={p.returnFocusTo}>
       {body}
     </SideSheet>
   );
   if (p.mode === "push") {
-    return <div className={`sticky top-4 h-[calc(100dvh-7rem)] shrink-0 self-start ${open ? "ml-4" : ""}`}>{sheet}</div>;
+    return <div className={`ent-drawer-slot sticky top-2 shrink-0 self-start ${open ? "ml-[18px]" : ""}`}>{sheet}</div>;
   }
   return sheet;
 }

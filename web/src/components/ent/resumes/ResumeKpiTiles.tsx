@@ -1,7 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { chartColor, Card, CalendarIcon, ClockIcon, DeltaChip, FileTextIcon, Skeleton, Sparkline, StarIcon } from "@kiwiply/ui";
+import { CalendarIcon, ClockIcon, FileTextIcon, StarIcon } from "@kiwiply/ui";
+import type { KpiTone } from "@kiwiply/ui";
+import TalentKpi from "@/components/ent/shell/TalentKpi";
 import { resumeTileDelta, type ResumeCounts, type ResumeTile, type TileKey } from "@/lib/ent/resumes";
 
 interface TileDef {
@@ -14,15 +16,15 @@ interface TileDef {
   lowerIsBetter?: boolean;
   /** What the sparkline shows, for assistive tech. */
   series: string;
-  /** Index into the chart palette: the tile icon and its sparkline share it (violet, green, amber, brand). */
-  tone: number;
+  /** The board's fixed tile palette: the icon square and its curve share it. */
+  tone: KpiTone;
 }
 
 const TILES: TileDef[] = [
-  { key: "total", label: "Total Resumes", icon: <FileTextIcon size={20} />, vs: "vs last month", series: "Resumes over the last 8 weeks", tone: 4 },
-  { key: "primary", label: "Primary Resumes", icon: <StarIcon size={20} />, vs: "vs last month", series: "Primary resumes over the last 8 weeks, by when each resume was added", tone: 3 },
-  { key: "needsApproval", label: "Needs Approval", icon: <ClockIcon size={20} />, vs: "vs last month", lowerIsBetter: true, series: "Resumes waiting for approval over the last 8 weeks", tone: 2 },
-  { key: "updatedThisWeek", label: "Updated This Week", icon: <CalendarIcon size={20} />, vs: "vs last week", series: "Resumes last changed in each of the last 8 weeks", tone: 0 },
+  { key: "total", label: "Total Resumes", icon: <FileTextIcon size={22} />, vs: "vs last month", series: "Resumes over the last 8 weeks", tone: "violet" },
+  { key: "primary", label: "Primary Resumes", icon: <StarIcon size={22} />, vs: "vs last month", series: "Primary resumes over the last 8 weeks, by when each resume was added", tone: "green" },
+  { key: "needsApproval", label: "Needs Approval", icon: <ClockIcon size={22} />, vs: "vs last month", lowerIsBetter: true, series: "Resumes waiting for approval over the last 8 weeks", tone: "orange" },
+  { key: "updatedThisWeek", label: "Updated This Week", icon: <CalendarIcon size={22} />, vs: "vs last week", series: "Resumes last changed in each of the last 8 weeks", tone: "blue" },
 ];
 
 /**
@@ -31,38 +33,24 @@ const TILES: TileDef[] = [
  */
 export default function ResumeKpiTiles({ counts, loading, error, compact = false }: { counts: ResumeCounts | null; loading: boolean; error: boolean; compact?: boolean }) {
   return (
-    <ul aria-label="Resume figures" className={`grid grid-cols-2 gap-3 ${compact ? "" : "xl:grid-cols-4"}`} data-kpi-tiles>
+    <ul aria-label="Resume figures" className={`grid grid-cols-2 gap-[15px] ${compact ? "" : "xl:grid-cols-4"}`} data-kpi-tiles>
       {TILES.map((t) => {
         const tile: ResumeTile | null = counts ? counts[t.key] : null;
-        const delta = resumeTileDelta(tile);
         return (
-          <li key={t.key} data-kpi={t.key} className="min-w-0">
-            <Card className="flex h-full flex-col gap-2 !p-4">
-              <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl" style={{ color: chartColor(t.tone), backgroundColor: `color-mix(in srgb, ${chartColor(t.tone)} 14%, transparent)` }}>
-                {t.icon}
-              </span>
-              <span className="text-[13px] font-medium leading-tight text-ink-soft">{t.label}</span>
-              <div className="flex flex-col gap-1.5 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
-                {loading ? (
-                  <Skeleton className="h-8 w-16" />
-                ) : (
-                  <span className="text-[30px] font-extrabold leading-none tracking-tight text-ink tabular-nums" data-kpi-value>
-                    {tile ? tile.value.toLocaleString("en-US") : error ? "—" : ""}
-                  </span>
-                )}
-                {tile && tile.series.length >= 2 && (
-                  <div className="w-full max-w-28 flex-none sm:w-24">
-                    <Sparkline smooth values={tile.series} label={t.series} color={chartColor(t.tone)} className="h-9 w-full" />
-                  </div>
-                )}
-              </div>
-              {delta && (
-                <span className="flex flex-wrap items-center gap-1.5 text-[12px] text-muted" data-kpi-delta>
-                  <DeltaChip delta={delta} lowerIsBetter={t.lowerIsBetter} />
-                  {t.vs}
-                </span>
-              )}
-            </Card>
+          <li key={t.key} className="min-w-0">
+            <TalentKpi
+              id={t.key}
+              tone={t.tone}
+              label={t.label}
+              icon={t.icon}
+              value={tile ? tile.value.toLocaleString("en-US") : error ? "—" : ""}
+              delta={resumeTileDelta(tile)}
+              vs={t.vs}
+              lowerIsBetter={t.lowerIsBetter}
+              series={tile && tile.series.length >= 2 ? tile.series : null}
+              seriesLabel={t.series}
+              loading={loading}
+            />
           </li>
         );
       })}

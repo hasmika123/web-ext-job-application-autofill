@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ArrowDownIcon, ArrowUpIcon, IconButton, Menu, MoreVerticalIcon, Select, useNarrow } from "@kiwiply/ui";
+import { ArrowDownIcon, ArrowUpIcon, IconButton, Menu, MoreHorizontalIcon, useNarrow } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
-import { pageWindow } from "@/components/ent/employees/EmployeesTable";
-import { formatDate, pageCount as pagesOf, PAGE_SIZES, showingText, versionText, type ResumeRow, type SortDir, type SortKey } from "@/lib/ent/resumes";
+import TalentPagination from "@/components/ent/shell/TalentPagination";
+import { formatDate, PAGE_SIZES, showingText, versionText, type ResumeRow, type SortDir, type SortKey } from "@/lib/ent/resumes";
 import { ApprovalPill, ConsultantCell, OwnerAvatar, PrimaryCell, VisibilityPill } from "./parts";
 
 export interface TableProps {
@@ -23,7 +23,7 @@ export interface TableProps {
   view: "list" | "grid";
 }
 
-const HEAD = "px-2.5 py-2.5 text-left text-[12px] font-semibold text-ink-soft";
+const HEAD = "text-left";
 
 function SortHead({ label, k, sort, onSort, className }: { label: string; k: SortKey; sort: TableProps["sort"]; onSort: TableProps["onSort"]; className?: string }) {
   const active = sort.key === k;
@@ -59,8 +59,8 @@ function Kebab({ items }: { items: MenuEntry[] }) {
   return (
     <Menu
       trigger={
-        <IconButton aria-label="Row actions" title="Row actions">
-          <MoreVerticalIcon size={16} />
+        <IconButton aria-label="Row actions" title="Row actions" className="ent-kebab">
+          <MoreHorizontalIcon size={15} />
         </IconButton>
       }
       items={items}
@@ -72,8 +72,8 @@ function Kebab({ items }: { items: MenuEntry[] }) {
 function NameCell({ row }: { row: ResumeRow }) {
   return (
     <span className="block min-w-0">
-      <span className="block truncate text-[13px] font-semibold text-ink">{row.name}</span>
-      {row.fileName && <span className="block truncate text-[12px] text-muted">{row.fileName}</span>}
+      <span className="block truncate text-[11.5px] font-bold text-[var(--ent-title)]">{row.name}</span>
+      {row.fileName && <span className="block truncate text-[10px] text-[var(--ent-soft)]">{row.fileName}</span>}
     </span>
   );
 }
@@ -118,28 +118,28 @@ export function ResumesTable(p: TableProps) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-[var(--radius)] border border-line bg-paper">
-      <table aria-label="Resumes" className="w-full border-collapse text-[13.5px]" data-resume-table>
-        <thead className="border-b border-line bg-paper-2/60">
+    <div className="overflow-x-auto">
+      <table aria-label="Resumes" className="ent-table w-full" data-resume-table>
+        <thead>
           <tr>
-            <th scope="col" className="w-10 px-2.5 py-2.5">
+            <th scope="col" className="w-[34px]">
               <Check checked={allOn} indeterminate={someOn} onChange={p.onTogglePage} label="Select all resumes on this page" />
             </th>
             <SortHead label="Consultant" k="consultant" sort={p.sort} onSort={p.onSort} />
             <SortHead label="Resume Name" k="name" sort={p.sort} onSort={p.onSort} />
-            <SortHead label="Target Role" k="role" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden lg:table-cell"} />
+            <SortHead label="Target Role" k="role" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden xl:table-cell" : "hidden lg:table-cell"} />
             <SortHead label="Version" k="version" sort={p.sort} onSort={p.onSort} />
             <th scope="col" className={HEAD}>Primary</th>
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden md:table-cell"}`}>Visibility</th>
+            <th scope="col" className={`${HEAD} ${p.compact ? "hidden xl:table-cell" : "hidden md:table-cell"}`}>Visibility</th>
             <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} />
-            <SortHead label="Last Modified" k="modified" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden md:table-cell"} />
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>Owner</th>
-            <th scope="col" className="w-10 px-2">
+            <SortHead label="Last Modified" k="modified" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden xl:table-cell" : "hidden md:table-cell"} />
+            <th scope="col" className={`${HEAD} ${p.compact ? "hidden xl:table-cell" : "hidden xl:table-cell"}`}>Owner</th>
+            <th scope="col" className="w-[44px]">
               <span className="sr-only">Actions</span>
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-line/60">
+        <tbody>
           {p.rows.map((r) => {
             const open = p.openId === r.id;
             return (
@@ -155,33 +155,33 @@ export function ResumesTable(p: TableProps) {
                     p.onOpen(r);
                   }
                 }}
-                className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? "bg-accent-soft/60" : p.selected.has(r.id) ? "bg-accent-soft/30" : "hover:bg-paper-2/50"}`}
+                className={`cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${open ? "bg-accent-soft/60" : p.selected.has(r.id) ? "bg-accent-soft/30" : "hover:bg-[var(--ent-field-bg)]"}`}
               >
-                <td className="w-10 px-2.5 py-2">
+                <td className="w-[34px]">
                   <Check checked={p.selected.has(r.id)} onChange={() => p.onToggle(r.id)} label={`Select ${r.name}`} />
                 </td>
-                <td className="min-w-[11rem] max-w-[15rem] px-2.5 py-2">
+                <td className="min-w-[128px] max-w-[146px]">
                   <ConsultantCell row={r} />
                 </td>
-                <td className="min-w-[10rem] max-w-[14rem] px-2.5 py-2">
+                <td className="min-w-[108px] max-w-[124px]">
                   <NameCell row={r} />
                 </td>
-                <td className={`max-w-[9rem] px-2.5 py-2 text-ink-soft ${p.compact ? "hidden" : "hidden lg:table-cell"}`}>{r.targetRole ?? "—"}</td>
-                <td className="whitespace-nowrap px-2.5 py-2 text-ink-soft">{versionText(r.version)}</td>
-                <td className="px-2.5 py-2">
+                <td className={`max-w-[84px] text-[10.5px] leading-tight text-[var(--ent-title)] ${p.compact ? "hidden xl:table-cell" : "hidden lg:table-cell"}`}>{r.targetRole ?? "—"}</td>
+                <td className="whitespace-nowrap text-[11px] text-[var(--ent-soft)]">{versionText(r.version)}</td>
+                <td className="">
                   <PrimaryCell primary={r.primary} />
                 </td>
-                <td className={`px-2.5 py-2 ${p.compact ? "hidden" : "hidden md:table-cell"}`}>
+                <td className={`${p.compact ? "hidden xl:table-cell" : "hidden md:table-cell"}`}>
                   <VisibilityPill visibility={r.visibility} />
                 </td>
-                <td className="px-2.5 py-2">
+                <td className="">
                   <ApprovalPill status={r.approvalStatus} />
                 </td>
-                <td className={`whitespace-nowrap px-2.5 py-2 text-ink-soft ${p.compact ? "hidden" : "hidden md:table-cell"}`}>{formatDate(r.updatedAt) || "—"}</td>
-                <td className={`px-2.5 py-2 ${p.compact ? "hidden" : "hidden xl:table-cell"}`}>
+                <td className={`whitespace-nowrap text-[11px] text-[var(--ent-soft)] ${p.compact ? "hidden xl:table-cell" : "hidden md:table-cell"}`}>{formatDate(r.updatedAt) || "—"}</td>
+                <td className={`${p.compact ? "hidden xl:table-cell" : "hidden xl:table-cell"}`}>
                   <OwnerAvatar owner={r.owner} />
                 </td>
-                <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
+                <td className="text-right" onClick={(e) => e.stopPropagation()}>
                   <Kebab items={p.rowMenu(r)} />
                 </td>
               </tr>
@@ -194,45 +194,5 @@ export function ResumesTable(p: TableProps) {
 }
 
 export function Pagination({ page, size, total, shown, onPage, onSize }: { page: number; size: number; total: number; shown: number; onPage: (p: number) => void; onSize: (s: number) => void }) {
-  const count = pagesOf(total, size);
-  return (
-    <div className="mt-3 flex flex-col gap-2 text-[13px] text-ink-soft sm:flex-row sm:items-center sm:justify-between" data-pagination>
-      <p aria-live="polite" data-showing>
-        {showingText(total, page, size, shown)}
-      </p>
-      <div className="flex flex-wrap items-center gap-2">
-        {count > 1 && (
-          <nav aria-label="Pagination" className="flex items-center gap-1">
-            <button type="button" aria-label="Previous page" title="Previous page" disabled={page <= 0} onClick={() => onPage(page - 1)} className="grid h-8 min-w-8 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
-              {"‹"}
-            </button>
-            {pageWindow(page, count).map((n, i) =>
-              n === "gap" ? (
-                <span key={`g${i}`} aria-hidden className="px-1 text-muted">
-                  {"…"}
-                </span>
-              ) : (
-                <button
-                  key={n}
-                  type="button"
-                  aria-label={`Page ${n + 1}`}
-                  aria-current={n === page ? "page" : undefined}
-                  onClick={() => onPage(n)}
-                  className={`grid h-8 min-w-8 place-items-center rounded-lg px-2 text-[13px] font-semibold tabular-nums ${n === page ? "bg-accent text-on-accent" : "border border-line hover:bg-paper-2"}`}
-                >
-                  {n + 1}
-                </button>
-              ),
-            )}
-            <button type="button" aria-label="Next page" title="Next page" disabled={page >= count - 1} onClick={() => onPage(page + 1)} className="grid h-8 min-w-8 place-items-center rounded-lg border border-line px-2 hover:bg-paper-2 disabled:opacity-40">
-              {"›"}
-            </button>
-          </nav>
-        )}
-        <div className="w-36">
-          <Select aria-label="Rows per page" value={String(size)} onChange={(v) => onSize(Number(v))} options={PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} per page` }))} />
-        </div>
-      </div>
-    </div>
-  );
+  return <TalentPagination className="mt-3 px-1.5" page={page} size={size} total={total} showing={showingText(total, page, size, shown)} sizes={PAGE_SIZES} onPage={onPage} onSize={onSize} />;
 }

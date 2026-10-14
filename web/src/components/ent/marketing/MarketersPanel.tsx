@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightIcon, Button, EmptyState, ErrorState, IconButton, MemberAvatar, Menu, Meter, MoreVerticalIcon, PlusIcon, Skeleton, StatePill, UsersIcon } from "@kiwiply/ui";
+import { ArrowRightIcon, Button, EmptyState, ErrorState, IconButton, MemberAvatar, Menu, Meter, MoreHorizontalIcon, PlusIcon, Skeleton, StatePill, UsersIcon } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import { CompactFilters } from "./parts";
 import { loadText, type Marketer, type MarketerList } from "@/lib/ent/marketing-assignments";
@@ -54,23 +54,23 @@ export default function MarketersPanel({
   ];
 
   return (
-    <section aria-label="Marketing specialists" className="flex min-w-0 flex-col rounded-2xl border border-line bg-paper p-3.5" data-marketers-panel>
+    <section aria-label="Marketing specialists" className="ent-card flex min-w-0 flex-col !p-[14px]" data-marketers-panel>
       <div className="flex items-start gap-2.5">
-        <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
-          <UsersIcon size={22} />
+        <span aria-hidden className="inline-grid h-[30px] w-[30px] flex-none place-items-center rounded-lg text-[var(--ent-x-2b72f0)]">
+          <UsersIcon size={26} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[16.5px] font-extrabold leading-tight text-ink">Marketing Specialists</h2>
-          <p className="mt-0.5 text-[12px] leading-snug text-muted">View marketer workloads and manage assignments.</p>
+          <h2 className="text-[14.5px] font-extrabold leading-tight text-[var(--ent-title)]">Marketing Specialists</h2>
+          <p className="mt-0.5 text-[10.5px] leading-snug text-[var(--ent-soft)]">View marketer workloads and manage assignments.</p>
         </div>
         {canManage && (
-          <Button type="button" size="sm" className="flex-none" onClick={onAdd} data-add-marketer>
-            <PlusIcon size={15} aria-hidden /> Add Marketer
+          <Button type="button" size="sm" className="ent-btn flex-none" onClick={onAdd} data-add-marketer>
+            <PlusIcon size={14} aria-hidden /> Add Marketer
           </Button>
         )}
       </div>
 
-      <div className="mt-3">
+      <div className="mt-2.5">
         <CompactFilters
           query={query}
           onQuery={onQuery}
@@ -121,35 +121,35 @@ export default function MarketersPanel({
                   key={m.memberId}
                   data-marketer={m.memberId}
                   data-selected={selected || undefined}
-                  className={`flex items-center gap-0.5 rounded-xl border p-1 ${selected ? "border-accent bg-accent-soft/50" : "border-transparent hover:bg-paper-2/60"}`}
+                  className={`flex items-center gap-1 rounded-[10px] border px-1.5 py-1 ${selected ? "border-[var(--ent-x-3b79ee)] bg-[var(--ent-x-f3f7ff)] shadow-[inset_0_0_0_1px_rgba(59,121,238,0.25)]" : "border-transparent hover:bg-[var(--ent-field-bg)]"}`}
                 >
                   <button
                     type="button"
                     aria-pressed={selected}
                     aria-label={`${m.name}, ${loadText(m)} consultants, ${m.percent} percent. Show their consultants`}
                     onClick={() => onSelect(m.memberId)}
-                    className="flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
+                    className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2.5 rounded-lg p-1 text-left focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent"
                   >
-                    <MemberAvatar name={m.name} size={38} />
+                    <MemberAvatar name={m.name} size={40} />
                     <span className="min-w-0 flex-1">
                       <span className="flex min-w-0 items-center gap-1.5">
-                        <span className="truncate text-[13.5px] font-bold leading-tight text-ink">{m.name}</span>
+                        <span className="truncate text-[12.5px] font-bold leading-tight text-[var(--ent-title)]">{m.name}</span>
                         <span className="flex-none">
                           <StatePill domain="assignment" state={m.status} label={m.status === "PAUSED" ? "Paused" : "Active"} />
                         </span>
                       </span>
-                      <span className="mt-0.5 block truncate text-[11.5px] text-muted">{m.title ?? "Marketing"}</span>
+                      <span className="mt-0.5 block truncate text-[10.5px] text-[var(--ent-soft)]">{m.title ?? "Marketing"}</span>
                     </span>
-                    <span className="w-[7.4rem] flex-none">
-                      <span className="flex items-baseline gap-1 whitespace-nowrap text-[12px]">
-                        <span className="font-bold tabular-nums text-ink" data-load>
+                    <span className="w-[112px] flex-none">
+                      <span className="flex items-baseline gap-1 whitespace-nowrap">
+                        <span className="text-[12px] font-bold tabular-nums text-[var(--ent-title)]" data-load>
                           {loadText(m)}
                         </span>
-                        <span className="text-[11px] text-muted">Consultants</span>
+                        <span className="text-[9.5px] text-[var(--ent-soft)]">Consultants</span>
                       </span>
                       <span className="mt-1 flex items-center gap-1.5">
-                        <Meter className="flex-1" value={m.assigned} max={Math.max(1, m.capacity)} warnAt={0.9} label={`${m.name} workload`} valueText={`${m.assigned} of ${m.capacity} consultants, ${m.percent} percent`} />
-                        <span className={`w-8 text-right text-[11px] font-semibold tabular-nums ${m.overloaded ? "text-danger-text" : "text-muted"}`} data-percent>
+                        <Meter className="ent-meter flex-1" value={m.assigned} max={Math.max(1, m.capacity)} warnAt={0.9} label={`${m.name} workload`} valueText={`${m.assigned} of ${m.capacity} consultants, ${m.percent} percent`} />
+                        <span className={`w-7 text-right text-[9.5px] font-medium tabular-nums ${m.overloaded ? "text-danger-text" : "text-[var(--ent-soft)]"}`} data-percent>
                           {m.percent}%
                         </span>
                       </span>
@@ -157,8 +157,8 @@ export default function MarketersPanel({
                   </button>
                   <Menu
                     trigger={
-                      <IconButton aria-label={`Actions for ${m.name}`} title="Marketer actions">
-                        <MoreVerticalIcon size={16} />
+                      <IconButton aria-label={`Actions for ${m.name}`} title="Marketer actions" className="ent-kebab">
+                        <MoreHorizontalIcon size={15} />
                       </IconButton>
                     }
                     items={menu(m)}
@@ -171,41 +171,43 @@ export default function MarketersPanel({
       </div>
 
       {data && (
-        <div className="mt-4 rounded-xl bg-accent-soft/40 p-3" data-marketers-summary>
+        <div className="mt-4 rounded-xl bg-[var(--ent-x-eef4fd)] p-2.5" data-marketers-summary>
           <div className="flex items-start gap-2.5">
-            <span aria-hidden className="inline-grid h-9 w-9 flex-none place-items-center rounded-lg bg-accent-soft text-accent-deep">
-              <UsersIcon size={18} />
+            <span aria-hidden className="inline-grid h-[34px] w-[34px] flex-none place-items-center rounded-lg bg-[var(--ent-x-dbe9fd)] text-[var(--ent-x-2b72f0)]">
+              <UsersIcon size={20} />
             </span>
             <div className="min-w-0">
-              <h3 className="text-[14.5px] font-extrabold leading-tight text-ink">
+              <h3 className="text-[13px] font-extrabold leading-tight text-[var(--ent-title)]">
                 {data.summary.marketers} Marketing {data.summary.marketers === 1 ? "Specialist" : "Specialists"}
               </h3>
-              <p className="text-[12px] leading-snug text-muted">Manage workloads, set coverage, and keep assignments balanced.</p>
+              <p className="text-[10.5px] leading-snug text-[var(--ent-soft)]">Manage workloads, set coverage, and ensure balanced assignments.</p>
             </div>
           </div>
-          <dl className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-paper p-3 [&_dt]:whitespace-nowrap">
-            <div>
-              <dd className="text-[22px] font-extrabold leading-none tabular-nums text-ink" data-summary="total">
-                {data.summary.totalAssigned}
-              </dd>
-              <dt className="mt-1 text-[11.5px] text-muted">Total Assigned</dt>
-            </div>
-            <div>
-              <dd className="text-[22px] font-extrabold leading-none tabular-nums text-ink" data-summary="avg">
-                {data.summary.avgPerMarketer ?? "—"}
-              </dd>
-              <dt className="mt-1 text-[11.5px] text-muted">Avg per Marketer</dt>
-            </div>
-            <div>
-              <dd className="text-[22px] font-extrabold leading-none tabular-nums text-ink" data-summary="overloaded">
-                {data.summary.overloaded}
-              </dd>
-              <dt className="mt-1 text-[11.5px] text-muted">Overloaded</dt>
-            </div>
-          </dl>
-          <button type="button" onClick={onReport} className="mt-2 inline-flex min-h-11 items-center gap-1.5 text-[13px] font-semibold text-accent-deep hover:underline sm:min-h-0">
-            View Workload Report <ArrowRightIcon size={14} aria-hidden />
-          </button>
+          <div className="mt-2.5 rounded-lg bg-white p-3">
+            <dl className="grid grid-cols-3 gap-2 [&_dt]:whitespace-nowrap">
+              <div>
+                <dd className="text-[19px] font-extrabold leading-none tabular-nums text-[var(--ent-title)]" data-summary="total">
+                  {data.summary.totalAssigned}
+                </dd>
+                <dt className="mt-1 text-[10.5px] text-[var(--ent-soft)]">Total Assigned</dt>
+              </div>
+              <div>
+                <dd className="text-[19px] font-extrabold leading-none tabular-nums text-[var(--ent-title)]" data-summary="avg">
+                  {data.summary.avgPerMarketer ?? "—"}
+                </dd>
+                <dt className="mt-1 text-[10.5px] text-[var(--ent-soft)]">Avg per Marketer</dt>
+              </div>
+              <div>
+                <dd className="text-[19px] font-extrabold leading-none tabular-nums text-[var(--ent-title)]" data-summary="overloaded">
+                  {data.summary.overloaded}
+                </dd>
+                <dt className="mt-1 text-[10.5px] text-[var(--ent-soft)]">Overloaded</dt>
+              </div>
+            </dl>
+            <button type="button" onClick={onReport} className="mt-3 inline-flex min-h-11 items-center gap-1.5 text-[11.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline sm:min-h-0">
+              View Workload Report <ArrowRightIcon size={13} aria-hidden />
+            </button>
+          </div>
         </div>
       )}
     </section>

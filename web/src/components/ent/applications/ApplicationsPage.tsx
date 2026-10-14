@@ -8,6 +8,8 @@ import {
   BarChartIcon,
   Button,
   CalendarIcon,
+  CopyIcon,
+  DownloadIcon,
   EmptyState,
   ErrorState,
   FileTextIcon,
@@ -35,6 +37,7 @@ import {
   nextSort,
   nextStagesOf,
   parseView,
+  stageLabel,
   viewParams,
   type Analytics,
   type ApplicationDetail,
@@ -53,13 +56,13 @@ import AddApplicationDialog from "./AddApplicationDialog";
 import AnalyticsTab from "./AnalyticsTab";
 import { ApplicationsTable, Pagination } from "./ApplicationsTable";
 import DetailDrawer from "./DetailDrawer";
-import HelpBeeCard from "./HelpBeeCard";
+import BeeBanner from "@/components/ent/shell/BeeBanner";
 import { useStageMove } from "./hooks";
 import KpiTiles from "./KpiTiles";
 import PipelineBoard from "./PipelineBoard";
 import { SearchBox } from "./parts";
 
-const WIDE_QUERY = "(min-width: 1400px)"; // config-literal-ok: the width at which the drawer docks beside the table instead of floating over it
+const WIDE_QUERY = "(min-width: 1280px)"; // config-literal-ok: the width at which the drawer docks beside the table instead of floating over it
 
 export interface ApplicationsPageProps {
   orgId: number;
@@ -113,6 +116,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
   const [reloadToken, setReloadToken] = useState(0);
   const [adding, setAdding] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
   const root = useRef<HTMLDivElement>(null);
   const seq = useRef({ list: 0, pipeline: 0, analytics: 0 });
 
@@ -269,26 +273,71 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
   const dateLabel = view.from || view.to ? `${view.from ? formatDay(view.from) : "Any"} – ${view.to ? formatDay(view.to) : "Any"}` : "Date Range";
 
   const dateControls = (
-    <Button type="button" variant="ghost" size="sm" aria-expanded={dateOpen} onClick={() => setDateOpen((o) => !o)} data-date-range>
-      <CalendarIcon size={15} aria-hidden /> {dateLabel}
+    <Button type="button" variant="ghost" size="sm" className="ent-ctl-btn" aria-expanded={dateOpen} onClick={() => setDateOpen((o) => !o)} data-date-range>
+      <CalendarIcon size={14} aria-hidden /> {dateLabel}
     </Button>
   );
 
   const noApplicationsAtAll = list.status === "ok" && total === 0 && !active && view.tab === "all";
 
-  return (
-    <div ref={root} data-applications-page>
-      <PageHeader title="Applications" subtitle="Track and manage consultant applications across all your job opportunities." />
-      <div className="flex items-start">
-        <div className="min-w-0 flex-1 space-y-4">
-          <div className={`grid items-stretch gap-3 ${docked ? "" : "xl:grid-cols-[minmax(0,1fr)_20rem]"}`}>
-            <KpiTiles counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} docked={docked} />
-            <div className="hidden md:block">
-              <HelpBeeCard variant="promo" orgName={orgName} supportEmail={supportEmail} />
-            </div>
-          </div>
+  const toggleRow = (id: number) =>
+    setSelected((cur) => {
+      const n = new Set(cur);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  const togglePage = (on: boolean) =>
+    setSelected((cur) => {
+      const n = new Set(cur);
+      for (const r of rows) {
+        if (on) n.add(r.id);
+        else n.delete(r.id);
+      }
+      return n;
+    });
+  const chosen = rows.filter((r) => selected.has(r.id));
+  const copyIds = () => {
+    const text = chosen.map((r) => r.code).join("\n");
+    void navigator.clipboard?.writeText(text).then(
+      () => toast({ title: `${chosen.length} application ${chosen.length === 1 ? "ID" : "IDs"} copied`, variant: "success" }),
+      () => toast({ title: "Couldn't copy", variant: "error" }),
+    );
+  };
+  const exportCsv = () => {
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const head = ["Application ID", "Job title", "Consultant", "Client", "Applied date", "Stage", "Marketer", "Next action", "Due date"];
+    const lines = chosen.map((r) => [r.code, r.jobTitle, r.consultant.name, r.client.name, r.appliedOn, stageLabel(r.stage), r.marketer?.name ?? "", r.nextAction ?? "", r.nextActionDue ?? ""].map((c) => esc(String(c))).join(","));
+    const blob = new Blob([[head.map(esc).join(","), ...lines].join("\r\n")], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "applications.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
-          <Tabs value={view.tab} onValueChange={(t) => setView({ tab: t as MainTab, page: 0 }, false)} variant="underline">
+  return (
+    <div ref={root} data-applications-page className="ent-fit">
+      <PageHeader title="Applications" subtitle="Track and manage consultant applications across all your job opportunities." />
+      <div className="grid items-start gap-[15px] xl:grid-cols-[minmax(0,3.43fr)_minmax(0,1fr)]">
+        <KpiTiles counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
+        <div className="hidden md:block">
+          <BeeBanner
+            title="Streamline your hiring pipeline"
+            body="Track applications, manage candidate progress, and collaborate with your team to fill open positions."
+            topic="applications"
+            orgName={orgName}
+            supportEmail={supportEmail}
+          />
+        </div>
+      </div>
+
+      <div className="mt-[16px] flex items-start">
+        <div className="min-w-0 flex-1 space-y-3">
+          <Tabs value={view.tab} onValueChange={(t) => setView({ tab: t as MainTab, page: 0 }, false)} variant="underline" className="ent-tabs ent-card !inline-flex !w-auto max-w-full px-2">
             <TabList aria-label="Applications views">
               <Tab value="all"><span className="inline-flex items-center gap-2"><FileTextIcon size={16} aria-hidden /> All Applications</span></Tab>
               <Tab value="pipeline"><span className="inline-flex items-center gap-2"><LayoutGridIcon size={16} aria-hidden /> Pipeline View</span></Tab>
@@ -296,17 +345,18 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
             </TabList>
           </Tabs>
 
+          <div className="ent-card space-y-2.5 !p-[10px]">
           {view.tab !== "analytics" && (
             <div className="space-y-2">
               <div className="flex items-center gap-2.5">
-                <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search applications" placeholder="Search by consultant name, job title, client, or status…" />
+                <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search applications" placeholder="Search applications by consultant name, job title, client, or status..." />
                 {canAdd && (
-                  <Button type="button" variant="accent" onClick={() => setAdding(true)} data-add-application className="flex-none">
-                    <PlusIcon size={16} aria-hidden /> Add Application
+                  <Button type="button" variant="accent" onClick={() => setAdding(true)} data-add-application className="ent-btn ent-btn-lg flex-none">
+                    <PlusIcon size={15} aria-hidden /> Add Application
                   </Button>
                 )}
               </div>
-              <FilterBar query={view.q} onQueryChange={(q) => setView({ q })} values={filterValues} onFilterChange={onFilter} search={false} filters={filters} actions={dateControls} />
+              <FilterBar className="ent-filterbar ent-filterbar-apps" query={view.q} onQueryChange={(q) => setView({ q })} values={filterValues} onFilterChange={onFilter} search={false} filters={filters} actions={dateControls} />
               {dateOpen && (
                 <div className="flex flex-wrap items-end gap-2.5 rounded-[var(--radius)] border border-line bg-paper-2/40 p-2.5" data-date-row>
                   <label className="text-[12.5px] font-medium text-ink-soft">
@@ -327,6 +377,23 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
             </div>
           )}
 
+          {view.tab === "all" && chosen.length > 0 && (
+            <div role="region" aria-label="Bulk actions" data-bulk-bar className="flex flex-wrap items-center gap-2 rounded-[10px] border border-[var(--ent-x-cfe0f7)] bg-[var(--ent-x-f1f6ff)] px-3 py-1.5">
+              <span className="text-[11.5px] font-semibold text-[var(--ent-title)]" aria-live="polite">
+                {chosen.length} selected
+              </span>
+              <Button type="button" size="sm" variant="ghost" className="ent-ctl-btn !h-[28px]" onClick={copyIds} data-bulk-copy>
+                <CopyIcon size={13} aria-hidden /> Copy IDs
+              </Button>
+              <Button type="button" size="sm" variant="ghost" className="ent-ctl-btn !h-[28px]" onClick={exportCsv} data-bulk-export>
+                <DownloadIcon size={13} aria-hidden /> Export CSV
+              </Button>
+              <Button type="button" size="sm" variant="ghost" className="ent-ctl-btn !h-[28px] !border-transparent !bg-transparent" onClick={() => setSelected(new Set())}>
+                Clear
+              </Button>
+            </div>
+          )}
+
           {view.tab === "all" && (
             <>
               {list.status === "loading" && <TableSkeleton count={6} columns={6} label="Loading applications" />}
@@ -342,6 +409,9 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
                     sort={view.sort}
                     onSort={(k: SortKey) => setView({ sort: nextSort(view.sort, k) })}
                     compact={docked}
+                    selected={selected}
+                    onToggle={toggleRow}
+                    onTogglePage={togglePage}
                   />
                   <Pagination page={view.page} size={view.size} total={total} shown={rows.length} onPage={(page) => setView({ page }, false)} onSize={(size) => setView({ size })} />
                 </>
@@ -385,6 +455,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
               {analytics.status === "ok" && <AnalyticsTab data={analytics.data} />}
             </>
           )}
+          </div>
         </div>
 
         <DetailDrawer
