@@ -95,12 +95,12 @@ export function PlacementsTable(p: TableProps) {
       <table aria-label="Placements" className="w-full min-w-[780px] table-fixed border-collapse text-[11px]" data-placement-table>
         <colgroup>
           <col style={{ width: "3.4%" }} />
-          <col style={{ width: p.showRates ? "15.4%" : "17.4%" }} />
+          <col style={{ width: p.showRates ? "17%" : "19%" }} />
           <col style={{ width: "10.8%" }} />
-          <col style={{ width: p.showRates ? "9.6%" : "11.6%" }} />
+          <col style={{ width: p.showRates ? "8.6%" : "10.6%" }} />
           <col style={{ width: "8.8%" }} />
           <col style={{ width: "8.8%" }} />
-          <col style={{ width: "12.6%" }} />
+          <col style={{ width: "12%" }} />
           <col style={{ width: "7.2%" }} />
           {p.showRates && <col style={{ width: "6.6%" }} />}
           <col style={{ width: "11.2%" }} />
