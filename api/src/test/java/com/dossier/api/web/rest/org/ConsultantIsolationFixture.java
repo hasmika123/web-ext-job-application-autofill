@@ -27,7 +27,7 @@ final class ConsultantIsolationFixture {
         em.persist(c);
         ClientAccount k = new ClientAccount();
         k.setOrgId(orgId);
-        k.setName(prefix + " Client");
+        k.setName(prefix + " Consultants-board Client"); // distinct from the other fixtures client names (case-insensitive unique key per org)
         em.persist(k);
         ClientRequirement r = new ClientRequirement();
         r.setOrgId(orgId);
