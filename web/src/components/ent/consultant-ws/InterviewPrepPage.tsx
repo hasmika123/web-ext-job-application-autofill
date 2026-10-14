@@ -563,7 +563,7 @@ function QuickActions({ onReview, onTips }: { onReview: () => void; onTips: () =
   ];
   return (
     <RailCard id="prep-quick" title="Quick Actions" icon={ZapIcon} tone="violet">
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2">
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         {items.map((q) => {
           const Icon = q.icon;
           const body = (

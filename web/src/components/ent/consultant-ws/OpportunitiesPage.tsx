@@ -238,11 +238,11 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice }: { view
         <Empty>No opportunities are assigned to you yet. When your marketer assigns a job, it shows up here for you to respond to.</Empty>
       ) : (
         <div className="overflow-x-auto">
-          <table className={cn(TABLE, "min-w-[760px]")}>
+          <table className={cn(TABLE, "min-w-[560px] 2xl:min-w-[760px]")}>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">
                 {["Job Title", "Company", "Location", "Marketer", "Status", "Priority", "Due Date", "Actions"].map((c) => (
-                  <th key={c} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", c === "Marketer" && "hidden 2xl:table-cell")}>
+                  <th key={c} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", (c === "Marketer" || c === "Location") && "hidden 2xl:table-cell")}>
                     {c}
                   </th>
                 ))}
@@ -261,7 +261,7 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice }: { view
                       <span className="min-w-0 break-words">{r.company ?? "-"}</span>
                     </span>
                   </td>
-                  <td className={cn(TD, "text-ink-soft")}>
+                  <td className={cn(TD, "hidden text-ink-soft 2xl:table-cell")}>
                     <span className="block">{placeLabel(r.location, r.workMode)}</span>
                     {r.workMode && r.location ? <span className="block text-[12px] text-muted">{r.workMode.charAt(0) + r.workMode.slice(1).toLowerCase()}</span> : null}
                   </td>
@@ -494,7 +494,7 @@ const STEP_ICON: Record<string, ComponentType<IconProps>> = { respond: Clipboard
 function NextSteps({ view }: { view: OppView }) {
   const steps = nextSteps(view.nextSteps, BASE);
   return (
-    <Card id="opps-steps" title="Recommended Next Steps" icon={StarIcon} tone="amber">
+    <Card id="opps-steps" title="Next Steps" icon={StarIcon} tone="amber">
       <ul className="space-y-1">
         {steps.map((s) => {
           const Icon = STEP_ICON[s.key];
@@ -540,7 +540,7 @@ function QuickActions({ target, a }: { target: OppRow | null; a: Actions }) {
       <p className="-mt-1 mb-2 text-[12px] text-muted" data-quick-target>
         {target ? `Acts on: ${target.title}` : "Nothing to act on yet."}
       </p>
-      <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         {items.map((i) => (
           <button
             key={i.key}

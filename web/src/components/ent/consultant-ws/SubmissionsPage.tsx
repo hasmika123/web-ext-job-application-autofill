@@ -723,7 +723,7 @@ const QUICK: { key: string; label: string; hint: string; href: string; icon: Com
 function QuickActions() {
   return (
     <Card id="subs-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2">
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         {QUICK.map((q) => {
           const Icon = q.icon;
           return (

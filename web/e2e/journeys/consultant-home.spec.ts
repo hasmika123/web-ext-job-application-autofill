@@ -30,7 +30,7 @@ test.describe("consultant home (real stack)", () => {
       await expect(page.locator(`[data-stat-tile=${key}] [data-tile-value]`)).toBeVisible();
     }
     await expect(page.locator("[data-stat-tile=upcomingInterviews] [data-tile-value]")).toHaveText("3");
-    await expect(page.locator("[data-stat-tile=submissionsPending] [data-sample]")).toBeVisible(); // honest: placeholder, marked
+    await expect(page.locator("[data-stat-tile=submissionsPending] [data-sample]")).toHaveCount(0); // real now: the consultant's own pending submissions
 
     for (const id of ["home-matches", "home-assigned", "home-applications", "home-interviews", "home-resume", "home-tasks", "home-focus", "home-quick", "home-messages", "help"]) {
       await expect(page.locator(`[data-home-card=${id}]`)).toBeVisible();
