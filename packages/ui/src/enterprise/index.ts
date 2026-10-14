@@ -34,3 +34,5 @@ export { LineChart, spreadBubbles } from "./line-chart";
 export type { LineChartProps, LineSeries } from "./line-chart";
 export { WeekBarChart } from "./week-bars";
 export type { WeekBarChartProps } from "./week-bars";
+export { MiniBars, AlarmClockIcon } from "./task-visuals";
+export type { MiniBarsProps } from "./task-visuals";
