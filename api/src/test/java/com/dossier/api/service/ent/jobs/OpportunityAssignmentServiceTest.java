@@ -438,6 +438,74 @@ class OpportunityAssignmentServiceTest {
         assertThat(world.oppStore).hasSize(1);
     }
 
+    // ---- closing ------------------------------------------------------------------------------------------------------------
+
+    @Test
+    void closingAJobClosesOnlyTheOpportunitiesStillOpenForTheConsultantWithAnEventAndAnAuditRowEach() {
+        world.consultant(11, "ACTIVE", "ACTIVE");
+        world.consultant(12, "ACTIVE", "ACTIVE");
+        world.consultant(13, "ACTIVE", "ACTIVE");
+        world.job(101, "OPEN", "MANUAL");
+        world.match(1, JOB, CON, "ASSIGNED");
+        world.match(2, JOB, 11, "ASSIGNED");
+        world.match(3, JOB, 12, "ASSIGNED");
+        world.match(4, JOB, 13, "ASSIGNED");
+        world.match(5, 101, CON, "ASSIGNED");
+        var assigned = world.opportunity(1, "ASSIGNED");
+        var interested = world.opportunity(2, "INTERESTED");
+        var declined = world.opportunity(3, "DECLINED");
+        var applied = world.opportunity(4, "APPLIED");
+        var otherJob = world.opportunity(5, "ASSIGNED");
+
+        world.jobs.get(JOB).setStatus("CLOSED");
+        int closed = service.closeForJob(all, me, JOB);
+
+        assertThat(closed).isEqualTo(2);
+        for (var o : new MktOpportunity[] { assigned, interested }) {
+            assertThat(o.getState()).isEqualTo("CLOSED");
+            assertThat(o.getClosedReason()).isEqualTo("JOB_CLOSED");
+            assertThat(o.getClosedAt()).isEqualTo(NOW);
+        }
+        assertThat(declined.getState()).as("the consultant's no stays theirs").isEqualTo("DECLINED");
+        assertThat(applied.getState()).as("an application is a fact").isEqualTo("APPLIED");
+        assertThat(otherJob.getState()).isEqualTo("ASSIGNED");
+        assertThat(world.eventKinds()).containsExactly("CLOSED", "CLOSED");
+        verify(world.audit, org.mockito.Mockito.times(2)).record(eq(me), eq("OPPORTUNITY_CLOSED"), eq("OPPORTUNITY"), isNull(), anyString(), eq("JOB_CLOSED"));
+        assertThat(service.closeForJob(all, me, JOB)).as("a second call has nothing left to close").isZero();
+    }
+
+    @Test
+    void aClosedOpportunityIsReopenedByANewAssignmentOfThePair() {
+        world.match(1, JOB, CON, "ASSIGNED");
+        var opp = world.opportunity(1, "ASSIGNED");
+        service.closeForJob(all, me, JOB);
+        assertThat(opp.getState()).isEqualTo("CLOSED");
+        Result r = assign(null);
+        assertThat(r.reopened()).isTrue();
+        assertThat(opp.getState()).isEqualTo("ASSIGNED");
+        assertThat(opp.getClosedReason()).isNull();
+    }
+
+    @Test
+    void withdrawingTakesTheAssignmentBackWithinTheCallersScopeOnly() {
+        world.match(1, JOB, CON, "ASSIGNED");
+        var opp = world.opportunity(1, "VIEWED");
+        MktScope.View narrow = new MktScope.View(ORG, ME, false, Set.of(11L));
+        assertThatThrownBy(() -> service.withdraw(narrow, me, opp.getId())).isInstanceOf(OrgNotFoundException.class);
+        assertThat(opp.getState()).isEqualTo("VIEWED");
+        assertThatThrownBy(() -> service.withdraw(all, me, 999L)).isInstanceOf(OrgNotFoundException.class);
+
+        service.withdraw(all, me, opp.getId());
+        assertThat(opp.getState()).isEqualTo("CLOSED");
+        assertThat(opp.getClosedReason()).isEqualTo("WITHDRAWN");
+        assertThat(world.eventKinds()).containsExactly("CLOSED");
+        verify(world.audit).record(eq(me), eq("OPPORTUNITY_CLOSED"), eq("OPPORTUNITY"), isNull(), eq(String.valueOf(opp.getId())), eq("WITHDRAWN"));
+        // nothing left to withdraw
+        assertThatThrownBy(() -> service.withdraw(all, me, opp.getId())).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getStatus()).isEqualTo(409));
+        opp.setState("DECLINED");
+        assertThatThrownBy(() -> service.withdraw(all, me, opp.getId())).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("ILLEGAL_TRANSITION"));
+    }
+
     // ---- a job created in the caller's own request ----------------------------------------------------------------------------
 
     @Test

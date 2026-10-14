@@ -53,5 +53,17 @@ public interface MktOpportunityRepository extends Repository<MktOpportunity, Lon
     @Query("select m from RequirementMatch m where m.orgId = :orgId and m.requirementId = :requirementId and m.consultantId = :consultantId")
     Optional<RequirementMatch> findMatchByPair(@Param("orgId") Long orgId, @Param("requirementId") Long requirementId, @Param("consultantId") Long consultantId);
 
+    /** Locked ({@code FOR UPDATE}) opportunities of one job in the given states: the close-on-job-close cascade changes them. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query(
+        "select o from MktOpportunity o join RequirementMatch m on m.orgId = o.orgId and m.id = o.matchId "
+            + "where o.orgId = :orgId and m.requirementId = :requirementId and o.state in :states order by o.id"
+    )
+    List<MktOpportunity> lockByRequirementAndStates(
+        @Param("orgId") Long orgId,
+        @Param("requirementId") Long requirementId,
+        @Param("states") java.util.Collection<String> states
+    );
+
     <S extends MktOpportunity> S save(S entity);
 }

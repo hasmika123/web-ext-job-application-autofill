@@ -196,6 +196,12 @@ public class AssignmentWorld {
             return oppStore.values().stream().filter(o -> o.getMatchId().equals(i.getArgument(1))).findFirst();
         });
         lenient().when(opportunities.lockByOrgIdAndId(eq(orgId), anyLong())).thenAnswer(i -> Optional.ofNullable(oppStore.get(i.<Long>getArgument(1))));
+        lenient().when(opportunities.lockByRequirementAndStates(eq(orgId), anyLong(), any())).thenAnswer(i -> {
+            java.util.Collection<String> states = i.getArgument(2);
+            return oppStore.values().stream()
+                .filter(o -> states.contains(o.getState()) && matchStore.get(o.getMatchId()) != null && matchStore.get(o.getMatchId()).getRequirementId().equals(i.getArgument(1)))
+                .toList();
+        });
         lenient().when(opportunities.save(any(MktOpportunity.class))).thenAnswer(i -> {
             MktOpportunity o = i.getArgument(0);
             if (o.getId() == null) o.setId(ids.incrementAndGet());

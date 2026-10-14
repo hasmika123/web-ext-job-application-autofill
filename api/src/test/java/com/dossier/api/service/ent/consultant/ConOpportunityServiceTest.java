@@ -134,6 +134,50 @@ class ConOpportunityServiceTest {
     }
 
     @Test
+    void whenTheJobIsNotOpenOnlyViewedAndDeclineStayInTheActions() {
+        assertThat(ConOpportunityService.allowedActions("ASSIGNED", false, false)).containsExactly("VIEWED", "DECLINE");
+        assertThat(ConOpportunityService.allowedActions("VIEWED", false, false)).containsExactly("DECLINE");
+        assertThat(ConOpportunityService.allowedActions("INTERESTED", false, false)).containsExactly("DECLINE");
+        assertThat(ConOpportunityService.allowedActions("NEEDS_INFO", false, false)).containsExactly("DECLINE");
+        assertThat(ConOpportunityService.allowedActions("APPLIED", true, false)).as("an applied fact stays unlinkable").containsExactly("UNLINK");
+        for (String closed : new String[] { "CLOSED", "FILLED", "ON_HOLD" }) {
+            var x = w.opp(7, "ASSIGNED");
+            x.jobStatus = closed;
+            assertThat(service.get(w.me, 7L).allowedActions()).as(closed).containsExactly("VIEWED", "DECLINE");
+        }
+    }
+
+    @Test
+    void interestRequestInfoAndAppliedAreRefusedWhileTheJobIsNotOpenButViewedAndDeclineWork() {
+        for (String from : new String[] { "ASSIGNED", "VIEWED", "INTERESTED", "NEEDS_INFO" }) {
+            var x = w.opp(20, from);
+            x.jobStatus = "CLOSED";
+            if (!"INTERESTED".equals(from)) {
+                assertThatThrownBy(() -> service.interest(w.me, 20L, null)).as("interest from " + from).isInstanceOf(OrgException.class).satisfies(t -> {
+                    assertThat(code(t)).isEqualTo("JOB_NOT_OPEN");
+                    assertThat(((OrgException) t).getStatus()).isEqualTo(409);
+                });
+            }
+            if (!"NEEDS_INFO".equals(from)) {
+                assertThatThrownBy(() -> service.requestInfo(w.me, 20L, "Is it remote?", null)).as("request-info from " + from).satisfies(t -> assertThat(code(t)).isEqualTo("JOB_NOT_OPEN"));
+            }
+            assertThatThrownBy(() -> service.applied(w.me, 20L, null, null)).as("applied from " + from).satisfies(t -> assertThat(code(t)).isEqualTo("JOB_NOT_OPEN"));
+            assertThat(x.o.getState()).as("nothing changed").isEqualTo(from);
+        }
+        assertThat(w.eventKinds()).isEmpty();
+        // viewed and decline stay possible
+        var seen = w.opp(21, "ASSIGNED");
+        seen.jobStatus = "FILLED";
+        assertThat(service.viewed(w.me, 21L, null).state()).isEqualTo("VIEWED");
+        assertThat(service.decline(w.me, 21L, "NOT_INTERESTED", null, null).state()).isEqualTo("DECLINED");
+        // recording a link on an already applied opportunity is not an action on the open posting
+        var done = w.opp(22, "APPLIED");
+        done.jobStatus = "CLOSED";
+        w.application(55, ConWorld.USER);
+        assertThat(service.link(w.me, 22L, 55L, null).state()).isEqualTo("APPLIED");
+    }
+
+    @Test
     void aLinkedAppliedOpportunityOffersUnlinkAndShowsTheApplication() {
         w.opp(1, "APPLIED");
         w.liveLink(1, 55);

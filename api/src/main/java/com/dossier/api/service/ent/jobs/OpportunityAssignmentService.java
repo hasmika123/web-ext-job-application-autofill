@@ -53,6 +53,12 @@ public class OpportunityAssignmentService {
     public static final String CONSULTANT_INACTIVE = "CONSULTANT_INACTIVE";
     public static final String EVENT_ASSIGNED = "ASSIGNED";
     public static final String EVENT_REASSIGNED = "REASSIGNED";
+    public static final String EVENT_CLOSED = "CLOSED";
+    /** {@code mkt_opportunity.closed_reason}: the job was closed or filled / the marketer took the assignment back. */
+    public static final String CLOSED_JOB = "JOB_CLOSED";
+    public static final String CLOSED_WITHDRAWN = "WITHDRAWN";
+    /** The states a close may end: the consultant has neither said no (DECLINED is theirs) nor applied (APPLIED is a fact) nor is it closed already. */
+    public static final Set<String> CLOSABLE = Set.of("ASSIGNED", "VIEWED", "INTERESTED", "NEEDS_INFO");
     private static final Duration ASK_FOLLOW_UP = Duration.ofDays(3);
 
     /** The audit row to write when something changed. {@code targetId} null = the match id; {@code details} null = a short default. */
@@ -404,6 +410,56 @@ public class OpportunityAssignmentService {
         RequirementMatch match = matches.findByOrgIdAndId(orgId, matchId).orElseThrow(OrgNotFoundException::new);
         if (!scope.sees(match.getConsultantId())) throw new OrgNotFoundException();
         return ensureOpportunityFor(orgId, matchId, ownerMemberId, clock.instant());
+    }
+
+    // ---- closing ---------------------------------------------------------------------------------------------------------------
+
+    /**
+     * The job was closed or filled: every opportunity of it that is still open for the consultant ({@link #CLOSABLE}) becomes CLOSED with reason
+     * {@link #CLOSED_JOB}, one {@code mkt_opportunity_event} and one audit row each, in the caller's transaction. DECLINED and APPLIED opportunities are
+     * left as the consultant made them. Call it from the code that sets the job's status to CLOSED or FILLED; today nothing in the application does (there
+     * is no job-status editor yet), so this has no caller until that screen exists.
+     *
+     * @return the number of opportunities closed
+     */
+    @Transactional(noRollbackFor = OrgException.class)
+    public int closeForJob(AssignmentScope scope, OrgMembership me, Long jobId) {
+        Long orgId = orgOf(scope, me);
+        if (jobId == null) throw OrgException.coded(400, "VALIDATION", "Choose a job.", Map.of());
+        Instant now = clock.instant();
+        int closed = 0;
+        for (MktOpportunity opp : opportunities.lockByRequirementAndStates(orgId, jobId, CLOSABLE)) {
+            close(me, opp, CLOSED_JOB, "closed: the job is no longer open", now);
+            closed++;
+        }
+        return closed;
+    }
+
+    /**
+     * The marketer takes an assignment back: the opportunity becomes CLOSED with reason {@link #CLOSED_WITHDRAWN}. 404 outside the caller's scope;
+     * 409 {@code ILLEGAL_TRANSITION} when the consultant already declined or applied or it is closed (nothing to withdraw). The match stays ASSIGNED, so a
+     * later assign of the same pair reopens these rows. There is no HTTP route for it yet (the Opportunities board has no withdraw action).
+     */
+    @Transactional(noRollbackFor = OrgException.class)
+    public void withdraw(AssignmentScope scope, OrgMembership me, Long opportunityId) {
+        Long orgId = orgOf(scope, me);
+        MktOpportunity opp = opportunities.lockByOrgIdAndId(orgId, opportunityId == null ? -1L : opportunityId).orElseThrow(OrgNotFoundException::new);
+        RequirementMatch match = matches.findByOrgIdAndId(orgId, opp.getMatchId()).orElseThrow(OrgNotFoundException::new);
+        if (!scope.sees(match.getConsultantId())) throw new OrgNotFoundException();
+        if (!CLOSABLE.contains(opp.getState())) {
+            throw OrgException.coded(409, "ILLEGAL_TRANSITION", "That is not possible from the opportunity's current state.", Map.of("state", opp.getState(), "target", "CLOSED"));
+        }
+        close(me, opp, CLOSED_WITHDRAWN, "was withdrawn by the marketer", clock.instant());
+    }
+
+    private void close(OrgMembership me, MktOpportunity opp, String reason, String eventText, Instant now) {
+        opp.setState("CLOSED");
+        opp.setClosedAt(now);
+        opp.setClosedReason(reason);
+        opp.setUpdatedAt(now);
+        opportunities.save(opp);
+        record(opp, EVENT_CLOSED, me.memberId(), eventText, now);
+        audit.record(me, "OPPORTUNITY_CLOSED", "OPPORTUNITY", null, String.valueOf(opp.getId()), reason);
     }
 
     // ---- internals ---------------------------------------------------------------------------------------------------------------

@@ -50,7 +50,8 @@ import org.springframework.transaction.annotation.Transactional;
  * <p><b>Matrix</b> (state, actor C): viewed ASSIGNED to VIEWED; interest ASSIGNED, VIEWED, NEEDS_INFO to INTERESTED (and DECLINED to INTERESTED while the
  * job is open); request-info ASSIGNED, VIEWED, INTERESTED to NEEDS_INFO; decline ASSIGNED, VIEWED, INTERESTED, NEEDS_INFO to DECLINED; applied and link ASSIGNED,
  * VIEWED, INTERESTED, NEEDS_INFO to APPLIED. The same target is a 200 no-op that writes nothing. Anything else is 409 {@code ILLEGAL_TRANSITION}. A stale
- * {@code If-Match} or a concurrent write is 409 {@code VERSION_CONFLICT}. Each real transition is one transaction: the row, one
+ * {@code If-Match} or a concurrent write is 409 {@code VERSION_CONFLICT}. Interest, request-info and applied act on an open posting: while the job is not OPEN or
+ * IN_REVIEW they are 409 {@code JOB_NOT_OPEN} (viewed and decline stay possible, so the consultant can still say no to a job that closed). Each real transition is one transaction: the row, one
  * {@code mkt_opportunity_event} and one {@code org_audit_event}.
  *
  * <p><b>Applied without an application.</b> {@code pipeline_application_link.personal_application_id} is NOT NULL, so "I applied" with no
@@ -195,6 +196,8 @@ public class ConOpportunityService {
             if (!OPEN_JOB.contains(row.jobStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open any more.", Map.of());
         } else if (!"ASSIGNED".equals(from) && !"VIEWED".equals(from) && !"NEEDS_INFO".equals(from)) {
             throw illegal(from, "INTERESTED");
+        } else {
+            requireOpenJob(view, id);
         }
         Instant now = clock.instant();
         opp.setState("INTERESTED");
@@ -218,6 +221,7 @@ public class ConOpportunityService {
         String from = opp.getState();
         if ("NEEDS_INFO".equals(from)) return one(view, id);
         if (!"ASSIGNED".equals(from) && !"VIEWED".equals(from) && !"INTERESTED".equals(from)) throw illegal(from, "NEEDS_INFO");
+        requireOpenJob(view, id);
         Instant now = clock.instant();
         opp.setState("NEEDS_INFO");
         opp.setInfoRequest(q);
@@ -303,8 +307,9 @@ public class ConOpportunityService {
         } else if (!BEFORE_APPLY.contains(from)) {
             throw illegal(from, "APPLIED");
         }
-        Instant now = clock.instant();
         boolean flip = !"APPLIED".equals(from);
+        if (flip) requireOpenJob(view, id); // recording that they applied to a posting that is gone is not an action on an open job
+        Instant now = clock.instant();
         if (flip) {
             opp.setState("APPLIED");
             opp.setAppliedAt(app != null && app.getAppliedAt() != null ? app.getAppliedAt() : now);
@@ -339,10 +344,11 @@ public class ConOpportunityService {
     public static List<String> allowedActions(String state, boolean linked, boolean jobOpen) {
         if (state == null) return List.of();
         return switch (state) {
-            case "ASSIGNED" -> List.of("VIEWED", "INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK");
-            case "VIEWED" -> List.of("INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK");
-            case "INTERESTED" -> List.of("DECLINE", "REQUEST_INFO", "APPLIED", "LINK");
-            case "NEEDS_INFO" -> List.of("INTEREST", "DECLINE", "APPLIED", "LINK");
+            // while the job is not open only the two actions that do not act on the posting stay: mark it seen and say no
+            case "ASSIGNED" -> jobOpen ? List.of("VIEWED", "INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK") : List.of("VIEWED", "DECLINE");
+            case "VIEWED" -> jobOpen ? List.of("INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK") : List.of("DECLINE");
+            case "INTERESTED" -> jobOpen ? List.of("DECLINE", "REQUEST_INFO", "APPLIED", "LINK") : List.of("DECLINE");
+            case "NEEDS_INFO" -> jobOpen ? List.of("INTEREST", "DECLINE", "APPLIED", "LINK") : List.of("DECLINE");
             case "DECLINED" -> jobOpen ? List.of("INTEREST") : List.of();
             case "APPLIED" -> List.of(linked ? "UNLINK" : "LINK");
             default -> List.of();
@@ -350,6 +356,12 @@ public class ConOpportunityService {
     }
 
     // ---- internals -----------------------------------------------------------------------------------------------------------
+
+    /** 409 {@code JOB_NOT_OPEN} unless the opportunity's job is OPEN or IN_REVIEW. */
+    private void requireOpenJob(ConScope.View view, Long id) {
+        ConOpportunityRow row = repo.findRow(view.orgId(), view.consultantId(), id).orElseThrow(OrgNotFoundException::new);
+        if (!OPEN_JOB.contains(row.jobStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open any more.", Map.of());
+    }
 
     private MktOpportunity load(ConScope.View view, Long id, String ifMatch) {
         if (id == null) throw new OrgNotFoundException();
