@@ -117,7 +117,16 @@
   // nothing personal), and the analytics client id.
   const ACCOUNT_KEYS = ["bio", "resumes", "fieldCache", "answerCache", "pickCache", "trackingPending"];
   // Settings that describe WHOSE mirror this is, rather than how the device behaves.
-  const ACCOUNT_SETTINGS = ["plan", "__profileVersion", "__lastPull", "lastResumeId"];
+  // `workspace` (the drawer's Personal / <Org> choice) and `workspaces` (the orgs last seen on
+  // GET /api/profile/version) describe WHOSE memberships these are, so they go with the account.
+  const ACCOUNT_SETTINGS = ["plan", "__profileVersion", "__lastPull", "lastResumeId", "workspace", "workspaces"];
+  // Per-org-workspace caches (WP5): `ws:<orgId>:<name>` — e.g. `ws:42:assignedJobs`. They hold
+  // another person's assignment of a job to THIS account, so they are account data too, but the
+  // keys are dynamic (one per org), so they are cleared by prefix rather than listed.
+  const WS_PREFIX = "ws:";
+  const wsKey = (orgId, name) => WS_PREFIX + String(orgId) + ":" + name;
+  async function getWorkspaceCache(orgId, name) { return (await get(wsKey(orgId, name))) || null; }
+  const saveWorkspaceCache = (orgId, name, value) => set({ [wsKey(orgId, name)]: value });
   // Whose learned answers these are. Written on every connect and survives a web sign-out (which
   // keeps the answers, see below), because by then the session — and the username in it — is
   // gone, and this is the only way to tell that the NEXT account to connect is someone else.
@@ -136,7 +145,9 @@
   async function clearAccountData(opts) {
     const keepLearned = !!(opts && opts.keepLearnedAnswers);
     const keys = keepLearned ? ACCOUNT_KEYS.filter((k) => k !== "fieldCache") : ACCOUNT_KEYS.concat([OWNER_KEY]);
-    await new Promise((res) => chrome.storage.local.remove(keys, () => res(true)));
+    const everything = await new Promise((res) => chrome.storage.local.get(null, (o) => res(o || {})));
+    const wsKeys = Object.keys(everything).filter((k) => k.indexOf(WS_PREFIX) === 0);
+    await new Promise((res) => chrome.storage.local.remove(keys.concat(wsKeys), () => res(true)));
     try { await idbClear(); } catch (e) { /* no IndexedDB in this context — nothing stored there */ }
     const s = (await get(KEYS.settings)) || {};
     for (const k of ACCOUNT_SETTINGS) delete s[k];
@@ -156,5 +167,6 @@
     getBio, saveBio, getResumes, getResume, saveResume, deleteResume,
     saveResumeFile, getResumeFile, deleteResumeFile, getSettings, saveSettings, estimateUsage,
     clearAccountData, ACCOUNT_KEYS, ACCOUNT_SETTINGS, OWNER_KEY,
+    getWorkspaceCache, saveWorkspaceCache, WS_PREFIX,
   };
 })();

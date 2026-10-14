@@ -25,7 +25,10 @@ function raw(w) {
     fieldCache: { k1: { value: "Yes, authorised to work" } },
     answerCache: { "why us": "Because…" },
     pickCache: { "relocate::yes|no": "Yes" },
-    trackingPending: { 12: { serverId: 99 } },
+    trackingPending: { 12: { serverId: 99, opportunity: { orgId: 42, id: 7 } } },
+    // org workspaces (WP5): another person's assignment of a job to THIS account
+    "ws:42:assignedJobs": { ts: 1, items: [{ id: 7, title: "Staff Engineer", assignedBy: "Sarah" }] },
+    "ws:43:assignedJobs": { ts: 1, items: [] },
     // the device
     trackingAuth: { access: "a", refresh: "r", username: "ada" },
     fieldMapCache: { "first name": "firstName" },
@@ -34,6 +37,7 @@ function raw(w) {
     settings: {
       apiBaseUrl: "https://api.kiwiply.com", apiKey: "sk-byo", llmEnabled: true, autoAdvance: true,
       plan: "PRO", __profileVersion: "v1", __lastPull: 1, lastResumeId: "res_1",
+      workspace: 42, workspaces: [{ orgId: 42, name: "Acme", consultant: true, marketer: false }],
     },
   }, () => res()));
 
@@ -45,6 +49,9 @@ function raw(w) {
   ok("web sign-out keeps their owner, so a different account can be spotted later", soft.learnedAnswersOwner === "ada");
   ok("web sign-out still removes the profile and resumes", !("bio" in soft) && !("resumes" in soft));
   ok("web sign-out still removes AI drafts and pending tracking", !("answerCache" in soft) && !("trackingPending" in soft));
+  ok("web sign-out removes every org-workspace cache (ws:<orgId>:assignedJobs)", !("ws:42:assignedJobs" in soft) && !("ws:43:assignedJobs" in soft), Object.keys(soft).filter((k) => k.indexOf("ws:") === 0).join(","));
+  ok("web sign-out removes the chosen workspace and the org list", !("workspace" in (soft.settings || {})) && !("workspaces" in (soft.settings || {})), JSON.stringify(soft.settings));
+  ok("a ws: prefix match does not eat unrelated keys", "trackingAuth" in soft && "fieldMapCache" in soft);
 
   /* ---- full clear (options sign-out, account switch) ---- */
   await S.clearAccountData();
@@ -54,11 +61,12 @@ function raw(w) {
   for (const k of ["bio", "resumes", "fieldCache", "answerCache", "pickCache", "trackingPending"]) {
     ok("account data removed: " + k, !(k in after), JSON.stringify(after[k]));
   }
+  ok("full clear removes org-workspace caches too", !Object.keys(after).some((k) => k.indexOf("ws:") === 0));
   // A leftover trackingPending entry would attribute an application id to whoever connects next.
   ok("pending submit-detection state cannot leak to the next account", !("trackingPending" in after));
 
   const s = after.settings || {};
-  for (const k of ["plan", "__profileVersion", "__lastPull", "lastResumeId"]) {
+  for (const k of ["plan", "__profileVersion", "__lastPull", "lastResumeId", "workspace", "workspaces"]) {
     ok("account setting removed: " + k, !(k in s), JSON.stringify(s));
   }
   // Device settings are the device owner's, not the account's.
