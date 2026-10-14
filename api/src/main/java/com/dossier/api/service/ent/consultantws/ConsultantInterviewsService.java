@@ -398,9 +398,9 @@ public class ConsultantInterviewsService {
         Map<Long, CwsInterviewFeedback> f = feedback.findByOrgIdAndConsultantId(org, c.getId()).stream().collect(Collectors.toMap(CwsInterviewFeedback::getInterviewId, Function.identity(), (a, b) -> a, HashMap::new));
         Map<Long, TalentApplication> apps = applications.findByOrgIdAndConsultantId(org, c.getId()).stream().collect(Collectors.toMap(TalentApplication::getId, Function.identity()));
         List<Long> reqIds = apps.values().stream().map(TalentApplication::getRequirementId).distinct().toList();
-        Map<Long, ClientRequirement> reqs = requirements.findAllById(reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
+        Map<Long, ClientRequirement> reqs = requirements.findByOrgIdAndIdIn(org, reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
         List<Long> clientIds = mine.stream().map(TalentInterview::getClientId).distinct().toList();
-        Map<Long, ClientAccount> accounts = clients.findAllById(clientIds).stream().filter(a -> org.equals(a.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
+        Map<Long, ClientAccount> accounts = clients.findByOrgIdAndIdIn(org, clientIds).stream().filter(a -> org.equals(a.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
         return new Ctx(now, mine, d, f, apps, reqs, accounts);
     }
 

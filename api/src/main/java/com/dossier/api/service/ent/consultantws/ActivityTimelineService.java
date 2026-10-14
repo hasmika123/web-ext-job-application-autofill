@@ -195,7 +195,7 @@ public class ActivityTimelineService {
         mySubs.forEach(s -> reqIds.add(s.getRequirementId()));
         myResponses.forEach(r -> reqIds.add(r.getRequirementId()));
         Map<Long, ClientRequirement> reqs = requirements
-            .findAllById(reqIds.stream().filter(Objects::nonNull).distinct().toList())
+            .findByOrgIdAndIdIn(org, reqIds.stream().filter(Objects::nonNull).distinct().toList())
             .stream()
             .filter(r -> org.equals(r.getOrgId()))
             .collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));

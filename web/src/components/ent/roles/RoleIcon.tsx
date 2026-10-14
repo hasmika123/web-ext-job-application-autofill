@@ -14,9 +14,12 @@ const ICONS = {
 } as const;
 
 const TONES = {
-  brand: "bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]",
-  brand2: "bg-[var(--brand-2-subtle,var(--color-paper-2))] text-[var(--brand-2-text,var(--color-ink-soft))]",
-  warm: "bg-brown-soft text-brown-deep",
+  amber: "bg-v2-amber-soft text-v2-amber-ink",
+  violet: "bg-v2-violet-soft text-v2-violet-ink",
+  coral: "bg-v2-coral-soft text-v2-coral-ink",
+  green: "bg-v2-green-soft text-v2-green-ink",
+  teal: "bg-v2-teal-soft text-v2-teal-ink",
+  blue: "bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]",
 } as const;
 
 /** The rounded icon tile of a role row (the board colours them by what the role is for). Decorative: the name is next to it. */
@@ -24,7 +27,7 @@ export default function RoleIcon({ role, size = 20, className }: { role: Pick<Ro
   const { icon, tone } = roleIcon(role);
   const Icon = ICONS[icon];
   return (
-    <span aria-hidden data-role-icon={icon} className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl", TONES[tone], className)}>
+    <span aria-hidden data-role-icon={icon} className={cn("grid h-[42px] w-[42px] flex-none place-items-center rounded-[12px]", TONES[tone], className)}>
       <Icon size={size} />
     </span>
   );

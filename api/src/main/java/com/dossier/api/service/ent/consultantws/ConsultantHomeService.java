@@ -173,7 +173,7 @@ public class ConsultantHomeService {
             .filter(Objects::nonNull)
             .distinct()
             .toList();
-        Map<Long, ClientRequirement> reqs = requirements.findAllById(reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
+        Map<Long, ClientRequirement> reqs = requirements.findByOrgIdAndIdIn(org, reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
         Map<Long, ClientAccount> clientById = clients.findByOrgId(org).stream().collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
         Map<Long, TalentApplication> appById = myApps.stream().collect(Collectors.toMap(TalentApplication::getId, Function.identity()));
         Set<Long> appliedReqs = myApps.stream().map(TalentApplication::getRequirementId).collect(Collectors.toSet());

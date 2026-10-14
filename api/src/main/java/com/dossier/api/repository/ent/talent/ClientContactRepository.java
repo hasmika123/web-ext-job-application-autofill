@@ -11,6 +11,12 @@ public interface ClientContactRepository extends Repository<ClientContact, Long>
 
     <S extends ClientContact> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends ClientContact> List<S> saveAll(Iterable<S> entities);
+
+    <S extends ClientContact> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<ClientContact> findByOrgIdAndId(Long orgId, Long id);
 
     List<ClientContact> findByOrgId(Long orgId);

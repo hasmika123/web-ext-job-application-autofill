@@ -11,6 +11,12 @@ public interface OrgResumeExperienceRepository extends Repository<OrgResumeExper
 
     <S extends OrgResumeExperience> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends OrgResumeExperience> List<S> saveAll(Iterable<S> entities);
+
+    <S extends OrgResumeExperience> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<OrgResumeExperience> findByOrgIdAndId(Long orgId, Long id);
 
     List<OrgResumeExperience> findByOrgId(Long orgId);

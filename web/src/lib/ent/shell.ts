@@ -30,7 +30,43 @@ const ADMIN_CHILDREN: Record<string, { key: string; label: string; slug: string 
   ],
 };
 
+/**
+ * The whole Administration menu in the board's order (design/enterprise-talent/dashboard.png). The API sends only the items a member
+ * may open with their modules on; the others are shown too, greyed with a "Soon" chip and leading to the honest "on the way" page,
+ * so the menu always reads as the full product. Everything the API does send wins over this list (its href, label, icon).
+ */
+const ADMIN_FULL: { key: string; label: string; icon: string; href: string }[] = [
+  { key: "home", label: "Dashboard", icon: "Home", href: "/w/admin" },
+  { key: "employees", label: "Employees", icon: "Users", href: "/w/admin/employees" },
+  { key: "invitations", label: "Invitations", icon: "Mail", href: "/w/admin/invitations" },
+  { key: "teams", label: "Teams", icon: "Network", href: "/w/admin/teams" },
+  { key: "departments", label: "Departments", icon: "Building", href: "/w/admin/departments" },
+  { key: "roles", label: "Roles & Permissions", icon: "Key", href: "/w/admin/roles" },
+  { key: "consultants", label: "Consultants", icon: "Briefcase", href: "/w/admin/consultants" },
+  { key: "resumes", label: "Resumes", icon: "FileText", href: "/w/admin/resumes" },
+  { key: "assignments", label: "Marketing Assignments", icon: "Handshake", href: "/w/admin/marketing-assignments" },
+  { key: "jobs", label: "Jobs", icon: "Target", href: "/w/admin/jobs" },
+  { key: "applications", label: "Applications", icon: "Board", href: "/w/admin/applications" },
+  { key: "interviews", label: "Interviews", icon: "CalendarCheck", href: "/w/admin/interviews" },
+  { key: "clients", label: "Clients", icon: "Building", href: "/w/admin/clients" },
+  { key: "placements", label: "Placements", icon: "Trophy", href: "/w/admin/placements" },
+  { key: "subscription", label: "Subscription Overview", icon: "Layers", href: "/w/admin/subscription" },
+  { key: "licenses", label: "Consultant Licenses", icon: "ShieldCheck", href: "/w/admin/licenses" },
+  { key: "billing", label: "Billing", icon: "CreditCard", href: "/w/admin/billing" },
+  { key: "usage", label: "Feature Usage", icon: "BarChart", href: "/w/admin/usage" },
+  { key: "hr", label: "HR", icon: "Heart", href: "/w/admin/hr" },
+  { key: "finance", label: "Finance", icon: "Dollar", href: "/w/admin/finance" },
+  { key: "reports", label: "Reports", icon: "Chart", href: "/w/admin/reports" },
+  { key: "branding", label: "Organization Branding", icon: "Sparkles", href: "/w/admin/branding" },
+  { key: "domains", label: "Domains", icon: "Globe", href: "/w/admin/domains" },
+  { key: "integrations", label: "Integrations", icon: "Webhook", href: "/w/admin/integrations" },
+  { key: "audit", label: "Audit Logs", icon: "Shield", href: "/w/admin/audit" },
+  { key: "settings", label: "Settings", icon: "Gear", href: "/w/admin/settings" },
+];
+
 export interface ShellNavItem extends NavItem {
+  /** True for a menu item the member's role or the organization's modules do not open yet: drawn greyed with a "Soon" chip. */
+  soon?: boolean;
   /** The label in the organization's own words (terminology map applied). */
   text: string;
   children?: ShellNavItem[];
@@ -71,7 +107,24 @@ export function navSections(ws: Workspace, terminology?: Record<string, string> 
   };
   if (ws.workspaceKey !== "ADMIN") return [{ id: "main", items: ws.nav.map(decorate) }];
   const groups: NavSection[] = [{ id: "people", items: [] }, { id: "plan", items: [] }, { id: "organization", items: [] }];
-  for (const n of ws.nav) groups[ADMIN_GROUP[n.key] ?? 0].items.push(decorate(n));
+  const have = new Map(ws.nav.map((n) => [n.key, n]));
+  const full = ws.nav.some((n) => n.key === "home"); // the whole menu only on the Administration home's own workspace
+  const ordered: { item: NavItem; soon: boolean }[] = [];
+  if (full) {
+    for (const f of ADMIN_FULL) {
+      const real = have.get(f.key);
+      ordered.push(real ? { item: real, soon: false } : { item: { key: f.key, label: f.label, icon: f.icon, href: f.href } as NavItem, soon: true });
+    }
+    for (const n of ws.nav) if (!ADMIN_FULL.some((f) => f.key === n.key)) ordered.push({ item: n, soon: false });
+  } else for (const n of ws.nav) ordered.push({ item: n, soon: false });
+  for (const { item, soon } of ordered) {
+    const d = decorate(item);
+    if (soon) {
+      d.soon = true;
+      delete d.children;
+    }
+    groups[ADMIN_GROUP[item.key] ?? 0].items.push(d);
+  }
   return groups.filter((g) => g.items.length > 0);
 }
 
@@ -134,7 +187,7 @@ export function searchPages(me: MeTenant, query: string, limit = 8): SearchHit[]
   const scored: { hit: SearchHit; score: number; order: number }[] = [];
   let order = 0;
   for (const ws of me.workspaces) {
-    for (const item of navSections(ws, me.org.terminology).flatMap((s) => s.items)) {
+    for (const item of navSections(ws, me.org.terminology).flatMap((s) => s.items).filter((i) => !i.soon)) {
       const text = item.text.trim();
       const hay = text.toLowerCase();
       let score = 0;

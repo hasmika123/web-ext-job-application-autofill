@@ -12,6 +12,12 @@ public interface OrgResumeRepository extends Repository<OrgResume, Long> {
 
     <S extends OrgResume> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends OrgResume> List<S> saveAll(Iterable<S> entities);
+
+    <S extends OrgResume> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<OrgResume> findByOrgIdAndId(Long orgId, Long id);
 
     List<OrgResume> findByOrgId(Long orgId);

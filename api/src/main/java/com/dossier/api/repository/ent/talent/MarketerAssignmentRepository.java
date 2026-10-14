@@ -12,6 +12,16 @@ public interface MarketerAssignmentRepository extends Repository<MarketerAssignm
 
     <S extends MarketerAssignment> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends MarketerAssignment> List<S> saveAll(Iterable<S> entities);
+
+    <S extends MarketerAssignment> List<S> saveAllAndFlush(Iterable<S> entities);
+
+    void delete(MarketerAssignment entity);
+
+    void deleteAll(Iterable<? extends MarketerAssignment> entities);
+
     Optional<MarketerAssignment> findByOrgIdAndId(Long orgId, Long id);
 
     List<MarketerAssignment> findByOrgId(Long orgId);

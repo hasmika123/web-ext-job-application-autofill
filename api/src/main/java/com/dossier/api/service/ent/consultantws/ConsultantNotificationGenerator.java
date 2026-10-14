@@ -193,7 +193,7 @@ public class ConsultantNotificationGenerator {
         mine.forEach(m -> reqIds.add(m.getRequirementId()));
         pending.forEach(s -> reqIds.add(s.getRequirementId()));
         reqIds.remove(null);
-        Map<Long, ClientRequirement> reqs = reqIds.isEmpty() ? Map.of() : requirements.findAllById(reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
+        Map<Long, ClientRequirement> reqs = reqIds.isEmpty() ? Map.of() : requirements.findByOrgIdAndIdIn(org, reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
         Map<Long, String> clientName = clients.findByOrgId(org).stream().collect(Collectors.toMap(ClientAccount::getId, ClientAccount::getName, (a, b) -> a));
 
         // new matches (last 7 days, not dismissed, not yet assigned: assigned ones are opportunities)
@@ -213,7 +213,7 @@ public class ConsultantNotificationGenerator {
         List<RequirementMatch> assigned = mine.stream().filter(m -> "ASSIGNED".equals(m.getStatus())).limit(PER_SOURCE_CAP).toList();
         Set<Long> assignedReqIds = assigned.stream().map(RequirementMatch::getRequirementId).filter(Objects::nonNull).collect(Collectors.toSet());
         assignedReqIds.removeAll(reqs.keySet());
-        Map<Long, ClientRequirement> more = assignedReqIds.isEmpty() ? Map.of() : requirements.findAllById(assignedReqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
+        Map<Long, ClientRequirement> more = assignedReqIds.isEmpty() ? Map.of() : requirements.findByOrgIdAndIdIn(org, assignedReqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
         for (RequirementMatch m : assigned) {
             CwsOpportunityResponse resp = answered.get(m.getRequirementId());
             if (resp != null && !CwsOpportunityResponse.NEW.equals(resp.getStatus())) continue;

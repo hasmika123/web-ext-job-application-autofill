@@ -12,6 +12,12 @@ public interface TalentInterviewRepository extends Repository<TalentInterview, L
 
     <S extends TalentInterview> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends TalentInterview> List<S> saveAll(Iterable<S> entities);
+
+    <S extends TalentInterview> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<TalentInterview> findByOrgIdAndId(Long orgId, Long id);
 
     List<TalentInterview> findByOrgId(Long orgId);

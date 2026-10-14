@@ -12,6 +12,12 @@ public interface OrgSpendEntryRepository extends Repository<OrgSpendEntry, Long>
 
     <S extends OrgSpendEntry> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends OrgSpendEntry> List<S> saveAll(Iterable<S> entities);
+
+    <S extends OrgSpendEntry> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<OrgSpendEntry> findByOrgIdAndId(Long orgId, Long id);
 
     List<OrgSpendEntry> findByOrgId(Long orgId);

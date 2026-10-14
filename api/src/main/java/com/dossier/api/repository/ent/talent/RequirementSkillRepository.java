@@ -12,6 +12,16 @@ public interface RequirementSkillRepository extends Repository<RequirementSkill,
 
     <S extends RequirementSkill> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends RequirementSkill> List<S> saveAll(Iterable<S> entities);
+
+    <S extends RequirementSkill> List<S> saveAllAndFlush(Iterable<S> entities);
+
+    void delete(RequirementSkill entity);
+
+    void deleteAll(Iterable<? extends RequirementSkill> entities);
+
     Optional<RequirementSkill> findByOrgIdAndId(Long orgId, Long id);
 
     List<RequirementSkill> findByOrgId(Long orgId);

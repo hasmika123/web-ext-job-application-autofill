@@ -368,7 +368,7 @@ class JobMatchesResourceIT {
     @Test
     void alertsComeFromRealEventsAnAssignedRoleEditedAndAnApplicationStageChange() throws Exception {
         seedC1();
-        ClientRequirement edited = requirements.findById(m4.getRequirementId()).orElseThrow();
+        ClientRequirement edited = requirements.findByOrgIdAndId(m4.getOrgId(), m4.getRequirementId()).orElseThrow();
         edited.setCreatedAt(now.minus(Duration.ofDays(30)));
         edited.setUpdatedAt(now.minus(Duration.ofHours(5)));
         requirements.saveAndFlush(edited);

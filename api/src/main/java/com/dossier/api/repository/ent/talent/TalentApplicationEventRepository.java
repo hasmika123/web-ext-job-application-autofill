@@ -12,6 +12,12 @@ public interface TalentApplicationEventRepository extends Repository<TalentAppli
 
     <S extends TalentApplicationEvent> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends TalentApplicationEvent> List<S> saveAll(Iterable<S> entities);
+
+    <S extends TalentApplicationEvent> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<TalentApplicationEvent> findByOrgIdAndId(Long orgId, Long id);
 
     List<TalentApplicationEvent> findByOrgId(Long orgId);

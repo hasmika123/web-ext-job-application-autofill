@@ -49,6 +49,7 @@ class TenantModulesTest {
             assertThat(m.get(deferred)).as(deferred).isFalse();
         }
         verify(flag, never()).isEnabled(EnterpriseSettingKeys.FLAG_BILLING, 5L);
+        verify(flag, never()).isEnabled(EnterpriseSettingKeys.FLAG_HR_FINANCE, 5L);
         assertThat(m.get("marketing")).isTrue();
     }
 

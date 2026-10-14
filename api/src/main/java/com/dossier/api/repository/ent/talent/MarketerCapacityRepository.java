@@ -11,6 +11,12 @@ public interface MarketerCapacityRepository extends Repository<MarketerCapacity,
 
     <S extends MarketerCapacity> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends MarketerCapacity> List<S> saveAll(Iterable<S> entities);
+
+    <S extends MarketerCapacity> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<MarketerCapacity> findByOrgIdAndId(Long orgId, Long id);
 
     List<MarketerCapacity> findByOrgId(Long orgId);

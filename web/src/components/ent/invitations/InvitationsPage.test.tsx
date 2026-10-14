@@ -150,7 +150,8 @@ describe("the list", () => {
     expect(kpis.querySelector('[data-kpi="PENDING"]')?.textContent).toContain("Pending Invitations");
     await waitFor(() => expect(kpis.querySelector('[data-kpi="PENDING"]')?.textContent).toContain("2"));
     expect(kpis.querySelector('[data-kpi="PENDING"]')?.textContent).toContain("3"); // the API's change vs last month
-    expect(kpis.querySelectorAll("svg").length).toBeGreaterThanOrEqual(4); // icons only: no drawn sparkline (the API sends no series)
+    expect(kpis.querySelectorAll("svg").length).toBeGreaterThanOrEqual(4); // icons, plus a last-month-to-now curve where the count moved
+    expect(kpis.querySelector('[data-kpi="PENDING"] [data-delta]')).not.toBeNull(); // the change vs last month, as an arrow and a figure
     expect(within(rowOf("Emily Carter")).getByText("Pending")).toBeTruthy();
     expect(within(rowOf("James Wilson")).getByText("Accepted")).toBeTruthy();
     expect(within(rowOf("Olivia Brown")).getByText("Expired")).toBeTruthy();

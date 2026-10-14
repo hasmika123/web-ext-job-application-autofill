@@ -54,6 +54,10 @@ public final class EnterpriseSettingKeys {
     public static final String DOMAINS_RECHECK_HOURS = "enterprise.domains.recheck_hours";
     public static final String DOMAINS_GRACE_HOURS_BEFORE_SUSPEND = "enterprise.domains.grace_hours_before_suspend";
     public static final String ORG_INVITE_REQUIRE_EMAIL_MATCH = "org.invite.require_email_match";
+    /** Marketing Assignments board: when a marketer counts as overloaded (percent of capacity), the most consultants one bulk call may name, and the highest capacity a marketer may be given. An organization may override each in org_setting. */
+    public static final String ORG_MARKETING_OVERLOAD_PCT = "org.marketing.overload_pct";
+    public static final String ORG_MARKETING_BULK_MAX = "org.marketing.bulk_max";
+    public static final String ORG_MARKETING_CAPACITY_MAX = "org.marketing.capacity_max";
     public static final String ORG_CONSENT_REQUEST_COOLDOWN_DAYS = "org.consent.request_cooldown_days";
     public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
@@ -120,6 +124,9 @@ public final class EnterpriseSettingKeys {
         integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
         k.add(new Key(ORG_INVITE_REQUIRE_EMAIL_MATCH, Type.BOOL, "true", null, null, null,
             "An organization invitation can only be accepted by the account whose email matches the invited address (409 INVITE_EMAIL_MISMATCH otherwise). Off: any signed-in account may accept and the acceptance is audited with a mismatch flag. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        integer(k, ORG_MARKETING_OVERLOAD_PCT, 90, 50, 100, Risk.LOW, "Marketing Assignments: a marketer counts as overloaded once assigned consultants reach this percent of their capacity. An organization can override it in org_setting.");
+        integer(k, ORG_MARKETING_BULK_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: most consultants one assign, update, unassign or undo call may name. An organization can override it in org_setting.");
+        integer(k, ORG_MARKETING_CAPACITY_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: the highest capacity (consultants at once) a marketer may be given. An organization can override it in org_setting.");
         integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
         d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));

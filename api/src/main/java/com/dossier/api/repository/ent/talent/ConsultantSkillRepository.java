@@ -12,6 +12,14 @@ public interface ConsultantSkillRepository extends Repository<ConsultantSkill, L
 
     <S extends ConsultantSkill> S saveAndFlush(S entity);
 
+    void delete(ConsultantSkill entity);
+
+    void flush();
+
+    <S extends ConsultantSkill> List<S> saveAll(Iterable<S> entities);
+
+    <S extends ConsultantSkill> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<ConsultantSkill> findByOrgIdAndId(Long orgId, Long id);
 
     List<ConsultantSkill> findByOrgId(Long orgId);

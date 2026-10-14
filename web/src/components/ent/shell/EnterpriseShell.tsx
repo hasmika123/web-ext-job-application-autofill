@@ -215,20 +215,27 @@ export default function EnterpriseShell({
         <aside
           aria-label="Sidebar"
           data-shell-sidebar
-          className={cn("sticky top-0 z-40 hidden h-dvh flex-none flex-col overflow-hidden border-r border-line bg-paper md:flex", collapsed ? "w-16" : "w-[236px]")}
+          className={cn("sticky top-0 z-40 hidden h-dvh flex-none flex-col overflow-hidden border-r border-line bg-paper md:flex", collapsed ? "w-16" : "w-[256px]")}
         >
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className={cn("flex h-16 flex-none items-center", collapsed ? "justify-center" : "justify-between gap-2 pl-5 pr-3")}>
+            <div className={cn("flex h-[88px] flex-none items-center", collapsed ? "justify-center" : "justify-between gap-2 pl-6 pr-3")}>
               <Link href={workspace.home} aria-label={`${tenant.displayName} home`} className="flex min-w-0 items-center rounded-lg" data-shell-logo>
                 {collapsed ? (
                   <span aria-hidden className="grid h-9 w-9 place-items-center rounded-[10px] bg-accent text-[16px] font-extrabold text-on-accent">
                     {tenant.displayName.slice(0, 1).toUpperCase()}
                   </span>
                 ) : (
-                  logo
+                  <>
+                    {logo}
+                    {tenant.logoUrl ? (
+                      <span aria-hidden data-shell-wordmark className="ml-2.5 min-w-0 truncate text-[24px] font-extrabold uppercase leading-none tracking-tight text-ink">
+                        {tenant.displayName.split(/\s+/)[0]}
+                      </span>
+                    ) : null}
+                  </>
                 )}
               </Link>
-              {collapsed ? null : (
+              {collapsed || wide ? null : (
                 <Tooltip content="Collapse sidebar" side="right">
                   <IconButton aria-label="Collapse sidebar" onClick={toggleCollapsed} className="h-8 w-8 flex-none">
                     <ChevronLeftIcon size={16} />
@@ -247,11 +254,7 @@ export default function EnterpriseShell({
             ) : null}
             {multi ? (
               <div className="pb-1">{switcher("sidebar")}</div>
-            ) : collapsed ? null : (
-              <p data-workspace-eyebrow className="px-6 pb-1 text-[11px] font-bold uppercase tracking-wide text-muted">
-                {workspace.label}
-              </p>
-            )}
+            ) : null}
             {/* the menu scrolls by itself; the header above and the help card below stay put (16 s2.1) */}
             <div data-shell-scroll className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scroll-slim">
               <ShellNav sections={sections} active={active} collapsed={collapsed} />
@@ -264,12 +267,12 @@ export default function EnterpriseShell({
 
         <div className="flex min-w-0 flex-1 flex-col">
           {/* ── top bar, md and up ───────────────────────────────────────────────────────────── */}
-          <header data-shell-topbar className="sticky top-0 z-30 hidden min-h-16 items-center gap-4 border-b border-line bg-paper/95 px-6 py-2 backdrop-blur md:flex lg:px-8">
+          <header data-shell-topbar className="sticky top-0 z-30 hidden min-h-[96px] items-center gap-5 bg-app-bg/95 px-6 py-3 backdrop-blur md:flex lg:px-8">
             <div className="min-w-0 flex-1" data-page-header>
-              <h1 className="truncate text-[22px] font-extrabold leading-tight tracking-tight text-ink lg:text-[26px]">{title}</h1>
-              {subtitle ? <p className="mt-0.5 truncate text-[13.5px] text-muted">{subtitle}</p> : null}
+              <h1 className="truncate text-[26px] font-extrabold leading-tight tracking-tight text-ink xl:text-[34px]">{title}</h1>
+              {subtitle ? <p className="mt-1 text-[14px] leading-snug text-ink-soft xl:text-[16px]">{subtitle}</p> : null}
             </div>
-            <div className="hidden w-[min(480px,36vw)] flex-none xl:block">
+            <div className="hidden w-[min(440px,32vw)] flex-none xl:block">
               <ShellSearch me={me} inputId={SEARCH_INPUT_ID} />
             </div>
             <Tooltip content="Search" side="bottom" className="xl:hidden">

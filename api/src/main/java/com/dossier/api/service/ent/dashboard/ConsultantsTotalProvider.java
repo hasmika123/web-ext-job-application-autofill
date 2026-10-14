@@ -38,6 +38,10 @@ public class ConsultantsTotalProvider implements DashboardWidgetProvider {
 
     @Override
     public WidgetResult compute(DashboardContext ctx) {
+        // the consultant directory (talent-foundation.md section 5), when the organization has one and the caller sees all of it
+        boolean wholeOrg = ctx.scope(PERMISSIONS).filter(sc -> sc == com.dossier.api.domain.enumeration.PermissionScope.ORG).isPresent();
+        long profiles = wholeOrg ? ctx.repo().countActiveConsultantProfiles(ctx.orgId()) : 0;
+        if (profiles > 0) return fromDirectory(ctx, profiles);
         Set<Long> inScope = ctx.inScope(PERMISSIONS, ctx.consultantSeatIds());
         List<DashboardContext.Seat> history = ctx.seats().stream().filter(s -> inScope.contains(s.id())).toList();
         List<DashboardContext.Seat> live = history.stream().filter(s -> OrgMemberStatus.LIVE.contains(s.status())).toList();
@@ -48,5 +52,16 @@ public class ConsultantsTotalProvider implements DashboardWidgetProvider {
         counts.put("suspended", live.stream().filter(s -> s.status() == OrgMemberStatus.SUSPENDED).count());
         // seats that left stay in the history, so the 30-day change is real
         return WidgetResult.ok(StatTiles.of(history, ctx.now(), counts));
+    }
+
+    /** Active consultant profiles; previous = those that already existed 30 days ago; the parts are the availability mix. */
+    private static WidgetResult fromDirectory(DashboardContext ctx, long value) {
+        var repo = ctx.repo();
+        Long org = ctx.orgId();
+        long previous = repo.countActiveConsultantProfilesCreatedBy(org, ctx.now().minus(java.time.Duration.ofDays(StatTiles.COMPARE_DAYS)));
+        List<Long> spark = TalentTiles.spark(TalentTiles.monthlyMarks(ctx.now()), value, t -> repo.countActiveConsultantProfilesCreatedBy(org, t));
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (Object[] r : repo.consultantAvailability(org)) counts.put(String.valueOf(r[0]).toLowerCase(java.util.Locale.ROOT).replace('_', ' '), ((Number) r[1]).longValue());
+        return WidgetResult.ok(TalentTiles.tile(value, previous, spark, "30d", counts));
     }
 }

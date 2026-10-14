@@ -48,7 +48,7 @@ describe("the regular Kiwiply pages are not affected", () => {
     const css = readFileSync(new URL("../../../../packages/ui/styles/theme-tenant.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
     const selectors = [...css.matchAll(/([^{}]+)\{/g)].map((m) => m[1].trim());
     expect(selectors.length).toBeGreaterThan(0);
-    for (const s of selectors) expect(s.startsWith(".theme-tenant"), s).toBe(true);
+    for (const s of selectors) expect(s.startsWith(".theme-tenant") || s.startsWith("@media"), s).toBe(true); // a media wrapper only scopes the .theme-tenant rules inside it
     expect(css).not.toMatch(/:root|@theme|^\s*html|^\s*body/m);
   });
 });

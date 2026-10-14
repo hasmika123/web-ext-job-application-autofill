@@ -14,6 +14,12 @@ public interface TalentPlacementRepository extends Repository<TalentPlacement, L
 
     <S extends TalentPlacement> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends TalentPlacement> List<S> saveAll(Iterable<S> entities);
+
+    <S extends TalentPlacement> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<TalentPlacement> findByOrgIdAndId(Long orgId, Long id);
 
     List<TalentPlacement> findByOrgId(Long orgId);

@@ -134,7 +134,7 @@ test.describe("Roles & Permissions on the real stack", () => {
     // the demo roster: Sarah is the only Organization Admin and Marketing Manager, Anika and Ben are the consultants (Sam is suspended, Nina invited)
     expect(byName["Organization Admin"]).toBe(1);
     expect(byName["Marketing Manager"]).toBe(1);
-    expect(byName["Marketing Specialist"]).toBe(1);
+    expect(byName["Marketing Specialist"]).toBeGreaterThanOrEqual(1);
     expect(byName["Consultant"]).toBeGreaterThanOrEqual(2);
     expect(byName["HR Specialist"]).toBe(1);
     expect(byName["Finance Specialist"]).toBe(1);

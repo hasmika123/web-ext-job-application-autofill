@@ -16,6 +16,12 @@ public interface RequirementMatchRepository extends Repository<RequirementMatch,
 
     <S extends RequirementMatch> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends RequirementMatch> List<S> saveAll(Iterable<S> entities);
+
+    <S extends RequirementMatch> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<RequirementMatch> findByOrgIdAndId(Long orgId, Long id);
 
     /** The pair's match, whatever its status (the unique key {@code uk_requirement_match_pair}). */

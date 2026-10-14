@@ -308,13 +308,13 @@ class OrgDashboardResourceIT {
     }
 
     @Test
-    void moduleWidgetsWithoutTablesAreNotEnabledAndCarryNoNumbers() throws Exception {
+    void talentWidgetsOfAnOrganizationWithoutTalentRowsAreEmptyAndCarryNoNumbers() throws Exception {
         Map<String, JsonNode> w = widgets("dash-a-owner", a);
         for (String key : List.of("applications.active", "interviews.upcoming", "placements", "finance.summary", "team.performance", "pipeline.overview")) {
             JsonNode node = w.get(key);
-            assertThat(node.path("state").asText()).as(key).isEqualTo("unavailable");
-            assertThat(node.path("reason").asText()).as(key).isEqualTo("NOT_ENABLED");
-            assertThat(node.path("module").asText()).as(key).isNotBlank();
+            // Dashboard v2 built these six on the talent tables: an organization with no talent rows gets an honest empty card (NO_*), never invented numbers.
+            assertThat(node.path("state").asText()).as(key).isEqualTo("empty");
+            assertThat(node.path("reason").asText()).as(key).startsWith("NO_");
             assertThat(node.has("data")).as(key + " has no data at all").isFalse();
         }
     }
@@ -335,8 +335,11 @@ class OrgDashboardResourceIT {
         assertThat(byKey.keySet()).containsExactly("invite-employee", "assign-marketer", "configure-licenses", "review-applications", "view-pipeline", "configure-organization");
         assertThat(byKey.get("invite-employee").path("available").asBoolean()).isTrue();
         assertThat(byKey.get("invite-employee").path("href").asText()).isEqualTo("/w/admin/employees?invite=1");
-        assertThat(byKey.get("review-applications").path("available").asBoolean()).isFalse();
-        assertThat(byKey.get("review-applications").path("soonModule").asText()).isEqualTo("applications");
+        assertThat(byKey.get("review-applications").path("available").asBoolean()).as("the Applications page exists now").isTrue();
+        assertThat(byKey.get("assign-marketer").path("href").asText()).isEqualTo("/w/admin/marketing-assignments");
+        assertThat(byKey.get("assign-marketer").path("available").asBoolean()).isTrue();
+        assertThat(byKey.get("configure-licenses").path("available").asBoolean()).as("there is no licenses page yet").isFalse();
+        assertThat(byKey.get("view-pipeline").path("available").asBoolean()).isFalse();
 
         customActor(a, "dash-a-inviter", row("dashboard.view_org", "ORG"), row("members.invite", "ORG"));
         JsonNode only = widgets("dash-a-inviter", a).get("quick.actions").path("data").path("items");
@@ -487,8 +490,8 @@ class OrgDashboardResourceIT {
         members.saveAndFlush(exec);
         grant(a, exec, roleRows.findSystemByRoleKey(RoleTemplates.EXECUTIVE_VIEWER).orElseThrow().getId(), true);
         Map<String, JsonNode> w = widgets("dash-a-exec", a);
-        assertThat(w.keySet()).containsExactly("applications.active", "interviews.upcoming", "finance.summary", "team.performance", "pipeline.overview", "quick.actions", "alerts", "subscription.summary");
-        assertThat(w.get("applications.active").path("state").asText()).isEqualTo("unavailable");
+        assertThat(w.keySet()).containsExactly("applications.active", "interviews.upcoming", "finance.summary", "team.performance", "pipeline.overview", "quick.actions", "alerts", "activity.recent", "subscription.summary");
+        assertThat(w.get("applications.active").path("state").asText()).isEqualTo("empty");
         assertThat(w.get("alerts").path("state").asText()).as("billing.view reaches only ORG_PAST_DUE, which does not hold").isEqualTo("empty");
         assertThat(w.get("subscription.summary").path("data").path("orgStatus").asText()).isEqualTo("ACTIVE");
         assertThat(w.get("subscription.summary").path("data").has("name")).isFalse();

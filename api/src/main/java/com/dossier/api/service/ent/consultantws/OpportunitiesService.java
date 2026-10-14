@@ -475,7 +475,7 @@ public class OpportunitiesService {
 
         Ctx(Long org, ConsultantProfile c, List<RequirementMatch> list) {
             List<Long> reqIds = list.stream().map(RequirementMatch::getRequirementId).distinct().toList();
-            reqs = reqIds.isEmpty() ? Map.of() : requirements.findAllById(reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
+            reqs = reqIds.isEmpty() ? Map.of() : requirements.findByOrgIdAndIdIn(org, reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
             clientById = clients.findByOrgId(org).stream().collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
             jobSkills = reqs.isEmpty() ? Map.of() : requirementSkills.findByOrgIdAndRequirementIdIn(org, reqs.keySet()).stream().collect(Collectors.groupingBy(RequirementSkill::getRequirementId));
             mine = consultantSkills.findByOrgIdAndConsultantIdOrderBySortOrderAsc(org, c.getId()).stream().map(s -> norm(s.getSkill())).collect(Collectors.toSet());

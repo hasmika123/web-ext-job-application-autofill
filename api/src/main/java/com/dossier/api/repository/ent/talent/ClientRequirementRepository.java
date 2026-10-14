@@ -14,6 +14,12 @@ public interface ClientRequirementRepository extends Repository<ClientRequiremen
 
     <S extends ClientRequirement> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends ClientRequirement> List<S> saveAll(Iterable<S> entities);
+
+    <S extends ClientRequirement> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<ClientRequirement> findByOrgIdAndId(Long orgId, Long id);
 
     List<ClientRequirement> findByOrgId(Long orgId);

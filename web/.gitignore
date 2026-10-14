@@ -47,3 +47,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 test-results-real/
+test-results-real-applications/

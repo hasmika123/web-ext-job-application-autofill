@@ -139,7 +139,7 @@ public class JobMatchesService {
         Instant now = Instant.now(clock);
 
         List<RequirementMatch> open = openMatches(org, c.getId());
-        Map<Long, ClientRequirement> reqs = requirements.findAllById(open.stream().map(RequirementMatch::getRequirementId).distinct().toList()).stream()
+        Map<Long, ClientRequirement> reqs = requirements.findByOrgIdAndIdIn(org, open.stream().map(RequirementMatch::getRequirementId).distinct().toList()).stream()
             .filter(r -> org.equals(r.getOrgId()))
             .collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
         Map<Long, ClientAccount> clientById = clients.findByOrgId(org).stream().collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
@@ -417,7 +417,7 @@ public class JobMatchesService {
         }
 
         List<TalentApplication> apps = applications.findByOrgIdAndConsultantId(org, c.getId());
-        Map<Long, ClientRequirement> appReqs = requirements.findAllById(apps.stream().map(TalentApplication::getRequirementId).filter(Objects::nonNull).distinct().toList()).stream()
+        Map<Long, ClientRequirement> appReqs = requirements.findByOrgIdAndIdIn(org, apps.stream().map(TalentApplication::getRequirementId).filter(Objects::nonNull).distinct().toList()).stream()
             .filter(r -> org.equals(r.getOrgId()))
             .collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
         for (TalentApplication a : apps) {

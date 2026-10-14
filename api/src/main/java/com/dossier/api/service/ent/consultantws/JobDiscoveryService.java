@@ -238,7 +238,7 @@ public class JobDiscoveryService {
             }
         }
         Set<Long> clientIds = rows.stream().map(ClientRequirement::getClientId).collect(Collectors.toSet());
-        Map<Long, ClientAccount> clientById = clients.findAllById(clientIds).stream().filter(a -> org.equals(a.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
+        Map<Long, ClientAccount> clientById = clients.findByOrgIdAndIdIn(org, clientIds).stream().filter(a -> org.equals(a.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
         Map<Long, RequirementMatch> myMatch = matches.findByOrgIdAndConsultantIdOrderByScoreDesc(org, c.getId()).stream().collect(Collectors.toMap(RequirementMatch::getRequirementId, Function.identity(), (a, b) -> a));
         Map<Long, TalentApplication> myApp = applications.findByOrgIdAndConsultantId(org, c.getId()).stream().collect(Collectors.toMap(TalentApplication::getRequirementId, Function.identity(), (a, b) -> a));
         Map<Long, ConsultantWsJobSourceReader.Info> sourceInfo = sources.load(org, ids);
@@ -480,7 +480,7 @@ public class JobDiscoveryService {
 
         // filter options come from what is actually open
         List<Object[]> clientCounts = jobs.openClientCounts(org);
-        Map<Long, ClientAccount> clientById = clients.findAllById(clientCounts.stream().map(o -> (Long) o[0]).toList()).stream().filter(a -> org.equals(a.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
+        Map<Long, ClientAccount> clientById = clients.findByOrgIdAndIdIn(org, clientCounts.stream().map(o -> (Long) o[0]).toList()).stream().filter(a -> org.equals(a.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
         List<Option> clientOptions = clientCounts.stream()
             .filter(o -> clientById.containsKey((Long) o[0]))
             .map(o -> new Option(String.valueOf(o[0]), clientById.get((Long) o[0]).getName(), ((Number) o[1]).longValue()))

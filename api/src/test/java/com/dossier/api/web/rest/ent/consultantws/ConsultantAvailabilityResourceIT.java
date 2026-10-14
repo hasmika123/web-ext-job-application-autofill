@@ -464,7 +464,7 @@ class ConsultantAvailabilityResourceIT {
         assertThat(done.path("availability").path("status").asText()).isEqualTo("NOTICE");
         assertThat(done.path("availability").path("availableFrom").asText()).isEqualTo(d(21));
         assertThat(done.path("availability").path("since").asText()).isEqualTo(today.toString());
-        ConsultantProfile row = profiles.findById(c1.getId()).orElseThrow();
+        ConsultantProfile row = profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow();
         assertThat(row.getAvailabilityStatus()).isEqualTo("NOTICE");
         assertThat(row.getAvailableFrom()).isEqualTo(today.plusDays(21));
         assertThat(row.getAvailabilitySince()).isEqualTo(today);
@@ -483,7 +483,7 @@ class ConsultantAvailabilityResourceIT {
         JsonNode now2 = ok(send(put(path(a.getId(), "/status")), "cws-av-a-c1", "{\"status\":\"AVAILABLE\"}"), "available now");
         assertThat(now2.path("availability").get("availableFrom").isNull()).isTrue();
         assertThat(now2.path("history")).hasSize(4);
-        assertThat(profiles.findById(c1.getId()).orElseThrow().getAvailableFrom()).isNull();
+        assertThat(profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow().getAvailableFrom()).isNull();
     }
 
     @Test
@@ -497,7 +497,7 @@ class ConsultantAvailabilityResourceIT {
         assertStatus(send(put(url), "cws-av-a-c1", "{\"status\":\"AVAILABLE\",\"availableFrom\":\"" + d(-3) + "\"}"), 422, "a date in the past");
         assertStatus(send(put(url), "cws-av-a-c1", "{\"status\":\"AVAILABLE\",\"availableFrom\":\"" + d(800) + "\"}"), 422, "more than two years away");
         assertThat(history.countByOrgIdAndConsultantId(a.getId(), c1.getId())).isEqualTo(2);
-        assertThat(profiles.findById(c1.getId()).orElseThrow().getAvailableFrom()).isEqualTo(today.plusDays(15));
+        assertThat(profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow().getAvailableFrom()).isEqualTo(today.plusDays(15));
     }
 
     // ---- writes: blocks -------------------------------------------------------------------------------------------

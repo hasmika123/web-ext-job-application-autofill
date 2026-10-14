@@ -302,7 +302,7 @@ class ConsultantProfileResourceIT {
         assertThat(texts(profile("cwp-a-c1", a).path("strength").path("missing"), "key")).doesNotContain("certifications");
         JsonNode after = ok(send(post(path(a.getId(), "/prefs")), "cwp-a-c1", json("kind", q("ROLE"), "value", q("Architect"))), "add pref");
         assertThat(texts(after.path("strength").path("missing"), "key")).as("no rows behind the flag").contains("certifications");
-        assertThat(profiles.findById(c1.getId()).orElseThrow().isHasCertifications()).isFalse();
+        assertThat(profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow().isHasCertifications()).isFalse();
     }
 
     // ---- (b) own rows only ----------------------------------------------------------------------------------------
@@ -386,7 +386,7 @@ class ConsultantProfileResourceIT {
         JsonNode p = ok(send(put(path(a.getId(), "/availability")), "cwp-a-c1", json("status", q("notice"))), "availability");
         assertThat(p.path("availability").path("status").asText()).isEqualTo("NOTICE");
         assertThat(p.path("availability").path("since").asText()).isEqualTo(today.toString());
-        assertThat(profiles.findById(c1.getId()).orElseThrow().getAvailabilityStatus()).isEqualTo("NOTICE");
+        assertThat(profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow().getAvailabilityStatus()).isEqualTo("NOTICE");
         assertInvalid(send(put(path(a.getId(), "/availability")), "cwp-a-c1", json("status", q("BUSY"))), "bad status");
         assertInvalid(send(put(path(a.getId(), "/availability")), "cwp-a-c1", "{}"), "missing status");
         assertThat(profile("cwp-a-c2", a).path("availability").path("status").asText()).as("the other consultant is untouched").isEqualTo("AVAILABLE");
@@ -423,12 +423,12 @@ class ConsultantProfileResourceIT {
 
     @Test
     void certificationsAreAddedValidatedAndKeepHasCertificationsHonest() throws Exception {
-        assertThat(profiles.findById(c1.getId()).orElseThrow().isHasCertifications()).isFalse();
+        assertThat(profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow().isHasCertifications()).isFalse();
         JsonNode p = ok(send(post(path(a.getId(), "/certifications")), "cwp-a-c1", json("name", q("AWS Certified Solutions Architect"), "issuer", q("Amazon Web Services"), "issuedOn", q("2023-03"))), "add");
         assertThat(texts(p.path("certifications"), "name")).containsExactly("AWS Certified Solutions Architect");
         assertThat(p.path("certifications").get(0).path("issuedOn").asText()).isEqualTo("2023-03-01");
         assertThat(p.path("certifications").get(0).path("issuer").asText()).isEqualTo("Amazon Web Services");
-        assertThat(profiles.findById(c1.getId()).orElseThrow().isHasCertifications()).isTrue();
+        assertThat(profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow().isHasCertifications()).isTrue();
         assertThat(texts(p.path("strength").path("missing"), "key")).doesNotContain("certifications");
         long id = p.path("certifications").get(0).path("id").asLong();
 
@@ -446,7 +446,7 @@ class ConsultantProfileResourceIT {
         assertThat(p.path("certifications")).hasSize(1);
         CwsCertification rest = certs.findByOrgIdAndConsultantIdOrderByIssuedOnDescIdDesc(a.getId(), c1.getId()).get(0);
         ok(send(delete(path(a.getId(), "/certifications/" + rest.getId())), "cwp-a-c1", null), "delete last");
-        assertThat(profiles.findById(c1.getId()).orElseThrow().isHasCertifications()).as("no rows left, flag follows").isFalse();
+        assertThat(profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow().isHasCertifications()).as("no rows left, flag follows").isFalse();
     }
 
     @Test
@@ -456,7 +456,7 @@ class ConsultantProfileResourceIT {
         p = ok(send(post(path(a.getId(), "/prefs")), "cwp-a-c1", json("kind", q("LOCATION"), "value", q("Remote"))), "location");
         assertThat(texts(p.path("preferences").path("roles"), "value")).containsExactly("Backend Developer");
         assertThat(texts(p.path("preferences").path("locations"), "value")).containsExactly("Remote");
-        assertThat(profiles.findById(c1.getId()).orElseThrow().isHasPreferences()).isTrue();
+        assertThat(profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow().isHasPreferences()).isTrue();
         long roleId = p.path("preferences").path("roles").get(0).path("id").asLong();
 
         assertInvalid(send(post(path(a.getId(), "/prefs")), "cwp-a-c1", json("kind", q("EMPLOYMENT_TYPE"), "value", q("X"))), "employment types are a fixed set");
@@ -504,8 +504,8 @@ class ConsultantProfileResourceIT {
         OrgResume secondary = resume(c1, "Second", false, "Second summary");
         p = ok(send(put(path(a.getId(), "/summary")), "cwp-a-c1", json("text", q("New summary"))), "with resume");
         assertThat(p.path("summary").path("source").asText()).isEqualTo("RESUME");
-        assertThat(resumes.findById(primary.getId()).orElseThrow().getSummaryText()).isEqualTo("New summary");
-        assertThat(resumes.findById(secondary.getId()).orElseThrow().getSummaryText()).as("only the primary resume changes").isEqualTo("Second summary");
+        assertThat(resumes.findByOrgIdAndId(primary.getOrgId(), primary.getId()).orElseThrow().getSummaryText()).isEqualTo("New summary");
+        assertThat(resumes.findByOrgIdAndId(secondary.getOrgId(), secondary.getId()).orElseThrow().getSummaryText()).as("only the primary resume changes").isEqualTo("Second summary");
         assertThat(profile("cwp-a-c2", a).path("summary").path("text").isNull()).isTrue();
         assertInvalid(send(put(path(a.getId(), "/summary")), "cwp-a-c1", json("text", q("s".repeat(2001)))), "too long");
         p = ok(send(put(path(a.getId(), "/summary")), "cwp-a-c1", json("text", q(""))), "clear");
@@ -552,7 +552,7 @@ class ConsultantProfileResourceIT {
         JsonNode p = ok(send(put(path(a.getId(), "/career-goals")), "cwp-a-c1", json("text", q("Goals"))), "goals");
         assertThat(p.path("strength").path("percent").asInt()).isEqualTo(89);
         assertThat(texts(p.path("strength").path("missing"), "key")).containsExactly("experience");
-        assertThat(profiles.findById(c1.getId()).orElseThrow().getProfileCompleteness()).isEqualTo(89);
-        assertThat(profiles.findById(c2.getId()).orElseThrow().getProfileCompleteness()).as("another consultant's number is untouched").isEqualTo(78);
+        assertThat(profiles.findByOrgIdAndId(c1.getOrgId(), c1.getId()).orElseThrow().getProfileCompleteness()).isEqualTo(89);
+        assertThat(profiles.findByOrgIdAndId(c2.getOrgId(), c2.getId()).orElseThrow().getProfileCompleteness()).as("another consultant's number is untouched").isEqualTo(78);
     }
 }

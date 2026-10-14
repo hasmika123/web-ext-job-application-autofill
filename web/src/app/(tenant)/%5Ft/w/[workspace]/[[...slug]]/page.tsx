@@ -43,6 +43,7 @@ export default async function WorkspaceCatchAll({ params }: { params: Promise<{ 
         orgName={me.org.displayName}
         firstName={firstNameOf(me.person.name)}
         auditHref={hrefOf("audit")}
+        applicationsHref={hrefOf("applications")}
         employeesHref={hrefOf("employees")}
         invitationsHref={hrefOf("invitations")}
       />

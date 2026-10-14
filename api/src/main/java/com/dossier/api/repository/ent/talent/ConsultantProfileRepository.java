@@ -12,6 +12,12 @@ public interface ConsultantProfileRepository extends Repository<ConsultantProfil
 
     <S extends ConsultantProfile> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends ConsultantProfile> List<S> saveAll(Iterable<S> entities);
+
+    <S extends ConsultantProfile> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<ConsultantProfile> findByOrgIdAndId(Long orgId, Long id);
 
     List<ConsultantProfile> findByOrgId(Long orgId);

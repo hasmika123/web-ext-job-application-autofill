@@ -288,7 +288,7 @@ public class ConsultantSubmissionsService {
     private Lookups lookups(Long org, List<CwsSubmission> rows) {
         Map<Long, ClientRequirement> reqs = rows.isEmpty()
             ? Map.of()
-            : requirements.findAllById(rows.stream().map(CwsSubmission::getRequirementId).distinct().toList()).stream()
+            : requirements.findByOrgIdAndIdIn(org, rows.stream().map(CwsSubmission::getRequirementId).distinct().toList()).stream()
                 .filter(r -> org.equals(r.getOrgId()))
                 .collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
         Map<Long, ClientAccount> clientById = rows.isEmpty() ? Map.of() : clients.findByOrgId(org).stream().collect(Collectors.toMap(ClientAccount::getId, Function.identity()));

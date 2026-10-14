@@ -34,6 +34,8 @@ export interface SideSheetProps {
   width?: number;
   title: string;
   description?: string;
+  /** Extra controls in the header after the title (a status pill); the close button stays top-right. */
+  headerExtra?: ReactNode;
   /** The green circular icon tile (pass the glyph; the tile is drawn here). */
   icon?: ReactNode;
   onClose(): void;
@@ -111,6 +113,7 @@ export default function SideSheet({
   width,
   title,
   description,
+  headerExtra,
   icon,
   onClose,
   returnFocusTo,
@@ -238,6 +241,7 @@ export default function SideSheet({
             <p className="mt-0.5 text-[13px] leading-snug text-muted">{description}</p>
           )}
         </div>
+        {headerExtra != null && <div className="shrink-0">{headerExtra}</div>}
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">{children}</div>

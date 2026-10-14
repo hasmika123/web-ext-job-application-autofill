@@ -213,12 +213,12 @@ public class ConsultantApplicationsService {
 
     private Map<Long, ClientRequirement> requirementsOf(Long org, List<TalentApplication> apps) {
         List<Long> ids = apps.stream().map(TalentApplication::getRequirementId).distinct().toList();
-        return requirements.findAllById(ids).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
+        return requirements.findByOrgIdAndIdIn(org, ids).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
     }
 
     private Map<Long, ClientAccount> clientsOf(Long org, List<TalentApplication> apps) {
         Set<Long> ids = apps.stream().map(TalentApplication::getClientId).collect(Collectors.toSet());
-        return clients.findAllById(ids).stream().filter(c -> org.equals(c.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
+        return clients.findByOrgIdAndIdIn(org, ids).stream().filter(c -> org.equals(c.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
     }
 
     private static String companyName(TalentApplication a, Map<Long, ClientAccount> clientById) {

@@ -150,16 +150,16 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
 
   it("icon-only controls are named (tooltips carry the same words)", () => {
     const { container } = mount("owner@acme.com");
-    for (const name of ["Collapse sidebar", "Search", "Open menu"]) expect(screen.getAllByLabelText(name, { exact: false }).length, name).toBeGreaterThan(0);
+    for (const name of ["Search", "Open menu"]) expect(screen.getAllByLabelText(name, { exact: false }).length, name).toBeGreaterThan(0);
     expect(container.querySelector("[data-shell-bell] button")!.getAttribute("aria-label")).toContain("Notifications");
   });
 });
 
 describe("workspace switcher (16 s4)", () => {
-  it("a single-workspace member sees a static eyebrow and no switcher", () => {
+  it("a single-workspace member sees no switcher and no caption (the board has none)", () => {
     const { container } = mount("owner@acme.com");
     expect(container.querySelector("[data-workspace-switcher]")).toBeNull();
-    expect(container.querySelector("[data-workspace-eyebrow]")!.textContent).toBe("Administration");
+    expect(container.querySelector("[data-workspace-eyebrow]")).toBeNull();
   });
 
   it("Sarah (admin + marketing manager) gets the switcher with two rows and lands on the first", () => {

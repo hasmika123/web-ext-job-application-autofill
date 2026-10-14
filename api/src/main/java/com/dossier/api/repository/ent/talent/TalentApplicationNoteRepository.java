@@ -11,6 +11,12 @@ public interface TalentApplicationNoteRepository extends Repository<TalentApplic
 
     <S extends TalentApplicationNote> S saveAndFlush(S entity);
 
+    void flush();
+
+    <S extends TalentApplicationNote> List<S> saveAll(Iterable<S> entities);
+
+    <S extends TalentApplicationNote> List<S> saveAllAndFlush(Iterable<S> entities);
+
     Optional<TalentApplicationNote> findByOrgIdAndId(Long orgId, Long id);
 
     List<TalentApplicationNote> findByOrgId(Long orgId);

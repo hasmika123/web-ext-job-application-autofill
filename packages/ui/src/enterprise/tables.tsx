@@ -11,7 +11,7 @@ import { TableSkeleton } from "../primitives/ListSkeleton";
 import Menu from "../primitives/Menu";
 import type { MenuEntry } from "../primitives/Menu";
 import Select from "../primitives/Select";
-import { ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, MoreVerticalIcon, SearchIcon } from "../primitives/icons";
+import { ArrowDownIcon, ArrowsUpDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, MoreHorizontalIcon, MoreVerticalIcon, SearchIcon } from "../primitives/icons";
 import { cn } from "../primitives/cn";
 import { useNarrow } from "./sheets";
 
@@ -179,13 +179,23 @@ export interface DataTableProps<T> {
   onRowClick?: (row: T) => void;
   /** The row's actions menu (a kebab); omit for none. */
   rowActions?: (row: T) => MenuEntry[];
+  /** Visible text for the actions column header (default: screen-reader only). */
+  actionsHeader?: ReactNode;
+  /** Kebab orientation of the row menu (default vertical). */
+  actionsIcon?: "vertical" | "horizontal";
   sort?: { key: string; dir: SortDir } | null;
   onSort?: (key: string) => void;
   /** 1-based page and how many there are; the pager shows when more than one. */
   page?: number;
   pageCount?: number;
   onPage?: (page: number) => void;
+  /** Tighter cells (smaller text, less padding) for a table that shares the row with another panel. */
+  dense?: boolean;
   className?: string;
+  /** "board": the Teams/Departments look (a tinted header row in sentence case, a sort glyph on every sortable column, a lighter frame). */
+  variant?: "default" | "board";
+  /** Replaces the built-in pager (shown even for one page): the board's numbered pager with its "Showing 1-5 of 5" line. */
+  renderPager?: (p: { page: number; pageCount: number; onPage: (page: number) => void }) => ReactNode;
 }
 
 function cell<T>(col: DataTableColumn<T>, row: T, i: number): ReactNode {
@@ -228,13 +238,19 @@ export function DataTable<T>({
   hasFilters,
   onRowClick,
   rowActions,
+  actionsHeader,
+  actionsIcon = "vertical",
   sort,
   onSort,
   page = 1,
   pageCount = 1,
   onPage,
+  dense,
   className,
+  variant = "default",
+  renderPager,
 }: DataTableProps<T>) {
+  const board = variant === "board";
   const narrow = useNarrow();
   if (error) return <ErrorState what={what ?? label.toLowerCase()} description={error} onRetry={onRetry} className={className} />;
   if (loading) return <TableSkeleton count={5} columns={Math.min(columns.length, 5)} label={`Loading ${label.toLowerCase()}`} className={className} />;
@@ -245,7 +261,7 @@ export function DataTable<T>({
       </div>
     );
   }
-  const pager = onPage ? <Pager page={page} pageCount={pageCount} onPage={onPage} /> : null;
+  const pager = onPage ? renderPager ? renderPager({ page, pageCount, onPage }) : <Pager page={page} pageCount={pageCount} onPage={onPage} /> : null;
 
   if (narrow) {
     const title = columns.find((c) => c.primary) ?? columns[0];
@@ -299,18 +315,18 @@ export function DataTable<T>({
 
   return (
     <div className={className}>
-      <div className="overflow-x-auto rounded-[var(--radius)] border border-line bg-paper">
-        <table aria-label={label} className="w-full border-collapse text-left text-[13.5px]">
-          <thead className="bg-paper-2/60 text-[12px] uppercase tracking-[.04em] text-muted">
+      <div className={cn("relative overflow-x-auto bg-paper", board ? "rounded-xl" : "rounded-[var(--radius)] border border-line")}>
+        <table aria-label={label} className={cn("w-full border-collapse text-left", dense ? "text-[12.5px]" : "text-[13.5px]")}>
+          <thead className={board ? "bg-accent-soft/50 text-[13px] text-ink-soft" : cn("bg-paper-2/60 uppercase text-muted", dense ? "text-[11px] tracking-[.02em]" : "text-[12px] tracking-[.04em]")}>
             <tr>
               {columns.map((c) => {
                 const active = sort?.key === c.key;
                 return (
-                  <th key={c.key} scope="col" aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : undefined} className={cn("px-3 py-2.5 font-semibold", c.className)}>
+                  <th key={c.key} scope="col" aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : undefined} className={cn(dense ? "px-2 py-2" : "px-3 py-2.5", board ? "font-medium first:rounded-l-xl last:rounded-r-xl" : "font-semibold", c.className)}>
                     {c.sortable && onSort ? (
-                      <button type="button" onClick={() => onSort(c.key)} className="inline-flex items-center gap-1 uppercase tracking-[.04em] hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
+                      <button type="button" onClick={() => onSort(c.key)} className={cn("inline-flex items-center gap-1.5 hover:text-ink focus-visible:outline-2 focus-visible:outline-accent", !board && "uppercase tracking-[.04em]")}>
                         {c.header}
-                        {active && (sort!.dir === "asc" ? <ArrowUpIcon aria-hidden size={12} /> : <ArrowDownIcon aria-hidden size={12} />)}
+                        {active ? sort!.dir === "asc" ? <ArrowUpIcon aria-hidden size={12} /> : <ArrowDownIcon aria-hidden size={12} /> : board ? <ArrowsUpDownIcon aria-hidden size={12} className="opacity-60" /> : null}
                       </button>
                     ) : (
                       c.header
@@ -319,13 +335,13 @@ export function DataTable<T>({
                 );
               })}
               {rowActions && (
-                <th scope="col" className="w-10 px-2">
-                  <span className="sr-only">Actions</span>
+                <th scope="col" className={cn(actionsHeader ? "w-20 text-center" : "w-10", dense ? "px-1" : "px-2")}>
+                  <span className={actionsHeader ? undefined : "sr-only"}>{actionsHeader ?? "Actions"}</span>
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-line/60">
+          <tbody className={cn("divide-y", board ? "divide-line/50" : "divide-line/60")}>
             {rows.map((row, i) => (
               <tr
                 key={rowKey(row)}
@@ -335,16 +351,16 @@ export function DataTable<T>({
                 className={cn(onRowClick && "cursor-pointer hover:bg-paper-2/50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent")}
               >
                 {columns.map((c) => (
-                  <td key={c.key} className={cn("px-3 py-2.5 align-middle text-ink", c.className)}>
+                  <td key={c.key} className={cn(dense ? "px-2 align-middle text-ink" : "px-3 align-middle text-ink", board ? "py-2" : "py-2.5", c.className)}>
                     {cell(c, row, i)}
                   </td>
                 ))}
                 {rowActions && (
-                  <td className="px-2 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className={cn(actionsHeader ? "text-center" : "text-right", dense ? "px-1" : "px-2")} onClick={(e) => e.stopPropagation()}>
                     <Menu
                       trigger={
                         <IconButton aria-label="Row actions" title="Row actions">
-                          <MoreVerticalIcon size={16} />
+                          {actionsIcon === "horizontal" ? <MoreHorizontalIcon size={16} /> : <MoreVerticalIcon size={16} />}
                         </IconButton>
                       }
                       items={rowActions(row)}

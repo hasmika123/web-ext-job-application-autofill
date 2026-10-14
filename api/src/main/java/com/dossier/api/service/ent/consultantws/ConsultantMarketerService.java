@@ -142,7 +142,7 @@ public class ConsultantMarketerService {
             .filter(Objects::nonNull)
             .distinct()
             .toList();
-        Map<Long, ClientRequirement> reqs = requirements.findAllById(reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
+        Map<Long, ClientRequirement> reqs = requirements.findByOrgIdAndIdIn(org, reqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
         Map<Long, ClientAccount> clientById = clients.findByOrgId(org).stream().collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
 
         List<FocusRow> focus = focusRows(myMatches, myApps, reqs, clientById);

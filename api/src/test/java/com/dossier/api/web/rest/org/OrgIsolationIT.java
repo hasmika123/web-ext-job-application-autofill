@@ -103,8 +103,8 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
-// Every route is attacked by every caller: with the groups routes (X4.5) the sweeps outgrew the global 15 s default on a loaded machine.
-@org.junit.jupiter.api.Timeout(90)
+// Every route is attacked by every caller: with the groups routes (X4.5) and the talent boards the sweeps outgrew the global 15 s default on a loaded machine.
+@org.junit.jupiter.api.Timeout(300)
 class OrgIsolationIT {
 
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
@@ -252,7 +252,7 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/request-info", Case.denied("{\"question\":\"Is a W2 option available?\"}")),
         Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/applied", Case.denied("{\"applicationId\":1}")),
         Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/link", Case.denied("{\"applicationId\":1}")),
-        Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/unlink", Case.denied("{}"))
+        Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/unlink", Case.denied("{}")),
         // Consultant workspace Home: own-scoped. Only a consultant (opportunities.respond + a consultant_profile) may read it, so the legitimate call makes the owner one.
         Map.entry("GET /api/orgs/{orgId}/me-workspace/home", Case.consultantRead()),
         // The other consultant-workspace pages: own-scoped too, same legitimate caller (the owner made a consultant), no org audit row.
@@ -351,7 +351,71 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/me-workspace/features", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/settings", Case.consultantRead()),
         Map.entry("PUT /api/orgs/{orgId}/me-workspace/settings/privacy", Case.consultantWrite("{\"profileVisibility\":\"PRIVATE\"}", 200)),
-        Map.entry("PUT /api/orgs/{orgId}/me-workspace/settings/appearance", Case.consultantWrite("{\"theme\":\"DARK\"}", 200))
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/settings/appearance", Case.consultantWrite("{\"theme\":\"DARK\"}", 200)),
+        // Enterprise V2 Consultants board (talent-foundation.md section 5). Reads write no audit row; bulk calls write the changed rows plus one CONSULTANT_BULK summary.
+        Map.entry("GET /api/orgs/{orgId}/consultants", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/assignments", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/applications", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/activity", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/job-options", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/consultants", Case.write("{\"displayName\":\"Isolation Test\",\"email\":\"isolation.test@example.org\"}", 201, "CONSULTANT_CREATE")),
+        Map.entry("PATCH /api/orgs/{orgId}/consultants/{consultantId}", Case.versioned(200, "CONSULTANT_UPDATE", w -> "{\"locationLabel\":\"Hijacked\"}", w -> w.consultantVersion)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/marketer", Case.versioned(200, "CONSULTANT_ASSIGN", w -> "{\"marketerMemberId\":" + w.member.getId() + "}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/deactivate", Case.write("{\"reason\":\"Isolation test deactivation\"}", 200, "CONSULTANT_DEACTIVATE")),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/reactivate", Case.write(null, 200, null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/applications", Case.versioned(201, "APPLICATION_CREATE", w -> "{\"requirementId\":" + w.requirementId + "}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/bulk/availability", Case.people(200, "CONSULTANT_BULK", 2, w -> "{\"ids\":[" + w.consultantId + "],\"availability\":\"ON_PROJECT\"}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/bulk/marketer", Case.people(200, "CONSULTANT_BULK", 2, w -> "{\"ids\":[" + w.consultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/consultants/bulk/status", Case.people(200, "CONSULTANT_BULK", 2, w -> "{\"ids\":[" + w.consultantId + "],\"action\":\"DEACTIVATE\",\"reason\":\"Isolation test deactivation\"}", null, null)),
+        // Talent pages: the Resumes board (ent-resumes). The world holds one approved, non-primary, internal resume of one consultant.
+        Map.entry("GET /api/orgs/{orgId}/resumes", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/consultants", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/{resumeId}", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/resumes/{resumeId}/export", Case.write(null, 200, "RESUME_EXPORT")),
+        Map.entry("PUT /api/orgs/{orgId}/resumes/{resumeId}/primary", Case.write("{\"primary\":true}", 200, "RESUME_PRIMARY")),
+        Map.entry("PUT /api/orgs/{orgId}/resumes/{resumeId}/visibility", Case.write("{\"visibility\":\"PUBLIC\"}", 200, "RESUME_VISIBILITY")),
+        Map.entry("POST /api/orgs/{orgId}/resumes/{resumeId}/decision", Case.write("{\"decision\":\"REOPEN\"}", 200, "RESUME_REOPEN")),
+        Map.entry("POST /api/orgs/{orgId}/resumes", Case.versioned(201, "RESUME_CREATE", w -> "{\"consultantId\":" + w.consultantProfileId + ",\"name\":\"Isolation resume\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/resumes/bulk", Case.people(200, "RESUME_BULK", 2, w -> "{\"ids\":[" + w.resumeId + "],\"action\":\"VISIBILITY\",\"visibility\":\"PUBLIC\"}", null, null)),
+        // Talent board "Jobs": reads, create (Idempotency-Key), edit (If-Match), bulk status (a JOB_STATUS row per job + the JOB_BULK summary), assign and dismiss a match
+        Map.entry("GET /api/orgs/{orgId}/jobs", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/jobs/summary", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/jobs/{jobId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/jobs", Case.versioned(201, "JOB_CREATE", w -> "{\"title\":\"Hijack job\",\"clientId\":" + w.jobClientId + "}", w -> null)),
+        Map.entry("PATCH /api/orgs/{orgId}/jobs/{jobId}", Case.versioned(200, "JOB_UPDATE", w -> "{\"title\":\"Hijacked job\"}", w -> w.jobVersion)),
+        Map.entry("POST /api/orgs/{orgId}/jobs/bulk/status", Case.people(200, "JOB_BULK", 2, w -> "{\"ids\":[" + w.jobId + "],\"status\":\"ON_HOLD\"}", null, null)),
+        Map.entry("POST /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}/assign", Case.people(200, "JOB_ASSIGN", 1, null, null, null)),
+        Map.entry("PATCH /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}", Case.versioned(200, "JOB_MATCH_DISMISS", w -> "{\"status\":\"DISMISSED\"}", w -> null)),
+        // Enterprise V2 (ent-marketing): the Marketing Assignments board. Reads write no audit row; every change writes its own rows plus one MARKETING_BULK summary (marketer admin: one row).
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/marketers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/marketers/candidates", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/consultants", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/kpis", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/workload", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/marketers", Case.people(201, "MARKETER_ADD", 1, w -> "{\"memberId\":" + w.mktFreshMarketer() + ",\"capacity\":9}", null, null)),
+        Map.entry("PATCH /api/orgs/{orgId}/marketing-assignments/marketers/{memberId}", Case.people(200, "MARKETER_UPDATE", 1, w -> "{\"capacity\":7}", null, w -> w.mktCapacity())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/update", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"priority\":\"HIGH\"}", null, w -> w.mktAssigned())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/unassign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "]}", null, w -> w.mktAssigned())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/restore", Case.people(200, "MARKETING_BULK", 2, w -> "{\"rows\":[{\"consultantId\":" + w.mktConsultantId + ",\"marketerMemberId\":null}]}", null, w -> w.mktAssigned())),
+        // Enterprise V2 Applications page (docs/enterprise-v2/page-applications.md): reads write no audit row; every mutation writes one APPLICATION_* row.
+        Map.entry("GET /api/orgs/{orgId}/applications", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/filters", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/pickers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/pipeline", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/analytics", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/applications/{applicationId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/applications", Case.versioned(201, "APPLICATION_CREATE", w -> "{\"requirementId\":" + w.appTalent.requirementId() + ",\"consultantId\":" + w.appTalent.spareConsultantId() + "}", w -> null)),
+        Map.entry("PATCH /api/orgs/{orgId}/applications/{applicationId}", Case.versioned(200, "APPLICATION_UPDATE", w -> "{\"nextAction\":\"Hijacked\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/applications/{applicationId}/stage", Case.versioned(200, "APPLICATION_STAGE", w -> "{\"stage\":\"SUBMITTED\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/applications/{applicationId}/notes", Case.versioned(201, "APPLICATION_NOTE", w -> "{\"body\":\"Hijacked note\"}", w -> null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -398,9 +462,21 @@ class OrgIsolationIT {
         settingsCache.invalidate();
     }
     @Autowired private com.dossier.api.repository.ent.OrgMemberOffboardingRepository offboardingRows;
+    // Jobs page (talent board): one client, consultant, job and suggested match per world
+    @Autowired private com.dossier.api.repository.ent.talent.ClientAccountRepository jobClients;
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository jobConsultants;
+    @Autowired private com.dossier.api.repository.ent.talent.ClientRequirementRepository jobRows;
+    @Autowired private com.dossier.api.repository.ent.talent.RequirementMatchRepository jobMatches;
     @Autowired private com.dossier.api.service.ent.members.OrgMemberQueryService memberQuery;
     @Autowired private OrgBrandingRepository brandings;
     @Autowired private OrgBrandingVersionRepository brandingVersions;
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository talentConsultants;
+    @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository talentResumes;
+
+    // ---- ent-marketing fixtures: the Marketing Assignments routes need a marketer (capacity row), a consultant profile and sometimes an assignment (helpers live in World) ----
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository mktConsultants;
+    @Autowired private com.dossier.api.repository.ent.talent.MarketerCapacityRepository mktCapacities;
+    @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentRepository mktAssignments;
 
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantSkillRepository consultantSkills;
     @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes;
@@ -469,6 +545,16 @@ class OrgIsolationIT {
         Long consultantId, clientId, assignedRequirementId, assignedMatchId, scheduledInterviewId, completedInterviewId, prepSessionId, submissionId, applicationId;
         /** The last eight pages: a task, a calendar entry, a PENDING_REVIEW offer with a future deadline, a checklist item of an ACTIVE placement, a notification. */
         Long taskId, availabilityBlockId, offerId, placementChecklistId, notificationId;
+        /** Consultants board: one consultant (with its ETag), one OPEN job, and marketer capacity for the member. */
+        String consultantVersion;
+        /** Resumes board: one consultant of this organization and one approved, non-primary, internal resume of theirs. */
+        Long consultantProfileId;
+        /** Jobs page: a client, an OPEN job of it (with its ETag version) and one suggested match of that job. */
+        Long jobClientId;
+        Long jobId;
+        String jobVersion;
+        /** Applications page: one client, job, two consultants and an ASSIGNED application of this organization. */
+        com.dossier.api.web.rest.ent.ApplicationItSupport.Rows appTalent;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -718,6 +804,97 @@ class OrgIsolationIT {
             notificationId = cwsNotifications.saveAndFlush(nf).getId();
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
+            ConsultantIsolationFixture.Rows talent = ConsultantIsolationFixture.create(em, org.getId(), prefix, member.getId());
+            consultantId = talent.consultantId();
+            consultantVersion = talent.consultantVersion();
+            requirementId = talent.requirementId();
+            com.dossier.api.domain.ent.talent.ConsultantProfile cpB = new com.dossier.api.domain.ent.talent.ConsultantProfile();
+            cpB.setOrgId(org.getId());
+            cpB.setDisplayName(prefix + " consultant");
+            cpB.setEmail(prefix + "-consultant@example.org");
+            consultantProfileId = talentConsultants.saveAndFlush(cpB).getId();
+            com.dossier.api.domain.ent.talent.OrgResume rsB = new com.dossier.api.domain.ent.talent.OrgResume();
+            rsB.setOrgId(org.getId());
+            rsB.setConsultantId(consultantProfileId);
+            rsB.setName(prefix + " resume");
+            rsB.setOwnerMemberId(member.getId());
+            resumeId = talentResumes.saveAndFlush(rsB).getId();
+            // Jobs page: one client, one consultant, one OPEN job and one suggested match
+            com.dossier.api.domain.ent.talent.ClientAccount jc = new com.dossier.api.domain.ent.talent.ClientAccount();
+            jc.setOrgId(org.getId());
+            jc.setName(prefix + " jobs-board client");
+            jobClientId = jobClients.saveAndFlush(jc).getId();
+            com.dossier.api.domain.ent.talent.ConsultantProfile jp = new com.dossier.api.domain.ent.talent.ConsultantProfile();
+            jp.setOrgId(org.getId());
+            jp.setDisplayName(prefix + " consultant");
+            jp.setEmail(prefix + "-consultant@example.com");
+            jp = jobConsultants.saveAndFlush(jp);
+            com.dossier.api.domain.ent.talent.ClientRequirement jr = new com.dossier.api.domain.ent.talent.ClientRequirement();
+            jr.setOrgId(org.getId());
+            jr.setClientId(jobClientId);
+            jr.setTitle(prefix + " job");
+            jr = jobRows.saveAndFlush(jr);
+            com.dossier.api.domain.ent.talent.RequirementMatch jm = new com.dossier.api.domain.ent.talent.RequirementMatch();
+            jm.setOrgId(org.getId());
+            jm.setRequirementId(jr.getId());
+            jm.setConsultantId(jp.getId());
+            jm.setScore(91);
+            jm = jobMatches.saveAndFlush(jm);
+            em.flush();
+            em.refresh(jr); // the version is the stored (microsecond) instant, not the in-memory one
+            jobId = jr.getId();
+            matchId = jm.getId();
+            jobVersion = com.dossier.api.service.ent.jobs.JobBoardService.versionOf(jr);
+            appTalent = com.dossier.api.web.rest.ent.ApplicationItSupport.seed(em, org.getId(), owner.getId());
+        }
+
+        /** ent-marketing: the id of this world's consultant profile (a made-up id until a prepare created it, which must also give a generic answer). */
+        Long mktConsultantId = 1L;
+        Long mktFresh;
+
+        /** The world's member holds a marketing role (what "add a marketer" promotes). */
+        void mktMarketingRole() {
+            member.setRole(OrgRole.MARKETER);
+            members.saveAndFlush(member);
+            roleService.syncFromLegacy(member);
+            em.flush();
+        }
+
+        /** A marketer (capacity row) for the world's member, plus one consultant profile. */
+        /** A second active seat with a marketing role and no capacity row yet (the member itself already has one from the Consultants fixture). */
+        Long mktFreshMarketer() {
+            if (mktFresh == null) {
+                OrgMember seat = fx.active(org, p + "-mkt-new", OrgRole.MARKETER);
+                roleService.syncFromLegacy(seat);
+                em.flush();
+                mktFresh = seat.getId();
+            }
+            return mktFresh;
+        }
+
+        void mktCapacity() {
+            mktMarketingRole();
+            if (mktCapacities.findByOrgIdAndMemberId(org.getId(), member.getId()).isEmpty()) { // the Consultants fixture may have added it already
+                com.dossier.api.domain.ent.talent.MarketerCapacity c = new com.dossier.api.domain.ent.talent.MarketerCapacity();
+                c.setOrgId(org.getId());
+                c.setMemberId(member.getId());
+                c.setCapacity(5);
+                mktCapacities.saveAndFlush(c);
+            }
+            com.dossier.api.domain.ent.talent.ConsultantProfile k = new com.dossier.api.domain.ent.talent.ConsultantProfile();
+            k.setOrgId(org.getId());
+            k.setDisplayName(p + " consultant");
+            k.setEmail(p + "-consultant@example.org");
+            mktConsultantId = mktConsultants.saveAndFlush(k).getId();
+        }
+
+        void mktAssigned() {
+            mktCapacity();
+            com.dossier.api.domain.ent.talent.MarketerAssignment a = new com.dossier.api.domain.ent.talent.MarketerAssignment();
+            a.setOrgId(org.getId());
+            a.setConsultantId(mktConsultantId);
+            a.setMarketerMemberId(member.getId());
+            mktAssignments.saveAndFlush(a);
         }
 
         private Long interview(com.dossier.api.domain.ent.talent.TalentApplication app, String status, Instant at) {
@@ -807,6 +984,11 @@ class OrgIsolationIT {
             ids.put("itemId", String.valueOf(placementChecklistId)); // placements/checklist/{itemId}
             ids.put("notificationId", String.valueOf(notificationId)); // {id} of DELETE notifications/{id} (see uri())
             ids.put("category", "JOB_MATCH"); // a fixed notification category, not a row
+            ids.put("consultantId", String.valueOf(consultantId));
+            ids.put("resumeId", String.valueOf(resumeId));
+            ids.put("jobId", String.valueOf(jobId));
+            ids.put("matchId", String.valueOf(matchId));
+            ids.put("applicationId", String.valueOf(appTalent.applicationId()));
             return ids;
         }
 
@@ -872,10 +1054,10 @@ class OrgIsolationIT {
             return MockMvcRequestBuilders.multipart(HttpMethod.valueOf(route.method()), uri).file(new MockMultipartFile("file", "logo.png", "image/png", samplePng()));
         }
         MockHttpServletRequestBuilder req = MockMvcRequestBuilders.request(HttpMethod.valueOf(route.method()), uri).contentType(MediaType.APPLICATION_JSON);
-        if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
+        if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members") || route.key().equals("POST /api/orgs/{orgId}/resumes") || route.key().equals("POST /api/orgs/{orgId}/resumes/bulk")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {
@@ -927,8 +1109,11 @@ class OrgIsolationIT {
         s.append("domains:").append(domains.findByOrgIdOrderByDomain(w.org.getId()).stream().map(d -> d.getDomain() + "|" + d.getVerifiedAt()).toList()).append('\n');
         brandings.findByOrgId(w.org.getId()).ifPresent(b -> s.append("branding:").append(b.getPrimaryColor()).append('|').append(b.getWelcomeTitle()).append('|').append(b.getDraftJson()).append('|').append(b.getDraftVersion()).append('|').append(b.getPublishedAt()).append('|').append(b.getLogoKey()).append('\n'));
         s.append("brandingVersions:").append(brandingVersions.findAllByOrgIdNewestFirst(w.org.getId()).stream().map(v -> v.getVersionNo() + "|" + v.getSnapshotJson()).toList()).append('\n');
+        s.append("jobs:").append(jobRows.findByOrgId(w.org.getId()).stream().map(r -> r.getId() + "|" + r.getTitle() + "|" + r.getStatus() + "|" + r.getUpdatedAt()).toList()).append('\n');
+        s.append("jobMatches:").append(jobMatches.findByOrgId(w.org.getId()).stream().map(m -> m.getId() + "|" + m.getStatus() + "|" + m.getAssignedAt()).toList()).append('\n');
         s.append("audit:").append(audit.countByOrgId(w.org.getId())).append('\n');
         s.append("events:").append(shareEvents.countByOrgId(w.org.getId())).append('\n');
+        s.append(com.dossier.api.web.rest.ent.ApplicationItSupport.fingerprint(em, w.org.getId()));
         return s.toString();
     }
 

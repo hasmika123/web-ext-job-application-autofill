@@ -85,7 +85,8 @@ class OrgDashboardDemoSeedIT {
         assertThat(items.get(0).path("actorName").asText()).as("a person's name, not a login").isNotBlank().doesNotContain("demo-ent");
 
         for (String notBuilt : new String[] { "applications.active", "interviews.upcoming", "placements", "finance.summary", "team.performance", "pipeline.overview" }) {
-            assertThat(w.get(notBuilt).path("reason").asText()).as(notBuilt).isEqualTo("NOT_ENABLED");
+            assertThat(w.get(notBuilt).path("state").asText()).as(notBuilt).isEqualTo("empty"); // dashboard v2: real widgets; this seed holds no talent rows
+            assertThat(w.get(notBuilt).path("reason").asText()).as(notBuilt).startsWith("NO_");
             assertThat(w.get(notBuilt).has("data")).as(notBuilt).isFalse();
         }
     }

@@ -476,7 +476,7 @@ class ConsultantInterviewsResourceIT {
     void savingJoinDetailsStoresThemOnlyForTheConsultantAndNeverMovesTheInterview() throws Exception {
         seedC1();
         long before = interviews.countByOrgId(a.getId());
-        Instant at = interviews.findById(u1.getId()).orElseThrow().getScheduledAt();
+        Instant at = interviews.findByOrgIdAndId(u1.getOrgId(), u1.getId()).orElseThrow().getScheduledAt();
 
         JsonNode saved = ok(send(put(path(a.getId(), "/" + u1.getId() + "/detail")), "cws-i-a-c1", detailBody("video", "  https://meet.example.org/j/123456789?pwd=abc  ", "VP of Technology", "Bring the portfolio.")), "save");
         JsonNode iv = saved.path("interview");
@@ -501,7 +501,7 @@ class ConsultantInterviewsResourceIT {
         assertThat(again.path("prepNote").isNull()).isTrue();
 
         assertThat(interviews.countByOrgId(a.getId())).as("no interview is created").isEqualTo(before);
-        TalentInterview now1 = interviews.findById(u1.getId()).orElseThrow();
+        TalentInterview now1 = interviews.findByOrgIdAndId(u1.getOrgId(), u1.getId()).orElseThrow();
         assertThat(now1.getScheduledAt()).as("the time never moves").isEqualTo(at);
         assertThat(now1.getStatus()).isEqualTo("SCHEDULED");
         assertThat(now1.getInterviewerName()).isEqualTo("John Miller");
@@ -558,7 +558,7 @@ class ConsultantInterviewsResourceIT {
         assertThat(p.path("feedback").get(0).path("summary").asText()).isEqualTo("Went fine overall.");
         assertThat(p.path("tiles").path("feedbackPending").path("value").asLong()).isEqualTo(2);
         assertThat(detail("cws-i-a-c1", a, d1.getId()).path("feedback").path("outcome").asText()).isEqualTo("NEUTRAL");
-        assertThat(interviews.findById(d1.getId()).orElseThrow().getStatus()).isEqualTo("COMPLETED");
+        assertThat(interviews.findByOrgIdAndId(d1.getOrgId(), d1.getId()).orElseThrow().getStatus()).isEqualTo("COMPLETED");
     }
 
     @Test

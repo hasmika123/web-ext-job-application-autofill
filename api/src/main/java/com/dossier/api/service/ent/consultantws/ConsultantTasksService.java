@@ -458,7 +458,7 @@ public class ConsultantTasksService {
     private Map<Long, ClientRequirement> requirementsById(Long org, List<Long> ids) {
         List<Long> distinct = ids.stream().filter(Objects::nonNull).distinct().toList();
         if (distinct.isEmpty()) return Map.of();
-        return requirements.findAllById(distinct).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
+        return requirements.findByOrgIdAndIdIn(org, distinct).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
     }
 
     // ---- writes ---------------------------------------------------------------------------------------------------

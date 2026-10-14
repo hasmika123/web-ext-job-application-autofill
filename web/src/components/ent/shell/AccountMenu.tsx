@@ -61,12 +61,12 @@ export default function AccountMenu({ me, onSwitchWorkspace, compact = false }: 
           type="button"
           aria-label={`Account menu for ${me.person.name}`}
           data-account-menu
-          className="flex h-12 items-center gap-2.5 rounded-xl border border-transparent px-1.5 text-left transition-colors hover:bg-paper-2 sm:border-line sm:px-2.5"
+          className="flex h-14 items-center gap-3 rounded-xl border border-transparent px-1.5 text-left transition-colors hover:bg-paper-2 sm:border-line sm:px-3 sm:shadow-sm"
         >
-          <MemberAvatar name={me.person.name} src={me.person.imageUrl} size={36} />
+          <MemberAvatar name={me.person.name} src={me.person.imageUrl} size={44} />
           {compact ? null : (
             <span className="hidden min-w-0 leading-tight lg:block">
-              <span className="block max-w-[140px] truncate text-[14px] font-semibold text-ink">{me.person.name}</span>
+              <span className="block max-w-[140px] truncate text-[15px] font-semibold text-ink">{me.person.name}</span>
               <span className="block max-w-[140px] truncate text-[12.5px] text-muted">{role}</span>
             </span>
           )}
