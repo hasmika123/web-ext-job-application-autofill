@@ -1,5 +1,13 @@
 # HANDOFF-ENT-MARKETER-WORKSPACE — building the Marketing (marketer) workspace pages on a second machine
 
+## UPDATE (2026-10-14): the Consultant workspace is already in `ent-talent`
+
+`origin/ent-talent` now includes the whole Consultant workspace (19 pages, `cws_*` tables, seeders, `OrgIsolationIT` rows, the 19-item consultant menu). The old base `3df7a684`
+this document tells you to start from is **behind it**. If you have not branched yet, branch from the current `origin/ent-talent`; if you already branched from the old base, run
+`git fetch origin && git merge origin/ent-talent` into YOUR branch (merging the base into your own branch is always allowed) and resolve the shared files as listed in
+`docs/HANDOFF-ENT-CONSULTANT-WORKSPACE.md` (section "STATUS (2026-10-14)"). The consultant pages read the marketer's data (assignments, applications, jobs) and several of their screens
+show marketer-side stand-ins marked "Sample" (table in `docs/enterprise-v2/consultant-workspace-merge-notes.md`): when your marketer pages write the real rows, tell the merging agent which stand-in each one replaces.
+
 ## START HERE
 
 **Who this is for:** an agent/developer on a second machine who builds the **Marketing workspace** (`/w/marketing/**`, the pages a

@@ -1,5 +1,51 @@
 # HANDOFF-ENT-CONSULTANT-WORKSPACE — building the Consultant ("My workspace") pages on a second machine
 
+## STATUS (2026-10-14) — READ THIS FIRST (for the agent/developer who merges)
+
+**The Consultant workspace is finished and already merged into `ent-talent`.** `origin/ent-talent` and `origin/ent-talent-consultant` point at the
+same commit (`f6ec6158` when this was written): `ent-talent` = the old base `3df7a684` + 46 commits, all authored as `hasmika123`. The merge was a
+plain fast-forward done by the repo owner's explicit instruction (an exception to "only the first machine merges into `ent-talent`"). Details of
+everything built: `docs/enterprise-v2/consultant-workspace-merge-notes.md` (read it) and `docs/enterprise-v2/page-consultant-<slug>.md`.
+
+### What to merge, and what NOT to
+| Do | Don't |
+|---|---|
+| Merge the OTHER roles' branches (`ent-talent-marketer`, the first machine's Org Admin/Jobs/etc. work, `ent-all`) into `ent-talent`, resolving the shared files below. | Do **not** merge `ent-talent-consultant` into `ent-talent` again: it is identical, the merge is a no-op. Keep the branch as a reference until everything is verified, then delete it. |
+| Pull `ent-talent` and merge it into your own branch (`git fetch origin && git merge origin/ent-talent`). | Do **not** merge or reset to any commit authored as `tejaNunovus` or to `ab96f311`: that was an accidental, since-reverted copy of the same work (see below). |
+| Replace the consultant "Sample" stand-ins with the real modules (table in the merge notes). | Do **not** edit or reuse the consultant migrations `20261103*_ent_cws_*.xml` once applied; if a stamp clashes with another branch's file, re-stamp the NEW file, never an applied one. |
+| Re-run the tests listed at the end of the merge notes after merging. | Do **not** treat the 4 known failing tests as regressions (list in the merge notes: `EntRepositoryContractTest` x2, `resume-doc.test.ts`, `TenantThemeProvider.test.tsx`; all fail identically on the old base). |
+
+### If your machine pulled `ent-talent` during the accidental window
+For a short time on 2026-10-13/14 `origin/ent-talent` pointed at `ab96f311` (the same 42 consultant commits, authored as `tejaNunovus`, different IDs). It was
+reset to `3df7a684` and later fast-forwarded to `f6ec6158`. If you fetched during that window, your `ent-talent` may hold the old copy. `ent-talent` is a frozen
+base, so you have no work on it; realign it:
+```
+git fetch origin
+git checkout ent-talent
+git reset --hard origin/ent-talent
+```
+If a branch of yours was built on top of `ab96f311`: `git rebase --onto origin/ent-talent ab96f311 <your-branch>`.
+
+### Shared files the consultant work edited (expect conflicts here; keep BOTH sides)
+| File | What the consultant side has | How to resolve |
+|---|---|---|
+| `api/.../liquibase/master.xml` | 17 `20261103*_ent_cws_*.xml` includes at the end | keep every include from both sides, in timestamp order, at the end |
+| `api/.../config/EnterpriseDemoBootstrap.java` | constructor takes the 17 `ConsultantWs*DemoSeeder`s and runs them from one list (`consultantPages`) after the talent seed | keep the list and add the other role's seeders to it; constructor arguments grow |
+| `api/.../config/ent/workspaces.json` | CONSULTANT `nav` has **19** items in the boards' order (labels aligned to the boards) | never revert it to 13; the other role keeps its own workspace block |
+| `docs/enterprise-v2/16-ui-ux-page-inventory.md` | section 5.4 has 19 rows | `WorkspaceDocSyncTest` requires doc == JSON for every workspace; update both together |
+| `api/.../service/ent/WorkspaceServiceTest.java` | the 19 consultant menu keys | keep it equal to `workspaces.json` |
+| `api/.../org/OrgIsolationIT.java` | ~95 consultant routes in `COVERAGE`, fixtures in `World`, `uri()` rewrites by route prefix, `Case.consultantRead/consultantWrite/consultantWriteFor` | both sides add rows and fixtures: keep both, then run it; each new `/api/orgs/{orgId}/...` route needs a row |
+| `packages/ui/.../Charts.tsx` | `DonutChart` got optional `legend` and `totalSuffix` props | additive; keep |
+| `docs/enterprise-v2/progress-tracker.md` | log lines | keep all lines |
+
+Not touched by the consultant work (so it should merge without conflict): the shell (`web/src/components/ent/shell/**`, `web/src/lib/ent/shell.ts`), `parts.tsx` is consultant-only,
+`client_requirement` (the job source link lives in the companion table `cws_job_source`). Two additive changes to shared talent tables: unique keys
+`uk_talent_interview_org_id` and `uk_talent_placement_org_id`.
+
+### Product decisions that are built in (do not undo when merging)
+Kiwiply never submits and has no auto-apply; jobs are marketer-entered quick info + a source link and the consultant applies with the extension (full in-app job search is a later phase);
+no sensitive PII anywhere; money on offers/placements is record-only and a consultant never sees a bill rate; no email/SMS/push is ever sent.
+
 ## START HERE
 
 **Who this is for:** an agent/developer on a second machine who builds the **Consultant workspace** (`/w/consultant/**`, the pages a
