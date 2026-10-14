@@ -134,6 +134,11 @@ class OrgIsolationIT {
             return new Case(body, status, null, false, null, null, 1, World::makeOwnerAConsultant);
         }
 
+        /** A consultant-workspace write whose body depends on the fixture world or the clock (ids of A's rows, dates). */
+        static Case consultantWriteFor(java.util.function.Function<World, String> bodyFor, int status) {
+            return new Case(null, status, null, false, bodyFor, null, 1, World::makeOwnerAConsultant);
+        }
+
         static Case write(String body, int status, String action) {
             return new Case(body, status, action, false, null, null, 1, null);
         }
@@ -290,7 +295,44 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/need-more-info", Case.consultantWrite("{\"message\":\"Hijacked question\"}", 200)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/decline", Case.consultantWrite("{\"reason\":\"Hijacked decline\"}", 200)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/reopen", new Case(null, 200, null, false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.declineAssignedOpportunity(); })),
-        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/request-resume-update", Case.consultantWrite("{\"note\":\"Hijacked update\"}", 200))
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/request-resume-update", Case.consultantWrite("{\"note\":\"Hijacked update\"}", 200)),
+        // The last eight consultant pages. {id} means the task / calendar entry / offer / notification by route prefix (see uri()).
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/tasks", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/tasks/list", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/tasks", Case.consultantWrite("{\"title\":\"A valid title\"}", 201)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/tasks/{id}", Case.consultantWrite("{\"title\":\"A valid title\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/tasks/{id}/status", Case.consultantWrite("{\"status\":\"DONE\"}", 200)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/tasks/{id}", Case.consultantWrite(null, 204)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/availability", Case.consultantRead()),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/availability/status", Case.consultantWrite("{\"status\":\"AVAILABLE\"}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/availability/blocks", Case.consultantWriteFor(w -> "{\"kind\":\"PERSONAL\",\"startDate\":\"" + java.time.LocalDate.now().plusDays(90) + "\",\"endDate\":\"" + java.time.LocalDate.now().plusDays(91) + "\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/availability/blocks/{id}", Case.consultantWriteFor(w -> "{\"kind\":\"PERSONAL\",\"startDate\":\"" + java.time.LocalDate.now().plusDays(90) + "\",\"endDate\":\"" + java.time.LocalDate.now().plusDays(91) + "\",\"reason\":\"Hijacked\"}", 200)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/availability/blocks/{id}", Case.consultantWrite(null, 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/availability/preferences", Case.consultantWrite("{\"workMode\":\"REMOTE\"}", 200)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/offers", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/offers/list", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/offers/{id}", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/offers/{id}/accept", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/offers/{id}/decline", Case.consultantWrite("{\"reason\":\"Hijacked decline\"}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/offers/{id}/negotiate", Case.consultantWrite("{\"note\":\"Hijacked negotiation\"}", 200)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/placements", Case.consultantRead()),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/placements/checklist/{itemId}", Case.consultantWrite("{\"completed\":true}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/placements/status-note", Case.consultantWrite("{\"note\":\"Going well\"}", 200)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/notifications", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/notifications/read", Case.consultantWriteFor(w -> "{\"ids\":[" + w.notificationId + "],\"read\":true}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/notifications/resolve", Case.consultantWriteFor(w -> "{\"ids\":[" + w.notificationId + "]}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/notifications/snooze", Case.consultantWriteFor(w -> "{\"ids\":[" + w.notificationId + "],\"until\":\"" + Instant.now().plusSeconds(5 * 3600) + "\"}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/notifications/delete", Case.consultantWriteFor(w -> "{\"ids\":[" + w.notificationId + "]}", 200)),
+        Map.entry("DELETE /api/orgs/{orgId}/me-workspace/notifications/{id}", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/notifications/mark-all-read", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/notifications/mute-non-critical", Case.consultantWrite(null, 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/notifications/preferences/{category}", Case.consultantWrite("{\"enabled\":false}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/notifications/preferences", Case.consultantWrite("{\"items\":[{\"category\":\"JOB_MATCH\",\"enabled\":false}]}", 200)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/activity-timeline", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/features", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/settings", Case.consultantRead()),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/settings/privacy", Case.consultantWrite("{\"profileVisibility\":\"PRIVATE\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/settings/appearance", Case.consultantWrite("{\"theme\":\"DARK\"}", 200))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -356,6 +398,12 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.consultantws.CwsSubmissionRepository cwsSubmissions;
     @Autowired private com.dossier.api.repository.ent.consultantws.CwsOpportunityResponseRepository cwsOpportunityResponses;
     @Autowired private com.dossier.api.repository.ent.talent.TalentApplicationRepository talentApplications;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsTaskRepository cwsTasks;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsAvailabilityBlockRepository cwsBlocks;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsOfferRepository cwsOffers;
+    @Autowired private com.dossier.api.repository.ent.talent.TalentPlacementRepository talentPlacements;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsPlacementChecklistRepository cwsChecklist;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsNotificationRepository cwsNotifications;
 
     private OrgFixtures fx;
 
@@ -400,6 +448,8 @@ class OrgIsolationIT {
         Long skillId, certId, prefId, resumeId, matchId, requirementId, savedSearchId;
         /** The second set of consultant pages: an ASSIGNED match, a SCHEDULED and a COMPLETED interview, a prep session, a PENDING_APPROVAL submission, an application. */
         Long consultantId, clientId, assignedRequirementId, assignedMatchId, scheduledInterviewId, completedInterviewId, prepSessionId, submissionId, applicationId;
+        /** The last eight pages: a task, a calendar entry, a PENDING_REVIEW offer with a future deadline, a checklist item of an ACTIVE placement, a notification. */
+        Long taskId, availabilityBlockId, offerId, placementChecklistId, notificationId;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -605,6 +655,48 @@ class OrgIsolationIT {
             sub.setResumeId(resumeId);
             sub.setDueAt(Instant.now().plusSeconds(86400L * 3));
             submissionId = cwsSubmissions.saveAndFlush(sub).getId();
+            com.dossier.api.domain.ent.consultantws.CwsTask tk = new com.dossier.api.domain.ent.consultantws.CwsTask();
+            tk.setOrgId(org.getId());
+            tk.setConsultantId(cp.getId());
+            tk.setTitle(prefix + " follow-up");
+            taskId = cwsTasks.saveAndFlush(tk).getId();
+            com.dossier.api.domain.ent.consultantws.CwsAvailabilityBlock blk = new com.dossier.api.domain.ent.consultantws.CwsAvailabilityBlock();
+            blk.setOrgId(org.getId());
+            blk.setConsultantId(cp.getId());
+            blk.setKind("PERSONAL");
+            blk.setStartDate(java.time.LocalDate.now().plusDays(10));
+            blk.setEndDate(java.time.LocalDate.now().plusDays(12));
+            blk.setStatus("APPROVED");
+            availabilityBlockId = cwsBlocks.saveAndFlush(blk).getId();
+            com.dossier.api.domain.ent.consultantws.CwsOffer of = new com.dossier.api.domain.ent.consultantws.CwsOffer();
+            of.setOrgId(org.getId());
+            of.setConsultantId(cp.getId());
+            of.setClientName(prefix + " client");
+            of.setRoleTitle(prefix + " Staff Engineer");
+            of.setOfferDeadline(java.time.LocalDate.now().plusDays(14));
+            of.setStatus("PENDING_REVIEW");
+            offerId = cwsOffers.saveAndFlush(of).getId();
+            com.dossier.api.domain.ent.talent.TalentPlacement pl = new com.dossier.api.domain.ent.talent.TalentPlacement();
+            pl.setOrgId(org.getId());
+            pl.setConsultantId(cp.getId());
+            pl.setClientId(ca.getId());
+            pl.setRoleTitle(prefix + " Placement");
+            pl.setStatus("ACTIVE");
+            pl.setStartDate(java.time.LocalDate.now().minusDays(30));
+            pl = talentPlacements.saveAndFlush(pl);
+            com.dossier.api.domain.ent.consultantws.CwsPlacementChecklist pc = new com.dossier.api.domain.ent.consultantws.CwsPlacementChecklist();
+            pc.setOrgId(org.getId());
+            pc.setPlacementId(pl.getId());
+            pc.setLabel("Send the signed paperwork");
+            pc.setDueOn(java.time.LocalDate.now().plusDays(3));
+            placementChecklistId = cwsChecklist.saveAndFlush(pc).getId();
+            com.dossier.api.domain.ent.consultantws.CwsNotification nf = new com.dossier.api.domain.ent.consultantws.CwsNotification();
+            nf.setOrgId(org.getId());
+            nf.setConsultantId(cp.getId());
+            nf.setCategory("JOB_MATCH");
+            nf.setTitle(prefix + " notification");
+            nf.setSourceKey("isolation-" + prefix);
+            notificationId = cwsNotifications.saveAndFlush(nf).getId();
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
         }
@@ -689,6 +781,12 @@ class OrgIsolationIT {
             ids.put("itemKey", "review-jd"); // a fixed checklist word, not a row
             ids.put("submissionId", String.valueOf(submissionId)); // {id} of the submissions routes (see uri())
             ids.put("opportunityMatchId", String.valueOf(assignedMatchId)); // {matchId} of the opportunities routes (see uri())
+            ids.put("taskId", String.valueOf(taskId)); // {id} of the tasks routes (see uri())
+            ids.put("availabilityBlockId", String.valueOf(availabilityBlockId)); // {id} of the availability/blocks routes (see uri())
+            ids.put("offerId", String.valueOf(offerId)); // {id} of the offers routes (see uri())
+            ids.put("itemId", String.valueOf(placementChecklistId)); // placements/checklist/{itemId}
+            ids.put("notificationId", String.valueOf(notificationId)); // {id} of DELETE notifications/{id} (see uri())
+            ids.put("category", "JOB_MATCH"); // a fixed notification category, not a row
             return ids;
         }
 
@@ -731,6 +829,10 @@ class OrgIsolationIT {
             .replace("/members/{memberId}/resend", "/members/{pendingMemberId}/resend")
             .replace("/opportunities/{matchId}", "/opportunities/{opportunityMatchId}")
             .replace("/submissions/{id}", "/submissions/{submissionId}")
+            .replace("/tasks/{id}", "/tasks/{taskId}")
+            .replace("/blocks/{id}", "/blocks/{availabilityBlockId}")
+            .replace("/offers/{id}", "/offers/{offerId}")
+            .replace("/notifications/{id}", "/notifications/{notificationId}")
             .replace("/interviews/{interviewId}/feedback", "/interviews/{completedInterviewId}/feedback");
         Matcher m = VAR.matcher(pattern);
         StringBuilder out = new StringBuilder();
@@ -887,7 +989,7 @@ class OrgIsolationIT {
             if (ids.equals(b.ids())) continue; // the route has no row id: nothing of A's to name
             Matcher m = VAR.matcher(route.pattern());
             boolean hasRowId = false;
-            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("alertKey") && !m.group(1).equals("itemKey"); // kind, alertKey and itemKey are fixed words, not rows
+            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("alertKey") && !m.group(1).equals("itemKey") && !m.group(1).equals("category"); // kind, alertKey, itemKey and category are fixed words, not rows
             if (!hasRowId) continue;
             assertGeneric404(hostile(route, uri(route, ids), a, user("bravo-owner")), route.key() + " as B's owner with B's orgId and A's row id");
             variants++;
