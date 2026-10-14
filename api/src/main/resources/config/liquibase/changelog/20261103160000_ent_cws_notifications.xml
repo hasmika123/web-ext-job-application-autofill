@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Notifications page (branch ent-talent-consultant). Two tables, both owned by the consultant:
+          cws_notification       the consultant's own feed. In the finished product other roles and modules (matching, marketer, offers ...) produce
+                                 notifications; until then the page DERIVES them from the consultant's own rows and persists them
+                                 (ConsultantNotificationGenerator). source_key is the idempotency key: a source event creates at most one row for a
+                                 consultant (unique org_id + consultant_id + source_key). related_type + related_id point at the source row WITHOUT a
+                                 foreign key (the source may be a match, a submission, an interview, an offer or a task). Deleting is a soft delete
+                                 (deleted_at) so a deleted notification is not regenerated from the same source event. action_href is an internal
+                                 /w/consultant/... path (validated by the service), never an external URL.
+          cws_notification_pref  one row per consultant + category: email / in_app / sms / enabled. These are PREFERENCES only: nothing is ever emailed,
+                                 texted or pushed from here, sms is stored but always false (no SMS channel, no phone number is stored).
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FK to consultant_profile, every secondary index starts with
+        org_id, DATETIME(6) UTC, additive, empty rollback, no JSON, no sensitive columns (titles and bodies are written by the service, not users).
+    -->
+    <changeSet id="ent-cws-notifications-notification" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_notification"/></not></preConditions>
+        <createTable tableName="cws_notification">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="category" type="varchar(16)"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="body" type="varchar(300)"/>
+            <column name="priority" type="varchar(8)" defaultValue="MEDIUM"><constraints nullable="false"/></column>
+            <column name="action_label" type="varchar(24)"/>
+            <column name="action_href" type="varchar(200)"/>
+            <column name="related_type" type="varchar(24)"/>
+            <column name="related_id" type="bigint"/>
+            <column name="source_key" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="read_at" type="${datetimeType}"/>
+            <column name="resolved_at" type="${datetimeType}"/>
+            <column name="snoozed_until" type="${datetimeType}"/>
+            <column name="deleted_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_notification" baseColumnNames="org_id" constraintName="fk_cws_notification_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_notification" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_notification_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_notification" columnNames="org_id, consultant_id, source_key" constraintName="uk_cws_notification_source"/>
+        <createIndex tableName="cws_notification" indexName="ix_cws_notification_feed"><column name="org_id"/><column name="consultant_id"/><column name="created_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-notifications-pref" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_notification_pref"/></not></preConditions>
+        <createTable tableName="cws_notification_pref">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="category" type="varchar(16)"><constraints nullable="false"/></column>
+            <column name="email" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="in_app" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="sms" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="enabled" type="boolean" defaultValueBoolean="true"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_notification_pref" baseColumnNames="org_id" constraintName="fk_cws_notification_pref_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_notification_pref" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_notification_pref_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_notification_pref" columnNames="org_id, consultant_id, category" constraintName="uk_cws_notification_pref_category"/>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>
