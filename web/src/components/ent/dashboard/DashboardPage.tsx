@@ -4,37 +4,41 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import {
   AlertIcon,
-  BarChartIcon,
+  BarChartSolidIcon,
+  BellSolidIcon,
   BoardIcon,
+  BoltSolidIcon,
+  BriefcaseSolidIcon,
   BuildingIcon,
-  CalendarIcon,
+  CalendarSolidIcon,
   CheckCircleIcon,
   ChevronRightIcon,
   ClockIcon,
-  DollarIcon,
+  CoinsSolidIcon,
   ErrorState,
   FileTextIcon,
+  FileTextSolidIcon,
   GearIcon,
-  HandshakeIcon,
   InfoIcon,
-  BriefcaseIcon,
-  MemberAvatar,
+  PieSolidIcon,
   SparklesIcon,
+  TeamSolidIcon,
   Tooltip,
   IconButton,
   UserIcon,
   UsersIcon,
+  UsersSolidIcon,
   XIcon,
-  ZapIcon,
   BarChart,
   DonutChart,
   chartColor,
+  initialsOf,
   useToast,
   cn,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot, openHelpPanel } from "@/components/ent/shell/ShellContext";
-import { EnterpriseMascot } from "@/lib/ent/mascot";
+import { ENT_MASCOT_BASE } from "@/lib/ent/mascot";
 import { undoToast } from "@/lib/undo-toast";
 import {
   TILE_KEYS,
@@ -71,13 +75,14 @@ import { CARD, CardError, CardHead, CardSkeleton, StatTile, TONES, Unavailable, 
 export const REVALIDATE_MS = 30_000;
 export const UNDO_MS = 6_000;
 
+/** The board's six tile palettes, left to right: violet, green, blue, orange, indigo, pink (a fixed palette, never the tenant's brand). */
 const TILES: Record<TileKey, Omit<TileSpec, "key" | "title">> = {
-  "consultants.total": { icon: UsersIcon, tone: "violet", spark: "var(--color-v2-violet)" },
-  "employees.active": { icon: UserIcon, tone: "green", spark: "var(--color-v2-green)" },
-  "applications.active": { icon: FileTextIcon, tone: "accent", spark: "var(--brand-solid, var(--color-accent))" },
-  "interviews.upcoming": { icon: CalendarIcon, tone: "amber", spark: "var(--color-v2-amber)" },
-  placements: { icon: BriefcaseIcon, tone: "violet", spark: "var(--color-v2-violet)" },
-  "finance.summary": { icon: DollarIcon, tone: "pink", spark: "var(--color-v2-coral)" },
+  "consultants.total": { icon: UsersSolidIcon, tone: "violet" },
+  "employees.active": { icon: TeamSolidIcon, tone: "green" },
+  "applications.active": { icon: FileTextSolidIcon, tone: "blue" },
+  "interviews.upcoming": { icon: CalendarSolidIcon, tone: "orange" },
+  placements: { icon: BriefcaseSolidIcon, tone: "indigo" },
+  "finance.summary": { icon: CoinsSolidIcon, tone: "pink" },
 };
 
 /** Quick action icon tiles: solid colour, white glyph (the board): brand, green, violet, the brand's second colour. */
@@ -180,15 +185,15 @@ function TeamPerformanceCard({ body }: { body: CardBody }) {
   const full = !body.loading ? teamOf(widget) : null;
   const team = full ? lastMonths(full, range) : null;
   return (
-    <section aria-labelledby="dash-team" data-dash-card="team.performance" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5 lg:col-span-2 xl:col-span-1")}>
-      <CardHead id="dash-team" icon={BarChartIcon} title="Team Performance">
+    <section aria-labelledby="dash-team" data-dash-card="team.performance" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col px-[14px] pb-3.5 pt-3 sm:px-[14px] lg:col-span-2 xl:col-span-1 xl:min-h-[297px]")}>
+      <CardHead id="dash-team" icon={BarChartSolidIcon} title="Team Performance">
         {team ? (
           <select
             aria-label="Range"
             data-team-range
             value={range}
             onChange={(e) => setRange(Number(e.target.value))}
-            className="min-h-9 flex-none rounded-lg border border-line bg-paper px-2.5 text-[13px] font-medium text-ink-soft hover:bg-paper-2"
+            className="h-[34px] flex-none rounded-[10px] border border-[var(--ent-control-border)] bg-paper px-3 text-[14px] text-ink-soft hover:bg-paper-2"
           >
             {RANGES.filter((r) => r.months <= (full?.months.length ?? 0)).map((r) => (
               <option key={r.months} value={r.months}>
@@ -198,8 +203,8 @@ function TeamPerformanceCard({ body }: { body: CardBody }) {
           </select>
         ) : null}
       </CardHead>
-      <div className="mt-3 flex flex-1 flex-col">
-        {shared ?? (team ? <BarChart label="Team performance by month" categories={team.months} series={team.series.map((x) => ({ ...x, color: TEAM_COLORS[x.key] }))} height={230} /> : <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>)}
+      <div className="mt-3.5 flex flex-1 flex-col px-1">
+        {shared ?? (team ? <BarChart variant="board" label="Team performance by month" categories={team.months} series={team.series.map((x) => ({ ...x, color: TEAM_COLORS[x.key] }))} height={150} /> : <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>)}
       </div>
     </section>
   );
@@ -211,12 +216,12 @@ function PipelineCard({ body }: { body: CardBody }) {
   const shared = stateBody(body, "the pipeline");
   const pipe = !body.loading ? pipelineOf(widget) : null;
   return (
-    <section aria-labelledby="dash-pipeline" data-dash-card="pipeline.overview" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
-      <CardHead id="dash-pipeline" icon={HandshakeIcon} title="Pipeline Overview" tone="teal" />
-      <div className="mt-3 flex flex-1 flex-col">
+    <section aria-labelledby="dash-pipeline" data-dash-card="pipeline.overview" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col px-[14px] pb-3.5 pt-3 sm:px-[16px] xl:min-h-[297px]")}>
+      <CardHead id="dash-pipeline" icon={PieSolidIcon} title="Pipeline Overview" tone="accent" />
+      <div className="mt-3 flex flex-1 flex-col justify-center">
         {shared ??
           (pipe ? (
-            <DonutChart size={150} label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
+            <DonutChart variant="board" size={160} label="Applications by stage" total={pipe.total} totalLabel="Total Applications" slices={pipe.slices.map((x) => ({ ...x, color: STAGE_COLORS[x.key] }))} />
           ) : (
             <p className="py-6 text-center text-[13.5px] text-muted">{emptyText(null)}</p>
           ))}
@@ -225,7 +230,7 @@ function PipelineCard({ body }: { body: CardBody }) {
   );
 }
 
-const ACTIVITY_SHOWN = 6; // the board shows five or six; "View all" has the rest
+const ACTIVITY_SHOWN = 5; // the board shows five; "View all" has the rest
 const QUICK_SHOWN = 4; // the board shows four; the rest the API sends are reachable from the menu
 
 function QuickActionsCard({ body }: { body: CardBody }) {
@@ -235,11 +240,11 @@ function QuickActionsCard({ body }: { body: CardBody }) {
   const every = widget && !body.loading ? quickActionsOf(widget) : [];
   const items = every.slice(0, QUICK_SHOWN);
   return (
-    <section aria-labelledby="dash-quick" data-dash-card="quick.actions" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
-      <CardHead id="dash-quick" icon={ZapIcon} title="Quick Actions" />
-      <div className="mt-3 flex-1">
+    <section aria-labelledby="dash-quick" data-dash-card="quick.actions" className={cn(CARD, "flex min-w-0 flex-col px-3 pb-3 pt-3 xl:min-h-[297px]")}>
+      <CardHead id="dash-quick" icon={BoltSolidIcon} title="Quick Actions" tile={false} />
+      <div className="mt-2.5 flex-1">
         {shared ?? (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-1.5">
             {items.map((a) => (
               <li key={a.key}>
                 <ActionRow a={a} />
@@ -257,16 +262,16 @@ function ActionRow({ a }: { a: QuickActionItem }) {
   const Icon = meta.icon;
   const inner = (
     <>
-      <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-xl text-white", meta.solid)}>
-        <Icon size={22} />
+      <span aria-hidden className={cn("grid h-[46px] w-[46px] flex-none place-items-center rounded-[11px] text-white", meta.solid)}>
+        <Icon size={24} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[15.5px] font-semibold leading-tight text-ink">{a.label}</span>
-        <span className="line-clamp-2 text-[13px] leading-snug text-muted">{a.description}</span>
+        <span className="block text-[16px] font-bold leading-tight text-ink">{a.label}</span>
+        <span className="line-clamp-2 text-[14px] leading-snug text-muted">{a.description}</span>
       </span>
     </>
   );
-  const row = "flex min-h-[60px] items-center gap-3.5 rounded-xl border border-line bg-paper px-3 py-2";
+  const row = "flex min-h-[56px] items-center gap-3.5 rounded-xl border border-[#e7edf6] bg-paper px-2 py-[5px] shadow-[0_1px_2px_rgba(20,33,79,0.03)]";
   if (!a.available)
     return (
       <div data-quick-action={a.key} data-available="false" aria-disabled="true" className={cn(row, "bg-paper-2/50")}>
@@ -281,7 +286,7 @@ function ActionRow({ a }: { a: QuickActionItem }) {
   return (
     <Link href={a.href} data-quick-action={a.key} data-available="true" className={cn(row, "group transition-colors hover:bg-paper-2")}>
       {inner}
-      <ChevronRightIcon aria-hidden size={16} className="flex-none text-muted transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+      <ChevronRightIcon aria-hidden size={18} className="mr-2 flex-none text-accent-deep transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
     </Link>
   );
 }
@@ -303,28 +308,28 @@ function AlertsCard({ body, hidden, onDismiss, now }: { body: CardBody; hidden: 
   const shared = stateBody(body, "your alerts");
   const allClear = !shared && items.length === 0;
   return (
-    <section aria-labelledby="dash-alerts" data-dash-card="alerts" className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
-      <CardHead id="dash-alerts" icon={AlertIcon} title="Activity & Alerts" tone="coral">
+    <section aria-labelledby="dash-alerts" data-dash-card="alerts" className={cn(CARD, "flex min-w-0 flex-col px-[14px] pb-3 pt-3 xl:min-h-[295px]")}>
+      <CardHead id="dash-alerts" icon={BellSolidIcon} title="Activity & Alerts" tone="coral" tile={false}>
         {every.length > ALERTS_SHOWN ? (
           <button
             type="button"
             data-alerts-view-all
             aria-expanded={all}
             onClick={() => setAll((v) => !v)}
-            className="flex-none rounded-lg border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 py-1.5 text-[12.5px] font-semibold text-accent-deep hover:bg-accent-soft/70"
+            className="ent-chip-btn"
           >
             {all ? "Show fewer" : "View all"}
           </button>
         ) : null}
       </CardHead>
-      <div className="mt-3 flex-1">
+      <div className="mt-2 flex-1">
         {shared ??
           (allClear ? (
             <p data-alerts-clear className="flex items-center justify-center gap-2 py-6 text-center text-[13.5px] text-muted">
               <CheckCircleIcon size={18} className="text-v2-green-ink" /> All clear. Nothing needs your attention.
             </p>
           ) : (
-            <ul className="divide-y divide-line/70" aria-live="polite">
+            <ul className="divide-y divide-[#edf1f7]" aria-live="polite">
               {items.map((a) => {
                 const s = SEVERITY[a.severity];
                 const Icon = s.icon;
@@ -335,12 +340,12 @@ function AlertsCard({ body, hidden, onDismiss, now }: { body: CardBody; hidden: 
                   </>
                 );
                 return (
-                  <li key={a.key} data-alert={a.key} data-severity={a.severity} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0">
-                    <span aria-hidden className={cn("mt-0.5 grid h-10 w-10 flex-none place-items-center rounded-full", TONES[s.tone])}>
-                      <Icon size={18} />
+                  <li key={a.key} data-alert={a.key} data-severity={a.severity} className="group flex items-center gap-3 py-[7px] first:pt-1 last:pb-0">
+                    <span aria-hidden className={cn("grid h-[42px] w-[42px] flex-none place-items-center rounded-xl", TONES[s.tone])}>
+                      <Icon size={20} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[14px] font-semibold leading-snug text-ink">
+                      <p className="text-[15px] font-bold leading-snug text-ink">
                         {a.href ? (
                           <Link href={a.href} className="underline-offset-2 hover:underline">
                             {title}
@@ -349,15 +354,15 @@ function AlertsCard({ body, hidden, onDismiss, now }: { body: CardBody; hidden: 
                           title
                         )}
                       </p>
-                      {a.message ? <p className="mt-0.5 text-[12.5px] leading-snug text-muted">{a.message}</p> : null}
+                      {a.message ? <p className="mt-px text-[14px] leading-snug text-muted">{a.message}</p> : null}
                     </div>
                     {a.at ? (
-                      <time dateTime={a.at} title={new Date(a.at).toLocaleString()} className="mt-1 flex-none whitespace-nowrap text-[12px] text-muted">
+                      <time dateTime={a.at} title={new Date(a.at).toLocaleString()} className="flex-none whitespace-nowrap text-[14px] text-muted">
                         {relativeTime(a.at, now)}
                       </time>
                     ) : null}
                     <Tooltip content="Dismiss for 7 days" side="left">
-                      <IconButton aria-label={`Dismiss for 7 days: ${a.title}`} onClick={() => onDismiss(a)} className="h-9 w-9 flex-none">
+                      <IconButton aria-label={`Dismiss for 7 days: ${a.title}`} onClick={() => onDismiss(a)} className="h-8 w-8 flex-none transition-opacity lg:opacity-0 lg:focus-visible:opacity-100 lg:group-hover:opacity-100">
                         <XIcon size={15} />
                       </IconButton>
                     </Tooltip>
@@ -371,36 +376,55 @@ function AlertsCard({ body, hidden, onDismiss, now }: { body: CardBody; hidden: 
   );
 }
 
+/** The board's initials disc: a pale tint chosen by the name (one person keeps one colour), 44 px, bold initials in the matching ink. */
+const AVATAR_TINTS = [
+  "bg-v2-violet-soft text-v2-violet-ink",
+  "bg-v2-amber-soft text-v2-amber-ink",
+  "bg-v2-green-soft text-v2-green-ink",
+  "bg-accent-soft text-accent-deep",
+  "bg-v2-coral-soft text-v2-coral-ink",
+] as const;
+
+function TintAvatar({ name }: { name: string }) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return (
+    <span aria-hidden data-member-avatar className={cn("inline-grid h-11 w-11 flex-none place-items-center rounded-full text-[15px] font-bold", AVATAR_TINTS[h % AVATAR_TINTS.length])}>
+      {initialsOf(name)}
+    </span>
+  );
+}
+
 function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: number; viewAll: string | null }) {
   const { widget } = body;
   if (!body.loading && !widget) return null;
   const shared = stateBody(body, "recent activity");
   const items = widget && !body.loading ? activityOf(widget).slice(0, ACTIVITY_SHOWN) : [];
   return (
-    <section aria-labelledby="dash-activity" data-dash-card="activity.recent" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col p-4 sm:p-5")}>
-      <CardHead id="dash-activity" icon={ClockIcon} title="Recent Activity" tone="accent">
+    <section aria-labelledby="dash-activity" data-dash-card="activity.recent" data-state={body.loading ? "loading" : widget?.state} className={cn(CARD, "flex min-w-0 flex-col px-[14px] pb-3 pt-3 xl:min-h-[295px]")}>
+      <CardHead id="dash-activity" icon={ClockIcon} title="Recent Activity" tone="accent" tile={false}>
         {viewAll ? (
-          <Link href={viewAll} className="flex-none rounded-lg border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 py-1.5 text-[12.5px] font-semibold text-accent-deep hover:bg-accent-soft/70">
+          <Link href={viewAll} className="ent-chip-btn">
             View all
           </Link>
         ) : null}
       </CardHead>
-      <div className="mt-3 flex-1">
+      <div className="mt-2 flex-1">
         {shared ?? (
-          <ul className="divide-y divide-line/70">
+          <ul className="divide-y divide-[#edf1f7]">
             {items.map((a) => {
               const t = activityText(a);
               const href = activityHref(a);
               const row = (
                 <>
-                  <MemberAvatar name={t.who} size={38} />
+                  <TintAvatar name={t.who} />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13.5px] leading-snug text-ink">
-                      <span className="font-semibold">{t.who}</span> {t.what}
+                    <p className="truncate text-[15px] leading-snug text-ink-soft">
+                      <span className="font-bold text-ink">{t.who}</span> {t.what}
                     </p>
-                    {t.target ? <p className="truncate text-[12.5px] text-muted">{t.target}</p> : null}
+                    {t.target ? <p className="truncate text-[14px] text-muted">{t.target}</p> : null}
                   </div>
-                  <time dateTime={a.at} title={new Date(a.at).toLocaleString()} className="flex-none whitespace-nowrap text-[12px] text-muted">
+                  <time dateTime={a.at} title={new Date(a.at).toLocaleString()} className="flex-none whitespace-nowrap text-[14px] text-muted">
                     {relativeTime(a.at, now)}
                   </time>
                 </>
@@ -408,11 +432,11 @@ function RecentActivityCard({ body, now, viewAll }: { body: CardBody; now: numbe
               return (
                 <li key={`${a.source}-${a.id}`} data-activity={`${a.source}-${a.id}`}>
                   {href ? (
-                    <Link href={href} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 hover:bg-paper-2/60">
+                    <Link href={href} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-[5px] hover:bg-paper-2/60">
                       {row}
                     </Link>
                   ) : (
-                    <div className="flex items-center gap-3 py-2.5">{row}</div>
+                    <div className="flex items-center gap-3 py-[5px]">{row}</div>
                   )}
                 </li>
               );
@@ -452,26 +476,27 @@ function useHelpDismissed(orgId: number): { dismissed: boolean | null; dismiss: 
 
 function BeeHelpCard({ firstName, orgName, onDismiss }: { firstName: string; orgName: string; onDismiss: () => void }) {
   return (
-    <section aria-label="Help" data-dash-card="help" className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-line/70 bg-paper shadow-[0_1px_3px_rgb(16_24_40/0.06)] md:col-span-2 xl:col-span-1">
+    <section aria-label="Help" data-dash-card="help" className="ent-card relative flex min-w-0 flex-col p-[7px] md:col-span-2 xl:col-span-1 xl:min-h-[295px]">
       <ClaimsMascot />
       <ClaimsHelpCard />
-      <IconButton aria-label="Dismiss the help card" data-help-dismiss onClick={onDismiss} className="absolute right-2 top-2 z-10 h-8 w-8 bg-paper/80">
-        <XIcon size={15} />
-      </IconButton>
-      <div className="flex justify-center bg-accent-soft pt-3">
-        <EnterpriseMascot pose="greet" size="lg" />
+      <div className="ent-help-plate h-[140px] flex-none">
+        {/* eslint-disable-next-line @next/next/no-img-element -- a fixed static bee plate */}
+        <img src={`${ENT_MASCOT_BASE}/typing.png`} alt="" width={182} height={199} className="absolute bottom-0 left-1/2 h-[128px] w-auto -translate-x-[58%]" />
+        <IconButton aria-label="Dismiss the help card" data-help-dismiss onClick={onDismiss} className="absolute right-2 top-2 z-10 h-8 w-8 rounded-lg bg-paper/90">
+          <XIcon size={16} />
+        </IconButton>
       </div>
-      <div className="p-4 sm:p-5">
-        <h2 className="text-[19px] font-extrabold leading-tight text-ink">Need help, {firstName}?</h2>
-        <p className="mt-1.5 text-[13.5px] leading-snug text-muted">I can help you find reports, manage users, or answer questions about {orgName}.</p>
+      <div className="flex flex-1 flex-col px-3.5 pb-2.5 pt-3">
+        <h2 className="text-[20px] font-extrabold leading-tight text-ink">Need help, {firstName}?</h2>
+        <p className="mt-1 text-[15px] leading-snug text-ink-soft">I can help you find reports, manage users, or answer questions about {orgName}.</p>
         <button
           type="button"
           onClick={openHelpPanel}
-          className="mt-4 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft/70"
+          className="mt-auto flex min-h-10 w-full items-center gap-2.5 rounded-[10px] border border-[#cfe0fb] bg-[#eef4ff] px-3.5 text-left text-[16px] font-semibold text-accent hover:bg-[#e6efff]"
         >
-          <SparklesIcon size={17} className="flex-none" />
+          <SparklesIcon size={20} className="flex-none" />
           <span className="min-w-0 flex-1 truncate">Ask a question...</span>
-          <ChevronRightIcon size={16} className="flex-none" />
+          <ChevronRightIcon size={18} className="flex-none" />
         </button>
       </div>
     </section>
@@ -576,13 +601,13 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
   if (status === "denied") return <ErrorState what="the dashboard" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
 
   return (
-    <div data-dashboard data-status={status} className="flex flex-col gap-4 sm:gap-5">
+    <div data-dashboard data-status={status} className="ent-page relative flex flex-col gap-4 sm:gap-[17px]">
       <PageHeader title="Organization Dashboard" subtitle={`Welcome back! Here's what's happening at ${orgName} today.`} />
 
-      <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1">
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1 xl:absolute xl:-top-[34px] xl:right-0 xl:min-h-0 xl:justify-end">
         <ul aria-label="Needs a look" className="flex min-w-0 flex-wrap gap-2">
           {chips.map((c) => {
-            const cls = cn("inline-flex min-h-8 items-center rounded-full px-3 text-[12.5px] font-semibold", c.tone === "warn" ? "bg-v2-amber-soft text-v2-amber-ink" : "bg-accent-soft text-accent-deep");
+            const cls = cn("inline-flex min-h-8 items-center rounded-full px-3 text-[12.5px] font-semibold xl:min-h-6", c.tone === "warn" ? "bg-v2-amber-soft text-v2-amber-ink" : "bg-accent-soft text-accent-deep");
             return (
               <li key={c.key} data-dash-chip={c.key}>
                 {c.href ? (
@@ -603,19 +628,19 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
         <ErrorState what="the dashboard" description="Your organization's numbers didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <>
-          <section aria-label="Key numbers" data-dash-tiles className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6">
+          <section aria-label="Key numbers" data-dash-tiles className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-6 xl:gap-[17px] xl:pt-2.5">
             {TILE_KEYS.map((key, i) => (
               <StatTile key={key} index={i} loading={loading} widget={w(key)} spec={{ key, title: TILE_TITLES[key], ...TILES[key] }} onRetry={() => void reload()} />
             ))}
           </section>
 
-          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.77fr)_minmax(0,1.16fr)_minmax(0,1fr)]">
+          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.77fr)_minmax(0,1.16fr)_minmax(0,1fr)] xl:gap-[17px]">
             <TeamPerformanceCard body={body("team.performance")} />
             <PipelineCard body={body("pipeline.overview")} />
             <QuickActionsCard body={body("quick.actions")} />
           </div>
 
-          <div className={cn("grid gap-4 sm:gap-5 lg:grid-cols-2", help.dismissed === false ? "xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1fr)]" : "xl:grid-cols-2")}>
+          <div className={cn("grid gap-4 sm:gap-5 lg:grid-cols-2 xl:gap-[17px]", help.dismissed === false ? "xl:grid-cols-[minmax(0,1.47fr)_minmax(0,1.46fr)_minmax(0,1fr)]" : "xl:grid-cols-2")}>
             <AlertsCard body={body("alerts")} hidden={hidden} onDismiss={dismiss} now={now} />
             <RecentActivityCard body={body("activity.recent")} now={now} viewAll={auditHref ?? applicationsHref} />
             {help.dismissed === false ? <BeeHelpCard firstName={firstName} orgName={orgName} onDismiss={help.dismiss} /> : null}

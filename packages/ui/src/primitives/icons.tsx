@@ -1092,3 +1092,147 @@ export const ImageIcon = makeIcon("ImageIcon", {
     </>
   ),
 });
+
+/* ── Solid tile glyphs (the Enterprise boards' KPI tiles and card headers draw filled icons) ───────────────────────── */
+
+/** Two people, solid. */
+export const UsersSolidIcon = makeIcon("UsersSolidIcon", {
+  stroke: false,
+  node: (
+    <>
+      <circle cx="9" cy="7.8" r="3.6" />
+      <path d="M2.4 19.2c0-3.7 2.9-6 6.6-6s6.6 2.3 6.6 6c0 .9-.6 1.4-1.4 1.4H3.8c-.8 0-1.4-.5-1.4-1.4z" />
+      <circle cx="17.2" cy="8.6" r="2.7" />
+      <path d="M16.6 13.2c3 .1 4.9 1.9 4.9 4.9 0 .8-.5 1.3-1.2 1.3h-3.2c.3-.5.4-1 .4-1.6 0-1.8-.7-3.5-2-4.5.3-.1.7-.1 1.1-.1z" />
+    </>
+  ),
+});
+
+/** Three people (one in front, two behind), solid. */
+export const TeamSolidIcon = makeIcon("TeamSolidIcon", {
+  stroke: false,
+  node: (
+    <>
+      <circle cx="12" cy="7.4" r="3.4" />
+      <path d="M5.4 19.4c0-3.6 2.9-5.9 6.6-5.9s6.6 2.3 6.6 5.9c0 .9-.6 1.4-1.4 1.4H6.8c-.8 0-1.4-.5-1.4-1.4z" />
+      <circle cx="4.6" cy="9.6" r="2.2" />
+      <circle cx="19.4" cy="9.6" r="2.2" />
+      <path d="M1 17.3c0-2.2 1.5-3.7 3.6-3.7.5 0 1 .1 1.5.3-1 1-1.6 2.4-1.7 4H2.1c-.6 0-1.1-.2-1.1-.6zM23 17.3c0-2.2-1.5-3.7-3.6-3.7-.5 0-1 .1-1.5.3 1 1 1.6 2.4 1.7 4h2.3c.6 0 1.1-.2 1.1-.6z" />
+    </>
+  ),
+});
+
+/** A document with text lines, solid. */
+export const FileTextSolidIcon = makeIcon("FileTextSolidIcon", {
+  stroke: false,
+  node: <path fillRule="evenodd" d="M7 2.5h7.2l5.3 5.3V19a2.5 2.5 0 0 1-2.5 2.5H7A2.5 2.5 0 0 1 4.5 19V5A2.5 2.5 0 0 1 7 2.5zM8 7.7h4v1.6H8zm0 3.5h8v1.6H8zm0 3.4h8v1.6H8z" />,
+});
+
+/** A calendar with a date grid, solid. */
+export const CalendarSolidIcon = makeIcon("CalendarSolidIcon", {
+  stroke: false,
+  node: (
+    <path
+      fillRule="evenodd"
+      d="M7 2.5a1 1 0 0 1 1 1V5h8V3.5a1 1 0 1 1 2 0V5h.5A2.5 2.5 0 0 1 21 7.5v11a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5v-11A2.5 2.5 0 0 1 5.5 5H6V3.5a1 1 0 0 1 1-1zM7.5 10.5h2v2h-2zm3.5 0h2v2h-2zm3.5 0h2v2h-2zM7.5 14h2v2h-2zm3.5 0h2v2h-2zm3.5 0h2v2h-2z"
+    />
+  ),
+});
+
+/** A briefcase, solid. */
+export const BriefcaseSolidIcon = makeIcon("BriefcaseSolidIcon", {
+  stroke: false,
+  node: (
+    <>
+      <path fillRule="evenodd" d="M9 4.5A1.5 1.5 0 0 1 10.5 3h3A1.5 1.5 0 0 1 15 4.5V6h3.5A2.5 2.5 0 0 1 21 8.5V12H3V8.5A2.5 2.5 0 0 1 5.5 6H9zm1.6 0V6h2.8V4.5z" />
+      <path d="M3 13.4h6v1.2h6v-1.2h6v5.1a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 18.5z" />
+    </>
+  ),
+});
+
+/** A stack of coins, solid. */
+export const CoinsSolidIcon = makeIcon("CoinsSolidIcon", {
+  stroke: false,
+  node: (
+    <>
+      <ellipse cx="9.5" cy="6.2" rx="6.5" ry="3" />
+      <path d="M3 9v2.2c0 1.7 2.9 3 6.5 3s6.5-1.3 6.5-3V9c-1.5 1.2-3.9 1.9-6.5 1.9S4.5 10.2 3 9z" />
+      <path d="M3 14v2.2c0 1.7 2.9 3 6.5 3s6.5-1.3 6.5-3V14c-1.5 1.2-3.9 1.9-6.5 1.9S4.5 15.2 3 14z" />
+      <path d="M17.5 9.6c2.1.2 3.5 1.1 3.5 2.3v2c0 1-1 1.8-2.5 2.2-.2-.5-.5-.9-.9-1.3 1-.3 1.5-.6 1.5-.9v-.6c-.6.4-1.5.7-2.4.8.1-.9.1-1.8-.2-2.5.4-.1.7-.3 1-.5zM17.9 15.2c1.6 0 3.1-.3 3.1-.3v1.9c0 1-1.5 1.8-3.2 2.1-.1-.8-.3-1.5-.7-2.2.3-.2.6-.5.8-.9z" />
+    </>
+  ),
+});
+
+/** A circle with two pause bars, solid. */
+export const PauseCircleSolidIcon = makeIcon("PauseCircleSolidIcon", {
+  stroke: false,
+  node: <path fillRule="evenodd" d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zM9.6 8h1.8v8H9.6zm3 0h1.8v8h-1.8z" />,
+});
+
+/** A closed envelope, solid. */
+export const MailSolidIcon = makeIcon("MailSolidIcon", {
+  stroke: false,
+  node: (
+    <>
+      <path d="M3 7.2A2.7 2.7 0 0 1 5.7 4.5h12.6A2.7 2.7 0 0 1 21 7.2v.2l-9 5.6-9-5.6z" />
+      <path d="M3 9.7l8.4 5.2a1.2 1.2 0 0 0 1.2 0L21 9.7v7.1a2.7 2.7 0 0 1-2.7 2.7H5.7A2.7 2.7 0 0 1 3 16.8z" />
+    </>
+  ),
+});
+
+/** A lightning bolt, solid. */
+export const BoltSolidIcon = makeIcon("BoltSolidIcon", {
+  stroke: false,
+  node: <path d="M13.6 1.8 4.4 13.4a.8.8 0 0 0 .6 1.3h5.2l-1.3 6.9a.5.5 0 0 0 .9.4l9-11.7a.8.8 0 0 0-.6-1.3h-5.1l1.2-6.9a.5.5 0 0 0-.7-.3z" />,
+});
+
+/** A bell, solid. */
+export const BellSolidIcon = makeIcon("BellSolidIcon", {
+  stroke: false,
+  node: (
+    <>
+      <path d="M12 2.6a6.2 6.2 0 0 0-6.2 6.2v3.1c0 .9-.3 1.7-.9 2.4L3.6 16c-.7.8-.1 2 .9 2h15c1 0 1.6-1.2.9-2l-1.3-1.7a3.7 3.7 0 0 1-.9-2.4V8.8A6.2 6.2 0 0 0 12 2.6z" />
+      <path d="M9.6 19.6a2.5 2.5 0 0 0 4.8 0z" />
+    </>
+  ),
+});
+
+/** Three bars of a bar chart, solid. */
+export const BarChartSolidIcon = makeIcon("BarChartSolidIcon", {
+  stroke: false,
+  node: (
+    <>
+      <rect x="3.5" y="11" width="4.6" height="9.5" rx="1.3" />
+      <rect x="9.7" y="4.5" width="4.6" height="16" rx="1.3" />
+      <rect x="15.9" y="8" width="4.6" height="12.5" rx="1.3" />
+    </>
+  ),
+});
+
+/** A pie chart with a slice pulled out, solid. */
+export const PieSolidIcon = makeIcon("PieSolidIcon", {
+  stroke: false,
+  node: (
+    <>
+      <path d="M11 3.2a9 9 0 1 0 9.8 9.8H11z" />
+      <path d="M13.2 2.5v8.3h8.3A8.4 8.4 0 0 0 13.2 2.5z" />
+    </>
+  ),
+});
+
+/** A clock face, solid ring. */
+export const ClockSolidIcon = makeIcon("ClockSolidIcon", {
+  stroke: false,
+  node: <path fillRule="evenodd" d="M12 2.5a9.5 9.5 0 1 0 0 19 9.5 9.5 0 0 0 0-19zm-.9 4.2h1.8v5l3.5 2.1-.9 1.5-4.4-2.7z" />,
+});
+
+/** A circle with a diagonal bar ("not allowed"), outline. */
+export const BanIcon = makeIcon("BanIcon", {
+  strokeWidth: 2.1,
+  node: (
+    <>
+      <circle cx="12" cy="12" r="8.6" />
+      <path d="M6 18 18 6" />
+    </>
+  ),
+});

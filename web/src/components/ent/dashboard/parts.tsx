@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
-import { Button, LockIcon, RefreshIcon, Skeleton, Sparkline, Tooltip, IconButton, chartColor, cn } from "@kiwiply/ui";
-import type { IconProps } from "@kiwiply/ui";
+import { Button, LockIcon, RefreshIcon, Skeleton, Sparkline, Tooltip, IconButton, cn, kpiLine } from "@kiwiply/ui";
+import type { IconProps, KpiTone } from "@kiwiply/ui";
 import { comparedToText, deltaFromPct, statTileOf, tileValueText, unavailableText, type DashboardWidget } from "@/lib/ent/dashboard";
 
 /**
@@ -15,21 +15,42 @@ import { comparedToText, deltaFromPct, statTileOf, tileValueText, unavailableTex
  *   error        one inline retry for this card only
  */
 
-export const CARD = "rounded-2xl border border-line/70 bg-paper shadow-[0_1px_3px_rgb(16_24_40/0.06),0_1px_2px_rgb(16_24_40/0.04)]";
+export const CARD = "ent-card";
 
-export function CardHead({ icon: Icon, title, tone = "accent", children, id }: { icon: ComponentType<IconProps>; title: string; tone?: IconTone; children?: ReactNode; id: string }) {
+/**
+ * A card's header: the board's tinted 40 px icon tile + the 20 px bold title (`tile`), or a bare coloured glyph for the cards the
+ * board draws without a tile (Quick Actions, Activity & Alerts, Recent Activity). `children` is the control on the right.
+ */
+export function CardHead({ icon: Icon, title, tone = "accent", children, id, tile = true }: { icon: ComponentType<IconProps>; title: string; tone?: IconTone; children?: ReactNode; id: string; tile?: boolean }) {
   return (
     <header className="flex min-h-10 items-center gap-3">
-      <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl", TONES[tone])}>
-        <Icon size={22} />
-      </span>
-      <h2 id={id} className="min-w-0 flex-1 truncate text-[19px] font-bold text-ink">
+      {tile ? (
+        <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-[10px]", TONES[tone])}>
+          <Icon size={22} />
+        </span>
+      ) : (
+        <span aria-hidden className={cn("grid h-8 w-8 flex-none place-items-center", BARE[tone])}>
+          <Icon size={24} />
+        </span>
+      )}
+      <h2 id={id} className="min-w-0 flex-1 truncate text-[20px] font-bold leading-tight text-ink">
         {title}
       </h2>
       {children}
     </header>
   );
 }
+
+/** The glyph colour of a tile-less header icon. */
+const BARE: Record<IconTone, string> = {
+  accent: "text-accent",
+  violet: "text-v2-violet",
+  green: "text-v2-green",
+  amber: "text-v2-amber",
+  pink: "text-v2-coral",
+  teal: "text-v2-teal",
+  coral: "text-v2-coral",
+};
 
 export type IconTone = "accent" | "violet" | "green" | "amber" | "pink" | "teal" | "coral";
 export const TONES: Record<IconTone, string> = {
@@ -97,23 +118,23 @@ export interface TileSpec {
   key: string;
   title: string;
   icon: ComponentType<IconProps>;
-  tone: IconTone;
-  /** The sparkline colour (a CSS variable); a falling number is drawn in the danger colour whatever this is. */
-  spark?: string;
+  /** The board's fixed tile palette (icon square + curve colour): violet, green, blue, orange, indigo, pink. */
+  tone: KpiTone;
   /** Where the tile leads, when its page exists. */
   href?: string | null;
 }
 
-const TILE = "flex min-h-[172px] min-w-0 flex-col rounded-2xl border border-line/70 bg-paper p-4 shadow-[0_1px_3px_rgb(16_24_40/0.06),0_1px_2px_rgb(16_24_40/0.04)] sm:p-5";
+/** The board's tile: 187 px tall at its design width, a 52 px icon square, label, figure with its curve, and the delta line pinned to the foot. */
+const TILE = "ent-card flex min-h-[172px] min-w-0 flex-col px-[18px] pb-[17px] pt-4 xl:min-h-[187px]";
 
 function TileFrame({ spec, children, state }: { spec: TileSpec; children: ReactNode; state: string }) {
   const Icon = spec.icon;
   return (
     <section aria-label={spec.title} data-stat-tile={spec.key} data-state={state} className={TILE}>
-      <span aria-hidden className={cn("grid h-[52px] w-[52px] flex-none place-items-center rounded-[14px]", TONES[spec.tone])}>
-        <Icon size={26} />
+      <span aria-hidden className="ent-kpi-chip !h-[52px] !w-[52px] !rounded-[14px]" data-tone={spec.tone}>
+        <Icon size={28} />
       </span>
-      <h3 className="mt-3 truncate text-[16px] font-medium text-ink">{spec.title}</h3>
+      <h3 className="ent-kpi-label mt-[11px] truncate">{spec.title}</h3>
       {children}
     </section>
   );
@@ -163,26 +184,27 @@ export function StatTile({ spec, widget, loading, onRetry, index }: { spec: Tile
     .filter(([k, n]) => k !== "active" && n > 0)
     .map(([k, n]) => `${nf(n)} ${k}`)
     .join(" · ");
+  void index;
   const body = (
     <>
-      <div className="mt-2 flex items-end justify-between gap-2">
-        <p data-tile-value className="text-[34px] font-extrabold leading-none tabular-nums text-ink">
+      <div className="mt-1.5 flex items-end justify-between gap-2">
+        <p data-tile-value className="ent-kpi-value">
           {tileValueText(tile)}
         </p>
-        <div className="mb-0.5 w-[46%] max-w-[104px] flex-none">
-          <Sparkline values={tile.sparkline} color={tile.deltaPct !== null && tile.deltaPct < 0 ? "var(--color-v2-coral)" : (spec.spark ?? chartColor(index))} />
+        <div className="mb-0.5 w-[38%] max-w-[84px] flex-none">
+          <Sparkline values={tile.sparkline} smooth color={tile.deltaPct !== null && tile.deltaPct < 0 ? "var(--ent-kpi-bad)" : kpiLine(spec.tone)} className="!h-[34px]" />
         </div>
       </div>
-      <p className="mt-3 flex min-h-5 flex-wrap items-center gap-x-2 text-[12.5px] text-muted">
+      <p className="mt-auto flex min-h-5 flex-wrap items-center gap-x-2 pt-2.5 text-[12.5px] text-[#46527e]">
         {delta ? (
           <>
-            <span data-delta={delta.dir} className={cn("inline-flex items-center gap-1 text-[14px] font-bold", delta.dir === "up" ? "text-v2-green-ink" : delta.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
+            <span data-delta={delta.dir} data-good={delta.dir === "up" ? "true" : delta.dir === "down" ? "false" : undefined} className="ent-kpi-delta inline-flex items-center gap-1 text-[14.5px] font-bold">
               <span aria-hidden className="text-[10px]">{delta.dir === "up" ? "▲" : delta.dir === "down" ? "▼" : "▶"}</span>
               <span className="sr-only">{delta.dir === "up" ? "Up " : delta.dir === "down" ? "Down " : "No change "}</span>
               {delta.dir === "up" ? "+" : delta.dir === "down" ? "-" : ""}
               {delta.text}
             </span>
-            <span className="text-[13.5px]">{comparedToText(tile.comparedTo)}</span>
+            <span className="text-[14px]">{comparedToText(tile.comparedTo)}</span>
           </>
         ) : parts ? (
           <span data-tile-counts>{parts}</span>
@@ -193,11 +215,11 @@ export function StatTile({ spec, widget, loading, onRetry, index }: { spec: Tile
   return (
     <TileFrame spec={spec} state="ok">
       {spec.href ? (
-        <Link href={spec.href} className="-m-1 block rounded-lg p-1 hover:bg-paper-2/60" aria-label={`${spec.title}: ${tileValueText(tile)}. Open`}>
+        <Link href={spec.href} className="-m-1 flex flex-1 flex-col rounded-lg p-1 hover:bg-paper-2/60" aria-label={`${spec.title}: ${tileValueText(tile)}. Open`}>
           {body}
         </Link>
       ) : (
-        body
+        <div className="flex flex-1 flex-col">{body}</div>
       )}
     </TileFrame>
   );
