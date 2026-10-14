@@ -84,7 +84,7 @@ public class MktResumesDemoSeeder {
                 if (r.getId() % 9 == 4) out.add(event(r, MktResumeEvent.MARKED_FOR_UPDATE, r.getVersionNo(), updated));
             }
         }
-        events.saveAll(out);
+        for (var ev : out) events.save(ev);
         return out.size();
     }
 

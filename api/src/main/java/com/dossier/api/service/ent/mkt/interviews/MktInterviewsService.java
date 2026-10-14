@@ -398,7 +398,8 @@ public class MktInterviewsService {
                 it.setCreatedAt(clock.instant());
                 fresh.add(it);
             }
-            items = prep.saveAll(fresh);
+            items = new ArrayList<>();
+            for (MktInterviewPrepItem it : fresh) items.add(prep.save(it));
         }
         List<PrepItem> out = new ArrayList<>();
         for (MktInterviewPrepItem it : items) out.add(new PrepItem(it.getId(), it.getLabel(), it.isDone()));

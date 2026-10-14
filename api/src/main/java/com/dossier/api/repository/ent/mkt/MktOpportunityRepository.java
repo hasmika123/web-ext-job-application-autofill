@@ -4,12 +4,12 @@ import com.dossier.api.domain.ent.mkt.MktOpportunity;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 /** Org-scoped access to {@code mkt_opportunity} and the joined read model of the Opportunities page: every method takes the organization id first. */
-public interface MktOpportunityRepository extends JpaRepository<MktOpportunity, Long> {
+public interface MktOpportunityRepository extends Repository<MktOpportunity, Long> {
 
     String ROW =
         "select new com.dossier.api.repository.ent.mkt.MktOpportunityRow("
@@ -45,4 +45,6 @@ public interface MktOpportunityRepository extends JpaRepository<MktOpportunity, 
     /** The match of a consultant and a job, whatever its status (the add-opportunity duplicate guard). */
     @Query("select m from RequirementMatch m where m.orgId = :orgId and m.requirementId = :requirementId and m.consultantId = :consultantId")
     Optional<RequirementMatch> findMatchByPair(@Param("orgId") Long orgId, @Param("requirementId") Long requirementId, @Param("consultantId") Long consultantId);
+
+    <S extends MktOpportunity> S save(S entity);
 }

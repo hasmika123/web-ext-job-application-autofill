@@ -44,10 +44,10 @@ class MktOpportunityDemoSeederTest {
             savedOpps.add(o);
             return o;
         });
-        when(events.saveAll(any())).thenAnswer(i -> {
-            Iterable<MktOpportunityEvent> es = i.getArgument(0);
-            es.forEach(savedEvents::add);
-            return List.copyOf(savedEvents);
+        when(events.save(any(MktOpportunityEvent.class))).thenAnswer(i -> {
+            MktOpportunityEvent e = i.getArgument(0);
+            savedEvents.add(e);
+            return e;
         });
     }
 

@@ -60,14 +60,14 @@ class MktInterviewsDemoSeederTest {
     void refusedWhenTheDemoSwitchesAreOff() {
         when(gate.refusal()).thenReturn("the demo is off (DEMO_ENABLED)");
         assertThat(seeder.seed()).isZero();
-        verify(metas, never()).saveAll(any());
+        verify(metas, never()).save(any());
     }
 
     @Test
     void skipsAnOrganizationThatAlreadyHasMeta() {
         when(metas.countByOrgId(5L)).thenReturn(3L);
         assertThat(seeder.seedOrg(5L, NOW)).isZero();
-        verify(metas, never()).saveAll(any());
+        verify(metas, never()).save(any());
     }
 
     @Test
@@ -83,9 +83,9 @@ class MktInterviewsDemoSeederTest {
         assertThat(seeder.seedOrg(5L, NOW)).isEqualTo(40);
 
         @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<MktInterviewMeta>> captor = ArgumentCaptor.forClass(List.class);
-        verify(metas).saveAll(captor.capture());
-        List<MktInterviewMeta> m = captor.getValue();
+        ArgumentCaptor<MktInterviewMeta> captor = ArgumentCaptor.forClass(MktInterviewMeta.class);
+        verify(metas, org.mockito.Mockito.times(40)).save(captor.capture());
+        List<MktInterviewMeta> m = captor.getAllValues();
         assertThat(m).hasSize(40).allSatisfy(x -> {
             assertThat(x.getOrgId()).isEqualTo(5L);
             assertThat(x.getInterviewType()).isIn("VIDEO", "ONSITE", "TECHNICAL", "PANEL", "CLIENT");
@@ -94,20 +94,20 @@ class MktInterviewsDemoSeederTest {
             assertThat(x.getFeedbackDueAt()).isNotNull();
         });
         assertThat(m).extracting(MktInterviewMeta::getCoordinationStatus).contains("CONFIRMED");
-        verify(feedback).saveAll(any());
-        verify(events).saveAll(any());
+        verify(feedback, org.mockito.Mockito.atLeastOnce()).save(any());
+        verify(events, org.mockito.Mockito.atLeastOnce()).save(any());
         // the same run twice gives the same rows (deterministic per interview)
         when(metas.countByOrgId(anyLong())).thenReturn(0L);
         seeder.seedOrg(5L, NOW);
-        ArgumentCaptor<List<MktInterviewMeta>> second = ArgumentCaptor.forClass(List.class);
-        verify(metas, org.mockito.Mockito.times(2)).saveAll(second.capture());
-        assertThat(second.getAllValues().get(1)).extracting(MktInterviewMeta::getCoordinationStatus).containsExactlyElementsOf(m.stream().map(MktInterviewMeta::getCoordinationStatus).toList());
+        ArgumentCaptor<MktInterviewMeta> second = ArgumentCaptor.forClass(MktInterviewMeta.class);
+        verify(metas, org.mockito.Mockito.times(80)).save(second.capture());
+        assertThat(second.getAllValues().subList(40, 80)).extracting(MktInterviewMeta::getCoordinationStatus).containsExactlyElementsOf(m.stream().map(MktInterviewMeta::getCoordinationStatus).toList());
     }
 
     @Test
     void anOrganizationWithoutInterviewsWritesNothing() {
         when(interviews.findLiveFrom(5L, Instant.EPOCH)).thenReturn(List.of());
         assertThat(seeder.seedOrg(5L, NOW)).isZero();
-        verify(metas, never()).saveAll(any());
+        verify(metas, never()).save(any());
     }
 }

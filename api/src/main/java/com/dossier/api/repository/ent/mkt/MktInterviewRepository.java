@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,7 +13,7 @@ import org.springframework.data.repository.query.Param;
  * The Interviews page's own org-scoped reads over {@code talent_interview} (the talent repository stays untouched). Cancelled slots are
  * never part of the board. Every method takes the organization id first.
  */
-public interface MktInterviewRepository extends JpaRepository<TalentInterview, Long> {
+public interface MktInterviewRepository extends Repository<TalentInterview, Long> {
 
     Optional<TalentInterview> findByOrgIdAndId(Long orgId, Long id);
 
@@ -38,4 +38,6 @@ public interface MktInterviewRepository extends JpaRepository<TalentInterview, L
     /** {applicationId, job title} for the given applications of this organization. {@code ids} must not be empty. */
     @Query("select a.id, r.title from TalentApplication a, ClientRequirement r where a.orgId = :orgId and r.orgId = :orgId and a.requirementId = r.id and a.id in :ids")
     List<Object[]> findRoleTitles(@Param("orgId") Long orgId, @Param("ids") Collection<Long> ids);
+
+    <S extends TalentInterview> S save(S entity);
 }

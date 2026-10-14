@@ -3,12 +3,12 @@ package com.dossier.api.repository.ent.mkt;
 import com.dossier.api.domain.ent.mkt.MktInterviewEvent;
 import java.time.Instant;
 import java.util.List;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 /** Org-scoped access to {@code mkt_interview_event}; every method takes the organization id first. */
-public interface MktInterviewEventRepository extends JpaRepository<MktInterviewEvent, Long> {
+public interface MktInterviewEventRepository extends Repository<MktInterviewEvent, Long> {
     List<MktInterviewEvent> findByOrgIdAndKindAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(Long orgId, String kind, Instant from, Instant to);
 
     List<MktInterviewEvent> findByOrgIdAndInterviewIdAndKindAndOccurredAtGreaterThanEqual(Long orgId, Long interviewId, String kind, Instant since);
@@ -18,4 +18,6 @@ public interface MktInterviewEventRepository extends JpaRepository<MktInterviewE
     List<Object[]> findOccurrencesWithConsultant(@Param("orgId") Long orgId, @Param("kind") String kind, @Param("from") Instant from, @Param("to") Instant to);
 
     long countByOrgId(Long orgId);
+
+    <S extends MktInterviewEvent> S save(S entity);
 }

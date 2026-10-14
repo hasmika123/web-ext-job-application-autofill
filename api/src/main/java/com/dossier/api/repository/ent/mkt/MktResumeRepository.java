@@ -7,7 +7,7 @@ import com.dossier.api.domain.ent.talent.OrgResumeExperience;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -15,7 +15,7 @@ import org.springframework.data.repository.query.Param;
  * The Marketing Resumes page's own org-scoped queries over {@code org_resume} (the shared talent repositories are left alone).
  * Every method takes the organization id first.
  */
-public interface MktResumeRepository extends JpaRepository<OrgResume, Long> {
+public interface MktResumeRepository extends Repository<OrgResume, Long> {
 
     @Query("select r from OrgResume r where r.orgId = :orgId and r.id = :id")
     Optional<OrgResume> byId(@Param("orgId") Long orgId, @Param("id") Long id);
@@ -40,4 +40,8 @@ public interface MktResumeRepository extends JpaRepository<OrgResume, Long> {
 
     @Query("select x from OrgResumeExperience x where x.orgId = :orgId and x.resumeId = :resumeId order by x.sortOrder asc, x.id asc")
     List<OrgResumeExperience> experience(@Param("orgId") Long orgId, @Param("resumeId") Long resumeId);
+
+    <S extends OrgResume> S save(S entity);
+
+    <S extends OrgResume> S saveAndFlush(S entity);
 }

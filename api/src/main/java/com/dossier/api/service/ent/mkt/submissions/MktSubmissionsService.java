@@ -311,7 +311,7 @@ public class MktSubmissionsService {
     public void deleteView(OrgMembership me, Long id) {
         MktScope.View view = scope.resolve(me, KEY);
         MktSubmissionView v = views.findByOrgIdAndMemberIdAndId(view.orgId(), view.memberId(), id).orElseThrow(OrgNotFoundException::new);
-        views.delete(v);
+        views.deleteByOrgIdAndMemberIdAndId(view.orgId(), view.memberId(), v.getId());
     }
 
     // ---- internals -------------------------------------------------------------------------------------------------------------

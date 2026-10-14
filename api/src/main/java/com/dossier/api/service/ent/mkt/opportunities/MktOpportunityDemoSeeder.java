@@ -118,7 +118,7 @@ public class MktOpportunityDemoSeeder {
             if (assigned && o.getInterestRequestedAt() != null) events.add(event(o, "INTEREST_REQUESTED", r.assignedMarketerId(), "was asked for their interest", o.getInterestRequestedAt()));
             if (!"NO_RESPONSE".equals(interest)) events.add(event(o, "INTEREST_CHANGED", null, VERB.get(interest), o.getLastResponseAt()));
             else if (rnd.nextBoolean()) events.add(event(o, "REVIEWED", r.assignedMarketerId(), "reviewed opportunity", updated));
-            eventRepo.saveAll(events);
+            for (var ev : events) eventRepo.save(ev);
         }
         LOG.info("Opportunities demo seeded for org {}: {} opportunities", orgId, made);
         return made;

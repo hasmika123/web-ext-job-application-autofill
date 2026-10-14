@@ -144,9 +144,9 @@ public class MktInterviewsDemoSeeder {
             }
             metaRows.add(m);
         }
-        metas.saveAll(metaRows);
-        feedback.saveAll(feedbackRows);
-        events.saveAll(eventRows);
+        for (var row : metaRows) metas.save(row);
+        for (var row : feedbackRows) feedback.save(row);
+        for (var row : eventRows) events.save(row);
         LOG.info("Interviews demo seeded for org {}: {} meta, {} feedback, {} events", orgId, metaRows.size(), feedbackRows.size(), eventRows.size());
         return metaRows.size();
     }
