@@ -53,9 +53,10 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
     private final OpsDemoSeeder ops;
     private final ClientsDemoSeeder clientsDemo;
     private final PlacementDemoSeeder placementDemo;
+    private final com.dossier.api.service.ent.consultantws.ConsultantInboxDemoSeeder inboxDemo;
     private final boolean createAccounts;
 
-    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, OpsDemoSeeder ops, ClientsDemoSeeder clientsDemo, PlacementDemoSeeder placementDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
+    public EnterpriseDemoBootstrap(EnterpriseDemoSeeder seeder, RoleTemplateSeeder roleTemplates, TalentDemoSeeder talent, ConsultantWsDemoSeeder consultantWs, ConsultantWsProfileDemoSeeder profileSeed, ConsultantWsResumesDemoSeeder resumesSeed, ConsultantWsMarketerDemoSeeder marketerSeed, ConsultantWsMatchesDemoSeeder matchesSeed, ConsultantWsJobDiscoveryDemoSeeder discoverySeed, ConsultantWsInterviewsDemoSeeder interviewsSeed, ConsultantWsInterviewPrepDemoSeeder prepSeed, ConsultantWsSubmissionsDemoSeeder submissionsSeed, ConsultantWsOpportunitiesDemoSeeder opportunitiesSeed, ConsultantWsTasksDemoSeeder tasksSeed, ConsultantWsAvailabilityDemoSeeder availabilitySeed, ConsultantWsOffersDemoSeeder offersSeed, ConsultantWsPlacementDemoSeeder placementSeed, ConsultantWsSettingsDemoSeeder settingsSeed, ConsultantWsNotificationsDemoSeeder notificationsSeed, ConsultantWsJobSourceDemoSeeder jobSourceSeed, BillingDemoSeeder billing, OpsDemoSeeder ops, ClientsDemoSeeder clientsDemo, PlacementDemoSeeder placementDemo, com.dossier.api.service.ent.consultantws.ConsultantInboxDemoSeeder inboxDemo, @Value("${dossier.demo.create-accounts:true}") boolean createAccounts) {
         this.seeder = seeder;
         this.roleTemplates = roleTemplates;
         this.talent = talent;
@@ -64,6 +65,7 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
         this.ops = ops;
         this.clientsDemo = clientsDemo;
         this.placementDemo = placementDemo;
+        this.inboxDemo = inboxDemo;
         // the consultant workspace pages' own demo rows, in dependency order (all after ConsultantWsDemoSeeder: matches build on its matches)
         this.consultantPages = java.util.List.of(profileSeed::seed, resumesSeed::seed, marketerSeed::seed, matchesSeed::seed, discoverySeed::seed, interviewsSeed::seed, prepSeed::seed, submissionsSeed::seed, opportunitiesSeed::seed, tasksSeed::seed, availabilitySeed::seed, offersSeed::seed, placementSeed::seed, settingsSeed::seed, notificationsSeed::seed, jobSourceSeed::seed);
         this.createAccounts = createAccounts;
@@ -118,6 +120,11 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             placementDemo.seed(); // Placements page demo data (end dates, upcoming, extensions, pool): after the talent rows exist
         } catch (RuntimeException e) {
             LOG.error("Placements demo seed failed; the Placements page has only the foundation rows.", e);
+        }
+        try {
+            inboxDemo.seed(); // the consultant Inbox page's demo rows (the add-on on Anika's license, two applications for the sample mailbox): after billing
+        } catch (RuntimeException e) {
+            LOG.error("Consultant inbox demo seed failed; the Inbox page has no demo add-on or applications.", e);
         }
     }
 }

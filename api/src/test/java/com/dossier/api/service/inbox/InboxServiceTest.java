@@ -69,7 +69,7 @@ class InboxServiceTest {
         messages = mock(InboxMessageRepository.class);
         states = mock(InboxFolderStateRepository.class);
         events = mock(ApplicationEventPublisher.class);
-        service = new InboxService(connections, users, entitlement, box, imap, messages, states, events);
+        service = new InboxService(connections, users, entitlement, mock(InboxEntitlement.class), box, imap, messages, states, events);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("user", "x"));
     }
 
@@ -143,7 +143,7 @@ class InboxServiceTest {
                 return Optional.of(u);
             }
             return null;
-        }), entitlement, box(false), imap, mock(InboxMessageRepository.class), mock(InboxFolderStateRepository.class), mock(ApplicationEventPublisher.class));
+        }), entitlement, mock(InboxEntitlement.class), box(false), imap, mock(InboxMessageRepository.class), mock(InboxFolderStateRepository.class), mock(ApplicationEventPublisher.class));
         assertThat(off.connect("jobs.hunt@gmail.com", "abcdefghijklmnop").refusal().code()).isEqualTo("UNAVAILABLE");
         assertThat(off.mine().available()).isFalse();
         verify(imap, never()).probe(anyString(), anyString());

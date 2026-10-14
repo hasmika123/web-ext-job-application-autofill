@@ -240,7 +240,7 @@ class PipelineApplicationLinkerTest {
             assertThat(o.getClosedAt()).isEqualTo(ConWorld.NOW);
             assertThat(w.eventKinds()).containsExactly("CLOSED");
         }
-        verify(w.projection, times(2)).mirror(eq(ConWorld.ORG), eq(APP_ID), any());
+        verify(w.projection, times(2)).mirror(eq(ConWorld.ORG), eq(APP_ID), any(), eq("EXTENSION"));
     }
 
     @Test
@@ -269,7 +269,22 @@ class PipelineApplicationLinkerTest {
         w.liveLink(1, APP_ID);
         applicationEvent(ApplicationStatus.OFFER, "Some Co", "Some Role", null, null, null);
         assertThat(w.opps.get(1L).o.getState()).isEqualTo("APPLIED");
-        verify(w.projection).mirror(ConWorld.ORG, APP_ID, ApplicationStatus.OFFER);
+        verify(w.projection).mirror(ConWorld.ORG, APP_ID, ApplicationStatus.OFFER, "EXTENSION");
+    }
+
+    @Test
+    void aStageThatAMailMovedIsMirroredWithTheSourceInboxAndNothingElseAboutTheMail() {
+        w.opp(1, "APPLIED");
+        w.liveLink(1, APP_ID);
+        Application a = new Application();
+        a.setId(APP_ID);
+        a.setStatus(ApplicationStatus.INTERVIEW);
+        a.setCompany("Some Co");
+        a.setRoleTitle("Some Role");
+        when(applications.findById(APP_ID)).thenReturn(Optional.of(a));
+        linker.onApplicationEvent(new ApplicationEventRecorded(ConWorld.USER, APP_ID, "STATUS", ApplicationStatus.APPLIED, ApplicationStatus.INTERVIEW, "INBOX"));
+        // the event's source label is all that travels: the mirror gets the stage and the word INBOX, never a subject, sender or snippet
+        verify(w.projection).mirror(ConWorld.ORG, APP_ID, ApplicationStatus.INTERVIEW, "INBOX");
     }
 
     // ---- company + title is a suggestion only ----------------------------------------------------------------------------------

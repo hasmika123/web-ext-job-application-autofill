@@ -49,7 +49,7 @@ public class PipelineApplicationLinker {
             Application app = applications.findById(event.applicationId()).orElse(null);
             if (app == null) return;
             PipelineApplicationLinkWork.Facts facts = new PipelineApplicationLinkWork.Facts(
-                event.userId(), app.getId(), event.toStatus(), app.getCompany(), app.getRoleTitle(), app.getJobUrl(), app.getAtsPlatform(), app.getExternalJobId(), app.getAppliedAt()
+                event.userId(), app.getId(), event.toStatus(), app.getCompany(), app.getRoleTitle(), app.getJobUrl(), app.getAtsPlatform(), app.getExternalJobId(), app.getAppliedAt(), event.source()
             );
             Set<Long> done = new LinkedHashSet<>();
             for (OrgMember seat : members.findMine(event.userId())) {

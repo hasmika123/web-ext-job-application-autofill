@@ -63,8 +63,14 @@ public class PipelineApplicationLinkWork {
         String jobUrl,
         String atsPlatform,
         String externalJobId,
-        Instant appliedAt
-    ) {}
+        Instant appliedAt,
+        String source
+    ) {
+        /** Without a source (a caller that does not know what moved the application). */
+        public Facts(Long userId, Long applicationId, ApplicationStatus status, String company, String title, String jobUrl, String atsPlatform, String externalJobId, Instant appliedAt) {
+            this(userId, applicationId, status, company, title, jobUrl, atsPlatform, externalJobId, appliedAt, null);
+        }
+    }
 
     public static final String SUGGESTED = "LINK_SUGGESTED";
     public static final String APPLICATION_TERMINAL = "APPLICATION_TERMINAL";
@@ -142,7 +148,7 @@ public class PipelineApplicationLinkWork {
                 audit.record(orgId, OrgAuditService.SYSTEM_ACTOR, null, "LINKER_OPPORTUNITY_CLOSED", "OPPORTUNITY", null, String.valueOf(opp.getId()), APPLICATION_TERMINAL, null);
             }
         }
-        if (consent == ShareScope.FULL) projection.mirror(orgId, f.applicationId(), f.status());
+        if (consent == ShareScope.FULL) projection.mirror(orgId, f.applicationId(), f.status(), f.source());
     }
 
     // ---- a new APPLIED application: find its opportunity ---------------------------------------------------------------------------

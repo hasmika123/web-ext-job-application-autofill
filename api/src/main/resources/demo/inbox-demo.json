@@ -1,0 +1,20 @@
+{
+  "doc": "Sample mailbox of the DEMO STACK only (DemoImapGateway, active only when DEMO_ENABLED is on and the prod profile is not). Every value here is a test value: the address is the one demo address the sandbox accepts, any 16-letter code connects to it, a code that starts with 'zzzz' is refused as a wrong password and one that starts with 'yyyy' as 'Gmail wants an app password'. Nothing in this file ever reaches a real Gmail. Dates are days before the moment of reading.",
+  "address": "kiwiply.demo.anika@gmail.com",
+  "wrongCodePrefix": "zzzz",
+  "appPasswordRequiredPrefix": "yyyy",
+  "sentFolder": "[Gmail]/Sent Mail",
+  "applications": [
+    { "user": "demo-ent-acme-anika", "company": "Orbit Freight", "role": "Platform Engineer", "status": "APPLIED", "daysAgo": 11 },
+    { "user": "demo-ent-acme-anika", "company": "Cedar Analytics", "role": "Backend Developer", "status": "APPLIED", "daysAgo": 12 }
+  ],
+  "mails": [
+    { "folder": "Sent", "daysAgo": 11, "fromName": "Anika Rao", "fromAddress": "kiwiply.demo.anika@gmail.com", "to": "careers@orbitfreight.example", "subject": "Application: Platform Engineer", "body": "Hello, please find my application attached. Best, Anika" },
+    { "folder": "INBOX", "daysAgo": 10, "fromName": "Orbit Freight Careers", "fromAddress": "no-reply@orbitfreight.example", "subject": "Thank you for applying to Orbit Freight", "body": "Thank you for applying to Orbit Freight. We have received your application for the Platform Engineer position and will be in touch." },
+    { "folder": "INBOX", "daysAgo": 6, "fromName": "Cedar Analytics Recruiting", "fromAddress": "recruiting@cedaranalytics.example", "subject": "Update on your application to Cedar Analytics", "body": "Thank you for your interest in the Backend Developer role at Cedar Analytics. After careful consideration we have decided to pursue other candidates. We wish you every success." },
+    { "folder": "INBOX", "daysAgo": 4, "fromName": "Orbit Freight Careers", "fromAddress": "recruiting@orbitfreight.example", "subject": "Interview invitation: Platform Engineer at Orbit Freight", "body": "We would like to schedule an interview with you for the Platform Engineer role. Please share your availability for next week." },
+    { "folder": "INBOX", "daysAgo": 2, "fromName": "Lumen Health Talent", "fromAddress": "jobs@lumenhealth.example", "subject": "Thank you for applying to Lumen Health", "body": "Thanks for applying. We have received your application for the Data Engineer position at Lumen Health." },
+    { "folder": "INBOX", "daysAgo": 1, "fromName": "Harbor Cloud Recruiting", "fromAddress": "recruiting@harborcloud.example", "subject": "Interview invitation: Site Reliability Engineer at Harbor Cloud", "body": "We would like to invite you to an interview for the Site Reliability Engineer role at Harbor Cloud. Please share your availability." },
+    { "folder": "INBOX", "daysAgo": 3, "fromName": "Weekend Reads", "fromAddress": "digest@weekendreads.example", "subject": "Ten long articles for the weekend", "body": "A newsletter that is not job mail. Kiwiply keeps its headers only, never this text." }
+  ]
+}

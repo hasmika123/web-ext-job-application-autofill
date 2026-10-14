@@ -1,0 +1,50 @@
+package com.dossier.api.service.ent.consultantws;
+
+import java.time.Instant;
+import java.util.List;
+
+/**
+ * The shapes of the consultant workspace Inbox page (ent-inbox, docs/enterprise-v2/18-consultant-inbox.md). They are answered to the consultant
+ * about THEIR OWN mailbox and to nobody else: no organization route, role or report ever carries one of these. There is no field for the app
+ * password, in any form, and none for a message body.
+ */
+public final class ConsultantInboxDTO {
+
+    private ConsultantInboxDTO() {}
+
+    /**
+     * @param entitled    whether the consultant's organization license (or their own Pro plan) includes inbox tracking right now. When false the page
+     *                    explains it; a connection that exists is not read.
+     * @param status      CONNECTED | ERROR | NEEDS_RECONNECT | NO_ENTITLEMENT, or null when nothing is connected
+     * @param stoppedNote the sentence for a stopped connection ("Your organization no longer includes inbox tracking."), else null
+     * @param sandbox     true on the demo stack, where the mailbox is a built-in sample and no real Gmail is ever contacted
+     */
+    public record View(
+        boolean entitled,
+        boolean available,
+        boolean connected,
+        String address,
+        String status,
+        Instant connectedAt,
+        Instant lastCheckedAt,
+        String lastError,
+        String stoppedNote,
+        long messages,
+        boolean notifyEmail,
+        boolean sandbox
+    ) {}
+
+    /** A job the consultant's mail shows that their board does not track yet. */
+    public record Suggestion(Long id, String company, String role, String category, String stage, String subject, String fromName, String fromAddress, Instant sentAt) {}
+
+    /** One application the mail moved, as the consultant sees it: always "from your inbox"; the organization sees only the resulting stage elsewhere. */
+    public record Update(Long applicationId, String company, String role, String stage, String stageLabel, String reading, Instant at, String source) {}
+
+    public record Page(View inbox, List<Suggestion> suggestions, List<Update> updates) {}
+
+    public record ConnectRequest(String address, String appPassword) {}
+
+    public record AcceptRequest(String company, String roleTitle) {}
+
+    public record NotifyRequest(Boolean email) {}
+}

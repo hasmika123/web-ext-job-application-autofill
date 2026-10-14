@@ -688,6 +688,15 @@
           ]
         },
         {
+          "key": "inbox",
+          "label": "Inbox",
+          "icon": "Mail",
+          "href": "/w/consultant/inbox",
+          "needs": [
+            "applications.manage"
+          ]
+        },
+        {
           "key": "features",
           "label": "My Features",
           "icon": "Layers",

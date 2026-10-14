@@ -67,4 +67,26 @@ class TechnicalStructureTest {
         .should()
         .dependOnClassesThat()
         .belongToAnyOf(com.dossier.api.service.ent.TenantContext.class, com.dossier.api.service.ent.TenantContextHolder.class);
+
+    // ent-inbox (docs/enterprise-v2/18-consultant-inbox.md): THE PRIVACY WALL, as a build rule. Nothing that serves an organization (the enterprise
+    // services, DTOs, resources and the org package) may touch a person's Gmail connection, their stored mail or the key box: the only enterprise class
+    // that reads the mail tables is the consultant's own Inbox service, which answers the consultant about themself and nobody else. The organization sees
+    // an application's stage through the existing mirror, which is handed a stage and a source label and no mail.
+    @ArchTest
+    static final ArchRule organizationCodeNeverTouchesAPersonsMailbox = noClasses()
+        .that()
+        .resideInAnyPackage("..service.ent..", "..service.dto.ent..", "..service.org..", "..web.rest.ent..", "..web.rest.org..", "..domain.ent..", "..repository.ent..")
+        .and()
+        .doNotHaveFullyQualifiedName("com.dossier.api.service.ent.consultantws.ConsultantInboxService")
+        .should()
+        .dependOnClassesThat()
+        .belongToAnyOf(
+            com.dossier.api.domain.InboxMessage.class,
+            com.dossier.api.domain.InboxConnection.class,
+            com.dossier.api.domain.InboxFolderState.class,
+            com.dossier.api.repository.InboxMessageRepository.class,
+            com.dossier.api.repository.InboxConnectionRepository.class,
+            com.dossier.api.repository.InboxFolderStateRepository.class,
+            com.dossier.api.service.inbox.SecretBox.class
+        );
 }

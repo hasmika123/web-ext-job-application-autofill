@@ -27,6 +27,8 @@ public class LinkedApplicationProjection {
 
     public static final String ENTRY_LINKED = "LINKED";
     public static final String SOURCE_SYSTEM = "SYSTEM";
+    /** A stage that followed a mail read from the consultant's own Gmail: the label only, never anything the mail said. */
+    public static final String SOURCE_INBOX = "INBOX";
 
     private final ConProjectionRepository projections;
     private final TalentApplicationEventRepository events;
@@ -101,6 +103,15 @@ public class LinkedApplicationProjection {
 
     /** The consultant's own application moved: follow it on every row it feeds in this org (FULL consent only, checked by the caller). */
     public void mirror(Long orgId, Long personalApplicationId, ApplicationStatus to) {
+        mirror(orgId, personalApplicationId, to, null);
+    }
+
+    /**
+     * {@link #mirror(Long, Long, ApplicationStatus)} saying what moved the application ({@code ApplicationEvent.SRC_*}). The event records the source
+     * label and NOTHING else about it: a move that came from the consultant's own Gmail reads "from their inbox", never the sender, the subject or a
+     * single word of the mail (docs/enterprise-v2/18-consultant-inbox.md, the privacy wall).
+     */
+    public void mirror(Long orgId, Long personalApplicationId, ApplicationStatus to, String source) {
         String stage = stageOf(to);
         if (stage == null) return;
         String closedReason = to == ApplicationStatus.REJECTED ? "REJECTED" : to == ApplicationStatus.WITHDRAWN ? "WITHDRAWN" : null;
@@ -111,11 +122,11 @@ public class LinkedApplicationProjection {
             String from = row.getStage();
             row.setStage(stage);
             row.setClosedReason(closedReason);
-            row.setStageSource(SOURCE_SYSTEM);
+            row.setStageSource(com.dossier.api.domain.ApplicationEvent.SRC_INBOX.equals(source) ? SOURCE_INBOX : SOURCE_SYSTEM); // still SYSTEM-owned: only the label differs
             row.setStageChangedAt(now);
             row.setUpdatedAt(now);
             projections.save(row);
-            event(orgId, row.getId(), "STAGE_CHANGE", from, stage, "Followed the consultant's own application", now);
+            event(orgId, row.getId(), "STAGE_CHANGE", from, stage, "Followed the consultant's own application" + (com.dossier.api.domain.ApplicationEvent.SRC_INBOX.equals(source) ? " (source: INBOX)" : ""), now);
         }
     }
 
