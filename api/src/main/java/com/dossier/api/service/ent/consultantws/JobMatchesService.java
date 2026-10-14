@@ -79,6 +79,7 @@ public class JobMatchesService {
     private final CwsMatchInterestRepository interests;
     private final OrgResumeRepository resumes;
     private final TalentApplicationRepository applications;
+    private final ConsultantWsJobSourceReader sources;
     private final Clock clock;
 
     @Autowired
@@ -93,9 +94,10 @@ public class JobMatchesService {
         CwsMatchViewRepository views,
         CwsMatchInterestRepository interests,
         OrgResumeRepository resumes,
-        TalentApplicationRepository applications
+        TalentApplicationRepository applications,
+        ConsultantWsJobSourceReader sources
     ) {
-        this(gate, matches, requirements, clients, requirementSkills, consultantSkills, saved, views, interests, resumes, applications, Clock.systemUTC());
+        this(gate, matches, requirements, clients, requirementSkills, consultantSkills, saved, views, interests, resumes, applications, sources, Clock.systemUTC());
     }
 
     JobMatchesService(
@@ -110,6 +112,7 @@ public class JobMatchesService {
         CwsMatchInterestRepository interests,
         OrgResumeRepository resumes,
         TalentApplicationRepository applications,
+        ConsultantWsJobSourceReader sources,
         Clock clock
     ) {
         this.gate = gate;
@@ -123,6 +126,7 @@ public class JobMatchesService {
         this.interests = interests;
         this.resumes = resumes;
         this.applications = applications;
+        this.sources = sources;
         this.clock = clock;
     }
 
@@ -142,6 +146,7 @@ public class JobMatchesService {
         Set<String> mine = skillNames(consultantSkills.findByOrgIdAndConsultantIdOrderBySortOrderAsc(org, c.getId()));
         Map<Long, List<RequirementSkill>> jobSkills = requirementSkills.findByOrgIdAndRequirementIdIn(org, reqs.keySet()).stream().collect(Collectors.groupingBy(RequirementSkill::getRequirementId));
 
+        Map<Long, ConsultantWsJobSourceReader.Info> sourceInfo = sources.load(org, reqs.keySet());
         List<CwsSavedJob> savedRows = saved.findByOrgIdAndConsultantIdOrderByCreatedAtDesc(org, c.getId());
         List<CwsMatchView> viewRows = views.findByOrgIdAndConsultantId(org, c.getId());
         Set<Long> savedReqs = savedRows.stream().map(CwsSavedJob::getRequirementId).collect(Collectors.toSet());
@@ -149,7 +154,7 @@ public class JobMatchesService {
         Set<Long> interestReqs = interests.findByOrgIdAndConsultantId(org, c.getId()).stream().map(CwsMatchInterest::getRequirementId).collect(Collectors.toSet());
 
         List<MatchRow> rows = open.stream()
-            .map(m -> row(m, reqs.get(m.getRequirementId()), clientById, jobSkills.getOrDefault(m.getRequirementId(), List.of()), mine, savedReqs, viewedReqs, interestReqs))
+            .map(m -> row(m, reqs.get(m.getRequirementId()), clientById, jobSkills.getOrDefault(m.getRequirementId(), List.of()), mine, savedReqs, viewedReqs, interestReqs, sourceInfo))
             .filter(Objects::nonNull)
             .toList();
 
@@ -200,7 +205,8 @@ public class JobMatchesService {
             m, r, clientById, jobSkills, mine,
             saved.findByOrgIdAndConsultantIdAndRequirementId(org, c.getId(), r.getId()).isPresent() ? one : Set.of(),
             views.findByOrgIdAndConsultantIdAndRequirementId(org, c.getId(), r.getId()).isPresent() ? one : Set.of(),
-            interest.isPresent() ? one : Set.of()
+            interest.isPresent() ? one : Set.of(),
+            sources.load(org, one)
         );
 
         // the consultant's primary skills first, then the job's own order; present = 100%, missing = 0% (no proficiency data exists)
@@ -360,15 +366,17 @@ public class JobMatchesService {
 
     private MatchRow row(
         RequirementMatch m, ClientRequirement r, Map<Long, ClientAccount> clientById, List<RequirementSkill> jobSkills, Set<String> mine,
-        Set<Long> savedReqs, Set<Long> viewedReqs, Set<Long> interestReqs
+        Set<Long> savedReqs, Set<Long> viewedReqs, Set<Long> interestReqs, Map<Long, ConsultantWsJobSourceReader.Info> sourceInfo
     ) {
         if (r == null) return null;
         ClientAccount cl = r.getClientId() == null ? null : clientById.get(r.getClientId());
         Integer fit = jobSkills.isEmpty() ? null : (int) Math.round(100.0 * jobSkills.stream().filter(s -> mine.contains(norm(s.getSkill()))).count() / jobSkills.size());
+        ConsultantWsJobSourceReader.Info src = ConsultantWsJobSourceReader.orNone(sourceInfo, r.getId());
         return new MatchRow(
             m.getId(), r.getId(), r.getTitle(), cl == null ? null : cl.getName(), r.getLocation(), r.getWorkMode(), r.getEmploymentLabel(), score(m), fit,
             r.getPostedAt(), r.getRateMinMinor(), r.getRateMaxMinor(), r.getRateUnit(), r.getCurrency(),
-            savedReqs.contains(r.getId()), viewedReqs.contains(r.getId()), interestReqs.contains(r.getId())
+            savedReqs.contains(r.getId()), viewedReqs.contains(r.getId()), interestReqs.contains(r.getId()),
+            src.sourceUrl(), src.sourceName(), src.quickInfo(), src.sample()
         );
     }
 

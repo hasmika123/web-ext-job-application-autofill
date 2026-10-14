@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   EMPTY_FILTERS,
   applyChip,
-  applyHint,
   countFilters,
   demandText,
   filtersSummary,
@@ -44,6 +43,20 @@ describe("parseJob and parseSearch", () => {
     expect(parseJob(job({ scoreSource: "GUESS" }))!.scoreSource).toBeNull();
   });
 
+  it("reads the marketer's source link, name, quick info and the sample mark; an unsafe link becomes null", () => {
+    const j = parseJob(job({ sourceUrl: "https://jobs.example.com/a/1", sourceName: "LinkedIn", quickInfo: "Contract role.", sourceSample: true }))!;
+    expect(j.sourceUrl).toBe("https://jobs.example.com/a/1");
+    expect(j.sourceName).toBe("LinkedIn");
+    expect(j.quickInfo).toBe("Contract role.");
+    expect(j.sourceSample).toBe(true);
+    const none = parseJob(job())!;
+    expect(none.sourceUrl).toBeNull();
+    expect(none.sourceSample).toBe(false);
+    for (const bad of ["http://x.example.com/a", "javascript:alert(1)", "https://u:p@x.example.com", "https://localhost/x", "https://x.example.com/a b", 7]) {
+      expect(parseJob(job({ sourceUrl: bad }))!.sourceUrl).toBeNull();
+    }
+  });
+
   it("falls back to NONE for an unknown relation and drops rows without an id or title", () => {
     expect(parseJob(job({ relation: "WEIRD" }))!.relation).toBe("NONE");
     expect(parseJob({ title: "x" })).toBeNull();
@@ -54,10 +67,11 @@ describe("parseJob and parseSearch", () => {
     expect(parseSearch(null)).toBeNull();
   });
 
-  it("parses a detail and defaults an unknown apply state to the safe one", () => {
-    const d = parseDetail({ job: job(), description: "About", openPositions: 2, apply: { state: "???", message: "m" } })!;
+  it("parses a detail (the marketer's notes and open positions; there is no apply state any more)", () => {
+    const d = parseDetail({ job: job(), description: "About", openPositions: 2, apply: { state: "CAN_RECORD", message: "m" } })!;
     expect(d.description).toBe("About");
-    expect(d.apply.state).toBe("NEEDS_ASSIGNMENT");
+    expect(d.openPositions).toBe(2);
+    expect("apply" in d).toBe(false);
     expect(parseDetail({ job: { nope: 1 } })).toBeNull();
   });
 });
@@ -163,7 +177,7 @@ describe("rate, match and place text", () => {
   });
 });
 
-describe("demand, time and apply", () => {
+describe("demand and time", () => {
   it("shows demand change only when the API had enough data to give one", () => {
     expect(demandText({ changePct: 42 })).toEqual({ text: "+42% demand", dir: "up" });
     expect(demandText({ changePct: -10.4 })).toEqual({ text: "-10% demand", dir: "down" });
@@ -179,13 +193,5 @@ describe("demand, time and apply", () => {
     expect(relativeTime("2026-09-29T12:00:00Z", now)).toBe("2 weeks ago");
     expect(relativeTime("2026-10-13T11:59:50Z", now)).toBe("just now");
     expect(relativeTime("nope", now)).toBe("");
-  });
-
-  it("applies only with a match or application; otherwise the marketer must assign first", () => {
-    expect(applyHint({ relation: "NONE" }).state).toBe("NEEDS_ASSIGNMENT");
-    expect(applyHint({ relation: "MATCHED" }).state).toBe("CAN_RECORD");
-    expect(applyHint({ relation: "ASSIGNED" }).state).toBe("CAN_RECORD");
-    expect(applyHint({ relation: "APPLIED" }).state).toBe("ALREADY_APPLIED");
-    expect(applyHint({ relation: "NONE" }).message).toMatch(/marketer/);
   });
 });

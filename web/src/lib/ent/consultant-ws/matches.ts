@@ -5,6 +5,7 @@
  * the API's answer.
  */
 import { initialsOf } from "./home";
+import { parseJobSource, type JobSource } from "./jobSource";
 
 export interface MatchTile {
   value: number;
@@ -13,7 +14,7 @@ export interface MatchTile {
   sparkline: number[];
 }
 
-export interface MatchRow {
+export interface MatchRow extends JobSource {
   matchId: number;
   requirementId: number;
   title: string;
@@ -126,6 +127,7 @@ export function parseMatchRow(o: unknown): MatchRow | null {
     saved: o.saved === true,
     viewed: o.viewed === true,
     interestSent: o.interestSent === true,
+    ...parseJobSource(o),
   };
 }
 

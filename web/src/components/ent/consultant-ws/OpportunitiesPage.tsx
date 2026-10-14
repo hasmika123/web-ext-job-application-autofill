@@ -33,6 +33,8 @@ import type { IconProps } from "@kiwiply/ui";
 import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
+import JobLinkButton, { QuickInfo } from "./JobLinkButton";
+import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
 import { deltaText, employmentLabel, firstName, initialsOf, placeLabel, shortDate } from "@/lib/ent/consultant-ws/home";
 import {
   PRIORITY_LABEL,
@@ -283,6 +285,7 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice }: { view
                       <button type="button" data-action="view" aria-label={`View ${r.title}`} onClick={() => a.open(r)} className="inline-flex min-h-8 items-center whitespace-nowrap rounded-lg border border-line bg-paper px-3.5 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft">
                         View
                       </button>
+                      <JobLinkButton title={r.title} source={r} variant="ghost" className="!min-h-8" />
                       <RowMenu row={r} a={a} />
                     </span>
                   </td>
@@ -345,6 +348,15 @@ function DetailSheet({ row, detail, loading, onClose, a }: { row: OppRow | null;
             <PriorityPill row={row} />
             <span className="rounded-full bg-v2-green-soft px-2.5 py-0.5 text-[12px] font-bold text-v2-green-ink">{row.score}% match</span>
           </div>
+          <div className="space-y-2">
+            <QuickInfo source={row} />
+            <div className="flex flex-wrap items-center gap-2">
+              <JobLinkButton title={row.title} source={row} />
+            </div>
+            <p data-apply-helper className="text-[12.5px] text-muted">
+              {APPLY_HELPER}
+            </p>
+          </div>
           <dl className="grid grid-cols-2 gap-3">
             <div>
               <dt className={head}>Due</dt>
@@ -371,8 +383,9 @@ function DetailSheet({ row, detail, loading, onClose, a }: { row: OppRow | null;
             <>
               {d.description ? (
                 <section>
-                  <h4 className={head}>Description</h4>
+                  <h4 className={head}>Marketer&apos;s job notes</h4>
                   <p className="mt-1 whitespace-pre-line leading-relaxed text-ink-soft">{d.description}</p>
+                  <p className="mt-1 text-[12px] text-muted">These are your marketer&apos;s notes, not the full posting. Read the full posting on the source site.</p>
                 </section>
               ) : null}
               <section>
@@ -660,7 +673,7 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first }:
 
   return (
     <div data-consultant-opportunities data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Assigned Opportunities" subtitle="Opportunities assigned to you by your marketer. Review the details, take action, and keep your marketer updated." />
+      <PageHeader title="Assigned Opportunities" subtitle="Opportunities your marketer assigned to you. Open the job link, apply on the source site with the Kiwiply extension, and keep your marketer updated." />
       <ClaimsMascot />
       <ClaimsHelpCard />
 

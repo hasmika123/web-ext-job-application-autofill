@@ -4,6 +4,7 @@
  * page uses (labels, due text, next steps). Nothing here touches React and there is no fallback number: every figure is the API's answer.
  */
 import { initialsOf, type Tone } from "./home";
+import { parseJobSource, type JobSource } from "./jobSource";
 
 export type OppStatus = "NEW" | "AWAITING_RESPONSE" | "IN_REVIEW" | "DECLINED";
 export type OppPriority = "HIGH" | "MEDIUM" | "LOW";
@@ -16,7 +17,7 @@ export interface OppTile {
   sparkline: number[];
 }
 
-export interface OppRow {
+export interface OppRow extends JobSource {
   matchId: number;
   requirementId: number;
   title: string;
@@ -118,6 +119,7 @@ export function parseRow(o: unknown): OppRow | null {
     missingSkills: Math.max(0, num(o.missingSkills)),
     interestSent: o.interestSent === true,
     assignedAt: strOrNull(o.assignedAt),
+    ...parseJobSource(o),
   };
 }
 

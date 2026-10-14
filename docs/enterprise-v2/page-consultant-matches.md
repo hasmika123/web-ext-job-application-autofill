@@ -57,6 +57,9 @@ Nothing on this page is sample data.
   - `DELETE /api/orgs/{orgId}/me-workspace/matches/{matchId}/save`
   - `POST /api/orgs/{orgId}/me-workspace/matches/{matchId}/interest`
 
+## Marketer's source link and quick info (job source flow)
+Kiwiply holds no full job posting (see [consultant-job-source-flow.md](consultant-job-source-flow.md)). Each match row (list and detail) carries `sourceUrl` (https only; null when the marketer added none or it fails the https/host check, validated on write and on read), `sourceName`, `quickInfo` and `sourceSample`, read from the companion table `cws_job_source` (migration `20261103200000_ent_cws_job_source.xml`). The page shows the marketer's quick info (with the source name and the **Sample** mark for demo stand-in rows) and an **Open job link** action in each row and in the detail (`target="_blank" rel="noopener noreferrer"`; disabled with the tooltip "Your marketer hasn't added the link yet" when there is none), plus the helper "Apply on the source site with the Kiwiply extension - your application shows up in My Applications automatically". Everything else on this page is unchanged. The link, name and note are SAMPLE in the demo (`ConsultantWsJobSourceDemoSeeder`); the marketer role writes them in the real product.
+
 ## Known gaps
 - **Cross-role handoff:** Express Interest only writes `cws_match_interest`. Nothing yet tells the marketer or turns the interest into an application; when the marketer module and role branches merge, the marketer's queue should read this table (and create the application that the consultant then approves). Until then the consultant sees "Interest sent" and a note that the marketer can see it, but no marketer view exists.
 - Skill alignment has no proficiency levels (no data); the bar is 100% or 0%.

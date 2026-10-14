@@ -13,7 +13,8 @@ const ago = (ms: number) => new Date(NOW - ms).toISOString();
 const tile = (value: number, deltaPct: number | null = null) => ({ value, previous: 1, deltaPct, sparkline: [0, 1, 2, 3, 4, value] });
 const mrow = (over: Record<string, unknown>) => ({
   matchId: 1, requirementId: 10, title: "Senior Java Developer", company: "TechCorp", location: "Austin, TX", workMode: "REMOTE", employment: "CONTRACT", score: 94, skillFit: 100,
-  postedAt: ago(2 * DAY), rateMinMinor: 8500, rateMaxMinor: 9500, rateUnit: "HOUR", currency: "USD", saved: false, viewed: false, interestSent: false, ...over,
+  postedAt: ago(2 * DAY), rateMinMinor: 8500, rateMaxMinor: 9500, rateUnit: "HOUR", currency: "USD", saved: false, viewed: false, interestSent: false,
+  sourceUrl: "https://jobs.example.com/acme/" + (over.matchId ?? 1), sourceName: "LinkedIn", quickInfo: "Quick note from the marketer.", sourceSample: true, ...over,
 });
 
 const page = (over: Record<string, unknown> = {}) => ({
@@ -103,6 +104,32 @@ describe("Job Matches from real data", () => {
     expect(within(rowOf(3)).queryByLabelText(/Skill fit/)).toBeNull();
     expect(within(rowOf(3)).getByText("Interest sent")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Your Matched Jobs" })).toBeTruthy();
+  });
+
+  it("each row has an Open job link (new tab, noopener) and the detail leads with the marketer's quick info; no link means a disabled control with a tooltip", async () => {
+    await mount();
+    const link = within(rowOf(1)).getByRole("link", { name: /Open job link for Senior Java Developer on LinkedIn/ }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("https://jobs.example.com/acme/1");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    const d = document.querySelector("[data-detail='1']") as HTMLElement;
+    expect(within(d).getByText("Marketer's quick info")).toBeTruthy();
+    expect(within(d).getByText("Quick note from the marketer.")).toBeTruthy();
+    expect(d.querySelector("[data-sample]")).not.toBeNull();
+    expect(within(d).getByRole("link", { name: /Open job link/ }).getAttribute("href")).toBe("https://jobs.example.com/acme/1");
+    expect(d.textContent).toMatch(/Apply on the source site with the Kiwiply extension/);
+    expect(d.textContent).toMatch(/My Applications/);
+  });
+
+  it("a match without a usable link shows a disabled Open job link with the honest tooltip", async () => {
+    current = page({ matches: [mrow({ matchId: 1, sourceUrl: null, quickInfo: null, sourceName: null, sourceSample: false }), mrow({ matchId: 2, title: "Full Stack Developer", sourceUrl: "http://insecure.example.com/x" })] });
+    await mount();
+    for (const id of [1, 2]) {
+      const m = rowOf(id).querySelector("[data-job-link-missing]") as HTMLElement;
+      expect(m.getAttribute("title")).toBe("Your marketer hasn't added the link yet");
+      expect((m.querySelector("button") as HTMLButtonElement).disabled).toBe(true);
+      expect(within(rowOf(id)).queryByRole("link", { name: /Open job link/ })).toBeNull();
+    }
   });
 
   it("selects the best match by default and shows its insights", async () => {

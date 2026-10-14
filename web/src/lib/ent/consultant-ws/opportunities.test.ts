@@ -4,7 +4,20 @@ import { actionTarget, canRespond, daysLeftText, dueUrgent, nextSteps, parseDeta
 const tile = (value: number, extra: Record<string, unknown> = {}) => ({ value, previous: 1, deltaPct: 10, sparkline: [0, 1, 2], ...extra });
 const row = (over: Partial<OppRow> = {}): OppRow => ({
   matchId: 1, requirementId: 10, title: "Java Dev", skills: ["Java"], company: "TechCorp", location: "Austin, TX", workMode: "HYBRID", marketer: "Morgan",
-  status: "NEW", priority: "HIGH", priorityDerived: false, dueOn: "2026-10-16", dueDerived: false, daysLeft: 2, score: 90, missingSkills: 0, interestSent: false, assignedAt: null, ...over,
+  status: "NEW", priority: "HIGH", priorityDerived: false, dueOn: "2026-10-16", dueDerived: false, daysLeft: 2, score: 90, missingSkills: 0, interestSent: false, assignedAt: null, sourceUrl: null, sourceName: null, quickInfo: null, sourceSample: false, ...over,
+});
+
+describe("the marketer's source link on an opportunity row", () => {
+  it("reads link, name, note and sample mark; an unsafe or missing link is null", () => {
+    const v = parseOpportunities({ orgId: 2, tiles: { total: tile(2), high: tile(1), awaiting: tile(0), inReview: tile(0), declined: tile(0) }, total: 3, nextSteps: {}, rows: [
+      { matchId: 1, title: "A", sourceUrl: "https://jobs.example.com/a/1", sourceName: "Company site", quickInfo: "Note", sourceSample: true },
+      { matchId: 2, title: "B", sourceUrl: "http://insecure.example.com", quickInfo: "Only a note" },
+      { matchId: 3, title: "C" },
+    ] })!;
+    expect(v.rows[0]).toMatchObject({ sourceUrl: "https://jobs.example.com/a/1", sourceName: "Company site", quickInfo: "Note", sourceSample: true });
+    expect(v.rows[1]).toMatchObject({ sourceUrl: null, quickInfo: "Only a note", sourceSample: false });
+    expect(v.rows[2]).toMatchObject({ sourceUrl: null, sourceName: null, quickInfo: null });
+  });
 });
 
 describe("parseOpportunities", () => {

@@ -91,6 +91,7 @@ public class OpportunitiesService {
     private final OrgMemberDirectoryRepository memberDirectory;
     private final UserRepository users;
     private final TalentInterviewRepository interviews;
+    private final ConsultantWsJobSourceReader sources;
     private final Clock clock;
 
     @Autowired
@@ -107,9 +108,10 @@ public class OpportunitiesService {
         MarketerAssignmentRepository assignments,
         OrgMemberDirectoryRepository memberDirectory,
         UserRepository users,
-        TalentInterviewRepository interviews
+        TalentInterviewRepository interviews,
+        ConsultantWsJobSourceReader sources
     ) {
-        this(gate, authorization, matches, requirements, clients, requirementSkills, consultantSkills, responses, interests, assignments, memberDirectory, users, interviews, Clock.systemUTC());
+        this(gate, authorization, matches, requirements, clients, requirementSkills, consultantSkills, responses, interests, assignments, memberDirectory, users, interviews, sources, Clock.systemUTC());
     }
 
     OpportunitiesService(
@@ -126,6 +128,7 @@ public class OpportunitiesService {
         OrgMemberDirectoryRepository memberDirectory,
         UserRepository users,
         TalentInterviewRepository interviews,
+        ConsultantWsJobSourceReader sources,
         Clock clock
     ) {
         this.gate = gate;
@@ -141,6 +144,7 @@ public class OpportunitiesService {
         this.memberDirectory = memberDirectory;
         this.users = users;
         this.interviews = interviews;
+        this.sources = sources;
         this.clock = clock;
     }
 
@@ -465,6 +469,7 @@ public class OpportunitiesService {
         final Set<String> mine;
         final Map<Long, CwsOpportunityResponse> responseByReq;
         final Set<Long> interestReqs;
+        final Map<Long, ConsultantWsJobSourceReader.Info> sourceInfo;
         final Map<Long, String> marketerNames;
         final String assignmentMarketer;
 
@@ -474,6 +479,7 @@ public class OpportunitiesService {
             clientById = clients.findByOrgId(org).stream().collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
             jobSkills = reqs.isEmpty() ? Map.of() : requirementSkills.findByOrgIdAndRequirementIdIn(org, reqs.keySet()).stream().collect(Collectors.groupingBy(RequirementSkill::getRequirementId));
             mine = consultantSkills.findByOrgIdAndConsultantIdOrderBySortOrderAsc(org, c.getId()).stream().map(s -> norm(s.getSkill())).collect(Collectors.toSet());
+            sourceInfo = reqs.isEmpty() ? Map.of() : sources.load(org, reqs.keySet());
             responseByReq = responses.findByOrgIdAndConsultantId(org, c.getId()).stream().collect(Collectors.toMap(CwsOpportunityResponse::getRequirementId, Function.identity(), (a, b) -> a));
             interestReqs = interests.findByOrgIdAndConsultantId(org, c.getId()).stream().map(CwsMatchInterest::getRequirementId).collect(Collectors.toSet());
 
@@ -526,11 +532,13 @@ public class OpportunitiesService {
             .toList();
         int missing = (int) skills.stream().filter(s -> !ctx.mine.contains(norm(s.getSkill()))).count();
 
+        ConsultantWsJobSourceReader.Info src = ConsultantWsJobSourceReader.orNone(ctx.sourceInfo, r.getId());
         String marketer = m.getAssignedByMemberId() != null && ctx.marketerNames.containsKey(m.getAssignedByMemberId()) ? ctx.marketerNames.get(m.getAssignedByMemberId()) : ctx.assignmentMarketer;
         return new Row(
             m.getId(), r.getId(), r.getTitle(), skills.stream().map(RequirementSkill::getSkill).limit(3).toList(), cl == null ? null : cl.getName(),
             r.getLocation(), r.getWorkMode(), marketer, resp.map(CwsOpportunityResponse::getStatus).orElse(CwsOpportunityResponse.NEW), priority, priorityDerived,
-            due, dueDerived, (int) ChronoUnit.DAYS.between(today, due), score, missing, ctx.interestReqs.contains(r.getId()), assignedAt
+            due, dueDerived, (int) ChronoUnit.DAYS.between(today, due), score, missing, ctx.interestReqs.contains(r.getId()), assignedAt,
+            src.sourceUrl(), src.sourceName(), src.quickInfo(), src.sample()
         );
     }
 }

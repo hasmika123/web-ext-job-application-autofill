@@ -10,7 +10,6 @@ import {
   ClockIcon,
   DollarIcon,
   DonutChart,
-  Dialog,
   ErrorState,
   FileTextIcon,
   HomeIcon,
@@ -37,14 +36,14 @@ import type { IconProps } from "@kiwiply/ui";
 import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { BeeCard, Card, Empty, Pill, useWorkspaceData } from "./parts";
+import JobLinkButton, { QuickInfo } from "./JobLinkButton";
+import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
 import { initialsOf } from "@/lib/ent/consultant-ws/home";
 import {
   EMPTY_FILTERS,
   RATE_STEPS,
   SORTS,
   applyChip,
-  applyHint,
-  applyToJob,
   countFilters,
   createSavedSearch,
   deleteSavedSearch,
@@ -68,7 +67,6 @@ import {
   searchQuery,
   unsaveJob,
   workModeText,
-  type ApplyResult,
   type Chip,
   type DetailView,
   type Filters,
@@ -82,8 +80,9 @@ import {
 /**
  * Consultant Job Discovery (design/enterprise-consultant/job-discovery.webp). The search runs in the API over the organization's OPEN
  * jobs (paged, never filtered here); one overview call draws the filter options, the recommended chips, trending skills and the saved
- * and recent searches. Saving a job and a search are the consultant's own rows. Apply never submits anything: it explains what will
- * happen and, when a match or application exists, adds a follow-up task for the consultant.
+ * and recent searches. Saving a job and a search are the consultant's own rows. Kiwiply holds no full job posting: each card shows the
+ * marketer's quick info and an "Open job link" to the source site, where the consultant applies with the extension (the application
+ * is tracked in My Applications). A full in-app job search is a later phase.
  */
 
 const PAGE_SIZE = 10;
@@ -148,7 +147,7 @@ function Meta({ icon: Icon, children }: { icon: ComponentType<IconProps>; childr
   );
 }
 
-function JobCard({ job, onSave, onView, onApply }: { job: Job; onSave: (j: Job) => void; onView: (j: Job) => void; onApply: (j: Job) => void }) {
+function JobCard({ job, onSave, onView }: { job: Job; onSave: (j: Job) => void; onView: (j: Job) => void }) {
   const rate = rateText(job);
   const emp = employmentText(job.employment);
   const applied = job.relation === "APPLIED";
@@ -167,6 +166,7 @@ function JobCard({ job, onSave, onView, onApply }: { job: Job; onSave: (j: Job) 
                 Featured
               </Pill>
             ) : null}
+            {applied ? <Pill tone="green">Applied</Pill> : null}
           </h3>
           {job.clientName ? <p className="mt-0.5 text-[13.5px] font-semibold text-accent-deep">{job.clientName}</p> : null}
           <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -175,6 +175,7 @@ function JobCard({ job, onSave, onView, onApply }: { job: Job; onSave: (j: Job) 
             {job.duration ? <Meta icon={CalendarIcon}>{job.duration}</Meta> : null}
             {rate ? <Meta icon={DollarIcon}>{rate}</Meta> : null}
           </p>
+          <QuickInfo source={job} clamp className="mt-2" />
           {job.skills.length ? (
             <ul aria-label="Skills" className="mt-2 flex flex-wrap gap-1.5">
               {job.skills.slice(0, 6).map((s) => (
@@ -192,13 +193,13 @@ function JobCard({ job, onSave, onView, onApply }: { job: Job; onSave: (j: Job) 
         </div>
       </div>
       <MatchRing job={job} />
-      <div className="flex flex-wrap items-center gap-2 lg:grid lg:w-[140px] lg:grid-cols-2">
+      <div className="flex flex-wrap items-center gap-2 lg:grid lg:w-[176px] lg:grid-cols-2">
         <button
           type="button"
           aria-pressed={job.saved}
           aria-label={job.saved ? `Remove ${job.title} from saved jobs` : `Save ${job.title}`}
           onClick={() => onSave(job)}
-          className={cn("col-span-2 inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border px-3 text-[13px] font-semibold", job.saved ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink hover:bg-paper-2")}
+          className={cn("inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border px-3 text-[13px] font-semibold", job.saved ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink hover:bg-paper-2")}
         >
           {job.saved ? <BookmarkIcon size={15} /> : <BookmarkOutlineIcon size={15} />}
           {job.saved ? "Saved" : "Save"}
@@ -206,9 +207,7 @@ function JobCard({ job, onSave, onView, onApply }: { job: Job; onSave: (j: Job) 
         <Button variant="ghost" size="sm" onClick={() => onView(job)} aria-label={`View ${job.title}`} className="min-h-9 text-accent-deep">
           View
         </Button>
-        <Button variant="accent" size="sm" onClick={() => onApply(job)} aria-label={`Apply to ${job.title}`} className="min-h-9">
-          {applied ? "Applied" : "Apply"}
-        </Button>
+        <JobLinkButton title={job.title} source={job} className="lg:col-span-2 [&>a]:w-full [&>button]:w-full" />
       </div>
     </article>
   );
@@ -336,9 +335,9 @@ function RecentCard({ ov, onRun }: { ov: OverviewView; onRun: (f: Filters) => vo
   );
 }
 
-/* ── job detail sheet and apply confirm ───────────────────────────────────────────────── */
+/* ── job detail sheet ───────────────────────────────────────────────── */
 
-function DetailBody({ d, onSave, onApply }: { d: DetailView; onSave: (j: Job) => void; onApply: (j: Job) => void }) {
+function DetailBody({ d, onSave }: { d: DetailView; onSave: (j: Job) => void }) {
   const j = d.job;
   const rate = rateText(j);
   const emp = employmentText(j.employment);
@@ -393,66 +392,22 @@ function DetailBody({ d, onSave, onApply }: { d: DetailView; onSave: (j: Job) =>
           </ul>
         </div>
       ) : null}
-      {d.description ? (
+      <QuickInfo source={j} />
+      {d.description && d.description !== j.quickInfo ? (
         <div>
-          <h4 className="text-[13px] font-bold text-ink">About the role</h4>
+          <h4 className="text-[13px] font-bold text-ink">Marketer&apos;s job notes</h4>
           <p className="mt-1.5 whitespace-pre-line text-[13.5px] leading-relaxed text-ink-soft">{d.description}</p>
+          <p className="mt-1 text-[12px] text-muted">These are your marketer&apos;s notes, not the full posting. Read the full posting on the source site.</p>
         </div>
       ) : null}
-      <p className="text-[12.5px] text-muted">{d.apply.message}</p>
+      <p className="text-[12.5px] text-muted">{APPLY_HELPER}</p>
       <div className="flex flex-wrap gap-2">
         <Button variant="ghost" size="sm" aria-pressed={j.saved} onClick={() => onSave(j)}>
           {j.saved ? "Saved" : "Save"}
         </Button>
-        <Button variant="accent" size="sm" onClick={() => onApply(j)}>
-          {j.relation === "APPLIED" ? "Applied" : "Apply"}
-        </Button>
+        <JobLinkButton title={j.title} source={j} />
       </div>
     </div>
-  );
-}
-
-interface ApplyDialogState {
-  job: Job;
-  busy: boolean;
-  result: ApplyResult | null;
-  failed: boolean;
-}
-
-function ApplyDialog({ st, onClose, onConfirm }: { st: ApplyDialogState | null; onClose: () => void; onConfirm: () => void }) {
-  const hint = st ? applyHint(st.job) : null;
-  const canRecord = hint?.state === "CAN_RECORD" && !st?.result;
-  return (
-    <Dialog
-      open={st !== null}
-      onClose={onClose}
-      title={st ? `Apply to ${st.job.title}` : "Apply"}
-      footer={
-        <>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            {st?.result || !canRecord ? "Close" : "Cancel"}
-          </Button>
-          {canRecord ? (
-            <Button variant="accent" size="sm" disabled={st?.busy} onClick={onConfirm}>
-              {st?.busy ? "Adding..." : "Add to my tasks"}
-            </Button>
-          ) : null}
-        </>
-      }
-    >
-      <div data-apply-dialog className="space-y-2 text-[14px] text-ink-soft">
-        {st?.result ? (
-          <p role="status">{st.result.message}</p>
-        ) : st?.failed ? (
-          <p role="alert" className="text-v2-coral-ink">
-            That didn&apos;t go through. Nothing was changed. Please try again.
-          </p>
-        ) : (
-          <p>{hint?.message}</p>
-        )}
-        <p className="text-[12.5px] text-muted">Kiwiply never submits an application for you. You always confirm and submit it yourself.</p>
-      </div>
-    </Dialog>
   );
 }
 
@@ -487,7 +442,6 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
   const [notice, setNotice] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<number | null>(null);
   const [detail, setDetail] = useState<{ id: number; state: "ready" | "failed"; view: DetailView | null } | null>(null);
-  const [apply, setApply] = useState<ApplyDialogState | null>(null);
   const toggleRef = useRef<HTMLButtonElement | null>(null);
 
   const filters = tab === "recommended" ? EMPTY_FILTERS : applied;
@@ -594,13 +548,6 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
     } else setSaveMsg({ ok: false, text: r.error ?? "Couldn't save the search. Please try again." });
   };
 
-  const confirmApply = async () => {
-    if (!apply) return;
-    setApply({ ...apply, busy: true, failed: false });
-    const r = await applyToJob(orgId, apply.job.id);
-    setApply((a) => (a ? { ...a, busy: false, result: r.ok ? r.data : null, failed: !r.ok } : a));
-  };
-
   /* -- render -- */
 
   if (status === "denied") return <ErrorState what="your workspace" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
@@ -614,7 +561,7 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
 
   return (
     <div data-job-discovery data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Job Discovery" subtitle="Find your next opportunity – search, explore and apply to roles that match your skills and career goals." />
+      <PageHeader title="Job Discovery" subtitle="These are the jobs your marketer loaded for you. Open the job link, apply on the source site with the Kiwiply extension, and track it in My Applications. A full job search arrives in a later phase." />
       <ClaimsMascot />
       <ClaimsHelpCard />
 
@@ -788,6 +735,9 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
                     </label>
                   ) : null}
                 </div>
+                <p data-apply-helper className="text-[13px] text-ink-soft">
+                  {APPLY_HELPER}
+                </p>
 
                 {failed ? (
                   <ErrorState what="the jobs" description="The search didn't load. Nothing has changed." onRetry={() => setApplied((a) => ({ ...a }))} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
@@ -810,7 +760,7 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
                 ) : (
                   <div className="grid gap-3" aria-busy={loading}>
                     {items.map((j) => (
-                      <JobCard key={j.id} job={j} onSave={(x) => void toggleSave(x)} onView={(x) => setDetailId(x.id)} onApply={(x) => setApply({ job: x, busy: false, result: null, failed: false })} />
+                      <JobCard key={j.id} job={j} onSave={(x) => void toggleSave(x)} onView={(x) => setDetailId(x.id)} />
                     ))}
                     {canMore ? (
                       <div className="flex justify-center">
@@ -860,11 +810,10 @@ export default function JobDiscoveryPage({ orgId, firstName }: JobDiscoveryPageP
         ) : detail.state === "failed" || !detail.view ? (
           <Empty>We couldn&apos;t load this job. It may have been closed.</Empty>
         ) : (
-          <DetailBody d={detail.view} onSave={(x) => void toggleSave(x)} onApply={(x) => setApply({ job: x, busy: false, result: null, failed: false })} />
+          <DetailBody d={detail.view} onSave={(x) => void toggleSave(x)} />
         )}
       </SideSheet>
 
-      <ApplyDialog st={apply} onClose={() => setApply(null)} onConfirm={() => void confirmApply()} />
     </div>
   );
 }

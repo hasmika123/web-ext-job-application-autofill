@@ -2,7 +2,6 @@ package com.dossier.api.service.ent.consultantws;
 
 import com.dossier.api.domain.ent.consultantws.CwsSavedJob;
 import com.dossier.api.domain.ent.consultantws.CwsSavedSearch;
-import com.dossier.api.domain.ent.consultantws.CwsTask;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
@@ -13,14 +12,11 @@ import com.dossier.api.domain.ent.talent.TalentApplication;
 import com.dossier.api.repository.ent.consultantws.CwsJobSearchRepository;
 import com.dossier.api.repository.ent.consultantws.CwsSavedJobRepository;
 import com.dossier.api.repository.ent.consultantws.CwsSavedSearchRepository;
-import com.dossier.api.repository.ent.consultantws.CwsTaskRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
 import com.dossier.api.repository.ent.talent.TalentApplicationRepository;
-import com.dossier.api.service.ent.consultantws.JobDiscoveryDTO.ApplyResult;
-import com.dossier.api.service.ent.consultantws.JobDiscoveryDTO.ApplyState;
 import com.dossier.api.service.ent.consultantws.JobDiscoveryDTO.Chip;
 import com.dossier.api.service.ent.consultantws.JobDiscoveryDTO.Detail;
 import com.dossier.api.service.ent.consultantws.JobDiscoveryDTO.Filters;
@@ -41,8 +37,6 @@ import com.dossier.api.service.privacy.SensitiveContent;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -93,7 +87,7 @@ public class JobDiscoveryService {
     private final TalentApplicationRepository applications;
     private final CwsSavedJobRepository savedJobs;
     private final CwsSavedSearchRepository searches;
-    private final CwsTaskRepository tasks;
+    private final ConsultantWsJobSourceReader sources;
     private final Clock clock;
 
     @Autowired
@@ -107,9 +101,9 @@ public class JobDiscoveryService {
         TalentApplicationRepository applications,
         CwsSavedJobRepository savedJobs,
         CwsSavedSearchRepository searches,
-        CwsTaskRepository tasks
+        ConsultantWsJobSourceReader sources
     ) {
-        this(home, jobs, reqSkills, conSkills, clients, matches, applications, savedJobs, searches, tasks, Clock.systemUTC());
+        this(home, jobs, reqSkills, conSkills, clients, matches, applications, savedJobs, searches, sources, Clock.systemUTC());
     }
 
     JobDiscoveryService(
@@ -122,7 +116,7 @@ public class JobDiscoveryService {
         TalentApplicationRepository applications,
         CwsSavedJobRepository savedJobs,
         CwsSavedSearchRepository searches,
-        CwsTaskRepository tasks,
+        ConsultantWsJobSourceReader sources,
         Clock clock
     ) {
         this.home = home;
@@ -134,7 +128,7 @@ public class JobDiscoveryService {
         this.applications = applications;
         this.savedJobs = savedJobs;
         this.searches = searches;
-        this.tasks = tasks;
+        this.sources = sources;
         this.clock = clock;
     }
 
@@ -247,14 +241,15 @@ public class JobDiscoveryService {
         Map<Long, ClientAccount> clientById = clients.findAllById(clientIds).stream().filter(a -> org.equals(a.getOrgId())).collect(Collectors.toMap(ClientAccount::getId, Function.identity()));
         Map<Long, RequirementMatch> myMatch = matches.findByOrgIdAndConsultantIdOrderByScoreDesc(org, c.getId()).stream().collect(Collectors.toMap(RequirementMatch::getRequirementId, Function.identity(), (a, b) -> a));
         Map<Long, TalentApplication> myApp = applications.findByOrgIdAndConsultantId(org, c.getId()).stream().collect(Collectors.toMap(TalentApplication::getRequirementId, Function.identity(), (a, b) -> a));
+        Map<Long, ConsultantWsJobSourceReader.Info> sourceInfo = sources.load(org, ids);
         Set<Long> saved = savedJobs.findByOrgIdAndConsultantIdOrderByCreatedAtDesc(org, c.getId()).stream().map(CwsSavedJob::getRequirementId).collect(Collectors.toSet());
         Instant featuredSince = now.minus(Duration.ofDays(FEATURED_DAYS));
         List<Job> out = new ArrayList<>(rows.size());
-        for (ClientRequirement r : rows) out.add(card(r, skillsByReq.getOrDefault(r.getId(), List.of()), clientById.get(r.getClientId()), myMatch.get(r.getId()), myApp.get(r.getId()), saved.contains(r.getId()), scoring, featuredSince));
+        for (ClientRequirement r : rows) out.add(card(r, skillsByReq.getOrDefault(r.getId(), List.of()), clientById.get(r.getClientId()), myMatch.get(r.getId()), myApp.get(r.getId()), saved.contains(r.getId()), scoring, featuredSince, ConsultantWsJobSourceReader.orNone(sourceInfo, r.getId())));
         return out;
     }
 
-    private static Job card(ClientRequirement r, List<String> skills, ClientAccount client, RequirementMatch match, TalentApplication app, boolean saved, Scoring scoring, Instant featuredSince) {
+    private static Job card(ClientRequirement r, List<String> skills, ClientAccount client, RequirementMatch match, TalentApplication app, boolean saved, Scoring scoring, Instant featuredSince, ConsultantWsJobSourceReader.Info src) {
         int total = skills.size();
         int have = (int) skills.stream().filter(s -> s != null && scoring.mine().contains(s.toLowerCase(Locale.ROOT))).count();
         Integer score = null;
@@ -270,13 +265,14 @@ public class JobDiscoveryService {
         return new Job(
             r.getId(), r.getTitle(), r.getClientId(), client == null ? null : client.getName(), client == null ? null : client.getIndustry(), r.getLocation(), r.getWorkMode(),
             r.getEmploymentLabel(), r.getDurationLabel(), r.getExperienceLevel(), r.getRateMinMinor(), r.getRateMaxMinor(), r.getRateUnit(), r.getCurrency(), skills, r.getPostedAt(),
-            r.getPostedAt() != null && !r.getPostedAt().isBefore(featuredSince), saved, score, source, have, total, relation, app == null ? null : app.getStage()
+            r.getPostedAt() != null && !r.getPostedAt().isBefore(featuredSince), saved, score, source, have, total, relation, app == null ? null : app.getStage(),
+            src.sourceUrl(), src.sourceName(), src.quickInfo(), src.sample()
         );
     }
 
     // ---- one job ------------------------------------------------------------------------------------------------------------
 
-    /** A job's detail. An OPEN job of this organization; a closed one only when the consultant has a match or application on it. */
+    /** A job's detail: the card (with the marketer's quick info and source link), the marketer's job notes and the open positions. An OPEN job of this organization; a closed one only when the consultant has a match or application on it. */
     @Transactional(readOnly = true)
     public Detail detail(OrgMembership me, Long requirementId) {
         ConsultantProfile c = home.requireSelf(me);
@@ -284,7 +280,7 @@ public class JobDiscoveryService {
         ClientRequirement r = visibleJob(c, org, requirementId);
         Job job = cards(c, org, List.of(r), scoring(c), Instant.now(clock)).get(0);
         int open = Math.max(0, (r.getPositions() == null ? 1 : r.getPositions()) - (r.getFilled() == null ? 0 : r.getFilled()));
-        return new Detail(job, r.getDescriptionText(), open, applyState(job));
+        return new Detail(job, r.getDescriptionText(), open);
     }
 
     private ClientRequirement visibleJob(ConsultantProfile c, Long org, Long id) {
@@ -296,14 +292,6 @@ public class JobDiscoveryService {
             if (!related) throw new OrgNotFoundException();
         }
         return r;
-    }
-
-    private static ApplyState applyState(Job job) {
-        return switch (job.relation()) {
-            case "APPLIED" -> new ApplyState("ALREADY_APPLIED", "You already have an application for this role. Follow it on My Applications.");
-            case "NONE" -> new ApplyState("NEEDS_ASSIGNMENT", "This role has to be assigned or approved by your marketer before you can apply. Ask them to line it up for you.");
-            default -> new ApplyState("CAN_RECORD", "Kiwiply never submits for you. This adds a follow-up to your tasks so you can confirm and submit this application yourself.");
-        };
     }
 
     // ---- save a job ---------------------------------------------------------------------------------------------------------
@@ -331,41 +319,6 @@ public class JobDiscoveryService {
         if (requirementId == null || jobs.byId(org, requirementId).isEmpty()) throw new OrgNotFoundException();
         savedJobs.findByOrgIdAndConsultantIdAndRequirementId(org, c.getId(), requirementId).ifPresent(savedJobs::delete);
         return new SavedJobResult(requirementId, false);
-    }
-
-    // ---- apply (intent only: Kiwiply never submits) -------------------------------------------------------------------------
-
-    /**
-     * The consultant's own "I want to apply". It never creates a submission or application. With a match or application on the role it
-     * adds one follow-up task ("Confirm application: ...") for the consultant (idempotent while that task is open); with neither it records
-     * nothing and says the marketer has to assign or approve the role first.
-     */
-    @Transactional
-    public ApplyResult applyIntent(OrgMembership me, Long requirementId) {
-        ConsultantProfile c = home.requireSelf(me);
-        Long org = c.getOrgId();
-        ClientRequirement r = visibleJob(c, org, requirementId);
-        Job job = cards(c, org, List.of(r), scoring(c), Instant.now(clock)).get(0);
-        ApplyState st = applyState(job);
-        if (!"CAN_RECORD".equals(st.state())) return new ApplyResult(false, st.state(), st.message());
-        String title = "Confirm application: " + job.title() + (job.clientName() == null ? "" : " at " + job.clientName());
-        if (title.length() > 200) title = title.substring(0, 200);
-        final String taskTitle = title;
-        boolean open = tasks.findByOrgIdAndConsultantIdAndStatusNotOrderByDueOnAsc(org, c.getId(), "DONE").stream().anyMatch(t -> taskTitle.equals(t.getTitle()));
-        if (!open) {
-            Instant now = Instant.now(clock);
-            CwsTask t = new CwsTask();
-            t.setOrgId(org);
-            t.setConsultantId(c.getId());
-            t.setTitle(taskTitle);
-            t.setDueOn(LocalDate.ofInstant(now, ZoneOffset.UTC).plusDays(2));
-            t.setPriority("HIGH");
-            t.setStatus("NOT_STARTED");
-            t.setCreatedAt(now);
-            t.setUpdatedAt(now);
-            tasks.save(t);
-        }
-        return new ApplyResult(true, "RECORDED", open ? "A follow-up for this role is already on your tasks." : "Added to your tasks. Confirm with your marketer, then submit the application yourself.");
     }
 
     // ---- saved and recent searches ------------------------------------------------------------------------------------------

@@ -11,7 +11,8 @@ import OpportunitiesPage from "./OpportunitiesPage";
 const tile = (value: number, deltaPct: number | null = null) => ({ value, previous: 1, deltaPct, sparkline: [0, 1, 2, 3, 4, value] });
 const orow = (over: Record<string, unknown>) => ({
   matchId: 1, requirementId: 10, title: "Senior Java Developer", skills: ["Java", "Spring Boot"], company: "TechCorp", location: "San Jose, CA", workMode: "ONSITE", marketer: "Michael Torres",
-  status: "NEW", priority: "HIGH", priorityDerived: false, dueOn: "2026-10-16", dueDerived: false, daysLeft: 2, score: 94, missingSkills: 1, interestSent: false, assignedAt: "2026-10-01T00:00:00Z", ...over,
+  status: "NEW", priority: "HIGH", priorityDerived: false, dueOn: "2026-10-16", dueDerived: false, daysLeft: 2, score: 94, missingSkills: 1, interestSent: false, assignedAt: "2026-10-01T00:00:00Z",
+  sourceUrl: "https://jobs.example.com/acme/" + (over.matchId ?? 1), sourceName: "Company site", quickInfo: "Quick note from the marketer.", sourceSample: true, ...over,
 });
 
 const page = (over: Record<string, unknown> = {}) => ({
@@ -112,6 +113,26 @@ describe("Assigned Opportunities from real data", () => {
     expect(within(rowOf(2)).getByText("In Review")).toBeTruthy();
     expect(within(rowOf(3)).getByText("Declined", { selector: "span.block" })).toBeTruthy();
     expect(rowOf(2).textContent).toContain("-"); // no marketer: an honest dash
+  });
+
+  it("each row has an Open job link; the sheet shows the quick info, the sample mark and the helper; no link means a disabled control with a tooltip", async () => {
+    current = page({ rows: [orow({ matchId: 1 }), orow({ matchId: 2, title: "Cloud Architect", sourceUrl: null, quickInfo: null, sourceName: null, sourceSample: false })] });
+    await mount();
+    const link = within(rowOf(1)).getByRole("link", { name: /Open job link for Senior Java Developer on Company site/ }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("https://jobs.example.com/acme/1");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    const missing = rowOf(2).querySelector("[data-job-link-missing]") as HTMLElement;
+    expect(missing.getAttribute("title")).toBe("Your marketer hasn't added the link yet");
+    fireEvent.click(within(rowOf(1)).getByRole("button", { name: "View Senior Java Developer" }));
+    await flush();
+    const d = document.querySelector("[data-detail='1']") as HTMLElement;
+    expect(within(d).getByText("Marketer's quick info")).toBeTruthy();
+    expect(within(d).getByText("Quick note from the marketer.")).toBeTruthy();
+    expect(d.querySelector("[data-sample]")).not.toBeNull();
+    expect(within(d).getByText("Marketer's job notes")).toBeTruthy();
+    expect(d.textContent).toMatch(/Apply on the source site with the Kiwiply extension/);
+    expect(within(d).getByRole("link", { name: /Open job link/ }).getAttribute("href")).toBe("https://jobs.example.com/acme/1");
   });
 
   it("asks the API to sort", async () => {

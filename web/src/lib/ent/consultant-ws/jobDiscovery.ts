@@ -1,5 +1,6 @@
 import { formatMinor } from "@kiwiply/ui";
 import type { Tone } from "./home";
+import { parseJobSource, type JobSource } from "./jobSource";
 
 /**
  * The Consultant workspace's Job Discovery client logic (design/enterprise-consultant/job-discovery.webp): wire types of
@@ -10,7 +11,8 @@ import type { Tone } from "./home";
  *   - every number comes from the API (search runs in the database; there is no client-side filtering of a job dump);
  *   - a match score is the consultant's own `requirement_match.score` (`scoreSource` MATCH) or the share of the job's required skills the
  *     consultant has (SKILLS); a job with neither has no ring, never an invented number;
- *   - Apply never submits anything: the confirm explains what it does and the API says whether a match/application exists.
+ *   - Kiwiply holds no full job posting: a job card shows the marketer's quick info and an "Open job link" to the source site; the
+ *     consultant applies there with the extension and the application is tracked in My Applications (there is no in-app Apply).
  */
 
 export interface Filters {
@@ -36,7 +38,7 @@ export const SORTS: { value: Sort; label: string }[] = [
 
 export type Relation = "NONE" | "MATCHED" | "ASSIGNED" | "APPLIED";
 
-export interface Job {
+export interface Job extends JobSource {
   id: number;
   title: string;
   clientId: number;
@@ -71,21 +73,11 @@ export interface SearchView {
   items: Job[];
 }
 
-export type ApplyStateKey = "CAN_RECORD" | "NEEDS_ASSIGNMENT" | "ALREADY_APPLIED";
-export interface ApplyState {
-  state: ApplyStateKey;
-  message: string;
-}
 export interface DetailView {
   job: Job;
+  /** The marketer's job notes on the requirement (not a full posting). */
   description: string | null;
   openPositions: number;
-  apply: ApplyState;
-}
-export interface ApplyResult {
-  recorded: boolean;
-  state: string;
-  message: string;
 }
 
 export interface Option {
@@ -155,7 +147,6 @@ function rows<T>(v: unknown, f: (o: Record<string, unknown>) => T | null): T[] {
 }
 
 const RELATIONS: readonly string[] = ["NONE", "MATCHED", "ASSIGNED", "APPLIED"];
-const APPLY_STATES: readonly string[] = ["CAN_RECORD", "NEEDS_ASSIGNMENT", "ALREADY_APPLIED"];
 const CHIP_KINDS: readonly string[] = ["workMode", "jobType", "minRate", "skill", "industry"];
 
 export function parseFilters(v: unknown): Filters {
@@ -190,6 +181,7 @@ export function parseJob(o: Record<string, unknown>): Job | null {
     totalSkills: num(o.totalSkills),
     relation: (RELATIONS.includes(String(o.relation)) ? o.relation : "NONE") as Relation,
     applicationStage: strOrNull(o.applicationStage),
+    ...parseJobSource(o),
   };
 }
 
@@ -198,21 +190,11 @@ export function parseSearch(body: unknown): SearchView | null {
   return { total: body.total, page: num(body.page), size: num(body.size, 10), sort: (body.sort === "newest" || body.sort === "rate" ? body.sort : "match") as Sort, items: rows(body.items, parseJob) };
 }
 
-function parseApplyState(v: unknown): ApplyState {
-  const o = isObj(v) ? v : {};
-  return { state: (APPLY_STATES.includes(String(o.state)) ? o.state : "NEEDS_ASSIGNMENT") as ApplyStateKey, message: str(o.message) };
-}
-
 export function parseDetail(body: unknown): DetailView | null {
   if (!isObj(body) || !isObj(body.job)) return null;
   const job = parseJob(body.job);
   if (!job) return null;
-  return { job, description: strOrNull(body.description), openPositions: num(body.openPositions), apply: parseApplyState(body.apply) };
-}
-
-export function parseApplyResult(body: unknown): ApplyResult | null {
-  if (!isObj(body) || typeof body.recorded !== "boolean") return null;
-  return { recorded: body.recorded, state: str(body.state), message: str(body.message) };
+  return { job, description: strOrNull(body.description), openPositions: num(body.openPositions) };
 }
 
 const option = (o: Record<string, unknown>): Option | null => (typeof o.value === "string" && typeof o.label === "string" ? { value: o.value, label: o.label, count: numOrNull(o.count) } : null);
@@ -350,16 +332,6 @@ export function matchBlurb(j: Pick<Job, "score" | "scoreSource" | "matchedSkills
   return `You have ${j.matchedSkills} of ${j.totalSkills} required skills.`;
 }
 
-/**
- * What Apply would do for this card right now (the API decides again when the consultant confirms): a match or assignment lets the
- * consultant add a follow-up task; a role with neither has to be assigned or approved by the marketer first.
- */
-export function applyHint(j: Pick<Job, "relation">): ApplyState {
-  if (j.relation === "APPLIED") return { state: "ALREADY_APPLIED", message: "You already have an application for this role. Follow it on My Applications." };
-  if (j.relation === "NONE") return { state: "NEEDS_ASSIGNMENT", message: "This role has to be assigned or approved by your marketer before you can apply. Ask them to line it up for you." };
-  return { state: "CAN_RECORD", message: "Kiwiply never submits for you. This adds a follow-up to your tasks so you can confirm and submit this application yourself." };
-}
-
 export function employmentText(e: string | null): string | null {
   if (!e) return null;
   if (e === "FTE") return "Full-time";
@@ -474,7 +446,6 @@ const filtersBody = (f: Filters) => ({ q: f.q.trim() || null, location: f.locati
 
 export const saveJob = (orgId: number | string, jobId: number) => write("POST", `${BASE_PATH(orgId)}/saved/${jobId}`, undefined, nothing);
 export const unsaveJob = (orgId: number | string, jobId: number) => write("DELETE", `${BASE_PATH(orgId)}/saved/${jobId}`, undefined, nothing);
-export const applyToJob = (orgId: number | string, jobId: number) => write("POST", `${BASE_PATH(orgId)}/jobs/${jobId}/apply`, undefined, parseApplyResult);
 export const createSavedSearch = (orgId: number | string, name: string, f: Filters) => write("POST", `${BASE_PATH(orgId)}/saved-searches`, { name: name.trim(), filters: filtersBody(f) }, parseSavedSearch);
 export const deleteSavedSearch = (orgId: number | string, id: number) => write("DELETE", `${BASE_PATH(orgId)}/saved-searches/${id}`, undefined, nothing);
 export const markSavedSearchViewed = (orgId: number | string, id: number) => write("POST", `${BASE_PATH(orgId)}/saved-searches/${id}/viewed`, undefined, parseSavedSearch);

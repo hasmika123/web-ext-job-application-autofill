@@ -32,6 +32,8 @@ import type { IconProps } from "@kiwiply/ui";
 import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
+import JobLinkButton, { QuickInfo } from "./JobLinkButton";
+import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
 import { deltaText, employmentLabel, firstName, initialsOf, matchTone, placeLabel } from "@/lib/ent/consultant-ws/home";
 import {
   MAX_COMPARE,
@@ -337,6 +339,7 @@ function MatchedJobs({ view, selected, compare, busy, a, notice }: { view: Match
                       <SaveButton row={m} onToggle={a.toggleSave} />
                       <CompareButton row={m} on={compare.includes(m.matchId)} full={compare.length >= MAX_COMPARE} onToggle={a.toggleCompare} />
                       <InterestButton row={m} busy={busy.has(m.matchId)} onSend={a.interest} />
+                      <JobLinkButton title={m.title} source={m} variant="ghost" className="!min-h-8" />
                     </span>
                   </td>
                 </tr>
@@ -436,6 +439,7 @@ function Details({ row, detail, loading, comparing, full, busy, a }: { row: Matc
                 {row.score}% Match
               </span>
               <InterestButton row={row} busy={busy} onSend={a.interest} className="min-h-10 px-4 text-[14px]" />
+              <JobLinkButton title={row.title} source={row} variant="ghost" />
               <button type="button" aria-pressed={row.saved} onClick={() => a.toggleSave(row)} className="inline-flex min-h-8 items-center gap-1.5 rounded-lg border border-line bg-paper px-3 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft">
                 {row.saved ? <BookmarkIcon size={14} /> : <BookmarkOutlineIcon size={14} />}
                 {row.saved ? "Saved" : "Save Job"}
@@ -446,6 +450,10 @@ function Details({ row, detail, loading, comparing, full, busy, a }: { row: Matc
               </button>
             </div>
           </div>
+          <QuickInfo source={row} className="mt-3 rounded-xl border border-line p-3" />
+          <p data-apply-helper className="mt-2 text-[12.5px] text-muted">
+            {APPLY_HELPER}
+          </p>
           {row.interestSent ? <p className="mt-2 text-[12.5px] text-muted">Your interest is recorded. Your marketer can see it and will follow up. Nothing has been submitted for you.</p> : null}
 
           {loading || !detail ? (
@@ -684,7 +692,7 @@ export default function ConsultantMatchesPage({ orgId, firstName: first }: Match
 
   return (
     <div data-consultant-matches data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Job Matches" subtitle="Personalized opportunities that match your skills, experience and career goals." />
+      <PageHeader title="Job Matches" subtitle="Roles your marketer matched to your skills, experience and career goals. Open the job link to read the posting and apply on the source site with the Kiwiply extension." />
       <ClaimsMascot />
       <ClaimsHelpCard />
 

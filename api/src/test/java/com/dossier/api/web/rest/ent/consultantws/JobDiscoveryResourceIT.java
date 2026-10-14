@@ -27,7 +27,8 @@ import com.dossier.api.repository.ent.OrgMemberRoleRepository;
 import com.dossier.api.repository.ent.OrgRoleRepository;
 import com.dossier.api.repository.ent.consultantws.CwsSavedJobRepository;
 import com.dossier.api.repository.ent.consultantws.CwsSavedSearchRepository;
-import com.dossier.api.repository.ent.consultantws.CwsTaskRepository;
+import com.dossier.api.domain.ent.consultantws.CwsJobSource;
+import com.dossier.api.repository.ent.consultantws.CwsJobSourceRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
@@ -93,7 +94,7 @@ class JobDiscoveryResourceIT {
     @Autowired private TalentApplicationRepository applications;
     @Autowired private CwsSavedJobRepository savedJobs;
     @Autowired private CwsSavedSearchRepository savedSearches;
-    @Autowired private CwsTaskRepository tasks;
+    @Autowired private CwsJobSourceRepository jobSources;
 
     private OrgFixtures fx;
     private Organization a;
@@ -404,39 +405,89 @@ class JobDiscoveryResourceIT {
     }
 
     @Test
-    void detailShowsTheDescriptionAndWhatApplyWouldDo() throws Exception {
+    void detailShowsTheMarketersNotesAndNoApplyState() throws Exception {
         world();
         JsonNode d = ok(send(get(path(a.getId(), "/jobs/" + java.getId())), "cws-jd-a-c1", null), "detail");
         assertThat(d.path("description").asText()).isEqualTo("Description of Java Developer");
-        assertThat(d.path("apply").path("state").asText()).isEqualTo("NEEDS_ASSIGNMENT");
-        match(c1, java, "ASSIGNED", 90);
-        assertThat(ok(send(get(path(a.getId(), "/jobs/" + java.getId())), "cws-jd-a-c1", null), "detail").path("apply").path("state").asText()).isEqualTo("CAN_RECORD");
-        application(c1, java, "SUBMITTED");
-        assertThat(ok(send(get(path(a.getId(), "/jobs/" + java.getId())), "cws-jd-a-c1", null), "detail").path("apply").path("state").asText()).isEqualTo("ALREADY_APPLIED");
+        assertThat(d.has("apply")).as("the in-app apply flow is gone").isFalse();
+        assertThat(d.path("job").path("sourceUrl").isNull()).as("no marketer link yet").isTrue();
         assertGeneric404(send(get(path(a.getId(), "/jobs/" + closed.getId())), "cws-jd-a-c1", null), "a closed job with no match or application");
     }
 
-    // ---- apply (intent only) ----------------------------------------------------------------------------------
+    // ---- the marketer's source link and quick info (no full job details, no in-app apply) ---------------------
 
-    @Test
-    void applyWithoutAMatchRecordsNothingAndSaysSo() throws Exception {
-        world();
-        JsonNode r = ok(send(post(path(a.getId(), "/jobs/" + java.getId() + "/apply")), "cws-jd-a-c1", null), "apply");
-        assertThat(r.path("recorded").asBoolean()).isFalse();
-        assertThat(r.path("state").asText()).isEqualTo("NEEDS_ASSIGNMENT");
-        assertThat(tasks.countByOrgIdAndConsultantId(a.getId(), c1.getId())).isZero();
-        assertThat(applications.findByOrgIdAndConsultantId(a.getId(), c1.getId())).as("no submission or application is ever created").isEmpty();
+    private void source(Organization org, ClientRequirement job, String url, String name, String info, boolean sample) {
+        CwsJobSource s = new CwsJobSource();
+        s.setOrgId(org.getId());
+        s.setRequirementId(job.getId());
+        s.setSourceUrl(url);
+        s.setSourceName(name);
+        s.setQuickInfo(info);
+        s.setSampleData(sample);
+        jobSources.save(s);
     }
 
     @Test
-    void applyWithAMatchAddsOneFollowUpTaskAndNeverAnApplication() throws Exception {
+    void theCardAndDetailCarryTheMarketersSourceLinkNameAndQuickInfoAndTheSampleMark() throws Exception {
         world();
-        match(c1, java, "ASSIGNED", 90);
-        JsonNode r = ok(send(post(path(a.getId(), "/jobs/" + java.getId() + "/apply")), "cws-jd-a-c1", null), "apply");
-        assertThat(r.path("recorded").asBoolean()).isTrue();
-        ok(send(post(path(a.getId(), "/jobs/" + java.getId() + "/apply")), "cws-jd-a-c1", null), "apply twice");
-        assertThat(tasks.countByOrgIdAndConsultantId(a.getId(), c1.getId())).as("idempotent while the task is open").isEqualTo(1);
-        assertThat(tasks.countByOrgIdAndConsultantId(a.getId(), c2.getId())).isZero();
+        source(a, java, "https://jobs.example.com/a/1", "LinkedIn", "Contract, apply on the site.", true);
+        source(a, data, "https://dice.com/jobs/42", "Dice", "Real marketer entry.", false);
+        JsonNode items = search("cws-jd-a-c1", a, "?sort=newest").path("items");
+        JsonNode j = null;
+        JsonNode d = null;
+        JsonNode none = null;
+        for (JsonNode i : items) {
+            if (i.path("id").asLong() == java.getId()) j = i;
+            if (i.path("id").asLong() == data.getId()) d = i;
+            if (i.path("id").asLong() == older.getId()) none = i;
+        }
+        assertThat(j.path("sourceUrl").asText()).isEqualTo("https://jobs.example.com/a/1");
+        assertThat(j.path("sourceName").asText()).isEqualTo("LinkedIn");
+        assertThat(j.path("quickInfo").asText()).isEqualTo("Contract, apply on the site.");
+        assertThat(j.path("sourceSample").asBoolean()).isTrue();
+        assertThat(d.path("sourceSample").asBoolean()).isFalse();
+        assertThat(none.path("sourceUrl").isNull()).as("a job without a row has no link").isTrue();
+        assertThat(none.path("quickInfo").isNull()).isTrue();
+        JsonNode detail = ok(send(get(path(a.getId(), "/jobs/" + java.getId())), "cws-jd-a-c1", null), "detail");
+        assertThat(detail.path("job").path("sourceUrl").asText()).isEqualTo("https://jobs.example.com/a/1");
+        assertThat(detail.path("job").path("quickInfo").asText()).isEqualTo("Contract, apply on the site.");
+    }
+
+    @Test
+    void aStoredLinkThatIsNotAPlainHttpsLinkIsNeverReturned() throws Exception {
+        world();
+        String[] bad = { "javascript:alert(1)", "http://jobs.example.com/x", "ftp://jobs.example.com/x", "https://user:pw@jobs.example.com/x", "https://localhost/x", "https:///nohost", "//jobs.example.com/x", "https://jobs.example.com/a b", "not a url" };
+        ClientRequirement[] targets = { java, data, older };
+        int n = 0;
+        for (String url : bad) {
+            ClientRequirement t = targets[n % targets.length];
+            CwsJobSource row = jobSources.findByOrgIdAndRequirementId(a.getId(), t.getId()).orElse(null);
+            if (row == null) source(a, t, url, "Site", "note", false);
+            else {
+                row.setSourceUrl(url);
+                jobSources.save(row);
+            }
+            n++;
+            JsonNode detail = ok(send(get(path(a.getId(), "/jobs/" + t.getId())), "cws-jd-a-c1", null), "detail");
+            assertThat(detail.path("job").path("sourceUrl").isNull()).as("not returned: " + url).isTrue();
+            assertThat(detail.path("job").path("quickInfo").asText()).as("the note is still shown").isEqualTo("note");
+        }
+        // a link at the column limit (500 characters) is returned as is
+        CwsJobSource row = jobSources.findByOrgIdAndRequirementId(a.getId(), java.getId()).orElseThrow();
+        row.setSourceUrl("https://jobs.example.com/" + "x".repeat(475));
+        jobSources.save(row);
+        assertThat(ok(send(get(path(a.getId(), "/jobs/" + java.getId())), "cws-jd-a-c1", null), "detail").path("job").path("sourceUrl").asText()).hasSize(500);
+    }
+
+    @Test
+    void anotherOrganizationsSourceRowNeverLeaksAndTheApplyRouteIsGone() throws Exception {
+        world();
+        source(b, bJob, "https://jobs.example.com/b/1", "Dice", "b only", true);
+        assertThat(search("cws-jd-a-c1", a, "?sort=newest").toString()).doesNotContain("b only").doesNotContain("jobs.example.com/b/1");
+        assertThat(search("cws-jd-b-c1", b, "").path("items").get(0).path("sourceUrl").asText()).isEqualTo("https://jobs.example.com/b/1");
+        // POST .../apply no longer exists: no handler for it (404 or 405), nothing is created
+        int status = send(post(path(a.getId(), "/jobs/" + java.getId() + "/apply")), "cws-jd-a-c1", null).getResponse().getStatus();
+        assertThat(status).isIn(404, 405);
         assertThat(applications.findByOrgIdAndConsultantId(a.getId(), c1.getId())).isEmpty();
     }
 
@@ -564,7 +615,6 @@ class JobDiscoveryResourceIT {
         assertGeneric404(send(get(path(a.getId(), "/jobs/" + other)), "cws-jd-a-c1", null), "detail of another org's job");
         assertGeneric404(send(post(path(a.getId(), "/saved/" + other)), "cws-jd-a-c1", null), "save another org's job");
         assertGeneric404(send(delete(path(a.getId(), "/saved/" + other)), "cws-jd-a-c1", null), "unsave another org's job");
-        assertGeneric404(send(post(path(a.getId(), "/jobs/" + other + "/apply")), "cws-jd-a-c1", null), "apply to another org's job");
         assertGeneric404(send(get(path(a.getId(), "/jobs/999999999")), "cws-jd-a-c1", null), "missing job");
         assertThat(savedJobs.countByOrgIdAndConsultantId(a.getId(), c1.getId())).isZero();
     }
@@ -574,7 +624,7 @@ class JobDiscoveryResourceIT {
         world();
         long j = java.getId();
         String[][] routes = {
-            { "GET", "/overview" }, { "GET", "/search" }, { "GET", "/jobs/" + j }, { "POST", "/saved/" + j }, { "DELETE", "/saved/" + j }, { "POST", "/jobs/" + j + "/apply" },
+            { "GET", "/overview" }, { "GET", "/search" }, { "GET", "/jobs/" + j }, { "POST", "/saved/" + j }, { "DELETE", "/saved/" + j },
             { "POST", "/saved-searches" }, { "DELETE", "/saved-searches/1" }, { "POST", "/saved-searches/1/viewed" }, { "POST", "/recent-searches" },
         };
         String body = json("name", q("n"), "filters", json("q", q("java")));
@@ -590,7 +640,6 @@ class JobDiscoveryResourceIT {
         }
         assertGeneric404(send(get(path(999999999L, "/overview")), "cws-jd-a-c1", null), "an organization that does not exist");
         assertThat(savedSearches.countByOrgIdAndConsultantIdAndKind(a.getId(), c1.getId(), "SAVED")).isZero();
-        assertThat(tasks.countByOrgIdAndConsultantId(a.getId(), c1.getId())).isZero();
     }
 
     @Test

@@ -33,6 +33,10 @@ const job = (id: number, over: W = {}): W => ({
   totalSkills: 3,
   relation: "NONE",
   applicationStage: null,
+  sourceUrl: "https://jobs.example.com/acme/" + id,
+  sourceName: "LinkedIn",
+  quickInfo: "Contract role, apply on the site.",
+  sourceSample: true,
   ...over,
 });
 
@@ -67,7 +71,6 @@ type Call = { method: string; url: string; body: string | null };
 let calls: Call[];
 let jobs: W[];
 let detail: W;
-let applyReply: { status: number; body: W };
 let saveStatus = 200;
 
 function stubFetch() {
@@ -80,7 +83,6 @@ function stubFetch() {
       const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
       if (url.endsWith("/overview")) return json(200, overview());
       if (url.includes("/search?")) return json(200, { orgId: 2, total: jobs.length === 2 ? 128 : jobs.length, page: 0, size: 10, sort: "match", items: jobs });
-      if (url.includes("/apply")) return json(applyReply.status, applyReply.body);
       if (url.includes("/jobs/")) return json(200, detail);
       if (url.includes("/saved/")) return saveStatus === 200 ? json(200, { saved: method === "POST" }) : json(saveStatus, { error: "no" });
       if (url.includes("/recent-searches")) return json(200, { id: 1 });
@@ -102,8 +104,7 @@ beforeEach(() => {
     job(1, { title: "Data Engineer", featured: true, rateMinMinor: 9500, rateMaxMinor: 12000 }),
     job(2, { title: "Cloud Architect", clientName: "GlobalTech", score: 78, scoreSource: "SKILLS", matchedSkills: 2, totalSkills: 3, relation: "ASSIGNED", workMode: "REMOTE", skills: ["AWS", "Azure", "A", "B", "C", "D", "E"] }),
   ];
-  detail = { job: job(1, { title: "Data Engineer" }), description: "Build pipelines.", openPositions: 2, apply: { state: "NEEDS_ASSIGNMENT", message: "This role has to be assigned or approved by your marketer before you can apply. Ask them to line it up for you." } };
-  applyReply = { status: 200, body: { recorded: true, state: "RECORDED", message: "Added to your tasks." } };
+  detail = { job: job(1, { title: "Data Engineer" }), description: "Build pipelines.", openPositions: 2 };
   saveStatus = 200;
   stubFetch();
 });
@@ -181,7 +182,7 @@ describe("Job Discovery", () => {
     expect(screen.getByRole("button", { name: "Save Cloud Architect" }).getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("View opens the detail sheet with the description and what Apply would do", async () => {
+  it("View opens the detail sheet with the marketer's quick info, job notes and the open-link action", async () => {
     await mount();
     fireEvent.click(screen.getByRole("button", { name: "View Data Engineer" }));
     const body = await waitFor(() => {
@@ -189,32 +190,45 @@ describe("Job Discovery", () => {
       if (!el) throw new Error("not yet");
       return el as HTMLElement;
     });
+    expect(within(body).getByText("Marketer's quick info")).toBeTruthy();
+    expect(within(body).getByText("Contract role, apply on the site.")).toBeTruthy();
     expect(within(body).getByText("Build pipelines.")).toBeTruthy();
-    expect(within(body).getByText(/assigned or approved by your marketer/)).toBeTruthy();
+    expect(within(body).getByText("Marketer's job notes")).toBeTruthy();
+    expect(within(body).getByText(/not the full posting/)).toBeTruthy();
+    const link = within(body).getByRole("link", { name: /Open job link for Data Engineer/ });
+    expect(link.getAttribute("href")).toBe("https://jobs.example.com/acme/1");
     expect(calls.some((c) => c.url.endsWith("/jobs/1"))).toBe(true);
   });
 
-  it("Apply without a match says the marketer has to assign it first, offers no confirm and sends nothing", async () => {
+  it("each card leads with the marketer's quick info, the Sample mark and an Open job link that opens a new tab safely; no Apply button exists", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: "Apply to Data Engineer" }));
-    const dlg = await screen.findByRole("dialog");
-    expect(within(dlg).getByText(/assigned or approved by your marketer/)).toBeTruthy();
-    expect(within(dlg).getByText(/never submits an application for you/)).toBeTruthy();
-    expect(within(dlg).queryByRole("button", { name: "Add to my tasks" })).toBeNull();
+    expect(document.querySelector("[data-apply-helper]")?.textContent).toMatch(/Apply on the source site with the Kiwiply extension/);
+    expect(document.querySelector("[data-apply-helper]")?.textContent).toMatch(/My Applications/);
+    const card = document.querySelector("[data-job='1']") as HTMLElement;
+    expect(within(card).getByText("Marketer's quick info")).toBeTruthy();
+    expect(within(card).getByText("Contract role, apply on the site.")).toBeTruthy();
+    expect(within(card).getByText("LinkedIn")).toBeTruthy();
+    expect(card.querySelector("[data-sample]")).not.toBeNull();
+    const link = within(card).getByRole("link", { name: /Open job link for Data Engineer on LinkedIn/ }) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("https://jobs.example.com/acme/1");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(screen.queryByRole("button", { name: /^Apply/ })).toBeNull();
     expect(calls.some((c) => c.url.includes("/apply"))).toBe(false);
   });
 
-  it("Apply with an assigned match confirms first, then records the follow-up (never a submission)", async () => {
+  it("a job without a link has a disabled Open job link with an honest tooltip; an unsafe link is never rendered as a link", async () => {
+    jobs = [job(1, { title: "Data Engineer", sourceUrl: null, quickInfo: null, sourceName: null, sourceSample: false }), job(2, { title: "Cloud Architect", sourceUrl: "javascript:alert(1)" })];
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: "Apply to Cloud Architect" }));
-    const dlg = await screen.findByRole("dialog");
-    expect(calls.some((c) => c.url.includes("/apply"))).toBe(false);
-    fireEvent.click(within(dlg).getByRole("button", { name: "Add to my tasks" }));
-    await within(dlg).findByText("Added to your tasks.");
-    const apply = calls.filter((c) => c.url.includes("/apply"));
-    expect(apply).toHaveLength(1);
-    expect(apply[0].method).toBe("POST");
-    expect(apply[0].url).toBe("/api/orgs/2/me-workspace/job-discovery/jobs/2/apply");
+    const card = document.querySelector("[data-job='1']") as HTMLElement;
+    const missing = card.querySelector("[data-job-link-missing]") as HTMLElement;
+    expect(missing.getAttribute("title")).toBe("Your marketer hasn't added the link yet");
+    const btn = within(card).getByRole("button", { name: /Open job link for Data Engineer/ }) as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+    expect(within(card).queryByText("Marketer's quick info")).toBeNull();
+    const second = document.querySelector("[data-job='2']") as HTMLElement;
+    expect(within(second).queryByRole("link", { name: /Open job link/ })).toBeNull();
+    expect(second.querySelector("[data-job-link-missing]")).not.toBeNull();
   });
 
   it("right rail: saved searches with new counts, trending skills with real demand text, recent searches", async () => {

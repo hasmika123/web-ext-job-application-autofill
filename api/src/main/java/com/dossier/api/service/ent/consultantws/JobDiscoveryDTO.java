@@ -20,7 +20,7 @@ public final class JobDiscoveryDTO {
     /**
      * One job card. {@code score} is the caller's own {@code requirement_match.score} when there is one ({@code scoreSource = MATCH}),
      * else the share of the job's required skills the consultant has ({@code SKILLS}); null when neither exists (no skills on the job
-     * or on the profile). {@code relation} is NONE, MATCHED, ASSIGNED or APPLIED.
+     * or on the profile). {@code relation} is NONE, MATCHED, ASSIGNED or APPLIED. {@code sourceUrl} (https only, or null), {@code sourceName} and {@code quickInfo} are the marketer's entries (table cws_job_source; Kiwiply holds no full posting); {@code sourceSample} marks demo stand-in rows.
      */
     public record Job(
         Long id,
@@ -46,17 +46,17 @@ public final class JobDiscoveryDTO {
         int matchedSkills,
         int totalSkills,
         String relation,
-        String applicationStage
+        String applicationStage,
+        String sourceUrl,
+        String sourceName,
+        String quickInfo,
+        boolean sourceSample
     ) {}
 
     public record SearchResponse(Long orgId, long total, int page, int size, String sort, List<Job> items) {}
 
-    /** What Apply would do right now: {@code CAN_RECORD} (a match or application exists), {@code NEEDS_ASSIGNMENT} or {@code ALREADY_APPLIED}. */
-    public record ApplyState(String state, String message) {}
-
-    public record Detail(Job job, String description, int openPositions, ApplyState apply) {}
-
-    public record ApplyResult(boolean recorded, String state, String message) {}
+    /** {@code description} is the marketer's job notes on the requirement, not a full posting. */
+    public record Detail(Job job, String description, int openPositions) {}
 
     public record SavedJobResult(Long requirementId, boolean saved) {}
 

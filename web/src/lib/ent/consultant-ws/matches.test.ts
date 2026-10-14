@@ -4,7 +4,7 @@ import { MAX_COMPARE, NO_FILTERS, activeFilterCount, alertAgo, distinct, filterM
 const tile = (value: number, extra: Record<string, unknown> = {}) => ({ value, previous: 1, deltaPct: 10, sparkline: [0, 1, 2], sample: false, ...extra });
 const row = (over: Partial<MatchRow> = {}): MatchRow => ({
   matchId: 1, requirementId: 10, title: "Java Dev", company: "TechCorp", location: "Austin, TX", workMode: "REMOTE", employment: "CONTRACT", score: 90, skillFit: 80,
-  postedAt: "2026-10-11T00:00:00Z", rateMinMinor: 8500, rateMaxMinor: 9500, rateUnit: "HOUR", currency: "USD", saved: false, viewed: false, interestSent: false, ...over,
+  postedAt: "2026-10-11T00:00:00Z", rateMinMinor: 8500, rateMaxMinor: 9500, rateUnit: "HOUR", currency: "USD", saved: false, viewed: false, interestSent: false, sourceUrl: null, sourceName: null, quickInfo: null, sourceSample: false, ...over,
 });
 
 const body = () => ({
@@ -18,6 +18,19 @@ const body = () => ({
     { key: "new-matches", kind: "NEW_MATCHES", title: "2 new job matches", detail: "Based on your profile", at: "2026-10-13T00:00:00Z" },
     { key: "x", kind: "WHATEVER", title: "t", at: "2026-10-13T00:00:00Z" },
   ],
+});
+
+describe("the marketer's source link on a match row", () => {
+  it("reads link, name, note and sample mark; an unsafe or missing link is null", () => {
+    const v = parseMatches({ ...body(), matches: [
+      { matchId: 1, title: "A", score: 80, sourceUrl: "https://jobs.example.com/a/1", sourceName: "Dice", quickInfo: "Note", sourceSample: true },
+      { matchId: 2, title: "B", score: 80, sourceUrl: "javascript:alert(1)", quickInfo: "Only a note" },
+      { matchId: 3, title: "C", score: 80 },
+    ] })!;
+    expect(v.matches[0]).toMatchObject({ sourceUrl: "https://jobs.example.com/a/1", sourceName: "Dice", quickInfo: "Note", sourceSample: true });
+    expect(v.matches[1]).toMatchObject({ sourceUrl: null, quickInfo: "Only a note", sourceSample: false });
+    expect(v.matches[2]).toMatchObject({ sourceUrl: null, sourceName: null, quickInfo: null });
+  });
 });
 
 describe("parseMatches", () => {

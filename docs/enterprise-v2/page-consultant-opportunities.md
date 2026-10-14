@@ -54,6 +54,9 @@ POST `.../decline`; POST `.../reopen`; POST `.../request-resume-update`. (BFF: s
 ## Tests
 `OpportunitiesResourceIT` (13: values, sort/paging, detail, own-only, cross-org/non-consultant/flags 404, empty, each write success + validation + PII + cross-tenant), web lib + page vitest.
 
+## Marketer's source link and quick info (job source flow)
+Kiwiply holds no full job posting (see [consultant-job-source-flow.md](consultant-job-source-flow.md)). Each opportunity row (list and detail) carries `sourceUrl` (https only; null when the marketer added none or it fails the https/host check, validated on write and on read), `sourceName`, `quickInfo` and `sourceSample`, read from the companion table `cws_job_source` (migration `20261103200000_ent_cws_job_source.xml`). The page shows the marketer's quick info (with the source name and the **Sample** mark for demo stand-in rows) and an **Open job link** action in each row and in the detail (`target="_blank" rel="noopener noreferrer"`; disabled with the tooltip "Your marketer hasn't added the link yet" when there is none), plus the helper "Apply on the source site with the Kiwiply extension - your application shows up in My Applications automatically". Everything else on this page is unchanged. The link, name and note are SAMPLE in the demo (`ConsultantWsJobSourceDemoSeeder`); the marketer role writes them in the real product.
+
 ## Known gaps
 No marketer-side write for priority/due; no messaging (notes are stored for the marketer to read later); IN_REVIEW is only reachable via seed data; no
 status filter or search on the table; no FlagIcon in the UI package.

@@ -13,7 +13,7 @@ public final class JobMatchesDTO {
 
     public record Tiles(Tile total, Tile high, Tile fresh, Tile saved, Tile viewed) {}
 
-    /** One matched job. {@code skillFit} is the share (0-100) of the job's listed skills the consultant has; null when the job lists none. */
+    /** One matched job. {@code sourceUrl} (https only, or null), {@code sourceName} and {@code quickInfo} are the marketer's entries (Kiwiply holds no full posting); {@code sourceSample} marks demo stand-in rows. {@code skillFit} is the share (0-100) of the job's listed skills the consultant has; null when the job lists none. */
     public record MatchRow(
         long matchId,
         long requirementId,
@@ -31,7 +31,11 @@ public final class JobMatchesDTO {
         String currency,
         boolean saved,
         boolean viewed,
-        boolean interestSent
+        boolean interestSent,
+        String sourceUrl,
+        String sourceName,
+        String quickInfo,
+        boolean sourceSample
     ) {}
 
     public record Alert(String key, String kind, String title, String detail, Instant at) {}

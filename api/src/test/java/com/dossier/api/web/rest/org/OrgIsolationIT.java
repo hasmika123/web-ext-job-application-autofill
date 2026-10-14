@@ -266,7 +266,6 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/me-workspace/job-discovery/jobs/{requirementId}", Case.consultantRead()),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/saved/{requirementId}", Case.consultantWrite(null, 200)),
         Map.entry("DELETE /api/orgs/{orgId}/me-workspace/job-discovery/saved/{requirementId}", Case.consultantWrite(null, 200)),
-        Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/jobs/{requirementId}/apply", Case.consultantWrite(null, 200)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/saved-searches", Case.consultantWrite("{\"name\":\"Hijack search\",\"filters\":{\"q\":\"java\"}}", 200)),
         Map.entry("DELETE /api/orgs/{orgId}/me-workspace/job-discovery/saved-searches/{id}", Case.consultantWrite(null, 204)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/saved-searches/{id}/viewed", Case.consultantWrite(null, 200)),

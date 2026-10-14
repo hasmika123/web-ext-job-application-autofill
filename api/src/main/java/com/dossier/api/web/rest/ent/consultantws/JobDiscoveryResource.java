@@ -64,7 +64,7 @@ public class JobDiscoveryResource {
         return service.search(me, new JobDiscoveryDTO.Filters(q, location, jobType, workMode, experience, industry, skill, clientId, minRateMinor), sort, page, size, minScore);
     }
 
-    @Operation(summary = "One job's detail", description = "Description, open positions and what Apply would do. Another organization's job is a 404.")
+    @Operation(summary = "One job's detail", description = "The marketer's quick info and source link, job notes and open positions. Kiwiply holds no full posting. Another organization's job is a 404.")
     @GetMapping("/jobs/{requirementId}")
     @OrgPermissionRequired
     public JobDiscoveryDTO.Detail detail(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable long requirementId) {
@@ -83,16 +83,6 @@ public class JobDiscoveryResource {
     @OrgPermissionRequired
     public JobDiscoveryDTO.SavedJobResult unsave(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable long requirementId) {
         return service.unsaveJob(me, requirementId);
-    }
-
-    @Operation(
-        summary = "Apply (intent only)",
-        description = "Kiwiply never submits. With a match or application on the role it adds one follow-up task for the consultant; otherwise it records nothing and says the marketer must assign or approve the role first."
-    )
-    @PostMapping("/jobs/{requirementId}/apply")
-    @OrgPermissionRequired
-    public JobDiscoveryDTO.ApplyResult apply(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable long requirementId) {
-        return service.applyIntent(me, requirementId);
     }
 
     @Operation(summary = "Save this search", description = "Name and filters are scanned for sensitive data (422 SENSITIVE_CONTENT). At most 10 saved searches; a duplicate name is a 409.")

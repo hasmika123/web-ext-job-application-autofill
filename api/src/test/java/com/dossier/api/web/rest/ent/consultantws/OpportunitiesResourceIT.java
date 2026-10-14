@@ -24,6 +24,8 @@ import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.ent.OrgMemberRoleRepository;
 import com.dossier.api.repository.ent.OrgRoleRepository;
+import com.dossier.api.domain.ent.consultantws.CwsJobSource;
+import com.dossier.api.repository.ent.consultantws.CwsJobSourceRepository;
 import com.dossier.api.repository.ent.consultantws.CwsMatchInterestRepository;
 import com.dossier.api.repository.ent.consultantws.CwsOpportunityResponseRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
@@ -91,6 +93,7 @@ class OpportunitiesResourceIT {
     @Autowired private TalentApplicationRepository applications;
     @Autowired private CwsOpportunityResponseRepository responses;
     @Autowired private CwsMatchInterestRepository interests;
+    @Autowired private CwsJobSourceRepository jobSources;
 
     private OrgFixtures fx;
     private Organization a;
@@ -455,6 +458,37 @@ class OpportunitiesResourceIT {
         assertThat(dd.path("declineReason").asText()).isEqualTo("Not a fit.");
         assertThat(texts(dd.path("timeline"), "key")).containsExactly("ASSIGNED", "DECLINED");
         assertThat(detail("cws-o-a-c1", a, o2.getId()).path("row").path("status").asText()).isEqualTo("AWAITING_RESPONSE");
+    }
+
+    private void source(Organization org, long requirementId, String url, String name, String info, boolean sample) {
+        CwsJobSource s = new CwsJobSource();
+        s.setOrgId(org.getId());
+        s.setRequirementId(requirementId);
+        s.setSourceUrl(url);
+        s.setSourceName(name);
+        s.setQuickInfo(info);
+        s.setSampleData(sample);
+        jobSources.saveAndFlush(s);
+    }
+
+    @Test
+    void rowsAndDetailCarryTheMarketersSourceLinkAndQuickInfoAndNeverAnUnsafeLink() throws Exception {
+        seedC1();
+        source(a, o1.getRequirementId(), "https://jobs.example.com/a/" + o1.getRequirementId(), "Company site", "Quick note from the marketer.", true);
+        source(a, o2.getRequirementId(), "http://insecure.example.com/x", "Dice", "Unsafe link row.", false);
+        JsonNode p = page("cws-o-a-c1", a);
+        JsonNode r1 = row(p, o1.getId());
+        assertThat(r1.path("sourceUrl").asText()).isEqualTo("https://jobs.example.com/a/" + o1.getRequirementId());
+        assertThat(r1.path("sourceName").asText()).isEqualTo("Company site");
+        assertThat(r1.path("quickInfo").asText()).isEqualTo("Quick note from the marketer.");
+        assertThat(r1.path("sourceSample").asBoolean()).isTrue();
+        JsonNode r2 = row(p, o2.getId());
+        assertThat(r2.path("sourceUrl").isNull()).as("a non-https link is never returned").isTrue();
+        assertThat(r2.path("quickInfo").asText()).isEqualTo("Unsafe link row.");
+        assertThat(row(p, o3.getId()).path("sourceUrl").isNull()).as("no row: no link").isTrue();
+        JsonNode d = detail("cws-o-a-c1", a, o1.getId());
+        assertThat(d.path("row").path("sourceUrl").asText()).isEqualTo("https://jobs.example.com/a/" + o1.getRequirementId());
+        assertThat(detail("cws-o-a-c1", a, o2.getId()).path("row").path("sourceUrl").isNull()).isTrue();
     }
 
     // ---- (b) own rows only ----------------------------------------------------------------------------------------
