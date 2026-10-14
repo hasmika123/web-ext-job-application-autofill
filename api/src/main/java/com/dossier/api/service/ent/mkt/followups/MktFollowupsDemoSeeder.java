@@ -166,7 +166,7 @@ public class MktFollowupsDemoSeeder {
             }
 
             for (MktFollowup f : rows) f.setDetail(detailOf.get(f.getConsultantId()));
-            followups.saveAll(rows);
+            for (MktFollowup row : rows) followups.save(row);
             List<MktFollowupEvent> evs = new ArrayList<>();
             eventsOf.forEach((f, list) -> {
                 for (Object[] o : list) {
@@ -180,7 +180,7 @@ public class MktFollowupsDemoSeeder {
                     evs.add(ev);
                 }
             });
-            events.saveAll(evs);
+            for (MktFollowupEvent ev : evs) events.save(ev);
             total += rows.size();
         }
         return total;

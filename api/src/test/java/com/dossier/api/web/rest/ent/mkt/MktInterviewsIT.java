@@ -138,7 +138,7 @@ class MktInterviewsIT {
         m.setInterviewType("TECHNICAL");
         m.setRecruiterName("Priya Sharma");
         m.setCoordinationStatus("CONFIRMED");
-        metas.saveAndFlush(m);
+        metas.save(m);
 
         MktInterviewsDto.Overview o = service.overview(me, new MktInterviewsDto.Query(null, null, null, null, null, null, null, 0, 25, 0));
         assertThat(o.upcoming()).extracting(MktInterviewsDto.Row::id).containsExactly(alexInterview.getId()); // never Zed's
@@ -170,7 +170,7 @@ class MktInterviewsIT {
         MktInterviewMeta m = new MktInterviewMeta();
         m.setOrgId(b.getId());
         m.setInterviewId(alexInterview.getId()); // org A's interview
-        assertThatThrownBy(() -> metas.saveAndFlush(m)).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> metas.save(m)).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

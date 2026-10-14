@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,11 +13,13 @@ import org.springframework.data.repository.query.Param;
  * Org-scoped access to {@code mkt_followup}: every method takes the organization id first. The scoped queries take the caller's visible consultants as
  * {@code all} (ORG scope sees everyone) plus {@code ids} (never empty: callers pass a sentinel list), so a marketer only ever reads their own consultants' rows.
  */
-public interface MktFollowupRepository extends JpaRepository<MktFollowup, Long> {
+public interface MktFollowupRepository extends Repository<MktFollowup, Long> {
 
     Optional<MktFollowup> findByOrgIdAndId(Long orgId, Long id);
 
     long countByOrgId(Long orgId);
+
+    List<MktFollowup> findByOrgId(Long orgId);
 
     /** Open items (not COMPLETED, not WAITING) due in {@code [from, to)}, soonest first: the Today and Upcoming buckets. */
     @Query("select f from MktFollowup f where f.orgId = :orgId and (:all = true or f.consultantId in :ids) and f.status not in ('COMPLETED','WAITING') and f.dueAt >= :from and f.dueAt < :to order by f.dueAt asc, f.id asc")
@@ -50,4 +52,6 @@ public interface MktFollowupRepository extends JpaRepository<MktFollowup, Long> 
     /** Items sent and waiting on a reply whose last change falls in {@code [from, to)} (the Insights window). */
     @Query("select count(f) from MktFollowup f where f.orgId = :orgId and (:all = true or f.consultantId in :ids) and f.status = 'WAITING' and f.updatedAt >= :from and f.updatedAt < :to")
     long countWaitingChangedBetween(@Param("orgId") Long orgId, @Param("all") boolean all, @Param("ids") Collection<Long> ids, @Param("from") Instant from, @Param("to") Instant to);
+
+    <S extends MktFollowup> S save(S entity);
 }

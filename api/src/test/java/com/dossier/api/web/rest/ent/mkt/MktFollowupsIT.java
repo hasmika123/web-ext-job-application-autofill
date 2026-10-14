@@ -116,7 +116,7 @@ class MktFollowupsIT {
         Set<Long> mine = jessicasConsultants();
         assertThat(mine).isNotEmpty();
         assertThat(mine).containsAll(seen);
-        long owned = followups.findAll().stream().filter(f -> f.getOrgId().equals(acme.getId())).map(MktFollowup::getOwnerMemberId).distinct().count();
+        long owned = followups.findByOrgId(acme.getId()).stream().map(MktFollowup::getOwnerMemberId).distinct().count();
         assertThat(owned).as("every marketer with assignments got rows").isGreaterThan(1);
         Set<Long> everyone = new HashSet<>();
         for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) everyone.add(a.getConsultantId());
@@ -130,7 +130,7 @@ class MktFollowupsIT {
         Set<Long> visible = new HashSet<>();
         JsonNode b = board(JESSICA, acme);
         for (String bucket : List.of("today", "overdue", "upcoming")) for (JsonNode row : b.path(bucket).path("items")) visible.add(row.path("id").asLong());
-        MktFollowup foreign = followups.findAll().stream().filter(f -> f.getOrgId().equals(acme.getId()) && !visible.contains(f.getId()) && !"COMPLETED".equals(f.getStatus()) && !"WAITING".equals(f.getStatus())).findFirst().orElseThrow();
+        MktFollowup foreign = followups.findByOrgId(acme.getId()).stream().filter(f -> !visible.contains(f.getId()) && !"COMPLETED".equals(f.getStatus()) && !"WAITING".equals(f.getStatus())).findFirst().orElseThrow();
         MvcResult r = mockMvc.perform(post("/api/orgs/" + acme.getId() + "/mkt/followups/" + foreign.getId() + "/complete").with(user(JESSICA))).andReturn();
         // the row either belongs to one of Jessica's consultants beyond the page size (then 200) or to another marketer (404); beyond-size rows are impossible here (50 cap > 14)
         assertThat(r.getResponse().getStatus()).isEqualTo(404);
@@ -168,7 +168,7 @@ class MktFollowupsIT {
         long before = followups.countByOrgId(acme.getId());
         assertThat(seeder.seed()).isEmpty();
         assertThat(followups.countByOrgId(acme.getId())).isEqualTo(before);
-        assertThat(followups.findAll().stream().filter(f -> f.getOrgId().equals(beta.getId())).count()).isGreaterThan(0);
+        assertThat(followups.findByOrgId(beta.getId()).size()).isGreaterThan(0);
         assertThat(board("demo-ent-beta-priya", beta).path("kpis")).hasSize(4);
     }
 }

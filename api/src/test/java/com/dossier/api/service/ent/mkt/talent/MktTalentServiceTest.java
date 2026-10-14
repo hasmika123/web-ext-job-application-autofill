@@ -422,7 +422,7 @@ class MktTalentServiceTest {
         sees();
         when(savedViews.findByOrgIdAndMemberIdAndId(ORG, ME, 77L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.deleteView(me, 77L)).isInstanceOf(OrgNotFoundException.class);
-        verify(savedViews, never()).delete(any());
+        verify(savedViews, never()).deleteByOrgIdAndMemberIdAndId(anyLong(), anyLong(), anyLong());
     }
 
     @Test
@@ -432,7 +432,7 @@ class MktTalentServiceTest {
         mine.setId(5L);
         when(savedViews.findByOrgIdAndMemberIdAndId(ORG, ME, 5L)).thenReturn(Optional.of(mine));
         service.deleteView(me, 5L);
-        verify(savedViews).delete(mine);
+        verify(savedViews).deleteByOrgIdAndMemberIdAndId(ORG, ME, 5L);
     }
 
     @Test

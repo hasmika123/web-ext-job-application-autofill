@@ -4,12 +4,12 @@ import com.dossier.api.domain.ent.mkt.MktOpportunityEvent;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 /** Org-scoped access to {@code mkt_opportunity_event}: every method takes the organization id first. */
-public interface MktOpportunityEventRepository extends JpaRepository<MktOpportunityEvent, Long> {
+public interface MktOpportunityEventRepository extends Repository<MktOpportunityEvent, Long> {
 
     String FEED =
         "select new com.dossier.api.repository.ent.mkt.MktEventRow(e.id, m.id, m.consultantId, p.displayName, e.kind, e.text, r.title, c.name, e.actorMemberId, e.occurredAt) "
@@ -36,4 +36,6 @@ public interface MktOpportunityEventRepository extends JpaRepository<MktOpportun
     /** The events of one opportunity, as feed rows. */
     @Query(FEED + " and m.id = :matchId order by e.occurredAt desc, e.id desc")
     List<MktEventRow> forMatch(@Param("orgId") Long orgId, @Param("matchId") Long matchId, Pageable page);
+
+    <S extends MktOpportunityEvent> S save(S entity);
 }

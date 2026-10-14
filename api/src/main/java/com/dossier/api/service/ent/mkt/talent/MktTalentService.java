@@ -455,7 +455,7 @@ public class MktTalentService {
     public void deleteView(OrgMembership me, Long viewId) {
         MktScope.View view = scope.resolve(me, PERM_VIEW);
         MktSavedView row = savedViews.findByOrgIdAndMemberIdAndId(view.orgId(), me.memberId(), viewId).orElseThrow(OrgNotFoundException::new);
-        savedViews.delete(row);
+        savedViews.deleteByOrgIdAndMemberIdAndId(view.orgId(), me.memberId(), row.getId());
     }
 
     static MktTalentDtos.View toView(MktSavedView v) {

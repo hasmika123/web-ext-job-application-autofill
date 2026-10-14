@@ -8,7 +8,7 @@ import com.dossier.api.domain.ent.talent.OrgResume;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,7 +16,7 @@ import org.springframework.data.repository.query.Param;
  * Org-scoped access to {@code mkt_submission}: EVERY method takes the organization id first. The {@code @Query} lookups read the talent
  * entities (consultant, job, client, resume) by id inside the same organization, so this page never touches the talent repositories.
  */
-public interface MktSubmissionRepository extends JpaRepository<MktSubmission, Long> {
+public interface MktSubmissionRepository extends Repository<MktSubmission, Long> {
     Optional<MktSubmission> findByOrgIdAndId(Long orgId, Long id);
 
     long countByOrgId(Long orgId);
@@ -56,4 +56,6 @@ public interface MktSubmissionRepository extends JpaRepository<MktSubmission, Lo
 
     @Query("select r from OrgResume r where r.orgId = :orgId and r.consultantId = :consultantId and r.primaryForOrg = true")
     Optional<OrgResume> findPrimaryResume(@Param("orgId") Long orgId, @Param("consultantId") Long consultantId);
+
+    <S extends MktSubmission> S save(S entity);
 }

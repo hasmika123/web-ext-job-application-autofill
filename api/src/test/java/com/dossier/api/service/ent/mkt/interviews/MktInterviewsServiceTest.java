@@ -150,15 +150,16 @@ class MktInterviewsServiceTest {
         });
         when(prep.findByOrgIdAndInterviewIdOrderByPositionAsc(eq(ORG), anyLong())).thenAnswer(inv ->
             prepRows.stream().filter(p -> p.getInterviewId().equals(inv.<Long>getArgument(1))).sorted(Comparator.comparing(MktInterviewPrepItem::getPosition)).toList());
-        when(prep.saveAll(anyList())).thenAnswer(inv -> {
-            List<MktInterviewPrepItem> in = inv.getArgument(0);
-            in.forEach(p -> p.setId(ids.incrementAndGet()));
-            prepRows.addAll(in);
-            return in;
-        });
         when(prep.findByOrgIdAndInterviewIdAndId(eq(ORG), anyLong(), anyLong())).thenAnswer(inv ->
             prepRows.stream().filter(p -> p.getInterviewId().equals(inv.<Long>getArgument(1)) && p.getId().equals(inv.<Long>getArgument(2))).findFirst());
-        when(prep.save(any(MktInterviewPrepItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(prep.save(any(MktInterviewPrepItem.class))).thenAnswer(inv -> {
+            MktInterviewPrepItem p = inv.getArgument(0);
+            if (p.getId() == null) {
+                p.setId(ids.incrementAndGet());
+                prepRows.add(p);
+            }
+            return p;
+        });
 
         service = new MktInterviewsService(scope, interviews, metas, prep, feedback, events, audit, Clock.fixed(NOW, ZoneOffset.UTC));
     }

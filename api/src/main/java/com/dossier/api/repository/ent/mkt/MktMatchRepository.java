@@ -4,12 +4,12 @@ import com.dossier.api.domain.ent.talent.RequirementMatch;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 /** Marketing workspace (Job Matches) access to {@code requirement_match}: every method takes the organization id first. */
-public interface MktMatchRepository extends JpaRepository<RequirementMatch, Long> {
+public interface MktMatchRepository extends Repository<RequirementMatch, Long> {
 
     Optional<RequirementMatch> findByOrgIdAndId(Long orgId, Long id);
 
@@ -19,4 +19,6 @@ public interface MktMatchRepository extends JpaRepository<RequirementMatch, Long
         "(select r.id from ClientRequirement r where r.orgId = :orgId and r.status = 'OPEN')"
     )
     List<RequirementMatch> findLive(@Param("orgId") Long orgId, @Param("statuses") Collection<String> statuses);
+
+    <S extends RequirementMatch> S save(S entity);
 }
