@@ -20,7 +20,7 @@ export interface TableProps {
   compact?: boolean;
 }
 
-const HEAD = "whitespace-nowrap px-1.5 py-2 text-left text-[12px] font-semibold text-ink";
+const HEAD = "px-1.5 py-2 text-left leading-tight text-[12px] font-semibold text-ink";
 const CHECK = "h-4 w-4 cursor-pointer rounded border-line accent-[var(--ent-primary,var(--color-accent))]";
 
 function SortHead({ label, k, sort, onSort, className }: { label: string; k: SortKey; sort: TableProps["sort"]; onSort: TableProps["onSort"]; className?: string }) {
@@ -104,19 +104,19 @@ export function InterviewsTable(p: TableProps) {
       <table aria-label="Interviews" className="w-full table-fixed border-collapse text-[13px]" data-interview-table>
         <thead className="border-b border-[var(--ent-table-line,var(--color-line))]">
           <tr>
-            <th scope="col" className="w-[3.4%] min-w-8 py-2 pl-3 pr-1">
+            <th scope="col" className="w-[3%] min-w-8 py-2 pl-3 pr-1">
               <input type="checkbox" aria-label="Select all interviews on this page" className={CHECK} checked={allOn} onChange={(e) => p.onToggleAll(e.target.checked)} />
             </th>
-            <SortHead label="Role" k="role" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[26%]" : "w-[12.5%]"} />
+            <SortHead label="Role" k="role" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[26%]" : "w-[10.5%]"} />
             <SortHead label="Consultant" k="consultant" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[30%]" : "w-[15%]"} />
-            <SortHead label="Client" k="client" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[11%] lg:table-cell"} />
-            <SortHead label="Round" k="round" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[9.5%] lg:table-cell"} />
-            <SortHead label="Scheduled Date" k="scheduled" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[22%]" : "w-[10.5%]"} />
-            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden w-[8.5%] xl:table-cell"}`}>Interviewer</th>
-            <SortHead label="Mode" k="mode" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[7%] xl:table-cell"} />
-            <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[22%]" : "w-[9.5%]"} />
+            <SortHead label="Client" k="client" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[10.5%] lg:table-cell"} />
+            <SortHead label="Round" k="round" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[9%] lg:table-cell"} />
+            <SortHead label="Scheduled Date" k="scheduled" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[22%]" : "w-[11.5%]"} />
+            <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden w-[9%] xl:table-cell"}`}>Interviewer</th>
+            <SortHead label="Mode" k="mode" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden" : "hidden w-[8%] xl:table-cell"} />
+            <SortHead label="Status" k="status" sort={p.sort} onSort={p.onSort} className={p.compact ? "w-[22%]" : "w-[11%]"} />
             <th scope="col" className={`${HEAD} ${p.compact ? "hidden" : "hidden w-[8%] xl:table-cell"}`}>Next Step</th>
-            <th scope="col" className={`${HEAD} w-[5%] min-w-12 text-center`}>Actions</th>
+            <th scope="col" className={`${HEAD} w-[5.5%] min-w-12 text-center`}>Actions</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--ent-table-line,var(--color-line))]">
@@ -238,7 +238,7 @@ export function Pagination({ page, size, total, onPage, onSize }: { page: number
           </button>
         </nav>
       )}
-      <div className="w-32">
+      <div className="w-40">
         <Select aria-label="Rows per page" value={String(size)} onChange={(v) => onSize(Number(v))} options={PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} per page` }))} />
       </div>
     </div>

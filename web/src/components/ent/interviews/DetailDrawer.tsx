@@ -367,7 +367,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                   <Menu
                     trigger={
                       <Button type="button" variant="accent-soft" size="sm" data-status-trigger>
-                        Record a change <ChevronDownIcon size={13} aria-hidden />
+                        <span className="whitespace-nowrap">Record a change</span> <ChevronDownIcon size={13} aria-hidden />
                       </Button>
                     }
                     items={statusOptions.map((s) => ({ label: `Record as ${statusLabel(s)}`, onSelect: () => void move(d.id, s) }))}
@@ -390,7 +390,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
               <dl className="mt-2 space-y-2 text-[12.5px]">
                 <div className="grid grid-cols-[5.2rem_1fr] items-center gap-x-2">
                   <dt className="text-muted">Mode</dt>
-                  <dd className="flex items-center gap-1.5 text-ink">
+                  <dd className="flex items-center gap-1.5 whitespace-nowrap text-[12px] text-ink">
                     <span aria-hidden className="grid h-7 w-7 place-items-center rounded-lg bg-accent-soft text-accent-deep">
                       <ModeIcon size={15} />
                     </span>
