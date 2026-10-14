@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Tasks and Follow-ups page (branch ent-talent-consultant). One new table, additive; cws_task itself is untouched:
+          cws_task_detail  the extra facts the Tasks page shows for one cws_task row: a task type label, an optional linked job
+                           (client_requirement), and who assigned it (a marketer seat, or null = the consultant themself). The marketer side is
+                           not built yet: demo rows carry sample_data = true and a display label as a stand-in.
+        A task without a detail row is simply a general task the consultant made for themself.
+        41-database-design.md R1-R10: org_id NOT NULL, composite tenant FKs to the parents (cws_task, consultant_profile, client_requirement,
+        org_member), every secondary index starts with org_id, additive, empty rollback, no JSON, no sensitive columns (the label is a display name).
+    -->
+    <changeSet id="ent-cws-12-cws_task_detail" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_task_detail"/></not></preConditions>
+        <createTable tableName="cws_task_detail">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="task_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="task_type" type="varchar(30)" defaultValue="OTHER"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"/>
+            <column name="assigned_by_member_id" type="bigint"/>
+            <column name="assigned_by_label" type="varchar(120)"/>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_task_detail" baseColumnNames="org_id" constraintName="fk_cws_task_detail_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_task_detail" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_task_detail_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_task_detail" baseColumnNames="org_id, task_id" constraintName="fk_cws_task_detail_task" referencedTableName="cws_task" referencedColumnNames="org_id, id" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="cws_task_detail" baseColumnNames="org_id, requirement_id" constraintName="fk_cws_task_detail_req" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_task_detail" baseColumnNames="org_id, assigned_by_member_id" constraintName="fk_cws_task_detail_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_task_detail" columnNames="org_id, task_id" constraintName="uk_cws_task_detail_task"/>
+        <createIndex tableName="cws_task_detail" indexName="ix_cws_task_detail_consultant"><column name="org_id"/><column name="consultant_id"/><column name="task_type"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

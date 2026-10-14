@@ -1,303 +1,310 @@
 /**
- * Assigned Opportunities, consultant side (workspace `consultant`, API `/api/orgs/{orgId}/con/opportunities` through the BFF `/api/orgs/{orgId}/consultant/opportunities`, contract: docs/enterprise-v2/60 s3, s4, s7).
- * Jobs a marketer picked for ME. E1: nothing here applies for anyone: "Open job posting" is a plain link to the source site, "I applied"
- * only RECORDS what the consultant did, and every button is drawn from the server's `allowedActions[]`.
+ * The Consultant workspace Assigned Opportunities page's client logic (design/enterprise-consultant/opportunities.webp): wire types of
+ * `GET /api/orgs/{orgId}/me-workspace/opportunities` (+ `/{matchId}` detail and the write calls), tolerant parsers and the pure helpers the
+ * page uses (labels, due text, next steps). Nothing here touches React and there is no fallback number: every figure is the API's answer.
  */
+import { initialsOf, type Tone } from "./home";
+import { parseJobSource, type JobSource } from "./jobSource";
 
-export const STATES = ["ASSIGNED", "VIEWED", "INTERESTED", "NEEDS_INFO", "APPLIED", "DECLINED", "CLOSED"] as const;
-export type ConState = (typeof STATES)[number];
-export const STATE_LABELS: Record<ConState, string> = {
-  ASSIGNED: "New",
-  VIEWED: "Viewed",
-  INTERESTED: "Interested",
-  NEEDS_INFO: "Needs info",
-  APPLIED: "Applied",
-  DECLINED: "Declined",
-  CLOSED: "Closed",
-};
+export type OppStatus = "NEW" | "AWAITING_RESPONSE" | "IN_REVIEW" | "DECLINED";
+export type OppPriority = "HIGH" | "MEDIUM" | "LOW";
+export type SortKey = "due" | "priority" | "newest";
 
-export const ACTIONS = ["VIEWED", "INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", "LINK", "UNLINK"] as const;
-export type ConAction = (typeof ACTIONS)[number];
+export interface OppTile {
+  value: number;
+  previous: number | null;
+  deltaPct: number | null;
+  sparkline: number[];
+}
 
-export const DECLINE_REASONS = ["NOT_INTERESTED", "LOCATION", "RATE", "ALREADY_APPLIED", "OTHER"] as const;
-export type DeclineReason = (typeof DECLINE_REASONS)[number];
-export const DECLINE_LABELS: Record<DeclineReason, string> = {
-  NOT_INTERESTED: "Not interested",
-  LOCATION: "Location doesn't work",
-  RATE: "Pay doesn't work",
-  ALREADY_APPLIED: "I already applied",
-  OTHER: "Something else",
-};
-
-export const PRIORITIES = ["LOW", "MEDIUM", "HIGH"] as const;
-export type Priority = (typeof PRIORITIES)[number];
-export const WORK_MODES = ["REMOTE", "HYBRID", "ONSITE"] as const;
-export type WorkMode = (typeof WORK_MODES)[number];
-
-/** The limits the API enforces (contract s4); the dialogs mirror them so a refusal is rare. */
-export const QUESTION_MAX = 500;
-export const NOTE_MAX = 200;
-
-export interface ConJob {
-  id: number;
+export interface OppRow extends JobSource {
+  matchId: number;
+  requirementId: number;
   title: string;
-  company: string;
-  location: string;
-  workMode: WorkMode | null;
-  employmentType: string;
-  payLabel: string;
-  /** The source posting. The only way to apply; always shown. */
-  jobUrl: string;
-  atsPlatform: string;
-  externalJobId: string;
-  postedOn: string | null;
   skills: string[];
-}
-export interface ConTimelineEntry { id: string; at: string; text: string; actor: string }
-export interface ConOpportunityDTO {
-  id: number;
-  state: ConState;
-  job: ConJob;
-  marketerNote: string;
-  assignedBy: { memberId: number; name: string };
-  assignedAt: string;
-  priority: Priority;
+  company: string | null;
+  location: string | null;
+  workMode: string | null;
+  marketer: string | null;
+  status: OppStatus;
+  priority: OppPriority;
+  priorityDerived: boolean;
   dueOn: string | null;
-  infoRequest: string;
-  infoAnswer: string;
-  appliedAt: string | null;
-  linkedApplicationId: number | null;
-  allowedActions: ConAction[];
-  version: number;
-  /** Not in the contract's DTO: shown when the API provides it (doc 54 s5), otherwise the section is simply absent. */
-  timeline: ConTimelineEntry[];
+  dueDerived: boolean;
+  daysLeft: number;
+  score: number;
+  missingSkills: number;
+  interestSent: boolean;
+  assignedAt: string | null;
 }
 
-const isObj = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
-const str = (x: unknown, d = ""): string => (typeof x === "string" ? x : d);
-const num = (x: unknown, d = 0): number => (typeof x === "number" && Number.isFinite(x) ? x : d);
-const orNull = (x: unknown): string | null => (typeof x === "string" && x ? x : null);
-const numOrNull = (x: unknown): number | null => (typeof x === "number" && Number.isFinite(x) ? x : null);
+export interface NextSteps {
+  toRespond: number;
+  soonestDueDays: number | null;
+  resumeGaps: number;
+  upcomingInterviews: number;
+  hasMarketer: boolean;
+}
 
-function parseJob(x: unknown): ConJob {
-  const j = isObj(x) ? x : {};
-  const mode = str(j.workMode).toUpperCase();
+export interface OppView {
+  orgId: number;
+  generatedAt: string;
+  name: string;
+  tiles: { total: OppTile; high: OppTile; awaiting: OppTile; inReview: OppTile; declined: OppTile };
+  rows: OppRow[];
+  page: number;
+  size: number;
+  total: number;
+  sort: SortKey;
+  nextSteps: NextSteps;
+}
+
+export interface TimelineEvent {
+  key: string;
+  label: string;
+  at: string | null;
+}
+
+export interface OppDetail {
+  row: OppRow;
+  description: string | null;
+  employment: string | null;
+  duration: string | null;
+  experienceLevel: string | null;
+  skills: { skill: string; present: boolean }[];
+  rateMinMinor: number | null;
+  rateMaxMinor: number | null;
+  rateUnit: string | null;
+  currency: string | null;
+  reason: string | null;
+  declineReason: string | null;
+  infoRequest: string | null;
+  resumeUpdateNote: string | null;
+  interestSentAt: string | null;
+  timeline: TimelineEvent[];
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const num = (v: unknown, d = 0): number => (typeof v === "number" && Number.isFinite(v) ? v : d);
+const numOrNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const strOrNull = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
+
+const STATUSES: readonly string[] = ["NEW", "AWAITING_RESPONSE", "IN_REVIEW", "DECLINED"];
+const PRIORITIES: readonly string[] = ["HIGH", "MEDIUM", "LOW"];
+
+function tileOf(v: unknown): OppTile {
+  const d = isObj(v) ? v : {};
+  return { value: num(d.value), previous: numOrNull(d.previous), deltaPct: numOrNull(d.deltaPct), sparkline: arr(d.sparkline).filter((n): n is number => typeof n === "number" && Number.isFinite(n)) };
+}
+
+export function parseRow(o: unknown): OppRow | null {
+  if (!isObj(o) || typeof o.matchId !== "number" || typeof o.title !== "string") return null;
   return {
-    id: num(j.id),
-    title: str(j.title),
-    company: str(j.company),
-    location: str(j.location),
-    workMode: (WORK_MODES as readonly string[]).includes(mode) ? (mode as WorkMode) : null,
-    employmentType: str(j.employmentType),
-    payLabel: str(j.payLabel),
-    jobUrl: str(j.jobUrl),
-    atsPlatform: str(j.atsPlatform),
-    externalJobId: str(j.externalJobId),
-    postedOn: orNull(j.postedOn),
-    skills: Array.isArray(j.skills) ? j.skills.filter((s): s is string => typeof s === "string" && s !== "") : [],
+    matchId: o.matchId,
+    requirementId: num(o.requirementId),
+    title: o.title,
+    skills: arr(o.skills).filter((s): s is string => typeof s === "string" && s !== ""),
+    company: strOrNull(o.company),
+    location: strOrNull(o.location),
+    workMode: strOrNull(o.workMode),
+    marketer: strOrNull(o.marketer),
+    status: typeof o.status === "string" && STATUSES.includes(o.status) ? (o.status as OppStatus) : "NEW",
+    priority: typeof o.priority === "string" && PRIORITIES.includes(o.priority) ? (o.priority as OppPriority) : "MEDIUM",
+    priorityDerived: o.priorityDerived === true,
+    dueOn: strOrNull(o.dueOn),
+    dueDerived: o.dueDerived === true,
+    daysLeft: num(o.daysLeft),
+    score: Math.max(0, Math.min(100, num(o.score))),
+    missingSkills: Math.max(0, num(o.missingSkills)),
+    interestSent: o.interestSent === true,
+    assignedAt: strOrNull(o.assignedAt),
+    ...parseJobSource(o),
   };
 }
 
-/** Lenient: unknown states fall back to ASSIGNED, unknown actions are dropped (a button the page cannot explain is never drawn). A non-object (or a row without an id) is null. */
-export function parseOpportunity(raw: unknown): ConOpportunityDTO | null {
-  if (!isObj(raw)) return null;
-  const id = numOrNull(raw.id);
-  if (id === null) return null;
-  const state = (STATES as readonly string[]).includes(str(raw.state)) ? (str(raw.state) as ConState) : "ASSIGNED";
-  const by = isObj(raw.assignedBy) ? raw.assignedBy : {};
-  const priority = (PRIORITIES as readonly string[]).includes(str(raw.priority)) ? (str(raw.priority) as Priority) : "MEDIUM";
+/** The body as a view, or null when it is not the contract. Rows that do not match are dropped, never guessed. */
+export function parseOpportunities(body: unknown): OppView | null {
+  if (!isObj(body) || typeof body.orgId !== "number" || !isObj(body.tiles)) return null;
+  const t = body.tiles;
+  const n = isObj(body.nextSteps) ? body.nextSteps : {};
+  const sort = body.sort === "priority" || body.sort === "newest" ? body.sort : "due";
   return {
-    id,
-    state,
-    job: parseJob(raw.job),
-    marketerNote: str(raw.marketerNote),
-    assignedBy: { memberId: num(by.memberId), name: str(by.name) },
-    assignedAt: str(raw.assignedAt),
-    priority,
-    dueOn: orNull(raw.dueOn),
-    infoRequest: str(raw.infoRequest),
-    infoAnswer: str(raw.infoAnswer),
-    appliedAt: orNull(raw.appliedAt),
-    linkedApplicationId: numOrNull(raw.linkedApplicationId),
-    allowedActions: Array.isArray(raw.allowedActions) ? raw.allowedActions.filter((a): a is ConAction => (ACTIONS as readonly string[]).includes(a as string)) : [],
-    version: num(raw.version),
-    timeline: Array.isArray(raw.timeline)
-      ? raw.timeline
-          .filter(isObj)
-          .map((t, i) => ({ id: str(t.id, String(i)), at: str(t.at), text: str(t.text) || str(t.kind), actor: str(t.actor) }))
-          .filter((t) => t.text !== "")
-      : [],
+    orgId: body.orgId,
+    generatedAt: typeof body.generatedAt === "string" ? body.generatedAt : "",
+    name: typeof body.name === "string" ? body.name : "",
+    tiles: { total: tileOf(t.total), high: tileOf(t.high), awaiting: tileOf(t.awaiting), inReview: tileOf(t.inReview), declined: tileOf(t.declined) },
+    rows: arr(body.rows).map(parseRow).filter((r): r is OppRow => r !== null),
+    page: num(body.page),
+    size: num(body.size, 50),
+    total: num(body.total),
+    sort,
+    nextSteps: {
+      toRespond: num(n.toRespond),
+      soonestDueDays: numOrNull(n.soonestDueDays),
+      resumeGaps: num(n.resumeGaps),
+      upcomingInterviews: num(n.upcomingInterviews),
+      hasMarketer: n.hasMarketer === true,
+    },
   };
 }
 
-export interface ConList { items: ConOpportunityDTO[]; total: number }
-export function parseList(raw: unknown): ConList | null {
-  if (!isObj(raw) || !Array.isArray(raw.items)) return null;
-  const items = raw.items.map(parseOpportunity).filter((o): o is ConOpportunityDTO => o !== null);
-  return { items, total: num(raw.total, items.length) };
+export function parseDetail(body: unknown): OppDetail | null {
+  if (!isObj(body)) return null;
+  const row = parseRow(body.row);
+  if (!row) return null;
+  return {
+    row,
+    description: strOrNull(body.description),
+    employment: strOrNull(body.employment),
+    duration: strOrNull(body.duration),
+    experienceLevel: strOrNull(body.experienceLevel),
+    skills: arr(body.skills).flatMap((o) => (isObj(o) && typeof o.skill === "string" ? [{ skill: o.skill, present: o.present === true }] : [])),
+    rateMinMinor: numOrNull(body.rateMinMinor),
+    rateMaxMinor: numOrNull(body.rateMaxMinor),
+    rateUnit: strOrNull(body.rateUnit),
+    currency: strOrNull(body.currency),
+    reason: strOrNull(body.reason),
+    declineReason: strOrNull(body.declineReason),
+    infoRequest: strOrNull(body.infoRequest),
+    resumeUpdateNote: strOrNull(body.resumeUpdateNote),
+    interestSentAt: strOrNull(body.interestSentAt),
+    timeline: arr(body.timeline).flatMap((o) => (isObj(o) && typeof o.key === "string" && typeof o.label === "string" ? [{ key: o.key, label: o.label, at: strOrNull(o.at) }] : [])),
+  };
 }
 
-/** Tab counts over the loaded rows. `ALL` counts everything. */
-export function countByState(items: readonly ConOpportunityDTO[]): Record<ConState | "ALL", number> {
-  const out = { ALL: items.length, ASSIGNED: 0, VIEWED: 0, INTERESTED: 0, NEEDS_INFO: 0, APPLIED: 0, DECLINED: 0, CLOSED: 0 } as Record<ConState | "ALL", number>;
-  for (const o of items) out[o.state] += 1;
-  return out;
+/* ── labels and helpers ───────────────────────────────────────────────────────────────── */
+
+export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
+  { key: "due", label: "Due Date (Soonest)" },
+  { key: "priority", label: "Priority" },
+  { key: "newest", label: "Newest" },
+];
+
+export const STATUS_LABEL: Record<OppStatus, { label: string; tone: Tone }> = {
+  NEW: { label: "New", tone: "blue" },
+  AWAITING_RESPONSE: { label: "Awaiting Response", tone: "amber" },
+  IN_REVIEW: { label: "In Review", tone: "violet" },
+  DECLINED: { label: "Declined", tone: "red" },
+};
+
+export const PRIORITY_LABEL: Record<OppPriority, { label: string; tone: Tone }> = {
+  HIGH: { label: "High", tone: "red" },
+  MEDIUM: { label: "Medium", tone: "amber" },
+  LOW: { label: "Low", tone: "green" },
+};
+
+/** "2 days left", "1 day left", "Due today", "3 days overdue". */
+export function daysLeftText(days: number): string {
+  if (days === 0) return "Due today";
+  if (days > 0) return `${days} day${days === 1 ? "" : "s"} left`;
+  const d = Math.abs(days);
+  return `${d} day${d === 1 ? "" : "s"} overdue`;
 }
 
-/** The posting URL as an `href` for a new tab: http(s) only (a `javascript:` URL from a bad row is never linked). */
-export function safePostingUrl(url: string): string | null {
+/** Coral from 3 days left down, and when overdue. A declined opportunity is no longer pressing. */
+export const dueUrgent = (r: Pick<OppRow, "daysLeft" | "status">): boolean => r.status !== "DECLINED" && r.daysLeft <= 3;
+
+/** Opportunities the quick actions can act on: a declined one only offers reopen. */
+export const canRespond = (r: Pick<OppRow, "status">): boolean => r.status !== "DECLINED";
+
+/** The row the quick actions act on: the picked one while it exists, else the first row. */
+export function actionTarget(rows: OppRow[], picked: number | null): OppRow | null {
+  return rows.find((r) => r.matchId === picked) ?? rows[0] ?? null;
+}
+
+export interface Step {
+  key: "respond" | "resume" | "interviews" | "marketer";
+  title: string;
+  text: string;
+  href: string | null;
+}
+
+/** "Recommended Next Steps", derived only from the counts the API sends. Steps with nothing to do are left out (the marketer step stays). */
+export function nextSteps(n: NextSteps, base: string): Step[] {
+  const steps: Step[] = [];
+  if (n.toRespond > 0)
+    steps.push({
+      key: "respond",
+      title: `Respond to ${n.toRespond} ${n.toRespond === 1 ? "opportunity" : "opportunities"}`,
+      text: n.soonestDueDays !== null && n.soonestDueDays < 0 ? "Share your interest or ask for more info. One is overdue." : "Share your interest or ask for more info before the due date.",
+      href: null,
+    });
+  if (n.resumeGaps > 0)
+    steps.push({ key: "resume", title: "Update your resume", text: `${n.resumeGaps} ${n.resumeGaps === 1 ? "role lists" : "roles list"} skills your profile lacks.`, href: `${base}/resumes` });
+  if (n.upcomingInterviews > 0)
+    steps.push({ key: "interviews", title: "Prepare for upcoming interviews", text: `You have ${n.upcomingInterviews} upcoming ${n.upcomingInterviews === 1 ? "interview" : "interviews"}.`, href: `${base}/interview-prep` });
+  steps.push({ key: "marketer", title: "Discuss priorities with your marketer", text: n.hasMarketer ? "Align on your career goals and preferences." : "Priorities are set by your marketer once one is assigned.", href: `${base}/marketer` });
+  return steps;
+}
+
+/** The rate as "$85-95/hr", "$120k/yr", or null when none (minor units: cents). */
+export function rateText(m: Pick<OppDetail, "rateMinMinor" | "rateMaxMinor" | "rateUnit" | "currency">): string | null {
+  const lo = m.rateMinMinor;
+  const hi = m.rateMaxMinor;
+  if (lo === null && hi === null) return null;
+  const unit = (m.rateUnit ?? "HOUR").toUpperCase();
+  const suffix = unit === "YEAR" || unit === "ANNUAL" ? "/yr" : unit === "MONTH" ? "/mo" : unit === "WEEK" ? "/wk" : unit === "DAY" ? "/day" : "/hr";
+  const sym = (m.currency ?? "USD") === "USD" ? "$" : `${m.currency} `;
+  const fmt = (minor: number) => {
+    const major = minor / 100;
+    return suffix === "/yr" && major >= 1000 ? `${sym}${Math.round(major / 1000)}k` : `${sym}${Math.round(major)}`;
+  };
+  if (lo !== null && hi !== null && lo !== hi) return `${fmt(lo)}-${fmt(hi).replace(sym, "")}${suffix}`;
+  return `${fmt((hi ?? lo) as number)}${suffix}`;
+}
+
+export { initialsOf };
+
+/* ── BFF calls ────────────────────────────────────────────────────────────────────────── */
+
+export interface Fetched<T> {
+  kind: "OK" | "DENIED" | "FAILED";
+  view?: T;
+}
+
+const base = (orgId: number | string) => `/api/orgs/${orgId}/me-workspace/opportunities`;
+
+async function read<T>(url: string, parse: (b: unknown) => T | null, signal?: AbortSignal): Promise<Fetched<T>> {
   try {
-    const u = new URL(url);
-    return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
-/** The ATS / board names `SourceLogo` has art for; anything else gets the name as text only. */
-const LOGO_SOURCES: Record<string, string> = { linkedin: "LinkedIn", indeed: "Indeed", dice: "Dice", greenhouse: "Greenhouse", lever: "Lever", workday: "Workday", ashby: "Ashby", ziprecruiter: "ZipRecruiter", glassdoor: "Glassdoor" };
-export function sourceName(atsPlatform: string): { label: string; known: boolean } {
-  const key = atsPlatform.trim().toLowerCase();
-  if (!key) return { label: "", known: false };
-  const known = LOGO_SOURCES[key];
-  return known ? { label: known, known: true } : { label: atsPlatform.trim(), known: false };
-}
-
-// ---- reads ---------------------------------------------------------------------------------------------------------------------------
-
-export type ListFetch = { kind: "OK"; list: ConList } | { kind: "DENIED" } | { kind: "FAILED" };
-export type OneFetch = { kind: "OK"; item: ConOpportunityDTO } | { kind: "NOT_FOUND" } | { kind: "FAILED" };
-
-/**
- * The BROWSER-facing path. The BFF folder is `consultant`, not `con`: `con` is a reserved device name on Windows, where git cannot check out
- * a folder with that name. The BFF forwards to the API's `/api/orgs/{orgId}/con/opportunities` (doc 60 s4).
- */
-const base = (orgId: number | string) => `/api/orgs/${orgId}/consultant/opportunities`;
-
-/** The list in one call (the tabs and their counts are drawn from it; the API owns the scope and answers 404 for anyone who is not a consultant). */
-export async function fetchList(orgId: number | string, opts: { size?: number; page?: number; state?: ConState; signal?: AbortSignal } = {}): Promise<ListFetch> {
-  const q = new URLSearchParams({ page: String(opts.page ?? 0), size: String(opts.size ?? 100) });
-  if (opts.state) q.set("state", opts.state);
-  try {
-    const res = await fetch(`${base(orgId)}?${q}`, { headers: { accept: "application/json" }, cache: "no-store", signal: opts.signal });
+    const res = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store", signal });
     if (res.status === 403 || res.status === 404) return { kind: "DENIED" };
     if (!res.ok) return { kind: "FAILED" };
-    const list = parseList(await res.json().catch(() => null));
-    return list ? { kind: "OK", list } : { kind: "FAILED" };
+    const view = parse(await res.json().catch(() => null));
+    return view ? { kind: "OK", view } : { kind: "FAILED" };
   } catch {
     return { kind: "FAILED" };
   }
 }
 
-export async function fetchOne(orgId: number | string, id: number, signal?: AbortSignal): Promise<OneFetch> {
+export const fetchOpportunities = (orgId: number | string, sort: SortKey = "due", signal?: AbortSignal) => read(`${base(orgId)}?sort=${sort}&size=50`, parseOpportunities, signal);
+export const fetchDetail = (orgId: number | string, matchId: number, signal?: AbortSignal) => read(`${base(orgId)}/${matchId}`, parseDetail, signal);
+
+export interface WriteResult {
+  ok: boolean;
+  /** The API's own message for a refusal (for example the sensitive-data one), when it sent one. */
+  message?: string;
+}
+
+async function write(url: string, body?: unknown): Promise<WriteResult> {
   try {
-    const res = await fetch(`${base(orgId)}/${id}`, { headers: { accept: "application/json" }, cache: "no-store", signal });
-    if (res.status === 403 || res.status === 404) return { kind: "NOT_FOUND" };
-    if (!res.ok) return { kind: "FAILED" };
-    const item = parseOpportunity(await res.json().catch(() => null));
-    return item ? { kind: "OK", item } : { kind: "FAILED" };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json" },
+      body: JSON.stringify(body ?? {}),
+      cache: "no-store",
+    });
+    if (res.ok) return { ok: true };
+    const j = (await res.json().catch(() => null)) as { error?: unknown; detail?: unknown; message?: unknown } | null;
+    const m = j && typeof j.error === "string" ? j.error : j && typeof j.detail === "string" ? j.detail : j && typeof j.message === "string" ? j.message : undefined;
+    return { ok: false, message: m };
   } catch {
-    return { kind: "FAILED" };
+    return { ok: false };
   }
 }
 
-/** The consultant's own tracked applications, for the "Link my application" picker. Lenient; empty on any failure (the picker says so). */
-export interface AppOption { id: number; label: string }
-export async function fetchMyApplications(): Promise<AppOption[]> {
-  try {
-    const res = await fetch("/api/applications?page=0&size=50", { headers: { accept: "application/json" }, cache: "no-store" });
-    if (!res.ok) return [];
-    const data: unknown = await res.json().catch(() => null);
-    const rows = Array.isArray(data) ? data : isObj(data) && Array.isArray(data.items) ? data.items : [];
-    return rows
-      .filter(isObj)
-      .map((r) => ({ id: num(r.id), label: [str(r.roleTitle), str(r.company)].filter(Boolean).join(" - ") || `Application ${num(r.id)}` }))
-      .filter((o) => o.id > 0);
-  } catch {
-    return [];
-  }
-}
-
-// ---- writes --------------------------------------------------------------------------------------------------------------------------
-
-/**
- * What a write answers. `item` is the server's updated row when it sent one (the page then keeps IT, not its own guess).
- * VERSION_CONFLICT (409): someone changed the row, so the page asks the consultant to reload. SENSITIVE (422): the free text was refused.
- */
-export type ActionResult =
-  | { kind: "OK"; item: ConOpportunityDTO | null }
-  | { kind: "VERSION_CONFLICT" }
-  | { kind: "NOT_FOUND" }
-  | { kind: "SENSITIVE"; error: string }
-  | { kind: "INVALID"; error: string }
-  | { kind: "FAILED"; error: string };
-
-export interface ActionOpts { version?: number; idempotencyKey?: string }
-
-const newKey = (): string => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `k-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-
-export type ActionPath = "viewed" | "interest" | "decline" | "request-info" | "applied" | "link" | "unlink";
-
-async function send(orgId: number | string, id: number, path: ActionPath, body: Record<string, unknown>, opts: ActionOpts): Promise<ActionResult> {
-  const headers: Record<string, string> = { accept: "application/json", "content-type": "application/json", "idempotency-key": opts.idempotencyKey ?? newKey() };
-  if (opts.version !== undefined) headers["if-match"] = String(opts.version);
-  try {
-    const res = await fetch(`${base(orgId)}/${id}/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
-    const data: unknown = await res.json().catch(() => null);
-    const d = isObj(data) ? data : {};
-    if (res.ok) return { kind: "OK", item: parseOpportunity(d) };
-    const error = str(d.error, "That didn't work. Nothing was changed.");
-    if (res.status === 404) return { kind: "NOT_FOUND" };
-    if (res.status === 409) return str(d.code) === "VERSION_CONFLICT" ? { kind: "VERSION_CONFLICT" } : { kind: "INVALID", error };
-    if (res.status === 422) return str(d.code) === "SENSITIVE_CONTENT" ? { kind: "SENSITIVE", error } : { kind: "INVALID", error };
-    if (res.status === 400) return { kind: "INVALID", error };
-    return { kind: "FAILED", error };
-  } catch {
-    return { kind: "FAILED", error: "Couldn't reach the server. Nothing was changed." };
-  }
-}
-
-type Id = number | string;
-export const viewed = (orgId: Id, id: number, opts: ActionOpts = {}) => send(orgId, id, "viewed", {}, opts);
-export const interest = (orgId: Id, id: number, opts: ActionOpts = {}) => send(orgId, id, "interest", {}, opts);
-export const decline = (orgId: Id, id: number, reason: DeclineReason, note: string | undefined, opts: ActionOpts = {}) =>
-  send(orgId, id, "decline", note && note.trim() ? { reason, note: note.trim() } : { reason }, opts);
-export const requestInfo = (orgId: Id, id: number, question: string, opts: ActionOpts = {}) => send(orgId, id, "request-info", { question: question.trim() }, opts);
-export const applied = (orgId: Id, id: number, applicationId?: number, opts: ActionOpts = {}) => send(orgId, id, "applied", applicationId ? { applicationId } : {}, opts);
-export const link = (orgId: Id, id: number, applicationId: number, opts: ActionOpts = {}) => send(orgId, id, "link", { applicationId }, opts);
-export const unlink = (orgId: Id, id: number, opts: ActionOpts = {}) => send(orgId, id, "unlink", {}, opts);
-
-// ---- optimistic prediction -----------------------------------------------------------------------------------------------------------
-
-/** What the API will allow next from `state` (contract s3). Only used to draw the optimistic row; the server's answer replaces it. */
-export function predictAllowed(state: ConState, linked: boolean): ConAction[] {
-  const open: ConAction[] = linked ? [] : ["LINK"];
-  switch (state) {
-    case "ASSIGNED": return ["VIEWED", "INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", ...open];
-    case "VIEWED": return ["INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED", ...open];
-    case "INTERESTED": return ["DECLINE", "REQUEST_INFO", "APPLIED", ...open];
-    case "NEEDS_INFO": return ["INTEREST", "DECLINE", "APPLIED", ...open];
-    case "DECLINED": return ["INTEREST"];
-    case "APPLIED": return linked ? ["UNLINK"] : ["LINK"];
-    default: return [];
-  }
-}
-
-export type Optimistic =
-  | { action: "VIEWED" } | { action: "INTEREST" } | { action: "DECLINE" } | { action: "APPLIED"; applicationId?: number }
-  | { action: "REQUEST_INFO"; question: string } | { action: "LINK"; applicationId: number } | { action: "UNLINK" };
-
-/** The row as the consultant expects it to look after `change`; pure. */
-export function applyOptimistic(o: ConOpportunityDTO, change: Optimistic, now: Date = new Date()): ConOpportunityDTO {
-  let next: ConOpportunityDTO = o;
-  switch (change.action) {
-    case "VIEWED": next = o.state === "ASSIGNED" ? { ...o, state: "VIEWED" } : o; break;
-    case "INTEREST": next = { ...o, state: "INTERESTED" }; break;
-    case "DECLINE": next = { ...o, state: "DECLINED" }; break;
-    case "REQUEST_INFO": next = { ...o, state: "NEEDS_INFO", infoRequest: change.question.trim(), infoAnswer: "" }; break;
-    case "APPLIED": next = { ...o, state: "APPLIED", appliedAt: o.appliedAt ?? now.toISOString(), linkedApplicationId: change.applicationId ?? o.linkedApplicationId }; break;
-    case "LINK": next = { ...o, state: "APPLIED", appliedAt: o.appliedAt ?? now.toISOString(), linkedApplicationId: change.applicationId }; break;
-    case "UNLINK": next = { ...o, linkedApplicationId: null }; break;
-  }
-  return { ...next, allowedActions: predictAllowed(next.state, next.linkedApplicationId !== null) };
-}
+export const expressInterest = (orgId: number, matchId: number, note?: string) => write(`${base(orgId)}/${matchId}/express-interest`, note ? { note } : {});
+export const needMoreInfo = (orgId: number, matchId: number, message: string) => write(`${base(orgId)}/${matchId}/need-more-info`, { message });
+export const decline = (orgId: number, matchId: number, reason: string) => write(`${base(orgId)}/${matchId}/decline`, { reason });
+export const reopen = (orgId: number, matchId: number) => write(`${base(orgId)}/${matchId}/reopen`);
+export const requestResumeUpdate = (orgId: number, matchId: number, note?: string) => write(`${base(orgId)}/${matchId}/request-resume-update`, note ? { note } : {});

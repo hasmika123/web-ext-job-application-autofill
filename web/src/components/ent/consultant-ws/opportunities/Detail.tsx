@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import { Button, ErrorState, ExternalLinkIcon, ShieldCheckIcon, TimelineFeed, buttonVariants, cn } from "@kiwiply/ui";
 import type { TimelineEvent } from "@kiwiply/ui";
 import { relativeTime } from "@/lib/ent/dashboard";
-import { safePostingUrl, type ConAction, type ConOpportunityDTO } from "@/lib/ent/consultant-ws/opportunities";
-import { CardSkeleton, JobChips, PriorityChip, SourceBadge, StateChip, dueInfo, shortDate } from "../parts";
+import { safePostingUrl, type ConAction, type ConOpportunityDTO } from "@/lib/ent/consultant-ws/conOpportunities";
+import { CardSkeleton, JobChips, PriorityChip, SourceBadge, StateChip, dueInfo, shortDate } from "./conParts";
 
 /** What the detail view can ask of the page. Every one maps to a button the API listed in `allowedActions`. */
 export interface DetailHandlers {

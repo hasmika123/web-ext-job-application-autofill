@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Settings page (branch ent-talent-consultant). Two consultant-isolated tables.
+          cws_setting        one row per consultant (no row = the safe defaults): profile visibility, three sharing switches, theme, language label
+                             and IANA time zone. No password, token, key or phone number is ever stored here.
+          cws_setting_event  one row per change made through the Settings page: a kind, a short label and the time (feeds Recent Account Activity).
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FK to consultant_profile, every secondary index starts with
+        org_id, DATETIME(6) UTC, additive, empty rollback, no JSON, no sensitive columns.
+    -->
+    <changeSet id="ent-cws-19-cws_setting" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_setting"/></not></preConditions>
+        <createTable tableName="cws_setting">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="profile_visibility" type="varchar(20)" defaultValue="ORG_ONLY"><constraints nullable="false"/></column>
+            <column name="share_profile_with_employers" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="show_contact_information" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="allow_analytics" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="theme" type="varchar(10)" defaultValue="SYSTEM"><constraints nullable="false"/></column>
+            <column name="language" type="varchar(10)" defaultValue="en-US"><constraints nullable="false"/></column>
+            <column name="timezone" type="varchar(60)" defaultValue="UTC"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_setting" baseColumnNames="org_id" constraintName="fk_cws_setting_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_setting" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_setting_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_setting" columnNames="org_id, consultant_id" constraintName="uk_cws_setting_consultant"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-19-cws_setting_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_setting_event"/></not></preConditions>
+        <createTable tableName="cws_setting_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(12)" defaultValue="PRIVACY"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(160)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_setting_event" baseColumnNames="org_id" constraintName="fk_cws_setting_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_setting_event" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_setting_event_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_setting_event" indexName="ix_cws_setting_event_consultant"><column name="org_id"/><column name="consultant_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

@@ -201,6 +201,10 @@ export interface DonutChartProps {
   label: string;
   /** Diameter in px. */
   size?: number;
+  /** Draw the slice list beside the ring (default true); false gives the bare ring. */
+  legend?: boolean;
+  /** Text after the middle number ("%"). */
+  totalSuffix?: string;
   className?: string;
 }
 
@@ -213,7 +217,7 @@ export function shares(values: number[]): number[] {
   return values.map((v) => (sum > 0 && Number.isFinite(v) && v > 0 ? v / sum : 0));
 }
 
-export function DonutChart({ slices, total, totalLabel, label, size = 150, className }: DonutChartProps): ReactNode {
+export function DonutChart({ slices, total, totalLabel, label, size = 150, legend = true, totalSuffix, className }: DonutChartProps): ReactNode {
   const parts = shares(slices.map((s) => s.value));
   const sum = slices.reduce((a, s) => a + (Number.isFinite(s.value) && s.value > 0 ? s.value : 0), 0);
   let offset = 0;
@@ -243,10 +247,11 @@ export function DonutChart({ slices, total, totalLabel, label, size = 150, class
           })}
         </svg>
         <div aria-hidden className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-[26px] font-bold leading-none tabular-nums text-ink">{total ?? sum}</span>
+          <span className="text-[26px] font-bold leading-none tabular-nums text-ink">{total ?? sum}{totalSuffix}</span>
           {totalLabel ? <span className="mt-1 max-w-[80px] text-[11.5px] leading-tight text-muted">{totalLabel}</span> : null}
         </div>
       </div>
+      {legend ? (
       <ul className="min-w-[10rem] flex-1">
         {slices.map((s, i) => (
           <li key={s.key} className="flex items-center gap-2 py-1 text-[13px] text-ink-soft">
@@ -257,6 +262,7 @@ export function DonutChart({ slices, total, totalLabel, label, size = 150, class
           </li>
         ))}
       </ul>
+      ) : null}
     </div>
   );
 }

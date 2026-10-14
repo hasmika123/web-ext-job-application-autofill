@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import OpportunitiesPage from "./opportunities/OpportunitiesPage";
-import type { ConPageProps } from "./parts";
+import type { ConPageProps } from "./opportunities/conParts";
 
 /**
  * The Consultant workspace's real pages, keyed by the first path segment under `/w/consultant`. The catch-all route calls this once;

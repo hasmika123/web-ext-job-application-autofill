@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createConOpportunitiesMock } from "../../../../scripts/mock-con-opportunities.mjs";
-import { parseList, parseOpportunity } from "./opportunities";
+import { parseList, parseOpportunity } from "./conOpportunities";
 
 /** The dev mock must keep speaking the contract the page parses: lifecycle, allowedActions, versions, 404 for everyone but the consultant. */
 type Out = { status: number; body: Record<string, unknown> };

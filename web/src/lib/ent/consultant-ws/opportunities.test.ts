@@ -1,189 +1,88 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import {
-  applied, applyOptimistic, countByState, decline, fetchList, fetchOne, interest, link, parseList, parseOpportunity, predictAllowed, requestInfo, safePostingUrl, sourceName, unlink, viewed,
-} from "./opportunities";
+import { describe, expect, it } from "vitest";
+import { actionTarget, canRespond, daysLeftText, dueUrgent, nextSteps, parseDetail, parseOpportunities, rateText, type OppRow } from "./opportunities";
 
-const raw = (over: Record<string, unknown> = {}) => ({
-  id: 7,
-  state: "ASSIGNED",
-  job: { id: 70, title: "Senior Java Developer", company: "TechCorp", location: "New York, NY", workMode: "HYBRID", employmentType: "CONTRACT", payLabel: "$70-80/hr", jobUrl: "https://www.linkedin.com/jobs/view/123", atsPlatform: "linkedin", externalJobId: "123", postedOn: "2026-10-10", skills: ["Java", "Kafka"] },
-  marketerNote: "Strong fit, mention Kafka.",
-  assignedBy: { memberId: 9, name: "Mia Marketer" },
-  assignedAt: "2026-10-12T09:00:00Z",
-  priority: "HIGH",
-  dueOn: "2026-10-20",
-  infoRequest: "",
-  infoAnswer: "",
-  appliedAt: null,
-  linkedApplicationId: null,
-  allowedActions: ["VIEWED", "INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED"],
-  version: 3,
-  ...over,
+const tile = (value: number, extra: Record<string, unknown> = {}) => ({ value, previous: 1, deltaPct: 10, sparkline: [0, 1, 2], ...extra });
+const row = (over: Partial<OppRow> = {}): OppRow => ({
+  matchId: 1, requirementId: 10, title: "Java Dev", skills: ["Java"], company: "TechCorp", location: "Austin, TX", workMode: "HYBRID", marketer: "Morgan",
+  status: "NEW", priority: "HIGH", priorityDerived: false, dueOn: "2026-10-16", dueDerived: false, daysLeft: 2, score: 90, missingSkills: 0, interestSent: false, assignedAt: null, sourceUrl: null, sourceName: null, quickInfo: null, sourceSample: false, ...over,
 });
 
-const ok = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-afterEach(() => vi.unstubAllGlobals());
-
-describe("parseOpportunity", () => {
-  it("reads the contract DTO", () => {
-    const o = parseOpportunity(raw());
-    expect(o).toMatchObject({ id: 7, state: "ASSIGNED", priority: "HIGH", dueOn: "2026-10-20", version: 3, linkedApplicationId: null });
-    expect(o?.job).toMatchObject({ title: "Senior Java Developer", payLabel: "$70-80/hr", workMode: "HYBRID", skills: ["Java", "Kafka"], atsPlatform: "linkedin" });
-    expect(o?.assignedBy.name).toBe("Mia Marketer");
-    expect(o?.allowedActions).toEqual(["VIEWED", "INTEREST", "DECLINE", "REQUEST_INFO", "APPLIED"]);
-  });
-  it("is lenient: junk becomes defaults, unknown actions and bad skills are dropped, no id is null", () => {
-    const o = parseOpportunity({ id: 1, state: "WEIRD", priority: "??", job: "nope", allowedActions: ["INTEREST", "DELETE_EVERYTHING", 4], assignedBy: null });
-    expect(o).toMatchObject({ state: "ASSIGNED", priority: "MEDIUM", allowedActions: ["INTEREST"] });
-    expect(o?.job.title).toBe("");
-    expect(parseOpportunity({ state: "ASSIGNED" })).toBeNull();
-    expect(parseOpportunity(null)).toBeNull();
-    expect(parseOpportunity([])).toBeNull();
-  });
-  it("keeps the timeline only when the API sends one", () => {
-    expect(parseOpportunity(raw())?.timeline).toEqual([]);
-    expect(parseOpportunity(raw({ timeline: [{ id: "a", at: "2026-10-12T09:00:00Z", text: "Assigned", actor: "Mia" }, { at: "x" }] }))?.timeline).toHaveLength(1);
+describe("the marketer's source link on an opportunity row", () => {
+  it("reads link, name, note and sample mark; an unsafe or missing link is null", () => {
+    const v = parseOpportunities({ orgId: 2, tiles: { total: tile(2), high: tile(1), awaiting: tile(0), inReview: tile(0), declined: tile(0) }, total: 3, nextSteps: {}, rows: [
+      { matchId: 1, title: "A", sourceUrl: "https://jobs.example.com/a/1", sourceName: "Company site", quickInfo: "Note", sourceSample: true },
+      { matchId: 2, title: "B", sourceUrl: "http://insecure.example.com", quickInfo: "Only a note" },
+      { matchId: 3, title: "C" },
+    ] })!;
+    expect(v.rows[0]).toMatchObject({ sourceUrl: "https://jobs.example.com/a/1", sourceName: "Company site", quickInfo: "Note", sourceSample: true });
+    expect(v.rows[1]).toMatchObject({ sourceUrl: null, quickInfo: "Only a note", sourceSample: false });
+    expect(v.rows[2]).toMatchObject({ sourceUrl: null, sourceName: null, quickInfo: null });
   });
 });
 
-describe("parseList / countByState", () => {
-  it("drops malformed rows and counts per state", () => {
-    const list = parseList({ items: [raw(), raw({ id: 8, state: "APPLIED" }), "junk", raw({ id: 9, state: "APPLIED" })], total: 3 });
-    expect(list?.items).toHaveLength(3);
-    expect(countByState(list!.items)).toMatchObject({ ALL: 3, ASSIGNED: 1, APPLIED: 2, DECLINED: 0 });
-    expect(parseList({})).toBeNull();
+describe("parseOpportunities", () => {
+  it("reads the contract and drops rows that are not the contract", () => {
+    const v = parseOpportunities({
+      orgId: 2,
+      tiles: { total: tile(5), high: tile(2), awaiting: tile(1, { deltaPct: null }), inReview: tile(1), declined: tile(1) },
+      rows: [row(), { bad: true }, { matchId: 3, title: "SRE", status: "WEIRD", priority: "??", score: 400 }],
+      total: 2,
+      nextSteps: { toRespond: 2, soonestDueDays: null },
+    })!;
+    expect(v.rows.map((r) => r.matchId)).toEqual([1, 3]);
+    expect(v.rows[1]).toMatchObject({ status: "NEW", priority: "MEDIUM", score: 100, marketer: null });
+    expect(v.tiles.awaiting.deltaPct).toBeNull();
+    expect(v.nextSteps).toMatchObject({ toRespond: 2, soonestDueDays: null, hasMarketer: false });
+  });
+  it("is null for anything else", () => {
+    expect(parseOpportunities(null)).toBeNull();
+    expect(parseOpportunities({ orgId: 1 })).toBeNull();
   });
 });
 
-describe("helpers", () => {
-  it("only links http(s) postings", () => {
-    expect(safePostingUrl("https://boards.greenhouse.io/x/jobs/1")).toContain("greenhouse");
-    expect(safePostingUrl("javascript:alert(1)")).toBeNull();
-    expect(safePostingUrl("")).toBeNull();
-  });
-  it("knows the boards it has art for", () => {
-    expect(sourceName("linkedin")).toEqual({ label: "LinkedIn", known: true });
-    expect(sourceName("Acme ATS")).toEqual({ label: "Acme ATS", known: false });
-    expect(sourceName("").label).toBe("");
+describe("parseDetail", () => {
+  it("reads skills and the timeline and skips junk", () => {
+    const d = parseDetail({ row: row(), skills: [{ skill: "Java", present: true }, 4], timeline: [{ key: "ASSIGNED", label: "Assigned", at: "2026-10-01T00:00:00Z" }, { key: 1 }], rateMinMinor: 8500 })!;
+    expect(d.skills).toEqual([{ skill: "Java", present: true }]);
+    expect(d.timeline).toHaveLength(1);
+    expect(parseDetail({})).toBeNull();
   });
 });
 
-describe("fetchList / fetchOne", () => {
-  it("OK, DENIED on 404, FAILED on 500 or a network error", async () => {
-    const f = vi.fn().mockResolvedValueOnce(ok({ items: [raw()], total: 1 })).mockResolvedValueOnce(ok({}, 404)).mockResolvedValueOnce(ok({}, 500)).mockRejectedValueOnce(new Error("down"));
-    vi.stubGlobal("fetch", f);
-    expect((await fetchList(2)).kind).toBe("OK");
-    expect(String(f.mock.calls[0][0])).toBe("/api/orgs/2/consultant/opportunities?page=0&size=100");
-    expect((await fetchList(2)).kind).toBe("DENIED");
-    expect((await fetchList(2)).kind).toBe("FAILED");
-    expect((await fetchList(2)).kind).toBe("FAILED");
+describe("labels", () => {
+  it("words the days left", () => {
+    expect(daysLeftText(2)).toBe("2 days left");
+    expect(daysLeftText(1)).toBe("1 day left");
+    expect(daysLeftText(0)).toBe("Due today");
+    expect(daysLeftText(-3)).toBe("3 days overdue");
   });
-  it("sends the state filter", async () => {
-    const f = vi.fn().mockResolvedValue(ok({ items: [], total: 0 }));
-    vi.stubGlobal("fetch", f);
-    await fetchList(2, { state: "APPLIED", size: 10 });
-    expect(String(f.mock.calls[0][0])).toBe("/api/orgs/2/consultant/opportunities?page=0&size=10&state=APPLIED");
+  it("is urgent at 3 days or fewer and when overdue, but not once declined", () => {
+    expect(dueUrgent(row({ daysLeft: 3 }))).toBe(true);
+    expect(dueUrgent(row({ daysLeft: 4 }))).toBe(false);
+    expect(dueUrgent(row({ daysLeft: -1 }))).toBe(true);
+    expect(dueUrgent(row({ daysLeft: -1, status: "DECLINED" }))).toBe(false);
+    expect(canRespond(row({ status: "DECLINED" }))).toBe(false);
   });
-  it("fetchOne maps 404 to NOT_FOUND", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(ok(raw())).mockResolvedValueOnce(ok({}, 404)));
-    expect((await fetchOne(2, 7)).kind).toBe("OK");
-    expect((await fetchOne(2, 7)).kind).toBe("NOT_FOUND");
+  it("prints the rate band from minor units", () => {
+    expect(rateText({ rateMinMinor: 8500, rateMaxMinor: 9500, rateUnit: "HOUR", currency: "USD" })).toBe("$85-95/hr");
+    expect(rateText({ rateMinMinor: 12000000, rateMaxMinor: null, rateUnit: "YEAR", currency: "USD" })).toBe("$120k/yr");
+    expect(rateText({ rateMinMinor: null, rateMaxMinor: null, rateUnit: null, currency: null })).toBeNull();
   });
-});
-
-describe("actions", () => {
-  const call = (f: ReturnType<typeof vi.fn>, n = 0) => ({ url: String(f.mock.calls[n][0]), init: f.mock.calls[n][1] as RequestInit, headers: new Headers((f.mock.calls[n][1] as RequestInit).headers), body: JSON.parse(String((f.mock.calls[n][1] as RequestInit).body)) });
-
-  it("posts each action to its own route with an idempotency key and the optional If-Match", async () => {
-    const f = vi.fn().mockImplementation(() => Promise.resolve(ok(raw({ state: "VIEWED", version: 4 }))));
-    vi.stubGlobal("fetch", f);
-    const r = await viewed(2, 7, { version: 3 });
-    expect(r).toMatchObject({ kind: "OK", item: { state: "VIEWED", version: 4 } });
-    let c = call(f);
-    expect(c.url).toBe("/api/orgs/2/consultant/opportunities/7/viewed");
-    expect(c.init.method).toBe("POST");
-    expect(c.headers.get("if-match")).toBe("3");
-    expect(c.headers.get("idempotency-key")).toBeTruthy();
-
-    await interest(2, 7);
-    c = call(f, 1);
-    expect(c.url.endsWith("/7/interest")).toBe(true);
-    expect(c.headers.get("if-match")).toBeNull();
-
-    await decline(2, 7, "RATE", "  too low ");
-    c = call(f, 2);
-    expect(c.url.endsWith("/7/decline")).toBe(true);
-    expect(c.body).toEqual({ reason: "RATE", note: "too low" });
-    await decline(2, 7, "OTHER", " ");
-    expect(call(f, 3).body).toEqual({ reason: "OTHER" });
-
-    await requestInfo(2, 7, " Is it remote? ");
-    expect(call(f, 4).url.endsWith("/7/request-info")).toBe(true);
-    expect(call(f, 4).body).toEqual({ question: "Is it remote?" });
-
-    await applied(2, 7);
-    expect(call(f, 5).url.endsWith("/7/applied")).toBe(true);
-    expect(call(f, 5).body).toEqual({});
-    await applied(2, 7, 55);
-    expect(call(f, 6).body).toEqual({ applicationId: 55 });
-
-    await link(2, 7, 55);
-    expect(call(f, 7).url.endsWith("/7/link")).toBe(true);
-    expect(call(f, 7).body).toEqual({ applicationId: 55 });
-    await unlink(2, 7);
-    expect(call(f, 8).url.endsWith("/7/unlink")).toBe(true);
-  });
-
-  it("uses a given idempotency key", async () => {
-    const f = vi.fn().mockResolvedValue(ok(raw()));
-    vi.stubGlobal("fetch", f);
-    await interest(2, 7, { idempotencyKey: "abc" });
-    expect(call(f).headers.get("idempotency-key")).toBe("abc");
-  });
-
-  it("maps 409 VERSION_CONFLICT, 404, 422 SENSITIVE_CONTENT, 400 and network errors to typed results", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn()
-        .mockResolvedValueOnce(ok({ error: "Changed", code: "VERSION_CONFLICT" }, 409))
-        .mockResolvedValueOnce(ok({ error: "Nope", code: "JOB_NOT_OPEN" }, 409))
-        .mockResolvedValueOnce(ok({ error: "Not found." }, 404))
-        .mockResolvedValueOnce(ok({ error: "Sensitive", code: "SENSITIVE_CONTENT" }, 422))
-        .mockResolvedValueOnce(ok({ error: "Too long" }, 400))
-        .mockResolvedValueOnce(ok({ error: "Boom" }, 500))
-        .mockRejectedValueOnce(new Error("down")),
-    );
-    expect(await interest(2, 7)).toEqual({ kind: "VERSION_CONFLICT" });
-    expect(await interest(2, 7)).toEqual({ kind: "INVALID", error: "Nope" });
-    expect(await interest(2, 7)).toEqual({ kind: "NOT_FOUND" });
-    expect(await requestInfo(2, 7, "x")).toEqual({ kind: "SENSITIVE", error: "Sensitive" });
-    expect(await requestInfo(2, 7, "x")).toEqual({ kind: "INVALID", error: "Too long" });
-    expect(await interest(2, 7)).toEqual({ kind: "FAILED", error: "Boom" });
-    expect((await interest(2, 7)).kind).toBe("FAILED");
-  });
-
-  it("an OK answer without a row keeps item null (the page reloads instead of guessing)", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(ok({})));
-    expect(await unlink(2, 7)).toEqual({ kind: "OK", item: null });
+  it("targets the picked row, else the first, else none", () => {
+    const rows = [row({ matchId: 1 }), row({ matchId: 2 })];
+    expect(actionTarget(rows, 2)?.matchId).toBe(2);
+    expect(actionTarget(rows, 9)?.matchId).toBe(1);
+    expect(actionTarget([], null)).toBeNull();
   });
 });
 
-describe("applyOptimistic", () => {
-  const base = parseOpportunity(raw())!;
-  it("moves the state and recomputes the allowed actions", () => {
-    expect(applyOptimistic(base, { action: "INTEREST" })).toMatchObject({ state: "INTERESTED", allowedActions: predictAllowed("INTERESTED", false) });
-    expect(applyOptimistic(base, { action: "DECLINE" }).allowedActions).toEqual(["INTEREST"]);
-    expect(applyOptimistic(base, { action: "REQUEST_INFO", question: " q " })).toMatchObject({ state: "NEEDS_INFO", infoRequest: "q" });
-    const applied = applyOptimistic(base, { action: "APPLIED" }, new Date("2026-10-13T10:00:00Z"));
-    expect(applied).toMatchObject({ state: "APPLIED", appliedAt: "2026-10-13T10:00:00.000Z", allowedActions: ["LINK"] });
-    expect(applyOptimistic(applied, { action: "LINK", applicationId: 5 })).toMatchObject({ linkedApplicationId: 5, allowedActions: ["UNLINK"] });
-    expect(applyOptimistic(applied, { action: "UNLINK" }).linkedApplicationId).toBeNull();
-  });
-  it("viewed only moves a New row", () => {
-    expect(applyOptimistic(base, { action: "VIEWED" }).state).toBe("VIEWED");
-    expect(applyOptimistic({ ...base, state: "INTERESTED" }, { action: "VIEWED" }).state).toBe("INTERESTED");
-  });
-  it("a closed row allows nothing", () => {
-    expect(predictAllowed("CLOSED", false)).toEqual([]);
+describe("nextSteps", () => {
+  it("derives each step from the counts and leaves out the ones with nothing to do", () => {
+    const s = nextSteps({ toRespond: 5, soonestDueDays: 2, resumeGaps: 1, upcomingInterviews: 2, hasMarketer: true }, "/w/consultant");
+    expect(s.map((x) => x.key)).toEqual(["respond", "resume", "interviews", "marketer"]);
+    expect(s[0].title).toBe("Respond to 5 opportunities");
+    expect(s[2].href).toBe("/w/consultant/interview-prep");
+    expect(nextSteps({ toRespond: 0, soonestDueDays: null, resumeGaps: 0, upcomingInterviews: 0, hasMarketer: false }, "/w/consultant").map((x) => x.key)).toEqual(["marketer"]);
+    expect(nextSteps({ toRespond: 1, soonestDueDays: -1, resumeGaps: 0, upcomingInterviews: 0, hasMarketer: true }, "/w/consultant")[0].title).toBe("Respond to 1 opportunity");
   });
 });

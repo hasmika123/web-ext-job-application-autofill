@@ -23,7 +23,7 @@ vi.mock("@/components/ent/shell/ShellContext", () => ({
 
 import OpportunitiesPage from "./OpportunitiesPage";
 import { consultantPage } from "../registry";
-import type { ConPageProps } from "../parts";
+import type { ConPageProps } from "./conParts";
 
 const PROPS: ConPageProps = { orgId: 2, orgName: "Acme", firstName: "Anika", hrefs: { opportunities: "/w/consultant/opportunities" } };
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();

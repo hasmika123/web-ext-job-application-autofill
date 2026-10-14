@@ -5,7 +5,7 @@ import { Button, SensitiveTextField, SheetFrame, cn } from "@kiwiply/ui";
 import {
   DECLINE_LABELS, DECLINE_REASONS, NOTE_MAX, QUESTION_MAX, fetchMyApplications,
   type ActionResult, type AppOption, type DeclineReason,
-} from "@/lib/ent/consultant-ws/opportunities";
+} from "@/lib/ent/consultant-ws/conOpportunities";
 
 /**
  * The three small forms of Assigned Opportunities: decline (with a reason), ask the marketer a question, and link one of my own tracked

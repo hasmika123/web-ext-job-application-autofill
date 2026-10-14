@@ -553,7 +553,7 @@
         },
         {
           "key": "profile",
-          "label": "My Profile",
+          "label": "My Career Profile",
           "icon": "User",
           "href": "/w/consultant/profile",
           "needs": [
@@ -567,6 +567,24 @@
           "href": "/w/consultant/resumes",
           "needs": [
             "resumes.manage"
+          ]
+        },
+        {
+          "key": "marketer",
+          "label": "My Marketer",
+          "icon": "Users",
+          "href": "/w/consultant/marketer",
+          "needs": [
+            "opportunities.respond"
+          ]
+        },
+        {
+          "key": "job-discovery",
+          "label": "Job Discovery",
+          "icon": "Search",
+          "href": "/w/consultant/job-discovery",
+          "needs": [
+            "opportunities.respond"
           ]
         },
         {
@@ -590,11 +608,20 @@
         },
         {
           "key": "applications",
-          "label": "Applications",
+          "label": "My Applications",
           "icon": "Board",
           "href": "/w/consultant/applications",
           "needs": [
             "applications.manage"
+          ]
+        },
+        {
+          "key": "submissions",
+          "label": "Submissions & Approvals",
+          "icon": "ClipboardCheck",
+          "href": "/w/consultant/submissions",
+          "needs": [
+            "submissions.authorize"
           ]
         },
         {
@@ -608,7 +635,7 @@
         },
         {
           "key": "interview-prep",
-          "label": "AI Interview Preparation",
+          "label": "Interview Prep",
           "icon": "Sparkles",
           "href": "/w/consultant/interview-prep",
           "needs": [
@@ -626,7 +653,7 @@
         },
         {
           "key": "placements",
-          "label": "Placements",
+          "label": "My Placement",
           "icon": "Handshake",
           "href": "/w/consultant/placements",
           "needs": [
@@ -634,8 +661,35 @@
           ]
         },
         {
+          "key": "availability",
+          "label": "Availability",
+          "icon": "Clock",
+          "href": "/w/consultant/availability",
+          "needs": [
+            "self.share_scope.set"
+          ]
+        },
+        {
+          "key": "tasks",
+          "label": "Tasks & Follow-ups",
+          "icon": "CheckCircle",
+          "href": "/w/consultant/tasks",
+          "needs": [
+            "applications.manage"
+          ]
+        },
+        {
+          "key": "activity-timeline",
+          "label": "Activity Timeline",
+          "icon": "Route",
+          "href": "/w/consultant/activity-timeline",
+          "needs": [
+            "self.share_scope.set"
+          ]
+        },
+        {
           "key": "features",
-          "label": "My Available Features",
+          "label": "My Features",
           "icon": "Layers",
           "href": "/w/consultant/features",
           "needs": [

@@ -96,5 +96,22 @@
     <include file="config/liquibase/changelog/20261104130000_mkt_performance.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261105010000_phase1_job_identity.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261105020000_job_provenance_ledger.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103010000_ent_cws_tasks.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103015000_ent_cws_saved_job.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103020000_ent_cws_profile.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103030000_ent_cws_resume_activity.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103050000_ent_cws_job_discovery.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103060000_ent_cws_matches.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103070000_ent_cws_interviews.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103080000_ent_cws_interview_prep.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103100000_ent_cws_submissions.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103110000_ent_cws_opportunities.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103120000_ent_cws_tasks_v2.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103130000_ent_cws_availability.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103140000_ent_cws_offers.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103150000_ent_cws_placement.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103160000_ent_cws_notifications.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103190000_ent_cws_settings.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261103200000_ent_cws_job_source.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

@@ -8,8 +8,8 @@ import { relativeTime } from "@/lib/ent/dashboard";
 import {
   STATES, STATE_LABELS, applied, applyOptimistic, countByState, decline, fetchList, fetchOne, interest, link, requestInfo, unlink, viewed,
   type ActionResult, type ConOpportunityDTO, type ConState, type DeclineReason, type Optimistic,
-} from "@/lib/ent/consultant-ws/opportunities";
-import { CARD, CardSkeleton, Empty, Head, JobChips, PriorityChip, SourceBadge, StateChip, dueInfo, preview, shortDate, type ConPageProps } from "../parts";
+} from "@/lib/ent/consultant-ws/conOpportunities";
+import { CARD, CardSkeleton, Empty, Head, JobChips, PriorityChip, SourceBadge, StateChip, dueInfo, preview, shortDate, type ConPageProps } from "./conParts";
 import { useCompact } from "../useCompact";
 import { AskDialog, DeclineDialog, LinkDialog } from "./Dialogs";
 import { ActionBar, DetailBody, DetailStatus, type DetailHandlers } from "./Detail";
