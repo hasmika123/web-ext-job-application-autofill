@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeftIcon, ArrowRightIcon, BarChartIcon, BuildingIcon, Button, DataTable, Dialog, EmptyState, ErrorState, FilterBar, MemberAvatar, PersonCell, PlusIcon, Select, Skeleton, UserIcon, UsersIcon, ChevronRightIcon, NetworkIcon, useToast, type DataTableColumn, type MenuEntry, PencilIcon, ArchiveIcon, RestoreIcon, TrashIcon, SwapIcon } from "@kiwiply/ui";
+import { ArrowLeftIcon, ArrowRightIcon, BarChartIcon, BuildingIcon, Button, DataTable, Dialog, EmptyState, ErrorState, FilterBar, KpiTile, MemberAvatar, PersonCell, PlusIcon, Select, Skeleton, UserIcon, UsersIcon, ChevronRightIcon, NetworkIcon, useToast, type DataTableColumn, type MenuEntry, PencilIcon, ArchiveIcon, RestoreIcon, TrashIcon, SwapIcon } from "@kiwiply/ui";
 import { ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { plural, shortDate, TONE_BAR, toneOf, type Group } from "@/lib/ent/groups";
+import HelpBanner from "@/components/ent/shared/HelpBanner";
+import { createdTrend, plural, shortDate, TONE_BAR, toneOf, type Group } from "@/lib/ent/groups";
 import CreateGroupSheet from "./CreateGroupSheet";
 import GroupDetailSheet from "./GroupDetailSheet";
 import PersonSearch from "./PersonSearch";
-import { GroupStatus, GroupTile, Kpi, PageHelpCard, SectionHead } from "./GroupVisuals";
+import { GroupStatus, GroupTile, SectionHead } from "./GroupVisuals";
 import { OrgChart, StructureTree } from "./StructureViews";
 import { useGroupActions, useGroupsData } from "./useGroups";
 
@@ -36,6 +37,7 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
 
   const departments = useMemo(() => structure?.departments.map((d) => d.group) ?? [], [structure]);
   const s = directory?.summary;
+  const trend = useMemo(() => createdTrend(departments.map((d) => d.createdAt)), [departments]);
   const hasFilters = q !== "" || status !== "";
 
   const columns: DataTableColumn<Group>[] = [
@@ -87,17 +89,17 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
   const performance = [...departments].sort((a, b) => b.activeCount - a.activeCount);
 
   return (
-    <div className="grp-page flex flex-col gap-5" data-page="departments">
-      {/* KPI tiles: only what the API can count (open positions has no data behind it, so there is no tile) */}
-      <section aria-label="Department numbers" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div className="grp-page flex flex-col gap-[14px]" data-page="departments" data-ent-page="departments">
+      <section aria-label="Department numbers" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:gap-[14px]">
         {!s ? (
-          [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[124px] w-full rounded-2xl" />)
+          [0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[124px] w-full rounded-2xl" />)
         ) : (
           <>
-            <Kpi icon={<BuildingIcon size={20} />} label="Total Departments" value={s.departments} tone="secondary" hint={s.inactive > 0 ? `${s.inactive} archived` : undefined} />
-            <Kpi icon={<UsersIcon size={20} />} label="Total Employees" value={s.employees} tone="success" hint={s.unplaced > 0 ? `${s.unplaced} not in a department yet` : undefined} />
-            <Kpi icon={<UserIcon size={20} />} label="Department Leads" value={s.departmentLeads} tone="primary" />
-            <Kpi icon={<NetworkIcon size={20} />} label="Avg. Team Size" value={s.averageTeamSize == null ? "–" : s.averageTeamSize} tone="warning" hint={s.averageTeamSize == null ? "No teams yet" : `across ${plural(s.teams, "team")}`} />
+            <KpiTile id="Total Departments" tone="violet" label="Total Departments" icon={<BuildingIcon size={22} />} value={s.departments} delta={trend.delta} series={trend.series} />
+            <KpiTile id="Total Employees" tone="green" label="Total Employees" icon={<UsersIcon size={22} />} value={s.employees} />
+            <KpiTile id="Department Leads" tone="blue" label="Department Leads" icon={<UserIcon size={22} />} value={s.departmentLeads} />
+            <KpiTile id="Avg. Team Size" tone="orange" label="Avg. Team Size" icon={<NetworkIcon size={22} />} value={s.averageTeamSize == null ? "–" : s.averageTeamSize} />
+            <KpiTile id="Total Teams" tone="indigo" label="Total Teams" icon={<UsersIcon size={22} />} value={s.teams} />
           </>
         )}
       </section>
@@ -113,9 +115,9 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
           />
         </>
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_460px]">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_clamp(320px,26.4vw,442px)] xl:gap-[14px]">
           <div className="flex min-w-0 flex-col gap-5">
-            <section aria-label="Departments overview" className="grp-card p-4 sm:p-5">
+            <section aria-label="Departments overview" className="ent-card p-4 sm:p-5">
               <SectionHead icon={<BuildingIcon size={26} />} title="Departments" subtitle="Manage departments, view details, and explore team structure.">
                 {canManage && (
                   <Button variant="accent" onClick={() => setCreating(true)} className="min-h-11 rounded-[10px] px-5 text-[15px] font-bold">
@@ -133,7 +135,7 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
                         type="button"
                         onClick={() => setOpenId(d.id)}
                         data-department-card={d.name}
-                        className="grp-card flex h-full w-full flex-col gap-2.5 !rounded-[14px] p-3.5 text-left hover:bg-paper-2/50 focus-visible:outline-2 focus-visible:outline-accent"
+                        className="ent-card flex h-full w-full flex-col gap-2.5 !rounded-[14px] p-3.5 text-left hover:bg-paper-2/50 focus-visible:outline-2 focus-visible:outline-accent"
                       >
                         <GroupTile icon={d.icon} color={d.color} size={52} />
                         <div className="min-w-0">
@@ -164,7 +166,7 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
               )}
             </section>
 
-            <section aria-label="Department directory" className="grp-card p-4 sm:p-5">
+            <section aria-label="Department directory" className="ent-card p-4 sm:p-5">
               <SectionHead icon={<BuildingIcon size={26} />} title="Department Directory" subtitle="View and manage all departments in your organization.">
               <FilterBar
                 compact
@@ -227,7 +229,7 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
           </div>
 
           <div className="flex min-w-0 flex-col gap-5">
-            <section aria-label="Organization structure" className="grp-card p-4 sm:p-5">
+            <section aria-label="Organization structure" className="ent-card p-4 sm:p-5">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                 <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
                   <NetworkIcon size={22} className="flex-none text-accent" /> Organization Structure
@@ -239,7 +241,7 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
               {structure ? <OrgChart structure={structure} onOpen={(g) => setOpenId(g.id)} /> : <Skeleton className="h-40 w-full" />}
             </section>
 
-            <section aria-label="Department performance" className="grp-card p-4 sm:p-5">
+            <section aria-label="Department performance" className="ent-card p-4 sm:p-5">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
                   <BarChartIcon size={22} className="text-accent" /> Department Performance
@@ -267,7 +269,7 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
               )}
             </section>
 
-            <PageHelpCard layout="side" topic="departments" text="I can help you set up departments, manage team structure, or answer any questions about organization management." />
+            <HelpBanner layout="side" topic="departments" text="I can help you set up departments, manage team structure, or answer any questions about organization management." />
           </div>
         </div>
       )}

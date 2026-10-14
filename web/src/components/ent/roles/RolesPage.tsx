@@ -13,6 +13,7 @@ import {
   HistoryDrawer,
   Input,
   KeyIcon,
+  KpiTile,
   Menu,
   MoreHorizontalIcon,
   FileTextIcon,
@@ -64,7 +65,7 @@ import RoleIcon from "./RoleIcon";
 
 const PAGE_SIZE = 15; // config-literal-ok: rows per page of the roles table (UI pagination, not a limit)
 const DONUT = ["var(--brand-solid, var(--color-accent))", "var(--color-v2-teal)", "var(--color-v2-amber)", "var(--color-v2-violet)", "var(--color-v2-pink)"]; // config-literal-ok: the board's five category hues (primary + fixed families), never a hex
-const CARD = "rounded-[18px] border border-line/70 bg-paper shadow-[0_1px_3px_rgba(16,40,90,0.05),0_6px_18px_rgba(16,40,90,0.04)]"; // config-literal-ok: the boards' soft card
+const CARD = "ent-card"; // config-literal-ok: the boards' soft card
 
 type Load<T> = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; data: T };
 
@@ -235,16 +236,16 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
   const slices = data?.permissionOverview ?? [];
 
   return (
-    <div data-roles-page data-can-manage={canManage ? "true" : "false"} className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+    <div data-roles-page data-ent-page="roles" data-can-manage={canManage ? "true" : "false"} className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_clamp(320px,20.3vw,340px)] xl:items-start xl:gap-[14px]">
       <ClaimsMascot />
       <div data-roles-main className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-5">
 
       {/* KPI tiles: real numbers only (no trend lines: there is no history to draw) */}
       <section aria-label="Role totals" className="order-1 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:order-none">
-        <Kpi tone="violet" icon={<UsersIcon size={24} />} label="Total Roles" value={data?.totalRoles} note={data ? `${data.systemRoleCount} system · ${data.customRoleCount} custom` : undefined} />
-        <Kpi tone="green" icon={<ClipboardCheckIcon size={24} />} label="Active Users" value={data?.activeUsers} note="with at least one role" />
-        <Kpi tone="blue" icon={<LockIcon size={24} />} label="Permission Sets" value={data?.permissionSetCount} note={data ? `${data.totalPermissionKeys} permissions in all` : undefined} />
-        <Kpi tone="amber" icon={<KeyIcon size={24} />} label="Custom Roles" value={data?.customRoleCount} note="made by your team" />
+        <KpiTile id="Total Roles" tone="violet" label="Total Roles" icon={<UsersIcon size={24} />} value={data?.totalRoles ?? "–"} loading={!data} />
+        <KpiTile id="Active Users" tone="green" label="Active Users" icon={<ClipboardCheckIcon size={24} />} value={data?.activeUsers ?? "–"} loading={!data} />
+        <KpiTile id="Permission Sets" tone="blue" label="Permission Sets" icon={<LockIcon size={24} />} value={data?.permissionSetCount ?? "–"} loading={!data} />
+        <KpiTile id="Custom Roles" tone="orange" label="Custom Roles" icon={<KeyIcon size={24} />} value={data?.customRoleCount ?? "–"} loading={!data} />
       </section>
 
       {/* tabs + table */}
@@ -423,28 +424,6 @@ export default function RolesPage({ orgId, orgName, workspace, canManage, suppor
         what="the role changes"
       />
       <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} orgName={orgName} supportEmail={supportEmail} />
-    </div>
-  );
-}
-
-const KPI_TONES = {
-  violet: "bg-v2-violet-soft text-v2-violet-ink",
-  green: "bg-v2-green-soft text-v2-green-ink",
-  amber: "bg-v2-amber-soft text-v2-amber-ink",
-  blue: "bg-[var(--brand-subtle,var(--color-accent-soft))] text-[var(--brand-text,var(--color-accent-deep))]",
-} as const;
-
-function Kpi({ icon, label, value, note, tone }: { icon: ReactNode; label: string; value?: number; note?: string; tone: keyof typeof KPI_TONES }) {
-  return (
-    <div data-kpi={label} className={cn(CARD, "p-4 sm:p-[18px]")}>
-      <span aria-hidden className={cn("grid h-[52px] w-[52px] place-items-center rounded-[14px]", KPI_TONES[tone])}>
-        {icon}
-      </span>
-      <p className="mt-3 text-[16px] font-semibold text-ink">{label}</p>
-      <p data-kpi-value className="mt-1 text-[34px] font-extrabold leading-none tabular-nums text-ink">
-        {value ?? "–"}
-      </p>
-      {note && <p className="mt-2.5 text-[13px] text-muted">{note}</p>}
     </div>
   );
 }
