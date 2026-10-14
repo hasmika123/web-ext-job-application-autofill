@@ -30,6 +30,8 @@ public interface TalentInterviewRepository extends Repository<TalentInterview, L
 
     List<TalentInterview> findByOrgIdAndConsultantIdAndStatusAndScheduledAtAfterOrderByScheduledAtAsc(Long orgId, Long consultantId, String status, Instant after);
 
+    List<TalentInterview> findByOrgIdAndApplicationIdOrderByScheduledAtAscIdAsc(Long orgId, Long applicationId);
+
     long countByOrgIdAndScheduledAtBetween(Long orgId, Instant from, Instant to);
 
 }

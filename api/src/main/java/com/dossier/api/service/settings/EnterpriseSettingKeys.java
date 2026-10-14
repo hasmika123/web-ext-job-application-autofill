@@ -58,6 +58,11 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_MARKETING_OVERLOAD_PCT = "org.marketing.overload_pct";
     public static final String ORG_MARKETING_BULK_MAX = "org.marketing.bulk_max";
     public static final String ORG_MARKETING_CAPACITY_MAX = "org.marketing.capacity_max";
+    /** Interviews page: how long a status change may be undone (minutes), the most interviewers one interview may list, and the minutes before a reminder may be requested again. An organization may override each in org_setting. */
+    public static final String ORG_INTERVIEWS_UNDO_MINUTES = "org.interviews.undo_minutes";
+    public static final String ORG_INTERVIEWS_MAX_DURATION_MINUTES = "org.interviews.max_duration_minutes";
+    public static final String ORG_INTERVIEWS_MAX_INTERVIEWERS = "org.interviews.max_interviewers";
+    public static final String ORG_INTERVIEWS_REMINDER_COOLDOWN_MINUTES = "org.interviews.reminder_cooldown_minutes";
     public static final String ORG_CONSENT_REQUEST_COOLDOWN_DAYS = "org.consent.request_cooldown_days";
     public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
@@ -127,6 +132,10 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_MARKETING_OVERLOAD_PCT, 90, 50, 100, Risk.LOW, "Marketing Assignments: a marketer counts as overloaded once assigned consultants reach this percent of their capacity. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_BULK_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: most consultants one assign, update, unassign or undo call may name. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_CAPACITY_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: the highest capacity (consultants at once) a marketer may be given. An organization can override it in org_setting.");
+        integer(k, ORG_INTERVIEWS_UNDO_MINUTES, 10, 1, 120, Risk.LOW, "Interviews: how many minutes a recorded status change may be undone. An organization can override it in org_setting.");
+        integer(k, ORG_INTERVIEWS_MAX_DURATION_MINUTES, 480, 15, 1440, Risk.LOW, "Interviews: the longest interview (minutes) that may be scheduled. An organization can override it in org_setting.");
+        integer(k, ORG_INTERVIEWS_MAX_INTERVIEWERS, 6, 1, 20, Risk.LOW, "Interviews: the most interviewers one interview may list. An organization can override it in org_setting.");
+        integer(k, ORG_INTERVIEWS_REMINDER_COOLDOWN_MINUTES, 60, 1, 1440, Risk.LOW, "Interviews: minutes before a reminder may be requested again for the same interview (the request is a record; no email is sent). An organization can override it in org_setting.");
         integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
         d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));

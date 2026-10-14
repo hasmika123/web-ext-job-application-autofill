@@ -43,6 +43,27 @@ public class TalentInterview implements Serializable {
     @Column(name = "interviewer_name", length = 120)
     private String interviewerName;
 
+    @Column(name = "round_no")
+    private Integer roundNo;
+
+    @Column(name = "mode", length = 12, nullable = false)
+    private String mode = "VIDEO";
+
+    @Column(name = "meeting_link", length = 300)
+    private String meetingLink;
+
+    @Column(name = "location", length = 200)
+    private String location;
+
+    @Column(name = "notes", length = 1000)
+    private String notes;
+
+    @Column(name = "next_step", length = 120)
+    private String nextStep;
+
+    @Column(name = "reminder_requested_at")
+    private Instant reminderRequestedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -74,6 +95,20 @@ public class TalentInterview implements Serializable {
     public void setRoundLabel(String roundLabel) { this.roundLabel = roundLabel; }
     public String getInterviewerName() { return interviewerName; }
     public void setInterviewerName(String interviewerName) { this.interviewerName = interviewerName; }
+    public Integer getRoundNo() { return roundNo; }
+    public void setRoundNo(Integer roundNo) { this.roundNo = roundNo; }
+    public String getMode() { return mode; }
+    public void setMode(String mode) { this.mode = mode; }
+    public String getMeetingLink() { return meetingLink; }
+    public void setMeetingLink(String meetingLink) { this.meetingLink = meetingLink; }
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
+    public String getNextStep() { return nextStep; }
+    public void setNextStep(String nextStep) { this.nextStep = nextStep; }
+    public Instant getReminderRequestedAt() { return reminderRequestedAt; }
+    public void setReminderRequestedAt(Instant reminderRequestedAt) { this.reminderRequestedAt = reminderRequestedAt; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
