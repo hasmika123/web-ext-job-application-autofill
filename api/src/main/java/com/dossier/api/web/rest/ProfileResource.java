@@ -5,6 +5,7 @@ import com.dossier.api.service.EntitlementService;
 import com.dossier.api.service.ProfileService;
 import com.dossier.api.service.dto.BioDTO;
 import com.dossier.api.service.dto.ResumeDTO;
+import com.dossier.api.service.ent.consultant.ProfileWorkspaces;
 import com.dossier.api.web.rest.vm.ProfileVM;
 import com.dossier.api.web.rest.vm.ProfileVersionVM;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,11 +35,12 @@ public class ProfileResource {
 
     private final ProfileService profileService;
     private final EntitlementService entitlementService;
+    private final ProfileWorkspaces workspaces;
 
-
-    public ProfileResource(ProfileService profileService, EntitlementService entitlementService) {
+    public ProfileResource(ProfileService profileService, EntitlementService entitlementService, ProfileWorkspaces workspaces) {
         this.profileService = profileService;
         this.entitlementService = entitlementService;
+        this.workspaces = workspaces;
     }
 
     /** {@code GET /api/profile} : the current user's bio, or 404 if none yet. */
@@ -67,7 +69,15 @@ public class ProfileResource {
     @GetMapping("/version")
     public ResponseEntity<ProfileVersionVM> getProfileVersion() {
         LOG.debug("REST request to get the current user's profile version");
-        return ResponseEntity.ok(new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan()));
+        List<ProfileWorkspaces.Workspace> mine;
+        try {
+            mine = workspaces.ofCurrentUser();
+        } catch (RuntimeException e) {
+            // the poll that keeps the extension in sync must never fail because the workspace list could not be built
+            LOG.warn("Could not list the workspaces of the current user: {}", e.toString());
+            mine = List.of();
+        }
+        return ResponseEntity.ok(new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan(), mine));
     }
 
     /** {@code PUT /api/profile} : create or overwrite the current user's bio. */

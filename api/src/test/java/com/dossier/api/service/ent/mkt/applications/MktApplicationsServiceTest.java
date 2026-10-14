@@ -222,9 +222,9 @@ class MktApplicationsServiceTest {
         return new Query(q, consultant, client, stage, period, null, sort, 0, 50);
     }
 
-    /** The KPI fixture: 5 applications of Alex (consultant 10, an org-managed profile, so FULL). */
+    /** The KPI fixture: 5 applications of Alex (consultant 10, a seat that shares FULL). */
     private TalentApplication[] book() {
-        consultant(10, "Alex Morgan", null);
+        consultant(10, "Alex Morgan", 910L);
         assigned(10);
         TalentApplication offer = app(10, 200, "OFFER", null, 60);
         event(offer, "CREATED", "ASSIGNED", 60);
@@ -289,8 +289,8 @@ class MktApplicationsServiceTest {
 
     @Test
     void anUnassignedConsultantNeverAppearsAndIsA404() {
-        consultant(10, "Alex Morgan", null);
-        consultant(11, "Priya Sharma", null);
+        consultant(10, "Alex Morgan", 910L);
+        consultant(11, "Priya Sharma", 911L);
         assigned(10);
         TalentApplication mine = app(10, 200, "SUBMITTED", null, 5);
         TalentApplication notMine = app(11, 201, "OFFER", null, 5);
@@ -306,8 +306,8 @@ class MktApplicationsServiceTest {
 
     @Test
     void anOrgWideCallerSeesEveryConsultant() {
-        consultant(10, "Alex Morgan", null);
-        consultant(11, "Priya Sharma", null);
+        consultant(10, "Alex Morgan", 910L);
+        consultant(11, "Priya Sharma", 911L);
         app(10, 200, "SUBMITTED", null, 5);
         app(11, 201, "OFFER", null, 5);
         assertThat(service.get(orgWide(), all()).tracker().total()).isEqualTo(2L);
@@ -315,7 +315,7 @@ class MktApplicationsServiceTest {
 
     @Test
     void withoutPipelineViewOrTheReadKeyItIsTheGeneric404() {
-        consultant(10, "Alex Morgan", null);
+        consultant(10, "Alex Morgan", 910L);
         assigned(10);
         Map<String, PermissionScope> noPipeline = Map.of("member.view_summary", PermissionScope.ASSIGNED);
         OrgMembership a = new OrgMembership(ORG, 7L, 70L, "x", OrgRole.ADMIN, OrgMemberStatus.ACTIVE, OrgStatus.ACTIVE, List.of(), noPipeline);
@@ -330,7 +330,7 @@ class MktApplicationsServiceTest {
 
     @Test
     void summaryShowsTheStageOnlyAndNoneIsLeftOutAndCounted() {
-        consultant(10, "Alex Morgan", null);
+        consultant(10, "Alex Morgan", 910L);
         consultant(12, "Dana Summary", 500L);
         consultant(13, "Evan Private", 501L);
         assigned(10, 12, 13);
@@ -607,5 +607,75 @@ class MktApplicationsServiceTest {
     void anUnknownApplicationIsA404() {
         book();
         assertThatThrownBy(() -> service.addNote(marketer("followups.manage"), 424242L, new NoteRequest("hi"))).isInstanceOf(OrgNotFoundException.class);
+    }
+
+    // ---- stage ownership and seat-less consultants (doc 60 sections 0.4 and 0.8) ---------------------------------------------------
+
+    @Test
+    void aConsultantWithoutASeatIsSummaryAtMostNeverFull() {
+        consultant(10, "Alex Morgan", null);
+        assigned(10);
+        TalentApplication a = app(10, 200, "INTERVIEWING", null, 6);
+        a.setNextAction("Secret next step");
+        Response r = service.get(marketer(), all());
+        Row row = r.tracker().items().stream().filter(x -> x.id().equals(a.getId())).findFirst().orElseThrow();
+        assertThat(row.consultant().consent()).isEqualTo("SUMMARY");
+        assertThat(row.stage().label()).isEqualTo("Interviewing");
+        assertThat(row.role()).isNull();
+        assertThat(row.client()).isNull();
+        assertThat(row.nextAction()).isNull();
+        verify(shares, never()).scopeOf(anyLong(), org.mockito.ArgumentMatchers.isNull());
+    }
+
+    @Test
+    void aRowThatFollowsTheConsultantsOwnApplicationRefusesAMarketerStage() {
+        TalentApplication[] b = book();
+        b[3].setPersonalApplicationId(555L);
+        b[3].setStageSource("SYSTEM");
+        assertThatThrownBy(() -> service.recordStage(marketer("submissions.record"), b[3].getId(), new StageRequest("interviewing", null)))
+            .isInstanceOf(OrgException.class)
+            .satisfies(e -> {
+                assertThat(((OrgException) e).getStatus()).isEqualTo(409);
+                assertThat(((OrgException) e).getCode()).isEqualTo("STAGE_OWNED_BY_CONSULTANT");
+            });
+        assertThat(b[3].getStage()).isEqualTo("SUBMITTED");
+        verify(events, never()).save(any());
+        verify(apps, never()).save(any());
+        verify(audit, never()).record(any(OrgMembership.class), eq("MKT_APPLICATION_STAGE_RECORDED"), any(), any(), any(), any());
+    }
+
+    @Test
+    void theOwnershipRuleHoldsEvenWhenTheStageWouldNotChange() {
+        TalentApplication[] b = book();
+        b[0].setPersonalApplicationId(555L);
+        assertThatThrownBy(() -> service.recordStage(marketer("submissions.record"), b[0].getId(), new StageRequest("offer", null))).isInstanceOf(OrgException.class);
+    }
+
+    @Test
+    void notesAndNextActionsStayAllowedOnALinkedRow() {
+        TalentApplication[] b = book();
+        b[3].setPersonalApplicationId(555L);
+        service.addNote(marketer("followups.manage"), b[3].getId(), new NoteRequest("Called the vendor"));
+        service.setNextAction(marketer("followups.manage"), b[3].getId(), new NextActionRequest("Check in", TODAY.plusDays(2)));
+        assertThat(b[3].getNextAction()).isEqualTo("Check in");
+    }
+
+    @Test
+    void aMarketerStillRecordsTheStageOfAnUnlinkedRowOfAProfileWithoutASeat() {
+        consultant(10, "Alex Morgan", null);
+        assigned(10);
+        TalentApplication a = app(10, 200, "SUBMITTED", null, 3);
+        Row row = service.recordStage(marketer("submissions.record"), a.getId(), new StageRequest("interviewing", null));
+        assertThat(row.stage().key()).isEqualTo("interviewing");
+        assertThat(a.getStage()).isEqualTo("INTERVIEWING");
+    }
+
+    @Test
+    void aSeatThatSharesLessThanFullStillCannotBeWrittenOn() {
+        consultant(12, "Dana Summary", 500L);
+        assigned(12);
+        when(shares.scopeOf(ORG, 500L)).thenReturn(ShareScope.SUMMARY);
+        TalentApplication a = app(12, 200, "SUBMITTED", null, 3);
+        assertThatThrownBy(() -> service.recordStage(marketer("submissions.record"), a.getId(), new StageRequest("interviewing", null))).isInstanceOf(OrgNotFoundException.class);
     }
 }

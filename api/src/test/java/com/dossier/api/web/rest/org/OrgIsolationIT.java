@@ -128,6 +128,14 @@ class OrgIsolationIT {
             return new Case(body, status, action, false, null, null, 1, null);
         }
 
+        /**
+         * A route that is closed to EVERYONE in this world, the org's owner included, because the feature flag behind it ships off here (the consultant
+         * jobs flag): a legitimate call is the same generic 404 and writes nothing. The route is still attacked by every hostile caller above.
+         */
+        static Case denied(String body) {
+            return new Case(body, 404, null, false, null, null, 1, null);
+        }
+
         /** A multipart upload (field "file", a small valid PNG) instead of a JSON body. */
         static Case upload(int status, String action) {
             return new Case(null, status, action, true, null, null, 1, null);
@@ -217,7 +225,19 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/invitations/bulk/revoke", Case.write("{\"ids\":[1]}", 200, null)),
         // Enterprise V2 X2.4: the dashboard. Dismissing an alert is a personal preference of the caller, so it writes no audit row.
         Map.entry("GET /api/orgs/{orgId}/dashboard", Case.read()),
-        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null))
+        Map.entry("POST /api/orgs/{orgId}/dashboard/alerts/{alertKey}/dismiss", Case.write(null, 200, null)),
+        // Doc 60 WP3: the consultant's assigned opportunities (/con/**, Java packages "consultant"). BEST EFFORT, not executed on the machine that wrote it: this world switches
+        // only the master and roles flags on, so flag.enterprise.consultant_jobs is off and the owner's legitimate call is the same generic 404 as everyone's. The behaviour
+        // behind the gate (a real consultant seat, the lifecycle, IDOR) is in ConOpportunitiesIT. Fixture id {id} is deliberately nobody's.
+        Map.entry("GET /api/orgs/{orgId}/con/opportunities", Case.denied(null)),
+        Map.entry("GET /api/orgs/{orgId}/con/opportunities/{id}", Case.denied(null)),
+        Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/viewed", Case.denied("{}")),
+        Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/interest", Case.denied("{}")),
+        Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/decline", Case.denied("{\"reason\":\"OTHER\"}")),
+        Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/request-info", Case.denied("{\"question\":\"Is a W2 option available?\"}")),
+        Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/applied", Case.denied("{\"applicationId\":1}")),
+        Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/link", Case.denied("{\"applicationId\":1}")),
+        Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/unlink", Case.denied("{}"))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -431,6 +451,7 @@ class OrgIsolationIT {
             ids.put("pendingMemberId", String.valueOf(pending.getId())); // X1.8's resend names the INVITED seat; every other {memberId} route is the ACTIVE member
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             ids.put("alertKey", "MEMBERS_SUSPENDED");
+            ids.put("id", "999999999"); // the consultant routes' opportunity id: nobody's, and the routes answer 404 before looking (the flag is off in this world)
             return ids;
         }
 

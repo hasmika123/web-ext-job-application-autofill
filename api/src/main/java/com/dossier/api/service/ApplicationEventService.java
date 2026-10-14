@@ -19,6 +19,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ public class ApplicationEventService {
     private final ApplicationRepository applications;
     private final ResumeBuilderSettings settings;
     private final TrackerUsers trackerUsers;
+    private final ApplicationEventPublisher publisher;
     private final Clock clock;
 
     @Autowired
@@ -51,11 +53,13 @@ public class ApplicationEventService {
         ApplicationEventRepository events,
         ApplicationRepository applications,
         ResumeBuilderSettings settings,
-        TrackerUsers trackerUsers
+        TrackerUsers trackerUsers,
+        ApplicationEventPublisher publisher
     ) {
-        this(events, applications, settings, trackerUsers, Clock.systemUTC());
+        this(events, applications, settings, trackerUsers, publisher, Clock.systemUTC());
     }
 
+    /** No publisher: what the unit tests of the tracker use, and exactly how this service behaved before {@link ApplicationEventRecorded}. */
     ApplicationEventService(
         ApplicationEventRepository events,
         ApplicationRepository applications,
@@ -63,16 +67,33 @@ public class ApplicationEventService {
         TrackerUsers trackerUsers,
         Clock clock
     ) {
+        this(events, applications, settings, trackerUsers, null, clock);
+    }
+
+    ApplicationEventService(
+        ApplicationEventRepository events,
+        ApplicationRepository applications,
+        ResumeBuilderSettings settings,
+        TrackerUsers trackerUsers,
+        ApplicationEventPublisher publisher,
+        Clock clock
+    ) {
         this.events = events;
         this.applications = applications;
         this.settings = settings;
         this.trackerUsers = trackerUsers;
+        this.publisher = publisher;
         this.clock = clock;
     }
 
     // ---- writing ------------------------------------------------------------
 
-    /** Record an event now. {@code app} must already be saved (it needs an id). Returns the stored event. */
+    /**
+     * Record an event now. {@code app} must already be saved (it needs an id). Returns the stored event. This is the ONE writer a live change goes
+     * through (creations, status changes, notes, interviews, mail moves), so it is also the ONE place an {@link ApplicationEventRecorded} is published:
+     * after the save, to listeners that run only once the surrounding transaction has committed. Back-dated writes ({@link #recordAt}: the demo seed,
+     * imports) publish nothing: history is not news.
+     */
     public ApplicationEvent record(
         Application app,
         String kind,
@@ -82,7 +103,11 @@ public class ApplicationEventService {
         Long refId,
         String summary
     ) {
-        return recordAt(app, kind, from, to, source, refId, summary, Instant.now(clock));
+        ApplicationEvent e = recordAt(app, kind, from, to, source, refId, summary, Instant.now(clock));
+        if (publisher != null) {
+            publisher.publishEvent(new ApplicationEventRecorded(app.getUser() == null ? null : app.getUser().getId(), app.getId(), kind, from, to, e.getSource()));
+        }
+        return e;
     }
 
     /** As {@link #record} at a given time (the demo seed and imports back-date history). */

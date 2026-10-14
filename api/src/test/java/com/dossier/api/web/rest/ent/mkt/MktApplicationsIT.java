@@ -230,13 +230,15 @@ class MktApplicationsIT {
         JsonNode d = board("mkt-app-marketer", a);
         JsonNode items = d.path("tracker").path("items");
         assertThat(items).hasSize(1);
-        assertThat(items.get(0).path("code").asText()).isEqualTo("APP-IT-001");
+        assertThat(items.get(0).path("code").isNull()).as("no seat, so only the stage is shown").isTrue();
+        assertThat(items.get(0).path("consultant").path("consent").asText()).isEqualTo("SUMMARY");
         assertThat(items.get(0).path("consultant").path("name").asText()).isEqualTo("Alex Morgan");
         assertThat(items.get(0).path("stage").path("label").asText()).isEqualTo("Awaiting Response");
         assertThat(d.path("tracker").path("total").asLong()).isEqualTo(1);
         assertThat(d.path("kpis").get(0).path("key").asText()).isEqualTo("active");
         assertThat(d.path("kpis").get(0).path("value").asLong()).isEqualTo(1);
-        assertThat(d.path("overdueTotal").asLong()).isEqualTo(1);
+        // Alex has no seat, so the org sees the stage only (doc 60 section 0.8): the next action is not shared and nothing is overdue
+        assertThat(d.path("overdueTotal").asLong()).isEqualTo(0);
         assertThat(d.path("perms").path("followups").asBoolean()).isTrue();
         assertThat(d.toString()).doesNotContain("Priya Sharma").doesNotContain("APP-IT-002").doesNotContain("Bea Other").doesNotContain("APP-IT-901");
     }
