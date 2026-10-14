@@ -30,3 +30,5 @@ export { HourglassIcon, TeamsIcon } from "./followup-icons";
 export { CodeBracketsIcon } from "./interviewIcons";
 export { default as BandBar } from "./bandbar";
 export type { BandBarProps } from "./bandbar";
+export { MiniBars, AlarmClockIcon } from "./task-visuals";
+export type { MiniBarsProps } from "./task-visuals";
