@@ -34,6 +34,21 @@ class EntConflictAdviceTest {
             throw new DataIntegrityViolationException("Duplicate entry '1-abc' for key 'uk_req_url'");
         }
 
+        @GetMapping("/null-column")
+        String nullColumn() {
+            throw new DataIntegrityViolationException("Column 'title' cannot be null");
+        }
+
+        @GetMapping("/other-unique")
+        String otherUnique() {
+            throw new DataIntegrityViolationException("Duplicate entry 'x' for key 'uk_some_other_table_key'");
+        }
+
+        @GetMapping("/mysql-1062")
+        String mysql1062() {
+            throw new DataIntegrityViolationException("could not execute statement", new java.sql.SQLIntegrityConstraintViolationException("Duplicate entry '7-1' for key 'requirement_match.uk_requirement_match_pair'", "23000", 1062));
+        }
+
         @GetMapping("/version")
         String version() {
             throw new ObjectOptimisticLockingFailureException("com.dossier.api.domain.ent.mkt.MktOpportunity", 5L);
@@ -61,6 +76,28 @@ class EntConflictAdviceTest {
             .andExpect(jsonPath("$.status").value(409))
             .andReturn().getResponse().getContentAsString();
         org.assertj.core.api.Assertions.assertThat(body).doesNotContain("uk_req_url").doesNotContain("Duplicate entry");
+    }
+
+    @Test
+    void onlyTheKnownUniqueKeyRacesAre409AndEveryOtherViolationKeepsTheUsualMapping() throws Exception {
+        mvc.perform(get("/api/orgs/1/mkt/boom/mysql-1062")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CONFLICT"));
+        for (String other : new String[] { "null-column", "other-unique" }) {
+            String body = mvc.perform(get("/api/orgs/1/mkt/boom/" + other)).andReturn().getResponse().getContentAsString();
+            int status = mvc.perform(get("/api/orgs/1/mkt/boom/" + other)).andReturn().getResponse().getStatus();
+            org.assertj.core.api.Assertions.assertThat(status).as(other).isNotEqualTo(409);
+            org.assertj.core.api.Assertions.assertThat(body).as(other).doesNotContain("\"CONFLICT\"");
+        }
+    }
+
+    @Test
+    void everyRaceKeyIsARealUniqueKeyOfTheSchema() throws Exception {
+        String all = "";
+        for (String f : new java.io.File(EntConflictAdviceTest.class.getResource("/config/liquibase/changelog").toURI()).list()) {
+            if (f.endsWith(".xml")) try (java.io.InputStream in = EntConflictAdviceTest.class.getResourceAsStream("/config/liquibase/changelog/" + f)) {
+                all += new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            }
+        }
+        for (String key : EntConflictAdvice.RACE_KEYS) org.assertj.core.api.Assertions.assertThat(all).as(key).contains(key);
     }
 
     @Test

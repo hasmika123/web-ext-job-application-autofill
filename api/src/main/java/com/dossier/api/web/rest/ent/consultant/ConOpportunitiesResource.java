@@ -126,7 +126,7 @@ public class ConOpportunitiesResource {
         @RequestHeader(value = IdempotentCreate.HEADER, required = false) String idempotencyKey
     ) {
         Long applicationId = body == null ? null : body.applicationId();
-        return once(me, idempotencyKey, "applied", id, applicationId, () -> service.applied(me, id, applicationId, ifMatch));
+        return once(me, idempotencyKey, "applied", id, applicationId, ifMatch, () -> service.applied(me, id, applicationId, ifMatch));
     }
 
     @Operation(summary = "Link one of MY tracked applications to this opportunity (applicationId required). Accepts an Idempotency-Key.")
@@ -140,7 +140,7 @@ public class ConOpportunitiesResource {
         @RequestHeader(value = IdempotentCreate.HEADER, required = false) String idempotencyKey
     ) {
         Long applicationId = body == null ? null : body.applicationId();
-        return once(me, idempotencyKey, "link", id, applicationId, () -> service.link(me, id, applicationId, ifMatch));
+        return once(me, idempotencyKey, "link", id, applicationId, ifMatch, () -> service.link(me, id, applicationId, ifMatch));
     }
 
     @Operation(summary = "End the link between this opportunity and my tracked application")
@@ -154,10 +154,14 @@ public class ConOpportunitiesResource {
         return service.unlink(me, id, ifMatch);
     }
 
-    /** The key is optional here (the extension sends one, the web page may not): with none the work simply runs. */
-    private ResponseEntity<ConOpportunityDTO> once(OrgMembership me, String key, String action, Long id, Long applicationId, Supplier<ConOpportunityDTO> work) {
+    /**
+     * The key is optional here (the extension sends one, the web page may not): with none the work simply runs. The request hash covers the route (the path
+     * names the opportunity and the action), the application id AND the {@code If-Match} version: the same key with another version is a different request
+     * (422 key reuse), not a replay of the first answer.
+     */
+    private ResponseEntity<ConOpportunityDTO> once(OrgMembership me, String key, String action, Long id, Long applicationId, String ifMatch, Supplier<ConOpportunityDTO> work) {
         String path = "/api/orgs/" + me.orgId() + "/con/opportunities/" + id + "/" + action;
-        Outcome<ConOpportunityDTO> out = idempotency.execute(me, key, false, "POST", path, java.util.Map.of("applicationId", String.valueOf(applicationId)), 200, ConOpportunityDTO.class, work);
+        Outcome<ConOpportunityDTO> out = idempotency.execute(me, key, false, "POST", path, java.util.Map.of("applicationId", String.valueOf(applicationId), "ifMatch", ifMatch == null ? "" : ifMatch.strip()), 200, ConOpportunityDTO.class, work);
         ResponseEntity.BodyBuilder ok = ResponseEntity.ok();
         if (out.replayed()) ok.header(IdempotentCreate.REPLAYED_HEADER, "true");
         return ok.body(out.body());
