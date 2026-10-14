@@ -4,10 +4,14 @@ import com.dossier.api.domain.ent.talent.TalentInterview;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
 /** Org-scoped access to {@code talent_interview}: every method takes the organization id first (TalentSchemaIT enforces it). */
-public interface TalentInterviewRepository extends JpaRepository<TalentInterview, Long> {
+public interface TalentInterviewRepository extends Repository<TalentInterview, Long> {
+    <S extends TalentInterview> S save(S entity);
+
+    <S extends TalentInterview> S saveAndFlush(S entity);
+
     Optional<TalentInterview> findByOrgIdAndId(Long orgId, Long id);
 
     List<TalentInterview> findByOrgId(Long orgId);

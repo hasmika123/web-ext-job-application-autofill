@@ -4,12 +4,16 @@ import com.dossier.api.domain.ent.talent.TalentPlacement;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 /** Org-scoped access to {@code talent_placement}: every method takes the organization id first (TalentSchemaIT enforces it). */
-public interface TalentPlacementRepository extends JpaRepository<TalentPlacement, Long> {
+public interface TalentPlacementRepository extends Repository<TalentPlacement, Long> {
+    <S extends TalentPlacement> S save(S entity);
+
+    <S extends TalentPlacement> S saveAndFlush(S entity);
+
     Optional<TalentPlacement> findByOrgIdAndId(Long orgId, Long id);
 
     List<TalentPlacement> findByOrgId(Long orgId);

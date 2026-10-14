@@ -4,12 +4,16 @@ import com.dossier.api.domain.ent.talent.ClientRequirement;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 /** Org-scoped access to {@code client_requirement}: every method takes the organization id first (TalentSchemaIT enforces it). */
-public interface ClientRequirementRepository extends JpaRepository<ClientRequirement, Long> {
+public interface ClientRequirementRepository extends Repository<ClientRequirement, Long> {
+    <S extends ClientRequirement> S save(S entity);
+
+    <S extends ClientRequirement> S saveAndFlush(S entity);
+
     Optional<ClientRequirement> findByOrgIdAndId(Long orgId, Long id);
 
     List<ClientRequirement> findByOrgId(Long orgId);
