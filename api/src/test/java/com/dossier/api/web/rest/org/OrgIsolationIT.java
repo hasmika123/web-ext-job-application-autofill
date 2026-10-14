@@ -265,7 +265,32 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/saved-searches", Case.consultantWrite("{\"name\":\"Hijack search\",\"filters\":{\"q\":\"java\"}}", 200)),
         Map.entry("DELETE /api/orgs/{orgId}/me-workspace/job-discovery/saved-searches/{id}", Case.consultantWrite(null, 204)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/saved-searches/{id}/viewed", Case.consultantWrite(null, 200)),
-        Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/recent-searches", Case.consultantWrite("{\"q\":\"hijack\"}", 200))
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/job-discovery/recent-searches", Case.consultantWrite("{\"q\":\"hijack\"}", 200)),
+        // Second set of consultant pages. {matchId} of an opportunities route, {id} of a submissions route and {interviewId} of a feedback route
+        // are substituted by World.ids() under another name (see uri()): those routes need an ASSIGNED match, a pending submission, a completed interview.
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/applications", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/applications/{applicationId}", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/interviews", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/interviews/{interviewId}", Case.consultantRead()),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/interviews/{interviewId}/detail", Case.consultantWrite("{\"mode\":\"VIDEO\",\"meetingUrl\":\"https://meet.example.com/hijack\",\"interviewerTitle\":\"Hijack\",\"prepNote\":\"Hijacked note\"}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/interviews/{interviewId}/feedback", Case.consultantWrite("{\"outcome\":\"POSITIVE\",\"summary\":\"Hijacked feedback\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/interviews/{interviewId}/feedback", new Case("{\"outcome\":\"NEGATIVE\",\"summary\":\"Hijacked feedback\"}", 200, null, false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.addFeedbackToCompletedInterview(); })),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/interview-prep", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/interview-prep/sessions/{sessionId}", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/interview-prep/sessions", Case.consultantWrite("{\"moduleKey\":\"technical\",\"durationMinutes\":10,\"answers\":[{\"questionId\":\"tech-1\",\"score\":80}]}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/interview-prep/checklist/{itemKey}", Case.consultantWrite("{\"checked\":true}", 200)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/submissions", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/submissions/past", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/submissions/{id}", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/submissions/{id}/approve", Case.consultantWrite(null, 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/submissions/{id}/decline", Case.consultantWrite("{\"reason\":\"Hijacked decline\"}", 200)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/opportunities", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/opportunities/{matchId}", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/express-interest", Case.consultantWrite("{\"note\":\"Hijacked interest\"}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/need-more-info", Case.consultantWrite("{\"message\":\"Hijacked question\"}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/decline", Case.consultantWrite("{\"reason\":\"Hijacked decline\"}", 200)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/reopen", new Case(null, 200, null, false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.declineAssignedOpportunity(); })),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/request-resume-update", Case.consultantWrite("{\"note\":\"Hijacked update\"}", 200))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
@@ -325,6 +350,13 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.talent.ClientRequirementRepository clientRequirements;
     @Autowired private com.dossier.api.repository.ent.talent.RequirementMatchRepository requirementMatches;
 
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsInterviewRepository cwsInterviews;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsInterviewFeedbackRepository cwsInterviewFeedback;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsPrepSessionRepository cwsPrepSessions;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsSubmissionRepository cwsSubmissions;
+    @Autowired private com.dossier.api.repository.ent.consultantws.CwsOpportunityResponseRepository cwsOpportunityResponses;
+    @Autowired private com.dossier.api.repository.ent.talent.TalentApplicationRepository talentApplications;
+
     private OrgFixtures fx;
 
     @Autowired private com.dossier.api.repository.ent.OrgMemberRoleRepository memberRoleRows;
@@ -366,6 +398,8 @@ class OrgIsolationIT {
         Long offboardingId;
         /** Consultant workspace: the rows of the owner's consultant profile (own-scoped; A's ids are named from B's org in the cross-tenant sweep). */
         Long skillId, certId, prefId, resumeId, matchId, requirementId, savedSearchId;
+        /** The second set of consultant pages: an ASSIGNED match, a SCHEDULED and a COMPLETED interview, a prep session, a PENDING_APPROVAL submission, an application. */
+        Long consultantId, clientId, assignedRequirementId, assignedMatchId, scheduledInterviewId, completedInterviewId, prepSessionId, submissionId, applicationId;
 
         World(String prefix, boolean everyRole) {
             this.p = prefix;
@@ -530,8 +564,84 @@ class OrgIsolationIT {
             ss.setName(prefix + " search");
             ss.setKeyword("java");
             savedSearchId = cwsSavedSearches.saveAndFlush(ss).getId();
+            consultantId = cp.getId();
+            clientId = ca.getId();
+            com.dossier.api.domain.ent.talent.ClientRequirement rq2 = new com.dossier.api.domain.ent.talent.ClientRequirement();
+            rq2.setOrgId(org.getId());
+            rq2.setClientId(ca.getId());
+            rq2.setTitle(prefix + " Platform Engineer");
+            assignedRequirementId = clientRequirements.saveAndFlush(rq2).getId();
+            com.dossier.api.domain.ent.talent.RequirementMatch am = new com.dossier.api.domain.ent.talent.RequirementMatch();
+            am.setOrgId(org.getId());
+            am.setRequirementId(assignedRequirementId);
+            am.setConsultantId(cp.getId());
+            am.setScore(81);
+            am.setStatus("ASSIGNED");
+            am.setReason("Assigned by the marketer.");
+            assignedMatchId = requirementMatches.saveAndFlush(am).getId();
+            com.dossier.api.domain.ent.talent.TalentApplication app = new com.dossier.api.domain.ent.talent.TalentApplication();
+            app.setOrgId(org.getId());
+            app.setCode("APP-" + prefix.toUpperCase());
+            app.setRequirementId(requirementId);
+            app.setConsultantId(cp.getId());
+            app.setClientId(ca.getId());
+            app.setStage("SUBMITTED");
+            app.setAppliedOn(java.time.LocalDate.now().minusDays(3));
+            applicationId = talentApplications.saveAndFlush(app).getId();
+            scheduledInterviewId = interview(app, "SCHEDULED", Instant.now().plusSeconds(86400L * 2));
+            completedInterviewId = interview(app, "COMPLETED", Instant.now().minusSeconds(86400L * 2));
+            com.dossier.api.domain.ent.consultantws.CwsPrepSession ps = new com.dossier.api.domain.ent.consultantws.CwsPrepSession();
+            ps.setOrgId(org.getId());
+            ps.setConsultantId(cp.getId());
+            ps.setTitle(prefix + " practice");
+            ps.setKind(com.dossier.api.domain.ent.consultantws.CwsPrepSession.TECHNICAL);
+            ps.setScore(70);
+            ps.setDurationMinutes(10);
+            prepSessionId = cwsPrepSessions.saveAndFlush(ps).getId();
+            com.dossier.api.domain.ent.consultantws.CwsSubmission sub = new com.dossier.api.domain.ent.consultantws.CwsSubmission();
+            sub.setOrgId(org.getId());
+            sub.setConsultantId(cp.getId());
+            sub.setRequirementId(requirementId);
+            sub.setResumeId(resumeId);
+            sub.setDueAt(Instant.now().plusSeconds(86400L * 3));
+            submissionId = cwsSubmissions.saveAndFlush(sub).getId();
             em.flush();
             memberVersion = memberQuery.currentVersion(org.getId(), member);
+        }
+
+        private Long interview(com.dossier.api.domain.ent.talent.TalentApplication app, String status, Instant at) {
+            com.dossier.api.domain.ent.talent.TalentInterview iv = new com.dossier.api.domain.ent.talent.TalentInterview();
+            iv.setOrgId(org.getId());
+            iv.setApplicationId(app.getId());
+            iv.setConsultantId(consultantId);
+            iv.setClientId(clientId);
+            iv.setScheduledAt(at);
+            iv.setStatus(status);
+            iv.setRoundLabel("Round 1");
+            iv.setInterviewerName("Isolation Interviewer");
+            return cwsInterviews.saveAndFlush(iv).getId();
+        }
+
+        /** What the PUT .../feedback route edits: the owner already recorded feedback on the completed interview. */
+        void addFeedbackToCompletedInterview() {
+            com.dossier.api.domain.ent.consultantws.CwsInterviewFeedback f = new com.dossier.api.domain.ent.consultantws.CwsInterviewFeedback();
+            f.setOrgId(org.getId());
+            f.setInterviewId(completedInterviewId);
+            f.setConsultantId(consultantId);
+            f.setOutcome("NEUTRAL");
+            f.setSummary("Went fine.");
+            cwsInterviewFeedback.saveAndFlush(f);
+        }
+
+        /** What the POST .../reopen route undoes: the owner declined the assigned opportunity. */
+        void declineAssignedOpportunity() {
+            com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse r = new com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse();
+            r.setOrgId(org.getId());
+            r.setConsultantId(consultantId);
+            r.setRequirementId(assignedRequirementId);
+            r.setStatus(com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse.DECLINED);
+            r.setDeclineReason("Not for me.");
+            cwsOpportunityResponses.saveAndFlush(r);
         }
 
         void makeOwnerAConsultant() {
@@ -572,6 +682,13 @@ class OrgIsolationIT {
             ids.put("matchId", String.valueOf(matchId));
             ids.put("requirementId", String.valueOf(requirementId));
             ids.put("id", String.valueOf(savedSearchId)); // saved-searches/{id}
+            ids.put("applicationId", String.valueOf(applicationId));
+            ids.put("interviewId", String.valueOf(scheduledInterviewId));
+            ids.put("completedInterviewId", String.valueOf(completedInterviewId)); // {interviewId} of the feedback routes (see uri())
+            ids.put("sessionId", String.valueOf(prepSessionId));
+            ids.put("itemKey", "review-jd"); // a fixed checklist word, not a row
+            ids.put("submissionId", String.valueOf(submissionId)); // {id} of the submissions routes (see uri())
+            ids.put("opportunityMatchId", String.valueOf(assignedMatchId)); // {matchId} of the opportunities routes (see uri())
             return ids;
         }
 
@@ -609,7 +726,13 @@ class OrgIsolationIT {
     private static final Pattern VAR = Pattern.compile("\\{([A-Za-z]+)}");
 
     private static String uri(Route route, Map<String, String> ids) {
-        Matcher m = VAR.matcher(route.pattern().replace("/members/{memberId}/resend", "/members/{pendingMemberId}/resend"));
+        // The same variable name names different rows on different pages: the route prefix decides which fixture row a route means.
+        String pattern = route.pattern()
+            .replace("/members/{memberId}/resend", "/members/{pendingMemberId}/resend")
+            .replace("/opportunities/{matchId}", "/opportunities/{opportunityMatchId}")
+            .replace("/submissions/{id}", "/submissions/{submissionId}")
+            .replace("/interviews/{interviewId}/feedback", "/interviews/{completedInterviewId}/feedback");
+        Matcher m = VAR.matcher(pattern);
         StringBuilder out = new StringBuilder();
         while (m.find()) {
             String id = ids.get(m.group(1));
@@ -764,7 +887,7 @@ class OrgIsolationIT {
             if (ids.equals(b.ids())) continue; // the route has no row id: nothing of A's to name
             Matcher m = VAR.matcher(route.pattern());
             boolean hasRowId = false;
-            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("alertKey"); // kind and alertKey are fixed words, not rows
+            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("alertKey") && !m.group(1).equals("itemKey"); // kind, alertKey and itemKey are fixed words, not rows
             if (!hasRowId) continue;
             assertGeneric404(hostile(route, uri(route, ids), a, user("bravo-owner")), route.key() + " as B's owner with B's orgId and A's row id");
             variants++;
