@@ -28,3 +28,5 @@ export { DatabaseIcon, FolderIcon } from "./stream-icons";
 export type { StreamIconProps } from "./stream-icons";
 export { HourglassIcon, TeamsIcon } from "./followup-icons";
 export { CodeBracketsIcon } from "./interviewIcons";
+export { default as BandBar } from "./bandbar";
+export type { BandBarProps } from "./bandbar";

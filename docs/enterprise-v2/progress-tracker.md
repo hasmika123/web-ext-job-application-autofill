@@ -384,3 +384,5 @@
 - 2026-10-13 — Marketing Applications page (branch `mkt-applications`, Sonnet): `/w/marketing/applications` board (4 inline KPI tiles, Application Tracker with search + 4 selects + stage tabs + table, Funnel, Overdue Actions, Recent Updates, bee card) wired to `GET /api/orgs/{orgId}/mkt/applications` (+ 4 record-only writes: note, next action, follow-up done, stage record), derived from existing talent tables (no new table), consent-aware (SUMMARY shows the stage only). Service tests 24 green, web 15 + lib tests green; `MktApplicationsIT` compiled, not run (no Docker). See `page-mkt-applications.md`.
 
 - 2026-10-13 ent-marketer interviews (branch mkt-interviews): Marketing Interviews page + mkt API (mkt_interview_* tables, demo seeder, 32 unit + 15 web tests green; ITs written, not run). See page-mkt-interviews.md.
+
+- 2026-10-13 ent-marketer: resumes: Marketing Resumes page (board: 4 tiles, filters, table, preview/edit drawer, approval request, Recent Resume Activity) with API `/api/orgs/{orgId}/mkt/resumes`, table `mkt_resume_event`, demo seeder, unit tests; Testcontainers IT written, not run. See `page-mkt-resumes.md`.
