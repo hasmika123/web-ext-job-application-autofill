@@ -4,10 +4,14 @@ import com.dossier.api.domain.ent.talent.OrgResume;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
 /** Org-scoped access to {@code org_resume}: every method takes the organization id first (TalentSchemaIT enforces it). */
-public interface OrgResumeRepository extends JpaRepository<OrgResume, Long> {
+public interface OrgResumeRepository extends Repository<OrgResume, Long> {
+    <S extends OrgResume> S save(S entity);
+
+    <S extends OrgResume> S saveAndFlush(S entity);
+
     Optional<OrgResume> findByOrgIdAndId(Long orgId, Long id);
 
     List<OrgResume> findByOrgId(Long orgId);

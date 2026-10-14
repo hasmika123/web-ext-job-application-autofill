@@ -269,6 +269,13 @@ public class TalentDemoSeeder {
         this.spendRepo = spendRepo;
     }
 
+    /** The repositories are bare (no saveAll): save one by one, keeping order. IDENTITY keys, so ids are assigned on save. */
+    private static <T> List<T> saveEach(java.util.function.UnaryOperator<T> save, Iterable<T> rows) {
+        List<T> out = new ArrayList<>();
+        for (T row : rows) out.add(save.apply(row));
+        return out;
+    }
+
     /** Same switches as the base demo seed. Null when the seed may run. */
     public String refusal() {
         return base.refusal();
@@ -507,7 +514,7 @@ public class TalentDemoSeeder {
                 c.setUpdatedAt(daysAgo(rnd.nextInt(20)));
                 clients.add(c);
             }
-            clients = clientRepo.saveAllAndFlush(clients);
+            clients = saveEach(clientRepo::save, clients);
             List<ClientContact> contacts = new ArrayList<>();
             for (int i = 0; i < clients.size(); i++) {
                 ClientSpec cs = spec.clients().get(i);
@@ -526,7 +533,7 @@ public class TalentDemoSeeder {
                     idx++;
                 }
             }
-            for (ClientContact cc : contactRepo.saveAllAndFlush(contacts)) contactsByClient.computeIfAbsent(cc.getClientId(), k -> new ArrayList<>()).add(cc);
+            for (ClientContact cc : saveEach(contactRepo::save, contacts)) contactsByClient.computeIfAbsent(cc.getClientId(), k -> new ArrayList<>()).add(cc);
         }
 
         // ---- consultants ----
@@ -609,7 +616,7 @@ public class TalentDemoSeeder {
                 c.setProfileCompleteness(0); // set below, once resumes are known
                 cons.add(c);
             }
-            cons = consultantRepo.saveAllAndFlush(cons);
+            cons = saveEach(consultantRepo::save, cons);
             List<ConsultantSkill> skillRows = new ArrayList<>();
             for (ConsultantProfile c : cons) {
                 int archIdx = 0;
@@ -630,7 +637,7 @@ public class TalentDemoSeeder {
                 }
                 skillsOf.put(c.getId(), chosen);
             }
-            skillRepo.saveAll(skillRows);
+            saveEach(skillRepo::save, skillRows);
         }
 
         // ---- marketer assignments ----
@@ -676,7 +683,7 @@ public class TalentDemoSeeder {
                     marketerOf.put(c.getId(), seatOf(m));
                 }
             }
-            assignmentRepo.saveAll(rows);
+            saveEach(assignmentRepo::save, rows);
         }
 
         boolean isSam(ConsultantProfile c) {
@@ -746,7 +753,7 @@ public class TalentDemoSeeder {
                     rows.add(r);
                 }
             }
-            jobs = requirementRepo.saveAllAndFlush(rows);
+            jobs = saveEach(requirementRepo::save, rows);
             List<RequirementSkill> sk = new ArrayList<>();
             for (ClientRequirement r : jobs) {
                 Arch arch = null;
@@ -765,7 +772,7 @@ public class TalentDemoSeeder {
                 jobSkills.put(r.getId(), chosen);
                 jobPopularity.put(r.getId(), 1 + rnd.nextInt(5) * rnd.nextInt(3) + (r.getStatus().equals("OPEN") ? 3 : 1));
             }
-            reqSkillRepo.saveAll(sk);
+            saveEach(reqSkillRepo::save, sk);
         }
 
         // ---- matches ----
@@ -802,7 +809,7 @@ public class TalentDemoSeeder {
                 forJob.sort(Comparator.comparingInt(RequirementMatch::getScore).reversed());
                 for (int i = 0; i < Math.min(14, forJob.size()); i++) rows.add(forJob.get(i));
             }
-            for (RequirementMatch m : matchRepo.saveAllAndFlush(rows)) matchByPair.put(m.getRequirementId() + ":" + m.getConsultantId(), m);
+            for (RequirementMatch m : saveEach(matchRepo::save, rows)) matchByPair.put(m.getRequirementId() + ":" + m.getConsultantId(), m);
         }
 
         int overlapOf(ConsultantProfile c, ClientRequirement r) {
@@ -858,7 +865,7 @@ public class TalentDemoSeeder {
                     rows.add(r);
                 }
             }
-            rows = resumeRepo.saveAllAndFlush(rows);
+            rows = saveEach(resumeRepo::save, rows);
             List<OrgResumeExperience> exp = new ArrayList<>();
             for (OrgResume r : rows) {
                 resumesOf.computeIfAbsent(r.getConsultantId(), k -> new ArrayList<>()).add(r);
@@ -880,13 +887,13 @@ public class TalentDemoSeeder {
                     exp.add(x);
                 }
             }
-            experienceRepo.saveAll(exp);
+            saveEach(experienceRepo::save, exp);
             // profile completeness: basics + skills are always there; a resume, certifications and preferences add the rest
             for (ConsultantProfile c : cons) {
                 int pc = 40 + (resumesOf.containsKey(c.getId()) ? 30 : 0) + (c.isHasCertifications() ? 15 : 0) + (c.isHasPreferences() ? 15 : 0) - rnd.nextInt(8);
                 c.setProfileCompleteness(Math.min(100, pc + (resumesOf.containsKey(c.getId()) && c.isHasCertifications() && c.isHasPreferences() ? 8 : 0)));
             }
-            consultantRepo.saveAll(cons);
+            saveEach(consultantRepo::save, cons);
         }
 
         // ---- applications, events, notes, interviews ----
@@ -1029,15 +1036,15 @@ public class TalentDemoSeeder {
                 notesOf.put(app.getCode(), ns);
                 if (prev.equals("INTERVIEWING")) interviewing.add(d);
             }
-            List<TalentApplication> savedApps = applicationRepo.saveAllAndFlush(drafts.stream().map(Draft::app).toList());
+            List<TalentApplication> savedApps = saveEach(applicationRepo::save, drafts.stream().map(Draft::app).toList());
             Map<String, TalentApplication> byCode = new HashMap<>();
             for (TalentApplication a : savedApps) byCode.put(a.getCode(), a);
             List<TalentApplicationEvent> allEvents = new ArrayList<>();
             List<TalentApplicationNote> allNotes = new ArrayList<>();
             for (var e : eventsOf.entrySet()) for (TalentApplicationEvent ev : e.getValue()) { ev.setApplicationId(byCode.get(e.getKey()).getId()); allEvents.add(ev); }
             for (var e : notesOf.entrySet()) for (TalentApplicationNote n : e.getValue()) { n.setApplicationId(byCode.get(e.getKey()).getId()); allNotes.add(n); }
-            eventRepo.saveAll(allEvents);
-            noteRepo.saveAll(allNotes);
+            saveEach(eventRepo::save, allEvents);
+            saveEach(noteRepo::save, allNotes);
             // matches: every application pair is an ASSIGNED match; plus a few assigned-not-yet-applied
             List<RequirementMatch> touched = new ArrayList<>();
             for (Draft d : drafts) {
@@ -1071,7 +1078,7 @@ public class TalentDemoSeeder {
                     extra++;
                 }
             }
-            matchRepo.saveAll(new ArrayList<>(new HashSet<>(touched)));
+            saveEach(matchRepo::save, new ArrayList<>(new HashSet<>(touched)));
             seedInterviews(drafts.stream().map(d -> new Object[] { byCode.get(d.app().getCode()), d.job(), d.cons() }).toList(), byCode);
             // marketers' last activity follows their latest application event
             Map<Long, Instant> latest = new HashMap<>();
@@ -1084,7 +1091,7 @@ public class TalentDemoSeeder {
                 Instant l = latest.get(ma.getConsultantId());
                 if (l != null && (ma.getLastActivityAt() == null || l.isAfter(ma.getLastActivityAt()))) ma.setLastActivityAt(l);
             }
-            assignmentRepo.saveAll(as);
+            saveEach(assignmentRepo::save, as);
             // hired consultants are on a project
             for (Draft d : drafts) {
                 TalentApplication a = byCode.get(d.app().getCode());
@@ -1096,7 +1103,7 @@ public class TalentDemoSeeder {
                     hired.put(d.cons().getId(), new Object[] { a, d.job() });
                 }
             }
-            consultantRepo.saveAll(cons);
+            saveEach(consultantRepo::save, cons);
         }
 
         final Map<Long, Object[]> hired = new HashMap<>();
@@ -1189,7 +1196,7 @@ public class TalentDemoSeeder {
                     rows.add(interview(a, c, past.isEmpty() ? ROUNDS[1] : ROUNDS[2], at, "SCHEDULED", contact));
                 }
             }
-            interviewRepo.saveAll(rows);
+            saveEach(interviewRepo::save, rows);
         }
 
         TalentInterview interview(TalentApplication a, ConsultantProfile c, String round, Instant at, String status, String interviewer) {
@@ -1278,7 +1285,7 @@ public class TalentDemoSeeder {
                 p.setUpdatedAt(end);
                 rows.add(p);
             }
-            placementRepo.saveAll(rows);
+            saveEach(placementRepo::save, rows);
         }
 
         // ---- spend ----
@@ -1293,7 +1300,7 @@ public class TalentDemoSeeder {
                 rows.add(spend(ms, "INFRA", Math.round(spec.spendBase() * 0.20 * (0.94 + 0.012 * m))));
                 rows.add(spend(ms, "OTHER", Math.round(spec.spendBase() * 0.18 * (0.8 + rnd.nextDouble() * 0.35))));
             }
-            spendRepo.saveAll(rows);
+            saveEach(spendRepo::save, rows);
         }
 
         OrgSpendEntry spend(LocalDate month, String category, long minor) {

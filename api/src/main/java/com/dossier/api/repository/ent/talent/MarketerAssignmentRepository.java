@@ -4,10 +4,14 @@ import com.dossier.api.domain.ent.talent.MarketerAssignment;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
 /** Org-scoped access to {@code marketer_assignment}: every method takes the organization id first (TalentSchemaIT enforces it). */
-public interface MarketerAssignmentRepository extends JpaRepository<MarketerAssignment, Long> {
+public interface MarketerAssignmentRepository extends Repository<MarketerAssignment, Long> {
+    <S extends MarketerAssignment> S save(S entity);
+
+    <S extends MarketerAssignment> S saveAndFlush(S entity);
+
     Optional<MarketerAssignment> findByOrgIdAndId(Long orgId, Long id);
 
     List<MarketerAssignment> findByOrgId(Long orgId);

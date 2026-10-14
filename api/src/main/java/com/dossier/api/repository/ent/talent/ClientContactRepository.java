@@ -3,10 +3,14 @@ package com.dossier.api.repository.ent.talent;
 import com.dossier.api.domain.ent.talent.ClientContact;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.repository.Repository;
 
 /** Org-scoped access to {@code client_contact}: every method takes the organization id first (TalentSchemaIT enforces it). */
-public interface ClientContactRepository extends JpaRepository<ClientContact, Long> {
+public interface ClientContactRepository extends Repository<ClientContact, Long> {
+    <S extends ClientContact> S save(S entity);
+
+    <S extends ClientContact> S saveAndFlush(S entity);
+
     Optional<ClientContact> findByOrgIdAndId(Long orgId, Long id);
 
     List<ClientContact> findByOrgId(Long orgId);
