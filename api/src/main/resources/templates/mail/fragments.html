@@ -93,6 +93,41 @@
       </tr>
     </table>
 
+
+    <!-- Centred hero: art on top (full width), then title, text and button. Used by the reset e-mails. -->
+    <table th:fragment="heroCentered(bg, art, title, accentText, intro, href, label, brand, btnText)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" th:style="'background: ' + ${bg}">
+      <tr>
+        <td align="center" style="padding: 0; line-height: 0"><img th:src="${art}" alt="" width="600" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0" /></td>
+      </tr>
+      <tr>
+        <td align="center" style="padding: 10px 28px 26px 28px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">
+          <h1 th:style="'margin: 0 0 10px 0; font: 800 28px/1.15 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif; color: ' + ${accentText}" th:text="${title}">Title</h1>
+          <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #4a5568" th:text="${intro}">Intro</p>
+          <div th:replace="~{:: button(${href}, ${label}, ${brand}, ${btnText})}"></div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Details card ("Your login details"): up to three label/value pairs, never a secret. -->
+    <table th:fragment="details(title, l1, v1, l2, v2, l3, v3)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="padding: 12px 20px 4px 20px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f1f6fd; border-radius: 12px">
+            <tr>
+              <td style="padding: 14px 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">
+                <p style="margin: 0 0 8px 0; font-size: 15px; font-weight: 800; color: #0b2a52" th:text="${title}">Your login details</p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 14px; line-height: 1.4; color: #232826">
+                  <tr th:if="${v1 != null}"><td width="90" style="padding: 6px 0; border-top: 1px solid #dce6f5; color: #55615a" th:text="${l1}">Email</td><td style="padding: 6px 0; border-top: 1px solid #dce6f5" th:text="${v1}">a@b.c</td></tr>
+                  <tr th:if="${v2 != null}"><td width="90" style="padding: 6px 0; border-top: 1px solid #dce6f5; color: #55615a" th:text="${l2}">Role</td><td style="padding: 6px 0; border-top: 1px solid #dce6f5" th:text="${v2}">Role</td></tr>
+                  <tr th:if="${v3 != null}"><td width="90" style="padding: 6px 0; border-top: 1px solid #dce6f5; color: #55615a" th:text="${l3}">Access</td><td style="padding: 6px 0; border-top: 1px solid #dce6f5" th:text="${v3}">Workspace</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
     <!-- Bulletproof button (table cell, so Outlook keeps colour and padding). -->
     <table th:fragment="button(href, label, brand, btnText)" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 4px 0">
       <tr>

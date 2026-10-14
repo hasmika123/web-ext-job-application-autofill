@@ -315,7 +315,7 @@ public class AdminOrgService {
 
         record(orgId, AdminAuditService.ORG_CREATE, OrgAuditService.ADMIN_ORG_CREATE, null,
             "type=" + type + " slug=" + label + " host=" + p.hostname().getHostname() + " owner=" + email + " ownerAccount=" + (owner.created() ? "CREATED" : "EXISTING"), p.hostname().getId());
-        notices.accountCreated(org, p.hostname().getHostname(), owner.user(), "Owner", true, owner.created(), expires, admin);
+        notices.accountCreated(org, p.hostname().getHostname(), owner.user(), "Owner", "admin", true, owner.created(), expires, admin);
         return new Created(orgId, label, p.hostname().getHostname(), email, owner.created() ? "CREATED" : "EXISTING", owner.tempPassword(), owner.created() ? expires : null);
     }
 

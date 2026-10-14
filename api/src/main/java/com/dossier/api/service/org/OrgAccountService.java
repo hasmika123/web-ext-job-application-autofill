@@ -132,7 +132,7 @@ public class OrgAccountService {
         audit.record(me.orgId(), me.login(), me.role(), OrgAuditService.MEMBER_ACCOUNT_CREATE, OrgAuditService.TARGET_MEMBER, null, String.valueOf(seat.getId()),
             "mode=ACCOUNT_CREATED email=" + entry.email() + " roles=" + plan.roleKeys() + " dept=" + plan.departmentGroupId() + " team=" + plan.teamGroupId() + " manager=" + plan.managerMemberId(), null, null, null, "HIGH");
         User creator = users.findById(me.userId()).orElse(null);
-        notices.accountCreated(org, tenantUrls.liveHost(me.orgId()), account.user(), OrgInviteService.roleWord(plan).replaceFirst("^(an? )", ""), false, true, expires, creator);
+        notices.accountCreated(org, tenantUrls.liveHost(me.orgId()), account.user(), OrgInviteService.roleWord(plan).replaceFirst("^(an? )", ""), workspaceKeyOf(plan), false, true, expires, creator);
         return new CreateResult(seat.getId(), entry.email(), "ACCOUNT_CREATED", chosen == null ? account.tempPassword() : null, expires, plan.roleIds());
     }
 
@@ -160,6 +160,14 @@ public class OrgAccountService {
             "email=" + user.getEmail() + " reason=" + (reason.length() > 300 ? reason.substring(0, 300) : reason), null, null, null, "HIGH");
         notices.passwordReset(org, tenantUrls.liveHost(me.orgId()), user, expires, users.findById(me.userId()).orElse(null));
         return new ResetResult(seat.getId(), user.getEmail(), temp, expires);
+    }
+
+    /** The workspace the person's primary role opens: the role's template, else the template the legacy role mirrors to. */
+    private static String workspaceKeyOf(OrgInviteService.Plan plan) {
+        String template = plan.views().isEmpty()
+            ? com.dossier.api.service.ent.LegacyRoleMirror.toTemplateKey(plan.mirror()).orElse(null)
+            : plan.views().get(0).templateKey();
+        return template == null ? null : com.dossier.api.service.ent.RoleTemplates.find(template).map(com.dossier.api.service.ent.RoleTemplates.Template::workspaceKey).orElse(null);
     }
 
     private void requireUnderHourlyCap(Long orgId) {

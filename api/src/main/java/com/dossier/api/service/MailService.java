@@ -204,11 +204,12 @@ public class MailService {
      * fails the caller.
      */
     @Async
-    public void sendAccountCreatedEmail(String to, String name, String orgName, String creatorName, String roleLabel, boolean owner, String signInUrl, String expiresText, TenantMailBrand brand) {
+    public void sendAccountCreatedEmail(String to, String name, String orgName, String creatorName, String roleLabel, String workspaceLabel, boolean owner, String signInUrl, String expiresText, TenantMailBrand brand) {
         if (to == null || to.isBlank()) return;
         try {
             Locale locale = Locale.ENGLISH;
-            Context context = accountContext(locale, name, orgName, signInUrl, expiresText, brand);
+            Context context = accountContext(locale, to, name, orgName, signInUrl, expiresText, brand);
+            context.setVariable("workspaceLabel", workspaceLabel == null || workspaceLabel.isBlank() ? null : workspaceLabel);
             context.setVariable("creatorName", creatorName == null || creatorName.isBlank() ? "Your administrator" : creatorName);
             context.setVariable("roleLabel", roleLabel);
             context.setVariable("owner", owner);
@@ -226,7 +227,7 @@ public class MailService {
         if (to == null || to.isBlank()) return;
         try {
             Locale locale = Locale.ENGLISH;
-            Context context = accountContext(locale, name, orgName, signInUrl, expiresText, brand);
+            Context context = accountContext(locale, to, name, orgName, signInUrl, expiresText, brand);
             context.setVariable("actorName", actorName == null || actorName.isBlank() ? "Your administrator" : actorName);
             String subject = messageSource.getMessage("email.adminreset.title", null, locale);
             context.setVariable("subject", subject);
@@ -236,7 +237,8 @@ public class MailService {
         }
     }
 
-    private static Context accountContext(Locale locale, String name, String orgName, String signInUrl, String expiresText, TenantMailBrand brand) {
+    /** The model both account e-mails share. {@code to} is the recipient's own address, shown back to them in the login-details card. Never a secret. */
+    private Context accountContext(Locale locale, String to, String name, String orgName, String signInUrl, String expiresText, TenantMailBrand brand) {
         TenantMailBrand b = brand == null ? TenantMailBrand.KIWIPLY : brand;
         Context context = new Context(locale);
         context.setVariable("name", name == null || name.isBlank() ? null : name);
@@ -244,8 +246,10 @@ public class MailService {
         context.setVariable("signInUrl", signInUrl);
         context.setVariable("expires", expiresText);
         context.setVariable("brand", b.brandHex());
-        context.setVariable("bannerUrl", b.bannerUrl());
         context.setVariable("logoUrl", b.logoUrl());
+        context.setVariable("theme", "enterprise");
+        context.setVariable("assetBase", jHipsterProperties.getMail().getBaseUrl() + "/email"); // the art lives in web/public/email
+        context.setVariable("email", to);
         return context;
     }
 }
