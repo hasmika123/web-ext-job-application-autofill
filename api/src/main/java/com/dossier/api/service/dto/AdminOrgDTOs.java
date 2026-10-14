@@ -38,6 +38,9 @@ public final class AdminOrgDTOs {
      */
     public record Enterprise(boolean on, boolean allowListed, boolean denied, boolean masterOn) {}
 
+    /** One live enterprise module of the organization ({@code flag.enterprise.<key>}): on for it now, and whether it is on the allow list. */
+    public record Module(String key, String label, boolean on, boolean allowListed) {}
+
     public record AuditRow(Long id, String action, String actorLogin, String risk, String details, Instant createdAt) {}
 
     public record Detail(
@@ -57,6 +60,7 @@ public final class AdminOrgDTOs {
         long pendingInvites,
         String baseDomain,
         Enterprise enterprise,
+        List<Module> modules,
         List<Hostname> hostnames,
         List<AuditRow> audit
     ) {}
@@ -67,6 +71,9 @@ public final class AdminOrgDTOs {
     public record ReasonRequest(String reason) {}
 
     public record EnterpriseRequest(Boolean on, String reason) {}
+
+    /** {@code key} is a module key from the detail ({@code roles}, {@code marketing}, ...). */
+    public record ModuleRequest(String key, Boolean on, String reason) {}
 
     /** {@code label} becomes the organization's address, {label}.kiwiply.com, and its slug. */
     public record CreateRequest(String name, String label, String type, String ownerEmail, String ownerName) {}

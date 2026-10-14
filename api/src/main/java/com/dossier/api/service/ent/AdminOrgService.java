@@ -28,6 +28,7 @@ import com.dossier.api.service.dto.AdminOrgDTOs.Detail;
 import com.dossier.api.service.dto.AdminOrgDTOs.Enterprise;
 import com.dossier.api.service.dto.AdminOrgDTOs.Hostname;
 import com.dossier.api.service.dto.AdminOrgDTOs.LabelCheck;
+import com.dossier.api.service.dto.AdminOrgDTOs.Module;
 import com.dossier.api.service.dto.AdminOrgDTOs.OrgRow;
 import com.dossier.api.service.dto.AdminOrgDTOs.Summary;
 import com.dossier.api.service.dto.org.OrgSettings;
@@ -76,6 +77,16 @@ public class AdminOrgService {
 
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s<>,;\"']+@[^@\\s<>,;\"']+\\.[^@\\s<>,;\"']+$");
     private static final int AUDIT_TAIL = 30;
+
+    /** The enterprise modules a platform admin switches per organization: wire key, flag key, label. Only live flags (declared, offered in admin) appear. */
+    private record ModuleDef(String key, String flag, String label) {}
+
+    private static final List<ModuleDef> MODULES = List.of(
+        new ModuleDef("roles", EnterpriseSettingKeys.FLAG_ROLES, "Roles and permissions"),
+        new ModuleDef("marketing", EnterpriseSettingKeys.FLAG_MARKETING, "Talent marketing"),
+        new ModuleDef("consultant_jobs", EnterpriseSettingKeys.FLAG_CONSULTANT_JOBS, "Consultant assigned jobs"),
+        new ModuleDef("domains", EnterpriseSettingKeys.FLAG_DOMAINS, "Custom domains")
+    );
 
     private final AdminOrgQueryRepository query;
     private final OrganizationRepository organizations;
@@ -170,7 +181,7 @@ public class AdminOrgService {
         List<AuditRow> audit = query.adminAuditTail(orgId, AUDIT_TAIL).stream().map(AdminOrgService::auditRow).toList();
         return new Detail(
             o.getId(), o.getName(), o.getDisplayName(), o.getSlug(), o.getType().name(), o.getStatus().name(), o.getSizeBand(), o.getCountry(), o.getSubdomain(), o.isSubdomainEnabled(), o.getConfigVersion(), o.getCreatedAt(),
-            query.countActiveMembers(orgId), query.countPendingInvites(orgId), tenantUrls.provisioningBaseDomain(), enterprise, hosts, audit
+            query.countActiveMembers(orgId), query.countPendingInvites(orgId), tenantUrls.provisioningBaseDomain(), enterprise, modules(orgId), hosts, audit
         );
     }
 
@@ -208,6 +219,27 @@ public class AdminOrgService {
         String details = (on ? "on" : "off") + " masterOn=" + after.on() + " allow=" + after.allow().size() + " deny=" + after.deny().size();
         record(orgId, AdminAuditService.ORG_ENTERPRISE_SET, on ? OrgAuditService.ADMIN_ENTERPRISE_ON : OrgAuditService.ADMIN_ENTERPRISE_OFF, reason, details, null);
         return detail(orgId);
+    }
+
+    /** Turns one enterprise module on or off for the organization (its flag's allow list), with a reason, audited like the master switch. */
+    @Transactional
+    public Detail setModule(Long orgId, String key, boolean on, String rawReason) {
+        organizations.findByOrgId(orgId).orElseThrow(OrgNotFoundException::new);
+        ModuleDef def = MODULES.stream().filter(m -> m.key().equals(key)).findFirst().orElseThrow(() -> OrgException.invalid("key", "is not a module"));
+        String reason = requireReason(rawReason);
+        EnterpriseAllowList.State before = flagState(def.flag());
+        EnterpriseAllowList.State after = on ? EnterpriseAllowList.turnOn(before, orgId) : EnterpriseAllowList.turnOff(before, orgId);
+        settings.set(def.flag(), after.toJson(), reason);
+        record(orgId, AdminAuditService.ORG_MODULE_SET, on ? OrgAuditService.ADMIN_MODULE_ON : OrgAuditService.ADMIN_MODULE_OFF, reason, "module=" + def.key() + " " + (on ? "on" : "off") + " allow=" + after.allow().size(), null);
+        return detail(orgId);
+    }
+
+    private List<Module> modules(Long orgId) {
+        List<Module> out = new ArrayList<>();
+        for (ModuleDef m : MODULES) {
+            out.add(new Module(m.key(), m.label(), flag.isEnabled(m.flag(), orgId), flagState(m.flag()).allow().contains(orgId)));
+        }
+        return out;
     }
 
     @Transactional
@@ -334,8 +366,12 @@ public class AdminOrgService {
     }
 
     private EnterpriseAllowList.State flagState() {
+        return flagState(EnterpriseSettingKeys.FLAG_ENTERPRISE);
+    }
+
+    private EnterpriseAllowList.State flagState(String flagKey) {
         try {
-            return EnterpriseAllowList.State.parse(settings.getJson(EnterpriseSettingKeys.FLAG_ENTERPRISE, JsonNode.class));
+            return EnterpriseAllowList.State.parse(settings.getJson(flagKey, JsonNode.class));
         } catch (RuntimeException e) {
             return EnterpriseAllowList.State.parse(null);
         }

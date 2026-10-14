@@ -67,6 +67,7 @@ public class AdminAuditService {
     public static final String ORG_SUBDOMAIN_PROVISION = "ORG_SUBDOMAIN_PROVISION";
     public static final String ORG_OWNER_PASSWORD_RESET = "ORG_OWNER_PASSWORD_RESET";
     public static final String ORG_ENTERPRISE_SET = "ORG_ENTERPRISE_SET";
+    public static final String ORG_MODULE_SET = "ORG_MODULE_SET";
     public static final String ORG_HOSTNAME_SUSPEND = "ORG_HOSTNAME_SUSPEND";
     public static final String ORG_HOSTNAME_RESUME = "ORG_HOSTNAME_RESUME";
     public static final String TARGET_AI_PROVIDER = "AI_PROVIDER";

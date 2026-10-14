@@ -243,6 +243,29 @@ class AdminOrgResourceIT {
 
     @Test
     @WithMockUser(username = ADMIN, authorities = AuthoritiesConstants.ADMIN)
+    void theModuleSwitchesEditTheirOwnAllowListWithAReasonAndAuditIt() throws Exception {
+        postJson("/api/admin/orgs/" + acme.getId() + "/enterprise", "{\"on\":true,\"reason\":\"Pilot customer onboarding\"}").andExpect(status().isOk());
+        mockMvc.perform(get("/api/admin/orgs/" + acme.getId())).andExpect(jsonPath("$.modules.length()").value(4)).andExpect(jsonPath("$.modules[?(@.key=='roles')].allowListed").value(false));
+        long before = orgAudit.countByOrgId(acme.getId());
+        postJson("/api/admin/orgs/" + acme.getId() + "/modules", "{\"key\":\"roles\",\"on\":true,\"reason\":\"short\"}").andExpect(status().isUnprocessableEntity());
+        postJson("/api/admin/orgs/" + acme.getId() + "/modules", "{\"key\":\"nonsense\",\"on\":true,\"reason\":\"Needed for the pilot\"}").andExpect(status().isUnprocessableEntity());
+        assertThat(orgAudit.countByOrgId(acme.getId())).isEqualTo(before);
+        postJson("/api/admin/orgs/" + acme.getId() + "/modules", "{\"key\":\"roles\",\"on\":true,\"reason\":\"Needed for the pilot\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.modules[?(@.key=='roles')].on").value(true))
+            .andExpect(jsonPath("$.modules[?(@.key=='roles')].allowListed").value(true))
+            .andExpect(jsonPath("$.modules[?(@.key=='marketing')].allowListed").value(false));
+        assertThat(settingHistory.findByKeyOrderByIdDesc("flag.enterprise.roles", PageRequest.of(0, 1)).get(0).getReason()).isEqualTo("Needed for the pilot");
+        assertThat(adminRows("ORG_MODULE_SET", acme.getId())).isEqualTo(1);
+        assertThat(orgRows(acme.getId(), OrgAuditService.ADMIN_MODULE_ON)).hasSize(1).allMatch(e -> "HIGH".equals(e.getRisk()));
+        postJson("/api/admin/orgs/" + acme.getId() + "/modules", "{\"key\":\"roles\",\"on\":false,\"reason\":\"Pilot over for this module\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.modules[?(@.key=='roles')].allowListed").value(false));
+        assertThat(orgRows(acme.getId(), OrgAuditService.ADMIN_MODULE_OFF)).hasSize(1);
+    }
+
+    @Test
+    @WithMockUser(username = ADMIN, authorities = AuthoritiesConstants.ADMIN)
     void suspendingAHostnameMakesItUnknownAtOnceAndResumeRestoresIt() throws Exception {
         String label = "susp" + System.nanoTime();
         String host = label + "." + base();

@@ -6,6 +6,7 @@ import com.dossier.api.service.dto.AdminOrgDTOs.CreateRequest;
 import com.dossier.api.service.dto.AdminOrgDTOs.Detail;
 import com.dossier.api.service.dto.AdminOrgDTOs.EnterpriseRequest;
 import com.dossier.api.service.dto.AdminOrgDTOs.LabelCheck;
+import com.dossier.api.service.dto.AdminOrgDTOs.ModuleRequest;
 import com.dossier.api.service.dto.AdminOrgDTOs.OrgRow;
 import com.dossier.api.service.dto.AdminOrgDTOs.ReasonRequest;
 import com.dossier.api.service.dto.AdminOrgDTOs.ResetResult;
@@ -98,6 +99,12 @@ public class AdminOrgResource {
     @PostMapping("/{id}/owner/reset-password")
     public ResetResult resetOwnerPassword(@PathVariable("id") Long id, @RequestBody ReasonRequest req) {
         return service.resetOwnerPassword(id, req == null ? null : req.reason());
+    }
+
+    @PostMapping("/{id}/modules")
+    public Detail module(@PathVariable("id") Long id, @RequestBody ModuleRequest req) {
+        if (req == null || req.on() == null) throw OrgException.invalid("on", "is required");
+        return service.setModule(id, req.key(), req.on(), req.reason());
     }
 
     @PostMapping("/{id}/hostnames/{hid}/suspend")

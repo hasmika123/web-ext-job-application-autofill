@@ -85,6 +85,8 @@ public class OrgAuditService {
     public static final String ADMIN_SUBDOMAIN_PROVISION = "ADMIN_SUBDOMAIN_PROVISION";
     public static final String ADMIN_ENTERPRISE_ON = "ADMIN_ENTERPRISE_ON";
     public static final String ADMIN_ENTERPRISE_OFF = "ADMIN_ENTERPRISE_OFF";
+    public static final String ADMIN_MODULE_ON = "ADMIN_MODULE_ON";
+    public static final String ADMIN_MODULE_OFF = "ADMIN_MODULE_OFF";
     public static final String ADMIN_HOSTNAME_SUSPEND = "ADMIN_HOSTNAME_SUSPEND";
     public static final String ADMIN_HOSTNAME_RESUME = "ADMIN_HOSTNAME_RESUME";
     public static final String TARGET_HOSTNAME = "HOSTNAME";

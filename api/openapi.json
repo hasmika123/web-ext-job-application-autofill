@@ -13940,6 +13940,43 @@
         }
       }
     },
+    "/api/admin/orgs/{id}/modules" : {
+      "post" : {
+        "tags" : [ "admin-org-resource" ],
+        "operationId" : "module",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ModuleRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/orgs/{id}/hostnames/{hid}/suspend" : {
       "post" : {
         "tags" : [ "admin-org-resource" ],
@@ -29385,6 +29422,20 @@
           "tempPasswordExpiresAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "ModuleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "on" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string"
           }
         }
       },
