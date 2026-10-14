@@ -30,6 +30,7 @@ import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
+import com.dossier.api.service.privacy.SensitiveContent;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -400,6 +401,33 @@ public class MktOpportunitiesService {
 
     private MktOpportunity ensure(MktScope.View view, Long matchId, Long owner, Instant now) {
         return assignment.ensureOpportunity(view, matchId, owner);
+    }
+
+    /**
+     * The marketer's answer to the consultant's question (doc 60 section 3, NEEDS_INFO to NEEDS_INFO): sets {@code info_answer} and records
+     * {@code INFO_PROVIDED}. The state is NOT changed: only the consultant moves their own opportunity on (interest or decline). {@code id} is the
+     * opportunity's match id, like every route of this page. A consultant outside the caller's scope or a row that is gone is the generic 404; an
+     * opportunity with no open question is 409 {@code NO_OPEN_INFO_REQUEST}; a sensitive value in the answer is 422.
+     */
+    @Transactional
+    public ActionResult answerInfo(OrgMembership me, Long id, String answer) {
+        MktScope.View view = scope.resolve(me, PERMISSION);
+        String text = answer == null ? "" : answer.trim();
+        if (text.isEmpty() || text.length() > 1000) throw OrgException.coded(400, "VALIDATION", "answer: enter 1 to 1000 characters", Map.of("field", "answer"));
+        SensitiveContent.check("answer", "answer", text);
+        Instant now = clock.instant();
+        MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
+        scope.require(view, raw.consultantId());
+        MktOpportunity opp = raw.oppId() == null ? null : repo.lockByOrgIdAndId(view.orgId(), raw.oppId()).orElse(null);
+        if (opp == null || !"ASSIGNED".equals(raw.matchStatus()) || !"NEEDS_INFO".equals(opp.getState()) || opp.getInfoRequest() == null || opp.getInfoRequest().isBlank()) {
+            throw OrgException.coded(409, "NO_OPEN_INFO_REQUEST", "The consultant has not asked a question that is waiting for an answer.", Map.of());
+        }
+        opp.setInfoAnswer(text);
+        opp.setUpdatedAt(now);
+        repo.save(opp);
+        record(opp, "INFO_PROVIDED", me.memberId(), "answered the consultant's question", now);
+        audit.record(me, "MARKETER_OPPORTUNITY_INFO_ANSWER", "OPPORTUNITY", null, String.valueOf(id), "consultant " + raw.consultantId());
+        return result(view, id, "Your answer was sent to " + raw.consultantName() + ".", true, now);
     }
 
     private void record(MktOpportunity opp, String kind, Long actor, String text, Instant now) {

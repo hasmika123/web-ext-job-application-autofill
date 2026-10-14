@@ -81,6 +81,9 @@ public final class MktOpportunitiesDTO {
 
     public record RequestKind(String kind) {}
 
+    /** The marketer's answer to the consultant's question (1 to 1000 characters). */
+    public record AnswerInfoRequest(String answer) {}
+
     public record NextActionRequest(Instant nextActionAt) {}
 
     public record BulkRequest(List<Long> ids) {}

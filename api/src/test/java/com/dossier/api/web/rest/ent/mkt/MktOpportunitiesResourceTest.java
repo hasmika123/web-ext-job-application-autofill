@@ -111,7 +111,10 @@ class MktOpportunitiesResourceTest {
     void thereIsNoRouteThatAnswersForTheConsultantOrSubmits() {
         for (Method m : MktOpportunitiesResource.class.getDeclaredMethods()) {
             String name = m.getName().toLowerCase();
-            assertThat(name).as("endpoint " + m.getName()).doesNotContain("submit").doesNotContain("setinterest").doesNotContain("respond").doesNotContain("answer");
+            // The one exception is the contract's answer-info (doc 60 section 4): the marketer answers the consultant's QUESTION; it stores info_answer and
+            // changes no state (MktOpportunitiesAnswerInfoTest). Nothing else may answer, respond, set an interest or submit.
+            String checked = name.equals("answerinfo") ? "" : name;
+            assertThat(checked).as("endpoint " + m.getName()).doesNotContain("submit").doesNotContain("setinterest").doesNotContain("respond").doesNotContain("answer");
         }
         RequestMapping base = MktOpportunitiesResource.class.getAnnotation(RequestMapping.class);
         assertThat(base.value()).containsExactly("/api/orgs/{orgId}/mkt/opportunities");
