@@ -382,8 +382,8 @@ function PrefRow({ spec, onEdit }: { spec: PrefRowSpec; onEdit: () => void }) {
       <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-xl", TONES[spec.tone])}>
         <Icon size={19} />
       </span>
-      <span className="min-w-0 flex-1 basis-24 text-[13px] font-semibold text-ink-soft">{spec.label}</span>
-      <span className="min-w-0 flex-[1.4] text-right">
+      <span className="min-w-0 flex-1">
+        <span className="block break-words text-[12px] font-semibold text-muted">{spec.label}</span>
         <span className="block break-words text-[13.5px] font-bold leading-tight text-ink">{spec.title}</span>
         {spec.detail ? <span className="block break-words text-[12px] leading-snug text-muted">{spec.detail}</span> : null}
       </span>
@@ -550,11 +550,11 @@ function HistoryCard({ view }: { view: AvailabilityView }) {
         <Empty>No changes yet. Each time you update your availability here, it is recorded.</Empty>
       ) : (
         <div className="relative overflow-x-auto">
-          <table className={cn(TABLE, "min-w-[360px]")}>
+          <table className={cn(TABLE, "min-w-[300px]")}>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">
                 {["Effective Date", "Availability", "Work Mode", "Status"].map((c) => (
-                  <th key={c} scope="col" className="whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg">
+                  <th key={c} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", c === "Status" && "hidden sm:table-cell xl:hidden 2xl:table-cell")}>
                     {c}
                   </th>
                 ))}
@@ -572,7 +572,7 @@ function HistoryCard({ view }: { view: AvailabilityView }) {
                       <span className="mt-0.5 block text-[11.5px] text-muted">{STATUS_LABEL[h.availabilityStatus]}</span>
                     </td>
                     <td className={TD}>{h.workMode ? <Pill tone={h.workMode === "HYBRID" ? "amber" : h.workMode === "REMOTE" ? "blue" : "violet"}>{WORK_MODE_LABEL[h.workMode]}</Pill> : "-"}</td>
-                    <td className={TD}>
+                    <td className={cn(TD, "hidden sm:table-cell xl:hidden 2xl:table-cell")}>
                       <span className="flex flex-wrap items-center gap-1.5">
                         <Pill tone={s.tone}>{s.label}</Pill>
                         {h.sample ? <SampleMark /> : null}

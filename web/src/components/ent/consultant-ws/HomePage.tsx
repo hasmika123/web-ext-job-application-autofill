@@ -446,14 +446,14 @@ const QUICK: { key: string; label: string; hint: string; href: string; icon: Com
 function QuickActions() {
   return (
     <Card id="home-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-2 gap-2.5">
+      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
         {QUICK.map((q) => {
           const Icon = q.icon;
           return (
-            <li key={q.key}>
+            <li key={q.key} className="min-w-0">
               <Link href={q.href} data-quick={q.key} className="flex h-full min-h-[68px] flex-col gap-1 rounded-xl border border-line bg-paper p-2.5 hover:bg-paper-2/60">
-                <span className="flex items-center gap-1.5 text-[13px] font-bold leading-tight text-ink">
-                  <Icon size={16} className="flex-none text-accent-deep" />
+                <span className="flex items-start gap-1.5 break-words text-[13px] font-bold leading-tight text-ink">
+                  <Icon size={16} className="mt-px flex-none text-accent-deep" />
                   {q.label}
                 </span>
                 <span className="text-[11.5px] leading-snug text-muted">{q.hint}</span>
@@ -469,8 +469,13 @@ function QuickActions() {
 function MarketerMessages({ view }: { view: HomeView }) {
   const m = view.marketerMessages;
   return (
-    <Card id="home-messages" title="Marketer Messages" icon={UsersIcon} tone="green" viewAll={`${BASE}/marketer`}>
-      {m.sample ? <p className="-mt-1 mb-1"><SampleMark /></p> : null}
+    <Card id="home-messages" title="Marketer Messages" icon={UsersIcon} tone="green">
+      <p className="-mt-1 mb-1 flex min-h-5 items-center justify-between gap-2">
+        {m.sample ? <SampleMark /> : <span />}
+        <Link href={`${BASE}/marketer`} className="flex-none text-[13px] font-semibold text-accent-deep hover:underline">
+          View All
+        </Link>
+      </p>
       {m.items.length === 0 ? <Empty>No messages yet. Your marketer&apos;s notes will appear here.</Empty> : (
         <ul className="space-y-3">
           {m.items.map((x, i) => (

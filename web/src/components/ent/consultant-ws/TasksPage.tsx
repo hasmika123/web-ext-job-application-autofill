@@ -463,13 +463,14 @@ function TaskList({ view, f, setF, busy, hidden, a, onNew }: { view: TasksView; 
 
 function FocusCard({ view, busy, onToggle }: { view: TasksView; busy: Set<number>; onToggle: (id: number, done: boolean) => void }) {
   return (
-    <Card id="tasks-focus" title="Today's Focus" icon={CheckCircleIcon} extra={<span className="flex-none text-[12.5px] font-semibold text-muted">{shortDate(view.today)}</span>}>
+    <Card id="tasks-focus" title="Today's Focus" icon={CheckCircleIcon}>
+      <p className="-mt-1 mb-2.5 text-[12.5px] font-semibold text-muted">{shortDate(view.today)}</p>
       {view.focus.length === 0 ? (
         <Empty>Nothing is due today. Enjoy the calm.</Empty>
       ) : (
         <ul aria-label="Today's focus" className="space-y-2.5">
           {view.focus.map((i) => (
-            <li key={i.taskId} className="flex items-center gap-2.5 text-[13.5px] text-ink">
+            <li key={i.taskId} className="flex min-w-0 items-start gap-2.5 text-[13.5px] text-ink">
               <Check checked={i.done} disabled={busy.has(i.taskId)} label={`${i.done ? "Reopen" : "Complete"} ${i.title}`} onChange={(next) => onToggle(i.taskId, next)} />
               <span className={cn("min-w-0 flex-1", i.done && "text-muted line-through")}>{i.title}</span>
             </li>
@@ -497,7 +498,7 @@ function DeadlinesCard({ view, onOpen }: { view: TasksView; onOpen: () => void }
                     <span className="text-[16px] font-extrabold leading-tight text-ink">{b.day}</span>
                   </span>
                   <span className="min-w-0 flex-1 text-[13px] leading-snug text-ink">
-                    <span className="block truncate font-semibold">{d.title}</span>
+                    <span className="line-clamp-2 break-words font-semibold">{d.title}</span>
                     {d.company ? <span className="block truncate text-[12px] text-muted">{d.company}</span> : null}
                   </span>
                   <PriorityPill priority={d.priority} />
@@ -520,19 +521,19 @@ function InsightsCard({ view }: { view: TasksView }) {
     { label: "Overdue", value: i.overdue, color: "var(--color-v2-coral)" },
   ];
   return (
-    <Card id="tasks-insights" title="Task Insights" icon={ZapIcon} tone="amber" extra={<span className="flex-none text-[12.5px] font-semibold text-muted">All tasks</span>}>
+    <Card id="tasks-insights" title="Task Insights" icon={ZapIcon} tone="amber" extra={<span className="hidden flex-none text-[12.5px] font-semibold text-muted 2xl:inline">All tasks</span>}>
       {i.total === 0 ? (
         <Empty>Add a task to see your progress here.</Empty>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <div className="flex min-w-0 flex-wrap items-center justify-center gap-x-5 gap-y-3">
             <DonutChart label="Task completion" size={112} legend={false} total={i.completionPct} totalSuffix="%" slices={rows.map((r) => ({ key: r.label, label: r.label, value: r.value, color: r.color }))} />
-            <ul aria-label="Task counts" className="min-w-0 flex-1 space-y-1.5 text-[13px]">
+            <ul aria-label="Task counts" className="grid min-w-[9rem] flex-1 grid-cols-[minmax(0,1fr)] gap-y-1.5 text-[13px]">
               {rows.map((r) => (
-                <li key={r.label} className="flex items-center gap-2">
+                <li key={r.label} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
                   <span aria-hidden className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: r.color }} />
-                  <span className="min-w-0 flex-1 text-ink-soft">{r.label}</span>
-                  <span className="font-bold tabular-nums text-ink">{r.value}</span>
+                  <span className="min-w-0 break-words text-ink-soft">{r.label}</span>
+                  <span className="min-w-[1.5rem] text-right font-bold tabular-nums text-ink">{r.value}</span>
                 </li>
               ))}
             </ul>
@@ -597,15 +598,15 @@ function RemindersCard({ view }: { view: TasksView }) {
             const when = reminderWhen(r.at);
             return (
               <li key={`${r.kind}-${i}`}>
-                <Link href={r.href} data-reminder={r.kind} className="flex items-center gap-2.5 rounded-lg p-1.5 hover:bg-paper-2/60">
+                <Link href={r.href} data-reminder={r.kind} className="flex items-start gap-2.5 rounded-lg p-1.5 hover:bg-paper-2/60">
                   <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES.accent)}>
                     <Icon size={18} />
                   </span>
                   <span className="min-w-0 flex-1 text-[13px] leading-snug">
-                    <span className="block font-semibold text-ink">{r.title}</span>
-                    {r.subtitle || when ? <span className="block text-[12px] text-muted">{[r.subtitle, when].filter(Boolean).join(" · ")}</span> : null}
+                    <span className="block break-words font-semibold text-ink">{r.title}</span>
+                    {r.subtitle || when ? <span className="block break-words text-[12px] text-muted">{[r.subtitle, when].filter(Boolean).join(" · ")}</span> : null}
                   </span>
-                  <ChevronRightIcon size={15} className="flex-none text-muted" />
+                  <ChevronRightIcon size={15} className="mt-2.5 flex-none text-muted" />
                 </Link>
               </li>
             );
