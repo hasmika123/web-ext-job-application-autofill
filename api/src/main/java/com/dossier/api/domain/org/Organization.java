@@ -1,5 +1,6 @@
 package com.dossier.api.domain.org;
 
+import com.dossier.api.domain.enumeration.OrgAccountMode;
 import com.dossier.api.domain.enumeration.OrgStatus;
 import com.dossier.api.domain.enumeration.OrgType;
 import jakarta.persistence.*;
@@ -96,6 +97,11 @@ public class Organization implements Serializable {
     @Column(name = "display_name", length = 120)
     private String displayName;
 
+    /** O4: whose accounts the members are, SHARED (legacy, personal accounts; the default) or SEPARATE (enterprise accounts). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "account_mode", length = 10, nullable = false)
+    private OrgAccountMode accountMode = OrgAccountMode.SHARED;
+
     @PreUpdate
     void touch() {
         updatedAt = Instant.now();
@@ -143,6 +149,9 @@ public class Organization implements Serializable {
     public void setSubdomainEnabled(boolean subdomainEnabled) { this.subdomainEnabled = subdomainEnabled; }
     public int getConfigVersion() { return configVersion; }
     public void setConfigVersion(int configVersion) { this.configVersion = configVersion; }
+    public OrgAccountMode getAccountMode() { return accountMode; }
+    public void setAccountMode(OrgAccountMode accountMode) { this.accountMode = accountMode == null ? OrgAccountMode.SHARED : accountMode; }
+    public boolean isSeparateAccounts() { return accountMode == OrgAccountMode.SEPARATE; }
     public String getDisplayName() { return displayName; }
     public void setDisplayName(String displayName) { this.displayName = displayName; }
 }

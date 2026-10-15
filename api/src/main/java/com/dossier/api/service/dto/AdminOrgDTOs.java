@@ -50,6 +50,7 @@ public final class AdminOrgDTOs {
         String slug,
         String type,
         String status,
+        String accountMode,
         String sizeBand,
         String country,
         String subdomain,

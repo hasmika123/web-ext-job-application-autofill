@@ -54,6 +54,12 @@ public final class EnterpriseSettingKeys {
     public static final String DOMAINS_RECHECK_HOURS = "enterprise.domains.recheck_hours";
     public static final String DOMAINS_GRACE_HOURS_BEFORE_SUSPEND = "enterprise.domains.grace_hours_before_suspend";
     public static final String ORG_INVITE_REQUIRE_EMAIL_MATCH = "org.invite.require_email_match";
+    /**
+     * Decision O4 (docs/enterprise-v2/19, phase S1): master switch of separate enterprise accounts. Off (default): every account is a personal
+     * account and every flow behaves as before. On: an organization whose {@code account_mode} is SEPARATE resolves email lookups inside its
+     * own enterprise accounts. Read through {@code AccountScopes}.
+     */
+    public static final String SEPARATE_ACCOUNTS = "enterprise.separate_accounts";
     /** Marketing Assignments board: when a marketer counts as overloaded (percent of capacity), the most consultants one bulk call may name, and the highest capacity a marketer may be given. An organization may override each in org_setting. */
     public static final String ORG_MARKETING_OVERLOAD_PCT = "org.marketing.overload_pct";
     public static final String ORG_MARKETING_BULK_MAX = "org.marketing.bulk_max";
@@ -139,6 +145,8 @@ public final class EnterpriseSettingKeys {
         integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
         k.add(new Key(ORG_INVITE_REQUIRE_EMAIL_MATCH, Type.BOOL, "true", null, null, null,
             "An organization invitation can only be accepted by the account whose email matches the invited address (409 INVITE_EMAIL_MISMATCH otherwise). Off: any signed-in account may accept and the acceptance is audited with a mismatch flag. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        k.add(new Key(SEPARATE_ACCOUNTS, Type.BOOL, "false", null, null, null,
+            "Separate enterprise accounts (decision O4): when on, an organization in SEPARATE account mode has its own enterprise accounts, kept apart from personal accounts even when the email is the same. Off = every account is a personal account (today's behaviour). Leave it off until the separate-accounts phases have shipped and the production check query is clean.", null, Risk.HIGH));
         integer(k, ORG_MARKETING_OVERLOAD_PCT, 90, 50, 100, Risk.LOW, "Marketing Assignments: a marketer counts as overloaded once assigned consultants reach this percent of their capacity. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_BULK_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: most consultants one assign, update, unassign or undo call may name. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_CAPACITY_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: the highest capacity (consultants at once) a marketer may be given. An organization can override it in org_setting.");

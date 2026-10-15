@@ -1839,6 +1839,34 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/inbox/notify" : {
+      "put" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Switch emails about interviews and offers on or off",
+        "operationId" : "notify_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NotifyRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/View"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/availability/status" : {
       "put" : {
         "tags" : [ "consultant-workspace" ],
@@ -9297,6 +9325,139 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/inbox" : {
+      "get" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Inbox page",
+        "description" : "The connection (never its password), what the mail suggests and the applications it is tracking.",
+        "operationId" : "page_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Connect a Gmail with an app password",
+        "description" : "Checked against Gmail before anything is stored. 402 FEATURE_NOT_LICENSED when the organization license lacks inbox tracking; 400/422/429/502/503 as for the personal inbox.",
+        "operationId" : "connect_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ConnectRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Disconnect the inbox",
+        "description" : "Deletes the connection, the encrypted password and every message read from it.",
+        "operationId" : "disconnect_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/dismiss" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Hide a suggested job",
+        "operationId" : "dismiss_5",
+        "parameters" : [ {
+          "name" : "suggestionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/accept" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Add a suggested job to the board",
+        "operationId" : "accept_3",
+        "parameters" : [ {
+          "name" : "suggestionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AcceptRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/availability/blocks" : {
       "post" : {
         "tags" : [ "consultant-workspace" ],
@@ -10379,7 +10540,7 @@
         "tags" : [ "org-dashboard" ],
         "summary" : "Hide an alert for 7 days (for the caller only)",
         "description" : "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT, APPLICATIONS_OVERDUE, LICENSES_ATTENTION, MARKETERS_OVERLOADED, APPLICATIONS_NEW, INTERVIEWS_WEEK, PLACEMENT_NEW, RESUMES_PENDING, CONSULTANTS_UNASSIGNED). Other administrators still see it. Unknown key, or no dashboard.view_org: 404.",
-        "operationId" : "dismiss_5",
+        "operationId" : "dismiss_6",
         "parameters" : [ {
           "name" : "alertKey",
           "in" : "path",
@@ -16308,7 +16469,7 @@
         "tags" : [ "resume-builder" ],
         "summary" : "Open a resume share link",
         "description" : "No authentication. The page content only: {name, doc, templateId, theme, allowDownload, pdfReady}. Writes an anonymous LINK view event. 404 for an unknown, revoked or expired link, 429 over the public rate limit.",
-        "operationId" : "page_1",
+        "operationId" : "page_2",
         "parameters" : [ {
           "name" : "token",
           "in" : "path",
@@ -19132,7 +19293,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Submissions and Approvals page",
         "description" : "Tiles, the submissions awaiting the caller's approval, and the first page of past submissions (status filter and paging optional).",
-        "operationId" : "page_2",
+        "operationId" : "page_3",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -19249,7 +19410,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Settings page",
         "description" : "Tiles, account facts and career preferences (read from the profile), privacy and appearance settings (defaults when none are stored), the tool catalog (all NOT_AVAILABLE), the resume count and recent account activity.",
-        "operationId" : "page_3",
+        "operationId" : "page_4",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -19269,7 +19430,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "My resumes page",
         "description" : "Tiles, the caller's resumes, resume strength, suggested improvements and recent activity. opportunities.respond required; 404 for everyone else.",
-        "operationId" : "page_4",
+        "operationId" : "page_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -19338,7 +19499,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "My Placement page",
         "description" : "The caller's most recent ACTIVE placement with its overview, onboarding checklist, milestones, upcoming meetings and activity; ended placements are listed; never any rate.",
-        "operationId" : "page_5",
+        "operationId" : "page_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -19358,7 +19519,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Assigned Opportunities page",
         "description" : "Tiles, one page of the caller's own assigned opportunities (sort due, priority or newest; page size capped at 50) and the facts behind the next steps.",
-        "operationId" : "page_6",
+        "operationId" : "page_7",
         "parameters" : [ {
           "name" : "sort",
           "in" : "query",
@@ -19431,7 +19592,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Offers page",
         "description" : "Tiles, the first filtered page of the caller's offers, every offer for the compare table, recent activity and the company filter options.",
-        "operationId" : "page_7",
+        "operationId" : "page_8",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -19604,7 +19765,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Notifications page",
         "description" : "First creates any missing notifications from the caller's own rows (idempotent), then answers tiles, per-category tab counts, one filtered page of the feed (size 1 to 50), the by-category tiles for the period and the preferences.",
-        "operationId" : "page_8",
+        "operationId" : "page_9",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -19676,7 +19837,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Job Matches page",
         "description" : "Tiles, the ranked matched jobs, the match-quality checklist and personalised alerts, all for the caller's own consultant record.",
-        "operationId" : "page_9",
+        "operationId" : "page_10",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -19915,7 +20076,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Interviews page",
         "description" : "Tiles, the upcoming interviews, the calendar entries and the recent feedback, all for the caller's own consultant record.",
-        "operationId" : "page_10",
+        "operationId" : "page_11",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -19964,7 +20125,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Interview Prep page",
         "description" : "Tiles, the preparation modules (static default content), the practice history and the before-interview checklist, all for the caller's own consultant record.",
-        "operationId" : "page_11",
+        "operationId" : "page_12",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -20008,6 +20169,51 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/inbox/updates" : {
+      "get" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Applications the mail is tracking",
+        "description" : "Company, role, current stage and how the newest matched mail was read; always from the consultant's own inbox.",
+        "operationId" : "updates",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Update"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/inbox/suggestions" : {
+      "get" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Jobs the mail shows that the board does not track",
+        "operationId" : "suggestions_2",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Suggestion"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/home" : {
       "get" : {
         "tags" : [ "consultant-workspace" ],
@@ -20033,7 +20239,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "My Features page",
         "description" : "Tiles and the features with status, allowance and usage. Needs features.view. No prices or billing.",
-        "operationId" : "page_12",
+        "operationId" : "page_13",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -20053,7 +20259,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Availability page",
         "description" : "Tiles, the availability, work preferences (read from the Profile tables where they live), every calendar entry and the history.",
-        "operationId" : "page_13",
+        "operationId" : "page_14",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -20073,7 +20279,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "My Applications page",
         "description" : "Tiles with 30-day deltas and weekly sparklines, one page of the caller's own applications (status filter and sort run in the API; size is capped at 50), the pipeline funnel and the latest status updates.",
-        "operationId" : "page_14",
+        "operationId" : "page_15",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -25586,6 +25792,14 @@
           }
         }
       },
+      "NotifyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "email" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "HistoryRow" : {
         "type" : "object",
         "properties" : {
@@ -28555,6 +28769,28 @@
           }
         }
       },
+      "ConnectRequest" : {
+        "type" : "object",
+        "properties" : {
+          "address" : {
+            "type" : "string"
+          },
+          "appPassword" : {
+            "type" : "string"
+          }
+        }
+      },
+      "AcceptRequest" : {
+        "type" : "object",
+        "properties" : {
+          "company" : {
+            "type" : "string"
+          },
+          "roleTitle" : {
+            "type" : "string"
+          }
+        }
+      },
       "UnassignRequest" : {
         "type" : "object",
         "properties" : {
@@ -29348,7 +29584,7 @@
             "type" : "string",
             "maxLength" : 50,
             "minLength" : 1,
-            "pattern" : "^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$"
+            "pattern" : "(?:^(?>[a-zA-Z0-9!$&*+=?^_`{|}~.-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*)|(?>[_.@A-Za-z0-9-]+)$)|(?:^ent#[0-9]{1,19}#[_.@A-Za-z0-9+-]{1,40}$)"
           },
           "firstName" : {
             "type" : "string",
@@ -29381,6 +29617,9 @@
           "resetDate" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "personal" : {
+            "type" : "boolean"
           }
         },
         "required" : [ "activated", "login" ]

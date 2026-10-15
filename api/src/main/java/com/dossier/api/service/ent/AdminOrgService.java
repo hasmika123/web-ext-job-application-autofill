@@ -180,7 +180,7 @@ public class AdminOrgService {
             .toList();
         List<AuditRow> audit = query.adminAuditTail(orgId, AUDIT_TAIL).stream().map(AdminOrgService::auditRow).toList();
         return new Detail(
-            o.getId(), o.getName(), o.getDisplayName(), o.getSlug(), o.getType().name(), o.getStatus().name(), o.getSizeBand(), o.getCountry(), o.getSubdomain(), o.isSubdomainEnabled(), o.getConfigVersion(), o.getCreatedAt(),
+            o.getId(), o.getName(), o.getDisplayName(), o.getSlug(), o.getType().name(), o.getStatus().name(), o.getAccountMode().name(), o.getSizeBand(), o.getCountry(), o.getSubdomain(), o.isSubdomainEnabled(), o.getConfigVersion(), o.getCreatedAt(),
             query.countActiveMembers(orgId), query.countPendingInvites(orgId), tenantUrls.provisioningBaseDomain(), enterprise, modules(orgId), hosts, audit
         );
     }
