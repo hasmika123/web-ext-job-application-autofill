@@ -81,3 +81,9 @@ notice; they cannot veto it.
 3. Assign sheet + "Edit access" UI + notices (M).  4. Tests/stories (M).  5. Org Admin "sees all" audit: a visibility matrix
 (role x data) generated from the code and one IT per admin page proving the Org Admin and Owner reach consultant, employee and
 staff details; list the gaps (HR/Finance pages are still placeholders).
+
+## 7. Queue position (user instruction, 2026-10-15)
+
+This work (O6) starts AFTER the subscription work is done. Do not start it earlier, and do not let other work depend on it.
+Current queue, in order: (1) account separation S4 (running), then S5-S11 per doc 19; (2) resume builder in the organization
+workspaces (second machine, branch `ent-resume-builder-b`); (3) the subscription work; (4) O6, this document.
