@@ -69,6 +69,13 @@ public class ProfileResource {
     @GetMapping("/version")
     public ResponseEntity<ProfileVersionVM> getProfileVersion() {
         LOG.debug("REST request to get the current user's profile version");
+        ProfileWorkspaces.Account account;
+        try {
+            account = workspaces.accountOfCurrentUser();
+        } catch (RuntimeException e) {
+            LOG.warn("Could not resolve the account kind of the current user: {}", e.toString());
+            account = ProfileWorkspaces.Account.PERSONAL;
+        }
         List<ProfileWorkspaces.Workspace> mine;
         try {
             mine = workspaces.ofCurrentUser();
@@ -77,7 +84,7 @@ public class ProfileResource {
             LOG.warn("Could not list the workspaces of the current user: {}", e.toString());
             mine = List.of();
         }
-        return ResponseEntity.ok(new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan(), mine));
+        return ResponseEntity.ok(new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan(), mine, account));
     }
 
     /** {@code PUT /api/profile} : create or overwrite the current user's bio. */

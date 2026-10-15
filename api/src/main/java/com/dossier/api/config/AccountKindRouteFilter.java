@@ -1,5 +1,6 @@
 package com.dossier.api.config;
 
+import com.dossier.api.security.SecurityUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,8 +20,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <ul>
  *   <li>personal-only routes: {@code /api/billing/**} (the personal Stripe plan) and {@code /api/profile/inbox/**} (the personal-plan inbox). An enterprise
  *       account has no personal plan; its inbox is {@code /api/orgs/{id}/me-workspace/inbox/**} and its billing is the organization's.</li>
+ *   <li>an extension token ({@code ext=1}) reaches only {@link ExtensionRoutes} (of its own organization); everything else is 404.</li>
  * </ul>
  *
+ * Works whether or not a tenant context was resolved (the extension calls the platform host).
  */
 public class AccountKindRouteFilter extends OncePerRequestFilter {
 
@@ -33,6 +36,9 @@ public class AccountKindRouteFilter extends OncePerRequestFilter {
         }
         String path = pathOf(request);
         boolean refused = isPersonalOnly(path);
+        if (!refused && isExtensionToken(jwtAuth)) {
+            refused = !ExtensionRoutes.allows(request.getMethod(), path, TenantTokenBinding.tenantOf(jwtAuth.getToken()));
+        }
         if (refused) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             response.setContentType("application/problem+json");
@@ -41,6 +47,11 @@ public class AccountKindRouteFilter extends OncePerRequestFilter {
             return;
         }
         chain.doFilter(request, response);
+    }
+
+    /** Whether the token is an extension token ({@code ext=1}). */
+    public static boolean isExtensionToken(Authentication auth) {
+        return auth instanceof JwtAuthenticationToken j && SecurityUtils.isExtension(j.getToken().getClaim(SecurityUtils.EXTENSION_CLAIM));
     }
 
     static boolean isPersonalOnly(String path) {

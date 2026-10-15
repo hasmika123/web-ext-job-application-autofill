@@ -65,6 +65,11 @@ public class FixedWindowRateLimiter {
         windows.remove(key);
     }
 
+    /** Forget every counter (tests). */
+    public void resetAll() {
+        windows.clear();
+    }
+
     /** Drop counters whose window has fully elapsed so the map can't grow unbounded. */
     private void maybeSweep(long now) {
         long last = lastSweepMs.get();

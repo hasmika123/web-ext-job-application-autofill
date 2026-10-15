@@ -63,9 +63,10 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
         Long tid = TenantTokenBinding.tenantOf(jwtAuth.getToken());
         TenantContext c = context.get();
         // O4 (docs/enterprise-v2/19 1.4): with separate accounts in force a token must come from the world of the host it is presented on.
-        // The extension's ext=1 enterprise tokens on a platform host get their allow-list in phase S6; until then they are refused too.
+        // The extension's ext=1 enterprise tokens are accepted on a platform host and held to ExtensionRoutes by AccountKindRouteFilter (phase S6).
         AccountScopes scopes = accountScopes == null ? null : accountScopes.getIfAvailable();
-        if (scopes != null && !c.isExplicitlyUnknown() && !scopes.tokenFitsWorld(tid, context)) {
+        boolean ext = com.dossier.api.security.SecurityUtils.isExtension(jwtAuth.getToken().getClaim(com.dossier.api.security.SecurityUtils.EXTENSION_CLAIM));
+        if (scopes != null && !c.isExplicitlyUnknown() && !scopes.tokenFitsWorld(tid, ext, context)) {
             unauthorized(response, WRONG_WORLD);
             return;
         }
@@ -82,7 +83,7 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
                     return;
                 }
             }
-        } else if (tid != null && ORG_SCOPED.matcher(path).matches()) {
+        } else if (tid != null && !ext && ORG_SCOPED.matcher(path).matches()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             response.setContentType("application/problem+json");
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());

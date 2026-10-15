@@ -71,16 +71,25 @@ public class AccountScopes implements LoginWorldProvider {
 
     /**
      * The world check for a token carrying {@code tid} (null for none) on a request with this tenant context (decision O4, docs/enterprise-v2/19 section 1.4):
-     * the host of a SEPARATE organization takes only that organization's enterprise tokens; any other host refuses an enterprise token (the
-     * extension's {@code ext=1} allow-list is a later phase). Switch off: always true.
+     * the host of a SEPARATE organization takes only that organization's enterprise tokens; any other host refuses an enterprise token (except an
+     * extension token, see below). Switch off: always true.
      */
     public boolean tokenFitsWorld(Long tid, Optional<TenantContext> context) {
+        return tokenFitsWorld(tid, false, context);
+    }
+
+    /**
+     * {@link #tokenFitsWorld(Long, Optional)} for a token that may be an extension token ({@code ext}): an enterprise account's extension token is
+     * also accepted on a platform host (the extension calls api.kiwiply.com), where {@code AccountKindRouteFilter} then restricts it to the
+     * extension allow-list. On a tenant host the rule is unchanged.
+     */
+    public boolean tokenFitsWorld(Long tid, boolean ext, Optional<TenantContext> context) {
         if (!separateAccountsEnabled()) return true;
         if (context.isPresent() && context.get().isTenant()) {
             Long hostScope = scopeOf(context.get().orgId());
             return hostScope == null || hostScope.equals(tid);
         }
-        return tid == null || scopeOf(tid) == null;
+        return tid == null || ext || scopeOf(tid) == null;
     }
 
     /** Whether a token's {@code tid} is the right one for an account whose {@code org_id} is {@code accountOrgId} (an enterprise account's tid is its org; a personal token never has an enterprise tid). */

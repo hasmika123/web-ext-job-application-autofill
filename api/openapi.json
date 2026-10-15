@@ -8221,7 +8221,7 @@
       "post" : {
         "tags" : [ "org-members" ],
         "summary" : "Create an account for a person now, with a temporary password",
-        "description" : "Same roles, team and manager as an invitation, validated the same way (role ceiling). A new address gets an ACTIVE account that must change the temporary password at first sign-in (mode ACCOUNT_CREATED); an address that already has a Kiwiply account keeps its own password and receives a normal invitation (mode INVITED). The password is hashed on arrival and never returned again.",
+        "description" : "Same roles, team and manager as an invitation, validated the same way (role ceiling). A new address gets an ACTIVE account that must change the temporary password at first sign-in (mode ACCOUNT_CREATED); in a legacy shared-accounts organization an address that already has a Kiwiply account keeps its own password and receives a normal invitation (mode INVITED); in an organization with separate enterprise accounts (decision O4) a new enterprise account is always created, whatever other accounts that address has. The password is hashed on arrival and never returned again.",
         "operationId" : "createAccount",
         "requestBody" : {
           "content" : {
@@ -12253,6 +12253,56 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/extension/connect-code" : {
+      "post" : {
+        "tags" : [ "authentication" ],
+        "summary" : "Start an extension connect (enterprise account)",
+        "description" : "For an enterprise account's session: a one-time connect code (60 seconds, single use) as a link on the platform host. 404 for personal accounts and anything else.",
+        "operationId" : "connectCode",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/extension/connect-code/exchange" : {
+      "post" : {
+        "tags" : [ "authentication" ],
+        "summary" : "Exchange a connect code for an enterprise extension session",
+        "description" : "Public. Single use, 60 seconds, rate limited. Returns the token pair (tid + ext=1) and the account; the same empty 401 for every failure.",
+        "operationId" : "exchangeConnectCode",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object"
                 }
               }
             }
@@ -26414,6 +26464,26 @@
           },
           "refreshToken" : {
             "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          },
+          "orgId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "orgName" : {
+            "type" : "string"
           }
         }
       },
@@ -30348,6 +30418,9 @@
             "items" : {
               "$ref" : "#/components/schemas/Workspace"
             }
+          },
+          "account" : {
+            "$ref" : "#/components/schemas/Account"
           }
         }
       },

@@ -74,4 +74,54 @@ class ProfileVersionWorkspacesTest {
         assertThat(compute).hasSize(1);
         assertThat(compute.get(0).getParameterTypes()).containsExactly(java.util.Optional.class, java.util.List.class);
     }
+
+    // ---- decision O4 (doc 19 section 6.2): account {kind, orgId, name, consultant, marketer} ------------------------------------
+
+    @Test
+    void anEnterpriseAccountIsNamedWithItsOrganizationAndRolesAndListsItsOneWorkspace() throws Exception {
+        plan();
+        when(workspaces.accountOfCurrentUser()).thenReturn(new ProfileWorkspaces.Account("ENTERPRISE", 3L, "Acme Staffing", true, false));
+        when(workspaces.ofCurrentUser()).thenReturn(List.of(new ProfileWorkspaces.Workspace(3L, "Acme Staffing", true, false)));
+        mvc.perform(get("/api/profile/version"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.version").value("0123456789abcdef"))
+            .andExpect(jsonPath("$.plan").value("FREE"))
+            .andExpect(jsonPath("$.account.kind").value("ENTERPRISE"))
+            .andExpect(jsonPath("$.account.orgId").value(3))
+            .andExpect(jsonPath("$.account.name").value("Acme Staffing"))
+            .andExpect(jsonPath("$.account.consultant").value(true))
+            .andExpect(jsonPath("$.account.marketer").value(false))
+            .andExpect(jsonPath("$.workspaces.length()").value(1));
+    }
+
+    @Test
+    void aPersonalAccountHasNoOrganizationAndNoWorkspaces() throws Exception {
+        plan();
+        when(workspaces.accountOfCurrentUser()).thenReturn(ProfileWorkspaces.Account.PERSONAL);
+        when(workspaces.ofCurrentUser()).thenReturn(List.of());
+        mvc.perform(get("/api/profile/version"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.account.kind").value("PERSONAL"))
+            .andExpect(jsonPath("$.account.orgId").doesNotExist())
+            .andExpect(jsonPath("$.account.name").doesNotExist())
+            .andExpect(jsonPath("$.account.consultant").value(false))
+            .andExpect(jsonPath("$.account.marketer").value(false))
+            .andExpect(jsonPath("$.workspaces.length()").value(0));
+    }
+
+    @Test
+    void anUnresolvableAccountNeverFailsThePollAndReadsAsPersonal() throws Exception {
+        plan();
+        when(workspaces.accountOfCurrentUser()).thenThrow(new IllegalStateException("db down"));
+        when(workspaces.ofCurrentUser()).thenReturn(List.of());
+        mvc.perform(get("/api/profile/version")).andExpect(status().isOk()).andExpect(jsonPath("$.account.kind").value("PERSONAL"));
+        org.mockito.Mockito.doReturn(null).when(workspaces).accountOfCurrentUser();
+        mvc.perform(get("/api/profile/version")).andExpect(status().isOk()).andExpect(jsonPath("$.account.kind").value("PERSONAL"));
+    }
+
+    @Test
+    void theAccountIsNotPartOfTheVersionHash() {
+        // by construction (see theVersionHashDoesNotTakeTheWorkspacesAsInput): compute() takes the bio and the resumes only
+        assertThat(java.util.Arrays.stream(ProfileVersion.class.getDeclaredMethods()).filter(m -> m.getName().equals("compute")).findFirst().orElseThrow().getParameterCount()).isEqualTo(2);
+    }
 }

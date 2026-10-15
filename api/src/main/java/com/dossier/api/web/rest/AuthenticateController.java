@@ -3,6 +3,7 @@ package com.dossier.api.web.rest;
 import com.dossier.api.security.LoginWorld;
 import static com.dossier.api.security.SecurityUtils.ACCESS_TOKEN_TYPE;
 import static com.dossier.api.security.SecurityUtils.AUTHORITIES_CLAIM;
+import static com.dossier.api.security.SecurityUtils.EXTENSION_CLAIM;
 import static com.dossier.api.security.SecurityUtils.HOSTNAME_CLAIM;
 import static com.dossier.api.security.SecurityUtils.JWT_ALGORITHM;
 import static com.dossier.api.security.SecurityUtils.REFRESH_TOKEN_TYPE;
@@ -103,6 +104,19 @@ public class AuthenticateController {
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.dossier.api.web.filter.ScopedLoginThrottle loginThrottle;
+
+    // Decision O4, phase S6: the enterprise extension connect (one-time code). Optional for the same reason (the pinned slice).
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ExtensionConnectCodeService connectCodes;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.web.filter.ConnectCodeThrottle connectThrottle;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.TenantUrls tenantUrls;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.repository.org.OrganizationRepository organizations;
 
     public AuthenticateController(
         JwtEncoder jwtEncoder,
@@ -274,7 +288,9 @@ public class AuthenticateController {
             Long worldUserId = worldUid instanceof Number n ? n.longValue() : null;
             com.dossier.api.domain.User account = worldUserId == null ? null : userRepository.findById(worldUserId).orElse(null);
             Long worldTid = longClaim(jwt, TENANT_CLAIM);
-            if (account == null || !accountScopes.tokenFitsAccount(worldTid, account.getOrgId()) || !accountScopes.tokenFitsWorld(worldTid, com.dossier.api.service.ent.TenantContextHolder.current())) {
+            // an enterprise extension token (ext=1) refreshes on the platform host (the extension calls api.kiwiply.com); it must belong to an enterprise account
+            boolean worldExt = com.dossier.api.security.SecurityUtils.isExtension(jwt.getClaim(EXTENSION_CLAIM)) && worldTid != null && account != null && worldTid.equals(account.getOrgId());
+            if (account == null || !accountScopes.tokenFitsAccount(worldTid, account.getOrgId()) || !accountScopes.tokenFitsWorld(worldTid, worldExt, com.dossier.api.service.ent.TenantContextHolder.current())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
         }
@@ -290,6 +306,8 @@ public class AuthenticateController {
             }
         }
         TenantBinding binding = tid == null ? null : new TenantBinding(tid, hid);
+        // An enterprise extension token stays an extension token (ext=1, with its tid) through every rotation; only a token that already was one.
+        boolean ext = tid != null && com.dossier.api.security.SecurityUtils.isExtension(jwt.getClaim(EXTENSION_CLAIM));
 
         // Rotate: spend the presented token and continue its family. Unknown / already-used
         // (reuse) / expired tokens are rejected (reuse also revokes the family).
@@ -310,10 +328,10 @@ public class AuthenticateController {
                 pcr = true;
             }
         }
-        String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding, pcr);
+        String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding, pcr, ext);
         String newRefreshJti = UUID.randomUUID().toString();
         refreshTokenService.record(newRefreshJti, family.get(), userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(jwt.getSubject(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, newRefreshJti, binding, pcr);
+        String refreshToken = buildToken(jwt.getSubject(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, newRefreshJti, binding, pcr, ext);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
@@ -377,9 +395,15 @@ public class AuthenticateController {
             userId = rawUserId instanceof Number n ? n.longValue() : null;
         }
         String subject = authentication.getName();
+        // Decision O4: this is the PERSONAL way in. An enterprise account connects with a one-time code from its tenant host (connect-code), so an
+        // enterprise token gets the generic 404 here (it never receives a tid-less, personal-looking extension token).
+        com.dossier.api.domain.User account = userRepository != null && userId != null ? userRepository.findById(userId).orElse(null) : null;
+        if (com.dossier.api.config.Constants.isEnterpriseLogin(subject) || (account != null && account.getOrgId() != null)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
 
-        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, null); // never tid: the extension is not tenant-bound
-        // New family — independent of the web session's refresh rotation.
+        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, null); // personal: never tid
+        // New family: independent of the web session's refresh rotation.
         String family = UUID.randomUUID().toString();
         String refreshJti = UUID.randomUUID().toString();
         refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
@@ -387,7 +411,84 @@ public class AuthenticateController {
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
-        return new ResponseEntity<>(new TokenResponse(accessToken, refreshToken), httpHeaders, HttpStatus.OK);
+        // Which account this is travels with the session (doc 19 section 6.3): the web hands it to the extension next to access / refresh.
+        TokenResponse body = new TokenResponse(accessToken, refreshToken).account("PERSONAL", userId, account == null ? null : account.getEmail(), subject, null, null);
+        return new ResponseEntity<>(body, httpHeaders, HttpStatus.OK);
+    }
+
+    /**
+     * {@code POST /extension/connect-code} : an enterprise account, signed in on its tenant host, asks for a one-time code that connects the browser
+     * extension (decision O4, docs/enterprise-v2/19 section 6.3). The code is valid for 60 seconds, usable once, stored only as a hash, bound to this
+     * account and its organization, and rate limited per account. The answer is the full link on the platform host (the web never builds a link to
+     * another host itself). Anything but an enterprise session of an active seat is the generic 404.
+     */
+    @Operation(
+        summary = "Start an extension connect (enterprise account)",
+        description = "For an enterprise account's session: a one-time connect code (60 seconds, single use) as a link on the platform host. 404 for personal accounts and anything else."
+    )
+    @PostMapping("/extension/connect-code")
+    public ResponseEntity<?> connectCode(Authentication authentication) {
+        if (connectCodes == null || connectThrottle == null || userRepository == null || !(authentication instanceof JwtAuthenticationToken jwtAuth)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        Long userId = longClaim(jwtAuth.getToken(), USER_ID_CLAIM);
+        Long tid = longClaim(jwtAuth.getToken(), TENANT_CLAIM);
+        com.dossier.api.domain.User account = userId == null ? null : userRepository.findById(userId).orElse(null);
+        TenantSessionService sessions = tenantSessions.getIfAvailable();
+        if (
+            account == null || account.getOrgId() == null || tid == null || !tid.equals(account.getOrgId()) || !account.isActivated() ||
+            com.dossier.api.security.SecurityUtils.isExtension(jwtAuth.getToken().getClaim(EXTENSION_CLAIM)) || // an extension token can not mint another
+            sessions == null || !sessions.refreshAllowed(tid, userId)
+        ) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+        long wait = connectThrottle.hitMint(userId);
+        if (wait > 0) return ResponseEntity.status(429).header("Retry-After", Long.toString(wait)).build();
+        String code = connectCodes.mint(userId, tid);
+        String base = tenantUrls == null ? "" : tenantUrls.base(null); // the platform base (never a tenant host)
+        return ResponseEntity.ok(java.util.Map.of("connectUrl", base + "/connect?code=" + code, "expiresInSeconds", com.dossier.api.service.ExtensionConnectCodeService.VALID_SECONDS));
+    }
+
+    /**
+     * {@code POST /extension/connect-code/exchange} : public. Spends a connect code once and returns the extension session of the enterprise account it
+     * was minted for: an access + refresh pair in a NEW rotation family, both carrying {@code tid} and {@code ext=1}, plus who the account is. Every
+     * failure (unknown, spent, expired, malformed, account or seat gone) is the same empty 401, so the exchange reveals nothing about a code.
+     */
+    @Operation(
+        summary = "Exchange a connect code for an enterprise extension session",
+        description = "Public. Single use, 60 seconds, rate limited. Returns the token pair (tid + ext=1) and the account; the same empty 401 for every failure."
+    )
+    @PostMapping("/extension/connect-code/exchange")
+    public ResponseEntity<?> exchangeConnectCode(@RequestBody(required = false) java.util.Map<String, Object> body, jakarta.servlet.http.HttpServletRequest request) {
+        if (connectCodes == null || connectThrottle == null || userRepository == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        long wait = connectThrottle.hitExchange(com.dossier.api.web.filter.RateLimitFilter.clientIp(request));
+        if (wait > 0) return ResponseEntity.status(429).header("Retry-After", Long.toString(wait)).build();
+        Object raw = body == null ? null : body.get("code");
+        var spent = connectCodes.spend(raw instanceof String code ? code : null);
+        if (spent.isEmpty()) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        com.dossier.api.domain.User account = userRepository.findById(spent.get().userId()).orElse(null);
+        TenantSessionService sessions = tenantSessions.getIfAvailable();
+        Long orgId = spent.get().orgId();
+        if (
+            account == null || !account.isActivated() || account.isPasswordChangeRequired() || account.getOrgId() == null || !account.getOrgId().equals(orgId) ||
+            sessions == null || !sessions.refreshAllowed(orgId, account.getId())
+        ) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        String subject = account.getLogin();
+        String authorities = account.getAuthorities().stream().map(com.dossier.api.domain.Authority::getName).collect(Collectors.joining(" "));
+        TenantBinding binding = new TenantBinding(orgId, null); // no hostname id: the platform host is not a tenant host
+        String accessToken = buildToken(subject, authorities, account.getId(), ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding, false, true);
+        String family = UUID.randomUUID().toString();
+        String refreshJti = UUID.randomUUID().toString();
+        refreshTokenService.record(refreshJti, family, account.getId(), Instant.now().plusSeconds(refreshTokenValidityInSeconds));
+        String refreshToken = buildToken(subject, authorities, account.getId(), REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti, binding, false, true);
+        String orgName = organizations == null ? null : organizations.findByOrgId(orgId).map(o -> o.getDisplayName() != null && !o.getDisplayName().isBlank() ? o.getDisplayName() : o.getName()).orElse(null);
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setBearerAuth(accessToken);
+        // The synthetic ent# login is never sent: the extension identifies an enterprise account by user id and shows email + organization.
+        TokenResponse out = new TokenResponse(accessToken, refreshToken).account("ENTERPRISE", account.getId(), account.getEmail(), null, orgId, orgName);
+        return new ResponseEntity<>(out, httpHeaders, HttpStatus.OK);
     }
 
     private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti, TenantBinding binding) {
@@ -395,6 +496,10 @@ public class AuthenticateController {
     }
 
     private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti, TenantBinding binding, boolean pcr) {
+        return buildToken(subject, authorities, userId, tokenType, validityInSeconds, jti, binding, pcr, false);
+    }
+
+    private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti, TenantBinding binding, boolean pcr, boolean ext) {
         Instant now = Instant.now();
         Instant validity = now.plus(validityInSeconds, ChronoUnit.SECONDS);
 
@@ -411,6 +516,9 @@ public class AuthenticateController {
         if (binding != null && binding.orgId() != null) {
             builder.claim(TENANT_CLAIM, binding.orgId());
             if (binding.hostnameId() != null) builder.claim(HOSTNAME_CLAIM, binding.hostnameId());
+        }
+        if (ext) {
+            builder.claim(EXTENSION_CLAIM, 1); // decision O4: an enterprise account's extension token (only ExtensionRoutes, see AccountKindRouteFilter)
         }
         if (pcr) {
             builder.claim(PASSWORD_CHANGE_CLAIM, true); // the session may only change the password (PasswordChangeRequiredFilter)
@@ -456,6 +564,48 @@ public class AuthenticateController {
         TokenResponse(String accessToken, String refreshToken) {
             this.accessToken = accessToken;
             this.refreshToken = refreshToken;
+        }
+
+        // Decision O4 (extension handoff): which account the extension session belongs to. Absent (null, not serialized) on every other token response.
+        private String kind;
+        private Long userId;
+        private String email;
+        private String username;
+        private Long orgId;
+        private String orgName;
+
+        TokenResponse account(String kind, Long userId, String email, String username, Long orgId, String orgName) {
+            this.kind = kind;
+            this.userId = userId;
+            this.email = email;
+            this.username = username;
+            this.orgId = orgId;
+            this.orgName = orgName;
+            return this;
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public Long getUserId() {
+            return userId;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public Long getOrgId() {
+            return orgId;
+        }
+
+        public String getOrgName() {
+            return orgName;
         }
 
         public String getAccessToken() {

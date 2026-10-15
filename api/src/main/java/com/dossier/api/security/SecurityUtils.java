@@ -36,6 +36,18 @@ public final class SecurityUtils {
 
     public static final String HOSTNAME_CLAIM = "hid";
 
+    /**
+     * Decision O4 (docs/enterprise-v2/19 sections 6.2 and 6.3): {@code ext=1} marks an ENTERPRISE account's token minted for the browser extension.
+     * It carries {@code tid} too, is accepted on the platform host (the extension calls api.kiwiply.com) and only reaches {@code ExtensionRoutes}.
+     * A personal extension token has no such claim and keeps today's route set.
+     */
+    public static final String EXTENSION_CLAIM = "ext";
+
+    /** Whether an {@code ext} claim value marks an extension token. */
+    public static boolean isExtension(Object claim) {
+        return claim instanceof Number n ? n.intValue() == 1 : Boolean.TRUE.equals(claim);
+    }
+
     public static final String ACCESS_TOKEN_TYPE = "access";
 
     public static final String REFRESH_TOKEN_TYPE = "refresh";

@@ -41,6 +41,14 @@ public class ProfileWorkspaces {
     /** One entry of {@code workspaces[]}. */
     public record Workspace(Long orgId, String name, boolean consultant, boolean marketer) {}
 
+    /**
+     * Who the signed-in account is, as the extension needs it (decision O4, doc 19 section 6.2): {@code kind} is {@code "PERSONAL"} or {@code "ENTERPRISE"};
+     * an enterprise account adds its organization (id and name) and its two roles; a personal account has no organization and both flags are false.
+     */
+    public record Account(String kind, Long orgId, String name, boolean consultant, boolean marketer) {
+        public static final Account PERSONAL = new Account("PERSONAL", null, null, false, false);
+    }
+
     private final UserRepository users;
     private final OrgMemberRepository members;
     private final OrganizationRepository organizations;
@@ -80,6 +88,30 @@ public class ProfileWorkspaces {
             out.add(new Workspace(orgId, name(org.get()), consultant(me.get()), me.get().canKey("opportunities.manage")));
         }
         return out;
+    }
+
+    /**
+     * The signed-in account (see {@link Account}). An enterprise account (its row has an {@code org_id}) reports its own organization even when the
+     * marketing module or role data is off there (then both flags are false and the extension offers nothing beyond the plain drawer); anything else,
+     * or any failure to look, is the personal account.
+     */
+    @Transactional(readOnly = true)
+    public Account accountOfCurrentUser() {
+        Optional<User> user = SecurityUtils.getCurrentUserLogin().flatMap(users::findOneByLogin);
+        if (user.isEmpty() || user.get().getOrgId() == null) return Account.PERSONAL;
+        Long orgId = user.get().getOrgId();
+        Optional<Organization> org = organizations.findByOrgId(orgId);
+        if (org.isEmpty()) return Account.PERSONAL;
+        boolean consultant = false;
+        boolean marketer = false;
+        if (roles.rolesFromData(orgId) && modules.isOn(TenantModule.MARKETING, orgId)) {
+            Optional<OrgMembership> me = access.resolve(orgId);
+            if (me.isPresent()) {
+                consultant = consultant(me.get());
+                marketer = me.get().canKey("opportunities.manage");
+            }
+        }
+        return new Account("ENTERPRISE", orgId, name(org.get()), consultant, marketer);
     }
 
     private boolean consultant(OrgMembership me) {

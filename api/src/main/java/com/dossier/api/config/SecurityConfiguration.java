@@ -70,6 +70,7 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/auth/google")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/refresh")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/logout")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/extension/connect-code/exchange")).permitAll()
                     .requestMatchers(mvc.pattern("/api/register")).permitAll()
                     .requestMatchers(mvc.pattern("/api/activate")).permitAll()
                     .requestMatchers(mvc.pattern("/api/account/reset-password/init")).permitAll()

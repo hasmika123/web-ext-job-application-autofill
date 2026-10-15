@@ -11,6 +11,10 @@ import java.util.List;
  * within one existing check — no extra round-trip, and no plan claim baked into a JWT that would
  * stay stale for the rest of a session after someone upgrades.
  *
+ * <p>{@code account} (decision O4, docs/enterprise-v2/19 section 6.2): {@code {kind: "PERSONAL"|"ENTERPRISE", orgId, name, consultant, marketer}}. For a
+ * personal account {@code workspaces} is an empty list (one release of overlap: an enterprise account's {@code workspaces} is the one organization it
+ * belongs to, so installed extensions that read the list keep working; the list is then removed).
+ *
  * <p>{@code workspaces} (docs/enterprise-v2/60-job-phase1-contract.md section 4) rides along for the same reason: the organizations the person can
  * work in, each as {@code {orgId, name, consultant, marketer}}. It is additive (an older extension ignores it), always present (an empty list for a
  * person with no organization seat) and deliberately NOT part of {@code version}: that hash is what a bio/resume pull returns.
@@ -20,6 +24,7 @@ public class ProfileVersionVM {
     private String version;
     private String plan;
     private List<ProfileWorkspaces.Workspace> workspaces = List.of();
+    private ProfileWorkspaces.Account account = ProfileWorkspaces.Account.PERSONAL;
 
     public ProfileVersionVM() {}
 
@@ -32,6 +37,24 @@ public class ProfileVersionVM {
         this.version = version;
         this.plan = plan;
         this.workspaces = workspaces == null ? List.of() : List.copyOf(workspaces);
+    }
+
+    public ProfileVersionVM(String version, String plan, List<ProfileWorkspaces.Workspace> workspaces, ProfileWorkspaces.Account account) {
+        this(version, plan, workspaces);
+        this.account = account == null ? ProfileWorkspaces.Account.PERSONAL : account;
+    }
+
+    /**
+     * Decision O4 (doc 19 section 6.2): which account the extension is connected as, {@code {kind, orgId, name, consultant, marketer}}. A personal
+     * account is {@code {kind: "PERSONAL"}} with no organization; an enterprise account carries its organization and its roles. It replaces the
+     * extension's Personal / organization selector: the token already says who and where.
+     */
+    public ProfileWorkspaces.Account getAccount() {
+        return account;
+    }
+
+    public void setAccount(ProfileWorkspaces.Account account) {
+        this.account = account == null ? ProfileWorkspaces.Account.PERSONAL : account;
     }
 
     public String getPlan() {
