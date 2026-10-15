@@ -50,7 +50,12 @@ export async function saveSettings(v: Settings): Promise<void> {
   await JAF().storage.saveSettings(s);
 }
 
-export type Account = { connected: boolean; who: string; pro: boolean };
+/**
+ * `kind` + `title` + `subtitle` come from `JAF.workspace.accountChip` (the stored session record):
+ * `Personal`, or `<Org> · Enterprise`, with the email beneath. The login is never shown — an
+ * enterprise one is synthetic (`ent#<orgId>#…`).
+ */
+export type Account = { connected: boolean; kind: "PERSONAL" | "ENTERPRISE"; title: string; subtitle: string; pro: boolean };
 
 /**
  * Read the session token directly (not the cached store) so the connect handoff reflects live.
@@ -68,7 +73,9 @@ export async function readAccount(): Promise<Account> {
   } catch {
     /* settings unreadable → show Free, the safe default */
   }
-  return { connected: !!(tok && tok.access), who: tok.username || "your account", pro };
+  const chip = JAF().workspace.accountChip(tok);
+  // An enterprise account has no personal plan: the Pro badge and the Free/Pro note are for personal only.
+  return { connected: !!(tok && tok.access), kind: chip.kind, title: chip.title, subtitle: chip.subtitle, pro: pro && chip.kind === "PERSONAL" };
 }
 
 /** The AI meter (13.1c): a percent of Pro's budget for the billing period (15.5), a resume-parse count for Free. Never dollars. */

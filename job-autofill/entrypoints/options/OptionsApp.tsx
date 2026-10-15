@@ -58,7 +58,7 @@ const hint = "text-[12.5px] leading-relaxed text-muted";
 export function OptionsApp() {
   const [form, setForm] = useState<Settings | null>(null);
   const [saved, setSaved] = useState(false);
-  const [account, setAccount] = useState<Account>({ connected: false, who: "", pro: false });
+  const [account, setAccount] = useState<Account>({ connected: false, kind: "PERSONAL", title: "Personal", subtitle: "", pro: false });
   const [bug, setBug] = useState({ category: "BUG", message: "", consent: true });
   const [bugStatus, setBugStatus] = useState<{ msg: string; kind: "ok" | "err" | "neutral" }>({ msg: "", kind: "neutral" });
   const [bugSending, setBugSending] = useState(false);
@@ -204,12 +204,21 @@ export function OptionsApp() {
               {account.connected ? (
                 <>
                   <p className="text-sm text-ink-soft">
-                    Connected as <b className="text-ink">{account.who}</b>.
+                    Connected to <b className="text-ink">{account.title}</b>
+                    {account.subtitle ? <> as <b className="text-ink">{account.subtitle}</b></> : null}.
+                  </p>
+                  <p className="mt-1 text-[12.5px] text-muted">
+                    The extension is connected to one account at a time. To switch, connect the other account — this one is then
+                    removed from this browser.
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-2.5">
-                    <a href={WEB + "/dashboard"} target="_blank" rel="noopener" className="inline-flex">
-                      <Button>Manage profile &amp; resumes →</Button>
-                    </a>
+                    {account.kind === "PERSONAL" ? (
+                      <a href={WEB + "/dashboard"} target="_blank" rel="noopener" className="inline-flex">
+                        <Button>Manage profile &amp; resumes →</Button>
+                      </a>
+                    ) : (
+                      <p className={hint}>Manage your profile and resumes in your organization&apos;s workspace on the web.</p>
+                    )}
                     {!confirmingSignOut && (
                       <Button variant="ghost" onClick={() => setConfirmingSignOut(true)}>
                         Sign out
@@ -238,7 +247,7 @@ export function OptionsApp() {
                       </div>
                     </div>
                   )}
-                  {!account.pro && (
+                  {account.kind === "PERSONAL" && !account.pro && (
                     <p className="mt-3 text-[12.5px] text-muted">
                       On the free plan.{" "}
                       <a href={WEB + "/pricing"} target="_blank" rel="noopener" className="font-medium text-accent-deep hover:underline">
@@ -251,7 +260,8 @@ export function OptionsApp() {
                 <>
                   <p className={hint}>
                     Sign in on the web to connect the extension to your account. Your profile and resumes sync down automatically for
-                    autofill — editing happens on kiwiply.com.
+                    autofill — editing happens on kiwiply.com. For an enterprise account, use Connect extension in your
+                    organization&apos;s workspace.
                   </p>
                   <div className="mt-4">
                     <Button onClick={() => window.open(WEB + "/connect", "_blank", "noopener")}>Connect to kiwiply.com</Button>

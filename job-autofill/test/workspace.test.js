@@ -148,22 +148,20 @@ function win(html, url) {
   try { wk.JAF.workspace.newIdempotencyKey(); } catch (e) { threw = /randomUUID/.test(e.message); }
   ok("no guessable fallback when crypto.randomUUID is missing", threw);
 
-  /* ---- mode selection ---- */
-  const orgs = [
-    { orgId: 7, name: "Acme Staffing", consultant: false, marketer: true },
-    { orgId: 8, name: "Initech", consultant: true, marketer: false },
-    { orgId: 9, name: "Both Co", consultant: true, marketer: true },
-    { orgId: 10, name: "Empty Co", consultant: false, marketer: false },
-  ];
-  eq("mode: personal by default", WS.modeOf(orgs, undefined).kind, "personal");
-  eq("mode: 'personal' literal", WS.modeOf(orgs, "personal").kind, "personal");
-  eq("mode: no orgs at all", WS.modeOf([], 7).kind, "personal");
-  eq("mode: marketer && !consultant -> marketer", WS.modeOf(orgs, 7).kind, "marketer");
-  eq("mode: consultant -> consultant", WS.modeOf(orgs, 8).kind, "consultant");
-  eq("mode: marketer AND consultant -> consultant (fill + Jobs tab)", WS.modeOf(orgs, 9).kind, "consultant");
-  eq("mode: neither role -> org (plain drawer)", WS.modeOf(orgs, 10).kind, "org");
-  eq("mode: stale org id falls back to personal, never another org", WS.modeOf(orgs, 99).kind, "personal");
-  eq("mode: numeric string id", WS.modeOf(orgs, "7").kind, "marketer");
+  /* ---- mode selection: modeOf(account), no selection (doc 19 §6.4) ---- */
+  const ent = (o) => Object.assign({ kind: "ENTERPRISE", orgId: 7, name: "Acme Staffing", consultant: false, marketer: false }, o || {});
+  eq("mode: personal account -> personal, no org", WS.modeOf({ kind: "PERSONAL", orgId: null, name: null, consultant: false, marketer: false }), { kind: "personal", org: null });
+  eq("mode: a missing account -> personal", [WS.modeOf(undefined).kind, WS.modeOf(null).kind, WS.modeOf({}).kind, WS.modeOf("x").kind], ["personal", "personal", "personal", "personal"]);
+  eq("mode: marketer && !consultant -> marketer", WS.modeOf(ent({ marketer: true })).kind, "marketer");
+  eq("mode: consultant -> consultant", WS.modeOf(ent({ consultant: true })).kind, "consultant");
+  eq("mode: marketer AND consultant -> consultant (fill + Jobs tab)", WS.modeOf(ent({ marketer: true, consultant: true })).kind, "consultant");
+  eq("mode: neither role -> org (plain drawer)", WS.modeOf(ent()).kind, "org");
+  eq("mode: the org travels with the mode", WS.modeOf(ent({ consultant: true })).org, { orgId: 7, name: "Acme Staffing", consultant: true, marketer: false });
+  eq("mode: flags must be real booleans", WS.modeOf(ent({ marketer: "true", consultant: 1 })).kind, "org");
+  eq("mode: an enterprise account without a usable org id is not an enterprise drawer", [WS.modeOf(ent({ orgId: null })).kind, WS.modeOf(ent({ orgId: 0 })).kind, WS.modeOf(ent({ orgId: "x" })).kind], ["personal", "personal", "personal"]);
+  eq("mode: numeric string org id", WS.modeOf(ent({ orgId: "7", marketer: true })).org.orgId, 7);
+  eq("mode: an unknown kind is personal", WS.modeOf(ent({ kind: "GUEST", marketer: true })).kind, "personal");
+  ok("the Personal/Org selection helper is gone", !("selected" in WS));
   eq("surfaces: marketer has no fill/profile/resumes", WS.surfacesOf("marketer"), { fill: false, profile: false, resumes: false, jobsTab: false, saveForConsultant: true });
   eq("surfaces: consultant gets the Jobs tab", WS.surfacesOf("consultant").jobsTab, true);
   eq("surfaces: personal unchanged", WS.surfacesOf("personal"), { fill: true, profile: true, resumes: true, jobsTab: false, saveForConsultant: false });

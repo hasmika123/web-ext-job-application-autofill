@@ -87,7 +87,8 @@ function recordingProvider() {
 
   const hv = code(read("entrypoints/panel/HomeView.tsx"));
   const loadHomeCalls = hv.split("\n").filter((l) => /\bloadHome\(\)/.test(l) && !/async function loadHome/.test(l));
-  ok("HomeView calls loadHome() in 3 places, each behind a not-marketer check", loadHomeCalls.length === 3 && loadHomeCalls.every((l) => /!==\s*"marketer"/.test(l)), loadHomeCalls.join(" | "));
+  ok("HomeView calls loadHome() in 2 places, each behind a known + not-marketer check", loadHomeCalls.length === 2 && loadHomeCalls.every((l) => /\.known\s*&&/.test(l) && /!==\s*"marketer"/.test(l)), loadHomeCalls.join(" | "));
+  ok("HomeView has no Personal/Org picker any more", !/onPickWorkspace|chooseWorkspace|aria-label="Workspace"/.test(hv));
   ok("the mirror-update repaint is skipped in marketer mode", /KIWIPLY_MIRROR_UPDATED"\s*&&\s*modeKind\.current\s*!==\s*"marketer"/.test(hv));
   const iMarketer = hv.indexOf('mode.kind === "marketer"');
   const iEarlyReturn = hv.indexOf("<MarketerView");
@@ -98,8 +99,9 @@ function recordingProvider() {
   ok("the mount effect itself never calls refreshMirror/loadData directly", !/refreshMirror\(\)|loadData\(\)\.then\(setData\)\s*;?\s*\}\)\(\)/.test(mountEffect.split("return () => {")[0].replace(/KIWIPLY_MIRROR_UPDATED[^\n]*/, "")));
 
   /* ---- the personal drawer is untouched for users without orgs ---- */
-  eq("no orgs -> personal mode", WS.modeOf([], "personal").kind, "personal");
-  eq("no orgs -> full surfaces (unchanged drawer)", WS.surfacesOf(WS.modeOf([], undefined).kind), { fill: true, profile: true, resumes: true, jobsTab: false, saveForConsultant: false });
+  eq("personal account -> personal mode", WS.modeOf({ kind: "PERSONAL" }).kind, "personal");
+  eq("personal account -> full surfaces (unchanged drawer)", WS.surfacesOf(WS.modeOf({ kind: "PERSONAL" }).kind), { fill: true, profile: true, resumes: true, jobsTab: false, saveForConsultant: false });
+  eq("an enterprise session whose role flags are not cached is NOT 'known' (HomeView reads nothing until the server answers)", WS.accountFromLocal({ kind: "ENTERPRISE", orgId: 7, orgName: "Acme" }, null).known, false);
 
   report();
 })().catch((e) => { fail++; fails.push("async run threw -> " + (e && e.stack || e)); report(); });

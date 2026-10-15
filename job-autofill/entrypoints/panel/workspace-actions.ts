@@ -2,7 +2,7 @@
  * Org-workspace actions for the drawer (WP5, docs/enterprise-v2/60 §6) — the engine-coupled glue
  * around `JAF.workspace` (pure) and the TrackingProvider seam. Three groups:
  *
- *   workspaces  which orgs the signed-in user belongs to + the persisted Personal / <Org> choice
+ *   account     which account is connected (personal / one enterprise) + its role flags
  *   marketer    the facade the "Save for consultant…" form uses (consultant list + save) and nothing else
  *   consultant  assigned jobs, matching the current page to one, Open posting / I applied
  *
@@ -13,8 +13,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const JAF = () => window.JAF;
 
-export type Workspace = { orgId: number; name: string; consultant: boolean; marketer: boolean };
-export type WorkspaceState = { workspaces: Workspace[]; setting: "personal" | number };
+export type AccountInfo = {
+  kind: "PERSONAL" | "ENTERPRISE";
+  orgId: number | null;
+  name: string | null;
+  consultant: boolean;
+  marketer: boolean;
+};
+/** `known` is false for an enterprise session whose role flags have not been fetched yet. */
+export type AccountState = { account: AccountInfo; known: boolean };
 
 async function connectedProvider(): Promise<any | null> {
   const settings = await JAF().storage.getSettings();
@@ -23,35 +30,34 @@ async function connectedProvider(): Promise<any | null> {
   return (await provider.isAuthenticated()) ? provider : null;
 }
 
-/** Local read only: the orgs last seen + the persisted choice, validated against them. */
-export async function readWorkspaceState(): Promise<WorkspaceState> {
-  const s = await JAF().storage.getSettings();
-  const workspaces: Workspace[] = Array.isArray(s.workspaces) ? s.workspaces : [];
-  const sel = JAF().workspace.selected(workspaces, s.workspace);
-  return { workspaces, setting: sel ? sel.orgId : "personal" };
+async function readSession(): Promise<any> {
+  const o: any = await new Promise((res) => chrome.storage.local.get("trackingAuth", (r) => res(r || {})));
+  return o.trackingAuth || {};
 }
 
-/** Ask the server for the current memberships (GET /api/profile/version → workspaces[]), store them. */
-export async function refreshWorkspaces(): Promise<WorkspaceState> {
+/** Local read only: the session's account + the role flags last seen (`settings.account`). */
+export async function readAccountState(): Promise<AccountState> {
+  const s = await JAF().storage.getSettings();
+  return JAF().workspace.accountFromLocal(await readSession(), s.account);
+}
+
+/**
+ * Ask the server who this account is and what it may do (GET /api/profile/version → account),
+ * and keep the answer for the next offline open. A failure keeps what we had.
+ */
+export async function refreshAccountState(): Promise<AccountState> {
   try {
     const provider = await connectedProvider();
     if (provider) {
-      const list = await provider.listWorkspaces();
+      const account = await provider.getAccount();
       const s = await JAF().storage.getSettings();
-      s.workspaces = list;
-      if (!JAF().workspace.selected(list, s.workspace)) s.workspace = "personal";
+      s.account = account;
       await JAF().storage.saveSettings(s);
     }
   } catch {
     /* offline / older server → keep what we had */
   }
-  return readWorkspaceState();
-}
-
-export async function chooseWorkspace(setting: "personal" | number): Promise<void> {
-  const s = await JAF().storage.getSettings();
-  s.workspace = setting;
-  await JAF().storage.saveSettings(s);
+  return readAccountState();
 }
 
 // ---- marketer --------------------------------------------------------------------------------

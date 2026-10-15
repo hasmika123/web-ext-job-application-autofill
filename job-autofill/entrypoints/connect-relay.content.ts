@@ -14,6 +14,10 @@
  * `externally_connectable` also trusts a whole origin, and the matches below are the same
  * origins listed there, so Firefox ends up trusting exactly what Chrome trusts, no more.
  *
+ * `tokens` is forwarded whole, so the account fields the web adds for separate enterprise accounts
+ * (`kind`, `orgId`, `orgName`, `email`, `userId`) reach the background unchanged; this relay never reads
+ * them, and /connect for an enterprise account still lives on one of the origins below (no tenant host).
+ *
  * Chrome keeps using the direct path and does not ship this script (`include: ["firefox"]`),
  * so its manifest gains no content script and no host permission on kiwiply.com.
  */

@@ -3,7 +3,7 @@
  * Pure logic for the org workspaces in the drawer. No DOM, no chrome.*, no fetch: network goes
  * through the TrackingProvider seam (tracking.js), storage through JAF.storage.
  *
- *   • Personal | <Org> selection and what each org role may see   (modeOf)
+ *   • which account is connected (personal / enterprise) and what its roles may see   (modeOf)
  *   • marketer: trimming a job capture to the facts we send        (trimCapture, buildSavePayload)
  *   • consultant: matching the page to an assigned job             (urlKey, matchOpportunity)
  *
@@ -30,26 +30,63 @@
     return s || undefined;
   }
 
-  // ---- workspace selection ------------------------------------------------
-  // settings.workspace is "personal" (or absent) or an orgId. A selection that no longer matches
-  // an ACTIVE membership falls back to Personal — never to some other org.
-  function selected(workspaces, setting) {
-    if (setting == null || setting === "personal") return null;
-    const id = Number(setting);
-    return (Array.isArray(workspaces) ? workspaces : []).find((w) => w && w.orgId === id) || null;
+  // ---- the connected account (separate enterprise accounts, docs/enterprise-v2/19 §6) -------
+  // The extension is connected to ONE account at a time, personal OR enterprise; there is no
+  // Personal/<Org> choice any more. `account` is what GET /api/profile/version says about the
+  // connected account: { kind: "PERSONAL"|"ENTERPRISE", orgId, name, consultant, marketer }.
+  const KINDS = ["PERSONAL", "ENTERPRISE"];
+  const ENT_LOGIN = /^ent#/i; // the synthetic login of an enterprise account — never shown to a person
+
+  function personalAccount() {
+    return { kind: "PERSONAL", orgId: null, name: null, consultant: false, marketer: false };
   }
 
-  // What the drawer offers for the selection:
-  //   personal   — today's drawer, byte for byte (also the whole story for users without orgs)
-  //   marketer   — org with marketer && !consultant: ONLY "Save for consultant…"
-  //   consultant — org with consultant (marketer or not): normal fill + the Jobs tab
-  //   org        — an org with neither role flag: behaves like personal
-  function modeOf(workspaces, setting) {
-    const ws = selected(workspaces, setting);
-    if (!ws) return { kind: "personal", org: null };
-    if (ws.marketer && !ws.consultant) return { kind: "marketer", org: ws };
-    if (ws.consultant) return { kind: "consultant", org: ws };
-    return { kind: "org", org: ws };
+  // What the drawer offers for the account:
+  //   personal   — today's drawer, byte for byte (also a missing / unreadable account)
+  //   marketer   — enterprise with marketer && !consultant: ONLY "Save for consultant…"
+  //   consultant — enterprise with consultant (marketer or not): normal fill + the Jobs tab
+  //   org        — enterprise with neither role flag: behaves like personal
+  function modeOf(account) {
+    const a = account && typeof account === "object" ? account : null;
+    if (!a || a.kind !== "ENTERPRISE") return { kind: "personal", org: null };
+    const orgId = Number(a.orgId);
+    if (!Number.isFinite(orgId) || orgId <= 0) return { kind: "personal", org: null };
+    const org = { orgId, name: str(a.name) || "Organization", consultant: a.consultant === true, marketer: a.marketer === true };
+    if (org.marketer && !org.consultant) return { kind: "marketer", org };
+    if (org.consultant) return { kind: "consultant", org };
+    return { kind: "org", org };
+  }
+
+  // The account chip: `Personal`, or `<OrgName> · Enterprise`, with the email beneath. `auth` is the
+  // stored session record (trackingAuth). Never the login: an enterprise login is synthetic
+  // (`ent#<orgId>#…`) and a personal one is only a last-resort label for a session from before
+  // the email was handed over.
+  function accountChip(auth) {
+    const a = auth || {};
+    const enterprise = a.kind === "ENTERPRISE";
+    const email = str(a.email);
+    const login = str(a.username);
+    const safeLogin = login && !ENT_LOGIN.test(login) ? login : undefined;
+    return {
+      kind: enterprise ? "ENTERPRISE" : "PERSONAL",
+      title: enterprise ? (str(a.orgName) || "Organization") + " · Enterprise" : "Personal",
+      subtitle: email || (enterprise ? "" : safeLogin || ""),
+    };
+  }
+
+  // Offline-safe local read of "which account is this, and what may it do". `known` is false
+  // when an enterprise session has no cached role flags yet: the caller must then wait for the
+  // server before reading any profile data (a marketer-only session never reads a profile).
+  function accountFromLocal(auth, cached) {
+    const a = auth || {};
+    const c = cached && typeof cached === "object" ? cached : null;
+    if (a.kind === "PERSONAL") return { account: personalAccount(), known: true };
+    if (a.kind === "ENTERPRISE") {
+      if (c && c.kind === "ENTERPRISE" && Number(c.orgId) === Number(a.orgId)) return { account: c, known: true };
+      return { account: { kind: "ENTERPRISE", orgId: Number(a.orgId) || null, name: str(a.orgName) || null, consultant: false, marketer: false }, known: false };
+    }
+    // A session from before accounts carried a kind: trust what the server last said, else personal.
+    return { account: c && KINDS.indexOf(c.kind) !== -1 ? c : personalAccount(), known: true };
   }
 
   // Surfaces per mode. The marketer row is the contract: no fill, no profile/bio/resume/answers.
@@ -323,7 +360,7 @@
   }
 
   JAF.workspace = {
-    BOARDS, selected, modeOf, surfacesOf,
+    BOARDS, modeOf, surfacesOf, accountChip, accountFromLocal, personalAccount,
     urlKey, matchOpportunity, needsManualApplied, MANUAL_APPLIED_COPY,
     trimCapture, missingFields, buildSavePayload, validateSave,
     marketerFacade, marketerSave, newIdempotencyKey, describeSaveResult, describeSaveError,
