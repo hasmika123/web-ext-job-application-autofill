@@ -113,7 +113,7 @@ class OrgAccountResourceIT {
             .andExpect(jsonPath("$.tempPassword").doesNotExist()); // the caller already holds the one it sent
         long memberId = ((Number) com.jayway.jsonpath.JsonPath.read(created.andReturn().getResponse().getContentAsString(), "$.memberId")).longValue();
 
-        User person = users.findOneByEmailIgnoreCase(email).orElseThrow();
+        User person = users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow();
         assertThat(person.isActivated()).isTrue();
         assertThat(person.isPasswordChangeRequired()).isTrue();
         assertThat(person.getPassword()).isNotEqualTo(suggested).startsWith("$2");
@@ -138,7 +138,7 @@ class OrgAccountResourceIT {
         mockMvc
             .perform(post("/api/account/change-password").header("Authorization", "Bearer " + access).contentType(MediaType.APPLICATION_JSON).content("{\"currentPassword\":\"" + suggested + "\",\"newPassword\":\"Chosen-by-me-1!\"}"))
             .andExpect(status().isOk());
-        assertThat(users.findOneByEmailIgnoreCase(email).orElseThrow().isPasswordChangeRequired()).isFalse();
+        assertThat(users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow().isPasswordChangeRequired()).isFalse();
         String clean = com.jayway.jsonpath.JsonPath.read(
             mockMvc.perform(post("/api/refresh").contentType(MediaType.APPLICATION_JSON).content("{\"refreshToken\":\"" + refresh + "\"}")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString(),
             "$.accessToken"
@@ -153,7 +153,7 @@ class OrgAccountResourceIT {
         ResultActions r = as(admin, post(url("/account")), "{\"email\":\"" + email + "\",\"role\":\"MEMBER\"}").andExpect(status().isOk());
         String temp = read(r, "$.tempPassword");
         assertThat(temp).hasSize(16);
-        signIn(users.findOneByEmailIgnoreCase(email).orElseThrow().getLogin(), temp).andExpect(status().isOk());
+        signIn(users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow().getLogin(), temp).andExpect(status().isOk());
         assertThat(audit.findByOrgIdAndAction(acme.getId(), OrgAuditService.MEMBER_ACCOUNT_CREATE, PageRequest.of(0, 5)).getContent().get(0).getDetails()).doesNotContain(temp);
     }
 
@@ -161,7 +161,7 @@ class OrgAccountResourceIT {
     void aPasswordThatBreaksThePolicyIsRefusedAndNothingIsCreated() throws Exception {
         String email = email();
         as(admin, post(url("/account")), "{\"email\":\"" + email + "\",\"password\":\"x\",\"role\":\"MEMBER\"}").andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("ORG_INVALID"));
-        assertThat(users.findOneByEmailIgnoreCase(email)).isEmpty();
+        assertThat(users.findOneByOrgIdIsNullAndEmailIgnoreCase(email)).isEmpty();
     }
 
     @Test
@@ -216,7 +216,7 @@ class OrgAccountResourceIT {
         ResultActions r = as(admin, post(url("/account")), "{\"email\":\"" + email + "\",\"role\":\"MEMBER\"}").andExpect(status().isOk());
         String first = read(r, "$.tempPassword");
         long memberId = ((Number) com.jayway.jsonpath.JsonPath.read(r.andReturn().getResponse().getContentAsString(), "$.memberId")).longValue();
-        User person = users.findOneByEmailIgnoreCase(email).orElseThrow();
+        User person = users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow();
 
         as(admin, post(url("/" + memberId + "/reset-password")), "{\"reason\":\"short\"}").andExpect(status().isUnprocessableEntity());
         String second = read(as(admin, post(url("/" + memberId + "/reset-password")), "{\"reason\":\"Lost the first password\"}").andExpect(status().isOk()), "$.tempPassword");
@@ -229,7 +229,7 @@ class OrgAccountResourceIT {
         assertThat(rows.get(0).getDetails()).doesNotContain(first).doesNotContain(second);
 
         // an ordinary member who set their own password, the owner, and the caller's own seat are all out of reach
-        User chosen = users.findOneByEmailIgnoreCase(email).orElseThrow();
+        User chosen = users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow();
         chosen.setPasswordChangeRequired(false);
         users.saveAndFlush(chosen);
         as(admin, post(url("/" + memberId + "/reset-password")), "{\"reason\":\"Lost the first password\"}").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("PASSWORD_ALREADY_SET"));

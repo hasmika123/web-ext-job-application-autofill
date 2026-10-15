@@ -57,7 +57,7 @@ class InviteNeverSetsTempPasswordIT {
             )
             .andExpect(status().isOk());
 
-        assertThat(users.findOneByEmailIgnoreCase(newcomer)).as("an invitation creates no account").isEmpty();
+        assertThat(users.findOneByOrgIdIsNullAndEmailIgnoreCase(newcomer)).as("an invitation creates no account").isEmpty();
         assertThat(users.findOneByLogin(existing.getLogin()).orElseThrow().isPasswordChangeRequired()).isFalse();
         assertThat(users.findOneByLogin(existing.getLogin()).orElseThrow().getPasswordTempExpiresAt()).isNull();
     }

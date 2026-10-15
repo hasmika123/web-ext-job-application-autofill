@@ -86,7 +86,7 @@ public class UserService {
 
     public Optional<User> requestPasswordReset(String mail) {
         return userRepository
-            .findOneByEmailIgnoreCase(mail)
+            .findOneByOrgIdIsNullAndEmailIgnoreCase(mail) // personal accounts only until host-scoped reset (O4 phase S3)
             .filter(User::isActivated)
             .map(user -> {
                 user.setResetKey(RandomUtil.generateResetKey());
@@ -108,8 +108,11 @@ public class UserService {
                     throw new UsernameAlreadyUsedException();
                 }
             });
+        if (Constants.isEnterpriseLogin(userDTO.getLogin())) {
+            throw new UsernameAlreadyUsedException(); // the ent# login namespace belongs to enterprise accounts (decision O4)
+        }
         userRepository
-            .findOneByEmailIgnoreCase(userDTO.getEmail())
+            .findOneByOrgIdIsNullAndEmailIgnoreCase(userDTO.getEmail())
             .ifPresent(existingUser -> {
                 boolean removed = removeNonActivatedUser(existingUser);
                 if (!removed) {
@@ -151,7 +154,10 @@ public class UserService {
      */
     public User findOrCreateGoogleUser(String email, String firstName, String lastName) {
         String mail = email.toLowerCase();
-        Optional<User> existing = userRepository.findOneByEmailIgnoreCase(mail);
+        if (Constants.isEnterpriseLogin(mail)) {
+            throw new UsernameAlreadyUsedException(); // the ent# login namespace belongs to enterprise accounts (decision O4)
+        }
+        Optional<User> existing = userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase(mail);
         if (existing.isPresent()) {
             User user = existing.get();
             boolean changed = false;
@@ -337,12 +343,12 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public Page<AdminUserDTO> getAllManagedUsers(Pageable pageable) {
-        return userRepository.findAll(pageable).map(AdminUserDTO::new);
+        return userRepository.findAllByOrgIdIsNull(pageable).map(AdminUserDTO::new);
     }
 
     @Transactional(readOnly = true)
     public Page<UserDTO> getAllPublicUsers(Pageable pageable) {
-        return userRepository.findAllByIdNotNullAndActivatedIsTrue(pageable).map(UserDTO::new);
+        return userRepository.findAllByOrgIdIsNullAndActivatedIsTrue(pageable).map(UserDTO::new);
     }
 
     @Transactional(readOnly = true)
@@ -383,7 +389,7 @@ public class UserService {
     private void clearUserCaches(User user) {
         Objects.requireNonNull(cacheManager.getCache(UserRepository.USERS_BY_LOGIN_CACHE)).evictIfPresent(user.getLogin());
         if (user.getEmail() != null) {
-            Objects.requireNonNull(cacheManager.getCache(UserRepository.USERS_BY_EMAIL_CACHE)).evictIfPresent(user.getEmail());
+            Objects.requireNonNull(cacheManager.getCache(UserRepository.USERS_BY_EMAIL_CACHE)).evictIfPresent(UserRepository.emailCacheKey(user.getOrgId(), user.getEmail()));
         }
     }
 
@@ -425,7 +431,8 @@ public class UserService {
     @Transactional
     public TempAccount createTempAccount(String email, String firstName, String lastName, String password, Instant expiresAt) {
         String mail = email.strip().toLowerCase(Locale.ROOT);
-        Optional<User> existing = userRepository.findOneByEmailIgnoreCase(mail);
+        // Personal scope: the "attach an existing account" branch stays until phase S4 replaces it with a separate enterprise account.
+        Optional<User> existing = userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase(mail);
         if (existing.isPresent()) {
             Hibernate.initialize(existing.get().getAuthorities());
             return new TempAccount(existing.get(), null, false);

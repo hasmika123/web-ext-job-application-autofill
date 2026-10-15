@@ -36,7 +36,8 @@ public class DomainUserDetailsService implements UserDetailsService {
 
         if (new EmailValidator().isValid(login, null)) {
             return userRepository
-                .findOneWithAuthoritiesByEmailIgnoreCase(login)
+                // Until host-scoped sign-in (O4 phase S3) every email sign-in is a personal-account sign-in.
+                .findOneWithAuthoritiesByOrgIdIsNullAndEmailIgnoreCase(login)
                 .map(user -> createSpringSecurityUser(login, user))
                 .orElseThrow(() -> new UsernameNotFoundException("User with email " + login + " was not found in the database"));
         }

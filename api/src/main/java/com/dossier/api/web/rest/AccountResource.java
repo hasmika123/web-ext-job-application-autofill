@@ -108,13 +108,14 @@ public class AccountResource {
         demoGuard.assertNotDemo();
         String userLogin = SecurityUtils.getCurrentUserLogin()
             .orElseThrow(() -> new AccountResourceException("Current user login not found"));
-        Optional<User> existingUser = userRepository.findOneByEmailIgnoreCase(userDTO.getEmail());
-        if (existingUser.isPresent() && (!existingUser.orElseThrow().getLogin().equalsIgnoreCase(userLogin))) {
-            throw new EmailAlreadyUsedException();
-        }
         Optional<User> user = userRepository.findOneByLogin(userLogin);
         if (!user.isPresent()) {
             throw new AccountResourceException("User could not be found");
+        }
+        // An address is "used" only inside the caller's own account scope (personal, or the caller's organization): decision O4.
+        Optional<User> existingUser = userRepository.findOneByScopeAndEmail(user.orElseThrow().getOrgId(), userDTO.getEmail());
+        if (existingUser.isPresent() && (!existingUser.orElseThrow().getLogin().equalsIgnoreCase(userLogin))) {
+            throw new EmailAlreadyUsedException();
         }
         userService.updateUser(
             userDTO.getFirstName(),

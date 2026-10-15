@@ -9,6 +9,7 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.org.OrgAuditEventRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
+import com.dossier.api.service.AccountScopes;
 import com.dossier.api.service.ResumeBuilderSettingKeys;
 import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.UserService;
@@ -54,6 +55,7 @@ public class OrgAccountService {
     private final ResumeBuilderSettings settings;
     private final AccountOnboardingNotices notices;
     private final TenantUrls tenantUrls;
+    private final AccountScopes accountScopes;
 
     public OrgAccountService(
         OrgInviteService invites,
@@ -65,7 +67,8 @@ public class OrgAccountService {
         OrgAuditEventRepository auditRows,
         ResumeBuilderSettings settings,
         AccountOnboardingNotices notices,
-        TenantUrls tenantUrls
+        TenantUrls tenantUrls,
+        AccountScopes accountScopes
     ) {
         this.invites = invites;
         this.orgs = orgs;
@@ -77,6 +80,7 @@ public class OrgAccountService {
         this.settings = settings;
         this.notices = notices;
         this.tenantUrls = tenantUrls;
+        this.accountScopes = accountScopes;
     }
 
     /** A fresh generated password for the form to show. Nothing is stored; it is just a suggestion the admin may overwrite. */
@@ -99,7 +103,7 @@ public class OrgAccountService {
         if (invites.holdsALiveSeat(me.orgId(), entry.email())) throw OrgException.alreadyMember();
         requireUnderHourlyCap(me.orgId());
 
-        if (users.findOneByEmailIgnoreCase(entry.email()).isPresent()) {
+        if (accountScopes.findMemberAccountByEmail(me.orgId(), entry.email()).isPresent()) {
             // Someone with a Kiwiply account: no password is issued or changed; they get the normal invitation and accept it themselves.
             OrgInviteResultDTO r = invites.invite(me, asInvite);
             Long seatId = r.invited().isEmpty() ? null : r.invited().get(0).memberId();

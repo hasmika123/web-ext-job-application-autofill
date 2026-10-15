@@ -134,8 +134,8 @@ public class AdminAnalyticsService {
         Instant d7 = now.minus(7, ChronoUnit.DAYS);
         Instant d30 = now.minus(30, ChronoUnit.DAYS);
 
-        long total = userRepository.count();
-        long activated = userRepository.countByActivatedIsTrue();
+        long total = userRepository.countByOrgIdIsNull();
+        long activated = userRepository.countByOrgIdIsNullAndActivatedIsTrue();
         int activationRate = total == 0 ? 0 : (int) Math.round((activated * 100.0) / total);
 
         long withProfile = bioRepository.count(); // unique user_id ⇒ one bio per user
@@ -151,8 +151,8 @@ public class AdminAnalyticsService {
             total,
             activated,
             activationRate,
-            userRepository.countByCreatedDateAfter(d7),
-            userRepository.countByCreatedDateAfter(d30),
+            userRepository.countByOrgIdIsNullAndCreatedDateAfter(d7),
+            userRepository.countByOrgIdIsNullAndCreatedDateAfter(d30),
             refreshTokenRepository.countDistinctActiveUsersSince(d7),
             refreshTokenRepository.countDistinctActiveUsersSince(d30),
             resumeRepository.count(),

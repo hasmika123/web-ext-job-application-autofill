@@ -196,7 +196,7 @@ public class ResumeAccessService {
         Instant now = Instant.now();
         requireFuture(expiresAt, now);
 
-        User grantee = userRepository.findOneByEmailIgnoreCase(normalised).filter(User::isActivated).orElseThrow(ResumeAccessException::userNotFound);
+        User grantee = userRepository.findOneByOrgIdIsNullAndEmailIgnoreCase(normalised).filter(User::isActivated).orElseThrow(ResumeAccessException::userNotFound);
         if (grantee.getLogin().equals(user.getLogin())) {
             throw ResumeAccessException.invalid("$.email", "this is your own resume");
         }

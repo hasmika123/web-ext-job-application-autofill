@@ -325,7 +325,7 @@ class AdminOrgResourceIT {
         assertThat(org.getSubdomain()).isEqualTo(label);
         assertThat(org.isSubdomainEnabled()).isTrue();
 
-        User owner = users.findOneByEmailIgnoreCase(email).orElseThrow();
+        User owner = users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow();
         assertThat(owner.isActivated()).isTrue();
         assertThat(owner.isPasswordChangeRequired()).isTrue();
         assertThat(owner.getPasswordTempExpiresAt()).isAfter(Instant.now().plus(6, ChronoUnit.DAYS)).isBefore(Instant.now().plus(8, ChronoUnit.DAYS));
@@ -368,7 +368,7 @@ class AdminOrgResourceIT {
         String email = "forced." + System.nanoTime() + "@example.test";
         String body = created(label, email, "Fiona Forced");
         String temp = read(body, "$.tempPassword");
-        String login = users.findOneByEmailIgnoreCase(email).orElseThrow().getLogin();
+        String login = users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow().getLogin();
 
         String tokens = signIn(login, temp).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         String access = read(tokens, "$.accessToken");
@@ -401,7 +401,7 @@ class AdminOrgResourceIT {
         String email = "expired." + System.nanoTime() + "@example.test";
         String body = created("expired" + System.nanoTime(), email, "Eve Expired");
         String temp = read(body, "$.tempPassword");
-        User owner = users.findOneByEmailIgnoreCase(email).orElseThrow();
+        User owner = users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow();
         owner.setPasswordTempExpiresAt(Instant.now().minus(1, ChronoUnit.HOURS));
         users.saveAndFlush(owner);
         signIn(owner.getLogin(), temp).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("TEMP_PASSWORD_EXPIRED"));
@@ -415,14 +415,14 @@ class AdminOrgResourceIT {
         String body = created("reset" + System.nanoTime(), email, "Rita Reset");
         long id = ((Number) com.jayway.jsonpath.JsonPath.read(body, "$.id")).longValue();
         String first = read(body, "$.tempPassword");
-        User owner = users.findOneByEmailIgnoreCase(email).orElseThrow();
+        User owner = users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow();
         String hash = owner.getPassword();
 
         postJson("/api/admin/orgs/" + id + "/owner/reset-password", "{\"reason\":\"short\"}").andExpect(status().isUnprocessableEntity());
         String reset = postJson("/api/admin/orgs/" + id + "/owner/reset-password", "{\"reason\":\"Owner lost the first password\"}").andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         String second = read(reset, "$.tempPassword");
         assertThat(second).hasSize(16).isNotEqualTo(first);
-        assertThat(users.findOneByEmailIgnoreCase(email).orElseThrow().getPassword()).isNotEqualTo(hash);
+        assertThat(users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow().getPassword()).isNotEqualTo(hash);
         signIn(owner.getLogin(), first).andExpect(status().isUnauthorized());
         signIn(owner.getLogin(), second).andExpect(status().isOk());
         assertThat(adminRows("ORG_OWNER_PASSWORD_RESET", id)).isEqualTo(1);
@@ -433,7 +433,7 @@ class AdminOrgResourceIT {
         mockMvc.perform(get("/api/admin/orgs/" + id)).andExpect(status().isOk());
 
         // once the owner has set their own password the admin may not overwrite it
-        owner = users.findOneByEmailIgnoreCase(email).orElseThrow();
+        owner = users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).orElseThrow();
         owner.setPasswordChangeRequired(false);
         users.saveAndFlush(owner);
         postJson("/api/admin/orgs/" + id + "/owner/reset-password", "{\"reason\":\"Owner lost the first password\"}").andExpect(status().isConflict());

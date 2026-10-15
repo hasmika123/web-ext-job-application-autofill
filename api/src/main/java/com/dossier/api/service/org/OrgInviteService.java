@@ -20,6 +20,7 @@ import com.dossier.api.repository.org.OrgGroupRepository;
 import com.dossier.api.repository.org.OrgInviteBatchRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
+import com.dossier.api.service.AccountScopes;
 import com.dossier.api.service.MailService;
 import com.dossier.api.service.ResumeBuilderSettingKeys;
 import com.dossier.api.service.ResumeBuilderSettings;
@@ -112,6 +113,8 @@ public class OrgInviteService {
     private final InviteCeilingChecker ceiling;
     private final OrgMemberRoleRepository memberRoles;
 
+    private final AccountScopes accountScopes;
+
     public OrgInviteService(
         OrganizationRepository orgs,
         OrgMemberRepository members,
@@ -125,7 +128,8 @@ public class OrgInviteService {
         JoinLinks links,
         OrgRoleService roleService,
         InviteCeilingChecker ceiling,
-        OrgMemberRoleRepository memberRoles
+        OrgMemberRoleRepository memberRoles,
+        AccountScopes accountScopes
     ) {
         this.orgs = orgs;
         this.members = members;
@@ -140,6 +144,7 @@ public class OrgInviteService {
         this.roleService = roleService;
         this.ceiling = ceiling;
         this.memberRoles = memberRoles;
+        this.accountScopes = accountScopes;
     }
 
     /** One entry of the request, parsed. */
@@ -541,8 +546,8 @@ public class OrgInviteService {
     /** A live seat already uses this address, or the person behind this account address already holds one. */
     boolean holdsALiveSeat(Long orgId, String email) {
         if (!members.findByOrgIdAndInviteEmailAndStatusIn(orgId, email, OrgMemberStatus.LIVE).isEmpty()) return true;
-        return users
-            .findOneByEmailIgnoreCase(email)
+        return accountScopes
+            .findMemberAccountByEmail(orgId, email) // this organization's own accounts when it is SEPARATE (flag on), else personal: O4
             .map(u -> !members.findByOrgIdAndUserIdAndStatusIn(orgId, u.getId(), OrgMemberStatus.LIVE).isEmpty())
             .orElse(false);
     }

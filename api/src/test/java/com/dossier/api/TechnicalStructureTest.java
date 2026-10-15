@@ -89,4 +89,25 @@ class TechnicalStructureTest {
             com.dossier.api.repository.InboxFolderStateRepository.class,
             com.dossier.api.service.inbox.SecretBox.class
         );
+
+    // Decision O4 (docs/enterprise-v2/19): the same email can be a personal account and an enterprise account of each organization, so an email lookup
+    // without a scope could match two rows and throw. The only UserRepository methods that read by email are the scoped ones (OrgId / Scope in the name).
+    @ArchTest
+    static final ArchRule noUnscopedEmailLookup = noClasses()
+        .should()
+        .callMethodWhere(
+            new com.tngtech.archunit.base.DescribedPredicate<com.tngtech.archunit.core.domain.JavaMethodCall>("call a UserRepository email lookup without an account scope") {
+                @Override
+                public boolean test(com.tngtech.archunit.core.domain.JavaMethodCall call) {
+                    String name = call.getTarget().getName();
+                    return (
+                        call.getTargetOwner().isAssignableTo(com.dossier.api.repository.UserRepository.class) &&
+                        name.contains("Email") &&
+                        !name.contains("OrgId") &&
+                        !name.contains("Scope") &&
+                        !name.equals("emailCacheKey")
+                    );
+                }
+            }
+        );
 }

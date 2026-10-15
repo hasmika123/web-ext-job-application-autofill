@@ -80,7 +80,7 @@ public class AdminBootstrap implements ApplicationRunner {
 
         // Match an existing account by email first (the stable identity), then by login.
         User user = userRepository
-            .findOneByEmailIgnoreCase(email)
+            .findOneByOrgIdIsNullAndEmailIgnoreCase(email) // the platform admin is a personal account
             .or(() -> userRepository.findOneByLogin(adminLogin))
             .orElse(null);
         boolean creating = user == null;
