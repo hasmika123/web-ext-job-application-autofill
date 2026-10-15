@@ -40,6 +40,7 @@
 |---|---|---|
 | `17-consultant-assignments.md` | Consultant Assignments (`org_assignment`, delegation, workload, consent interaction) | done (X4.7–X4.8) |
 | `18-consultant-inbox.md` | Consultant inbox in the organization workspace (own Gmail, license add-on `inbox.monitoring`, privacy wall, offboarding purge, demo sandbox mailbox); marketer attribution deferred (D4) | built (ent-inbox), decision O3 |
+| `19-separate-enterprise-accounts.md` | Separate enterprise accounts (decision O4): data model options, one-account-per-person inventory, security, migration, 11-phase plan; supersedes the shared-identity parts of `12-identity.md` and CLAUDE.md (pending approval) | design, awaiting approval |
 | `30-resume-management.md` | Resume Management for orgs (directory, `org_resume`, consent-gated edits, approval, readiness) | done (X7.*) |
 | `31-talent-marketing.md` | Talent Marketing lifecycle as state machines, submission rule under E1, duplicate guard, board terms, `NoSubmitSurfaceTest`, notifications | done (X8.*) |
 | `32-applications.md` | Applications (consultant side, org consented view, inbox rules, extension workspace) | done (X9.1–X9.4, X9.9–X9.10) |
