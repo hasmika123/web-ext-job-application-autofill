@@ -42,6 +42,8 @@ import com.dossier.api.service.org.OrgShareConsent;
 import com.dossier.api.service.org.ShareField;
 import com.dossier.api.service.resume.OrgResumeSharing;
 import com.dossier.api.service.settings.EnterpriseSettingKeys;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import java.lang.reflect.Method;
 import java.time.Instant;
@@ -103,8 +105,11 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
+// The opportunity services look a job up with a transaction of their own (JobIdentityTx, REQUIRES_NEW) when the plain read finds nothing: with the test pool of ONE connection that read
+// waits 30 s for a connection and answers 500. A pool of three lets it run (it only reads, so it cannot wait on the uncommitted rows of this test).
+@org.springframework.test.context.TestPropertySource(properties = "spring.datasource.hikari.maximum-pool-size=3")
 // Every route is attacked by every caller: with the groups routes (X4.5) and the talent boards the sweeps outgrew the global 15 s default on a loaded machine.
-@org.junit.jupiter.api.Timeout(900) // 300 s was not enough for the legitimate-call sweep on a loaded machine (it creates a world per route)
+@org.junit.jupiter.api.Timeout(2400) // 300 s was not enough for the legitimate-call sweep on a loaded machine (it creates a world per route)
 class OrgIsolationIT {
 
     // ---- the coverage registry: add a line here when you add an org route ------------------------------------------
@@ -159,6 +164,22 @@ class OrgIsolationIT {
         /** A write whose body and If-Match version depend on the fixture world (role ids, role versions: X1.14). */
         static Case versioned(int status, String action, java.util.function.Function<World, String> bodyFor, java.util.function.Function<World, String> ifMatchFor) {
             return new Case(null, status, action, false, bodyFor, ifMatchFor, 1, null);
+        }
+
+        /** ent-marketer: a read of the Marketing workspace. The world's marketing rows are made first, so the ids in the path name real rows. */
+        static Case mktRead() {
+            return new Case(null, 200, null, false, null, null, 1, World::seedMkt);
+        }
+
+        /**
+         * ent-marketer: a write of the Marketing workspace, made by the org's owner (who holds every marketing permission at ORG scope). The marketing rows are made
+         * first ({@link World#seedMkt}), then {@code prepare} puts them in the state the route needs. {@code action} is null for a write that is documented as writing no audit row.
+         */
+        static Case mkt(int status, String action, java.util.function.Function<World, String> bodyFor, java.util.function.Consumer<World> prepare) {
+            return new Case(null, status, action, false, bodyFor, null, 1, w -> {
+                w.seedMkt();
+                if (prepare != null) prepare.accept(w);
+            });
         }
 
         /** X4.3/X4.4: a write that writes {@code auditRows} audit rows (the action's own plus a bulk summary), the newest being {@code action}, after {@code prepare} put the world in the state it needs. */
@@ -392,9 +413,10 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/resumes/consultants", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/resumes/{resumeId}", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/resumes/{resumeId}/export", Case.write(null, 200, "RESUME_EXPORT")),
-        Map.entry("PUT /api/orgs/{orgId}/resumes/{resumeId}/primary", Case.write("{\"primary\":true}", 200, "RESUME_PRIMARY")),
+        // Only an APPROVED resume can be primary, and REOPEN of a resume that is still PENDING is a recorded no-op (nothing changed, so no audit row): both need an approved resume first.
+        Map.entry("PUT /api/orgs/{orgId}/resumes/{resumeId}/primary", Case.people(200, "RESUME_PRIMARY", 1, w -> "{\"primary\":true}", null, World::approveResume)),
         Map.entry("PUT /api/orgs/{orgId}/resumes/{resumeId}/visibility", Case.write("{\"visibility\":\"PUBLIC\"}", 200, "RESUME_VISIBILITY")),
-        Map.entry("POST /api/orgs/{orgId}/resumes/{resumeId}/decision", Case.write("{\"decision\":\"REOPEN\"}", 200, "RESUME_REOPEN")),
+        Map.entry("POST /api/orgs/{orgId}/resumes/{resumeId}/decision", Case.people(200, "RESUME_REOPEN", 1, w -> "{\"decision\":\"REOPEN\"}", null, World::approveResume)),
         Map.entry("POST /api/orgs/{orgId}/resumes", Case.versioned(201, "RESUME_CREATE", w -> "{\"consultantId\":" + w.consultantProfileId + ",\"name\":\"Isolation resume\"}", w -> null)),
         Map.entry("POST /api/orgs/{orgId}/resumes/bulk", Case.people(200, "RESUME_BULK", 2, w -> "{\"ids\":[" + w.resumeId + "],\"action\":\"VISIBILITY\",\"visibility\":\"PUBLIC\"}", null, null)),
         // Talent board "Jobs": reads, create (Idempotency-Key), edit (If-Match), bulk status (a JOB_STATUS row per job + the JOB_BULK summary), assign and dismiss a match
@@ -471,12 +493,109 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/redeploy", Case.versioned(200, "PLACEMENT_REDEPLOY", w -> "{}", w -> null)),
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/redeploy/cancel", Case.people(200, "PLACEMENT_REDEPLOY_CANCEL", 1, w -> null, w -> null, World::putPlacementInPool)),
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/notes", Case.versioned(201, "PLACEMENT_NOTE", w -> "{\"body\":\"Hijacked note\"}", w -> null)),
-        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/undo", Case.people(200, "PLACEMENT_UNDO", 1, w -> "{\"eventId\":" + w.plUndoEventId + "}", w -> null, World::preparePlacementUndo))
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/undo", Case.people(200, "PLACEMENT_UNDO", 1, w -> "{\"eventId\":" + w.plUndoEventId + "}", w -> null, World::preparePlacementUndo)),
+        // Enterprise V2 job data audit (docs/enterprise-v2/60 section 11): read only, needs audit.view at ORG scope (the owner has it, every role without it gets the generic 404).
+        Map.entry("GET /api/orgs/{orgId}/audit/job-data", Case.read()),
+        // Enterprise V2 Marketing workspace (mkt/**, ent-marketer). The legitimate caller is the owner (every marketing permission at ORG scope) in a world whose marketing module is on and whose
+        // marketing rows were made through the real API (World.seedMkt). Reads write no audit row; every write records its own MARKETER_* row; the writes below that are documented as audit-free
+        // are personal working state of the caller (a saved view, a saved search's "seen" marker, a prep checklist tick), like the dashboard alert dismissal above.
+        Map.entry("GET /api/orgs/{orgId}/mkt/home", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/activity", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/activity", Case.mkt(200, "MARKETER_ACTIVITY_CREATE", w -> "{\"consultantId\":" + w.consultantProfileId + ",\"type\":\"RESUME_UPDATED\",\"title\":\"Hijack activity\"}", null)),
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/activity/{id}/status", Case.mkt(200, "MARKETER_ACTIVITY_STATUS", w -> "{\"status\":\"CANCELLED\"}", null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/applications", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/applications/{applicationId}/notes", Case.mkt(200, "MKT_APPLICATION_NOTE", w -> "{\"body\":\"Hijacked note\"}", null)),
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/applications/{applicationId}/next-action", Case.mkt(200, "MKT_APPLICATION_NEXT_ACTION", w -> "{\"nextAction\":\"Hijacked next action\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/applications/{applicationId}/follow-up-done", Case.mkt(200, "MKT_APPLICATION_FOLLOWUP_DONE", w -> null, World::mktApplicationNextAction)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/applications/{applicationId}/stage", Case.mkt(200, "MKT_APPLICATION_STAGE_RECORDED", w -> "{\"stage\":\"interviewing\"}", null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/followups", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/followups/list", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/followups", Case.mkt(200, "MARKETER_FOLLOWUP_CREATE", w -> "{\"consultantId\":" + w.consultantProfileId + ",\"title\":\"Hijack follow-up\",\"dueAt\":\"" + Instant.now().plusSeconds(2 * 86400L) + "\"}", null)),
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/followups/{id}/status", Case.mkt(200, "MARKETER_FOLLOWUP_STATUS", w -> "{\"status\":\"IN_PROGRESS\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/followups/{id}/complete", Case.mkt(200, "MARKETER_FOLLOWUP_STATUS", w -> null, null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/followups/{id}/call", Case.mkt(200, "MARKETER_FOLLOWUP_CALL", w -> "{\"note\":\"Called the recruiter\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/followups/{id}/reminder", Case.mkt(200, "MARKETER_FOLLOWUP_REMINDER", w -> "{\"note\":\"Nudge\"}", null)),
+        // The browser extension's "save for consultant": needs an Idempotency-Key (request()). The world's job is already known by its ATS identity, so the call assigns the consultant to it.
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/from-extension", Case.mkt(200, "MARKETER_JOB_CAPTURE", w -> "{\"jobUrl\":\"https://boards.example.com/jobs/" + w.p + "-1\",\"title\":\"Hijack capture\",\"company\":\"Hijack Co\",\"atsPlatform\":\"greenhouse\",\"externalJobId\":\"" + w.p + "1\",\"consultantIds\":[" + w.consultantProfileId + "],\"keyInfo\":\"Lead with the integration work.\",\"extensionVersion\":\"1.0.0\"}", World::approveResume)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/interviews", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/interviews/{interviewId}/prep", Case.mktRead()),
+        // Ticking a prep item is the checklist's own working state (the item row carries who and when); it writes no audit row by design.
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/interviews/{interviewId}/prep/{itemId}", Case.mkt(200, null, w -> "{\"done\":true}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/interviews/{interviewId}/reschedule", Case.mkt(200, "MARKETER_INTERVIEW_RESCHEDULE", w -> "{\"proposedAt\":\"" + Instant.now().plusSeconds(20 * 86400L) + "\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/interviews/{interviewId}/confirm", Case.mkt(200, "MARKETER_INTERVIEW_CONFIRM", w -> null, null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/interviews/{interviewId}/feedback", Case.mkt(200, "MARKETER_INTERVIEW_FEEDBACK", w -> "{\"outcome\":\"PASSED\",\"note\":\"Went well\"}", w -> w.interviewState("COMPLETED"))),
+        Map.entry("POST /api/orgs/{orgId}/mkt/interviews/{interviewId}/remind", Case.mkt(200, "MARKETER_INTERVIEW_REMIND", w -> null, null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/jobs", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/jobs/{jobId}", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/jobs/{jobId}/candidates", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/jobs/{jobId}/assign", Case.mkt(200, "MKT_JOB_ASSIGN", w -> "{\"consultantId\":" + w.consultantProfileId + "}", World::approveResume)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/jobs/saved-searches", Case.mkt(201, "MKT_SAVED_SEARCH_CREATE", w -> "{\"name\":\"Hijack search\",\"criteria\":{\"q\":\"python\"}}", null)),
+        // "Seen" only moves the caller's own last-looked-at marker on the caller's own search; it writes no audit row by design.
+        Map.entry("POST /api/orgs/{orgId}/mkt/jobs/saved-searches/{searchId}/seen", Case.mkt(204, null, w -> null, null)),
+        Map.entry("DELETE /api/orgs/{orgId}/mkt/jobs/saved-searches/{searchId}", Case.mkt(204, "MKT_SAVED_SEARCH_DELETE", w -> null, null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/matches", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/matches/compare", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/matches/{id}", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/matches/{id}/assign", Case.mkt(200, "MKT_MATCH_ASSIGN", w -> null, World::approveResume)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/matches/{id}/dismiss", Case.mkt(200, "MKT_MATCH_DISMISS", w -> null, null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/opportunities", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/opportunities/export", Case.mkt(200, "EXPORT", w -> null, null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/opportunities/options", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/opportunities/{id}", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities", Case.mkt(200, "MARKETER_OPPORTUNITY_CREATE", w -> "{\"consultantId\":" + w.consultantProfileId + ",\"requirementId\":" + w.jobId + "}", World::mktDismissMatch)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/assign", Case.mkt(200, "MARKETER_OPPORTUNITY_ASSIGN", w -> null, World::approveResume)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/bulk-assign", Case.mkt(200, "MARKETER_OPPORTUNITY_BULK_ASSIGN", w -> "{\"ids\":[" + w.mktMatchId + "]}", World::approveResume)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/notify", Case.mkt(200, "MARKETER_OPPORTUNITY_NOTIFY", w -> null, World::mktAwaitingInterest)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/request", Case.mkt(200, "MARKETER_OPPORTUNITY_REQUEST", w -> "{\"kind\":\"RESUME\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/answer-info", Case.mkt(200, "MARKETER_OPPORTUNITY_INFO_ANSWER", w -> "{\"answer\":\"Yes, a W2 option is available.\"}", World::mktNeedsInfo)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/review", Case.mkt(200, "MARKETER_OPPORTUNITY_REVIEW", w -> null, null)),
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/opportunities/{id}/next-action", Case.mkt(200, "MARKETER_OPPORTUNITY_NEXT_ACTION", w -> "{\"nextActionAt\":\"" + Instant.now().plusSeconds(5 * 86400L) + "\"}", null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/performance", Case.mktRead()),
+        Map.entry("PUT /api/orgs/{orgId}/mkt/performance/goals", Case.mkt(200, "MARKETER_GOALS_UPDATE", w -> "{\"submissions\":12}", null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/resumes", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/resumes/{id}", Case.mktRead()),
+        // No file bytes are stored for an org resume: a legitimate download is a 404 with its own code (NO_FILE_STORED), after the scope check; every hostile caller gets the generic one.
+        Map.entry("GET /api/orgs/{orgId}/mkt/resumes/{id}/download", Case.mkt(404, null, w -> null, null)),
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/resumes/{id}", Case.mkt(200, "MARKETER_RESUME_EDIT", w -> "{\"title\":\"Hijacked resume title\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/resumes/{id}/approval-request", Case.mkt(200, "MARKETER_APPROVAL_REQUEST", w -> null, World::approveResume)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/resumes/{id}/needs-update", Case.mkt(200, "MARKETER_RESUME_FLAG", w -> "{\"note\":\"Refresh the skills\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/resumes/{id}/approve", Case.mkt(200, "RESUME_APPROVE", w -> null, null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/streams", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/streams", Case.mkt(201, "MARKETER_STREAM_CREATE", w -> "{\"sourceLabel\":\"Hijack stream\"}", null)),
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/streams/{streamId}", Case.mkt(200, "MARKETER_STREAM_UPDATE", w -> "{\"subtitle\":\"Hijacked\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/streams/{streamId}/pause", Case.mkt(200, "MARKETER_STREAM_PAUSE", w -> null, null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/streams/{streamId}/resume", Case.mkt(200, "MARKETER_STREAM_RESUME", w -> null, null)),
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/streams/rules/{ruleKey}", Case.mkt(200, "MARKETER_STREAM_RULE", w -> "{\"enabled\":true,\"value\":\"java\"}", null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/submissions", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/submissions/options", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/submissions/{id}", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/submissions", Case.mkt(201, "MARKETER_SUBMISSION_CREATE", w -> "{\"consultantId\":" + w.consultantProfileId + ",\"requirementId\":" + w.jobId + ",\"resumeId\":" + w.resumeId + "}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/submissions/{id}/request-approval", Case.mkt(200, "MARKETER_SUBMISSION_REQUEST_APPROVAL", w -> null, null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/submissions/{id}/approval", Case.mkt(200, "MARKETER_SUBMISSION_APPROVAL", w -> "{\"decision\":\"APPROVED\"}", World::mktSubmissionAwaiting)),
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/submissions/{id}/status", Case.mkt(200, "MARKETER_SUBMISSION_STATUS", w -> "{\"status\":\"SUBMITTED\"}", World::mktSubmissionApproved)),
+        Map.entry("DELETE /api/orgs/{orgId}/mkt/submissions/{id}", Case.mkt(204, "MARKETER_SUBMISSION_WITHDRAW", w -> null, null)),
+        // Saved views are the caller's own convenience (a name and a filter); they write no audit row by design.
+        Map.entry("POST /api/orgs/{orgId}/mkt/submissions/views", Case.mkt(201, null, w -> "{\"name\":\"Hijack view\",\"q\":\"python\"}", null)),
+        Map.entry("DELETE /api/orgs/{orgId}/mkt/submissions/views/{viewId}", Case.mkt(204, null, w -> null, null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/talent", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/talent/{consultantId}", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/talent/views", Case.mkt(201, null, w -> "{\"name\":\"Hijack view\",\"q\":\"python\"}", null)),
+        Map.entry("DELETE /api/orgs/{orgId}/mkt/talent/views/{viewId}", Case.mkt(204, null, w -> null, null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/tasks", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/tasks/calendar", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/tasks/{id}/assignees", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/tasks", Case.mkt(200, "MARKETER_TASK_CREATE", w -> "{\"title\":\"Hijack task\",\"dueAt\":\"" + Instant.now().plusSeconds(2 * 86400L) + "\"}", null)),
+        Map.entry("PATCH /api/orgs/{orgId}/mkt/tasks/{id}", Case.mkt(200, "MARKETER_TASK_UPDATE", w -> "{\"title\":\"Hijacked task\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/tasks/{id}/complete", Case.mkt(200, "MARKETER_TASK_COMPLETE", w -> null, null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/tasks/{id}/reopen", Case.mkt(200, "MARKETER_TASK_REOPEN", w -> null, World::mktCompleteTask)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/tasks/{id}/reassign", Case.mkt(200, "MARKETER_TASK_REASSIGN", w -> "{\"ownerMemberId\":" + w.member.getId() + "}", World::mktAssigned)), // a task about no consultant can go to any marketer that holds an assignment
+        Map.entry("DELETE /api/orgs/{orgId}/mkt/tasks/{id}", Case.mkt(200, "MARKETER_TASK_DELETE", w -> null, null))
     ));
 
     // ---- wiring ---------------------------------------------------------------------------------------------------
 
     @Autowired private MockMvc mockMvc;
+    @Autowired private ObjectMapper om;
     @Autowired @Qualifier("requestMappingHandlerMapping") private RequestMappingHandlerMapping mapping;
     @Autowired private EntityManager em;
     @Autowired private UserRepository users;
@@ -509,6 +628,9 @@ class OrgIsolationIT {
     void enterpriseFlagsOn() {
         settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_ENTERPRISE, "{\"on\":true}", FLAG_WRITER, Instant.now()));
         settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_ROLES, "{\"on\":true}", FLAG_WRITER, Instant.now()));
+        // The Marketing workspace (mkt/**) answers the generic 404 to EVERYONE, the owner included, while the marketing module is off for the org: switched on here so that the
+        // hostile callers below are refused by the tenant and permission checks themselves, and the legitimate calls really run the services.
+        settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_MARKETING, "{\"on\":true}", FLAG_WRITER, Instant.now()));
         settingsCache.invalidate();
     }
 
@@ -535,6 +657,7 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository mktConsultants;
     @Autowired private com.dossier.api.repository.ent.talent.MarketerCapacityRepository mktCapacities;
     @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentRepository mktAssignments;
+    @Autowired private com.dossier.api.repository.ent.mkt.MktOpportunityRepository mktOpportunities;
 
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantSkillRepository consultantSkills;
     @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes;
@@ -1015,6 +1138,140 @@ class OrgIsolationIT {
             mktAssignments.saveAndFlush(a);
         }
 
+        // ---- ent-marketer: the Marketing workspace (mkt/**). Its rows are made through the real API as the owner (who holds every marketing permission at ORG scope),
+        // so every id in a path names a row the service itself wrote. They are made on demand (seedMkt), not for every world: only the mkt routes and the sweeps that need them.
+        boolean mktSeeded;
+        Long mktReqId = 1L, mktTaskId = 1L, mktFollowupId = 1L, mktActivityId = 1L, mktMatchId = 1L, mktSubmissionId = 1L, mktStreamId = 1L, mktSearchId = 1L;
+        Long mktSubmissionViewId = 1L, mktTalentViewId = 1L, mktPrepItemId = 1L;
+
+        /** One call of the real API as this world's owner; any 2xx is the fixture working. */
+        JsonNode mktApi(HttpMethod method, String path, String body) {
+            try {
+                MockHttpServletRequestBuilder req = MockMvcRequestBuilders.request(method, "/api/orgs/" + org.getId() + path).contentType(MediaType.APPLICATION_JSON).with(user(p + "-owner"));
+                if (body != null) req.content(body);
+                MvcResult r = mockMvc.perform(req).andReturn();
+                String out = r.getResponse().getContentAsString();
+                assertThat(r.getResponse().getStatus()).as(method + " " + path + " (marketing fixture) -> " + out).isBetween(200, 299);
+                return out.isEmpty() ? null : om.readTree(out);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        private long mktIdOf(JsonNode n) {
+            String id = n.path("id").asText();
+            return Long.parseLong(id.substring(id.indexOf(':') + 1)); // the activity feed names a manual line MANUAL:<id>
+        }
+
+        void seedMkt() {
+            if (mktSeeded) return;
+            mktSeeded = true;
+            Long cp = consultantProfileId; // the consultant who owns this world's org resume
+            String due = Instant.now().plusSeconds(3 * 86400L).toString();
+            com.dossier.api.domain.ent.talent.ClientRequirement jr = new com.dossier.api.domain.ent.talent.ClientRequirement();
+            jr.setOrgId(org.getId());
+            jr.setClientId(jobClientId);
+            jr.setTitle(p + " marketing job");
+            mktReqId = clientRequirements.saveAndFlush(jr).getId();
+            // The pair (the world's OPEN job, this consultant): a SUGGESTED match plus its opportunity overlay row. Both are made here, in this transaction, because the
+            // assignment service inserts a missing match or overlay in a transaction of its own (REQUIRES_NEW), whose foreign keys would wait for this test's uncommitted rows.
+            com.dossier.api.domain.ent.talent.RequirementMatch rm = new com.dossier.api.domain.ent.talent.RequirementMatch();
+            rm.setOrgId(org.getId());
+            rm.setRequirementId(jobId);
+            rm.setConsultantId(cp);
+            rm.setScore(77);
+            rm.setStatus("SUGGESTED");
+            rm.setReason("Skills align with this role.");
+            mktMatchId = requirementMatches.saveAndFlush(rm).getId(); // a match is also the opportunity of /mkt/opportunities/{id}
+            com.dossier.api.domain.ent.mkt.MktOpportunity opp = new com.dossier.api.domain.ent.mkt.MktOpportunity();
+            opp.setOrgId(org.getId());
+            opp.setMatchId(mktMatchId);
+            opp.setOwnerMemberId(owner.getId());
+            mktOpportunities.save(opp);
+            em.flush();
+            // The job is known to the extension capture by its ATS identity (so "save for consultant" finds it instead of inserting one in a transaction of its own).
+            em.createQuery("update ClientRequirement r set r.atsPlatform = 'greenhouse', r.externalJobId = :x where r.orgId = :o and r.id = :id").setParameter("x", p + "1").setParameter("o", org.getId()).setParameter("id", jobId).executeUpdate();
+            em.flush();
+            mktTaskId = mktApi(HttpMethod.POST, "/mkt/tasks", "{\"title\":\"Isolation task\",\"dueAt\":\"" + due + "\"}").path("item").path("id").asLong(); // about no consultant, so any marketer may be handed it (reassign)
+            mktFollowupId = mktApi(HttpMethod.POST, "/mkt/followups", "{\"consultantId\":" + cp + ",\"title\":\"Isolation follow-up\",\"dueAt\":\"" + due + "\"}").path("item").path("id").asLong();
+            mktActivityId = mktIdOf(mktApi(HttpMethod.POST, "/mkt/activity", "{\"consultantId\":" + cp + ",\"type\":\"RESUME_UPDATED\",\"title\":\"Isolation activity\"}").path("item"));
+            mktSubmissionId = mktApi(HttpMethod.POST, "/mkt/submissions", "{\"consultantId\":" + cp + ",\"requirementId\":" + mktReqId + ",\"resumeId\":" + resumeId + "}").path("id").asLong();
+            mktStreamId = mktApi(HttpMethod.POST, "/mkt/streams", "{\"sourceLabel\":\"Isolation stream\"}").path("id").asLong();
+            mktSearchId = mktApi(HttpMethod.POST, "/mkt/jobs/saved-searches", "{\"name\":\"Isolation search\",\"criteria\":{\"q\":\"java\"}}").path("id").asLong();
+            mktSubmissionViewId = mktApi(HttpMethod.POST, "/mkt/submissions/views", "{\"name\":\"Isolation view\",\"q\":\"java\"}").path("id").asLong();
+            mktTalentViewId = mktApi(HttpMethod.POST, "/mkt/talent/views", "{\"name\":\"Isolation view\",\"q\":\"java\"}").path("id").asLong();
+            mktPrepItemId = mktApi(HttpMethod.GET, "/mkt/interviews/" + interviewId + "/prep", null).path("items").path(0).path("id").asLong();
+            em.flush();
+        }
+
+        /** The world's org resume is approved (what assigning its consultant to a job, making it primary and re-opening a decision all require; a new resume starts PENDING). */
+        void approveResume() {
+            em.createQuery("update OrgResume r set r.approvalStatus = 'APPROVED', r.approvedAt = :now where r.orgId = :o and r.id = :id").setParameter("now", Instant.now()).setParameter("o", org.getId()).setParameter("id", resumeId).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        /** The opportunity is assigned (the marketer asked the consultant for their interest). */
+        void mktAssignOpportunity() {
+            approveResume();
+            mktApi(HttpMethod.POST, "/mkt/opportunities/" + mktMatchId + "/assign", null);
+        }
+
+        /** The pair was dismissed once (adding the opportunity again re-opens it, with no insert). */
+        void mktDismissMatch() {
+            em.createQuery("update RequirementMatch m set m.status = 'DISMISSED' where m.orgId = :o and m.id = :id").setParameter("o", org.getId()).setParameter("id", mktMatchId).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        /** An assigned opportunity the consultant has not been asked about for more than a day (what "notify" finds). */
+        void mktAwaitingInterest() {
+            mktAssignOpportunity();
+            // "Notify" walks every assigned match of the organization, and gives each the opportunity row it lacks in a transaction of its own (REQUIRES_NEW), which would
+            // wait for this test's uncommitted rows: every match of the world gets its overlay row here, as production data has.
+            for (com.dossier.api.domain.ent.talent.RequirementMatch m : requirementMatches.findByOrgId(org.getId())) {
+                if (mktOpportunities.findByOrgIdAndMatchId(org.getId(), m.getId()).isPresent()) continue;
+                com.dossier.api.domain.ent.mkt.MktOpportunity o = new com.dossier.api.domain.ent.mkt.MktOpportunity();
+                o.setOrgId(org.getId());
+                o.setMatchId(m.getId());
+                o.setOwnerMemberId(owner.getId());
+                mktOpportunities.save(o);
+            }
+            em.createQuery("update MktOpportunity o set o.interestRequestedAt = null where o.orgId = :o").setParameter("o", org.getId()).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        /** An assigned opportunity whose consultant asked a question and waits for the answer. */
+        void mktNeedsInfo() {
+            mktAssignOpportunity();
+            em.createQuery("update MktOpportunity o set o.state = 'NEEDS_INFO', o.infoRequest = 'Is a W2 option available?' where o.orgId = :o").setParameter("o", org.getId()).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        void mktCompleteTask() {
+            mktApi(HttpMethod.POST, "/mkt/tasks/" + mktTaskId + "/complete", null);
+        }
+
+        /** The package waits for its approval (DRAFT to AWAITING_APPROVAL). */
+        void mktSubmissionAwaiting() {
+            mktApi(HttpMethod.POST, "/mkt/submissions/" + mktSubmissionId + "/request-approval", null);
+        }
+
+        /** The package is approved (what recording it as submitted requires). */
+        void mktSubmissionApproved() {
+            mktSubmissionAwaiting();
+            mktApi(HttpMethod.POST, "/mkt/submissions/" + mktSubmissionId + "/approval", "{\"decision\":\"APPROVED\"}");
+        }
+
+        /** The application has a next action to mark as done. */
+        void mktApplicationNextAction() {
+            em.createQuery("update TalentApplication a set a.nextAction = 'Call the recruiter' where a.orgId = :o and a.id = :id").setParameter("o", org.getId()).setParameter("id", appTalent.applicationId()).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
         private Long interview(com.dossier.api.domain.ent.talent.TalentApplication app, String status, Instant at) {
             com.dossier.api.domain.ent.talent.TalentInterview iv = new com.dossier.api.domain.ent.talent.TalentInterview();
             iv.setOrgId(org.getId());
@@ -1119,6 +1376,20 @@ class OrgIsolationIT {
             ids.put("interviewId", String.valueOf(interviewId));
             ids.put("placementId", String.valueOf(plTalent.placementId()));
             ids.put("extensionId", String.valueOf(plTalent.extensionId()));
+            // ent-marketer: the Marketing workspace names its rows by variables that mean other rows on other pages, so uri() renames them by route prefix.
+            ids.put("mktTaskId", String.valueOf(mktTaskId));
+            ids.put("mktFollowupId", String.valueOf(mktFollowupId));
+            ids.put("mktActivityId", String.valueOf(mktActivityId));
+            ids.put("mktMatchId", String.valueOf(mktMatchId)); // {id} of mkt/matches and mkt/opportunities: the match is the opportunity
+            ids.put("mktSubmissionId", String.valueOf(mktSubmissionId));
+            ids.put("mktSubmissionViewId", String.valueOf(mktSubmissionViewId));
+            ids.put("mktTalentViewId", String.valueOf(mktTalentViewId));
+            ids.put("mktInterviewId", String.valueOf(interviewId)); // {interviewId} of mkt/interviews
+            ids.put("mktPrepItemId", String.valueOf(mktPrepItemId));
+            ids.put("mktResumeId", String.valueOf(resumeId)); // {id} of mkt/resumes
+            ids.put("streamId", String.valueOf(mktStreamId));
+            ids.put("searchId", String.valueOf(mktSearchId));
+            ids.put("ruleKey", "DEFAULT_KEYWORDS"); // a fixed word of the stream rules, not a row
             return ids;
         }
 
@@ -1158,6 +1429,17 @@ class OrgIsolationIT {
     private static String uri(Route route, Map<String, String> ids) {
         // The same variable name names different rows on different pages: the route prefix decides which fixture row a route means.
         String pattern = route.pattern()
+            .replace("/mkt/interviews/{interviewId}", "/mkt/interviews/{mktInterviewId}") // before the generic interviews rename below
+            .replace("/prep/{itemId}", "/prep/{mktPrepItemId}")
+            .replace("/mkt/activity/{id}", "/mkt/activity/{mktActivityId}")
+            .replace("/mkt/followups/{id}", "/mkt/followups/{mktFollowupId}")
+            .replace("/mkt/matches/{id}", "/mkt/matches/{mktMatchId}")
+            .replace("/mkt/opportunities/{id}", "/mkt/opportunities/{mktMatchId}")
+            .replace("/mkt/resumes/{id}", "/mkt/resumes/{mktResumeId}")
+            .replace("/mkt/submissions/views/{viewId}", "/mkt/submissions/views/{mktSubmissionViewId}")
+            .replace("/mkt/submissions/{id}", "/mkt/submissions/{mktSubmissionId}")
+            .replace("/mkt/talent/views/{viewId}", "/mkt/talent/views/{mktTalentViewId}")
+            .replace("/mkt/tasks/{id}", "/mkt/tasks/{mktTaskId}")
             .replace("/members/{memberId}/resend", "/members/{pendingMemberId}/resend")
             .replace("/opportunities/{matchId}", "/opportunities/{opportunityMatchId}")
             .replace("/submissions/{id}", "/submissions/{submissionId}")
@@ -1169,6 +1451,7 @@ class OrgIsolationIT {
         if (pattern.contains("/me-workspace/")) {
             pattern = pattern.replace("{matchId}", "{cwsMatchId}").replace("{resumeId}", "{cwsResumeId}").replace("{requirementId}", "{cwsRequirementId}").replace("{applicationId}", "{cwsApplicationId}").replace("{interviewId}", "{cwsInterviewId}");
         }
+        if (route.pattern().endsWith("/mkt/matches/compare")) pattern += "?a={mktMatchId}&b={matchId}"; // two different matches (the second is the jobs page's), both required query parameters
         Matcher m = VAR.matcher(pattern);
         StringBuilder out = new StringBuilder();
         while (m.find()) {
@@ -1190,7 +1473,7 @@ class OrgIsolationIT {
         if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members") || route.key().equals("POST /api/orgs/{orgId}/resumes") || route.key().equals("POST /api/orgs/{orgId}/resumes/bulk")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {
@@ -1246,11 +1529,29 @@ class OrgIsolationIT {
         s.append("clients:").append(jobClients.findByOrgId(w.org.getId()).stream().map(c -> c.getId() + "|" + c.getName() + "|" + c.getAbout() + "|" + c.getStatus() + "|" + c.getUpdatedAt()).toList()).append('\n');
         s.append("clientContacts:").append(clientContactRows.findByOrgId(w.org.getId()).stream().map(c -> c.getId() + "|" + c.getName() + "|" + c.getStatus()).toList()).append('\n');
         s.append("clientNotes:").append(clientNoteRows.countByOrgId(w.org.getId())).append('\n');
-        s.append("jobMatches:").append(jobMatches.findByOrgId(w.org.getId()).stream().map(m -> m.getId() + "|" + m.getStatus() + "|" + m.getAssignedAt()).toList()).append('\n');
+        s.append("jobMatches:").append(jobMatches.findByOrgId(w.org.getId()).stream().sorted(java.util.Comparator.comparing(com.dossier.api.domain.ent.talent.RequirementMatch::getId)).map(m -> m.getId() + "|" + m.getStatus() + "|" + m.getAssignedAt()).toList()).append('\n');
         s.append("audit:").append(audit.countByOrgId(w.org.getId())).append('\n');
         s.append("events:").append(shareEvents.countByOrgId(w.org.getId())).append('\n');
         s.append(com.dossier.api.web.rest.ent.ApplicationItSupport.fingerprint(em, w.org.getId()));
         s.append(com.dossier.api.web.rest.ent.PlacementItSupport.fingerprint(em, w.org.getId()));
+        s.append(mktFingerprint(w.org.getId()));
+        return s.toString();
+    }
+
+    /** Every table of the Marketing workspace (plus the org resumes it edits), row by row and column by column: any change by a refused caller shows. */
+    private static final List<String> MKT_TABLES = List.of(
+        "mkt_activity", "mkt_benchmark", "mkt_followup", "mkt_followup_event", "mkt_goal", "mkt_interview_event", "mkt_interview_feedback", "mkt_interview_meta",
+        "mkt_interview_prep_item", "mkt_job_meta", "mkt_job_stream", "mkt_opportunity", "mkt_opportunity_event", "mkt_resume_event", "mkt_saved_search", "mkt_saved_view",
+        "mkt_stream_alert", "mkt_stream_rule", "mkt_stream_sync_log", "mkt_submission", "mkt_submission_event", "mkt_submission_view", "mkt_task", "mkt_task_event",
+        "pipeline_application_link", "org_resume"
+    );
+
+    private String mktFingerprint(Long orgId) {
+        StringBuilder s = new StringBuilder();
+        for (String table : MKT_TABLES) {
+            List<?> rows = em.createNativeQuery("select * from " + table + " where org_id = ?1 order by 1").setParameter(1, orgId).getResultList();
+            s.append(table).append(':').append(rows.stream().map(r -> r instanceof Object[] a ? Arrays.deepToString(a) : String.valueOf(r)).toList()).append('\n');
+        }
         return s.toString();
     }
 
@@ -1288,6 +1589,7 @@ class OrgIsolationIT {
         World a = new World("alpha", true);
         World b = new World("bravo", false);
         fx.user("loner"); // signed in, belongs to no org
+        a.seedMkt(); // the Marketing workspace rows the mkt/** ids name
 
         String before = snapshot(a);
         int calls = 0;
@@ -1321,6 +1623,7 @@ class OrgIsolationIT {
         fx = new OrgFixtures(users, orgs, members);
         World a = new World("alpha", true);
         World b = new World("bravo", false);
+        a.seedMkt();
 
         String beforeA = snapshot(a);
         String beforeB = snapshot(b);
@@ -1331,7 +1634,7 @@ class OrgIsolationIT {
             if (ids.equals(b.ids())) continue; // the route has no row id: nothing of A's to name
             Matcher m = VAR.matcher(route.pattern());
             boolean hasRowId = false;
-            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("alertKey") && !m.group(1).equals("itemKey") && !m.group(1).equals("category"); // kind, alertKey, itemKey and category are fixed words, not rows
+            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("alertKey") && !m.group(1).equals("itemKey") && !m.group(1).equals("category") && !m.group(1).equals("ruleKey"); // kind, alertKey, itemKey, category and ruleKey are fixed words, not rows
             if (!hasRowId) continue;
             assertGeneric404(hostile(route, uri(route, ids), a, user("bravo-owner")), route.key() + " as B's owner with B's orgId and A's row id");
             variants++;
@@ -1345,6 +1648,7 @@ class OrgIsolationIT {
     void aMalformedOrUnknownOrgIdIsTheSame404AndNeverA500() throws Exception {
         fx = new OrgFixtures(users, orgs, members);
         World a = new World("alpha", true);
+        a.seedMkt();
         for (Route route : orgRoutes()) {
             for (String bad : List.of("0", "-1", "999999999", "abc", "0x1", "9999999999999999999999")) {
                 Map<String, String> ids = new LinkedHashMap<>(a.ids());
