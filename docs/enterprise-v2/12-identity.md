@@ -1,5 +1,17 @@
 # 12 — Identity: tenant-bound tokens, memberships, invite acceptance on a tenant host, session-per-host, how a personal user joins
 
+> **PARTLY SUPERSEDED (user decision 2026-10-14, O4).** Enterprise accounts and personal accounts are now
+> separate and never connected: the same email may have both, an enterprise account belongs to exactly one
+> organization, a tenant host authenticates that organization's enterprise accounts only and kiwiply.com
+> personal accounts only, and the extension connects one account at a time. Read
+> `19-separate-enterprise-accounts.md` first. Superseded below (do not implement as written): §1 "one global
+> identity / N memberships" (Identity, Membership, Workspace rows), §2 token rows that let a personal token reach a
+> tenant host or the extension carry `X-Kiwiply-Workspace`, §4 step 2 (credentials are looked up inside the tenant's
+> accounts only), §5 the "existing account" and `LOGIN_FOR_INVITE` branches (acceptance creates the enterprise
+> account), §6 "How an existing personal user joins" (removed), §7 shared profile across memberships, §8 session
+> list/sign-out-everywhere across worlds, §10 `PersonalSubscriptionUnchangedIT` scenario E and the invite-token login
+> case. The rest (tenant-bound `tid`/`hid` tokens, host resolution, session-per-host cookies, temp-password flow) stands.
+
 > Status: design (Session B), 2026-10-12. Implements ADR-004 (tid/hid), ADR-003 (host resolution),
 > ADR-018 (personal workspace untouched), E7 (invite email match, default (a)), E14 (Google per
 > host, default (a)). Build-ready for X1.5/X1.8 (already specified), X2.6, X2.7, X2.10, X2.14, X3.7.

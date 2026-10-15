@@ -88,7 +88,13 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   `TrackingProvider` seam (`job-autofill/src/lib/tracking.js`); canonical DTOs only.
 - **Client split:** web app = primary product (account, resumes, bio, board);
   extension = on-page agent (autofill, capture, submit-detect, save-a-job).
-- **One account, web-connect auth:** the extension has **no separate login or
+- **Two kinds of account, never connected (user decision 2026-10-14, O4; see
+  `docs/enterprise-v2/19-separate-enterprise-accounts.md`):** a *personal* account (kiwiply.com) and an
+  *enterprise* account per organization (its tenant host). The same email may have both; creating an
+  enterprise account never touches, attaches or reveals a personal one; resumes, inbox, billing and settings
+  never cross. The extension connects with **one account at a time**. Wherever this file or the enterprise docs
+  still say "one account" / "one account, two workspaces", this decision wins.
+- **Web-connect auth:** the extension has **no separate login or
   profile/resume management** — those live on kiwiply.com. Sign-in is a single web
   sign-in; the web `/connect` page mints a separate extension token pair
   (`POST /api/extension/session` ← `web /api/extension/token`) and hands it over via
@@ -189,15 +195,16 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
 - **Enterprise V2 (locked 2026-10-12; design `docs/enterprise-v2/`, roadmap area `ent`/`X`).**
   Supersedes the old org plan (prior art only). Shared schema + `org_id` + explicit `TenantContext`;
   the **API resolves the tenant from the host alone** (clients never name a tenant; unknown hosts 404);
-  host-only sessions with a `tid` claim; tenant pages live under `web/src/app/(tenant)/_t/**` behind a
+  host-only sessions with a `tid` claim (a tenant host authenticates that organization's enterprise accounts
+  only; kiwiply.com authenticates personal accounts only); tenant pages live under `web/src/app/(tenant)/_t/**` behind a
   `proxy.ts` rewrite; custom domains via on-demand TLS on the shared edge (**the user applies the
   Caddy change**, E5). Roles are data (N roles per member, five scopes, ceiling rule); one
   `EntitlementService.check` with the 11-step order is the only gate. **E1:** marketers prepare,
   request and record — **the consultant submits; Kiwiply never submits**, no auto-submit. **E2:** HR &
   Finance are **record-only** — no identity documents, no SSN/tax/bank/DOB, never move money, PII
   scanner on every path. **E3:** pricing per the Organizations bullet above; one Stripe subscription
-  per org, add now / remove at period end, backend quotes with expiry; personal subscriptions
-  untouched (never stacked). Everything admin-configured; additive Liquibase + per-phase flags.
+  per org, add now / remove at period end, backend quotes with expiry; an enterprise account never has
+  a personal plan, and personal subscriptions are untouched. Everything admin-configured; additive Liquibase + per-phase flags.
   Design by Fable, code by Sonnet; `CLAUDE.md` wins on conflict and conflicts go to
   `docs/enterprise-v2/08-decisions-for-user.md`.
 
