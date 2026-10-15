@@ -108,6 +108,8 @@ public class InboxPoller {
             service.purgeConnectedVia(userId, via);
             return false;
         }
+        // Decision O4 (S8): a SUSPENDED enterprise account is not read (the connection and its mail are kept; reinstating resumes the reading).
+        if (orgOfAccount != null && members.findMine(userId).stream().noneMatch(s -> orgOfAccount.equals(s.getOrgId()) && s.getStatus() == OrgMemberStatus.ACTIVE)) return false;
         String login = owner == null ? null : owner.getLogin();
         InboxEntitlement.Decision d = entitlement.decide(userId, login);
         if (d.allowed()) {

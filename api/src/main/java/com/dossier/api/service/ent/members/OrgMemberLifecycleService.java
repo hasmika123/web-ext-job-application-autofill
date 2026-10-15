@@ -39,6 +39,10 @@ public class OrgMemberLifecycleService {
     private final MemberGuards guards;
     private final OrgMemberEditService edit;
 
+    // Field-injected and optional (O4, doc 19 S8): absent in hand-wired tests, where a suspension only changes the seat.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private EnterpriseAccountLifecycle accounts;
+
     public OrgMemberLifecycleService(OrgMemberRepository members, MemberAccess access, MemberGuards guards, OrgMemberEditService edit) {
         this.members = members;
         this.access = access;
@@ -93,6 +97,7 @@ public class OrgMemberLifecycleService {
         details.put("to", OrgMemberStatus.SUSPENDED.name());
         details.put("reason", reason);
         edit.record(me, OrgAuditService.MEMBER_SUSPEND, seat, details, "HIGH");
+        if (accounts != null) accounts.disable(me.orgId(), seat, me.login(), me.role(), "SUSPEND"); // an enterprise account: sessions revoked at once
     }
 
     void reinstateSeat(OrgMembership me, OrgMember seat, String reason) {
@@ -105,6 +110,7 @@ public class OrgMemberLifecycleService {
         details.put("to", OrgMemberStatus.ACTIVE.name());
         details.put("reason", reason);
         edit.record(me, MemberAuditActions.MEMBER_REINSTATE, seat, details, "MEDIUM");
+        if (accounts != null) accounts.enable(me.orgId(), seat, me.login(), me.role());
     }
 
     static OrgException invalid(OrgMemberStatus from, OrgMemberStatus to, List<OrgMemberStatus> allowedFrom) {

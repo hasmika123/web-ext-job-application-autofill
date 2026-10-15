@@ -79,7 +79,7 @@ class ConnectCodeIT extends AbstractEnterpriseWorldIT {
             m.setStatus(com.dossier.api.domain.enumeration.OrgMemberStatus.SUSPENDED);
             members.save(m);
         });
-        assertThat(call("POST", ACME_HOST, access, "/api/extension/connect-code").getResponse().getStatus()).as("suspended seat").isEqualTo(404);
+        assertThat(call("POST", ACME_HOST, access, "/api/extension/connect-code").getResponse().getStatus()).as("suspended seat: since S8 the token itself is refused (EnterpriseSeatFilter), before the route answers").isEqualTo(401);
         assertThat(codes.count()).isZero();
     }
 

@@ -37,7 +37,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc, ObjectProvider<AccountScopes> accountScopes) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc, ObjectProvider<AccountScopes> accountScopes, ObjectProvider<com.dossier.api.service.ent.members.EnterpriseAccountLifecycle> enterpriseAccounts) throws Exception {
         http
             .cors(withDefaults())
             .csrf(csrf -> csrf.disable())
@@ -104,6 +104,8 @@ public class SecurityConfiguration {
             .addFilterAfter(new TenantTokenBindingFilter(accountScopes), BearerTokenAuthenticationFilter.class)
             // Decision O4: an enterprise account has no personal plan or personal inbox; those routes answer the generic 404 for its tokens.
             .addFilterAfter(new AccountKindRouteFilter(), BearerTokenAuthenticationFilter.class)
+            // Decision O4 (S8): an enterprise token works only while its person holds an ACTIVE seat (suspended / offboarded = refused at once).
+            .addFilterAfter(new EnterpriseSeatFilter(enterpriseAccounts), BearerTokenAuthenticationFilter.class)
             // Administrator-issued temporary password: the session can only change it (PASSWORD_CHANGE_REQUIRED everywhere else).
             .addFilterAfter(new PasswordChangeRequiredFilter(), BearerTokenAuthenticationFilter.class);
         return http.build();

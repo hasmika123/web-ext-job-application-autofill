@@ -20,6 +20,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * <ul>
  *   <li>personal-only routes: {@code /api/billing/**} (the personal Stripe plan) and {@code /api/profile/inbox/**} (the personal-plan inbox). An enterprise
  *       account has no personal plan; its inbox is {@code /api/orgs/{id}/me-workspace/inbox/**} and its billing is the organization's.</li>
+ *   <li>{@code DELETE /api/account} (self-service erasure): enterprise accounts are erased through the organization (phase S8).</li>
  *   <li>an extension token ({@code ext=1}) reaches only {@link ExtensionRoutes} (of its own organization); everything else is 404.</li>
  * </ul>
  *
@@ -35,7 +36,7 @@ public class AccountKindRouteFilter extends OncePerRequestFilter {
             return;
         }
         String path = pathOf(request);
-        boolean refused = isPersonalOnly(path);
+        boolean refused = isPersonalOnly(path) || isPersonalDelete(request.getMethod(), path);
         if (!refused && isExtensionToken(jwtAuth)) {
             refused = !ExtensionRoutes.allows(request.getMethod(), path, TenantTokenBinding.tenantOf(jwtAuth.getToken()));
         }
@@ -52,6 +53,14 @@ public class AccountKindRouteFilter extends OncePerRequestFilter {
     /** Whether the token is an extension token ({@code ext=1}). */
     public static boolean isExtensionToken(Authentication auth) {
         return auth instanceof JwtAuthenticationToken j && SecurityUtils.isExtension(j.getToken().getClaim(SecurityUtils.EXTENSION_CLAIM));
+    }
+
+    /**
+     * {@code DELETE /api/account} erases the signed-in account. An enterprise account is employer-managed: it is erased by the organization's
+     * offboarding retention (or an administrator's request), never by a self-service call, so the route is the generic 404 for its tokens (phase S8).
+     */
+    static boolean isPersonalDelete(String method, String path) {
+        return "DELETE".equalsIgnoreCase(method) && underneath(path, "/api/account") && (path.equals("/api/account") || path.equals("/api/account/delete"));
     }
 
     static boolean isPersonalOnly(String path) {

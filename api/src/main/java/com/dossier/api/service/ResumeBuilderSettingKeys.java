@@ -225,6 +225,8 @@ public final class ResumeBuilderSettingKeys {
     public static final String ORG_INVITE_EXPIRY_DAYS = "org.invite.expiryDays";
     public static final String ORG_TEMP_PASSWORD_EXPIRY_DAYS = "org.account.tempExpiryDays";
     public static final String ORG_ACCOUNT_CREATE_PER_HOUR = "org.account.createPerHour";
+    /** Decision O4 (doc 19 phase S8): days an offboarded person's enterprise account is kept (disabled, exportable) before it is erased. */
+    public static final String ORG_ACCOUNT_RETENTION_DAYS = "org.account.retentionDays";
     /** Re-sends of one invite in a rolling week. */
     public static final String ORG_INVITE_RESENDS_PER_WEEK = "org.invite.resendsPerWeek";
     /** Admins that may be invited to an organization that has not been activated yet. */
@@ -598,6 +600,7 @@ public final class ResumeBuilderSettingKeys {
         integer(k, ORG_INVITE_EXPIRY_DAYS, 14, 1, 90, "Days an emailed invite link works.");
         integer(k, ORG_TEMP_PASSWORD_EXPIRY_DAYS, 7, 1, 30, "Days an administrator-issued temporary sign-in code works before the person has to ask for a new one.");
         integer(k, ORG_ACCOUNT_CREATE_PER_HOUR, 30, 1, 500, "Accounts an organization may create directly for people (with a temporary sign-in code) per hour, and resets of such codes. Over it the call is refused with ORG_LIMIT_REACHED.");
+        integer(k, ORG_ACCOUNT_RETENTION_DAYS, 90, 1, 3650, "Days after a person is offboarded that their organization account is kept, disabled, with its data available for export. After that the account and its data are erased. A suspended person is not offboarded, so the clock does not run for them.");
         integer(k, ORG_INVITE_RESENDS_PER_WEEK, 3, 1, 20, "Re-sends of one invite per week.");
         integer(k, ORG_INVITE_DRAFT_ADMIN_CAP, 3, 1, 10, "Admins that may be invited before the organization is activated.");
         integer(k, ORG_JOIN_CODE_LENGTH, 8, 6, 8, "Characters in a join code.");

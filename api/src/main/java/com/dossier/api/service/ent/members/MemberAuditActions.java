@@ -22,6 +22,15 @@ public final class MemberAuditActions {
     public static final String MEMBER_BULK_SKIP = "MEMBER_BULK_SKIP";
     public static final String MEMBER_OFFBOARD_SCHEDULED = "MEMBER_OFFBOARD_SCHEDULED";
     public static final String MEMBER_OFFBOARD_CANCELLED = "MEMBER_OFFBOARD_CANCELLED";
+    /**
+     * Decision O4 (doc 19 phase S8), enterprise accounts only. The account of a suspended or offboarded person is disabled and its sessions revoked
+     * (HIGH); reinstating a suspended person enables it again (MEDIUM); an administrator exports an offboarded person's account within the retention
+     * window (HIGH); the account is erased, by an administrator or by the retention job (HIGH). The details hold the mode and counts, never the address.
+     */
+    public static final String ACCOUNT_DISABLED = "ACCOUNT_DISABLED";
+    public static final String ACCOUNT_ENABLED = "ACCOUNT_ENABLED";
+    public static final String ACCOUNT_EXPORTED = "ACCOUNT_EXPORTED";
+    public static final String ACCOUNT_ERASED = "ACCOUNT_ERASED";
 
     /** The actions that decide, on a seat's audit history, whether it was suspended at a given time. */
     public static final List<String> SUSPENSION_ACTIONS = List.of("MEMBER_SUSPEND", MEMBER_REINSTATE);

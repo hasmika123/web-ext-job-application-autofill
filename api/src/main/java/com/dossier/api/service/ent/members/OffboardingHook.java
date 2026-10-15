@@ -12,7 +12,8 @@ import org.springframework.core.Ordered;
  *
  * <pre>
  *   100 sessions      the person is signed out of this workspace (X2.7)
- *   200 assignments   consultants assigned to them need a new marketer; assignments they hold as a consultant end (X4.7)
+ *   150 account       an enterprise account is disabled and its tokens revoked (O4, S8)
+ *   200 assignments  consultants assigned to them need a new marketer; assignments they hold as a consultant end (X4.7)
  *   300 consent       sharing with the organization ends (DataShareService.endFor)
  *   400 resume links  org resume links are removed and audited (X7.3, ADR-009)
  *   500 licenses      the licence ends now, no proration, no refund (X5.4)
@@ -25,6 +26,8 @@ import org.springframework.core.Ordered;
 public interface OffboardingHook extends Ordered {
 
     int ORDER_SESSIONS = 100;
+    /** Decision O4 (doc 19 S8): the person's ENTERPRISE account is disabled and its refresh / extension tokens revoked. */
+    int ORDER_ACCOUNT = 150;
     int ORDER_ASSIGNMENTS = 200;
     int ORDER_CONSENT = 300;
     int ORDER_RESUME_LINKS = 400;

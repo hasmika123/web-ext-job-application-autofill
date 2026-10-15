@@ -44,7 +44,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  *
  * <p><b>What it does.</b> ACTIVE or SUSPENDED becomes REMOVED with {@code left_at} set; the person's role rows end (history kept); the ordered
  * {@link OffboardingHook} chain runs (sessions, assignments, consent, and whatever later stories register); the audit trail, the person's
- * account and everything they own personally (resumes, applications, their own profile) are untouched. A removed person is re-invited as a new
+ * account and everything they own personally (resumes, applications, their own profile) are untouched. <b>Exception (decision O4, S8):</b> when the account is an
+ * ENTERPRISE account of this organization it is disabled and its sessions revoked ({@link EnterpriseAccountOffboardingHook}), kept for
+ * {@code org.account.retentionDays}, then erased ({@link EnterpriseAccountRetention}). A removed person is re-invited as a new
  * seat later; the old row keeps the history and frees the email and the account slot (the database's generated unique keys only cover live seats).
  *
  * <p><b>When.</b> {@code effectiveAt} null or not in the future applies now. A future day schedules it: the seat stays as it is and one PENDING
@@ -88,6 +90,10 @@ public class OrgOffboardingService {
 
     @PersistenceContext
     private EntityManager em;
+
+    // Field-injected and optional (O4, doc 19 S8): absent in hand-wired tests, where the preview keeps the legacy "records kept" text.
+    @Autowired(required = false)
+    private EnterpriseAccountLifecycle accounts;
 
     @Autowired
     public OrgOffboardingService(
@@ -159,8 +165,16 @@ public class OrgOffboardingService {
         }
         List<String> roleNames = roleNames(me.orgId(), seat);
         String consent = dataShare.viewOf(me.orgId(), seat.getId()).map(v -> v.scope().name()).orElse("NONE");
+        List<String> kept = RECORDS_KEPT;
+        if (accounts != null && accounts.accountOf(me.orgId(), seat).isPresent()) {
+            // O4: the person's account is the organization's: disabled now, exportable, erased after the retention window (the hook lines give the date).
+            kept = List.of(
+                "The organization's audit trail", "Their organization account, disabled, with its data for " + accounts.retentionDays() + " days, then erased",
+                "Their seat row, ended, for history", "Their past roles, ended"
+            );
+        }
         return new MemberActionDTO.OffboardPreview(
-            seat.getId(), nameOf(seat), seat.getStatus().name(), blockers, hooks.preview(me.orgId(), seat.getId()), roleNames, consent, RECORDS_KEPT, LICENSE_NOTICE
+            seat.getId(), nameOf(seat), seat.getStatus().name(), blockers, hooks.preview(me.orgId(), seat.getId()), roleNames, consent, kept, LICENSE_NOTICE
         );
     }
 
