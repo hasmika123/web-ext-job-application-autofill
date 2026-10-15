@@ -164,6 +164,7 @@ public class ResumeBoardWriteService {
             return previous;
         }
         if (!"PENDING".equals(previous)) throw OrgException.coded(409, "NOT_PENDING", "This resume has already been decided", Map.of());
+        if (OrgResumeLinkService.requiresConsultantApproval(r)) throw OrgException.coded(409, "CONSULTANT_APPROVAL_REQUIRED", "Only the consultant can approve a resume made for them.", Map.of());
         if (java.util.Objects.equals(r.getOwnerMemberId(), me.memberId())) {
             throw OrgException.coded(422, "SELF_DECISION", "Someone other than the person who prepared this resume records its approval", Map.of());
         }

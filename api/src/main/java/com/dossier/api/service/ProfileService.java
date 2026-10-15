@@ -18,9 +18,11 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.dto.BioDTO;
 import com.dossier.api.service.dto.ResumeActorDTO;
+import com.dossier.api.service.ent.resumes.OrgResumeCap;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.mapper.BioMapper;
 import com.dossier.api.service.mapper.ResumeMapper;
+import com.dossier.api.service.resume.ResumeActAs;
 import com.dossier.api.service.resume.ResumeLifecycle;
 import com.dossier.api.service.resume.ResumePdfState;
 import com.dossier.api.service.resume.ResumeRenderHash;
@@ -92,6 +94,10 @@ public class ProfileService {
     private final ResumeDocVersionService resumeDocVersionService;
     private final ResumeLineageService resumeLineageService;
     private final StoredFileEraser storedFileEraser;
+
+    /** The organization license's resume cap, asked first when the request is for an organization workspace; absent in hand-wired unit tests (then the personal caps apply). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private OrgResumeCap orgResumeCap;
 
     public ProfileService(
         BioRepository bioRepository,
@@ -257,8 +263,8 @@ public class ProfileService {
         // Metadata (R3.9): a new resume is a master made and last written by the caller; whatever role or
         // audit login the client sent is ignored, and the org-sharing default comes from the settings seam.
         resume.setRole(ResumeRole.MASTER);
-        resume.setCreatedByLogin(user.getLogin());
-        resume.setUpdatedByLogin(user.getLogin());
+        resume.setCreatedByLogin(ResumeActAs.authorOr(user.getLogin()));
+        resume.setUpdatedByLogin(ResumeActAs.authorOr(user.getLogin()));
         resume.setShareWithOrg(settings.getBool(ResumeBuilderSettingKeys.META_SHARE_WITH_ORG_DEFAULT));
         resume.setTarget(clipTarget(dto.getTarget()));
         if (resume.getCreatedAt() == null) {
@@ -351,6 +357,19 @@ public class ProfileService {
     }
 
     private void enforceResumeLimitFor(String login) {
+        // Inside an organization workspace the organization license decides, never the personal plan (doc 19 section 3.1).
+        OrgResumeCap.Limit org = orgResumeCap == null ? null : orgResumeCap.forThisRequest().orElse(null);
+        if (org != null) {
+            long live = resumeRepository.findByUserIsCurrentUser().stream().filter(r -> !Boolean.TRUE.equals(r.getArchived())).count();
+            if (live >= org.max()) {
+                throw new ProRequiredException(
+                    ProRequiredException.CODE_RESUME_LIMIT,
+                    "Your organization's license keeps up to " + org.max() + " resumes for you — archive one to add another, or ask your organization admin",
+                    Map.of("limit", org.max(), "count", live, "plan", "ORGANIZATION")
+                );
+            }
+            return;
+        }
         boolean pro = entitlementService.isPro(login);
         int limit = resumeLimit(pro);
         long live = resumeRepository

@@ -26,6 +26,13 @@ public interface OrgResumeRepository extends Repository<OrgResume, Long> {
 
     List<OrgResume> findByOrgIdAndConsultantId(Long orgId, Long consultantId);
 
+    /** The directory link of a person's resume in this organization (Resume Builder, doc 30 section 3); empty when the resume is not linked here. */
+    Optional<OrgResume> findFirstByOrgIdAndResumeIdOrderByIdAsc(Long orgId, Long resumeId);
+
+    long countByOrgIdAndConsultantId(Long orgId, Long consultantId);
+
+    boolean existsByOrgIdAndConsultantIdAndPrimaryForOrgTrue(Long orgId, Long consultantId);
+
     long countByOrgIdAndApprovalStatus(Long orgId, String approvalStatus);
 
     /** True when the consultant has at least one resume with this approval status (the assignment gate asks for APPROVED). */

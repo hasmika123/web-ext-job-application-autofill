@@ -1,11 +1,13 @@
 package com.dossier.api.service.ent.consultantws;
 
 import com.dossier.api.domain.ent.consultantws.CwsResumeActivity;
+import com.dossier.api.domain.ent.mkt.MktResumeEvent;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.ConsultantSkill;
 import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.OrgResumeExperience;
 import com.dossier.api.repository.ent.consultantws.CwsResumeActivityRepository;
+import com.dossier.api.repository.ent.mkt.MktResumeEventRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.OrgResumeExperienceRepository;
 import com.dossier.api.repository.ent.talent.OrgResumeRepository;
@@ -25,10 +27,17 @@ import com.dossier.api.service.ent.consultantws.ConsultantResumesDTO.ResumeRow;
 import com.dossier.api.service.ent.consultantws.ConsultantResumesDTO.Strength;
 import com.dossier.api.service.ent.consultantws.ConsultantResumesDTO.Tile;
 import com.dossier.api.service.ent.consultantws.ConsultantResumesDTO.Tiles;
+import com.dossier.api.service.ResumeDocService;
+import com.dossier.api.service.ResumeMetaService;
+import com.dossier.api.service.dto.BuiltResumeDTO;
+import com.dossier.api.service.ent.resumes.OrgResumeCap;
+import com.dossier.api.service.ent.resumes.OrgResumeLinkService;
+import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
 import com.dossier.api.service.privacy.SensitiveContent;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -66,6 +75,10 @@ public class ConsultantResumesService {
     private final OrgResumeExperienceRepository experience;
     private final ConsultantSkillRepository skills;
     private final CwsResumeActivityRepository activity;
+    private final MktResumeEventRepository events;
+    private final OrgAuditService audit;
+    private final ResumeMetaService resumeMeta;
+    private final ResumeDocService docs;
     private final Clock clock;
 
     @Autowired
@@ -75,9 +88,13 @@ public class ConsultantResumesService {
         OrgResumeRepository resumes,
         OrgResumeExperienceRepository experience,
         ConsultantSkillRepository skills,
-        CwsResumeActivityRepository activity
+        CwsResumeActivityRepository activity,
+        MktResumeEventRepository events,
+        OrgAuditService audit,
+        ResumeMetaService resumeMeta,
+        ResumeDocService docs
     ) {
-        this(home, authorization, resumes, experience, skills, activity, Clock.systemUTC());
+        this(home, authorization, resumes, experience, skills, activity, events, audit, resumeMeta, docs, Clock.systemUTC());
     }
 
     ConsultantResumesService(
@@ -87,6 +104,10 @@ public class ConsultantResumesService {
         OrgResumeExperienceRepository experience,
         ConsultantSkillRepository skills,
         CwsResumeActivityRepository activity,
+        MktResumeEventRepository events,
+        OrgAuditService audit,
+        ResumeMetaService resumeMeta,
+        ResumeDocService docs,
         Clock clock
     ) {
         this.home = home;
@@ -95,6 +116,10 @@ public class ConsultantResumesService {
         this.experience = experience;
         this.skills = skills;
         this.activity = activity;
+        this.events = events;
+        this.audit = audit;
+        this.resumeMeta = resumeMeta;
+        this.docs = docs;
         this.clock = clock;
     }
 
@@ -163,6 +188,7 @@ public class ConsultantResumesService {
     public ResumeRow setPrimary(OrgMembership me, Long resumeId) {
         ConsultantProfile c = requireWriter(me);
         OrgResume target = own(c, resumeId);
+        if (awaiting(target)) throw OrgException.invalid("resume", "approve it first: only an approved resume can be primary");
         if (!target.isPrimaryForOrg()) {
             for (OrgResume r : resumes.findByOrgIdAndConsultantId(c.getOrgId(), c.getId())) {
                 if (r.isPrimaryForOrg() && !r.getId().equals(target.getId())) {
@@ -184,9 +210,32 @@ public class ConsultantResumesService {
         if (body == null || (body.name() == null && body.visibility() == null)) throw OrgException.invalid("body", "send a name or a visibility");
         String name = body.name() == null ? null : cleanName(body.name());
         String visibility = body.visibility() == null ? null : cleanVisibility(body.visibility());
+        // A resume with a Resume Builder document is renamed THERE (the builder owns the name; the directory row follows it).
+        if (name != null && r.getResumeId() != null) {
+            resumeMeta.patch(r.getResumeId(), JsonNodeFactory.instance.objectNode().put("name", name));
+            r = own(c, resumeId);
+        }
         if (name != null) r.setName(name);
         if (visibility != null) r.setVisibility(visibility);
         return row(resumes.saveAndFlush(r));
+    }
+
+    /**
+     * Creates a resume in the Resume Builder for the signed-in consultant (from their profile, a parsed upload, a copy or scratch: the personal
+     * builder's own create) and links it into the organization directory. The cap is the organization license's, counted on the consultant's account
+     * (402 RESUME_LIMIT); the consultant's own resume is approved by definition (they attest their own words).
+     */
+    @Transactional
+    public ConsultantResumesDTO.BuiltResumeCreated createBuilt(OrgMembership me, ConsultantResumesDTO.BuiltResumeBody body) {
+        ConsultantProfile c = requireWriter(me);
+        ConsultantResumesDTO.BuiltResumeBody b = body == null ? new ConsultantResumesDTO.BuiltResumeBody(null, null, null, null) : body;
+        BuiltResumeDTO built = OrgResumeCap.inOrg(c.getOrgId(), () -> docs.createBuilt(b.templateId(), b.target(), b.label(), b.source()));
+        OrgResume row = linked(c.getOrgId(), built.resume().getId());
+        return new ConsultantResumesDTO.BuiltResumeCreated(row.getId(), built.resume().getId(), row(row));
+    }
+
+    private OrgResume linked(Long orgId, Long resumeId) {
+        return resumes.findFirstByOrgIdAndResumeIdOrderByIdAsc(orgId, resumeId).orElseThrow(() -> new IllegalStateException("The new resume was not linked into the organization directory"));
     }
 
     /** Records that the consultant viewed, downloaded or shared one of their own resumes. */
@@ -213,6 +262,12 @@ public class ConsultantResumesService {
     public ResumeRow duplicate(OrgMembership me, Long resumeId) {
         ConsultantProfile c = requireWriter(me);
         OrgResume src = own(c, resumeId);
+        // A resume with a Resume Builder document is copied BY the builder (a real, editable copy under the organization's resume cap); the directory
+        // link and the preview rows follow from it. Only a record without a document falls through to the metadata copy below.
+        if (src.getResumeId() != null) {
+            BuiltResumeDTO copy = OrgResumeCap.inOrg(c.getOrgId(), () -> docs.duplicate(src.getResumeId(), null));
+            return row(linked(c.getOrgId(), copy.resume().getId()));
+        }
         List<OrgResume> mine = resumes.findByOrgIdAndConsultantId(c.getOrgId(), c.getId());
         if (mine.size() >= MAX_RESUMES) throw OrgException.invalid("resume", "you can keep at most " + MAX_RESUMES + " resumes");
         Instant now = Instant.now(clock);
@@ -249,6 +304,63 @@ public class ConsultantResumesService {
         return row(copy);
     }
 
+    /**
+     * The consultant approves a resume a marketer made or edited for them (doc 30 section 5: the consultant attests; nothing a marketer wrote is
+     * used until they do). Only that resume, only while it waits for them; anything else is the same 409.
+     */
+    @Transactional
+    public ResumeRow approve(OrgMembership me, Long resumeId) {
+        ConsultantProfile c = requireWriter(me);
+        OrgResume r = own(c, resumeId);
+        if (!awaiting(r)) throw OrgException.coded(409, "NOT_PENDING", "This resume is not waiting for your approval.", Map.of());
+        Instant now = Instant.now(clock);
+        r.setApprovalStatus("APPROVED");
+        r.setApprovedAt(now);
+        r.setApprovedByMemberId(me.memberId());
+        resumes.saveAndFlush(r);
+        log(me, r, MktResumeEvent.APPROVED, null, now);
+        audit.record(me, "RESUME_APPROVE", OrgAuditService.TARGET_RESUME, null, String.valueOf(r.getId()), "by the consultant, version=" + r.getVersionNo());
+        return row(r);
+    }
+
+    /** The consultant sends a pending resume back with an optional note: it reads "Needs update" on the marketer's board until the marketer edits it again. */
+    @Transactional
+    public ResumeRow requestChanges(OrgMembership me, Long resumeId, ConsultantResumesDTO.ResumeChangeRequest body) {
+        ConsultantProfile c = requireWriter(me);
+        OrgResume r = own(c, resumeId);
+        if (!awaiting(r)) throw OrgException.coded(409, "NOT_PENDING", "This resume is not waiting for your approval.", Map.of());
+        String note = body == null || body.note() == null || body.note().isBlank() ? null : cleanNote(body.note());
+        Instant now = Instant.now(clock);
+        r.setApprovalStatus("REJECTED");
+        r.setApprovedAt(null);
+        r.setApprovedByMemberId(null);
+        resumes.saveAndFlush(r);
+        log(me, r, MktResumeEvent.MARKED_FOR_UPDATE, note, now);
+        audit.record(me, "RESUME_CHANGES_REQUESTED", OrgAuditService.TARGET_RESUME, null, String.valueOf(r.getId()), "by the consultant, version=" + r.getVersionNo());
+        return row(r);
+    }
+
+    private void log(OrgMembership me, OrgResume r, String kind, String detail, Instant at) {
+        MktResumeEvent e = new MktResumeEvent();
+        e.setOrgId(r.getOrgId());
+        e.setResumeId(r.getId());
+        e.setConsultantId(r.getConsultantId());
+        e.setActorMemberId(me.memberId());
+        e.setKind(kind);
+        e.setVersionNo(r.getVersionNo());
+        e.setDetail(detail);
+        e.setOccurredAt(at);
+        events.saveAndFlush(e);
+    }
+
+    static String cleanNote(String raw) {
+        String t = raw.strip().replaceAll("\\s+", " ");
+        if (t.length() > 200) throw OrgException.invalid("note", "at most 200 characters");
+        if (t.chars().anyMatch(Character::isISOControl) || t.indexOf('<') >= 0 || t.indexOf('>') >= 0) throw OrgException.invalid("note", "contains characters that are not allowed");
+        SensitiveContent.check("note", "note", t);
+        return t;
+    }
+
     // ---- derivations ------------------------------------------------------------------------------------------------------------
 
     static String cleanName(String raw) {
@@ -267,7 +379,12 @@ public class ConsultantResumesService {
     }
 
     static ResumeRow row(OrgResume r) {
-        return new ResumeRow(r.getId(), r.getName(), r.getTargetRole(), r.isPrimaryForOrg(), r.getUpdatedAt(), r.getVisibility(), r.getVersionNo() == null ? 1 : r.getVersionNo(), r.getApprovalStatus());
+        return new ResumeRow(r.getId(), r.getName(), r.getTargetRole(), r.isPrimaryForOrg(), r.getUpdatedAt(), r.getVisibility(), r.getVersionNo() == null ? 1 : r.getVersionNo(), r.getApprovalStatus(), r.getResumeId(), awaiting(r));
+    }
+
+    /** A resume a marketer made or edited for this consultant, waiting for them: only the consultant decides it. */
+    static boolean awaiting(OrgResume r) {
+        return OrgResumeLinkService.requiresConsultantApproval(r) && "PENDING".equals(r.getApprovalStatus());
     }
 
     private static boolean notBlank(String s) {

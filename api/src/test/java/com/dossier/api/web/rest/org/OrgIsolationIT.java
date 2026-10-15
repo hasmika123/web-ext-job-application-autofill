@@ -300,6 +300,10 @@ class OrgIsolationIT {
         Map.entry("PATCH /api/orgs/{orgId}/me-workspace/resumes/{resumeId}", Case.consultantWrite("{\"name\":\"Hijacked resume\"}", 200)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/activity", Case.consultantWrite("{\"kind\":\"VIEWED\"}", 204)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/duplicate", Case.consultantWrite(null, 201)),
+        // Resume Builder in the organization workspace (ent-resume): a consultant creates a builder resume under the license cap, and approves (or sends back) one a marketer made for them. Create writes no org audit row (the consultant's own data); the two decisions record theirs.
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/built", Case.consultantWrite("{\"label\":\"Hijacked builder resume\",\"source\":\"scratch\"}", 201)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/approve", new Case(null, 200, "RESUME_APPROVE", false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.makeCwsResumeAwaitConsultant(); })),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/request-changes", new Case("{\"note\":\"Please add my last role\"}", 200, "RESUME_CHANGES_REQUESTED", false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.makeCwsResumeAwaitConsultant(); })),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/marketer", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/matches", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/matches/{matchId}", Case.consultantRead()),
@@ -560,6 +564,10 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mkt/resumes/{id}/approval-request", Case.mkt(200, "MARKETER_APPROVAL_REQUEST", w -> null, World::approveResume)),
         Map.entry("POST /api/orgs/{orgId}/mkt/resumes/{id}/needs-update", Case.mkt(200, "MARKETER_RESUME_FLAG", w -> "{\"note\":\"Refresh the skills\"}", null)),
         Map.entry("POST /api/orgs/{orgId}/mkt/resumes/{id}/approve", Case.mkt(200, "RESUME_APPROVE", w -> null, null)),
+        // New resume for a consultant (act-for): the picker, the sources of one consultant, and the create, which saves the resume under the CONSULTANT's account and records MARKETER_RESUME_CREATE with the consultant as beneficiary.
+        Map.entry("GET /api/orgs/{orgId}/mkt/resumes/consultants", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mkt/resumes/consultants/{consultantId}/sources", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/resumes/consultants/{consultantId}/built", Case.mkt(201, "MARKETER_RESUME_CREATE", w -> "{\"label\":\"Hijacked resume for a consultant\",\"source\":\"scratch\"}", null)),
         Map.entry("GET /api/orgs/{orgId}/mkt/streams", Case.mktRead()),
         Map.entry("POST /api/orgs/{orgId}/mkt/streams", Case.mkt(201, "MARKETER_STREAM_CREATE", w -> "{\"sourceLabel\":\"Hijack stream\"}", null)),
         Map.entry("PATCH /api/orgs/{orgId}/mkt/streams/{streamId}", Case.mkt(200, "MARKETER_STREAM_UPDATE", w -> "{\"subtitle\":\"Hijacked\"}", null)),
@@ -1211,6 +1219,13 @@ class OrgIsolationIT {
             em.clear();
         }
 
+        /** The world's org resume is one a marketer made through the builder and that now waits for the consultant (a builder document, ORG_MANAGED, PENDING): what the consultant's approve and send-back routes need. */
+        void makeCwsResumeAwaitConsultant() {
+            em.createQuery("update OrgResume r set r.resumeId = 987654321, r.kind = 'ORG_MANAGED', r.approvalStatus = 'PENDING', r.primaryForOrg = false where r.orgId = :o and r.id = :id").setParameter("o", org.getId()).setParameter("id", cwsResumeId).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
         /** The opportunity is assigned (the marketer asked the consultant for their interest). */
         void mktAssignOpportunity() {
             approveResume();
@@ -1387,6 +1402,7 @@ class OrgIsolationIT {
             ids.put("mktInterviewId", String.valueOf(interviewId)); // {interviewId} of mkt/interviews
             ids.put("mktPrepItemId", String.valueOf(mktPrepItemId));
             ids.put("mktResumeId", String.valueOf(resumeId)); // {id} of mkt/resumes
+            ids.put("mktBuilderConsultantId", String.valueOf(consultantProfileId)); // {consultantId} of mkt/resumes/consultants/...: the owner's own consultant profile, which has a seat and an account (act-for needs one)
             ids.put("streamId", String.valueOf(mktStreamId));
             ids.put("searchId", String.valueOf(mktSearchId));
             ids.put("ruleKey", "DEFAULT_KEYWORDS"); // a fixed word of the stream rules, not a row
@@ -1435,6 +1451,7 @@ class OrgIsolationIT {
             .replace("/mkt/followups/{id}", "/mkt/followups/{mktFollowupId}")
             .replace("/mkt/matches/{id}", "/mkt/matches/{mktMatchId}")
             .replace("/mkt/opportunities/{id}", "/mkt/opportunities/{mktMatchId}")
+            .replace("/mkt/resumes/consultants/{consultantId}", "/mkt/resumes/consultants/{mktBuilderConsultantId}") // before the generic {id} rename below: the consultant whose account is the world's owner
             .replace("/mkt/resumes/{id}", "/mkt/resumes/{mktResumeId}")
             .replace("/mkt/submissions/views/{viewId}", "/mkt/submissions/views/{mktSubmissionViewId}")
             .replace("/mkt/submissions/{id}", "/mkt/submissions/{mktSubmissionId}")

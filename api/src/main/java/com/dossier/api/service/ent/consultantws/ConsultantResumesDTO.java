@@ -32,7 +32,31 @@ public final class ConsultantResumesDTO {
 
     public record Tiles(Tile totalResumes, PrimaryTile primary, Tile totalViews, Tile totalDownloads, Tile timesShared) {}
 
-    public record ResumeRow(Long id, String title, String targetRole, boolean primary, Instant updatedAt, String visibility, int versionNo, String approvalStatus) {}
+    /**
+     * One resume of the page. {@code resumeId} is the Resume Builder document behind it (null for a record that has no document: the
+     * builder cannot open it); {@code awaitingMyApproval} is true while a resume a marketer made or edited for the consultant waits for them.
+     */
+    public record ResumeRow(
+        Long id,
+        String title,
+        String targetRole,
+        boolean primary,
+        Instant updatedAt,
+        String visibility,
+        int versionNo,
+        String approvalStatus,
+        Long resumeId,
+        boolean awaitingMyApproval
+    ) {}
+
+    /** Body of {@code POST /built}: the personal builder's create (template, target, name, source: profile, scratch, upload or copy). */
+    public record BuiltResumeBody(String templateId, String target, String label, com.fasterxml.jackson.databind.JsonNode source) {}
+
+    /** The new resume: the directory row's id, the Resume Builder resume id (open it at `/w/consultant/resumes/{resumeId}`) and the row as the page lists it. */
+    public record BuiltResumeCreated(Long orgResumeId, Long resumeId, ResumeRow row) {}
+
+    /** Body of {@code POST .../{id}/request-changes}: what the marketer should change (optional, at most 200 characters). */
+    public record ResumeChangeRequest(String note) {}
 
     public record Check(String key, String label, boolean done) {}
 

@@ -17,6 +17,9 @@ public class ResumeEntitlements {
     private final EntitlementService entitlementService;
     private final ResumeRepository resumeRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.resumes.OrgResumeCap orgResumeCap;
+
     public ResumeEntitlements(EntitlementService entitlementService, ResumeRepository resumeRepository) {
         this.entitlementService = entitlementService;
         this.resumeRepository = resumeRepository;
@@ -32,8 +35,12 @@ public class ResumeEntitlements {
         return entitlementService.plan(login).plan();
     }
 
-    /** The plan's cap on live (non-archived) resumes; the same number {@code POST /resumes} enforces. */
+    /** The cap on live (non-archived) resumes; the same number {@code POST /resumes} enforces: the organization license's inside an organization workspace, else the plan's. */
     public int resumesMax(String login) {
+        if (orgResumeCap != null) {
+            var org = orgResumeCap.forThisRequest();
+            if (org.isPresent()) return org.get().max();
+        }
         return ProfileService.resumeLimit(entitlementService.isPro(login));
     }
 

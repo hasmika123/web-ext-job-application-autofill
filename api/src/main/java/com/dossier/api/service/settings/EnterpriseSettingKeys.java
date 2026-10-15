@@ -78,6 +78,8 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_PLACEMENTS_ENDING_URGENT_DAYS = "org.placements.ending_urgent_days";
     public static final String ORG_PLACEMENTS_STARTING_SOON_DAYS = "org.placements.starting_soon_days";
     public static final String ORG_CONSENT_REQUEST_COOLDOWN_DAYS = "org.consent.request_cooldown_days";
+    /** Resume Builder inside an organization workspace: how many live (non-archived) resumes one consultant of the organization may keep. The organization license sets the cap; an organization may override it in org_setting. */
+    public static final String ORG_LICENSE_RESUMES_MAX = "org.license.resumes_max";
     public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
     public static final String USAGE_RETENTION_MONTHS = "enterprise.usage.retention_months";
@@ -162,6 +164,7 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_PLACEMENTS_ENDING_SOON_DAYS, 45, 1, 365, Risk.LOW, "Placements: a placement whose end date is within this many days counts as ending soon (the Ending Soon tile and the Ends in N days pill). An organization can override it in org_setting.");
         integer(k, ORG_PLACEMENTS_ENDING_URGENT_DAYS, 14, 1, 90, Risk.LOW, "Placements: an end date this close (or closer) turns the Ends in N days pill red. An organization can override it in org_setting.");
         integer(k, ORG_PLACEMENTS_STARTING_SOON_DAYS, 30, 1, 180, Risk.LOW, "Placements: a placement starting within this many days counts as starting soon (the Starting Soon tile). An organization can override it in org_setting.");
+        integer(k, ORG_LICENSE_RESUMES_MAX, 25, 1, 200, Risk.LOW, "Resume Builder in an organization workspace: the most live (non-archived) resumes one consultant of the organization may keep (counted per account, personal plans never apply there). The consultant license grants it; an organization can override it in org_setting. Creating a resume past it answers 402 RESUME_LIMIT; nothing already created is removed.");
         integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
         d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));
