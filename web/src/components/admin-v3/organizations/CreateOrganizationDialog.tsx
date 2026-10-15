@@ -9,8 +9,9 @@ import { ORG_TYPES, type CreatedOrg } from "@/lib/admin-orgs";
 
 /**
  * Create organization (X1.11): name, address ({label}.kiwiply.com, checked live), type and the OWNER's name and e-mail. No e-mail is
- * sent: the owner's account is created here (or an existing account is attached) and the temporary password comes back in the
- * answer, which the page shows once. The platform admin gives it to the owner.
+ * sent: a NEW organization account is created for the owner here (S9, decision O4: any personal Kiwiply account with that address is
+ * not read, touched or linked) and the temporary password comes back in the answer, which the page shows once. The platform admin gives
+ * it to the owner. (A legacy shared-account organization may still answer `ownerAccount: EXISTING`; the temporary-password dialog then says none was issued.)
  */
 export default function CreateOrganizationDialog({ open, baseDomain, onClose, onCreated }: { open: boolean; baseDomain: string; onClose: () => void; onCreated: (created: CreatedOrg) => void }) {
   return (
@@ -47,7 +48,7 @@ function Form({ baseDomain, onClose, onCreated }: { baseDomain: string; onClose:
   return (
     <form onSubmit={submit} className="space-y-3" noValidate>
       <p className="text-[13.5px] leading-snug text-ink-soft">
-        Creates the organization, its address and its owner&apos;s account. No e-mail is sent: you will see the owner&apos;s temporary password once, to give to them.
+        Creates the organization, its address and a new organization account for its owner. The owner&apos;s personal Kiwiply account, if they have one, is not touched or linked. No e-mail is sent: you will see the owner&apos;s temporary password once, to give to them.
       </p>
       <div>
         <label htmlFor={`${uid}-name`} className="mb-1 block text-[12.5px] font-semibold text-ink">

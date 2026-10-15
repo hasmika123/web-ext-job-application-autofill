@@ -85,7 +85,7 @@ describe("ConsultantSettingsPage", () => {
     const text = document.body.textContent ?? "";
     expect(text).not.toMatch(/Last changed|Enabled|Connected\b.*Last synced/);
     expect(document.querySelectorAll("[data-security-row]")).toHaveLength(3);
-    expect(screen.getAllByText("Managed on your Kiwiply account")).toHaveLength(3);
+    expect(screen.getAllByText("Managed in your account settings")).toHaveLength(3);
     expect(document.querySelector("[data-security-link]")!.getAttribute("href")).toBe("/settings");
     const buttons = screen.getAllByRole("button", { name: /^Connect .* \(not available yet\)$/ });
     expect(buttons).toHaveLength(4);

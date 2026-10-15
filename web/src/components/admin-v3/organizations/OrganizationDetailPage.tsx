@@ -247,6 +247,7 @@ function Inner({ initial, id }: { initial: OrgDetail | null; id: number }) {
         who={creds?.ownerEmail ?? ""}
         password={creds?.tempPassword ?? null}
         expiresAt={creds?.tempPasswordExpiresAt}
+        hint="This is the password of the owner's organization account only. Any personal Kiwiply account they have is not changed."
         onClose={() => setCreds(null)}
       />
     </div>

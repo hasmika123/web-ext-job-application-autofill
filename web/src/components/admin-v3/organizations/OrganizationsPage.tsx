@@ -124,7 +124,7 @@ function Inner({ summary, baseDomain }: { summary: OrgSummary | null; baseDomain
         who={created?.ownerEmail ?? ""}
         password={created?.tempPassword ?? null}
         expiresAt={created?.tempPasswordExpiresAt}
-        hint={created ? `They sign in at ${created.host} with their e-mail and this password, then choose their own.` : undefined}
+        hint={created ? `This is a new organization account, separate from any personal Kiwiply account. They sign in at ${created.host} with their e-mail and this password, then choose their own.` : undefined}
         onClose={() => {
           const go = created;
           setCreated(null);

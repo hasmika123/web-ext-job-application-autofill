@@ -87,14 +87,14 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     expect(calls.some((c) => c.url.endsWith("/members/account"))).toBe(false);
   });
 
-  it("an address that already has an account is invited instead: no password dialog, and it says so", async () => {
+  it("legacy organizations: an address the API cannot create is invited instead: no password dialog, and it says so", async () => {
     createReply = () => json({ memberId: 5, email: "sam@example.test", mode: "INVITED", tempPassword: null, tempPasswordExpiresAt: null, roleIds: [13] });
     const onSent = vi.fn();
     render(<InvitePanel orgId={7} options={OPTIONS} onSent={onSent} />);
     await waitFor(() => expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toBe(GENERATED));
     await fillValid();
     fireEvent.click(screen.getByRole("button", { name: "Create Account" }));
-    expect(await screen.findByText(/already has a Kiwiply account, so an invitation was sent instead/)).toBeTruthy();
+    expect(await screen.findByText(/An invitation was sent to sam@example.test instead of a new account/)).toBeTruthy();
     expect(screen.queryByTestId("temp-password")).toBeNull();
     expect(onSent).toHaveBeenCalledTimes(1);
   });

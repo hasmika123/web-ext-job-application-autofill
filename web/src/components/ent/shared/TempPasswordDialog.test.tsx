@@ -37,10 +37,11 @@ describe("TempPasswordDialog", () => {
     expect(await screen.findByText(/blocked copying/)).toBeTruthy();
   });
 
-  it("says no password was issued for an existing account", () => {
+  it("says no password was issued when there is none, and never mentions another account", () => {
     stubViewport(DESKTOP);
     render(<TempPasswordDialog open who="sam@example.test" password={null} onClose={() => undefined} />);
     expect(screen.queryByTestId("temp-password")).toBeNull();
-    expect(screen.getByText(/already has a Kiwiply account/)).toBeTruthy();
+    expect(screen.getByText(/No temporary password was issued for sam@example.test/)).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/already has a Kiwiply account/);
   });
 });

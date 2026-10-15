@@ -66,7 +66,7 @@ import {
  * Consultant Settings (design/enterprise-consultant/settings.webp): one call to `GET /api/orgs/{orgId}/me-workspace/settings` draws the page
  * for the signed-in consultant. Real, consultant-isolated writes: Privacy & Sharing and Appearance / Language / Timezone (optimistic, with an
  * Undo toast). Account facts and career preferences are read-only summaries with an Edit link to the Profile page. Password, two-factor and
- * sign-in alerts are NOT handled here (no self-service API for tenant members exists): the rows say so and link to the Kiwiply account page.
+ * sign-in alerts are NOT handled here (no self-service API for tenant members exists): the rows say so and link to the account settings page.
  * Connected tools are not available yet (no integrations module): the rows are disabled and nothing is ever shown as connected. No password,
  * token, key or phone number is displayed or stored; a phone is simply not collected.
  */
@@ -235,14 +235,14 @@ function ManagedRow({ icon: Icon, tone, title, hint }: { icon: ComponentType<Ico
         <p className="text-[13.5px] font-bold text-ink">{title}</p>
         <p className="text-[12px] leading-snug text-muted">{hint}</p>
       </div>
-      <Pill tone="slate">Managed on your Kiwiply account</Pill>
+      <Pill tone="slate">Managed in your account settings</Pill>
     </li>
   );
 }
 
 function SecurityCard() {
   return (
-    <Card id="settings-security" title="Security" icon={LockIcon} tone="accent" extra={<EditLink href={ACCOUNT_SETTINGS_PATH} label="Open your Kiwiply account settings" />}>
+    <Card id="settings-security" title="Security" icon={LockIcon} tone="accent" extra={<EditLink href={ACCOUNT_SETTINGS_PATH} label="Open your account settings" />}>
       <ul className="grid gap-4">
         <ManagedRow icon={KeyIcon} tone="amber" title="Password" hint="Change it in your account settings. It is never shown here." />
         <ManagedRow icon={ShieldCheckIcon} tone="green" title="Two-Factor Authentication" hint="Its status is not available on this page." />

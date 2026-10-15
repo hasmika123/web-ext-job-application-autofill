@@ -95,6 +95,7 @@ export interface LabelCheck {
 /** The one-time answer of Create organization / Reset owner password. `tempPassword` is shown once and never read again. */
 export interface OwnerCredentials {
   ownerEmail: string;
+  /** `CREATED` always, for a SEPARATE organization (decision O4: the owner gets a new organization account). `EXISTING` can only come from a legacy shared-account organization. */
   ownerAccount?: "CREATED" | "EXISTING";
   tempPassword: string | null;
   tempPasswordExpiresAt: string | null;

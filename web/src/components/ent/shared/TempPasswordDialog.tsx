@@ -89,7 +89,7 @@ function Body({ who, password, expiresAt, hint, onClose }: TempPasswordDialogPro
             {failed && <p className="text-[12.5px] text-danger-text">Your browser blocked copying. The password is selected: press Ctrl+C (Cmd+C on a Mac).</p>}
           </>
         ) : (
-          <p className="text-[14px] leading-relaxed text-ink">No temporary password was issued: {who} already has a Kiwiply account and signs in with their existing password.</p>
+          <p className="text-[14px] leading-relaxed text-ink">No temporary password was issued for {who}: there is nothing to give them. (Organizations created with their own accounts always show one.)</p>
         )}
         {hint && <p className="text-[13px] leading-snug text-ink-soft">{hint}</p>}
         <div className="flex justify-end pt-1">
