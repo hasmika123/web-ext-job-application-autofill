@@ -166,6 +166,19 @@ async function platformSession(request: NextRequest, host: string) {
   const access = request.cookies.get(ACCESS_COOKIE)?.value;
   const refresh = request.cookies.get(REFRESH_COOKIE)?.value;
 
+  // S9 (decision O4): kiwiply.com authenticates personal accounts only. An access token that carries a tenant claim belongs to an
+  // organization's enterprise account (it can only have been planted here): treat the visitor as signed out and drop the cookies.
+  if (access && hasTenantClaim(access)) {
+    request.cookies.delete(ACCESS_COOKIE);
+    request.cookies.delete(REFRESH_COOKIE);
+    const headers = withHost(request, host, "platform");
+    headers.set("cookie", request.cookies.toString());
+    const dropped = NextResponse.next({ request: { headers } });
+    dropped.cookies.delete(ACCESS_COOKIE);
+    dropped.cookies.delete(REFRESH_COOKIE);
+    return dropped;
+  }
+
   // Fast path: no refresh token, or the access token is still good → nothing to do.
   if (!refresh || !isExpired(access)) {
     return NextResponse.next({ request: { headers: withHost(request, host, "platform") } });

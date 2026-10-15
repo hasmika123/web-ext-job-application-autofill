@@ -270,7 +270,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
             )}
             {view === "form" && (
               <form onSubmit={onSubmit} noValidate>
-                <CardHeader title="Sign In" subtitle="Access your account securely." name={name} logoUrl={logoUrl} preview={preview} />
+                <CardHeader title="Sign In" subtitle={`Sign in to your ${name} account.`} name={name} logoUrl={logoUrl} preview={preview} />
 
                 <Field id={emailId} label="User Name" icon={<MailIcon size={20} />} error={emailErr}>
                   <input
@@ -330,6 +330,9 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
                 <button type="submit" disabled={busy} aria-busy={busy} className={SIGNIN}>
                   {busy ? "Signing in..." : <>Sign In <ArrowRightIcon size={20} /></>}
                 </button>
+                <p data-account-note className="mt-3 text-center text-[13px] leading-snug text-[var(--brand-800)]">
+                  Your {name} account belongs to {name}. It is separate from any personal Kiwiply account.
+                </p>
 
                 {social && (
                   <>

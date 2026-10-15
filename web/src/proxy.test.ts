@@ -312,6 +312,32 @@ describe("platform behaviour is unchanged (X2.6 regression)", () => {
     expect(res.headers.get("x-robots-tag")).toBeNull();
   });
 
+  it("platform (S9, O4): an access token that carries a tenant claim is dropped: signed out, cookies cleared, no refresh attempted", async () => {
+    stubApi(true);
+    const res = await proxy(req("/dashboard", "localhost:3100", cookie({ kiwiply_access: tenantAccess(), kiwiply_refresh: "r1" })));
+    expect(calls.some((c) => c.url.endsWith("/api/refresh"))).toBe(false);
+    expect(override(res, "cookie") ?? "").not.toContain("kiwiply_access");
+    expect(setCookies(res).map((c) => c.split("=")[0]).sort()).toEqual(["kiwiply_access", "kiwiply_refresh"]);
+    for (const c of setCookies(res)) expect(c).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
+  });
+
+  it("platform: a personal token (no tid) is untouched", async () => {
+    stubApi(true);
+    const res = await proxy(req("/dashboard", "localhost:3100", cookie({ kiwiply_access: jwt({ sub: "u" }), kiwiply_refresh: "r1" })));
+    expect(setCookies(res)).toEqual([]);
+  });
+
+  it("tenant (S9, O4): a token without a tid is a signed-out visitor on every tenant path; the invitation stays open", async () => {
+    stubApi(true);
+    const personal = cookie({ "__Host-kiwiply_access": jwt({ sub: "personal-user" }) });
+    const guarded = await proxy(req("/w/consultant", "acme.localhost", personal));
+    expect(guarded.status).toBe(307);
+    expect(location(guarded)).toContain("/login?next=%2Fw%2Fconsultant");
+    const invite = await proxy(req("/join/t/abc", "acme.localhost", personal));
+    expect(location(invite)).toBeNull();
+    expect(rewritten(invite)).toContain("/_t/join/t/abc");
+  });
+
   it("platform: __Host- tenant cookies do nothing", async () => {
     stubApi(true);
     const res = await proxy(req("/dashboard", "localhost:3100", cookie({ "__Host-kiwiply_refresh": "r1" })));

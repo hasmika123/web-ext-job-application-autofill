@@ -54,6 +54,14 @@ describe("BrandedLogin: everything comes from the host's published branding", ()
     expect(container.querySelector("style")?.textContent).toContain("--brand-2-600:#0b7a8a");
   });
 
+  it("S9 (O4): the sign-in says the account belongs to the organization and is separate from a personal Kiwiply account", () => {
+    render(<Page t={acme} />);
+    expect(screen.getByText(`Sign in to your ${acme.displayName} account.`)).toBeTruthy();
+    const note = document.querySelector("[data-account-note]")!.textContent!;
+    expect(note).toContain(`Your ${acme.displayName} account belongs to ${acme.displayName}`);
+    expect(note).toContain("separate from any personal Kiwiply account");
+  });
+
   it("beta: a wordmark in the slot, its own heading and subtitle, Google only, plain-text help line", () => {
     const { container } = render(<Page t={beta} />);
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Hello, Beta Talent");

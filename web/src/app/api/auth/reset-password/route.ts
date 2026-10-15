@@ -1,4 +1,5 @@
 import { apiUrl } from "@/lib/config";
+import { authHostHeaders } from "@/lib/auth-host";
 import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
 
 /**
@@ -7,6 +8,8 @@ import { rateLimit, tooManyRequests } from "@/lib/rate-limit";
  * Takes the key from the emailed link plus the new password. The backend returns a
  * non-2xx when the key is missing/expired or the password is too short; we map that to a
  * friendly message. On success the user signs in normally with their new password.
+ *
+ * S9 (decision O4): on an organization's host the request carries that host, so a key only resets the account of the world that asked.
  */
 const MIN_LEN = 4; // matches the backend (ManagedUserVM.PASSWORD_MIN_LENGTH)
 
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
   try {
     res = await fetch(apiUrl("/api/account/reset-password/finish"), {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...(await authHostHeaders()) },
       body: JSON.stringify({ key, newPassword }),
       cache: "no-store",
     });
