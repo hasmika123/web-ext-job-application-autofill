@@ -47,7 +47,7 @@
 | `GET /api/admin/plans/{planKey}/compare?a=&b=` | `{diff[], subscribers{a, b}, marginByInterval{a, b}}` | |
 | `POST /api/admin/retirements` … `/{id}/start` · `/cancel` · `/complete` · `/coverage` · `/notices/preview` · `/items` (HIGH on start/cancel) | the retirement lifecycle — bodies and errors in `11-plan-retirement.md` §2, §5, §11 and stories K10.1–K10.3 (replaces the earlier `/sunset` route) | `410 PLAN_RETIRING`, `422 SERVICE_RETIRING`, `422 PRICE_INCREASE_REQUIRES_CONSENT`, `409 RETIREMENT_IN_PROGRESS`, `422 PRODUCT_RETIRED` |
 | `GET /api/billing/retirement/me` · `POST /api/billing/retirement/me/choice` | subscriber side of a retirement (11 §6; K10.4) | `409 QUOTE_STALE`, `410 QUOTE_EXPIRED` |
-| `POST /api/admin/plans/{planKey}/versions/{v}/migrations` (HIGH) | `{targetVersion, mode: OPT_IN\|AT_RENEWAL_WITH_NOTICE, message, noticeDays≥30}` → 202 `MigrationDTO{id, affected, scheduledFor}` | `422 PRICE_INCREASE_REQUIRES_DECISION` (S-03), `409 TARGET_NOT_LIVE` |
+| `POST /api/admin/plans/{planKey}/versions/{v}/migrations` (HIGH) — **FUTURE** (no existing subscribers today, S-03; retirements use K10) | `{targetVersion, mode: OPT_IN\|AT_RENEWAL_WITH_NOTICE, message, noticeDays≥30}` → 202 `MigrationDTO{id, affected, scheduledFor}` | `422 PRICE_INCREASE_REQUIRES_CONSENT`, `409 TARGET_NOT_LIVE` |
 | `GET /api/admin/plans/{planKey}/subscribers?version=&page=` | `[{login (admin only), since, interval, addons[], state}]` | |
 Idempotency: `POST …/publish`, `…/sunset`, `…/migrations` take `Idempotency-Key`; replay returns the same result (200) and never publishes twice (`catalog_publish` is keyed by version).
 

@@ -110,21 +110,24 @@ gains `scope`, `org_id` (additive). Personal handler additions:
 Ordering and idempotency unchanged (`stripe_event.id` PK, `last_event_at`; `invoice.last_event_at`).
 An org event never touches `subscription`; a personal event never touches `org_*` (29 §1.6).
 
-## 6. Migration of existing personal subscribers (no behaviour change)
-1. K2.1 seeds plan versions FREE v1, PRO v1, AUTOPILOT v1 (02 §3.3). PRO v1's base `product_price` rows are
-   created with `stripe_price_id = STRIPE_PRICE_MONTHLY / STRIPE_PRICE_3MO` (**reused, not recreated**) and
-   `published_at = now`; `CatalogSeedMigrationTest` asserts the ids match the env.
-2. Backfill (Liquibase `customChange`, idempotent): `subscription.plan_version_id = PRO v1` where `price_id
-   ∈ {monthly, 3mo}`, `billing_interval` from the price, `plan_version_id = FREE v1` for rows with no Pro
-   price; `current_period_start = NULL` (filled by the next webhook or by `BackfillPeriodStartJob` reading
-   Stripe once, read-only). No `subscription_addon` rows exist → no items change in Stripe.
+## 6. Migration — a no-data migration today (S-03: there are no existing subscribers)
+1. K2.1 seeds plan versions FREE v1, PRO v1, AUTOPILOT v1 (02 §3.3) with today's locked prices, freely. PRO
+   v1's base `product_price` rows reuse `STRIPE_PRICE_MONTHLY / STRIPE_PRICE_3MO` when the env has them
+   (no Stripe objects to recreate) — `CatalogSeedMigrationTest` asserts the ids match; with a blank env the
+   rows are drafts published through K1.5.
+2. Backfill (Liquibase `customChange`, idempotent) maps `subscription.plan_version_id` / `billing_interval`
+   from `price_id`: **zero rows today**; kept as the safety net for any future cohort and proven on
+   synthetic fixtures (`SubscriptionBackfillTest`). `BackfillPeriodStartJob` (read-only Stripe pass) exists
+   for the same reason and is skipped when there is nothing to backfill.
 3. `subscription.plan` keeps being derived (`touch()` → label from the plan version), so `/api/profile/version`,
-   the extension and `PlanDTO.plan` are byte-identical.
-4. Shadow mode (06 §4) for two weeks of prod traffic; flip `billing.catalog.shadow=false`.
-5. `AiBudgetService.window` reads `billing_interval` (K7.2) — assert the quarterly users keep the 800 budget
-   (`AiBudgetPeriodTest`).
-6. Delete the env-var price path only after B1.6/K1.6 — `StripeProperties.priceMonthly/price3mo` remain
-   readable one release for the seed assertion.
+   the extension and `PlanDTO.plan` keep their shapes (`LegacyReadersUnchangedIT` on fixtures).
+4. Shadow mode (06 §4) is a test gate (`ShadowCompareTest` on the status × period × interval matrix) plus
+   zero prod mismatches over one release — no two-week wait, there is no cohort to protect.
+5. `AiBudgetService.window` reads `billing_interval` (K7.2) — `AiBudgetPeriodTest` keeps the 800 quarterly budget.
+6. Delete the env-var price path after K1.6 — `StripeProperties.priceMonthly/price3mo` remain readable one
+   release for the seed assertion.
+Future cohorts: the rules of 04 §5 (immutable versions, never re-price silently, increases need consent)
+and the retirement lifecycle (11) are the only ways a live subscriber ever moves.
 
 ## 7. Regression IT list (CI job `personal-billing-regression`, extends 29)
 | test | asserts |

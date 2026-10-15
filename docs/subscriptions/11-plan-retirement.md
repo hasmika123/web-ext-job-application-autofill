@@ -3,8 +3,9 @@
 > Status: design, 2026-10-15 (Fable). Applies the locks verbatim: **no refunds, cancel anytime; `past_due`
 > entitled to period end; Stripe is the truth, webhooks write mirrors; never collect sensitive PII; nothing
 > unlimited; downgrade never deletes data.** User decisions folded in (2026-10-15): **the no-response default
-> is Free with a read-only lock** (`decisions-for-user.md` S-19, answered) and the per-retirement choice
-> between keeping a plan indefinitely and retiring it at the next renewal is the admin's (S-20).
+> is Free with a read-only lock** (`decisions-for-user.md` S-19, answered) and **the wizard's default mode is
+> retire at the next renewal to Free** (S-20, answered 2026-10-15); `KEEP_INDEFINITELY` stays a non-default
+> admin option. Annual billing is ON (S-01), so the yearly rows below are live.
 > This doc **replaces** the "sunset" paragraphs of `02 §3.1`, `04 §6` and `08 §3` with one lifecycle: the
 > state formerly called `SUNSET` is `RETIRING` below; the tables of §10 extend `08`. Stories: epic **K10** in
 > `docs/roadmap/areas/sub.json` (and K2.4 narrows to grandfathering + the migration primitive).
@@ -63,7 +64,7 @@ kind `PRICE` here: the same notices, the same "never higher without consent" rul
 | Subscriber | `retire_effective_at` (per subscription) | Keeps until then |
 |---|---|---|
 | monthly / quarterly | `max(current_period_end at notice start, notice_start + billing.retirement.min_notice_days)` — never earlier than the end of the period already paid; if the minimum notice (default 30 d) reaches into the next period, the subscriber renews **once more on the old plan** and the date becomes that period's end | plan, add-ons, prices, allowances — unchanged |
-| yearly (when annual is enabled) | the **next renewal** (`current_period_end`); never mid-term; if that renewal is closer than `min_notice_days`, one more annual renewal on the old plan (S-20 lets admin choose "keep indefinitely" instead) | everything, including seat transfers |
+| yearly | the **next renewal** (`current_period_end`); never mid-term; if that renewal is closer than `min_notice_days`, one more annual renewal on the old plan (S-20 lets admin choose "keep indefinitely" instead) | everything, including seat transfers |
 | cancel-pending | their period end (nothing changes; the retirement does not shorten it) | everything |
 | past_due | `paid_through_at` rule unchanged (24 §3 step 3); the retirement date cannot precede it | everything |
 | org on a contract (23) | **the contract's `ends_at`** (or the next contract version boundary), never earlier; contracts pin prices | everything on the contract |
@@ -152,7 +153,9 @@ A choice can be changed any time before the effective date (the last confirmed q
 4. sends `retire.default.free` confirmation (`billing_notice kind FALLBACK_APPLIED`) and sets
    `lapse_notice_pending` so the first visit shows the "What changed" sheet (B4.4) with the lock list.
 
-The alternative outcomes are **per-retirement admin choices** (S-20/S-21 in the decisions file) and are
+The wizard pre-selects `RETIRE_AT_RENEWAL` + `FREE` (S-20 answered); `KEEP_INDEFINITELY` (hide from new
+buyers, nobody moves) is an explicit non-default option. The alternative outcomes are **per-retirement
+admin choices** (S-21 in the decisions file) and are
 only allowed when the rules permit: `MIGRATE_AT_RENEWAL` requires `successor price ≤ current price` for every
 affected subscriber (else refused `422 PRICE_INCREASE_REQUIRES_CONSENT`) and the full notice schedule;
 `CANCEL` is just FREE without the lock set being meaningful (same data rules). **Never a higher price
@@ -233,7 +236,7 @@ CREATE TABLE plan_retirement (
   id BIGINT PK, kind VARCHAR(12) NOT NULL,                -- PLAN | ADDON | PRICE
   plan_id BIGINT NULL, plan_version_id BIGINT NULL, feature_key VARCHAR(60) NULL, price_id BIGINT NULL,
   audience VARCHAR(12) NOT NULL, status VARCHAR(12) NOT NULL,   -- DRAFT | NOTICING | COMPLETING | COMPLETED | CANCELLED
-  mode VARCHAR(16) NOT NULL,                                -- KEEP_INDEFINITELY | RETIRE_AT_RENEWAL   (S-20)
+  mode VARCHAR(16) NOT NULL DEFAULT 'RETIRE_AT_RENEWAL',    -- RETIRE_AT_RENEWAL (default, S-20 answered) | KEEP_INDEFINITELY
   default_outcome VARCHAR(20) NOT NULL DEFAULT 'FREE',      -- FREE | MIGRATE_AT_RENEWAL | CANCEL       (S-19: FREE)
   notice_schedule_json JSON NOT NULL, min_notice_days INT NOT NULL, channels_json JSON NOT NULL,
   message_md VARCHAR(2000) NULL, reason VARCHAR(500) NOT NULL,

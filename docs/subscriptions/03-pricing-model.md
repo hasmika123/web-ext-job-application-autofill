@@ -3,9 +3,10 @@
 > Status: design, 2026-10-15 (Fable). Extends `docs/enterprise-v2/22-pricing-calculation.md` (precedence,
 > rounding, proration, golden tables G1–G14 — **all still valid**) and `docs/design/pay/
 > fee-model-and-margin-guard.md` (fee schedule). Money is `long` minor units + ISO currency; percentages
-> are basis points; the only rounding function is `Minor.mulDivHalfEven` (22 §1). **Annual billing is an
-> admin-switchable option that defaults OFF** (`decisions-for-user.md` S-01); every annual rule below is
-> inert until `billing.annual.enabled=true`.
+> are basis points; the only rounding function is `Minor.mulDivHalfEven` (22 §1). **Annual billing is ON**
+> (user decision 2026-10-15, `decisions-for-user.md` S-01): monthly and yearly prices per plan and add-on,
+> the yearly discount admin-set (global → plan → add-on → explicit row) under the ≥ 80 % guard;
+> `billing.annual.enabled` stays an admin switch (default true).
 
 ## 1. Vocabulary
 
@@ -27,9 +28,9 @@
 | `billing.fees.model` | `SIMPLE` \| `SCHEDULE` | `SIMPLE` (290 bp + fixed, the model the locked prices were set with) | HIGH | guard — **S-11** |
 | `catalog.margin_floor_subscription_pct` / `_service_pct` | exist | 80 / 20 | HIGH | guard |
 | `catalog.org_above_individual_pct` | 0–100 | 25 | MEDIUM | preset check (21 §5) |
-| `billing.intervals.individual` | subset of MONTH,QUARTER,YEAR | `["MONTH","QUARTER"]` | HIGH | plan builder, public catalog |
-| `billing.intervals.org` | subset | `["MONTH"]` (E17) | HIGH | same |
-| `billing.annual.enabled` | bool | **false** | HIGH | everything annual (S-01) |
+| `billing.intervals.individual` | subset of MONTH,QUARTER,YEAR | `["MONTH","QUARTER","YEAR"]` | HIGH | plan builder, public catalog |
+| `billing.intervals.org` | subset | `["MONTH","YEAR"]` (ORG+QUARTER refused, E17) | HIGH | same |
+| `billing.annual.enabled` | bool | **true** (S-01 answered 2026-10-15; switching off refuses new YEAR rows, existing annual terms run to term end) | HIGH | everything annual |
 | `billing.annual.default_discount_bp` | 0–3000 | 1000 | HIGH | derived YEAR prices (§5) |
 | `billing.annual.allowance_period` | `MONTH` \| `PERIOD` | `MONTH` | HIGH | allowances and AI budget on annual terms (S-10) |
 | `billing.annual.switch_to_monthly` | `AT_TERM_END` | `AT_TERM_END` (only value; placeholder for S-04) | HIGH | interval switch |
@@ -86,7 +87,7 @@ savings_pct_bp           = mulDivHalfEven(savings, 10000, total(MONTH) × f(inte
 ```
 Both are fields of the quote DTO (`monthlyEquivalentMinor`, `savingsMinor`, `savingsBp`).
 
-## 5. Annual prices (only when `billing.annual.enabled`)
+## 5. Annual prices (`billing.annual.enabled`, on by default — S-01 answered)
 
 ### 5.1 Where the annual price comes from (precedence, highest first)
 1. An **explicit** `product_price` row with `billing_interval=YEAR` (`annual_source=EXPLICIT`) — admin typed it.

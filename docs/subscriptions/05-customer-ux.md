@@ -19,8 +19,9 @@
    ("$29.97 today, then $29.97 every month from Nov 15. Cancel any time, one tap. No refunds for partial periods.").
 3. Removals say "works until {date} · no refund" inline, at the toggle.
 4. Totals animate (`AnimatedNumber`) and are `aria-live`; the quote expiry is visible ("price valid 14:32").
-5. Annual appears **only** when `billing.annual.enabled` and the plan lists YEAR; the toggle default is
-   Monthly; the annual card says "billed $215.89 once a year · ≈ $17.99/mo · save $23.99" from DTO fields.
+5. Annual is on (S-01): the Yearly tab shows for every plan that lists YEAR (hidden only if the admin
+   switch is off); the toggle default is Monthly; the annual card says "billed $215.89 once a year ·
+   ≈ $17.99/mo · save $23.99" from DTO fields, and "changes apply at your next renewal" (S-04).
 6. A sunset plan the user is on is explained, never hidden.
 
 ## 2. Pricing page `/pricing` (generated from `GET /api/catalog/public`)
@@ -28,7 +29,7 @@
 **1440**
 ```
 ┌ Kiwiply                                                                          [Sign in] [Get the extension] ┐
-│ Plans                                        ( Monthly ● )( 3 months )( Yearly — only when enabled: "save 10 %" )│
+│ Plans                                        ( Monthly ● )( 3 months )( Yearly · save 10 % )                     │
 │ ┌────────── Free ──────────┐ ┌───────── Pro  Most popular ─────────┐ ┌────────── Autopilot ──────────┐          │
 │ │ $0                       │ │ $19.99 /mo                           │ │ $39.99 /mo                     │          │
 │ │ Everything you need to   │ │ $49.99 / 3 months on the 3-month tab │ │ $99.99 / 3 months              │          │
@@ -132,7 +133,7 @@ Error: inline retry; quote errors as §3. Loading: `Skeleton` cards.
 
 ## 5. Enterprise — Org plan overview `/w/admin/subscription` (extends 28 §1)
 Adds to the Subscription Overview a **Plan card**: plan name + version ("Org Standard v1"), interval
-(Monthly; "Yearly" row only when enabled for ORG), setup fee status, platform fee (if any), seat base
+(Monthly or Yearly — `billing.intervals.org` includes YEAR), setup fee status, platform fee (if any), seat base
 price, presets available, `[Change interval…]` and `[Compare with current version]` (when a newer version
 exists: quote old vs new, opt-in). Next invoice tile shows, on annual terms, "Next renewal Oct 20, 2027 ·
 $867.56 · prorated adds billed as they happen". Everything else as 28 §1 (tiles, pending changes with

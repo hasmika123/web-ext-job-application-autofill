@@ -109,7 +109,7 @@
 | G1 | No plan entity, version or composition; a "plan" is a string on `subscription.plan` and a `product.code` in docs | everything | `02`, `08` §2 |
 | G2 | `feature_definition` is org-only in both code (`usage_type`) and design (`eligibility_json.orgTypes`); personal capabilities (`ai.server`, `answers.sync`, resume cap) have no service row | one catalog | `02` §2.1–2.4 |
 | G3 | Prices, price ids, AI budgets, resume caps are properties/constants (`StripeProperties`, `AiPolicy`, `ProfileService`) | admin re-pricing, Autopilot, add-ons | K1.6 (re-home) |
-| G4 | No `YEAR` interval; Stripe subscriptions share one interval across items | annual | `03` §5, S-01 |
+| G4 | No `YEAR` interval; Stripe subscriptions share one interval across items | annual (ON — S-01 answered 2026-10-15) | `03` §5, K9 |
 | G5 | Personal subscription has one item; add-ons need subscription items + a quote/confirm path for existing subscribers | individual add-ons | `07` §2, K5 |
 | G6 | `subscription` has no `current_period_start`, no version, no invoice mirror | proration, grandfathering, snapshots | `08` §3 |
 | G7 | No margin guard implementation; three formulas on paper; Launch-1 prices sit on the floor | any discount (annual, bundle, promo) | `03` §7, S-11 |
@@ -120,6 +120,10 @@
 | G12 | No admin settings for intervals, annual discount, seat limits, quote TTL (personal), plan builder floors | "everything admin-configured" | `08` §6 |
 
 ## 6. Risks found while reviewing
+
+- **There are no existing subscribers today** (user, 2026-10-15, S-03): the `subscription` table holds no
+  Pro rows, so every "existing subscriber" concern below is about the *future* cohort; the seed and
+  backfill are a no-data migration (07 §6) and the rules stay as guard rails.
 
 - **Margin floor at Launch-1 prices.** With Stripe Billing's 0.7 % included, Pro $19.99 computes to
   79.0 % (`fee-model-and-margin-guard.md` §3.1). Any plan builder that runs the guard honestly will refuse

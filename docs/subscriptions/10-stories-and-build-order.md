@@ -20,7 +20,7 @@
 | **K6 Enterprise plan layer** | P1 | K6.1–K6.6 | org subscriptions on a plan version, seat transfer, org interval/version quotes, plan card, seat matrix |
 | **K7 Entitlements unification** | P0 | K7.1–K7.7 | PlanResolver + EntitlementSet, 14 callers migrated with byte-identical bodies, features on the version endpoint, personal ledger, regression gate |
 | **K8 Stripe mapping, migration, reconciliation** | P0 | K8.1–K8.7 | scope router, gateway growth, invoice mirror, existing-subscriber migration, reconciler, scenario harness, billing-disabled parity |
-| **K9 Annual billing (switchable, default off)** | P1 | K9.1–K9.6 | YEAR rows, annual proration/term rules, monthly sub-windows, annual UX, org annual, enablement runbook — **gated on decision S-01** |
+| **K9 Annual billing (on)** | P0 | K9.1–K9.6 | YEAR rows with the admin-set discount under the guard, annual proration/term rules, monthly sub-windows, annual UX, org annual, operations runbook — **S-01 answered ON (2026-10-15)**; stories sit in phases S2/S3/S5 |
 | **K10 Retirement lifecycle and the read-only lock** | P0 | K10.1–K10.11 | RETIRING → RETIRED, effective dates, notices, closest-match successors, subscriber choices, Free fallback with locks (S-19), enterprise seats, Stripe schedules, wizard, customer page, regression |
 
 **67 stories** (S 16 · M 51 · L 0), all `not_started`.
@@ -38,7 +38,7 @@
 | K2.1 | M | API | plan/plan_version/plan_component + seed FREE/PRO/AUTOPILOT/ORG_STANDARD v1 + subscription backfill |
 | K2.2 | M | API | PlanService: drafts, invariants, snapshot + publish, supersede, integrity job |
 | K2.3 | M | API | PlanPreviewDTO: totals, worst-case margin with levers, roster preview, impact |
-| K2.4 | M | API | Grandfathering + migration primitive (opt-in; non-increases at renewal) + PlanRetireGuard |
+| K2.4 | M | API | Grandfathering invariants + PlanRetireGuard (version-migration primitive marked FUTURE — S-03) |
 | K2.5 | M | API | Admin plans API with OpenAPI, idempotent publish, authz coverage |
 | K3.1 | M | API | PricingEngine v2: intervals, plan/seat/org totals, monthly equivalent; golden S1 + G1–G14 |
 | K3.2 | M | API | MarginCalculator v2: fee model SIMPLE/SCHEDULE, composition checks, levers, discounts never overridable |
@@ -75,16 +75,16 @@
 | K8.1 | M | API | Webhook scope router + stripe_event scope/org_id; UserBillingHandler extracted unchanged |
 | K8.2 | M | API | StripeGateway growth (checkout spec, items, schedules, invoice items, products/prices, preview) |
 | K8.3 | M | API | Personal invoice + invoice_line mirror, paid_through_at, period start, renewal reminder hook |
-| K8.4 | M | API | Existing-subscriber migration: price-id reuse, backfill verification, period-start job, runbook |
+| K8.4 | M | API | No-data migration (S-03): seed verification, backfill proven on empty + synthetic fixtures, period-start job kept, runbook |
 | K8.5 | M | API | Personal reconciler + billing_drift + replay endpoint |
 | K8.6 | M | API | FakeStripeGateway scenario harness + test-clock runbook scenario P |
 | K8.7 | S | API, Web | Billing-disabled parity (BillingConfigIT) |
-| K9.1 | M | API | YEAR interval: derived annual rows, precedence, guard with ai×12, levers; golden S2/S3 (dark) |
-| K9.2 | M | API | Annual proration, term-end rules, interval switches in the appliers (dark) |
-| K9.3 | S | API | Monthly sub-window allowances and AI budget on annual terms (dark) |
-| K9.4 | M | Web | Annual customer UX: yearly tab, copy, savings (dark) |
-| K9.5 | M | API, Web | Org annual: interval, seat quotes on YEAR units, overview rows, transfers (dark) |
-| K9.6 | S | API | Annual enablement runbook, tax precondition, self-check (dark) |
+| K9.1 | M | API | YEAR interval: derived annual rows, precedence, guard with ai×12, levers; golden S2/S3 |
+| K9.2 | M | API | Annual proration, term-end rules, interval switches in the personal appliers |
+| K9.3 | S | API | Monthly sub-window allowances and AI budget on annual terms |
+| K9.4 | M | Web | Annual customer UX: yearly tab, copy, savings |
+| K9.5 | M | API, Web | Org annual: interval, seat quotes on YEAR units, overview rows, transfers |
+| K9.6 | S | API | Annual operations runbook, tax precondition, self-check |
 | K10.1 | M | API | Retirement model, RETIRING states, effective dates, impact, start/cancel/complete, 410 on purchases |
 | K10.2 | M | API | SuccessorAdvisor closest match + per-subscriber quotes + nightly recompute |
 | K10.3 | M | API | Notice schedule, channels, copy register, dedupe, enterprise recipients |
@@ -102,16 +102,17 @@
 | Phase | Stories (in order) | Exit gate |
 |---|---|---|
 | **S0 Foundations (no behaviour change)** | K3.4 → K1.1 → K1.2 → K1.3 → K1.4 → K8.2 → K8.1 → K2.1 → K3.1 → K3.2 | all additive changelogs applied on a prod-like dump; `LegacyReadersUnchangedIT`, `BillingResourceIT`, `BillingWebhookIT`, `EntitlementServiceTest` green and unchanged; seed reuses the live Stripe price ids (K8.4 test subset) |
-| **S1 Resolver in shadow** | K7.1 → K7.2 → K7.5 → K7.3 → K7.4 → K7.7 → K8.3 → K8.4 | two weeks of zero shadow mismatches in prod logs; flip `billing.catalog.shadow=false` by checklist; `/api/profile/version` carries `features[]` |
-| **S2 Plans and the builder** | K1.5 → K2.2 → K2.3 → K2.4 → K2.5 → K4.1 → K4.2 → K4.3 → K4.4 → K4.5 → K4.6 → K4.7 → K1.6 | admin publishes PRO v2 (same prices) and AUTOPILOT v1 with prices; `/pricing` unchanged for the public until K5.1; env-var price path deleted |
-| **S3 Individual add-ons** | K3.3 → K5.1 → K5.2 → K5.3 → K5.4 → K5.7 → K5.5 → K5.6 → K7.6 → K8.5 → K8.6 → K8.7 → K5.8 | a Pro subscriber buys two credit packs from the pricing page and removes one from My plan; scenario harness green; reconciler reports zero drift for a week |
-| **S4 Retirement lifecycle (P0)** | K10.1 → K10.2 → K10.3 → K10.4 → K10.5 → K10.6 → K10.8 → K10.9 → K10.10 → K10.11 | a test retirement of a mock plan walks notice → choice → fallback with locks in CI and in the test account (scenario R); `NoEarlyLossIT` green |
-| **S5 Enterprise plan layer** (after X5.4/X6.12) | K6.1 → K6.2 → K6.3 → K6.6 → K6.4 → K6.5 → K10.7 | E2E-C (22 §9 / 28 §11) passes with seats picked from the plan version; seat transfer and switch-all proven |
-| **S6 Annual (only after S-01 is answered (b) or (c))** | K9.1 → K9.2 → K9.3 → K9.4 → K9.5 → K9.6 | annual on for the chosen world; guard levers honoured; tax mode decided |
+| **S1 Resolver in shadow** | K7.1 → K7.2 → K7.5 → K7.3 → K7.4 → K7.7 → K8.3 → K8.4 | `ShadowCompareTest` green on the fixture matrix and zero prod mismatches over one release (no two-week wait — no existing cohort, S-03); flip `billing.catalog.shadow=false` by checklist; `/api/profile/version` carries `features[]` |
+| **S2 Plans and the builder (incl. annual rows)** | K1.5 → K2.2 → **K9.1** → K2.3 → K2.4 → K2.5 → K4.1 → K4.2 → K4.3 → K4.4 → K4.5 → K4.6 → K4.7 → **K9.3** → K1.6 | admin publishes PRO v2 and AUTOPILOT v1 with monthly, quarterly **and yearly** prices (derived rows under the guard); `/pricing` unchanged for the public until K5.1; env-var price path deleted |
+| **S3 Individual add-ons and annual UX** | K3.3 → K5.1 → K5.2 → K5.3 → K5.4 → K5.7 → K5.5 → K5.6 → **K9.2** → **K9.4** → K7.6 → K8.5 → K8.6 → K8.7 → **K9.6** → K5.8 | a Pro subscriber buys two credit packs yearly from the pricing page, removes one from My plan (applies at renewal), switches interval; scenario harness green; reconciler zero drift for a week; tax mode decided before the first yearly invoice (S-09) |
+| **S4 Retirement lifecycle (P0)** | K10.1 → K10.2 → K10.3 → K10.4 → K10.5 → K10.6 → K10.8 → K10.9 → K10.10 → K10.11 | a test retirement of a mock plan walks notice → choice → Free fallback with locks (default, S-20) in CI and in the test account (scenario R); `NoEarlyLossIT` green |
+| **S5 Enterprise plan layer and org annual** (after X5.4/X6.12) | K6.1 → K6.2 → K6.3 → K6.6 → K6.4 → K6.5 → **K9.5** → K10.7 | E2E-C (22 §9 / 28 §11) passes with seats picked from the plan version on monthly and yearly terms; seat transfer and switch-all proven |
 
-Decision gates that pause a story: **S-01** (K9.*), **S-03** (K2.4 migrations for increases, K6.3), **S-06**
-(which add-ons get prices — admin action, no story), **S-11** (fee model), **S-19 answered** (K10.5 default
-FREE), **S-20/S-21** (wizard defaults).
+Answered decisions already applied: **S-01** annual ON · **S-03** no existing subscribers (K8.4 no-data; K2.4
+migration primitive FUTURE) · **S-19** Free + read-only fallback · **S-20** wizard default retire-to-Free.
+Still open and able to pause a story: **S-06** (which add-ons get prices — admin action, no story),
+**S-09** (tax mode before the first yearly invoice — K9.6 self-check), **S-11** (fee model), **S-21** (alternative
+retirement outcomes).
 
 ## 4. How K relates to the existing backlogs (nothing deleted)
 
@@ -138,5 +139,5 @@ FREE), **S-20/S-21** (wizard defaults).
 | E2E-A5.1 Settings › Features matrix | relates — reads plan components instead of product entitlements | K3.4 |
 
 ## 5. Sizing and effort (indicative)
-67 stories · 118 points (S=1, M=2) · 29 critical. S0–S1 ≈ 18 stories (the no-behaviour-change half);
-S2–S3 ≈ 26; S4 ≈ 10; S5 ≈ 7; S6 ≈ 6 (dark until decided). Owner mentions: API 54 · Web 23 · Ext 2 (shared stories count for each owner).
+67 stories · 118 points (S=1, M=2) · 29 critical. S0–S1 = 18 stories (the no-behaviour-change half);
+S2 = 15; S3 = 16; S4 = 10; S5 = 8. Owner mentions: API 54 · Web 23 · Ext 2 (shared stories count for each owner).

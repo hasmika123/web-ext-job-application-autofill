@@ -10,16 +10,16 @@
 | Phase | Gate | Status |
 |---|---|---|
 | S0 Foundations | additive changelogs on a prod-like dump; legacy readers byte-identical; price ids reused | Not Started |
-| S1 Resolver in shadow | 14 days zero shadow mismatches; shadow flipped; features on /version | Not Started |
-| S2 Plans and builder | PRO v2 + AUTOPILOT v1 published from admin; env-var prices deleted | Not Started |
-| S3 Individual add-ons | credits bought and removed end to end; harness green; zero drift for a week | Not Started |
-| S4 Retirement lifecycle | scenario R in CI and test account; NoEarlyLossIT green | Not Started |
-| S5 Enterprise plan layer | E2E-C with seats from the plan version; transfer and switch-all | Not Started — waits on X5.4 / X6.12 |
-| S6 Annual | decision S-01 answered (b)/(c); tax mode decided | Blocked on S-01 |
+| S1 Resolver in shadow | ShadowCompareTest green + zero prod mismatches over one release; shadow flipped; features on /version | Not Started |
+| S2 Plans and builder (incl. annual rows K9.1, K9.3) | PRO v2 + AUTOPILOT v1 published from admin with monthly, quarterly and yearly prices; env-var prices deleted | Not Started |
+| S3 Individual add-ons and annual UX (K9.2, K9.4, K9.6) | credits bought yearly and removed end to end; interval switch; harness green; zero drift for a week; tax mode decided (S-09) | Not Started |
+| S4 Retirement lifecycle | scenario R in CI and test account; NoEarlyLossIT green; default retire-to-Free | Not Started |
+| S5 Enterprise plan layer and org annual (K9.5) | E2E-C with seats from the plan version on monthly and yearly terms; transfer and switch-all | Not Started — waits on X5.4 / X6.12 |
 
-## Decisions that gate stories
-S-01 annual (K9.*) · S-03 price increases (K2.4 migrations, K6.3) · S-11 fee model (K3.2 default SIMPLE) ·
-S-19 **answered**: Free + read-only lock (K10.5) · S-20/S-21 wizard defaults (K10.9). Full table: `decisions-for-user.md`.
+## Decisions
+**Answered (user, 2026-10-15):** S-01 annual ON · S-03 no existing subscribers · S-17 · S-19 Free + read-only lock · S-20 retire-to-Free default.
+**Open and able to pause a story:** S-09 tax mode before the first yearly invoice (K9.6 self-check) · S-11 fee model (K3.2 default SIMPLE) · S-21 alternative retirement outcomes (K10.9). Full table: `decisions-for-user.md`.
+**`CLAUDE.md` amendment for S-01** is pending the user's session (text in `decisions-for-user.md`).
 
 ## Stories
 | id | title (short) | status | owner | commit | tests | notes |
@@ -33,7 +33,7 @@ S-19 **answered**: Free + read-only lock (K10.5) · S-20/S-21 wizard defaults (K
 | K2.1 | plan tables + seeds + subscription backfill | Not Started | API | | | |
 | K2.2 | PlanService invariants + publish | Not Started | API | | | |
 | K2.3 | PlanPreviewDTO | Not Started | API | | | |
-| K2.4 | Grandfathering + migration primitive | Not Started | API | | | increases gated on S-03 |
+| K2.4 | Grandfathering invariants + PlanRetireGuard | Not Started | API | | | version-migration primitive FUTURE (S-03) |
 | K2.5 | Admin plans API | Not Started | API | | | |
 | K3.1 | PricingEngine v2 + golden S1 | Not Started | API | | | one engine with X5.5 |
 | K3.2 | MarginCalculator v2 + levers | Not Started | API | | | fee model per S-11 |
@@ -70,16 +70,16 @@ S-19 **answered**: Free + read-only lock (K10.5) · S-20/S-21 wizard defaults (K
 | K8.1 | Webhook scope router | Not Started | API | | | |
 | K8.2 | StripeGateway growth | Not Started | API | | | shared with X6.6 |
 | K8.3 | Personal invoice mirror | Not Started | API | | | |
-| K8.4 | Existing-subscriber migration + runbook | Not Started | API | | | |
+| K8.4 | No-data migration + runbook (S-03) | Not Started | API | | | |
 | K8.5 | Personal reconciler + replay | Not Started | API | | | |
 | K8.6 | FakeStripeGateway harness + runbook P | Not Started | API | | | human step: test clocks |
 | K8.7 | Billing-disabled parity | Not Started | API, Web | | | |
-| K9.1 | YEAR rows + guard + golden S2/S3 | Blocked | API | | | S-01 |
-| K9.2 | Annual proration / term rules | Blocked | API | | | S-01 |
-| K9.3 | Monthly sub-windows on annual | Blocked | API | | | S-01 |
-| K9.4 | Annual customer UX | Blocked | Web | | | S-01 |
-| K9.5 | Org annual | Blocked | API, Web | | | S-01 |
-| K9.6 | Annual enablement runbook | Blocked | API | | | S-01 |
+| K9.1 | YEAR rows + guard + golden S2/S3 | Not Started | API | | | phase S2 (S-01 ON) |
+| K9.2 | Annual proration / term rules (personal) | Not Started | API | | | phase S3 |
+| K9.3 | Monthly sub-windows on annual | Not Started | API | | | phase S2 |
+| K9.4 | Annual customer UX | Not Started | Web | | | phase S3 |
+| K9.5 | Org annual | Not Started | API, Web | | | phase S5 |
+| K9.6 | Annual operations runbook + self-check | Not Started | API | | | phase S3; S-09 tax mode |
 | K10.1 | Retirement model + states + effective dates | Not Started | API | | | |
 | K10.2 | SuccessorAdvisor | Not Started | API | | | |
 | K10.3 | Notice schedule + copy | Not Started | API | | | |
@@ -94,3 +94,4 @@ S-19 **answered**: Free + read-only lock (K10.5) · S-20/S-21 wizard defaults (K
 
 ## Log
 - 2026-10-15 — Fable: design complete (`docs/subscriptions/01`–`11`, `decisions-for-user.md`); area `sub` (prefix K, 67 stories) added to the master roadmap; nothing built.
+- 2026-10-15 — Fable: user decisions applied — S-01 annual ON (K9 into phases S2/S3/S5), S-03 no existing subscribers (K8.4 no-data migration, K2.4 primitive FUTURE, shadow gate test-based), S-20 retire-to-Free default (K10.1/K10.9). `CLAUDE.md` amendment left for the user's session.

@@ -371,7 +371,8 @@ account (CASCADE) — usage is not a financial record (invoices are).
    for FREE/PRO, DRAFT for AUTOPILOT and ORG_STANDARD (they have no prices); `plan_component` rows per 02 §3.3/3.4;
    `catalog_publish` id 1.
 4. `subscription`: `plan_version_id`, `billing_interval` from `price_id` (monthly → MONTH, 3mo → QUARTER; no
-   Pro price → FREE v1), `currency = 'USD'`. Rerun = no-op (`WHERE plan_version_id IS NULL`).
+   Pro price → FREE v1), `currency = 'USD'`. Rerun = no-op (`WHERE plan_version_id IS NULL`). **Zero rows
+   today** (S-03: no existing subscribers) — kept as the idempotent safety net for future cohorts.
 5. Verification query (fails the migration if any row remains unmapped with a non-null Pro `price_id`).
 
 ## 6. Enterprise links (`20261101050000_sub_enterprise_links.xml`)
@@ -410,6 +411,6 @@ Each: type, bounds, env default, risk; HIGH keys go through `ReasonSheet` (A5.1 
 | 4 | sub_backfill | none for readers (`plan` label unchanged); `plan_version_id` populated | idempotent; a verification query guards it |
 | 5 | shadow flip (`billing.catalog.shadow=false`) | resolver becomes the gate; bodies identical by test | flip back (setting) |
 | 6 | sub_enterprise_links | none until X5/X6 services read them | additive |
-| 7 | `billing.annual.enabled=true` (only if the user decides) | YEAR rows allowed at publish | flip back; existing YEAR subscriptions keep running to term end |
+| 7 | `billing.annual.enabled` ships **true** (S-01 answered) — YEAR rows allowed at publish from the first catalog publish | annual prices sellable once published | switch off: new YEAR rows refused; existing YEAR subscriptions keep running to term end |
 `LiquibaseAdditiveTest` parses every changelog above; `SubscriptionBackfillTest` + `CatalogSeedMigrationTest`
 run in the `personal-billing-regression` CI job.

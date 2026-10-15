@@ -1,4 +1,4 @@
-# 04 — Plan builder (platform admin UX): create, version, publish, grandfather, sunset
+# 04 — Plan builder (platform admin UX): create, version, publish, grandfather, retire
 
 > Status: design, 2026-10-15 (Fable). Platform admin, `ROLE_ADMIN` (+ admin permission `catalog.manage`;
 > publish is HIGH → `ReasonSheet` + re-auth). Built with the admin page kit
@@ -78,9 +78,10 @@ Rules:
 - Price fields write **draft `product_price` rows** (never edit a published row; a changed amount = a new
   row, old one retired at publish — ADR-013). The margin tick next to each price is live (debounced
   `GET /api/admin/catalog/margin`, 300 ms).
-- Year column is disabled with the tooltip until `billing.annual.enabled`; when enabled it shows the
-  **derived** amount from the discount (`plan` default, per-add-on override field) and an "explicit" toggle
-  to type an amount instead; the implied discount and the lever `maxDiscountBp` are shown.
+- Year column (on by default, S-01) shows the **derived** amount from the discount (global setting →
+  `plan` default → per-add-on override field) and an "explicit" toggle to type an amount instead; the
+  implied discount and the lever `maxDiscountBp` are shown; it is disabled with a tooltip only if an
+  admin has switched `billing.annual.enabled` off.
 - Preview is 1:1 the `PlanPreviewDTO` (09 §1.4); the margin section lists every check of 03 §7.2 with
   ✓/✗ and levers. A ✗ does not block editing; it blocks **Publish** without an override reason.
 - Impact block: subscribers per live version, what happens to each (grandfathered), effective date
@@ -122,14 +123,14 @@ Stripe off → publish refused `503 BILLING_DISABLED` (drafts stay editable; Pha
 Toast: "Pro v3 published · live Oct 20 · [View]". Failure: inline card per step; nothing half-published.
 
 ## 5. Grandfathering (never silently re-price)
-- A subscription references its `plan_version_id`; publishing never touches it. Existing subscribers keep
-  prices, allowances and included services **exactly** (invariant test `GrandfatherTest`).
-- "Migrate subscribers" is a separate, explicit admin action on a SUPERSEDED version:
-  `[Offer migration…]` → choose target version, message, and whether the move is **opt-in** (customer
-  confirms a quote — default) or **scheduled at renewal with 30-day notice** (B4.2's price-change notice,
-  legal minimum; only for price *decreases* or equal prices without a decision — **S-03** for increases).
-  The customer always sees a quote with old vs new lines before anything changes; the move applies at
-  period end; nothing is prorated or refunded.
+- A subscription references its `plan_version_id`; publishing never touches it. Subscribers keep prices,
+  allowances and included services **exactly** (invariant test `GrandfatherTest`). There are no existing
+  subscribers today (S-03 answered), so v1 seeds freely; the rule protects every future cohort.
+- Moving a live subscriber to another version happens only through (a) a quote they confirm, or (b) the
+  retirement lifecycle of `11-plan-retirement.md` (notices, choices, Free fallback). The earlier "offer
+  migration" admin action is **FUTURE** (K2.4) and, if ever built, follows the same rules: opt-in quote
+  by default; at-renewal moves only for equal or lower prices after a ≥ 30-day notice; never a higher
+  price without explicit consent; nothing prorated or refunded.
 - The Plans list shows "Subscribers on old versions" so an old version is never forgotten; a version with
   0 subscribers and `effective_until` past can be **archived** (`RETIRED`, read-only forever).
 

@@ -5,7 +5,7 @@
 > enterprise foundation tables are what exists (see the current-state review).
 
 ## START HERE
-- **Last commit:** `design: unified subscription module (individual + enterprise, add-on services, per-seat, monthly/annual)` on `subscription-design` (not pushed; the user decides).
+- **Last commit:** `design: subscriptions — apply user decisions S-01 annual on, S-03 no existing subscribers, S-20 retire to Free; CLAUDE.md annual lock` on `subscription-design` (not pushed; the user decides). Previous: `design: unified subscription module …`.
 - **Read in this order (30 min):** `docs/subscriptions/README.md` → `01-current-state-review.md` →
   `02-unified-product-model.md` → `03-pricing-model.md` → `decisions-for-user.md` → `10-stories-and-build-order.md`.
   Then the doc your story names in its `design` field.
@@ -25,14 +25,17 @@
 ## What the module is (five lines)
 1. Every feature is a catalog **service** (`feature_definition`, widened to both worlds) with a key, allowance, AI budget, dependencies and eligibility; prices are immutable effective-dated rows.
 2. A **plan** is a published, versioned composition: base + included services + optional add-ons (priced) + per-seat rules for organizations; Free/Pro/Autopilot and Org Standard are seeded as behaviour-identical v1 compositions; admin creates new plans and versions at any time.
-3. One **pricing engine** (list → contract → one discount → tier; Kiwiply prorates) prices an individual basket, a seat and an org at MONTH/QUARTER (and YEAR when the user enables annual, decision S-01); one **margin guard** with levers checks every row and composition against the ≥ 80 % floor.
+3. One **pricing engine** (list → contract → one discount → tier; Kiwiply prorates) prices an individual basket, a seat and an org at MONTH/QUARTER/YEAR (annual is ON — user decision S-01, yearly discount admin-set); one **margin guard** with levers checks every row and composition against the ≥ 80 % floor.
 4. One **EntitlementService** resolves a plan version + add-ons (personal) or licenses on an org plan version (org) into one set; 14 `isPro` callers migrate with byte-identical 402 bodies; a `LOCKED` tri-state implements the read-only fallback.
-5. **Stripe stays the truth**: items per add-on, YEAR prices when enabled, schedules for period-end changes, webhooks write mirrors, reconcilers report drift, existing subscribers migrate with reused price ids and no behaviour change.
+5. **Stripe stays the truth**: items per add-on, YEAR prices, schedules for period-end changes, webhooks write mirrors, reconcilers report drift; there are no existing subscribers today (S-03) so the seed is a no-data migration with the safety rules kept for future cohorts.
 
-## Decisions the user still owns
-`decisions-for-user.md`: S-01 annual (default off), S-03 re-pricing existing subscribers, S-06 which add-ons
-get prices, S-11 fee model, S-20/S-21 retirement wizard defaults, plus the rest of the table. **Answered:**
-S-19 — no-response default is Free with a read-only lock (2026-10-15).
+## Decisions
+**Answered by the user (2026-10-15):** S-01 annual ON · S-03 no existing subscribers · S-17 · S-19 Free + read-only lock
+on no response · S-20 retirement wizard defaults to retire-to-Free (KEEP_INDEFINITELY optional).
+**Still open:** S-06 which add-ons get prices, S-09 tax mode before the first yearly invoice, S-11 fee model,
+S-21 alternative retirement outcomes, plus the rest of `decisions-for-user.md`.
+**Pending user action:** apply the S-01 amendment sentence to `CLAUDE.md` (text in `decisions-for-user.md`;
+this design session does not edit `CLAUDE.md`).
 
 ## Where things are
 | What | Where |
