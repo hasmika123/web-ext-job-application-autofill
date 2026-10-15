@@ -34,7 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
  * Direct account creation by an Org Admin (anyone holding {@code members.invite}): the employee gets an ACTIVE account on the spot
  * with a server-generated or admin-chosen TEMPORARY password, is attached to the organization with the roles, team and manager the
  * invitation form offers (the very same validation: role ceiling, groups, manager chain), and must change the password at first
- * sign-in. The invitation flow is untouched and stays the alternative; it is also the fallback when the address already has a
+ * sign-in. In a SEPARATE organization (decision O4) the account is always a NEW enterprise account of that organization, whatever
+ * personal accounts exist. The invitation flow is untouched and stays the alternative; in a legacy SHARED organization it is also the fallback when the address already has a
  * Kiwiply account: that person keeps their own password and receives a normal invitation to accept (their consent to share data with
  * the organization is theirs to give, so nobody is attached to an organization behind their back).
  *
@@ -103,7 +104,10 @@ public class OrgAccountService {
         if (invites.holdsALiveSeat(me.orgId(), entry.email())) throw OrgException.alreadyMember();
         requireUnderHourlyCap(me.orgId());
 
-        if (accountScopes.findMemberAccountByEmail(me.orgId(), entry.email()).isPresent()) {
+        // O4: a SEPARATE organization (switch on) always gets a NEW enterprise account of its own. A personal account with the same address is
+        // never read, so there is no INVITED / "known address" branch and nothing in the answer depends on one (docs/enterprise-v2/19 R2, R7).
+        boolean separate = accountScopes.scopeOf(me.orgId()) != null;
+        if (!separate && accountScopes.findMemberAccountByEmail(me.orgId(), entry.email()).isPresent()) {
             // Someone with a Kiwiply account: no password is issued or changed; they get the normal invitation and accept it themselves.
             OrgInviteResultDTO r = invites.invite(me, asInvite);
             Long seatId = r.invited().isEmpty() ? null : r.invited().get(0).memberId();
@@ -116,7 +120,23 @@ public class OrgAccountService {
         if (chosen != null && (chosen.length() < 4 || chosen.length() > 100)) throw OrgException.invalid("password", "must be 4 to 100 characters");
         Instant expires = Instant.now().plus(Duration.ofDays(settings.getInt(ResumeBuilderSettingKeys.ORG_TEMP_PASSWORD_EXPIRY_DAYS)));
         String[] names = split(fullName != null ? fullName : entry.name());
-        UserService.TempAccount account = userService.createTempAccount(entry.email(), names[0], names[1], chosen, expires);
+        UserService.TempAccount account;
+        if (separate) {
+            User former = userService.findEnterpriseAccount(me.orgId(), entry.email()).orElse(null);
+            if (former == null) {
+                try {
+                    account = userService.createEnterpriseAccount(me.orgId(), entry.email(), names[0], names[1], chosen, expires);
+                } catch (com.dossier.api.service.EmailAlreadyUsedException raced) { // created at the same moment: the same generic answer as a duplicate
+                    throw OrgException.alreadyMember();
+                }
+            } else if (former.isPasswordChangeRequired()) { // a former member who never chose a password: the same account, a fresh temporary one
+                account = new UserService.TempAccount(former, userService.resetTempPassword(former, chosen, expires), false);
+            } else { // their own credential is theirs: an Org Admin never overwrites it (they can invite the person instead)
+                throw OrgException.alreadyMember();
+            }
+        } else {
+            account = userService.createTempAccount(entry.email(), names[0], names[1], chosen, expires);
+        }
 
         OrgMember seat = new OrgMember();
         seat.setOrgId(me.orgId());
@@ -142,7 +162,7 @@ public class OrgAccountService {
 
     /**
      * A new temporary password for a member who has NOT yet chosen their own. A member who has is never touched (their credential is
-     * theirs, and they may belong to other organizations): 409 {@code PASSWORD_ALREADY_SET}, they use Forgot password. 404 for
+     * theirs): 409 {@code PASSWORD_ALREADY_SET}, they use Forgot password. 404 for
      * another organization's seat, for the caller's own seat, and for an owner unless the caller is an owner.
      */
     @Transactional

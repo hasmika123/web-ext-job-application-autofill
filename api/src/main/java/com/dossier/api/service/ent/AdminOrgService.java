@@ -3,6 +3,7 @@ package com.dossier.api.service.ent;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.OrgHostname;
 import com.dossier.api.domain.enumeration.OrgHostnameStatus;
+import com.dossier.api.domain.enumeration.OrgAccountMode;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.enumeration.OrgStatus;
@@ -16,6 +17,7 @@ import com.dossier.api.repository.ent.OrgHostnameRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.AccountScopes;
 import com.dossier.api.service.AdminAuditService;
 import com.dossier.api.service.UserService;
 import com.dossier.api.service.ResumeBuilderSettingKeys;
@@ -104,6 +106,7 @@ public class AdminOrgService {
     private final UserService userService;
     private final AccountOnboardingNotices notices;
     private final ObjectMapper mapper;
+    private final AccountScopes accountScopes;
 
     public AdminOrgService(
         AdminOrgQueryRepository query,
@@ -121,7 +124,8 @@ public class AdminOrgService {
         OrgRoleService roles,
         UserService userService,
         AccountOnboardingNotices notices,
-        ObjectMapper mapper
+        ObjectMapper mapper,
+        AccountScopes accountScopes
     ) {
         this.query = query;
         this.organizations = organizations;
@@ -139,6 +143,7 @@ public class AdminOrgService {
         this.userService = userService;
         this.notices = notices;
         this.mapper = mapper;
+        this.accountScopes = accountScopes;
     }
 
     // ---- reads ------------------------------------------------------------------------------------------------------------
@@ -260,9 +265,11 @@ public class AdminOrgService {
 
     /**
      * Creates an ACTIVE organization (the platform admin vouches for it; the setup fee and licences attach later in the billing
-     * story), gives it {@code label}.kiwiply.com and onboards its OWNER directly, with no email: if a Kiwiply account already
-     * exists for {@code ownerEmail} it is attached as OWNER and its password is not touched; otherwise an activated account is
-     * created with a SERVER-GENERATED temporary password that must be changed on first sign-in and expires after
+     * story), gives it {@code label}.kiwiply.com and onboards its OWNER directly, with no email. While separate accounts are in force
+     * (decision O4: {@code enterprise.separate_accounts} on) the organization is created SEPARATE and the owner is ALWAYS a NEW enterprise
+     * account of this organization: a personal account with the same address is never read, attached, changed or revealed. With the
+     * switch off (legacy): if a Kiwiply account already exists for {@code ownerEmail} it is attached as OWNER and its password is not
+     * touched. Either way a new account is activated with a SERVER-GENERATED temporary password that must be changed on first sign-in and expires after
      * {@code org.tempPassword.expiryDays}. The clear-text password is returned ONCE, here, and is never stored, logged or audited
      * (the audit rows carry the owner's address and whether the account was created, nothing else).
      */
@@ -292,6 +299,8 @@ public class AdminOrgService {
         org.setSlug(label);
         org.setStatus(OrgStatus.ACTIVE);
         org.setCreatedByUserId(admin.getId());
+        boolean separate = accountScopes.separateAccountsEnabled(); // O4: every organization created while the switch is on has its own enterprise accounts
+        org.setAccountMode(separate ? OrgAccountMode.SEPARATE : OrgAccountMode.SHARED);
         org.setSettingsJson(writeSettings());
         try {
             org = organizations.saveAndFlush(org);
@@ -303,7 +312,9 @@ public class AdminOrgService {
 
         Instant expires = tempPasswordExpiry();
         String[] names = splitName(ownerName);
-        UserService.TempAccount owner = userService.createTempAccount(email, names[0], names[1], null, expires);
+        UserService.TempAccount owner = separate
+            ? userService.createEnterpriseAccount(orgId, email, names[0], names[1], null, expires) // a brand-new account of THIS organization; no personal lookup
+            : userService.createTempAccount(email, names[0], names[1], null, expires);
         OrgMember seat = new OrgMember();
         seat.setOrgId(orgId);
         seat.setUserId(owner.user().getId());

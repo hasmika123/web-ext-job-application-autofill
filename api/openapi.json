@@ -11980,7 +11980,7 @@
       "post" : {
         "tags" : [ "org-join" ],
         "summary" : "Accept an emailed invite",
-        "description" : "Signed in. Becomes a member and records the consent choice (NONE or SUMMARY) with the text version. 409 ALREADY_MEMBER, INVITE_EXPIRED or SEAT_STATE.",
+        "description" : "Legacy (shared-account) organizations: signed in; becomes a member and records the consent choice (NONE or SUMMARY) with the text version. SEPARATE organizations (decision O4): no sign-in, the invite token is the credential; the body carries the new password, the person's enterprise account of that organization is created (or reused) and, on the organization's own host, the response carries its tenant-bound session. 409 ALREADY_MEMBER, INVITE_EXPIRED or SEAT_STATE.",
         "operationId" : "acceptInvite",
         "parameters" : [ {
           "name" : "token",
@@ -29346,6 +29346,9 @@
             "enum" : [ "NONE", "SUMMARY", "FULL" ]
           },
           "consentVersion" : {
+            "type" : "string"
+          },
+          "password" : {
             "type" : "string"
           }
         }

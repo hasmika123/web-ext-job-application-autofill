@@ -32,6 +32,10 @@ public class TenantSessionService {
     private final OrgMemberRepository members;
     private final OrgAuditService audit;
 
+    // Field-injected and optional (the unit test builds this with two arguments): absent = every organization keeps the invitation exception.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.AccountScopes accountScopes;
+
     public TenantSessionService(OrgMemberRepository members, OrgAuditService audit) {
         this.members = members;
         this.audit = audit;
@@ -57,7 +61,9 @@ public class TenantSessionService {
         if (c.isExplicitlyUnknown()) throw new OrgNotFoundException();
         if (!c.isTenant()) return Optional.empty();
         if (!isActiveMember(c.orgId(), userId)) {
-            if (hasLiveInvite(c.orgId(), inviteToken)) {
+            // O4: a SEPARATE organization has no tid-less invitation sign-in; its invitations are accepted through the public accept endpoint.
+            boolean invitationSignIn = accountScopes == null || accountScopes.scopeOf(c.orgId()) == null;
+            if (invitationSignIn && hasLiveInvite(c.orgId(), inviteToken)) {
                 if (auditInvite) audit.recordHostEvent(c.orgId(), c.hostnameId(), login, OrgAuditService.LOGIN_FOR_INVITE, "LOW", "sign-in for a pending invitation (no tenant session until it is accepted)");
                 return Optional.empty();
             }

@@ -67,12 +67,20 @@ public class JoinResource {
         return guarded(request, () -> joinService.previewCode(code));
     }
 
-    @Operation(summary = "Accept an emailed invite", description = "Signed in. Becomes a member and records the consent choice (NONE or SUMMARY) with the text version. 409 ALREADY_MEMBER, INVITE_EXPIRED or SEAT_STATE.")
+    @Operation(
+        summary = "Accept an emailed invite",
+        description = "Legacy (shared-account) organizations: signed in; becomes a member and records the consent choice (NONE or SUMMARY) with the text version. " +
+        "SEPARATE organizations (decision O4): no sign-in, the invite token is the credential; the body carries the new password, the person's enterprise account of that organization is created (or reused) and, on the organization's own host, the response carries its tenant-bound session. " +
+        "409 ALREADY_MEMBER, INVITE_EXPIRED or SEAT_STATE."
+    )
     @PostMapping("/{token}/accept")
     @OrgUnscoped
     public ResponseEntity<?> acceptInvite(@PathVariable("token") String token, @RequestBody JoinAcceptRequest body, HttpServletRequest request) {
         demoGuard.assertNotDemo();
-        return guarded(request, () -> withTenantSession(joinService.acceptInvite(token, body, context(request))));
+        return guarded(request, () -> {
+            if (joinService.isSeparateInvite(token)) return withEnterpriseSession(joinService.acceptSeparateInvite(token, body, context(request)));
+            return withTenantSession(joinService.acceptInvite(token, body, context(request)));
+        });
     }
 
     @Operation(summary = "Join with a shared code", description = "Signed in. Same as accepting an invite, for a join link a cohort shares. Members only.")
@@ -97,6 +105,20 @@ public class JoinResource {
         if (auth == null || userId == null || login == null) return result;
         String authorities = auth.getAuthorities().stream().map(org.springframework.security.core.GrantedAuthority::getAuthority).collect(java.util.stream.Collectors.joining(" "));
         return result.withSession(tokenIssuer.issue(login, authorities, userId, new TenantBinding(c.orgId(), c.hostnameId())));
+    }
+
+    /**
+     * Accepting an invitation to a SEPARATE organization on its own host (decision O4): there is no session to upgrade, the new enterprise
+     * account is signed in here, bound to this tenant ({@code tid}, {@code hid}). On any other host the result carries no session (the person
+     * signs in on their organization's address).
+     */
+    private JoinResultDTO withEnterpriseSession(OrgJoinService.Accepted accepted) {
+        JoinResultDTO result = accepted.result();
+        TenantContext c = TenantContextHolder.current().orElse(null);
+        if (c == null || !c.isTenant() || !c.orgId().equals(result.orgId())) return result;
+        com.dossier.api.domain.User user = accepted.user();
+        String authorities = user.getAuthorities().stream().map(com.dossier.api.domain.Authority::getName).collect(java.util.stream.Collectors.joining(" "));
+        return result.withSession(tokenIssuer.issue(user.getLogin(), authorities, user.getId(), new TenantBinding(c.orgId(), c.hostnameId())));
     }
 
     /** Rate limits the lookup, runs it, and counts a miss against the visitor. Never cached, never indexed. */

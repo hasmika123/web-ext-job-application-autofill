@@ -478,6 +478,80 @@ public class UserService {
         return new TempAccount(user, temp, true);
     }
 
+    /**
+     * A NEW activated ENTERPRISE account of organization {@code orgId} (decision O4, docs/enterprise-v2/19): {@code org_id} set, login
+     * {@code ent#<orgId>#...}, ROLE_USER only, never any lookup of (or link to) a personal account with the same address. With
+     * {@code tempExpiresAt} the password is a temporary one (the given {@code password} or a generated one) flagged "must change at first
+     * sign-in"; without it {@code password} is the person's own choice (invitation acceptance) and is required. Throws
+     * {@link EmailAlreadyUsedException} when this organization already has an account for the address.
+     */
+    @Transactional
+    public TempAccount createEnterpriseAccount(Long orgId, String email, String firstName, String lastName, String password, Instant tempExpiresAt) {
+        if (orgId == null) throw new IllegalArgumentException("orgId is required");
+        if (email == null || email.isBlank()) throw new IllegalArgumentException("email is required");
+        if (tempExpiresAt == null && (password == null || password.isEmpty())) throw new IllegalArgumentException("password is required");
+        String mail = email.strip().toLowerCase(Locale.ROOT);
+        if (userRepository.findOneByOrgIdAndEmailIgnoreCase(orgId, mail).isPresent()) throw new EmailAlreadyUsedException();
+        String pw = password == null || password.isEmpty() ? generateTempPassword() : password;
+        User user = new User();
+        user.setOrgId(orgId);
+        user.setLogin(enterpriseLogin(orgId, mail));
+        user.setPassword(passwordEncoder.encode(pw));
+        user.setFirstName(trimTo(firstName, 50));
+        user.setLastName(trimTo(lastName, 50));
+        user.setEmail(mail);
+        user.setLangKey("en");
+        user.setActivated(true);
+        user.setPasswordChangeRequired(tempExpiresAt != null);
+        user.setPasswordTempExpiresAt(tempExpiresAt);
+        Set<Authority> authorities = new HashSet<>();
+        authorityRepository.findById(AuthoritiesConstants.USER).ifPresent(authorities::add); // ROLE_USER only: an enterprise account is never a platform admin
+        user.setAuthorities(authorities);
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (org.springframework.dao.DataIntegrityViolationException raced) { // the same address created twice at once
+            throw new EmailAlreadyUsedException();
+        }
+        clearUserCaches(user);
+        return new TempAccount(user, pw, true);
+    }
+
+    /** The enterprise account of {@code orgId} for {@code email} (authorities loaded), or empty. Never looks at personal accounts. */
+    @Transactional(readOnly = true)
+    public Optional<User> findEnterpriseAccount(Long orgId, String email) {
+        if (orgId == null || email == null) return Optional.empty();
+        Optional<User> found = userRepository.findOneByOrgIdAndEmailIgnoreCase(orgId, email.strip());
+        found.ifPresent(u -> Hibernate.initialize(u.getAuthorities()));
+        return found;
+    }
+
+    /** Sets an enterprise account's own chosen password (invitation acceptance): no longer temporary, activated, hashed. */
+    @Transactional
+    public void setEnterprisePassword(User user, String password) {
+        if (user.getOrgId() == null) throw new IllegalArgumentException("not an enterprise account");
+        user.setPassword(passwordEncoder.encode(password));
+        user.setPasswordChangeRequired(false);
+        user.setPasswordTempExpiresAt(null);
+        user.setActivated(true);
+        userRepository.save(user);
+        clearUserCaches(user);
+    }
+
+    /** {@code ent#<orgId>#<email>} when it fits the login rules, else {@code ent#<orgId>#<first 16 hex of sha-256(email)>}. */
+    static String enterpriseLogin(Long orgId, String mail) {
+        String prefix = Constants.ENTERPRISE_LOGIN_PREFIX + orgId + "#";
+        String direct = prefix + mail;
+        if (direct.length() <= 50 && direct.matches(Constants.ENTERPRISE_LOGIN_REGEX)) return direct;
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(mail.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder();
+            for (int i = 0; i < 8; i++) hex.append(String.format("%02x", d[i]));
+            return prefix + hex;
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     /** Gives the account a new temporary password (server-generated unless {@code password} is given), flags it for change and sets its expiry. Returns the clear-text password for the one-time display; it is stored hashed only. */
     @Transactional
     public String resetTempPassword(User user, String password, Instant expiresAt) {

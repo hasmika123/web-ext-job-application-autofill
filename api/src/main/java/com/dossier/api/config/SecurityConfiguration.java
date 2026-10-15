@@ -63,6 +63,9 @@ public class SecurityConfiguration {
                     // every miss with the same 404 and never caches. Accepting (POST) needs a signed-in account.
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/join/*")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/join/code/*")).permitAll()
+                    // Accepting an invitation to a SEPARATE organization (decision O4): the invite token is the credential and the person has no account yet.
+                    // JoinResource.acceptInvite answers 401 itself for the legacy (shared-account) organizations, which still need a signed-in account.
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/join/*/accept")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/authenticate")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/auth/google")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/refresh")).permitAll()

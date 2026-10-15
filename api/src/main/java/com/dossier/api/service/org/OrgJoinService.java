@@ -15,7 +15,9 @@ import com.dossier.api.repository.org.OrgJoinCodeRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.AccountScopes;
 import com.dossier.api.service.NotificationService;
+import com.dossier.api.service.UserService;
 import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.ent.TenantContext;
 import com.dossier.api.service.ent.TenantContextHolder;
@@ -50,6 +52,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class OrgJoinService {
 
     private static final Logger LOG = LoggerFactory.getLogger(OrgJoinService.class);
+    private static final int PASSWORD_MIN = 4; // the same rule as sign-up and password reset (ManagedUserVM)
+    private static final int PASSWORD_MAX = 100;
 
     private final OrganizationRepository orgs;
     private final OrgMemberRepository members;
@@ -66,6 +70,8 @@ public class OrgJoinService {
     private final InviteSettings inviteSettings;
     private final InviteAcceptance acceptance;
     private final InviteCeilingChecker ceiling;
+    private final AccountScopes accountScopes;
+    private final UserService userService;
 
     public OrgJoinService(
         OrganizationRepository orgs,
@@ -82,7 +88,9 @@ public class OrgJoinService {
         OrgRoleService roleService,
         InviteSettings inviteSettings,
         InviteAcceptance acceptance,
-        InviteCeilingChecker ceiling
+        InviteCeilingChecker ceiling,
+        AccountScopes accountScopes,
+        UserService userService
     ) {
         this.orgs = orgs;
         this.members = members;
@@ -99,6 +107,8 @@ public class OrgJoinService {
         this.inviteSettings = inviteSettings;
         this.acceptance = acceptance;
         this.ceiling = ceiling;
+        this.accountScopes = accountScopes;
+        this.userService = userService;
     }
 
     // ---- preview (public) ---------------------------------------------------------------------------------------------
@@ -126,7 +136,8 @@ public class OrgJoinService {
             groupName(seat.getOrgId(), seat.getTeamGroupId()),
             seat.getInviteMessage(),
             maskEmail(seat.getInviteEmail()),
-            inviteSettings.requireEmailMatch(org.getId())
+            inviteSettings.requireEmailMatch(org.getId()),
+            accountScopes.scopeOf(org.getId()) != null
         );
     }
 
@@ -175,15 +186,26 @@ public class OrgJoinService {
             groupName(code.getOrgId(), code.getGroupId()),
             List.of(),
             code.getExpiresAt(),
-            OrgInviteService.canSeat(org.getStatus(), code.getRole()),
+            OrgInviteService.canSeat(org.getStatus(), code.getRole()) && accountScopes.scopeOf(org.getId()) == null, // a shared code proves no address: not offered for SEPARATE organizations
             consent.view(orgService.settingsOf(org).defaultShareScope())
         );
     }
 
     // ---- accept (signed in) -------------------------------------------------------------------------------------------
 
+    /** What a successful acceptance produced: the result, and the account that now holds the seat (the caller may mint its session). */
+    public record Accepted(JoinResultDTO result, User user) {}
+
+    /** True when {@code token} is an invitation of a SEPARATE organization (decision O4): accepting it needs no sign-in and creates the account. */
+    @Transactional(readOnly = true)
+    public boolean isSeparateInvite(String token) {
+        if (!InviteTokens.looksLikeToken(token)) return false;
+        return members.findByInviteTokenHash(InviteTokens.hash(token)).map(s -> accountScopes.scopeOf(s.getOrgId()) != null).orElse(false);
+    }
+
     @Transactional
     public JoinResultDTO acceptInvite(String token, JoinAcceptRequest req, ShareContext ctx) {
+        if (isSeparateInvite(token)) return acceptSeparateInvite(token, req, ctx).result();
         User user = currentUser();
         ShareScope scope = requireChoice(req);
         OrgMember seat = pendingSeat(token, user);
@@ -194,7 +216,47 @@ public class OrgJoinService {
         // E7: bound to the invited address unless the organization (or the platform) switched the rule off; then it is audited.
         boolean emailMismatch = !sameAddress(user.getEmail(), seat.getInviteEmail());
         if (emailMismatch && inviteSettings.requireEmailMatch(org.getId())) throw OrgException.inviteEmailMismatch(maskEmail(seat.getInviteEmail()));
+        return takeSeat(org, seat, user, scope, req, ctx, emailMismatch);
+    }
 
+    /**
+     * Accepting an invitation to a SEPARATE organization (decision O4, docs/enterprise-v2/19 sections 3.9 and 7 row S4). The link is the only
+     * credential (no session, no personal-account sign-in): it proves the invited address, so accepting creates the person's enterprise
+     * account of THIS organization with the password they choose now (or, when this organization already has an account for the address
+     * and it holds no live seat, reuses it and sets that password). A personal account with the same address is never read or touched, and the
+     * answer never mentions one.
+     */
+    @Transactional
+    public Accepted acceptSeparateInvite(String token, JoinAcceptRequest req, ShareContext ctx) {
+        ShareScope scope = requireChoice(req);
+        OrgMember seat = pendingSeat(token);
+        Organization org = openOrg(seat.getOrgId());
+        requireNotExpired(seat, org);
+        if (!OrgInviteService.canSeat(org.getStatus(), seat.getRole())) throw OrgException.seatState(org.getStatus().name());
+        String email = seat.getInviteEmail();
+        if (email == null || email.isBlank()) throw new OrgNotFoundException();
+        String password = req.password();
+        if (password == null || password.length() < PASSWORD_MIN || password.length() > PASSWORD_MAX) {
+            throw OrgException.invalid("password", "must be " + PASSWORD_MIN + " to " + PASSWORD_MAX + " characters");
+        }
+        User user = userService.findEnterpriseAccount(org.getId(), email).orElse(null);
+        if (user == null) {
+            String[] names = nameParts(seat.getInviteName());
+            try {
+                user = userService.createEnterpriseAccount(org.getId(), email, names[0], names[1], password, null).user();
+            } catch (com.dossier.api.service.EmailAlreadyUsedException raced) {
+                throw OrgException.alreadyMember();
+            }
+        } else {
+            requireNotAlreadyMember(org.getId(), user.getId());
+            userService.setEnterprisePassword(user, password);
+        }
+        JoinResultDTO result = takeSeat(org, seat, user, scope, req, ctx, false);
+        return new Accepted(result, user);
+    }
+
+    /** The shared tail of accepting an invitation: the seat becomes ACTIVE for {@code user}, roles are re-checked, consent is recorded. */
+    private JoinResultDTO takeSeat(Organization org, OrgMember seat, User user, ShareScope scope, JoinAcceptRequest req, ShareContext ctx, boolean emailMismatch) {
         Instant now = Instant.now();
         seat.setUserId(user.getId());
         seat.setStatus(OrgMemberStatus.ACTIVE);
@@ -214,12 +276,22 @@ public class OrgJoinService {
         return result;
     }
 
+    private static String[] nameParts(String full) {
+        if (full == null || full.isBlank()) return new String[] { null, null };
+        String n = full.strip();
+        int i = n.indexOf(' ');
+        return i < 0 ? new String[] { n, null } : new String[] { n.substring(0, i), n.substring(i + 1) };
+    }
+
     @Transactional
     public JoinResultDTO acceptCode(String rawCode, JoinAcceptRequest req, ShareContext ctx) {
         User user = currentUser();
         ShareScope scope = requireChoice(req);
         OrgJoinCode code = liveCode(rawCode);
         Organization org = openOrg(code.getOrgId());
+        if (accountScopes.scopeOf(org.getId()) != null) { // O4: a shared code proves no address, so it cannot create an enterprise account; an invitation can
+            throw OrgException.coded(409, "CODE_JOIN_UNAVAILABLE", "This organization adds people by invitation. Ask your administrator to invite you.", java.util.Map.of());
+        }
         requireNotAlreadyMember(org.getId(), user.getId()); // before "no places left": someone who is in already is just told so
         requireCodeUsable(code, org);
         if (!OrgInviteService.canSeat(org.getStatus(), code.getRole())) throw OrgException.seatState(org.getStatus().name());
