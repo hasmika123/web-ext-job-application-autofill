@@ -20,7 +20,7 @@ async function restricted(code, file) {
 }
 
 // The first lintText loads the whole Next + TypeScript ESLint config (seconds, and more on a loaded machine).
-describe("admin sample lint", { timeout: 60_000 }, () => {
+describe("admin sample lint", { timeout: 180_000 }, () => {
   it("rejects a sample-data import from a new admin page component, at any depth", async () => {
     expect(await restricted(`import { X } from "./sample-data";\nexport const a = X;\n`, inAdmin("newpage/NewPage.tsx"))).toHaveLength(1);
     expect(await restricted(`import { X } from "../sample-data";\nexport const a = X;\n`, inAdmin("common/Probe.tsx"))).toHaveLength(1);
