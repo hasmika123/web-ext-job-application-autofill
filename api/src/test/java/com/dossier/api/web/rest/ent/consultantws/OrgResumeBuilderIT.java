@@ -125,7 +125,9 @@ class OrgResumeBuilderIT {
         marketerSeat = staff(a, "orb-a-marketer", OrgRole.MARKETER);
         OrgMember other = staff(a, "orb-a-marketer2", OrgRole.MARKETER);
         staff(b, "orb-b-owner", OrgRole.OWNER);
+        named("orb-a-marketer", "Sarah", "Chen");
         c1 = consultant(a, "orb-a-c1", "Casey One", true);
+        named("orb-a-c1", "Casey", "One");
         c2 = consultant(a, "orb-a-c2", "Robin Two", true);
         c0 = consultant(a, "orb-a-c0", "Seatless Person", true);
         cb = consultant(b, "orb-b-c1", "Bee Consultant", true);
@@ -159,6 +161,13 @@ class OrgResumeBuilderIT {
         members.saveAndFlush(m);
         roleService.syncFromLegacy(m);
         return m;
+    }
+
+    private void named(String login, String first, String last) {
+        User u = users.findOneByLogin(login).orElseThrow();
+        u.setFirstName(first);
+        u.setLastName(last);
+        users.saveAndFlush(u);
     }
 
     private ConsultantProfile consultant(Organization org, String login, String name, boolean withProfile) {
@@ -562,6 +571,22 @@ class OrgResumeBuilderIT {
         assertThat(actFor("orb-a-marketer", orgResumeId, get(base + "/meta")).getResponse().getStatus()).isEqualTo(200);
         assertThat(actFor("orb-a-marketer", orgResumeId, get(base + "/doc/pdf-status")).getResponse().getStatus()).isEqualTo(200);
 
+        // who last modified it, shown everywhere as the REAL actor: the marketer, by name and role, never the consultant whose account owns the document
+        JsonNode meta = ok(onHost("orb-a-c1", get(base + "/meta")), 200);
+        assertThat(meta.path("updatedBy").path("label").asText()).isEqualTo("Sarah Chen (marketer)");
+        assertThat(meta.path("createdBy").path("label").asText()).isEqualTo("Sarah Chen (marketer)");
+        JsonNode mine = null;
+        for (JsonNode r : ok(onHost("orb-a-c1", get(me(a))), 200).path("resumes")) if (r.path("id").asLong() == orgResumeId) mine = r;
+        assertThat(mine).isNotNull();
+        assertThat(mine.path("updatedBy").asText()).isEqualTo("Sarah Chen (marketer)");
+        JsonNode boardRow = null;
+        for (JsonNode r : ok(onHost("orb-a-owner", get("/api/orgs/" + a.getId() + "/resumes?size=100")), 200).path("items")) if (r.path("id").asLong() == orgResumeId) boardRow = r;
+        assertThat(boardRow).isNotNull();
+        assertThat(boardRow.path("updatedBy").asText()).isEqualTo("Sarah Chen (marketer)");
+        // the version history says the same for each version the marketer wrote
+        JsonNode history = ok(onHost("orb-a-c1", get(base + "/doc/versions")), 200);
+        assertThat(history.toString()).contains("Sarah Chen (marketer)").doesNotContain("ent#");
+
         // everything that is not acting-for material is the generic 404, however it is asked
         assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(base + "/access/link").content("{}")), "a public share link");
         assertGeneric404(actFor("orb-a-marketer", orgResumeId, org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(base)), "delete");
@@ -584,5 +609,30 @@ class OrgResumeBuilderIT {
         assertGeneric404(send("orb-a-marketer", get(base + "/doc").header("X-Kiwiply-Act-For", String.valueOf(orgResumeId))), "no organization host");
         // and nobody is left acting for anybody afterwards
         assertThat(send("orb-a-marketer", get("/api/profile/resumes/" + resumeId + "/doc")).getResponse().getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    void everyChangeToAResumeLeavesWhoAndWhenTheConsultantsOwnActionsAreTheirs() throws Exception {
+        JsonNode created = consultantCreates("orb-a-c1", "{\"label\":\"Casey's own\",\"source\":\"scratch\"}");
+        long orgResumeId = created.path("orgResumeId").asLong();
+        assertThat(created.path("row").path("updatedBy").asText()).isEqualTo("Casey One");
+
+        // primary, rename and visibility are recorded in the change log with the real actor, and the row reads "by Casey One"
+        assertThat(send("orb-a-c1", post(me(a) + "/" + orgResumeId + "/primary")).getResponse().getStatus()).isEqualTo(200);
+        assertThat(send("orb-a-c1", org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(me(a) + "/" + orgResumeId).content("{\"visibility\":\"PRIVATE\"}")).getResponse().getStatus()).isEqualTo(200);
+        List<MktResumeEvent> log = events.forResumes(a.getId(), List.of(orgResumeId));
+        assertThat(log).extracting(MktResumeEvent::getKind).contains(MktResumeEvent.CREATED, "PRIMARY_SET", "DETAILS_CHANGED");
+        assertThat(log).allSatisfy(e -> assertThat(e.getActorMemberId()).isEqualTo(c1.getMemberId()));
+        assertThat(log).allSatisfy(e -> assertThat(e.getOccurredAt()).isNotNull());
+        assertThat(page("orb-a-c1").path("resumes").get(0).path("updatedBy").asText()).isEqualTo("Casey One");
+
+        // the admin board's actions are attributed the same way: the owner makes it non-primary again by moving the decision, and the row reads "by" them
+        MvcResult reopen = send("orb-a-owner", org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/orgs/" + a.getId() + "/resumes/" + orgResumeId + "/visibility").content("{\"visibility\":\"INTERNAL\"}"));
+        assertThat(reopen.getResponse().getStatus()).as(reopen.getResponse().getContentAsString()).isEqualTo(200);
+        assertThat(events.forResumes(a.getId(), List.of(orgResumeId)).stream().filter(e -> "DETAILS_CHANGED".equals(e.getKind())).count()).isEqualTo(2);
+        JsonNode viaBoard = null;
+        for (JsonNode r : ok(send("orb-a-owner", get("/api/orgs/" + a.getId() + "/resumes?size=100")), 200).path("items")) if (r.path("id").asLong() == orgResumeId) viaBoard = r;
+        assertThat(viaBoard).isNotNull();
+        assertThat(viaBoard.path("updatedBy").asText()).as("the owner is the newest actor, shown by name").isNotBlank().doesNotContain("ent#");
     }
 }

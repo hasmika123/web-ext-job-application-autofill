@@ -50,6 +50,7 @@ export default function EditorTopBar({
   panelRefs,
   showTailor = true,
   approvalNotice = null,
+  allowDownload = true,
   onDownloadPdf,
   onDownloadText,
   exporting = false,
@@ -79,6 +80,8 @@ export default function EditorTopBar({
   showTailor?: boolean;
   /** Next to the save state when the session is acting for someone ("Pending consultant approval"), or null. */
   approvalNotice?: string | null;
+  /** False while acting for someone: the Download menu (saves a version, stores a PDF) is not drawn. */
+  allowDownload?: boolean;
   /** Download ▾ → Save & Download PDF: saves a checkpoint, then downloads the stored PDF (R3.3). */
   onDownloadPdf: () => void;
   /** Download ▾ → Save & Download plain text (.txt). */
@@ -211,6 +214,7 @@ export default function EditorTopBar({
           })}
         </div>
 
+        {allowDownload && (
         <span ref={downloadRef} className="inline-flex">
           <Tooltip content="Download (Alt+D)" side="bottom">
             <Menu
@@ -233,6 +237,7 @@ export default function EditorTopBar({
             />
           </Tooltip>
         </span>
+        )}
 
         <span aria-hidden className="hidden h-7 w-px flex-none bg-line md:block" />
       </div>

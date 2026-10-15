@@ -62,11 +62,11 @@ public class OrgResumePolicy {
     }
 
     /** The capabilities the builder config tells the web (the same facts the checks below enforce). */
-    public static ResumeBuilderConfigDTO.Capabilities capabilities() {
+    public static ResumeBuilderConfigDTO.BuilderCapabilities capabilities() {
         return switch (mode()) {
-            case PERSONAL -> new ResumeBuilderConfigDTO.Capabilities(Mode.PERSONAL.wire(), true, true, true, true, true, true, true, true, true, true, null);
-            case CONSULTANT -> new ResumeBuilderConfigDTO.Capabilities(Mode.CONSULTANT.wire(), false, false, false, false, true, true, true, true, false, false, null);
-            case MARKETER_ACT_FOR -> new ResumeBuilderConfigDTO.Capabilities(
+            case PERSONAL -> new ResumeBuilderConfigDTO.BuilderCapabilities(Mode.PERSONAL.wire(), true, true, true, true, true, true, true, true, true, true, null);
+            case CONSULTANT -> new ResumeBuilderConfigDTO.BuilderCapabilities(Mode.CONSULTANT.wire(), false, false, false, false, true, true, true, true, false, false, null);
+            case MARKETER_ACT_FOR -> new ResumeBuilderConfigDTO.BuilderCapabilities(
                 Mode.MARKETER_ACT_FOR.wire(), false, false, false, false, false, false, false, false, false, false, "Pending consultant approval"
             );
         };

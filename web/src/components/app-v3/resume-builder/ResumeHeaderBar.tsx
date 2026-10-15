@@ -676,7 +676,7 @@ export default function ResumeHeaderBar({
       </span>
       <span className={PLAIN} title={modifiedHint}>
         <ClockIcon size={16} className="text-v2-muted" />
-        <span suppressHydrationWarning>{short ? modifiedAgo : `Last modified ${modifiedAgo}`}</span>
+        <span suppressHydrationWarning>{short ? `${modifiedAgo} ${modifiedBy}` : `Last modified ${modifiedAgo} ${modifiedBy}`}</span>
       </span>
     </>
   );

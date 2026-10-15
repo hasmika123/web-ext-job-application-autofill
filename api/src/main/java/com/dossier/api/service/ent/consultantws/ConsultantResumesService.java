@@ -30,6 +30,7 @@ import com.dossier.api.service.ent.consultantws.ConsultantResumesDTO.Tiles;
 import com.dossier.api.service.ResumeDocService;
 import com.dossier.api.service.ResumeMetaService;
 import com.dossier.api.service.dto.BuiltResumeDTO;
+import com.dossier.api.service.ent.resumes.OrgResumeAuthors;
 import com.dossier.api.service.ent.resumes.OrgResumeCap;
 import com.dossier.api.service.ent.resumes.OrgResumeLinkService;
 import com.dossier.api.service.org.OrgAuditService;
@@ -80,6 +81,10 @@ public class ConsultantResumesService {
     private final ResumeMetaService resumeMeta;
     private final ResumeDocService docs;
     private final Clock clock;
+
+    /** Who last changed a row ("Modified <time> by <name>"); absent in hand-wired unit tests (then no name). */
+    @Autowired(required = false)
+    private OrgResumeAuthors authors;
 
     @Autowired
     public ConsultantResumesService(
@@ -157,7 +162,8 @@ public class ConsultantResumesService {
             tile(acts, CwsResumeActivity.SHARED, now)
         );
 
-        List<ResumeRow> rows = mine.stream().sorted(Comparator.comparing(OrgResume::getUpdatedAt).reversed()).map(ConsultantResumesService::row).toList();
+        Map<Long, String> by = authors == null ? Map.of() : authors.modifiedBy(org, mine);
+        List<ResumeRow> rows = mine.stream().sorted(Comparator.comparing(OrgResume::getUpdatedAt).reversed()).map(r -> row(r, by.get(r.getId()))).toList();
         boolean hasExperience = mine.stream().anyMatch(r -> !experience.findByOrgIdAndResumeIdOrderBySortOrderAsc(org, r.getId()).isEmpty());
         boolean hasSkills = skills.findByOrgIdAndConsultantIdOrderBySortOrderAsc(org, c.getId()).size() >= 3;
         boolean hasSummary = mine.stream().anyMatch(r -> notBlank(r.getSummaryText()));
@@ -198,8 +204,9 @@ public class ConsultantResumesService {
             }
             target.setPrimaryForOrg(true);
             target = resumes.saveAndFlush(target);
+            log(me, target, "PRIMARY_SET", null, Instant.now(clock));
         }
-        return row(target);
+        return rowOf(target);
     }
 
     /** Renames and/or changes visibility. Content is not edited here, so the approval status does not change. */
@@ -217,7 +224,9 @@ public class ConsultantResumesService {
         }
         if (name != null) r.setName(name);
         if (visibility != null) r.setVisibility(visibility);
-        return row(resumes.saveAndFlush(r));
+        OrgResume saved = resumes.saveAndFlush(r);
+        log(me, saved, "DETAILS_CHANGED", (name != null ? "name " : "") + (visibility != null ? "visibility" : ""), Instant.now(clock));
+        return rowOf(saved);
     }
 
     /**
@@ -231,7 +240,7 @@ public class ConsultantResumesService {
         ConsultantResumesDTO.BuiltResumeBody b = body == null ? new ConsultantResumesDTO.BuiltResumeBody(null, null, null, null) : body;
         BuiltResumeDTO built = OrgResumeCap.inOrg(c.getOrgId(), () -> docs.createBuilt(b.templateId(), b.target(), b.label(), b.source()));
         OrgResume row = linked(c.getOrgId(), built.resume().getId());
-        return new ConsultantResumesDTO.BuiltResumeCreated(row.getId(), built.resume().getId(), row(row));
+        return new ConsultantResumesDTO.BuiltResumeCreated(row.getId(), built.resume().getId(), rowOf(row));
     }
 
     private OrgResume linked(Long orgId, Long resumeId) {
@@ -266,7 +275,7 @@ public class ConsultantResumesService {
         // link and the preview rows follow from it. Only a record without a document falls through to the metadata copy below.
         if (src.getResumeId() != null) {
             BuiltResumeDTO copy = OrgResumeCap.inOrg(c.getOrgId(), () -> docs.duplicate(src.getResumeId(), null));
-            return row(linked(c.getOrgId(), copy.resume().getId()));
+            return rowOf(linked(c.getOrgId(), copy.resume().getId()));
         }
         List<OrgResume> mine = resumes.findByOrgIdAndConsultantId(c.getOrgId(), c.getId());
         if (mine.size() >= MAX_RESUMES) throw OrgException.invalid("resume", "you can keep at most " + MAX_RESUMES + " resumes");
@@ -301,7 +310,7 @@ public class ConsultantResumesService {
             y.setSortOrder(x.getSortOrder());
             experience.save(y);
         }
-        return row(copy);
+        return rowOf(copy);
     }
 
     /**
@@ -320,7 +329,7 @@ public class ConsultantResumesService {
         resumes.saveAndFlush(r);
         log(me, r, MktResumeEvent.APPROVED, null, now);
         audit.record(me, "RESUME_APPROVE", OrgAuditService.TARGET_RESUME, null, String.valueOf(r.getId()), "by the consultant, version=" + r.getVersionNo());
-        return row(r);
+        return rowOf(r);
     }
 
     /** The consultant sends a pending resume back with an optional note: it reads "Needs update" on the marketer's board until the marketer edits it again. */
@@ -337,7 +346,7 @@ public class ConsultantResumesService {
         resumes.saveAndFlush(r);
         log(me, r, MktResumeEvent.MARKED_FOR_UPDATE, note, now);
         audit.record(me, "RESUME_CHANGES_REQUESTED", OrgAuditService.TARGET_RESUME, null, String.valueOf(r.getId()), "by the consultant, version=" + r.getVersionNo());
-        return row(r);
+        return rowOf(r);
     }
 
     private void log(OrgMembership me, OrgResume r, String kind, String detail, Instant at) {
@@ -378,8 +387,13 @@ public class ConsultantResumesService {
         return v;
     }
 
-    static ResumeRow row(OrgResume r) {
-        return new ResumeRow(r.getId(), r.getName(), r.getTargetRole(), r.isPrimaryForOrg(), r.getUpdatedAt(), r.getVisibility(), r.getVersionNo() == null ? 1 : r.getVersionNo(), r.getApprovalStatus(), r.getResumeId(), awaiting(r));
+    static ResumeRow row(OrgResume r, String updatedBy) {
+        return new ResumeRow(r.getId(), r.getName(), r.getTargetRole(), r.isPrimaryForOrg(), r.getUpdatedAt(), r.getVisibility(), r.getVersionNo() == null ? 1 : r.getVersionNo(), r.getApprovalStatus(), r.getResumeId(), awaiting(r), updatedBy);
+    }
+
+    /** One row as the page lists it, with who last changed it. */
+    private ResumeRow rowOf(OrgResume r) {
+        return row(r, authors == null ? null : authors.modifiedBy(r.getOrgId(), r));
     }
 
     /** A resume a marketer made or edited for this consultant, waiting for them: only the consultant decides it. */

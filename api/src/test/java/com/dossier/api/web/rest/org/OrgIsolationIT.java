@@ -1402,7 +1402,7 @@ class OrgIsolationIT {
             ids.put("mktInterviewId", String.valueOf(interviewId)); // {interviewId} of mkt/interviews
             ids.put("mktPrepItemId", String.valueOf(mktPrepItemId));
             ids.put("mktResumeId", String.valueOf(resumeId)); // {id} of mkt/resumes
-            ids.put("mktBuilderConsultantId", String.valueOf(consultantProfileId)); // {consultantId} of mkt/resumes/consultants/...: the owner's own consultant profile, which has a seat and an account (act-for needs one)
+            ids.put("mktBuilderConsultantId", String.valueOf(cwsConsultantId)); // {consultantId} of mkt/resumes/consultants/...: the owner's own consultant profile, which has a seat and an account (act-for needs one)
             ids.put("streamId", String.valueOf(mktStreamId));
             ids.put("searchId", String.valueOf(mktSearchId));
             ids.put("ruleKey", "DEFAULT_KEYWORDS"); // a fixed word of the stream rules, not a row

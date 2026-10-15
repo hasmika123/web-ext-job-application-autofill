@@ -210,6 +210,30 @@ describe("ConsultantResumesPage", () => {
     });
   });
 
+  it("each row says who last modified it and when; a marketer's edit reads by name and role (never a login)", async () => {
+    handler = (u, m) =>
+      m === "GET" && u === "/api/orgs/2/me-workspace/resumes"
+        ? {
+            status: 200,
+            json: fixture({
+              resumes: [
+                { id: 11, title: "Edited by Sarah", targetRole: null, primary: false, updatedAt: "2026-10-14T10:24:00Z", visibility: "INTERNAL", versionNo: 2, approvalStatus: "PENDING", resumeId: 88, awaitingMyApproval: true, updatedBy: "Sarah Chen (marketer)" },
+                { id: 12, title: "Mine", targetRole: null, primary: false, updatedAt: "2026-10-10T15:18:00Z", visibility: "INTERNAL", versionNo: 1, approvalStatus: "APPROVED", resumeId: 89, awaitingMyApproval: false, updatedBy: "Anika Rao" },
+                { id: 13, title: "Seeded record", targetRole: null, primary: false, updatedAt: "2026-10-01T15:18:00Z", visibility: "INTERNAL", versionNo: 1, approvalStatus: "APPROVED", resumeId: null, awaitingMyApproval: false, updatedBy: null },
+              ],
+            }),
+          }
+        : undefined;
+    mount(BUILDER);
+    await screen.findByText("Edited by Sarah");
+    const by = (id: number) => document.querySelector(`[data-resume='${id}'] [data-modified-by]`);
+    expect(by(11)?.textContent).toBe("by Sarah Chen (marketer)");
+    expect(by(11)?.getAttribute("title")).toContain("Last modified");
+    expect(by(12)?.textContent).toBe("by Anika Rao");
+    expect(by(13)).toBeNull();
+    expect(document.body.textContent).not.toContain("ent#");
+  });
+
   it("duplicates a resume through the API", async () => {
     mount();
     fireEvent.click(await screen.findByRole("button", { name: "Duplicate Data Engineer Resume" }));

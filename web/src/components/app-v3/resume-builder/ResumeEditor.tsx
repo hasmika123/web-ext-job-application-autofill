@@ -556,8 +556,10 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
   const [versionsStamp, setVersionsStamp] = useState(0);
   const pdfSettings = config.pdf ?? DEFAULT_BUILDER_CONFIG.pdf;
 
+  // Saving a version and storing a PDF write as the resume's owner; acting for someone is edit-only (the API refuses both), so neither is offered.
+  const ownerActions = builderCaps.versionRestore;
   const saveCheckpoint = async (name?: string): Promise<{ flushed: boolean; checkpoint: CheckpointResult | null }> => {
-    if (checkpointing.current || state.phase === "conflict") return { flushed: false, checkpoint: null };
+    if (!ownerActions || checkpointing.current || state.phase === "conflict") return { flushed: false, checkpoint: null };
     checkpointing.current = true;
     try {
       if (!(await savedFirst("save"))) return { flushed: false, checkpoint: null };
@@ -604,7 +606,7 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
    * export below renders it itself (and stores it). Without it (a view's footer button): flush and export only.
    */
   const downloadPdfFile = async (withSave: boolean) => {
-    if (exporting) return;
+    if (exporting || !ownerActions) return;
     setExporting(true);
     try {
       let checkpoint: CheckpointResult | null = null;
@@ -642,7 +644,7 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
   };
 
   const downloadText = async (withSave: boolean) => {
-    if (exporting) return;
+    if (exporting || !ownerActions) return;
     setExporting(true);
     try {
       if (withSave) {
@@ -841,6 +843,7 @@ export default function ResumeEditor({ initial, plan, config: serverConfig, aiUs
         panelRefs={panelRefs}
         showTailor={config.features.tailor}
         approvalNotice={builderCaps.approvalNotice}
+        allowDownload={ownerActions}
         onDownloadPdf={() => void downloadPdfFile(true)}
         onDownloadText={() => void downloadText(true)}
         exporting={exporting}

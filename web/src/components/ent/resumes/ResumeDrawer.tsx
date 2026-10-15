@@ -336,6 +336,7 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
           </Field>
           <Field icon={<ClockIcon size={14} />} label="Last Modified">
             {formatDate(r.updatedAt) || "—"}
+            {r.updatedBy ? <span className="font-normal text-muted" data-modified-by> by {r.updatedBy}</span> : null}
           </Field>
           <Field icon={<FileTextIcon size={14} />} label="File Size">
             {fileSizeText(r.fileSizeKb) || <span className="font-normal text-muted">Not stored</span>}

@@ -58,6 +58,7 @@ export default function NewResumeForConsultant({ orgId, onCreated }: { orgId: nu
   const [loadingSources, setLoadingSources] = useState(false);
   const [templateId, setTemplateId] = useState("modern");
   const [limit, setLimit] = useState<CapNotice | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     if (!open) return;
@@ -72,7 +73,7 @@ export default function NewResumeForConsultant({ orgId, onCreated }: { orgId: nu
     return () => {
       live = false;
     };
-  }, [open, orgId]);
+  }, [open, orgId, attempt]);
 
   const choose = async (c: Candidate) => {
     if (!c.hasAccount) return;
@@ -113,7 +114,7 @@ export default function NewResumeForConsultant({ orgId, onCreated }: { orgId: nu
             <Skeleton className="h-12 w-full" />
           </div>
         ) : picker.state === "failed" ? (
-          <ErrorState what="your consultants" description="They didn't load. Nothing has changed." variant="inline" onRetry={() => setOpen(false)} />
+          <ErrorState what="your consultants" description="They didn't load. Nothing has changed." variant="inline" onRetry={() => setAttempt((n) => n + 1)} />
         ) : picker.consultants.length === 0 ? (
           <p className="text-[13.5px] text-ink-soft">You have no assigned consultants yet.</p>
         ) : (

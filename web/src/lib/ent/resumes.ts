@@ -50,6 +50,8 @@ export interface ResumeRow {
   fileSizeKb: number | null;
   /** The Resume Builder document behind the row (a resume made in the builder); absent or null for a record that has none. */
   resumeId?: number | null;
+  /** Who last changed it, as a display name ("Sarah Chen (marketer)"); absent or null when nobody is known to have. */
+  updatedBy?: string | null;
 }
 
 export interface ResumePage {

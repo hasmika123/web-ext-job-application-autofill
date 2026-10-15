@@ -34,6 +34,8 @@ export interface ResumeRow {
   resumeId: number | null;
   /** A resume a marketer made or edited for the consultant, waiting for them to approve or send it back. */
   awaitingMyApproval: boolean;
+  /** Who last changed it, as a display name ("Sarah Chen (marketer)" for a marketer); null when nobody is known to have. */
+  updatedBy: string | null;
 }
 
 export interface Check {
@@ -133,6 +135,7 @@ export function parseResumeRow(o: unknown): ResumeRow | null {
     approvalStatus: typeof o.approvalStatus === "string" ? o.approvalStatus : "APPROVED",
     resumeId: numOrNull(o.resumeId),
     awaitingMyApproval: o.awaitingMyApproval === true,
+    updatedBy: strOrNull(o.updatedBy),
   };
 }
 

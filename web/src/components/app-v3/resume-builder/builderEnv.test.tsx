@@ -88,6 +88,14 @@ describe("the builder environment", () => {
     vi.unstubAllGlobals();
   });
 
+  it("acting for someone draws no Download menu (saving a version and storing a PDF are the owner's)", () => {
+    render(<EditorTopBar {...barProps()} allowDownload={false} />);
+    expect(screen.queryByRole("button", { name: "Download" })).toBeNull();
+    cleanup();
+    render(<EditorTopBar {...barProps()} />);
+    expect(screen.getByRole("button", { name: "Download" })).toBeTruthy();
+  });
+
   it("the personal app installs no act-for header", async () => {
     const original = vi.fn(async () => new Response("{}"));
     window.fetch = original as unknown as typeof window.fetch;

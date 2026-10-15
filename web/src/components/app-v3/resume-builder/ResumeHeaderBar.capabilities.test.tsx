@@ -89,6 +89,15 @@ describe("the one header bar follows the session's capabilities", () => {
     expect(within(header()).queryByRole("button", { name: /Set as primary/ })).toBeNull();
   });
 
+  it("the header says who last modified it, by name and role, with the absolute time on hover: the marketer, never the consultant whose account owns it", () => {
+    const marketer = { login: "ent#5#sarah@acme.org", label: "Sarah Chen (marketer)" };
+    bar(CONSULTANT, consultantEnv(2), { updatedBy: marketer, createdBy: marketer, source: { kind: "BUILT", origin: "PROFILE", tailoredFrom: null, madeBy: "Sarah Chen (marketer)", approvalRequired: true, approvedAt: null } });
+    const text = within(header()).getByText(/Last modified/);
+    expect(text.textContent).toMatch(/^Last modified .+ ago by Sarah Chen \(marketer\)$/);
+    expect(text.parentElement?.getAttribute("title")).toMatch(/\d{4}.* by Sarah Chen \(marketer\)$/);
+    expect(header().textContent).not.toContain("ent#");
+  });
+
   it("Duplicate in an organization opens the copy inside the workspace's editor", async () => {
     m.duplicateResume.mockResolvedValue({ kind: "ok", id: 99 });
     bar(CONSULTANT);

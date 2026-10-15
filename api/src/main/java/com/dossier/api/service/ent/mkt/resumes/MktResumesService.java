@@ -432,6 +432,9 @@ public class MktResumesService {
             case MktResumeEvent.APPROVAL_REQUESTED -> "resume sent for approval";
             case MktResumeEvent.APPROVED -> "resume approved";
             case MktResumeEvent.MARKED_FOR_UPDATE -> "resume marked for update";
+            case "PRIMARY_SET" -> "resume made primary";
+            case "DETAILS_CHANGED" -> "resume details changed";
+            case "DECIDED" -> "resume decision recorded";
             default -> "resume changed";
         };
     }

@@ -34,7 +34,8 @@ public final class ConsultantResumesDTO {
 
     /**
      * One resume of the page. {@code resumeId} is the Resume Builder document behind it (null for a record that has no document: the
-     * builder cannot open it); {@code awaitingMyApproval} is true while a resume a marketer made or edited for the consultant waits for them.
+     * builder cannot open it); {@code awaitingMyApproval} is true while a resume a marketer made or edited for the consultant waits for them;
+     * {@code updatedBy} is who last changed it (a display name, "Sarah Chen (marketer)" for a marketer), null when nobody is known to have.
      */
     public record ResumeRow(
         Long id,
@@ -46,7 +47,8 @@ public final class ConsultantResumesDTO {
         int versionNo,
         String approvalStatus,
         Long resumeId,
-        boolean awaitingMyApproval
+        boolean awaitingMyApproval,
+        String updatedBy
     ) {}
 
     /** Body of {@code POST /built}: the personal builder's create (template, target, name, source: profile, scratch, upload or copy). */

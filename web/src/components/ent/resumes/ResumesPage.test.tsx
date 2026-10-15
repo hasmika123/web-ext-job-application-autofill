@@ -63,6 +63,7 @@ const rowOf = (s: Stored): ResumeRow => ({
   updatedAt: "2026-10-10T10:00:00Z",
   owner: { memberId: 5, name: "Sarah Chen" },
   fileSizeKb: 842,
+  updatedBy: s.id === 11 ? "Sarah Chen (marketer)" : null,
 });
 const detailOf = (s: Stored): ResumeDetail => ({
   row: rowOf(s),
@@ -219,6 +220,10 @@ describe("Resumes: tiles and table", () => {
     expect(rows()[0].textContent).toContain("Jessica Davis Resume");
     expect(rows()[0].textContent).toContain("v3");
     expect(within(rows()[0]).getByText("Primary")).toBeTruthy();
+    // "Modified <date> by <name>": the marketer who last changed it, by name and role; a row nobody is known to have changed says no name
+    expect(rows()[0].querySelector("[data-modified-by]")?.textContent).toBe("by Sarah Chen (marketer)");
+    expect(rows()[1].querySelector("[data-modified-by]")).toBeNull();
+    expect(rows().every((r) => !r.textContent?.includes("ent#"))).toBe(true);
     expect(within(rows()[2]).getByText("Pending")).toBeTruthy();
     expect(within(rows()[2]).getByText("Private")).toBeTruthy();
     expect(document.querySelector("[data-range]")?.textContent).toBe("1-3 of 3 resumes");

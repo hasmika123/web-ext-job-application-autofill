@@ -252,6 +252,11 @@ function ResumeTable({ rows, actions }: { rows: ResumeRow[]; actions: RowActions
                 <td className={cn(TD, "whitespace-nowrap")}>
                   <span className="block text-ink">{dateOf(r.updatedAt)}</span>
                   <span className="block text-[12px] text-muted">{timeOf(r.updatedAt)}</span>
+                  {r.updatedBy ? (
+                    <span className="block max-w-[11rem] truncate text-[12px] text-muted" data-modified-by title={`Last modified ${dateOf(r.updatedAt)} ${timeOf(r.updatedAt)} by ${r.updatedBy}`}>
+                      by {r.updatedBy}
+                    </span>
+                  ) : null}
                 </td>
                 <td className={TD}>
                   <Pill tone={v.tone}>{v.label}</Pill>

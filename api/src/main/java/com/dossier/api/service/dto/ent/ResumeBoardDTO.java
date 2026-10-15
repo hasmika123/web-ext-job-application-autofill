@@ -30,7 +30,8 @@ public final class ResumeBoardDTO {
         Instant updatedAt,
         PersonRef owner,
         Integer fileSizeKb,
-        Long resumeId
+        Long resumeId,
+        String updatedBy
     ) {}
 
     public record Page(List<Row> items, int page, int size, long total, boolean hasNext) {}
