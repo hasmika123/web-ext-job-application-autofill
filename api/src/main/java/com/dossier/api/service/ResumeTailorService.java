@@ -1,6 +1,7 @@
 package com.dossier.api.service;
 
 import com.dossier.api.domain.Application;
+import com.dossier.api.domain.ApplicationEvent;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.ResumeTailor;
 import com.dossier.api.domain.User;
@@ -16,6 +17,8 @@ import com.dossier.api.service.ai.AiResult;
 import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.service.ai.guard.AiTruthChecks;
 import com.dossier.api.service.dto.ResumeDTO;
+import com.dossier.api.service.tracker.ChangeActor;
+import com.dossier.api.service.tracker.ChangeRecorder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -106,6 +109,7 @@ public class ResumeTailorService {
     private final ProfileService profileService;
     private final boolean enabled;
     private final ObjectMapper om = new ObjectMapper();
+    private final ApplicationEventService eventService;
 
     public ResumeTailorService(
         AiProvider provider,
@@ -116,8 +120,10 @@ public class ResumeTailorService {
         ResumeTailorRepository tailorRepository,
         UserRepository userRepository,
         ProfileService profileService,
+        ApplicationEventService eventService,
         @Value("${dossier.ai.enabled:false}") boolean enabled
     ) {
+        this.eventService = eventService;
         this.provider = provider;
         this.budget = budget;
         this.metering = metering;
@@ -264,9 +270,13 @@ public class ResumeTailorService {
         ResumeDTO created = profileService.createResume(dto);
 
         if (app != null) {
+            Long resumeBefore = app.getResume() == null ? null : app.getResume().getId();
             resumeRepository.findById(created.getId()).ifPresent(app::setResume);
-            app.setUpdatedAt(Instant.now());
             applicationRepository.save(app);
+            // Linking the tailored resume is a change to the application: one history row, by the person who confirmed the changes.
+            new ChangeRecorder(eventService, app, ApplicationEvent.SRC_WEB, ChangeActor.forOwner(user))
+                .resume(resumeBefore, created.getId(), created.getLabel() == null ? "Resume changed" : "Resume: " + created.getLabel())
+                .flush();
         }
         return created;
     }

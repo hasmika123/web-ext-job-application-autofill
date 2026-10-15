@@ -3617,7 +3617,7 @@
       "id": "U6.13",
       "epic": "U6",
       "title": "Every tracker change writes an attributed history row: ChangeActor + TrackerActAs, silent edits covered, changes summaries, ChangeActors resolver (never ent#, \"a former member\"), updatedBy / actor DTOs, paged GET …/events",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

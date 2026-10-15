@@ -8,6 +8,8 @@ import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.InterviewRepository;
 import com.dossier.api.service.dto.TrackerDTOs.InterviewDTO;
 import com.dossier.api.service.privacy.SensitiveContent;
+import com.dossier.api.service.tracker.ChangeActor;
+import com.dossier.api.service.tracker.Changes;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Clock;
@@ -96,19 +98,31 @@ public class InterviewService {
 
     // ---- write ------------------------------------------------------------------------------------
 
-    /** {@code {kind, startsAt, endsAt?, tz?, location?, interviewer?, notes?}}. */
+    /** {@code {kind, startsAt, endsAt?, tz?, location?, interviewer?, notes?}}, by the signed-in person (or whoever is acting for them). */
     public InterviewDTO create(Long applicationId, ObjectNode body) {
-        User user = trackerUsers.current();
-        Application app = trackerUsers.application(user, applicationId);
+        return createFor(trackerUsers.current(), applicationId, body, Interview.SRC_WEB);
+    }
+
+    /**
+     * As {@link #create}, for the owner {@code owner} and a channel: {@code WEB} (a person), {@code INBOX} (the inbox parser read it from an email) or
+     * {@code ASSISTANT}. The interview keeps that source, the timeline row carries it, and a non-person writer is recorded as MAIL / ASSISTANT with no
+     * person behind it (change audit: nothing is "by you" that you did not do).
+     */
+    public InterviewDTO createFor(User owner, Long applicationId, ObjectNode body, String source) {
+        if (!Interview.SRC_WEB.equals(source) && !Interview.SRC_INBOX.equals(source) && !Interview.SRC_ASSISTANT.equals(source)) {
+            throw new IllegalArgumentException("interview source must be WEB, INBOX or ASSISTANT");
+        }
+        Application app = trackerUsers.application(owner, applicationId);
         int cap = settings.getInt(ResumeBuilderSettingKeys.TRACKER_INTERVIEWS_MAX_PER_APPLICATION);
         if (interviews.countByApplicationId(app.getId()) >= cap) {
             throw TrackerException.limit("An application holds at most " + cap + " interviews", cap);
         }
+        ChangeActor.Actor actor = actorFor(source, owner);
 
         Interview i = new Interview();
         i.setApplicationId(app.getId());
-        i.setUserId(user.getId());
-        i.setSource(Interview.SRC_WEB);
+        i.setUserId(owner.getId());
+        i.setSource(source);
         i.setOutcome(Interview.PENDING);
         i.setKind(kind(body.get("kind"), true));
         i.setStartsAt(instant(body.get("startsAt"), "startsAt", true));
@@ -121,9 +135,10 @@ public class InterviewService {
         Instant now = Instant.now(clock);
         i.setCreatedAt(now);
         i.setUpdatedAt(now);
+        stamp(i, actor, true);
         interviews.save(i);
 
-        eventService.record(app, ApplicationEvent.INTERVIEW, null, null, ApplicationEvent.SRC_WEB, i.getId(), "Interview scheduled: " + label(i));
+        eventService.record(app, ApplicationEvent.INTERVIEW, null, null, source, i.getId(), "Interview scheduled: " + label(i), actor, null);
         return InterviewDTO.of(i, app.getCompany(), app.getRoleTitle());
     }
 
@@ -132,7 +147,13 @@ public class InterviewService {
         User user = trackerUsers.current();
         Application app = trackerUsers.application(user, applicationId);
         Interview i = owned(user, app, interviewId);
+        String kindBefore = i.getKind();
         Instant startsBefore = i.getStartsAt();
+        Instant endsBefore = i.getEndsAt();
+        String tzBefore = i.getTz();
+        String locationBefore = i.getLocation();
+        String interviewerBefore = i.getInterviewer();
+        String notesBefore = i.getNotes();
 
         if (body.has("kind")) i.setKind(kind(body.get("kind"), true));
         if (body.has("startsAt")) i.setStartsAt(instant(body.get("startsAt"), "startsAt", true));
@@ -142,12 +163,24 @@ public class InterviewService {
         if (body.has("interviewer")) i.setInterviewer(text(body.get("interviewer"), "interviewer", INTERVIEWER_MAX));
         if (body.has("notes")) i.setNotes(text(body.get("notes"), "notes", settings.getInt(ResumeBuilderSettingKeys.TRACKER_INTERVIEW_NOTES_MAX_CHARS)));
         checkDuration(i);
+
+        Changes changes = new Changes();
+        if (!Objects.equals(startsBefore, i.getStartsAt())) changes.instant("startsAt", startsBefore, i.getStartsAt());
+        if (!Objects.equals(kindBefore, i.getKind())) changes.code("kind", kindBefore, i.getKind());
+        if (!Objects.equals(endsBefore, i.getEndsAt())) changes.instant("endsAt", endsBefore, i.getEndsAt());
+        if (!Objects.equals(tzBefore, i.getTz())) changes.text("tz");
+        if (!Objects.equals(locationBefore, i.getLocation())) changes.text("location");
+        if (!Objects.equals(interviewerBefore, i.getInterviewer())) changes.text("interviewer");
+        if (!Objects.equals(notesBefore, i.getNotes())) changes.text("notes");
+        if (changes.isEmpty()) return InterviewDTO.of(i, app.getCompany(), app.getRoleTitle());
+
+        ChangeActor.Actor actor = ChangeActor.forOwner(user);
         i.setUpdatedAt(Instant.now(clock));
+        stamp(i, actor, false);
         interviews.save(i);
 
-        if (!Objects.equals(startsBefore, i.getStartsAt())) {
-            eventService.record(app, ApplicationEvent.INTERVIEW, null, null, ApplicationEvent.SRC_WEB, i.getId(), "Interview rescheduled: " + label(i));
-        }
+        String what = !Objects.equals(startsBefore, i.getStartsAt()) ? "Interview rescheduled: " : "Interview updated: ";
+        eventService.record(app, ApplicationEvent.INTERVIEW, null, null, ApplicationEvent.SRC_WEB, i.getId(), what + label(i), actor, changes);
         return InterviewDTO.of(i, app.getCompany(), app.getRoleTitle());
     }
 
@@ -156,7 +189,7 @@ public class InterviewService {
         Application app = trackerUsers.application(user, applicationId);
         Interview i = owned(user, app, interviewId);
         interviews.delete(i);
-        eventService.record(app, ApplicationEvent.INTERVIEW, null, null, ApplicationEvent.SRC_WEB, null, "Interview removed: " + label(i));
+        eventService.record(app, ApplicationEvent.INTERVIEW, null, null, ApplicationEvent.SRC_WEB, null, "Interview removed: " + label(i), ChangeActor.forOwner(user), null);
     }
 
     /** {@code {outcome}}: PENDING | PASSED | REJECTED | NO_SHOW. */
@@ -166,12 +199,45 @@ public class InterviewService {
         Interview i = owned(user, app, interviewId);
         String outcome = outcomeOf(body.get("outcome"), true);
         if (!outcome.equals(i.getOutcome())) {
+            String before = i.getOutcome();
+            ChangeActor.Actor actor = ChangeActor.forOwner(user);
             i.setOutcome(outcome);
             i.setUpdatedAt(Instant.now(clock));
+            stamp(i, actor, false);
             interviews.save(i);
-            eventService.record(app, ApplicationEvent.INTERVIEW, null, null, ApplicationEvent.SRC_WEB, i.getId(), "Interview outcome: " + outcomeWords(outcome));
+            eventService.record(
+                app,
+                ApplicationEvent.INTERVIEW,
+                null,
+                null,
+                ApplicationEvent.SRC_WEB,
+                i.getId(),
+                "Interview outcome: " + outcomeWords(outcome),
+                actor,
+                new Changes().code("outcome", before, outcome)
+            );
         }
         return InterviewDTO.of(i, app.getCompany(), app.getRoleTitle());
+    }
+
+    private static ChangeActor.Actor actorFor(String source, User owner) {
+        return switch (source) {
+            case Interview.SRC_INBOX -> ChangeActor.mail();
+            case Interview.SRC_ASSISTANT -> ChangeActor.assistant();
+            default -> ChangeActor.forOwner(owner);
+        };
+    }
+
+    /** A person is stamped on the interview; a non-person writer (inbox, assistant) leaves the columns empty. */
+    private static void stamp(Interview i, ChangeActor.Actor actor, boolean created) {
+        Long userId = actor.isPerson() ? actor.userId() : null;
+        String login = actor.isPerson() ? actor.login() : null;
+        if (created) {
+            i.setCreatedByUserId(userId);
+            i.setCreatedByLogin(login);
+        }
+        i.setUpdatedByUserId(userId);
+        i.setUpdatedByLogin(login);
     }
 
     // ---- read -------------------------------------------------------------------------------------

@@ -13,6 +13,9 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.dto.ApplicationDTO;
 import com.dossier.api.service.mapper.ApplicationMapper;
+import com.dossier.api.service.tracker.ApplicationSnapshot;
+import com.dossier.api.service.tracker.ChangeActor;
+import com.dossier.api.service.tracker.ChangeRecorder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
@@ -106,13 +109,12 @@ public class ApplicationSyncService {
         boolean sameJobElsewhere = match != null && match.byCompanyAndTitle();
         Application app = existing != null ? existing : new Application();
         Instant now = Instant.now();
-        ApplicationStatus statusBefore = existing == null ? null : existing.getStatus();
-        boolean archivedBefore = existing != null && Boolean.TRUE.equals(existing.getArchived());
-        Long resumeBefore = existing == null || existing.getResume() == null ? null : existing.getResume().getId();
+        ApplicationSnapshot before = existing == null ? null : ApplicationSnapshot.of(existing);
 
         if (existing == null) {
             app.setUser(user);
             app.setCreatedAt(now);
+            app.setUpdatedAt(now);
             app.setStatus(dto.getStatus() != null ? dto.getStatus() : ApplicationStatus.DRAFT);
         } else if (dto.getStatus() != null && !isDraftDowngrade(dto.getStatus(), existing.getStatus())) {
             // Honor an explicit status on a re-fill, but don't revert e.g. APPLIED -> DRAFT.
@@ -151,16 +153,18 @@ public class ApplicationSyncService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "company and roleTitle are required");
         }
         if (dto.getPostingId() != null) app.setPostingId(dto.getPostingId());
-        app.setUpdatedAt(now);
         Application saved = applicationRepository.save(app);
 
-        // The tracker's memory: a new application is CREATED, a re-fill that moved it is a STATUS event.
+        // The tracker's memory: a new application is CREATED; a re-fill that changed something is ONE row that lists what changed (a re-fill that
+        // changed nothing writes nothing and leaves updated_at alone). The actor is the person, or the channel's non-person (inbox, assistant, system).
         String source = ApplicationEventService.sourceOf(dto.getSource());
+        ChangeActor.Actor actor = ChangeActor.forSource(source, user);
         if (existing == null) {
-            eventService.recordCreated(saved, source);
+            eventService.recordCreated(saved, source, actor);
         } else {
-            eventService.recordStatus(saved, statusBefore, saved.getStatus(), source, null, null);
-            recordEdits(saved, archivedBefore, resumeBefore, source);
+            ChangeRecorder rec = new ChangeRecorder(eventService, saved, source, actor);
+            before.report(ApplicationSnapshot.of(saved), rec);
+            rec.flush();
         }
         return applicationMapper.toDto(saved);
     }
@@ -172,17 +176,18 @@ public class ApplicationSyncService {
      */
     public ApplicationDTO updateApplication(Long id, ApplicationDTO dto) {
         Application app = ownedApplication(id);
-        ApplicationStatus statusBefore = app.getStatus();
-        boolean archivedBefore = Boolean.TRUE.equals(app.getArchived());
-        Long resumeBefore = app.getResume() == null ? null : app.getResume().getId();
+        ApplicationSnapshot before = ApplicationSnapshot.of(app);
         // Who is writing: a payload that names its source says so; the extension's "confirm submission"
         // (PUT {status: APPLIED, submissionConfirmed: true, appliedAt}) names none, but only ever touches an
         // entry the extension created, so that shape on such an entry is the extension.
-        String source = dto.getSource() != null
-            ? ApplicationEventService.sourceOf(dto.getSource())
-            : ("extension".equalsIgnoreCase(app.getSource()) && dto.getStatus() == ApplicationStatus.APPLIED && Boolean.TRUE.equals(dto.getSubmissionConfirmed()))
-                ? ApplicationEvent.SRC_EXTENSION
-                : ApplicationEvent.SRC_WEB;
+        boolean submitDetect =
+            dto.getSource() == null &&
+            "extension".equalsIgnoreCase(app.getSource()) &&
+            dto.getStatus() == ApplicationStatus.APPLIED &&
+            Boolean.TRUE.equals(dto.getSubmissionConfirmed());
+        String source = dto.getSource() != null ? ApplicationEventService.sourceOf(dto.getSource()) : submitDetect ? ApplicationEvent.SRC_EXTENSION : ApplicationEvent.SRC_WEB;
+        // The submit-detect update is the extension itself (no person clicked); every other write, an explicit extension save included, is the person.
+        ChangeActor.Actor actor = submitDetect ? ChangeActor.extension() : ChangeActor.forSource(source, app.getUser());
         if (dto.getStatus() != null) app.setStatus(dto.getStatus());
         if (dto.getSubmissionConfirmed() != null) app.setSubmissionConfirmed(dto.getSubmissionConfirmed());
         if (dto.getAppliedAt() != null) app.setAppliedAt(dto.getAppliedAt());
@@ -201,24 +206,12 @@ public class ApplicationSyncService {
         if (dto.getResume() != null && dto.getResume().getId() != null) {
             app.setResume(ownedResume(dto.getResume().getId()));
         }
-        app.setUpdatedAt(Instant.now());
         Application saved = applicationRepository.save(app);
-        eventService.recordStatus(saved, statusBefore, saved.getStatus(), source, null, null);
-        recordEdits(saved, archivedBefore, resumeBefore, source);
+        // One history row listing what changed; nothing written (and updated_at untouched) when nothing did.
+        ChangeRecorder rec = new ChangeRecorder(eventService, saved, source, actor);
+        before.report(ApplicationSnapshot.of(saved), rec);
+        rec.flush();
         return applicationMapper.toDto(saved);
-    }
-
-    /** Timeline entries for the non-status edits: archiving or restoring, and a different resume. */
-    private void recordEdits(Application saved, boolean archivedBefore, Long resumeBefore, String source) {
-        boolean archivedNow = Boolean.TRUE.equals(saved.getArchived());
-        if (archivedNow != archivedBefore) {
-            eventService.record(saved, ApplicationEvent.FIELD, null, null, source, null, archivedNow ? "Archived" : "Restored from archive");
-        }
-        Long resumeNow = saved.getResume() == null ? null : saved.getResume().getId();
-        if (resumeNow != null && !resumeNow.equals(resumeBefore)) {
-            String label = saved.getResume().getLabel();
-            eventService.record(saved, ApplicationEvent.RESUME, null, null, source, resumeNow, label == null ? "Resume changed" : "Resume: " + label);
-        }
     }
 
     /** Delete one of the current user's applications (dismiss an abandoned draft). */

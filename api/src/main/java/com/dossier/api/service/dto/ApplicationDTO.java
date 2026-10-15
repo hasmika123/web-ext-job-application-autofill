@@ -121,6 +121,13 @@ public class ApplicationDTO implements Serializable {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Integer mailCount;
 
+    /** Who added this application, and who changed it last (docs/change-audit/README.md); resolved by the tracker's list and detail reads, never client-set. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private ChangeActorDTO createdBy;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private ChangeActorDTO updatedBy;
+
     /** {@code label} is plain words ("Video interview"); {@code at} is when, when there is a date. */
     public record NextStep(String label, Instant at) implements Serializable {}
 
@@ -178,6 +185,22 @@ public class ApplicationDTO implements Serializable {
 
     public void setNextStep(NextStep nextStep) {
         this.nextStep = nextStep;
+    }
+
+    public ChangeActorDTO getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(ChangeActorDTO createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public ChangeActorDTO getUpdatedBy() {
+        return updatedBy;
+    }
+
+    public void setUpdatedBy(ChangeActorDTO updatedBy) {
+        this.updatedBy = updatedBy;
     }
 
     public Boolean getGhosted() {

@@ -1,8 +1,12 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.domain.Application;
+import com.dossier.api.domain.ApplicationEvent;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.ApplicationEventService;
+import com.dossier.api.service.tracker.ChangeActor;
+import com.dossier.api.service.tracker.Changes;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.service.storage.FileStorage.StoredFile;
 import com.dossier.api.service.storage.StorageKeys;
@@ -34,14 +38,16 @@ public class ApplicationAttachmentResource {
 
     private final ApplicationRepository applicationRepository;
     private final FileStorage storageService;
-
+    private final ApplicationEventService eventService;
 
     public ApplicationAttachmentResource(
         ApplicationRepository applicationRepository,
-        FileStorage storageService
+        FileStorage storageService,
+        ApplicationEventService eventService
     ) {
         this.applicationRepository = applicationRepository;
         this.storageService = storageService;
+        this.eventService = eventService;
     }
 
     @PostMapping
@@ -59,6 +65,18 @@ public class ApplicationAttachmentResource {
         app.setAttachmentObjectKey(key);
         app.setAttachmentFilename(safeName(file.getOriginalFilename()));
         applicationRepository.save(app);
+        // Change audit: attaching or replacing the submitted file is a change to the application (the file name is not recorded: it can name a person).
+        eventService.record(
+            app,
+            ApplicationEvent.ATTACHMENT,
+            null,
+            null,
+            ApplicationEvent.SRC_WEB,
+            null,
+            previousKey != null && !previousKey.isBlank() ? "Attachment replaced" : "Attachment added",
+            ChangeActor.forOwner(app.getUser()),
+            new Changes().text("attachment")
+        );
         if (previousKey != null && !previousKey.isBlank() && !previousKey.equals(key)) {
             storageService.delete(previousKey);
         }
@@ -99,9 +117,13 @@ public class ApplicationAttachmentResource {
         if (key != null && !key.isBlank()) {
             storageService.delete(key);
         }
+        boolean had = key != null && !key.isBlank();
         app.setAttachmentObjectKey(null);
         app.setAttachmentFilename(null);
         applicationRepository.save(app);
+        if (had) {
+            eventService.record(app, ApplicationEvent.ATTACHMENT, null, null, ApplicationEvent.SRC_WEB, null, "Attachment removed", ChangeActor.forOwner(app.getUser()), new Changes().text("attachment"));
+        }
         return ResponseEntity.noContent().build();
     }
 

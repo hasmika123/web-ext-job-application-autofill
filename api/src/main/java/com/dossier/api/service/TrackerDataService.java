@@ -8,6 +8,7 @@ import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.repository.ApplicationEventRepository;
 import com.dossier.api.repository.ApplicationNoteRepository;
 import com.dossier.api.repository.InterviewRepository;
+import com.dossier.api.service.tracker.ChangeActor;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -71,9 +72,10 @@ public class TrackerDataService {
      */
     @Transactional
     public void seedDemoHistory(Application app, Instant createdAt, Instant appliedAt, Instant movedAt) {
-        eventService.recordAt(app, ApplicationEvent.CREATED, null, app.getStatus() == ApplicationStatus.SAVED ? ApplicationStatus.SAVED : ApplicationStatus.DRAFT, ApplicationEvent.SRC_SYSTEM, null, "Added to your tracker", createdAt);
+        eventService.recordAt(app, ApplicationEvent.CREATED, null, app.getStatus() == ApplicationStatus.SAVED ? ApplicationStatus.SAVED : ApplicationStatus.DRAFT, ApplicationEvent.SRC_SYSTEM, null, "Added to your tracker", createdAt, ChangeActor.system(), null);
+        eventService.stampOwner(app, app.getUser());
         if (appliedAt != null) {
-            eventService.recordAt(app, ApplicationEvent.STATUS, ApplicationStatus.DRAFT, ApplicationStatus.APPLIED, ApplicationEvent.SRC_EXTENSION, null, "Applied", appliedAt);
+            eventService.recordAt(app, ApplicationEvent.STATUS, ApplicationStatus.DRAFT, ApplicationStatus.APPLIED, ApplicationEvent.SRC_EXTENSION, null, "Applied", appliedAt, ChangeActor.forSource(ApplicationEvent.SRC_EXTENSION, app.getUser()), null);
         }
         if (movedAt != null && app.getStatus() != ApplicationStatus.APPLIED) {
             eventService.recordAt(
@@ -84,7 +86,9 @@ public class TrackerDataService {
                 ApplicationEvent.SRC_INBOX,
                 null,
                 "Moved to " + ApplicationDerivations.statusLabel(app.getStatus()) + " - from an email",
-                movedAt
+                movedAt,
+                ChangeActor.mail(),
+                null
             );
         }
     }
@@ -99,7 +103,7 @@ public class TrackerDataService {
         n.setCreatedAt(at);
         n.setUpdatedAt(at);
         notes.save(n);
-        eventService.recordAt(app, ApplicationEvent.NOTE, null, null, ApplicationEvent.SRC_SYSTEM, n.getId(), "Note added", at);
+        eventService.recordAt(app, ApplicationEvent.NOTE, null, null, ApplicationEvent.SRC_SYSTEM, n.getId(), "Note added", at, ChangeActor.forOwner(app.getUser()), null);
         return n;
     }
 
@@ -121,7 +125,7 @@ public class TrackerDataService {
         // "Logged" three days before it, but never in the future: history is not back-dated forwards.
         Instant now = Instant.now();
         Instant logged = startsAt.minusSeconds(3 * 24 * 3600L);
-        eventService.recordAt(app, ApplicationEvent.INTERVIEW, null, null, ApplicationEvent.SRC_SYSTEM, i.getId(), "Interview logged", logged.isAfter(now) ? now.minusSeconds(3600) : logged);
+        eventService.recordAt(app, ApplicationEvent.INTERVIEW, null, null, ApplicationEvent.SRC_SYSTEM, i.getId(), "Interview logged", logged.isAfter(now) ? now.minusSeconds(3600) : logged, ChangeActor.forOwner(app.getUser()), null);
         return i;
     }
 

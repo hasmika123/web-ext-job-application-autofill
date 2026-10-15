@@ -349,7 +349,10 @@ class ApplicationTrackerResourceIT {
             .andExpect(jsonPath("$.archived").value(true));
 
         List<ApplicationEvent> events = eventRepository.findByApplicationIdOrderByCreatedAtDescIdDesc(a.getId(), PageRequest.of(0, 20));
-        assertThat(events).extracting(ApplicationEvent::getSummary).containsExactly("Archived", "Next step cleared", "Next step: Follow up with Sam", "Moved to Applied");
+        // One event per request (change audit): the third PATCH cleared the next step AND archived, so it is one row whose changes list both.
+        assertThat(events).extracting(ApplicationEvent::getSummary).containsExactly("Next step cleared", "Next step: Follow up with Sam", "Moved to Applied");
+        assertThat(events.get(0).getChanges()).contains("{\"f\":\"nextAction\"}").contains("{\"f\":\"nextActionAt\"").contains("{\"f\":\"archived\",\"from\":\"false\",\"to\":\"true\"}");
+        assertThat(events.get(1).getChanges()).contains("{\"f\":\"starred\",\"from\":\"false\",\"to\":\"true\"}");
         assertThat(events).extracting(ApplicationEvent::getSource).containsOnly("WEB");
         assertThat(applicationRepository.findById(a.getId()).orElseThrow().getLastEventAt()).isNotNull();
     }
@@ -437,7 +440,7 @@ class ApplicationTrackerResourceIT {
 
         json(put(base + "/" + nid), "{\"pinned\":true}").andExpect(status().isOk()).andExpect(jsonPath("$.pinned").value(true)).andExpect(jsonPath("$.body").value("Ask about the team"));
         json(put(base + "/" + nid), "{\"body\":\"Ask about the team and the budget\"}").andExpect(jsonPath("$.body").value("Ask about the team and the budget")).andExpect(jsonPath("$.pinned").value(true));
-        assertThat(eventRepository.countByApplicationIdAndKind(a.getId(), ApplicationEvent.NOTE)).as("edits are not timeline events").isEqualTo(1);
+        assertThat(eventRepository.countByApplicationIdAndKind(a.getId(), ApplicationEvent.NOTE)).as("a pin and a body edit are history rows now (change audit): added, pinned, edited").isEqualTo(3);
 
         mockMvc.perform(delete(base + "/" + nid)).andExpect(status().isNoContent());
         mockMvc.perform(delete(base + "/" + nid)).andExpect(status().isNotFound());

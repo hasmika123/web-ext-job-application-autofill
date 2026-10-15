@@ -21,6 +21,13 @@ public interface ApplicationEventRepository extends JpaRepository<ApplicationEve
     /** Newest first; the caller passes the page size (the detail view's event cap). */
     List<ApplicationEvent> findByApplicationIdOrderByCreatedAtDescIdDesc(Long applicationId, Pageable page);
 
+    /** The newest event of each of these applications (id breaks a tie in time): who last touched them when no person is stamped on the head record. */
+    @Query(
+        "select e from ApplicationEvent e where e.id in " +
+        "(select max(e2.id) from ApplicationEvent e2 where e2.applicationId in :ids group by e2.applicationId)"
+    )
+    List<ApplicationEvent> newestFor(@Param("ids") Collection<Long> ids);
+
     long countByApplicationId(Long applicationId);
 
     long countByApplicationIdAndKind(Long applicationId, String kind);

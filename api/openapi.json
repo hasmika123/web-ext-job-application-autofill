@@ -17305,6 +17305,54 @@
         } ]
       }
     },
+    "/api/profile/applications/{id}/events" : {
+      "get" : {
+        "tags" : [ "applications-sync" ],
+        "summary" : "One application's full history",
+        "description" : "Every history row of one of my applications, newest first (id breaks a tie), as {items, total, page, size}. Each row names who did it (actor, actorKind, onBehalfOf: never an enterprise login), the channel (source) and what changed (changes: field names, and enum / date values only). size defaults to tracker.history.pageDefaultSize and is clamped to tracker.history.pageMaxSize. 404 if not owned.",
+        "operationId" : "applicationHistory",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListPageEventDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/applications/activity" : {
       "get" : {
         "tags" : [ "applications-sync" ],
@@ -24789,9 +24837,37 @@
           "mailCount" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "createdBy" : {
+            "$ref" : "#/components/schemas/ChangeActorDTO"
+          },
+          "updatedBy" : {
+            "$ref" : "#/components/schemas/ChangeActorDTO"
           }
         },
         "required" : [ "company", "createdAt", "roleTitle", "status", "updatedAt" ]
+      },
+      "ChangeActorDTO" : {
+        "type" : "object",
+        "properties" : {
+          "userId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "relation" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          }
+        }
       },
       "NextStep" : {
         "type" : "object",
@@ -31378,6 +31454,12 @@
             "type" : "integer",
             "format" : "int32"
           },
+          "createdBy" : {
+            "$ref" : "#/components/schemas/ChangeActorDTO"
+          },
+          "updatedBy" : {
+            "$ref" : "#/components/schemas/ChangeActorDTO"
+          },
           "events" : {
             "type" : "array",
             "items" : {
@@ -31404,6 +31486,20 @@
           }
         },
         "required" : [ "company", "createdAt", "roleTitle", "status", "updatedAt" ]
+      },
+      "ChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "f" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          }
+        }
       },
       "EventDTO" : {
         "type" : "object",
@@ -31436,6 +31532,21 @@
           "createdAt" : {
             "type" : "string",
             "format" : "date-time"
+          },
+          "actor" : {
+            "$ref" : "#/components/schemas/ChangeActorDTO"
+          },
+          "actorKind" : {
+            "type" : "string"
+          },
+          "onBehalfOf" : {
+            "$ref" : "#/components/schemas/ChangeActorDTO"
+          },
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChangeDTO"
+            }
           }
         }
       },
@@ -31493,6 +31604,36 @@
           },
           "snippet" : {
             "type" : "string"
+          }
+        }
+      },
+      "ListPageEventDTO" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/EventDTO"
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "summary" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
           }
         }
       },

@@ -291,6 +291,10 @@ public final class ResumeBuilderSettingKeys {
     public static final String TRACKER_INTERVIEWS_DEFAULT_RANGE_DAYS = "tracker.interviews.defaultRangeDays";
     public static final String TRACKER_INTERVIEWS_MAX_RANGE_DAYS = "tracker.interviews.maxRangeDays";
     public static final String TRACKER_INTERVIEWS_LIST_MAX = "tracker.interviews.listMax";
+    // Change audit (docs/change-audit/README.md): the full-history page and the note-edit coalescing window.
+    public static final String TRACKER_HISTORY_PAGE_DEFAULT_SIZE = "tracker.history.pageDefaultSize";
+    public static final String TRACKER_HISTORY_PAGE_MAX_SIZE = "tracker.history.pageMaxSize";
+    public static final String TRACKER_HISTORY_NOTE_EDIT_WINDOW_SECONDS = "tracker.history.noteEditWindowSeconds";
 
     // ---- Analytics (E2E U12.1) ---------------------------------------------
     public static final String ANALYTICS_DEFAULT_RANGE_DAYS = "analytics.defaultRangeDays";
@@ -734,6 +738,9 @@ public final class ResumeBuilderSettingKeys {
         integer(k, TRACKER_INTERVIEWS_DEFAULT_RANGE_DAYS, 30, 1, 366, "Days ahead the interviews list covers when the request names no range.");
         integer(k, TRACKER_INTERVIEWS_MAX_RANGE_DAYS, 366, 7, 1830, "Widest window (days) one interviews-list request may span.");
         integer(k, TRACKER_INTERVIEWS_LIST_MAX, 200, 20, 1000, "Most interviews one list request returns.");
+        integer(k, TRACKER_HISTORY_PAGE_DEFAULT_SIZE, 50, 10, 100, "History rows per page of an application's full history when the request names no size.");
+        integer(k, TRACKER_HISTORY_PAGE_MAX_SIZE, 100, 20, 200, "Largest page of an application's full history; a bigger size is clamped to it.");
+        integer(k, TRACKER_HISTORY_NOTE_EDIT_WINDOW_SECONDS, 300, 0, 3600, "Edits to the same note by the same person within this many seconds share one history row (autosave); 0 records every save.");
 
         Map<String, Key> by = new LinkedHashMap<>();
         for (Key key : k) {

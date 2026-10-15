@@ -217,13 +217,20 @@ class InterviewResourceIT {
             .andExpect(jsonPath("$.endsAt").doesNotExist())
             .andExpect(jsonPath("$.kind").value("VIDEO"))
             .andExpect(jsonPath("$.startsAt").value("2026-11-04T15:00:00Z"));
-        assertThat(eventRepository.countByApplicationIdAndKind(app.getId(), ApplicationEvent.INTERVIEW)).as("a field edit is not a timeline event").isZero();
+        assertThat(eventRepository.findByApplicationIdOrderByCreatedAtDescIdDesc(app.getId(), PageRequest.of(0, 5)))
+            .as("a field edit is a history row now (change audit): the fields are named, the values are not")
+            .singleElement()
+            .satisfies(e -> {
+                assertThat(e.getSummary()).startsWith("Interview updated: ");
+                assertThat(e.getChanges()).contains("{\"f\":\"location\"}").contains("\"f\":\"endsAt\"").doesNotContain("Room 4");
+            });
 
         json(put(u), "{\"startsAt\":\"2026-11-05T15:00:00Z\",\"kind\":\"onsite\"}")
             .andExpect(jsonPath("$.startsAt").value("2026-11-05T15:00:00Z"))
             .andExpect(jsonPath("$.kind").value("ONSITE"));
         assertThat(eventRepository.findByApplicationIdOrderByCreatedAtDescIdDesc(app.getId(), PageRequest.of(0, 5)))
-            .singleElement()
+            .hasSize(2)
+            .first()
             .satisfies(e -> assertThat(e.getSummary()).startsWith("Interview rescheduled: Onsite interview"));
 
         json(put(u), "{\"kind\":null}").andExpect(status().isUnprocessableEntity());

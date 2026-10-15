@@ -17,7 +17,15 @@ public final class TrackerDTOs {
 
     private TrackerDTOs() {}
 
-    /** One timeline entry. {@code kind} is CREATED|STATUS|NOTE|INTERVIEW|MAIL|RESUME|ATTACHMENT|FIELD; {@code source} EXTENSION|WEB|INBOX|SYSTEM|ASSISTANT. */
+    /** One field that changed: {@code f} the field name; {@code from}/{@code to} an enum name, flag, number or ISO instant, absent for free-text fields (the value stays on the record). */
+    public record ChangeDTO(String f, String from, String to) {}
+
+    /**
+     * One timeline entry. {@code kind} is CREATED|STATUS|NOTE|INTERVIEW|MAIL|RESUME|ATTACHMENT|FIELD; {@code source} (the channel) EXTENSION|WEB|INBOX|SYSTEM|ASSISTANT.
+     * {@code actor} is who did it (kind PERSON with a name, or a non-person such as the extension or the inbox; its label is never an enterprise login),
+     * {@code actorKind} repeats its kind, {@code onBehalfOf} is the record's owner when somebody else acted for them, and {@code changes} lists the fields
+     * that changed (names, and enum / date values only).
+     */
     public record EventDTO(
         Long id,
         String kind,
@@ -26,10 +34,27 @@ public final class TrackerDTOs {
         String source,
         Long refId,
         String summary,
-        Instant createdAt
+        Instant createdAt,
+        ChangeActorDTO actor,
+        String actorKind,
+        ChangeActorDTO onBehalfOf,
+        List<ChangeDTO> changes
     ) {
-        public static EventDTO of(ApplicationEvent e) {
-            return new EventDTO(e.getId(), e.getKind(), e.getFromStatus(), e.getToStatus(), e.getSource(), e.getRefId(), e.getSummary(), e.getCreatedAt());
+        public static EventDTO of(ApplicationEvent e, ChangeActorDTO actor, ChangeActorDTO onBehalfOf, List<ChangeDTO> changes) {
+            return new EventDTO(
+                e.getId(),
+                e.getKind(),
+                e.getFromStatus(),
+                e.getToStatus(),
+                e.getSource(),
+                e.getRefId(),
+                e.getSummary(),
+                e.getCreatedAt(),
+                actor,
+                e.getActorKind(),
+                onBehalfOf,
+                changes
+            );
         }
     }
 
