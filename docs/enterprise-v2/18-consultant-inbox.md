@@ -3,6 +3,12 @@
 > Status: built on `version2`, 2026-10-14 (Sonnet). Scope decision (user, 2026-10-14): **consultants connect their OWN Gmail inside the organization
 > workspace and get application tracking "the same as individuals"; the organization never sees credentials or mail.** Marketer inbox attribution
 > (32 section 4, escalation D4) is **out of scope and deferred** (section 9). Decision record: **O3** in `08-decisions-for-user.md`.
+> **Two-world model (O4, 2026-10-14; `19-separate-enterprise-accounts.md` §3.2; updated S11).** The inbox connection belongs to an **account**, and a
+> consultant's account is an enterprise account of one organization, never connected to any personal account. So there is one entitlement ground per
+> kind of account, not "either ground": an enterprise account is entitled by its organization license (`inbox.monitoring`); a personal account by its own Pro or
+> Autopilot plan. The same Gmail address may be connected once in each world (two independent `inbox_connection` rows read separately). Where the text
+> below says "a person who is a consultant in two organizations has one connection" or "personal-plan connection / first grant wins", read it per
+> account: one connection per enterprise account, and the personal-plan branch applies to personal accounts only.
 > Prior art: Phase 14 of `ROADMAP.md` (personal inbox), `32-applications.md` section 4, `37-entitlement-hooks.md` row 8, `21-feature-catalog.md` (`inbox.monitoring`).
 
 ## 1. What it is
@@ -28,21 +34,21 @@ entry "Inbox") and the same connection works when their *organization's license*
 | `ConsultantInboxOffboardingHook` | `service/ent/members` | offboarding step 450 (section 7). |
 | `DemoImapGateway` + `demo/inbox-demo.json` + `ConsultantInboxDemoSeeder` | demo stack only | section 8. |
 
-The user is the owner of the mailbox, as before. A person who is a consultant in two organizations has **one** connection; whichever workspace they
-connected it from is recorded in `connected_via_org_id`.
+The user is the owner of the mailbox, as before. A person who is a consultant in two organizations holds two enterprise accounts and so has **one connection per account**; the
+account's organization is recorded in `connected_via_org_id`, and a personal account's connection has none.
 
 ## 3. Entitlement
 
-**Either ground is enough** (`InboxEntitlement.decide`):
+**One ground per kind of account** (`InboxEntitlement.decide`; the account's kind picks the ground, they are never alternatives for one account):
 
-1. **Personal**: the person's own Pro or Autopilot plan (`EntitlementService.isPro`). Unchanged, including `PRO_REQUIRED` on `POST /api/profile/inbox`.
-2. **Organization**: the person is an **ACTIVE** member of an organization in state ACTIVE or PAST_DUE, has an ACTIVE `consultant_profile` there, and their
+1. **Personal account**: its own Pro or Autopilot plan (`EntitlementService.isPro`). Unchanged, including `PRO_REQUIRED` on `POST /api/profile/inbox`. Irrelevant to enterprise accounts.
+2. **Enterprise account**: the account is an **ACTIVE** member of an organization in state ACTIVE or PAST_DUE, has an ACTIVE `consultant_profile` there, and their
    **live license** (`ACTIVE` or `CANCEL_AT_PERIOD_END`, started, not ended) holds a **live** `license_feature` `inbox.monitoring` whose window includes now.
 
 The organization is **never taken from a client**: the workspace route carries `{orgId}`, which `OrgPermissionInterceptor` has already checked against the
 host the request arrived on (04 section 3: the API resolves the tenant from the host alone; a tenant-bound token must match). `connect` passes that id to
 `InboxService.connect(address, password, viaOrgId)`; the poller, which has no request, asks about every seat the person holds.
-Not stacked (24 section 6 / ADR-018): the personal plan is asked first; the first grant wins.
+Never stacked (24 section 1 / ADR-018, now structural under O4): an enterprise account has no personal plan to ask and a personal account has no organization grant, so there is no "first grant wins" step.
 
 `AuthorizationService` has no step-7 licence hook yet (X5.6); `InboxEntitlement` is that question for this one feature and is the single place to replace
 when the hook lands (the call sites are `InboxService.connect`, `InboxPoller.reconcile` and `ConsultantInboxService.viewOf`).
@@ -56,7 +62,7 @@ add it."); the page shows the locked state instead of the form. Everyone who is 
 
 | Situation | Result |
 |---|---|
-| personal Pro **or** a live org grant | read (a `NO_ENTITLEMENT` connection returns to `CONNECTED`) |
+| a personal account with Pro, **or** an enterprise account with a live org grant | read (a `NO_ENTITLEMENT` connection returns to `CONNECTED`) |
 | neither | status `NO_ENTITLEMENT`, `last_error` "Your organization no longer includes inbox tracking." (or "Inbox tracking is part of Pro." for a personal connection), **not read** |
 | `NEEDS_RECONNECT` (Google refused the password) | left as is: the person must reconnect |
 | made through org X and the seat in X is **gone** (REMOVED, LEFT, ERASED, or no seat) | **purged**: connection, password, folder states, every message |

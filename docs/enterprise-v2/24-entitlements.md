@@ -7,7 +7,13 @@
 > `isPro`, `plan`, `requirePro`), `ProRequiredException` (402 `PRO_REQUIRED` / `RESUME_LIMIT`),
 > `config/OrgPermissionInterceptor`, `web/rest/org/OrgPermissionRequired`.
 
-## 1. Contexts (ADR-018)
+## 1. Contexts (ADR-018, two-world model O4)
+
+> **Updated S11 (O4, 2026-10-14; `19-separate-enterprise-accounts.md`).** The context is decided by the **account**, not
+> by a header: an enterprise account (`user.org_id != null`) is always `Org(its organization)` and never has a
+> `subscription`; a personal account is always `Personal`. A person with both has two accounts and two unrelated
+> entitlement worlds, so "no stacking" is structural. The extension holds one account at a time, so the
+> `X-Kiwiply-Workspace` header (Phase 9, E6) is superseded and not built.
 
 ```java
 public sealed interface EntitlementContext permits Personal, Org {
@@ -17,16 +23,16 @@ public sealed interface EntitlementContext permits Personal, Org {
 ```
 | How the context is resolved | Result |
 |---|---|
-| request on a tenant host (`TenantContext` set) | `Org(tenant.orgId, …)` — always; a personal feature call on a tenant host is `MODULE_OFF` |
-| `kiwiply.com` + path `/api/orgs/{orgId}/**` | `Org(orgId, …)` |
-| `kiwiply.com` + extension header `X-Kiwiply-Workspace: org:{id}` (Phase 9, flag `flag.enterprise.extension_workspaces`) | `Org(id, …)` after membership check; header absent → Personal |
+| request on a tenant host (`TenantContext` set; the token has `tid == orgId`) | `Org(tenant.orgId, …)` — always; a personal feature call on a tenant host is `MODULE_OFF` |
+| the extension with an enterprise token (`ext=1`, `tid`) on `/api/orgs/{orgId}/**` | `Org(orgId, …)` (its own organization only) |
 | anything else | `Personal(login)` |
 
 **No stacking, ever:** `Org` reads `consultant_license`/`license_feature`/`org_module_license` for
-that org only; `Personal` reads `subscription` only. A user with personal Pro and an Acme license
-gets Pro in her personal workspace and Acme's features in Acme's — the same call never consults both.
-Joining, leaving, licensing or unlicensing never reads or writes `subscription`
-(`PersonalSubscriptionUnchangedIT`, `29-…`).
+that org only; `Personal` reads `subscription` only. A person with personal Pro and an Acme license
+has two accounts: Pro on the personal account and Acme's features on her Acme enterprise account — one call
+belongs to exactly one account, so it can never consult both. An enterprise account has no `subscription` and
+`isPro` is false for it. Creating, offboarding, licensing or unlicensing an enterprise account never reads or writes
+the personal account's `subscription` (`PersonalSubscriptionUnchangedIT`, `29-…`).
 
 ## 2. Request and decision
 
@@ -55,7 +61,7 @@ Steps **stop at the first failure**. Steps 1–6 and 9–10 are delegated to `Au
 
 | # | Contract (Org context) | Reason code |
 |---|---|---|
-| 1 | `TenantContext.current()` present and (token `tid` absent or `== orgId`) and path org `== orgId` | `TENANT_UNKNOWN` / `TENANT_MISMATCH` |
+| 1 | `TenantContext.current()` present and the token has `tid` `== orgId` (a `tid`-less token is `TOKEN_WRONG_WORLD` before this step) and path org `== orgId` | `TENANT_UNKNOWN` / `TENANT_MISMATCH` |
 | 2 | actor is an `ACTIVE` `org_member` of `orgId` | `NOT_MEMBER` |
 | 3 | `OrgStateRules.allows(org.status, operationKind)`: ACTIVE → all; PAST_DUE → reads, billing, account and **feature use while `now < org_billing_account.paid_through_at`**; SUSPENDED/CLOSED/DRAFT/PENDING_SETUP_FEE → no feature use | `ORG_INACTIVE` (402 `SUBSCRIPTION_STATE` when the only failure is `paid_through_at` passed, see 11) |
 | 4 | actor's effective permission set contains `permissionKey` | `PERMISSION_DENIED` |

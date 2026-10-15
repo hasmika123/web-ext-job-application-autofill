@@ -3,11 +3,17 @@
 > Status: design (Session B), 2026-10-12. Implements ADR-006 and requirements §7. Build-ready for
 > X2.7. Notion-style autosave (no Save buttons), `@kiwiply/ui` only.
 
+> **Two-world model (O4, 2026-10-14; `19-separate-enterprise-accounts.md`; updated S11).** The basic profile is one
+> record **per account**, not one per person. A person with a personal account and an enterprise account for an
+> organization has two profiles that are never copied or synced; an enterprise account belongs to exactly one
+> organization, so the page lists that one membership and no "Personal workspace" entry. On kiwiply.com the same page
+> edits the personal account. Where this file says "the person" for `jhi_user`, read "this account".
+
 ## 1. Three profiles, three owners
 
 | Profile | Owner | Where it lives | Where it is edited | Who else sees it |
 |---|---|---|---|---|
-| **Basic user profile** (this doc) | the person | `jhi_user` (+ `phone`, `title`), `NotificationPreference.tz`, `langKey`, avatar object | avatar menu → `/me` on every host (tenant tree `/_t/me`, platform `/me` — a new path; the existing `(app)/settings` keeps its personal-product sections and gains a link) | name, photo, title and work email are shown to org members with `member.view_summary`; phone only with `member.view_full` (consent FULL) |
+| **Basic user profile** (this doc) | the account (a person has one per world: personal, and one per organization) | `jhi_user` (+ `phone`, `title`), `NotificationPreference.tz`, `langKey`, avatar object | avatar menu → `/me` on every host (tenant tree `/_t/me`, platform `/me` — a new path; the existing `(app)/settings` keeps its personal-product sections and gains a link) | name, photo, title and work email of this enterprise account are shown to org members with `member.view_summary`; phone only with `member.view_full` (consent FULL) |
 | Consultant career profile | the person | `bio`, `profile_item`, resumes (PERSON) + the membership overlay `consultant_profile` (TALENT, D's X7.2) | `/profiles` on kiwiply.com (personal) and `/w/consultant/profile` on the tenant host (same editor, org overlay tab) | the org through `data_share` scope |
 | Organization profile | the org | `organization`, `org_branding`, `org_hostname`, `org_setting` | `/w/admin/settings` (14 §4) | members (name, logo); admins (everything) |
 
@@ -35,13 +41,12 @@
 │ Notifications  →             │      │          │  Notifications  (matrix, quiet hours, digest) │
 │ Security       →             │      │          │  Security                                     │
 │ Memberships    →             │      │          │   Password  [Change…]  Sign-in code  Required │
-│                              │      │          │   Sessions  Acme workspace · this device ✓    │
-│ status chip: "All changes    │      │          │             Personal · Chrome · 2 d ago [Revoke]│
+│                              │      │          │   Sessions  This device ✓ · Chrome            │
+│ status chip: "All changes    │      │          │             Firefox · 2 d ago      [Revoke]   │
 │  saved"                      │      │          │   [Sign out everywhere]                       │
 └──────────────────────────────┘      │          │  Memberships (read-only)                       │
                                       │          │   Acme Talent · Marketing Specialist, Marketing Manager · joined Oct 3 │
-                                      │          │   Personal workspace · kiwiply.com             │
-                                      └──────────┴──────────────────────────────────────────────┘
+                                      │                                                └──────────┴──────────────────────────────────────────────┘
 ```
 
 | Section | Fields | Source / endpoint | Notes |
@@ -50,8 +55,8 @@
 | Contact | work email (read-only on tenant hosts when the org manages email, i.e. always for invited members — the email is the invite binding), phone (optional, E.164 validated, PII scanner is **not** needed: phone is allowed) | same endpoint; email change stays the platform flow (`/settings` on kiwiply.com → verification), never on a tenant host | the ⓘ explains "Your organization invited this address; to change it, ask an administrator" |
 | Preferences | timezone (IANA select with search), language (`langKey`: en now; others when the web ships them) | same endpoint; tz also written to `NotificationPreference.tz` (one source: the preference row; the profile endpoint reads/writes it there) | tz drives every date the shell shows |
 | Notifications | the existing matrix (`/api/notification-preferences`), quiet hours, digest | existing `NotificationPreferences` component reused as-is | org-originated kinds (X2.10) appear as a new group "Organization" |
-| Security | change password (existing `/api/account/change-password`), sign-in code status (org-required or admin), sessions list + revoke, sign out everywhere, (Phase 12: TOTP, passkeys) | `GET /api/account/sessions`, `POST /api/account/sessions/{fam}/revoke`, `POST /api/account/sessions/revoke-all` (12 §8) | password change on a tenant host is allowed (it is the person's account) and audited user-side only |
-| Memberships | every org the person belongs to: display name, roles (names), primary role, joined date, consent scope chip, "Leave" (not for OWNER), plus "Personal workspace · kiwiply.com" | `GET /api/me/orgs` (branch B, extended with `roles[]`), `PUT /api/me/orgs/{id}/share`, `POST /api/me/orgs/{id}/leave` | read-only roles; the consent scope is editable here (the consent screen, reused) because it is the person's choice, not the org's |
+| Security | change password (existing `/api/account/change-password`), sign-in code status (org-required or admin), sessions list + revoke, sign out everywhere, (Phase 12: TOTP, passkeys) | `GET /api/account/sessions`, `POST /api/account/sessions/{fam}/revoke`, `POST /api/account/sessions/revoke-all` (12 §8) | password change on a tenant host is allowed (it is the enterprise account's own password, never the personal one) and audited user-side only |
+| Membership | the one organization this enterprise account belongs to: display name, roles (names), primary role, joined date, consent scope chip. No "Leave" button: leaving or offboarding is an organization action (12 §6); no "Personal workspace" entry, because a personal account is a different, unconnected account | `GET /api/me/orgs` (own organization only for an enterprise account; extended with `roles[]`), `PUT /api/me/orgs/{id}/share` | read-only roles; the consent scope is editable here (the consent screen, reused) because it is the person's choice, not the org's |
 | Danger (platform host only) | export my data, delete my account (existing `/account/export`, `AccountDeletionResource`) | existing | hidden on tenant hosts (shown with a link "Manage your account on kiwiply.com") |
 
 ### 2.2 Autosave behaviour (memory `ux-genz-notion-style`)

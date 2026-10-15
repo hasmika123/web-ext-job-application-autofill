@@ -5357,9 +5357,10 @@ Design: `docs/enterprise-v2/32-applications.md` · `docs/enterprise-v2/33-interv
 
 ### X9.9 — Extension workspace API: GET /api/profile/version workspaces[] + hints, WorkspaceHeaderFilter validating X-Kiwiply-Workspace against ACTIVE membership (404), workspace-aware /api/profile/** reads, plan resolution per ADR-018, opportunities/from-extension endpoint
 - **Epic:** X9 · **Size/Complexity:** M/M · **Owners:** API · **Deps:** X9.2, X5 · **Relates:** O3.4, O10.7
+- **SUPERSEDED IN PART (O4, 2026-10-14; `19-separate-enterprise-accounts.md` §2.5, §6, §8; S11).** The **header part is superseded and not to be built**: `workspaces[]` on `GET /api/profile/version`, `WorkspaceHeaderFilter` and `X-Kiwiply-Workspace`, and workspace-aware `/api/profile/**` reads. The extension connects with **one account at a time** (personal or enterprise); an enterprise token (`ext=1`, `tid`) reaches only its own organization, and plan resolution is structural (an enterprise account has no personal plan). What stands: the `POST /api/orgs/{orgId}/opportunities/from-extension` endpoint and its duplicate guard / BoardPolicy.
 - **Persona:** Consultant / Marketer (extension users)
-- **Objective:** Make the extension workspace-aware without a new login or a new origin (E6 default a).
-- **Story:** As a consultant who is also a personal user, I want to switch the extension between Personal and Acme, see Acme's licensed features only there, and keep my learned answers, so that one extension serves both lives without mixing them.
+- **Objective:** ~~Make the extension workspace-aware without a new login or a new origin (E6 default a).~~ (superseded, see above)
+- **Story:** ~~As a consultant who is also a personal user, I want to switch the extension between Personal and Acme, see Acme's licensed features only there, and keep my learned answers, so that one extension serves both lives without mixing them.~~ (superseded: the person connects the other account to switch; nothing is shared)
 
 **Functional requirements**
 - ProfileVersion response gains workspaces[] and hints (additive); WorkspaceHeaderFilter validates X-Kiwiply-Workspace against ACTIVE membership (404 otherwise) and sets TenantContext for workspace-aware /api/profile/** reads; plan resolution per ADR-018 (no stacking).

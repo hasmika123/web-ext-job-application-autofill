@@ -15,8 +15,10 @@ person's data their own**, and **never submits an application for anyone**.
   finance who keep records, an owner who wants one dashboard.
 - **Professional-services firms and outplacement providers** next; universities and bootcamps keep
   the existing org model (cohorts, consent, summary views) and gain branding and domains.
-- **The person** inside every org: a consultant or employee who already has, or may later have, a
-  personal Kiwiply account. Their resumes, applications, inbox and answers stay theirs.
+- **The person** inside every org: a consultant or employee who gets a separate **enterprise account** for
+  each organization (O4, 2026-10-14). They may also hold a personal Kiwiply account with the same email; the
+  two accounts are never connected, and what is made in one (resumes, applications, inbox, answers) never
+  shows in the other.
 
 ## 3. What changes versus the org work already designed (`docs/design/org/*`)
 The existing org design is a **buyer-of-seats** model: an org pays for items per person, gets a
@@ -42,11 +44,12 @@ every one of those decisions and adds five things on top:
 - **Everything admin-configured.** Prices, limits, caps, defaults and switches live in the catalog
   and the settings registry; code ships safe defaults.
 - **Server is the source of truth; the extension is a read-only mirror** that creates resumes and
-  learns answers — and, later, knows which workspace it is acting in.
+  learns answers — and connects with one account at a time (personal or enterprise, O4).
 - **One design system (`@kiwiply/ui`)**, one mascot, Notion-style autosave and undo, Gen Z-friendly
   but enterprise-professional.
-- **Personal subscriptions are untouched.** Joining an org never cancels, merges or discounts a
-  personal plan; benefits never combine automatically across workspaces.
+- **Personal subscriptions are untouched.** An enterprise account never has a personal plan and
+  creating one never reads, cancels, merges or discounts a personal plan; benefits never combine
+  across the two kinds of account (structural since O4, not a rule code has to enforce).
 
 ## 5. Principles the design holds itself to
 1. **Tenant first, then membership, then permission, then scope, then entitlement, then consent** —
@@ -61,9 +64,9 @@ every one of those decisions and adds five things on top:
 6. **Reversible decisions.** Each ADR says how to back out.
 
 ## 6. The six end-to-end journeys that define "done" (requirements §32)
-A Org Admin onboarding on a custom domain · B one account, two workspaces · C licensing a
+A Org Admin onboarding on a custom domain · B one person, two separate accounts (personal + enterprise, never connected) · C licensing a
 consultant with individually priced features · D marketer prepares, consultant approves, submits
-and lands a placement · E a personal subscriber joins an org and nothing personal changes · F two
+and lands a placement · E a personal subscriber gets an enterprise account for an org and nothing personal changes · F two
 tenants on one deployment cannot see each other, and unknown hosts expose nothing.
 
 ## 7. Success measures (first 90 days after Phase 6)

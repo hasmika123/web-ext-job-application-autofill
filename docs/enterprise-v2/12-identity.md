@@ -1,49 +1,51 @@
-# 12 — Identity: tenant-bound tokens, memberships, invite acceptance on a tenant host, session-per-host, how a personal user joins
+# 12 — Identity: two kinds of account, tenant-bound tokens, invite acceptance on a tenant host, session-per-host
 
-> **PARTLY SUPERSEDED (user decision 2026-10-14, O4).** Enterprise accounts and personal accounts are now
-> separate and never connected: the same email may have both, an enterprise account belongs to exactly one
-> organization, a tenant host authenticates that organization's enterprise accounts only and kiwiply.com
-> personal accounts only, and the extension connects one account at a time. Read
-> `19-separate-enterprise-accounts.md` first. Superseded below (do not implement as written): §1 "one global
-> identity / N memberships" (Identity, Membership, Workspace rows), §2 token rows that let a personal token reach a
-> tenant host or the extension carry `X-Kiwiply-Workspace`, §4 step 2 (credentials are looked up inside the tenant's
-> accounts only), §5 the "existing account" and `LOGIN_FOR_INVITE` branches (acceptance creates the enterprise
-> account), §6 "How an existing personal user joins" (removed), §7 shared profile across memberships, §8 session
-> list/sign-out-everywhere across worlds, §10 `PersonalSubscriptionUnchangedIT` scenario E and the invite-token login
-> case. The rest (tenant-bound `tid`/`hid` tokens, host resolution, session-per-host cookies, temp-password flow) stands.
+> **Two-world model (user decision 2026-10-14, O4; design `19-separate-enterprise-accounts.md`).** This file was
+> rewritten to it on 2026-10-15 (S11). There are two kinds of account and they are never connected: a **personal**
+> account (kiwiply.com) and an **enterprise account per organization** (that organization's tenant host). The same
+> email may hold both; creating an enterprise account never reads, attaches, links or reveals a personal one. The
+> host decides the world: a tenant host authenticates that organization's enterprise accounts only, kiwiply.com
+> authenticates personal accounts only, and the extension connects with one account at a time. What did not change:
+> tenant-bound `tid`/`hid` tokens, host resolution, session-per-host cookies and the temporary-password flow.
+> `SHARED` organizations (legacy, `organization.account_mode`) keep the old behaviour where members are personal
+> accounts; every statement below is about `SEPARATE` organizations (the enterprise default) unless it says otherwise.
 
-> Status: design (Session B), 2026-10-12. Implements ADR-004 (tid/hid), ADR-003 (host resolution),
-> ADR-018 (personal workspace untouched), E7 (invite email match, default (a)), E14 (Google per
-> host, default (a)). Build-ready for X1.5/X1.8 (already specified), X2.6, X2.7, X2.10, X2.14, X3.7.
+> Status: design (Session B), 2026-10-12; identity sections rewritten 2026-10-15. Implements ADR-004 (tid/hid),
+> ADR-003 (host resolution), ADR-018 (personal and enterprise entitlements never mix; now structural), E7 (invite
+> email match, default (a)), E14 (Google per host, default (a)). Build-ready for X1.5/X1.8 (already specified),
+> X2.6, X2.7, X2.10, X2.14, X3.7.
 
-## 1. One global identity, N memberships, one session per host
+## 1. Two kinds of account, one enterprise account per organization, one session per host
 
 | Thing | Where | Rule |
 |---|---|---|
-| Identity | `jhi_user` (login, email, names, imageUrl, langKey, activated, authorities) + additive `phone`, `title` (ADR-006) | One account per person, used on kiwiply.com and on every tenant host. No per-org accounts, no per-org passwords. |
-| Membership | `org_member` (one live row per org + user; `active_user_key`) + `org_member_role` | A person may be a member of many orgs. Roles, title, department, team, manager, consent and licenses are **per membership**. |
-| Session | host-only cookies `kiwiply_access` / `kiwiply_refresh`; JWT claims `sub`, `uid`, `auth`, and on tenant hosts `tid`, `hid` | One session per host. Signing in on `careers.acme.com` does not sign you in on `kiwiply.com` or on `jobs.beta.com`. |
-| Workspace | PERSONAL (kiwiply.com) or ORG(orgId) (tenant host, or the `/org` console on kiwiply.com for non-enterprise orgs) | Entitlements never cross workspaces (ADR-018). |
+| Identity | `jhi_user` (login, email, names, imageUrl, langKey, activated, authorities) + additive `phone`, `title` (ADR-006) + `org_id` (`NULL` = personal account, otherwise the organization the enterprise account belongs to) | A **personal** account lives on kiwiply.com. An **enterprise** account belongs to exactly one organization and lives on that organization's tenant host. The same email may exist once as a personal account and once per organization; they are separate rows with separate passwords and data (unique on scope + email). Login stays globally unique (it is the JWT subject). |
+| Membership | `org_member` (one live row per org + enterprise account; `active_user_key`) + `org_member_role` | An enterprise account has one membership, in its own organization. A person in two organizations holds two enterprise accounts. Roles (N per account, e.g. Administration and Marketing), title, department, team, manager, consent and licenses are per membership. |
+| Session | host-only cookies `kiwiply_access` / `kiwiply_refresh`; JWT claims `sub`, `uid`, `auth`, and for enterprise accounts `tid`, `hid` | One session per host. Signing in on `careers.acme.com` does not sign you in on `kiwiply.com` or on `jobs.beta.com`. |
+| World | PERSONAL (kiwiply.com) or ORG(orgId) (that organization's tenant host) | Decided by the host. Entitlements, resumes, inbox, billing and settings never cross worlds (ADR-018): structural, not a rule code has to enforce. |
 
-## 2. Token claims and validation (ADR-004, X1.5 — restated as the contract the UI relies on)
+## 2. Token claims and validation (ADR-004, X1.5, O4 — the contract the UI relies on)
 
 ```
-access  { sub: login, uid, auth, exp(15m), jti, tid?: orgId, hid?: hostnameId }
+access  { sub: login, uid, auth, exp(15m), jti, tid?: orgId, hid?: hostnameId, ext?: 1 }
 refresh { sub, uid, fam, exp(90d), jti, tid?, hid? }
 ```
+`tid` is present if and only if the account is an enterprise account (`user.org_id != null`, `tid == org_id`,
+set from the user row at issue time; the host is then checked against it). A personal token never has `tid`.
+`ext=1` marks an extension token (19 §6.3).
+
 | Token | Context | Route class | Result |
 |---|---|---|---|
 | has `tid` | TENANT, `tid == orgId` | any | allowed (membership + permissions still checked) |
 | has `tid` | TENANT, `tid != orgId` | any | `401 TOKEN_TENANT_MISMATCH`, cookies cleared by the BFF, login page |
-| has `tid` | PLATFORM (kiwiply.com) | user-scoped (`/api/account`, `/api/profile`, `/api/notifications`, `/api/me/**`) | allowed |
-| has `tid` | PLATFORM | `/api/orgs/{any}` | `404` (the console on kiwiply.com needs a platform session) |
-| no `tid` | TENANT | user-scoped `/api/account` | allowed (login-first hand-off: the page can tell "signed in somewhere, not here") |
-| no `tid` | TENANT | tenant routes | `401` → the web treats it as signed-out on this host |
+| has `tid` | PLATFORM (kiwiply.com) | any, except extension routes when `ext=1` | `401 TOKEN_WRONG_WORLD` (an enterprise session does not exist on kiwiply.com) |
+| no `tid` | TENANT | any | `401 TOKEN_WRONG_WORLD`, the web treats it as signed-out on this host (a personal session is not valid on a tenant host) |
 | has `hid` | any | any | the hostname must be ACTIVE (`HostnameStatusCache`), else `401 TOKEN_HOST_REVOKED` (10 §6) |
-| extension token (`/api/extension/session`) | — | — | never has `tid`; Phase 9 adds `X-Kiwiply-Workspace` (E6) |
+| extension token (`/api/extension/session`) | — | — | `ext=1`; personal accounts get no `tid`, enterprise accounts get theirs. The extension holds **one** account at a time (19 §6); there is no `X-Kiwiply-Workspace` switch (superseded). |
 
 Refresh keeps `tid/hid`; `proxy.ts` refresh runs with the host header so the API re-resolves the
-tenant and refuses a refresh whose `tid` does not match the host (401 → cookies dropped).
+tenant and refuses a refresh whose `tid` does not match the host or the account's `org_id` (401 → cookies dropped).
+`revokeAllForUser` revokes one account only: changing the password of one account never signs out the other.
 
 ## 3. `GET /api/me/tenant` — the one call the tenant shell makes (X2.2)
 
@@ -79,24 +81,32 @@ Tenant-host only (PLATFORM → 404). Requires a `tid` token for the resolved ten
 - Suspended member (`status = SUSPENDED`) → `403 MEMBER_SUSPENDED` → the shell renders the
   "Your access is paused" panel (no data) with sign-out.
 
+
 ## 4. Login on a tenant host (step list the BFF implements, X2.6)
 1. `POST /api/auth/login` (BFF) forwards `username`, `password`, `X-Kiwiply-Host`.
-2. API `/api/authenticate` in TENANT context: credentials → user; then membership check
-   `org_member(org = tid, user, status ∈ {ACTIVE, SUSPENDED, INVITED})`:
-   ACTIVE → tokens with `tid/hid`; SUSPENDED → `403 NOT_A_MEMBER {suspended: true}` (same panel
-   copy as not-a-member, to avoid confirming membership state to a third party? — no: the person
-   just proved the password, so the honest "Your access is paused" is shown); INVITED →
-   `403 NOT_A_MEMBER {pending: true}`; none → `403 NOT_A_MEMBER`. Every refusal: audit
-   `LOGIN_DENIED_NOT_MEMBER` in the org's log with `hostname_id`, no cookies.
+2. API `/api/authenticate` in TENANT context: the credentials are looked up **inside that organization's
+   enterprise accounts only** (`findOneByOrgIdAndEmailIgnoreCase`, or by login when `user.org_id == tid`).
+   A credential that belongs to the other world (a personal account with the same email) is
+   indistinguishable from an unknown user: same refusal, same timing, so nothing reveals whether an email has a
+   personal account (R7). Then the account's membership: ACTIVE → tokens with `tid/hid`; SUSPENDED / disabled
+   (offboarded) → `403` with the "Your access is paused" panel (the person just proved the password, so the
+   honest message is shown); INVITED → `403 NOT_A_MEMBER {pending: true}`. Every refusal: audit
+   `LOGIN_DENIED_NOT_MEMBER` in the org's log with `hostname_id`, no cookies. A temporary password forces the
+   change-password screen first (`pcr`; temporary passwords exist only on enterprise accounts).
 3. MFA (11 §3.4) when required.
 4. BFF sets cookies and answers `{ ok: true, landing }` (the landing comes from the API's
    `/api/me/tenant` the BFF calls right after login, so the page lands in one hop).
-5. Google (`POST /api/auth/google`): same membership rule; available only when the tenant DTO says
-   `login.google = true` (org opted in **and** the platform admin registered the origin — E14; the
-   platform-admin hostname detail (X1.11) gets a "Google origin registered" checkbox, X3.7).
-6. Password reset / email verification initiated on a tenant host builds links with
-   `TenantUrls.base(org)` (X2.10) so the person returns to the branded host; the API templates take
-   the tenant's display name and logo URL (`MailBranding` parameter, placeholder-free).
+5. Google (`POST /api/auth/google`): same rule (the Google identity must match an enterprise account of this
+   organization); available only when the tenant DTO says `login.google = true` (org opted in **and** the
+   platform admin registered the origin — E14; the platform-admin hostname detail (X1.11) gets a "Google origin
+   registered" checkbox, X3.7).
+6. Password reset initiated on a tenant host resets **only the enterprise account of that organization**
+   (`requestPasswordReset(scope, mail)`; the scope comes from the host) and answers the same body whether or not
+   the account exists. The link is built with `TenantUrls.base(org)` (X2.10) so the person returns to the
+   branded host; the mail takes the tenant's display name and logo (`MailBranding`) and uses the Enterprise theme.
+   `/api/register` (self sign-up) is refused on a tenant host: enterprise accounts come only from admin creation
+   or an invitation. Admin-created accounts stay activated without verification; an invitation proves the address
+   by token possession.
 
 ## 5. Invite acceptance on a tenant host (X1.8 API + X2.6 web)
 
@@ -106,71 +116,82 @@ email link  https://careers.acme.com/join/t/{token}
    ▼
 GET /join/t/{token}  (tenant tree, branded)  →  BFF GET /api/join/{token} (public preview: org name, logo, invited-as roles, what the org will see)
    │
-   ├─ signed in on this host (tid = acme)  ─────────────────────────────────► consent screen (SUMMARY recommended / NONE; FULL later via pairing)
+   ├─ signed in on this host (tid = acme), email matches ───────────────────► consent screen (SUMMARY recommended / NONE; FULL later via pairing)
    │                                                                              │  POST /api/join/{token}/accept {shareScope}
    ├─ signed in on this host, different email than the invite ──► "This invitation is for a different email" (E7, 409 INVITE_EMAIL_MISMATCH)
-   │                                                                      [Sign in with that account]  — no accept
-   ├─ signed out, account exists for the invited email ────────► login card prefilled (email read-only) → back to /join/t/{token}
+   │                                                                      [Sign out and use the invited address]  — no accept
    │
-   └─ signed out, no account ───────────────────────────────────► signup card (tenant hosts allow signup ONLY from a valid invite token:
-                                                                   the BFF checks the token before rendering) → email verification
-                                                                   (link on this host) → back to /join/t/{token} → consent → accepted
+   └─ signed out (the normal case) ──────────────────────────────────────────► "Create your account" card: the invited email (read-only) + a new
+                                                                   password for THIS organization. The invite never mentions a personal account,
+                                                                   and the same email may have one elsewhere: the two are not connected.
+                                                                   (tenant hosts allow account creation ONLY from a valid invite token: the BFF
+                                                                   checks the token before rendering) → consent → accepted
    ▼
 "You're in" screen (mascot celebrate) → [Go to my workspace] → /w/{landing}
 ```
-- The login during acceptance is a **platform-style login without `tid`** (the person is not a
-  member yet). The API allows `/api/authenticate` on a tenant host to return a `tid`-less token
-  only when the request carries a valid pending invite token for that tenant
-  (`X-Kiwiply-Invite: {token}`, checked server-side; audited `LOGIN_FOR_INVITE`); the cookies are
-  replaced with `tid` tokens the moment the accept succeeds (`POST …/accept` returns a fresh pair).
-  This keeps "no member → no tenant session" true at all times.
-- Join by code (`/join/{slug}/{code}`) works on tenant hosts only for the tenant's own slug; codes
-  grant CONSULTANT/MEMBER-level roles only (branch B rule kept).
-- On kiwiply.com the same pages exist (platform tree, from branch `2672733`, re-verified) for
-  non-enterprise orgs and for invites sent before a tenant host was live.
+- Accepting **creates the enterprise account** (`org_id` = this organization) with the chosen password and
+  its membership in one step, and returns a fresh `tid` token pair. There is no login without a membership
+  and no `tid`-less token on a tenant host at any time (the old invite-token login, `X-Kiwiply-Invite` and
+  `LOGIN_FOR_INVITE`, is removed). If an enterprise account for this email already exists in this organization
+  (a returning member), the page shows the sign-in card instead and acceptance needs the signed-in session.
+- Join by code (`/join/{slug}/{code}`) works on tenant hosts only for the tenant's own slug and creates an
+  enterprise account the same way; codes grant CONSULTANT/MEMBER-level roles only (branch B rule kept).
+- On kiwiply.com the same pages exist (platform tree) **only for `SHARED` (legacy) organizations**, whose
+  members are personal accounts, and for invites sent before a tenant host was live.
 
-## 6. How an existing personal user joins (scenario E, requirements §22)
-1. Anika has a personal Kiwiply account (maybe Pro). Acme invites `anika@…` with role CONSULTANT.
-2. She opens the link on `careers.acme.com`, signs in with her existing password (§5), chooses the
-   consent scope, accepts. `org_member` becomes ACTIVE; `data_share` row written. **Nothing in
-   `subscription`, `resume`, `application`, `inbox_connection` changes** (`PersonalSubscriptionUnchangedIT`).
-3. On `careers.acme.com` she sees only Acme's consultant workspace (16 §5). Her personal dashboard,
-   resumes and board stay on `kiwiply.com`; her personal Pro applies there only (ADR-018). Inside
-   Acme, features come from Acme's licenses (Phase 5) — the "My Available Features" page says
-   "Provided by Acme" per feature and never mentions her personal plan.
-4. Her resumes are visible to Acme only through `org_resume` links she or a marketer creates with
-   her consent (ADR-009); her career profile is read through `data_share` scope (ADR-006).
-5. Leaving (`POST /api/me/orgs/{orgId}/leave`, from `/me/memberships` on any host or from
-   `/settings/organizations` on kiwiply.com): membership → LEFT, overlay deleted, links removed,
-   sessions with `tid` revoked (refresh families for that user filtered by `tid` — additive
-   `refresh_token.org_id` column, X2.7), personal data untouched.
-6. The **extension** keeps connecting on kiwiply.com only; until Phase 9 (E6) it acts in the
-   personal workspace regardless of memberships.
+## 6. A person who already has a personal Kiwiply account (scenario E, requirements §22)
+Superseded as "joining" (O4): nothing joins. The person keeps their personal account exactly as it is and
+**also** gets a separate enterprise account for the organization.
+1. Anika has a personal Kiwiply account (maybe Pro). Acme invites `anika@…` with role CONSULTANT. The invite is
+   the same invite as for anyone: it does not mention her personal account.
+2. She opens the link on `careers.acme.com`, creates a new password for Acme (§5), chooses the consent scope,
+   accepts. A new enterprise account and an ACTIVE `org_member` are written; `data_share` row written. Her
+   personal account, `subscription`, `resume`, `application` and `inbox_connection` rows are **not read or
+   changed** (`PersonalSubscriptionUnchangedIT`).
+3. On `careers.acme.com` she signs in with the Acme password and sees only Acme's consultant workspace (16 §5).
+   Her personal dashboard, resumes and board stay on `kiwiply.com` under her personal login; her personal Pro
+   applies there only. Inside Acme, features come from Acme's licenses (Phase 5), and Acme's resumes, inbox and
+   settings exist only in the enterprise account. The "My Available Features" page says "Provided by Acme" per
+   feature and never mentions a personal plan.
+4. Acme's resumes are visible to the organization only through `org_resume` links the consultant or a marketer
+   creates with consent (ADR-009); the career profile is read through `data_share` scope (ADR-006).
+5. Leaving / offboarding: an organization action (`OrgOffboardingService`) sets the membership to LEFT and
+   **disables the enterprise account** (login refused), removes the links, purges the inbox connection and revokes
+   that account's refresh tokens (filtered by `tid`). Erasure of the enterprise account is an organization action
+   (19 §3.8). The personal account is untouched and is never reachable from the enterprise side.
+6. The **extension** connects with one account at a time: personal (on kiwiply.com) or enterprise (on the
+   organization's host). To switch, the person connects the other; nothing is shared between the two (19 §6).
 
-## 7. Basic profile across memberships
-The basic profile (13) is one record. On a tenant host the avatar menu shows the same profile;
-only the **membership card** differs ("Acme · Marketing Specialist · joined Oct 2026"). Editing
-the name on Acme's host changes it everywhere — the profile page says so once ("Your name and
-photo are the same in every workspace you belong to").
+## 7. Basic profile per enterprise account
+The basic profile (13) belongs to the account. A person with a personal account and an enterprise account has
+**two profiles**; neither is copied from or synced to the other. On a tenant host the avatar menu shows the
+enterprise account's profile and the **membership card** ("Acme · Marketing Specialist · joined Oct 2026").
+Editing the name on Acme's host changes only the enterprise profile; the profile page says so once ("This profile
+belongs to your {org} account and is not shared with any other Kiwiply account").
 
 ## 8. Sign-out and session management
 - `POST /api/auth/logout` (BFF) → API `/api/logout` revokes the refresh family; cookies deleted
   for this host only. The avatar menu's "Sign out" never signs out other hosts; "Sign out
   everywhere" (`/me/security`, X2.7) calls `POST /api/account/sessions/revoke-all`
-  (`RefreshTokenService.revokeAllForUser`, exists) and the extension drops its session via the
-  existing `signedOut` signal on kiwiply.com.
-- Session list (X2.7): `GET /api/account/sessions` → refresh families with `created_at`,
-  `last_used_at`, `org_id` (→ "Acme workspace" / "Personal"), user agent family; "Revoke" per row.
-  Additive columns `refresh_token.org_id`, `user_agent` (80 chars), `last_used_at`.
+  (`RefreshTokenService.revokeAllForUser`) for **this account only**; it never touches the person's account in
+  the other world. The extension drops its session only when it holds this account (the existing `signedOut`
+  signal on the host that account belongs to).
+- Session list (X2.7): `GET /api/account/sessions` → this account's refresh families with `created_at`,
+  `last_used_at`, user agent family; "Revoke" per row. Every row belongs to the same account, so there is no
+  "Acme workspace / Personal" distinction. Additive columns `refresh_token.org_id`, `user_agent` (80 chars),
+  `last_used_at`.
 
 ## 9. SSO and the future (not built now)
 SAML/OIDC per org with JIT membership → X12.4. It plugs into §4 step 2 (identity comes from the
 IdP; the membership rule is unchanged). Central cross-host SSO (one login for all hosts) is **not**
 planned: one session per host is explicit and acceptable (ADR-004).
 
+
 ## 10. Tests that pin this doc
 `HostMismatchIT` (X1.9), `AuthenticateControllerIT` tenant cases (X1.5), `JoinResourceIT` tenant
-cases (X1.8), new `TenantLoginFlowIT` (X2.6: invite-token login, pending/suspended refusals,
-cookie replacement on accept), `MeTenantResourceIT` (X2.2: workspaces ∩ permissions ∩ modules,
-ETag), `PersonalSubscriptionUnchangedIT` (X5.9), Playwright `tenant-login.spec.ts` (every state in
-11 §3.2 at 390 and 1440), `tenant-join.spec.ts` (§5 branches over the mock).
+cases (X1.8: account creation on accept, no `tid`-less token), `TenantLoginFlowIT` (X2.6: pending/suspended
+refusals, a personal credential refused on a tenant host with the generic error, cookies set on accept),
+`MeTenantResourceIT` (X2.2: workspaces ∩ permissions ∩ modules, ETag), `PersonalSubscriptionUnchangedIT` (X5.9:
+a person with a personal account and an enterprise account for the same email; the personal rows are identical
+before and after), Playwright `tenant-login.spec.ts` (every state in 11 §3.2 at 390 and 1440),
+`tenant-join.spec.ts` (§5 branches over the mock).
