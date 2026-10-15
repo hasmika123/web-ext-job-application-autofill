@@ -4,7 +4,7 @@
 
 Sources it reads (any that are missing show as "Plan being written"):
 
-- `docs/roadmap/areas/<key>.json` for `user`, `org`, `admin`, `ext`, `mkt`, `plat`, `ai`, `mob`, `pay`, `trust`, `sup` (schema: area, name, prefix, kind, updated, epics[], stories[])
+- `docs/roadmap/areas/<key>.json` for `user`, `org`, `admin`, `ent`, `ext`, `mkt`, `plat`, `ai`, `mob`, `pay`, `sub` (Subscription Module, prefix `K`, design in `docs/subscriptions/`), `trust`, `sup` (schema: area, name, prefix, kind, updated, epics[], stories[])
 - `docs/resume-builder/stories.json` (Resume Builder; `star` means critical; epic `priority` in the file wins, the generator only falls back to `RESUME_PRIORITY` when it is missing)
 - `docs/timesheets/stories.json` (Timesheets & Consultancy Ops, product area **H**; same schema as the Resume Builder file; `prefix`, `kind: "product"`, `name` and every epic's `priority` come from the JSON; `--set H0.1=done` edits it)
 - Optional `docs/roadmap/PLAN-<area>.md` and `AUDIT-<area>.md` (linked from the area page), plus `COMPETITIVE-LANDSCAPE.md` and `COMPETITIVE-GAPS.md` (linked from the home and every area page)
