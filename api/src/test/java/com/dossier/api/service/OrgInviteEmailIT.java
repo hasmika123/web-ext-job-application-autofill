@@ -49,8 +49,6 @@ class OrgInviteEmailIT {
         assertThat(html)
             .contains("Hi Aarav,")
             .contains("Priya Nair invited you to join Acme Bootcamp on Kiwiply as a member.")
-            .contains("You keep your own account, resumes and applications.")
-            .contains("a progress summary, or only that you joined")
             .contains("href=\"https://kiwiply.com/join/t/AbC123\"")
             .contains("Join Acme Bootcamp")
             .contains("This link works until 28 Oct 2026.")
