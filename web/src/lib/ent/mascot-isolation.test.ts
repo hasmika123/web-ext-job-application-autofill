@@ -43,5 +43,6 @@ describe("the enterprise bee stays out of the regular product", () => {
   it("no regular-product file references the enterprise mascot", () => {
     const offenders = files.filter((f) => FORBIDDEN.some((re) => re.test(readFileSync(f, "utf8")))).map((f) => relative(SRC, f));
     expect(offenders).toEqual([]);
-  });
+    // Synchronous read of every product file: ~1-15 s on Windows under load, so the default 5 s is too tight.
+  }, 60_000);
 });

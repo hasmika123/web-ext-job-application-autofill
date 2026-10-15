@@ -74,7 +74,8 @@ describe("ReasonSheet on a desktop", () => {
     fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(run).toHaveBeenCalledWith("Gemini 5xx spike", false);
-    expect(document.activeElement).toBe(opener);
+    // The Dialog hands focus back in its passive-effect cleanup, which can land a tick after the DOM is gone (slow under load).
+    await waitFor(() => expect(document.activeElement).toBe(opener));
   });
 
   it("Cancel and Escape close without sending", async () => {

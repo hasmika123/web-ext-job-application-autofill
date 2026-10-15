@@ -23,6 +23,10 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Several editor/admin suites render large trees in jsdom (10-30 s per file in a full run); the 5 s default makes the
+    // first slow test time out under load and cascades (leftover DOM) into the rest of the file. Passing tests are unaffected.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     include: ["src/**/*.test.{ts,tsx}", "eslint-rules/**/*.test.mjs"],
   },
 });
