@@ -221,7 +221,7 @@ public class MktOpportunitiesService {
         for (Row r : rows) {
             sb.append(csv(r.r().consultantName())).append(',').append(csv(r.r().jobTitle())).append(',').append(csv(r.r().clientName())).append(',')
                 .append(csv(r.r().location())).append(',').append(r.r().score()).append(',').append(csv(INTEREST_LABEL.get(r.interest()))).append(',')
-                .append(csv("UPDATED".equals(r.resume()) ? "Updated" : "Needs Update")).append(',').append(csv(names.getOrDefault(r.ownerId(), ""))).append(',')
+                .append(csv("UPDATED".equals(r.resume()) ? "Updated" : "Needs Update")).append(',').append(csv(r.ownerId() == null ? "" : names.getOrDefault(r.ownerId(), ""))).append(',')
                 .append(csv(r.r().nextActionAt() == null ? "" : r.r().nextActionAt().toString())).append(',').append(csv(r.r().matchStatus())).append(',')
                 .append(csv(r.last().toString())).append("\r\n");
         }
@@ -346,6 +346,7 @@ public class MktOpportunitiesService {
         record(opp, "REVIEWED", me.memberId(), "reviewed opportunity", now);
         opp.setUpdatedAt(now);
         repo.save(opp);
+        audit.record(me, "MARKETER_OPPORTUNITY_REVIEW", "OPPORTUNITY", null, String.valueOf(id), "consultant " + row.r().consultantId());
         return result(view, id, "Marked as reviewed.", true, now);
     }
 
@@ -362,6 +363,7 @@ public class MktOpportunitiesService {
         opp.setNextActionAt(at);
         opp.setUpdatedAt(now);
         repo.save(opp);
+        audit.record(me, "MARKETER_OPPORTUNITY_NEXT_ACTION", "OPPORTUNITY", null, String.valueOf(id), at == null ? "cleared" : "set");
         return result(view, id, at == null ? "Next action cleared." : "Next action updated.", true, now);
     }
 

@@ -529,6 +529,17 @@ class MktOpportunitiesServiceTest {
     }
 
     @Test
+    void reviewingAndMovingTheNextActionEachWriteOneAuditRow() {
+        add(row(1, 1, "A", 1, "C", 90, "ASSIGNED", "OPEN", 1, 5));
+        service.review(me, 1L);
+        verify(audit).record(any(OrgMembership.class), eq("MARKETER_OPPORTUNITY_REVIEW"), eq("OPPORTUNITY"), any(), eq("1"), any());
+        service.setNextAction(me, 1L, NOW.plus(DAY));
+        verify(audit).record(any(OrgMembership.class), eq("MARKETER_OPPORTUNITY_NEXT_ACTION"), eq("OPPORTUNITY"), any(), eq("1"), eq("set"));
+        service.setNextAction(me, 1L, null);
+        verify(audit).record(any(OrgMembership.class), eq("MARKETER_OPPORTUNITY_NEXT_ACTION"), eq("OPPORTUNITY"), any(), eq("1"), eq("cleared"));
+    }
+
+    @Test
     void addingAnOpportunityNeedsAnExistingOpenJobAndRefusesDuplicates() {
         ConsultantProfile c = new ConsultantProfile();
         c.setId(1L);
