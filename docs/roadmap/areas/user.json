@@ -2,7 +2,7 @@
   "area": "user",
   "name": "Job-seeker dashboard, auth, account, web↔extension",
   "prefix": "U",
-  "updated": "2026-10-12",
+  "updated": "2026-10-15",
   "epics": [
     {
       "id": "U0",
@@ -3549,6 +3549,271 @@
       "design": "docs/design/user/applications-inbox.md",
       "critical": false,
       "benchmark": "G22 — Huntr application packets (Pro); ours is free because the parts already exist"
+    },
+    {
+      "id": "U6.12",
+      "epic": "U6",
+      "title": "Change-audit schema on the tracker: actor_kind, actor, on-behalf-of and changes on application_event; created_by / updated_by on application, note and interview; backfill; ChangeAuditCoverageTest",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.1"
+      ],
+      "relates": [
+        "X9.13",
+        "R3.9",
+        "T1.1"
+      ],
+      "persona": "Job seeker (owner); consultant in an org (owner whose record others may touch)",
+      "objective": "Every tracker record and every history row can name who changed it, for whom, through which channel, and what changed — additively, with the past backfilled.",
+      "story": "As a job seeker I want every application, note and interview to remember who last changed it and when, and every history row to remember who did it, so that when someone else (a marketer, the extension, an email) touches my tracker I can see it.",
+      "genz": "Receipts on every change. Who, when, what.",
+      "functional": [
+        "application_event gains actor_kind (PERSON | EXTENSION | MAIL | ASSISTANT | SYSTEM, NOT NULL DEFAULT SYSTEM), actor_user_id, actor_login, on_behalf_of_user_id, changes (VARCHAR 1000 JSON) — docs/change-audit/README.md §2.2.",
+        "application, application_note, interview gain created_by_user_id, created_by_login, updated_by_user_id, updated_by_login (nullable; created_at / updated_at already exist and are the created / last-modified times).",
+        "Backfill (D1): events with source WEB or EXTENSION → PERSON with the owner as actor; INBOX → MAIL; ASSISTANT → ASSISTANT; SYSTEM → SYSTEM. Head records: updated_by = owner where updated_at is set. Idempotent (WHERE actor_kind = SYSTEM AND actor_user_id IS NULL …).",
+        "ChangeAuditCoverageTest: a JPA-metamodel test listing the entities that must carry updated_by_* (Application, ApplicationNote, Interview, Resume, and the ent ones once X9.13 lands); any entity with an updated_at column and no updated_by column fails the test with its name.",
+        "No entity extends AbstractAuditingEntity for this (only User does today); the columns are explicit so the auditor is the ChangeActor of U6.13, not SpringSecurityAuditorAware."
+      ],
+      "ui": [
+        "None (schema story)."
+      ],
+      "backend": [
+        "Entity fields + getters on ApplicationEvent, Application, ApplicationNote, Interview; ApplicationEvent constants ACTOR_PERSON … ACTOR_SYSTEM; repositories unchanged."
+      ],
+      "db": [
+        "Liquibase 2026111001_change_audit_tracker.xml: addColumn on application_event (actor_kind, actor_user_id, actor_login, on_behalf_of_user_id, changes), application / application_note / interview (created_by_*, updated_by_*); index application_event(actor_user_id); no FKs (rows must survive erasure).",
+        "Second changeSet: the backfill UPDATEs above, runOnChange=false, with preconditions so a re-run is a no-op."
+      ],
+      "apis": [
+        "None exposed yet (U6.13 adds the DTO fields). OpenApiContractIT unchanged."
+      ],
+      "permissions": [
+        "None new."
+      ],
+      "entitlements": [],
+      "ac": [
+        "Fresh DB and an upgraded DB both end with the same columns (Liquibase validate + an IT asserting the metadata).",
+        "After the backfill every pre-existing WEB/EXTENSION event has actor_kind PERSON and actor_user_id = its application's user_id; INBOX rows are MAIL; no row has actor_login starting with ent# unless it was written by X9.15.",
+        "Re-running the migration changes zero rows.",
+        "ChangeAuditCoverageTest is green and fails when a fixture entity with updated_at and no updated_by is added."
+      ],
+      "tests": [
+        "ChangeAuditMigrationIT (Testcontainers MySQL): columns exist, defaults hold, backfill attribution per source, idempotency.",
+        "ChangeAuditCoverageTest (unit, JPA metamodel).",
+        "ApplicationEventTest: constants and default actor_kind."
+      ],
+      "tech": "Additive only; VARCHAR(50) for logins to match resume.updated_by_login and org_audit_event.actor_login; changes is VARCHAR(1000) not JSON type (MySQL 8 JSON would do, but the ledgers in this codebase use VARCHAR). Nothing reads the new columns yet, so the deploy is safe alone.",
+      "complexity": "M",
+      "dod": "Migration + entities + tests green; openapi.json unchanged; PROGRESS.md log line; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "U6.13",
+      "epic": "U6",
+      "title": "Every tracker change writes an attributed history row: ChangeActor + TrackerActAs, silent edits covered, changes summaries, ChangeActors resolver (never ent#, \"a former member\"), updatedBy / actor DTOs, paged GET …/events",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.12"
+      ],
+      "relates": [
+        "X9.15",
+        "U6.3",
+        "R3.9"
+      ],
+      "persona": "Job seeker; consultant whose tracker a marketer may act on; the extension and the inbox parser as non-person actors",
+      "objective": "One writer stamps actor, on-behalf-of, channel and a field-level summary on every change; one resolver turns ids into display names with the privacy rules built in.",
+      "story": "As a job seeker I want every change — mine, the extension's, an email's, a marketer's — recorded with who did it and what changed, so that the timeline is the truth and nothing moves silently.",
+      "genz": "Nothing changes silently anymore. Not even a star.",
+      "functional": [
+        "ChangeActor (request-scoped component): resolves the current actor once — SecurityUtils login → User (id, login); TrackerActAs.current() → on-behalf-of (owner) when a marketer acts for a consultant; actor_kind PERSON by default. Non-person writers pass their kind explicitly: ApplicationSyncService submit-detect branch → EXTENSION; InboxParser listeners (status, interview) → MAIL; assistant writes → ASSISTANT; seeds/migrations/linker → SYSTEM (docs/change-audit/README.md §2.3).",
+        "TrackerActAs: the tracker twin of ResumeActAs (same thread-local Scope(orgId, actorLogin, actorUserId), open/run/close, nesting refused). Used by nobody in this story except tests; X9.15 is its first caller.",
+        "ApplicationEventService.record/recordAt take an Actor (kind, userId, login, onBehalfOfUserId) and a Changes list; they stamp the event and set the application's updated_by_* + updated_at in the same call. recordStatus/recordCreated pass through.",
+        "Silent edits now record: starred, nextActionAt, email/salary/location/jobType/jobMode (sync), attachment set/removed, note edit/pin/delete (NOTE events with changes [{\"f\":\"body\"}] / pinned from→to / \"Note deleted\"), interview reschedule/edit with the real source (interview.source) and kind.",
+        "One event per request: ApplicationPatchService.apply collects the changes of one PATCH into a single event (kind STATUS when status changed, else FIELD) whose changes[] lists every field; summary stays the headline (D4: from/to for enum/date fields, name only for free text — SensitiveContent never needs to run on changes because no free text enters it).",
+        "ChangeActors resolver (tracker twin of ResumeActors): batch by user id and login; label = first+last name → org seat display_label → login for personal logins → \"a member\" for an ent# login (never the login) → \"a former member\" (org context) / \"a deleted account\" (personal) when no user row or ERASED seat; kind passthrough; relation null in the personal context.",
+        "DTOs: ChangeActorDTO { userId, memberId?, label, relation?, kind }; ApplicationDTO (tracker) gains createdBy, updatedBy; list rows gain updatedBy (one batch resolve per page in ApplicationListService.enrich); EventDTO gains actor, actorKind, onBehalfOf, changes (parsed list).",
+        "GET /api/profile/applications/{id}/events?page=&size= (size 1–100, default 50): the full history newest first, owner only, 404 otherwise; recent() keeps tracker.detail.eventsMax for the detail payload."
+      ],
+      "ui": [
+        "None (U6.14 renders it). The existing web keeps working: source is still sent."
+      ],
+      "backend": [
+        "ChangeActor, TrackerActAs, ChangeActors, ChangeActorDTO, ApplicationEventService signature change (all callers updated: Patch, Note, Interview, Sync, Attachment, Inbox listener, demo seed, TrackerDataService export), ApplicationListService.enrich, new events endpoint on the tracker resource."
+      ],
+      "db": [
+        "None (U6.12)."
+      ],
+      "apis": [
+        "GET /api/profile/applications (rows.updatedBy) · GET /api/profile/applications/{id} (createdBy, updatedBy, events[].actor/actorKind/onBehalfOf/changes) · GET /api/profile/applications/{id}/events (new, paged). openapi.json regenerated."
+      ],
+      "permissions": [
+        "Owner only, as every tracker route (TrackerUsers.application → 404). No new key."
+      ],
+      "entitlements": [],
+      "ac": [
+        "A PATCH {status, nextAction, starred} by the owner writes exactly one event: kind STATUS, actor_kind PERSON, actor = owner, on_behalf_of null, source WEB, changes with status from→to, {\"f\":\"nextAction\"} and starred from→to; application.updated_by = owner.",
+        "The extension's submit-detect update (source extension, status APPLIED, submissionConfirmed true) writes an event with actor_kind EXTENSION and actor null; an explicit extension save (source extension, no submissionConfirmed) writes PERSON with the owner as actor.",
+        "An InboxParser.StatusChanged writes MAIL with actor null and source INBOX; an inbox-created interview records kind INTERVIEW with source INBOX (not WEB).",
+        "Note edit / pin / delete and a star toggle each produce a history row; no write path leaves updated_at newer than the newest event.",
+        "Under TrackerActAs.run(owner, scope(marketer)) a status change records actor = marketer, on_behalf_of = owner, and the owner's detail shows updatedBy.label = the marketer's name; the stored actor_login may be ent#… but no DTO ever contains a string starting with ent# (contract test over the JSON).",
+        "ChangeActors renders a deleted actor as \"a former member\" in org context and \"a deleted account\" in personal context; an ent# login with no name and no display_label renders \"a member\".",
+        "GET …/events on another user's application is 404; paging is stable (newest first, id tiebreak)."
+      ],
+      "tests": [
+        "ApplicationEventActorTest (unit): attribution table of README §2.3, one-event-per-request, changes serialisation caps at 1000 chars with the headline field kept.",
+        "TrackerActAsTest: mirrors ResumeActAsTest (open/close restores the context, nesting refused, authorOr).",
+        "ChangeActorsTest: name → display_label → login → \"a member\" (ent#) → \"a former member\" / \"a deleted account\"; batch resolve is one query.",
+        "ActForOnBehalfIT: marketer scope on a consultant's application; owner sees the marketer's label; no ent# in any response body.",
+        "SystemSourceAttributionIT: submit-detect, inbox status, inbox interview, demo seed.",
+        "TrackerEventsPagingIT: 404 for a foreign id, paging order.",
+        "OpenApiContractIT regenerated."
+      ],
+      "tech": "Keep ApplicationEventService the ONE writer (its javadoc already says so); the new Actor argument is a small record, not a thread-local read inside the service, so unit tests stay simple. changes is built by a tiny Changes builder (field, from, to) that refuses free text by construction (only enum names, booleans, numbers, ISO instants). Resolver lookups: UserRepository.findAllById + findAllByLoginIn + OrgMemberDirectoryRepository for display_label.",
+      "complexity": "M",
+      "dod": "All callers migrated; tests green; openapi.json committed; PROGRESS.md; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "U6.14",
+      "epic": "U6",
+      "title": "\"Updated … by …\" on the application header, list rows and timeline entries (390 / 1440); shared actorText helper; system and act-for wording",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U6.13",
+        "U6.3"
+      ],
+      "relates": [
+        "X9.14",
+        "R3.9"
+      ],
+      "persona": "Job seeker on phone and desktop; consultant looking at their own tracker through the org lens",
+      "objective": "The person can see at a glance who last touched an application and when, and who did each thing in its history — in the same words the resume uses.",
+      "story": "As a job seeker I want to see \"Updated 2h ago by Sarah Chen (marketer)\" on an application and on each timeline entry, so that I always know who changed what on my tracker.",
+      "genz": "Who touched it, when. Same line as the resume. No surprises.",
+      "functional": [
+        "Shared helper web/src/lib/actors.ts: actorText(actor: ChangeActorDTO | ResumeActor | null, me: { id, login }) → \"you\" | label; actorLine(actor, kind, source) → \"by you\", \"by you via the extension\", \"by the extension\", \"by Kiwiply from your email\", \"by Kiwiply AI\", \"by Kiwiply\", \"by Sarah Chen\" (+ relation tag). resume-builder/headerBar.ts re-exports actorText so the resume branch keeps working unchanged.",
+        "Application detail header (ApplicationDetail.tsx): one meta line under the status chips — ClockIcon + \"Updated <timeAgo> by <actor>\" with title = absolute time + actor (desktop); on phone the line is a button that opens the Timeline tab; \"Updated just now by you\" after the user's own save without a refetch (savedIsNewer pattern from ResumeHeaderBar). \"Added <date>\" in the ⋮ menu on phone, like the resume's About block.",
+        "List (ApplicationsV3Page.tsx): new \"Updated\" column (w-[14%]) with timeAgo on line one and the actor on line two only when the actor is not the viewer (D2) — system actors always show; the column sorts by updatedAt,desc; phone cards / list meta line: \"Applied Oct 2 · Updated 2h ago by Sarah Chen\" (name truncates, time never).",
+        "Timeline (TimelineTab.tsx): the SOURCE map no longer decides \"who\"; the muted line is actorLine(...) + \" · \" + timeAgo (title absolute on desktop; absolute inline on phone); a person in org context gets MemberAvatar 18px; the relation tag renders with the small uppercase chip TimelineFeed uses; changes with more than the headline field render as a collapsed \"Details\" chip row (field names, from → to for enums); \"Show all history\" loads GET …/events pages.",
+        "@kiwiply/ui only: ClockIcon, Tooltip, StatusChip, MemberAvatar; no inline svg; no new primitive."
+      ],
+      "ui": [
+        "Wireframes 390 / 1440 in docs/change-audit/README.md §3.1–3.3."
+      ],
+      "backend": [
+        "None."
+      ],
+      "db": [
+        "None."
+      ],
+      "apis": [
+        "Consumes U6.13 fields through the existing BFF routes; the Application type in web/src/lib/applications.ts gains updatedBy, createdBy; TimelineEvent gains actor, actorKind, onBehalfOf, changes."
+      ],
+      "permissions": [
+        "None new."
+      ],
+      "entitlements": [],
+      "ac": [
+        "Detail header shows \"Updated 2h ago by you\" (title \"Oct 15, 2026, 9:42 AM by you\") for the owner's own change; \"by Sarah Chen MARKETER\" for an act-for change; \"by the extension\" for submit-detect; \"by Kiwiply from your email\" for a mail move.",
+        "After changing the status in the sheet the line reads \"Updated just now by you\" before the refetch resolves.",
+        "List rows show the Updated column; \"by you\" never appears in a row; \"by the extension\" does.",
+        "Timeline entries render actor + channel + time; the ent# login never appears in the DOM (test over rendered text).",
+        "390 and 1440 Playwright screenshots match the wireframes; no horizontal scroll at 390; the header line wraps to two lines on phone.",
+        "Keyboard: the phone header line is a button with an accessible name \"Open timeline\"; tooltips are not the only carrier of the absolute time on touch."
+      ],
+      "tests": [
+        "actors.test.ts: every row of README §2.3 → the expected string.",
+        "ApplicationDetail.test.tsx: header line per actor kind; savedIsNewer; phone button opens Timeline.",
+        "ApplicationsV3Page.test.tsx: Updated column, D2 rule, sort.",
+        "TimelineTab.test.tsx: actor line, relation chip, changes details, show-all paging.",
+        "Playwright 390 / 1440: open an application, change status, see the header and timeline update."
+      ],
+      "tech": "Viewer identity from the existing session/me hook (user id + login). timeAgo from @/lib/applications; absolute via the resume's formatDate with the viewer's display locale. Keep suppressHydrationWarning on relative times, as ResumeHeaderBar does.",
+      "complexity": "M",
+      "dod": "Web tests + Playwright green; no eslint svg violations; PROGRESS.md; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "U6.15",
+      "epic": "U6",
+      "title": "History privacy: export carries resolved labels, erasure renders \"a former member\" / \"a deleted account\", tracker.history.retention_months + TrackerHistoryRetentionJob",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.13",
+        "A5.1"
+      ],
+      "relates": [
+        "T1.2",
+        "T1.3",
+        "T1.4",
+        "X9.15"
+      ],
+      "persona": "Job seeker exercising export / erasure; app admin setting retention",
+      "objective": "History behaves correctly at the edges of an account's life, and how long it is kept is an admin setting, never code.",
+      "story": "As a job seeker I want my export to include who changed my applications, and when someone's account is gone I want their name gone too — while the admin decides how long history is kept.",
+      "genz": "Your data, your export. Gone accounts stay gone. Admin picks the clock.",
+      "functional": [
+        "TrackerDataService export: application events include actorKind, actor label (resolved at export time by ChangeActors), onBehalfOf label, changes; never actor_login of an enterprise account, never another person's user id.",
+        "Erasure: AccountDeletionService leaves other people's history rows untouched (no FK, no cascade); ChangeActors renders the gone actor as \"a former member\" (org context) / \"a deleted account\" (personal). The erased person's own applications and events go with the account, as today.",
+        "Setting tracker.history.retention_months (A5.1 registry, integer, default 0 = life of the record, range 0–120, Risk.LOW, description \"Months of application history kept; 0 keeps it as long as the application exists.\").",
+        "TrackerHistoryRetentionJob (nightly, ShedLock, see X12.5): when the setting is > 0, deletes application_event rows older than N months except the newest row of each application; never touches application.updated_by_*; logs a count. The repository gains exactly one bulk delete, used only by this job."
+      ],
+      "ui": [
+        "The admin settings page lists the key through the registry (A5.8); the user Privacy panel (U14.2) copy: \"History of your applications is kept as long as the application exists\" (or \"for N months\" from the setting)."
+      ],
+      "backend": [
+        "TrackerDataService, ChangeActors fallback branches, ApplicationEventRepository.deleteOlderThanKeepingNewest, TrackerHistoryRetentionJob, AdminSettingKeys entry."
+      ],
+      "db": [
+        "None."
+      ],
+      "apis": [
+        "Export payload (existing GET /api/profile/export or the T1.2 ZIP) gains the fields; settings API exposes the new key."
+      ],
+      "permissions": [
+        "Export: owner. Setting: app admin (existing settings write path)."
+      ],
+      "entitlements": [],
+      "ac": [
+        "Export JSON for an application touched by a marketer contains \"Sarah Chen\" as updatedBy label and no ent# string; a deleted actor exports as \"a former member\".",
+        "Deleting user A does not delete or alter events on user B's applications where A was the actor; B's timeline shows \"a former member\".",
+        "With retention 0 the job deletes nothing; with 12 it deletes rows older than 12 months but keeps each application's newest event; re-running is a no-op.",
+        "The setting is bounded (0–120) and readable from the registry with its description."
+      ],
+      "tests": [
+        "TrackerExportActorIT: labels resolved, no ent#, former member.",
+        "ErasureKeepsOthersHistoryIT: delete A, B's events intact and labelled.",
+        "TrackerHistoryRetentionJobTest: 0 / 12 months, newest row kept, idempotent, ShedLock name.",
+        "AdminSettingKeysTest: key present with bounds."
+      ],
+      "tech": "The job is the ONLY deleter beside erasure; keep the repository's delete method package-private to the job. Follow ResumeViewEventPurgeJob for shape.",
+      "complexity": "S",
+      "dod": "Tests green; setting documented in the registry; PROGRESS.md; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
     },
     {
       "status": "done",
