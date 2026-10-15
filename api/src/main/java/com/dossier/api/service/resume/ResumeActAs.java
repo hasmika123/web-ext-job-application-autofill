@@ -43,10 +43,29 @@ public final class ResumeActAs {
         return s == null ? ownerLogin : s.actorLogin();
     }
 
+    /** An open acting window; closing it restores the caller. Idempotent. */
+    public static final class Handle implements AutoCloseable {
+        private final SecurityContext before;
+        private boolean closed;
+
+        private Handle(SecurityContext before) {
+            this.before = before;
+        }
+
+        @Override
+        public void close() {
+            if (closed) return;
+            closed = true;
+            CURRENT.remove();
+            SecurityContextHolder.setContext(before);
+        }
+    }
+
     /**
-     * Runs {@code body} as {@code owner}. Nesting is refused: acting for someone while already acting for someone else is a bug, not a feature.
+     * Opens an acting window: the thread runs as {@code owner} until the handle is closed. Nesting is refused: acting for someone while already acting for
+     * someone else is a bug, not a feature. The caller MUST close it (try-with-resources, or a request interceptor's after-completion).
      */
-    public static <T> T run(User owner, Scope scope, Supplier<T> body) {
+    public static Handle open(User owner, Scope scope) {
         if (owner == null || owner.getLogin() == null || scope == null || scope.actorLogin() == null) throw new IllegalArgumentException("owner and acting scope are required");
         if (CURRENT.get() != null) throw new IllegalStateException("already acting for someone");
         SecurityContext before = SecurityContextHolder.getContext();
@@ -54,11 +73,13 @@ public final class ResumeActAs {
         swapped.setAuthentication(new UsernamePasswordAuthenticationToken(owner.getLogin(), "n/a", List.of(new SimpleGrantedAuthority("ROLE_USER"))));
         SecurityContextHolder.setContext(swapped);
         CURRENT.set(scope);
-        try {
+        return new Handle(before);
+    }
+
+    /** Runs {@code body} as {@code owner} (see {@link #open}); always undone, on return and on an exception. */
+    public static <T> T run(User owner, Scope scope, Supplier<T> body) {
+        try (Handle ignored = open(owner, scope)) {
             return body.get();
-        } finally {
-            CURRENT.remove();
-            SecurityContextHolder.setContext(before);
         }
     }
 }

@@ -191,6 +191,8 @@ public class OrgResumeLinkService {
                 Long actorMemberId = acting.flatMap(a -> seatOf(orgId, a.actorUserId())).map(OrgMember::getId).orElse(row.getMemberId());
                 boolean byMarketer = acting.isPresent() && !actorMemberId.equals(row.getMemberId());
                 boolean reopened = false;
+                // the first edit by a marketer makes it an organization-managed resume (doc 30 section 3): from then on only the consultant approves it
+                if (byMarketer && !"ORG_MANAGED".equals(row.getKind())) row.setKind("ORG_MANAGED");
                 if (byMarketer && !"PENDING".equals(row.getApprovalStatus())) {
                     row.setApprovalStatus("PENDING"); // the new version waits for the consultant; a marketer's words never count until then
                     row.setApprovedAt(null);

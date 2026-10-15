@@ -99,6 +99,9 @@ public class ProfileService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private OrgResumeCap orgResumeCap;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.resumes.OrgResumePolicy orgResumePolicy;
+
     public ProfileService(
         BioRepository bioRepository,
         ResumeRepository resumeRepository,
@@ -451,6 +454,7 @@ public class ProfileService {
 
     public void deleteResume(Long id) {
         Resume resume = ownedResume(id);
+        if (orgResumePolicy != null) orgResumePolicy.requireNotOrganizationManaged(id); // an organization's directory row points at it (409 MANAGED_BY_ORGANIZATION)
         // Archive guard (3.5): never orphan a tracked application's resume reference. If
         // any application points at this resume, block the delete and nudge to archive.
         long refs = applicationRepository.countByResumeId(id);

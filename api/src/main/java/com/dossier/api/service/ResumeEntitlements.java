@@ -27,6 +27,8 @@ public class ResumeEntitlements {
 
     /** Whether the plan includes the builder's AI features (today: Pro, which Autopilot includes). */
     public boolean builderAiAllowed(String login) {
+        // inside an organization workspace the plan is not what grants AI (no license grants it yet): off, as the API refuses it (OrgResumePolicy.requireAiLicensed)
+        if (orgResumeCap != null && orgResumeCap.forThisRequest().isPresent()) return false;
         return entitlementService.isPro(login);
     }
 

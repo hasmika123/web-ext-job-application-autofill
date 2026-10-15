@@ -45,6 +45,7 @@ public class ResumeTailorResource {
     @Operation(summary = "Propose a tailored version", description = "Rewrites of existing bullets and summary, checked for truthfulness.")
     @PostMapping("/applications/{id}/tailor")
     public ResponseEntity<Map<String, Object>> propose(@PathVariable Long id, @RequestBody ProposeVM vm) {
+        com.dossier.api.service.ent.resumes.OrgResumePolicy.requireAiLicensed();
         ResumeTailorService.Result r = service.proposeForApplication(id, vm.resumeId(), vm.consent());
         Map<String, Object> body = new LinkedHashMap<>();
         switch (r.status()) {

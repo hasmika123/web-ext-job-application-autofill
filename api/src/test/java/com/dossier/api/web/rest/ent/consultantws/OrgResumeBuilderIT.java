@@ -39,6 +39,7 @@ import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.ent.LegacyRoleMirror;
 import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.ent.RoleTemplates;
+import com.dossier.api.service.ent.TenantResolver;
 import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import com.dossier.api.web.rest.org.OrgFixtures;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -83,6 +84,7 @@ class OrgResumeBuilderIT {
     @Autowired private AppSettingRepository settingRows;
     @Autowired private OrgSettingRepository orgSettings;
     @Autowired private ResumeBuilderSettings cache;
+    @Autowired private TenantResolver resolver;
     @Autowired private ConsultantProfileRepository profiles;
     @Autowired private MarketerAssignmentRepository assignments;
     @Autowired private OrgResumeRepository orgResumes;
@@ -95,6 +97,7 @@ class OrgResumeBuilderIT {
     private Organization a;
     private Organization b;
     private final Instant now = Instant.now();
+    private String host;
     private OrgMember marketerSeat;
     private ConsultantProfile c1;
     private ConsultantProfile c2;
@@ -113,6 +116,10 @@ class OrgResumeBuilderIT {
         String n = String.valueOf(System.nanoTime());
         a = fx.org("orb-a-" + n, OrgStatus.ACTIVE);
         b = fx.org("orb-b-" + n, OrgStatus.ACTIVE);
+        a.setSubdomain("orb-" + n);
+        a.setSubdomainEnabled(true);
+        orgs.saveAndFlush(a);
+        host = "orb-" + n + ".kiwiply.com";
         flags();
         staff(a, "orb-a-owner", OrgRole.OWNER);
         marketerSeat = staff(a, "orb-a-marketer", OrgRole.MARKETER);
@@ -133,13 +140,15 @@ class OrgResumeBuilderIT {
     void clean() {
         for (AppSetting s : settingRows.findAll()) if (WHO.equals(s.getUpdatedBy())) settingRows.delete(s);
         cache.invalidate();
+        resolver.invalidate();
     }
 
     private void flags() {
-        for (String key : List.of(EnterpriseSettingKeys.FLAG_ENTERPRISE, EnterpriseSettingKeys.FLAG_ROLES, EnterpriseSettingKeys.FLAG_MARKETING)) {
+        for (String key : List.of(EnterpriseSettingKeys.FLAG_ENTERPRISE, EnterpriseSettingKeys.FLAG_DOMAINS, EnterpriseSettingKeys.FLAG_ROLES, EnterpriseSettingKeys.FLAG_MARKETING)) {
             settingRows.save(new AppSetting(key, "{\"on\":true}", WHO, Instant.now()));
         }
         cache.invalidate();
+        resolver.invalidate();
     }
 
     // ---- fixtures -------------------------------------------------------------------------------------------------
@@ -477,5 +486,102 @@ class OrgResumeBuilderIT {
         JsonNode created = consultantCreates("orb-a-c1", "{\"label\":\"Casey's own\",\"source\":\"scratch\"}");
         MvcResult edit = send("orb-a-marketer", org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(mkt(a) + "/" + created.path("orgResumeId").asLong()).content("{\"headline\":\"x\"}"));
         assertThat(ok(edit, 409).path("code").asText()).isEqualTo("EDIT_IN_BUILDER");
+    }
+
+    // ---- the one builder's capabilities, enforced by the API as well as shown ------------------------------------------
+
+    private MvcResult onHost(String login, MockHttpServletRequestBuilder req) throws Exception {
+        return send(login, req.header("X-Kiwiply-Host", host));
+    }
+
+    private MvcResult actFor(String login, long orgResumeId, MockHttpServletRequestBuilder req) throws Exception {
+        return send(login, req.header("X-Kiwiply-Host", host).header("X-Kiwiply-Act-For", String.valueOf(orgResumeId)));
+    }
+
+    @Test
+    void theConsultantsBuilderHasOrganizationCapabilitiesAndTheApiRefusesWhatItHides() throws Exception {
+        JsonNode created = consultantCreates("orb-a-c1", "{\"label\":\"Casey's own\",\"source\":\"scratch\"}");
+        long id = created.path("resumeId").asLong();
+        String base = "/api/profile/resumes/" + id;
+
+        JsonNode personal = ok(send("orb-a-c1", get("/api/profile/resume-builder/config")), 200).path("capabilities");
+        assertThat(personal.path("mode").asText()).isEqualTo("personal");
+        assertThat(personal.path("shareLinks").asBoolean()).isTrue();
+
+        JsonNode caps = ok(onHost("orb-a-c1", get("/api/profile/resume-builder/config")), 200);
+        assertThat(caps.path("capabilities").path("mode").asText()).isEqualTo("consultant");
+        assertThat(caps.path("capabilities").path("shareLinks").asBoolean()).isFalse();
+        assertThat(caps.path("capabilities").path("deleteResume").asBoolean()).isFalse();
+        assertThat(caps.path("capabilities").path("setPrimary").asBoolean()).isFalse();
+        assertThat(caps.path("capabilities").path("rename").asBoolean()).isTrue();
+        assertThat(caps.path("aiAllowed").asBoolean()).isFalse();
+
+        // the API refuses the same things the editor hides
+        assertThat(onHost("orb-a-c1", post(base + "/access/link").content("{}")).getResponse().getStatus()).as("a public share link in an organization is the plain 404 of a resume that is not shareable").isEqualTo(404);
+        assertThat(ok(onHost("orb-a-c1", org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(base)), 409).path("code").asText()).isEqualTo("MANAGED_BY_ORGANIZATION");
+        assertThat(ok(onHost("orb-a-c1", org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(base + "/meta").content("{\"archived\":true}")), 409).path("code").asText()).isEqualTo("MANAGED_BY_ORGANIZATION");
+        assertThat(ok(onHost("orb-a-c1", org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(base + "/meta").content("{\"primary\":true}")), 409).path("code").asText()).isEqualTo("MANAGED_BY_ORGANIZATION");
+        assertThat(ok(onHost("orb-a-c1", post("/api/profile/resumes/" + id + "/ai/rewrite").content("{\"refs\":[],\"mode\":\"shorter\",\"consent\":true}")), 402).path("code").asText()).isEqualTo("FEATURE_NOT_LICENSED");
+        // a rename is allowed and the directory follows
+        assertThat(onHost("orb-a-c1", org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(base + "/meta").content("{\"name\":\"Renamed in the org\"}")).getResponse().getStatus()).isEqualTo(200);
+        assertThat(orgResumes.findByOrgIdAndId(a.getId(), created.path("orgResumeId").asLong()).orElseThrow().getName()).isEqualTo("Renamed in the org");
+    }
+
+    @Test
+    void aMarketerEditsAConsultantsResumeThroughTheSameRoutesInActForModeAndTheApiEnforcesTheAllowList() throws Exception {
+        JsonNode created = ok(send("orb-a-marketer", post(mkt(a) + "/consultants/" + c1.getId() + "/built").content("{\"label\":\"Prepared for Casey\",\"source\":\"scratch\"}")), 201);
+        long orgResumeId = created.path("orgResumeId").asLong();
+        long resumeId = created.path("resumeId").asLong();
+        String base = "/api/profile/resumes/" + resumeId;
+        // approve it first, so the marketer's edit has something to send back to PENDING
+        ok(send("orb-a-c1", post(me(a) + "/" + orgResumeId + "/approve")), 200);
+
+        // the builder tells the editor what an acting marketer may do
+        JsonNode caps = ok(actFor("orb-a-marketer", orgResumeId, get("/api/profile/resume-builder/config")), 200).path("capabilities");
+        assertThat(caps.path("mode").asText()).isEqualTo("marketer-act-for");
+        assertThat(caps.path("approvalNotice").asText()).isEqualTo("Pending consultant approval");
+        for (String off : List.of("shareLinks", "deleteResume", "archiveResume", "setPrimary", "rename", "versionRestore", "downloadOriginal", "ai", "tailor")) assertThat(caps.path(off).asBoolean()).as(off).isFalse();
+
+        // read and save the document: the consultant's document, the marketer as author, back to PENDING with a log line
+        MvcResult doc = actFor("orb-a-marketer", orgResumeId, get(base + "/doc"));
+        JsonNode body = ok(doc, 200);
+        assertThat(body.path("label").asText()).isEqualTo("Prepared for Casey");
+        ObjectNode docNode = (ObjectNode) body.get("doc");
+        ((ObjectNode) docNode.get("basics")).put("headline", "Written by the marketer");
+        ObjectNode save = om.createObjectNode();
+        save.set("doc", docNode);
+        MvcResult saved = actFor("orb-a-marketer", orgResumeId, put(base + "/doc").header("If-Match", doc.getResponse().getHeader("ETag")).content(om.writeValueAsString(save)));
+        assertThat(saved.getResponse().getStatus()).as(saved.getResponse().getContentAsString()).isEqualTo(200);
+        OrgResume row = orgResumes.findByOrgIdAndId(a.getId(), orgResumeId).orElseThrow();
+        assertThat(row.getApprovalStatus()).as("what a marketer wrote waits for the consultant").isEqualTo("PENDING");
+        assertThat(row.getKind()).isEqualTo("ORG_MANAGED");
+        assertThat(row.getHeadline()).isEqualTo("Written by the marketer");
+        assertThat(resumes.findById(resumeId).orElseThrow().getUpdatedByLogin()).isEqualTo("orb-a-marketer");
+        assertThat(versions.findFirstByResumeIdAndUserIdOrderByVersionNoDesc(resumeId, userOf("orb-a-c1").getId()).orElseThrow().getCreatedByLogin()).isEqualTo("orb-a-marketer");
+        assertThat(events.forResumes(a.getId(), List.of(orgResumeId))).extracting(MktResumeEvent::getKind).contains(MktResumeEvent.UPDATED);
+        assertThat(actFor("orb-a-marketer", orgResumeId, get(base + "/meta")).getResponse().getStatus()).isEqualTo(200);
+        assertThat(actFor("orb-a-marketer", orgResumeId, get(base + "/doc/pdf-status")).getResponse().getStatus()).isEqualTo(200);
+
+        // everything that is not acting-for material is the generic 404, however it is asked
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(base + "/access/link").content("{}")), "a public share link");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(base)), "delete");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(base + "/meta").content("{\"primary\":true}")), "set primary");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(base + "/doc/checkpoint").content("{}")), "a checkpoint");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(base + "/doc/versions/1/restore")), "a restore");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(base + "/ai/rewrite").content("{\"refs\":[],\"mode\":\"shorter\",\"consent\":true}")), "AI");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, get(base + "/original")), "the original file");
+        assertThat(orgResumes.findByOrgIdAndId(a.getId(), orgResumeId).orElseThrow().getApprovalStatus()).isEqualTo("PENDING");
+
+        // strangers and mismatches
+        assertGeneric404(actFor("orb-a-marketer2", orgResumeId, get(base + "/doc")), "a marketer who is not assigned to Casey");
+        assertGeneric404(actFor("orb-a-c2", orgResumeId, get(base + "/doc")), "another consultant");
+        assertGeneric404(actFor("orb-a-c1", orgResumeId, get(base + "/doc")), "the consultant acting for themself");
+        assertGeneric404(actFor("orb-b-owner", orgResumeId, get(base + "/doc")), "another organization's owner");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, get("/api/profile/resumes/" + (resumeId + 1) + "/doc")), "a different resume than the row names");
+        assertGeneric404(actFor("orb-a-marketer", 999999999L, get(base + "/doc")), "an unknown row");
+        // no organization host: the header means nothing, the resume is simply not the marketer's
+        assertGeneric404(send("orb-a-marketer", get(base + "/doc").header("X-Kiwiply-Act-For", String.valueOf(orgResumeId))), "no organization host");
+        // and nobody is left acting for anybody afterwards
+        assertThat(send("orb-a-marketer", get("/api/profile/resumes/" + resumeId + "/doc")).getResponse().getStatus()).isEqualTo(404);
     }
 }
