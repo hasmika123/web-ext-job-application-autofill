@@ -540,6 +540,7 @@ public class ResumeAccessService {
     }
 
     private static void requireShareable(Resume resume) {
+        com.dossier.api.service.ent.resumes.OrgResumePolicy.refuseSharingInOrganization(); // an enterprise account's resume is never shared outside the organization
         if (resume.getKind() != ResumeKind.BUILT) throw ResumeAccessException.notShareable();
     }
 

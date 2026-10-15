@@ -741,7 +741,7 @@ describe("ResumeHeaderBar: responsive", () => {
     renderBar({ viewport: "desktop", meta: testMeta({ primary: true }) });
     await settle();
     expect(within(header()).getByText("Oct 2, 2026")).toBeTruthy();
-    expect(within(header()).getByText("2 hours ago")).toBeTruthy();
+    expect(within(header()).getByText(/^2 hours ago by /)).toBeTruthy();
     const chips = within(within(header()).getByRole("group", { name: "Resume status" })).getAllByRole("button").map((b) => b.textContent);
     expect(chips).toEqual(["Private", "Recruiters: Off", "v3"]);
     expect(within(header()).getByText("Primary")).toBeTruthy();

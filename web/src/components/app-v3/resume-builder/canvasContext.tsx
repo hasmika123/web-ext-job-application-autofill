@@ -31,6 +31,8 @@ export interface CanvasContextValue {
   canRedo: boolean;
   /** The plan has builder AI (the Summary "Rewrite with AI" button is a lock when not). */
   aiAllowed: boolean;
+  /** The session offers AI at all (capabilities.ai). False = the rewrite buttons are not drawn, not even as an upsell lock (an organization workspace, acting for someone). */
+  aiVisible: boolean;
   /** Rewrite with AI (R4.2): how the section header and bullet buttons start the flow. */
   ai: CanvasAi;
   /** The Swap Section panel is open: item rows show a drag grip and can be dragged (same `item/move`). */

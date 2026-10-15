@@ -15,6 +15,7 @@ import {
   EyeIcon,
   FileTextIcon,
   MemberAvatar,
+  PencilIcon,
   PrinterIcon,
   Select,
   ShieldIcon,
@@ -24,6 +25,7 @@ import {
   Switch,
   UserIcon,
   buttonVariants,
+  cn,
   useToast,
 } from "@kiwiply/ui";
 import {
@@ -59,6 +61,8 @@ export interface ResumeDrawerProps {
   returnFocusTo?: RefObject<HTMLElement | null>;
   /** The help card, shown at the foot of a docked drawer. */
   footer?: ReactNode;
+  /** Where a resume made in the Resume Builder is edited (the Marketing workspace's builder route), or null when this viewer cannot edit it. */
+  builderHref?: (rowId: number) => string | null;
 }
 
 type State = { status: "idle" } | { status: "loading" } | { status: "gone" } | { status: "error"; message: string } | { status: "ok"; detail: ResumeDetail };
@@ -332,6 +336,7 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
           </Field>
           <Field icon={<ClockIcon size={14} />} label="Last Modified">
             {formatDate(r.updatedAt) || "—"}
+            {r.updatedBy ? <span className="font-normal text-muted" data-modified-by> by {r.updatedBy}</span> : null}
           </Field>
           <Field icon={<FileTextIcon size={14} />} label="File Size">
             {fileSizeText(r.fileSizeKb) || <span className="font-normal text-muted">Not stored</span>}
@@ -386,7 +391,7 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
             </span>
             <span className="flex flex-wrap items-center justify-end gap-1.5">
               <ApprovalPill status={r.approvalStatus} />
-              {d.actions.decide && r.approvalStatus === "PENDING" && (
+              {d.actions.decide && r.approvalStatus === "PENDING" && r.resumeId == null && (
                 <>
                   <Button type="button" size="sm" variant="accent-soft" className="!px-2.5 !py-1 !text-[11px]" disabled={busy === "decision"} onClick={() => void decide(d, "APPROVE")}>
                     Approve
@@ -396,14 +401,15 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
                   </Button>
                 </>
               )}
-              {d.actions.decide && r.approvalStatus !== "PENDING" && (
+              {d.actions.decide && r.approvalStatus !== "PENDING" && r.resumeId == null && (
                 <button type="button" disabled={busy === "decision"} onClick={() => void decide(d, "REOPEN")} className="text-[10.5px] font-semibold text-accent-deep underline disabled:opacity-50">
                   Move back to pending
                 </button>
               )}
             </span>
           </div>
-          {r.approvalStatus === "PENDING" && !d.actions.decide && <p className="text-[10.5px] text-muted">Waiting for someone with approval access. The person who prepared a resume cannot approve it.</p>}
+          {r.approvalStatus === "PENDING" && r.resumeId != null && <p className="text-[10.5px] text-muted" data-consultant-approves>Made in the resume builder: the consultant approves it.</p>}
+          {r.approvalStatus === "PENDING" && r.resumeId == null && !d.actions.decide && <p className="text-[10.5px] text-muted">Waiting for someone with approval access. The person who prepared a resume cannot approve it.</p>}
         </div>
 
         <div className="ent-actions grid grid-cols-2 gap-2" data-actions>
@@ -419,6 +425,11 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
           <Button type="button" variant="ghost" size="md" className={OUTLINE} disabled={!d.actions.setPrimary || r.primary || !approved || busy === "primary"} onClick={() => void setPrimary(d, true)}>
             <StarIcon aria-hidden size={16} /> Set as Primary
           </Button>
+          {r.resumeId != null && p.builderHref?.(r.id) ? (
+            <a href={p.builderHref(r.id) ?? undefined} data-edit-in-builder className={buttonVariants("ghost", "md", cn(OUTLINE, "col-span-2"))}>
+              <PencilIcon aria-hidden size={16} /> Edit in the resume builder
+            </a>
+          ) : null}
         </div>
         {p.footer}
         <Dialog open={preview} onClose={() => setPreview(false)} title={r.name} description={`${c.name} - ${versionText(r.version)}`} className="max-w-3xl">

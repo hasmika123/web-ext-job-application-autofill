@@ -293,7 +293,12 @@ public class ResumeBoardQueryService {
 
     // ---- rows ------------------------------------------------------------------------------------------------------------------
 
+    /** Who last changed each row ("Modified <time> by <name>"); absent in hand-wired unit tests. */
+    @Autowired(required = false)
+    private OrgResumeAuthors authors;
+
     List<ResumeBoardDTO.Row> rows(Long orgId, List<Hit> hits) {
+        Map<Long, String> by = authors == null ? Map.of() : authors.modifiedBy(orgId, hits.stream().map(Hit::resume).toList());
         Set<Long> ownerIds = new HashSet<>();
         for (Hit h : hits) if (h.resume().getOwnerMemberId() != null) ownerIds.add(h.resume().getOwnerMemberId());
         Map<Long, String> names = names(orgId, ownerIds);
@@ -307,7 +312,7 @@ public class ResumeBoardQueryService {
             ResumeBoardDTO.PersonRef owner = r.getOwnerMemberId() == null ? null : new ResumeBoardDTO.PersonRef(r.getOwnerMemberId(), names.getOrDefault(r.getOwnerMemberId(), "Member " + r.getOwnerMemberId()));
             out.add(new ResumeBoardDTO.Row(
                 r.getId(), cons, r.getName(), r.getFileName(), r.getTargetRole(), r.getVersionNo() == null ? 1 : r.getVersionNo(), r.isPrimaryForOrg(), r.getVisibility(),
-                r.getApprovalStatus(), r.getCreatedAt(), r.getUpdatedAt(), owner, r.getFileSizeKb()
+                r.getApprovalStatus(), r.getCreatedAt(), r.getUpdatedAt(), owner, r.getFileSizeKb(), r.getResumeId(), by.get(r.getId())
             ));
         }
         return out;

@@ -295,3 +295,26 @@ describe("states inside the shell", () => {
     expect(screen.getByText("Open Administration").getAttribute("href")).toBe("/w/admin");
   });
 });
+
+describe("EnterpriseShell: focus mode for the Resume Builder's editor", () => {
+  it("/w/<workspace>/resumes/<id> fills the space under the top bar: no page padding, no phone tab bar, the organization's sidebar and top bar stay", () => {
+    nav.pathname = "/w/consultant/resumes/12";
+    const { container } = mount("owner@acme.com");
+    const shell = container.querySelector("[data-enterprise-shell]")!;
+    expect(shell.getAttribute("data-focus")).toBe("true");
+    expect(shell.className).toContain("h-dvh");
+    expect(container.querySelector("[data-shell-main]")!.className).toContain("overflow-hidden");
+    expect(container.querySelector("[data-shell-tabs]")!.className).toContain("hidden");
+    expect(container.querySelector("[data-shell-sidebar]")).toBeTruthy();
+    expect(container.querySelector("[data-shell-topbar]")).toBeTruthy();
+  });
+
+  it("the list page and every other page keep the normal padded frame", () => {
+    for (const path of ["/w/consultant/resumes", "/w/marketing/resumes", "/w/admin/employees/12", "/w/consultant/resumes/12/extra"]) {
+      nav.pathname = path;
+      const { container, unmount } = mount("owner@acme.com");
+      expect(container.querySelector("[data-enterprise-shell]")!.getAttribute("data-focus"), path).toBeNull();
+      unmount();
+    }
+  });
+});

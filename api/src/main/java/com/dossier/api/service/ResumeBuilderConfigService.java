@@ -130,7 +130,8 @@ public class ResumeBuilderConfigService {
                     s.getBool(ONBOARDING_DELIGHT_SHARE),
                     s.getJson(ONBOARDING_DELIGHT_COPY, JsonNode.class)
                 )
-            )
+            ),
+            com.dossier.api.service.ent.resumes.OrgResumePolicy.capabilities()
         );
     }
 

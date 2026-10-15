@@ -107,7 +107,10 @@ export function ResumesTable(p: TableProps) {
               <dt className="text-muted">Status</dt>
               <dd><ApprovalPill status={r.approvalStatus} /></dd>
               <dt className="text-muted">Modified</dt>
-              <dd className="text-ink">{formatDate(r.updatedAt) || "—"}</dd>
+              <dd className="text-ink">
+                {formatDate(r.updatedAt) || "—"}
+                {r.updatedBy ? <span data-modified-by> by {r.updatedBy}</span> : null}
+              </dd>
               <dt className="text-muted">Owner</dt>
               <dd><OwnerAvatar owner={r.owner} size={24} showName /></dd>
             </dl>
@@ -177,7 +180,13 @@ export function ResumesTable(p: TableProps) {
                 <td className="">
                   <ApprovalPill status={r.approvalStatus} />
                 </td>
-                <td className={`whitespace-nowrap text-[11px] text-[var(--ent-soft)] ${p.compact ? "hidden xl:table-cell" : "hidden md:table-cell"}`}>{formatDate(r.updatedAt) || "—"}</td>
+                <td className={`whitespace-nowrap text-[11px] text-[var(--ent-soft)] ${p.compact ? "hidden xl:table-cell" : "hidden md:table-cell"}`}>{formatDate(r.updatedAt) || "—"}
+                  {r.updatedBy ? (
+                    <span className="block max-w-[9rem] truncate" data-modified-by title={`Last modified ${formatDate(r.updatedAt) || ""} by ${r.updatedBy}`}>
+                      by {r.updatedBy}
+                    </span>
+                  ) : null}
+                </td>
                 <td className={`${p.compact ? "hidden xl:table-cell" : "hidden xl:table-cell"}`}>
                   <OwnerAvatar owner={r.owner} />
                 </td>

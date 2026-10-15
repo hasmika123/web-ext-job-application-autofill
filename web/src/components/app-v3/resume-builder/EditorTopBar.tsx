@@ -18,6 +18,7 @@ import {
 } from "@kiwiply/ui";
 import type { MenuEntry, SavedFlash } from "@kiwiply/ui";
 import BrandLogo from "@/components/marketing/BrandLogo";
+import { useBuilderEnv } from "./builderEnv";
 import { PANEL_META, PANEL_ORDER } from "./panels/panelMeta";
 import type { PdfInfo } from "@/lib/resume-doc";
 import PdfStatusSuffix from "./PdfStatusSuffix";
@@ -48,6 +49,8 @@ export default function EditorTopBar({
   onTogglePanel,
   panelRefs,
   showTailor = true,
+  approvalNotice = null,
+  allowDownload = true,
   onDownloadPdf,
   onDownloadText,
   exporting = false,
@@ -75,6 +78,10 @@ export default function EditorTopBar({
   panelRefs: Record<LeftPanel, RefObject<HTMLButtonElement | null>>;
   /** `features.tailor` from the builder config. */
   showTailor?: boolean;
+  /** Next to the save state when the session is acting for someone ("Pending consultant approval"), or null. */
+  approvalNotice?: string | null;
+  /** False while acting for someone: the Download menu (saves a version, stores a PDF) is not drawn. */
+  allowDownload?: boolean;
   /** Download ▾ → Save & Download PDF: saves a checkpoint, then downloads the stored PDF (R3.3). */
   onDownloadPdf: () => void;
   /** Download ▾ → Save & Download plain text (.txt). */
@@ -107,6 +114,7 @@ export default function EditorTopBar({
   onPdfRetry?: () => void;
 }) {
   const busy = exporting || exportDisabled;
+  const env = useBuilderEnv();
 
   const viewItems: MenuEntry[] = [
     ...(printLayout
@@ -144,10 +152,14 @@ export default function EditorTopBar({
 
   return (
     <header className="flex min-h-16 flex-none items-center gap-2 border-b max-sm:flex-wrap max-sm:gap-y-1 border-line/60 bg-paper px-3 max-sm:py-1 sm:gap-3 md:px-4">
-      <Link href="/dashboard" aria-label="Kiwiply" className="hidden flex-none lg:block">
-        <BrandLogo height={36} priority />
-      </Link>
-      <span aria-hidden className="hidden h-7 w-px flex-none bg-line lg:block" />
+      {env.brandHref && (
+        <>
+          <Link href={env.brandHref} aria-label="Kiwiply" className="hidden flex-none lg:block">
+            <BrandLogo height={36} priority />
+          </Link>
+          <span aria-hidden className="hidden h-7 w-px flex-none bg-line lg:block" />
+        </>
+      )}
       <h1 className="order-1 flex-none font-display text-[15px] font-bold text-ink md:order-none md:text-[17px]">Resume Builder</h1>
       <span aria-hidden className="hidden h-7 w-px flex-none bg-line xl:block" />
 
@@ -161,6 +173,11 @@ export default function EditorTopBar({
         className="order-2 md:order-none"
       />
       <PdfStatusSuffix pdf={pdf} onRetry={onPdfRetry} className="-ml-2" />
+      {approvalNotice && (
+        <span data-approval-notice className="order-2 inline-flex min-h-8 items-center rounded-full border border-v2-amber/40 bg-v2-amber-soft px-3 text-[12.5px] font-semibold text-ink md:order-none">
+          {approvalNotice}
+        </span>
+      )}
 
       <div className="ml-auto flex flex-none items-center gap-2 max-md:order-3">
         <div role="group" aria-label="Editor panels" className="hidden items-center gap-2 md:flex">
@@ -197,6 +214,7 @@ export default function EditorTopBar({
           })}
         </div>
 
+        {allowDownload && (
         <span ref={downloadRef} className="inline-flex">
           <Tooltip content="Download (Alt+D)" side="bottom">
             <Menu
@@ -219,6 +237,7 @@ export default function EditorTopBar({
             />
           </Tooltip>
         </span>
+        )}
 
         <span aria-hidden className="hidden h-7 w-px flex-none bg-line md:block" />
       </div>

@@ -63,6 +63,13 @@ public class ResumeMetaService {
     private final ResumeDocService docService;
     private final ResumeAccessService accessService;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.resumes.OrgResumePolicy orgPolicy;
+
+    /** Tells the organization directory a resume was renamed; absent in hand-wired unit tests. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher events;
+
     public ResumeMetaService(
         ResumeRepository resumeRepository,
         ResumeDocRepository resumeDocRepository,
@@ -119,6 +126,8 @@ public class ResumeMetaService {
         boolean makePrivate = body.has("visibility") && requirePrivate(body.get("visibility"));
         Boolean recruiterSharing = body.has("recruiterSharing") ? requireBool(body, "recruiterSharing") : null;
 
+        // inside an organization workspace the directory owns a linked resume's place: no archive, no primary from here (OrgResumePolicy)
+        if ((Boolean.TRUE.equals(archived) || Boolean.TRUE.equals(primary)) && orgPolicy != null) orgPolicy.requireNotOrganizationManaged(resumeId);
         boolean wasPrimary = Boolean.TRUE.equals(resume.getDefaultResume());
         boolean wasArchived = Boolean.TRUE.equals(resume.getArchived());
         boolean archivedAfter = archived != null ? archived : wasArchived;
@@ -151,6 +160,9 @@ public class ResumeMetaService {
 
         if ((nameChanged || targetChanged) && resume.getKind() == ResumeKind.BUILT) {
             mirrorIntoDocument(resume, user);
+        }
+        if ((nameChanged || targetChanged) && events != null) {
+            events.publishEvent(new com.dossier.api.service.resume.ResumeDocEvent(com.dossier.api.service.resume.ResumeDocEvent.Type.RENAMED, resumeId, user.getId(), user.getLogin()));
         }
         // mirrorIntoDocument clears the persistence context (bulk update), so build from a fresh read.
         return build(resumeRepository.findById(resumeId).orElseThrow(), user);

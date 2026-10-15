@@ -23,6 +23,9 @@ export async function serverApiFetch(path: string, init: RequestInit = {}): Prom
   // X1.4: the API resolves the tenant from the host the visitor arrived on (set by proxy.ts), never from a parameter.
   try {
     const incoming = await requestHeaders();
+    // Act-for (a marketer editing a consultant's resume in the one builder): the editor's calls carry the directory row they act on; the API gate decides.
+    const actFor = incoming.get("x-kiwiply-act-for");
+    if (actFor && !headers.has("x-kiwiply-act-for") && /^\d{1,18}$/.test(actFor)) headers.set("X-Kiwiply-Act-For", actFor);
     const host = incoming.get(TENANT_HOST_HEADER);
     if (host) {
       // the shared secret proves to the API that this is the web server; the visitor's address keeps its per-visitor limits honest

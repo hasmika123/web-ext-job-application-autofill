@@ -164,6 +164,7 @@ public class ResumeBoardWriteService {
             return previous;
         }
         if (!"PENDING".equals(previous)) throw OrgException.coded(409, "NOT_PENDING", "This resume has already been decided", Map.of());
+        if (OrgResumeLinkService.requiresConsultantApproval(r)) throw OrgException.coded(409, "CONSULTANT_APPROVAL_REQUIRED", "Only the consultant can approve a resume made for them.", Map.of());
         if (java.util.Objects.equals(r.getOwnerMemberId(), me.memberId())) {
             throw OrgException.coded(422, "SELF_DECISION", "Someone other than the person who prepared this resume records its approval", Map.of());
         }
@@ -299,8 +300,24 @@ public class ResumeBoardWriteService {
         return new Hit(fresh, hit.consultant());
     }
 
+    /** The change log line a board action leaves on the row ("Modified <time> by <name>" reads it), besides the audit row. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.repository.ent.mkt.MktResumeEventRepository events;
+
     private void record(OrgMembership me, String action, OrgResume r, String details, ConsultantProfile consultant) {
         audit.record(me.orgId(), me.login(), me.role(), action, OrgAuditService.TARGET_RESUME, null, String.valueOf(r.getId()), details, null, null, null, null);
+        String kind = action.equals(A_PRIMARY) ? "PRIMARY_SET" : action.equals(A_VISIBILITY) ? "DETAILS_CHANGED" : action.equals(A_APPROVE) || action.equals(A_REJECT) || action.equals(A_REOPEN) ? "DECIDED" : null;
+        if (events != null && kind != null) {
+            com.dossier.api.domain.ent.mkt.MktResumeEvent e = new com.dossier.api.domain.ent.mkt.MktResumeEvent();
+            e.setOrgId(r.getOrgId());
+            e.setResumeId(r.getId());
+            e.setConsultantId(r.getConsultantId());
+            e.setActorMemberId(me.memberId());
+            e.setKind(kind);
+            e.setVersionNo(r.getVersionNo());
+            e.setOccurredAt(Instant.now());
+            events.saveAndFlush(e);
+        }
     }
 
     private static String required(String field, String value) {

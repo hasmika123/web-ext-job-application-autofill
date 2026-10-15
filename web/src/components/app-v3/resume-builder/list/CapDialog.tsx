@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { buttonVariants, Button, Dialog, LayersIcon } from "@kiwiply/ui";
+import { useBuilderEnv } from "../builderEnv";
 import type { CapNotice } from "../new-resume/model";
 
 /**
@@ -10,16 +11,22 @@ import type { CapNotice } from "../new-resume/model";
  * `max` is the plan's cap as the server reported it (builder config); nothing here knows 3 / 25 / 50.
  */
 export default function CapDialog({ notice, max, onManage, onClose }: { notice: CapNotice | null; max: number; onManage: () => void; onClose: () => void }) {
-  const canUpgrade = notice?.plan !== "AUTOPILOT";
+  const upgradeHref = useBuilderEnv().upgradeHref;
+  const organization = notice?.plan === "ORGANIZATION";
+  // an organization license is not for sale to the person: no plans link, the organization admin is who to ask
+  const canUpgrade = !organization && notice?.plan !== "AUTOPILOT" && upgradeHref !== null;
+  const shown = notice?.limit ?? max;
   return (
     <Dialog
       open={notice !== null}
       onClose={onClose}
-      title={`You've used ${max} of ${max} resumes`}
+      title={`You've used ${shown} of ${shown} resumes`}
       description={
-        notice?.plan === "FREE"
-          ? "Your free plan is full. Upgrade for more room, or archive one you don't need and keep going."
-          : "This plan is full. Archive or delete one you're done with to make room, or see what a bigger plan includes."
+        organization
+          ? notice?.message
+          : notice?.plan === "FREE"
+            ? "Your free plan is full. Upgrade for more room, or archive one you don't need and keep going."
+            : "This plan is full. Archive or delete one you're done with to make room, or see what a bigger plan includes."
       }
       footer={
         <>
@@ -27,7 +34,7 @@ export default function CapDialog({ notice, max, onManage, onClose }: { notice: 
             Manage resumes
           </Button>
           {canUpgrade && (
-            <Link href="/pricing" className={buttonVariants("accent", "md")}>
+            <Link href={upgradeHref ?? "/pricing"} className={buttonVariants("accent", "md")}>
               {notice?.plan === "FREE" ? "See plans" : "Upgrade"}
             </Link>
           )}

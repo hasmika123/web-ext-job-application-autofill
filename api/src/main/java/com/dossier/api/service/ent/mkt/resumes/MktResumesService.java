@@ -20,6 +20,7 @@ import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Page;
 import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Query;
 import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Row;
 import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Skill;
+import com.dossier.api.service.ent.resumes.OrgResumeLinkService;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
@@ -144,6 +145,8 @@ public class MktResumesService {
         if (body == null || body.isEmpty()) throw OrgException.invalid("body", "name at least one field to change");
         for (String k : body.keySet()) if (!EDITABLE.contains(k)) throw OrgException.invalid(k, "cannot be changed here");
         OrgResume r = item.resume();
+        // A resume with a Resume Builder document is edited in the builder (the directory row only mirrors it): a metadata edit here would be overwritten by the next save.
+        if (r.getResumeId() != null) throw OrgException.coded(409, "EDIT_IN_BUILDER", "This resume is edited in the resume builder.", Map.of());
         List<String> changed = new ArrayList<>();
         String title = body.containsKey("title") ? text(body, "title", TITLE_MAX, false) : r.getName();
         String headline = body.containsKey("headline") ? text(body, "headline", HEADLINE_MAX, true) : r.getHeadline();
@@ -212,6 +215,7 @@ public class MktResumesService {
         Item item = one(view, id);
         OrgResume r = item.resume();
         if (!"PENDING".equals(r.getApprovalStatus())) throw OrgException.coded(409, "NOT_PENDING", "This resume is not waiting for approval.", Map.of());
+        if (OrgResumeLinkService.requiresConsultantApproval(r)) throw OrgException.coded(409, "CONSULTANT_APPROVAL_REQUIRED", "Only the consultant can approve a resume made for them.", Map.of());
         for (int i = item.events().size() - 1; i >= 0; i--) {
             MktResumeEvent e = item.events().get(i);
             if (MktResumeEvent.APPROVAL_REQUESTED.equals(e.getKind()) || MktResumeEvent.UPDATED.equals(e.getKind())) {
@@ -428,6 +432,9 @@ public class MktResumesService {
             case MktResumeEvent.APPROVAL_REQUESTED -> "resume sent for approval";
             case MktResumeEvent.APPROVED -> "resume approved";
             case MktResumeEvent.MARKED_FOR_UPDATE -> "resume marked for update";
+            case "PRIMARY_SET" -> "resume made primary";
+            case "DETAILS_CHANGED" -> "resume details changed";
+            case "DECIDED" -> "resume decision recorded";
             default -> "resume changed";
         };
     }

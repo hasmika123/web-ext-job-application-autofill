@@ -17,6 +17,9 @@ public class ResumeEntitlements {
     private final EntitlementService entitlementService;
     private final ResumeRepository resumeRepository;
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.resumes.OrgResumeCap orgResumeCap;
+
     public ResumeEntitlements(EntitlementService entitlementService, ResumeRepository resumeRepository) {
         this.entitlementService = entitlementService;
         this.resumeRepository = resumeRepository;
@@ -24,6 +27,8 @@ public class ResumeEntitlements {
 
     /** Whether the plan includes the builder's AI features (today: Pro, which Autopilot includes). */
     public boolean builderAiAllowed(String login) {
+        // inside an organization workspace the plan is not what grants AI (no license grants it yet): off, as the API refuses it (OrgResumePolicy.requireAiLicensed)
+        if (orgResumeCap != null && orgResumeCap.forThisRequest().isPresent()) return false;
         return entitlementService.isPro(login);
     }
 
@@ -32,8 +37,12 @@ public class ResumeEntitlements {
         return entitlementService.plan(login).plan();
     }
 
-    /** The plan's cap on live (non-archived) resumes; the same number {@code POST /resumes} enforces. */
+    /** The cap on live (non-archived) resumes; the same number {@code POST /resumes} enforces: the organization license's inside an organization workspace, else the plan's. */
     public int resumesMax(String login) {
+        if (orgResumeCap != null) {
+            var org = orgResumeCap.forThisRequest();
+            if (org.isPresent()) return org.get().max();
+        }
         return ProfileService.resumeLimit(entitlementService.isPro(login));
     }
 

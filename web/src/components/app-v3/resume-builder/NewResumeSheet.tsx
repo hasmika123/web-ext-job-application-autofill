@@ -43,6 +43,7 @@ import {
   type SourceId,
   type Unticked,
 } from "./new-resume/model";
+import { useBuilderEnv } from "./builderEnv";
 import { usePhone } from "./usePhone";
 
 /**
@@ -71,6 +72,10 @@ export interface NewResumeSheetProps {
   initialSource?: SourceId;
   /** The server answered 402 `RESUME_LIMIT`: the chooser closes and the page shows the upgrade prompt. */
   onLimit?: (notice: CapNotice) => void;
+  /** Whose resume this is when it is not the signed-in person's (a marketer acting for a consultant): "Casey's". The cards then speak about them. */
+  subject?: string | null;
+  /** Called with the new resume's id instead of opening the editor (act-for: the resume waits for the consultant, there is nothing for the marketer to open). */
+  onCreated?: (resumeId: number, orgResumeId?: number) => void;
   /** Test seam; defaults to the real pipeline (text redacted, then AI or local parse). */
   parseFile?: (file: File, ai: boolean) => Promise<ResumeUploadParse>;
 }
@@ -103,9 +108,12 @@ function Chooser({
   targetSuggestions = [],
   initialSource,
   onLimit,
+  subject = null,
+  onCreated,
   parseFile = parseFileForResume,
 }: NewResumeSheetProps) {
   const router = useRouter();
+  const env = useBuilderEnv();
   const toast = useToast();
   const phone = usePhone();
   const display = useDateDisplay();
@@ -187,25 +195,29 @@ function Chooser({
       upload: parsed ? { structured: parsed.parse.structured, bio: parsed.parse.bio, fileName: parsed.file.name, unticked } : null,
       copyFromId: copyId,
     });
-    const res = await createBuilt(payload);
+    const res = await createBuilt(payload, env.createBuiltUrl);
     if (res.kind === "ok") {
       const counts = parsed ? reviewCounts(parsed.parse.structured) : null;
       track("resume_new_created", { kind: source, items: counts ? counts.roles + counts.schools + counts.projects : source === "profile" ? profile.itemCount : 0 });
-      if (source === "upload" && parsed) {
+      if (source === "upload" && parsed && env.keepOriginal) {
         // The editor opens on the document the original is attached to, so wait for it (a failure never blocks the editor).
         const attached = await attachOriginal(res.id, parsed.file);
         if (attached.kind === "error") {
           toast({ title: "Resume created, but the original file couldn't be attached", description: attached.message });
         }
       }
-      router.push(`/resume-builder/${res.id}`); // stay busy until the editor takes over
+      if (onCreated) {
+        onCreated(res.id, res.orgResumeId);
+        return;
+      }
+      router.push(env.editorHref(res.id)); // stay busy until the editor takes over
       return;
     }
     setBusy(false);
     if (res.kind === "limit") {
-      const plan = res.plan === "PRO" || res.plan === "AUTOPILOT" ? res.plan : "FREE";
+      const plan = res.plan === "PRO" || res.plan === "AUTOPILOT" || res.plan === "ORGANIZATION" ? res.plan : "FREE";
       onClose();
-      onLimit?.({ message: res.message, plan });
+      onLimit?.({ message: res.message, plan, limit: res.limit });
       return;
     }
     if (res.kind === "sensitive") {
@@ -263,11 +275,12 @@ function Chooser({
               disabled={id === "profile" && profile.itemCount === 0}
               copyCount={resumes.length}
               profile={profile}
+              subject={subject}
               onSelect={() => choose(id)}
               action={
-                id === "profile" && profile.itemCount === 0 ? (
+                id === "profile" && profile.itemCount === 0 && env.buildProfileHref ? (
                   <Link
-                    href={BUILD_PROFILE_HREF}
+                    href={env.buildProfileHref}
                     className="inline-flex min-h-11 flex-none items-center rounded-xl border border-v2-line px-3 text-[13px] font-bold text-v2-blue hover:bg-paper-2"
                   >
                     Build my profile · 2 min
@@ -275,7 +288,7 @@ function Chooser({
                 ) : undefined
               }
               extra={
-                id === "profile" && profile.itemCount === 0 ? (
+                id === "profile" && profile.itemCount === 0 && !subject ? (
                   <button type="button" onClick={() => choose("scratch")} className="mt-1 w-fit text-[13px] font-semibold text-v2-blue hover:underline">
                     Start with just my name and contact
                   </button>
@@ -351,7 +364,7 @@ function Chooser({
       </div>
     );
 
-  const title = step === "start" ? "Start your resume from" : "Name your resume";
+  const title = step === "start" ? (subject ? `Start ${subject} resume from` : "Start your resume from") : subject ? `Name ${subject} resume` : "Name your resume";
 
   if (phone) {
     return (
@@ -369,10 +382,10 @@ function Chooser({
 
 /* ── one of the four cards ────────────────────────────────────────────────────────────── */
 
-const COPY: Record<SourceId, { title: string; description: (p: { profile: ProfileSummary; copyCount: number }) => string; icon: ReactNode }> = {
-  profile: { title: "Use my profile", description: ({ profile }) => profileDescription(profile), icon: <UserIcon size={20} aria-hidden /> },
+const COPY: Record<SourceId, { title: string; description: (p: { profile: ProfileSummary; copyCount: number; subject: string | null }) => string; icon: ReactNode }> = {
+  profile: { title: "Use my profile", description: ({ profile, subject }) => profileDescription(profile, subject), icon: <UserIcon size={20} aria-hidden /> },
   upload: { title: "Upload a resume", description: () => "PDF, DOCX or TXT · we read it and you review", icon: <UploadIcon size={20} aria-hidden /> },
-  copy: { title: "Copy an existing resume", description: ({ copyCount }) => copyDescription(copyCount), icon: <FileTextIcon size={20} aria-hidden /> },
+  copy: { title: "Copy an existing resume", description: ({ copyCount, subject }) => copyDescription(copyCount, subject), icon: <FileTextIcon size={20} aria-hidden /> },
   scratch: { title: "Start from scratch", description: () => "A blank resume — just your name and contact, you add the rest", icon: <PlusIcon size={20} aria-hidden /> },
 };
 
@@ -382,6 +395,7 @@ function SourceCard({
   disabled,
   copyCount,
   profile,
+  subject = null,
   onSelect,
   action,
   extra,
@@ -392,12 +406,14 @@ function SourceCard({
   disabled?: boolean;
   copyCount: number;
   profile: ProfileSummary;
+  subject?: string | null;
   onSelect: () => void;
   action?: ReactNode;
   extra?: ReactNode;
   children?: ReactNode;
 }) {
   const c = COPY[id];
+  const cardTitle = subject && id === "profile" ? `Use ${subject} profile` : c.title;
   const off = disabled || (id === "copy" && copyCount === 0);
   return (
     <div className={cn("rounded-2xl border p-3.5 transition-colors", selected ? "border-accent bg-accent-soft/40" : "border-v2-line bg-paper", off && "opacity-80")}>
@@ -414,8 +430,8 @@ function SourceCard({
             {c.icon}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-bold text-v2-navy">{c.title}</span>
-            <span className="block text-[13px] leading-snug text-v2-ink-soft">{c.description({ profile, copyCount })}</span>
+            <span className="block text-[15px] font-bold text-v2-navy">{cardTitle}</span>
+            <span className="block text-[13px] leading-snug text-v2-ink-soft">{c.description({ profile, copyCount, subject })}</span>
           </span>
           <span
             aria-hidden

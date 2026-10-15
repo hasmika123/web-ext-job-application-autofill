@@ -56,6 +56,7 @@ import ResumeDrawer, { printHtml } from "./ResumeDrawer";
 import BeeBanner from "@/components/ent/shell/BeeBanner";
 import ResumeKpiTiles from "./ResumeKpiTiles";
 import { Pagination, ResumesTable } from "./ResumesTable";
+import NewResumeForConsultant from "./NewResumeForConsultant";
 import UploadResumeDialog from "./UploadResumeDialog";
 
 const WIDE_QUERY = "(min-width: 1280px)"; // config-literal-ok: the width at which the drawer docks beside the table instead of floating over it
@@ -85,7 +86,7 @@ const TAB_LABEL: Record<TabKey, string> = { all: "All Resumes", pending: "Pendin
 
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: ResumeRow[]; total: number };
 
-export default function ResumesPage({ orgName, orgId, permissions, supportEmail }: ResumesPageProps) {
+export default function ResumesPage({ orgName, orgId, workspace, permissions, supportEmail }: ResumesPageProps) {
   const toast = useToast();
   const narrow = useNarrow();
   const wide = useMediaQuery(WIDE_QUERY, false);
@@ -258,6 +259,9 @@ export default function ResumesPage({ orgName, orgId, permissions, supportEmail 
   const active = filtersActive(state);
   const sortValue = `${state.sort.key},${state.sort.dir}`;
   const canUpload = can("resumes.edit_for");
+  // "New resume for <consultant>" (act-for in the one Resume Builder) belongs to the Marketing workspace; the API is the gate.
+  const canNewFor = canUpload && workspace === "marketing";
+  const builderHref = canNewFor ? (rowId: number) => `/w/marketing/resumes/${rowId}` : undefined;
   const moreCount = [state.primary, state.owner, state.updated].filter(Boolean).length;
 
   const filters = [
@@ -310,11 +314,14 @@ export default function ResumesPage({ orgName, orgId, permissions, supportEmail 
                   </Tab>
                 </TabList>
               </Tabs>
-              {canUpload && (
-                <Button type="button" variant="accent" onClick={() => setUploadOpen(true)} data-upload-open className="ent-btn mb-1.5 mr-1.5">
-                  <PlusIcon aria-hidden size={15} /> Upload Resume
-                </Button>
-              )}
+              <span className="flex flex-wrap items-center">
+                {canNewFor && <NewResumeForConsultant orgId={orgId} onCreated={refresh} />}
+                {canUpload && (
+                  <Button type="button" variant="accent" onClick={() => setUploadOpen(true)} data-upload-open className="ent-btn mb-1.5 mr-1.5">
+                    <PlusIcon aria-hidden size={15} /> Upload Resume
+                  </Button>
+                )}
+              </span>
             </div>
 
             <div className="space-y-2 px-1">
@@ -485,6 +492,7 @@ export default function ResumesPage({ orgName, orgId, permissions, supportEmail 
           onClose={() => apply({ open: null }, false)}
           onChanged={onChanged}
           reloadToken={reloadToken}
+          builderHref={builderHref}
         />
       </div>
 

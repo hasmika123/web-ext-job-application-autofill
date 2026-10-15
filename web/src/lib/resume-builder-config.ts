@@ -23,9 +23,9 @@ export * from "@/lib/resume-builder-config.shared";
  * non-2xx or returns something that is not an object, the editor gets {@link DEFAULT_BUILDER_CONFIG}
  * (Free, no AI) - the server re-checks everything it enforces on each call anyway.
  */
-export async function getBuilderConfig(): Promise<ResumeBuilderConfig> {
+export async function getBuilderConfig(init: RequestInit = {}): Promise<ResumeBuilderConfig> {
   try {
-    const res = await serverApiFetch("/api/profile/resume-builder/config");
+    const res = await (Object.keys(init).length > 0 ? serverApiFetch("/api/profile/resume-builder/config", init) : serverApiFetch("/api/profile/resume-builder/config"));
     if (!res.ok) return DEFAULT_BUILDER_CONFIG;
     const body: unknown = await res.json();
     if (body === null || typeof body !== "object" || Array.isArray(body)) return DEFAULT_BUILDER_CONFIG;

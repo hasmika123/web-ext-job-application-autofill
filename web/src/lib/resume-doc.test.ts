@@ -93,7 +93,7 @@ describe("createBuilt", () => {
 
   it("maps 402 RESUME_LIMIT to a limit result with the server's copy and plan", async () => {
     stubFetch(json(402, { code: "RESUME_LIMIT", detail: "Free accounts keep up to 3 resumes.", plan: "FREE", limit: 3, count: 3 }));
-    expect(await createBuilt({})).toEqual({ kind: "limit", plan: "FREE", message: "Free accounts keep up to 3 resumes." });
+    expect(await createBuilt({})).toEqual({ kind: "limit", plan: "FREE", limit: 3, message: "Free accounts keep up to 3 resumes." });
   });
 
   it("explains a demo-account refusal", async () => {

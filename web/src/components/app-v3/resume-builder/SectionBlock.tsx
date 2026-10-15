@@ -279,8 +279,9 @@ const REWRITABLE: ReadonlySet<ResumeSection["kind"]> = new Set(["SUMMARY", "EXPE
  * `config.ai.rewriteMaxRefs`, the longest first) go to the diff sheet; Free sees the lock with the Pro chip (13.7).
  */
 function SectionRewrite({ section, scope }: { section: ResumeSection; scope: string }) {
-  const { aiAllowed, ai } = useCanvas();
+  const { aiAllowed, aiVisible, ai } = useCanvas();
   const lines = linesOfSection(section);
+  if (!aiVisible) return null;
   const sent = longestFirst(lines, ai.maxRefs);
   const empty = lines.length === 0 ? (section.kind === "SUMMARY" ? "Write a few words first, then AI can rewrite them" : "Add a line first, then AI can rewrite it") : undefined;
   return (

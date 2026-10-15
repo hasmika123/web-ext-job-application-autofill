@@ -25,4 +25,7 @@ public interface OrgResumeExperienceRepository extends Repository<OrgResumeExper
 
     List<OrgResumeExperience> findByOrgIdAndResumeIdOrderBySortOrderAsc(Long orgId, Long resumeId);
 
+    /** Drops the preview rows of one org resume (a Resume Builder document changed: they are projected again from it). */
+    void deleteByOrgIdAndResumeId(Long orgId, Long resumeId);
+
 }

@@ -37,6 +37,22 @@ public class ConsultantResumesResource {
         return service.page(me);
     }
 
+    @Operation(
+        summary = "Create a resume in the builder",
+        description = "Body: {templateId?, target?, label?, source?} exactly as the personal builder's create (source: profile, scratch, {kind:'upload', structured, bio?, fileName, keep?} or {kind:'copy', fromResumeId}). " +
+            "The resume is the signed-in consultant's own, approved by definition, and appears in this page and the marketer's board at once. The organization license's resume cap applies first (402 RESUME_LIMIT); " +
+            "a parsed upload carrying a never-collected value is 422 SENSITIVE_CONTENT. resumes.manage required; 404 for everyone who is not a consultant of this organization."
+    )
+    @PostMapping("/built")
+    @ResponseStatus(HttpStatus.CREATED)
+    @OrgPermissionRequired
+    public ConsultantResumesDTO.BuiltResumeCreated createBuiltForMe(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestBody(required = false) ConsultantResumesDTO.BuiltResumeBody body
+    ) {
+        return service.createBuilt(me, body);
+    }
+
     @Operation(summary = "Resume preview", description = "The structured fields (headline, summary, skills, experience) one of the caller's own resumes is drawn, downloaded and printed from.")
     @GetMapping("/{resumeId}/preview")
     @OrgPermissionRequired
@@ -72,6 +88,24 @@ public class ConsultantResumesResource {
     ) {
         service.record(me, resumeId, body == null ? null : body.kind());
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Approve a resume a marketer made for me", description = "Only while it waits for the consultant (a resume a marketer made or edited through the builder). resumes.manage required; 409 NOT_PENDING for anything else.")
+    @PostMapping("/{resumeId}/approve")
+    @OrgPermissionRequired
+    public ConsultantResumesDTO.ResumeRow approveMyResume(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long resumeId) {
+        return service.approve(me, resumeId);
+    }
+
+    @Operation(summary = "Send a resume a marketer made for me back", description = "Body: {note?} (at most 200 characters). The marketer's board reads it as Needs update until they edit it again. resumes.manage required; 409 NOT_PENDING when it is not waiting for the consultant.")
+    @PostMapping("/{resumeId}/request-changes")
+    @OrgPermissionRequired
+    public ConsultantResumesDTO.ResumeRow requestChangesMyResume(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long resumeId,
+        @RequestBody(required = false) ConsultantResumesDTO.ResumeChangeRequest body
+    ) {
+        return service.requestChanges(me, resumeId, body);
     }
 
     @Operation(summary = "Duplicate a resume", description = "A private, non-primary copy at the next version number, pending the organization's review again.")

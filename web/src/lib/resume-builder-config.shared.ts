@@ -6,6 +6,47 @@
  */
 export type ResumeBuilderPlan = "FREE" | "PRO" | "AUTOPILOT";
 
+/**
+ * What this builder session may do, decided by the API for the request (personal, a consultant inside an organization, or a marketer acting for a consultant).
+ * The ONE builder reads it and hides or disables controls accordingly; the API refuses the same actions (404 / 409 / 402), so this is never the only wall.
+ */
+export type BuilderCapabilities = {
+  mode: "personal" | "consultant" | "marketer-act-for";
+  /** Recruiter links and named people. */
+  shareLinks: boolean;
+  deleteResume: boolean;
+  archiveResume: boolean;
+  setPrimary: boolean;
+  rename: boolean;
+  duplicate: boolean;
+  /** Restore a version, save a named version. */
+  versionRestore: boolean;
+  downloadOriginal: boolean;
+  /** AI rewrite / summary / suggestions. When false the controls are not drawn at all (no upsell either). */
+  ai: boolean;
+  tailor: boolean;
+  /** Shown next to the save state ("Pending consultant approval"), or null. */
+  approvalNotice: string | null;
+};
+
+/** The personal product: everything the builder has always offered (an API that predates `capabilities` is the personal product too). */
+export const PERSONAL_CAPABILITIES: BuilderCapabilities = {
+  mode: "personal",
+  shareLinks: true,
+  deleteResume: true,
+  archiveResume: true,
+  setPrimary: true,
+  rename: true,
+  duplicate: true,
+  versionRestore: true,
+  downloadOriginal: true,
+  ai: true,
+  tailor: true,
+  approvalNotice: null,
+};
+
+export const capabilitiesOf = (config: { capabilities?: BuilderCapabilities | null }): BuilderCapabilities => config.capabilities ?? PERSONAL_CAPABILITIES;
+
 export type ResumeBuilderBand = { min: number; title: string; body: string };
 
 export type ResumeBuilderConfig = {
@@ -57,6 +98,8 @@ export type ResumeBuilderConfig = {
   };
   ai: { suggestAutoRefresh: boolean; suggestStaleMinutes: number; rewriteMaxRefs: number };
   plan: ResumeBuilderPlan;
+  /** Role-based restrictions of this session (absent on an API that predates them: the personal product). */
+  capabilities?: BuilderCapabilities;
   /** The plan has builder AI. The web shows locks from this, never from plan names. */
   aiAllowed: boolean;
   /** Live (non-archived) resumes and the plan's cap. */

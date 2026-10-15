@@ -27,6 +27,8 @@ import com.dossier.api.service.resume.ResumeDocumentProjector;
 import com.dossier.api.service.resume.ResumeDocumentSeeder;
 import com.dossier.api.service.resume.ResumeDocumentText;
 import com.dossier.api.service.resume.ResumeDocumentUpgrader;
+import com.dossier.api.service.resume.ResumeActAs;
+import com.dossier.api.service.resume.ResumeDocEvent;
 import com.dossier.api.service.resume.ResumeDocumentValidator;
 import com.dossier.api.service.resume.ResumePdfState;
 import com.dossier.api.service.resume.ResumeRenderHash;
@@ -98,6 +100,15 @@ public class ResumeDocService {
     /** The templates' {@code meta.defaults} (R3.4); field-injected so the constructor above stays as the other stories left it. */
     @org.springframework.beans.factory.annotation.Autowired
     private TemplateThemeDefaults templateThemeDefaults;
+
+    /** Tells interested parties (the organization directory) that a document was created or changed; absent in hand-wired unit tests. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private org.springframework.context.ApplicationEventPublisher events;
+
+    private void publish(ResumeDocEvent.Type type, Resume resume) {
+        if (events == null || resume == null || resume.getUser() == null) return;
+        events.publishEvent(new ResumeDocEvent(type, resume.getId(), resume.getUser().getId(), currentLogin()));
+    }
 
     public ResumeDocService(
         ResumeDocRepository resumeDocRepository,
@@ -261,7 +272,8 @@ public class ResumeDocService {
             throw e;
         }
         // The first snapshot: what the resume looked like when it was made (a base for Restore and Compare).
-        versionService.record(d, ResumeDocVersionService.IMPORT, null, user.getLogin());
+        versionService.record(d, ResumeDocVersionService.IMPORT, null, ResumeActAs.authorOr(user.getLogin()));
+        publish(ResumeDocEvent.Type.CREATED, resume);
 
         created.setKind(ResumeKind.BUILT);
         created.setTemplateId(template);
@@ -321,7 +333,8 @@ public class ResumeDocService {
         applyContent(d, resume, doc, now);
         markPdfPending(d, false);
         resumeDocRepository.saveAndFlush(d);
-        versionService.record(d, ResumeDocVersionService.IMPORT, null, user.getLogin());
+        versionService.record(d, ResumeDocVersionService.IMPORT, null, ResumeActAs.authorOr(user.getLogin()));
+        publish(ResumeDocEvent.Type.CONTENT_CHANGED, resume);
 
         ResumeDTO dto = profileService.listResumes().stream().filter(r -> resumeId.equals(r.getId())).findFirst().orElseGet(ResumeDTO::new);
         dto.setKind(ResumeKind.BUILT);
@@ -665,6 +678,7 @@ public class ResumeDocService {
         markPdfPending(d, false);
         resumeDocRepository.saveAndFlush(d);
         versionService.recordAutosave(d, previousHash, currentLogin());
+        publish(ResumeDocEvent.Type.CONTENT_CHANGED, d.getResume());
         return toDto(d, d.getResume());
     }
 
@@ -761,6 +775,7 @@ public class ResumeDocService {
         markPdfPending(d, true); // a restore is a checkpoint: no settle delay
         resumeDocRepository.saveAndFlush(d);
         versionService.record(d, ResumeDocVersionService.RESTORE, null, login);
+        publish(ResumeDocEvent.Type.CONTENT_CHANGED, d.getResume());
         return toDto(d, d.getResume());
     }
 
@@ -810,6 +825,7 @@ public class ResumeDocService {
         markPdfPending(d, false);
         resumeDocRepository.saveAndFlush(d);
         versionService.record(d, ResumeDocVersionService.AI_APPLY, null, login);
+        publish(ResumeDocEvent.Type.CONTENT_CHANGED, d.getResume());
         return toDto(d, d.getResume());
     }
 
@@ -1128,8 +1144,9 @@ public class ResumeDocService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume document not found"));
     }
 
+    /** Who is writing: the signed-in user, or the marketer while one acts for a consultant ({@link ResumeActAs}). */
     private static String currentLogin() {
-        return SecurityUtils.getCurrentUserLogin().orElse(null);
+        return ResumeActAs.authorOr(SecurityUtils.getCurrentUserLogin().orElse(null));
     }
 
     private User currentUser() {
