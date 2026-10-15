@@ -111,6 +111,9 @@
     "name" : "resume-ai",
     "description" : "Resume Builder AI: rewrite lines, generate a summary, apply or dismiss a checked proposal (Pro)."
   }, {
+    "name" : "mkt-resumes",
+    "description" : "Marketing workspace: consultant resumes (metadata), preview, edit, approval request, activity, and a new resume for an assigned consultant."
+  }, {
     "name" : "account-deletion",
     "description" : "Self-service GDPR/CCPA account and data deletion."
   }, {
@@ -6756,6 +6759,44 @@
         }
       }
     },
+    "/api/orgs/{orgId}/mkt/resumes/consultants/{consultantId}/built" : {
+      "post" : {
+        "tags" : [ "mkt-resumes" ],
+        "summary" : "Create a resume for a consultant (act-for)",
+        "description" : "Body: {templateId?, target?, label?, source?} exactly as the personal builder's create (source: profile, scratch, {kind:'upload', structured, bio?, fileName, keep?} or {kind:'copy', fromResumeId}). The resume is saved under the consultant's account with the marketer as author, starts PENDING and waits for the consultant. The consultant's resume cap applies first (402 RESUME_LIMIT); a parsed upload carrying a never-collected value is 422 SENSITIVE_CONTENT. resumes.edit_for (ASSIGNED); 404 for a consultant outside the caller's scope.",
+        "operationId" : "createForConsultant",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NewResumeBody"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NewResumeCreated"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/mkt/opportunities" : {
       "get" : {
         "tags" : [ "mkt-opportunities" ],
@@ -8434,6 +8475,44 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/resumes/{resumeId}/request-changes" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Send a resume a marketer made for me back",
+        "description" : "Body: {note?} (at most 200 characters). The marketer's board reads it as Needs update until they edit it again. resumes.manage required; 409 NOT_PENDING when it is not waiting for the consultant.",
+        "operationId" : "requestChangesMyResume",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResumeChangeRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeRow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/resumes/{resumeId}/primary" : {
       "post" : {
         "tags" : [ "consultant-workspace" ],
@@ -8492,6 +8571,35 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/resumes/{resumeId}/approve" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Approve a resume a marketer made for me",
+        "description" : "Only while it waits for the consultant (a resume a marketer made or edited through the builder). resumes.manage required; 409 NOT_PENDING for anything else.",
+        "operationId" : "approveMyResume",
+        "parameters" : [ {
+          "name" : "resumeId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeRow"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/resumes/{resumeId}/activity" : {
       "post" : {
         "tags" : [ "consultant-workspace" ],
@@ -8520,6 +8628,35 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/resumes/built" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Create a resume in the builder",
+        "description" : "Body: {templateId?, target?, label?, source?} exactly as the personal builder's create (source: profile, scratch, {kind:'upload', structured, bio?, fileName, keep?} or {kind:'copy', fromResumeId}). The resume is the signed-in consultant's own, approved by definition, and appears in this page and the marketer's board at once. The organization license's resume cap applies first (402 RESUME_LIMIT); a parsed upload carrying a never-collected value is 422 SENSITIVE_CONTENT. resumes.manage required; 404 for everyone who is not a consultant of this organization.",
+        "operationId" : "createBuiltForMe",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BuiltResumeBody"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/BuiltResumeCreated"
+                }
+              }
+            }
           }
         }
       }
@@ -18128,6 +18265,58 @@
         }
       }
     },
+    "/api/orgs/{orgId}/mkt/resumes/consultants" : {
+      "get" : {
+        "tags" : [ "mkt-resumes" ],
+        "summary" : "Consultants I can start a resume for",
+        "description" : "The caller's ASSIGNED consultants (everyone for an ORG-scope holder): {consultantId, name, title, hasAccount}. resumes.edit_for; 404 for everyone else.",
+        "operationId" : "consultantsToStartFor",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/NewResumeConsultant"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/mkt/resumes/consultants/{consultantId}/sources" : {
+      "get" : {
+        "tags" : [ "mkt-resumes" ],
+        "summary" : "What a new resume for this consultant can start from",
+        "description" : "Counts from the consultant's saved profile and the consultant's resumes the copy source offers. 404 for a consultant outside the caller's scope, 409 CONSULTANT_HAS_NO_ACCOUNT.",
+        "operationId" : "resumeSourcesFor",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NewResumeSources"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/mkt/performance" : {
       "get" : {
         "tags" : [ "mkt-performance" ],
@@ -25099,6 +25288,13 @@
           "fileSizeKb" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "resumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "updatedBy" : {
+            "type" : "string"
           }
         }
       },
@@ -27742,6 +27938,43 @@
           }
         }
       },
+      "NewResumeBody" : {
+        "type" : "object",
+        "properties" : {
+          "templateId" : {
+            "type" : "string"
+          },
+          "target" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          }
+        }
+      },
+      "NewResumeCreated" : {
+        "type" : "object",
+        "properties" : {
+          "orgResumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "resumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "detail" : {
+            "$ref" : "#/components/schemas/Detail"
+          }
+        }
+      },
       "Item" : {
         "type" : "object",
         "properties" : {
@@ -28387,6 +28620,14 @@
           }
         }
       },
+      "ResumeChangeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "note" : {
+            "type" : "string"
+          }
+        }
+      },
       "ResumeRow" : {
         "type" : "object",
         "properties" : {
@@ -28416,6 +28657,16 @@
           },
           "approvalStatus" : {
             "type" : "string"
+          },
+          "resumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "awaitingMyApproval" : {
+            "type" : "boolean"
+          },
+          "updatedBy" : {
+            "type" : "string"
           }
         }
       },
@@ -28424,6 +28675,39 @@
         "properties" : {
           "kind" : {
             "type" : "string"
+          }
+        }
+      },
+      "BuiltResumeBody" : {
+        "type" : "object",
+        "properties" : {
+          "templateId" : {
+            "type" : "string"
+          },
+          "target" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "source" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          }
+        }
+      },
+      "BuiltResumeCreated" : {
+        "type" : "object",
+        "properties" : {
+          "orgResumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "resumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "row" : {
+            "$ref" : "#/components/schemas/ResumeRow"
           }
         }
       },
@@ -30707,6 +30991,47 @@
           }
         }
       },
+      "BuilderCapabilities" : {
+        "type" : "object",
+        "properties" : {
+          "mode" : {
+            "type" : "string"
+          },
+          "shareLinks" : {
+            "type" : "boolean"
+          },
+          "deleteResume" : {
+            "type" : "boolean"
+          },
+          "archiveResume" : {
+            "type" : "boolean"
+          },
+          "setPrimary" : {
+            "type" : "boolean"
+          },
+          "rename" : {
+            "type" : "boolean"
+          },
+          "duplicate" : {
+            "type" : "boolean"
+          },
+          "versionRestore" : {
+            "type" : "boolean"
+          },
+          "downloadOriginal" : {
+            "type" : "boolean"
+          },
+          "ai" : {
+            "type" : "boolean"
+          },
+          "tailor" : {
+            "type" : "boolean"
+          },
+          "approvalNotice" : {
+            "type" : "string"
+          }
+        }
+      },
       "Features" : {
         "type" : "object",
         "properties" : {
@@ -30995,6 +31320,10 @@
           "onboarding" : {
             "$ref" : "#/components/schemas/Onboarding",
             "description" : "Onboarding v2 tunables (R1.8): the dashboard card, the time estimates, the draft cap, the payoff."
+          },
+          "capabilities" : {
+            "$ref" : "#/components/schemas/BuilderCapabilities",
+            "description" : "What this builder session may do (personal, consultant inside an organization, or a marketer acting for a consultant). The web hides controls from it; the API refuses the same actions."
           }
         }
       },
@@ -32255,6 +32584,88 @@
           },
           "rejected" : {
             "$ref" : "#/components/schemas/Kpi"
+          }
+        }
+      },
+      "NewResumeConsultant" : {
+        "type" : "object",
+        "properties" : {
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "hasAccount" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "NewResumeCopyable" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "NewResumeProfileSummary" : {
+        "type" : "object",
+        "properties" : {
+          "itemCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "roles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "schools" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "skills" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "headline" : {
+            "type" : "string"
+          }
+        }
+      },
+      "NewResumeSources" : {
+        "type" : "object",
+        "properties" : {
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "profile" : {
+            "$ref" : "#/components/schemas/NewResumeProfileSummary"
+          },
+          "resumes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NewResumeCopyable"
+            }
           }
         }
       },
