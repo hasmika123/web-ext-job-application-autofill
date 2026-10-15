@@ -35,6 +35,20 @@ public class ApplicationNote implements Serializable {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    // ---- Change audit (docs/change-audit/README.md section 2.2): who made / last wrote this row. No foreign keys: rows outlive the writer.
+
+    @Column(name = "created_by_user_id")
+    private Long createdByUserId;
+
+    @Column(name = "created_by_login", length = 50)
+    private String createdByLogin;
+
+    @Column(name = "updated_by_user_id")
+    private Long updatedByUserId;
+
+    @Column(name = "updated_by_login", length = 50)
+    private String updatedByLogin;
+
     public Long getId() {
         return id;
     }
@@ -77,5 +91,37 @@ public class ApplicationNote implements Serializable {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Long getCreatedByUserId() {
+        return createdByUserId;
+    }
+
+    public void setCreatedByUserId(Long createdByUserId) {
+        this.createdByUserId = createdByUserId;
+    }
+
+    public String getCreatedByLogin() {
+        return createdByLogin;
+    }
+
+    public void setCreatedByLogin(String createdByLogin) {
+        this.createdByLogin = createdByLogin;
+    }
+
+    public Long getUpdatedByUserId() {
+        return updatedByUserId;
+    }
+
+    public void setUpdatedByUserId(Long updatedByUserId) {
+        this.updatedByUserId = updatedByUserId;
+    }
+
+    public String getUpdatedByLogin() {
+        return updatedByLogin;
+    }
+
+    public void setUpdatedByLogin(String updatedByLogin) {
+        this.updatedByLogin = updatedByLogin;
     }
 }

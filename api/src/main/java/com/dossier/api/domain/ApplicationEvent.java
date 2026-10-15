@@ -34,6 +34,13 @@ public class ApplicationEvent implements Serializable {
     public static final String SRC_SYSTEM = "SYSTEM";
     public static final String SRC_ASSISTANT = "ASSISTANT";
 
+    // actor_kind: who (or what) did it. PERSON is a signed-in person; the other four have no person behind them.
+    public static final String ACTOR_PERSON = "PERSON";
+    public static final String ACTOR_EXTENSION = "EXTENSION";
+    public static final String ACTOR_MAIL = "MAIL";
+    public static final String ACTOR_ASSISTANT = "ASSISTANT";
+    public static final String ACTOR_SYSTEM = "SYSTEM";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -65,6 +72,27 @@ public class ApplicationEvent implements Serializable {
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
+
+    // ---- Change audit (docs/change-audit/README.md section 2): who did it, for whom, and what changed. No foreign keys: rows outlive the actor.
+
+    @Column(name = "actor_kind", nullable = false, length = 12)
+    private String actorKind = ACTOR_SYSTEM;
+
+    // The signed-in person (null for EXTENSION / MAIL / ASSISTANT / SYSTEM).
+    @Column(name = "actor_user_id")
+    private Long actorUserId;
+
+    // The same person by login: survives the user row, like the resume's and the audit trail's.
+    @Column(name = "actor_login", length = 50)
+    private String actorLogin;
+
+    // Act-for: the record's owner when the actor is somebody else; null otherwise.
+    @Column(name = "on_behalf_of_user_id")
+    private Long onBehalfOfUserId;
+
+    // A JSON array of {f, from, to}: field names, and enum / date values only, never free text.
+    @Column(name = "changes", length = 1000)
+    private String changes;
 
     public Long getId() {
         return id;
@@ -132,5 +160,45 @@ public class ApplicationEvent implements Serializable {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getActorKind() {
+        return actorKind;
+    }
+
+    public void setActorKind(String actorKind) {
+        this.actorKind = actorKind == null ? ACTOR_SYSTEM : actorKind;
+    }
+
+    public Long getActorUserId() {
+        return actorUserId;
+    }
+
+    public void setActorUserId(Long actorUserId) {
+        this.actorUserId = actorUserId;
+    }
+
+    public String getActorLogin() {
+        return actorLogin;
+    }
+
+    public void setActorLogin(String actorLogin) {
+        this.actorLogin = actorLogin;
+    }
+
+    public Long getOnBehalfOfUserId() {
+        return onBehalfOfUserId;
+    }
+
+    public void setOnBehalfOfUserId(Long onBehalfOfUserId) {
+        this.onBehalfOfUserId = onBehalfOfUserId;
+    }
+
+    public String getChanges() {
+        return changes;
+    }
+
+    public void setChanges(String changes) {
+        this.changes = changes;
     }
 }

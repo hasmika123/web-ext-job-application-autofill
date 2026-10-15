@@ -3554,7 +3554,7 @@
       "id": "U6.12",
       "epic": "U6",
       "title": "Change-audit schema on the tracker: actor_kind, actor, on-behalf-of and changes on application_event; created_by / updated_by on application, note and interview; backfill; ChangeAuditCoverageTest",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"
