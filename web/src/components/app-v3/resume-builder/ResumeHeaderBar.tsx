@@ -30,7 +30,7 @@ import {
 } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import { formatDate, timeAgo } from "@/lib/dates";
-import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
+import { capabilitiesOf, type ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
 import type { CheckpointResult, ResumeDocDTO } from "@/lib/resume-doc";
 import { duplicateResume } from "@/lib/resume-list-api";
 import {
@@ -48,6 +48,7 @@ import {
   type ResumeVersion,
 } from "@/lib/resume-meta";
 import { useDateDisplay } from "@/lib/use-date-display";
+import { useBuilderEnv } from "./builderEnv";
 import ConfirmDialog from "./ConfirmDialog";
 import { RecruiterPanel, VersionPanel, VisibilityPanel } from "./HeaderPanels";
 import {
@@ -158,6 +159,9 @@ export default function ResumeHeaderBar({
 }: ResumeHeaderBarProps) {
   const router = useRouter();
   const toast = useToast();
+  const env = useBuilderEnv();
+  // What this session may do (the API decides and refuses the same actions): the one header bar hides the rest.
+  const caps = capabilitiesOf(config);
   const display = useDateDisplay();
   const phone = viewport === "phone";
   const scrolling = viewport === "phone" || viewport === "tablet";
@@ -203,7 +207,7 @@ export default function ResumeHeaderBar({
   const ownerLogin = ownerLoginOf(meta);
   const maxLinks = config.share?.maxLinks ?? FALLBACK_MAX_LINKS;
   const retentionAuto = config.versions?.retentionAuto ?? FALLBACK_RETENTION_AUTO;
-  const shareLinksOn = config.features.shareLinks ?? true;
+  const shareLinksOn = (config.features.shareLinks ?? true) && caps.shareLinks;
 
   /* ── data ─────────────────────────────────────────────────────────────────────────────── */
   const refresh = useCallback(async () => {
@@ -261,7 +265,7 @@ export default function ResumeHeaderBar({
     const res = await duplicateResume(resumeId);
     if (res.kind === "ok") {
       toast({ title: "Duplicated", description: "You're now editing the copy.", variant: "success" });
-      router.push(`/resume-builder/${res.id}`);
+      router.push(env.editorHref(res.id));
     } else if (res.kind === "limit") {
       toast({ title: "Resume limit reached", description: res.message, variant: "error" });
     } else {
@@ -411,7 +415,7 @@ export default function ResumeHeaderBar({
           ),
       },
     });
-    router.push("/resume-builder");
+    router.push(env.listHref);
   };
 
   const confirm = async () => {
@@ -447,7 +451,7 @@ export default function ResumeHeaderBar({
       }
     } else if (p.kind === "delete") {
       const r = await act(() => deleteResume(resumeId), "Couldn't delete the resume");
-      if (r.ok) router.push("/resume-builder");
+      if (r.ok) router.push(env.listHref);
     } else if (p.kind === "restore") {
       await doRestore(p.version);
     }
@@ -589,16 +593,16 @@ export default function ResumeHeaderBar({
               {c.masterChanged && <span className="flex-none rounded-full bg-v2-amber-soft px-1.5 py-0.5 text-[10.5px] font-semibold text-ink">Master changed</span>}
             </span>
           ),
-          onSelect: () => router.push(`/resume-builder/${c.id}`),
+          onSelect: () => router.push(env.editorHref(c.id)),
         });
       }
       if (config.features.tailor) items.push({ separator: true }, { label: "+ Tailor for a job…", onSelect: onTailor });
     } else {
       const tailoredFor = jobOf(meta.source.tailoredFrom?.job);
       items.push({ heading: tailoredFor ? `Tailored for ${tailoredFor}` : "Tailored resume" });
-      items.push({ label: `Open master${lineage ? `: ${lineage.master.name}` : ""}`, onSelect: () => router.push(`/resume-builder/${meta.lineage.masterId}`) });
+      items.push({ label: `Open master${lineage ? `: ${lineage.master.name}` : ""}`, onSelect: () => router.push(env.editorHref(meta.lineage.masterId)) });
       for (const c of (lineage?.children ?? []).filter((x) => x.id !== resumeId)) {
-        items.push({ label: `${jobOf(c.job) ?? c.name}${rowTime(c.updatedAt)}`, onSelect: () => router.push(`/resume-builder/${c.id}`) });
+        items.push({ label: `${jobOf(c.job) ?? c.name}${rowTime(c.updatedAt)}`, onSelect: () => router.push(env.editorHref(c.id)) });
       }
       items.push({ separator: true });
       items.push({ label: meta.lineage.masterChanged ? "Pull changes from master" : "Pull changes from master (up to date)", onSelect: () => setSyncOpen(true), disabled: !meta.lineage.masterChanged });
@@ -616,23 +620,28 @@ export default function ResumeHeaderBar({
       items.push({ label: `Last modified ${modifiedAgo} ${modifiedBy}`, onSelect: () => {}, disabled: true });
       items.push({ separator: true });
     }
-    items.push({ label: "Rename", icon: <PencilIcon size={15} />, onSelect: startRename });
-    items.push({ label: "Duplicate", onSelect: () => void duplicate() });
-    if (!meta.primary) items.push({ label: "Set as primary", icon: <StarIcon size={15} />, onSelect: () => void setPrimary() });
-    if (config.features.tailor) items.push({ label: "Tailor for a job…", onSelect: onTailor });
-    items.push({
-      label: "Save version…",
-      onSelect: () => {
-        setVersionName(defaultVersionName(versionCurrent + 1));
-        setSaveVersionOpen(true);
-      },
-    });
-    items.push({ label: "Version history", onSelect: () => setVersionsOpen(true) });
-    if (meta.hasOriginal) items.push({ label: "Download original", icon: <DownloadIcon size={15} />, onSelect: downloadOriginal });
-    items.push({ separator: true });
-    items.push({ label: "Resume settings…", onSelect: openSettings });
-    items.push({ label: meta.archived ? "Unarchive" : "Archive", onSelect: () => void archive() });
-    items.push({ label: "Delete", onSelect: () => setPending({ kind: "delete" }), danger: true });
+    if (caps.rename) items.push({ label: "Rename", icon: <PencilIcon size={15} />, onSelect: startRename });
+    if (caps.duplicate) items.push({ label: "Duplicate", onSelect: () => void duplicate() });
+    if (!meta.primary && caps.setPrimary) items.push({ label: "Set as primary", icon: <StarIcon size={15} />, onSelect: () => void setPrimary() });
+    if (config.features.tailor && caps.tailor) items.push({ label: "Tailor for a job…", onSelect: onTailor });
+    if (caps.versionRestore) {
+      items.push({
+        label: "Save version…",
+        onSelect: () => {
+          setVersionName(defaultVersionName(versionCurrent + 1));
+          setSaveVersionOpen(true);
+        },
+      });
+      items.push({ label: "Version history", onSelect: () => setVersionsOpen(true) });
+    }
+    if (meta.hasOriginal && caps.downloadOriginal) items.push({ label: "Download original", icon: <DownloadIcon size={15} />, onSelect: downloadOriginal });
+    // Resume settings holds the name, tags, visibility, sharing, archive and delete: none of it is acting-for material
+    if (caps.mode !== "marketer-act-for") {
+      if (items.length > 0) items.push({ separator: true });
+      items.push({ label: "Resume settings…", onSelect: openSettings });
+    }
+    if (caps.archiveResume) items.push({ label: meta.archived ? "Unarchive" : "Archive", onSelect: () => void archive() });
+    if (caps.deleteResume) items.push({ label: "Delete", onSelect: () => setPending({ kind: "delete" }), danger: true });
     return items;
   };
 
@@ -710,12 +719,12 @@ export default function ResumeHeaderBar({
         <StarIcon size={16} className="fill-current" />
         {short || phone ? "Primary" : "Primary Resume"}
       </span>
-    ) : (
+    ) : caps.setPrimary ? (
       <button type="button" className={CHIP} disabled={busy} onClick={() => void setPrimary()}>
         <StarIcon size={16} className="text-v2-muted" />
         Set as primary
       </button>
-    ));
+    ) : null);
 
   const recruiterChip =
     meta &&
@@ -846,7 +855,7 @@ export default function ResumeHeaderBar({
             {name}
           </h2>
         )}
-        {!renaming && (
+        {!renaming && caps.rename && (
           <Tooltip content="Rename" side="bottom">
             <IconButton ref={renameButton} aria-label="Rename" onClick={startRename} disabled={!meta} className="h-11 w-11 flex-none sm:h-9 sm:w-9">
               <PencilIcon size={16} />
@@ -856,7 +865,7 @@ export default function ResumeHeaderBar({
         <SavedTick flash={saved} id="name" />
         {!phone && meta && withTick("type", typeChip)}
         <span className="flex-1" />
-        {meta && (
+        {meta && buildKebabItems().length > 0 && (
           <Tooltip content="More actions" side="bottom">
             <Menu
               align="end"
@@ -881,10 +890,10 @@ export default function ResumeHeaderBar({
         >
           {phone && withTick("type", typeChip)}
           {dates}
-          {withTick("visibility", visibilityChip)}
-          {withTick("primary", primaryChip)}
+          {caps.shareLinks && withTick("visibility", visibilityChip)}
+          {primaryChip && withTick("primary", primaryChip)}
           {recruiterChip && withTick("recruiters", recruiterChip)}
-          <span className={scrolling ? "" : "ml-auto"}>{withTick("version", versionChip)}</span>
+          <span className={scrolling ? "" : "ml-auto"}>{caps.versionRestore && withTick("version", versionChip)}</span>
         </div>
       ) : (
         <p role="status" className="mt-3 text-[13px] text-muted">

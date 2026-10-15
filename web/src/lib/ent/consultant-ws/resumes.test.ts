@@ -24,7 +24,7 @@ const body = () => ({
   ],
 });
 
-const row = (over: Partial<ResumeRow>): ResumeRow => ({ id: 1, title: "A", targetRole: null, primary: false, updatedAt: "2026-10-01T00:00:00Z", visibility: "PUBLIC", versionNo: 1, approvalStatus: "APPROVED", ...over });
+const row = (over: Partial<ResumeRow>): ResumeRow => ({ id: 1, title: "A", targetRole: null, primary: false, updatedAt: "2026-10-01T00:00:00Z", visibility: "PUBLIC", versionNo: 1, approvalStatus: "APPROVED", resumeId: null, awaitingMyApproval: false, ...over });
 
 describe("parseResumes", () => {
   it("reads the contract and drops rows that are not the contract", () => {

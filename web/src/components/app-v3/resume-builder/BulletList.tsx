@@ -37,7 +37,7 @@ function Bullets({
   bullets: ResumeBullet[];
   listStyle?: ResumeListStyle | null;
 }) {
-  const { dispatch, limits, requestFocus, aiAllowed, ai } = useCanvas();
+  const { dispatch, limits, requestFocus, aiAllowed, aiVisible, ai } = useCanvas();
   const scope = useMarkScope();
 
   const addBullet = () => {
@@ -110,7 +110,7 @@ function Bullets({
               onText={(text, marks, format) => dispatch({ type: "bullet/edit", sectionId, itemId, bulletId: b.id, text, marks, format, at: nowMs() })}
             />
             {/* "Rewrite this bullet" (R4.2): one line, any mode; Free sees the lock. An empty bullet has nothing to rewrite. */}
-            {b.text.trim() !== "" && (
+            {aiVisible && b.text.trim() !== "" && (
               <RewriteMenu
                 variant="bullet"
                 locked={!aiAllowed}

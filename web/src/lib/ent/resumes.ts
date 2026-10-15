@@ -48,6 +48,8 @@ export interface ResumeRow {
   updatedAt: string;
   owner: PersonRef | null;
   fileSizeKb: number | null;
+  /** The Resume Builder document behind the row (a resume made in the builder); absent or null for a record that has none. */
+  resumeId?: number | null;
 }
 
 export interface ResumePage {

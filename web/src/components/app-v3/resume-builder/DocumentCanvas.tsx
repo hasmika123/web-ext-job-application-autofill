@@ -33,6 +33,7 @@ export default function DocumentCanvas({
   canUndo,
   canRedo,
   aiAllowed,
+  aiVisible = true,
   ai = NO_AI,
   onAddSection,
   reorder = false,
@@ -49,6 +50,8 @@ export default function DocumentCanvas({
   canRedo: boolean;
   /** The plan has builder AI (the Summary's "Rewrite with AI" is a lock when not). */
   aiAllowed: boolean;
+  /** The session offers AI at all (`capabilities.ai`); false hides the rewrite buttons entirely. */
+  aiVisible?: boolean;
   /** Starts the Rewrite with AI flow (R4.2); absent = buttons that do nothing (isolated canvas tests). */
   ai?: CanvasAi;
   /** "Start with a summary" on an empty resume opens the Add Section panel. */
@@ -93,8 +96,8 @@ export default function DocumentCanvas({
 
   const controls = useMemo(() => controlStates(doc, caps), [doc, caps]);
   const value = useMemo(
-    () => ({ dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, ai, reorder }),
-    [dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, ai, reorder],
+    () => ({ dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, aiVisible, ai, reorder }),
+    [dispatch, caps, controls, limits, errorField, requestFocus, canUndo, canRedo, aiAllowed, aiVisible, ai, reorder],
   );
 
   return (

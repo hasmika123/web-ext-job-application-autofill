@@ -51,12 +51,13 @@ export function summarizeProfile(items: readonly ProfileItem[], completeness: Co
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-/** "Your saved profile: 3 roles · 2 schools · 14 skills · 78% complete"; empty -> "Your profile is empty". */
-export function profileDescription(p: ProfileSummary): string {
-  if (p.itemCount === 0) return "Your profile is empty";
+/** "Your saved profile: 3 roles · 2 schools · 14 skills · 78% complete"; empty -> "Your profile is empty". `subject` ("Casey's") speaks about someone else's profile (a marketer acting for a consultant). */
+export function profileDescription(p: ProfileSummary, subject?: string | null): string {
+  const whose = subject ? subject : "Your";
+  if (p.itemCount === 0) return `${whose} profile is empty`;
   const parts = [plural(p.roles, "role"), plural(p.schools, "school"), plural(p.skills, "skill")];
   if (p.score !== null) parts.push(`${p.score}% complete`);
-  return `Your saved profile: ${parts.join(" · ")}`;
+  return `${whose} saved profile: ${parts.join(" · ")}`;
 }
 
 /** A resume the Copy card can start from. */
@@ -71,7 +72,8 @@ export interface ResumeChoice {
 }
 
 /** "Start from one of your 4 resumes". */
-export const copyDescription = (n: number): string => (n === 0 ? "You don't have a resume to copy yet" : `Start from one of your ${n} ${n === 1 ? "resume" : "resumes"}`);
+export const copyDescription = (n: number, subject?: string | null): string =>
+  n === 0 ? (subject ? `${subject} has no resume to copy yet` : "You don't have a resume to copy yet") : `Start from one of ${subject ?? "your"} ${n} ${n === 1 ? "resume" : "resumes"}`;
 
 /** What the review card says about an uploaded file ("We found 3 roles, 2 schools, 14 skills"). */
 export interface ReviewCounts {
@@ -197,13 +199,22 @@ export function buildPayload(i: PayloadInput): CreateBuiltBody {
 /** Why "New resume" must not open the chooser: the plan's cap, with the copy the upload screen uses (DESIGN 10.14). */
 export interface CapNotice {
   message: string;
-  plan: "FREE" | "PRO" | "AUTOPILOT";
+  /** `ORGANIZATION`: inside an organization workspace the license decides (nothing to upgrade to). */
+  plan: "FREE" | "PRO" | "AUTOPILOT" | "ORGANIZATION";
+  /** The cap as the server reported it, when it did. */
+  limit?: number;
 }
 
-export function capNotice(resumes: { count: number; max: number }, plan: "FREE" | "PRO" | "AUTOPILOT"): CapNotice | null {
+export function capNotice(resumes: { count: number; max: number }, plan: "FREE" | "PRO" | "AUTOPILOT" | "ORGANIZATION"): CapNotice | null {
   if (resumes.count < resumes.max) return null;
   return {
     plan,
-    message: plan === "FREE" ? `You've reached ${resumes.max} resumes — See Pro for more.` : "You've reached your resume limit — archive one to make room.",
+    limit: resumes.max,
+    message:
+      plan === "ORGANIZATION"
+        ? `Your organization's license keeps up to ${resumes.max} resumes for you. Ask your organization admin if you need more room.`
+        : plan === "FREE"
+          ? `You've reached ${resumes.max} resumes — See Pro for more.`
+          : "You've reached your resume limit — archive one to make room.",
   };
 }

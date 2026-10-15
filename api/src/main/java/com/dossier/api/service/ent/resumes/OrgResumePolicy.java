@@ -20,7 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
  *   <tr><td>share links and named people</td><td>yes</td><td>no (404: an enterprise account's resume never shows on kiwiply.com)</td><td>no (404, never)</td></tr>
  *   <tr><td>delete / archive</td><td>yes</td><td>no (409 MANAGED_BY_ORGANIZATION: the organization's list owns the directory row)</td><td>no (404)</td></tr>
  *   <tr><td>set primary</td><td>yes</td><td>no (409; the My Resumes page sets the organization's primary)</td><td>no (404)</td></tr>
- *   <tr><td>rename, checkpoints, restore a version</td><td>yes</td><td>yes</td><td>no (404)</td></tr>
+ *   <tr><td>rename, duplicate, checkpoints, restore a version</td><td>yes</td><td>yes</td><td>no (404)</td></tr>
  *   <tr><td>AI rewrite, summary, suggestions, tailor</td><td>by plan</td><td>no (402 FEATURE_NOT_LICENSED until the license catalog grants them)</td><td>no (404)</td></tr>
  *   <tr><td>original uploaded file</td><td>yes</td><td>yes</td><td>no (404)</td></tr>
  *   <tr><td>the resume cap</td><td>by plan</td><td>the organization license's</td><td>the consultant's, the license's</td></tr>
@@ -64,10 +64,10 @@ public class OrgResumePolicy {
     /** The capabilities the builder config tells the web (the same facts the checks below enforce). */
     public static ResumeBuilderConfigDTO.Capabilities capabilities() {
         return switch (mode()) {
-            case PERSONAL -> new ResumeBuilderConfigDTO.Capabilities(Mode.PERSONAL.wire(), true, true, true, true, true, true, true, true, true, null);
-            case CONSULTANT -> new ResumeBuilderConfigDTO.Capabilities(Mode.CONSULTANT.wire(), false, false, false, false, true, true, true, false, false, null);
+            case PERSONAL -> new ResumeBuilderConfigDTO.Capabilities(Mode.PERSONAL.wire(), true, true, true, true, true, true, true, true, true, true, null);
+            case CONSULTANT -> new ResumeBuilderConfigDTO.Capabilities(Mode.CONSULTANT.wire(), false, false, false, false, true, true, true, true, false, false, null);
             case MARKETER_ACT_FOR -> new ResumeBuilderConfigDTO.Capabilities(
-                Mode.MARKETER_ACT_FOR.wire(), false, false, false, false, false, false, false, false, false, "Pending consultant approval"
+                Mode.MARKETER_ACT_FOR.wire(), false, false, false, false, false, false, false, false, false, false, "Pending consultant approval"
             );
         };
     }

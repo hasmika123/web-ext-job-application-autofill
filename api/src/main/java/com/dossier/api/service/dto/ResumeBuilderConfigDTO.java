@@ -43,6 +43,7 @@ public record ResumeBuilderConfigDTO(
         boolean archiveResume,
         boolean setPrimary,
         boolean rename,
+        boolean duplicate,
         boolean versionRestore,
         boolean downloadOriginal,
         boolean ai,

@@ -540,7 +540,7 @@ class OrgResumeBuilderIT {
         JsonNode caps = ok(actFor("orb-a-marketer", orgResumeId, get("/api/profile/resume-builder/config")), 200).path("capabilities");
         assertThat(caps.path("mode").asText()).isEqualTo("marketer-act-for");
         assertThat(caps.path("approvalNotice").asText()).isEqualTo("Pending consultant approval");
-        for (String off : List.of("shareLinks", "deleteResume", "archiveResume", "setPrimary", "rename", "versionRestore", "downloadOriginal", "ai", "tailor")) assertThat(caps.path(off).asBoolean()).as(off).isFalse();
+        for (String off : List.of("shareLinks", "deleteResume", "archiveResume", "setPrimary", "rename", "duplicate", "versionRestore", "downloadOriginal", "ai", "tailor")) assertThat(caps.path(off).asBoolean()).as(off).isFalse();
 
         // read and save the document: the consultant's document, the marketer as author, back to PENDING with a log line
         MvcResult doc = actFor("orb-a-marketer", orgResumeId, get(base + "/doc"));
@@ -567,6 +567,7 @@ class OrgResumeBuilderIT {
         assertGeneric404(actFor("orb-a-marketer", orgResumeId, org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(base)), "delete");
         assertGeneric404(actFor("orb-a-marketer", orgResumeId, org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch(base + "/meta").content("{\"primary\":true}")), "set primary");
         assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(base + "/doc/checkpoint").content("{}")), "a checkpoint");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(base + "/doc/duplicate").content("{}")), "a duplicate");
         assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(base + "/doc/versions/1/restore")), "a restore");
         assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(base + "/ai/rewrite").content("{\"refs\":[],\"mode\":\"shorter\",\"consent\":true}")), "AI");
         assertGeneric404(actFor("orb-a-marketer", orgResumeId, get(base + "/original")), "the original file");

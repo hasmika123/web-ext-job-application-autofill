@@ -226,28 +226,29 @@ export interface CreateBuiltBody {
 }
 
 export type CreateBuiltResult =
-  | { kind: "ok"; id: number }
+  | { kind: "ok"; id: number; orgResumeId?: number }
   /** 402 RESUME_LIMIT: the plan's resume cap. `plan` says which copy to show. */
-  | { kind: "limit"; plan?: string; message: string }
+  | { kind: "limit"; plan?: string; limit?: number; message: string }
   /** 422 SENSITIVE_CONTENT: a value the product never collects, and where (`structured.experience[1].bullets[0]`). */
   | { kind: "sensitive"; path: string; message: string }
   /** 422 DOC_INVALID / unknown template: the first thing the validator refused. */
   | { kind: "invalid"; path: string; message: string }
   | { kind: "error"; message: string };
 
-/** `POST /api/resumes/built`. Never throws. */
-export async function createBuilt(body: CreateBuiltBody = {}): Promise<CreateBuiltResult> {
+/** `POST /api/resumes/built` (or the organization workspace's tenant-aware create, `url`). Never throws. */
+export async function createBuilt(body: CreateBuiltBody = {}, url = "/api/resumes/built"): Promise<CreateBuiltResult> {
   try {
-    const res = await fetch("/api/resumes/built", {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
-    const data = await readJson<Problem & Partial<BuiltResumeDTO> & { plan?: string }>(res);
+    const data = await readJson<Problem & Partial<BuiltResumeDTO> & { plan?: string; limit?: number; resumeId?: number; orgResumeId?: number }>(res);
     if (res.status === 402) {
       return {
         kind: "limit",
         plan: data?.plan,
+        limit: data?.limit,
         message: data?.detail ?? data?.error ?? "You've reached your resume limit.",
       };
     }
@@ -259,11 +260,11 @@ export async function createBuilt(body: CreateBuiltBody = {}): Promise<CreateBui
       if (data?.code === "SENSITIVE_CONTENT") return { kind: "sensitive", path: data.path ?? "", message };
       return { kind: "invalid", path: data?.path ?? "$", message };
     }
-    const id = data?.resume?.id ?? data?.doc?.resumeId;
+    const id = data?.resume?.id ?? data?.doc?.resumeId ?? data?.resumeId;
     if (!res.ok || typeof id !== "number") {
       return { kind: "error", message: data?.error ?? "Couldn't create the resume. Please try again." };
     }
-    return { kind: "ok", id };
+    return { kind: "ok", id, orgResumeId: typeof data?.orgResumeId === "number" ? data.orgResumeId : undefined };
   } catch {
     return { kind: "error", message: "Couldn't reach the server." };
   }

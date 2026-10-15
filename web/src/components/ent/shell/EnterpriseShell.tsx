@@ -92,6 +92,8 @@ export default function EnterpriseShell({
   const pathname = usePathname() ?? "";
   const search = useSearchParams()?.toString() ?? "";
   const toast = useToast();
+  // The Resume Builder's editor (/w/<workspace>/resumes/<id>) is a full-bleed work surface: it fills the space under the shell's top bar, with no page padding and no phone tab bar.
+  const focus = /\/w\/[^/]+\/resumes\/\d+\/?$/.test(pathname);
   const wide = useMediaQuery("(min-width: 1024px)", true);
   const phone = useMediaQuery("(max-width: 767px)", false);
 
@@ -205,7 +207,7 @@ export default function EnterpriseShell({
 
   return (
     <ShellSlotContext.Provider value={slot}>
-      <div data-enterprise-shell data-collapsed={collapsed ? "true" : "false"} className="min-h-dvh bg-app-bg text-ink md:flex">
+      <div data-enterprise-shell data-focus={focus ? "true" : undefined} data-collapsed={collapsed ? "true" : "false"} className={cn("min-h-dvh bg-app-bg text-ink md:flex", focus && "flex h-dvh overflow-hidden")}>
         <a
           href="#main-content"
           className="sr-only z-[70] rounded-lg bg-paper px-4 py-2 text-sm font-semibold text-accent-deep shadow-lg focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
@@ -262,7 +264,7 @@ export default function EnterpriseShell({
           </div>
         </aside>
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className={cn("flex min-w-0 flex-1 flex-col", focus && "min-h-0")}>
           {/* ── top bar, md and up ───────────────────────────────────────────────────────────── */}
           <header data-shell-topbar className="ent-header sticky top-0 z-30 hidden items-center bg-app-bg/95 py-3 backdrop-blur md:flex">
             <div className="min-w-0 flex-1" data-page-header>
@@ -332,9 +334,12 @@ export default function EnterpriseShell({
             ref={mainRef}
             tabIndex={-1}
             data-shell-main
-            className="min-w-0 flex-1 px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-4 focus:outline-none sm:px-6 md:pb-10 md:pt-2"
+            className={cn(
+              "min-w-0 flex-1 px-4 pb-[calc(env(safe-area-inset-bottom)+5rem)] pt-4 focus:outline-none sm:px-6 md:pb-10 md:pt-2",
+              focus && "flex min-h-0 flex-col overflow-hidden !p-0",
+            )}
           >
-            <div className="mb-4 md:hidden" data-page-header-phone>
+            <div className={cn("mb-4 md:hidden", focus && "hidden")} data-page-header-phone>
               <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-ink">{title}</h1>
               {subtitle ? <p className="mt-0.5 text-[13.5px] text-muted">{subtitle}</p> : null}
             </div>
@@ -352,7 +357,7 @@ export default function EnterpriseShell({
           ref={tabsRef}
           aria-label="Quick tabs"
           data-shell-tabs
-          className="fixed inset-x-0 bottom-0 z-30 flex h-14 items-stretch border-t border-line bg-paper pb-[env(safe-area-inset-bottom)] md:hidden"
+          className={cn("fixed inset-x-0 bottom-0 z-30 flex h-14 items-stretch border-t border-line bg-paper pb-[env(safe-area-inset-bottom)] md:hidden", focus && "hidden")}
           style={{ boxSizing: "content-box" }}
         >
           {tabs.map((t) => {

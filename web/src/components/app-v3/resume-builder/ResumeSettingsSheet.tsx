@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import { Button, ChipInput, CopyIcon, DownloadIcon, Field, Input, Spinner, Switch, cn, getTemplate, useToast } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import { formatDate, timeAgo } from "@/lib/dates";
-import { DEFAULT_BUILDER_CONFIG, type ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
+import { DEFAULT_BUILDER_CONFIG, capabilitiesOf, type ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
+import { useBuilderEnv } from "./builderEnv";
 import {
   createLink,
   deleteResume,
@@ -88,6 +89,9 @@ export interface ResumeSettingsSheetProps {
  */
 export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, active, phone, liveScore = null }: ResumeSettingsSheetProps) {
   const router = useRouter();
+  const env = useBuilderEnv();
+  // What this session may do (the API refuses the same things): a section the session cannot use is not drawn.
+  const caps = capabilitiesOf(config);
   const toast = useToast();
   const display = useDateDisplay();
   const share = config.share ?? DEFAULT_BUILDER_CONFIG.share;
@@ -359,7 +363,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
         return;
       }
       onMeta(r.value);
-      if (next) router.push("/resume-builder");
+      if (next) router.push(env.listHref);
       else toast({ title: "Resume unarchived", variant: "success" });
       return;
     }
@@ -370,7 +374,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
       setDangerError(r.error.message);
       return;
     }
-    router.push("/resume-builder");
+    router.push(env.listHref);
   };
 
   const confirmWords: { title: string; description?: ReactNode; confirm: string; danger?: boolean } | null = !confirm
@@ -457,6 +461,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
       </section>
 
       {/* 2. Primary */}
+      {caps.setPrimary && (
       <section aria-labelledby="rb-set-primary" className={CARD}>
         <h3 id="rb-set-primary" className={cn(H3, "mb-3")}>
           Primary resume
@@ -471,8 +476,10 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
         {meta.primary && <p className={cn(SUBTLE, "mt-2")}>Pick another resume as primary to turn this off</p>}
         {!meta.primary && archived && <p className={cn(SUBTLE, "mt-2")}>An archived resume can&apos;t be your primary resume.</p>}
       </section>
+      )}
 
-      {/* 3. Visibility */}
+      {/* 3. Visibility (sharing is not part of an organization workspace: capabilities.shareLinks) */}
+      {caps.shareLinks && (
       <section aria-labelledby="rb-set-visibility" className={CARD}>
         <h3 id="rb-set-visibility" className={H3}>
           Visibility
@@ -699,6 +706,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
           </div>
         )}
       </section>
+      )}
 
       {/* 4. About */}
       <section aria-labelledby="rb-set-about" className={CARD}>
@@ -736,7 +744,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
             </>
           )}
         </dl>
-        {meta.hasOriginal && (
+        {meta.hasOriginal && caps.downloadOriginal && (
           <a
             href={`/api/resumes/${resumeId}/original`}
             download
@@ -749,18 +757,23 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
       </section>
 
       {/* 5. Danger */}
+      {(caps.archiveResume || caps.deleteResume) && (
       <section aria-labelledby="rb-set-danger" className={cn(CARD, "border-danger/30")}>
         <h3 id="rb-set-danger" className={cn(H3, "mb-1 text-danger-text")}>
           Danger zone
         </h3>
         <p className={cn(SUBTLE, "mb-3")}>Archiving keeps everything and hides the resume from your active list. Deleting removes it for good.</p>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="ghost" disabled={busy} onClick={() => setConfirm({ kind: "archive" })} className="min-h-11 sm:min-h-9">
-            {archived ? "Unarchive" : "Archive"}
-          </Button>
-          <Button variant="danger" disabled={busy} onClick={() => setConfirm({ kind: "delete" })} className="min-h-11 sm:min-h-9">
-            Delete
-          </Button>
+          {caps.archiveResume && (
+            <Button variant="ghost" disabled={busy} onClick={() => setConfirm({ kind: "archive" })} className="min-h-11 sm:min-h-9">
+              {archived ? "Unarchive" : "Archive"}
+            </Button>
+          )}
+          {caps.deleteResume && (
+            <Button variant="danger" disabled={busy} onClick={() => setConfirm({ kind: "delete" })} className="min-h-11 sm:min-h-9">
+              Delete
+            </Button>
+          )}
         </div>
         {dangerError && (
           <p role="alert" className="mt-3 text-[13px] text-danger-text">
@@ -768,6 +781,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
           </p>
         )}
       </section>
+      )}
 
       <p key={announce?.n ?? 0} role="status" aria-live="polite" className="sr-only">
         {announce?.text ?? ""}

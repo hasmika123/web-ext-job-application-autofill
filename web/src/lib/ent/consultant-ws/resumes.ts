@@ -30,6 +30,10 @@ export interface ResumeRow {
   visibility: Visibility;
   versionNo: number;
   approvalStatus: string;
+  /** The Resume Builder document behind the row (open it in the editor); null for a record the builder cannot open. */
+  resumeId: number | null;
+  /** A resume a marketer made or edited for the consultant, waiting for them to approve or send it back. */
+  awaitingMyApproval: boolean;
 }
 
 export interface Check {
@@ -127,6 +131,8 @@ export function parseResumeRow(o: unknown): ResumeRow | null {
     visibility: o.visibility as Visibility,
     versionNo: num(o.versionNo, 1),
     approvalStatus: typeof o.approvalStatus === "string" ? o.approvalStatus : "APPROVED",
+    resumeId: numOrNull(o.resumeId),
+    awaitingMyApproval: o.awaitingMyApproval === true,
   };
 }
 
@@ -332,4 +338,8 @@ const rowOnly = (j: unknown) => parseResumeRow(j);
 export const setPrimary = (orgId: number | string, id: number) => write(`${base(orgId)}/${id}/primary`, "POST", undefined, rowOnly);
 export const patchResume = (orgId: number | string, id: number, body: { name?: string; visibility?: Visibility }) => write(`${base(orgId)}/${id}`, "PATCH", body, rowOnly);
 export const duplicateResume = (orgId: number | string, id: number) => write(`${base(orgId)}/${id}/duplicate`, "POST", undefined, rowOnly);
+/** The consultant approves a resume a marketer made or edited for them (409 NOT_PENDING when it is not waiting for them). */
+export const approveResume = (orgId: number | string, id: number) => write(`${base(orgId)}/${id}/approve`, "POST", undefined, rowOnly);
+/** The consultant sends such a resume back; the optional note reaches the marketer. */
+export const requestResumeChanges = (orgId: number | string, id: number, note?: string) => write(`${base(orgId)}/${id}/request-changes`, "POST", note ? { note } : {}, rowOnly);
 export const recordActivity = (orgId: number | string, id: number, kind: "VIEWED" | "DOWNLOADED" | "SHARED") => write<null>(`${base(orgId)}/${id}/activity`, "POST", { kind }, () => null);

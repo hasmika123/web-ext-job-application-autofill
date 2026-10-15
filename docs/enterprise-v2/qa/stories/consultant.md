@@ -13,7 +13,7 @@
 
 **Pages that exist (20, sidebar order of the boards; Inbox was added by ent-inbox):** Home `/w/consultant`, My Career Profile `profile`, My Resumes `resumes`, My Marketer `marketer`, Job Discovery `job-discovery`, Job Matches `matches`, Assigned Opportunities `opportunities` (+ `opportunities/{id}`), My Applications `applications`, Submissions & Approvals `submissions`, Interviews `interviews`, Interview Prep `interview-prep`, Offers `offers`, My Placement `placements`, Availability `availability`, Tasks & Follow-ups `tasks`, Activity Timeline `activity-timeline`, Inbox `inbox`, My Features `features`, Notifications `notifications`, Settings `settings`. BFF/API for each: `/api/orgs/{orgId}/me-workspace/<home|profile|resumes|marketer|job-discovery/...|matches|opportunities|applications|submissions|interviews|interview-prep|offers|placements|availability|tasks|activity-timeline|features|notifications|settings>`.
 
-**Not built / stand-ins (be honest in demos):** the marketer's side of the relationship does not exist yet, so the following are **seeded stand-ins marked `Sample` on screen**: marketer messages, shared action plan, collaboration notes and the "Responsive" badge; the source link, source name and quick info on jobs (`cws_job_source`, `https://jobs.example.com/demo-acme/<requirementId>`); the marketer-created submissions and client updates; offers and their timeline; placement project, manager, meetings and milestones; APPROVED/PENDING on vacation entries; My Features allowances. Send Message / Schedule Call open an honest "not connected" dialog. There is **no** in-app Apply (removed), no in-app job search beyond the marketer-loaded jobs, no AI-scored practice, no create-resume-from-scratch, no connected tools, no password/2FA on Settings, no placement documents. The extension step that turns "applied via the link" into an application is **not part of this branch** (documented gap in `consultant-job-source-flow.md`).
+**Not built / stand-ins (be honest in demos):** the marketer's side of the relationship does not exist yet, so the following are **seeded stand-ins marked `Sample` on screen**: marketer messages, shared action plan, collaboration notes and the "Responsive" badge; the source link, source name and quick info on jobs (`cws_job_source`, `https://jobs.example.com/demo-acme/<requirementId>`); the marketer-created submissions and client updates; offers and their timeline; placement project, manager, meetings and milestones; APPROVED/PENDING on vacation entries; My Features allowances. Send Message / Schedule Call open an honest "not connected" dialog. There is **no** in-app Apply (removed), no in-app job search beyond the marketer-loaded jobs, no AI-scored practice, no connected tools, no password/2FA on Settings, no placement documents. The extension step that turns "applied via the link" into an application is **not part of this branch** (documented gap in `consultant-job-source-flow.md`).
 
 **Rules the stories prove (non-negotiables):** no auto-submit, no submit/apply button anywhere; no sensitive PII accepted (SSN-like text is refused with an alert, no photo, no DOB, no phone, no bank data); money on Offers and Placement is a record only and the consultant never sees a bill rate; nothing is sent by e-mail, SMS or push; tenant isolation (another host cannot read Acme's data).
 
@@ -91,6 +91,12 @@
 | CON-75 | Taking the add-on off stops the inbox and says why; putting it back resumes it | Anika | `inbox.story.ts` CON-75 | AUTOMATED (needs docker + the QA MySQL container; skips itself otherwise) |
 | CON-76 | A license without the add-on: locked state, API 402 | Ben | `inbox.story.ts` CON-76 | AUTOMATED |
 | CON-77 | One consultant's mailbox is invisible to another | Anika, Ben | `inbox.story.ts` CON-77 | AUTOMATED |
+| CON-80 | Create a resume in the builder inside the workspace (four sources) | Anika | (spec pending) | BLOCKED (not yet run) |
+| CON-81 | Edit in the builder: autosave, no share/delete/AI | Anika | (spec pending) | BLOCKED (not yet run) |
+| CON-82 | The organization license caps resumes | Anika | (spec pending) | BLOCKED (not yet run) |
+| CON-83 | A sensitive value in an upload never gets in | Anika | (spec pending) | BLOCKED (not yet run) |
+| CON-84 | Approve or send back a resume the marketer made | Anika, Sarah | (spec pending) | BLOCKED (not yet run) |
+| CON-85 | A marketer edit sends the resume back to waiting for approval | Anika, Sarah | (spec pending) | BLOCKED (not yet run) |
 | CON-60 | Apply on the source site with the extension; application appears in My Applications | Anika | none | BLOCKED: needs the extension loaded on a live ATS page, and tracked-application-to-job matching is not built (`pipeline_application_link`, doc 59 section 5) |
 | CON-61 | Marketer enters the job source link and quick info | Omar | none | NOT-BUILT: no marketer write for `cws_job_source` (Marketing workspace; `consultant-job-source-flow.md` "What the marketer role must later write") |
 | CON-62 | Marketer captures a job with the extension and assigns it | Omar, Anika | none | NOT-BUILT: doc 59/60, stories X9.x |
@@ -335,6 +341,32 @@
 - **Steps:** Anika connects; Ben reads his own Inbox page.
 - **Expected:** Ben sees no connection, address, suggestion or update of hers. **Automation:** `inbox.story.ts` "CON-77 ...". **Status:** AUTOMATED.
 
+### CON-80 Anika creates a resume in the Resume Builder inside her workspace (from scratch, from her profile, from an upload, from a copy)
+- **Persona:** Anika. **Goal:** "Create New Resume" is real: the SAME new-resume chooser the personal app has, on the organization's URL with the organization's logo, colours and menu around it.
+- **Steps:** open My Resumes; press **Create New Resume** (or a Quick Action: Create = from scratch, Import = upload); pick a source (Use my profile / Upload a resume / Copy an existing resume / Start from scratch); name it; **Create resume**.
+- **Expected:** a new resume is created under her own account and the editor opens at `/w/consultant/resumes/{id}` (the address bar stays on the organization's host, the sidebar and top bar are the organization's, no Kiwiply logo link, no "Resume Builder" hop to kiwiply.com). The resume is in her list at once (no manual linking), approved by definition (she wrote it), and the assigned marketer sees it on the Resumes board. Duplicate of a built resume opens a real, editable copy.
+- **Pages / APIs:** `/w/consultant/resumes`, `/w/consultant/resumes/{id}`; `POST me-workspace/resumes/built`, then the ordinary `/api/resumes/**` BFF (tenant-aware). **Automation:** none yet (Java: `OrgResumeBuilderIT`; web: `ResumesPage.test.tsx`, `NewResumeSheet.org.test.tsx`). **Status: BLOCKED (not yet run in a browser).**
+
+### CON-81 Anika edits her resume in the builder: autosave, no Save button, no share links, no delete, no AI
+- **Steps:** from My Resumes press **Edit** on a built resume; change the headline and a bullet; open the "More actions" menu and Resume settings.
+- **Expected:** "Saved" appears by itself (autosave, no Save button); the directory row's name, headline, summary and version follow; the menu offers Rename, Duplicate, Save version, Version history and Download original but **no** Set as primary, Archive, Delete or Tailor; there is no Visibility or Shared-with-Recruiters chip and Resume settings has no Sharing or Danger sections; no AI rewrite buttons and no "upgrade" prompt (the organization license, not a Kiwiply plan, decides). The API refuses the same things if asked directly: share link 404, delete/archive/primary 409 `MANAGED_BY_ORGANIZATION`, AI 402 `FEATURE_NOT_LICENSED`. **Status: BLOCKED (not yet run in a browser).**
+
+### CON-82 The organization license caps Anika's resumes
+- **Steps:** with the cap set low (admin setting `org.license.resumes_max`, per-organization override), create resumes until the cap.
+- **Expected:** at the cap the chooser does not open; a dialog says "You've used N of N resumes" and to ask the organization admin (no plans link); a stale count is still caught by the server's 402 `RESUME_LIMIT` (plan `ORGANIZATION`). The personal Free/Pro caps never apply here and the organization cap never applies to a personal account. **Status: BLOCKED (not yet run in a browser).**
+
+### CON-83 A resume with a sensitive value never gets in
+- **Steps:** upload a resume whose text carries an SSN, a bank and routing number, a tax id, a passport number and a date of birth.
+- **Expected:** the text is scrubbed in the browser before it is parsed ("We removed N sensitive values"); nothing sensitive is in the request that creates the resume; if one still reached the API it answers 422 `SENSITIVE_CONTENT` and nothing is created or linked. **Automation:** web `NewResumeSheet.org.test.tsx`, Java `OrgResumeBuilderIT`. **Status: BLOCKED (not yet run in a browser).**
+
+### CON-84 Anika approves, or sends back, a resume her marketer made
+- **Steps:** after MKT-47 Sarah's resume for Anika shows "Made for you, waiting for your approval" in My Resumes; press **Approve**; for another one press **Send back** and write a note.
+- **Expected:** Approve makes it approved (she can then make it primary); until then **Set as primary** is off for it and the organization admin's Approve on the Resumes board answers 409 `CONSULTANT_APPROVAL_REQUIRED` (only the consultant attests). Send back makes it read "Needs update" on Sarah's board with the note in the change log. Nobody else (another consultant, the marketer) can approve it: generic 404. **Status: BLOCKED (not yet run in a browser).**
+
+### CON-85 Anika sees a resume Sarah edited: it goes back to "waiting for approval"
+- **Steps:** Sarah edits an approved resume of Anika's in act-for mode (MKT-48); Anika opens My Resumes.
+- **Expected:** that resume is "Made for you, waiting for your approval" again (what a marketer wrote never counts until she approves it); her own edits to her own resumes never change approval. **Status: BLOCKED (not yet run in a browser).**
+
 ---
 
 ## 5. Stories that cannot run end to end today
@@ -362,8 +394,8 @@
 ### CON-66 Full in-app job search and apply (NOT-BUILT)
 - Later phase. The in-app Apply endpoint, dialog and follow-up task were removed; Job Discovery works from marketer-loaded jobs plus the source link.
 
-### CON-67 AI-scored practice, AI resume review, create resume from scratch (NOT-BUILT)
-- Practice is self-scored with an explicit notice; "Create New Resume" and the resume Quick Actions answer "coming soon"; "Run AI Resume Review" on My Features leads to My Resumes.
+### CON-67 AI-scored practice, AI resume review (NOT-BUILT)
+- Practice is self-scored with an explicit notice; "Run AI Resume Review" on My Features leads to My Resumes. (Creating a resume now works: the Resume Builder runs inside the workspace, see CON-80..85.)
 
 ### CON-68 Connected tools, password/2FA, placement documents (NOT-BUILT)
 - Settings shows these as disabled or "managed on your Kiwiply account"; Placement "Download Documents" says documents arrive with the HR workspace. Asserted as honest empty states in CON-44 and CON-56.

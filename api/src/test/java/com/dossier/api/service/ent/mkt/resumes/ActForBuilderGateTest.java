@@ -54,13 +54,13 @@ class ActForBuilderGateTest {
         ResumeBuilderConfigDTO.Capabilities consultant = OrgResumePolicy.capabilities();
         assertThat(consultant.mode()).isEqualTo("consultant");
         assertThat(consultant.shareLinks() || consultant.deleteResume() || consultant.archiveResume() || consultant.setPrimary() || consultant.ai() || consultant.tailor()).isFalse();
-        assertThat(consultant.rename() && consultant.versionRestore() && consultant.downloadOriginal()).isTrue();
+        assertThat(consultant.rename() && consultant.duplicate() && consultant.versionRestore() && consultant.downloadOriginal()).isTrue();
 
         User owner = new User();
         owner.setLogin("consultant");
         ResumeBuilderConfigDTO.Capabilities actFor = ResumeActAs.run(owner, new ResumeActAs.Scope(5L, "marketer", 1L), OrgResumePolicy::capabilities);
         assertThat(actFor.mode()).isEqualTo("marketer-act-for");
         assertThat(actFor.approvalNotice()).isEqualTo("Pending consultant approval");
-        assertThat(actFor.shareLinks() || actFor.deleteResume() || actFor.archiveResume() || actFor.setPrimary() || actFor.rename() || actFor.versionRestore() || actFor.downloadOriginal() || actFor.ai() || actFor.tailor()).isFalse();
+        assertThat(actFor.shareLinks() || actFor.deleteResume() || actFor.archiveResume() || actFor.setPrimary() || actFor.rename() || actFor.duplicate() || actFor.versionRestore() || actFor.downloadOriginal() || actFor.ai() || actFor.tailor()).isFalse();
     }
 }

@@ -218,7 +218,7 @@ describe("NewResumeSheet: step 2 and Create", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /Target role/ }), { target: { value: "Staff Engineer" } });
     create();
     await waitFor(() => expect(push).toHaveBeenCalledWith("/resume-builder/31"));
-    expect(createBuilt).toHaveBeenCalledWith({ source: { kind: "profile" }, label: "Staff Backend", target: "Staff Engineer" });
+    expect(createBuilt).toHaveBeenCalledWith({ source: { kind: "profile" }, label: "Staff Backend", target: "Staff Engineer" }, "/api/resumes/built");
   });
 
   it("Create posts scratch and copy sources", async () => {
@@ -228,7 +228,7 @@ describe("NewResumeSheet: step 2 and Create", () => {
     next();
     create();
     await waitFor(() => expect(push).toHaveBeenCalledWith("/resume-builder/32"));
-    expect(createBuilt).toHaveBeenLastCalledWith({ source: { kind: "scratch" }, label: "My resume" });
+    expect(createBuilt).toHaveBeenLastCalledWith({ source: { kind: "scratch" }, label: "My resume" }, "/api/resumes/built");
     cleanup();
 
     createBuilt.mockClear();
@@ -238,7 +238,7 @@ describe("NewResumeSheet: step 2 and Create", () => {
     next();
     create();
     await waitFor(() => expect(createBuilt).toHaveBeenCalled());
-    expect(createBuilt).toHaveBeenLastCalledWith({ source: { kind: "copy", fromResumeId: 7 }, label: "Backend v3 (copy)" });
+    expect(createBuilt).toHaveBeenLastCalledWith({ source: { kind: "copy", fromResumeId: 7 }, label: "Backend v3 (copy)" }, "/api/resumes/built");
   });
 
   it("Create posts the parsed upload with the KeepMask of what was unticked, then attaches the original", async () => {

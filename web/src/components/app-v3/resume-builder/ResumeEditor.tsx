@@ -8,7 +8,8 @@ import type { ResumeScoreGroupId, ResumeSectionKind } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import { COPY, suggestionNeedsReview, type AiProposal } from "@/lib/resume-ai";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
-import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
+import { DEFAULT_BUILDER_CONFIG, capabilitiesOf } from "@/lib/resume-builder-config.shared";
+import { useBuilderEnv } from "./builderEnv";
 import {
   checkpointDoc,
   exportPdf,
@@ -113,7 +114,15 @@ export interface ResumeEditorProps {
  * sheet for Print layout / PDF view (R3.8). A client island over `state/reducer` (document, autosave,
  * undo) and `state/ui` (panels, layout). Phone: a bottom tab bar, every sheet fullscreen.
  */
-export default function ResumeEditor({ initial, plan, config, aiUsageLine = null, entry, initialMeta = null, primaryResumeId = null }: ResumeEditorProps) {
+export default function ResumeEditor({ initial, plan, config: serverConfig, aiUsageLine = null, entry, initialMeta = null, primaryResumeId = null }: ResumeEditorProps) {
+  const env = useBuilderEnv();
+  // Role-based restrictions of the ONE builder (personal, a consultant in an organization, a marketer acting for a consultant), decided by the API for this
+  // session. Without AI in the session the AI affordances (rewrite, suggestions, job match, tailor, upsell locks) are not drawn at all; the API refuses them too.
+  const builderCaps = capabilitiesOf(serverConfig);
+  const config = useMemo<ResumeBuilderConfig>(
+    () => (builderCaps.ai ? serverConfig : { ...serverConfig, aiAllowed: false, features: { ...serverConfig.features, aiSuggestions: false, jobMatch: false, tailor: false } }),
+    [builderCaps.ai, serverConfig],
+  );
   const resumeId = initial.resumeId;
   const initialVersion = initial.docVersion;
   const router = useRouter();
@@ -743,7 +752,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
     await autosave.current?.flush();
     const stillUnsaved = (autosave.current?.savedRev ?? 0) < latestRev.current || conflicted.current;
     if (stillUnsaved && !window.confirm("Your latest changes aren't saved. Leave anyway?")) return;
-    router.push("/resume-builder");
+    router.push(env.listHref);
   };
 
   const keepMine = () => {
@@ -821,7 +830,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
   );
 
   return (
-    <div data-plan={plan} className="flex h-dvh min-h-0 flex-col bg-v2-canvas">
+    <div data-plan={plan} className="flex h-full min-h-0 flex-1 flex-col bg-v2-canvas">
       <EditorTopBar
         status={status}
         savedAt={state.savedAt ?? loadedAt}
@@ -831,6 +840,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         onTogglePanel={togglePanel}
         panelRefs={panelRefs}
         showTailor={config.features.tailor}
+        approvalNotice={builderCaps.approvalNotice}
         onDownloadPdf={() => void downloadPdfFile(true)}
         onDownloadText={() => void downloadText(true)}
         exporting={exporting}
@@ -924,6 +934,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
               canUndo={canUndoEdit(state)}
               canRedo={canRedoEdit(state)}
               aiAllowed={config.aiAllowed}
+              aiVisible={builderCaps.ai}
               ai={rewrite.canvasAi}
               onAddSection={() => openAddFor("SUMMARY")}
               reorder={leftOpen && ui.leftPanel === "swap"}
@@ -1037,7 +1048,7 @@ export default function ResumeEditor({ initial, plan, config, aiUsageLine = null
         only={tips?.only ?? null}
         onClose={closeTips}
         onGoTo={goToTip}
-        trim={trimLongest}
+        trim={builderCaps.ai ? trimLongest : null}
         returnFocusTo={viewTipsRef}
       />
 

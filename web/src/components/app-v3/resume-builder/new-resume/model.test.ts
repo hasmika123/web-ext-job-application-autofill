@@ -138,7 +138,7 @@ describe("capNotice", () => {
     expect(capNotice({ count: 2, max: 3 }, "FREE")).toBeNull();
   });
   it("Free sees Pro; paid plans are told to archive one", () => {
-    expect(capNotice({ count: 3, max: 3 }, "FREE")).toEqual({ plan: "FREE", message: "You've reached 3 resumes — See Pro for more." });
+    expect(capNotice({ count: 3, max: 3 }, "FREE")).toEqual({ plan: "FREE", limit: 3, message: "You've reached 3 resumes — See Pro for more." });
     expect(capNotice({ count: 25, max: 25 }, "PRO")?.message).toContain("archive one to make room");
     expect(capNotice({ count: 50, max: 50 }, "AUTOPILOT")?.plan).toBe("AUTOPILOT");
   });

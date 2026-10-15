@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useState, type ComponentType, type ReactNode } from "react";
 import {
   Button,
@@ -10,9 +11,11 @@ import {
   CopyIcon,
   DonutChart,
   DownloadIcon,
+  Dialog,
   ErrorState,
   EyeIcon,
   FileTextIcon,
+  Input,
   LayoutGridIcon,
   LightbulbIcon,
   Menu,
@@ -34,12 +37,18 @@ import {
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
+import NewResumeSheet from "@/components/app-v3/resume-builder/NewResumeSheet";
+import { BuilderEnvProvider, consultantEnv, useBuilderEnv } from "@/components/app-v3/resume-builder/builderEnv";
+import CapDialog from "@/components/app-v3/resume-builder/list/CapDialog";
+import { EMPTY_PROFILE, capNotice, type CapNotice, type ProfileSummary, type ResumeChoice, type SourceId } from "@/components/app-v3/resume-builder/new-resume/model";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { BASE, BeeCard, Card, Empty, Pill, TABLE, TD, TableHead, useWorkspaceData } from "./parts";
 import { EditSheet, PreviewSheet } from "./ResumesSheets";
 import { firstName } from "@/lib/ent/consultant-ws/home";
 import {
   ACTIVITY_LABELS,
+  approveResume,
+  requestResumeChanges,
   SORT_OPTIONS,
   VISIBILITY_LABELS,
   changeText,
@@ -187,12 +196,18 @@ const TEXT_BTN = "inline-flex min-h-8 items-center rounded-lg border border-line
 interface RowActions {
   busy: number | null;
   onView: (r: ResumeRow) => void;
+  /** Opens the resume in the Resume Builder (inside this workspace); a record with no builder document opens its details instead. */
   onEdit: (r: ResumeRow) => void;
+  /** The name / visibility sheet. */
+  onDetails: (r: ResumeRow) => void;
   onDuplicate: (r: ResumeRow) => void;
   onDownload: (r: ResumeRow) => void;
   onPrint: (r: ResumeRow) => void;
   onShare: (r: ResumeRow) => void;
   onPrimary: (r: ResumeRow) => void;
+  /** A resume a marketer made for the consultant: approve it, or send it back. */
+  onApprove: (r: ResumeRow) => void;
+  onSendBack: (r: ResumeRow) => void;
 }
 
 function ResumeTable({ rows, actions }: { rows: ResumeRow[]; actions: RowActions }) {
@@ -212,7 +227,13 @@ function ResumeTable({ rows, actions }: { rows: ResumeRow[]; actions: RowActions
                     <span className="min-w-0">
                       <span className="block truncate font-semibold">{r.title}</span>
                       <span className="block truncate text-[12px] text-muted">{r.targetRole ?? ""}</span>
-                      {r.approvalStatus === "PENDING" ? <span className="block text-[11.5px] font-medium text-v2-amber-ink">Awaiting approval</span> : null}
+                      {r.awaitingMyApproval ? (
+                        <span className="block text-[11.5px] font-medium text-v2-amber-ink" data-awaiting-me>
+                          Made for you &middot; waiting for your approval
+                        </span>
+                      ) : r.approvalStatus === "PENDING" ? (
+                        <span className="block text-[11.5px] font-medium text-v2-amber-ink">Awaiting approval</span>
+                      ) : null}
                     </span>
                   </span>
                 </td>
@@ -244,6 +265,16 @@ function ResumeTable({ rows, actions }: { rows: ResumeRow[]; actions: RowActions
                     <button type="button" className={TEXT_BTN} aria-label={`Edit ${r.title}`} onClick={() => actions.onEdit(r)}>
                       Edit
                     </button>
+                    {r.awaitingMyApproval ? (
+                      <>
+                        <button type="button" className={TEXT_BTN} aria-label={`Approve ${r.title}`} disabled={off} onClick={() => actions.onApprove(r)} data-approve>
+                          Approve
+                        </button>
+                        <button type="button" className={TEXT_BTN} aria-label={`Send back ${r.title}`} disabled={off} onClick={() => actions.onSendBack(r)} data-send-back>
+                          Send back
+                        </button>
+                      </>
+                    ) : null}
                     <button type="button" className={ICON_BTN} aria-label={`Duplicate ${r.title}`} disabled={off} onClick={() => actions.onDuplicate(r)}>
                       <CopyIcon size={15} />
                     </button>
@@ -263,8 +294,8 @@ function ResumeTable({ rows, actions }: { rows: ResumeRow[]; actions: RowActions
                         </button>
                       }
                       items={[
-                        { label: "Set as primary", icon: <StarIcon size={15} />, disabled: r.primary, onSelect: () => actions.onPrimary(r) },
-                        { label: "Edit details", icon: <PencilIcon size={15} />, onSelect: () => actions.onEdit(r) },
+                        { label: "Set as primary", icon: <StarIcon size={15} />, disabled: r.primary || r.awaitingMyApproval, onSelect: () => actions.onPrimary(r) },
+                        { label: "Edit details", icon: <PencilIcon size={15} />, onSelect: () => actions.onDetails(r) },
                       ]}
                     />
                   </span>
@@ -391,11 +422,11 @@ function RecentActivity({ view }: { view: ResumesView }) {
 
 const QUICK_CLASS = "flex h-full min-h-[68px] w-full flex-col gap-1 rounded-xl border border-line bg-paper p-2.5 text-left hover:bg-paper-2/60";
 
-function QuickActions({ onSoon }: { onSoon: (what: string) => void }) {
-  const items: { key: string; label: string; hint: string; icon: ComponentType<IconProps>; href?: string; soon?: string }[] = [
-    { key: "create", label: "Create New Resume", hint: "Start from scratch", icon: FileTextIcon, soon: "Creating a resume from scratch" },
-    { key: "template", label: "Use a Template", hint: "Professional templates", icon: LayoutGridIcon, soon: "Resume templates" },
-    { key: "import", label: "Import Resume", hint: "Upload from your device", icon: UploadIcon, soon: "Importing a resume" },
+function QuickActions({ onNew }: { onNew: (source?: SourceId) => void }) {
+  const items: { key: string; label: string; hint: string; icon: ComponentType<IconProps>; href?: string; source?: SourceId | "any" }[] = [
+    { key: "create", label: "Create New Resume", hint: "Start from scratch", icon: FileTextIcon, source: "scratch" },
+    { key: "template", label: "Use a Template", hint: "Professional templates", icon: LayoutGridIcon, source: "any" },
+    { key: "import", label: "Import Resume", hint: "Upload from your device", icon: UploadIcon, source: "upload" },
     { key: "tailor", label: "Tailor for a Job", hint: "Customize for opportunity", icon: TargetIcon, href: `${BASE}/matches` },
   ];
   return (
@@ -419,7 +450,7 @@ function QuickActions({ onSoon }: { onSoon: (what: string) => void }) {
                   {body}
                 </Link>
               ) : (
-                <button type="button" data-quick={q.key} className={QUICK_CLASS} onClick={() => onSoon(q.soon ?? q.label)}>
+                <button type="button" data-quick={q.key} className={QUICK_CLASS} onClick={() => onNew(q.source === "any" ? undefined : q.source)}>
                   {body}
                 </button>
               )}
@@ -433,14 +464,42 @@ function QuickActions({ onSoon }: { onSoon: (what: string) => void }) {
 
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
 
+/** What the new-resume chooser needs, read on the server from the one builder's own data (profile counts, the template default, the license's cap). */
+export interface ConsultantBuilderData {
+  profile: ProfileSummary;
+  defaultTemplateId: string;
+  /** The live resumes the account holds and the organization license's cap, as the API reports them. */
+  cap: { count: number; max: number };
+  targetSuggestions: string[];
+}
+
 export interface ResumesPageProps {
   orgId: number;
   firstName: string;
+  builder?: ConsultantBuilderData;
 }
 
-export default function ConsultantResumesPage({ orgId, firstName: first }: ResumesPageProps) {
+const NO_BUILDER: ConsultantBuilderData = { profile: EMPTY_PROFILE, defaultTemplateId: "modern", cap: { count: 0, max: Number.MAX_SAFE_INTEGER }, targetSuggestions: [] };
+
+/** My Resumes, and the one Resume Builder reached from it: create (from my profile, an upload, a copy or scratch) and edit run INSIDE this workspace. */
+export default function ConsultantResumesPage(props: ResumesPageProps) {
+  return (
+    <BuilderEnvProvider env={consultantEnv(props.orgId)}>
+      <ResumesPageBody {...props} />
+    </BuilderEnvProvider>
+  );
+}
+
+function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: ResumesPageProps) {
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchResumes(orgId), [orgId]));
   const toast = useToast();
+  const router = useRouter();
+  const env = useBuilderEnv();
+  const [newOpen, setNewOpen] = useState(false);
+  const [newSource, setNewSource] = useState<SourceId | undefined>(undefined);
+  const [limit, setLimit] = useState<CapNotice | null>(null);
+  const [sendBack, setSendBack] = useState<ResumeRow | null>(null);
+  const [note, setNote] = useState("");
   const [sort, setSort] = useState<SortKey>("updated");
   const [busy, setBusy] = useState<number | null>(null);
   const [previewFor, setPreviewFor] = useState<ResumeRow | null>(null);
@@ -449,7 +508,20 @@ export default function ConsultantResumesPage({ orgId, firstName: first }: Resum
   const [editFor, setEditFor] = useState<ResumeRow | null>(null);
   const loading = status === "loading";
 
-  const soon = (what: string) => toast({ title: `${what} is coming soon`, description: "For now you can duplicate a resume or change its details from the table." });
+  /** "New resume": the license's cap is checked BEFORE the chooser opens (a stale count is still caught by the server's 402). */
+  const openNew = (source?: SourceId) => {
+    const live = Math.max(builder.cap.count, view?.resumes.filter((r) => r.resumeId !== null).length ?? 0);
+    const notice = capNotice({ count: live, max: builder.cap.max }, "ORGANIZATION");
+    if (notice) {
+      setLimit(notice);
+      return;
+    }
+    setNewSource(source);
+    setNewOpen(true);
+  };
+  const choices: ResumeChoice[] = (view?.resumes ?? [])
+    .filter((r) => r.resumeId !== null)
+    .map((r) => ({ id: r.resumeId as number, name: r.title, kind: "BUILT" as const, updatedAt: r.updatedAt, score: null, templateId: null }));
   const failed = (message: string) => toast({ title: message, variant: "error" });
 
   const loadPreview = useCallback(
@@ -519,7 +591,35 @@ export default function ConsultantResumesPage({ orgId, firstName: first }: Resum
     const res = await duplicateResume(orgId, r.id);
     setBusy(null);
     if (!res.ok) return failed(res.message);
-    toast({ title: "Resume duplicated", description: "The copy is private and waits for approval.", variant: "success" });
+    toast({ title: "Resume duplicated", description: r.resumeId !== null ? "You can edit the copy in the builder." : "The copy is private and waits for approval.", variant: "success" });
+    void reload();
+  };
+
+  /** Edit opens the builder (same tab, same shell); a record with no builder document opens its details sheet. */
+  const onEdit = (r: ResumeRow) => {
+    if (r.resumeId !== null) router.push(env.editorHref(r.resumeId));
+    else setEditFor(r);
+  };
+
+  const onApprove = async (r: ResumeRow) => {
+    setBusy(r.id);
+    const res = await approveResume(orgId, r.id);
+    setBusy(null);
+    if (!res.ok) return failed(res.message);
+    toast({ title: "Approved", description: "This version of the resume is ready to use.", variant: "success" });
+    void reload();
+  };
+
+  const submitSendBack = async () => {
+    const r = sendBack;
+    if (!r) return;
+    setBusy(r.id);
+    const res = await requestResumeChanges(orgId, r.id, note.trim() || undefined);
+    setBusy(null);
+    if (!res.ok) return failed(res.message);
+    setSendBack(null);
+    setNote("");
+    toast({ title: "Sent back to your marketer", variant: "success" });
     void reload();
   };
 
@@ -534,7 +634,22 @@ export default function ConsultantResumesPage({ orgId, firstName: first }: Resum
 
   if (status === "denied") return <ErrorState what="your workspace" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
 
-  const actions: RowActions = { busy, onView, onEdit: setEditFor, onDuplicate: (r) => void onDuplicate(r), onDownload, onPrint, onShare, onPrimary: (r) => void makePrimary(r.id) };
+  const actions: RowActions = {
+    busy,
+    onView,
+    onEdit,
+    onDetails: setEditFor,
+    onDuplicate: (r) => void onDuplicate(r),
+    onDownload,
+    onPrint,
+    onShare,
+    onPrimary: (r) => void makePrimary(r.id),
+    onApprove: (r) => void onApprove(r),
+    onSendBack: (r) => {
+      setNote("");
+      setSendBack(r);
+    },
+  };
 
   return (
     <div data-consultant-resumes data-status={status} className="flex flex-col gap-4 sm:gap-5">
@@ -547,7 +662,7 @@ export default function ConsultantResumesPage({ orgId, firstName: first }: Resum
       ) : (
         <>
           <div className="flex justify-end">
-            <Button variant="accent" className="w-full sm:w-auto" onClick={() => soon("Creating a resume from scratch")} data-create-resume>
+            <Button variant="accent" className="w-full sm:w-auto" onClick={() => openNew()} data-create-resume>
               <PlusIcon size={16} className="mr-1.5" />
               Create New Resume
             </Button>
@@ -582,7 +697,7 @@ export default function ConsultantResumesPage({ orgId, firstName: first }: Resum
               </div>
               <div className="grid min-w-0 content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-1">
                 <BeeCard name={firstName(first)} body="Create, tailor, and optimize your resumes for every opportunity. Get expert tips, improve your content, and make your resume stand out." />
-                <QuickActions onSoon={soon} />
+                <QuickActions onNew={openNew} />
               </div>
             </div>
           ) : (
@@ -594,6 +709,36 @@ export default function ConsultantResumesPage({ orgId, firstName: first }: Resum
           )}
         </>
       )}
+
+      <NewResumeSheet
+        open={newOpen}
+        onClose={() => setNewOpen(false)}
+        profile={builder.profile}
+        resumes={choices}
+        defaultTemplateId={builder.defaultTemplateId}
+        targetSuggestions={builder.targetSuggestions}
+        initialSource={newSource}
+        onLimit={setLimit}
+      />
+      <CapDialog notice={limit} max={builder.cap.max} onManage={() => setLimit(null)} onClose={() => setLimit(null)} />
+      <Dialog
+        open={sendBack !== null}
+        onClose={() => setSendBack(null)}
+        title="Send this resume back?"
+        description="Your marketer sees it as needing an update. Tell them what to change (optional)."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setSendBack(null)}>
+              Cancel
+            </Button>
+            <Button variant="accent" onClick={() => void submitSendBack()} disabled={busy !== null}>
+              Send back
+            </Button>
+          </>
+        }
+      >
+        <Input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} placeholder="e.g. Please add my 2019 role" aria-label="What should change" />
+      </Dialog>
 
       <PreviewSheet
         open={previewFor !== null}

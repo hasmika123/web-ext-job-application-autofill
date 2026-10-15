@@ -307,7 +307,7 @@ public class ResumeBoardQueryService {
             ResumeBoardDTO.PersonRef owner = r.getOwnerMemberId() == null ? null : new ResumeBoardDTO.PersonRef(r.getOwnerMemberId(), names.getOrDefault(r.getOwnerMemberId(), "Member " + r.getOwnerMemberId()));
             out.add(new ResumeBoardDTO.Row(
                 r.getId(), cons, r.getName(), r.getFileName(), r.getTargetRole(), r.getVersionNo() == null ? 1 : r.getVersionNo(), r.isPrimaryForOrg(), r.getVisibility(),
-                r.getApprovalStatus(), r.getCreatedAt(), r.getUpdatedAt(), owner, r.getFileSizeKb()
+                r.getApprovalStatus(), r.getCreatedAt(), r.getUpdatedAt(), owner, r.getFileSizeKb(), r.getResumeId()
             ));
         }
         return out;
