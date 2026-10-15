@@ -42,10 +42,33 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
   const iso = (d) => new Date(d).toISOString();
   const when = (a) => new Date(a).getTime();
 
-  function record(a, kind, fromStatus, toStatus, source, refId, summary, at = new Date().toISOString()) {
-    EVENTS.push({ id: nextEvent++, applicationId: a.id, kind, fromStatus: fromStatus ?? null, toStatus: toStatus ?? null, source, refId: refId ?? null, summary: String(summary ?? "").slice(0, 200), createdAt: at });
+  // Change audit (docs/change-audit/README.md): every event names who did it. The demo account is "Priya Sharma" (account id 101).
+  const ME = { userId: 101, label: "Priya Sharma", kind: "PERSON" };
+  const MARKETER = { userId: null, label: "Sarah Chen", kind: "PERSON", relation: "marketer" };
+  const NON_PERSON = (kind) => ({ userId: null, label: "Kiwiply", kind });
+  /** The actor a channel implies when the caller does not say: the person in the web app or the extension, the inbox, the platform. */
+  const actorOf = (source) => (source === "INBOX" ? NON_PERSON("MAIL") : source === "ASSISTANT" ? NON_PERSON("ASSISTANT") : source === "SYSTEM" ? NON_PERSON("SYSTEM") : ME);
+
+  function record(a, kind, fromStatus, toStatus, source, refId, summary, at = new Date().toISOString(), actor = actorOf(source), changes = null) {
+    EVENTS.push({
+      id: nextEvent++,
+      applicationId: a.id,
+      kind,
+      fromStatus: fromStatus ?? null,
+      toStatus: toStatus ?? null,
+      source,
+      refId: refId ?? null,
+      summary: String(summary ?? "").slice(0, 200),
+      createdAt: at,
+      actor,
+      actorKind: actor.kind,
+      onBehalfOf: null,
+      changes,
+    });
     if (!a.lastEventAt || when(at) > when(a.lastEventAt)) a.lastEventAt = at;
   }
+  /** Who last changed it: the actor of the newest event (the real API stamps the head record; the mock reads it from the history). */
+  const lastActor = (a) => EVENTS.filter((e) => e.applicationId === a.id).sort((x, y) => when(y.createdAt) - when(x.createdAt) || y.id - x.id)[0]?.actor ?? NON_PERSON("SYSTEM");
   const words = (s) => ({ DRAFT: "Draft", SAVED: "Saved", APPLIED: "Applied", IN_REVIEW: "In review", INTERVIEW: "Interview", OFFER: "Offer", REJECTED: "Rejected", WITHDRAWN: "Withdrawn" })[s] ?? s;
 
   // ---- seed: a believable history for the demo applications ------------------------------------------------
@@ -57,6 +80,17 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
       record(a, "STATUS", "APPLIED", a.status, "INBOX", null, `Moved to ${words(a.status)} - from an email`, new Date(when(a.appliedAt) + 2 * DAY).toISOString());
     }
     a.lastEventAt ??= a.updatedAt;
+  }
+  // A marketer set one application's next step, and the extension moved another (so the demo shows both kinds of "Updated ... by ...").
+  if (APPLICATIONS[1]) {
+    const a = APPLICATIONS[1];
+    a.updatedAt = new Date(Date.now() - 5 * 3600_000).toISOString();
+    record(a, "FIELD", null, null, "WEB", null, "Next step: Follow up with the recruiter", a.updatedAt, MARKETER, [{ f: "nextAction" }, { f: "nextActionAt", to: a.updatedAt }]);
+  }
+  if (APPLICATIONS[2]) {
+    const a = APPLICATIONS[2];
+    a.updatedAt = new Date(Date.now() - 3 * DAY).toISOString();
+    record(a, "STATUS", "DRAFT", "APPLIED", "EXTENSION", null, "Moved to Applied", a.updatedAt, NON_PERSON("EXTENSION"), [{ f: "status", from: "DRAFT", to: "APPLIED" }]);
   }
   const byId = (id) => APPLICATIONS.find((a) => a.id === Number(id));
   const seedInterview = (a, kind, daysFromNow, minutes, outcome, interviewer, location) => {
@@ -92,7 +126,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
     return null;
   }
   function enrich(a) {
-    const out = { ...a, ghosted: isGhosted(a), interviewsCount: INTERVIEWS.filter((i) => i.applicationId === a.id).length, notesCount: NOTES.filter((n) => n.applicationId === a.id).length, mailCount: 0 };
+    const out = { ...a, createdBy: ME, updatedBy: lastActor(a), ghosted: isGhosted(a), interviewsCount: INTERVIEWS.filter((i) => i.applicationId === a.id).length, notesCount: NOTES.filter((n) => n.applicationId === a.id).length, mailCount: 0 };
     const step = nextStep(a);
     if (step) out.nextStep = step;
     return out;
@@ -246,6 +280,14 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
   }
 
   // ---- detail, patch, bulk -----------------------------------------------------------------------------------------
+  /** The full, paged history of one application (newest first): the same rows the detail shows, without its 50-row cap. */
+  function history(res, a, url) {
+    const all = EVENTS.filter((e) => e.applicationId === a.id).sort((x, y) => when(y.createdAt) - when(x.createdAt) || y.id - x.id);
+    const size = Math.max(1, Math.min(Number(url.searchParams.get("size")) || 50, 100));
+    const page = Math.max(0, Number(url.searchParams.get("page")) || 0);
+    return json(res, 200, { items: all.slice(page * size, page * size + size), total: all.length, page, size });
+  }
+
   function detail(res, a) {
     const events = EVENTS.filter((e) => e.applicationId === a.id).sort((x, y) => when(y.createdAt) - when(x.createdAt) || y.id - x.id).slice(0, 50);
     const notes = NOTES.filter((n) => n.applicationId === a.id).sort((x, y) => Number(y.pinned) - Number(x.pinned) || when(y.createdAt) - when(x.createdAt));
@@ -425,7 +467,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
       return true;
     }
     const feed = path.match(/^\/api\/profile\/interviews(?:\/(\d+)\/ics)?$/); // the cross-application interview list / .ics
-    const m = feed ? null : path.match(/^\/api\/profile\/applications(?:\/(activity|bulk|\d+)(?:\/(notes|interviews)(?:\/(\d+)(?:\/(outcome))?)?)?)?$/);
+    const m = feed ? null : path.match(/^\/api\/profile\/applications(?:\/(activity|bulk|\d+)(?:\/(notes|interviews|events)(?:\/(\d+)(?:\/(outcome))?)?)?)?$/);
     if (!feed && !m) return false;
     const isInterviewFeed = Boolean(feed);
     const [, arg, sub, subId, action] = m ?? [];
@@ -436,6 +478,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
           (arg === "activity" && method === "GET") ||
           (arg === "bulk" && method === "POST") ||
           (/^\d+$/.test(arg ?? "") && !sub && (method === "GET" || method === "PATCH")) ||
+          (sub === "events" && !subId && method === "GET") ||
           (sub === "notes" && (subId ? ["PUT", "DELETE"] : ["POST"]).includes(method)) ||
           (sub === "interviews" && (subId ? (action ? method === "POST" : ["PUT", "DELETE"].includes(method)) : method === "POST"));
     if (!known) return false; // everything else is refused like any other mock write (or 404s)
@@ -468,6 +511,7 @@ export function createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, fi
       if (arg === "bulk") return bulk(res, b);
       const a = isEmpty(req) ? null : byId(arg); // a brand-new account owns no application
       if (!a) return notFound(res);
+      if (sub === "events" && !subId && method === "GET") return history(res, a, url);
       if (!sub) {
         if (method === "GET") return detail(res, a);
         if (applyPatch(res, a, b) === true) return undefined; // refused: the response is already sent

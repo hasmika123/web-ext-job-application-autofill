@@ -31,8 +31,10 @@ import {
   type ApplicationPatch,
   type ApplicationStatus,
 } from "@/lib/applications";
+import type { Viewer } from "@/lib/actors";
 import { undoToast } from "@/lib/undo-toast";
 import { usePhone } from "../resume-builder/usePhone";
+import UpdatedBy from "./UpdatedBy";
 import EmailsTab from "./EmailsTab";
 import InterviewTab from "./InterviewTab";
 import NextStepCard, { OfferOutcome } from "./NextStepCard";
@@ -52,6 +54,8 @@ export interface ApplicationDetailProps {
   /** The list row for it, so the header paints before the detail arrives. */
   seed?: Application | null;
   isPro: boolean;
+  /** The signed-in account (id and login): "you" in "Updated 2h ago by you" is decided by comparing it with the actor. */
+  me?: Viewer | null;
   onClose(): void;
   /** A field of this application changed: the list row follows without a refetch. */
   onRow(id: number, patch: Partial<Application>): void;
@@ -85,8 +89,9 @@ export default function ApplicationDetail(props: ApplicationDetailProps) {
   );
 }
 
-function DetailBody({ id, seed, isPro, onRow, onStale, onMeta }: ApplicationDetailProps & { id: number; onMeta(m: { id: number; roleTitle: string; company: string }): void }) {
+function DetailBody({ id, seed, isPro, me, onRow, onStale, onMeta }: ApplicationDetailProps & { id: number; onMeta(m: { id: number; roleTitle: string; company: string }): void }) {
   const toast = useToast();
+  const phone = usePhone();
   const [detail, setDetail] = useState<ApplicationDetailData | null>(null);
   const [failure, setFailure] = useState<{ status?: number; message: string } | null>(null);
   const [tab, setTab] = useState<TabId>("timeline");
@@ -131,24 +136,36 @@ function DetailBody({ id, seed, isPro, onRow, onStale, onMeta }: ApplicationDeta
       setNow(Date.now());
       setDetail((d) =>
         d
-          ? { ...d, events: r.data.events, nextStep: r.data.nextStep, ghosted: r.data.ghosted, lastEventAt: r.data.lastEventAt, suggestions: r.data.suggestions }
+          ? {
+              ...d,
+              events: r.data.events,
+              nextStep: r.data.nextStep,
+              ghosted: r.data.ghosted,
+              lastEventAt: r.data.lastEventAt,
+              suggestions: r.data.suggestions,
+              updatedAt: r.data.updatedAt,
+              updatedBy: r.data.updatedBy,
+            }
           : r.data,
       );
-      onRow(id, { nextStep: r.data.nextStep ?? null, ghosted: r.data.ghosted ?? null, lastEventAt: r.data.lastEventAt });
+      onRow(id, { nextStep: r.data.nextStep ?? null, ghosted: r.data.ghosted ?? null, lastEventAt: r.data.lastEventAt, updatedAt: r.data.updatedAt, updatedBy: r.data.updatedBy ?? null });
     });
   }, [id, onRow]);
 
   /** PATCH with an optimistic edit; on refusal the edit is rolled back and the reason toasted. */
   async function patch(change: ApplicationPatch, optimistic: Partial<Application>, rollback: Partial<Application>, failTitle: string): Promise<boolean> {
-    merge(optimistic);
+    // The header line follows at once: "Updated just now by you" before the server answers (and back again if it refuses).
+    const before: Partial<Application> = { updatedAt: app?.updatedAt ?? null, updatedBy: app?.updatedBy ?? null };
+    setNow(Date.now());
+    merge({ ...optimistic, updatedAt: new Date().toISOString(), updatedBy: { userId: me?.id ?? null, label: "you", kind: "PERSON" } });
     const r = await patchApplication(id, change);
     if (r.kind === "ok") {
-      merge({ updatedAt: r.data.updatedAt, appliedAt: r.data.appliedAt, outcome: r.data.outcome ?? null, acceptedAt: r.data.acceptedAt ?? null });
+      merge({ updatedAt: r.data.updatedAt, updatedBy: r.data.updatedBy ?? null, appliedAt: r.data.appliedAt, outcome: r.data.outcome ?? null, acceptedAt: r.data.acceptedAt ?? null });
       refreshEvents();
       onStale();
       return true;
     }
-    merge(rollback);
+    merge({ ...rollback, ...before });
     toast({ title: failTitle, description: r.message, variant: "error" });
     return false;
   }
@@ -235,6 +252,15 @@ function DetailBody({ id, seed, isPro, onRow, onStale, onMeta }: ApplicationDeta
                 {app.archived && <StatusChip tone="slate">Archived</StatusChip>}
                 {app.ghosted && <StatusChip tone="amber">Gone quiet</StatusChip>}
               </div>
+              <UpdatedBy
+                updatedAt={app.updatedAt}
+                actor={app.updatedBy}
+                me={me}
+                now={now}
+                phone={phone}
+                onOpenTimeline={() => go("timeline")}
+                className="mt-1.5"
+              />
             </div>
             <Tooltip content={app.starred ? "Remove star" : "Star this application"}>
               <IconButton
@@ -294,7 +320,7 @@ function DetailBody({ id, seed, isPro, onRow, onStale, onMeta }: ApplicationDeta
           />
 
           <div hidden={tab !== "timeline"} role="tabpanel" aria-label="Timeline">
-            <TimelineTab events={detail.events} now={now} />
+            <TimelineTab events={detail.events} now={now} me={me} applicationId={id} phone={phone} />
           </div>
           {visited.has("notes") && (
             <div hidden={tab !== "notes"} role="tabpanel" aria-label="Notes">

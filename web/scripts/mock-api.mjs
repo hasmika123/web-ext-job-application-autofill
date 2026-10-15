@@ -41,6 +41,7 @@ const ago = (d) => new Date(Date.now() - d * DAY).toISOString();
 
 const ACCOUNTS = {
   demo: {
+    id: 101,
     login: "demo",
     email: "demo@kiwiply.com",
     firstName: "Priya",
@@ -49,6 +50,7 @@ const ACCOUNTS = {
     activated: true,
   },
   "demo-org": {
+    id: 102,
     login: "demo-org",
     email: "demo-org@kiwiply.com",
     firstName: "Anika",
@@ -105,12 +107,14 @@ const demoOrgNotFound = (res) => json(res, 404, { status: 404, code: "NOT_FOUND"
 
 const DEMO_ACCOUNTS = [
   {
+    id: 101,
     login: "demo",
     label: "Job seeker (Priya Sharma)",
     description: "A ready-made job search: a profile, resumes and an application board.",
     landing: "/dashboard",
   },
   {
+    id: 102,
     login: "demo-org",
     label: "Organization admin",
     description: "The organization admin: people, boards and reports.",

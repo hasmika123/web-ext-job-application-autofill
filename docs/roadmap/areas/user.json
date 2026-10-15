@@ -3689,7 +3689,7 @@
       "id": "U6.14",
       "epic": "U6",
       "title": "\"Updated … by …\" on the application header, list rows and timeline entries (390 / 1440); shared actorText helper; system and act-for wording",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"
