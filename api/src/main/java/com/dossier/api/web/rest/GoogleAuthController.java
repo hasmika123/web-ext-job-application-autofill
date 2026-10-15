@@ -1,8 +1,10 @@
 package com.dossier.api.web.rest;
 
+import com.dossier.api.security.LoginWorld;
 import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.User;
 import com.dossier.api.security.AuthoritiesConstants;
+import com.dossier.api.service.AccountScopes;
 import com.dossier.api.service.DemoAccountService;
 import com.dossier.api.service.GoogleIdTokenService;
 import com.dossier.api.service.TokenIssuer;
@@ -49,14 +51,17 @@ public class GoogleAuthController {
     private final TokenIssuer tokenIssuer;
     private final DemoAccountService demoAccountService;
     private final ObjectProvider<TenantSessionService> tenantSessions;
+    private final AccountScopes accountScopes;
 
     public GoogleAuthController(
         GoogleIdTokenService googleIdTokenService,
         UserService userService,
         TokenIssuer tokenIssuer,
         DemoAccountService demoAccountService,
-        ObjectProvider<TenantSessionService> tenantSessions
+        ObjectProvider<TenantSessionService> tenantSessions,
+        AccountScopes accountScopes
     ) {
+        this.accountScopes = accountScopes;
         this.tenantSessions = tenantSessions;
         this.googleIdTokenService = googleIdTokenService;
         this.userService = userService;
@@ -85,14 +90,31 @@ public class GoogleAuthController {
             if (demoAccountService.isDemoIdentifier(profile.email())) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
-            User user = userService.findOrCreateGoogleUser(profile.email(), profile.firstName(), profile.lastName());
+            // O4: on a SEPARATE organization's host Google finds that organization's enterprise account by its verified address, and only finds:
+            // it never creates one and never looks at personal accounts. No such account = the same 401 as any other refused credential.
+            LoginWorld world = accountScopes.loginWorld();
+            User user;
+            if (world.enterprise()) {
+                user = userService.findActiveEnterpriseAccount(world.orgId(), profile.email()).orElse(null);
+                if (user == null) {
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+                }
+            } else {
+                user = userService.findOrCreateGoogleUser(profile.email(), profile.firstName(), profile.lastName());
+            }
             String authorities = user.getAuthorities().stream().map(Authority::getName).collect(Collectors.joining(" "));
             if (authorities.isBlank()) {
                 authorities = AuthoritiesConstants.USER;
             }
             // X1.5: on a tenant host the sign-in needs an active seat there and the tokens carry tid/hid (NOT_A_MEMBER = 403).
             TenantSessionService sessions = tenantSessions.getIfAvailable();
-            Optional<TenantBinding> binding = sessions == null ? Optional.empty() : sessions.bindingForLogin(user.getId(), user.getLogin());
+            Optional<TenantBinding> binding;
+            if (world.enterprise()) {
+                if (sessions == null) throw OrgException.notAMember();
+                binding = Optional.of(sessions.bindingForEnterpriseAccount(user.getOrgId(), user.getId(), user.getLogin()));
+            } else {
+                binding = sessions == null ? Optional.empty() : sessions.bindingForLogin(user.getId(), user.getLogin());
+            }
             TokenIssuer.TokenPair pair = tokenIssuer.issue(user.getLogin(), authorities, user.getId(), binding.orElse(null));
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.setBearerAuth(pair.accessToken());

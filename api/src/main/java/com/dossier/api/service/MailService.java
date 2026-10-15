@@ -88,6 +88,10 @@ public class MailService {
     }
 
     private void sendEmailFromTemplateSync(User user, String templateName, String titleKey) {
+        sendEmailFromTemplateSync(user, templateName, titleKey, jHipsterProperties.getMail().getBaseUrl());
+    }
+
+    private void sendEmailFromTemplateSync(User user, String templateName, String titleKey, String baseUrl) {
         if (user.getEmail() == null) {
             LOG.debug("Email doesn't exist for user '{}'", user.getLogin());
             return;
@@ -95,7 +99,7 @@ public class MailService {
         Locale locale = Locale.forLanguageTag(user.getLangKey());
         Context context = new Context(locale);
         context.setVariable(USER, user);
-        context.setVariable(BASE_URL, jHipsterProperties.getMail().getBaseUrl());
+        context.setVariable(BASE_URL, baseUrl);
         String content = templateEngine.process(templateName, context);
         String subject = messageSource.getMessage(titleKey, null, locale);
         sendEmailSync(user.getEmail(), subject, content, false, true);
@@ -189,6 +193,12 @@ public class MailService {
         context.setVariable("subject", subject);
         String content = templateEngine.process("mail/orgInviteEmail", context);
         sendEmailSync(to, subject, content, false, true);
+    }
+
+    @Async
+    public void sendPasswordResetMail(User user, String baseUrl) {
+        LOG.debug("Sending password reset email to '{}' (organization host)", user.getEmail());
+        sendEmailFromTemplateSync(user, "mail/passwordResetEmail", "email.reset.title", baseUrl);
     }
 
     @Async

@@ -4,7 +4,11 @@ import com.dossier.api.domain.User;
 import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
+import com.dossier.api.security.LoginWorld;
+import com.dossier.api.security.LoginWorldProvider;
 import com.dossier.api.service.settings.EnterpriseSettingKeys;
+import com.dossier.api.service.ent.TenantContext;
+import com.dossier.api.service.ent.TenantContextHolder;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +21,7 @@ import org.springframework.stereotype.Service;
  * lookup it was before. Fails closed: a settings or database error reads as "personal".
  */
 @Service
-public class AccountScopes {
+public class AccountScopes implements LoginWorldProvider {
 
     private static final Logger LOG = LoggerFactory.getLogger(AccountScopes.class);
 
@@ -55,5 +59,33 @@ public class AccountScopes {
     /** The account with {@code email} among {@code orgId}'s members' accounts (see {@link #scopeOf}). */
     public Optional<User> findMemberAccountByEmail(Long orgId, String email) {
         return users.findOneByScopeAndEmail(scopeOf(orgId), email);
+    }
+
+    /** The world of the current request ({@link LoginWorld}). */
+    @Override
+    public LoginWorld loginWorld() {
+        if (!separateAccountsEnabled()) return LoginWorld.LEGACY;
+        Long scope = TenantContextHolder.current().filter(TenantContext::isTenant).map(c -> scopeOf(c.orgId())).orElse(null);
+        return new LoginWorld(true, scope);
+    }
+
+    /**
+     * The world check for a token carrying {@code tid} (null for none) on a request with this tenant context (decision O4, docs/enterprise-v2/19 section 1.4):
+     * the host of a SEPARATE organization takes only that organization's enterprise tokens; any other host refuses an enterprise token (the
+     * extension's {@code ext=1} allow-list is a later phase). Switch off: always true.
+     */
+    public boolean tokenFitsWorld(Long tid, Optional<TenantContext> context) {
+        if (!separateAccountsEnabled()) return true;
+        if (context.isPresent() && context.get().isTenant()) {
+            Long hostScope = scopeOf(context.get().orgId());
+            return hostScope == null || hostScope.equals(tid);
+        }
+        return tid == null || scopeOf(tid) == null;
+    }
+
+    /** Whether a token's {@code tid} is the right one for an account whose {@code org_id} is {@code accountOrgId} (an enterprise account's tid is its org; a personal token never has an enterprise tid). */
+    public boolean tokenFitsAccount(Long tid, Long accountOrgId) {
+        if (accountOrgId != null) return accountOrgId.equals(tid);
+        return tid == null || scopeOf(tid) == null;
     }
 }

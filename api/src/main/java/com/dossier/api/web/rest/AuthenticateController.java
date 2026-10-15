@@ -1,5 +1,6 @@
 package com.dossier.api.web.rest;
 
+import com.dossier.api.security.LoginWorld;
 import static com.dossier.api.security.SecurityUtils.ACCESS_TOKEN_TYPE;
 import static com.dossier.api.security.SecurityUtils.AUTHORITIES_CLAIM;
 import static com.dossier.api.security.SecurityUtils.HOSTNAME_CLAIM;
@@ -11,6 +12,7 @@ import static com.dossier.api.security.SecurityUtils.PASSWORD_CHANGE_CLAIM;
 import static com.dossier.api.security.SecurityUtils.USER_ID_CLAIM;
 
 import com.dossier.api.security.DomainUserDetailsService.UserWithId;
+import com.dossier.api.service.AccountScopes;
 import com.dossier.api.service.AdminMfaService;
 import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.RefreshTokenService;
@@ -95,6 +97,13 @@ public class AuthenticateController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.dossier.api.repository.UserRepository userRepository;
 
+    // Field-injected and optional for the same reason (the pinned slice): the O4 account-world services. Absent = legacy behaviour.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.AccountScopes accountScopes;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.web.filter.ScopedLoginThrottle loginThrottle;
+
     public AuthenticateController(
         JwtEncoder jwtEncoder,
         @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
@@ -126,7 +135,21 @@ public class AuthenticateController {
             loginVM.getPassword()
         );
 
+        // O4: while separate accounts are in force, failed attempts are counted per (world, address), so one world's hammering never locks the other.
+        String throttleKey = null;
+        if (accountScopes != null && loginThrottle != null) {
+            LoginWorld world = accountScopes.loginWorld();
+            if (world.enforced()) {
+                throttleKey = com.dossier.api.web.filter.ScopedLoginThrottle.key(world.key(), loginVM.getUsername());
+                long retryAfter = loginThrottle.hit(throttleKey);
+                if (retryAfter > 0) {
+                    return ResponseEntity.status(429).header("Retry-After", Long.toString(retryAfter)).build();
+                }
+            }
+        }
+
         Authentication authentication = authenticationManagerBuilder.getObject().authenticate(authenticationToken);
+        if (throttleKey != null) loginThrottle.clear(throttleKey);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         String authorities = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.joining(" "));
@@ -189,7 +212,19 @@ public class AuthenticateController {
 
     private Optional<TenantBinding> bindingFor(Long userId, String login, boolean auditInvite) {
         TenantSessionService sessions = tenantSessions.getIfAvailable();
+        // O4: an enterprise account's tid is its own org_id (never the host's) and it has no tid-less invitation variant.
+        Long accountOrgId = enterpriseOrgOf(userId);
+        if (accountOrgId != null) {
+            if (sessions == null) throw com.dossier.api.service.org.OrgException.notAMember();
+            return Optional.of(sessions.bindingForEnterpriseAccount(accountOrgId, userId, login));
+        }
         return sessions == null ? Optional.empty() : sessions.bindingForLogin(userId, login, inviteHeader(), auditInvite);
+    }
+
+    /** The organization of the signed-in ENTERPRISE account, or null (personal account, or separate accounts not in force). */
+    private Long enterpriseOrgOf(Long userId) {
+        if (accountScopes == null || userRepository == null || userId == null || !accountScopes.separateAccountsEnabled()) return null;
+        return userRepository.findById(userId).map(com.dossier.api.domain.User::getOrgId).orElse(null);
     }
 
     /** The {@code X-Kiwiply-Invite} header of the current request (the invite token a not-yet-member signs in with, X1.8), or null. */
@@ -231,6 +266,17 @@ public class AuthenticateController {
         // Only a refresh token may be exchanged here — an access token must not.
         if (!REFRESH_TOKEN_TYPE.equals(jwt.getClaimAsString(TOKEN_TYPE_CLAIM))) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        // O4: with separate accounts in force, a refresh token only works in its own world (host) and for an account whose org_id is its tid.
+        Object worldUid = jwt.getClaim(USER_ID_CLAIM);
+        if (accountScopes != null && userRepository != null && accountScopes.separateAccountsEnabled()) {
+            Long worldUserId = worldUid instanceof Number n ? n.longValue() : null;
+            com.dossier.api.domain.User account = worldUserId == null ? null : userRepository.findById(worldUserId).orElse(null);
+            Long worldTid = longClaim(jwt, TENANT_CLAIM);
+            if (account == null || !accountScopes.tokenFitsAccount(worldTid, account.getOrgId()) || !accountScopes.tokenFitsWorld(worldTid, com.dossier.api.service.ent.TenantContextHolder.current())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
         }
 
         // X1.5: a tenant-bound refresh token only works on its own tenant's host, while the seat is still active, and keeps its binding.

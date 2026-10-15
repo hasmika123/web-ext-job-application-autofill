@@ -1,12 +1,16 @@
 package com.dossier.api.web.rest;
 
+import com.dossier.api.security.LoginWorld;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.AccountScopes;
 import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.MailService;
 import com.dossier.api.service.UserService;
 import com.dossier.api.service.dto.AdminUserDTO;
+import com.dossier.api.service.ent.TenantUrls;
+import com.dossier.api.service.org.OrgNotFoundException;
 import com.dossier.api.service.dto.PasswordChangeDTO;
 import com.dossier.api.web.rest.errors.*;
 import com.dossier.api.web.rest.vm.KeyAndPasswordVM;
@@ -43,7 +47,20 @@ public class AccountResource {
 
     private final DemoGuard demoGuard;
 
-    public AccountResource(UserRepository userRepository, UserService userService, MailService mailService, DemoGuard demoGuard) {
+    private final AccountScopes accountScopes;
+
+    private final TenantUrls tenantUrls;
+
+    public AccountResource(
+        UserRepository userRepository,
+        UserService userService,
+        MailService mailService,
+        DemoGuard demoGuard,
+        AccountScopes accountScopes,
+        TenantUrls tenantUrls
+    ) {
+        this.accountScopes = accountScopes;
+        this.tenantUrls = tenantUrls;
         this.userRepository = userRepository;
         this.userService = userService;
         this.mailService = mailService;
@@ -61,6 +78,10 @@ public class AccountResource {
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public void registerAccount(@Valid @RequestBody ManagedUserVM managedUserVM) {
+        // O4: an organization's host never offers sign-up (its accounts come from an administrator or an invitation): the same 404 as no such route.
+        if (accountScopes.loginWorld().enterprise()) {
+            throw new OrgNotFoundException();
+        }
         if (isPasswordLengthInvalid(managedUserVM.getPassword())) {
             throw new InvalidPasswordException();
         }
@@ -148,9 +169,16 @@ public class AccountResource {
      */
     @PostMapping(path = "/account/reset-password/init")
     public void requestPasswordReset(@RequestBody String mail) {
-        Optional<User> user = userService.requestPasswordReset(mail);
+        // O4: the reset is looked up inside the host's own world only; an address that exists only in the other world gets the same silent 200.
+        LoginWorld world = accountScopes.loginWorld();
+        Optional<User> user = userService.requestPasswordReset(world.orgId(), mail);
         if (user.isPresent()) {
-            mailService.sendPasswordResetMail(user.orElseThrow());
+            if (world.enterprise()) {
+                // the link must lead back to the organization's own host (the only place this account can sign in or finish the reset)
+                mailService.sendPasswordResetMail(user.orElseThrow(), tenantUrls.base(world.orgId()));
+            } else {
+                mailService.sendPasswordResetMail(user.orElseThrow());
+            }
         } else {
             // Pretend the request has been successful to prevent checking which emails really exist
             // but log that an invalid attempt has been made
@@ -170,7 +198,7 @@ public class AccountResource {
         if (isPasswordLengthInvalid(keyAndPassword.getNewPassword())) {
             throw new InvalidPasswordException();
         }
-        Optional<User> user = userService.completePasswordReset(keyAndPassword.getNewPassword(), keyAndPassword.getKey());
+        Optional<User> user = userService.completePasswordReset(keyAndPassword.getNewPassword(), keyAndPassword.getKey(), accountScopes.loginWorld());
 
         if (!user.isPresent()) {
             throw new AccountResourceException("No user was found for this reset key");

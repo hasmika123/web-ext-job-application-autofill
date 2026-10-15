@@ -67,6 +67,17 @@ public class TenantSessionService {
         return Optional.of(new TenantBinding(c.orgId(), c.hostnameId()));
     }
 
+    /**
+     * The binding for a sign-in by an ENTERPRISE account of {@code accountOrgId} (decision O4): {@code tid} comes from the account's own
+     * {@code org_id}, never from the host, and the account has no tid-less variant (no invitation exception): without an active seat in that
+     * organization it is the ordinary {@code 403 NOT_A_MEMBER}. A host that does not bind the same organization is refused the same way.
+     */
+    public TenantBinding bindingForEnterpriseAccount(Long accountOrgId, Long userId, String login) {
+        TenantBinding hostBinding = bindingForLogin(userId, login, null, false).orElse(null);
+        if (hostBinding == null || accountOrgId == null || !accountOrgId.equals(hostBinding.orgId())) throw OrgException.notAMember();
+        return new TenantBinding(accountOrgId, hostBinding.hostnameId());
+    }
+
     private boolean hasLiveInvite(Long orgId, String token) {
         if (token == null || !InviteTokens.looksLikeToken(token)) return false;
         return members

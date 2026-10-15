@@ -3,6 +3,7 @@ package com.dossier.api.security;
 import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.UserRepository;
+import org.springframework.beans.factory.ObjectProvider;
 import java.util.*;
 import org.hibernate.validator.internal.constraintvalidators.hv.EmailValidator;
 import org.slf4j.Logger;
@@ -24,9 +25,12 @@ public class DomainUserDetailsService implements UserDetailsService {
     private static final Logger LOG = LoggerFactory.getLogger(DomainUserDetailsService.class);
 
     private final UserRepository userRepository;
+    // Optional so a hand-wired slice without the account-scope service keeps the legacy (personal) lookups.
+    private final ObjectProvider<LoginWorldProvider> accountScopes;
 
-    public DomainUserDetailsService(UserRepository userRepository) {
+    public DomainUserDetailsService(UserRepository userRepository, ObjectProvider<LoginWorldProvider> accountScopes) {
         this.userRepository = userRepository;
+        this.accountScopes = accountScopes;
     }
 
     @Override
@@ -34,10 +38,18 @@ public class DomainUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(final String login) {
         LOG.debug("Authenticating {}", login);
 
-        if (new EmailValidator().isValid(login, null)) {
-            return userRepository
-                // Until host-scoped sign-in (O4 phase S3) every email sign-in is a personal-account sign-in.
-                .findOneWithAuthoritiesByOrgIdIsNullAndEmailIgnoreCase(login)
+        // O4 (docs/enterprise-v2/19 1.4): the HOST decides the world. Switch off: the legacy lookups. Switch on: a SEPARATE organization's tenant host
+        // sees that organization's enterprise accounts only, every other host sees personal accounts only. An account of the other world is simply "not
+        // found" here, so it ends in the same BadCredentialsException (and the provider's dummy-hash timing) as an unknown user.
+        LoginWorldProvider scopes = accountScopes.getIfAvailable();
+        LoginWorld world = scopes == null ? LoginWorld.LEGACY : scopes.loginWorld();
+
+        // an enterprise login (ent#<orgId>#<email>) is a login even though it looks like an address
+        boolean enterpriseLogin = login != null && login.strip().toLowerCase(Locale.ROOT).startsWith("ent#");
+        if (!enterpriseLogin && new EmailValidator().isValid(login, null)) {
+            return (world.enterprise()
+                    ? userRepository.findOneWithAuthoritiesByOrgIdAndEmailIgnoreCase(world.orgId(), login)
+                    : userRepository.findOneWithAuthoritiesByOrgIdIsNullAndEmailIgnoreCase(login))
                 .map(user -> createSpringSecurityUser(login, user))
                 .orElseThrow(() -> new UsernameNotFoundException("User with email " + login + " was not found in the database"));
         }
@@ -45,6 +57,7 @@ public class DomainUserDetailsService implements UserDetailsService {
         String lowercaseLogin = login.toLowerCase(Locale.ENGLISH);
         return userRepository
             .findOneWithAuthoritiesByLogin(lowercaseLogin)
+            .filter(user -> !world.enforced() || Objects.equals(user.getOrgId(), world.orgId()))
             .map(user -> createSpringSecurityUser(lowercaseLogin, user))
             .orElseThrow(() -> new UsernameNotFoundException("User " + lowercaseLogin + " was not found in the database"));
     }
@@ -59,6 +72,7 @@ public class DomainUserDetailsService implements UserDetailsService {
     public static class UserWithId extends org.springframework.security.core.userdetails.User {
 
         private final Long id;
+        private Long orgId;
         private boolean passwordChangeRequired;
         private boolean tempPasswordExpired;
 
@@ -81,6 +95,11 @@ public class DomainUserDetailsService implements UserDetailsService {
             return id;
         }
 
+        /** The organization this ENTERPRISE account belongs to, or null for a personal account. */
+        public Long getOrgId() {
+            return orgId;
+        }
+
         @Override
         public boolean equals(Object obj) {
             return super.equals(obj);
@@ -98,6 +117,7 @@ public class DomainUserDetailsService implements UserDetailsService {
                 user.getAuthorities().stream().map(Authority::getName).map(SimpleGrantedAuthority::new).toList(),
                 user.getId()
             );
+            principal.orgId = user.getOrgId();
             principal.passwordChangeRequired = user.isPasswordChangeRequired();
             principal.tempPasswordExpired = user.isPasswordChangeRequired() && user.getPasswordTempExpiresAt() != null && user.getPasswordTempExpiresAt().isBefore(java.time.Instant.now());
             return principal;

@@ -1,5 +1,6 @@
 package com.dossier.api.config;
 
+import com.dossier.api.service.AccountScopes;
 import com.dossier.api.service.ent.TenantContext;
 import com.dossier.api.service.ent.TenantContextHolder;
 import jakarta.servlet.FilterChain;
@@ -10,6 +11,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -33,7 +35,21 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
     /** X2.2: the shell's session contract is a tenant route even though it has no organization id in its path (a token without tid is 401 there, as on /api/orgs). */
     private static final String TENANT_SESSION_PATH = "/api/me/tenant";
 
+    /** O4 world check: a personal token on an enterprise host, or an enterprise token on a platform host (401, same body on every route). */
+    public static final String WRONG_WORLD = "TOKEN_WRONG_WORLD";
+
     private static final Pattern ORG_SCOPED = Pattern.compile("^/api/(orgs/[0-9]+(/.*)?|ent(/.*)?)$");
+
+    // Absent in the hand-wired security slices: then there is no world check, exactly the pre-O4 rules.
+    private final ObjectProvider<AccountScopes> accountScopes;
+
+    public TenantTokenBindingFilter() {
+        this(null);
+    }
+
+    public TenantTokenBindingFilter(ObjectProvider<AccountScopes> accountScopes) {
+        this.accountScopes = accountScopes;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
@@ -46,6 +62,13 @@ public class TenantTokenBindingFilter extends OncePerRequestFilter {
         String path = pathOf(request);
         Long tid = TenantTokenBinding.tenantOf(jwtAuth.getToken());
         TenantContext c = context.get();
+        // O4 (docs/enterprise-v2/19 1.4): with separate accounts in force a token must come from the world of the host it is presented on.
+        // The extension's ext=1 enterprise tokens on a platform host get their allow-list in phase S6; until then they are refused too.
+        AccountScopes scopes = accountScopes == null ? null : accountScopes.getIfAvailable();
+        if (scopes != null && !c.isExplicitlyUnknown() && !scopes.tokenFitsWorld(tid, context)) {
+            unauthorized(response, WRONG_WORLD);
+            return;
+        }
         if (c.isTenant()) {
             if (OrgsEnabledFilter.isOrgPath(path) || path.equals("/api/ent") || path.startsWith("/api/ent/") || path.equals(TENANT_SESSION_PATH)) {
                 if (tid == null && isJoin(path)) {

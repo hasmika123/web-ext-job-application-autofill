@@ -1,5 +1,6 @@
 package com.dossier.api.service;
 
+import com.dossier.api.security.LoginWorld;
 import com.dossier.api.config.Constants;
 import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.User;
@@ -69,9 +70,18 @@ public class UserService {
     }
 
     public Optional<User> completePasswordReset(String newPassword, String key) {
+        return completePasswordReset(newPassword, key, LoginWorld.LEGACY);
+    }
+
+    /**
+     * Finish a reset inside one account world (decision O4): a key that belongs to an account of the other world is "no such key", so a
+     * reset link can not be spent on the wrong host. {@code LEGACY} (switch off) accepts any key, as before.
+     */
+    public Optional<User> completePasswordReset(String newPassword, String key, LoginWorld world) {
         LOG.debug("Reset user password for reset key {}", key);
         return userRepository
             .findOneByResetKey(key)
+            .filter(user -> !world.enforced() || java.util.Objects.equals(user.getOrgId(), world.orgId()))
             .filter(user -> user.getResetDate().isAfter(Instant.now().minus(1, ChronoUnit.DAYS)))
             .map(user -> {
                 user.setPassword(passwordEncoder.encode(newPassword));
@@ -85,8 +95,13 @@ public class UserService {
     }
 
     public Optional<User> requestPasswordReset(String mail) {
+        return requestPasswordReset(null, mail);
+    }
+
+    /** Start a reset for the account with {@code mail} in ONE world: {@code scope} is an organization id (its enterprise accounts) or null (personal). */
+    public Optional<User> requestPasswordReset(Long scope, String mail) {
         return userRepository
-            .findOneByOrgIdIsNullAndEmailIgnoreCase(mail) // personal accounts only until host-scoped reset (O4 phase S3)
+            .findOneByScopeAndEmail(scope, mail)
             .filter(User::isActivated)
             .map(user -> {
                 user.setResetKey(RandomUtil.generateResetKey());
@@ -94,6 +109,13 @@ public class UserService {
                 this.clearUserCaches(user);
                 return user;
             });
+    }
+
+    /** The ACTIVATED enterprise account of {@code orgId} with this (Google-verified) address, authorities loaded; empty for anything else. Never creates one. */
+    @Transactional(readOnly = true)
+    public Optional<User> findActiveEnterpriseAccount(Long orgId, String email) {
+        if (orgId == null || email == null) return Optional.empty();
+        return userRepository.findOneWithAuthoritiesByOrgIdAndEmailIgnoreCase(orgId, email).filter(User::isActivated);
     }
 
     public User registerUser(AdminUserDTO userDTO, String password) {

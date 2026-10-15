@@ -596,8 +596,8 @@ public final class ResumeBuilderSettingKeys {
         integer(k, ORG_INVITE_MAX_PER_BATCH, 200, 1, 500, "Emails in one invite call.");
         integer(k, ORG_INVITE_DAILY_CAP, 1000, 10, 10000, "Invite emails one organization may send in 24 hours (sends and re-sends).");
         integer(k, ORG_INVITE_EXPIRY_DAYS, 14, 1, 90, "Days an emailed invite link works.");
-        integer(k, ORG_TEMP_PASSWORD_EXPIRY_DAYS, 7, 1, 30, "Days an administrator-issued temporary password works before the person has to ask for a new one.");
-        integer(k, ORG_ACCOUNT_CREATE_PER_HOUR, 30, 1, 500, "Accounts an organization may create directly for people (with a temporary password) per hour, and resets of such passwords. Over it the call is refused with ORG_LIMIT_REACHED.");
+        integer(k, ORG_TEMP_PASSWORD_EXPIRY_DAYS, 7, 1, 30, "Days an administrator-issued temporary sign-in code works before the person has to ask for a new one.");
+        integer(k, ORG_ACCOUNT_CREATE_PER_HOUR, 30, 1, 500, "Accounts an organization may create directly for people (with a temporary sign-in code) per hour, and resets of such codes. Over it the call is refused with ORG_LIMIT_REACHED.");
         integer(k, ORG_INVITE_RESENDS_PER_WEEK, 3, 1, 20, "Re-sends of one invite per week.");
         integer(k, ORG_INVITE_DRAFT_ADMIN_CAP, 3, 1, 10, "Admins that may be invited before the organization is activated.");
         integer(k, ORG_JOIN_CODE_LENGTH, 8, 6, 8, "Characters in a join code.");

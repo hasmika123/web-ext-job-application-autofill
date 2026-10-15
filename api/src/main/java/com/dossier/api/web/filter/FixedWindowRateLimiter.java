@@ -60,6 +60,11 @@ public class FixedWindowRateLimiter {
         }
     }
 
+    /** Forget the counter of {@code key} (a successful sign-in clears its own failure count). */
+    public void reset(String key) {
+        windows.remove(key);
+    }
+
     /** Drop counters whose window has fully elapsed so the map can't grow unbounded. */
     private void maybeSweep(long now) {
         long last = lastSweepMs.get();

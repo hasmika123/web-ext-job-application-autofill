@@ -3,6 +3,8 @@ package com.dossier.api.config;
 import static org.springframework.security.config.Customizer.withDefaults;
 
 import com.dossier.api.security.*;
+import com.dossier.api.service.AccountScopes;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -35,7 +37,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc, ObjectProvider<AccountScopes> accountScopes) throws Exception {
         http
             .cors(withDefaults())
             .csrf(csrf -> csrf.disable())
@@ -95,7 +97,7 @@ public class SecurityConfiguration {
             )
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()))
             // Enterprise V2 (X1.5): after bearer authentication, keep tenant-bound tokens on their own tenant's routes.
-            .addFilterAfter(new TenantTokenBindingFilter(), BearerTokenAuthenticationFilter.class)
+            .addFilterAfter(new TenantTokenBindingFilter(accountScopes), BearerTokenAuthenticationFilter.class)
             // Administrator-issued temporary password: the session can only change it (PASSWORD_CHANGE_REQUIRED everywhere else).
             .addFilterAfter(new PasswordChangeRequiredFilter(), BearerTokenAuthenticationFilter.class);
         return http.build();
