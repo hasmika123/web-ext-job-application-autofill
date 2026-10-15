@@ -1,3 +1,4 @@
+> **Subscription Module (2026-10-15, branch `subscription-design`, design only — Sonnet builds): start from [`HANDOFF-SUBSCRIPTIONS.md`](HANDOFF-SUBSCRIPTIONS.md)** — one catalog of services, plans built in admin, per-seat add-ons, retirement lifecycle; roadmap area `sub` (prefix `K`), decisions in `subscriptions/decisions-for-user.md`.
 > **▶ CONTINUING ON ANOTHER MACHINE / NEXT SESSION (2026-10-12): start from [`HANDOFF-CONTINUE.md`](HANDOFF-CONTINUE.md)** — branch map, how to move the local-only branches, the Enterprise V2 next steps ([`ENTERPRISE-V2-REQUIREMENTS.md`](ENTERPRISE-V2-REQUIREMENTS.md)), user decisions, open questions.
 > **Enterprise V2 (2026-10-12, local `enterprise-v2`, design only — Sonnet builds): start from
 > [`HANDOFF-ENTERPRISE-V2.md`](HANDOFF-ENTERPRISE-V2.md)** — audit, 23 ADRs, foundation design, phase plan,
