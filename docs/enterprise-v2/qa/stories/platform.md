@@ -378,3 +378,11 @@ Temporary passwords are read from the shown-once dialog at run time and never pr
 | APP-04b | Reset owner password before first sign-in: new password shown once | AUTOMATED |
 | APP-05 | Suspend a hostname (address answers 404 at once) and resume it, each with a reason | AUTOMATED |
 | APP-06 | 390 px: cards, bottom sheets, no sideways scroll | AUTOMATED |
+
+## Create organization leaves personal accounts untouched (S9, decision O4; described only, no spec yet)
+
+### PLT-55 The platform admin creates an organization for an owner who has a personal Kiwiply account
+- **Persona:** the app admin. **Preconditions:** a personal account `owner@example.test` exists with its own password and a resume. **Steps:** 1. Create organization with that owner address. 2. Read the shown-once dialog: the hint says this is a new organization account, separate from any personal Kiwiply account. 3. Copy the temporary password; sign in at the new address, choose a password.
+- **Expected:** the dialog always shows a temporary password (never "no password was issued ... existing account"); the owner's personal account still signs in on kiwiply.com with its old password, keeps its resume and has no new membership; the platform `/org` console and the admin customer lists show nothing for the new enterprise account.
+- **Pages / APIs:** `/admin/organizations`, `POST /api/admin/organizations`.
+- **Status: STORY-ONLY**

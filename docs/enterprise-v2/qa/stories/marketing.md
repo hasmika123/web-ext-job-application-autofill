@@ -241,3 +241,13 @@ Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: 
 | AUTOMATED | 27 (MKT-01..06, 10..16, 20..26, 30..36) |
 | BLOCKED | 6 (MKT-42, 43, 45, 46, 47, 48: the last two not yet run in a browser) |
 | NOT-BUILT | 3 (MKT-40, 41, 44) |
+
+## Invitation creates the organization account (S9, decision O4; described only, no spec yet)
+
+### MKT-49 A newly invited marketer accepts the invitation: the account is created with the password they choose
+- **Persona:** Mina (new Marketing Specialist, address not yet in Acme). **Goal:** join Acme from the emailed link.
+- **Preconditions:** Acme is a SEPARATE organization with `enterprise.separate_accounts` on; an Org Admin invited Mina with the Marketing Specialist role; the invitation link is `https://acme.localhost/join/t/{token}`.
+- **Steps:** 1. Open the link signed out. 2. Read the card: Acme's logo, "{inviter} invited you to join Acme Staffing", role, and the note that a new Acme account is created, separate from any personal Kiwiply account. 3. Continue, choose a password (a 3-character one and mismatched ones are refused inline), Continue. 4. Choose what Acme can see (default "Only that I joined"), press "Create my account and join". 5. Land on the Marketing home.
+- **Expected:** there is no "sign in with your existing account" step; the response carries Acme's tenant session (cookies written by the web, never shown); the member row is ACTIVE with the invited role; Mina can sign out and back in with her email and the chosen password; an expired or revoked link shows one generic message. If Mina also has a personal Kiwiply account with the same address, it is unchanged (still signs in on kiwiply.com with its own password).
+- **Pages / APIs:** `/join/t/{token}`, `GET /api/join/{token}` (createsAccount true), `POST /api/join/{token}/accept` via `/api/join/{token}/accept` (BFF).
+- **Status: STORY-ONLY (S10 automates and runs it on the QA stack)**

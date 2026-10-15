@@ -310,3 +310,16 @@ is the unchanged flow behind ADM-15..18 (those stories now pick that mode first)
 | ADM-19b | The employee signs in on the tenant host, is held on Choose your password (pages come back, the API answers 403 PASSWORD_CHANGE_REQUIRED), chooses a password, lands on `/w/hr`; the temporary password no longer works; Reset Password now says they chose their own | AUTOMATED |
 
 Not built: the invitation form has no Team or Manager field (department only), so ADM-19 sets role and department.
+
+## Tenant forgot-password and the separate account (S9, decision O4; described only, no spec yet)
+
+### ADM-92 Forgot password on the tenant host resets only the Acme account
+- **Persona:** Sam (Acme employee who also has a personal Kiwiply account with the same address). **Goal:** reset the Acme password.
+- **Steps:** 1. Open `acme.localhost/login`: the subtitle says "Sign in to your Acme Staffing account" and a note says it is separate from any personal Kiwiply account. 2. Press "Forgot password?" and enter Sam's address; the confirmation says "If an account for ... exists at Acme Staffing" and is identical for an unknown address. 3. Open the emailed link (it is on the Acme address, `/reset-password?key=...`), choose a new password (rules: 4-100 characters, both fields equal). 4. Sign in at Acme with the new password.
+- **Expected:** the Acme sign-in works with the new password only; the old Acme password is refused; on kiwiply.com Sam's personal password is unchanged and still works; a reset key of the personal account opened on the Acme host fails like an unknown key ("invalid or has expired"), and vice versa; the page never says whether an account exists in the other world.
+- **Pages / APIs:** `/forgot-password`, `/reset-password` (tenant), `POST /api/auth/forgot-password`, `POST /api/auth/reset-password` (both forward the tenant host).
+- **Status: STORY-ONLY (S10 automates and runs it on the QA stack)**
+
+### ADM-93 The admin dialogs describe a new, separate organization account
+- **Persona:** Olivia (Org Admin). **Steps:** open Invitations, mode "Create account now". **Expected:** the helper line says the organization account is created now with a temporary password and that any personal Kiwiply account the person has is not touched or linked; the result is always the shown-once temporary-password dialog (no "already has a Kiwiply account" outcome for a SEPARATE organization).
+- **Status: STORY-ONLY**
