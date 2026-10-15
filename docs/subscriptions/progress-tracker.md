@@ -19,7 +19,7 @@
 ## Decisions
 **Answered (user, 2026-10-15):** S-01 annual ON · S-03 no existing subscribers · S-17 · S-19 Free + read-only lock · S-20 retire-to-Free default.
 **Open and able to pause a story:** S-09 tax mode before the first yearly invoice (K9.6 self-check) · S-11 fee model (K3.2 default SIMPLE) · S-21 alternative retirement outcomes (K10.9). Full table: `decisions-for-user.md`.
-**`CLAUDE.md` amendment for S-01** is pending the user's session (text in `decisions-for-user.md`).
+**`CLAUDE.md` amendment for S-01** is applied (commit bfc1adac, 2026-10-15).
 
 ## Stories
 | id | title (short) | status | owner | commit | tests | notes |

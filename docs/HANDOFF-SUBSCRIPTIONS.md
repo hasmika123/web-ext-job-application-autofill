@@ -34,8 +34,7 @@
 on no response · S-20 retirement wizard defaults to retire-to-Free (KEEP_INDEFINITELY optional).
 **Still open:** S-06 which add-ons get prices, S-09 tax mode before the first yearly invoice, S-11 fee model,
 S-21 alternative retirement outcomes, plus the rest of `decisions-for-user.md`.
-**Pending user action:** apply the S-01 amendment sentence to `CLAUDE.md` (text in `decisions-for-user.md`;
-this design session does not edit `CLAUDE.md`).
+**Done:** the S-01 amendment is applied to `CLAUDE.md` (commit bfc1adac, coordinator session, 2026-10-15).
 
 ## Where things are
 | What | Where |
