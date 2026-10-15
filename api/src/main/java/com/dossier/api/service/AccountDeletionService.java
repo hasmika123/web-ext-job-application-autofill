@@ -69,6 +69,7 @@ public class AccountDeletionService {
     private final OrgMembershipPrivacyService orgMembershipPrivacyService;
     private final TrackerDataService trackerDataService;
     private final com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService;
+    private final com.dossier.api.repository.ExtConnectCodeRepository extConnectCodeRepository;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -96,7 +97,8 @@ public class AccountDeletionService {
         ResumeBuilderDataService resumeBuilderDataService,
         OrgMembershipPrivacyService orgMembershipPrivacyService,
         TrackerDataService trackerDataService,
-        com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService
+        com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService,
+        com.dossier.api.repository.ExtConnectCodeRepository extConnectCodeRepository
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -124,6 +126,7 @@ public class AccountDeletionService {
         this.orgMembershipPrivacyService = orgMembershipPrivacyService;
         this.trackerDataService = trackerDataService;
         this.jobSearchDataService = jobSearchDataService;
+        this.extConnectCodeRepository = extConnectCodeRepository;
     }
 
     /**
@@ -209,6 +212,7 @@ public class AccountDeletionService {
             .map(User::getId)
             .ifPresent(id -> {
                 refreshTokenService.deleteAllForUser(id);
+                extConnectCodeRepository.deleteByUserId(id);
                 profileSuggestionService.deleteAllForUser(id);
                 resumeMatchService.deleteAllForUser(id);
                 jobFitService.deleteAllForUser(id);
@@ -257,6 +261,7 @@ public class AccountDeletionService {
         aiAnswerRepository.deleteAll(aiAnswerRepository.findByUserId(userId));
         fieldCacheRepository.deleteAll(fieldCacheRepository.findByUserId(userId));
         refreshTokenService.deleteAllForUser(userId);
+        extConnectCodeRepository.deleteByUserId(userId);
         profileSuggestionService.deleteAllForUser(userId);
         resumeMatchService.deleteAllForUser(userId);
         jobFitService.deleteAllForUser(userId);
@@ -271,6 +276,21 @@ public class AccountDeletionService {
         userService.deleteUser(login);
 
         LOG.info("Admin deleted account and all data for user: {}", login);
+    }
+
+    /**
+     * Erases ONE enterprise account of organization {@code orgId} (decision O4, phase S8): the retention job and an administrator's erase request.
+     * Same guarantees as {@link #deleteUserAccountByLogin} (it is that path), but the target is named by id AND organization, and the account must
+     * really be that organization's enterprise account: a personal account, or one of another organization, is the generic 404 and nothing is touched.
+     * Only this account's rows go; a personal account (or another organization's account) with the same email is a different row and stays whole.
+     * Returns nothing: the caller has already written its audit row.
+     */
+    public void deleteEnterpriseAccount(Long orgId, Long userId) {
+        User user = userId == null || orgId == null ? null : userRepository.findById(userId).orElse(null);
+        if (user == null || !orgId.equals(user.getOrgId())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such user");
+        }
+        deleteUserAccountByLogin(user.getLogin());
     }
 
     /** Application attachments are files too: remove their bytes via the storage seam before the rows go. */

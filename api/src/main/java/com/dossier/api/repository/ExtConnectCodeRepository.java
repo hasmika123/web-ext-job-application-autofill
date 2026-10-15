@@ -21,4 +21,9 @@ public interface ExtConnectCodeRepository extends JpaRepository<ExtConnectCode, 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from ExtConnectCode c where c.expiresAt < :cutoff")
     int deleteExpiredBefore(@Param("cutoff") Instant cutoff);
+
+    /** Account erasure: the account's connect codes go with it (the foreign key to the user has no cascade). */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from ExtConnectCode c where c.userId = :userId")
+    int deleteByUserId(@Param("userId") Long userId);
 }

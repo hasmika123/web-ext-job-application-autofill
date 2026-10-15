@@ -37,6 +37,7 @@ public class AccountExportService {
     private final OrgMembershipPrivacyService orgMembershipPrivacyService;
     private final TrackerDataService trackerDataService;
     private final com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper;
 
     public AccountExportService(
         UserService userService,
@@ -52,7 +53,8 @@ public class AccountExportService {
         ResumeBuilderDataService resumeBuilderDataService,
         OrgMembershipPrivacyService orgMembershipPrivacyService,
         TrackerDataService trackerDataService,
-        com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService
+        com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService,
+        com.fasterxml.jackson.databind.ObjectMapper mapper
     ) {
         this.userService = userService;
         this.profileService = profileService;
@@ -68,6 +70,25 @@ public class AccountExportService {
         this.orgMembershipPrivacyService = orgMembershipPrivacyService;
         this.trackerDataService = trackerDataService;
         this.jobSearchDataService = jobSearchDataService;
+        this.mapper = mapper;
+    }
+
+    /**
+     * The export of ONE named account, for an administrator to hand over when the person can no longer sign in (an offboarded enterprise account within
+     * its retention window, decision O4 phase S8). It is the person's own export, assembled by acting as that account for the duration of the call: every
+     * section is read by the account's login, so nothing of any other account (a personal one with the same address included) can appear. The previous
+     * security context is restored in every case.
+     */
+    public Map<String, Object> exportAccount(String login) {
+        org.springframework.security.core.context.SecurityContext previous = org.springframework.security.core.context.SecurityContextHolder.getContext();
+        org.springframework.security.core.context.SecurityContext acting = org.springframework.security.core.context.SecurityContextHolder.createEmptyContext();
+        acting.setAuthentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(login, null, java.util.List.of()));
+        org.springframework.security.core.context.SecurityContextHolder.setContext(acting);
+        try {
+            return exportCurrentUser();
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.setContext(previous);
+        }
     }
 
     public Map<String, Object> exportCurrentUser() {
@@ -76,7 +97,7 @@ public class AccountExportService {
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user"));
 
         Map<String, Object> account = new LinkedHashMap<>();
-        account.put("login", u.getLogin());
+        account.put("login", com.dossier.api.config.Constants.isEnterpriseLogin(u.getLogin()) ? null : u.getLogin()); // the synthetic ent# login is never shown
         account.put("email", u.getEmail());
         account.put("firstName", u.getFirstName());
         account.put("lastName", u.getLastName());
@@ -110,6 +131,31 @@ public class AccountExportService {
         // Org tenant model (O1.3): the organizations the user belongs to / belonged to, with role, state, dates and what they share (O6.1).
         out.put("organizations", orgMembershipPrivacyService.exportFor(u.getId(), u.getLogin()));
         out.put("aiAnswers", aiAnswerRepository.findByUserIsCurrentUser().stream().map(aiAnswerMapper::toDto).toList());
-        return out;
+        return com.dossier.api.config.Constants.isEnterpriseLogin(u.getLogin()) ? withoutSyntheticLogin(out, u.getLogin()) : out;
+    }
+
+    /**
+     * An enterprise account's login (ent#&lt;org&gt;#&lt;address&gt;) is an internal key, never shown to anyone: wherever the assembled export repeats it (the
+     * nested owner of a resume, for one), the value is blanked. Done on the JSON tree so no section has to know about it.
+     */
+    private Map<String, Object> withoutSyntheticLogin(Map<String, Object> out, String login) {
+        com.fasterxml.jackson.databind.JsonNode tree = mapper.valueToTree(out);
+        blank(tree, login);
+        return mapper.convertValue(tree, new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String, Object>>() {});
+    }
+
+    private static void blank(com.fasterxml.jackson.databind.JsonNode node, String login) {
+        if (node.isObject()) {
+            com.fasterxml.jackson.databind.node.ObjectNode object = (com.fasterxml.jackson.databind.node.ObjectNode) node;
+            java.util.List<String> names = new java.util.ArrayList<>();
+            object.fieldNames().forEachRemaining(names::add);
+            for (String name : names) {
+                com.fasterxml.jackson.databind.JsonNode child = object.get(name);
+                if (child.isTextual() && login.equals(child.asText())) object.putNull(name);
+                else blank(child, login);
+            }
+        } else if (node.isArray()) {
+            for (com.fasterxml.jackson.databind.JsonNode child : node) blank(child, login);
+        }
     }
 }

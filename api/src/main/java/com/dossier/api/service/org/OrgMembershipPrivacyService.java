@@ -84,7 +84,9 @@ public class OrgMembershipPrivacyService {
             members.saveAndFlush(m);
             erased++;
 
-            audit.record(m.getOrgId(), login, role, OrgAuditService.MEMBER_ERASED, OrgAuditService.TARGET_MEMBER, login, String.valueOf(m.getId()), "was " + was, null);
+            // An enterprise login (ent#<org>#<address>) carries the person's address: the erasure row names the seat instead (decision O4, S8).
+            String named = com.dossier.api.config.Constants.isEnterpriseLogin(login) ? "erased-account-" + m.getId() : login;
+            audit.record(m.getOrgId(), named, role, OrgAuditService.MEMBER_ERASED, OrgAuditService.TARGET_MEMBER, named, String.valueOf(m.getId()), "was " + was, null);
 
             if (role == OrgRole.OWNER && was == OrgMemberStatus.ACTIVE) suspendIfOwnerless(m.getOrgId());
         }

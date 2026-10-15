@@ -8076,6 +8076,28 @@
         }
       }
     },
+    "/api/orgs/{orgId}/members/{memberId}/account-erase" : {
+      "post" : {
+        "tags" : [ "members" ],
+        "summary" : "Erase an offboarded person's organization account now",
+        "description" : "members.remove. Erases that one enterprise account and its data before the retention window ends (the person's request); the seat stays as an anonymised history row. 404 for a seat the caller cannot reach; 409 NO_ENTERPRISE_ACCOUNT unless the seat has ended and holds an enterprise account of this organization. Audit ACCOUNT_ERASED, risk HIGH.",
+        "operationId" : "eraseMemberAccount",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/members/invite" : {
       "post" : {
         "tags" : [ "org-members" ],
@@ -19367,6 +19389,36 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ActivityPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/members/{memberId}/account-export" : {
+      "get" : {
+        "tags" : [ "members" ],
+        "summary" : "Export an offboarded person's organization account",
+        "description" : "members.remove. A JSON copy of that one enterprise account's data (profile, resumes, applications, notifications; the mailbox connection without any secret), for the administrator to hand to the person who can no longer sign in. Only while the account still exists (before the retention job erases it). 404 for a seat the caller cannot reach; 409 NO_ENTERPRISE_ACCOUNT unless the seat has ended and holds an enterprise account of this organization. Audit ACCOUNT_EXPORTED, risk HIGH.",
+        "operationId" : "exportMemberAccount",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
                 }
               }
             }

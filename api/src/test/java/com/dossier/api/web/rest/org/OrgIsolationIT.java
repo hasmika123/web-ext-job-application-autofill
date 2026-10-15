@@ -236,6 +236,10 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/members/{memberId}/reinstate", Case.people(200, "MEMBER_REINSTATE", 1, w -> "{\"reason\":\"Review finished\"}", null, w -> w.suspendMember())),
         Map.entry("GET /api/orgs/{orgId}/members/{memberId}/offboard-preview", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/members/{memberId}/offboard", Case.people(200, "MEMBER_REMOVE", 1, w -> "{\"reason\":\"Left the company\",\"confirm\":\"" + w.p + "-member\"}", null, null)),
+        // Decision O4, S8: an offboarded person's enterprise account. Every member of this world is ACTIVE (or a personal account of a legacy organization), so a legitimate call is the 409 NO_ENTERPRISE_ACCOUNT and writes nothing;
+        // the success paths (export, early erase, retention) are in AccountDeletionSeparateIT.
+        Map.entry("GET /api/orgs/{orgId}/members/{memberId}/account-export", Case.write(null, 409, null)),
+        Map.entry("POST /api/orgs/{orgId}/members/{memberId}/account-erase", Case.write(null, 409, null)),
         Map.entry("GET /api/orgs/{orgId}/members/offboarding", Case.read()),
         Map.entry("DELETE /api/orgs/{orgId}/members/offboarding/{offboardingId}", Case.people(204, "MEMBER_OFFBOARD_CANCELLED", 1, w -> null, null, null)),
         // Enterprise V2 X2.5: branding. Draft edits, discards and removing an absent asset write no audit row (by design).
