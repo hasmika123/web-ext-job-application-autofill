@@ -21,6 +21,8 @@ import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
 import com.dossier.api.service.privacy.SensitiveContent;
+import com.dossier.api.service.ent.applications.EntChangeActors;
+import com.dossier.api.service.tracker.Changes;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -77,20 +79,22 @@ public class MktSubmissionsService {
     private final MktSubmissionEventRepository events;
     private final MktSubmissionViewRepository views;
     private final OrgAuditService audit;
+    private final EntChangeActors changeActors;
     private final Clock clock;
 
     @Autowired
     public MktSubmissionsService(
         MktScope scope, AuthorizationService authorization, MktSubmissionRepository submissions, MktSubmissionEventRepository events,
-        MktSubmissionViewRepository views, OrgAuditService audit
+        MktSubmissionViewRepository views, OrgAuditService audit, EntChangeActors changeActors
     ) {
-        this(scope, authorization, submissions, events, views, audit, Clock.systemUTC());
+        this(scope, authorization, submissions, events, views, audit, changeActors, Clock.systemUTC());
     }
 
     MktSubmissionsService(
         MktScope scope, AuthorizationService authorization, MktSubmissionRepository submissions, MktSubmissionEventRepository events,
-        MktSubmissionViewRepository views, OrgAuditService audit, Clock clock
+        MktSubmissionViewRepository views, OrgAuditService audit, EntChangeActors changeActors, Clock clock
     ) {
+        this.changeActors = changeActors;
         this.scope = scope;
         this.authorization = authorization;
         this.submissions = submissions;
@@ -193,6 +197,8 @@ public class MktSubmissionsService {
             s.setResumeUpdatedAt(resume.getUpdatedAt());
         }
         s.setPreparedByMemberId(me.memberId());
+        s.setCreatedByMemberId(me.memberId());
+        s.setUpdatedByMemberId(me.memberId());
         s.setNote(note);
         s.setCreatedAt(now);
         s.setUpdatedAt(now);
@@ -345,7 +351,7 @@ public class MktSubmissionsService {
     }
 
     /** consultants, jobs and clients of a set of rows, read inside the organization. */
-    private record Lookups(Map<Long, ConsultantProfile> consultants, Map<Long, ClientRequirement> jobs, Map<Long, ClientAccount> clients) {}
+    private record Lookups(Map<Long, ConsultantProfile> consultants, Map<Long, ClientRequirement> jobs, Map<Long, ClientAccount> clients, EntChangeActors.Lookup actors) {}
 
     private Lookups lookups(Long orgId, Collection<MktSubmission> rows) {
         Map<Long, ConsultantProfile> c = new HashMap<>();
@@ -362,7 +368,13 @@ public class MktSubmissionsService {
             submissions.findRequirements(orgId, jIds).forEach(x -> j.put(x.getId(), x));
             submissions.findClients(orgId, aIds).forEach(x -> a.put(x.getId(), x));
         }
-        return new Lookups(c, j, a);
+        Set<Long> updaters = new LinkedHashSet<>();
+        List<EntChangeActors.Subject> subjects = new ArrayList<>();
+        for (MktSubmission x : rows) {
+            updaters.add(x.getUpdatedByMemberId());
+            subjects.add(new EntChangeActors.Subject(x.getConsultantId(), x.getPreparedByMemberId()));
+        }
+        return new Lookups(c, j, a, changeActors.load(orgId, updaters, subjects));
     }
 
     static String bucketOf(MktSubmission s) {
@@ -389,7 +401,8 @@ public class MktSubmissionsService {
             new ClientRef(s.getClientId(), a == null ? "Unknown client" : a.getName()),
             s.shownAt(), s.getApprovalState(),
             version == null ? null : new ResumeRef(s.getResumeId(), version, s.getResumeUpdatedAt()),
-            s.getStatus(), bucketOf(s), actionsOf(s)
+            s.getStatus(), bucketOf(s), actionsOf(s),
+            s.getUpdatedAt(), lk.actors().of(s.getUpdatedByMemberId(), null, new EntChangeActors.Subject(s.getConsultantId(), s.getPreparedByMemberId()))
         );
     }
 
@@ -614,8 +627,14 @@ public class MktSubmissionsService {
         return code;
     }
 
+    /**
+     * The one writer of a submission's history: the event (actor, PERSON, and what changed when it moved a field: approval state or status, from to)
+     * and the submission's own updated_by (change audit). The detail note is free text and stays on the event's own column, never in {@code changes}.
+     */
     private void event(MktSubmission s, String kind, String field, String from, String to, OrgMembership me, String detail, Instant at) {
-        events.save(MktSubmissionEvent.of(s.getOrgId(), s.getId(), kind, field, from, to, me.memberId(), detail, at));
+        s.setUpdatedByMemberId(me.memberId());
+        String changes = field == null ? null : new Changes().code(MktSubmissionEvent.FIELD_APPROVAL.equals(field) ? "approvalState" : "status", from, to).toJson();
+        events.save(MktSubmissionEvent.of(s.getOrgId(), s.getId(), kind, field, from, to, me.memberId(), detail, at, changes));
     }
 
     private void record(OrgMembership me, String action, MktSubmission s, String details) {

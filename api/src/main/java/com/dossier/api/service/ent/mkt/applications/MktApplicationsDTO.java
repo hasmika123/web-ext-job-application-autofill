@@ -1,5 +1,6 @@
 package com.dossier.api.service.ent.mkt.applications;
 
+import com.dossier.api.service.dto.ChangeActorDTO;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -19,9 +20,10 @@ public final class MktApplicationsDTO {
 
     public record StageRef(String key, String label) {}
 
+    /** {@code updatedAt} / {@code updatedBy}: when and by whom the row last changed; both null below FULL consent (only stage movements are shared there). */
     public record Row(
         Long id, String code, Consultant consultant, String role, String client, String source, LocalDate appliedOn, StageRef stage,
-        Person owner, String nextAction, LocalDate nextActionDue
+        Person owner, String nextAction, LocalDate nextActionDue, Instant updatedAt, ChangeActorDTO updatedBy
     ) {}
 
     public record Kpi(String key, long value, Double deltaPct, List<Long> sparkline) {}

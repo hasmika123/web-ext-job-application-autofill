@@ -84,7 +84,7 @@ class MktSubmissionsIT {
     private MktSubmissionsService service(Long orgId) {
         MktScope scope = mock(MktScope.class, org.mockito.Mockito.CALLS_REAL_METHODS);
         doReturn(new MktScope.View(orgId, memberOf(orgId), true, Set.of())).when(scope).resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq("submissions.record"));
-        return new MktSubmissionsService(scope, mock(AuthorizationService.class), submissions, events, views, audit);
+        return new MktSubmissionsService(scope, mock(AuthorizationService.class), submissions, events, views, audit, new com.dossier.api.service.ent.applications.EntChangeActors(org.mockito.Mockito.mock(com.dossier.api.repository.ent.EntChangeActorRepository.class), org.mockito.Mockito.mock(com.dossier.api.repository.UserRepository.class)));
     }
 
     private Long memberOf(Long orgId) {

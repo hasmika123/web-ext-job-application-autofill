@@ -1,5 +1,7 @@
 package com.dossier.api.service.ent.consultantws;
 
+import com.dossier.api.service.dto.ChangeActorDTO;
+import com.dossier.api.service.dto.TrackerDTOs.ChangeDTO;
 import com.dossier.api.service.ent.consultantws.ConsultantHomeDTO.Tile;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -52,8 +54,13 @@ public final class ConsultantApplicationsDTO {
         List<Update> recent
     ) {}
 
-    /** A stage-timeline entry (CREATED or STAGE_CHANGE only; notes are never shown). */
-    public record TimelineEntry(long id, String type, String fromStage, String toStage, String by, Instant at) {}
+    /**
+     * A stage-timeline entry (CREATED or STAGE_CHANGE only; notes are never shown). {@code by} is the original YOU | MARKETER | TEAM word (kept for the
+     * existing page); {@code actor} is who did it by name with the relation to this consultant (change audit, D7: the consultant sees an admin's edit by
+     * name), and {@code changes} lists the fields that changed.
+     */
+    public record TimelineEntry(long id, String type, String fromStage, String toStage, String by, Instant at, ChangeActorDTO actor, List<ChangeDTO> changes) {}
 
-    public record Detail(Row row, Instant createdAt, Instant stageChangedAt, List<TimelineEntry> timeline) {}
+    /** {@code updatedAt} / {@code updatedBy} / {@code createdBy} say who last changed this application and who added it (names, never an enterprise login). */
+    public record Detail(Row row, Instant createdAt, Instant stageChangedAt, List<TimelineEntry> timeline, Instant updatedAt, ChangeActorDTO updatedBy, ChangeActorDTO createdBy) {}
 }

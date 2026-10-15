@@ -22,6 +22,7 @@ import com.dossier.api.repository.ent.talent.TalentInterviewInterviewerRepositor
 import com.dossier.api.repository.ent.talent.TalentInterviewRepository;
 import com.dossier.api.service.dto.ent.InterviewDTO;
 import com.dossier.api.service.ent.applications.ApplicationNames;
+import com.dossier.api.service.ent.applications.EntChangeActors;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
@@ -101,6 +102,7 @@ public class InterviewQueryService {
     private final ClientAccountRepository clients;
     private final MarketerAssignmentRepository assignments;
     private final OrgResumeRepository resumes;
+    private final EntChangeActors changeActors;
     private final Clock clock;
 
     @Autowired
@@ -118,9 +120,10 @@ public class InterviewQueryService {
         ConsultantProfileRepository consultants,
         ClientAccountRepository clients,
         MarketerAssignmentRepository assignments,
-        OrgResumeRepository resumes
+        OrgResumeRepository resumes,
+        EntChangeActors changeActors
     ) {
-        this(em, access, names, settings, interviews, interviewers, events, feedback, applications, requirements, consultants, clients, assignments, resumes, Clock.systemUTC());
+        this(em, access, names, settings, interviews, interviewers, events, feedback, applications, requirements, consultants, clients, assignments, resumes, changeActors, Clock.systemUTC());
     }
 
     InterviewQueryService(
@@ -138,8 +141,10 @@ public class InterviewQueryService {
         ClientAccountRepository clients,
         MarketerAssignmentRepository assignments,
         OrgResumeRepository resumes,
+        EntChangeActors changeActors,
         Clock clock
     ) {
+        this.changeActors = changeActors;
         this.em = em;
         this.access = access;
         this.names = names;
@@ -648,6 +653,11 @@ public class InterviewQueryService {
         evs.forEach(e -> memberIds.add(e.getActorMemberId()));
         fbs.forEach(f -> memberIds.add(f.getAuthorMemberId()));
         Map<Long, String> who = names.memberNames(orgId, memberIds);
+        EntChangeActors.Subject subject = new EntChangeActors.Subject(c.getId(), marketerId);
+        Set<Long> actorIds = new HashSet<>();
+        actorIds.add(i.getUpdatedByMemberId());
+        actorIds.add(i.getCreatedByMemberId());
+        EntChangeActors.Lookup actors = changeActors.load(orgId, actorIds, List.of(subject));
 
         List<InterviewDTO.EventItem> timeline = new ArrayList<>(evs.stream().filter(e -> InterviewStatuses.TIMELINE_EVENTS.contains(e.getEventType())).map(e -> eventItem(e, who)).toList());
         java.util.Collections.reverse(timeline);
@@ -674,7 +684,8 @@ public class InterviewQueryService {
             r == null ? null : r.getEmploymentLabel(), r == null ? null : r.getLocation(), r == null ? null : r.getWorkMode(), consultantRef(c), clientRef(cl), marketer(marketerId, who),
             i.getRoundLabel(), i.getRoundNo(), i.getScheduledAt(), i.getDurationMinutes() == null ? 0 : i.getDurationMinutes(), i.getMode(), i.getMeetingLink(), i.getLocation(), i.getStatus(),
             effectiveNextStep(i, !fbs.isEmpty()), i.getNextStep(), i.getNotes(), i.getReminderRequestedAt(), people, steps(orgId, i, a), timeline, fbItems, docs,
-            edit ? InterviewStatuses.next(i.getStatus()) : List.of(), new InterviewDTO.Actions(edit, canReschedule, canStatus, canRemind, canFeedback), undo, i.getCreatedAt()
+            edit ? InterviewStatuses.next(i.getStatus()) : List.of(), new InterviewDTO.Actions(edit, canReschedule, canStatus, canRemind, canFeedback), undo, i.getCreatedAt(),
+            i.getUpdatedAt(), actors.of(i.getUpdatedByMemberId(), null, subject), actors.of(i.getCreatedByMemberId(), null, subject)
         );
     }
 

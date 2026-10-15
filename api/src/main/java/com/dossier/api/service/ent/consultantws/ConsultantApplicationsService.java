@@ -17,7 +17,9 @@ import com.dossier.api.service.ent.consultantws.ConsultantApplicationsDTO.Respon
 import com.dossier.api.service.ent.consultantws.ConsultantApplicationsDTO.Row;
 import com.dossier.api.service.ent.consultantws.ConsultantApplicationsDTO.Step;
 import com.dossier.api.service.ent.consultantws.ConsultantApplicationsDTO.Tiles;
+import com.dossier.api.service.ent.applications.EntChangeActors;
 import com.dossier.api.service.ent.consultantws.ConsultantApplicationsDTO.TimelineEntry;
+import com.dossier.api.service.tracker.Changes;
 import com.dossier.api.service.ent.consultantws.ConsultantApplicationsDTO.Update;
 import com.dossier.api.service.ent.consultantws.ConsultantHomeDTO.Tile;
 import com.dossier.api.service.org.OrgMembership;
@@ -62,6 +64,7 @@ public class ConsultantApplicationsService {
     private final CwsApplicationEventRepository events;
     private final ClientRequirementRepository requirements;
     private final ClientAccountRepository clients;
+    private final EntChangeActors changeActors;
     private final Clock clock;
 
     @Autowired
@@ -70,9 +73,10 @@ public class ConsultantApplicationsService {
         TalentApplicationRepository applications,
         CwsApplicationEventRepository events,
         ClientRequirementRepository requirements,
-        ClientAccountRepository clients
+        ClientAccountRepository clients,
+        EntChangeActors changeActors
     ) {
-        this(gate, applications, events, requirements, clients, Clock.systemUTC());
+        this(gate, applications, events, requirements, clients, changeActors, Clock.systemUTC());
     }
 
     ConsultantApplicationsService(
@@ -81,8 +85,10 @@ public class ConsultantApplicationsService {
         CwsApplicationEventRepository events,
         ClientRequirementRepository requirements,
         ClientAccountRepository clients,
+        EntChangeActors changeActors,
         Clock clock
     ) {
+        this.changeActors = changeActors;
         this.gate = gate;
         this.applications = applications;
         this.events = events;
@@ -174,11 +180,23 @@ public class ConsultantApplicationsService {
         Long org = c.getOrgId();
         TalentApplication a = applications.findByOrgIdAndId(org, applicationId).filter(x -> c.getId().equals(x.getConsultantId())).orElseThrow(OrgNotFoundException::new);
         List<TalentApplication> one = List.of(a);
-        List<TimelineEntry> timeline = events.findByOrgIdAndApplicationIdOrderByOccurredAtAsc(org, a.getId()).stream()
+        List<TalentApplicationEvent> shown = events.findByOrgIdAndApplicationIdOrderByOccurredAtAsc(org, a.getId()).stream()
             .filter(e -> ("CREATED".equals(e.getEventType()) || "STAGE_CHANGE".equals(e.getEventType())) && e.getToStage() != null)
-            .map(e -> new TimelineEntry(e.getId(), e.getEventType(), e.getFromStage(), e.getToStage(), by(e, a, me), e.getOccurredAt()))
             .toList();
-        return new Detail(row(a, requirementsOf(org, one), clientsOf(org, one)), a.getCreatedAt(), a.getStageChangedAt(), timeline);
+        // Who did each step, by name and relation to THIS consultant: the same words the organization's Applications page shows for the same row.
+        EntChangeActors.Subject subject = new EntChangeActors.Subject(a.getConsultantId(), a.getMarketerMemberId());
+        java.util.Set<Long> ids = new java.util.HashSet<>();
+        shown.forEach(e -> ids.add(e.getActorMemberId()));
+        ids.add(a.getUpdatedByMemberId());
+        ids.add(a.getCreatedByMemberId());
+        EntChangeActors.Lookup actors = changeActors.load(org, ids, List.of(subject));
+        List<TimelineEntry> timeline = shown.stream()
+            .map(e -> new TimelineEntry(e.getId(), e.getEventType(), e.getFromStage(), e.getToStage(), by(e, a, me), e.getOccurredAt(), actors.of(e.getActorMemberId(), e.getActorKind(), subject), Changes.parse(e.getChanges())))
+            .toList();
+        return new Detail(
+            row(a, requirementsOf(org, one), clientsOf(org, one)), a.getCreatedAt(), a.getStageChangedAt(), timeline,
+            a.getUpdatedAt(), actors.of(a.getUpdatedByMemberId(), null, subject), actors.of(a.getCreatedByMemberId(), null, subject)
+        );
     }
 
     // ---- helpers --------------------------------------------------------------------------------------------------

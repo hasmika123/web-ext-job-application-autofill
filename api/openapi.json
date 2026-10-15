@@ -29395,6 +29395,20 @@
           }
         }
       },
+      "ChangeDTO" : {
+        "type" : "object",
+        "properties" : {
+          "f" : {
+            "type" : "string"
+          },
+          "from" : {
+            "type" : "string"
+          },
+          "to" : {
+            "type" : "string"
+          }
+        }
+      },
       "TokenRequest" : {
         "type" : "object",
         "properties" : {
@@ -31486,20 +31500,6 @@
           }
         },
         "required" : [ "company", "createdAt", "roleTitle", "status", "updatedAt" ]
-      },
-      "ChangeDTO" : {
-        "type" : "object",
-        "properties" : {
-          "f" : {
-            "type" : "string"
-          },
-          "from" : {
-            "type" : "string"
-          },
-          "to" : {
-            "type" : "string"
-          }
-        }
       },
       "EventDTO" : {
         "type" : "object",

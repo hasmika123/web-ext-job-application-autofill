@@ -44,15 +44,15 @@ public interface CwsSubmissionRepository extends Repository<CwsSubmission, Long>
     )
     Page<CwsSubmission> findPastWithStatus(@Param("orgId") Long orgId, @Param("consultantId") Long consultantId, @Param("status") String status, Pageable pageable);
 
-    /** The atomic decision: only a row still in {@code from} moves (0 rows = somebody got there first). */
+    /** The atomic decision: only a row still in {@code from} moves (0 rows = somebody got there first). The deciding seat is stamped as updated_by (change audit). */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
-        "update CwsSubmission s set s.status = :to, s.decidedAt = :at, s.updatedAt = :at, s.declineReason = :reason " +
+        "update CwsSubmission s set s.status = :to, s.decidedAt = :at, s.updatedAt = :at, s.declineReason = :reason, s.updatedByMemberId = :actor " +
         "where s.orgId = :orgId and s.consultantId = :consultantId and s.id = :id and s.status = :from"
     )
     int transition(
         @Param("orgId") Long orgId, @Param("consultantId") Long consultantId, @Param("id") Long id, @Param("from") String from,
-        @Param("to") String to, @Param("at") Instant at, @Param("reason") String reason
+        @Param("to") String to, @Param("at") Instant at, @Param("reason") String reason, @Param("actor") Long actorMemberId
     );
 
     long countByOrgId(Long orgId);

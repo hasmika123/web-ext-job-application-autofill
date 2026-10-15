@@ -95,7 +95,7 @@ class MktApplicationsServiceTest {
         when(roles.rolesFromData(ORG)).thenReturn(true);
         when(modules.isOn(TenantModule.MARKETING, ORG)).thenReturn(true);
         MktScope scope = new MktScope(roles, modules, authorization, assignments);
-        service = new MktApplicationsService(scope, apps, events, notes, consultants, clients, requirements, members, users, shares, audit, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new MktApplicationsService(scope, apps, events, notes, consultants, clients, requirements, members, users, shares, audit, new com.dossier.api.service.ent.applications.EntChangeActors(org.mockito.Mockito.mock(com.dossier.api.repository.ent.EntChangeActorRepository.class), org.mockito.Mockito.mock(com.dossier.api.repository.UserRepository.class)), Clock.fixed(NOW, ZoneOffset.UTC));
 
         when(apps.findByOrgId(ORG)).thenAnswer(i -> List.copyOf(allApps));
         // the repository is deliberately NAIVE here: it returns every row, the service must still never show an unseen consultant

@@ -27,7 +27,11 @@ import org.springframework.core.type.filter.AnnotationTypeFilter;
 class ChangeAuditCoverageTest {
 
     /** Records the audit covers: they must carry created_by_* / updated_by_* (the resume's names: created_by_login / updated_by_login). */
-    static final Set<String> REQUIRED = Set.of("Application", "ApplicationNote", "Interview", "Resume");
+    static final Set<String> REQUIRED = Set.of(
+        "Application", "ApplicationNote", "Interview", "Resume",
+        // Enterprise application records (X9.13): created_by_member_id / updated_by_member_id
+        "TalentApplication", "TalentInterview", "TalentApplicationNote", "MktSubmission", "CwsSubmission"
+    );
 
     /**
      * Entities with an updated_at that deliberately carry no updated_by: settings and per-person preference rows (one writer: their owner,
@@ -51,9 +55,7 @@ class ChangeAuditCoverageTest {
         // HR / finance / reports (record-only; their own audit rows).
         "FinanceForecastInput", "FinancePlacementPeriod", "FinancePlacementTerms", "HrDocumentRequirement", "HrEmployee", "ReportDefinition",
         // Talent directory.
-        "ClientAccount", "ClientRequirement", "ConsultantProfile", "MarketerAssignment", "MarketerCapacity", "OrgResume", "TalentPlacement",
-        // Enterprise application records: covered by X9.13 (removed from this list when the columns land).
-        "CwsSubmission", "MktSubmission", "TalentApplication", "TalentInterview"
+        "ClientAccount", "ClientRequirement", "ConsultantProfile", "MarketerAssignment", "MarketerCapacity", "OrgResume", "TalentPlacement"
     );
 
     @Test
@@ -64,7 +66,7 @@ class ChangeAuditCoverageTest {
             assertThat(c).as("required entity " + name + " exists").isNotNull();
             Set<String> cols = columns(c);
             assertThat(cols.stream().anyMatch(ChangeAuditCoverageTest::isUpdatedBy)).as(name + " has an updated_by column").isTrue();
-            assertThat(cols.stream().anyMatch(col -> col.startsWith("created_by"))).as(name + " has a created_by column").isTrue();
+            assertThat(cols.stream().anyMatch(col -> col.startsWith("created_by") || col.equals("author_member_id"))).as(name + " has a created_by column").isTrue();
         }
     }
 

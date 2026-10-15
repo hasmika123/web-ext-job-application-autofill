@@ -48,6 +48,13 @@ public class MktSubmissionEvent implements Serializable {
     @Column(name = "detail", length = 300)
     private String detail;
 
+    // Change audit: PERSON (actor_member_id names the seat) or SYSTEM (the linker, a seed: no actor); changes is a JSON array of {f, from, to}.
+    @Column(name = "actor_kind", length = 12, nullable = false)
+    private String actorKind = "PERSON";
+
+    @Column(name = "changes", length = 1000)
+    private String changes;
+
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt = Instant.now();
 
@@ -62,6 +69,14 @@ public class MktSubmissionEvent implements Serializable {
         e.actorMemberId = actorMemberId;
         e.detail = detail;
         e.occurredAt = at;
+        e.actorKind = actorMemberId == null ? "SYSTEM" : "PERSON";
+        return e;
+    }
+
+    /** As {@link #of(Long, Long, String, String, String, String, Long, String, Instant)}, with the "what changed" array (see `Changes`). */
+    public static MktSubmissionEvent of(Long orgId, Long submissionId, String kind, String field, String from, String to, Long actorMemberId, String detail, Instant at, String changes) {
+        MktSubmissionEvent e = of(orgId, submissionId, kind, field, from, to, actorMemberId, detail, at);
+        e.changes = changes;
         return e;
     }
 
@@ -73,6 +88,8 @@ public class MktSubmissionEvent implements Serializable {
     public String getFromValue() { return fromValue; }
     public String getToValue() { return toValue; }
     public Long getActorMemberId() { return actorMemberId; }
+    public String getActorKind() { return actorKind; }
+    public String getChanges() { return changes; }
     public String getDetail() { return detail; }
     public Instant getOccurredAt() { return occurredAt; }
 }

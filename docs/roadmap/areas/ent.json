@@ -7380,7 +7380,7 @@
       "id": "X9.13",
       "epic": "X9",
       "title": "Enterprise records carry who/when: updated_by_member_id (+ created_by) on talent_application, talent_interview, talent_application_note, mkt_submission, cws_submission; actor_kind + changes on the ent event tables; relation in ChangeActorDTO; backfill",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "API"

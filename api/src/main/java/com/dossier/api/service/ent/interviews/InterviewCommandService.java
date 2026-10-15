@@ -21,6 +21,7 @@ import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
 import com.dossier.api.service.privacy.SensitiveContent;
+import com.dossier.api.service.tracker.Changes;
 import jakarta.persistence.EntityManager;
 import java.time.Clock;
 import java.time.Duration;
@@ -179,9 +180,11 @@ public class InterviewCommandService {
         i.setInterviewerName(people.isEmpty() ? null : people.get(0).name());
         i.setCreatedAt(now);
         i.setUpdatedAt(now);
+        i.setCreatedByMemberId(me.memberId());
+        i.setUpdatedByMemberId(me.memberId());
         interviews.saveAndFlush(i);
         writeInterviewers(orgId, i.getId(), people);
-        record(i, "CREATED", null, InterviewStatuses.SCHEDULED, me, "Scheduled for " + req.scheduledAt(), now);
+        record(i, "CREATED", null, InterviewStatuses.SCHEDULED, me, "Scheduled for " + req.scheduledAt(), now, null);
         audit.record(me, AUDIT_CREATE, TARGET, null, String.valueOf(i.getId()), json(mapOf("consultantId", consultant.getId(), "applicationId", i.getApplicationId(), "status", i.getStatus())));
         return query.detailOf(me, i);
     }
@@ -195,11 +198,13 @@ public class InterviewCommandService {
         for (String k : body.keySet()) if (!PATCH_FIELDS.contains(k)) throw OrgException.coded(422, "FIELD_UNKNOWN", "Unknown field: " + k, Map.of("field", k));
         Map<String, Object> audited = new LinkedHashMap<>();
         StringBuilder what = new StringBuilder();
+        Changes changes = new Changes();
 
         if (body.containsKey("nextStep")) {
             String next = textOf("nextStep", body.get("nextStep"), NEXT_STEP_MAX);
             if (!Objects.equals(next, i.getNextStep())) {
                 i.setNextStep(next);
+                changes.text("nextStep");
                 audited.put("nextStep", next);
                 add(what, "Next step: " + (next == null ? "back to the suggestion" : next));
             }
@@ -208,6 +213,7 @@ public class InterviewCommandService {
             String notes = textOf("notes", body.get("notes"), NOTES_MAX);
             if (!Objects.equals(notes, i.getNotes())) {
                 i.setNotes(notes);
+                changes.text("notes");
                 audited.put("notes", notes == null ? "cleared" : "edited"); // the text itself never goes to the audit row
                 add(what, notes == null ? "Notes cleared" : "Notes updated");
             }
@@ -216,6 +222,7 @@ public class InterviewCommandService {
             String mode = body.get("mode") instanceof String s ? modeOf(s) : null;
             if (mode == null) throw OrgException.invalid("mode", "must be one of " + InterviewStatuses.MODES);
             if (!mode.equals(i.getMode())) {
+                changes.code("mode", i.getMode(), mode);
                 i.setMode(mode);
                 audited.put("mode", mode);
                 add(what, "Mode: " + InterviewStatuses.MODE_LABELS.get(mode));
@@ -225,6 +232,7 @@ public class InterviewCommandService {
             String link = body.get("meetingLink") == null ? null : linkOf(body.get("meetingLink") instanceof String s ? s : badType("meetingLink"));
             if (!Objects.equals(link, i.getMeetingLink())) {
                 i.setMeetingLink(link);
+                changes.text("meetingLink");
                 audited.put("meetingLink", link == null ? "cleared" : "set");
                 add(what, link == null ? "Meeting link removed" : "Meeting link updated");
             }
@@ -233,6 +241,7 @@ public class InterviewCommandService {
             String location = textOf("location", body.get("location"), LOCATION_MAX);
             if (!Objects.equals(location, i.getLocation())) {
                 i.setLocation(location);
+                changes.text("location");
                 audited.put("location", location == null ? "cleared" : "set");
                 add(what, location == null ? "Location removed" : "Location updated");
             }
@@ -245,6 +254,7 @@ public class InterviewCommandService {
                 interviewers.flush();
                 writeInterviewers(me.orgId(), i.getId(), people);
                 i.setInterviewerName(people.isEmpty() ? null : people.get(0).name());
+                changes.text("interviewers");
                 audited.put("interviewers", people.size());
                 add(what, "Interviewers updated (" + people.size() + ")");
             }
@@ -252,7 +262,7 @@ public class InterviewCommandService {
         if (audited.isEmpty()) return query.detailOf(me, i); // nothing changed: no event, no audit row
         i.setUpdatedAt(Instant.now(clock));
         interviews.save(i);
-        record(i, "UPDATE", null, null, me, what.toString(), Instant.now(clock));
+        record(i, "UPDATE", null, null, me, what.toString(), Instant.now(clock), changes);
         audit.record(me, AUDIT_UPDATE, TARGET, null, String.valueOf(i.getId()), json(audited));
         return query.detailOf(me, i);
     }
@@ -274,14 +284,18 @@ public class InterviewCommandService {
         }
         requireFree(me.orgId(), i.getConsultantId(), req.scheduledAt(), duration, i.getId());
         Instant before = i.getScheduledAt();
+        Integer durationBefore = i.getDurationMinutes();
         Instant now = Instant.now(clock);
+        Changes moved = new Changes().instant("scheduledAt", before, req.scheduledAt());
+        if (durationBefore == null || durationBefore != duration) moved.number("durationMinutes", durationBefore == null ? null : durationBefore.longValue(), (long) duration);
+        if (!InterviewStatuses.SCHEDULED.equals(from)) moved.code("status", from, InterviewStatuses.SCHEDULED);
         i.setScheduledAt(req.scheduledAt());
         i.setDurationMinutes(duration);
         i.setStatus(InterviewStatuses.SCHEDULED);
         i.setReminderRequestedAt(null);
         i.setUpdatedAt(now);
         interviews.save(i);
-        record(i, "RESCHEDULE", from, InterviewStatuses.SCHEDULED, me, "Moved from " + before + " to " + req.scheduledAt() + (reason == null ? "" : ": " + reason), now);
+        record(i, "RESCHEDULE", from, InterviewStatuses.SCHEDULED, me, "Moved from " + before + " to " + req.scheduledAt() + (reason == null ? "" : ": " + reason), now, moved);
         audit.record(me, AUDIT_RESCHEDULE, TARGET, null, String.valueOf(i.getId()), json(mapOf("from", before.toString(), "to", req.scheduledAt().toString())));
         return query.detailOf(me, i);
     }
@@ -304,7 +318,7 @@ public class InterviewCommandService {
         i.setStatus(to);
         i.setUpdatedAt(now);
         interviews.save(i);
-        record(i, "STATUS", from, to, me, reason, now);
+        record(i, "STATUS", from, to, me, reason, now, new Changes().code("status", from, to));
         audit.record(me, AUDIT_STATUS, TARGET, null, String.valueOf(i.getId()), json(Map.of("from", from, "to", to)));
         return query.detailOf(me, i);
     }
@@ -323,7 +337,7 @@ public class InterviewCommandService {
         i.setStatus(back);
         i.setUpdatedAt(now);
         interviews.save(i);
-        record(i, "STATUS_REVERT", undone, back, me, "Undone: back to " + InterviewStatuses.label(back), now);
+        record(i, "STATUS_REVERT", undone, back, me, "Undone: back to " + InterviewStatuses.label(back), now, new Changes().code("status", undone, back));
         audit.record(me, AUDIT_STATUS_UNDO, TARGET, null, String.valueOf(i.getId()), json(Map.of("from", undone, "to", back)));
         return query.detailOf(me, i);
     }
@@ -345,7 +359,7 @@ public class InterviewCommandService {
         i.setReminderRequestedAt(now);
         i.setUpdatedAt(now);
         interviews.save(i);
-        record(i, "REMINDER", null, null, me, "Reminder recorded for the consultant and the interviewers", now);
+        record(i, "REMINDER", null, null, me, "Reminder recorded for the consultant and the interviewers", now, new Changes().text("reminder"));
         audit.record(me, AUDIT_REMINDER, TARGET, null, String.valueOf(i.getId()), "{}");
         return query.detailOf(me, i);
     }
@@ -374,7 +388,7 @@ public class InterviewCommandService {
         feedback.saveAndFlush(f);
         i.setUpdatedAt(now);
         interviews.save(i);
-        record(i, "FEEDBACK", null, null, me, "Feedback added: " + req.rating() + " of 5, " + rec.toLowerCase(Locale.ROOT), now);
+        record(i, "FEEDBACK", null, null, me, "Feedback added: " + req.rating() + " of 5, " + rec.toLowerCase(Locale.ROOT), now, new Changes().text("feedback"));
         audit.record(me, AUDIT_FEEDBACK, TARGET, null, String.valueOf(i.getId()), "{\"feedbackId\":" + f.getId() + "}");
         return query.detailOf(me, i);
     }
@@ -494,8 +508,12 @@ public class InterviewCommandService {
         return true;
     }
 
-    private void record(TalentInterview i, String type, String from, String to, OrgMembership actor, String detail, Instant at) {
+    /** The one writer of an interview's history: stamps the event (actor, PERSON, what changed) and the interview's own updated_by (change audit). */
+    private void record(TalentInterview i, String type, String from, String to, OrgMembership actor, String detail, Instant at, Changes changes) {
+        i.setUpdatedByMemberId(actor.memberId());
         TalentInterviewEvent e = new TalentInterviewEvent();
+        e.setActorKind("PERSON");
+        e.setChanges(changes == null ? null : changes.toJson());
         e.setOrgId(i.getOrgId());
         e.setInterviewId(i.getId());
         e.setEventType(type);

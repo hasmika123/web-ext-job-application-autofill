@@ -37,6 +37,13 @@ public class TalentInterviewEvent implements Serializable {
     @Column(name = "detail", length = 300)
     private String detail;
 
+    // Change audit: PERSON (actor_member_id names the seat) or SYSTEM (the linker, a seed: no actor); changes is a JSON array of {f, from, to}.
+    @Column(name = "actor_kind", length = 12, nullable = false)
+    private String actorKind = "PERSON";
+
+    @Column(name = "changes", length = 1000)
+    private String changes;
+
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt = Instant.now();
 
@@ -53,7 +60,14 @@ public class TalentInterviewEvent implements Serializable {
     public String getToStatus() { return toStatus; }
     public void setToStatus(String toStatus) { this.toStatus = toStatus; }
     public Long getActorMemberId() { return actorMemberId; }
-    public void setActorMemberId(Long actorMemberId) { this.actorMemberId = actorMemberId; }
+    public void setActorMemberId(Long actorMemberId) {
+        this.actorMemberId = actorMemberId;
+        this.actorKind = actorMemberId == null ? "SYSTEM" : "PERSON"; // no seat behind the row: the platform did it (setActorKind still wins when called after)
+    }
+    public String getActorKind() { return actorKind; }
+    public void setActorKind(String actorKind) { this.actorKind = actorKind == null ? "PERSON" : actorKind; }
+    public String getChanges() { return changes; }
+    public void setChanges(String changes) { this.changes = changes; }
     public String getDetail() { return detail; }
     public void setDetail(String detail) { this.detail = detail; }
     public Instant getOccurredAt() { return occurredAt; }

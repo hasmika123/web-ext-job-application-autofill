@@ -50,7 +50,7 @@ class MktSubmissionsResourceTest {
     }
 
     private static Row row(long id) {
-        return new Row(id, "SUB-2026-001", new Person(1L, "Alex Morgan", "Java Developer", null), new Job(11L, "Senior Java Developer", "JOB-1011"), new ClientRef(21L, "TechCorp"), Instant.parse("2026-10-13T08:00:00Z"), "APPROVED", null, "SUBMITTED", "SUBMITTED", List.of("RECORD_STATUS"));
+        return new Row(id, "SUB-2026-001", new Person(1L, "Alex Morgan", "Java Developer", null), new Job(11L, "Senior Java Developer", "JOB-1011"), new ClientRef(21L, "TechCorp"), Instant.parse("2026-10-13T08:00:00Z"), "APPROVED", null, "SUBMITTED", "SUBMITTED", List.of("RECORD_STATUS"), null, null);
     }
 
     @Test

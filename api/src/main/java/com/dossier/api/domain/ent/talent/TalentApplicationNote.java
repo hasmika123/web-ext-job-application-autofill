@@ -31,6 +31,13 @@ public class TalentApplicationNote implements Serializable {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    // Change audit: who last wrote the note and when (author_member_id is its created_by).
+    @Column(name = "updated_by_member_id")
+    private Long updatedByMemberId;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public Long getOrgId() { return orgId; }
@@ -43,4 +50,8 @@ public class TalentApplicationNote implements Serializable {
     public void setBody(String body) { this.body = body; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Long getUpdatedByMemberId() { return updatedByMemberId; }
+    public void setUpdatedByMemberId(Long updatedByMemberId) { this.updatedByMemberId = updatedByMemberId; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }

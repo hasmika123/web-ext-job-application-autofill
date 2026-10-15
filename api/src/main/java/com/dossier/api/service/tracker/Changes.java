@@ -57,6 +57,11 @@ public final class Changes {
         return add(field, from == null ? null : from.toString(), to == null ? null : to.toString());
     }
 
+    /** A calendar date (ISO yyyy-mm-dd): a due date. */
+    public Changes date(String field, java.time.LocalDate from, java.time.LocalDate to) {
+        return add(field, from == null ? null : from.toString(), to == null ? null : to.toString());
+    }
+
     public Changes number(String field, Long from, Long to) {
         return add(field, from == null ? null : String.valueOf(from), to == null ? null : String.valueOf(to));
     }
