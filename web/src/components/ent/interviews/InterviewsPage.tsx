@@ -75,6 +75,8 @@ export interface InterviewsPageProps {
   workspace: string;
   /** `me.permissions` of the tenant session: decides which controls are drawn (the API is the gate). */
   permissions: Record<string, string>;
+  /** The viewer's own seat (`me.member.id`): "you" in the drawer's Updated line is decided by it. */
+  selfMemberId?: number | null;
   supportEmail?: string | null;
 }
 
@@ -93,7 +95,7 @@ const SORT_MENU: { key: SortKey; label: string }[] = [
 /** The board's field-like control for the date range and More Filters. */
 const FIELD_BTN = "inline-flex h-10 items-center gap-2 rounded-[10px] border border-[var(--ent-control-border,var(--color-line))] bg-paper px-3 text-[13px] font-medium text-ink-soft hover:border-accent";
 
-export default function InterviewsPage({ orgId, orgName, permissions, supportEmail }: InterviewsPageProps) {
+export default function InterviewsPage({ orgId, orgName, permissions, selfMemberId, supportEmail }: InterviewsPageProps) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -587,6 +589,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, supportEma
       onChanged={onChanged}
       reloadToken={reloadToken}
       maxInterviewers={options?.limits.maxInterviewers ?? 6}
+      selfMemberId={selfMemberId}
       onReschedule={setRescheduling}
       onFeedback={setFeedbackFor}
     />

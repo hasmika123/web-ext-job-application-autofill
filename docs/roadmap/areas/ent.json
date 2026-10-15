@@ -7449,7 +7449,7 @@
       "id": "X9.14",
       "epic": "X9",
       "title": "Org and consultant workspace display: \"Updated … by Sarah Chen (marketer)\" in the org DetailDrawer and table, marketer tracker, consultant My Applications timeline (names + relation instead of YOU / MARKETER / TEAM); erased seat → \"a former member\"",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "web"

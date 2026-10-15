@@ -31,6 +31,9 @@ import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
 import { deltaText, firstName } from "@/lib/ent/consultant-ws/home";
+import { actorLine, type Viewer } from "@/lib/actors";
+import { RelationTag } from "@/components/app-v3/applications/UpdatedBy";
+import { UpdatedMeta, seatViewer } from "@/components/ent/applications/changeAudit";
 import {
   ACTOR_LABELS,
   DEFAULT_QUERY,
@@ -419,8 +422,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function DetailSheet({ row, state, onClose, onRetry, go }: { row: AppRow | null; state: Fetched<AppDetail> | null; onClose: () => void; onRetry: () => void; go: (href: string) => void }) {
+function DetailSheet({ row, state, onClose, onRetry, go, me }: { row: AppRow | null; state: Fetched<AppDetail> | null; onClose: () => void; onRetry: () => void; go: (href: string) => void; me: Viewer }) {
   const d = state?.kind === "OK" ? (state.view ?? null) : null;
+  const [now] = useState(() => Date.now());
   const r = d?.row ?? row;
   const st = r ? stageLabel(r.stage, r.closedReason) : null;
   const src = r ? sourceBadge(r.source) : null;
@@ -453,6 +457,8 @@ function DetailSheet({ row, state, onClose, onRetry, go }: { row: AppRow | null;
     >
       {r && st ? (
         <div data-detail={r.applicationId} className="space-y-5 pt-1">
+          {/* the same line the organization's Applications page shows for the same record */}
+          {d ? <UpdatedMeta updatedAt={d.updatedAt} updatedBy={d.updatedBy} createdAt={d.createdAt} createdBy={d.createdBy} me={me} now={now} /> : null}
           <dl className="grid grid-cols-2 gap-x-4 gap-y-3.5">
             <Field label="Application ID">{r.code || "-"}</Field>
             <Field label="Current stage">
@@ -494,7 +500,10 @@ function DetailSheet({ row, state, onClose, onRetry, go }: { row: AppRow | null;
                         <span className="font-semibold text-ink">{e.type === "CREATED" ? `Added as ${s.label}` : s.label}</span>
                         <span className="text-[12px] text-muted">{formatDate(e.at)}</span>
                       </span>
-                      <span className="text-[12px] text-muted">By {ACTOR_LABELS[e.by].toLowerCase()}</span>
+                      <span className="flex flex-wrap items-center gap-x-1 text-[12px] text-muted" data-actor-line>
+                        {e.actor ? actorLine(e.actor, e.actor.kind, null, me) : `By ${ACTOR_LABELS[e.by].toLowerCase()}`}
+                        <RelationTag actor={e.actor} me={me} />
+                      </span>
                     </li>
                   );
                 })}
@@ -513,9 +522,11 @@ function DetailSheet({ row, state, onClose, onRetry, go }: { row: AppRow | null;
 export interface ApplicationsPageProps {
   orgId: number;
   firstName: string;
+  /** The consultant's own seat: "by you" in the timeline is decided by it. */
+  selfMemberId?: number | null;
 }
 
-export default function ConsultantApplicationsPage({ orgId, firstName: first }: ApplicationsPageProps) {
+export default function ConsultantApplicationsPage({ orgId, firstName: first, selfMemberId }: ApplicationsPageProps) {
   const router = useRouter();
   const [query, setQuery] = useState<ListQuery>(DEFAULT_QUERY);
   const fetcher = useCallback(() => fetchApplications(orgId, query), [orgId, query]);
@@ -581,7 +592,7 @@ export default function ConsultantApplicationsPage({ orgId, firstName: first }: 
         </div>
       )}
 
-      <DetailSheet row={open} state={detail} onClose={() => setOpen(null)} onRetry={() => setAttempt((n) => n + 1)} go={go} />
+      <DetailSheet row={open} state={detail} onClose={() => setOpen(null)} onRetry={() => setAttempt((n) => n + 1)} go={go} me={seatViewer(selfMemberId)} />
     </div>
   );
 }

@@ -142,6 +142,21 @@ class ApplicationChangeAuditIT extends MemberItSupport {
     }
 
     @Test
+    void theTableSortsByUpdated() throws Exception {
+        ClientRequirement job2 = ApplicationItSupport.job(em, a.getId(), em.find(ClientAccount.class, app.getClientId()), "QA Lead");
+        TalentApplication other = ApplicationItSupport.application(em, a.getId(), job2, ApplicationItSupport.consultant(em, a.getId(), "Kim Two"), mktSpec.getId(), "ASSIGNED", 20);
+        em.createQuery("update TalentApplication t set t.updatedAt = :at where t.id = :id").setParameter("at", Instant.parse("2026-01-01T00:00:00Z")).setParameter("id", other.getId()).executeUpdate();
+        em.clear();
+        assertStatus(send("spec", post(url() + "/" + app.getId() + "/stage"), "{\"stage\":\"SUBMITTED\"}"), 200);
+
+        JsonNode desc = json(call(login("owner"), get(url() + "?sort=updated,desc&size=10")));
+        assertThat(ids(desc)).containsExactly(app.getId(), other.getId());
+        JsonNode asc = json(call(login("owner"), get(url() + "?sort=updated,asc&size=10")));
+        assertThat(ids(asc)).containsExactly(other.getId(), app.getId());
+        assertCode(call(login("owner"), get(url() + "?sort=bogus,asc")), 400, "SORT_INVALID");
+    }
+
+    @Test
     void theConsultantsOwnActionReadsAsConsultant() throws Exception {
         TalentApplication t = em.find(TalentApplication.class, app.getId());
         t.setUpdatedByMemberId(c1.getId());

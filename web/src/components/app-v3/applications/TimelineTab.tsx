@@ -84,9 +84,26 @@ const FIELD_WORDS: Record<string, string> = {
   jobDescription: "description",
   submissionConfirmed: "submission",
   appliedAt: "applied date",
+  // the organization's records (X9.14)
+  stage: "stage",
+  closedReason: "reason",
+  marketerMemberId: "marketer",
+  nextActionDue: "due date",
+  mode: "mode",
+  scheduledAt: "time",
+  durationMinutes: "length",
+  approvalState: "approval",
+  meetingLink: "link",
+  nextStep: "next step",
+  interviewers: "interviewers",
+  feedback: "feedback",
+  reminder: "reminder",
 };
 
 const fieldWord = (f: string): string => FIELD_WORDS[f] ?? f;
+
+/** Fields whose from / to are record ids: only the name is shown. */
+const ID_FIELDS = new Set(["resumeId", "postingId", "marketerMemberId"]);
 
 /** A code or ISO instant as the person reads it ("INTERVIEW" is "Interview", "2026-10-17T09:00:00Z" a date). */
 function valueWord(f: string, v: string): string {
@@ -101,6 +118,7 @@ function valueWord(f: string, v: string): string {
 export function changeChip(c: FieldChange): string {
   const name = fieldWord(c.f);
   if (c.from == null && c.to == null) return name;
+  if (ID_FIELDS.has(c.f)) return name; // an id is not for reading
   const from = c.from == null ? "none" : valueWord(c.f, c.from);
   const to = c.to == null ? "none" : valueWord(c.f, c.to);
   return `${name} ${from} → ${to}`;

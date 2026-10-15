@@ -2,6 +2,9 @@
 
 import { ArrowsUpDownIcon, MemberAvatar, SourceLogo, Tooltip, ConsentChip, cn } from "@kiwiply/ui";
 import { dueDate, logoFor, shortDate, type Row, type StageKey } from "@/lib/ent/marketer-ws/applications";
+import { rowActorLine } from "@/lib/actors";
+import { RelationTag, RelTime } from "@/components/app-v3/applications/UpdatedBy";
+import { seatViewer } from "@/components/ent/applications/changeAudit";
 import RowActions from "./RowActions";
 
 /** The Application Tracker table (board columns, in board order). A detail the consultant has not shared is a dotted "Not shared" with a tooltip. */
@@ -27,7 +30,7 @@ function NotShared({ who }: { who: string }) {
 }
 
 export default function TrackerTable({
-  orgId, rows, perms, selected, onToggle, onToggleAll, sortAsc, onSort, onChanged,
+  orgId, rows, perms, selected, onToggle, onToggleAll, sortAsc, onSort, onChanged, selfMemberId,
 }: {
   orgId: number;
   rows: Row[];
@@ -38,11 +41,14 @@ export default function TrackerTable({
   sortAsc: boolean;
   onSort: () => void;
   onChanged: () => void;
+  /** The viewer's own seat: a row they changed does not read "by you" (D2). */
+  selfMemberId?: number | null;
 }) {
+  const me = seatViewer(selfMemberId);
   const allSelected = rows.length > 0 && rows.every((r) => selected.has(r.id));
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[980px] text-left text-[13.5px]" data-tracker-table>
+      <table className="w-full min-w-[1100px] text-left text-[13.5px]" data-tracker-table>
         <thead>
           <tr className="bg-paper-2">
             <th className="w-9 rounded-l-lg px-2 py-2.5">
@@ -58,6 +64,7 @@ export default function TrackerTable({
               </button>
             </th>
             <th className={TH}>Stage</th>
+            <th className={TH}>Updated</th>
             <th className={TH}>Owner</th>
             <th className={TH}>Next Action</th>
             <th className="w-9 rounded-r-lg" />
@@ -102,6 +109,20 @@ export default function TrackerTable({
                     <span aria-hidden className={cn("h-2 w-2 rounded-full", chip.dot)} />
                     {r.stage.label}
                   </span>
+                </td>
+                <td className="px-2" data-updated-cell>
+                  {full && r.updatedAt ? (
+                    <span className="flex flex-col leading-tight">
+                      <span className="text-ink-soft"><RelTime iso={r.updatedAt} /></span>
+                      {rowActorLine(r.updatedBy, me) ? (
+                        <span className="text-[12px] text-muted">
+                          {rowActorLine(r.updatedBy, me)} <RelationTag actor={r.updatedBy} me={me} />
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    <span className="text-muted">-</span>
+                  )}
                 </td>
                 <td className="px-2">
                   {r.owner ? (

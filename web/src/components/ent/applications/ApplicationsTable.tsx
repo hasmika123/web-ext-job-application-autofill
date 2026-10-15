@@ -5,6 +5,9 @@ import { ArrowDownIcon, ArrowUpIcon, IconButton, Menu, MoreHorizontalIcon, useNa
 import TalentPagination from "@/components/ent/shell/TalentPagination";
 import type { MenuEntry } from "@kiwiply/ui";
 import { formatDay, formatShort, nextActionText, PAGE_SIZES, showingText, type ApplicationRow, type SortDir, type SortKey } from "@/lib/ent/applications";
+import { rowActorLine } from "@/lib/actors";
+import { RelationTag, RelTime } from "@/components/app-v3/applications/UpdatedBy";
+import { seatViewer } from "./changeAudit";
 import { ClientCell, ConsultantCell, MarketerCell, StagePill, TwoLine } from "./parts";
 
 export interface TableProps {
@@ -22,6 +25,8 @@ export interface TableProps {
   selected: Set<number>;
   onToggle: (id: number) => void;
   onTogglePage: (on: boolean) => void;
+  /** The viewer's own seat: a row the viewer changed does not read "by you" (D2); another person, the extension or the platform always does. */
+  selfMemberId?: number | null;
 }
 
 function Check({ checked, indeterminate, onChange, label }: { checked: boolean; indeterminate?: boolean; onChange: (on: boolean) => void; label: string }) {
@@ -69,6 +74,24 @@ function Kebab({ items, name }: { items: MenuEntry[]; name: string }) {
   );
 }
 
+/** "2h ago" and, on a second line, who - only when it is not the viewer (change audit). */
+function Updated({ row, me }: { row: ApplicationRow; me: ReturnType<typeof seatViewer> }) {
+  if (!row.updatedAt) return <span className="text-muted">{"\u2014"}</span>;
+  const by = rowActorLine(row.updatedBy, me);
+  return (
+    <span data-updated-cell className="flex flex-col leading-tight">
+      <span className="text-[var(--ent-soft)]">
+        <RelTime iso={row.updatedAt} />
+      </span>
+      {by && (
+        <span className="text-[11.5px] text-muted">
+          {by} <RelationTag actor={row.updatedBy} me={me} />
+        </span>
+      )}
+    </span>
+  );
+}
+
 function NextAction({ row }: { row: ApplicationRow }) {
   const text = nextActionText(row);
   if (!text) return <span className="text-muted">{"—"}</span>;
@@ -83,6 +106,7 @@ function NextAction({ row }: { row: ApplicationRow }) {
 
 export function ApplicationsTable(p: TableProps) {
   const narrow = useNarrow();
+  const me = seatViewer(p.selfMemberId);
 
   const allOn = p.rows.length > 0 && p.rows.every((r) => p.selected.has(r.id));
   const someOn = !allOn && p.rows.some((r) => p.selected.has(r.id));
@@ -107,6 +131,8 @@ export function ApplicationsTable(p: TableProps) {
               <dd className="min-w-0"><ClientCell client={r.client} orgName={p.orgName} /></dd>
               <dt className="text-muted">Applied</dt>
               <dd className="text-ink">{formatDay(r.appliedOn)}</dd>
+              <dt className="text-muted">Updated</dt>
+              <dd className="min-w-0 text-ink"><Updated row={r} me={me} /></dd>
               <dt className="text-muted">Marketer</dt>
               <dd className="min-w-0"><MarketerCell marketer={r.marketer} withName /></dd>
               <dt className="text-muted">Next action</dt>
@@ -131,6 +157,7 @@ export function ApplicationsTable(p: TableProps) {
             <SortHead label="Client / Company" k="client" sort={p.sort} onSort={p.onSort} className={p.compact ? "hidden xl:table-cell" : "hidden lg:table-cell"} />
             <SortHead label="Applied Date" k="applied" sort={p.sort} onSort={p.onSort} className="hidden md:table-cell" />
             <SortHead label="Stage" k="stage" sort={p.sort} onSort={p.onSort} />
+            <SortHead label="Updated" k="updated" sort={p.sort} onSort={p.onSort} className="hidden lg:table-cell" />
             <th scope="col" className={`${HEAD} hidden xl:table-cell`}>Marketer</th>
             <SortHead label="Next Action" k="nextAction" sort={p.sort} onSort={p.onSort} className="hidden xl:table-cell" />
             <th scope="col" className="w-[40px]">
@@ -172,6 +199,9 @@ export function ApplicationsTable(p: TableProps) {
                 <td className="hidden whitespace-nowrap text-[var(--ent-soft)] md:table-cell">{formatDay(r.appliedOn)}</td>
                 <td>
                   <StagePill stage={r.stage} reason={r.closedReason} />
+                </td>
+                <td className="hidden min-w-[96px] lg:table-cell">
+                  <Updated row={r} me={me} />
                 </td>
                 <td className="hidden xl:table-cell">
                   <MarketerCell marketer={r.marketer} />

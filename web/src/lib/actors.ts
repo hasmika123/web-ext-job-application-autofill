@@ -23,10 +23,11 @@ export interface LoginActor {
   label: string;
 }
 
-/** The viewer: the session's account id and login. Either may be unknown. */
+/** The viewer: the session's account id and login (the personal tracker), or the organization seat (`memberId`, the organization's records). Any may be unknown. */
 export interface Viewer {
   id?: number | null;
   login?: string | null;
+  memberId?: number | null;
 }
 
 export type AnyActor = ChangeActor | LoginActor | null | undefined;
@@ -48,7 +49,9 @@ export function safeLabel(label: string | null | undefined): string {
 export function isViewer(actor: AnyActor, me: Viewer | null | undefined): boolean {
   if (!actor || !me) return false;
   if (isLoginActor(actor)) return me.login != null && actor.login === me.login;
-  return actor.kind === "PERSON" && actor.userId != null && me.id != null && actor.userId === me.id;
+  if (actor.kind !== "PERSON") return false;
+  if (actor.memberId != null && me.memberId != null) return actor.memberId === me.memberId; // an organization record: compare seats
+  return actor.userId != null && me.id != null && actor.userId === me.id;
 }
 
 /**

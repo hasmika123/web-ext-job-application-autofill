@@ -27,6 +27,8 @@ export const KPI_TITLES: Record<KpiKey, string> = { active: "Active Applications
 export interface Kpi { key: KpiKey; value: number; deltaPct: number | null; sparkline: number[] }
 export interface Person { id: number | null; name: string; avatarUrl: string | null }
 export interface ConsultantRef { id: number; name: string; avatarUrl: string | null; consent: Consent }
+import type { ChangeActor } from "@/lib/actors";
+
 export interface Row {
   id: number;
   code: string | null;
@@ -39,6 +41,9 @@ export interface Row {
   owner: Person | null;
   nextAction: string | null;
   nextActionDue: string | null;
+  /** Change audit: null below FULL consent (only stage movements are shared there). */
+  updatedAt?: string | null;
+  updatedBy?: ChangeActor | null;
 }
 export interface Tab { key: "all" | StageKey; label: string; count: number }
 export interface Option { id: number; name: string }

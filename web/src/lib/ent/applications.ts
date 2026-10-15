@@ -7,6 +7,9 @@
  * invents a figure: a tile with no history shows no delta; a field the API returns null is drawn as an honest dash or empty state.
  */
 
+import type { ChangeActor } from "@/lib/actors";
+import type { FieldChange } from "@/lib/applications";
+
 /* ── contract types (mirror ApplicationDTO) ──────────────────────────────────────── */
 
 export type Stage = "ASSIGNED" | "SUBMITTED" | "UNDER_REVIEW" | "INTERVIEWING" | "OFFER" | "CLOSED";
@@ -65,6 +68,9 @@ export interface ApplicationRow {
   nextActionDue: string | null;
   overdue: boolean;
   stageChangedAt: string;
+  /** Change audit: when the row last changed and by whom (the relation to its consultant is on `updatedBy`). */
+  updatedAt?: string | null;
+  updatedBy?: ChangeActor | null;
 }
 
 export interface ApplicationPage {
@@ -153,6 +159,9 @@ export interface EventItem {
   actor: Marketer | null;
   detail: string | null;
   at: string;
+  /** Change audit: who did it (a name, never an enterprise login) with the relation to the consultant, and what changed. */
+  by?: ChangeActor | null;
+  changes?: FieldChange[] | null;
 }
 
 export interface NoteItem {
@@ -160,6 +169,7 @@ export interface NoteItem {
   author: Marketer | null;
   body: string;
   createdAt: string;
+  by?: ChangeActor | null;
 }
 
 export interface Actions {
@@ -201,16 +211,20 @@ export interface ApplicationDetail {
   notesCount: number;
   actions: Actions;
   undo: UndoToken | null;
+  createdAt?: string | null;
+  createdBy?: ChangeActor | null;
+  updatedAt?: string | null;
+  updatedBy?: ChangeActor | null;
 }
 
 /* ── URL state ───────────────────────────────────────────────────────────────────── */
 
 export type MainTab = "all" | "pipeline" | "analytics";
 export type DetailTab = "overview" | "timeline" | "notes" | "activity";
-export type SortKey = "applied" | "job" | "consultant" | "client" | "stage" | "nextAction";
+export type SortKey = "applied" | "job" | "consultant" | "client" | "stage" | "nextAction" | "updated";
 export type SortDir = "asc" | "desc";
 
-export const SORT_KEYS: readonly SortKey[] = ["applied", "job", "consultant", "client", "stage", "nextAction"];
+export const SORT_KEYS: readonly SortKey[] = ["applied", "job", "consultant", "client", "stage", "nextAction", "updated"];
 export const PAGE_SIZES = [10, 25, 50] as const;
 export const MIN_SEARCH = 2;
 
@@ -254,7 +268,7 @@ const oneOf = <T extends string>(v: string | null, all: readonly T[], fallback: 
 export function parseView(params: URLSearchParams): ViewState {
   const sortRaw = (params.get("sort") ?? "").split(",");
   const sortKey = oneOf(sortRaw[0] || null, SORT_KEYS, DEFAULT_VIEW.sort.key);
-  const sortDir: SortDir = sortRaw[1] === "asc" || sortRaw[1] === "desc" ? sortRaw[1] : sortKey === "applied" ? "desc" : "asc";
+  const sortDir: SortDir = sortRaw[1] === "asc" || sortRaw[1] === "desc" ? sortRaw[1] : sortKey === "applied" || sortKey === "updated" ? "desc" : "asc";
   const page = Number.parseInt(params.get("page") ?? "1", 10);
   const size = Number.parseInt(params.get("size") ?? "", 10);
   const selected = Number.parseInt(params.get("app") ?? "", 10);
@@ -326,7 +340,7 @@ export function filtersActive(v: ViewState): boolean {
 /** Clicking a header: the same column flips direction, a new column starts ascending (the applied date starts with the newest). */
 export function nextSort(cur: { key: SortKey; dir: SortDir }, key: SortKey): { key: SortKey; dir: SortDir } {
   if (cur.key === key) return { key, dir: cur.dir === "asc" ? "desc" : "asc" };
-  return { key, dir: key === "applied" ? "desc" : "asc" };
+  return { key, dir: key === "applied" || key === "updated" ? "desc" : "asc" };
 }
 
 export function pageCount(total: number, size: number): number {

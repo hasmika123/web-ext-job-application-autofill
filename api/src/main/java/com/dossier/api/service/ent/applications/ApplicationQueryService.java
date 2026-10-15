@@ -209,6 +209,7 @@ public class ApplicationQueryService {
                     case "stage" -> STAGE_RANK;
                     case "nextAction" -> "a.nextActionDue";
                     case "moved" -> "a.stageChangedAt";
+                    case "updated" -> "a.updatedAt"; // the Updated column (change audit)
                     default -> throw sortInvalid(raw);
                 };
                 if (out.length() > 0) out.append(", ");
@@ -220,7 +221,7 @@ public class ApplicationQueryService {
     }
 
     private static OrgException sortInvalid(String raw) {
-        return OrgException.coded(400, "SORT_INVALID", "Sort by applied, job, consultant, client, stage, nextAction or moved (asc or desc): " + raw, Map.of());
+        return OrgException.coded(400, "SORT_INVALID", "Sort by applied, job, consultant, client, stage, nextAction, moved or updated (asc or desc): " + raw, Map.of());
     }
 
     private Query query(String jpql, Where w) {

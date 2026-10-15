@@ -48,6 +48,7 @@ import {
   type PatchBody,
   type Step,
 } from "@/lib/ent/interviews";
+import { UpdatedMeta, seatViewer } from "@/components/ent/applications/changeAudit";
 import { useInterviewDetail, useReminder, useStatusMove, type SaveResult } from "./hooks";
 import { ClientTile } from "./parts";
 
@@ -69,6 +70,8 @@ export interface DetailDrawerProps {
   reloadToken: number;
   /** The most interviewers one interview may list (an organization setting). */
   maxInterviewers: number;
+  /** The viewer's own seat: "you" in the Updated line is decided by it. */
+  selfMemberId?: number | null;
   /** The page owns the reschedule and feedback dialogs; the drawer asks it to open them. */
   onReschedule: (d: InterviewDetail) => void;
   onFeedback: (d: InterviewDetail) => void;
@@ -302,6 +305,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
   const toast = useToast();
   const { state, replace, save } = useInterviewDetail(p.orgId, p.interviewId, p.reloadToken);
   const [editFor, setEditFor] = useState<number | null>(null);
+  const [now] = useState(() => Date.now());
   const editing = editFor !== null && editFor === p.interviewId;
   const changed = (d: InterviewDetail) => {
     replace(d);
@@ -589,6 +593,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
             {detail.consultant.subtitle}
           </span>
         )}
+        <UpdatedMeta className="mt-1.5" updatedAt={detail.updatedAt} updatedBy={detail.updatedBy} createdAt={detail.createdAt} createdBy={detail.createdBy} me={seatViewer(p.selfMemberId)} now={now} />
       </div>
     </div>
   ) : null;

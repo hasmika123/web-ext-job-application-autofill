@@ -20,6 +20,8 @@ export interface MktPageProps {
   firstName: string;
   /** Menu hrefs of this member's Marketing workspace by nav key (`home`, `talent`, `resumes`, `jobs`, `matches`, `opportunities`, `streams`, ...); null/absent hides a link. */
   hrefs: Record<string, string | null>;
+  /** The viewer's own seat (`me.member.id`): "you" in an "Updated ... by ..." line is decided by it. */
+  selfMemberId?: number | null;
 }
 
 export const CARD = "min-w-0 rounded-[var(--radius-lg)] border border-line bg-paper p-4";
