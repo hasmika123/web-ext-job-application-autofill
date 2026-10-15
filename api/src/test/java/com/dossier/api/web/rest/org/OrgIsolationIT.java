@@ -1703,7 +1703,8 @@ class OrgIsolationIT {
         Long B = b.org.getId();
         Map<String, RepoCheck> checks = new LinkedHashMap<>();
 
-        checks.put("OrganizationRepository", new RepoCheck(Set.of("findByOrgId", "findAllByOrgIdIn", "existsBySlug", "findBySlug", "countByCreatedByUserId"), () -> {
+        checks.put("OrganizationRepository", new RepoCheck(Set.of("findByOrgId", "findAllByOrgIdIn", "existsBySlug", "findBySlug", "countByCreatedByUserId", "findAllOrgIds"), () -> {
+            assertThat(orgs.findAllOrgIds()).as("the history retention job (X9.15) lists WHICH organizations to visit, ids only; each one then runs inside TenantScoped").contains(A, B);
             assertThat(orgs.findAllByOrgIdIn(Set.of(B))).extracting(Organization::getId).containsExactly(B);
             assertThat(orgs.findByOrgId(B).orElseThrow().getId()).isNotEqualTo(A);
             assertThat(orgs.countByCreatedByUserId(a.owner.getUserId())).as("scoped by the creating person").isZero(); // fixtures set no creator

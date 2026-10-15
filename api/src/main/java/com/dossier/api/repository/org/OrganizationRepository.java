@@ -28,6 +28,10 @@ public interface OrganizationRepository extends Repository<Organization, Long> {
     /** How many organizations this person created (any state): the per-person creation cap. Scoped by the person, like {@code findMine}. */
     long countByCreatedByUserId(Long userId);
 
+    /** Every organization id: only for platform jobs that then work one organization at a time inside {@code TenantScoped} (the history retention job, X9.15). */
+    @Query("select o.id from Organization o order by o.id")
+    List<Long> findAllOrgIds();
+
     // Tenant-root lookups by the globally unique slug (the contract test allow-lists exactly these two).
     boolean existsBySlug(String slug);
 

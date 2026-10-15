@@ -7515,7 +7515,7 @@
       "id": "X9.15",
       "epic": "X9",
       "title": "Act-for on the personal tracker: TrackerActAs used by X9.12 \"Save for consultant…\", on-behalf-of stamped, consultant sees \"by Sarah Chen (marketer)\", cross-tenant and unassigned → 404; enterprise.history.retention_months + purge for the ent event tables",
-      "status": "not_started",
+      "status": "in_progress",
       "size": "M",
       "owners": [
         "API"

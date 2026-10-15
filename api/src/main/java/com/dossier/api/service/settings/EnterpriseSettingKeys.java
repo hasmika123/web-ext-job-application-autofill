@@ -82,6 +82,11 @@ public final class EnterpriseSettingKeys {
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
     public static final String USAGE_RETENTION_MONTHS = "enterprise.usage.retention_months";
     /**
+     * Change audit (docs/change-audit/README.md section 4.4, X9.15): months of application, interview and submission history an organization keeps.
+     * 0 = for the life of the record (decision D5). Read by {@code EnterpriseHistoryRetentionJob}; an organization may override it in {@code org_setting}.
+     */
+    public static final String HISTORY_RETENTION_MONTHS = "enterprise.history.retention_months";
+    /**
      * Release 1, WP2 (docs/enterprise-v2/60 section 10): the most job detail an organization's pages may show, MINIMAL (facts and the link) or FULL.
      * The level actually shown is the lower of this and the job's stored {@code detail_level}; read by {@code JobDetailMapper} / {@code JobDetailCap}.
      * An organization may override it in {@code org_setting}.
@@ -140,6 +145,8 @@ public final class EnterpriseSettingKeys {
             "The most job detail the organization's pages show: MINIMAL (title, employer, location, work mode, employment type, pay, link, skills) or FULL. "
                 + "The level shown is the lower of this and what the job itself holds, so FULL shows nothing more for a job captured with the extension. An organization can override it in org_setting.",
             null, Risk.HIGH));
+        integer(k, HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW,
+            "Months of organization application, interview and submission history kept; 0 keeps it as long as the record exists. Older rows are deleted nightly, but the newest row of every record is always kept. An organization can override it in org_setting.");
         integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
         integer(d, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
         integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
