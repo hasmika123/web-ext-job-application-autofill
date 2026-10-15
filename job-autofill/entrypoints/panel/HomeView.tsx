@@ -44,12 +44,11 @@ import { SaveJobDialog } from "./SaveJobDialog";
 import { MarketerView } from "./MarketerView";
 import { AssignedChip, AssignedJobsList } from "./AssignedJobs";
 import {
-  readWorkspaceState,
-  refreshWorkspaces,
-  chooseWorkspace,
+  readAccountState,
+  refreshAccountState,
   loadAssigned,
   matchAssigned,
-  type WorkspaceState,
+  type AccountState,
   type AssignedJob,
 } from "./workspace-actions";
 import type { Handoff } from "./services";
@@ -72,7 +71,9 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
   const [status, setStatus] = useState<Status>(NEUTRAL);
   const [pending, setPending] = useState<File | null>(null); // chosen file → save/attach choice
   const [busy, setBusy] = useState(false);
-  const [account, setAccount] = useState<Account>({ connected: false, who: "" });
+  const [account, setAccount] = useState<Account>({ connected: false, kind: "PERSONAL", title: "Personal", subtitle: "" });
+  // The account chip's disclosure: who is connected + "Switch account".
+  const [acctOpen, setAcctOpen] = useState(false);
   // Save-a-job confirmation modal (captured details, editable before saving to the board).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [saveModal, setSaveModal] = useState<{ capture: any; signal: boolean } | null>(null);
@@ -87,14 +88,15 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     setJobFit(null);
   }, [selectedId]);
 
-  // WP5 — org workspaces. `ws` is Personal (no orgs, or chosen) or one of the user's orgs. The mode
-  // decides the drawer: personal/consultant = today's fill drawer (consultant adds the Jobs tab and
-  // the "Assigned by" chip); marketer-only = ONLY "Save for consultant…" (no resumes, no fill, and
-  // no profile/mirror read at all — see loadHome's guard).
-  const [ws, setWs] = useState<WorkspaceState>({ workspaces: [], setting: "personal" });
+  // The connected account decides the drawer (one account at a time, docs/enterprise-v2/19 §6):
+  // personal/consultant = today's fill drawer (consultant adds the Jobs tab and the "Assigned by"
+  // chip); marketer-only = ONLY "Save for consultant…" (no resumes, no fill, and no profile/mirror
+  // read at all — see loadHome's guard). `known` is false for an enterprise session whose role
+  // flags are not cached yet: nothing is read until the server has said which it is.
+  const [acct, setAcct] = useState<AccountState>(() => ({ account: window.JAF.workspace.personalAccount(), known: false }));
   const [tab, setTab] = useState<"fill" | "jobs">("fill");
   const [match, setMatch] = useState<{ job: AssignedJob; by: string } | null>(null);
-  const mode = window.JAF.workspace.modeOf(ws.workspaces, ws.setting) as {
+  const mode = window.JAF.workspace.modeOf(acct.account) as {
     kind: "personal" | "marketer" | "consultant" | "org";
     org: { orgId: number; name: string } | null;
   };
@@ -127,16 +129,6 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     // After the picker is ready, so a slow score never delays filling. Never auto-selects:
     // it suggests, and the user decides.
     matchResumesForPage(pickable).then(setFit);
-  }
-
-  async function onPickWorkspace(value: string) {
-    const setting = value === "personal" ? "personal" : Number(value);
-    await chooseWorkspace(setting);
-    setTab("fill");
-    setMatch(null);
-    setWs((w) => ({ ...w, setting }));
-    const next = window.JAF.workspace.modeOf(ws.workspaces, setting);
-    if (next.kind !== "marketer") void loadHome();
   }
 
   // Consultant workspace: is THIS page one of my assigned jobs? (Identity, then normalised URL.)
@@ -186,13 +178,14 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     chrome.runtime.onMessage.addListener(onMirror);
     (async () => {
       // Local read first (instant, offline-safe): decides whether the personal data path may run.
-      const local = await readWorkspaceState();
-      setWs(local);
-      if (window.JAF.workspace.modeOf(local.workspaces, local.setting).kind !== "marketer") void loadHome();
-      // Then the server's current memberships; a role change flips the drawer without a reopen.
-      const fresh = await refreshWorkspaces();
-      setWs(fresh);
-      if (window.JAF.workspace.modeOf(fresh.workspaces, fresh.setting).kind !== "marketer") void loadHome();
+      const local = await readAccountState();
+      setAcct(local);
+      if (local.known && window.JAF.workspace.modeOf(local.account).kind !== "marketer") void loadHome();
+      // Then the server's view of this account; a role change flips the drawer without a reopen.
+      const fresh = await refreshAccountState();
+      setAcct(fresh);
+      if (fresh.known && window.JAF.workspace.modeOf(fresh.account).kind !== "marketer") void loadHome();
+      else if (!fresh.known) setStatus({ msg: "Couldn’t check your workspace. Check your connection, then reopen this drawer.", kind: "err" });
     })();
     return () => {
       chrome.storage.onChanged.removeListener(onChange);
@@ -283,13 +276,18 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
         <div className="flex min-w-0 items-center gap-1">
           {account.connected && (
             <button
-              onClick={() => chrome.tabs.create({ url: WEB + "/dashboard" })}
-              title="Open your kiwiply dashboard"
-              aria-label={`Open dashboard — signed in as ${account.who}`}
-              className="flex min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-2.5 transition-colors hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              onClick={() => setAcctOpen((o) => !o)}
+              title="Connected account"
+              aria-expanded={acctOpen}
+              aria-controls="account-panel"
+              aria-label={`Connected account: ${account.title}${account.subtitle ? ", " + account.subtitle : ""}`}
+              className="flex min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-2.5 text-left transition-colors hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              <Avatar name={account.who} />
-              <span className="max-w-[96px] truncate text-[12.5px] font-semibold text-ink">{account.who}</span>
+              <Avatar name={account.kind === "ENTERPRISE" ? account.title : account.subtitle} />
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="max-w-[132px] truncate text-[12.5px] font-semibold text-ink">{account.title}</span>
+                {account.subtitle && <span className="max-w-[132px] truncate text-[11px] text-muted">{account.subtitle}</span>}
+              </span>
             </button>
           )}
           <IconButton title="Extension settings" aria-label="Extension settings" onClick={openSettings}>
@@ -302,25 +300,30 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
       </header>
   );
 
-  // Workspace chip: Personal / <Org>. Shown only for users who belong to an org — everyone else
-  // sees the drawer exactly as before.
-  const wsRow =
-    ws.workspaces.length > 0 ? (
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-bold uppercase tracking-[.1em] text-muted">Workspace</span>
-        <Select
-          variant="pill"
-          aria-label="Workspace"
-          value={ws.setting === "personal" ? "personal" : String(ws.setting)}
-          onChange={(v) => void onPickWorkspace(v)}
-        >
-          <option value="personal">Personal</option>
-          {ws.workspaces.map((w) => (
-            <option key={w.orgId} value={String(w.orgId)}>
-              {w.name}
-            </option>
-          ))}
-        </Select>
+  // The account chip's disclosure. One account is connected at a time; "Switch account" opens the
+  // web connect flow (personal). An enterprise account is connected from its own workspace on the
+  // web ("Connect extension"), so that is spelled out rather than linked: the host varies per org.
+  const accountPanel =
+    account.connected && acctOpen ? (
+      <div id="account-panel" className="flex flex-col gap-2.5 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
+        <div>
+          <div className="text-[13px] font-semibold text-ink">{account.title}</div>
+          {account.subtitle && <div className="text-[12px] text-muted">{account.subtitle}</div>}
+        </div>
+        <p className="text-[12px] leading-snug text-ink-soft">
+          The extension is connected to one account at a time. Connecting another account signs this one out of this browser.
+          To connect an enterprise account, use <b>Connect extension</b> in your organization&apos;s workspace.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => chrome.tabs.create({ url: WEB + "/connect" })}>
+            Switch account
+          </Button>
+          {account.kind === "PERSONAL" && (
+            <Button size="sm" variant="ghost" onClick={() => chrome.tabs.create({ url: WEB + "/dashboard" })}>
+              Open dashboard
+            </Button>
+          )}
+        </div>
       </div>
     ) : null;
 
@@ -331,7 +334,7 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     return (
       <div className={rootCls}>
         {headerEl}
-        {wsRow}
+        {accountPanel}
         <MarketerView key={mode.org.orgId} orgId={mode.org.orgId} orgName={mode.org.name} />
         <footer className="mt-auto border-t border-line px-1 pt-3 text-[11px] text-muted">
           Saving hands a job to your consultant · they apply themselves
@@ -343,7 +346,7 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
   return (
     <div className={rootCls}>
       {headerEl}
-      {wsRow}
+      {accountPanel}
 
       {/* Consultant workspace: Autofill | Jobs */}
       {mode.kind === "consultant" && mode.org && (

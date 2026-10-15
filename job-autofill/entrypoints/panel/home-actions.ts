@@ -84,7 +84,8 @@ function fileToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export type Account = { connected: boolean; who: string };
+/** `title` / `subtitle` = JAF.workspace.accountChip: `Personal` or `<Org> · Enterprise`, with the email beneath. Never the login. */
+export type Account = { connected: boolean; kind: "PERSONAL" | "ENTERPRISE"; title: string; subtitle: string };
 
 /**
  * Read the live connected-account status straight from the session token (not the cached store),
@@ -95,7 +96,8 @@ export async function readAccount(): Promise<Account> {
   const tok: any = await new Promise((res) =>
     chrome.storage.local.get("trackingAuth", (o) => res((o && o.trackingAuth) || {})),
   );
-  return { connected: !!(tok && tok.access), who: tok.username || "your account" };
+  const chip = JAF().workspace.accountChip(tok);
+  return { connected: !!(tok && tok.access), kind: chip.kind, title: chip.title, subtitle: chip.subtitle };
 }
 
 /**

@@ -4,7 +4,7 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: 0.28.0 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
+> Current version: 0.67.0 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -108,6 +108,14 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   the `File` in memory to the shared `ResumeUpload` review form. An uploaded resume is stored
   under a generic `uploadResumeName` when it is for this application only. *(Replaces the deleted
   `src/popup/popup.js` and `src/review/`.)*
+- `src/lib/workspace.js` — `JAF.workspace`, pure logic for the connected ACCOUNT (S7, docs/enterprise-v2/19):
+  `modeOf(account)` (personal / marketer / consultant / org — no selection), `accountChip(session)`
+  (`Personal` or `<Org> · Enterprise` + the email, never the login), `accountFromLocal`, plus the marketer
+  trim/save and consultant matching helpers. The extension holds ONE session (`trackingAuth`:
+  `{access, refresh, kind, orgId, orgName, email, userId}`); the service worker (`acceptConnectSession`)
+  clears every account-bound cache when the **user id** changes (never email or login), then replaces
+  the session. `GET /api/profile/version` -> `account` is cached in `settings.account`; an older server's
+  `workspaces[]` is still read for one release (`tracking.js` `dtoToAccount`). No workspace header exists.
 - `src/lib/storage.js` — chrome.storage (profiles) + IndexedDB (resume files).
 - `src/lib/field-cache.js` — `JAF.fieldCache`. Local, per-profile memory of the
   user's field answers. Stored in **`chrome.storage.local` under one `fieldCache`
