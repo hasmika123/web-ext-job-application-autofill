@@ -46,7 +46,7 @@ const conDto = (over) => Object.assign({
 (async function run() {
   /* ---- base class declares the new seam methods ---- */
   const base = new T.TrackingProvider();
-  for (const m of ["listWorkspaces", "assignedJobs", "listMarketerConsultants", "saveForConsultant", "linkOpportunity", "respondOpportunity"]) {
+  for (const m of ["getAccount", "assignedJobs", "listMarketerConsultants", "saveForConsultant", "linkOpportunity", "respondOpportunity"]) {
     let name = null; try { await base[m](1); } catch (e) { name = e.name; }
     eq("base provider: " + m + " is NotSupported until implemented", name, "NotSupportedError");
   }
@@ -56,14 +56,33 @@ const conDto = (over) => Object.assign({
     [{ orgId: 7, name: "Acme", consultant: true, marketer: false }, { orgId: 8, name: "Organization", consultant: false, marketer: false }]);
   eq("dtoToWorkspaces: absent / non-array -> []", [T.dtoToWorkspaces(undefined), T.dtoToWorkspaces({})], [[], []]);
 
-  /* ---- listWorkspaces / profileVersion ---- */
-  let c = provider(() => ({ status: 200, json: { version: "v1", plan: "PRO", workspaces: [{ orgId: 7, name: "Acme", consultant: false, marketer: true }] } }));
-  eq("listWorkspaces: reads workspaces[] off /api/profile/version", await c.p.listWorkspaces(), [{ orgId: 7, name: "Acme", consultant: false, marketer: true }]);
-  eq("listWorkspaces: GET /api/profile/version", [c.f.calls[0].method, c.f.calls[0].path], ["GET", "/api/profile/version"]);
-  c = provider(() => ({ status: 200, json: { version: "v1", plan: "FREE" } }));
-  eq("listWorkspaces: tolerates absence -> []", await c.p.listWorkspaces(), []);
+  /* ---- profileVersion -> account (doc 19 §6.2), getAccount ---- */
+  const ENT = { kind: "ENTERPRISE", orgId: 7, name: "Acme", consultant: false, marketer: true };
+  let c = provider(() => ({ status: 200, json: { version: "v1", plan: "PRO", account: ENT, workspaces: [{ orgId: 7, name: "Acme", consultant: false, marketer: true }] } }));
+  eq("getAccount: reads account off /api/profile/version", await c.p.getAccount(), ENT);
+  eq("getAccount: GET /api/profile/version", [c.f.calls[0].method, c.f.calls[0].path], ["GET", "/api/profile/version"]);
+  ok("profileVersion sends no workspace/tenant header", !Object.keys(c.f.calls[0].headers).some((k) => /workspace|tenant|tid/i.test(k)), Object.keys(c.f.calls[0].headers).join(","));
+  c = provider(() => ({ status: 200, json: { version: "v1", plan: "FREE", account: { kind: "PERSONAL", orgId: null, name: null, consultant: false, marketer: false }, workspaces: [] } }));
   const pv = await c.p.profileVersion();
-  eq("profileVersion: still {version, plan} + workspaces:[]", [pv.version, pv.plan, pv.workspaces], ["v1", "FREE", []]);
+  eq("profileVersion: {version, plan, account} for a personal account", [pv.version, pv.plan, pv.account], ["v1", "FREE", { kind: "PERSONAL", orgId: null, name: null, consultant: false, marketer: false }]);
+  ok("profileVersion no longer returns a workspaces list", !("workspaces" in pv));
+
+  /* ---- old server: no `account`, only workspaces[] (kept one release) ---- */
+  const OLD = [{ orgId: 7, name: "Acme", consultant: false, marketer: true }];
+  c = provider(() => ({ status: 200, json: { version: "v1", plan: "PRO", workspaces: OLD } }));
+  eq("old workspaces[]-only payload still yields a usable account", await c.p.getAccount(), ENT);
+  c = provider(() => ({ status: 200, json: { version: "v1", plan: "FREE" } }));
+  eq("no account and no workspaces -> personal", (await c.p.getAccount()).kind, "PERSONAL");
+  c = provider(() => ({ status: 200, json: { version: "v1", workspaces: [{ orgId: 7, name: "Acme" }, { orgId: 9, name: "Beta", consultant: true }] } }));
+  eq("workspaces-only: the entry the session names wins (hint.orgId)", T.dtoToAccount({ workspaces: [{ orgId: 7, name: "Acme" }, { orgId: 9, name: "Beta", consultant: true }] }, { kind: "ENTERPRISE", orgId: 9 }),
+    { kind: "ENTERPRISE", orgId: 9, name: "Beta", consultant: true, marketer: false });
+  eq("workspaces-only: otherwise the first entry", T.dtoToAccount({ workspaces: [{ orgId: 7, name: "Acme" }, { orgId: 9, name: "Beta" }] }, {}).orgId, 7);
+  eq("workspaces-only but the session says PERSONAL -> personal", T.dtoToAccount({ workspaces: OLD }, { kind: "PERSONAL" }).kind, "PERSONAL");
+  eq("a usable account beats the legacy list", T.dtoToAccount({ account: { kind: "PERSONAL" }, workspaces: OLD }, {}).kind, "PERSONAL");
+  eq("an enterprise account with no org id is not trusted -> falls back", T.dtoToAccount({ account: { kind: "ENTERPRISE", orgId: null }, workspaces: [] }, {}).kind, "PERSONAL");
+  eq("flags must be real booleans", T.dtoToAccount({ account: { kind: "ENTERPRISE", orgId: 7, name: "Acme", consultant: "yes", marketer: 1 } }, {}),
+    { kind: "ENTERPRISE", orgId: 7, name: "Acme", consultant: false, marketer: false });
+  eq("absent / junk payloads -> personal", [T.dtoToAccount(undefined).kind, T.dtoToAccount(null).kind, T.dtoToAccount({ account: "x" }).kind], ["PERSONAL", "PERSONAL", "PERSONAL"]);
 
   /* ---- auth: user token + path orgId, no workspace header, no tenant ---- */
   c = provider(() => ({ status: 200, json: { items: [conDto()], total: 1 } }));

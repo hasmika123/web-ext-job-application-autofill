@@ -84,7 +84,7 @@
     async submitBugReport(/* { message, category, url, appVersion, userAgent } */) { throw new NotSupportedError("submitBugReport (Phase 9)"); }
     // Release 1 / WP5 (docs/enterprise-v2/60 §6) — org workspaces. Every org call is the user's own
     // token + the orgId in the PATH; there is no workspace header and no tenant claim.
-    async listWorkspaces() { throw new NotSupportedError("listWorkspaces"); }
+    async getAccount() { throw new NotSupportedError("getAccount"); }
     async assignedJobs(/* orgId */) { throw new NotSupportedError("assignedJobs"); }
     async listMarketerConsultants(/* orgId, q */) { throw new NotSupportedError("listMarketerConsultants"); }
     async saveForConsultant(/* orgId, body, idempotencyKey */) { throw new NotSupportedError("saveForConsultant"); }
@@ -221,6 +221,30 @@
   }
   function dtoToWorkspaces(list) {
     return Array.isArray(list) ? list.map(dtoToWorkspace).filter(Boolean) : [];
+  }
+  // GET /api/profile/version -> account:{kind,orgId,name,consultant,marketer} (separate enterprise
+  // accounts, doc 19 §6.2). One account per session: personal, or one enterprise.
+  // Tolerates an OLDER server for one release: with no usable `account`, derive it from the
+  // legacy workspaces[] — the entry the session is for (hint.orgId), else the first one — unless
+  // the session says it is personal. No account and no workspaces -> personal.
+  // `hint` = the stored session record ({kind, orgId}); the server's own answer always wins.
+  function dtoToAccount(raw, hint) {
+    raw = raw || {};
+    const a = raw.account;
+    if (a && typeof a === "object" && (a.kind === "PERSONAL" || a.kind === "ENTERPRISE")) {
+      if (a.kind === "PERSONAL") return { kind: "PERSONAL", orgId: null, name: null, consultant: false, marketer: false };
+      const orgId = Number(a.orgId);
+      if (Number.isFinite(orgId) && orgId > 0) {
+        return { kind: "ENTERPRISE", orgId, name: typeof a.name === "string" && a.name ? a.name : "Organization", consultant: a.consultant === true, marketer: a.marketer === true };
+      }
+    }
+    hint = hint || {};
+    const list = dtoToWorkspaces(raw.workspaces);
+    if (hint.kind !== "PERSONAL" && list.length) {
+      const w = list.find((x) => hint.orgId != null && x.orgId === Number(hint.orgId)) || list[0];
+      return { kind: "ENTERPRISE", orgId: w.orgId, name: w.name, consultant: w.consultant, marketer: w.marketer };
+    }
+    return { kind: "PERSONAL", orgId: null, name: null, consultant: false, marketer: false };
   }
   // ConOpportunityDTO -> the extension's canonical assigned-job shape (flat; only what the drawer shows).
   function dtoToAssignedJob(dto) {
@@ -465,15 +489,15 @@
         return {
           version: typeof r.version === "string" && r.version ? r.version : null,
           plan: typeof r.plan === "string" && r.plan ? r.plan : null,
-          // WP5: the orgs this user is an ACTIVE member of, with their roles. [] when absent.
-          workspaces: dtoToWorkspaces(r.workspaces),
+          // The connected account (doc 19 §6.2); derived from the legacy workspaces[] on an older server.
+          account: dtoToAccount(r, await tokens()),
         };
       },
 
-      // ---- org workspaces (WP5) -------------------------------------------------
-      // The ONLY extension-side read of the org list. [] for a user with no orgs or an older server.
-      async listWorkspaces() {
-        return (await this.profileVersion()).workspaces;
+      // ---- the connected account ------------------------------------------------
+      // The ONLY extension-side read of what the account is and may do (its role flags).
+      async getAccount() {
+        return (await this.profileVersion()).account;
       },
 
       // Consultant: the jobs a marketer assigned to ME (the server resolves "me" from the token; the
@@ -694,6 +718,6 @@
     // exposed for tests
     bioToPayload, payloadToBio, resumeToDto, dtoToResume, applicationToDto, dtoToApplication,
     fieldCacheToDto, dtoToFieldCache,
-    dtoToWorkspace, dtoToWorkspaces, dtoToAssignedJob, saveForConsultantToDto, ASSIGNED_STATES,
+    dtoToWorkspace, dtoToWorkspaces, dtoToAccount, dtoToAssignedJob, saveForConsultantToDto, ASSIGNED_STATES,
   };
 })();

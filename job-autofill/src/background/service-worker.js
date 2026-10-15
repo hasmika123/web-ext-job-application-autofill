@@ -22,6 +22,11 @@ function track(name, params) {
 }
 
 chrome.runtime.onInstalled.addListener((details) => {
+  // Upgrade from the Personal/<Org> workspace model: drop its two dead settings keys.
+  try {
+    const S = self.JAF && self.JAF.storage;
+    if (S && S.migrateLegacyKeys) S.migrateLegacyKeys().catch(() => {});
+  } catch (e) { /* best-effort; clearAccountData also removes them */ }
   if (details.reason === "install") {
     // Onboard on the web app: sign in / sign up there and connect the extension.
     chrome.tabs.create({ url: "https://kiwiply.com/connect" });
@@ -274,27 +279,88 @@ function senderOrigin(sender) {
   try { return new URL(sender.url).origin; } catch (_) { return ""; }
 }
 
+// ---- who is connected (separate enterprise accounts, docs/enterprise-v2/19 §6.1) -----------
+// The extension holds ONE session, for a personal OR an enterprise account. Two accounts can
+// share an email (one personal, one per organization), and an enterprise login is synthetic, so
+// "the same account" is decided by the USER ID the web handed over — never by email or login.
+const ACCOUNT_KINDS = ["PERSONAL", "ENTERPRISE"];
+const ENT_LOGIN_RE = /^ent#/i;
+function posInt(v) { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; }
+function cleanText(v, max) { return typeof v === "string" && v.trim() ? v.trim().slice(0, max) : ""; }
+
+// The handoff's account fields -> the fields stored on the session. `ok:false` when an
+// enterprise handoff cannot name its organization or its user (the connection is then refused
+// rather than stored half-known). A handoff from an older web (no kind at all) is still accepted.
+function accountFields(t) {
+  const kind = ACCOUNT_KINDS.indexOf(t.kind) !== -1 ? t.kind : undefined;
+  const userId = posInt(t.userId);
+  const fields = {};
+  if (kind) fields.kind = kind;
+  if (userId) fields.userId = userId;
+  // An email longer than the RFC limit is junk: dropped, never truncated into a different address.
+  const email = cleanText(t.email, 1000);
+  if (email && email.length <= 254) fields.email = email;
+  if (kind === "ENTERPRISE") {
+    const orgId = posInt(t.orgId);
+    if (!orgId || !userId) return { ok: false };
+    fields.orgId = orgId;
+    fields.orgName = cleanText(t.orgName, 200) || "Organization";
+    // The synthetic login (ent#<orgId>#...) is never kept: nothing may display or compare it.
+  } else {
+    const login = cleanText(t.username, 100);
+    if (login && !ENT_LOGIN_RE.test(login)) fields.username = login;
+  }
+  return { ok: true, fields };
+}
+
+// The marker of whose learned answers these are (kept across a web sign-out): "uid:<userId>",
+// or the bare username written by a build from before accounts carried a user id.
+function ownerMarker(fields) {
+  if (fields.userId) return "uid:" + fields.userId;
+  return fields.username || "";
+}
+function parseOwner(marker) {
+  const m = typeof marker === "string" ? marker : "";
+  if (/^uid:\d+$/.test(m)) return { userId: Number(m.slice(4)) };
+  return m ? { username: m } : {};
+}
+// Is `next` provably a different account from `prev`? Ids decide. A kind or organization change
+// is also proof (an account is exactly one kind of one organization). Only for a previous
+// session that predates user ids do the two usernames stand in; an unknown side proves nothing,
+// and wiping on a guess would cost a Free user their device-only learned answers.
+function accountSwitched(prev, next) {
+  if (prev.userId && next.userId) return prev.userId !== next.userId;
+  // A record with only a username predates accounts carrying a kind: that was always a personal login.
+  const prevKind = prev.kind || (prev.username && !prev.userId ? "PERSONAL" : undefined);
+  if (prevKind && next.kind && prevKind !== next.kind) return true;
+  if (prev.kind === "ENTERPRISE" && next.kind === "ENTERPRISE" && prev.orgId && next.orgId && prev.orgId !== next.orgId) return true;
+  if (!prev.userId && prev.username && next.username) return prev.username !== next.username;
+  return false;
+}
+
 // Shared by both handoff paths below. Returns the response to send back.
 async function acceptConnectSession(tokens) {
   const t = tokens || {};
   if (!t.access || !t.refresh) return { ok: false, reason: "missing-tokens" };
+  const acct = accountFields(t);
+  if (!acct.ok) return { ok: false, reason: "invalid-account" };
   try {
     // Ensure the API base is set, then store the session via the shared token store.
     const settings = (await sGet("settings")) || {};
     if (!settings.apiBaseUrl) { settings.apiBaseUrl = "https://api.kiwiply.com"; await sSet("settings", settings); }
     // A DIFFERENT account connecting over one that never signed out (the sign-out signal can be
-    // missed — browser closed, extension updated) must not inherit its data. Only when both
-    // names are known: an unknown name can't prove a switch, and wiping on a guess would cost a
-    // Free user their device-only learned answers.
+    // missed — browser closed, extension updated) must not inherit its data: the previous
+    // account's caches are cleared first, THEN the session is replaced (never two sessions).
     // After a web sign-out the session is gone, so the owner of any kept learned answers is read
     // from the marker that sign-out leaves behind.
     const store = self.JAF.tracking.chromeTokenStore();
-    let previous = "";
-    try { previous = ((store.get ? await store.get() : {}) || {}).username || ""; } catch (e) {}
-    if (!previous) previous = (await sGet(LEARNED_OWNER_KEY)) || "";
-    if (previous && t.username && previous !== t.username) await forgetAccount();
-    await store.set({ access: t.access, refresh: t.refresh, username: t.username || "" });
-    if (t.username) await sSet(LEARNED_OWNER_KEY, t.username);
+    let prev = {};
+    try { prev = (store.get ? await store.get() : {}) || {}; } catch (e) {}
+    if (!prev.userId && !prev.username) prev = Object.assign({}, prev, parseOwner(await sGet(LEARNED_OWNER_KEY)));
+    if (accountSwitched(prev, acct.fields)) await forgetAccount();
+    await store.set(Object.assign({ access: t.access, refresh: t.refresh }, acct.fields));
+    const owner = ownerMarker(acct.fields);
+    if (owner) await sSet(LEARNED_OWNER_KEY, owner);
     track("extension_connected", {});
     return { ok: true };
   } catch (e) {
@@ -343,7 +409,7 @@ async function handleSyncSignal(event) {
     // First note whose learned answers these are: they survive a web sign-out, and once the
     // session is cleared below its username is gone.
     try {
-      const who = ((await J.tracking.chromeTokenStore().get()) || {}).username;
+      const who = ownerMarker((await J.tracking.chromeTokenStore().get()) || {});
       if (who) await sSet(LEARNED_OWNER_KEY, who);
     } catch (e) { /* the marker is also written on every connect */ }
     try {
