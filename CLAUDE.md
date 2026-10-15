@@ -138,7 +138,7 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
 - **Go-to-market (locked 2026-09-21, ROADMAP Phases 11–17; extended 2026-10-05).** Tiers
   **Free + Pro + Autopilot**. Pro = **$19.99/mo · $49.99 / 3 months** at Launch 1 → **$24.99 /
   $54.99** at Launch 2. Autopilot = **$39.99/mo · $99.99 / 3 months**.
-  **No annual plan.** Stripe Checkout + Portal; `EntitlementService` in the API is the only
+  **Annual billing is allowed (user decision 2026-10-15, S-01):** monthly and yearly prices per plan/add-on, yearly discount admin-set under the ≥ 80 % margin guard; design docs/subscriptions/. Stripe Checkout + Portal; `EntitlementService` in the API is the only
   entitlement source of truth (`isPro()` wraps it; Phase 18 moves plans onto a DB catalog). **Core autofill stays free and identical in both tiers.** Free has **no
   server AI** (BYO key only) with exactly one exception: **AI resume parsing** (one call per
   resume, it's how the profile builds itself). Resume caps: Free 3 · Pro 25 · Autopilot 50;
