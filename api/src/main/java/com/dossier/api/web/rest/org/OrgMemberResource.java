@@ -59,7 +59,7 @@ public class OrgMemberResource {
 
     @Operation(
         summary = "Create an account for a person now, with a temporary password",
-        description = "Same roles, team and manager as an invitation, validated the same way (role ceiling). A new address gets an ACTIVE account that must change the temporary password at first sign-in (mode ACCOUNT_CREATED); an address that already has a Kiwiply account keeps its own password and receives a normal invitation (mode INVITED). The password is hashed on arrival and never returned again."
+        description = "Same roles, team and manager as an invitation, validated the same way (role ceiling). A new address gets an ACTIVE account that must change the temporary password at first sign-in (mode ACCOUNT_CREATED); in a legacy shared-accounts organization an address that already has a Kiwiply account keeps its own password and receives a normal invitation (mode INVITED); in an organization with separate enterprise accounts (decision O4) a new enterprise account is always created, whatever other accounts that address has. The password is hashed on arrival and never returned again."
     )
     @PostMapping("/account")
     @OrgPermissionRequired(OrgPermission.MEMBERS_INVITE)

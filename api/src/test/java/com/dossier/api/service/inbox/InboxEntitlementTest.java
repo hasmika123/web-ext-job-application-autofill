@@ -2,6 +2,8 @@ package com.dossier.api.service.inbox;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dossier.api.domain.ent.billing.ConsultantLicense;
@@ -168,5 +170,35 @@ class InboxEntitlementTest {
         assertThat(entitlement.orgGrants(null, USER)).isFalse();
         assertThat(entitlement.orgGrants(ORG, null)).isFalse();
         assertThat(entitlement.decide(null, null).allowed()).isFalse();
+    }
+
+    // ---- decision O4 (doc 19 section 3.2): one ground per kind of account ----------------------------------------------------
+
+    static final String ENTERPRISE_LOGIN = "ent#1#anika@acme.test";
+
+    @Test
+    void anEnterpriseAccountIsGrantedByTheOrganizationLicenseOnlyAndThePersonalPlanIsNeverAsked() {
+        when(personal.isPro(ENTERPRISE_LOGIN)).thenReturn(true); // even a stray plan row could not matter
+        var d = entitlement.decide(USER, ENTERPRISE_LOGIN);
+        assertThat(d.ground()).isEqualTo(InboxEntitlement.Ground.ORGANIZATION);
+        verify(personal, never()).isPro(ENTERPRISE_LOGIN);
+    }
+
+    @Test
+    void anEnterpriseAccountWithoutTheAddOnHasNoInboxEvenWithAPersonalPlanRow() {
+        when(personal.isPro(ENTERPRISE_LOGIN)).thenReturn(true);
+        feature.setLive(false);
+        assertThat(entitlement.decide(USER, ENTERPRISE_LOGIN).allowed()).isFalse();
+        assertThat(entitlement.decide(USER, ENTERPRISE_LOGIN).ground()).isEqualTo(InboxEntitlement.Ground.NONE);
+    }
+
+    @Test
+    void aPersonalAccountKeepsBothGroundsExactlyAsBefore() {
+        when(personal.isPro("anika")).thenReturn(true);
+        assertThat(entitlement.decide(USER, "anika").ground()).isEqualTo(InboxEntitlement.Ground.PERSONAL);
+        when(personal.isPro("anika")).thenReturn(false);
+        assertThat(entitlement.decide(USER, "anika").ground()).isEqualTo(InboxEntitlement.Ground.ORGANIZATION);
+        assertThat(InboxEntitlement.isEnterpriseAccount("anika")).isFalse();
+        assertThat(InboxEntitlement.isEnterpriseAccount(ENTERPRISE_LOGIN)).isTrue();
     }
 }

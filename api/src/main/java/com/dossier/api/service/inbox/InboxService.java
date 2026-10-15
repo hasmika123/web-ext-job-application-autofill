@@ -176,10 +176,12 @@ public class InboxService {
         c.setPasswordEnc(box.encrypt(password, context(user.getId())));
         c.setSentFolder(probe.sentFolder());
         c.setStatus(InboxConnection.CONNECTED);
-        // The context it was made in decides who may purge it later. The same Gmail already connected on the personal plan stays personal: an
-        // organization action never purges a connection the person made on their own plan.
+        // Legacy accounts (decision O4 leaves SHARED organizations untouched): the context it was made in decides who may purge it later. The same
+        // Gmail already connected on the personal plan stays personal: an organization action never purges a connection the person made on their
+        // own plan. An ENTERPRISE account no longer writes the column at all: the account itself belongs to the organization (users.org_id), so
+        // offboarding purges its connection without any bookkeeping on the row. Old rows are still read.
         boolean staysPersonal = existing.isPresent() && existing.get().getConnectedViaOrgId() == null && !changedAccount;
-        c.setConnectedViaOrgId(staysPersonal ? null : viaOrgId);
+        c.setConnectedViaOrgId(user.getOrgId() != null ? null : staysPersonal ? null : viaOrgId);
         c.setLastError(null);
         c.setConsecutiveFailures(0);
         if (changedAccount || c.getLastCheckedAt() == null) c.setConnectedAt(Instant.now());
@@ -262,12 +264,14 @@ public class InboxService {
 
     /**
      * Offboarding (and only that): forget the inbox if it was connected through {@code orgId}. A connection made on the personal plan, or through
-     * another organization, is left exactly as it is. Returns whether something was purged.
+     * another organization, is left exactly as it is. An ENTERPRISE account of {@code orgId} (decision O4) has no personal ground: its connection is
+     * always the organization's, so it is always purged. Returns whether something was purged.
      */
     @Transactional
     public boolean purgeConnectedVia(Long userId, Long orgId) {
         if (userId == null || orgId == null) return false;
-        boolean via = connections.findById(userId).map(c -> orgId.equals(c.getConnectedViaOrgId())).orElse(false);
+        boolean enterpriseOfOrg = users.findById(userId).map(u -> orgId.equals(u.getOrgId())).orElse(false);
+        boolean via = enterpriseOfOrg ? connections.existsById(userId) : connections.findById(userId).map(c -> orgId.equals(c.getConnectedViaOrgId())).orElse(false);
         if (via) deleteAllForUser(userId);
         return via;
     }

@@ -111,7 +111,7 @@ public class ConsultantInboxService {
         boolean orgGrants = entitlement.orgGrants(me.orgId(), me.userId());
         InboxService.View v = inbox.mine();
         if (!v.connected()) return new View(orgGrants, v.available(), false, null, null, null, null, null, null, 0, true, imap.isDemoSandbox(), imap.sandboxAddress());
-        // The organization no longer grants it: unless their own plan does, the connection is stopped. The poller marks it too; this is the live truth.
+        // The organization no longer grants it (an enterprise account has no other ground): the connection is stopped. The poller marks it too; this is the live truth.
         boolean entitled = orgGrants || entitlement.decide(me.userId(), me.login()).allowed();
         String status = v.status();
         String note = null;

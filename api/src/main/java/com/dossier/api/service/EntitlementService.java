@@ -1,5 +1,6 @@
 package com.dossier.api.service;
 
+import com.dossier.api.config.Constants;
 import com.dossier.api.domain.Subscription;
 import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.security.SecurityUtils;
@@ -84,6 +85,8 @@ public class EntitlementService {
 
     /** True when this login is entitled to Pro right now. A user with no row is Free. */
     public boolean isPro(String login) {
+        // Decision O4: an enterprise account (login ent#<orgId>#...) never has a personal plan, whatever a stray row might say.
+        if (Constants.isEnterpriseLogin(login)) return false;
         return subscriptionRepository
             .findOneByUserLogin(login)
             .map(sub -> isProFor(sub.getStatus(), sub.getCurrentPeriodEnd(), Instant.now()))
@@ -97,8 +100,9 @@ public class EntitlementService {
 
     /** The full plan view for a login — what {@code GET /api/billing/me} returns. */
     public PlanDTO plan(String login) {
-        Optional<Subscription> maybe = subscriptionRepository.findOneByUserLogin(login);
         boolean billingEnabled = stripeGateway.isEnabled();
+        // Decision O4: an enterprise account is never on a personal plan (its organization's license is the only grant it can hold).
+        Optional<Subscription> maybe = Constants.isEnterpriseLogin(login) ? Optional.empty() : subscriptionRepository.findOneByUserLogin(login);
         if (maybe.isEmpty()) {
             return new PlanDTO(Subscription.PLAN_FREE, Subscription.STATUS_NONE, null, false, billingEnabled, false);
         }

@@ -89,7 +89,8 @@ public class InboxPoller {
     /**
      * Whether this connection may be read right now, and the bookkeeping that follows from the answer. Nothing is ever read silently without a ground:
      * <ul>
-     *   <li>the person's own Pro plan, or a live organization license that grants {@code inbox.monitoring}: read (and a connection that was stopped
+     *   <li>the personal account's own Pro plan, or a live organization license that grants {@code inbox.monitoring} (the only ground an enterprise
+     *       account can have): read (and a connection that was stopped
      *       comes back to CONNECTED);</li>
      *   <li>neither: the connection is marked {@code NO_ENTITLEMENT} (the page says so) and is not read;</li>
      *   <li>a connection made through an organization whose seat has ended (left, removed, erased): purged with its password and mail. A personal
@@ -98,11 +99,16 @@ public class InboxPoller {
      */
     public boolean reconcile(InboxConnection c) {
         Long userId = c.getUserId();
-        if (c.getConnectedViaOrgId() != null && seatEnded(userId, c.getConnectedViaOrgId())) {
-            service.purgeConnectedVia(userId, c.getConnectedViaOrgId());
+        User owner = users.findById(userId).orElse(null);
+        // An enterprise account (decision O4) belongs to its organization: when its seat has ended the connection goes with it. Older rows that
+        // recorded connected_via_org_id are still honoured.
+        Long orgOfAccount = owner == null ? null : owner.getOrgId();
+        Long via = orgOfAccount != null ? orgOfAccount : c.getConnectedViaOrgId();
+        if (via != null && seatEnded(userId, via)) {
+            service.purgeConnectedVia(userId, via);
             return false;
         }
-        String login = users.findById(userId).map(User::getLogin).orElse(null);
+        String login = owner == null ? null : owner.getLogin();
         InboxEntitlement.Decision d = entitlement.decide(userId, login);
         if (d.allowed()) {
             if (InboxConnection.NO_ENTITLEMENT.equals(c.getStatus())) {
@@ -115,7 +121,7 @@ public class InboxPoller {
         }
         if (!InboxConnection.NO_ENTITLEMENT.equals(c.getStatus()) && !InboxConnection.NEEDS_RECONNECT.equals(c.getStatus())) {
             c.setStatus(InboxConnection.NO_ENTITLEMENT);
-            c.setLastError(c.getConnectedViaOrgId() != null ? "Your organization no longer includes inbox tracking." : "Inbox tracking is part of Pro.");
+            c.setLastError(via != null ? "Your organization no longer includes inbox tracking." : "Inbox tracking is part of Pro.");
             connections.save(c);
             LOG.info("An inbox stopped being read: nothing includes inbox tracking for its owner any more");
         }

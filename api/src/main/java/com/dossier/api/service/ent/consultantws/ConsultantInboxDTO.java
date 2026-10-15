@@ -13,7 +13,7 @@ public final class ConsultantInboxDTO {
     private ConsultantInboxDTO() {}
 
     /**
-     * @param entitled    whether the consultant's organization license (or their own Pro plan) includes inbox tracking right now. When false the page
+     * @param entitled    whether the consultant's organization license includes inbox tracking right now. When false the page
      *                    explains it; a connection that exists is not read.
      * @param status      CONNECTED | ERROR | NEEDS_RECONNECT | NO_ENTITLEMENT, or null when nothing is connected
      * @param stoppedNote the sentence for a stopped connection ("Your organization no longer includes inbox tracking."), else null

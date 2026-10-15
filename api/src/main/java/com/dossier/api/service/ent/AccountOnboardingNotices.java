@@ -79,7 +79,7 @@ public class AccountOnboardingNotices {
         inApp(
             creator,
             "Account created for " + (personName == null ? (owner ? "the new owner" : "a new member") : personName),
-            accountCreated ? "Share the temporary password with them securely. It stops working on " + EXPIRES.format(expires) + "." : "They already had a Kiwiply account, so no temporary password was issued."
+            accountCreated ? "Share the temporary password with them securely. It stops working on " + EXPIRES.format(expires) + "." : "They already have an account in this legacy organization, so no temporary password was issued."
         );
         if (!accountCreated || person.getEmail() == null || host == null) return; // an existing account signs in as before: no mail; no live address, no sign-in link to send
         String to = person.getEmail();

@@ -385,6 +385,49 @@ class ConsultantInboxResourceIT {
         assertThat(page.path("inbox").path("entitled").asBoolean()).isTrue();
     }
 
+    // ---- decision O4: an enterprise account has the organization ground and nothing else ---------------------------------
+
+    private String enterpriseConsultant(boolean withInbox) {
+        String login = "ent#" + a.getId() + "#c4@it.test";
+        User u = new User();
+        u.setLogin(login);
+        u.setPassword("x".repeat(60));
+        u.setActivated(true);
+        u.setEmail("c4.it@x.test");
+        u.setLangKey("en");
+        u.setOrgId(a.getId()); // an enterprise account belongs to its organization for life
+        users.saveAndFlush(u);
+        licenseFor(a, consultant(a, login, "Ent Four"), withInbox);
+        return login;
+    }
+
+    @Test
+    void anEnterpriseAccountConnectsThroughTheLicenseWritesNoViaMarkerAndIsPurgedAtOffboarding() throws Exception {
+        String login = enterpriseConsultant(true);
+        json(call(post(base(a)).content(CONNECT), login), 200);
+        Long uid = userId(login);
+        assertThat(connections.findById(uid).orElseThrow().getConnectedViaOrgId()).as("the account's org_id says it; the column is no longer written").isNull();
+        assertThat(poller.reconcile(connections.findById(uid).orElseThrow())).isTrue();
+        mail(uid, "NEW", null, null);
+
+        Long seat = members.findMine(uid).get(0).getId();
+        offboarding.apply(new OffboardingHook.Context(a.getId(), seat, login, "left", "cws-ib-a-owner", List.of()));
+        em.flush();
+        em.clear();
+        assertThat(connections.findById(uid)).as("an enterprise account's connection is always the organization's: purged").isEmpty();
+        assertThat(messages.countByUserId(uid)).isZero();
+    }
+
+    @Test
+    void aPersonalPlanGrantsAnEnterpriseAccountNothing() throws Exception {
+        String login = enterpriseConsultant(false); // licensed, but without inbox.monitoring
+        ProSubscriptions.makePro(subscriptions, users, login); // a stray plan row must not matter
+        JsonNode refused = json(call(post(base(a)).content(CONNECT), login), 402);
+        assertThat(refused.path("code").asText()).isEqualTo("FEATURE_NOT_LICENSED");
+        assertThat(connections.findById(userId(login))).isEmpty();
+        assertThat(json(call(get(base(a)), login), 200).path("inbox").path("entitled").asBoolean()).isFalse();
+    }
+
     // ---- stopping ------------------------------------------------------------------------------------------------------
 
     @Test

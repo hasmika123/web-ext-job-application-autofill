@@ -20,12 +20,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Who may have an inbox connected (ent-inbox, docs/enterprise-v2/18-consultant-inbox.md). Two independent grounds, either is enough:
+ * Who may have an inbox connected (ent-inbox, docs/enterprise-v2/18-consultant-inbox.md), decided by the KIND of account (decision O4, doc 19
+ * section 3.2): each account has exactly one ground.
  *
  * <ol>
- *   <li><b>Personal</b>: the person's own Pro or Autopilot plan ({@link EntitlementService#isPro}). Unchanged from Phase 14.</li>
- *   <li><b>Organization</b>: the person is an ACTIVE member of an ACTIVE organization, is a consultant there, and their LIVE license carries the
- *       feature {@value #FEATURE} (24-entitlements.md: first grant wins, never stacked with the personal plan).</li>
+ *   <li><b>Personal account</b>: the person's own Pro or Autopilot plan ({@link EntitlementService#isPro}). Unchanged from Phase 14. (A personal
+ *       account that holds a seat in a legacy SHARED organization may still be granted by that organization's license, exactly as before.)</li>
+ *   <li><b>Enterprise account</b> (login {@code ent#<orgId>#...}): ONLY the organization license: the account is an ACTIVE member of its ACTIVE
+ *       organization, is a consultant there, and its LIVE license carries the feature {@value #FEATURE}. The personal plan is never consulted,
+ *       so an enterprise account can not be granted by a plan it can not hold.</li>
  * </ol>
  *
  * The organization is NEVER taken from a client: a request passes the organization of the host it arrived on (the {@code /api/orgs/{orgId}}
@@ -80,11 +83,17 @@ public class InboxEntitlement {
         this.features = features;
     }
 
-    /** Whether anything at all lets this person have an inbox: the personal plan first, then any seat that grants it. */
+    /** Whether anything at all lets this account have an inbox: an enterprise account its organization license only, a personal account its plan first, then any seat that grants it. */
     @Transactional(readOnly = true)
     public Decision decide(Long userId, String login) {
+        if (isEnterpriseAccount(login)) return organizationDecision(userId);
         if (login != null && personal.isPro(login)) return new Decision(Ground.PERSONAL, null);
         return organizationDecision(userId);
+    }
+
+    /** Whether the login is an enterprise account's ({@code ent#<orgId>#...}); the account's kind never changes. */
+    public static boolean isEnterpriseAccount(String login) {
+        return com.dossier.api.config.Constants.isEnterpriseLogin(login);
     }
 
     /** The ORGANIZATION ground only, over every seat of the person (the poller has no host). */

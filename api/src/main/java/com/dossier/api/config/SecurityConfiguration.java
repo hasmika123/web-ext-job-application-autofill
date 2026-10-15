@@ -101,6 +101,8 @@ public class SecurityConfiguration {
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()))
             // Enterprise V2 (X1.5): after bearer authentication, keep tenant-bound tokens on their own tenant's routes.
             .addFilterAfter(new TenantTokenBindingFilter(accountScopes), BearerTokenAuthenticationFilter.class)
+            // Decision O4: an enterprise account has no personal plan or personal inbox; those routes answer the generic 404 for its tokens.
+            .addFilterAfter(new AccountKindRouteFilter(), BearerTokenAuthenticationFilter.class)
             // Administrator-issued temporary password: the session can only change it (PASSWORD_CHANGE_REQUIRED everywhere else).
             .addFilterAfter(new PasswordChangeRequiredFilter(), BearerTokenAuthenticationFilter.class);
         return http.build();
