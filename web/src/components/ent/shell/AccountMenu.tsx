@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDownIcon, MemberAvatar, Menu, SignOutIcon, SwapIcon, UserIcon, BellIcon, ShieldIcon, type MenuEntry } from "@kiwiply/ui";
+import { ChevronDownIcon, MemberAvatar, Menu, SignOutIcon, SwapIcon, UserIcon, BellIcon, ShieldIcon, LinkIcon, useToast, type MenuEntry } from "@kiwiply/ui";
 import { Button } from "@/components/ui";
+import { requestExtensionConnectLink } from "@/lib/ent/connect-extension";
 import { primaryRoleShortName } from "@/lib/ent/shell";
 import { showSwitcher, type MeTenant } from "@/lib/ent/workspaces";
 
@@ -37,17 +38,28 @@ export function SignOutButton({ className }: { className?: string }) {
 
 /**
  * The user menu (13 s2.3 / 16 s2.1): avatar, name and role in the trigger; the menu opens with the member's organization and role,
- * then My profile first, Notifications, Security, Switch workspace (only with more than one) and Sign out.
+ * then My profile first, Notifications, Security, Switch workspace (only with more than one), Connect extension (O4: opens the platform connect page with a one-time code) and Sign out.
  */
 export default function AccountMenu({ me, onSwitchWorkspace, compact = false }: { me: MeTenant; onSwitchWorkspace: () => void; compact?: boolean }) {
   const router = useRouter();
+  const toast = useToast();
   const role = primaryRoleShortName(me);
+  /** Decision O4: opens the platform /connect page with a one-time code so the browser extension can sign in as this enterprise account. */
+  async function connectExtension() {
+    const link = await requestExtensionConnectLink();
+    if (!link.ok) {
+      toast({ title: "Extension not connected", description: link.message, variant: "error" });
+      return;
+    }
+    window.open(link.url, "_blank", "noopener,noreferrer");
+  }
   const entries: MenuEntry[] = [
     { heading: `${me.org.displayName} · ${role}` },
     { label: "My profile", icon: <UserIcon size={16} />, onSelect: () => router.push("/me") },
     { label: "Notifications", icon: <BellIcon size={16} />, onSelect: () => router.push("/me#notifications") },
     { label: "Security", icon: <ShieldIcon size={16} />, onSelect: () => router.push("/me#security") },
     ...(showSwitcher(me) ? [{ label: "Switch workspace", icon: <SwapIcon size={16} />, onSelect: onSwitchWorkspace }] : []),
+    { label: "Connect extension", icon: <LinkIcon size={16} />, onSelect: () => void connectExtension() },
     { separator: true },
     { label: "Sign out", icon: <SignOutIcon size={16} />, onSelect: () => void signOut(), danger: true },
   ];
