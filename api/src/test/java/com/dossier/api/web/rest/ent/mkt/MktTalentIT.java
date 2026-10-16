@@ -76,6 +76,7 @@ class MktTalentIT {
     @Autowired private ConsultantSkillRepository skills;
     @Autowired private OrgResumeRepository resumes;
     @Autowired private MarketerAssignmentRepository assignments;
+    @Autowired private jakarta.persistence.EntityManager em;
     @MockitoBean private TenantModules modules;
 
     private Organization a;
@@ -87,6 +88,7 @@ class MktTalentIT {
     private ConsultantProfile c2;
     private ConsultantProfile c3;
     private ConsultantProfile bc;
+    private OrgMember samSeat;
 
     @BeforeEach
     void seed() {
@@ -103,7 +105,7 @@ class MktTalentIT {
         sam = "mkt-talent-sam-" + n;
         max = "mkt-talent-max-" + n;
         bob = "mkt-talent-bob-" + n;
-        OrgMember samSeat = fx.active(a, sam, OrgRole.MARKETER);
+        samSeat = fx.active(a, sam, OrgRole.MARKETER);
         OrgMember maxSeat = fx.active(a, max, OrgRole.MARKETER);
         OrgMember bobSeat = fx.active(b, bob, OrgRole.MARKETER);
         for (OrgMember m : new OrgMember[] { samSeat, maxSeat, bobSeat }) roleService.syncFromLegacy(m);
@@ -231,6 +233,49 @@ class MktTalentIT {
         assertThat(d.path("consent").asText()).isEqualTo("SUMMARY");
         assertThat(d.path("skills").get(0).asText()).isEqualTo("Java");
         assertThat(d.toString().toLowerCase()).doesNotContain("@example.com").doesNotContain("phone").doesNotContain("email");
+    }
+
+    @Test
+    void theOverviewGivesTheAssignedMarketerContactPlacementResumesAndApplicationsWithWhoUpdatedThem() throws Exception {
+        com.dossier.api.domain.ent.talent.ClientAccount client = com.dossier.api.web.rest.ent.ApplicationItSupport.client(em, a.getId(), "Overview Client");
+        com.dossier.api.domain.ent.talent.ClientRequirement job = com.dossier.api.web.rest.ent.ApplicationItSupport.job(em, a.getId(), client, "Staff Engineer");
+        com.dossier.api.domain.ent.talent.TalentApplication app = com.dossier.api.web.rest.ent.ApplicationItSupport.application(em, a.getId(), job, c1, samSeat.getId(), "ASSIGNED");
+        app.setUpdatedByMemberId(samSeat.getId());
+        com.dossier.api.domain.ent.talent.TalentPlacement pl = new com.dossier.api.domain.ent.talent.TalentPlacement();
+        pl.setOrgId(a.getId());
+        pl.setConsultantId(c1.getId());
+        pl.setClientId(client.getId());
+        pl.setRoleTitle("Platform Engineer");
+        pl.setStartDate(java.time.LocalDate.now().minusMonths(3));
+        pl.setBillRateMinor(987654321L); // money exists on the row; it must never reach the wire
+        em.persist(pl);
+        em.flush();
+
+        JsonNode o = ok(sam, get(base(a) + "/" + c1.getId() + "/overview"));
+        assertThat(o.path("name").asText()).isEqualTo("Alex Morgan");
+        assertThat(o.path("contact").path("workEmail").asText()).isEqualTo("alex.morgan@example.com");
+        assertThat(o.path("contact").path("location").asText()).isEqualTo("New York, NY");
+        assertThat(o.path("skills").get(0).asText()).isEqualTo("Java");
+        assertThat(o.path("placement").path("roleTitle").asText()).isEqualTo("Platform Engineer");
+        assertThat(o.path("placement").path("client").asText()).isEqualTo("Overview Client");
+        assertThat(o.path("resumes")).hasSize(1);
+        assertThat(o.path("resumes").get(0).path("approval").asText()).isEqualTo("PENDING");
+        assertThat(o.path("applications").path("total").asInt()).isEqualTo(1);
+        assertThat(o.path("applications").path("open").asInt()).isEqualTo(1);
+        JsonNode recent = o.path("applications").path("recent").get(0);
+        assertThat(recent.path("jobTitle").asText()).isEqualTo("Staff Engineer");
+        assertThat(recent.path("updatedBy").path("kind").asText()).isEqualTo("PERSON");
+        assertThat(recent.path("updatedBy").path("relation").asText()).isEqualTo("marketer");
+        assertThat(o.toString().toLowerCase()).as("no money, no identity numbers").doesNotContain("987654321").doesNotContain("billrate").doesNotContain("ssn").doesNotContain("passport").doesNotContain("birth").doesNotContain("bank");
+    }
+
+    @Test
+    void theOverviewOfAnUnassignedOrForeignConsultantIsTheGeneric404() throws Exception {
+        assertGeneric404(call(sam, get(base(a) + "/" + c2.getId() + "/overview")), "another marketer's consultant");
+        assertGeneric404(call(sam, get(base(a) + "/" + c3.getId() + "/overview")), "an unassigned consultant");
+        assertGeneric404(call(sam, get(base(a) + "/" + bc.getId() + "/overview")), "another organization's consultant id");
+        assertGeneric404(call(bob, get(base(a) + "/" + c1.getId() + "/overview")), "another organization's marketer");
+        assertGeneric404(call(sam, get(base(a) + "/9999999/overview")), "an id that does not exist");
     }
 
     @Test
