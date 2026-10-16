@@ -221,6 +221,10 @@ public class TalentDemoSeeder {
     private final UserRepository users;
     private final AuthorityRepository authorities;
     private final PasswordEncoder passwordEncoder;
+
+    /** Creates a marketer of a SEPARATE organization as an enterprise account (decision O4, S10); optional so the seeder can still be built by hand. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private DemoEnterpriseAccounts enterpriseAccounts;
     private final ClientAccountRepository clientRepo;
     private final ClientContactRepository contactRepo;
     private final ConsultantProfileRepository consultantRepo;
@@ -446,7 +450,11 @@ public class TalentDemoSeeder {
             String hash = passwordEncoder.encode(UUID.randomUUID().toString());
             for (Marketer m : spec.marketers()) {
                 String login = EnterpriseDemoSeeder.LOGIN_PREFIX + spec.orgKey() + "-" + m.key();
-                User u = users.findOneByLogin(login).orElse(null);
+                String mail = m.first().toLowerCase() + "." + m.last().toLowerCase() + "@" + domain;
+                // A SEPARATE organization's people are enterprise accounts (ent# login, org_id set), found by address inside that organization; a legacy SHARED one keeps its demo-login users.
+                User u = org.isSeparateAccounts() && enterpriseAccounts != null
+                    ? enterpriseAccounts.ensure(orgId, m.first(), m.last(), mail, UUID.randomUUID().toString())
+                    : users.findOneByLogin(login).orElse(null);
                 if (u == null) {
                     u = new User();
                     u.setLogin(login);

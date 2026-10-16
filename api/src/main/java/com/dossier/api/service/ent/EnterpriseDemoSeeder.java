@@ -121,7 +121,12 @@ public class EnterpriseDemoSeeder {
     }
 
     /** One seeded organization. */
-    public record Tenant(String orgKey, String slug, String name, OrgType type, String host, String primary, String secondary, String welcomeTitle, String welcomeMessage, String supportEmail, List<Person> people) {}
+    public record Tenant(String orgKey, String slug, String name, OrgType type, String host, String primary, String secondary, String welcomeTitle, String welcomeMessage, String supportEmail, List<Person> people, boolean separate) {
+        /** A legacy SHARED tenant (acme, beta): its people are synthetic demo-login accounts. */
+        public Tenant(String orgKey, String slug, String name, OrgType type, String host, String primary, String secondary, String welcomeTitle, String welcomeMessage, String supportEmail, List<Person> people) {
+            this(orgKey, slug, name, type, host, primary, secondary, welcomeTitle, welcomeMessage, supportEmail, people, false);
+        }
+    }
 
     private static Person p(String key, String first, String last, OrgMemberStatus status, String... roles) {
         return new Person(key, first, last, List.of(roles), status);
@@ -169,6 +174,43 @@ public class EnterpriseDemoSeeder {
 
     public static final List<Tenant> TENANTS = List.of(ACME, BETA);
 
+    public static final String GAMMA_SLUG = "demo-gamma";
+    public static final String GAMMA_HOST = "gamma.localhost";
+
+    /** The login of the PERSONAL account that shares Dana's address (decision O4: the two accounts never meet). Not a demo login. */
+    public static final String GAMMA_PERSONAL_LOGIN = "gamma-personal-dana";
+
+    /**
+     * Gamma Consulting: a SEPARATE organization (decision O4, docs/enterprise-v2/19 S10), host {@code gamma.localhost}. Every person is an
+     * ENTERPRISE account of Gamma created through {@code UserService.createEnterpriseAccount} (login {@code ent#<orgId>#<email>}, signs in with the
+     * address on the tenant host). Dana's address ALSO exists as a personal account ({@link #GAMMA_PERSONAL_LOGIN}) that is never touched or linked.
+     * Deliberately NOT in {@link #TENANTS}: the other demo seeders walk acme and beta only, so Gamma changes none of their data.
+     */
+    public static final Tenant GAMMA = new Tenant(
+        "gamma",
+        GAMMA_SLUG,
+        "Gamma Consulting",
+        OrgType.CONSULTANCY,
+        GAMMA_HOST,
+        "#0f766e",
+        "#f97316",
+        "Welcome to Gamma Consulting",
+        "Sign in to your Gamma account.",
+        "support@gamma.example.com",
+        List.of(
+            p("gina", "Gina", "Alvarez", OrgMemberStatus.ACTIVE, RoleTemplates.OWNER),
+            p("oscar", "Oscar", "Fraser", OrgMemberStatus.ACTIVE, RoleTemplates.ORG_ADMIN),
+            p("marco", "Marco", "Bellini", OrgMemberStatus.ACTIVE, RoleTemplates.MARKETING_SPECIALIST),
+            p("cora", "Cora", "Lindahl", OrgMemberStatus.ACTIVE, RoleTemplates.CONSULTANT),
+            p("dana", "Dana", "Moreau", OrgMemberStatus.ACTIVE, RoleTemplates.CONSULTANT),
+            p("hank", "Hank", "Osei", OrgMemberStatus.ACTIVE, RoleTemplates.HR_SPECIALIST)
+        ),
+        true
+    );
+
+    /** What {@link #seedSeparate()} did, for the log and the tests. */
+    public record SeparateResult(boolean ran, String skippedBecause, int orgs, int accountsCreated, int seatsCreated) {}
+
     /** What a call did, for the log and the tests. */
     public record Result(boolean ran, String skippedBecause, int orgs, int usersCreated, int seatsCreated, int roleRowsCreated, int assignmentsCreated) {
         static Result skipped(String why) {
@@ -199,6 +241,14 @@ public class EnterpriseDemoSeeder {
     /** Optional so the gate test can build the seeder by hand; the dashboard's Recent Activity feed reads what this writes. */
     @Autowired(required = false)
     private OrgAuditEventRepository auditRows;
+
+    /** Optional for the same reason: only {@link #seedSeparate()} needs it. */
+    @Autowired(required = false)
+    private DemoEnterpriseAccounts enterpriseAccounts;
+
+    /** The password of the Gamma demo people (dev databases only: the seed never runs under the prod profile). Override with {@code dossier.demo.separate-password}. */
+    @Value("${dossier.demo.separate-password:Gamma-Demo-2026!}")
+    private String separatePassword = "Gamma-Demo-2026!";
 
     public EnterpriseDemoSeeder(
         OrganizationRepository orgs,
@@ -320,6 +370,89 @@ public class EnterpriseDemoSeeder {
     }
 
     /**
+     * Seeds {@link #GAMMA}, the one SEPARATE-accounts demo organization (decision O4, doc 19 S10), under the same gate as {@link #seed()}.
+     * Switches the platform setting {@code enterprise.separate_accounts} on (without it the tenant host would still authenticate personal
+     * accounts), creates the organization with {@code account_mode = SEPARATE}, one ENTERPRISE account per person through
+     * {@code UserService.createEnterpriseAccount} (stable demo password, never a demo login), their seats and roles, and a PERSONAL account that
+     * shares Dana's address. It never touches acme, beta or any other organization, and never changes an existing organization's account mode.
+     * Idempotent: a second run creates nothing. Run it after {@link #seed()} (it needs the system roles).
+     */
+    @Transactional
+    public SeparateResult seedSeparate() {
+        String why = refusal();
+        if (why != null) return new SeparateResult(false, why, 0, 0, 0);
+        if (enterpriseAccounts == null) return new SeparateResult(false, "the account factory is not available", 0, 0, 0);
+        Tenant t = GAMMA;
+        Instant now = Instant.now();
+        int[] counts = new int[4]; // accounts, seats, role rows, assignments
+        Organization org = orgs.findBySlug(t.slug()).orElse(null);
+        Person first = t.people().get(0);
+        if (org != null && !org.isSeparateAccounts()) {
+            LOG.warn("The organization '{}' exists but is not SEPARATE; the separate-accounts demo leaves it alone", t.slug());
+            return new SeparateResult(false, "the organization exists with another account mode", 0, 0, 0);
+        }
+        if (org == null) {
+            org = createOrg(t, null, now);
+        }
+        User owner = separateAccount(org, first, counts);
+        if (org.getCreatedByUserId() == null) {
+            org.setCreatedByUserId(owner.getId());
+            org = orgs.saveAndFlush(org);
+        } else if (!owner.getId().equals(org.getCreatedByUserId())) {
+            LOG.warn("An organization with the slug '{}' exists but the enterprise demo did not create it; leaving it alone", t.slug());
+            return new SeparateResult(false, "the organization was not created by the demo", 0, 0, 0);
+        }
+        ensureHostname(org, t.host(), now);
+        ensureBranding(org, t, now);
+        Map<String, OrgMember> seats = new LinkedHashMap<>();
+        int index = 0;
+        for (Person person : t.people()) {
+            User u = person == first ? owner : separateAccount(org, person, counts);
+            seats.put(person.key(), seat(org, u, person, now.minus(40 - index * 3L, ChronoUnit.DAYS), counts));
+            index++;
+        }
+        assign(seats, "marco", "cora", AssignmentKind.PRIMARY, now, counts);
+        if (auditRows != null && auditRows.countByOrgId(org.getId()) == 0) {
+            record(org, owner.getLogin(), OrgAuditService.ORG_CREATE, OrgAuditService.TARGET_ORG, null, now.minus(40, ChronoUnit.DAYS));
+            record(org, owner.getLogin(), OrgAuditService.BRANDING_PUBLISH, OrgAuditService.TARGET_BRANDING, null, now.minus(39, ChronoUnit.DAYS));
+        }
+        samePersonalAccountAsDana(t, counts);
+        write(EnterpriseSettingKeys.SEPARATE_ACCOUNTS, "true");
+        enableFlags(Set.of(org.getId()));
+        ensureLocalBaseDomain();
+        settings.invalidate();
+        resolver.invalidate();
+        LOG.info("Separate-accounts demo seeded ({}): {} enterprise accounts, {} seats created", t.host(), counts[0], counts[1]);
+        return new SeparateResult(true, null, 1, counts[0], counts[1]);
+    }
+
+    private User separateAccount(Organization org, Person p, int[] counts) {
+        String email = p.email(GAMMA.orgKey());
+        boolean existed = users.findOneByOrgIdAndEmailIgnoreCase(org.getId(), email).isPresent();
+        User u = enterpriseAccounts.ensure(org.getId(), p.first(), p.last(), email, separatePassword);
+        if (!existed) counts[0]++;
+        return u;
+    }
+
+    /** A PERSONAL account (org_id null, kiwiply.com) with Dana's exact address: separate row, id, login and password; the organization never reads it. */
+    private void samePersonalAccountAsDana(Tenant t, int[] counts) {
+        Person dana = t.people().stream().filter(x -> x.key().equals("dana")).findFirst().orElseThrow();
+        String email = dana.email(t.orgKey());
+        if (users.findOneByOrgIdIsNullAndEmailIgnoreCase(email).isPresent()) return;
+        User u = new User();
+        u.setLogin(GAMMA_PERSONAL_LOGIN);
+        u.setFirstName(dana.first());
+        u.setLastName(dana.last());
+        u.setEmail(email);
+        u.setLangKey("en");
+        u.setActivated(true);
+        u.setPassword(passwordEncoder.encode(separatePassword));
+        authorities.findById(AuthoritiesConstants.USER).ifPresent(a -> u.setAuthorities(new HashSet<>(List.of(a))));
+        users.save(u);
+        counts[0]++;
+    }
+
+    /**
      * A believable audit trail for the dashboard's Recent Activity feed: what an admin of this fictional organization did while
      * setting it up (rows dated back from today). Only when the organization has none yet, so a second run adds nothing and real
      * activity is never mixed with seeded rows. Details are left out: the feed shows who, what and to whom.
@@ -356,6 +489,7 @@ public class EnterpriseDemoSeeder {
 
     private Organization createOrg(Tenant t, User owner, Instant now) {
         Organization org = new Organization();
+        if (t.separate()) org.setAccountMode(com.dossier.api.domain.enumeration.OrgAccountMode.SEPARATE);
         org.setSlug(t.slug());
         org.setName(t.name());
         org.setDisplayName(t.name());
@@ -364,7 +498,7 @@ public class EnterpriseDemoSeeder {
         org.setSizeBand("11_50");
         org.setCountry("US");
         org.setTimezone("America/Chicago");
-        org.setCreatedByUserId(owner.getId());
+        org.setCreatedByUserId(owner == null ? null : owner.getId()); // a SEPARATE organization exists before its owner's account (the account carries org_id)
         org.setSetupFeePaidAt(now.minus(60, ChronoUnit.DAYS)); // a demo: nothing was charged
         org.setSubdomain(t.orgKey());
         org.setSubdomainEnabled(true);

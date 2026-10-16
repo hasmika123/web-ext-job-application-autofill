@@ -83,6 +83,11 @@ public class EnterpriseDemoBootstrap implements ApplicationRunner {
             return;
         }
         try {
+            seeder.seedSeparate(); // Gamma Consulting (SEPARATE accounts, gamma.localhost), own transaction: a failure here never touches acme or beta
+        } catch (RuntimeException e) {
+            LOG.error("Separate-accounts demo seed failed; the Gamma demo organization was not created/updated.", e);
+        }
+        try {
             talent.seed(); // talent boards demo data: only after the tenants exist, same switches
         } catch (RuntimeException e) {
             LOG.error("Talent demo seed failed; the talent pages have no demo data.", e);
