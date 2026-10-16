@@ -11,7 +11,7 @@
  * names they always were.
  */
 import { cookies, headers } from "next/headers";
-import { ACCESS_COOKIE, REFRESH_COOKIE, sessionCookieNames, sessionCookieOptionsFor } from "@/lib/cookies";
+import { ACCESS_COOKIE, REFRESH_COOKIE, expiredCookieOptionsFor, sessionCookieNames, sessionCookieOptionsFor } from "@/lib/cookies";
 import { getEnterpriseSwitch } from "@/lib/tenant";
 import { isPlatformHost, requestHost } from "@/lib/tenant-host";
 
@@ -44,15 +44,23 @@ export async function setAuthCookies(accessToken: string, refreshToken?: string 
   store.set(names.access, accessToken, sessionCookieOptionsFor(tenant));
   if (refreshToken) {
     store.set(names.refresh, refreshToken, sessionCookieOptionsFor(tenant));
+  } else {
+    // A new sign-in replaces the session: never leave the previous member's refresh token behind to be silently renewed.
+    store.set(names.refresh, "", expiredCookieOptionsFor(tenant));
   }
 }
 
-/** Remove both auth cookies (sign out). Call from a Route Handler. */
+/**
+ * Remove both auth cookies (sign out). Call from a Route Handler. The expiry carries the attributes the cookies were set with
+ * (`Secure` + `Path=/` on a tenant host): a browser ignores a `__Host-` Set-Cookie without `Secure`, which left the member signed in.
+ */
 export async function clearAuthCookies() {
-  const names = sessionCookieNames(await onTenantHost());
+  const tenant = await onTenantHost();
+  const names = sessionCookieNames(tenant);
   const store = await cookies();
-  store.delete(names.access);
-  store.delete(names.refresh);
+  const expired = expiredCookieOptionsFor(tenant);
+  store.set(names.access, "", expired);
+  store.set(names.refresh, "", expired);
 }
 
 export async function getAccessToken(): Promise<string | undefined> {

@@ -191,6 +191,13 @@ describe("tenant session refresh (X2.6)", () => {
     const cookies = setCookies(res).join("\n");
     expect(cookies).toContain("__Host-kiwiply_access=;");
     expect(cookies).toContain("__Host-kiwiply_refresh=;");
+    // a __Host- cookie is only removed by a Secure, Path=/ expiry: a bare delete is ignored by the browser (the sign-out bug)
+    for (const c of setCookies(res)) {
+      expect(c).toMatch(/Max-Age=0/i);
+      expect(c).toMatch(/Path=[/]/);
+      expect(c).toMatch(/; ?Secure/i);
+      expect(c).not.toMatch(/Domain=/i);
+    }
   });
 
   it("a refreshed token that is not tid-bound is refused", async () => {
@@ -273,6 +280,18 @@ describe("tenant response headers and chrome surface (X2.6)", () => {
     expect(res.headers.get("x-frame-options")).toBe("DENY");
     expect(override(res, "x-kiwiply-surface")).toBe("tenant");
     expect((await proxy(req("/", "acme.localhost"))).headers.get("x-robots-tag")).toBe("noindex, nofollow"); // the redirect too
+  });
+
+  it("only the Branding preview page may be framed, and only by its own origin; every other tenant page is DENY", async () => {
+    stubApi(true);
+    const preview = await proxy(req("/preview/login", "acme.localhost", signedIn));
+    expect(preview.headers.get("x-frame-options")).toBe("SAMEORIGIN");
+    expect(preview.headers.get("content-security-policy")).toBe("frame-ancestors 'self'");
+    for (const path of ["/login", "/w/admin/branding", "/preview/other"]) {
+      const res = await proxy(req(path, "acme.localhost", signedIn));
+      expect(res.headers.get("x-frame-options"), path).toBe("DENY");
+      expect(res.headers.get("content-security-policy"), path).toBeNull();
+    }
   });
 
   it("an unknown tenant host is the tenant surface as well (no Kiwiply chrome on the 404)", async () => {
