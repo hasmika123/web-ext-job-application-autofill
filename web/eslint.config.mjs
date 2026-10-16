@@ -16,6 +16,11 @@ const eslintConfig = defineConfig([
     // Generated build-time copy of the extension's parser-core — lint the source instead.
     "src/lib/generated/**",
   ]),
+  // Node CommonJS tooling (story-video recorder) is required by Playwright support code; require() is the point.
+  {
+    files: ["**/*.cjs"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
   // Design-system guardrail: every icon comes from @kiwiply/ui (packages/ui), never inline
   // SVG — keeps the artwork uniform across web + extension. See packages/ui/README.md.
   {
