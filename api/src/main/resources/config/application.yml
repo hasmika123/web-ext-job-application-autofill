@@ -285,6 +285,13 @@ dossier:
   # default) = the internal routes refuse every request. Never exposed by the edge proxy.
   internal:
     token: ${DOSSIER_INTERNAL_TOKEN:}
+    # X1.13 (E12): /api/internal/** and every /management/** path but health answer a generic 404 to a request that carries
+    # X-Forwarded-Host (it came through the edge) or whose Host is not on this list. Master switch; leave on.
+    refuse-public-host: true
+    hosts: localhost,127.0.0.1,[::1],api,dossier-api,web,dossier-web
+  # X1.13: bearer token a Prometheus scraper uses on /management/prometheus (admin JWT also works). >= 32 chars; blank = admin only.
+  management:
+    scrape-token: ${DOSSIER_SCRAPE_TOKEN:}
   # Enterprise V2 tenant hosts (X1.3). The web server forwards the visitor's host in X-Kiwiply-Host and proves it is the
   # web server with X-Kiwiply-Host-Secret (the same value as the web container's DOSSIER_TENANT_HOST_SECRET); a request
   # without the right secret is treated as having no host. Blank + require-secret=false (dev, tests) = believe the header

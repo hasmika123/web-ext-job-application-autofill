@@ -95,8 +95,17 @@ public class OrgAccessService {
         Optional<Organization> org = organizationRepository.findByOrgId(orgId);
         if (org.isEmpty() || seat.getRole() == null || seat.getRole().isReserved()) return Optional.empty();
         // Enterprise V2 (X1.6): with flag.enterprise.roles on for this org the permissions come from the member's role rows; any doubt
-        // (no rows, drift from the enum, no permission rows) keeps the legacy enum answer, which is what this always returned.
-        Optional<OrgRoleService.RoleGrants> data = roleService == null ? Optional.empty() : roleService.resolveGrants(orgId, seat);
+        // (no rows, drift from the enum, no permission rows) keeps the legacy enum answer for legacy shared-account organizations only.
+        // X4.10: an enterprise (SEPARATE-accounts) organization reads its roles from data ALONE: no role rows, no permissions, whatever the
+        // enum says. Only the legacy shared-account organizations (account_mode SHARED) keep the enum answer as their fallback.
+        boolean enterprise = org.get().isSeparateAccounts();
+        Optional<OrgRoleService.RoleGrants> data = roleService == null
+            ? Optional.empty()
+            : enterprise ? roleService.resolveAuthoritativeGrants(orgId, seat) : roleService.resolveGrants(orgId, seat);
+        if (enterprise && data.isEmpty()) {
+            LOG.warn("org {} member {}: no usable role rows for an enterprise organization; granting nothing", orgId, seat.getId());
+            return Optional.empty();
+        }
         if (data.isPresent()) {
             return Optional.of(
                 new OrgMembership(

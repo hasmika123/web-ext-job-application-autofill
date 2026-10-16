@@ -52,7 +52,7 @@ Importance: BLOCKER = do not take a first paying customer without it; IMPORTANT;
 | T3.8-T3.9 | Interview-integrity statement, work-auth rules | NOT BUILT | none | copy/rules | S | LATER |
 | T4.1-T4.6 | Accessibility statement, CI a11y gate, ui contract, SR audit, drawer a11y, ACR | NOT BUILT | no /accessibility, no axe in CI | all | L | IMPORTANT for T4.1/T4.2 (org procurement); rest LATER |
 | T5.1 | security.txt + disclosure policy | NOT BUILT | no file in repo | file, page, security@ | S | IMPORTANT - an hour of work |
-| T5.2 | HTTP security headers + CSP | NOT BUILT | tenant hosts only | CSP report-only, HSTS, frame, Permissions-Policy on main site + API | M | BLOCKER - cheap, any buyer scan flags it |
+| T5.2 | HTTP security headers + CSP | FIXED (061da2d7: API headers, main site headers with report-only CSP; Caddy extras in 62b-edge-rules.md) | tenant hosts only | CSP report-only, HSTS, frame, Permissions-Policy on main site + API | M | BLOCKER - cheap, any buyer scan flags it |
 | T5.3 | Supply-chain scanning | NOT BUILT | no dependabot.yml, gitleaks, audit, Trivy in workflows | all | M | IMPORTANT |
 | T5.4 | Public /security page | NOT BUILT | none | page | S | IMPORTANT |
 | T5.5 | Incident + breach runbook | NOT BUILT | no `docs/runbooks` | runbook (72 h GDPR, orgs 48 h) | S | BLOCKER - real data needs a written process |
@@ -97,7 +97,7 @@ Importance: BLOCKER = do not take a first paying customer without it; IMPORTANT;
 | P3.1 | One local compose | NOT BUILT | three JHipster docker files | - | S | LATER |
 | P3.2 | Staging stack | NOT BUILT | none | - | L | IMPORTANT - customer deploys hit prod |
 | P3.3-P3.5 | Staging seed, env schema fail-fast, env header + maintenance mode | NOT BUILT | only JWT secret fails fast | - | M | LATER |
-| P4.1 | Security headers + CSP | NOT BUILT | same as T5.2 | same work | M | BLOCKER (same item) |
+| P4.1 | Security headers + CSP | FIXED (061da2d7, same work as T5.2) | same as T5.2 | same work | M | BLOCKER (same item) |
 | P4.2 | Actuator diet | NOT BUILT | exposure list still has env/configprops/threaddump/logfile | trim, `/info` admin-only | S | IMPORTANT |
 | P4.3 | Trusted proxies + API limiter | PARTIAL | BFF limiter + 4 API throttles; generic filter off | forward-headers in prod, real-IP keying | S | IMPORTANT |
 | P4.4 | Container/host hardening | NOT BUILT | no cap_drop/read_only/no-new-privileges | - | M | LATER |

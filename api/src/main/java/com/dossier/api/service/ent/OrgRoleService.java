@@ -79,7 +79,21 @@ public class OrgRoleService {
 
     @Transactional(readOnly = true)
     public Optional<RoleGrants> resolveGrants(Long orgId, OrgMember seat) {
-        if (!rolesFromData(orgId) || seat == null || seat.getId() == null || !Objects.equals(seat.getOrgId(), orgId)) return Optional.empty();
+        return resolveGrants(orgId, seat, false);
+    }
+
+    /**
+     * X4.10: the grants of a seat of an enterprise (SEPARATE-accounts) organization. The role rows are the ONLY source: the roles
+     * sub-flag is not consulted and a drifted {@code org_member.role} enum is ignored (never a reason to fall back). Empty means
+     * "no trustworthy role data" and the caller grants nothing.
+     */
+    @Transactional(readOnly = true)
+    public Optional<RoleGrants> resolveAuthoritativeGrants(Long orgId, OrgMember seat) {
+        return resolveGrants(orgId, seat, true);
+    }
+
+    private Optional<RoleGrants> resolveGrants(Long orgId, OrgMember seat, boolean authoritative) {
+        if ((!authoritative && !rolesFromData(orgId)) || orgId == null || seat == null || seat.getId() == null || !Objects.equals(seat.getOrgId(), orgId)) return Optional.empty();
         List<OrgMemberRole> live = memberRoles.findLiveByOrgIdAndMemberId(orgId, seat.getId());
         if (live.isEmpty()) return Optional.empty(); // transitional: a seat created after the backfill, before X1.14 writes roles
         List<OrgMemberRole> primaries = live.stream().filter(OrgMemberRole::isPrimary).toList();
@@ -96,7 +110,7 @@ public class OrgRoleService {
         OrgRoleDefinition primary = defs.get(primaries.get(0).getRoleId());
         String template = primary.getTemplateKey() != null ? primary.getTemplateKey() : primary.getRoleKey();
         Optional<com.dossier.api.domain.enumeration.OrgRole> mirrored = LegacyRoleMirror.forRole(primary); // X1.14: a blank org role mirrors MEMBER
-        if (mirrored.isEmpty() || mirrored.get() != seat.getRole()) {
+        if (!authoritative && (mirrored.isEmpty() || mirrored.get() != seat.getRole())) {
             LOG.warn("org {} member {}: primary role {} does not mirror the legacy role {}; reading the legacy role", orgId, seat.getId(), template, seat.getRole());
             return Optional.empty();
         }
