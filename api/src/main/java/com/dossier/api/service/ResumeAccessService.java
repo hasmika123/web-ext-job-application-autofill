@@ -101,6 +101,11 @@ public class ResumeAccessService {
     private final FileStorage storage;
     private final ResumeDocService docService;
     private final ObjectProvider<OrgResumeSharing> orgSharing;
+
+    /** Whether the organization lets its consultants share (org setting, default off); absent in hand-wired unit tests, where an organization never shares. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.resumes.OrgResumePolicy orgPolicy;
+
     private final String webBaseUrl;
     private final SecureRandom random = new SecureRandom();
 
@@ -539,8 +544,10 @@ public class ResumeAccessService {
         );
     }
 
-    private static void requireShareable(Resume resume) {
-        com.dossier.api.service.ent.resumes.OrgResumePolicy.refuseSharingInOrganization(); // an enterprise account's resume is never shared outside the organization
+    private void requireShareable(Resume resume) {
+        // inside an organization a consultant shares only when the organization turned it on (default off); a marketer acting for a consultant never does
+        if (orgPolicy != null) orgPolicy.requireShareable();
+        else com.dossier.api.service.ent.resumes.OrgResumePolicy.refuseSharingInOrganization(false);
         if (resume.getKind() != ResumeKind.BUILT) throw ResumeAccessException.notShareable();
     }
 

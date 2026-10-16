@@ -80,6 +80,8 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_CONSENT_REQUEST_COOLDOWN_DAYS = "org.consent.request_cooldown_days";
     /** Resume Builder inside an organization workspace: how many live (non-archived) resumes one consultant of the organization may keep. The organization license sets the cap; an organization may override it in org_setting. */
     public static final String ORG_LICENSE_RESUMES_MAX = "org.license.resumes_max";
+    /** Resume Builder inside an organization workspace: whether a consultant may create share links (recruiter link, named people) for their organization resumes. Off unless the organization turns it on; a marketer acting for a consultant never can. */
+    public static final String ORG_RESUMES_CONSULTANT_SHARE_LINKS = "org.resumes.consultant_share_links";
     public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
     public static final String USAGE_RETENTION_MONTHS = "enterprise.usage.retention_months";
@@ -165,6 +167,8 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_PLACEMENTS_ENDING_URGENT_DAYS, 14, 1, 90, Risk.LOW, "Placements: an end date this close (or closer) turns the Ends in N days pill red. An organization can override it in org_setting.");
         integer(k, ORG_PLACEMENTS_STARTING_SOON_DAYS, 30, 1, 180, Risk.LOW, "Placements: a placement starting within this many days counts as starting soon (the Starting Soon tile). An organization can override it in org_setting.");
         integer(k, ORG_LICENSE_RESUMES_MAX, 25, 1, 200, Risk.LOW, "Resume Builder in an organization workspace: the most live (non-archived) resumes one consultant of the organization may keep (counted per account, personal plans never apply there). The consultant license grants it; an organization can override it in org_setting. Creating a resume past it answers 402 RESUME_LIMIT; nothing already created is removed.");
+        k.add(new Key(ORG_RESUMES_CONSULTANT_SHARE_LINKS, Type.BOOL, "false", null, null, null,
+            "Resume Builder in an organization workspace: let a consultant create share links (a recruiter link or named people) for their organization resumes. Off by default; the organization admin can turn it on, and an organization can override it in org_setting. A marketer acting for a consultant can never create share links, whatever this says. Personal accounts are unaffected.", null, Risk.MEDIUM));
         integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
         d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));

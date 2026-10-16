@@ -635,4 +635,87 @@ class OrgResumeBuilderIT {
         assertThat(viaBoard).isNotNull();
         assertThat(viaBoard.path("updatedBy").asText()).as("the owner is the newest actor, shown by name").isNotBlank().doesNotContain("ent#");
     }
+
+    // ---- consultant share links: an org setting, default off ---------------------------------------------------------------
+
+    private String policy(Organization org) {
+        return "/api/orgs/" + org.getId() + "/resume-policy";
+    }
+
+    private JsonNode capabilitiesOf(String login) throws Exception {
+        return ok(onHost(login, get("/api/profile/resume-builder/config")), 200).path("capabilities");
+    }
+
+    @Test
+    void consultantShareLinksAreAnOrgSettingThatIsOffByDefaultAndOnlyTheOrgAdminTurnsItOn() throws Exception {
+        long id = consultantCreates("orb-a-c1", "{\"label\":\"Casey's own\",\"source\":\"scratch\"}").path("resumeId").asLong();
+        String link = "/api/profile/resumes/" + id + "/access/link";
+        String access = "/api/profile/resumes/" + id + "/access";
+
+        // ANOTHER organization turning it on changes nothing here, and the platform default is off
+        OrgSetting other = new OrgSetting();
+        other.setOrgId(b.getId());
+        other.setSettingKey(EnterpriseSettingKeys.ORG_RESUMES_CONSULTANT_SHARE_LINKS);
+        other.setValueJson("true");
+        orgSettings.saveAndFlush(other);
+
+        assertThat(capabilitiesOf("orb-a-c1").path("shareLinks").asBoolean()).as("off by default").isFalse();
+        assertThat(onHost("orb-a-c1", post(link).content("{}")).getResponse().getStatus()).as("create a link, off").isEqualTo(404);
+        assertThat(onHost("orb-a-c1", post(access).content("{\"email\":\"someone@example.org\"}")).getResponse().getStatus()).as("name a person, off").isEqualTo(404);
+        JsonNode off = ok(onHost("orb-a-owner", get(policy(a))), 200);
+        assertThat(off.path("consultantShareLinks").asBoolean()).isFalse();
+        assertThat(off.path("overridden").asBoolean()).isFalse();
+
+        // only the org admin changes it: a consultant, another organization's owner and a bad body are all refused
+        assertGeneric404(onHost("orb-a-c1", put(policy(a)).content("{\"consultantShareLinks\":true}")), "a consultant turning it on");
+        assertGeneric404(onHost("orb-b-owner", put(policy(a)).content("{\"consultantShareLinks\":true}")), "another organization's owner");
+        assertThat(onHost("orb-a-owner", put(policy(a)).content("{\"consultantShareLinks\":\"yes\"}")).getResponse().getStatus()).isBetween(400, 422);
+        assertThat(onHost("orb-a-owner", put(policy(a)).content("{}")).getResponse().getStatus()).isEqualTo(422);
+        assertThat(capabilitiesOf("orb-a-c1").path("shareLinks").asBoolean()).isFalse();
+
+        // the org admin turns it on: the capability shows and the consultant manages links on their own org resume
+        JsonNode on = ok(onHost("orb-a-owner", put(policy(a)).content("{\"consultantShareLinks\":true}")), 200);
+        assertThat(on.path("consultantShareLinks").asBoolean()).isTrue();
+        assertThat(on.path("overridden").asBoolean()).isTrue();
+        JsonNode caps = capabilitiesOf("orb-a-c1");
+        assertThat(caps.path("mode").asText()).isEqualTo("consultant");
+        assertThat(caps.path("shareLinks").asBoolean()).isTrue();
+        assertThat(caps.path("deleteResume").asBoolean() || caps.path("ai").asBoolean()).as("nothing else changes").isFalse();
+        MvcResult made = onHost("orb-a-c1", post(link).content("{}"));
+        assertThat(made.getResponse().getStatus()).as(made.getResponse().getContentAsString()).isBetween(200, 201);
+        long grantId = om.readTree(made.getResponse().getContentAsString()).path("id").asLong();
+        assertThat(ok(onHost("orb-a-c1", get(access)), 200).path("links")).hasSize(1);
+        assertThat(onHost("orb-a-c1", org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(access + "/" + grantId)).getResponse().getStatus()).isBetween(200, 204);
+
+        // another consultant cannot reach this consultant's resume
+        assertThat(onHost("orb-a-c2", post(link).content("{}")).getResponse().getStatus()).as("another consultant's resume").isEqualTo(404);
+
+        // a marketer acting for the consultant can NEVER create a link, even with the setting on
+        JsonNode prepared = ok(send("orb-a-marketer", post(mkt(a) + "/consultants/" + c1.getId() + "/built").content("{\"label\":\"Prepared for Casey\",\"source\":\"scratch\"}")), 201);
+        long orgResumeId = prepared.path("orgResumeId").asLong();
+        String preparedBase = "/api/profile/resumes/" + prepared.path("resumeId").asLong();
+        assertThat(actFor("orb-a-marketer", orgResumeId, get("/api/profile/resume-builder/config")).getResponse().getContentAsString()).contains("\"mode\":\"marketer-act-for\"").contains("\"shareLinks\":false");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(preparedBase + "/access/link").content("{}")), "a link by a marketer, setting on");
+        assertGeneric404(actFor("orb-a-marketer", orgResumeId, post(preparedBase + "/access").content("{\"email\":\"someone@example.org\"}")), "a named person by a marketer, setting on");
+
+        // personal accounts are unchanged by the setting
+        assertThat(ok(send("orb-a-c1", get("/api/profile/resume-builder/config")), 200).path("capabilities").path("shareLinks").asBoolean()).isTrue();
+
+        // off again: the consultant is back to the plain 404
+        ok(onHost("orb-a-owner", put(policy(a)).content("{\"consultantShareLinks\":false}")), 200);
+        assertThat(capabilitiesOf("orb-a-c1").path("shareLinks").asBoolean()).isFalse();
+        assertThat(onHost("orb-a-c1", post(link).content("{}")).getResponse().getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    void thePlatformValueIsTheStartingPointAndTheOrgsOwnChoiceWins() throws Exception {
+        long id = consultantCreates("orb-a-c1", "{\"label\":\"Casey's own\",\"source\":\"scratch\"}").path("resumeId").asLong();
+        settingRows.save(new AppSetting(EnterpriseSettingKeys.ORG_RESUMES_CONSULTANT_SHARE_LINKS, "true", WHO, Instant.now()));
+        cache.invalidate();
+        assertThat(capabilitiesOf("orb-a-c1").path("shareLinks").asBoolean()).as("platform on, no org choice").isTrue();
+        assertThat(ok(onHost("orb-a-owner", get(policy(a))), 200).path("overridden").asBoolean()).isFalse();
+        ok(onHost("orb-a-owner", put(policy(a)).content("{\"consultantShareLinks\":false}")), 200);
+        assertThat(capabilitiesOf("orb-a-c1").path("shareLinks").asBoolean()).as("the org's own choice wins").isFalse();
+        assertThat(onHost("orb-a-c1", post("/api/profile/resumes/" + id + "/access/link").content("{}")).getResponse().getStatus()).isEqualTo(404);
+    }
 }

@@ -478,7 +478,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
       </section>
       )}
 
-      {/* 3. Visibility (sharing is not part of an organization workspace: capabilities.shareLinks) */}
+      {/* 3. Visibility (in an organization workspace sharing follows capabilities.shareLinks: the org setting, off by default) */}
       {caps.shareLinks && (
       <section aria-labelledby="rb-set-visibility" className={CARD}>
         <h3 id="rb-set-visibility" className={H3}>

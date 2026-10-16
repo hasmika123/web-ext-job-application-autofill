@@ -1,6 +1,7 @@
 package com.dossier.api.service.ent.mkt.resumes;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dossier.api.domain.User;
 import com.dossier.api.service.dto.ResumeBuilderConfigDTO;
@@ -41,6 +42,28 @@ class ActForBuilderGateTest {
         assertThat(ActForBuilderGate.allows("GET", "/api/profile/resumes/42/original", 42L)).isFalse();
         assertThat(ActForBuilderGate.allows("POST", "/api/profile/resumes/built", 42L)).isFalse();
         assertThat(ActForBuilderGate.allows("GET", "/api/profile/resumes/42/doc/../access", 42L)).isFalse();
+    }
+
+    @Test
+    void theShareLinkSettingOnlyEverTurnsShareLinksOnForAConsultant() {
+        // personal: always on, the setting is irrelevant
+        assertThat(OrgResumePolicy.capabilities(false).shareLinks()).isTrue();
+        OrgResumePolicy.refuseSharingInOrganization(false);
+
+        TenantContextHolder.set(TenantContext.tenant(5L, null, "acme.kiwiply.com"));
+        assertThat(OrgResumePolicy.capabilities(false).shareLinks()).as("consultant, setting off (the default)").isFalse();
+        assertThat(OrgResumePolicy.capabilities(true).shareLinks()).as("consultant, setting on").isTrue();
+        assertThatThrownBy(() -> OrgResumePolicy.refuseSharingInOrganization(false)).isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
+        OrgResumePolicy.refuseSharingInOrganization(true);
+
+        User owner = new User();
+        owner.setLogin("consultant");
+        ResumeActAs.Scope scope = new ResumeActAs.Scope(5L, "marketer", 1L);
+        assertThat(ResumeActAs.run(owner, scope, () -> OrgResumePolicy.capabilities(true)).shareLinks()).as("act-for, setting on").isFalse();
+        assertThatThrownBy(() -> ResumeActAs.run(owner, scope, () -> {
+            OrgResumePolicy.refuseSharingInOrganization(true);
+            return null;
+        })).as("act-for is refused whatever the setting says").isInstanceOf(org.springframework.web.server.ResponseStatusException.class);
     }
 
     @Test

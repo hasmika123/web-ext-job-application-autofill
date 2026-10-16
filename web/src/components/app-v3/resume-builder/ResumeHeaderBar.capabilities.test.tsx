@@ -89,6 +89,14 @@ describe("the one header bar follows the session's capabilities", () => {
     expect(within(header()).queryByRole("button", { name: /Set as primary/ })).toBeNull();
   });
 
+  it("a consultant whose organization turned share links on gets the sharing controls back, and nothing else changes", () => {
+    bar({ ...CONSULTANT, shareLinks: true });
+    expect(within(header()).getByRole("button", { name: /Visibility|Private|Only me|Organization/i })).toBeTruthy();
+    openKebab();
+    const labels = kebabLabels();
+    for (const gone of ["Set as primary", "Archive", "Unarchive", "Delete", "Tailor for a job…"]) expect(labels, gone).not.toContain(gone);
+  });
+
   it("the header says who last modified it, by name and role, with the absolute time on hover: the marketer, never the consultant whose account owns it", () => {
     const marketer = { login: "ent#5#sarah@acme.org", label: "Sarah Chen (marketer)" };
     bar(CONSULTANT, consultantEnv(2), { updatedBy: marketer, createdBy: marketer, source: { kind: "BUILT", origin: "PROFILE", tailoredFrom: null, madeBy: "Sarah Chen (marketer)", approvalRequired: true, approvedAt: null } });
