@@ -14511,6 +14511,42 @@
         }
       }
     },
+    "/api/admin/orgs/{id}/account-migration" : {
+      "post" : {
+        "tags" : [ "admin-account-mode-resource" ],
+        "operationId" : "migrate",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MigrationRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MigrationReport"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/job-sources" : {
       "get" : {
         "tags" : [ "admin-job-source-resource" ],
@@ -23523,6 +23559,33 @@
         }
       }
     },
+    "/api/admin/orgs/{id}/account-mode-check" : {
+      "get" : {
+        "tags" : [ "admin-account-mode-resource" ],
+        "operationId" : "check_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountModeCheck"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/orgs/summary" : {
       "get" : {
         "tags" : [ "admin-org-resource" ],
@@ -23568,6 +23631,24 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/LabelCheck"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/orgs/account-migration/report" : {
+      "get" : {
+        "tags" : [ "admin-account-mode-resource" ],
+        "operationId" : "report",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MigrationReport"
                 }
               }
             }
@@ -23650,6 +23731,24 @@
                     "type" : "integer",
                     "format" : "int64"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/enterprise-accounts/health" : {
+      "get" : {
+        "tags" : [ "admin-account-mode-resource" ],
+        "operationId" : "health",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AccountHealth"
                 }
               }
             }
@@ -30106,6 +30205,98 @@
           }
         }
       },
+      "MigrationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "apply" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        }
+      },
+      "MigrationReport" : {
+        "type" : "object",
+        "properties" : {
+          "dryRun" : {
+            "type" : "boolean"
+          },
+          "organizations" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "seatsConsidered" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "accountsCreated" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "seatsRepointed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "personalAccountsChanged" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "orgs" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/OrgMigration"
+            }
+          }
+        }
+      },
+      "OrgMigration" : {
+        "type" : "object",
+        "properties" : {
+          "orgId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "accountMode" : {
+            "type" : "string"
+          },
+          "seatsOnPersonalAccounts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "wouldCreate" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "wouldReuse" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "skippedNoEmail" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "conflicts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "created" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "reused" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "repointed" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "AddRequest" : {
         "type" : "object",
         "properties" : {
@@ -34515,6 +34706,29 @@
           }
         }
       },
+      "AccountModeCheck" : {
+        "type" : "object",
+        "properties" : {
+          "orgId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "accountMode" : {
+            "type" : "string"
+          },
+          "seatsOnPersonalAccounts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "seatsOnEnterpriseAccounts" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "readyForSeparate" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "LabelCheck" : {
         "type" : "object",
         "properties" : {
@@ -34535,6 +34749,39 @@
           },
           "host" : {
             "type" : "string"
+          }
+        }
+      },
+      "AccountHealth" : {
+        "type" : "object",
+        "properties" : {
+          "healthy" : {
+            "type" : "boolean"
+          },
+          "totalViolations" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "invariants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Invariant"
+            }
+          }
+        }
+      },
+      "Invariant" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "violations" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
