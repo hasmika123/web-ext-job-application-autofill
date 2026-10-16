@@ -17,7 +17,7 @@ Branch `change-audit`. Design: `docs/change-audit/README.md`. Stories U6.12, U6.
 
 ## Needs the user
 
-- **D8 (new, not in the design): an ArchUnit exception for E1.** `NoSubmitSurfaceTest.noOrgServiceDependsOnAServiceThatWritesAnApplication` forbids any org service from touching `ApplicationSyncService`. X9.15's `SaveForConsultantService` (a marketer SAVES a job, status SAVED, on an assigned consultant's tracker) must. I added ONE narrow exemption by class name, with a comment. It is a bookmark, never an application or a submission, gated by `TrackerActForGate`, and no HTTP route reaches it yet. This is a policy change to a guard rule: please confirm or reject.
+- **D8 (new, not in the design): an ArchUnit exception for E1.** `NoSubmitSurfaceTest.noOrgServiceDependsOnAServiceThatWritesAnApplication` forbids any org service from touching `ApplicationSyncService`. X9.15's `SaveForConsultantService` (a marketer SAVES a job, status SAVED, on an assigned consultant's tracker) must. I added ONE narrow exemption by class name, with a comment. It is a bookmark, never an application or a submission, gated by `TrackerActForGate`, and no HTTP route reaches it yet. This is a policy change to a guard rule. **Approved by the user 2026-10-15** (a bookmark only; the consultant still applies and submits; E1 holds).
 - **X9.12 does not exist.** `POST /api/orgs/{orgId}/consultants/{memberId}/applications/save` (and its `OrgIsolationIT` COVERAGE row) is not built, so no HTTP path can call `SaveForConsultantService`. Also missing: the 19b `APPLICATIONS` visibility check (19b has no code; the seam is documented in `TrackerActForGate`).
 - The design's D1 to D7 were taken as the recommended defaults.
 
