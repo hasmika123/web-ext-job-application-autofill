@@ -57,8 +57,21 @@ const HREFS = { talent: "/w/marketing/talent", matches: "/w/marketing/matches", 
 const mount = (hrefs: Record<string, string | null> = HREFS) => render(<ShellSlotContext.Provider value={slot}><TalentPage orgId={2} orgName="Acme" firstName="Sarah" hrefs={hrefs} /></ShellSlotContext.Provider>);
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 let fetchMock: ReturnType<typeof vi.fn>;
+const OVERVIEW = {
+  id: 1, name: "Alex Morgan", title: "Senior Java Developer", headline: "Backend engineer", yearsExperience: 8, workMode: "HYBRID",
+  availability: { code: "AVAILABLE_NOW", label: "Available Now", tone: "green" }, resume: { state: "UP_TO_DATE", label: "Up to date" }, profileCompleteness: 80,
+  contact: { workEmail: "alex.morgan@acme.example", location: "New York, NY", workAuthorization: "Citizen" }, skills: ["Java", "Spring"],
+  placement: { placementId: 3, roleTitle: "Platform Engineer", client: "TechCorp", startDate: "2026-03-02", status: "ACTIVE" },
+  resumes: [{ id: 10, name: "Alex - Senior Java Developer", version: 3, primary: true, approval: "APPROVED", updatedAt: "2026-10-01T00:00:00Z" }],
+  applications: {
+    total: 4, open: 3, byStage: [{ key: "applied", label: "Applied", count: 2 }, { key: "interviewing", label: "Interviewing", count: 1 }, { key: "hired", label: "Hired", count: 0 }],
+    recent: [{ code: "APP-1", jobTitle: "Staff Engineer", client: "Globex", stage: "Applied", stageKey: "applied", nextAction: "Follow up", updatedAt: "2026-10-14T10:00:00Z", updatedBy: { label: "Sam Spec", relation: "marketer", kind: "PERSON", memberId: 9 } }],
+  },
+  interviews: [],
+};
 const stub = (board: () => Response) => {
   fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+    if (/\/mkt\/talent\/\d+\/overview$/.test(url)) return json(200, OVERVIEW);
     if (/\/mkt\/talent\/views$/.test(url) && init?.method === "POST") return json(201, { id: 9, name: JSON.parse(String(init.body)).name, filters: { status: "NEEDS_UPDATE" } });
     if (/\/mkt\/talent\/views\/\d+$/.test(url) && init?.method === "DELETE") return new Response(null, { status: 204 });
     if (/\/mkt\/talent\/\d+$/.test(url)) return json(200, DETAIL);
@@ -210,7 +223,27 @@ describe("TalentPage: filters, views, drawer", () => {
     expect(drawer.textContent).toContain("Summary");
     expect(drawer.textContent).toContain("Senior Java Developer");
     expect(drawer.textContent).toContain("Data Analyst");
-    expect(drawer.textContent).not.toMatch(/@|phone/i);
+    expect(drawer.textContent).not.toMatch(/phone/i);
+  });
+
+  it("View Profile shows the assigned consultant's contact, placement, resumes and applications with who updated them", async () => {
+    mount();
+    await ready();
+    fireEvent.click(within(document.querySelector('[data-talent-row="1"]') as HTMLElement).getByRole("button", { name: "View Profile" }));
+    const drawer = await waitFor(() => {
+      const d = document.querySelector("[data-talent-drawer]") as HTMLElement;
+      expect(d.querySelector("[data-talent-contact]")).toBeTruthy();
+      return d;
+    });
+    expect(fetchMock.mock.calls.some((c) => String(c[0]) === "/api/orgs/2/mkt/talent/1/overview")).toBe(true);
+    expect(drawer.textContent).toContain("alex.morgan@acme.example");
+    expect(drawer.textContent).toContain("Citizen");
+    expect(drawer.textContent).toContain("Platform Engineer");
+    expect(drawer.textContent).toContain("TechCorp");
+    expect(drawer.textContent).toContain("Applied 2");
+    expect(drawer.textContent).not.toContain("Hired 0");
+    expect(drawer.querySelector("[data-updated-by]")?.textContent).toContain("by Sam Spec");
+    expect(drawer.textContent).not.toMatch(/ssn|passport|date of birth|\$/i);
   });
 });
 

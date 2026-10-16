@@ -157,6 +157,54 @@ export function parseDetail(raw: unknown): TalentDetail | null {
   };
 }
 
+// ---- the selected consultant, in full (the overview behind View Profile) -----------------------------------------------------------------
+
+export interface OverviewActor { userId?: number | null; memberId?: number | null; label: string; relation?: string | null; kind: string }
+export interface TalentOverview {
+  id: number;
+  name: string;
+  title: string;
+  headline: string;
+  workMode: string;
+  availability: TalentRow["availability"];
+  contact: { workEmail: string; location: string; workAuthorization: string };
+  skills: string[];
+  placement: { roleTitle: string; client: string; startDate: string; status: string } | null;
+  resumes: { id: number; name: string; version: number; primary: boolean; approval: string; updatedAt: string }[];
+  applications: {
+    total: number;
+    open: number;
+    byStage: { key: string; label: string; count: number }[];
+    recent: { code: string; jobTitle: string; client: string; stage: string; nextAction: string; updatedAt: string; updatedBy: OverviewActor | null }[];
+  };
+  interviews: { scheduledAt: string; round: string; client: string; durationMinutes: number }[];
+}
+
+/** Lenient like the rest: a malformed document is null (the drawer then keeps the summary it already has). No phone or time zone: the API does not store them. */
+export function parseOverview(raw: unknown): TalentOverview | null {
+  if (!isObj(raw) || typeof raw.id !== "number" || !isObj(raw.contact)) return null;
+  const base = parseRow({ ...raw, primarySkill: "", activeApps: 0, assignedJobs: 0 });
+  const c = raw.contact;
+  const pl = isObj(raw.placement) ? raw.placement : null;
+  const ap = isObj(raw.applications) ? raw.applications : {};
+  return {
+    id: base.id, name: base.name, title: str(raw.title), headline: str(raw.headline), workMode: str(raw.workMode), availability: base.availability,
+    contact: { workEmail: str(c.workEmail), location: str(c.location), workAuthorization: str(c.workAuthorization) },
+    skills: strs(raw.skills),
+    placement: pl ? { roleTitle: str(pl.roleTitle), client: str(pl.client), startDate: str(pl.startDate), status: str(pl.status) } : null,
+    resumes: arr(raw.resumes).map((r) => ({ id: num(r.id), name: str(r.name), version: num(r.version, 1), primary: r.primary === true, approval: str(r.approval), updatedAt: str(r.updatedAt) })),
+    applications: {
+      total: num(ap.total), open: num(ap.open),
+      byStage: arr(ap.byStage).map((g) => ({ key: str(g.key), label: str(g.label), count: num(g.count) })),
+      recent: arr(ap.recent).map((a) => ({
+        code: str(a.code), jobTitle: str(a.jobTitle), client: str(a.client), stage: str(a.stage), nextAction: str(a.nextAction), updatedAt: str(a.updatedAt),
+        updatedBy: isObj(a.updatedBy) ? { userId: typeof a.updatedBy.userId === "number" ? a.updatedBy.userId : null, memberId: typeof a.updatedBy.memberId === "number" ? a.updatedBy.memberId : null, label: str(a.updatedBy.label), relation: typeof a.updatedBy.relation === "string" ? a.updatedBy.relation : null, kind: str(a.updatedBy.kind, "PERSON") } : null,
+      })),
+    },
+    interviews: arr(raw.interviews).map((i) => ({ scheduledAt: str(i.scheduledAt), round: str(i.round), client: str(i.client), durationMinutes: num(i.durationMinutes) })),
+  };
+}
+
 // ---- fetch ------------------------------------------------------------------------------------------------------------------------------
 
 export type Fetched<T> = { kind: "OK"; view: T } | { kind: "DENIED" } | { kind: "FAILED" };
@@ -193,6 +241,10 @@ export function fetchTalent(orgId: number | string, q: TalentQuery, signal?: Abo
 
 export function fetchTalentDetail(orgId: number | string, consultantId: number, signal?: AbortSignal): Promise<Fetched<TalentDetail>> {
   return getJson(`/api/orgs/${orgId}/mkt/talent/${consultantId}`, parseDetail, signal);
+}
+
+export function fetchTalentOverview(orgId: number | string, consultantId: number, signal?: AbortSignal): Promise<Fetched<TalentOverview>> {
+  return getJson(`/api/orgs/${orgId}/mkt/talent/${consultantId}/overview`, parseOverview, signal);
 }
 
 export type SaveResult = { ok: true; view: SavedView } | { ok: false; error: string };
