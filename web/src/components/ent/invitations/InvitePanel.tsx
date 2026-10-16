@@ -123,7 +123,7 @@ export default function InvitePanel({
         void suggest();
       } else {
         // Legacy (shared-account) organizations only: the API sends INVITED when it could not create a new account, and the normal invitation went out instead.
-        setCreatedNote(`An invitation was sent to ${who} instead of a new account. They accept it with the account they already use.`);
+        setCreatedNote(`An invitation was sent to ${who} instead of a new account. Accepting it sets up their login for your organization.`);
         onSent({ email: who, body: { emails: [who], roleIds, ...(dept ? { departmentGroupId: Number(dept) } : {}) } });
         void suggest();
       }
@@ -171,7 +171,7 @@ export default function InvitePanel({
             </span>
             Invite Employee
           </h2>
-          <p className="mt-1.5 text-[13px] text-muted">{mode === "account" ? "Create their organization account now with a temporary password. Any personal Kiwiply account they have is not touched or linked." : "Send an invitation to join your organization."}</p>
+          <p className="mt-1.5 text-[13px] text-muted">{mode === "account" ? "Create their account in your organization now with a temporary password. It is a separate account: it never touches or links to any personal account they have." : "Send an invitation to join your organization."}</p>
         </div>
         {onClose && (
           <Tooltip content="Close">
