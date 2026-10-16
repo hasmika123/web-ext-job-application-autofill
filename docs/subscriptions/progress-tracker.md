@@ -35,8 +35,8 @@
 | K2.3 | PlanPreviewDTO | Not Started | API | | | |
 | K2.4 | Grandfathering invariants + PlanRetireGuard | Not Started | API | | | version-migration primitive FUTURE (S-03) |
 | K2.5 | Admin plans API | Not Started | API | | | |
-| K3.1 | PricingEngine v2 + golden S1 | Not Started | API | | | one engine with X5.5 |
-| K3.2 | MarginCalculator v2 + levers | Not Started | API | | | fee model per S-11 |
+| K3.1 | PricingEngine v2 + golden S1 | Completed | API | cf2f93aa | MinorTest, PricingEngineGoldenTest (S1-S3, G1-G14), PricingEnginePropertyTest, PricingArchTest, AnnualDerivationTest, DependencyRulesTest | pure engine in service/pricing; CatalogPort adapter and PricingInputsLoader wired by the coordinator |
+| K3.2 | MarginCalculator v2 + levers | Completed | API | fdd7602b | MarginCalculatorTest, MarginGuardCompositionTest, FeeModelSettingsTest | calculator only (no route yet: GET /api/admin/catalog/margin and fee-model are separate wiring); levers exact, see decisions E-1..E-4 |
 | K3.3 | Personal QuoteService | Not Started | API | | | |
 | K3.4 | Settings registry keys | Completed | API | 2cdef444 | BillingSettingKeysTest (7); SettingDefinitionsTest, SettingsServiceTest unchanged and green | first in S0; BillingSettingKeys; 03 section 2 + 08 section 7 parity test; out-of-bounds stays 400 (B-06) |
 | K4.1 | Plans list page | Not Started | Web | | | |

@@ -774,7 +774,7 @@
     {
       "id": "K3.1",
       "epic": "K3",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [
@@ -831,7 +831,7 @@
     {
       "id": "K3.2",
       "epic": "K3",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [
