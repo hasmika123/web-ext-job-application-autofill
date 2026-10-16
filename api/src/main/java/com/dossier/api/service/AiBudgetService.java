@@ -130,7 +130,23 @@ public class AiBudgetService {
             return Optional.of(new Window(centsToMicros(override.get().getMonthlyBudgetCents()), monthStart(now), resetsAt(now)));
         }
         if (!entitlementService.isPro(login)) return Optional.empty();
-        return Optional.of(proWindow(subscriptions.findOneByUserLogin(login).orElse(null), now));
+        Window legacy = proWindow(subscriptions.findOneByUserLogin(login).orElse(null), now);
+        if (shadow == null) return Optional.of(legacy);
+        // K7.2: the budget follows the resolved plan version, interval and add-ons. While shadowed the legacy window decides and the two are compared.
+        Optional<com.dossier.api.service.entitlement.EntitlementSet.AiBudgetWindow> resolved = shadow.resolve(login).map(com.dossier.api.service.entitlement.EntitlementSet::aiWindow);
+        if (shadow.shadowOn()) {
+            shadow.compareAiBudgetCents(login, legacy.budgetMicros() / 10_000L, resolved.map(com.dossier.api.service.entitlement.EntitlementSet.AiBudgetWindow::budgetCents).orElse(null));
+            return Optional.of(legacy);
+        }
+        return Optional.of(resolved.map(w -> new Window(centsToMicros((int) w.budgetCents()), w.start(), w.resetsAt())).orElse(legacy));
+    }
+
+    private com.dossier.api.service.entitlement.ShadowComparator shadow;
+
+    /** Optional (K7.2): the catalog resolver's comparator. Without it the budget is exactly the legacy one, as in every plain unit test. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setShadowComparator(com.dossier.api.service.entitlement.ShadowComparator shadow) {
+        this.shadow = shadow;
     }
 
     /**

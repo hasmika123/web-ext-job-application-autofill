@@ -87,7 +87,7 @@ public class InboxEntitlement {
     @Transactional(readOnly = true)
     public Decision decide(Long userId, String login) {
         if (isEnterpriseAccount(login)) return organizationDecision(userId);
-        if (login != null && personal.isPro(login)) return new Decision(Ground.PERSONAL, null);
+        if (login != null && personal.has(login, FEATURE)) return new Decision(Ground.PERSONAL, null);
         return organizationDecision(userId);
     }
 

@@ -57,6 +57,51 @@ public class ProfileVersionVM {
         this.account = account == null ? ProfileWorkspaces.Account.PERSONAL : account;
     }
 
+    private List<String> features = List.of();
+    private java.util.Map<String, Long> limits = java.util.Map.of();
+    private Integer aiPct;
+    private java.time.Instant periodEnd;
+
+    /**
+     * K7.4: what the person's plan actually grants, as service keys plus the legacy capability keys they confer (for example {@code ai.resume_tailoring},
+     * {@code ai.server}), sorted. The extension gates on these so an add-on or a new plan reaches the drawer without a release; {@code plan} stays for
+     * display and for builds that predate this field. Additive and NOT part of {@code version}.
+     */
+    public List<String> getFeatures() {
+        return features;
+    }
+
+    public void setFeatures(List<String> features) {
+        this.features = features == null ? List.of() : List.copyOf(features);
+    }
+
+    /** Effective allowances by limit key (for example {@code resumes.max}). */
+    public java.util.Map<String, Long> getLimits() {
+        return limits;
+    }
+
+    public void setLimits(java.util.Map<String, Long> limits) {
+        this.limits = limits == null ? java.util.Map.of() : java.util.Map.copyOf(limits);
+    }
+
+    /** Percent of the AI budget spent in the current window (0-100), including add-on credits; null when the plan has no AI budget. Never dollars. */
+    public Integer getAiPct() {
+        return aiPct;
+    }
+
+    public void setAiPct(Integer aiPct) {
+        this.aiPct = aiPct;
+    }
+
+    /** End of the paid term, null when there is none. */
+    public java.time.Instant getPeriodEnd() {
+        return periodEnd;
+    }
+
+    public void setPeriodEnd(java.time.Instant periodEnd) {
+        this.periodEnd = periodEnd;
+    }
+
     public String getPlan() {
         return plan;
     }

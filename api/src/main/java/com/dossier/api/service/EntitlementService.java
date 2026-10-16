@@ -6,9 +6,15 @@ import com.dossier.api.repository.SubscriptionRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.billing.StripeGateway;
 import com.dossier.api.service.dto.PlanDTO;
+import com.dossier.api.service.entitlement.EntitlementSet;
+import com.dossier.api.service.entitlement.FeatureKeys;
+import com.dossier.api.service.entitlement.PersonalFeatureMap;
+import com.dossier.api.service.entitlement.PlanResolver;
+import com.dossier.api.service.entitlement.ShadowComparator;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,6 +71,25 @@ public class EntitlementService {
     }
 
     /**
+     * The catalog resolver and its shadow comparator (story K7.1). Optional by design: a plain {@code new EntitlementService(repo, gateway)} (every
+     * existing unit test) has neither, and then this class behaves exactly as it always did. Spring wires them through the setters below.
+     */
+    private PlanResolver planResolver;
+
+    private ShadowComparator shadow;
+
+    @Autowired(required = false)
+    public void setPlanResolver(PlanResolver planResolver) {
+        this.planResolver = planResolver;
+    }
+
+    @Autowired(required = false)
+    public void setShadowComparator(ShadowComparator shadow) {
+        this.shadow = shadow;
+    }
+
+
+    /**
      * The entitlement rule, as a pure function so it can be unit-tested as a status × period
      * matrix without a database.
      *
@@ -87,10 +112,98 @@ public class EntitlementService {
     public boolean isPro(String login) {
         // Decision O4: an enterprise account (login ent#<orgId>#...) never has a personal plan, whatever a stray row might say.
         if (Constants.isEnterpriseLogin(login)) return false;
+        boolean legacy = legacyIsPro(login);
+        return decide(login, FeatureKeys.Capability.AI_SERVER, legacy);
+    }
+
+    /** The row logic exactly as it has always been: the status, the period end and the clock. */
+    private boolean legacyIsPro(String login) {
         return subscriptionRepository
             .findOneByUserLogin(login)
             .map(sub -> isProFor(sub.getStatus(), sub.getCurrentPeriodEnd(), Instant.now()))
             .orElse(false);
+    }
+
+    /**
+     * The one place shadow mode is applied to a yes/no: while shadow is on the legacy answer is returned and the resolver is only compared; once it is
+     * off the resolver answers (and a resolver failure falls back to the legacy answer rather than failing a gate).
+     */
+    private boolean decide(String login, String key, boolean legacy) {
+        if (planResolver == null || shadow == null || Constants.isEnterpriseLogin(login)) return legacy;
+        if (shadow.shadowOn()) {
+            shadow.compareHas(login, key, legacy);
+            return legacy;
+        }
+        return shadow.resolve(login).map(s -> s.has(key)).orElse(legacy);
+    }
+
+    /**
+     * Whether this personal account has the service {@code key} (a catalog service key such as {@code ai.resume_tailoring}, or a legacy capability key
+     * such as {@code ai.server}) - story K7.3's replacement for {@link #isPro}. While the catalog resolver is in shadow, the answer is the legacy one
+     * ({@link PersonalFeatureMap}): Pro-gated keys follow {@code isPro}, open keys are true, a key with no legacy gate asks the resolver.
+     */
+    public boolean has(String login, String key) {
+        if (Constants.isEnterpriseLogin(login)) return false;
+        PersonalFeatureMap.Gate gate = PersonalFeatureMap.gate(key);
+        if (gate == PersonalFeatureMap.Gate.UNMAPPED) {
+            if (planResolver == null || shadow == null) return false;
+            return shadow.resolve(login).map(s -> s.has(key)).orElse(false);
+        }
+        boolean legacy = gate == PersonalFeatureMap.Gate.OPEN || legacyIsPro(login);
+        return decide(login, key, legacy);
+    }
+
+    /**
+     * Gate an operation on a service. Throws the same 402 as {@link #requirePro} ({@code PRO_REQUIRED}, same message, no extras) for every key that was
+     * Pro-gated before the catalog; a key with no legacy gate throws {@code PLAN_REQUIRED} naming the feature.
+     */
+    public void require(String login, String key) {
+        if (has(login, key)) return;
+        if (PersonalFeatureMap.legacyCode(key) == null) {
+            throw new ProRequiredException("PLAN_REQUIRED", "This feature is not part of your plan", java.util.Map.of("feature", key));
+        }
+        throw new ProRequiredException(ProRequiredException.CODE_PRO_REQUIRED, "This feature is part of Kiwiply Pro");
+    }
+
+    /** {@link #require(String, String)} for whoever is signed in. */
+    public void requireCurrent(String key) {
+        String login = SecurityUtils.getCurrentUserLogin()
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user"));
+        require(login, key);
+    }
+
+    /**
+     * Whether this account holds a paid plan right now - what a second checkout must refuse ({@code ALREADY_SUBSCRIBED}). Today's {@link #isPro}; once the
+     * resolver decides, the subscription state ({@code state.entitled()}).
+     */
+    public boolean hasPaidPlan(String login) {
+        if (Constants.isEnterpriseLogin(login)) return false;
+        boolean legacy = legacyIsPro(login);
+        if (planResolver == null || shadow == null) return legacy;
+        if (shadow.shadowOn()) {
+            shadow.compareHas(login, FeatureKeys.Capability.AI_SERVER, legacy);
+            return legacy;
+        }
+        return shadow.resolve(login).map(s -> s.state().entitled()).orElse(legacy);
+    }
+
+    /**
+     * The limit the resolver decides for a limit key, empty while the shadow is on (the caller then keeps its legacy constant) or when the resolver cannot
+     * answer. While shadowed, {@code legacy} is compared with the resolver's number so a mismatch is logged.
+     */
+    public Optional<Long> limitFor(String login, String limitKey, long legacy) {
+        if (planResolver == null || shadow == null || Constants.isEnterpriseLogin(login)) return Optional.empty();
+        if (shadow.shadowOn()) {
+            shadow.compareLimit(login, limitKey, legacy);
+            return Optional.empty();
+        }
+        return shadow.resolve(login).map(s -> s.limit(limitKey));
+    }
+
+    /** The resolved set for a personal login, for {@code entitlementsOf}: the profile version, My plan, the extension. Empty when it cannot be built. */
+    public Optional<EntitlementSet> entitlementsOf(String login) {
+        if (planResolver == null || shadow == null || Constants.isEnterpriseLogin(login)) return Optional.empty();
+        return shadow.resolve(login);
     }
 
     /** True when the authenticated user is entitled to Pro. False when nobody is signed in. */
@@ -108,6 +221,7 @@ public class EntitlementService {
         }
         Subscription sub = maybe.get();
         boolean pro = isProFor(sub.getStatus(), sub.getCurrentPeriodEnd(), Instant.now());
+        pro = decide(login, FeatureKeys.Capability.AI_SERVER, pro);
         return new PlanDTO(
             pro ? Subscription.PLAN_PRO : Subscription.PLAN_FREE,
             sub.getStatus(),

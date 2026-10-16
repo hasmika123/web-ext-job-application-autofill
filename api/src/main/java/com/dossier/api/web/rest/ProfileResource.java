@@ -84,7 +84,40 @@ public class ProfileResource {
             LOG.warn("Could not list the workspaces of the current user: {}", e.toString());
             mine = List.of();
         }
-        return ResponseEntity.ok(new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan(), mine, account));
+        ProfileVersionVM vm = new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan(), mine, account);
+        try {
+            addEntitlements(vm);
+        } catch (RuntimeException e) {
+            // like the lists above: the poll that keeps the extension in sync must never fail because the entitlement detail could not be built
+            LOG.warn("Could not add the entitlement detail to the profile version: {}", e.toString());
+        }
+        return ResponseEntity.ok(vm);
+    }
+
+    private com.dossier.api.service.AiBudgetService aiBudget;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAiBudgetService(com.dossier.api.service.AiBudgetService aiBudget) {
+        this.aiBudget = aiBudget;
+    }
+
+    /** K7.4: features[], limits{}, aiPct and periodEnd, from the resolved entitlement set (empty when the resolver is not wired or cannot answer). */
+    private void addEntitlements(ProfileVersionVM vm) {
+        String login = com.dossier.api.security.SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (login == null) return;
+        entitlementService
+            .entitlementsOf(login)
+            .ifPresent(set -> {
+                java.util.TreeSet<String> keys = new java.util.TreeSet<>(set.features().keySet());
+                keys.addAll(set.capabilities());
+                vm.setFeatures(List.copyOf(keys));
+                vm.setLimits(set.limits());
+                vm.setPeriodEnd(set.periodEnd());
+            });
+        if (aiBudget != null) {
+            var usage = aiBudget.usage(login);
+            if ("budget".equals(usage.metered())) vm.setAiPct(usage.used());
+        }
     }
 
     /** {@code PUT /api/profile} : create or overwrite the current user's bio. */

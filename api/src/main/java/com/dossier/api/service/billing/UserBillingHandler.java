@@ -51,6 +51,22 @@ public class UserBillingHandler {
             case "invoice.payment_failed" -> onPaymentFailed(event);
             default -> LOG.debug("Ignoring Stripe event type {}", event.type());
         }
+        // K8.3: the invoice mirror runs after the subscription mirror and can never fail it
+        if (invoiceMirror != null && InvoiceMirror.handles(event.type()) && !event.taggedForAnotherApp()) {
+            try {
+                invoiceMirror.mirror(event, findSubscription(event).orElse(null));
+            } catch (RuntimeException e) {
+                LOG.warn("Could not mirror the invoice of event {} ({}): {}", event.id(), event.type(), e.toString());
+            }
+        }
+    }
+
+    private InvoiceMirror invoiceMirror;
+
+    /** Optional (K8.3): without it only the subscription mirror is written, exactly as before. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setInvoiceMirror(InvoiceMirror invoiceMirror) {
+        this.invoiceMirror = invoiceMirror;
     }
 
     /**
@@ -126,6 +142,13 @@ public class UserBillingHandler {
         sub.setLastEventAt(event.created());
         touch(sub);
         subscriptionRepository.save(sub);
+        if (invoiceMirror != null) {
+            try {
+                invoiceMirror.recordPeriodStart(sub, event.currentPeriodStart());
+            } catch (RuntimeException e) {
+                LOG.warn("Could not record the period start of {}: {}", event.id(), e.toString());
+            }
+        }
     }
 
     /** {@code invoice.paid} — the charge went through, so the subscription is in good standing. */

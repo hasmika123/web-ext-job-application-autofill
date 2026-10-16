@@ -119,7 +119,7 @@ public final class BillingSettingKeys {
 
         // Rollout, caching and notices.
         k.add(new Key(CATALOG_SHADOW, Type.BOOL, "true", null, null, null,
-            "Shadow mode of the catalog-based entitlement resolver: on = the current gates decide and the resolver is only compared; off = the resolver decides." + NOT_ENFORCED, null, Risk.HIGH));
+            "Shadow mode of the catalog-based entitlement resolver: on = the current gates decide and the resolver is only compared; off = the resolver decides. Mismatches are logged as entitlement.shadow_mismatch (flip checklist: docs/subscriptions/README.md).", null, Risk.HIGH));
         integer(k, PUBLIC_CATALOG_CACHE_SECONDS, 300, 0, 3600, Risk.LOW, "Seconds the public catalog (the pricing page) is cached. 0 = no cache." + NOT_ENFORCED);
         integer(k, PLAN_SUNSET_NOTICE_DAYS, 30, 1, 365, Risk.MEDIUM, "Days of notice before a plan version is sunset." + NOT_ENFORCED);
         integer(k, MIGRATION_NOTICE_DAYS, MIGRATION_NOTICE_HARD_MIN_DAYS, MIGRATION_NOTICE_HARD_MIN_DAYS, 365, Risk.HIGH,

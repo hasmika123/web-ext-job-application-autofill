@@ -24,6 +24,8 @@ public interface ConsultantLicenseRepository extends Repository<ConsultantLicens
     long countByOrgId(Long orgId);
 
     List<ConsultantLicense> findByOrgIdAndConsultantIdOrderByStartsAtDesc(Long orgId, Long consultantId);
+    /** The licenses of one organization member, newest first (story K7.1: the entitlement resolver's organization reader). */
+    List<ConsultantLicense> findByOrgIdAndMemberIdOrderByStartsAtDesc(Long orgId, Long memberId);
     Optional<ConsultantLicense> findFirstByOrgIdAndConsultantIdAndStatusNot(Long orgId, Long consultantId, String status);
     long countByOrgIdAndStatus(Long orgId, String status);
     long countByOrgIdAndStatusAndEndsAtBetween(Long orgId, String status, Instant from, Instant to);

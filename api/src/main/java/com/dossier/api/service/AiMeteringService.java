@@ -76,6 +76,7 @@ public class AiMeteringService {
         call.setProvider(result.provider() == null || result.provider().isBlank() ? "gemini" : truncate(result.provider(), 20));
         call.setLatencyMs(result.latencyMs());
         call.setSuccess(true);
+        stamp(call, login, task);
         callRepository.save(call);
 
         return usedThisMonth(login);
@@ -98,7 +99,14 @@ public class AiMeteringService {
         call.setLatencyMs(latencyMs);
         call.setSuccess(false);
         call.setErrorKind(kind == null ? AiErrorKind.UNKNOWN.name() : kind.name());
+        stamp(call, login, task);
         callRepository.save(call);
+    }
+
+    /** The K7.2 ledger columns, written on both the success and the failure path: the service served and the scope (personal today; ORG rows come with the org path). */
+    private static void stamp(AiCall call, String login, AiTask task) {
+        call.setFeatureKey(com.dossier.api.service.entitlement.AiTaskFeatures.featureOf(task));
+        if (login != null) call.setUsageScope("PERSONAL");
     }
 
     static String period() {

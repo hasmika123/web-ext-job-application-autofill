@@ -2302,7 +2302,7 @@
     {
       "id": "K7.1",
       "epic": "K7",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [
@@ -2362,7 +2362,7 @@
     {
       "id": "K7.2",
       "epic": "K7",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "complexity": "S",
       "owners": [
@@ -2416,7 +2416,7 @@
     {
       "id": "K7.3",
       "epic": "K7",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [
@@ -2486,7 +2486,7 @@
     {
       "id": "K7.4",
       "epic": "K7",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "complexity": "S",
       "owners": [
@@ -2544,7 +2544,7 @@
     {
       "id": "K7.5",
       "epic": "K7",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [
@@ -2659,7 +2659,7 @@
     {
       "id": "K7.7",
       "epic": "K7",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "complexity": "S",
       "owners": [
@@ -2823,7 +2823,7 @@
     {
       "id": "K8.3",
       "epic": "K8",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [
@@ -2883,7 +2883,7 @@
     {
       "id": "K8.4",
       "epic": "K8",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [

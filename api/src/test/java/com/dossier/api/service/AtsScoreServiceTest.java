@@ -63,7 +63,7 @@ class AtsScoreServiceTest {
 
     @Test
     void itIsPro() {
-        doThrow(new ProRequiredException(ProRequiredException.CODE_PRO_REQUIRED, "Pro")).when(entitlement).requirePro(anyString());
+        doThrow(new ProRequiredException(ProRequiredException.CODE_PRO_REQUIRED, "Pro")).when(entitlement).require(anyString(), org.mockito.ArgumentMatchers.eq("resume.optimization")); // K7.3: the gate now names its service; same refusal
         assertThatThrownBy(() -> service.forResume(11L)).isInstanceOf(ProRequiredException.class);
         assertThatThrownBy(() -> service.forApplication(5L, 11L, true)).isInstanceOf(ProRequiredException.class);
         verify(jobFit, never()).fitApplication(Mockito.any(), Mockito.any(), Mockito.anyBoolean());

@@ -174,7 +174,7 @@ public class JobMatchService {
     @Transactional
     public SettingView setEnabled(boolean enabled) {
         User user = currentUser();
-        if (enabled) entitlement.requirePro(user.getLogin());
+        if (enabled) entitlement.require(user.getLogin(), com.dossier.api.service.entitlement.FeatureKeys.AI_JOB_MATCHING);
         JobMatchSetting s = settings.findById(user.getId()).orElseGet(() -> new JobMatchSetting(user.getId()));
         boolean wasOn = s.isEnabled();
         s.setEnabled(enabled);
@@ -189,7 +189,7 @@ public class JobMatchService {
     @Transactional(readOnly = true)
     public ListView myMatches() {
         User user = currentUser();
-        entitlement.requirePro(user.getLogin());
+        entitlement.require(user.getLogin(), com.dossier.api.service.entitlement.FeatureKeys.AI_JOB_MATCHING);
         SettingView setting = settings.findById(user.getId()).map(JobMatchService::view).orElse(new SettingView(false, null, null, null, null));
         List<MatchView> list = matches.findShown(user.getId(), JobMatch.NEW, SHOW_SCORE).stream().map(JobMatchService::matchView).toList();
         return new ListView(setting, list);
