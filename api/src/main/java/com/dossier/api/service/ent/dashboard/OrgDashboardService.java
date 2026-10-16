@@ -101,10 +101,10 @@ public class OrgDashboardService {
         return new DashboardDTO.Response(me.orgId(), now, out);
     }
 
-    /** Hides the alert {@code key} for this member for 7 days. An unknown key is the generic 404. */
+    /** Hides the alert (or the activation checklist, key CHECKLIST) {@code key} for this member for 7 days. An unknown key is the generic 404. */
     public DashboardDTO.DismissResponse dismissAlert(OrgMembership me, String key) {
         gate(me);
-        if (key == null || !DashboardAlertService.KEYS.contains(key)) throw new OrgNotFoundException();
+        if (key == null || !(DashboardAlertService.KEYS.contains(key) || ChecklistProvider.DISMISS_KEY.equals(key))) throw new OrgNotFoundException();
         Instant until = alerts.dismiss(me.orgId(), me.memberId(), key, Instant.now(clock));
         return new DashboardDTO.DismissResponse(key, until);
     }

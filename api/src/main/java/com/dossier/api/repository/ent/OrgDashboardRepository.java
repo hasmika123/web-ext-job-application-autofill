@@ -171,4 +171,25 @@ public interface OrgDashboardRepository extends Repository<OrgMember, Long> {
     /** Display names of seats: {@code [memberId, firstName, lastName, login]}. */
     @Query("select m.id, u.firstName, u.lastName, u.login from OrgMember m, User u where m.orgId = :orgId and m.id in :ids and u.id = m.userId")
     List<Object[]> memberNames(@Param("orgId") Long orgId, @Param("ids") Collection<Long> ids);
+
+    /* ── activation checklist (14 section 2.4): small existence counts, one organization each ─────────────── */
+
+    /** 1 when the organization has published its branding at least once, else 0. */
+    @Query("select count(b) from OrgBranding b where b.orgId = :orgId and b.publishedAt is not null")
+    long countPublishedBranding(@Param("orgId") Long orgId);
+
+    /** Active departments. */
+    @Query("select count(g) from OrgGroup g where g.orgId = :orgId and g.kind = com.dossier.api.domain.enumeration.OrgGroupKind.DEPARTMENT and g.status = 'ACTIVE'")
+    long countActiveDepartments(@Param("orgId") Long orgId);
+
+    /** Ids of the seats in these statuses holding a live role other than the listed templates (a role built from nothing counts as other). */
+    @Query(
+        "select distinct s.id from OrgMember s where s.orgId = :orgId and s.status in :statuses and exists (select 1 from OrgMemberRole m, OrgRoleDefinition r " +
+        "where m.orgId = :orgId and m.memberId = s.id and m.endsAt is null and r.id = m.roleId and coalesce(r.templateKey, r.roleKey) not in :excluded)"
+    )
+    List<Long> seatIdsHoldingOtherThan(@Param("orgId") Long orgId, @Param("statuses") Collection<OrgMemberStatus> statuses, @Param("excluded") Collection<String> excluded);
+
+    /** Consultants with an active marketer assignment. */
+    @Query("select count(a) from MarketerAssignment a where a.orgId = :orgId and a.status = 'ACTIVE'")
+    long countActiveMarketerAssignments(@Param("orgId") Long orgId);
 }

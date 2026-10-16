@@ -52,12 +52,12 @@ public class DashboardAlertService {
         // the talent conditions of the board's Activity & Alerts card (talent-foundation.md section 5)
         new Kind("APPLICATIONS_OVERDUE", "warn", "pipeline.view", "/w/admin/applications"),
         new Kind("LICENSES_ATTENTION", "warn", "licenses.view", "/w/admin/licenses"),
-        new Kind("MARKETERS_OVERLOADED", "warn", "workload.view", "/w/admin/assignments"),
+        new Kind("MARKETERS_OVERLOADED", "warn", "workload.view", "/w/admin/marketing-assignments"),
         new Kind("APPLICATIONS_NEW", "info", "pipeline.view", "/w/admin/applications"),
         new Kind("INTERVIEWS_WEEK", "info", "pipeline.view", "/w/admin/interviews"),
         new Kind("PLACEMENT_NEW", "info", "placements.view", "/w/admin/placements"),
         new Kind("RESUMES_PENDING", "info", "resumes.view_for", "/w/admin/resumes"),
-        new Kind("CONSULTANTS_UNASSIGNED", "info", "assignments.manage", "/w/admin/assignments")
+        new Kind("CONSULTANTS_UNASSIGNED", "info", "assignments.manage", "/w/admin/marketing-assignments")
     );
 
     static final Duration RECENT = Duration.ofDays(7);

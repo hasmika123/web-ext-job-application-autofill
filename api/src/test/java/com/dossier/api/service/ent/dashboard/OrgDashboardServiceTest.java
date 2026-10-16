@@ -176,6 +176,15 @@ class OrgDashboardServiceTest {
         verify(alerts, never()).dismiss(anyLong(), anyLong(), org.mockito.ArgumentMatchers.eq("NOPE"), any());
     }
 
+    @Test
+    void theActivationChecklistCanBeDismissedLikeAnAlert() {
+        OrgDashboardService s = service(provider("a", 10, "hr.view", null, () -> WidgetResult.ok("x")));
+        Instant until = NOW.plusSeconds(7 * 24 * 3600L);
+        when(alerts.dismiss(1L, 7L, "CHECKLIST", NOW)).thenReturn(until);
+        assertThat(s.dismissAlert(me(), "CHECKLIST").until()).isEqualTo(until);
+        assertThatThrownBy(() -> s.dismissAlert(me(), "checklist")).isInstanceOf(OrgNotFoundException.class);
+    }
+
     private static Map<String, DashboardDTO.Widget> byKey(DashboardDTO.Response r) {
         Map<String, DashboardDTO.Widget> m = new LinkedHashMap<>();
         for (DashboardDTO.Widget w : r.widgets()) m.put(w.key(), w);

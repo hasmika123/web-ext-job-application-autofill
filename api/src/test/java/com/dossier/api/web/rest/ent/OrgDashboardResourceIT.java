@@ -265,7 +265,7 @@ class OrgDashboardResourceIT {
         List<String> keys = new ArrayList<>(byKey(d).keySet());
         assertThat(keys).containsExactly(
             "consultants.total", "employees.active", "applications.active", "interviews.upcoming", "placements", "finance.summary", "team.performance",
-            "pipeline.overview", "quick.actions", "alerts", "invites.pending", "activity.recent", "subscription.summary", "test.boom"
+            "pipeline.overview", "quick.actions", "checklist", "alerts", "invites.pending", "activity.recent", "subscription.summary", "test.boom"
         );
         for (JsonNode w : d.path("widgets")) assertThat(w.path("state").asText()).isIn("ok", "empty", "unavailable", "error");
     }
