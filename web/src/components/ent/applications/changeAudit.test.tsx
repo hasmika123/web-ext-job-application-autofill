@@ -33,12 +33,12 @@ describe("UpdatedMeta (the same line for the admin and the consultant)", () => {
     expect(within(meta).getByText("ADMIN")).toBeTruthy();
   });
 
-  it("the viewer's own change reads 'by you' and has no tag; the platform reads 'by Kiwiply'", () => {
+  it("the viewer's own change reads 'by you' and has no tag; a system change reads 'automatically', never 'by Kiwiply' (the organization's own frame)", () => {
     const { rerender } = render(<UpdatedMeta updatedAt="2026-10-15T10:00:00Z" updatedBy={mine} me={ME} now={NOW} />);
     expect(document.body.textContent).toMatch(/Updated 2 hours ago by you/);
     expect(screen.queryByText("ADMIN")).toBeNull();
     rerender(<UpdatedMeta updatedAt="2026-10-03T12:00:00Z" updatedBy={system} me={ME} now={NOW} />);
-    expect(document.body.textContent).toMatch(/Updated 12 days ago by Kiwiply/);
+    expect(document.body.textContent).toMatch(/Updated 12 days ago automatically/);
     expect(screen.queryByText("SYSTEM")).toBeNull();
   });
 
@@ -58,7 +58,7 @@ describe("feedActor and changesDetail", () => {
   it("name + relation tag; 'you' with no tag; Kiwiply SYSTEM for the platform", () => {
     expect(feedActor(sarah, ME)).toEqual({ name: "Sarah Chen", tag: "MARKETER" });
     expect(feedActor(mine, ME)).toEqual({ name: "you" });
-    expect(feedActor(system, ME)).toEqual({ name: "Kiwiply", tag: "SYSTEM" });
+    expect(feedActor(system, ME)).toEqual({ name: "Automatically", tag: "SYSTEM" });
     expect(feedActor(null, ME)).toBeUndefined();
   });
 
@@ -111,7 +111,8 @@ describe("ApplicationsTable: the Updated column", () => {
     expect(cells[0].textContent).not.toMatch(/by you/);
     expect(cells[1].textContent).toContain("by Sarah Chen");
     expect(within(cells[1]).getByText("MARKETER")).toBeTruthy();
-    expect(cells[2].textContent).toContain("by Kiwiply");
+    expect(cells[2].textContent).toContain("automatically");
+    expect(cells[2].textContent).not.toContain("Kiwiply");
     expect(document.body.textContent).not.toContain("ent#");
     expect(cells[3].textContent).toContain("by a member");
   });
@@ -176,7 +177,8 @@ describe("DetailDrawer: the header line and the feed", () => {
     expect(text[0]).toContain("Sarah Chen");
     expect(text[0]).toContain("MARKETER");
     expect(text[0]).toContain("Details");
-    expect(text[1]).toContain("Kiwiply");
+    expect(text[1]).toContain("Automatically");
+    expect(text[1]).not.toContain("Kiwiply");
     expect(text[1]).toContain("SYSTEM");
     expect(text[2]).toMatch(/you/);
     expect(document.body.textContent).not.toContain("ent#");

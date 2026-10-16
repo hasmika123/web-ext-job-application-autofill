@@ -370,7 +370,8 @@ public class ConsultantProfileService {
             c.setUpdatedAt(Instant.now(clock));
             consultants.save(c);
         }
-        int percent = c.getProfileCompleteness() == null ? 0 : Math.max(0, Math.min(100, c.getProfileCompleteness()));
+        // always the live checklist's figure (D12 P2: a stored 54% beside an empty Missing Details list read as a contradiction); the stored value is only the directory's cache
+        int percent = Math.round(100f * (CHECKS - missing.size()) / CHECKS);
 
         return new Response(
             org,

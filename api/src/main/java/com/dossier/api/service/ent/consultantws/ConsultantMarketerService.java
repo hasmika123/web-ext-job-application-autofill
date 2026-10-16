@@ -149,12 +149,12 @@ public class ConsultantMarketerService {
         List<Followup> followups = followups(myApps, openTasks, reqs, clientById, today);
         List<FocusItem> marketerFocus = marketer == null ? List.of() : marketerFocus(c, myMatches);
 
-        // SAMPLE blocks: the marketer's half of the conversation does not exist as data yet. Only drawn when a marketer is assigned.
-        boolean has = marketer != null;
-        Badge badge = new Badge(true, "Responsive", "Typically replies within 2 hours");
-        Messages messages = new Messages(true, has ? sampleMessages(marketer.name(), c.getDisplayName(), now) : List.of());
-        ActionPlan plan = new ActionPlan(true, has ? samplePlan(today) : List.of());
-        Notes notes = new Notes(true, has ? sampleNotes(today) : List.of());
+        // D12 (2026-10-16 audit): nothing here is invented. Messages, a shared action plan and collaboration notes do not exist as data (there is no
+        // message store between a consultant and a marketer), and how fast a marketer replies is measured nowhere, so they are empty and the page says so.
+        Badge badge = new Badge(false, null, null);
+        Messages messages = new Messages(false, List.of());
+        ActionPlan plan = new ActionPlan(false, List.of());
+        Notes notes = new Notes(false, List.of());
 
         return new Response(org, now, marketer, badge, focus, followups, marketerFocus, messages, plan, notes);
     }
@@ -250,38 +250,5 @@ public class ConsultantMarketerService {
         if (assigned > 0) items.add(new FocusItem("assigned", "Working " + assigned + " assigned " + (assigned == 1 ? "opportunity" : "opportunities"), "lined up for you"));
         if (strong > 0) items.add(new FocusItem("strong", strong + " strong " + (strong == 1 ? "match" : "matches"), "scoring 85 or higher"));
         return items;
-    }
-
-    // SAMPLE content (flagged sample = true in the DTO): generic wording, no figures, no names but the two real people.
-
-    private static String first(String name) {
-        if (name == null || name.isBlank()) return "there";
-        return name.strip().split("\\s+")[0];
-    }
-
-    static List<Message> sampleMessages(String marketerName, String consultantName, Instant now) {
-        return List.of(
-            new Message(marketerName, false, "Hi " + first(consultantName) + "! I wanted to share a new opportunity that looks like a strong fit for your background.", now.minus(Duration.ofHours(2)), true),
-            new Message("You", true, "Thanks for the update! I'm excited about this opportunity. Let me know next steps.", now.minus(Duration.ofDays(1)), false),
-            new Message(marketerName, false, "The client liked your background and would like to schedule a technical intro.", now.minus(Duration.ofDays(3)), false),
-            new Message("You", true, "I've updated my resume with my latest project experience. Please take a look.", now.minus(Duration.ofDays(4)), false)
-        );
-    }
-
-    static List<PlanItem> samplePlan(LocalDate today) {
-        return List.of(
-            new PlanItem("Keep profile and resumes up to date", "DONE", null, today.minusDays(12)),
-            new PlanItem("Review new opportunities each week", "ON_TRACK", today.plusDays(18), null),
-            new PlanItem("Prepare for upcoming client interviews", "IN_PROGRESS", today.plusDays(5), null),
-            new PlanItem("Gather feedback from recent interviews", "NOT_STARTED", today.plusDays(12), null)
-        );
-    }
-
-    static List<Note> sampleNotes(LocalDate today) {
-        return List.of(
-            new Note("Profile Positioning", today.minusDays(3), "Aligned on positioning your experience for the roles you want. Highlight recent project outcomes."),
-            new Note("Resume Update", today.minusDays(10), "Added your latest project experience. Updated the skills section and key achievements."),
-            new Note("Market Strategy", today.minusDays(17), "Focus on the roles that match your key skills and keep your availability up to date.")
-        );
     }
 }

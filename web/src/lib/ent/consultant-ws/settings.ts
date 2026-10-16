@@ -16,8 +16,8 @@ export const THEMES: readonly Theme[] = ["LIGHT", "DARK", "SYSTEM"];
 export const LEVELS: readonly PrivacyLevel[] = ["PERSONAL", "SHARED", "PRIVATE"];
 export const ACTIVITY_KINDS: readonly ActivityKind[] = ["PRIVACY", "APPEARANCE", "PROFILE", "AVAILABILITY"];
 
-/** Where the account's own sign-in settings live (the Kiwiply account page). */
-export const ACCOUNT_SETTINGS_PATH = "/settings";
+/** Where the account's own sign-in settings live: My profile (`/me`), Security section. On a tenant host `/settings` is not a page (it was a prefetch 404), `/me` is. */
+export const ACCOUNT_SETTINGS_PATH = "/me#security";
 
 export interface Settings {
   profileVisibility: Visibility;

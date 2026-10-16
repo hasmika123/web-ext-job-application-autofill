@@ -67,7 +67,7 @@ import { SearchBox } from "./parts";
 import { AnalyticsTab, CalendarView, PipelineBoard } from "./Views";
 
 const WIDE_QUERY = "(min-width: 1400px)"; // config-literal-ok: the width at which every column fits beside the docked drawer
-const DOCK_QUERY = "(min-width: 1280px)"; // config-literal-ok: the width at which the right-hand column (help card, drawer) sits beside the table
+const DOCK_QUERY = "(min-width: 1680px)"; // config-literal-ok: the width at which the right-hand column (help card, drawer) sits beside the table (below it the drawer overlays: at 1440 the docked column squeezed the table until its columns clipped)
 
 export interface InterviewsPageProps {
   orgId: number;

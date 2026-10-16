@@ -12,7 +12,7 @@ export interface ResumePolicy {
   activeConsultantLinks: number;
 }
 
-export type PolicyResult = { kind: "OK"; policy: ResumePolicy } | { kind: "DENIED" } | { kind: "INVALID"; message: string } | { kind: "FAILED" };
+export type PolicyResult = { kind: "OK"; policy: ResumePolicy } | { kind: "DEMO" } | { kind: "DENIED" } | { kind: "INVALID"; message: string } | { kind: "FAILED" };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
@@ -44,8 +44,9 @@ export async function saveConsultantShareLinks(orgId: number | string, value: bo
       body: JSON.stringify({ consultantShareLinks: value }),
       cache: "no-store",
     });
-    if (res.status === 403 || res.status === 404) return { kind: "DENIED" };
     const json: unknown = await res.json().catch(() => null);
+    if (res.status === 403 && isObj(json) && json.code === "DEMO_READ_ONLY") return { kind: "DEMO" }; // a shared demo account: shown, not saved (D8)
+    if (res.status === 403 || res.status === 404) return { kind: "DENIED" };
     if (res.status === 422 || res.status === 400) {
       const o = isObj(json) ? json : {};
       return { kind: "INVALID", message: typeof o.error === "string" ? o.error : "That value was not accepted." };

@@ -111,14 +111,14 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
   it("the global search is honest: board placeholder, results only from pages the member can open, and it says so", () => {
     const { container } = mount("owner@acme.com");
     const box = container.querySelector<HTMLInputElement>("[data-shell-search] input")!;
-    expect(box.placeholder).toBe("Search people, applications, jobs, clients, and more...");
+    expect(box.placeholder).toBe("Search pages");
     fireEvent.focus(box);
-    fireEvent.change(box, { target: { value: "bill" } });
+    fireEvent.change(box, { target: { value: "empl" } });
     const opts = screen.getAllByRole("option");
-    expect(opts.map((o) => o.textContent)).toEqual([expect.stringContaining("Billing")]);
+    expect(opts.map((o) => o.textContent)).toEqual([expect.stringContaining("Employees")]);
     expect(container.querySelector("[data-search-note]")!.textContent).toContain("Showing pages you can open");
     fireEvent.keyDown(box, { key: "Enter" });
-    expect(nav.push).toHaveBeenCalledWith("/w/admin/billing");
+    expect(nav.push).toHaveBeenCalledWith("/w/admin/employees");
   });
 
   it("the boards have no sidebar help card and no workspace chip: the sidebar is logo + menu only", () => {

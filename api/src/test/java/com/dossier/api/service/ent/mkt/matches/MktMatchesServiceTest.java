@@ -353,7 +353,7 @@ class MktMatchesServiceTest {
 
         world.approve(10);
         world.people.get(10L).setMarketingStatus("PAUSED");
-        assertThatThrownBy(() -> service.assign(me, 1L)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("CONSULTANT_INACTIVE"));
+        assertThatThrownBy(() -> service.assign(me, 1L)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("CONSULTANT_PAUSED"));
         assertThat(live.get(0).getStatus()).isEqualTo("SUGGESTED");
 
         // an ASSIGNED match whose consultant declined is put back in front of them (same rows, a REASSIGNED event)
