@@ -180,6 +180,9 @@
     "name" : "roles",
     "description" : "Role templates and organization roles (read only)."
   }, {
+    "name" : "org-resume-policy",
+    "description" : "Organization Resume Builder policy: consultant share links (default off)."
+  }, {
     "name" : "mkt-jobs",
     "description" : "Marketing workspace: Job Discovery."
   }, {
@@ -1153,6 +1156,54 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/PrimaryResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/resume-policy" : {
+      "get" : {
+        "tags" : [ "org-resume-policy" ],
+        "summary" : "The organization's resume policy",
+        "description" : "consultantShareLinks is the value in force; overridden says whether this organization set it itself; activeConsultantLinks is how many live share links and named-person grants on the organization's resumes switching it off would pause.",
+        "operationId" : "get",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgResumePolicyDTO"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "org-resume-policy" ],
+        "summary" : "Let consultants create share links, or stop them",
+        "description" : "Body {consultantShareLinks: true|false} (422 otherwise). A marketer acting for a consultant can never create share links, whatever this says. Off pauses every existing consultant share link of the organization's resumes right away (they open nothing, not even a hint); on restores those not revoked or expired meanwhile. One ORG_SETTINGS audit row when the value changed (old, new, linksPaused or linksRestored).",
+        "operationId" : "put",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Update"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgResumePolicyDTO"
                 }
               }
             }
@@ -2476,7 +2527,7 @@
     "/api/admin/users/{login}/ai-quota" : {
       "get" : {
         "tags" : [ "admin-ai-quota-resource" ],
-        "operationId" : "get",
+        "operationId" : "get_1",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -2744,7 +2795,7 @@
     "/api/admin/settings/{key}" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "get_1",
+        "operationId" : "get_2",
         "parameters" : [ {
           "name" : "key",
           "in" : "path",
@@ -2768,7 +2819,7 @@
       },
       "put" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "put",
+        "operationId" : "put_1",
         "parameters" : [ {
           "name" : "key",
           "in" : "path",
@@ -2952,7 +3003,7 @@
     "/api/admin/bug-reports/{id}" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "get_2",
+        "operationId" : "get_3",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -6011,7 +6062,7 @@
         "tags" : [ "mkt-tasks" ],
         "summary" : "The Tasks board (one call)",
         "description" : "{generatedAt, wide, kpis[total, overdue, dueThisWeek, completedThisWeek], tabs{all,my,team,overdue,dueThisWeek,completed}, tasks{items,total,page,size}, upcoming[4], options}. tab = ALL|MY|TEAM|OVERDUE|DUE_WEEK|COMPLETED; filters category, priority, status, owner (member id or me), due (yyyy-MM-dd), q; sort = dueAt|priority|title|status|owner|related[,desc]; size cap 100. 404 without followups.manage.",
-        "operationId" : "get_3",
+        "operationId" : "get_4",
         "parameters" : [ {
           "name" : "tab",
           "in" : "query",
@@ -6490,7 +6541,7 @@
         "tags" : [ "mkt-streams" ],
         "summary" : "The Job Streams board (one call)",
         "description" : "{kpis, streams:{items,total,page,size}, filters, activity, chart, alerts, rules}. Query: q, source, status (ACTIVE|PAUSED|ERROR), client, showInactive (default false: paused streams are hidden), page, size (cap 100), sort (created|source|status|lastSync|openings, '-' prefix = descending), days (7|14, chart). matches.run required; 404 otherwise.",
-        "operationId" : "get_4",
+        "operationId" : "get_5",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -7454,7 +7505,7 @@
         "tags" : [ "mkt-followups" ],
         "summary" : "The Follow-ups board (one call)",
         "description" : "{generatedAt, kpis[dueToday, overdue, completedToday, waiting], today, overdue, upcoming: {items,total,page,size}, insights}. window = THIS_WEEK (last 7 days), LAST_WEEK or THIS_MONTH (last 30 days) drives only the insights. 404 without followups.manage.",
-        "operationId" : "get_5",
+        "operationId" : "get_6",
         "parameters" : [ {
           "name" : "window",
           "in" : "query",
@@ -7737,7 +7788,7 @@
         "tags" : [ "mkt-activity" ],
         "summary" : "The Activities board (one call)",
         "description" : "{generatedAt, from, to, canLog, kpis[total,resume,submission,followup,interview], activities:{items,total,page,size}, summary, upcoming, upcomingTotal, options}. from/to are yyyy-MM-dd (UTC, inclusive; default the current month); type = RESUME|OPPORTUNITY|SUBMISSION|FOLLOWUP|INTERVIEW|FEEDBACK|APPLICATION|OFFER|PLACEMENT; status = COMPLETED|SCHEDULED|CANCELLED; ownerId = the member who did it; sort = recent (default) | oldest; summaryRange = THIS_MONTH|LAST_MONTH|LAST_7_DAYS|LAST_30_DAYS; size cap 100. 404 without pipeline.view.",
-        "operationId" : "get_6",
+        "operationId" : "get_7",
         "parameters" : [ {
           "name" : "from",
           "in" : "query",
@@ -15126,7 +15177,7 @@
     "/api/orgs/{orgId}" : {
       "get" : {
         "tags" : [ "org-resource" ],
-        "operationId" : "get_7",
+        "operationId" : "get_8",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -15172,7 +15223,7 @@
         "tags" : [ "roles" ],
         "summary" : "One role with its permission rows and its version (ETag)",
         "description" : "The ETag is what edit and delete expect as If-Match.",
-        "operationId" : "get_8",
+        "operationId" : "get_9",
         "parameters" : [ {
           "name" : "roleId",
           "in" : "path",
@@ -15454,7 +15505,7 @@
         "tags" : [ "mkt-resumes" ],
         "summary" : "Read-only preview of one resume",
         "description" : "Headline, summary, skills (primary first), experience and the change history. 404 for a consultant outside the caller's scope.",
-        "operationId" : "get_9",
+        "operationId" : "get_10",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -15721,7 +15772,7 @@
         "tags" : [ "members" ],
         "summary" : "One employee: the detail sheet",
         "description" : "Seat, roles, department, team, manager, direct reports, consent scope, what the caller may do with this seat (actions), and recent audit rows about the person (with audit.view or hr.view). phone, location and timezone are null: the platform stores none of them for a member. Never exposes a resume or an application. ETag = the version PATCH expects as If-Match. 404 outside the caller's scope.",
-        "operationId" : "get_10",
+        "operationId" : "get_11",
         "parameters" : [ {
           "name" : "memberId",
           "in" : "path",
@@ -15873,7 +15924,7 @@
         "tags" : [ "jobs" ],
         "summary" : "One job: the detail drawer",
         "description" : "Facts, description, skills, client contact, every match with its score and status (Top Matches), the submissions (applications) and the activity (application events and audit rows). ETag = the version PATCH expects as If-Match. 404 for another tenant's id.",
-        "operationId" : "get_11",
+        "operationId" : "get_12",
         "parameters" : [ {
           "name" : "jobId",
           "in" : "path",
@@ -15994,7 +16045,7 @@
         "tags" : [ "interviews" ],
         "summary" : "One interview: the detail drawer",
         "description" : "Stepper of rounds, timeline, feedback, documents, interviewers, meeting details, what the caller may do (actions) and, for a few minutes after the caller's own latest status change, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_12",
+        "operationId" : "get_13",
         "parameters" : [ {
           "name" : "interviewId",
           "in" : "path",
@@ -16161,7 +16212,7 @@
         "tags" : [ "consultants" ],
         "summary" : "One consultant: the drawer",
         "description" : "Overview data, checklist, marketer, what the caller may do (actions). ETag = the version PATCH expects as If-Match. 404 outside the caller's reach.",
-        "operationId" : "get_13",
+        "operationId" : "get_14",
         "parameters" : [ {
           "name" : "consultantId",
           "in" : "path",
@@ -16235,7 +16286,7 @@
         "tags" : [ "clients" ],
         "summary" : "One client: the detail drawer",
         "description" : "Facts, about, health with the rule's sentence, contacts, requirements, recent submissions and relationship notes. ETag = the version PATCH expects as If-Match. 404 for another tenant's id.",
-        "operationId" : "get_14",
+        "operationId" : "get_15",
         "parameters" : [ {
           "name" : "clientId",
           "in" : "path",
@@ -16396,7 +16447,7 @@
         "tags" : [ "applications" ],
         "summary" : "One application: the detail drawer",
         "description" : "Stepper with the date each stage was recorded, the timeline, notes, activity, the fields of Application Details, what the caller may do (actions) and, for a few minutes after the caller's own latest stage move, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_15",
+        "operationId" : "get_16",
         "parameters" : [ {
           "name" : "applicationId",
           "in" : "path",
@@ -17816,7 +17867,7 @@
         "tags" : [ "resumes" ],
         "summary" : "One resume: the drawer",
         "description" : "The row, the preview data (headline, summary, skills, experience) and what the caller may do with it (actions). 404 outside the caller's scope.",
-        "operationId" : "get_16",
+        "operationId" : "get_17",
         "parameters" : [ {
           "name" : "resumeId",
           "in" : "path",
@@ -17953,7 +18004,7 @@
         "tags" : [ "placements" ],
         "summary" : "One placement: the detail drawer",
         "description" : "Placement details, the engagement timeline (start, midpoint, end and how far today is), extension status with every request, post-placement availability, the timeline events and notes, what the caller may do (actions) and, for a few minutes after the caller's own latest change, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_17",
+        "operationId" : "get_18",
         "parameters" : [ {
           "name" : "placementId",
           "in" : "path",
@@ -18487,7 +18538,7 @@
         "tags" : [ "mkt-performance" ],
         "summary" : "The Performance board (one call)",
         "description" : "{generatedAt, kpis[6], weekly, trend, funnel, readiness, streams, top[5], benchmarks, goals, actions}. weeks = 4w|8w|12w; trend, funnel, streams = 1m|3m|6m; benchmarks, goals = month|lastMonth. A section with no rows is empty or null. 404 without reports.view.",
-        "operationId" : "get_18",
+        "operationId" : "get_19",
         "parameters" : [ {
           "name" : "weeks",
           "in" : "query",
@@ -18787,7 +18838,7 @@
       "get" : {
         "tags" : [ "mkt-matches" ],
         "summary" : "One match with its explanation and insights (Review drawer)",
-        "operationId" : "get_19",
+        "operationId" : "get_20",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -19155,7 +19206,7 @@
         "tags" : [ "mkt-home" ],
         "summary" : "The Marketing Home board (one call)",
         "description" : "{kpis[6], talent[5], streams[5], openings[5], pipeline, tasks[5], interviews[4], activity[5]}. Each section is empty (or null) when its source has no rows or the caller may not read its page. 404 without consultants.view.",
-        "operationId" : "get_20",
+        "operationId" : "get_21",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -19237,7 +19288,7 @@
         "tags" : [ "mkt-applications" ],
         "summary" : "The Applications board",
         "description" : "{kpis, tracker{items,total,page,size,tabs,filters,notShared}, funnel, overdue, overdueTotal, updates, perms}. Query: q, consultantId, clientId, stage (applied|awaiting|interviewing|offer|hired|not_selected|all), period and funnelPeriod (1m|3m|6m|12m|all), sort (appliedOn,desc|asc), page (0-based), size (max 100). A consultant who shares less than FULL shows the stage only; one who shares nothing is counted in tracker.notShared and listed nowhere.",
-        "operationId" : "get_21",
+        "operationId" : "get_22",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -19863,7 +19914,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "My career profile",
         "description" : "Identity, strength with the missing details, summary, skills, certifications, experience highlights, preferences, work-authorization choice and career goals, all for the caller's own consultant record. 404 for everyone else.",
-        "operationId" : "get_22",
+        "operationId" : "get_23",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -21401,7 +21452,7 @@
         "tags" : [ "org-dashboard" ],
         "summary" : "The Org Admin dashboard",
         "description" : "{orgId, generatedAt, widgets: [{key, state: ok|empty|unavailable|error, reason?, module?, data?}]} in board order. dashboard.view_org required; each widget additionally needs its own permission (otherwise it is absent) and its module on (otherwise state unavailable, reason NOT_ENABLED, no data). data is present only when state is ok. 404 for everyone else, and whenever the enterprise or roles flag is off for the organization.",
-        "operationId" : "get_23",
+        "operationId" : "get_24",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -21622,7 +21673,7 @@
       "get" : {
         "tags" : [ "consultant-opportunities" ],
         "summary" : "One of my assigned opportunities (404 for anyone else's)",
-        "operationId" : "get_24",
+        "operationId" : "get_25",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -21810,7 +21861,7 @@
       "get" : {
         "tags" : [ "org-branding" ],
         "summary" : "Published values, the draft, its version and the publish history",
-        "operationId" : "get_25",
+        "operationId" : "get_26",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22168,7 +22219,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_26",
+        "operationId" : "get_27",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -23555,7 +23606,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_27",
+        "operationId" : "get_28",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -25615,6 +25666,21 @@
           }
         }
       },
+      "OrgResumePolicyDTO" : {
+        "type" : "object",
+        "properties" : {
+          "consultantShareLinks" : {
+            "type" : "boolean"
+          },
+          "overridden" : {
+            "type" : "boolean"
+          },
+          "activeConsultantLinks" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "GoalsRequest" : {
         "type" : "object",
         "properties" : {
@@ -27378,6 +27444,10 @@
           },
           "url" : {
             "type" : "string"
+          },
+          "paused" : {
+            "type" : "boolean",
+            "description" : "True while the owner's organization has consultant sharing off: the grant is kept but opens nothing (it can still be revoked) and works again when sharing is back on."
           }
         }
       },

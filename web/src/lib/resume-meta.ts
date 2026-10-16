@@ -86,6 +86,8 @@ export interface AccessGrant {
   viewCount: number;
   lastViewedAt?: string | null;
   url?: string;
+  /** True while the owner's organization has consultant sharing off: kept, opens nothing, can still be revoked. */
+  paused?: boolean;
 }
 
 /** One row of "who viewed this resume" (`GET …/views`). `viewerKind`: ORG | USER | LINK; `what`: PAGE | PDF. */

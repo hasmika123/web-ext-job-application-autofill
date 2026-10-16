@@ -21,6 +21,10 @@ public class ResumeBuilderConfigService {
     private final ResumeBuilderSettings settings;
     private final ResumeEntitlements entitlements;
 
+    /** The organization's resume policy (share-link setting); absent in hand-wired unit tests (then an organization never shares). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.resumes.OrgResumePolicy orgPolicy;
+
     public ResumeBuilderConfigService(ResumeBuilderSettings settings, ResumeEntitlements entitlements) {
         this.settings = settings;
         this.entitlements = entitlements;
@@ -131,7 +135,7 @@ public class ResumeBuilderConfigService {
                     s.getJson(ONBOARDING_DELIGHT_COPY, JsonNode.class)
                 )
             ),
-            com.dossier.api.service.ent.resumes.OrgResumePolicy.capabilities()
+            com.dossier.api.service.ent.resumes.OrgResumePolicy.capabilities(orgPolicy != null && orgPolicy.consultantShareLinksForThisRequest())
         );
     }
 

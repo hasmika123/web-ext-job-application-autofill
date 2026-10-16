@@ -243,6 +243,9 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/members/offboarding", Case.read()),
         Map.entry("DELETE /api/orgs/{orgId}/members/offboarding/{offboardingId}", Case.people(204, "MEMBER_OFFBOARD_CANCELLED", 1, w -> null, null, null)),
         // Enterprise V2 X2.5: branding. Draft edits, discards and removing an absent asset write no audit row (by design).
+        // Resume Builder policy (consultant share links, default off): the owner turns it on, one ORG_SETTINGS audit row.
+        Map.entry("GET /api/orgs/{orgId}/resume-policy", Case.read()),
+        Map.entry("PUT /api/orgs/{orgId}/resume-policy", Case.write("{\"consultantShareLinks\":true}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("GET /api/orgs/{orgId}/branding", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/branding/preview-theme", Case.read()),
         Map.entry("PATCH /api/orgs/{orgId}/branding/draft", Case.write("{\"welcomeTitle\":\"Hijacked\"}", 200, null)),

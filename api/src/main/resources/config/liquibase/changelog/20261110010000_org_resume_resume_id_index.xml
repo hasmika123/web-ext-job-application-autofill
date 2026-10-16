@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant share links are paused while their organization has sharing off (user decision 2026-10-15). A public share link names no
+        organization, so every open of a link asks "which organizations link this resume?" - a lookup by org_resume.resume_id, which had no index of
+        its own (every other org_resume index starts with org_id). No column and no data change: pausing is evaluated live from the organization's
+        setting. Purely additive.
+    -->
+    <changeSet id="org-resume-resume-id-index-1" author="enterprise">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="org_resume" indexName="ix_org_resume_resume_id"/></not></preConditions>
+        <createIndex tableName="org_resume" indexName="ix_org_resume_resume_id">
+            <column name="resume_id"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

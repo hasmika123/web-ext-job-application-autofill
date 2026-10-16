@@ -420,6 +420,8 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
   const links = access?.links ?? [];
   const liveLinks = links.filter((l) => !l.expired).length;
   const liveGrants = grants.filter((g) => !g.expired).length;
+  // Kept but opening nothing, because the owner's organization has consultant sharing off (the API says so per grant).
+  const pausedShares = [...links, ...grants].filter((g) => g.paused === true && !g.expired);
   const viewers = access?.viewers ?? 0;
   const needsApproval = meta.source.approvalRequired && !meta.source.approvedAt;
   const summaryText = visibilitySummary(meta);
@@ -478,7 +480,7 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
       </section>
       )}
 
-      {/* 3. Visibility (sharing is not part of an organization workspace: capabilities.shareLinks) */}
+      {/* 3. Visibility (in an organization workspace sharing follows capabilities.shareLinks: the org setting, off by default) */}
       {caps.shareLinks && (
       <section aria-labelledby="rb-set-visibility" className={CARD}>
         <h3 id="rb-set-visibility" className={H3}>
@@ -706,6 +708,43 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
           </div>
         )}
       </section>
+      )}
+
+      {/* 3b. Links and people the organization has paused (its consultant share-link switch is off): read-only, but still revocable. Creating stays hidden with caps.shareLinks. */}
+      {!caps.shareLinks && built && pausedShares.length > 0 && (
+        <section aria-labelledby="rb-set-paused" className={CARD} data-testid="paused-shares">
+          <h3 id="rb-set-paused" className={H3}>
+            Paused by your organization
+          </h3>
+          <p className={cn(SUBTLE, "mt-1")}>
+            Your organization has turned sharing off. These links and people see nothing for now, and they work again if it is turned back on. You can still revoke them.
+          </p>
+          <ul className="mt-3 divide-y divide-line rounded-xl border border-line">
+            {pausedShares.map((g) => {
+              const isLink = g.subjectType === "LINK";
+              const who = isLink ? g.label || "Share link" : g.name || g.login || g.label || "A person";
+              return (
+                <li key={`${g.subjectType}-${g.id}`} className={cn(ROW, "p-2.5")} data-paused-id={g.id}>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13.5px] font-medium text-ink">{who}</p>
+                    <p className={SUBTLE}>
+                      {isLink ? "Link" : "Can view"} · <span suppressHydrationWarning>{expiryText(g.expiresAt, g.expired, now)}</span> · paused
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => setConfirm({ kind: isLink ? "link" : "person", grant: g })}
+                    aria-label={isLink ? `Revoke link ${g.label ?? g.id}` : `Remove ${who}`}
+                  >
+                    Revoke
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       )}
 
       {/* 4. About */}

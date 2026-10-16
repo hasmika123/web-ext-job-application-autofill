@@ -124,5 +124,6 @@
     <include file="config/liquibase/changelog/20261109010000_extension_connect_code.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261110010000_change_audit_tracker.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261110020000_change_audit_enterprise.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261110010000_org_resume_resume_id_index.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

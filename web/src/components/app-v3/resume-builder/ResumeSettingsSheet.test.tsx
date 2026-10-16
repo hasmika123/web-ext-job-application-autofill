@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@kiwiply/ui";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config";
-import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config";
+import { DEFAULT_BUILDER_CONFIG, PERSONAL_CAPABILITIES } from "@/lib/resume-builder-config";
 import type { AccessGrant, AccessOverview, ResumeMeta } from "@/lib/resume-meta";
 import { hoursAgo, testLink, testMeta } from "./test-meta";
 
@@ -445,5 +445,49 @@ describe("Resume settings: the other states", () => {
     fireEvent.click(await screen.findByRole("button", { name: "See all" }));
     const sheet = await screen.findByRole("dialog", { name: "Who viewed this resume" });
     expect(sheet.closest("[data-mode]")?.getAttribute("data-mode")).toBe("overlay");
+  });
+});
+
+describe("Resume settings: links and people the organization paused", () => {
+  const CONSULTANT_OFF: ResumeBuilderConfig = {
+    ...DEFAULT_BUILDER_CONFIG,
+    capabilities: { ...PERSONAL_CAPABILITIES, mode: "consultant", shareLinks: false, deleteResume: false, archiveResume: false, setPrimary: false, ai: false, tailor: false },
+  };
+
+  async function renderPaused(access: AccessOverview) {
+    m.getAccess.mockResolvedValue(ok(access));
+    render(<Harness initial={testMeta()} config={CONSULTANT_OFF} />);
+    await waitFor(() => expect(m.getAccess).toHaveBeenCalled());
+    return screen.findByTestId("paused-shares");
+  }
+
+  it("lists them read-only as Paused by your organization, with no way to create new ones", async () => {
+    const box = await renderPaused(overview({ links: [testLink({ id: 9, label: "Sent to Acme", paused: true })], grants: [person({ id: 5, paused: true })] }));
+    expect(within(box).getByRole("heading", { name: "Paused by your organization" })).toBeTruthy();
+    expect(within(box).getByText("Sent to Acme")).toBeTruthy();
+    expect(within(box).getByText("Jane Doe")).toBeTruthy();
+    // read-only: no address to copy, no download switch, no add or create control anywhere (the Visibility card is hidden with the capability)
+    expect(within(box).queryByRole("switch")).toBeNull();
+    expect(within(box).queryByLabelText("Share link")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Create link|Add person/ })).toBeNull();
+    expect(screen.queryByTestId("links-block")).toBeNull();
+    expect(screen.queryByTestId("people-block")).toBeNull();
+  });
+
+  it("can still revoke a paused link, after a confirmation", async () => {
+    m.revokeAccess.mockResolvedValue(ok(null));
+    const box = await renderPaused(overview({ links: [testLink({ id: 9, label: "Sent to Acme", paused: true })] }));
+    fireEvent.click(within(box).getByRole("button", { name: /Revoke link/ }));
+    expect(m.revokeAccess).not.toHaveBeenCalled();
+    fireEvent.click(within(confirmDialog("Revoke this link?")).getByRole("button", { name: "Revoke link" }));
+    await waitFor(() => expect(m.revokeAccess).toHaveBeenCalledWith(42, 9));
+  });
+
+  it("draws nothing when no grant is paused (or it has expired), so a plain consultant resume shows no extra card", async () => {
+    m.getAccess.mockResolvedValue(ok(overview({ links: [testLink({ id: 9, paused: false }), testLink({ id: 10, paused: true, expired: true })] })));
+    render(<Harness initial={testMeta()} config={CONSULTANT_OFF} />);
+    await waitFor(() => expect(m.getAccess).toHaveBeenCalled());
+    await screen.findByTestId("resume-settings");
+    expect(screen.queryByTestId("paused-shares")).toBeNull();
   });
 });
