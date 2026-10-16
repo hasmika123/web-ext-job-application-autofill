@@ -2,11 +2,15 @@ package com.dossier.api.service.ent.consultantws;
 
 import com.dossier.api.domain.ent.consultantws.CwsMatchInterest;
 import com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse;
+import com.dossier.api.domain.ent.mkt.MktOpportunity;
+import com.dossier.api.domain.ent.mkt.MktOpportunityEvent;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.ent.consultantws.CwsMatchInterestRepository;
 import com.dossier.api.repository.ent.consultantws.CwsOpportunityResponseRepository;
+import com.dossier.api.repository.ent.mkt.MktOpportunityEventRepository;
+import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
@@ -24,7 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Demo rows for the Assigned Opportunities page, for the consultants who are real seats (Anika, Ben, Sam): the marketer's priority and due date
  * (SAMPLE stand-ins: no marketer-side write exists yet, "mock data now, fix cross-role data when all role branches merge") and a spread of
- * response states over their ASSIGNED matches. Call it after {@link ConsultantWsDemoSeeder}. Idempotent: a consultant who already has a response
+ * response states over their ASSIGNED matches. The consultant's answers (a question, a decline) are written to the ONE shared record the marketer's board
+ * reads, {@code mkt_opportunity}, with the activity event the marketer's feed shows; {@code cws_opportunity_response} only carries the priority, the due
+ * date and the seed-only IN_REVIEW stage. Call it after {@link ConsultantWsDemoSeeder}. Idempotent: a consultant who already has a response
  * row is skipped, and a consultant without ASSIGNED matches gets nothing.
  */
 @Service
@@ -42,15 +48,20 @@ public class ConsultantWsOpportunitiesDemoSeeder {
     private final RequirementMatchRepository matches;
     private final CwsOpportunityResponseRepository responses;
     private final CwsMatchInterestRepository interests;
+    private final MktOpportunityRepository opportunities;
+    private final MktOpportunityEventRepository opportunityEvents;
 
     public ConsultantWsOpportunitiesDemoSeeder(
-        OrganizationRepository orgs, ConsultantProfileRepository consultants, RequirementMatchRepository matches, CwsOpportunityResponseRepository responses, CwsMatchInterestRepository interests
+        OrganizationRepository orgs, ConsultantProfileRepository consultants, RequirementMatchRepository matches, CwsOpportunityResponseRepository responses, CwsMatchInterestRepository interests,
+        MktOpportunityRepository opportunities, MktOpportunityEventRepository opportunityEvents
     ) {
         this.orgs = orgs;
         this.consultants = consultants;
         this.matches = matches;
         this.responses = responses;
         this.interests = interests;
+        this.opportunities = opportunities;
+        this.opportunityEvents = opportunityEvents;
     }
 
     @Transactional
@@ -71,17 +82,20 @@ public class ConsultantWsOpportunitiesDemoSeeder {
                     r.setOrgId(org.getId());
                     r.setConsultantId(c.getId());
                     r.setRequirementId(m.getRequirementId());
-                    r.setStatus(STATUS[i]);
+                    // the consultant's answers live on the shared mkt_opportunity record; this row keeps only the marketer's inputs (and IN_REVIEW, which has no writer)
+                    r.setStatus("IN_REVIEW".equals(STATUS[i]) ? "IN_REVIEW" : CwsOpportunityResponse.NEW);
                     r.setPriority(PRIORITY[i]);
                     r.setDueOn(today.plusDays(DUE_IN_DAYS[i]));
                     Instant at = now.minus(Duration.ofDays(1 + i));
                     r.setCreatedAt(at);
                     r.setUpdatedAt(at);
-                    if (!"NEW".equals(STATUS[i])) r.setRespondedAt(at);
-                    if ("AWAITING_RESPONSE".equals(STATUS[i])) r.setInfoRequest("Could you confirm the team size and whether the start date is flexible?");
-                    if ("DECLINED".equals(STATUS[i])) r.setDeclineReason("The commute is too long for me right now.");
+                    if ("IN_REVIEW".equals(STATUS[i])) r.setRespondedAt(at);
                     responses.save(r);
                     made++;
+                    if (("AWAITING_RESPONSE".equals(STATUS[i]) || "DECLINED".equals(STATUS[i])) && opportunities.findByOrgIdAndMatchId(org.getId(), m.getId()).isEmpty()) {
+                        answer(org.getId(), c, m, STATUS[i], at);
+                        made++;
+                    }
                     if ("IN_REVIEW".equals(STATUS[i]) && interests.findByOrgIdAndConsultantIdAndRequirementId(org.getId(), c.getId(), m.getRequirementId()).isEmpty()) {
                         CwsMatchInterest in = new CwsMatchInterest();
                         in.setOrgId(org.getId());
@@ -96,5 +110,34 @@ public class ConsultantWsOpportunitiesDemoSeeder {
         }
         if (made > 0) LOG.info("Consultant workspace Assigned Opportunities demo rows seeded: {}", made);
         return made;
+    }
+
+    /** The consultant's seeded answer on the shared record, with the one activity event the marketer's board shows for it. */
+    private void answer(Long orgId, ConsultantProfile c, RequirementMatch m, String status, Instant at) {
+        boolean declined = "DECLINED".equals(status);
+        MktOpportunity o = new MktOpportunity();
+        o.setOrgId(orgId);
+        o.setMatchId(m.getId());
+        o.setOwnerMemberId(m.getAssignedByMemberId());
+        o.setState(declined ? "DECLINED" : "NEEDS_INFO");
+        o.setInterest(declined ? "NOT_INTERESTED" : "NO_RESPONSE");
+        if (declined) {
+            o.setDeclineReason("OTHER");
+            o.setDeclineNote("The commute is too long for me right now.");
+        } else {
+            o.setInfoRequest("Could you confirm the team size and whether the start date is flexible?");
+        }
+        o.setLastResponseAt(at);
+        o.setCreatedAt(at.minus(Duration.ofDays(1)));
+        o.setUpdatedAt(at);
+        o = opportunities.save(o);
+        MktOpportunityEvent e = new MktOpportunityEvent();
+        e.setOrgId(orgId);
+        e.setOpportunityId(o.getId());
+        e.setKind(declined ? "DECLINED" : "INFO_REQUESTED");
+        e.setActorMemberId(c.getMemberId());
+        e.setText(declined ? "declined (OTHER): The commute is too long for me right now." : "asked a question");
+        e.setOccurredAt(at);
+        opportunityEvents.save(e);
     }
 }

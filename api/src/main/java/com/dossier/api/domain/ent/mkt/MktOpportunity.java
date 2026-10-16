@@ -75,6 +75,10 @@ public class MktOpportunity implements Serializable {
     @Column(name = "decline_reason", length = 40)
     private String declineReason;
 
+    /** The consultant's own words for declining (the consultant workspace takes free text); {@code decline_reason} stays the short code. */
+    @Column(name = "decline_note", length = 300)
+    private String declineNote;
+
     @Column(name = "info_request", length = 500)
     private String infoRequest;
 
@@ -132,6 +136,8 @@ public class MktOpportunity implements Serializable {
     public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
     public String getDeclineReason() { return declineReason; }
     public void setDeclineReason(String declineReason) { this.declineReason = declineReason; }
+    public String getDeclineNote() { return declineNote; }
+    public void setDeclineNote(String declineNote) { this.declineNote = declineNote; }
     public String getInfoRequest() { return infoRequest; }
     public void setInfoRequest(String infoRequest) { this.infoRequest = infoRequest; }
     public String getInfoAnswer() { return infoAnswer; }

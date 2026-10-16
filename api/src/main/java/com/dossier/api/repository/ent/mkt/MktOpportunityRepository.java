@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.repository.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,6 +35,27 @@ public interface MktOpportunityRepository extends Repository<MktOpportunity, Lon
     Optional<MktOpportunity> lockByOrgIdAndId(@Param("orgId") Long orgId, @Param("id") Long id);
 
     Optional<MktOpportunity> findByOrgIdAndMatchId(Long orgId, Long matchId);
+
+    /** The opportunity overlays of these matches (a match without one has none: the consultant has not been asked or has not answered yet). */
+    List<MktOpportunity> findByOrgIdAndMatchIdIn(Long orgId, java.util.Collection<Long> matchIds);
+
+    /**
+     * Creates the overlay of a match when it has none, in the CALLER's transaction and safe against a concurrent insert (the unique key
+     * {@code uk_mkt_opportunity_match} turns the second insert into a no-op). For the consultant's own first answer on an assigned match; the
+     * state starts at ASSIGNED, like the one the marketer's assign creates. Read the row back with {@link #findByOrgIdAndMatchId}.
+     */
+    @Modifying(flushAutomatically = true)
+    @Query(
+        nativeQuery = true,
+        value = "insert into mkt_opportunity (org_id, match_id, owner_member_id, interest, state, priority, created_at, updated_at, version) "
+            + "values (:orgId, :matchId, :ownerMemberId, 'NO_RESPONSE', 'ASSIGNED', 'MEDIUM', :now, :now, 0) on duplicate key update id = id"
+    )
+    int insertIfMissing(
+        @Param("orgId") Long orgId,
+        @Param("matchId") Long matchId,
+        @Param("ownerMemberId") Long ownerMemberId,
+        @Param("now") java.time.Instant now
+    );
 
     List<MktOpportunity> findByOrgId(Long orgId);
 

@@ -22,6 +22,8 @@ import com.dossier.api.repository.ent.consultantws.CwsPlacementActivityRepositor
 import com.dossier.api.repository.ent.consultantws.CwsProfilePrefRepository;
 import com.dossier.api.repository.ent.consultantws.CwsResumeActivityRepository;
 import com.dossier.api.repository.ent.consultantws.CwsSubmissionRepository;
+import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
+import com.dossier.api.domain.ent.mkt.MktOpportunity;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.OrgResumeRepository;
@@ -102,6 +104,7 @@ public class ActivityTimelineService {
     private final CwsPlacementActivityRepository placementActivity;
     private final ClientRequirementRepository requirements;
     private final ClientAccountRepository clients;
+    private final MktOpportunityRepository opportunities;
     private final Clock clock;
 
     @Autowired
@@ -124,7 +127,8 @@ public class ActivityTimelineService {
         TalentPlacementRepository placements,
         CwsPlacementActivityRepository placementActivity,
         ClientRequirementRepository requirements,
-        ClientAccountRepository clients
+        ClientAccountRepository clients,
+        MktOpportunityRepository opportunities
     ) {
         this.gate = gate;
         this.resumes = resumes;
@@ -145,6 +149,7 @@ public class ActivityTimelineService {
         this.placementActivity = placementActivity;
         this.requirements = requirements;
         this.clients = clients;
+        this.opportunities = opportunities;
         this.clock = Clock.systemUTC();
     }
 
@@ -266,11 +271,37 @@ public class ActivityTimelineService {
                 )
             );
         }
+        // the consultant's answers: the shared mkt_opportunity record (what the marketer's board reads); the legacy stage row only adds IN_REVIEW
+        List<Long> assignedMatchIds = myMatches.stream().filter(m -> "ASSIGNED".equals(m.getStatus())).map(RequirementMatch::getId).toList();
+        Map<Long, MktOpportunity> shared = assignedMatchIds.isEmpty() ? Map.of() : opportunities.findByOrgIdAndMatchIdIn(org, assignedMatchIds).stream().collect(Collectors.toMap(MktOpportunity::getMatchId, Function.identity(), (a, b) -> a));
+        for (RequirementMatch m : myMatches) {
+            MktOpportunity o = shared.get(m.getId());
+            if (o == null || o.getLastResponseAt() == null || "ASSIGNED".equals(o.getState()) || "VIEWED".equals(o.getState())) continue;
+            ClientRequirement req = reqs.get(m.getRequirementId());
+            String company = company(req, clientById);
+            boolean declined = "DECLINED".equals(o.getState());
+            boolean applied = "APPLIED".equals(o.getState());
+            String where = company == null ? "." : " at " + company + ".";
+            out.add(
+                ev(
+                    "response:" + o.getId(),
+                    "JOB_RESPONDED",
+                    "JOB",
+                    null,
+                    o.getLastResponseAt(),
+                    declined ? "Opportunity Declined" : applied ? "Application Recorded" : "Opportunity Response Sent",
+                    declined ? "You declined an assigned opportunity" + where : applied ? "You said you applied to an assigned opportunity" + where : "You responded to an assigned opportunity" + where,
+                    jobChip(req, company),
+                    "View Job",
+                    "opportunities",
+                    false
+                )
+            );
+        }
         for (var r : myResponses) {
-            if (r.getRespondedAt() == null) continue;
+            if (r.getRespondedAt() == null || !"IN_REVIEW".equals(r.getStatus())) continue;
             ClientRequirement req = reqs.get(r.getRequirementId());
             String company = company(req, clientById);
-            boolean declined = "DECLINED".equals(r.getStatus());
             String where = company == null ? "." : " at " + company + ".";
             out.add(
                 ev(
@@ -279,8 +310,8 @@ public class ActivityTimelineService {
                     "JOB",
                     null,
                     r.getRespondedAt(),
-                    declined ? "Opportunity Declined" : "Opportunity Response Sent",
-                    declined ? "You declined an assigned opportunity" + where : "You responded to an assigned opportunity" + where,
+                    "Opportunity Response Sent",
+                    "You responded to an assigned opportunity" + where,
                     jobChip(req, company),
                     "View Job",
                     "opportunities",

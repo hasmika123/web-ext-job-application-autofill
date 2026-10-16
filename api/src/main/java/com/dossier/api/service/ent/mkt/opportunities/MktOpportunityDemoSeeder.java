@@ -15,6 +15,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -29,7 +31,8 @@ import org.springframework.transaction.support.TransactionTemplate;
  * ({@code DEMO_ENABLED} + {@code ENT_DEMO_SEED}, never under {@code prod}) once the application is READY, which is after the
  * {@code EnterpriseDemoBootstrap} runner has seeded the tenants and the talent data (so no shared class needs an edit to hook it in).
  *
- * <p><b>Idempotent:</b> an organization that already has {@code mkt_opportunity} rows is left alone; one without talent data is skipped.
+ * <p><b>Idempotent:</b> a match that already has an {@code mkt_opportunity} row (the consultant workspace seeder writes the consultants' answers first) is
+ * left alone, so a second run adds nothing; an organization without talent data is skipped.
  * Interest follows the board's mix (32 % very interested, 28 % interested, 20 % open, 12 % not interested, 8 % no response). No PII: names stay
  * where the talent seeder put them, events carry only short verb phrases.
  */
@@ -83,7 +86,6 @@ public class MktOpportunityDemoSeeder {
     }
 
     int seedOrg(Long orgId) {
-        if (repo.countByOrgId(orgId) > 0) return 0; // idempotent
         List<MktOpportunityRow> rows = repo.findRows(orgId).stream().filter(r -> "OPEN".equals(r.requirementStatus()) || "IN_REVIEW".equals(r.requirementStatus())).toList();
         if (rows.isEmpty()) return 0; // no talent data yet
         Random rnd = new Random(orgId * 31 + 7);
@@ -93,8 +95,10 @@ public class MktOpportunityDemoSeeder {
         int room = Math.max(0, TARGET - pick.size());
         rows.stream().filter(r -> "SUGGESTED".equals(r.matchStatus())).sorted(Comparator.comparing(MktOpportunityRow::score).reversed().thenComparing(MktOpportunityRow::matchId)).limit(room).forEach(pick::add);
 
+        Set<Long> have = repo.findByOrgId(orgId).stream().map(MktOpportunity::getMatchId).collect(Collectors.toSet());
         int made = 0;
         for (MktOpportunityRow r : pick) {
+            if (have.contains(r.matchId())) continue; // idempotent, and keeps the consultants' own answers
             String interest = draw(rnd);
             long ageDays = rnd.nextInt(100) < 70 ? rnd.nextInt(14) : rnd.nextInt(100) < 85 ? 14 + rnd.nextInt(16) : 30 + rnd.nextInt(40);
             Instant updated = now.minus(Duration.ofDays(ageDays)).minus(Duration.ofMinutes(rnd.nextInt(60 * 14)));
@@ -104,6 +108,13 @@ public class MktOpportunityDemoSeeder {
             o.setOrgId(orgId);
             o.setMatchId(r.matchId());
             o.setInterest(interest);
+            if (assigned) { // the lifecycle state follows what the consultant said, like the Phase 1 backfill (SUGGESTED overlays stay at the default)
+                if ("VERY_INTERESTED".equals(interest) || "INTERESTED".equals(interest)) o.setState("INTERESTED");
+                else if ("NOT_INTERESTED".equals(interest)) {
+                    o.setState("DECLINED");
+                    o.setDeclineReason("NOT_INTERESTED");
+                }
+            }
             o.setOwnerMemberId(r.assignedMarketerId());
             o.setNextActionAt(rnd.nextInt(10) == 0 ? null : now.plus(Duration.ofHours(rnd.nextInt(24 * 5))));
             o.setLastResponseAt("NO_RESPONSE".equals(interest) ? null : updated.minus(Duration.ofHours(rnd.nextInt(24))));

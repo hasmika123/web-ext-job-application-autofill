@@ -3,6 +3,8 @@ package com.dossier.api.service.ent.consultantws;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.consultantws.CwsMatchInterest;
 import com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse;
+import com.dossier.api.domain.ent.mkt.MktOpportunity;
+import com.dossier.api.domain.ent.mkt.MktOpportunityEvent;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
@@ -15,6 +17,8 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.ent.OrgMemberDirectoryRepository;
 import com.dossier.api.repository.ent.consultantws.CwsMatchInterestRepository;
 import com.dossier.api.repository.ent.consultantws.CwsOpportunityResponseRepository;
+import com.dossier.api.repository.ent.mkt.MktOpportunityEventRepository;
+import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
@@ -27,6 +31,8 @@ import com.dossier.api.service.ent.authz.AuthorizationService;
 import com.dossier.api.service.ent.authz.AuthzOperation;
 import com.dossier.api.service.ent.authz.AuthzRequest;
 import com.dossier.api.service.ent.authz.Beneficiary;
+import com.dossier.api.service.ent.consultant.ConOpportunityService;
+import com.dossier.api.service.ent.consultant.ConScope;
 import com.dossier.api.service.ent.consultantws.ConsultantHomeDTO.Tile;
 import com.dossier.api.service.ent.consultantws.OpportunitiesDTO.Detail;
 import com.dossier.api.service.ent.consultantws.OpportunitiesDTO.NextSteps;
@@ -67,6 +73,12 @@ import org.springframework.transaction.annotation.Transactional;
  * {@code requirement_match} rows with status ASSIGNED as a response worklist. The gate is {@link ConsultantHomeService#requireSelf}; every write
  * adds the WRITE check on {@code opportunities.respond}. Every query is organization id first plus the caller's own consultant id, and a match
  * that is not one of the caller's own ASSIGNED matches is the same generic 404. Nothing here creates an application or submits anything.
+ *
+ * <p><b>One record per answer.</b> The consultant's answer (interested, a question, declined, applied) lives on {@code mkt_opportunity}, the row the
+ * marketer's Opportunities board, its activity feed and {@code answer-info} read. Every write here goes through the same transitions as the
+ * extension-facing {@code /con/opportunities} API ({@link ConOpportunityService}), so one event lands on the marketer's feed and the marketer's answer to a
+ * question comes back on {@link #detail}. {@code cws_opportunity_response} keeps only what is not an answer: the marketer's priority and due date, the
+ * resume-update note and the seed-only IN_REVIEW stage. The row is created on the consultant's first answer when the match has none yet.
  */
 @Service
 public class OpportunitiesService {
@@ -77,6 +89,11 @@ public class OpportunitiesService {
     static final int DUE_DAYS = 14;
     static final int WEEKS = 6;
     static final String STATUS_ASSIGNED = "ASSIGNED";
+    /** The consultant's reason code on the shared record when the page's free-text reason is the whole explanation. */
+    static final String DECLINE_CODE = "OTHER";
+    static final String APPLIED = "APPLIED";
+    static final String CLOSED = "CLOSED";
+    private static final Set<String> OPEN_JOB = Set.of("OPEN", "IN_REVIEW");
 
     private final ConsultantHomeService gate;
     private final AuthorizationService authorization;
@@ -92,6 +109,9 @@ public class OpportunitiesService {
     private final UserRepository users;
     private final TalentInterviewRepository interviews;
     private final ConsultantWsJobSourceReader sources;
+    private final MktOpportunityRepository opportunities;
+    private final MktOpportunityEventRepository opportunityEvents;
+    private final ConOpportunityService conOpportunities;
     private final Clock clock;
 
     @Autowired
@@ -109,9 +129,12 @@ public class OpportunitiesService {
         OrgMemberDirectoryRepository memberDirectory,
         UserRepository users,
         TalentInterviewRepository interviews,
-        ConsultantWsJobSourceReader sources
+        ConsultantWsJobSourceReader sources,
+        MktOpportunityRepository opportunities,
+        MktOpportunityEventRepository opportunityEvents,
+        ConOpportunityService conOpportunities
     ) {
-        this(gate, authorization, matches, requirements, clients, requirementSkills, consultantSkills, responses, interests, assignments, memberDirectory, users, interviews, sources, Clock.systemUTC());
+        this(gate, authorization, matches, requirements, clients, requirementSkills, consultantSkills, responses, interests, assignments, memberDirectory, users, interviews, sources, opportunities, opportunityEvents, conOpportunities, Clock.systemUTC());
     }
 
     OpportunitiesService(
@@ -129,6 +152,9 @@ public class OpportunitiesService {
         UserRepository users,
         TalentInterviewRepository interviews,
         ConsultantWsJobSourceReader sources,
+        MktOpportunityRepository opportunities,
+        MktOpportunityEventRepository opportunityEvents,
+        ConOpportunityService conOpportunities,
         Clock clock
     ) {
         this.gate = gate;
@@ -145,6 +171,9 @@ public class OpportunitiesService {
         this.users = users;
         this.interviews = interviews;
         this.sources = sources;
+        this.opportunities = opportunities;
+        this.opportunityEvents = opportunityEvents;
+        this.conOpportunities = conOpportunities;
         this.clock = clock;
     }
 
@@ -210,9 +239,9 @@ public class OpportunitiesService {
     }
 
     private Tiles tiles(List<Row> all, Ctx ctx, Instant now) {
-        List<Row> active = all.stream().filter(r -> !"DECLINED".equals(r.status())).toList();
+        List<Row> active = all.stream().filter(r -> !"DECLINED".equals(r.status()) && !APPLIED.equals(r.status()) && !CLOSED.equals(r.status())).toList();
         List<Row> high = active.stream().filter(r -> "HIGH".equals(r.priority())).toList();
-        List<Row> awaiting = all.stream().filter(r -> "AWAITING_RESPONSE".equals(r.status())).toList();
+        List<Row> awaiting = all.stream().filter(r -> "AWAITING_RESPONSE".equals(r.status()) && !r.infoAnswered()).toList();
         List<Row> review = all.stream().filter(r -> "IN_REVIEW".equals(r.status())).toList();
         List<Row> declined = all.stream().filter(r -> "DECLINED".equals(r.status())).toList();
         return new Tiles(
@@ -220,12 +249,15 @@ public class OpportunitiesService {
             monthTile(high.stream().map(Row::assignedAt).toList(), now),
             monthTile(awaiting.stream().map(r -> stamp(ctx, r)).toList(), now),
             monthTile(review.stream().map(r -> stamp(ctx, r)).toList(), now),
-            monthTile(declined.stream().map(r -> ctx.responseOf(r.requirementId()).map(x -> x.getRespondedAt() != null ? x.getRespondedAt() : x.getUpdatedAt()).orElse(null)).toList(), now)
+            monthTile(declined.stream().map(r -> stamp(ctx, r)).toList(), now)
         );
     }
 
-    /** When the row entered its current status: the response row's last change. */
+    /** When the row entered its current status: the consultant's last answer on the shared record, else the legacy stage row's change, else the assignment. */
     private static Instant stamp(Ctx ctx, Row r) {
+        MktOpportunity o = ctx.oppByMatch.get(r.matchId());
+        if (o != null && o.getLastResponseAt() != null) return o.getLastResponseAt();
+        if (o != null && o.getUpdatedAt() != null && !"ASSIGNED".equals(o.getState())) return o.getUpdatedAt();
         return ctx.responseOf(r.requirementId()).map(CwsOpportunityResponse::getUpdatedAt).orElse(r.assignedAt());
     }
 
@@ -247,9 +279,9 @@ public class OpportunitiesService {
     }
 
     private NextSteps nextSteps(ConsultantProfile c, List<Row> all, Instant now) {
-        List<Row> open = all.stream().filter(r -> "NEW".equals(r.status()) && !r.interestSent()).toList();
+        List<Row> open = all.stream().filter(r -> ("NEW".equals(r.status()) && !r.interestSent()) || ("AWAITING_RESPONSE".equals(r.status()) && r.infoAnswered())).toList();
         Integer soonest = open.stream().map(Row::daysLeft).min(Integer::compare).orElse(null);
-        int gaps = (int) all.stream().filter(r -> !"DECLINED".equals(r.status()) && r.missingSkills() > 0).count();
+        int gaps = (int) all.stream().filter(r -> !"DECLINED".equals(r.status()) && !APPLIED.equals(r.status()) && !CLOSED.equals(r.status()) && r.missingSkills() > 0).count();
         int upcoming = interviews.findByOrgIdAndConsultantIdAndStatusAndScheduledAtAfterOrderByScheduledAtAsc(c.getOrgId(), c.getId(), "SCHEDULED", now).size();
         return new NextSteps(open.size(), soonest, gaps, upcoming, all.stream().anyMatch(r -> r.marketer() != null));
     }
@@ -269,6 +301,7 @@ public class OpportunitiesService {
         ClientRequirement r = ctx.reqs.get(m.getRequirementId());
         Optional<CwsOpportunityResponse> resp = ctx.responseOf(m.getRequirementId());
         Optional<CwsMatchInterest> interest = interests.findByOrgIdAndConsultantIdAndRequirementId(org, c.getId(), m.getRequirementId());
+        MktOpportunity opp = ctx.oppByMatch.get(m.getId());
 
         List<SkillFit> fit = ctx.jobSkills.getOrDefault(m.getRequirementId(), List.of()).stream()
             .sorted(Comparator.comparingInt((RequirementSkill s) -> s.getSortOrder() == null ? 0 : s.getSortOrder()))
@@ -277,25 +310,28 @@ public class OpportunitiesService {
 
         List<TimelineEvent> timeline = new ArrayList<>();
         timeline.add(new TimelineEvent("ASSIGNED", row.marketer() == null ? "Assigned to you" : "Assigned to you by " + row.marketer(), row.assignedAt()));
-        interest.ifPresent(i -> timeline.add(new TimelineEvent("INTEREST", "You expressed interest", i.getCreatedAt())));
+        List<MktOpportunityEvent> events = opp == null ? List.of() : opportunityEvents.findByOrgIdAndOpportunityIdOrderByOccurredAtDesc(org, opp.getId());
+        boolean interestEvent = events.stream().anyMatch(e -> "INTERESTED".equals(e.getKind()));
+        // an interest sent from the Job Matches page is only the legacy row, with no event
+        if (!interestEvent) interest.ifPresent(i -> timeline.add(new TimelineEvent("INTEREST", "You expressed interest", i.getCreatedAt())));
+        Map<Long, String> actors = names(org, events.stream().filter(e -> "INFO_PROVIDED".equals(e.getKind())).map(MktOpportunityEvent::getActorMemberId).filter(Objects::nonNull).collect(Collectors.toSet()));
+        for (MktOpportunityEvent e : events) {
+            TimelineEvent t = timelineOf(e, row.marketer(), actors);
+            if (t != null) timeline.add(t);
+        }
         resp.ifPresent(x -> {
             if (x.getResumeUpdateRequestedAt() != null) timeline.add(new TimelineEvent("RESUME_UPDATE", "You asked your marketer for a resume update", x.getResumeUpdateRequestedAt()));
-            Instant at = x.getRespondedAt();
-            if (at == null) return;
-            switch (x.getStatus()) {
-                case CwsOpportunityResponse.AWAITING_RESPONSE -> timeline.add(new TimelineEvent("INFO_REQUEST", "You asked for more information", at));
-                case CwsOpportunityResponse.IN_REVIEW -> timeline.add(new TimelineEvent("IN_REVIEW", "Your marketer moved it to review", at));
-                case CwsOpportunityResponse.DECLINED -> timeline.add(new TimelineEvent("DECLINED", "You declined this opportunity", at));
-                default -> { }
-            }
+            if (CwsOpportunityResponse.IN_REVIEW.equals(x.getStatus()) && x.getRespondedAt() != null) timeline.add(new TimelineEvent("IN_REVIEW", "Your marketer moved it to review", x.getRespondedAt()));
         });
         timeline.sort(Comparator.comparing(TimelineEvent::at, Comparator.nullsLast(Comparator.naturalOrder())));
 
         return new Detail(
             row, r.getDescriptionText(), r.getEmploymentLabel(), r.getDurationLabel(), r.getExperienceLevel(), fit,
             r.getRateMinMinor(), r.getRateMaxMinor(), r.getRateUnit(), r.getCurrency(), m.getReason(),
-            resp.map(CwsOpportunityResponse::getDeclineReason).orElse(null),
-            resp.map(CwsOpportunityResponse::getInfoRequest).orElse(null),
+            opp == null || !"DECLINED".equals(opp.getState()) ? null : opp.getDeclineNote() != null ? opp.getDeclineNote() : declineLabel(opp.getDeclineReason()),
+            opp == null || !"NEEDS_INFO".equals(opp.getState()) ? null : opp.getInfoRequest(),
+            opp == null || !"NEEDS_INFO".equals(opp.getState()) ? null : opp.getInfoAnswer(),
+            opp == null ? null : opp.getAppliedAt(),
             resp.map(CwsOpportunityResponse::getResumeUpdateNote).orElse(null),
             resp.map(CwsOpportunityResponse::getResumeUpdateRequestedAt).orElse(null),
             interest.map(CwsMatchInterest::getCreatedAt).orElse(null),
@@ -307,45 +343,40 @@ public class OpportunitiesService {
     // ---- writes (own ASSIGNED matches only; each is org-scoped; 404 for anything else) ---------------------------------
 
     /**
-     * "Express Interest": the consultant wants this job. Records the same {@code cws_match_interest} row the Job Matches page writes (so both pages
-     * show "Interest sent") and changes no status: IN_REVIEW is the marketer's step, and a NEW row with interest sent simply stops counting as
-     * "still to respond". A declined opportunity must be reopened first. Idempotent. No application, no submission.
+     * "Express Interest": the consultant wants this job. The state moves to INTERESTED on the shared record (so the marketer's board reads Interested and the
+     * activity feed says so) and the same {@code cws_match_interest} row the Job Matches page writes is kept, so both consultant pages show "Interest sent".
+     * A declined opportunity must be reopened first. Idempotent. No application, no submission.
      */
     @Transactional
     public Outcome expressInterest(OrgMembership me, long matchId, String note) {
         ConsultantProfile c = requireWriter(me);
         RequirementMatch m = ownAssigned(c.getOrgId(), c.getId(), matchId);
-        Optional<CwsOpportunityResponse> resp = responses.findByOrgIdAndConsultantIdAndRequirementId(c.getOrgId(), c.getId(), m.getRequirementId());
-        if (resp.isPresent() && CwsOpportunityResponse.DECLINED.equals(resp.get().getStatus())) throw TrackerException.invalid("status", "is declined; reopen it first");
+        MktOpportunity opp = opportunityFor(c, m);
+        if (DECLINED_STATE.equals(opp.getState())) throw TrackerException.invalid("status", "is declined; reopen it first");
         String clean = optionalText("note", note);
-        CwsMatchInterest row = interests.findByOrgIdAndConsultantIdAndRequirementId(c.getOrgId(), c.getId(), m.getRequirementId()).orElse(null);
-        if (row == null) {
-            row = new CwsMatchInterest();
+        conOpportunities.recordInterest(view(me, c), me, opp.getId(), null);
+        if (interests.findByOrgIdAndConsultantIdAndRequirementId(c.getOrgId(), c.getId(), m.getRequirementId()).isEmpty()) {
+            CwsMatchInterest row = new CwsMatchInterest();
             row.setOrgId(c.getOrgId());
             row.setConsultantId(c.getId());
             row.setRequirementId(m.getRequirementId());
             row.setNote(clean);
             row.setCreatedAt(Instant.now(clock));
-            row = interests.save(row);
+            interests.save(row);
         }
-        return new Outcome(matchId, statusOf(resp), true, row.getCreatedAt(), resp.map(x -> x.getResumeUpdateRequestedAt() != null).orElse(false));
+        return outcome(c, m);
     }
 
-    /** "Need More Info": stores the question for the marketer and moves a NEW opportunity to AWAITING_RESPONSE (waiting for the marketer's answer). */
+    /** "Need More Info": the question goes on the shared record for the marketer (state NEEDS_INFO, one activity event); asking again replaces it. */
     @Transactional
     public Outcome needMoreInfo(OrgMembership me, long matchId, String message) {
         ConsultantProfile c = requireWriter(me);
         RequirementMatch m = ownAssigned(c.getOrgId(), c.getId(), matchId);
         String text = requiredText("message", message);
-        CwsOpportunityResponse r = responseFor(c, m);
-        if (CwsOpportunityResponse.DECLINED.equals(r.getStatus())) throw TrackerException.invalid("status", "is declined; reopen it first");
-        Instant now = Instant.now(clock);
-        r.setInfoRequest(text);
-        if (CwsOpportunityResponse.NEW.equals(r.getStatus())) r.setStatus(CwsOpportunityResponse.AWAITING_RESPONSE);
-        r.setRespondedAt(now);
-        r.setUpdatedAt(now);
-        responses.save(r);
-        return outcome(c, m, r);
+        MktOpportunity opp = opportunityFor(c, m);
+        if (DECLINED_STATE.equals(opp.getState())) throw TrackerException.invalid("status", "is declined; reopen it first");
+        conOpportunities.recordInfoRequest(view(me, c), me, opp.getId(), text, true, null);
+        return outcome(c, m);
     }
 
     /** "Decline Opportunity": a reason is required. Idempotent: declining a declined opportunity keeps the first reason and time. */
@@ -354,33 +385,32 @@ public class OpportunitiesService {
         ConsultantProfile c = requireWriter(me);
         RequirementMatch m = ownAssigned(c.getOrgId(), c.getId(), matchId);
         String text = requiredText("reason", reason);
-        CwsOpportunityResponse r = responseFor(c, m);
-        if (!CwsOpportunityResponse.DECLINED.equals(r.getStatus())) {
-            Instant now = Instant.now(clock);
-            r.setStatus(CwsOpportunityResponse.DECLINED);
-            r.setDeclineReason(text);
-            r.setRespondedAt(now);
-            r.setUpdatedAt(now);
-            responses.save(r);
-        }
-        return outcome(c, m, r);
+        MktOpportunity opp = opportunityFor(c, m);
+        conOpportunities.recordDecline(view(me, c), me, opp.getId(), DECLINE_CODE, text, null);
+        return outcome(c, m);
     }
 
-    /** Undo for a decline: DECLINED goes back to NEW and the reason is cleared. Idempotent: anything that is not declined is returned as it is. */
+    /** Undo for a decline: DECLINED goes back to ASSIGNED (shown as NEW) and the reason is cleared. Idempotent: anything that is not declined is returned as it is. */
     @Transactional
     public Outcome reopen(OrgMembership me, long matchId) {
         ConsultantProfile c = requireWriter(me);
         RequirementMatch m = ownAssigned(c.getOrgId(), c.getId(), matchId);
-        Optional<CwsOpportunityResponse> existing = responses.findByOrgIdAndConsultantIdAndRequirementId(c.getOrgId(), c.getId(), m.getRequirementId());
-        if (existing.isPresent() && CwsOpportunityResponse.DECLINED.equals(existing.get().getStatus())) {
-            CwsOpportunityResponse r = existing.get();
-            r.setStatus(CwsOpportunityResponse.NEW);
-            r.setDeclineReason(null);
-            r.setRespondedAt(null);
-            r.setUpdatedAt(Instant.now(clock));
-            responses.save(r);
-        }
-        return outcome(c, m, existing.orElse(null));
+        MktOpportunity existing = opportunities.findByOrgIdAndMatchId(c.getOrgId(), m.getId()).orElse(null);
+        if (existing != null) conOpportunities.recordReopen(view(me, c), me, existing.getId(), null);
+        return outcome(c, m);
+    }
+
+    /**
+     * "I applied": the consultant records that THEY applied on the source site (state APPLIED, one activity event the marketer reads as "says they applied").
+     * Kiwiply never applies or submits: this stores a statement, and nothing leaves the system. Idempotent.
+     */
+    @Transactional
+    public Outcome markApplied(OrgMembership me, long matchId) {
+        ConsultantProfile c = requireWriter(me);
+        RequirementMatch m = ownAssigned(c.getOrgId(), c.getId(), matchId);
+        MktOpportunity opp = opportunityFor(c, m);
+        conOpportunities.recordApplied(view(me, c), me, opp.getId(), null, null, false);
+        return outcome(c, m);
     }
 
     /**
@@ -398,16 +428,100 @@ public class OpportunitiesService {
         r.setResumeUpdateRequestedAt(now);
         r.setUpdatedAt(now);
         responses.save(r);
-        return outcome(c, m, r);
+        return outcome(c, m);
     }
 
-    private Outcome outcome(ConsultantProfile c, RequirementMatch m, CwsOpportunityResponse r) {
+    /** What the write did, read back from the shared record (and the legacy interest row) after it. */
+    private Outcome outcome(ConsultantProfile c, RequirementMatch m) {
         Optional<CwsMatchInterest> interest = interests.findByOrgIdAndConsultantIdAndRequirementId(c.getOrgId(), c.getId(), m.getRequirementId());
-        return new Outcome(m.getId(), r == null ? CwsOpportunityResponse.NEW : r.getStatus(), interest.isPresent(), interest.map(CwsMatchInterest::getCreatedAt).orElse(null), r != null && r.getResumeUpdateRequestedAt() != null);
+        MktOpportunity opp = opportunities.findByOrgIdAndMatchId(c.getOrgId(), m.getId()).orElse(null);
+        Optional<CwsOpportunityResponse> legacy = responses.findByOrgIdAndConsultantIdAndRequirementId(c.getOrgId(), c.getId(), m.getRequirementId());
+        Instant interestAt = interest.map(CwsMatchInterest::getCreatedAt).orElse(null);
+        boolean sent = interestSent(opp, interest.isPresent());
+        if (interestAt == null && sent && opp != null) interestAt = opp.getLastResponseAt();
+        return new Outcome(m.getId(), statusOf(opp, legacy), sent, interestAt, legacy.map(x -> x.getResumeUpdateRequestedAt() != null).orElse(false));
     }
 
-    private static String statusOf(Optional<CwsOpportunityResponse> r) {
-        return r.map(CwsOpportunityResponse::getStatus).orElse(CwsOpportunityResponse.NEW);
+    /** The consultant's view of the shared record's state: NEEDS_INFO is "awaiting response", INTERESTED and the rest of the open states are "new". */
+    static String statusOf(MktOpportunity o, Optional<CwsOpportunityResponse> legacy) {
+        String state = o == null ? STATUS_ASSIGNED : o.getState();
+        return switch (state) {
+            case "DECLINED" -> CwsOpportunityResponse.DECLINED;
+            case "NEEDS_INFO" -> CwsOpportunityResponse.AWAITING_RESPONSE;
+            case "APPLIED" -> APPLIED;
+            case "CLOSED" -> CLOSED;
+            default -> legacy.filter(x -> CwsOpportunityResponse.IN_REVIEW.equals(x.getStatus())).isPresent() ? CwsOpportunityResponse.IN_REVIEW : CwsOpportunityResponse.NEW;
+        };
+    }
+
+    /** Said "interested" on the shared record (the state, or the interest the marketer's board shows), or on the Job Matches page (the legacy row). */
+    static boolean interestSent(MktOpportunity o, boolean legacyRow) {
+        if (legacyRow) return true;
+        return o != null && ("INTERESTED".equals(o.getState()) || (!DECLINED_STATE.equals(o.getState()) && ("INTERESTED".equals(o.getInterest()) || "VERY_INTERESTED".equals(o.getInterest()))));
+    }
+
+    /** What the page may offer for a row, from its status, whether interest is already sent, whether the job still takes answers and whether the question was answered. */
+    static List<String> actionsFor(String status, boolean interestSent, boolean jobOpen) {
+        List<String> out = new ArrayList<>();
+        switch (status) {
+            case "NEW", "IN_REVIEW", "AWAITING_RESPONSE" -> {
+                if (jobOpen && !interestSent) out.add("INTEREST");
+                if (jobOpen) out.add("REQUEST_INFO");
+                out.add("RESUME_UPDATE");
+                out.add("DECLINE");
+                if (jobOpen) out.add("APPLIED");
+            }
+            case "DECLINED" -> {
+                if (jobOpen) out.add("REOPEN");
+            }
+            default -> { }
+        }
+        return List.copyOf(out);
+    }
+
+    private static final String DECLINED_STATE = "DECLINED";
+
+    private static String declineLabel(String code) {
+        if (code == null) return null;
+        return switch (code) {
+            case "NOT_INTERESTED" -> "Not interested";
+            case "LOCATION" -> "The location does not work for me";
+            case "RATE" -> "The rate is too low";
+            case "ALREADY_APPLIED" -> "I already applied";
+            default -> null;
+        };
+    }
+
+    /** The consultant's own timeline line for an event on the shared record; marketer-internal events (reviews, next actions) are not shown. */
+    private static TimelineEvent timelineOf(MktOpportunityEvent e, String marketer, Map<Long, String> actors) {
+        String who = e.getActorMemberId() != null && actors.get(e.getActorMemberId()) != null ? actors.get(e.getActorMemberId()) : marketer != null ? marketer : "Your marketer";
+        return switch (e.getKind()) {
+            case "INTERESTED" -> new TimelineEvent("INTEREST", "You expressed interest", e.getOccurredAt());
+            case "INFO_REQUESTED" -> new TimelineEvent("INFO_REQUEST", "You asked for more information", e.getOccurredAt());
+            case "INFO_PROVIDED" -> new TimelineEvent("INFO_ANSWER", who + " answered your question", e.getOccurredAt());
+            case "DECLINED" -> new TimelineEvent("DECLINED", "You declined this opportunity", e.getOccurredAt());
+            case "REOPENED" -> new TimelineEvent("REOPENED", "You reopened this opportunity", e.getOccurredAt());
+            case "APPLIED", "APPLIED_UNLINKED" -> new TimelineEvent("APPLIED", "You said you applied", e.getOccurredAt());
+            case "INTEREST_REQUESTED" -> new TimelineEvent("INTEREST_REQUESTED", who + " asked for your interest", e.getOccurredAt());
+            case "RESUME_REQUESTED" -> new TimelineEvent("RESUME_REQUESTED", who + " asked you to update your resume", e.getOccurredAt());
+            default -> null;
+        };
+    }
+
+    private static ConScope.View view(OrgMembership me, ConsultantProfile c) {
+        return new ConScope.View(c.getOrgId(), me.memberId(), me.userId(), c.getId());
+    }
+
+    /**
+     * The shared record of an assigned match, created (in this transaction, safe against a concurrent first answer) when the match has none yet: the
+     * marketer's assign creates it, a match assigned another way gets it on the consultant's first answer.
+     */
+    private MktOpportunity opportunityFor(ConsultantProfile c, RequirementMatch m) {
+        Long org = c.getOrgId();
+        Optional<MktOpportunity> found = opportunities.findByOrgIdAndMatchId(org, m.getId());
+        if (found.isPresent()) return found.get();
+        opportunities.insertIfMissing(org, m.getId(), m.getAssignedByMemberId(), Instant.now(clock));
+        return opportunities.findByOrgIdAndMatchId(org, m.getId()).orElseThrow(OrgNotFoundException::new);
     }
 
     /** The response row of this match, created (not yet saved) when there is none. Priority and due date stay null (derived). */
@@ -468,6 +582,7 @@ public class OpportunitiesService {
         final Map<Long, List<RequirementSkill>> jobSkills;
         final Set<String> mine;
         final Map<Long, CwsOpportunityResponse> responseByReq;
+        final Map<Long, MktOpportunity> oppByMatch;
         final Set<Long> interestReqs;
         final Map<Long, ConsultantWsJobSourceReader.Info> sourceInfo;
         final Map<Long, String> marketerNames;
@@ -481,6 +596,7 @@ public class OpportunitiesService {
             mine = consultantSkills.findByOrgIdAndConsultantIdOrderBySortOrderAsc(org, c.getId()).stream().map(s -> norm(s.getSkill())).collect(Collectors.toSet());
             sourceInfo = reqs.isEmpty() ? Map.of() : sources.load(org, reqs.keySet());
             responseByReq = responses.findByOrgIdAndConsultantId(org, c.getId()).stream().collect(Collectors.toMap(CwsOpportunityResponse::getRequirementId, Function.identity(), (a, b) -> a));
+            oppByMatch = list.isEmpty() ? Map.of() : opportunities.findByOrgIdAndMatchIdIn(org, list.stream().map(RequirementMatch::getId).toList()).stream().collect(Collectors.toMap(MktOpportunity::getMatchId, Function.identity(), (a, b) -> a));
             interestReqs = interests.findByOrgIdAndConsultantId(org, c.getId()).stream().map(CwsMatchInterest::getRequirementId).collect(Collectors.toSet());
 
             // the marketer: who assigned the match (a person of this organization), else the consultant's ACTIVE marketer assignment
@@ -533,12 +649,16 @@ public class OpportunitiesService {
         int missing = (int) skills.stream().filter(s -> !ctx.mine.contains(norm(s.getSkill()))).count();
 
         ConsultantWsJobSourceReader.Info src = ConsultantWsJobSourceReader.orNone(ctx.sourceInfo, r.getId());
+        MktOpportunity opp = ctx.oppByMatch.get(m.getId());
+        String status = statusOf(opp, resp);
+        boolean sent = interestSent(opp, ctx.interestReqs.contains(r.getId()));
+        boolean answered = opp != null && "NEEDS_INFO".equals(opp.getState()) && opp.getInfoAnswer() != null && !opp.getInfoAnswer().isBlank();
         String marketer = m.getAssignedByMemberId() != null && ctx.marketerNames.containsKey(m.getAssignedByMemberId()) ? ctx.marketerNames.get(m.getAssignedByMemberId()) : ctx.assignmentMarketer;
         return new Row(
             m.getId(), r.getId(), r.getTitle(), skills.stream().map(RequirementSkill::getSkill).limit(3).toList(), cl == null ? null : cl.getName(),
-            r.getLocation(), r.getWorkMode(), marketer, resp.map(CwsOpportunityResponse::getStatus).orElse(CwsOpportunityResponse.NEW), priority, priorityDerived,
-            due, dueDerived, (int) ChronoUnit.DAYS.between(today, due), score, missing, ctx.interestReqs.contains(r.getId()), assignedAt,
-            src.sourceUrl(), src.sourceName(), src.quickInfo(), src.sample()
+            r.getLocation(), r.getWorkMode(), marketer, status, priority, priorityDerived,
+            due, dueDerived, (int) ChronoUnit.DAYS.between(today, due), score, missing, sent, assignedAt,
+            src.sourceUrl(), src.sourceName(), src.quickInfo(), src.sample(), answered, actionsFor(status, sent, OPEN_JOB.contains(r.getStatus()))
         );
     }
 }

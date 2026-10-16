@@ -80,16 +80,53 @@ class MktOpportunityDemoSeederTest {
     }
 
     @Test
-    void anOrganizationThatAlreadyHasStateIsLeftAlone() {
-        when(repo.countByOrgId(ORG)).thenReturn(5L);
-        assertThat(seeder.seedOrg(ORG)).isZero();
-        verify(repo, never()).findRows(any());
-        verify(repo, never()).save(any(MktOpportunity.class));
+    void aSecondRunSeedsNothingAndAMatchThatAlreadyHasStateKeepsIt() {
+        List<MktOpportunityRow> rows = new ArrayList<>();
+        for (long i = 1; i <= 5; i++) rows.add(row(i, "ASSIGNED", 70, "OPEN"));
+        when(repo.findRows(ORG)).thenReturn(rows);
+        // the consultant workspace seeder (or a previous boot) already wrote the first three
+        List<MktOpportunity> have = new ArrayList<>();
+        for (long i = 1; i <= 3; i++) {
+            MktOpportunity o = new MktOpportunity();
+            o.setMatchId(i);
+            have.add(o);
+        }
+        when(repo.findByOrgId(ORG)).thenReturn(have);
+        assertThat(seeder.seedOrg(ORG)).as("only the two matches without state").isEqualTo(2);
+        assertThat(savedOpps).extracting(MktOpportunity::getMatchId).containsExactlyInAnyOrder(4L, 5L);
+
+        savedOpps.clear();
+        for (long i = 4; i <= 5; i++) {
+            MktOpportunity o = new MktOpportunity();
+            o.setMatchId(i);
+            have.add(o);
+        }
+        assertThat(seeder.seedOrg(ORG)).as("idempotent").isZero();
+        assertThat(savedOpps).isEmpty();
+    }
+
+    @Test
+    void anAssignedOpportunityStateFollowsWhatTheConsultantSaid() {
+        List<MktOpportunityRow> rows = new ArrayList<>();
+        for (long i = 1; i <= 40; i++) rows.add(row(i, "ASSIGNED", 70, "OPEN"));
+        for (long i = 41; i <= 60; i++) rows.add(row(i, "SUGGESTED", 80, "OPEN"));
+        when(repo.findRows(ORG)).thenReturn(rows);
+        seeder.seedOrg(ORG);
+        assertThat(savedOpps.stream().filter(o -> o.getMatchId() <= 40)).allSatisfy(o -> {
+            switch (o.getInterest()) {
+                case "VERY_INTERESTED", "INTERESTED" -> assertThat(o.getState()).isEqualTo("INTERESTED");
+                case "NOT_INTERESTED" -> {
+                    assertThat(o.getState()).isEqualTo("DECLINED");
+                    assertThat(o.getDeclineReason()).isEqualTo("NOT_INTERESTED");
+                }
+                default -> assertThat(o.getState()).isEqualTo("ASSIGNED");
+            }
+        });
+        assertThat(savedOpps.stream().filter(o -> o.getMatchId() > 40)).as("a suggestion has no consultant answer yet").allSatisfy(o -> assertThat(o.getState()).isEqualTo("ASSIGNED"));
     }
 
     @Test
     void anOrganizationWithoutTalentDataIsSkipped() {
-        when(repo.countByOrgId(ORG)).thenReturn(0L);
         when(repo.findRows(ORG)).thenReturn(List.of());
         assertThat(seeder.seedOrg(ORG)).isZero();
     }

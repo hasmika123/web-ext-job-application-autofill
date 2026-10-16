@@ -46,7 +46,7 @@ public class OpportunitiesResource {
         return service.detail(me, matchId);
     }
 
-    @Operation(summary = "Express interest", description = "Records the same interest row as Job Matches (optional note, scanned for sensitive data). Changes no status, creates no application, submits nothing. Idempotent.")
+    @Operation(summary = "Express interest", description = "Moves the shared opportunity record to INTERESTED (the marketer's board reads it) and keeps the interest row Job Matches shows (optional note, scanned for sensitive data). Creates no application, submits nothing. Idempotent.")
     @PostMapping("/{matchId}/express-interest")
     @OrgPermissionRequired
     public OpportunitiesDTO.Outcome expressInterest(
@@ -57,7 +57,7 @@ public class OpportunitiesResource {
         return service.expressInterest(me, matchId, body == null ? null : body.note());
     }
 
-    @Operation(summary = "Need more info", description = "Stores a question for the marketer (3-300 characters, scanned) and moves a NEW opportunity to AWAITING_RESPONSE.")
+    @Operation(summary = "Need more info", description = "Stores a question for the marketer on the shared opportunity record (3-300 characters, scanned): the state becomes NEEDS_INFO (shown AWAITING_RESPONSE) and the marketer's activity feed records it. Asking again replaces the question.")
     @PostMapping("/{matchId}/need-more-info")
     @OrgPermissionRequired
     public OpportunitiesDTO.Outcome needMoreInfo(
@@ -68,7 +68,7 @@ public class OpportunitiesResource {
         return service.needMoreInfo(me, matchId, body == null ? null : body.message());
     }
 
-    @Operation(summary = "Decline the opportunity", description = "A reason is required (3-300 characters, scanned). Moves the opportunity to DECLINED. Idempotent.")
+    @Operation(summary = "Decline the opportunity", description = "A reason is required (3-300 characters, scanned). Moves the shared opportunity record to DECLINED (the marketer's board reads Not Interested). Idempotent.")
     @PostMapping("/{matchId}/decline")
     @OrgPermissionRequired
     public OpportunitiesDTO.Outcome decline(
@@ -84,6 +84,16 @@ public class OpportunitiesResource {
     @OrgPermissionRequired
     public OpportunitiesDTO.Outcome reopen(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable long matchId) {
         return service.reopen(me, matchId);
+    }
+
+    @Operation(
+        summary = "I applied",
+        description = "The consultant records that THEY applied on the source site (state APPLIED; the marketer sees \"says they applied\"). Kiwiply never applies or submits for anyone: this stores a statement only. Idempotent."
+    )
+    @PostMapping("/{matchId}/applied")
+    @OrgPermissionRequired
+    public OpportunitiesDTO.Outcome iApplied(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable long matchId) {
+        return service.markApplied(me, matchId);
     }
 
     @Operation(summary = "Request a resume update", description = "Leaves a note for the marketer (optional, 3-300 characters, scanned). Changes no status.")

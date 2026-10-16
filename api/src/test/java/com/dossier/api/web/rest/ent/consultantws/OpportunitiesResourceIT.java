@@ -9,6 +9,8 @@ import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.ent.OrgMemberRole;
 import com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse;
+import com.dossier.api.domain.ent.mkt.MktOpportunity;
+import com.dossier.api.domain.ent.mkt.MktOpportunityEvent;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
@@ -28,6 +30,8 @@ import com.dossier.api.domain.ent.consultantws.CwsJobSource;
 import com.dossier.api.repository.ent.consultantws.CwsJobSourceRepository;
 import com.dossier.api.repository.ent.consultantws.CwsMatchInterestRepository;
 import com.dossier.api.repository.ent.consultantws.CwsOpportunityResponseRepository;
+import com.dossier.api.repository.ent.mkt.MktOpportunityEventRepository;
+import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
@@ -51,6 +55,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -65,7 +70,8 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * The Consultant workspace Assigned Opportunities page through the real chain on real rows: {@code /api/orgs/{orgId}/me-workspace/opportunities}.
  * Every number is asserted against rows the test wrote, a consultant only ever sees and changes their own rows, every refusal is the generic 404,
- * and every free-text write goes through the sensitive-data guard.
+ * and every free-text write goes through the sensitive-data guard. The consultant's answer lives on the ONE record the marketer's board reads
+ * ({@code mkt_opportunity}); {@link ConsultantAnswerReachesMarketerIT} walks the same record from the marketer's side.
  */
 @IntegrationTest
 @AutoConfigureMockMvc
@@ -94,6 +100,8 @@ class OpportunitiesResourceIT {
     @Autowired private CwsOpportunityResponseRepository responses;
     @Autowired private CwsMatchInterestRepository interests;
     @Autowired private CwsJobSourceRepository jobSources;
+    @Autowired private MktOpportunityRepository mktOpps;
+    @Autowired private MktOpportunityEventRepository mktEvents;
 
     private OrgFixtures fx;
     private Organization a;
@@ -246,6 +254,45 @@ class OpportunitiesResourceIT {
         return responses.saveAndFlush(x);
     }
 
+    /** The consultant's answer on the shared record (what the marketer's board reads), with the activity event the feed shows for it. */
+    private MktOpportunity answer(RequirementMatch m, String state, String interest, Instant at, Consumer<MktOpportunity> more, String eventKind, String eventText) {
+        MktOpportunity o = new MktOpportunity();
+        o.setOrgId(m.getOrgId());
+        o.setMatchId(m.getId());
+        o.setOwnerMemberId(marketer.getId());
+        o.setState(state);
+        o.setInterest(interest);
+        o.setLastResponseAt(at);
+        o.setCreatedAt(at);
+        o.setUpdatedAt(at);
+        if (more != null) more.accept(o);
+        o = mktOpps.save(o);
+        MktOpportunityEvent e = new MktOpportunityEvent();
+        e.setOrgId(m.getOrgId());
+        e.setOpportunityId(o.getId());
+        e.setKind(eventKind);
+        e.setActorMemberId(m.getConsultantId().equals(c1.getId()) ? c1.getMemberId() : c2.getMemberId());
+        e.setText(eventText);
+        e.setOccurredAt(at);
+        mktEvents.save(e);
+        return o;
+    }
+
+    private MktOpportunity shared(RequirementMatch m) {
+        return mktOpps.findByOrgIdAndMatchId(m.getOrgId(), m.getId()).orElse(null);
+    }
+
+    private List<String> eventKinds(RequirementMatch m) {
+        MktOpportunity o = shared(m);
+        return o == null ? List.of() : mktEvents.findByOrgIdAndOpportunityIdOrderByOccurredAtDesc(m.getOrgId(), o.getId()).stream().map(MktOpportunityEvent::getKind).toList();
+    }
+
+    private static List<String> values(JsonNode array) {
+        List<String> out = new ArrayList<>();
+        for (JsonNode n : array) out.add(n.asText());
+        return out;
+    }
+
     private RequirementMatch o1;
     private RequirementMatch o2;
     private RequirementMatch o3;
@@ -256,8 +303,8 @@ class OpportunitiesResourceIT {
     /**
      * c1: five ASSIGNED matches plus one SUGGESTED (never listed).
      * o1 score 90, no response (derived HIGH, due assigned+14 = today+12, marketer who assigned it), Java/Spring Boot/Kubernetes/AWS (3 missing);
-     * o2 AWAITING_RESPONSE HIGH due today+3, assigned 40 days ago; o3 score 60, no response (derived LOW, due today+9), Terraform missing;
-     * o4 DECLINED MEDIUM due yesterday (overdue), assigned 50 days ago; o5 IN_REVIEW MEDIUM due today+9.
+     * o2 NEEDS_INFO (shown AWAITING_RESPONSE) HIGH due today+3, assigned 40 days ago; o3 score 60, no response (derived LOW, due today+9), Terraform missing;
+     * o4 DECLINED MEDIUM due yesterday (overdue), assigned 50 days ago; o5 IN_REVIEW (the marketer's own stage) MEDIUM due today+9.
      */
     private void seedC1() {
         skill(c1, "Java");
@@ -273,9 +320,15 @@ class OpportunitiesResourceIT {
         o4 = match(c1, r4, "ASSIGNED", 75, now.minus(Duration.ofDays(50)), true);
         o5 = match(c1, r5, "ASSIGNED", 72, now.minus(Duration.ofDays(3)), true);
         suggested = match(c1, r6, "SUGGESTED", 99, now.minus(Duration.ofDays(1)), false);
-        response(c1, r2, "AWAITING_RESPONSE", "HIGH", today.plusDays(3), now.minus(Duration.ofDays(35)));
-        response(c1, r4, "DECLINED", "MEDIUM", today.minusDays(1), now.minusSeconds(86_400));
+        // the marketer's inputs (priority, due date) stay on the response row; the consultant's answers are the shared record
+        response(c1, r2, "NEW", "HIGH", today.plusDays(3), now.minus(Duration.ofDays(35)));
+        response(c1, r4, "NEW", "MEDIUM", today.minusDays(1), now.minusSeconds(86_400));
         response(c1, r5, "IN_REVIEW", "MEDIUM", today.plusDays(9), now);
+        answer(o2, "NEEDS_INFO", "NO_RESPONSE", now.minus(Duration.ofDays(35)), o -> o.setInfoRequest("Could you confirm the team size?"), "INFO_REQUESTED", "asked a question");
+        answer(o4, "DECLINED", "NOT_INTERESTED", now.minusSeconds(86_400), o -> {
+            o.setDeclineReason("OTHER");
+            o.setDeclineNote("Not a fit.");
+        }, "DECLINED", "declined (OTHER): Not a fit.");
     }
 
     private void seedC2() {
@@ -376,6 +429,8 @@ class OpportunitiesResourceIT {
         assertThat(r1.path("skills").get(2).asText()).isEqualTo("Kubernetes");
         assertThat(r1.path("missingSkills").asInt()).isEqualTo(3);
         assertThat(r1.path("interestSent").asBoolean()).isFalse();
+        assertThat(values(r1.path("allowedActions"))).containsExactly("INTEREST", "REQUEST_INFO", "RESUME_UPDATE", "DECLINE", "APPLIED");
+        assertThat(r1.path("infoAnswered").asBoolean()).isFalse();
 
         JsonNode r2 = row(p, o2.getId());
         assertThat(r2.path("status").asText()).isEqualTo("AWAITING_RESPONSE");
@@ -383,12 +438,14 @@ class OpportunitiesResourceIT {
         assertThat(r2.path("priorityDerived").asBoolean()).isFalse();
         assertThat(r2.path("dueDerived").asBoolean()).isFalse();
         assertThat(r2.path("daysLeft").asInt()).isEqualTo(3);
+        assertThat(values(r2.path("allowedActions"))).contains("REQUEST_INFO", "DECLINE");
 
         JsonNode r3 = row(p, o3.getId());
         assertThat(r3.path("priority").asText()).as("score 60 is Low").isEqualTo("LOW");
         assertThat(r3.path("daysLeft").asInt()).isEqualTo(9);
         assertThat(r3.path("marketer").isNull()).as("nobody assigned it and the consultant has no marketer: an honest null").isTrue();
         assertThat(row(p, o4.getId()).path("daysLeft").asInt()).as("overdue is negative").isEqualTo(-1);
+        assertThat(values(row(p, o4.getId()).path("allowedActions"))).containsExactly("REOPEN");
 
         JsonNode t = p.path("tiles");
         assertThat(t.path("total").path("value").asLong()).isEqualTo(5);
@@ -451,13 +508,51 @@ class OpportunitiesResourceIT {
         assertThat(d.path("interestSentAt").isNull()).isTrue();
 
         // a declined one carries its reason and a declined event
-        CwsOpportunityResponse declined = stored(c1, o4);
-        declined.setDeclineReason("Not a fit.");
-        responses.saveAndFlush(declined);
         JsonNode dd = detail("cws-o-a-c1", a, o4.getId());
         assertThat(dd.path("declineReason").asText()).isEqualTo("Not a fit.");
+        assertThat(dd.path("infoRequest").isNull()).isTrue();
         assertThat(texts(dd.path("timeline"), "key")).containsExactly("ASSIGNED", "DECLINED");
         assertThat(detail("cws-o-a-c1", a, o2.getId()).path("row").path("status").asText()).isEqualTo("AWAITING_RESPONSE");
+    }
+
+    @Test
+    void theMarketersAnswerToTheQuestionComesBackOnTheDetailAndTheRow() throws Exception {
+        seedC1();
+        JsonNode asked = detail("cws-o-a-c1", a, o2.getId());
+        assertThat(asked.path("infoRequest").asText()).isEqualTo("Could you confirm the team size?");
+        assertThat(asked.path("infoAnswer").isNull()).as("not answered yet").isTrue();
+        assertThat(asked.path("row").path("infoAnswered").asBoolean()).isFalse();
+        assertThat(page("cws-o-a-c1", a).path("tiles").path("awaiting").path("value").asLong()).isEqualTo(1);
+
+        // what the marketer's answer-info writes: info_answer on the shared record plus an INFO_PROVIDED event; the state stays NEEDS_INFO
+        MktOpportunity o = shared(o2);
+        o.setInfoAnswer("Seven engineers, and the start date can move by two weeks.");
+        mktOpps.save(o);
+        MktOpportunityEvent e = new MktOpportunityEvent();
+        e.setOrgId(a.getId());
+        e.setOpportunityId(o.getId());
+        e.setKind("INFO_PROVIDED");
+        e.setActorMemberId(marketer.getId());
+        e.setText("answered the consultant's question");
+        e.setOccurredAt(now.minusSeconds(60));
+        mktEvents.save(e);
+
+        JsonNode answered = detail("cws-o-a-c1", a, o2.getId());
+        assertThat(answered.path("infoAnswer").asText()).isEqualTo("Seven engineers, and the start date can move by two weeks.");
+        assertThat(answered.path("row").path("infoAnswered").asBoolean()).isTrue();
+        assertThat(answered.path("row").path("status").asText()).as("the consultant still moves it on themselves").isEqualTo("AWAITING_RESPONSE");
+        assertThat(texts(answered.path("timeline"), "key")).containsExactly("ASSIGNED", "INFO_REQUEST", "INFO_ANSWER");
+        assertThat(answered.path("timeline").get(2).path("label").asText()).isEqualTo("Morgan Marketer answered your question");
+
+        JsonNode p = page("cws-o-a-c1", a);
+        assertThat(p.path("tiles").path("awaiting").path("value").asLong()).as("an answered question no longer waits").isZero();
+        assertThat(p.path("nextSteps").path("toRespond").asInt()).as("o1, o3 and the answered o2").isEqualTo(3);
+        // a follow-up question starts over: the old answer belongs to the old question
+        actOk(o2.getId(), "need-more-info", "{\"message\":\"And is relocation needed?\"}");
+        JsonNode again = detail("cws-o-a-c1", a, o2.getId());
+        assertThat(again.path("infoRequest").asText()).isEqualTo("And is relocation needed?");
+        assertThat(again.path("infoAnswer").isNull()).isTrue();
+        assertThat(again.path("row").path("infoAnswered").asBoolean()).isFalse();
     }
 
     private void source(Organization org, long requirementId, String url, String name, String info, boolean sample) {
@@ -491,6 +586,27 @@ class OpportunitiesResourceIT {
         assertThat(detail("cws-o-a-c1", a, o2.getId()).path("row").path("sourceUrl").isNull()).isTrue();
     }
 
+    @Test
+    void aJobWithNoSourceRowTakesTheLinkOfTheJobItself() throws Exception {
+        seedC1();
+        ClientRequirement saved = requirements.findByOrgIdAndId(a.getId(), o1.getRequirementId()).orElseThrow();
+        saved.setJobUrl("https://boards.example.com/extension-capture/" + saved.getId());
+        requirements.saveAndFlush(saved);
+        ClientRequirement unsafe = requirements.findByOrgIdAndId(a.getId(), o3.getRequirementId()).orElseThrow();
+        unsafe.setJobUrl("http://plain-http.example.com/x");
+        requirements.saveAndFlush(unsafe);
+        ClientRequirement withRow = requirements.findByOrgIdAndId(a.getId(), o2.getRequirementId()).orElseThrow();
+        withRow.setJobUrl("https://boards.example.com/ignored/" + withRow.getId());
+        requirements.saveAndFlush(withRow);
+        source(a, o2.getRequirementId(), "https://company.example.com/careers/" + o2.getRequirementId(), "Company site", "Marketer note.", false);
+
+        JsonNode p = page("cws-o-a-c1", a);
+        assertThat(row(p, o1.getId()).path("sourceUrl").asText()).as("a job saved from the extension has no source row").isEqualTo("https://boards.example.com/extension-capture/" + saved.getId());
+        assertThat(row(p, o2.getId()).path("sourceUrl").asText()).as("the marketer's own link wins").isEqualTo("https://company.example.com/careers/" + o2.getRequirementId());
+        assertThat(row(p, o3.getId()).path("sourceUrl").isNull()).as("never a plain-http link").isTrue();
+        assertThat(detail("cws-o-a-c1", a, o1.getId()).path("row").path("sourceUrl").asText()).isEqualTo("https://boards.example.com/extension-capture/" + saved.getId());
+    }
+
     // ---- (b) own rows only ----------------------------------------------------------------------------------------
 
     @Test
@@ -504,11 +620,12 @@ class OpportunitiesResourceIT {
         assertThat(om.readTree(r.getResponse().getContentAsString()).path("tiles").path("total").path("value").asLong()).isEqualTo(5);
 
         assertGeneric404(send(get(path(a.getId(), "/" + hidden.getId())), "cws-o-a-c1", null), "detail of another consultant's opportunity");
-        for (String action : List.of("express-interest", "need-more-info", "decline", "reopen", "request-resume-update")) {
+        for (String action : List.of("express-interest", "need-more-info", "decline", "reopen", "applied", "request-resume-update")) {
             assertGeneric404(act("cws-o-a-c1", a, hidden.getId(), action, "{\"message\":\"Please tell me more\",\"reason\":\"Not for me\",\"note\":\"Please update\"}"), action + " on another's opportunity");
         }
         assertThat(interests.findByOrgIdAndConsultantId(a.getId(), c1.getId())).isEmpty();
         assertThat(responses.findByOrgIdAndConsultantId(a.getId(), c2.getId())).isEmpty();
+        assertThat(shared(hidden)).as("a refused write creates no record").isNull();
 
         // a suggested (not assigned) match of their own is not an opportunity either
         assertGeneric404(send(get(path(a.getId(), "/" + suggested.getId())), "cws-o-a-c1", null), "a suggested match");
@@ -530,7 +647,7 @@ class OpportunitiesResourceIT {
             new String[] { "GET", path(a.getId(), "") },
             new String[] { "GET", path(a.getId(), "/" + id) }
         ));
-        for (String action : List.of("express-interest", "need-more-info", "decline", "reopen", "request-resume-update")) routes.add(new String[] { "POST", path(a.getId(), "/" + id + "/" + action) });
+        for (String action : List.of("express-interest", "need-more-info", "decline", "reopen", "applied", "request-resume-update")) routes.add(new String[] { "POST", path(a.getId(), "/" + id + "/" + action) });
         for (String login : List.of("cws-o-b-owner", "cws-o-b-c1", "ghost-login", "cws-o-a-owner", "cws-o-a-admin", "cws-o-a-marketer", "cws-o-a-noprofile")) {
             for (String[] route : routes) {
                 MockHttpServletRequestBuilder req = "POST".equals(route[0]) ? post(route[1]) : get(route[1]);
@@ -538,6 +655,7 @@ class OpportunitiesResourceIT {
             }
         }
         assertThat(responses.findByOrgIdAndConsultantId(a.getId(), c1.getId()).stream().filter(x -> x.getRequirementId().equals(o1.getRequirementId()))).isEmpty();
+        assertThat(shared(o1)).as("no refused caller created the shared record").isNull();
         assertGeneric404(send(get(path(999999999L, "")), "cws-o-a-c1", null), "an organization that does not exist");
         assertGeneric404(send(get(path(a.getId(), "/987654321")), "cws-o-a-c1", null), "a match id that does not exist");
         assertGeneric404(send(get(path(b.getId(), "/" + o1.getId())), "cws-o-b-c1", null), "a match id from another organization");
@@ -591,7 +709,14 @@ class OpportunitiesResourceIT {
         assertThat(interests.findByOrgIdAndConsultantIdAndRequirementId(a.getId(), c1.getId(), o1.getRequirementId()).orElseThrow().getNote()).isEqualTo("Very keen on this one.");
         assertThat(applications.countByOrgId(a.getId())).as("no application is created").isEqualTo(appsBefore);
         assertThat(matches.findByOrgIdAndId(a.getId(), o1.getId()).orElseThrow().getStatus()).as("the match stays ASSIGNED").isEqualTo("ASSIGNED");
-        assertThat(stored(c1, o1)).as("no response row is needed for a status that did not change").isNull();
+        assertThat(stored(c1, o1)).as("no response row is needed: the answer is the shared record").isNull();
+        MktOpportunity sharedRow = shared(o1);
+        assertThat(sharedRow).as("created on the consultant's first answer, as the marketer's assign would have").isNotNull();
+        assertThat(sharedRow.getState()).isEqualTo("INTERESTED");
+        assertThat(sharedRow.getInterest()).as("what the marketer's board reads").isEqualTo("INTERESTED");
+        assertThat(sharedRow.getLastResponseAt()).isNotNull();
+        assertThat(sharedRow.getOwnerMemberId()).isEqualTo(marketer.getId());
+        assertThat(eventKinds(o1)).as("one line on the marketer's activity feed, and none for the repeat").containsExactly("INTERESTED");
 
         JsonNode p = page("cws-o-a-c1", a);
         assertThat(row(p, o1.getId()).path("interestSent").asBoolean()).isTrue();
@@ -620,23 +745,25 @@ class OpportunitiesResourceIT {
         seedC1();
         JsonNode r = actOk(o1.getId(), "need-more-info", "{\"message\":\"  Is the start date flexible?  \"}");
         assertThat(r.path("status").asText()).isEqualTo("AWAITING_RESPONSE");
-        CwsOpportunityResponse x = stored(c1, o1);
+        MktOpportunity x = shared(o1);
         assertThat(x.getInfoRequest()).isEqualTo("Is the start date flexible?");
-        assertThat(x.getStatus()).isEqualTo("AWAITING_RESPONSE");
-        assertThat(x.getPriority()).as("the marketer's priority stays unset (derived)").isNull();
-        assertThat(x.getDueOn()).isNull();
+        assertThat(x.getState()).as("what answer-info on the marketer's side needs").isEqualTo("NEEDS_INFO");
+        assertThat(x.getInterest()).isEqualTo("NO_RESPONSE");
+        assertThat(eventKinds(o1)).containsExactly("INFO_REQUESTED");
+        assertThat(stored(c1, o1)).as("the marketer's priority and due date are untouched: there is no response row to hold them").isNull();
         JsonNode p = page("cws-o-a-c1", a);
         assertThat(row(p, o1.getId()).path("status").asText()).isEqualTo("AWAITING_RESPONSE");
         assertThat(row(p, o1.getId()).path("priorityDerived").asBoolean()).isTrue();
         assertThat(p.path("tiles").path("awaiting").path("value").asLong()).isEqualTo(2);
         assertThat(detail("cws-o-a-c1", a, o1.getId()).path("infoRequest").asText()).isEqualTo("Is the start date flexible?");
 
-        // asking again replaces the question; an opportunity already in review stays in review
+        // asking again replaces the question (and tells the marketer again); the consultant's own question wins over the marketer's seed-only review stage
         actOk(o1.getId(), "need-more-info", "{\"message\":\"And the team size?\"}");
-        assertThat(stored(c1, o1).getInfoRequest()).isEqualTo("And the team size?");
+        assertThat(shared(o1).getInfoRequest()).isEqualTo("And the team size?");
+        assertThat(eventKinds(o1)).containsExactly("INFO_REQUESTED", "INFO_REQUESTED");
         JsonNode review = actOk(o5.getId(), "need-more-info", "{\"message\":\"Any travel involved?\"}");
-        assertThat(review.path("status").asText()).isEqualTo("IN_REVIEW");
-        assertThat(stored(c1, o5).getInfoRequest()).isEqualTo("Any travel involved?");
+        assertThat(review.path("status").asText()).isEqualTo("AWAITING_RESPONSE");
+        assertThat(shared(o5).getInfoRequest()).isEqualTo("Any travel involved?");
     }
 
     @Test
@@ -651,6 +778,7 @@ class OpportunitiesResourceIT {
         assertStatus(dob, 422, "a date of birth");
         assertThat(dob.getResponse().getContentAsString()).contains("SENSITIVE_CONTENT");
         assertThat(stored(c1, o1)).as("a refused message stores nothing").isNull();
+        assertThat(shared(o1)).as("a refused message creates no record").isNull();
         assertStatus(act("cws-o-a-c1", a, o4.getId(), "need-more-info", "{\"message\":\"Any update on this role?\"}"), 422, "a declined opportunity");
     }
 
@@ -666,16 +794,22 @@ class OpportunitiesResourceIT {
         assertStatus(ssn, 422, "a social security number");
         assertThat(ssn.getResponse().getContentAsString()).contains("SENSITIVE_CONTENT");
         assertThat(stored(c1, o1)).as("a refused reason stores nothing").isNull();
+        assertThat(shared(o1)).as("a refused reason creates no record").isNull();
 
         JsonNode r = actOk(o1.getId(), "decline", "{\"reason\":\"  The commute is too long.  \"}");
         assertThat(r.path("status").asText()).isEqualTo("DECLINED");
-        CwsOpportunityResponse x = stored(c1, o1);
-        assertThat(x.getDeclineReason()).isEqualTo("The commute is too long.");
-        assertThat(x.getRespondedAt()).isNotNull();
+        MktOpportunity x = shared(o1);
+        assertThat(x.getState()).isEqualTo("DECLINED");
+        assertThat(x.getInterest()).as("what the marketer's board reads").isEqualTo("NOT_INTERESTED");
+        assertThat(x.getDeclineReason()).isEqualTo("OTHER");
+        assertThat(x.getDeclineNote()).isEqualTo("The commute is too long.");
+        assertThat(x.getLastResponseAt()).isNotNull();
+        assertThat(eventKinds(o1)).containsExactly("DECLINED");
         JsonNode again = actOk(o1.getId(), "decline", "{\"reason\":\"A different reason.\"}");
         assertThat(again.path("status").asText()).isEqualTo("DECLINED");
-        assertThat(stored(c1, o1).getDeclineReason()).as("idempotent: the first reason is kept").isEqualTo("The commute is too long.");
-        assertThat(responses.findByOrgIdAndConsultantId(a.getId(), c1.getId()).stream().filter(y -> y.getRequirementId().equals(o1.getRequirementId())).count()).isEqualTo(1);
+        assertThat(shared(o1).getDeclineNote()).as("idempotent: the first reason is kept").isEqualTo("The commute is too long.");
+        assertThat(eventKinds(o1)).as("and no second line on the feed").containsExactly("DECLINED");
+        assertThat(detail("cws-o-a-c1", a, o1.getId()).path("declineReason").asText()).isEqualTo("The commute is too long.");
 
         JsonNode p = page("cws-o-a-c1", a);
         assertThat(row(p, o1.getId()).path("status").asText()).isEqualTo("DECLINED");
@@ -685,14 +819,19 @@ class OpportunitiesResourceIT {
 
         JsonNode back = actOk(o1.getId(), "reopen", null);
         assertThat(back.path("status").asText()).isEqualTo("NEW");
-        assertThat(stored(c1, o1).getDeclineReason()).isNull();
-        assertThat(stored(c1, o1).getRespondedAt()).isNull();
+        MktOpportunity reopened = shared(o1);
+        assertThat(reopened.getState()).isEqualTo("ASSIGNED");
+        assertThat(reopened.getInterest()).isEqualTo("NO_RESPONSE");
+        assertThat(reopened.getDeclineReason()).isNull();
+        assertThat(reopened.getDeclineNote()).isNull();
+        assertThat(eventKinds(o1)).containsExactly("REOPENED", "DECLINED");
         assertThat(row(page("cws-o-a-c1", a), o1.getId()).path("status").asText()).isEqualTo("NEW");
         assertThat(page("cws-o-a-c1", a).path("tiles").path("declined").path("value").asLong()).isEqualTo(1);
 
         // reopen is idempotent and creates nothing for a row that was never declined
         assertThat(actOk(o3.getId(), "reopen", null).path("status").asText()).isEqualTo("NEW");
         assertThat(stored(c1, o3)).isNull();
+        assertThat(shared(o3)).as("reopening what was never answered creates nothing").isNull();
         assertThat(actOk(o2.getId(), "reopen", null).path("status").asText()).as("an awaiting one is left alone").isEqualTo("AWAITING_RESPONSE");
     }
 
@@ -723,5 +862,56 @@ class OpportunitiesResourceIT {
         assertStatus(ssn, 422, "a social security number");
         assertThat(ssn.getResponse().getContentAsString()).contains("SENSITIVE_CONTENT");
         assertThat(stored(c1, o1).getResumeUpdateNote()).as("a refused note changes nothing").isEqualTo("Also my AWS work.");
+    }
+
+    @Test
+    void iAppliedRecordsTheConsultantsOwnStatementAndNothingIsSubmitted() throws Exception {
+        seedC1();
+        long appsBefore = applications.countByOrgId(a.getId());
+        JsonNode r = actOk(o1.getId(), "applied", null);
+        assertThat(r.path("status").asText()).isEqualTo("APPLIED");
+        MktOpportunity x = shared(o1);
+        assertThat(x.getState()).isEqualTo("APPLIED");
+        assertThat(x.getAppliedAt()).isNotNull();
+        assertThat(eventKinds(o1)).as("the marketer reads \"says they applied\"").containsExactly("APPLIED_UNLINKED");
+        assertThat(mktEvents.findByOrgIdAndOpportunityIdOrderByOccurredAtDesc(a.getId(), x.getId()).get(0).getText()).contains("says they applied");
+        assertThat(applications.countByOrgId(a.getId())).as("Kiwiply never applies or submits: nothing is created").isEqualTo(appsBefore);
+        assertThat(matches.findByOrgIdAndId(a.getId(), o1.getId()).orElseThrow().getStatus()).isEqualTo("ASSIGNED");
+
+        assertThat(actOk(o1.getId(), "applied", null).path("status").asText()).as("idempotent").isEqualTo("APPLIED");
+        assertThat(eventKinds(o1)).hasSize(1);
+        JsonNode p = page("cws-o-a-c1", a);
+        assertThat(row(p, o1.getId()).path("status").asText()).isEqualTo("APPLIED");
+        assertThat(row(p, o1.getId()).path("allowedActions")).as("nothing more to do once they applied").isEmpty();
+        assertThat(p.path("tiles").path("high").path("value").asLong()).as("an applied one is no longer work to do").isEqualTo(1);
+        assertThat(p.path("nextSteps").path("toRespond").asInt()).isEqualTo(1);
+        JsonNode d = detail("cws-o-a-c1", a, o1.getId());
+        assertThat(d.path("appliedAt").isNull()).isFalse();
+        assertThat(texts(d.path("timeline"), "key")).containsExactly("ASSIGNED", "APPLIED");
+
+        // after applying, the earlier answers are no longer possible
+        for (String action : List.of("express-interest", "need-more-info", "decline")) {
+            assertStatus(act("cws-o-a-c1", a, o1.getId(), action, "{\"message\":\"Any news on this one?\",\"reason\":\"Changed my mind\"}"), 409, action + " after applying");
+        }
+        assertThat(shared(o1).getState()).isEqualTo("APPLIED");
+        // a declined opportunity cannot be applied to until it is reopened
+        assertStatus(act("cws-o-a-c1", a, o4.getId(), "applied", null), 409, "applied on a declined opportunity");
+    }
+
+    @Test
+    void aJobThatIsNotOpenAnyMoreTakesNoInterestQuestionOrApplicationButCanStillBeDeclined() throws Exception {
+        seedC1();
+        ClientRequirement closed = requirements.findByOrgIdAndId(a.getId(), o1.getRequirementId()).orElseThrow();
+        closed.setStatus("CLOSED");
+        requirements.saveAndFlush(closed);
+        assertThat(values(row(page("cws-o-a-c1", a), o1.getId()).path("allowedActions"))).containsExactly("RESUME_UPDATE", "DECLINE");
+        for (String action : List.of("express-interest", "need-more-info", "applied")) {
+            MvcResult r = act("cws-o-a-c1", a, o1.getId(), action, "{\"message\":\"Is it still open?\"}");
+            assertStatus(r, 409, action + " on a closed job");
+            assertThat(r.getResponse().getContentAsString()).contains("JOB_NOT_OPEN");
+        }
+        assertThat(actOk(o1.getId(), "decline", "{\"reason\":\"It is closed anyway.\"}").path("status").asText()).isEqualTo("DECLINED");
+        assertThat(values(row(page("cws-o-a-c1", a), o1.getId()).path("allowedActions"))).as("a closed job cannot be reopened").isEmpty();
+        assertStatus(act("cws-o-a-c1", a, o1.getId(), "reopen", null), 409, "reopen on a closed job");
     }
 }

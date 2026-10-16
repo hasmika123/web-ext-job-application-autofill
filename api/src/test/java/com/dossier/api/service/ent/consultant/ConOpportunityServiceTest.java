@@ -557,4 +557,96 @@ class ConOpportunityServiceTest {
         assertThatThrownBy(() -> service.requestInfo(w.me, 1L, "ssn 123-45-6789", null)).isInstanceOf(OrgNotFoundException.class);
         verify(w.repo, never()).findOwned(anyLong(), anyLong(), anyLong());
     }
+
+    // ---- the transitions the consultant workspace page writes through (it gates with its own service, then passes the resolved view) ---------------------
+
+    private final ConScope.View view = new ConScope.View(ConWorld.ORG, ConWorld.MEMBER, ConWorld.USER, ConWorld.CONSULTANT);
+
+    @Test
+    void theWorkspacePageWritesTheSameRecordWithoutGoingThroughTheExtensionGate() {
+        w.opp(1, "ASSIGNED");
+        service.recordInterest(view, w.me, 1L, null);
+        assertThat(w.opps.get(1L).o.getState()).isEqualTo("INTERESTED");
+        assertThat(w.opps.get(1L).o.getInterest()).as("the marketer board reads this").isEqualTo("INTERESTED");
+        assertThat(w.eventKinds()).containsExactly("INTERESTED");
+        verify(w.scope, never()).write(any());
+        verify(w.scope, never()).read(any());
+    }
+
+    @Test
+    void aSecondQuestionReplacesTheFirstOnlyWhenTheCallerAsksToReaskAndTellsTheMarketerAgain() {
+        ConWorld.Opp x = w.opp(1, "NEEDS_INFO");
+        x.o.setInfoRequest("first?");
+        x.o.setInfoAnswer("the marketer answered");
+        service.recordInfoRequest(view, w.me, 1L, "second?", false, null);
+        assertThat(x.o.getInfoRequest()).as("the extension-facing call keeps its no-op").isEqualTo("first?");
+        assertThat(w.eventLog).isEmpty();
+
+        service.recordInfoRequest(view, w.me, 1L, "second?", true, null);
+        assertThat(x.o.getState()).isEqualTo("NEEDS_INFO");
+        assertThat(x.o.getInfoRequest()).isEqualTo("second?");
+        assertThat(x.o.getInfoAnswer()).as("the old answer belongs to the old question").isNull();
+        assertThat(w.eventKinds()).containsExactly("INFO_REQUESTED");
+        for (String state : List.of("DECLINED", "APPLIED", "CLOSED")) {
+            w.opp(2, state);
+            assertThatThrownBy(() -> service.recordInfoRequest(view, w.me, 2L, "q", true, null)).as(state).satisfies(e -> assertThat(code(e)).isEqualTo("ILLEGAL_TRANSITION"));
+        }
+    }
+
+    @Test
+    void aDeclineKeepsTheConsultantsOwnWordsOnTheRowAndTheShortCodeForTheBoard() {
+        w.opp(1, "ASSIGNED");
+        String words = "Pay is below my minimum rate. ".repeat(9).strip();
+        service.recordDecline(view, w.me, 1L, "OTHER", words, null);
+        var o = w.opps.get(1L).o;
+        assertThat(o.getState()).isEqualTo("DECLINED");
+        assertThat(o.getInterest()).isEqualTo("NOT_INTERESTED");
+        assertThat(o.getDeclineReason()).isEqualTo("OTHER");
+        assertThat(o.getDeclineNote()).isEqualTo(words);
+        assertThat(w.eventLog.get(0).getText()).as("the feed line is cut to the event column").hasSize(200).startsWith("declined (OTHER): Pay is below");
+    }
+
+    @Test
+    void reopenMovesADeclinedOpportunityBackToAssignedAndClearsWhatWasSaid() {
+        ConWorld.Opp x = w.opp(1, "DECLINED");
+        x.o.setInterest("NOT_INTERESTED");
+        x.o.setDeclineReason("OTHER");
+        x.o.setDeclineNote("Too far");
+        x.o.setInfoRequest("old question");
+        service.recordReopen(view, w.me, 1L, null);
+        assertThat(x.o.getState()).isEqualTo("ASSIGNED");
+        assertThat(x.o.getInterest()).isEqualTo("NO_RESPONSE");
+        assertThat(x.o.getDeclineReason()).isNull();
+        assertThat(x.o.getDeclineNote()).isNull();
+        assertThat(x.o.getInfoRequest()).isNull();
+        assertThat(w.eventKinds()).containsExactly("REOPENED");
+        verify(w.audit).record(w.me, "CONSULTANT_OPPORTUNITY_REOPENED", "OPPORTUNITY", null, "1", "from DECLINED");
+    }
+
+    @Test
+    void reopenOfAnythingThatIsNotDeclinedIsANoOpAndAClosedJobCannotBeReopened() {
+        for (String state : List.of("ASSIGNED", "INTERESTED", "NEEDS_INFO", "APPLIED", "CLOSED")) {
+            w.opp(1, state);
+            service.recordReopen(view, w.me, 1L, null);
+            assertThat(w.opps.get(1L).o.getState()).as(state).isEqualTo(state);
+        }
+        assertThat(w.eventLog).isEmpty();
+        ConWorld.Opp closed = w.opp(2, "DECLINED");
+        closed.jobStatus = "CLOSED";
+        assertThatThrownBy(() -> service.recordReopen(view, w.me, 2L, null)).satisfies(e -> assertThat(code(e)).isEqualTo("JOB_NOT_OPEN"));
+        assertThat(closed.o.getState()).isEqualTo("DECLINED");
+        assertThatThrownBy(() -> service.recordReopen(view, w.me, 999L, null)).isInstanceOf(OrgNotFoundException.class);
+    }
+
+    @Test
+    void iAppliedFromTheWorkspacePageIsTheConsultantsOwnStatementAndLinksNothing() {
+        w.opp(1, "INTERESTED");
+        service.recordApplied(view, w.me, 1L, null, null, false);
+        assertThat(w.opps.get(1L).o.getState()).isEqualTo("APPLIED");
+        assertThat(w.opps.get(1L).o.getAppliedAt()).isEqualTo(ConWorld.NOW);
+        assertThat(w.eventKinds()).containsExactly("APPLIED_UNLINKED");
+        assertThat(w.linkStore).isEmpty();
+        service.recordApplied(view, w.me, 1L, null, null, false);
+        assertThat(w.eventLog).as("idempotent").hasSize(1);
+    }
 }

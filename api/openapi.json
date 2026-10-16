@@ -8935,7 +8935,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Need more info",
-        "description" : "Stores a question for the marketer (3-300 characters, scanned) and moves a NEW opportunity to AWAITING_RESPONSE.",
+        "description" : "Stores a question for the marketer on the shared opportunity record (3-300 characters, scanned): the state becomes NEEDS_INFO (shown AWAITING_RESPONSE) and the marketer's activity feed records it. Asking again replaces the question.",
         "operationId" : "needMoreInfo",
         "parameters" : [ {
           "name" : "matchId",
@@ -8973,7 +8973,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Express interest",
-        "description" : "Records the same interest row as Job Matches (optional note, scanned for sensitive data). Changes no status, creates no application, submits nothing. Idempotent.",
+        "description" : "Moves the shared opportunity record to INTERESTED (the marketer's board reads it) and keeps the interest row Job Matches shows (optional note, scanned for sensitive data). Creates no application, submits nothing. Idempotent.",
         "operationId" : "expressInterest",
         "parameters" : [ {
           "name" : "matchId",
@@ -9011,7 +9011,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Decline the opportunity",
-        "description" : "A reason is required (3-300 characters, scanned). Moves the opportunity to DECLINED. Idempotent.",
+        "description" : "A reason is required (3-300 characters, scanned). Moves the shared opportunity record to DECLINED (the marketer's board reads Not Interested). Idempotent.",
         "operationId" : "decline_1",
         "parameters" : [ {
           "name" : "matchId",
@@ -9031,6 +9031,35 @@
             }
           }
         },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Outcome"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/opportunities/{matchId}/applied" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "I applied",
+        "description" : "The consultant records that THEY applied on the source site (state APPLIED; the marketer sees \"says they applied\"). Kiwiply never applies or submits for anyone: this stores a statement only. Idempotent.",
+        "operationId" : "iApplied",
+        "parameters" : [ {
+          "name" : "matchId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
         "responses" : {
           "200" : {
             "description" : "OK",

@@ -518,6 +518,7 @@ public class OpportunityAssignmentService {
         opp.setClosedAt(null);
         opp.setClosedReason(null);
         opp.setDeclineReason(null);
+        opp.setDeclineNote(null);
         opp.setInfoRequest(null);
         opp.setInfoAnswer(null);
         opp.setInterest("NO_RESPONSE"); // the legacy column follows the state (NOT_INTERESTED was the old DECLINED)
