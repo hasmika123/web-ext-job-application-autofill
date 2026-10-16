@@ -4,7 +4,7 @@
 > Keep this file and `docs/roadmap/areas/sub.json` in sync on every transition (`node docs/roadmap/build-master-roadmap.mjs --set K1.1=in_progress`
 > edits the JSON and regenerates the HTML; then update the row here with the commit SHA and the test names).
 > Every Completed row must reference actual code and tests. Design docs: `README.md` in this folder.
-> Last update: 2026-10-16 (catalog stream: K3.4, K1.1 to K1.4, K2.1 built on branch sub-catalog; BillingSchemaIT fails after the 15th of any month for a reason that predates this branch: BillingDemoSeeder makes the current month invoice due on day 15 and the test expects one overdue invoice).
+> Last update: 2026-10-16 (customer web stream, branch sub-web-customer: K5.1, K5.3 web, K5.5, K9.4 done, K5.6 web half; catalog stream: K3.4, K1.1 to K1.4, K2.1 built on branch sub-catalog; BillingSchemaIT fails after the 15th of any month for a reason that predates this branch: BillingDemoSeeder makes the current month invoice due on day 15 and the test expects one overdue invoice).
 
 ## Phase gates
 | Phase | Gate | Status |
@@ -46,12 +46,12 @@
 | K4.5 | Compare / subscribers / migration sheet | Not Started | Web | | | |
 | K4.6 | Org plan editor | Not Started | Web | | | |
 | K4.7 | Fixtures + Playwright admin-plans | Not Started | Web | | | |
-| K5.1 | Public catalog + /pricing from it | Not Started | API, Web | | | supersedes B1.5 |
+| K5.1 | Public catalog + /pricing from it | Completed | API, Web | c0db3ca7 (API), a6b8c161 (web) | CatalogPublicIT (8), OpenApiContractIT, CatalogPricing.test (9), subscription.test (13) | branch sub-web-customer; lib/catalog.ts + prices.ts kept as the fallback when the catalog has no sellable plan (not deleted); supersedes B1.5 |
 | K5.2 | subscription_addon + change tables; webhook | Completed | API | 8a8e0384 | AddonCheckoutIT webhook cases, PersonalAddonWritersTest (2) | live_seq is NULL when closed (P-9); the mirror ignores non-catalog prices |
-| K5.3 | Checkout from a quote | In Progress | API, Web | 89d17949 | AddonCheckoutIT (7), BillingResourceIT unchanged (13) | API half done; web half (review sheet, success page) not started |
+| K5.3 | Checkout from a quote | Completed | API, Web | 89d17949 (API), a1b23010 (web) | AddonCheckoutIT (7), BillingResourceIT unchanged (13), ReviewSheet.test (2), CatalogPricing.test review-sheet cases | web half: review sheet, success page with add-ons, /billing/cancelled (set STRIPE_CANCEL_URL to it; the default /pricing still works) |
 | K5.4 | Change flow + applier + retry | Completed | API | 8baf7871 | AddonChangeIT (10) | retry job + settle; undo is Stripe-first (P-3) |
-| K5.5 | My plan page | Not Started | Web | | | |
-| K5.6 | Plan / interval switch | Not Started | API, Web | | | |
+| K5.5 | My plan page | Completed | Web | b0f2197e, 657c2aa7 | MyPlan.test (8), plan-state.test (7) | /settings/plan; sunset banner renders only if GET /api/billing/me sends `sunset` (it does not yet) |
+| K5.6 | Plan / interval switch | In Progress | API, Web | b0f2197e (web) | MyPlan.test switch cases | web half done (interval tabs, switch sheet, S-04 sentences) and mocked in web/scripts/mock-billing.mjs; API half NOT built: a CHANGE quote with another planKey or interval answers 422 PLAN_SWITCH_UNSUPPORTED (PersonalQuoteService.resolveChange), the page explains it |
 | K5.7 | PlanDTO v3, invoices, entitlements/me | Completed | API | c5051619 | PersonalEntitlementsIT (3), PersonalInvoiceServiceTest (4), LegacyReadersUnchangedIT (3, six-key compare) | source of entitlements/me is provisional until K7.1; invoices read the mirror port (K8.3) else Stripe |
 | K5.8 | Playwright pricing-addons + lint | Not Started | Web | | | |
 | K6.1 | Enterprise links + org plan read | Not Started | API | | | waits on X5.4/X6.12 |
@@ -77,7 +77,7 @@
 | K9.1 | YEAR rows + guard + golden S2/S3 | Completed | API | da26e84c, 304b3c78 | AnnualPriceDeriverTest (5), PlanPublishIT yearly cases | derived rows at plan publish under the guard |
 | K9.2 | Annual proration / term rules (personal) | Not Started | API | | | phase S3 |
 | K9.3 | Monthly sub-windows on annual | Not Started | API | | | phase S2 |
-| K9.4 | Annual customer UX | Not Started | Web | | | phase S3 |
+| K9.4 | Annual customer UX | Completed | Web | a6b8c161, 657c2aa7 | CatalogPricing.test (yearly tab, hide when off), ReviewSheet.test (yearly variant), MyPlan.test (interval sentence) | Yearly tab, "billed once a year / about x per month / save y" from DTO fields, S-04 term-end sentences; Playwright fixtures: MOCK_ANNUAL=0 toggles the mock |
 | K9.5 | Org annual | Not Started | API, Web | | | phase S5 |
 | K9.6 | Annual operations runbook + self-check | Not Started | API | | | phase S3; S-09 tax mode |
 | K10.1 | Retirement model + states + effective dates | Not Started | API | | | |
