@@ -43,8 +43,7 @@ Why two organizations: Acme Staffing is the rich demo tenant (153 consultants, a
 
 A second set of the same four flows, re-scripted as a person talking you through it and re-recorded on a fresh database (`dossier_ent_videos3`, version2 at `c9a755bf`). The Zira originals above stay exactly as they were in the parent folder; nothing was deleted or overwritten.
 
-Folder: `C:\work_bench6_april\claude_code_work_bench\kiwiply-videos
-atural-voice\` (same file names as the originals, `.srt` next to each; `04` is `04-who-changed-what.mp4`).
+Folder: `C:\work_bench\2026_april\claude_code_work_bench\kiwiply-videos\natural-voice\` (same file names as the originals, `.srt` next to each; `04` is `04-who-changed-what.mp4`).
 
 | # | File | Length |
 |---|---|---|
