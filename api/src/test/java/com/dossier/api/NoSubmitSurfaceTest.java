@@ -126,7 +126,7 @@ class NoSubmitSurfaceTest {
 
     // ---- 2. no route is named or documented as transmitting a submission --------------------------------------------------------
 
-    private record Route(String path, String httpClass, String handler, String text) {}
+    private record Route(String path, String httpClass, String handler, String text, String pkg) {}
 
     static List<Route> orgRoutes() throws Exception {
         ClassPathScanningCandidateComponentProvider scanner = new ClassPathScanningCandidateComponentProvider(false) {
@@ -150,7 +150,7 @@ class NoSubmitSurfaceTest {
                 String text = (op == null ? "" : op.summary() + " " + op.description()) + (classOp == null ? "" : " " + classOp.summary() + " " + classOp.description());
                 for (String b : bases) for (String p : own) {
                     String path = (b + p).replaceAll("//+", "/");
-                    if (path.startsWith("/api/orgs/")) out.add(new Route(path, c.getSimpleName(), m.getName(), text));
+                    if (path.startsWith("/api/orgs/")) out.add(new Route(path, c.getSimpleName(), m.getName(), text, c.getPackageName()));
                 }
             }
         }
@@ -171,6 +171,25 @@ class NoSubmitSurfaceTest {
     static String affirmative(String text) {
         return THE_OWNER_DOES.matcher(NEGATED.matcher(text).replaceAll(" ")).replaceAll(" ");
     }
+
+    /** X8.9: rule 1 above only inspects the org packages, so a /api/orgs/** route declared anywhere else would escape it. */
+    @Test
+    void everyControllerServingApiOrgsLivesInAPackageTheDependencyRulesInspect() throws Exception {
+        List<String> strays = new ArrayList<>();
+        for (Route r : orgRoutes()) {
+            boolean inspected = java.util.Arrays.stream(ORG_WEB).anyMatch(p -> (r.pkg() + ".").startsWith(p.substring(0, p.length() - 2) + "."));
+            if (!inspected) strays.add(r.httpClass() + " (" + r.pkg() + ") serves " + r.path());
+        }
+        assertThat(strays).as("controllers serving /api/orgs/** outside web.rest.ent / web.rest.org escape the no-submit dependency rules").isEmpty();
+    }
+
+    @Test
+    void theDisclosedExceptionIsExactlyOneClass() {
+        // D8 (2026-10-15): only SaveForConsultantService may depend on the application writers; it must still exist so the exception stays pinned to it.
+        assertThat(classes.contain(SAVE_FOR_CONSULTANT)).as("the one sanctioned exception").isTrue();
+    }
+
+    private static final String SAVE_FOR_CONSULTANT = "com.dossier.api.service.ent.tracker.SaveForConsultantService";
 
     @Test
     void noOrgRouteIsNamedOrDocumentedAsTransmittingASubmission() throws Exception {
