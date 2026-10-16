@@ -732,6 +732,34 @@ public class StripeGatewayImpl implements StripeGateway {
     }
 
     @Override
+    public SubscriptionSnapshot retrieveSubscription(String subscriptionId) {
+        return read("retrieve the subscription", (c, o) -> {
+            Subscription sub;
+            try {
+                sub = c.subscriptions().retrieve(subscriptionId, o);
+            } catch (com.stripe.exception.InvalidRequestException e) {
+                if ("resource_missing".equals(e.getCode())) return null;
+                throw e;
+            }
+            return new SubscriptionSnapshot(
+                sub.getId(),
+                sub.getCustomer(),
+                sub.getStatus(),
+                Boolean.TRUE.equals(sub.getCancelAtPeriodEnd()),
+                periodStartOf(sub),
+                periodEndOf(sub),
+                sub.getSchedule(),
+                itemsOf(sub)
+            );
+        });
+    }
+
+    @Override
+    public StripeWebhookEvent retrieveEvent(String eventId) {
+        return read("retrieve the event", (c, o) -> toWebhookEvent(c.events().retrieve(eventId, o)));
+    }
+
+    @Override
     public java.util.List<StripePriceInfo> listPrices(int max) {
         int cap = Math.max(1, Math.min(max, 5000));
         return read("list prices", (c, o) -> {

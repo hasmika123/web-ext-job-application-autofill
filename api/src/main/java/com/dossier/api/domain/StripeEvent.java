@@ -77,6 +77,14 @@ public class StripeEvent implements Serializable, Persistable<String> {
     @Column(name = "org_id")
     private Long orgId;
 
+    /** For an admin replay (K8.5): the Stripe event id this row re-applied. Null on every row Stripe delivered. */
+    @Column(name = "replayed_from")
+    private String replayedFrom;
+
+    /** For an admin replay (K8.5): the login of the admin who asked. */
+    @Column(name = "replayed_by", length = 50)
+    private String replayedBy;
+
     /**
      * Not a column — it makes the id actually behave as an idempotency key.
      *
@@ -211,6 +219,22 @@ public class StripeEvent implements Serializable, Persistable<String> {
 
     public void setOccurredAt(Instant occurredAt) {
         this.occurredAt = occurredAt;
+    }
+
+    public String getReplayedFrom() {
+        return replayedFrom;
+    }
+
+    public void setReplayedFrom(String replayedFrom) {
+        this.replayedFrom = replayedFrom;
+    }
+
+    public String getReplayedBy() {
+        return replayedBy;
+    }
+
+    public void setReplayedBy(String replayedBy) {
+        this.replayedBy = replayedBy;
     }
 
     @Override
