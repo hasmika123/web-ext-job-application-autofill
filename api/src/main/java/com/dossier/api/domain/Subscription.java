@@ -74,6 +74,20 @@ public class Subscription implements Serializable {
     @Column(name = "current_period_start")
     private Instant currentPeriodStart;
 
+    /** K5.6: the Stripe subscription schedule that will switch this subscription (null when none). */
+    @Column(name = "schedule_id")
+    private String scheduleId;
+
+    /** K5.6: the plan version a scheduled switch moves to, its interval, and when (all null when nothing is scheduled). */
+    @Column(name = "scheduled_plan_version_id")
+    private Long scheduledPlanVersionId;
+
+    @Column(name = "scheduled_interval", length = 10)
+    private String scheduledInterval;
+
+    @Column(name = "scheduled_at")
+    private Instant scheduledAt;
+
     /** `created` of the newest event applied here — Stripe doesn't guarantee delivery order. */
     @Column(name = "last_event_at")
     private Instant lastEventAt;
@@ -186,6 +200,45 @@ public class Subscription implements Serializable {
 
     public void setCurrentPeriodStart(Instant currentPeriodStart) {
         this.currentPeriodStart = currentPeriodStart;
+    }
+
+    public String getScheduleId() {
+        return scheduleId;
+    }
+
+    public void setScheduleId(String scheduleId) {
+        this.scheduleId = scheduleId;
+    }
+
+    public Long getScheduledPlanVersionId() {
+        return scheduledPlanVersionId;
+    }
+
+    public void setScheduledPlanVersionId(Long scheduledPlanVersionId) {
+        this.scheduledPlanVersionId = scheduledPlanVersionId;
+    }
+
+    public String getScheduledInterval() {
+        return scheduledInterval;
+    }
+
+    public void setScheduledInterval(String scheduledInterval) {
+        this.scheduledInterval = scheduledInterval;
+    }
+
+    public Instant getScheduledAt() {
+        return scheduledAt;
+    }
+
+    public void setScheduledAt(Instant scheduledAt) {
+        this.scheduledAt = scheduledAt;
+    }
+
+    /** Clears the scheduled-switch columns (not the schedule id, which is released separately). */
+    public void clearScheduledSwitch() {
+        this.scheduledPlanVersionId = null;
+        this.scheduledInterval = null;
+        this.scheduledAt = null;
     }
 
     public Instant getLastEventAt() {

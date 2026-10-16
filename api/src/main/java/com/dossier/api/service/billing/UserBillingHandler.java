@@ -50,6 +50,7 @@ public class UserBillingHandler {
             case "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted" -> upsertFromSubscription(
                 event
             );
+            case "subscription_schedule.released", "subscription_schedule.canceled", "subscription_schedule.aborted", "subscription_schedule.completed" -> onScheduleEnded(event);
             case "invoice.paid" -> setStatusFromInvoice(event, "active");
             case "invoice.payment_failed" -> onPaymentFailed(event);
             default -> LOG.debug("Ignoring Stripe event type {}", event.type());
@@ -65,6 +66,81 @@ public class UserBillingHandler {
     }
 
     private InvoiceMirror invoiceMirror;
+    private com.dossier.api.repository.sub.PersonalSubscriptionChangeRepository switchChanges;
+    private com.dossier.api.repository.sub.PriceLookupRepository priceLookup;
+
+    /** Optional (K5.6): the scheduled plan or interval switches. Without them the handler is exactly what it was. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setSwitchSupport(com.dossier.api.repository.sub.PersonalSubscriptionChangeRepository switchChanges, com.dossier.api.repository.sub.PriceLookupRepository priceLookup) {
+        this.switchChanges = switchChanges;
+        this.priceLookup = priceLookup;
+    }
+
+    /** The PENDING switch whose successor subscription ({@code sub:} reference) exists in Stripe, for the row. */
+    private Optional<com.dossier.api.domain.sub.PersonalSubscriptionChange> pendingSuccessor(Subscription sub) {
+        if (switchChanges == null || sub == null || sub.getId() == null) return Optional.empty();
+        return switchChanges
+            .findBySubscriptionIdAndStatusInOrderByIdAsc(sub.getId(), java.util.List.of("PENDING"))
+            .stream()
+            .filter(c -> ("PLAN_SWITCH".equals(c.getKind()) || "INTERVAL_SWITCH".equals(c.getKind())) && c.getStripeRef() != null && c.getStripeRef().startsWith("sub:"))
+            .findFirst();
+    }
+
+    /**
+     * {@code subscription_schedule.*}: a released, cancelled or aborted schedule ends a scheduled switch that has not taken effect (the change is CANCELLED);
+     * a completed one needs nothing here, the {@code customer.subscription.updated} that carries the new items moves the plan link. The schedule id is cleared
+     * in every case.
+     */
+    private void onScheduleEnded(StripeWebhookEvent event) {
+        if (event.taggedForAnotherApp() || event.scheduleId() == null) return;
+        Subscription sub = findSubscription(event).orElse(null);
+        if (sub == null || !event.scheduleId().equals(sub.getScheduleId())) return;
+        sub.setScheduleId(null);
+        boolean ended = !event.type().endsWith(".completed");
+        if (ended && switchChanges != null && sub.getScheduledAt() != null && sub.getScheduledAt().isAfter(Instant.now())) {
+            for (var c : switchChanges.findBySubscriptionIdAndStatusInOrderByIdAsc(sub.getId(), java.util.List.of("PENDING"))) {
+                if (event.scheduleId().equals(c.getStripeRef())) {
+                    c.setStatus("CANCELLED");
+                    c.setAppliedAt(Instant.now());
+                    switchChanges.save(c);
+                }
+            }
+            sub.clearScheduledSwitch();
+        }
+        sub.setUpdatedAt(Instant.now());
+        subscriptionRepository.save(sub);
+    }
+
+    /**
+     * The current subscription of a fallback switch just ended (its period end): the successor takes the row over WITHOUT a gap, active, on the target plan
+     * version and interval. Returns true when it did.
+     */
+    private boolean promoteSuccessor(Subscription sub, StripeWebhookEvent event) {
+        var change = pendingSuccessor(sub).orElse(null);
+        if (change == null) return false;
+        sub.setStripeSubscriptionId(change.getStripeRef().substring("sub:".length()));
+        sub.setStatus("active");
+        sub.setCancelAtPeriodEnd(false);
+        if (change.getPlanVersionTo() != null) sub.setPlanVersionId(change.getPlanVersionTo());
+        if (change.getIntervalTo() != null) {
+            sub.setBillingInterval(change.getIntervalTo());
+            int months = "YEAR".equals(change.getIntervalTo()) ? 12 : "QUARTER".equals(change.getIntervalTo()) ? 3 : 1;
+            Instant from = change.getEffectiveAt() == null ? Instant.now() : change.getEffectiveAt();
+            sub.setCurrentPeriodStart(from);
+            sub.setCurrentPeriodEnd(from.atZone(java.time.ZoneOffset.UTC).plusMonths(months).toInstant());
+        }
+        if (priceLookup != null && change.getPriceId() != null) priceLookup.findById(change.getPriceId()).ifPresent(p -> sub.setPriceId(p.getStripePriceId()));
+        sub.clearScheduledSwitch();
+        sub.setScheduleId(null);
+        sub.setLastEventAt(event.created());
+        change.setStatus("APPLIED");
+        change.setAppliedAt(Instant.now());
+        switchChanges.save(change);
+        touch(sub);
+        subscriptionRepository.save(sub);
+        LOG.info("The scheduled switch took over subscription row {}: no gap", sub.getId());
+        return true;
+    }
 
     /** Optional (K8.3): without it only the subscription mirror is written, exactly as before. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -137,11 +213,26 @@ public class UserBillingHandler {
         }
         if (isStale(sub, event)) return;
 
+        // K5.6: the end of the current subscription of a fallback switch hands the row to its successor instead of lapsing it
+        if ("customer.subscription.deleted".equals(event.type()) && event.subscriptionId() != null && event.subscriptionId().equals(sub.getStripeSubscriptionId()) && promoteSuccessor(sub, event)) return;
+        // K5.6: our own end-at-period-end on the old subscription is not a cancellation; a real cancellation wins over a scheduled switch
+        boolean ownCancel = Boolean.TRUE.equals(event.cancelAtPeriodEnd()) && pendingSuccessor(sub).isPresent();
+        if (Boolean.TRUE.equals(event.cancelAtPeriodEnd()) && !ownCancel && sub.getScheduledAt() != null && switchChanges != null) {
+            for (var c : switchChanges.findBySubscriptionIdAndStatusInOrderByIdAsc(sub.getId(), java.util.List.of("PENDING"))) {
+                if ("PLAN_SWITCH".equals(c.getKind()) || "INTERVAL_SWITCH".equals(c.getKind())) {
+                    c.setStatus("CANCELLED");
+                    c.setAppliedAt(Instant.now());
+                    switchChanges.save(c);
+                }
+            }
+            sub.clearScheduledSwitch(); // the schedule id stays: the change job releases the schedule
+        }
+
         if (event.subscriptionId() != null) sub.setStripeSubscriptionId(event.subscriptionId());
         if (event.status() != null) sub.setStatus(event.status());
         if (event.priceId() != null) sub.setPriceId(event.priceId());
         if (event.currentPeriodEnd() != null) sub.setCurrentPeriodEnd(event.currentPeriodEnd());
-        if (event.cancelAtPeriodEnd() != null) sub.setCancelAtPeriodEnd(event.cancelAtPeriodEnd());
+        if (event.cancelAtPeriodEnd() != null && !ownCancel) sub.setCancelAtPeriodEnd(event.cancelAtPeriodEnd());
         sub.setLastEventAt(event.created());
         touch(sub);
         subscriptionRepository.save(sub);
@@ -246,6 +337,12 @@ public class UserBillingHandler {
         // which is what a genuine resubscribe looks like.
         String known = byCustomer.get().getStripeSubscriptionId();
         if (known == null || known.equals(event.subscriptionId())) return byCustomer;
+        // K5.6: the successor subscription of a scheduled switch is billed from the switch instant; until the current one ends it must not take the row over
+        var successor = pendingSuccessor(byCustomer.get());
+        if (successor.isPresent() && successor.get().getStripeRef().equals("sub:" + event.subscriptionId())) {
+            LOG.info("Holding {} for subscription {}: it takes over when the current subscription ends", event.type(), event.subscriptionId());
+            return Optional.empty();
+        }
         if (LIVE_STATUSES.contains(lower(event.status()))) {
             LOG.info("Subscription {} supersedes {} for customer {}", event.subscriptionId(), known, event.customerId());
             return byCustomer;

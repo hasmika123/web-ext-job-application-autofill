@@ -97,9 +97,16 @@ public class SubscriptionChangeApplier {
             }
         });
         try {
-            setItems(sub, Map.of(), IdempotencyKey.of("sc", batchId, "items"));
+            PersonalSubscriptionChange switchChange = todo.stream().filter(SubscriptionChangeApplier::isSwitch).findFirst().orElse(null);
+            boolean scheduledSwitch = switchChange != null && "SCHEDULED".equals(payload(switchChange).get("mode"));
+            // a scheduled switch touches nothing today; everything else makes the items equal Kiwiply's target now (an upgrade with the new base)
+            if (!scheduledSwitch) setItems(sub, Map.of(), switchChange == null ? null : stripePriceOf(switchChange.getPriceId()), IdempotencyKey.of("sc", batchId, "items"));
             Map<Long, String> refs = new LinkedHashMap<>();
             for (PersonalSubscriptionChange c : todo) {
+                if (isSwitch(c)) {
+                    refs.put(c.getId(), applySwitch(sub, c));
+                    continue;
+                }
                 long proration = prorationOf(c);
                 boolean addition = c.getQuantityTo() != null && c.getQuantityFrom() != null && c.getQuantityTo() > c.getQuantityFrom();
                 String ref = "items";
@@ -120,6 +127,10 @@ public class SubscriptionChangeApplier {
             Instant now = Instant.now();
             tx.executeWithoutResult(s -> {
                 for (PersonalSubscriptionChange c : todo) {
+                    if (isSwitch(c)) {
+                        finishSwitch(c, refs.get(c.getId()), now);
+                        continue;
+                    }
                     boolean scheduled = c.getQuantityTo() != null && c.getQuantityFrom() != null && c.getQuantityTo() < c.getQuantityFrom();
                     c.setStripeRef(refs.get(c.getId()));
                     c.setFailedReason(null);
@@ -152,16 +163,26 @@ public class SubscriptionChangeApplier {
 
     /** Make the subscription's Stripe items equal Kiwiply's target, with {@code overrides} (feature to quantity) applied on top. Throws {@link StripeGatewayException}. */
     public void setItems(Subscription sub, Map<String, Integer> overrides, IdempotencyKey key) {
-        gateway.setSubscriptionItems(sub.getStripeSubscriptionId(), targetItems(sub, overrides, Instant.now()), key);
+        setItems(sub, overrides, null, key);
+    }
+
+    /** As above, with {@code baseOverride} (a Stripe price id) as the base item: an upgrade swaps the base in the same update. */
+    public void setItems(Subscription sub, Map<String, Integer> overrides, String baseOverride, IdempotencyKey key) {
+        gateway.setSubscriptionItems(sub.getStripeSubscriptionId(), targetItems(sub, overrides, Instant.now(), baseOverride), key);
     }
 
     /** The Stripe items the subscription should have: the base at 1, then every held add-on at its effective quantity (a scheduled removal is already out). */
     public List<ItemQuantity> targetItems(Subscription sub, Map<String, Integer> overrides, Instant now) {
-        if (sub.getPriceId() == null || sub.getPriceId().isBlank()) {
+        return targetItems(sub, overrides, now, null);
+    }
+
+    List<ItemQuantity> targetItems(Subscription sub, Map<String, Integer> overrides, Instant now, String baseOverride) {
+        String basePrice = baseOverride != null && !baseOverride.isBlank() ? baseOverride : sub.getPriceId();
+        if (basePrice == null || basePrice.isBlank()) {
             throw new StripeGatewayException("The subscription has no base price", StripeGatewayException.Kind.INVALID_REQUEST, null, null);
         }
         List<ItemQuantity> out = new ArrayList<>();
-        out.add(new ItemQuantity(sub.getPriceId(), 1));
+        out.add(new ItemQuantity(basePrice, 1));
         for (PersonalBasket.Held h : basket.held(sub.getId(), now)) {
             int qty = overrides.getOrDefault(h.featureKey(), h.effectiveQuantity());
             if (qty <= 0) continue;
@@ -172,6 +193,97 @@ public class SubscriptionChangeApplier {
             out.add(new ItemQuantity(p.getStripePriceId(), qty));
         }
         return out;
+    }
+
+    static boolean isSwitch(PersonalSubscriptionChange c) {
+        return SubscriptionChangeService.PLAN_SWITCH.equals(c.getKind()) || SubscriptionChangeService.INTERVAL_SWITCH.equals(c.getKind());
+    }
+
+    private String stripePriceOf(Long priceRowId) {
+        ProductPrice p = priceRowId == null ? null : prices.findById(priceRowId).orElse(null);
+        if (p == null || p.getStripePriceId() == null || p.getStripePriceId().isBlank()) {
+            throw new StripeGatewayException("A price has no Stripe counterpart", StripeGatewayException.Kind.INVALID_REQUEST, "price_not_synced", null);
+        }
+        return p.getStripePriceId();
+    }
+
+    /**
+     * The Stripe side of one switch (07 section 2.3). NOW (an upgrade): the items were swapped by the batch update; this adds the proration invoice item.
+     * SCHEDULED: a subscription schedule keeps today's items until the effective instant and then runs the target basket; when Stripe refuses that (a mixed
+     * interval), the fallback marks the subscription to end at the period end and creates the successor subscription whose billing starts at that instant
+     * ({@code trial_end} is only Stripe's way to say "start billing then", never free time: access follows the paid period, see UserBillingHandler).
+     * Returns the reference stored on the change: {@code items}, an invoice item id, a schedule id, or {@code sub:} plus the successor subscription id.
+     */
+    private String applySwitch(Subscription sub, PersonalSubscriptionChange c) {
+        Map<String, Object> payload = payload(c);
+        if (!"SCHEDULED".equals(payload.get("mode"))) {
+            long proration = prorationOf(c);
+            if (proration <= 0) return "items";
+            return gateway.createInvoiceItem(
+                sub.getStripeCustomerId(),
+                proration,
+                currencyOf(c, sub),
+                "Prorated: switch to " + nameOf(c),
+                new Period(c.getEffectiveAt(), sub.getCurrentPeriodEnd() == null ? c.getEffectiveAt() : sub.getCurrentPeriodEnd()),
+                Map.of("subscription_change_id", String.valueOf(c.getId())),
+                IdempotencyKey.of("sc", c.getId(), "pro")
+            );
+        }
+        List<ItemQuantity> phase = new ArrayList<>();
+        Object items = payload.get("items");
+        if (items instanceof List<?> list) {
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> m && m.get("priceId") instanceof Number id && m.get("quantity") instanceof Number q) {
+                    phase.add(new ItemQuantity(stripePriceOf(id.longValue()), q.longValue()));
+                }
+            }
+        }
+        if (phase.isEmpty()) throw new StripeGatewayException("The scheduled switch has no items", StripeGatewayException.Kind.INVALID_REQUEST, null, null);
+        try {
+            return gateway.createSchedule(sub.getStripeSubscriptionId(), phase, c.getEffectiveAt(), IdempotencyKey.of("sc", c.getId(), "sched"));
+        } catch (StripeGatewayException e) {
+            if (e.getKind() != StripeGatewayException.Kind.INVALID_REQUEST) throw e;
+            LOG.info("Stripe refused a schedule for change {} ({}); using the successor-subscription path", c.getId(), e.getStripeCode());
+            gateway.setCancelAtPeriodEnd(sub.getStripeSubscriptionId(), true, IdempotencyKey.of("sc", c.getId(), "cap"));
+            String successor = gateway.createSubscription(
+                sub.getStripeCustomerId(),
+                phase,
+                c.getEffectiveAt(),
+                Map.of("app", "kiwiply", "kiwiply_scope", "personal", "switch_change_id", String.valueOf(c.getId())),
+                IdempotencyKey.of("sc", c.getId(), "sub")
+            );
+            return "sub:" + successor;
+        }
+    }
+
+    /** Record the outcome of a switch in one transaction: an upgrade is applied (the plan link moves now); a scheduled switch stays PENDING and is written on the subscription. */
+    private void finishSwitch(PersonalSubscriptionChange c, String ref, Instant now) {
+        c.setStripeRef(ref);
+        c.setFailedReason(null);
+        Subscription fresh = subscriptions.findById(c.getSubscriptionId()).orElse(null);
+        if ("SCHEDULED".equals(payload(c).get("mode"))) {
+            c.setStatus("PENDING");
+            if (fresh != null) {
+                fresh.setScheduleId(ref != null && ref.startsWith("sub:") ? null : ref);
+                fresh.setScheduledPlanVersionId(c.getPlanVersionTo());
+                fresh.setScheduledInterval(c.getIntervalTo());
+                fresh.setScheduledAt(c.getEffectiveAt());
+                fresh.setUpdatedAt(now);
+                subscriptions.save(fresh);
+            }
+        } else {
+            c.setStatus("APPLIED");
+            c.setAppliedAt(now);
+            if (fresh != null) {
+                // Stripe accepted the swap and the customer pays for it: the plan link moves with it (the webhook confirms the same values a moment later)
+                fresh.setPlanVersionId(c.getPlanVersionTo());
+                ProductPrice base = c.getPriceId() == null ? null : prices.findById(c.getPriceId()).orElse(null);
+                if (base != null && base.getStripePriceId() != null) fresh.setPriceId(base.getStripePriceId());
+                fresh.setUpdatedAt(now);
+                subscriptions.save(fresh);
+            }
+        }
+        changes.save(c);
     }
 
     private void fail(List<PersonalSubscriptionChange> todo, String reason, int attemptsOverride, int max) {

@@ -284,16 +284,13 @@ class AddonChangeIT {
     }
 
     @Test
-    void aChangeQuoteCannotSwitchPlanOrIntervalOrChangeNothing() throws Exception {
+    void aChangeQuoteWithNothingToChangeOrAnUnpublishedTargetPlanIsRefused() throws Exception {
         changeQuoteResult("[{\"featureKey\":\"ai.credits_extra\",\"quantity\":1}]").andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("NO_CHANGE"));
+        // K5.6 lifted PLAN_SWITCH_UNSUPPORTED: switching is real now (SubscriptionSwitchIT); a plan nobody can buy is simply not sellable
         mockMvc
             .perform(post("/api/billing/quotes").contentType(MediaType.APPLICATION_JSON).content("{\"kind\":\"CHANGE\",\"planKey\":\"AUTOPILOT\",\"addons\":[]}"))
             .andExpect(status().isUnprocessableEntity())
-            .andExpect(jsonPath("$.code").value("PLAN_SWITCH_UNSUPPORTED"));
-        mockMvc
-            .perform(post("/api/billing/quotes").contentType(MediaType.APPLICATION_JSON).content("{\"kind\":\"CHANGE\",\"interval\":\"QUARTER\",\"addons\":[]}"))
-            .andExpect(status().isUnprocessableEntity())
-            .andExpect(jsonPath("$.code").value("PLAN_SWITCH_UNSUPPORTED"));
+            .andExpect(jsonPath("$.code").value("PLAN_NOT_SELLABLE"));
     }
 
     @Test

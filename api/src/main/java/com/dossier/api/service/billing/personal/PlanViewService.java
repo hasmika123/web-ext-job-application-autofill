@@ -115,7 +115,7 @@ public class PlanViewService {
         List<PlanDTO.PendingChange> pendingChanges = changes
             .findBySubscriptionIdAndStatusInOrderByIdAsc(sub.getId(), List.of("PENDING", "APPLYING", "FAILED"))
             .stream()
-            .filter(c -> c.getEffectiveAt() != null && c.getEffectiveAt().isAfter(now) && c.getQuantityTo() != null && c.getQuantityFrom() != null && c.getQuantityTo() < c.getQuantityFrom())
+            .filter(c -> c.getEffectiveAt() != null && c.getEffectiveAt().isAfter(now) && (SubscriptionChangeApplier.isSwitch(c) || (c.getQuantityTo() != null && c.getQuantityFrom() != null && c.getQuantityTo() < c.getQuantityFrom())))
             .map(PlanViewService::pending)
             .toList();
         return new PlanDTO(

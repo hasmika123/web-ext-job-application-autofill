@@ -25,6 +25,9 @@ public interface PersonalSubscriptionChangeRepository extends Repository<Persona
 
     List<PersonalSubscriptionChange> findByUserIdOrderByIdDesc(Long userId);
 
+    /** The change whose Stripe object (schedule id, or {@code sub:} plus the successor subscription id) is {@code stripeRef}. */
+    List<PersonalSubscriptionChange> findByStripeRef(String stripeRef);
+
     /** FAILED changes still within the retry budget, oldest first. */
     @Query("select c from PersonalSubscriptionChange c where c.status = 'FAILED' and c.attempts < :maxAttempts order by c.id")
     List<PersonalSubscriptionChange> findRetryable(@Param("maxAttempts") int maxAttempts);

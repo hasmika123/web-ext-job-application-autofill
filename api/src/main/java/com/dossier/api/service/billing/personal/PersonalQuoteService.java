@@ -260,7 +260,12 @@ public class PersonalQuoteService {
         List<String> confirmedDeps,
         String stateHash,
         String priceHash,
-        Map<String, Integer> current
+        Map<String, Integer> current,
+        /** K5.6: UPGRADE_PLAN, DOWNGRADE_PLAN or CHANGE_INTERVAL for a plan or interval switch; null for an add-on change. */
+        String switchKind,
+        String fromPlanKey,
+        Long fromVersionId,
+        String fromInterval
     ) {}
 
     // ---- resolution ------------------------------------------------------------------------------------------------------------------
@@ -279,6 +284,13 @@ public class PersonalQuoteService {
         Map<String, Integer> addons = new LinkedHashMap<>();
         Set<String> confirmed = new LinkedHashSet<>();
         Instant now = Instant.now();
+        /** K5.6: set when the quote switches plan and/or interval; {@code plan}, {@code version} and {@code interval} are then the TARGET. */
+        boolean switching;
+        boolean planChanges;
+        Plan fromPlan;
+        PlanVersion fromVersion;
+        BillingInterval fromInterval;
+        SwitchRules.Kind switchKind;
 
         String storedKind() {
             return anonymous ? KIND_ANONYMOUS : kind;
@@ -362,16 +374,57 @@ public class PersonalQuoteService {
         if (interval == null || sub.getCurrentPeriodEnd() == null || version.getBaseProductId() == null) {
             throw new BillingException(409, "NO_SUBSCRIPTION", "This subscription cannot be changed online yet");
         }
-        if (req.planKey() != null && !req.planKey().isBlank() && !req.planKey().trim().equalsIgnoreCase(plan.getPlanKey())) {
-            throw new BillingException(422, "PLAN_SWITCH_UNSUPPORTED", "Switching plan is not part of an add-on change");
+        if (sub.getScheduledAt() != null && sub.getScheduledPlanVersionId() != null) {
+            throw new BillingException(409, "SWITCH_PENDING", "A plan change is already scheduled. Undo it first, or wait until it takes effect.");
         }
-        if (req.interval() != null && !req.interval().isBlank() && !req.interval().trim().equalsIgnoreCase(interval.name())) {
-            throw new BillingException(422, "PLAN_SWITCH_UNSUPPORTED", "Switching the billing interval is not part of an add-on change");
+        if (sub.isCancelAtPeriodEnd()) {
+            // a cancellation wins over any change; the confirm step says CANCEL_PENDING too, this just fails early for a switch
+            if (req.planKey() != null && !req.planKey().isBlank() || req.interval() != null && !req.interval().isBlank()) {
+                throw new BillingException(409, "CANCEL_PENDING", "Resume your subscription before changing it");
+            }
         }
         ctx.plan = plan;
         ctx.version = version;
         ctx.interval = interval;
         if (sub.getCurrency() != null && !sub.getCurrency().isBlank()) ctx.currency = sub.getCurrency();
+
+        boolean planChanges = req.planKey() != null && !req.planKey().isBlank() && !req.planKey().trim().equalsIgnoreCase(plan.getPlanKey());
+        BillingInterval target = interval;
+        if (req.interval() != null && !req.interval().isBlank()) {
+            target = parseInterval(req.interval());
+            if (target == null) throw new BillingException(422, "INTERVAL_NOT_AVAILABLE", "That billing interval isn't offered", Map.of("interval", req.interval()));
+        }
+        if (!planChanges && target == interval) return; // an add-on change
+        // K5.6: a plan and/or interval switch. The target is priced and offered like a checkout; the rules of timing live in SwitchRules.
+        ctx.switching = true;
+        ctx.planChanges = planChanges;
+        ctx.fromPlan = plan;
+        ctx.fromVersion = version;
+        ctx.fromInterval = interval;
+        Plan targetPlan = plan;
+        PlanVersion targetVersion = version;
+        if (planChanges) {
+            targetPlan = plans.findByPlanKey(req.planKey().trim().toUpperCase(Locale.ROOT)).orElseThrow(() -> notSellable(req.planKey()));
+            if ("SUNSET".equals(targetPlan.getStatus()) || "RETIRED".equals(targetPlan.getStatus())) {
+                Map<String, Object> extra = new LinkedHashMap<>();
+                extra.put("successor", targetPlan.getSuccessorPlanId() == null ? null : plans.findById(targetPlan.getSuccessorPlanId()).map(Plan::getPlanKey).orElse(null));
+                throw new BillingException(410, "PLAN_SUNSET", "This plan is no longer sold", extra);
+            }
+            if (!"INDIVIDUAL".equals(targetPlan.getAudience()) || !"PUBLISHED".equals(targetPlan.getStatus()) || !Boolean.TRUE.equals(targetPlan.getPublicPlan())) {
+                throw notSellable(targetPlan.getPlanKey());
+            }
+            Plan tp = targetPlan;
+            targetVersion = versions.findLive(tp.getId()).orElseThrow(() -> notSellable(tp.getPlanKey()));
+            if (targetVersion.getEffectiveFrom() != null && targetVersion.getEffectiveFrom().isAfter(ctx.now)) throw notSellable(targetPlan.getPlanKey());
+            if (targetVersion.getBaseProductId() == null) throw notSellable(targetPlan.getPlanKey());
+        }
+        if (!intervalsOf(targetVersion).contains(target.name())) {
+            throw new BillingException(422, "INTERVAL_NOT_AVAILABLE", "That billing interval isn't offered for this plan", Map.of("interval", target.name()));
+        }
+        SwitchRules.requireAllowed(interval, target, catalogSettings.annualEnabled(), settings.getString(BillingSettingKeys.ANNUAL_SWITCH_TO_MONTHLY));
+        ctx.plan = targetPlan;
+        ctx.version = targetVersion;
+        ctx.interval = target;
     }
 
     /** Rebuild the context of a stored quote: the same plan version, interval, add-on target and confirmations. */
@@ -396,6 +449,22 @@ public class PersonalQuoteService {
             if (ctx.sub != null && EntitlementService.isProFor(ctx.sub.getStatus(), ctx.sub.getCurrentPeriodEnd(), ctx.now)) {
                 throw new BillingException(409, BillingException.CODE_ALREADY_SUBSCRIBED, "You're already subscribed");
             }
+        } else if (stored.meta().switchKind() != null) {
+            Meta m = stored.meta();
+            if (ctx.sub == null || m.fromVersionId() == null || !m.fromVersionId().equals(ctx.sub.getPlanVersionId())) {
+                throw new BillingException(409, "NO_SUBSCRIPTION", "subscription changed");
+            }
+            if (ctx.sub.getScheduledAt() != null && ctx.sub.getScheduledPlanVersionId() != null) {
+                throw new BillingException(409, "SWITCH_PENDING", "subscription changed");
+            }
+            ctx.switching = true;
+            ctx.fromVersion = versions.findById(m.fromVersionId()).orElseThrow(() -> new BillingException(409, "NO_SUBSCRIPTION", "subscription changed"));
+            ctx.fromPlan = plans.findById(ctx.fromVersion.getPlanId()).orElseThrow(() -> new BillingException(409, "NO_SUBSCRIPTION", "subscription changed"));
+            ctx.fromInterval = parseInterval(m.fromInterval());
+            if (ctx.fromInterval == null || !ctx.fromInterval.name().equals(ctx.sub.getBillingInterval())) throw new BillingException(409, "NO_SUBSCRIPTION", "subscription changed");
+            ctx.planChanges = !ctx.fromPlan.getId().equals(ctx.plan.getId());
+            Optional<PlanVersion> live = versions.findLive(ctx.plan.getId());
+            if (live.isEmpty() || !live.get().getId().equals(ctx.version.getId())) throw new BillingException(409, "PLAN_SUNSET", "plan changed");
         } else if (ctx.sub == null || !ctx.version.getId().equals(ctx.sub.getPlanVersionId())) {
             throw new BillingException(409, "NO_SUBSCRIPTION", "subscription changed");
         }
@@ -458,6 +527,7 @@ public class PersonalQuoteService {
         ChangeImpact impact = null;
         Map<String, Integer> currentQty = new LinkedHashMap<>();
         Instant periodEnd = null;
+        long baseProration = 0;
         List<PersonalBasket.Held> held = List.of();
         if (KIND_CHANGE.equals(ctx.kind)) {
             held = basket.held(ctx.sub.getId(), ctx.now);
@@ -465,29 +535,56 @@ public class PersonalQuoteService {
             currentQty.values().removeIf(q -> q <= 0);
             for (PersonalBasket.Held h : held) {
                 int want = finalAddons.getOrDefault(h.featureKey(), 0);
-                if (h.hasScheduledChange() && want != h.effectiveQuantity()) {
+                if (!ctx.switching && h.hasScheduledChange() && want != h.effectiveQuantity()) {
                     throw new BillingException(409, "REMOVAL_PENDING", "Undo the scheduled change to this add-on first", Map.of("featureKey", h.featureKey()));
                 }
             }
+            // K5.6: what the subscriber holds today is priced with TODAY's plan version and interval; on a switch those differ from the target's
+            BillingInterval fromInterval = ctx.switching ? ctx.fromInterval : ctx.interval;
+            Map<String, PlanComponent> fromByFeature = byFeature;
+            Product fromBase = baseProduct;
+            if (ctx.switching) {
+                fromByFeature = components.findByPlanVersionIdOrderBySortOrderAscIdAsc(ctx.fromVersion.getId()).stream().collect(Collectors.toMap(PlanComponent::getFeatureKey, Function.identity(), (a, b) -> a, LinkedHashMap::new));
+                Plan fp = ctx.fromPlan;
+                fromBase = products.findById(ctx.fromVersion.getBaseProductId()).orElseThrow(() -> notSellable(fp.getPlanKey()));
+            }
             List<LineRequest> currentLines = new ArrayList<>();
-            currentLines.add(new LineRequest(BASE_LINE, baseProduct.getCode(), 1, 0));
-            for (Map.Entry<String, Integer> a : currentQty.entrySet()) currentLines.add(addonLine(a.getKey(), a.getValue(), byFeature, defs));
+            currentLines.add(new LineRequest(BASE_LINE, fromBase.getCode(), 1, 0));
+            for (Map.Entry<String, Integer> a : currentQty.entrySet()) {
+                if (!fromByFeature.containsKey(a.getKey())) throw new BillingException(409, "SUBSCRIPTION_CHANGED", "Your add-ons changed. Review the new numbers.");
+                currentLines.add(addonLine(a.getKey(), a.getValue(), fromByFeature, defs));
+            }
             try {
                 current = engine.price(
-                    new PricingInputs(Audience.INDIVIDUAL, ctx.currency, ctx.interval, ctx.now, List.of(new LineGroup(PricingInputs.PLAN_GROUP, currentLines)), null, null, null, 0, policy)
+                    new PricingInputs(Audience.INDIVIDUAL, ctx.currency, fromInterval, ctx.now, List.of(new LineGroup(PricingInputs.PLAN_GROUP, currentLines)), null, null, null, 0, policy)
                 );
                 periodEnd = ctx.sub.getCurrentPeriodEnd();
-                Instant periodStart = ctx.sub.getCurrentPeriodStart() != null ? ctx.sub.getCurrentPeriodStart() : minusInterval(periodEnd, ctx.interval);
-                impact = engine.impact(current, proposed, periodStart, periodEnd, ctx.now);
+                Instant periodStart = ctx.sub.getCurrentPeriodStart() != null ? ctx.sub.getCurrentPeriodStart() : minusInterval(periodEnd, fromInterval);
+                if (ctx.switching) {
+                    long fromUnit = unitOf(current);
+                    long toUnit = unitOf(proposed);
+                    ctx.switchKind = SwitchRules.classify(ctx.planChanges, fromInterval, ctx.interval, fromUnit, toUnit);
+                    if (ctx.switchKind.immediate()) {
+                        // an upgrade now: add-ons that are new are prorated by the engine, the base by the switch rule (the same unit: the current period or term)
+                        impact = engine.impact(current, proposed, periodStart, periodEnd, ctx.now);
+                        baseProration = SwitchRules.upgradeProration(settings.getString(BillingSettingKeys.UPGRADE_PRORATION), toUnit, fromUnit, periodStart, periodEnd, ctx.now);
+                    }
+                } else {
+                    impact = engine.impact(current, proposed, periodStart, periodEnd, ctx.now);
+                }
             } catch (PricingException e) {
                 throw translate(e);
             }
-            if (finalAddons.equals(currentQty)) throw new BillingException(422, "NO_CHANGE", "Nothing would change");
+            if (!ctx.switching && finalAddons.equals(currentQty)) throw new BillingException(422, "NO_CHANGE", "Nothing would change");
         }
 
-        PlanQuoteDTO dto = dto(ctx, comps, byFeature, defs, baseProduct, proposed, summary, current, impact, finalAddons, currentQty, outcome, periodEnd);
+        PlanQuoteDTO dto = dto(ctx, comps, byFeature, defs, baseProduct, proposed, summary, current, impact, finalAddons, currentQty, outcome, periodEnd, baseProration);
         Meta meta = meta(ctx, finalAddons, currentQty, proposed, current, periodEnd);
         return new Built(dto, hash(meta), meta, periodEnd);
+    }
+
+    private static long unitOf(PricingResult r) {
+        return r.group(PricingInputs.PLAN_GROUP).lines().stream().filter(l -> BASE_LINE.equals(l.lineKey())).mapToLong(LineResult::unitEffectiveMinor).findFirst().orElse(0);
     }
 
     private Instant engineInputsAt(Ctx ctx) {
@@ -556,7 +653,8 @@ public class PersonalQuoteService {
         Map<String, Integer> finalAddons,
         Map<String, Integer> currentQty,
         DependencyRules.Outcome outcome,
-        Instant periodEnd
+        Instant periodEnd,
+        long baseProration
     ) {
         Basket proposedBasket = new Basket(
             lines(proposed, ctx, defs),
@@ -570,9 +668,11 @@ public class PersonalQuoteService {
         List<Addition> additions = new ArrayList<>();
         List<Removal> removals = new ArrayList<>();
         long proration = 0;
-        if (impact != null) {
-            proration = impact.prorationTotalMinor();
-            Map<String, ChangeImpact.ProrationLine> prorationByFeature = impact.prorationLines().stream().collect(Collectors.toMap(ChangeImpact.ProrationLine::lineKey, Function.identity(), (a, b) -> a));
+        if (current != null) {
+            proration = (impact == null ? 0 : impact.prorationTotalMinor()) + baseProration;
+            Map<String, ChangeImpact.ProrationLine> prorationByFeature = impact == null
+                ? Map.of()
+                : impact.prorationLines().stream().collect(Collectors.toMap(ChangeImpact.ProrationLine::lineKey, Function.identity(), (a, b) -> a));
             Set<String> keys = new LinkedHashSet<>(currentQty.keySet());
             keys.addAll(finalAddons.keySet());
             for (String key : keys) {
@@ -591,7 +691,11 @@ public class PersonalQuoteService {
         List<Confirmation> prompts = outcome.requiresConfirmation().stream().map(c -> new Confirmation(c.featureKey(), c.requires(), c.kind().name(), c.priceMinor(), c.name())).toList();
         boolean change = current != null;
         long delta = change ? proposed.recurringMinor() - current.recurringMinor() : proposed.recurringMinor();
-        Long nextEstimate = change ? impact.nextInvoiceEstimateMinor() : proposed.recurringMinor();
+        Long nextEstimate = change ? (impact == null ? proposed.recurringMinor() : impact.nextInvoiceEstimateMinor() + baseProration) : proposed.recurringMinor();
+        boolean scheduledSwitch = ctx.switchKind != null && !ctx.switchKind.immediate();
+        PlanQuoteDTO.IntervalChange intervalChange = ctx.switching && ctx.fromInterval != ctx.interval
+            ? new PlanQuoteDTO.IntervalChange(ctx.fromInterval.name(), ctx.interval.name(), periodEnd.toString())
+            : null;
         Instant nextAt = change ? periodEnd : ctx.now.atZone(ZoneOffset.UTC).plusMonths(ctx.interval.factor()).toInstant();
         List<String> warnings = new ArrayList<>();
         if (!prompts.isEmpty()) warnings.add("DEPENDENCY_CONFIRMATION_NEEDED");
@@ -605,7 +709,7 @@ public class PersonalQuoteService {
             catalogVersions.currentVersion(),
             new PlanRef(ctx.plan.getPlanKey(), ctx.version.getVersion(), ctx.plan.getName()),
             ctx.interval.name(),
-            null,
+            intervalChange,
             currentBasket,
             proposedBasket,
             delta,
@@ -616,7 +720,7 @@ public class PersonalQuoteService {
             proration,
             nextEstimate,
             nextAt,
-            "now",
+            scheduledSwitch ? periodEnd.toString() : "now",
             null,
             "NONE",
             PlanQuoteDTO.TAX_NOTE,
@@ -656,7 +760,8 @@ public class PersonalQuoteService {
     // ---- hashing ---------------------------------------------------------------------------------------------------------------------
 
     private Meta meta(Ctx ctx, Map<String, Integer> finalAddons, Map<String, Integer> currentQty, PricingResult proposed, PricingResult current, Instant periodEnd) {
-        String state = ctx.storedKind() + "|" + (ctx.sub == null || !KIND_CHANGE.equals(ctx.kind) ? "-" : ctx.sub.getId()) + "|" + (periodEnd == null ? "-" : periodEnd.getEpochSecond()) + "|" + sorted(currentQty);
+        String state = ctx.storedKind() + "|" + (ctx.sub == null || !KIND_CHANGE.equals(ctx.kind) ? "-" : ctx.sub.getId()) + "|" + (periodEnd == null ? "-" : periodEnd.getEpochSecond()) + "|" + sorted(currentQty)
+            + (ctx.switching ? "|sw:" + ctx.fromVersion.getId() + ":" + ctx.fromInterval + ":" + ctx.sub.getPlanVersionId() : "");
         StringBuilder price = new StringBuilder();
         price.append(ctx.version.getId()).append('|').append(ctx.interval).append('|').append(ctx.currency);
         for (LineResult l : sortedLines(proposed)) price.append('|').append(l.lineKey()).append(':').append(l.quantity()).append(':').append(l.priceId()).append(':').append(l.unitEffectiveMinor());
@@ -671,7 +776,11 @@ public class PersonalQuoteService {
             List.copyOf(ctx.confirmed),
             sha256(state),
             sha256(price.toString()),
-            new LinkedHashMap<>(currentQty)
+            new LinkedHashMap<>(currentQty),
+            ctx.switchKind == null ? null : ctx.switchKind.name(),
+            ctx.switching ? ctx.fromPlan.getPlanKey() : null,
+            ctx.switching ? ctx.fromVersion.getId() : null,
+            ctx.switching ? ctx.fromInterval.name() : null
         );
     }
 

@@ -56,6 +56,8 @@ public class SubscriptionChangeService {
     public static final String ADD = "ADD_ADDON";
     public static final String REMOVE = "REMOVE_ADDON";
     public static final String QUANTITY = "CHANGE_QUANTITY";
+    public static final String PLAN_SWITCH = "PLAN_SWITCH";
+    public static final String INTERVAL_SWITCH = "INTERVAL_SWITCH";
 
     private final SubscriptionQuoteRepository quotes;
     private final PersonalQuoteService quoteService;
@@ -125,8 +127,13 @@ public class SubscriptionChangeService {
             .stream()
             .collect(Collectors.toMap(SubscriptionAddon::getFeatureKey, Function.identity(), (a, b) -> a));
 
+        PersonalQuoteService.Meta meta = stored.meta();
+        SwitchRules.Kind switchKind = meta.switchKind() == null ? null : SwitchRules.Kind.valueOf(meta.switchKind());
+        boolean scheduledSwitch = switchKind != null && !switchKind.immediate();
         Set<String> keys = new LinkedHashSet<>(from.keySet());
         keys.addAll(to.keySet());
+        // a scheduled switch replaces the whole basket at the period end through ONE change: nothing is added or removed today
+        if (scheduledSwitch) keys.clear();
         List<PersonalSubscriptionChange> out = new java.util.ArrayList<>();
         for (String key : keys) {
             int qFrom = from.getOrDefault(key, 0);
@@ -191,12 +198,68 @@ public class SubscriptionChangeService {
             if (qTo > qFrom || qTo == 0) addons.saveAndFlush(row);
             out.add(c);
         }
+        if (switchKind != null) out.add(recordSwitch(q, batchId, sub, dto, meta, switchKind, now, periodEnd));
         if (out.isEmpty()) throw new BillingException(422, "NO_CHANGE", "Nothing would change");
         q.setStatus(PersonalQuoteService.STATUS_APPLIED);
         q.setAppliedBatchId(batchId);
         quotes.save(q);
         LOG.info("Recorded {} subscription change(s) in batch {} for subscription {}", out.size(), batchId, sub.getId());
         return out;
+    }
+
+    /**
+     * The plan or interval switch of a CHANGE quote as one change (K5.6): an upgrade is applied now (the base swap and its proration), anything else is
+     * scheduled for the end of the period or term with the whole target basket in the payload, so the applier can hand it to a Stripe schedule.
+     */
+    private PersonalSubscriptionChange recordSwitch(
+        SubscriptionQuote q,
+        String batchId,
+        Subscription sub,
+        PlanQuoteDTO dto,
+        PersonalQuoteService.Meta meta,
+        SwitchRules.Kind kind,
+        Instant now,
+        Instant periodEnd
+    ) {
+        QuoteLine base = dto.proposed().lines().stream().filter(l -> "BASE".equals(l.kind())).findFirst().orElseThrow(() -> new BillingException(409, "QUOTE_STALE", "stale", Map.of("reason", "PRICE_CHANGED")));
+        Product baseProduct = products.findByCode(base.productCode()).orElseThrow(() -> new BillingException(409, "QUOTE_STALE", "stale", Map.of("reason", "PRICE_CHANGED")));
+        long addonProration = dto.additions().stream().mapToLong(PlanQuoteDTO.Addition::prorationMinor).sum();
+        boolean immediate = kind.immediate();
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("currency", q.getCurrency());
+        payload.put("name", dto.plan().name());
+        payload.put("switchKind", kind.name());
+        payload.put("mode", immediate ? "NOW" : "SCHEDULED");
+        payload.put("prorationMinor", immediate ? Math.max(0, dto.prorationEstimateMinor() - addonProration) : 0L);
+        if (!immediate) {
+            List<Map<String, Object>> items = new java.util.ArrayList<>();
+            for (QuoteLine l : dto.proposed().lines()) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("priceId", Long.valueOf(l.priceId()));
+                item.put("quantity", l.quantity());
+                items.add(item);
+            }
+            payload.put("items", items);
+        }
+        PersonalSubscriptionChange c = new PersonalSubscriptionChange();
+        c.setSubscriptionId(sub.getId());
+        c.setUserId(sub.getUser().getId());
+        c.setQuoteId(q.getId());
+        c.setBatchId(batchId);
+        c.setKind(kind == SwitchRules.Kind.CHANGE_INTERVAL ? INTERVAL_SWITCH : PLAN_SWITCH);
+        c.setProductId(baseProduct.getId());
+        c.setPriceId(Long.valueOf(base.priceId()));
+        c.setPlanVersionFrom(meta.fromVersionId());
+        c.setPlanVersionTo(q.getPlanVersionId());
+        c.setIntervalFrom(meta.fromInterval());
+        c.setIntervalTo(q.getBillingInterval());
+        c.setEffectiveAt(immediate ? now : periodEnd);
+        c.setStatus("PENDING");
+        c.setAttempts(0);
+        c.setCreatedAt(now);
+        c.setStripeIdempotencyKey(IdempotencyKey.of("sc", batchId, "items").value());
+        c.setPayloadJson(write(payload));
+        return changes.saveAndFlush(c);
     }
 
     /** The batch as the API answers it: every change with its status plus what the subscription bills from now on. */
@@ -228,6 +291,9 @@ public class SubscriptionChangeService {
         router.requirePersonal(user);
         PersonalSubscriptionChange c = changes.findById(changeId).orElseThrow(() -> new BillingException(404, "NOT_FOUND", "Not found"));
         if (!user.getId().equals(c.getUserId())) throw new BillingException(404, "NOT_FOUND", "Not found");
+        if (SubscriptionChangeApplier.isSwitch(c) && "PENDING".equals(c.getStatus()) && c.getStripeRef() != null && c.getEffectiveAt() != null && c.getEffectiveAt().isAfter(Instant.now())) {
+            return undoSwitch(c);
+        }
         boolean scheduled = "PENDING".equals(c.getStatus()) && (REMOVE.equals(c.getKind()) || QUANTITY.equals(c.getKind())) && c.getStripeRef() != null
             && c.getQuantityTo() != null && c.getQuantityFrom() != null && c.getQuantityTo() < c.getQuantityFrom();
         if (!scheduled) throw new BillingException(409, "NOT_PENDING", "That change is no longer scheduled");
@@ -240,6 +306,61 @@ public class SubscriptionChangeService {
             throw new BillingException(502, BillingException.CODE_STRIPE_ERROR, "Stripe couldn't complete that");
         }
         return tx.execute(s -> finishUndo(c.getId()));
+    }
+
+    /**
+     * Take back a scheduled plan or interval switch (K5.6): Stripe first (release the schedule, or cancel the successor subscription and let the current one
+     * renew), then Kiwiply clears the schedule columns and marks the change CANCELLED. 503 with billing off, 502 when Stripe refuses (nothing has changed then).
+     */
+    private ChangeDTO undoSwitch(PersonalSubscriptionChange c) {
+        if (!gateway.isEnabled()) throw BillingException.disabled();
+        Subscription sub = subscriptions.findById(c.getSubscriptionId()).orElseThrow(() -> new BillingException(404, "NOT_FOUND", "Not found"));
+        String ref = c.getStripeRef();
+        try {
+            if (ref.startsWith("sub:")) {
+                gateway.cancelSubscription(ref.substring(4));
+                gateway.setCancelAtPeriodEnd(sub.getStripeSubscriptionId(), false, IdempotencyKey.of("un", c.getId(), "cap"));
+            } else if (!"items".equals(ref)) {
+                gateway.releaseSchedule(ref, IdempotencyKey.of("un", c.getId()));
+            }
+        } catch (StripeGatewayException e) {
+            LOG.error("Undo of switch {} refused by Stripe: {}", c.getId(), e.getKind());
+            throw new BillingException(502, BillingException.CODE_STRIPE_ERROR, "Stripe couldn't complete that");
+        }
+        return tx.execute(s -> {
+            PersonalSubscriptionChange fresh = changes.findById(c.getId()).orElseThrow();
+            Subscription row = subscriptions.findById(fresh.getSubscriptionId()).orElseThrow();
+            row.clearScheduledSwitch();
+            row.setScheduleId(null);
+            row.setUpdatedAt(Instant.now());
+            subscriptions.save(row);
+            fresh.setStatus("CANCELLED");
+            fresh.setAppliedAt(Instant.now());
+            return dto(changes.save(fresh));
+        });
+    }
+
+    /** Release Stripe schedules that no scheduled switch points at any more (the person cancelled, or a switch was undone and Stripe was slow). Returns how many were released. */
+    public int releaseOrphanSchedules() {
+        if (!gateway.isEnabled()) return 0;
+        int released = 0;
+        for (Subscription row : subscriptions.findByScheduleIdIsNotNullAndScheduledAtIsNull()) {
+            String schedule = row.getScheduleId();
+            try {
+                gateway.releaseSchedule(schedule, IdempotencyKey.of("rel", schedule));
+            } catch (StripeGatewayException e) {
+                LOG.warn("Could not release schedule {}: {}", schedule, e.getKind());
+                if (e.isRetryable()) continue; // try again on the next run; a refusal Stripe will repeat (already released) falls through and clears the id
+            }
+            tx.executeWithoutResult(s -> subscriptions.findById(row.getId()).ifPresent(r -> {
+                if (schedule.equals(r.getScheduleId())) {
+                    r.setScheduleId(null);
+                    subscriptions.save(r);
+                }
+            }));
+            released++;
+        }
+        return released;
     }
 
     private ChangeDTO finishUndo(Long changeId) {

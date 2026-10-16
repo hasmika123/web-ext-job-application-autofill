@@ -18,6 +18,9 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
 
     Optional<Subscription> findOneByStripeSubscriptionId(String stripeSubscriptionId);
 
+    /** K5.6: rows that still carry a Stripe schedule id although no switch is scheduled any more (cancelled, undone): the job releases them. */
+    List<Subscription> findByScheduleIdIsNotNullAndScheduledAtIsNull();
+
     /** For the admin revenue panel (12.5). */
     List<Subscription> findAllByPlan(String plan);
 }

@@ -32,7 +32,10 @@ public class SubscriptionChangeJob {
             int retried = applier.retryFailed();
             int settled = changes.settleDue(Instant.now());
             int expired = quotes.expireOpenQuotes();
-            if (retried + settled + expired > 0) LOG.info("subscription changes: retried {} batch(es), settled {}, expired {} quote(s)", retried, settled, expired);
+            int released = changes.releaseOrphanSchedules();
+            if (retried + settled + expired + released > 0) {
+                LOG.info("subscription changes: retried {} batch(es), settled {}, expired {} quote(s), released {} schedule(s)", retried, settled, expired, released);
+            }
         } catch (RuntimeException e) {
             LOG.warn("subscription change run failed: {}", e.toString());
         }

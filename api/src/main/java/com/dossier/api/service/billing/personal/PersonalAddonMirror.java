@@ -136,20 +136,61 @@ public class PersonalAddonMirror {
     /** The subscription's plan link from the base item: set on first sight (or when the checkout's quote names the version), never silently moved. */
     private void linkPlan(Subscription sub, StripeWebhookEvent event, Map<String, ProductPrice> byStripePrice) {
         ProductPrice base = event.priceId() == null ? null : byStripePrice.get(event.priceId());
-        if (base == null) return;
-        Product product = products.findById(base.getProductId()).orElse(null);
-        if (product == null || !"SUBSCRIPTION".equals(product.getKind())) return;
+        Product product = base == null ? null : products.findById(base.getProductId()).orElse(null);
+        if (product == null || !"SUBSCRIPTION".equals(product.getKind())) {
+            // K5.6: after a schedule phase or a plan swap the base is not necessarily item 0: take the item whose product is a plan base
+            base = null;
+            product = null;
+            for (StripeWebhookEvent.Item item : event.items()) {
+                ProductPrice p = item.priceId() == null ? null : byStripePrice.get(item.priceId());
+                Product pr = p == null ? null : products.findById(p.getProductId()).orElse(null);
+                if (pr != null && "SUBSCRIPTION".equals(pr.getKind())) {
+                    base = p;
+                    product = pr;
+                    break;
+                }
+            }
+            if (base == null) return;
+            sub.setPriceId(base.getStripePriceId());
+        }
         Long versionId = sub.getPlanVersionId();
         SubscriptionQuote quote = quoteOf(sub, event);
-        if (quote != null && quote.getPlanVersionId() != null && java.util.Objects.equals(baseProductOf(quote.getPlanVersionId()), product.getId())) {
+        boolean landed = false;
+        if (quote != null && quote.getPlanVersionId() != null && java.util.Objects.equals(baseProductOf(quote.getPlanVersionId()), product.getId()) && sub.getScheduledPlanVersionId() == null) {
             versionId = quote.getPlanVersionId();
-        } else if (versionId == null) {
-            versionId = liveVersionOfBase(product.getId());
+        } else if (sub.getScheduledPlanVersionId() != null && switchLanded(sub, base, product)) {
+            // K5.6: the scheduled switch took effect: the base item is the target's, at the target's interval
+            versionId = sub.getScheduledPlanVersionId();
+            landed = true;
+        } else if (versionId == null || (sub.getScheduledPlanVersionId() == null && !java.util.Objects.equals(baseProductOf(versionId), product.getId()))) {
+            // first sight, or the base was swapped (an upgrade whose Kiwiply write did not complete): the live version of the base product
+            Long live = liveVersionOfBase(product.getId());
+            if (live != null) versionId = live;
         }
         if (versionId != null) sub.setPlanVersionId(versionId);
+        if (landed) finishLandedSwitch(sub, versionId);
         sub.setBillingInterval(base.getBillingInterval());
         sub.setCurrency(base.getCurrency());
         if (event.currentPeriodStart() != null) sub.setCurrentPeriodStart(event.currentPeriodStart());
+    }
+
+    private boolean switchLanded(Subscription sub, ProductPrice base, Product product) {
+        if (!java.util.Objects.equals(baseProductOf(sub.getScheduledPlanVersionId()), product.getId())) return false;
+        return sub.getScheduledInterval() == null || sub.getScheduledInterval().equals(base.getBillingInterval());
+    }
+
+    private void finishLandedSwitch(Subscription sub, Long versionId) {
+        sub.clearScheduledSwitch();
+        sub.setScheduleId(null);
+        Instant now = Instant.now();
+        for (var c : changes.findBySubscriptionIdAndStatusInOrderByIdAsc(sub.getId(), List.of("PENDING"))) {
+            boolean isSwitch = "PLAN_SWITCH".equals(c.getKind()) || "INTERVAL_SWITCH".equals(c.getKind());
+            if (isSwitch && java.util.Objects.equals(c.getPlanVersionTo(), versionId)) {
+                c.setStatus("APPLIED");
+                c.setAppliedAt(now);
+                changes.save(c);
+            }
+        }
     }
 
     private void markQuoteApplied(Subscription sub, StripeWebhookEvent event) {

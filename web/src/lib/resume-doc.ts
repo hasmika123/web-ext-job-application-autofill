@@ -251,7 +251,7 @@ export async function createBuilt(body: CreateBuiltBody = {}, url = "/api/resume
         plan: data?.plan,
         limit: data?.limit,
         message: data?.detail ?? data?.error ?? "You've reached your resume limit.",
-        upgrade: upgradeFrom(data),
+        ...(upgradeFrom(data) ? { upgrade: upgradeFrom(data) } : {}),
       };
     }
     if (res.status === 401) return { kind: "error", message: "Your session expired — please sign in again." };
