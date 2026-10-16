@@ -761,7 +761,9 @@ public final class ResumeBuilderSettingKeys {
         Key ai = com.dossier.api.service.ai.AiSettingKeys.find(canonical);
         if (ai != null) return ai;
         Key admin = com.dossier.api.service.settings.AdminSettingKeys.find(canonical);
-        return admin != null ? admin : com.dossier.api.service.settings.EnterpriseSettingKeys.find(canonical);
+        if (admin != null) return admin;
+        Key enterprise = com.dossier.api.service.settings.EnterpriseSettingKeys.find(canonical);
+        return enterprise != null ? enterprise : com.dossier.api.service.settings.BillingSettingKeys.find(canonical);
     }
 
     /** The declaration for {@code key}; unknown keys are a programming error. */
