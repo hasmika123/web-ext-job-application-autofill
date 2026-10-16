@@ -159,6 +159,11 @@ public class AiBudgetService {
     Window proWindow(Subscription sub, Instant now) {
         boolean threeMonth = sub != null && isThreeMonthPrice(sub.getPriceId());
         long budget = threeMonth ? policy.pro3moBudgetMicros() : policy.proBudgetMicros();
+        // K1.6: the live Pro plan version decides when it is published; the policy values are the fallback for one release
+        if (catalogDefaults != null) {
+            java.util.OptionalInt cents = catalogDefaults.aiBudgetCents("PRO", threeMonth ? "QUARTER" : "MONTH");
+            if (cents.isPresent()) budget = centsToMicros(cents.getAsInt());
+        }
         Instant end = sub == null ? null : sub.getCurrentPeriodEnd();
         if (end == null || !end.isAfter(now)) {
             return new Window(budget, monthStart(now), resetsAt(now));
@@ -167,9 +172,18 @@ public class AiBudgetService {
         return new Window(budget, start.isAfter(now) ? now : start, end);
     }
 
+    private com.dossier.api.service.catalog.CatalogDefaults catalogDefaults;
+
+    /** Optional (K1.6): the published catalog's AI budget and price intervals. Without it the budget is exactly the legacy one. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setCatalogDefaults(com.dossier.api.service.catalog.CatalogDefaults catalogDefaults) {
+        this.catalogDefaults = catalogDefaults;
+    }
+
     private boolean isThreeMonthPrice(String priceId) {
         String threeMonth = stripe.getPrice3mo();
-        return priceId != null && threeMonth != null && !threeMonth.isBlank() && threeMonth.trim().equals(priceId.trim());
+        if (priceId != null && threeMonth != null && !threeMonth.isBlank() && threeMonth.trim().equals(priceId.trim())) return true;
+        return catalogDefaults != null && catalogDefaults.intervalOfStripePrice(priceId).map("QUARTER"::equals).orElse(false);
     }
 
     public Decision decide(String login, AiTask task) {

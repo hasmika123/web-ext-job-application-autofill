@@ -375,6 +375,11 @@ public class ProfileService {
         }
         boolean pro = entitlementService.has(login, com.dossier.api.service.entitlement.FeatureKeys.Capability.AI_SERVER);
         int legacyLimit = resumeLimit(pro);
+        // K1.6: the live plan version's resume.library allowance decides when published; the constants are the fallback
+        if (catalogDefaults != null) {
+            java.util.OptionalInt cap = catalogDefaults.resumeCap(pro ? "PRO" : "FREE");
+            if (cap.isPresent()) legacyLimit = cap.getAsInt();
+        }
         // K7.3: the catalog decides the cap once the shadow is off; while shadowed the legacy constants answer and the resolver is only compared
         int limit = entitlementService
             .limitFor(login, com.dossier.api.service.entitlement.FeatureKeys.Limit.RESUMES_MAX, legacyLimit)
@@ -394,6 +399,14 @@ public class ProfileService {
                 Map.of("limit", limit, "count", live, "plan", pro ? "PRO" : "FREE")
             );
         }
+    }
+
+    private com.dossier.api.service.catalog.CatalogDefaults catalogDefaults;
+
+    /** Optional (K1.6): the published catalog's resume caps. Without it the constants decide, as in every plain unit test. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setCatalogDefaults(com.dossier.api.service.catalog.CatalogDefaults catalogDefaults) {
+        this.catalogDefaults = catalogDefaults;
     }
 
     /** The live-resume cap for a plan. Autopilot shares Pro's until Phase 18 (see {@link #AUTOPILOT_RESUME_LIMIT}). */
