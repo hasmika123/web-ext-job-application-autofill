@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { accessChanged, fetchTenantSession, parseMeTenant } from "@/lib/ent/tenant-session";
+import { describe, expect, it, vi } from "vitest";
+import { accessChanged, fetchTenantSession, parseMeTenant, SESSION_TIMEOUT_MS } from "@/lib/ent/tenant-session";
 import { bottomBar, findWorkspace, landingFor, showSwitcher, workspacesFor } from "@/lib/ent/workspaces";
 
 const modules = { domains: true, roles: true, billing: false, marketing: false, hrFinance: false, extensionWorkspaces: false, integrations: false, analytics: false };
@@ -105,5 +105,29 @@ describe("workspace helpers", () => {
     const { tabs, more } = bottomBar(me.workspaces[0]);
     expect(tabs.map((t) => t.key)).toEqual(["home", "employees"]);
     expect(more.map((t) => t.key)).toEqual(["settings"]);
+  });
+});
+
+describe("fetchTenantSession says why it is unavailable (never a silent failure)", () => {
+  it("logs the cause of a timeout, a refusal and a body that is not the contract", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const timeout = Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" });
+    expect((await fetchTenantSession(async () => Promise.reject(timeout))).kind).toBe("UNAVAILABLE");
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining("TimeoutError"));
+    expect((await fetchTenantSession(reply(429))).kind).toBe("UNAVAILABLE");
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining("HTTP 429"));
+    expect((await fetchTenantSession(reply(200, {}))).kind).toBe("UNAVAILABLE");
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining("contract"));
+    warn.mockRestore();
+  });
+
+  it("gives the call a generous, fixed time budget unless the caller brings its own signal", async () => {
+    let seen: AbortSignal | null | undefined;
+    await fetchTenantSession(async (_p, init) => ((seen = init?.signal), new Response(null, { status: 503 })));
+    expect(seen).toBeInstanceOf(AbortSignal);
+    expect(SESSION_TIMEOUT_MS).toBeGreaterThanOrEqual(8000);
+    const own = new AbortController().signal;
+    await fetchTenantSession(async (_p, init) => ((seen = init?.signal), new Response(null, { status: 503 })), { signal: own });
+    expect(seen).toBe(own);
   });
 });

@@ -141,10 +141,11 @@ export class Flow {
   /** Open a path on the current person's tenant host. */
   async go(path: string) {
     await this.page.goto(`${hostOf(this.persona)}${path}`);
-    // A cold API can miss the first workspace call; the page then offers "Try again". A person would press it, so do the same (at most twice).
+    // If the workspace call ever misses (the server log then names the cause: "[tenant-session] ... unavailable"), the page offers "Try again"
+    // (a link). A person would press it, so do the same (at most twice) and say so in the log, so a real regression is not hidden by this.
     for (let i = 0; i < 3; i++) {
       await this.page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => undefined);
-      const retry = this.page.getByRole("button", { name: "Try again" });
+      const retry = this.page.getByRole("link", { name: "Try again" });
       if (!(await retry.isVisible().catch(() => false))) break;
       console.log("[flow] workspace load failed on " + path + ": pressing Try again");
       await retry.click();

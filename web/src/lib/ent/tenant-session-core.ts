@@ -21,6 +21,13 @@ export type TenantSession =
   | { kind: "NOT_A_MEMBER" }
   | { kind: "UNAVAILABLE" };
 
+/**
+ * How long one session call may take before it counts as "unavailable". This gates the whole workspace, so it is generous: a first request to a
+ * cold API (or one working through a burst) can take several seconds, and failing it early only shows the member a "try again" panel for
+ * an answer that was about to arrive. A real outage still fails, and says why in the server log.
+ */
+export const SESSION_TIMEOUT_MS = 8000;
+
 export type SessionFetcher = (path: string, init?: RequestInit) => Promise<Response>;
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -45,22 +52,28 @@ export function parseMeTenant(data: unknown): MeTenant | null {
   return { ...(data as unknown as MeTenant), landing, landingKey: typeof data.landingKey === "string" ? data.landingKey : null };
 }
 
+/** UNAVAILABLE with its cause on the server log (status, timeout, network): a "We couldn't load your workspace" page is never a silent failure. */
+function unavailable(reason: string): { kind: "UNAVAILABLE" } {
+  console.warn(`[tenant-session] /api/me/tenant unavailable: ${reason}`);
+  return { kind: "UNAVAILABLE" };
+}
+
 /** One call, one classified answer. Never throws. `etag` is the validator for the focus re-check (`revalidateTenantSession`). */
 export async function fetchTenantSession(fetcher: SessionFetcher, init: RequestInit = {}): Promise<TenantSession | { kind: "NOT_MODIFIED" }> {
   try {
-    const res = await fetcher("/api/me/tenant", { ...init, headers: { accept: "application/json", ...(init.headers as Record<string, string> | undefined) }, signal: init.signal ?? AbortSignal.timeout(4000) });
+    const res = await fetcher("/api/me/tenant", { ...init, headers: { accept: "application/json", ...(init.headers as Record<string, string> | undefined) }, signal: init.signal ?? AbortSignal.timeout(SESSION_TIMEOUT_MS) });
     if (res.status === 304) return { kind: "NOT_MODIFIED" };
     if (res.status === 401) return { kind: "UNAUTHENTICATED" };
-    if (res.status === 429 || res.status >= 500) return { kind: "UNAVAILABLE" };
+    if (res.status === 429 || res.status >= 500) return unavailable(`HTTP ${res.status}`);
     if (res.status === 403) {
       const body = (await res.json().catch(() => null)) as { code?: unknown } | null;
       return body?.code === "MEMBER_SUSPENDED" ? { kind: "SUSPENDED" } : { kind: "NOT_A_MEMBER" };
     }
     if (!res.ok) return { kind: "NOT_A_MEMBER" };
     const me = parseMeTenant(await res.json().catch(() => null));
-    return me ? { kind: "OK", me, etag: res.headers.get("etag") } : { kind: "UNAVAILABLE" };
-  } catch {
-    return { kind: "UNAVAILABLE" };
+    return me ? { kind: "OK", me, etag: res.headers.get("etag") } : unavailable("body is not the /api/me/tenant contract");
+  } catch (e) {
+    return unavailable(e instanceof Error ? `${e.name}: ${e.message}` : "fetch failed");
   }
 }
 
