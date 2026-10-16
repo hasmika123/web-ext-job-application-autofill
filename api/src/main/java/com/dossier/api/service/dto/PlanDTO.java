@@ -41,12 +41,47 @@ public record PlanDTO(
     @JsonInclude(JsonInclude.Include.NON_NULL) Long recurringMinor,
     @JsonInclude(JsonInclude.Include.NON_NULL) List<Addon> addons,
     @JsonInclude(JsonInclude.Include.NON_NULL) List<String> features,
-    @JsonInclude(JsonInclude.Include.NON_NULL) List<PendingChange> pendingChanges
+    @JsonInclude(JsonInclude.Include.NON_NULL) List<PendingChange> pendingChanges,
+    @JsonInclude(JsonInclude.Include.NON_NULL) Sunset sunset
 ) implements Serializable {
     /** The v1 shape: no plan link, so none of the v3 fields. */
     public PlanDTO(String plan, String status, Instant currentPeriodEnd, boolean cancelAtPeriodEnd, boolean billingEnabled, boolean hasCustomer) {
-        this(plan, status, currentPeriodEnd, cancelAtPeriodEnd, billingEnabled, hasCustomer, null, null, null, null, null, null, null, null, null, null);
+        this(plan, status, currentPeriodEnd, cancelAtPeriodEnd, billingEnabled, hasCustomer, null, null, null, null, null, null, null, null, null, null, null);
     }
+
+    /** The v3 shape without a retirement notice (every subscriber outside a retirement). */
+    public PlanDTO(
+        String plan,
+        String status,
+        Instant currentPeriodEnd,
+        boolean cancelAtPeriodEnd,
+        boolean billingEnabled,
+        boolean hasCustomer,
+        String planKey,
+        Integer planVersion,
+        String planName,
+        String interval,
+        String currency,
+        Instant currentPeriodStart,
+        Long recurringMinor,
+        List<Addon> addons,
+        List<String> features,
+        List<PendingChange> pendingChanges
+    ) {
+        this(plan, status, currentPeriodEnd, cancelAtPeriodEnd, billingEnabled, hasCustomer, planKey, planVersion, planName, interval, currency, currentPeriodStart, recurringMinor, addons, features, pendingChanges, null);
+    }
+
+    /** The same body with the retirement notice added (docs/subscriptions/11 section 12; story K10.4). */
+    public PlanDTO withSunset(Sunset s) {
+        return new PlanDTO(plan, status, currentPeriodEnd, cancelAtPeriodEnd, billingEnabled, hasCustomer, planKey, planVersion, planName, interval, currency, currentPeriodStart, recurringMinor, addons, features, pendingChanges, s);
+    }
+
+    /**
+     * Present only while the subscriber's plan is being retired and their date is ahead: the plan they keep until {@code effectiveAt} and what happens if they do nothing
+     * ({@code defaultOutcome}, FREE unless the retirement says otherwise). {@code successorPlanKey} is the closest match, absent when none is ranked.
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Sunset(String successorPlanKey, Long retirementId, Instant effectiveAt, String defaultOutcome, String itemStatus) implements Serializable {}
 
     /** An add-on the subscriber holds; {@code endsAt} is set when it is scheduled for removal (it works until then); {@code pendingQuantity} when a decrease is scheduled. */
     @JsonInclude(JsonInclude.Include.NON_NULL)

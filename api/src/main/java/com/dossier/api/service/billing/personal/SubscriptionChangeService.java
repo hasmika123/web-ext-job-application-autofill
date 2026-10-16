@@ -290,6 +290,98 @@ public class SubscriptionChangeService {
         return moved;
     }
 
+    // ---- retirement (docs/subscriptions/11; stories K10.4 and K10.5) ----------------------------------------------------------------
+    // The retirement lifecycle writes its change rows and ends add-on lines through here, so this class and the webhook mirror stay the only writers (PersonalAddonWritersTest).
+
+    public static final String RETIREMENT_SWITCH = "RETIREMENT_SWITCH";
+    public static final String RETIREMENT_CANCEL = "RETIREMENT_CANCEL";
+    public static final String FALLBACK_FREE = "FALLBACK_FREE";
+
+    /**
+     * Record a retirement choice or the Free fallback as a change row (kind RETIREMENT_SWITCH, RETIREMENT_CANCEL or FALLBACK_FREE). {@code status} PENDING for a switch that is
+     * scheduled for its date (undoable until then), APPLIED for one that already took effect. Nothing here calls Stripe.
+     */
+    @Transactional
+    public PersonalSubscriptionChange recordRetirement(
+        Long subscriptionId,
+        Long userId,
+        String kind,
+        Long quoteId,
+        String batchId,
+        Long versionFrom,
+        Long versionTo,
+        String intervalFrom,
+        String intervalTo,
+        Instant effectiveAt,
+        String status,
+        String stripeRef,
+        Map<String, Object> payload
+    ) {
+        Instant now = Instant.now();
+        PersonalSubscriptionChange c = new PersonalSubscriptionChange();
+        c.setSubscriptionId(subscriptionId);
+        c.setUserId(userId);
+        c.setQuoteId(quoteId);
+        c.setBatchId(batchId);
+        c.setKind(kind);
+        c.setPlanVersionFrom(versionFrom);
+        c.setPlanVersionTo(versionTo);
+        c.setIntervalFrom(intervalFrom);
+        c.setIntervalTo(intervalTo);
+        c.setEffectiveAt(effectiveAt);
+        c.setStatus(status);
+        c.setStripeRef(stripeRef);
+        c.setAttempts(0);
+        c.setCreatedAt(now);
+        c.setPayloadJson(write(payload == null ? Map.of() : payload));
+        if ("APPLIED".equals(status)) c.setAppliedAt(now);
+        return changes.saveAndFlush(c);
+    }
+
+    /** Move a retirement change row to {@code status} (CANCELLED when the subscriber chose again, APPLIED when its date came). */
+    @Transactional
+    public void markRetirementChange(Long changeId, String status, Instant appliedAt) {
+        changes
+            .findById(changeId)
+            .ifPresent(c -> {
+                c.setStatus(status);
+                if (appliedAt != null) c.setAppliedAt(appliedAt);
+                changes.save(c);
+            });
+    }
+
+    /** An add-on retirement ends one line on its date: the line stops, the service's data stays. Returns whether a live line existed. */
+    @Transactional
+    public boolean endAddonLine(Long subscriptionId, String featureKey, Instant at) {
+        return addons
+            .findFirstBySubscriptionIdAndFeatureKeyAndLiveTrue(subscriptionId, featureKey)
+            .map(row -> {
+                row.setLive(false);
+                if (row.getEndsAt() == null || row.getEndsAt().isAfter(at)) row.setEndsAt(at);
+                row.setUpdatedAt(at);
+                addons.save(row);
+                return true;
+            })
+            .orElse(false);
+    }
+
+    /**
+     * The Free fallback ends every add-on line at {@code at}: the lines stop, the data of their services stays (locked read-only, never deleted). Returns how many ended.
+     * A line already scheduled to end earlier keeps its earlier end.
+     */
+    @Transactional
+    public int endAddons(Long subscriptionId, Instant at) {
+        int n = 0;
+        for (SubscriptionAddon row : addons.findBySubscriptionIdAndLiveTrueOrderByIdAsc(subscriptionId)) {
+            row.setLive(false);
+            if (row.getEndsAt() == null || row.getEndsAt().isAfter(at)) row.setEndsAt(at);
+            row.setUpdatedAt(at);
+            addons.save(row);
+            n++;
+        }
+        return n;
+    }
+
     private String write(Object o) {
         try {
             return json.writeValueAsString(o);
