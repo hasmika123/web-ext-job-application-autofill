@@ -1,0 +1,18 @@
+{
+  "name": "renewal",
+  "description": "A paid month passes: Stripe renews, charges the card, the next period and its invoice are mirrored, access continues.",
+  "steps": [
+    { "do": "quote", "as": "q1", "kind": "CHECKOUT", "interval": "MONTH", "addons": [ { "featureKey": "ai.credits_extra", "quantity": 1 } ] },
+    { "do": "checkout", "quote": "q1" },
+    { "do": "stripe.completeCheckout" },
+    { "do": "advance", "toPeriodEnd": true, "plusHours": 1 },
+    { "do": "expect",
+      "subscription": { "status": "active", "interval": "MONTH" },
+      "pro": true,
+      "addons": { "ai.credits_extra": 1 },
+      "invoices": 2,
+      "paidTotalMinor": 4996,
+      "lastInvoice": { "status": "paid", "amountPaidMinor": 2498 },
+      "reconcileDrift": 0 }
+  ]
+}
