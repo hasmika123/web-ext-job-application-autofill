@@ -259,7 +259,7 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/policies/{policyKind}", Case.read()),
         Map.entry("PUT /api/orgs/{orgId}/policies/{policyKind}/draft", Case.write("{\"body\":\"# Hijacked\\n\\nText of the policy.\"}", 200, OrgAuditService.POLICY_DRAFT_SAVE)),
         Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/template", Case.write(null, 200, OrgAuditService.POLICY_TEMPLATE)),
-        Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/submit", Case.people(200, OrgAuditService.POLICY_SUBMIT, 1, null, null, w -> w.seedPolicy(false))),
+        Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/request-review", Case.people(200, OrgAuditService.POLICY_SUBMIT, 1, null, null, w -> w.seedPolicy(false))),
         Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/withdraw", Case.people(200, OrgAuditService.POLICY_WITHDRAW, 1, null, null, w -> w.seedPolicy(true))),
         Map.entry("POST /api/orgs/{orgId}/members/invite", Case.write("{\"emails\":[\"newcomer@example.org\"],\"role\":\"MEMBER\"}", 200, OrgAuditService.MEMBER_INVITE)),
         Map.entry("POST /api/orgs/{orgId}/members/{memberId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND)),
@@ -1204,7 +1204,7 @@ class OrgIsolationIT {
         /** Tenant policy pages: a PRIVACY draft started from the template, and optionally submitted (so a withdraw has something to take back). */
         void seedPolicy(boolean submitIt) {
             policyService.startFromTemplate(me(owner), "PRIVACY");
-            if (submitIt) policyService.submit(me(owner), "PRIVACY");
+            if (submitIt) policyService.requestReview(me(owner), "PRIVACY");
         }
 
         void seedMkt() {

@@ -182,7 +182,7 @@ class OrgPolicyResourceIT {
         assertThat(saveDraft(acme, BODY).getResponse().getStatus()).isEqualTo(200);
         assertThat(json(publicPolicy(ACME_HOST, "PRIVACY")).get("source").asText()).as("draft is not public").isEqualTo("TEMPLATE");
 
-        MvcResult submitted = orgPost(acme, "/PRIVACY/submit");
+        MvcResult submitted = orgPost(acme, "/PRIVACY/request-review");
         assertThat(submitted.getResponse().getStatus()).as(submitted.getResponse().getContentAsString()).isEqualTo(200);
         assertThat(json(submitted).get("state").asText()).isEqualTo("IN_REVIEW");
         assertThat(publicPolicy(ACME_HOST, "PRIVACY").getResponse().getContentAsString()).as("in review is not public").doesNotContain("Acme privacy");
@@ -211,12 +211,12 @@ class OrgPolicyResourceIT {
     @Test
     void aNewDraftOverALivePolicyKeepsTheLiveTextPublicAndASecondApprovalSupersedesTheFirst() throws Exception {
         saveDraft(acme, BODY);
-        orgPost(acme, "/PRIVACY/submit");
+        orgPost(acme, "/PRIVACY/request-review");
         reviewer("/" + queueId("Acme Staffing") + "/approve", null);
 
         assertThat(saveDraft(acme, "{\"body\":\"# Acme privacy v2\\n\\nNew text.\"}").getResponse().getStatus()).isEqualTo(200);
         assertThat(json(publicPolicy(ACME_HOST, "PRIVACY")).get("body").asText()).contains("# Acme privacy").doesNotContain("v2");
-        orgPost(acme, "/PRIVACY/submit");
+        orgPost(acme, "/PRIVACY/request-review");
         long second = queueId("Acme Staffing");
         JsonNode review = json(mockMvc.perform(get("/api/admin/org-policies/" + second).with(user("kiwiply-reviewer").authorities(new SimpleGrantedAuthority(AuthoritiesConstants.ADMIN)))).andReturn());
         assertThat(review.get("liveBody").asText()).contains("# Acme privacy").doesNotContain("v2");
@@ -233,7 +233,7 @@ class OrgPolicyResourceIT {
     @Test
     void requestChangesNeedsACommentAndTheOrganizationSeesIt() throws Exception {
         saveDraft(acme, BODY);
-        orgPost(acme, "/PRIVACY/submit");
+        orgPost(acme, "/PRIVACY/request-review");
         long id = queueId("Acme Staffing");
         assertThat(reviewer("/" + id + "/request-changes", "{}").getResponse().getStatus()).isEqualTo(422);
         MvcResult sent = reviewer("/" + id + "/request-changes", "{\"comment\":\"Please name your data protection contact.\"}");
@@ -246,13 +246,13 @@ class OrgPolicyResourceIT {
         // already decided: a second decision is a state conflict, and the organization can edit and resubmit
         assertThat(reviewer("/" + id + "/approve", null).getResponse().getStatus()).isEqualTo(409);
         assertThat(saveDraft(acme, "{\"body\":\"# Acme privacy\\n\\nData protection contact: dpo@acme.example\"}").getResponse().getStatus()).isEqualTo(200);
-        assertThat(json(orgPost(acme, "/PRIVACY/submit")).get("state").asText()).isEqualTo("IN_REVIEW");
+        assertThat(json(orgPost(acme, "/PRIVACY/request-review")).get("state").asText()).isEqualTo("IN_REVIEW");
     }
 
     @Test
     void theOrgAdminCanWithdrawAnInReviewSubmissionAndTheReviewerCanNoLongerDecideIt() throws Exception {
         saveDraft(acme, BODY);
-        orgPost(acme, "/PRIVACY/submit");
+        orgPost(acme, "/PRIVACY/request-review");
         long id = queueId("Acme Staffing");
         MvcResult w = orgPost(acme, "/PRIVACY/withdraw");
         assertThat(w.getResponse().getStatus()).isEqualTo(200);
@@ -265,19 +265,19 @@ class OrgPolicyResourceIT {
     @Test
     void submittingTextEqualToTheLiveOneIsRefused() throws Exception {
         saveDraft(acme, BODY);
-        orgPost(acme, "/PRIVACY/submit");
+        orgPost(acme, "/PRIVACY/request-review");
         reviewer("/" + queueId("Acme Staffing") + "/approve", null);
         saveDraft(acme, BODY); // same text again
-        MvcResult r = orgPost(acme, "/PRIVACY/submit");
+        MvcResult r = orgPost(acme, "/PRIVACY/request-review");
         assertThat(r.getResponse().getStatus()).isEqualTo(409);
-        assertThat(r.getResponse().getContentAsString()).contains("POLICY_NOTHING_TO_SUBMIT");
+        assertThat(r.getResponse().getContentAsString()).contains("POLICY_NOTHING_TO_SEND");
     }
 
     @Test
     void withReviewSwitchedOffASubmissionPublishesAtOnce() throws Exception {
         reviewOn(false);
         saveDraft(acme, BODY);
-        MvcResult r = orgPost(acme, "/PRIVACY/submit");
+        MvcResult r = orgPost(acme, "/PRIVACY/request-review");
         assertThat(json(r).get("state").asText()).isEqualTo("PUBLISHED");
         assertThat(json(publicPolicy(ACME_HOST, "PRIVACY")).get("source").asText()).isEqualTo("PUBLISHED");
     }
@@ -326,13 +326,13 @@ class OrgPolicyResourceIT {
     @Test
     void anotherOrganizationCannotReadOrChangeAPolicyAndEachHostServesItsOwn() throws Exception {
         saveDraft(acme, BODY);
-        orgPost(acme, "/PRIVACY/submit");
+        orgPost(acme, "/PRIVACY/request-review");
         reviewer("/" + queueId("Acme Staffing") + "/approve", null);
 
         // beta's owner naming acme's org id: the generic 404, nothing changed
         assertThat(mockMvc.perform(get(base(acme)).with(user(owner(beta)))).andReturn().getResponse().getStatus()).isEqualTo(404);
         assertThat(mockMvc.perform(put(base(acme) + "/PRIVACY/draft").with(user(owner(beta))).contentType(MediaType.APPLICATION_JSON).content(BODY)).andReturn().getResponse().getStatus()).isEqualTo(404);
-        assertThat(mockMvc.perform(post(base(acme) + "/PRIVACY/submit").with(user(owner(beta)))).andReturn().getResponse().getStatus()).isEqualTo(404);
+        assertThat(mockMvc.perform(post(base(acme) + "/PRIVACY/request-review").with(user(owner(beta)))).andReturn().getResponse().getStatus()).isEqualTo(404);
         // a plain member of acme has no permission: also the generic 404
         assertThat(mockMvc.perform(get(base(acme)).with(user("pol-acme-member"))).andReturn().getResponse().getStatus()).isEqualTo(404);
 

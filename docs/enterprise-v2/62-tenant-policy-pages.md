@@ -32,7 +32,7 @@
 | `GET /api/orgs/{orgId}/policies/{kind}` | same | draft body, live body, versions, comment |
 | `PUT .../{kind}/draft` | same | save the draft (`If-Match` draftVersion, 409 `POLICY_DRAFT_CONFLICT`) |
 | `POST .../{kind}/template` | same | replace the draft with the neutral template |
-| `POST .../{kind}/submit` / `/withdraw` | same | `DRAFT\|CHANGES_REQUESTED -> IN_REVIEW`; `IN_REVIEW -> DRAFT` |
+| `POST .../{kind}/request-review` / `/withdraw` | same | `DRAFT\|CHANGES_REQUESTED -> IN_REVIEW`; `IN_REVIEW -> DRAFT` |
 | `GET /api/admin/org-policies?status=IN_REVIEW` | `ROLE_ADMIN` | review queue across organizations |
 | `GET /api/admin/org-policies/{versionId}` | `ROLE_ADMIN` | proposed body, live body (the web diffs them) |
 | `POST /api/admin/org-policies/{versionId}/approve` / `request-changes` | `ROLE_ADMIN` | publish; or `CHANGES_REQUESTED` with a required comment |

@@ -33,7 +33,7 @@ describe("org policy BFF routes", () => {
       ["/api/orgs/7/policies", "GET"],
       ["/api/orgs/7/policies/ACCEPTABLE_USE", "GET"],
       ["/api/orgs/7/policies/PRIVACY/template", "POST"],
-      ["/api/orgs/7/policies/PRIVACY/submit", "POST"],
+      ["/api/orgs/7/policies/PRIVACY/request-review", "POST"],
       ["/api/orgs/7/policies/PRIVACY/withdraw", "POST"],
     ]);
   });

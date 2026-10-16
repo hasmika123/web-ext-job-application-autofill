@@ -42,7 +42,7 @@ public class OrgPolicyService {
 
     static final String CODE_STATE = "POLICY_STATE";
     static final String CODE_CONFLICT = "POLICY_DRAFT_CONFLICT";
-    static final String CODE_NOTHING = "POLICY_NOTHING_TO_SUBMIT";
+    static final String CODE_NOTHING = "POLICY_NOTHING_TO_SEND";
 
     private final OrganizationRepository orgs;
     private final OrgBrandingRepository brandings;
@@ -150,7 +150,7 @@ public class OrgPolicyService {
 
     /** Send the draft for review (or publish it at once when review is switched off). */
     @Transactional
-    public PolicyDTOs.Detail submit(OrgMembership me, String rawKind) {
+    public PolicyDTOs.Detail requestReview(OrgMembership me, String rawKind) {
         String kind = kindOrNotFound(rawKind);
         loadEditableOrg(me);
         OrgPolicy p = policies.findByOrgIdAndKind(me.orgId(), kind).orElseThrow(() -> state("There is no draft to submit."));
@@ -160,7 +160,7 @@ public class OrgPolicyService {
         String body = PolicyBodySanitizer.sanitize(p.getDraftBody(), maxChars());
         OrgPolicyVersion live = versions.findPublished(me.orgId(), kind).orElse(null);
         if (live != null && live.getBody().equals(body)) {
-            throw OrgException.coded(409, CODE_NOTHING, "The draft equals the published policy; there is nothing to submit.", Map.of());
+            throw OrgException.coded(409, CODE_NOTHING, "The draft equals the published policy; there is nothing to send.", Map.of());
         }
         OrgPolicyVersion v = new OrgPolicyVersion();
         v.setOrgId(me.orgId());

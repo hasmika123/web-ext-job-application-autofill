@@ -21,14 +21,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * An organization's policy pages, Org Admin side (docs/enterprise-v2/62): draft, start from the template, submit for review,
+ * An organization's policy pages, Org Admin side (docs/enterprise-v2/62): draft, start from the template, request a review,
  * withdraw. Everything needs {@code org.settings.manage} (OWNER, ADMIN; the same gate as branding). Publishing is not here: a
- * Kiwiply reviewer does it (or submit itself, when the admin setting {@code enterprise.policies.require_review} is off).
+ * Kiwiply reviewer does it (or the review request itself, when the admin setting {@code enterprise.policies.require_review} is off).
  * Another organization's id, or a kind that is not configured, is the usual generic 404.
  */
 @RestController
 @RequestMapping("/api/orgs/{orgId}/policies")
-@Tag(name = "org-policies", description = "Organization policy pages: draft, template, submit for review, withdraw.")
+@Tag(name = "org-policies", description = "Organization policy pages: draft, template, request review, withdraw.")
 public class OrgPolicyResource {
 
     private final OrgPolicyService service;
@@ -80,12 +80,12 @@ public class OrgPolicyResource {
         return service.startFromTemplate(me, kind);
     }
 
-    @Operation(summary = "Submit the draft for review", description = "409 POLICY_STATE unless DRAFT or CHANGES_REQUESTED; 409 POLICY_NOTHING_TO_SUBMIT when it equals the live text.")
-    @PostMapping("/{policyKind}/submit")
+    @Operation(summary = "Send the draft to a Kiwiply reviewer", description = "409 POLICY_STATE unless DRAFT or CHANGES_REQUESTED; 409 POLICY_NOTHING_TO_SEND when it equals the live text.")
+    @PostMapping("/{policyKind}/request-review")
     @OrgPermissionRequired(OrgPermission.ORG_SETTINGS_MANAGE)
-    public PolicyDTOs.Detail submit(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable("policyKind") String kind) {
+    public PolicyDTOs.Detail requestReview(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable("policyKind") String kind) {
         demoGuard.assertNotDemo();
-        return service.submit(me, kind);
+        return service.requestReview(me, kind);
     }
 
     @Operation(summary = "Take an in-review submission back to the draft")
