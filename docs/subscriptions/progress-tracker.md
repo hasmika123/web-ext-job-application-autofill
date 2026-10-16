@@ -88,17 +88,17 @@
 | K9.4 | Annual customer UX | Completed | Web | a6b8c161, 657c2aa7 | CatalogPricing.test (yearly tab, hide when off), ReviewSheet.test (yearly variant), MyPlan.test (interval sentence) | Yearly tab, "billed once a year / about x per month / save y" from DTO fields, S-04 term-end sentences; Playwright fixtures: MOCK_ANNUAL=0 toggles the mock |
 | K9.5 | Org annual | Not Started | API, Web | | | phase S5 |
 | K9.6 | Annual operations runbook + self-check | Not Started | API | | | phase S3; S-09 tax mode |
-| K10.1 | Retirement model + states + effective dates | Not Started | API | | | |
-| K10.2 | SuccessorAdvisor | Not Started | API | | | |
-| K10.3 | Notice schedule + copy | Not Started | API | | | |
-| K10.4 | Subscriber choices API | Not Started | API | | | |
-| K10.5 | RetirementJob: Free fallback + locks | Not Started | API | | | S-19 answered |
-| K10.6 | Read-only lock evaluation | Not Started | API | | | |
+| K10.1 | Retirement model + states + effective dates | Code Complete | API | 659595dd, 8beec9f6 (branch sub-retire-api) | unit tests green; ITs written, not yet run (RT-16) | see decisions RT-1..RT-16 |
+| K10.2 | SuccessorAdvisor | Code Complete | API | 9f852e4b (branch sub-retire-api) | unit tests green; ITs written, not yet run (RT-16) | see decisions RT-1..RT-16 |
+| K10.3 | Notice schedule + copy | Code Complete | API | a42f9eab (branch sub-retire-api) | unit tests green; ITs written, not yet run (RT-16) | see decisions RT-1..RT-16 |
+| K10.4 | Subscriber choices API | Code Complete | API | b0e32ab5 (branch sub-retire-api) | unit tests green; ITs written, not yet run (RT-16) | see decisions RT-1..RT-16 |
+| K10.5 | RetirementJob: Free fallback + locks | Code Complete | API | dcd2bfbc (branch sub-retire-api) | unit tests green; ITs written, not yet run (RT-16) | see decisions RT-1..RT-16 |
+| K10.6 | Read-only lock evaluation | Code Complete | API | e3766acd (branch sub-retire-api) | unit tests green; ITs written, not yet run (RT-16) | see decisions RT-1..RT-16 |
 | K10.7 | Enterprise retirement | Not Started | API, Web | | | after K6 |
-| K10.8 | Stripe mechanics for retirements | Not Started | API | | | |
+| K10.8 | Stripe mechanics for retirements | Code Complete | API | 5441fa29 (branch sub-retire-api) | unit tests green; ITs written, not yet run (RT-16) | see decisions RT-1..RT-16 |
 | K10.9 | Admin retirement wizard + progress | Not Started | Web | | | |
 | K10.10 | Customer "plan is changing" + lock UX | Not Started | Web, Ext | | | version bump |
-| K10.11 | Retirement regression gate | Not Started | API, Web | | | |
+| K10.11 | Retirement regression gate | Code Complete | API, Web | 6c67bcec (branch sub-retire-api) | unit tests green; ITs written, not yet run (RT-16) | see decisions RT-1..RT-16 |
 
 ## Log
 - 2026-10-16 - sub-web-admin: K4.1 to K4.7 built on branch sub-web-admin (plans list, editor, preview, publish, compare, org editor, mock + journey); API gaps W-1 to W-13 in decisions-for-user.md.
