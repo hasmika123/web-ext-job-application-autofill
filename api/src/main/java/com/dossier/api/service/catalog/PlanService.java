@@ -112,6 +112,7 @@ public class PlanService {
     private final AdminAuditService audit;
     private final List<PriceStripeSync> stripeSyncs;
     private final ObjectMapper mapper;
+    private final PublishGate publishGate;
     private final Clock clock = Clock.systemUTC();
 
     public PlanService(
@@ -131,7 +132,8 @@ public class PlanService {
         CatalogChangeRecorder changes,
         AdminAuditService audit,
         List<PriceStripeSync> stripeSyncs,
-        ObjectMapper mapper
+        ObjectMapper mapper,
+        PublishGate publishGate
     ) {
         this.plans = plans;
         this.versions = versions;
@@ -146,6 +148,7 @@ public class PlanService {
         this.catalog = catalog;
         this.settings = settings;
         this.calculator = calculator;
+        this.publishGate = publishGate;
         this.changes = changes;
         this.audit = audit;
         this.stripeSyncs = stripeSyncs;
@@ -522,6 +525,7 @@ public class PlanService {
         }
         String reason = requireReason(r.reason(), "Publishing a plan version");
         requireEditable(plan);
+        publishGate.requirePublishable();
         Instant now = now();
         if (r.effectiveFrom() != null && r.effectiveFrom().isAfter(now.plusSeconds(60))) {
             throw CatalogException.unprocessable("INVALID_VALUE", "A plan version goes live when it is published; scheduling a plan version is not supported yet.", Map.of("field", "effectiveFrom"));
@@ -529,6 +533,7 @@ public class PlanService {
 
         PlanModel m = loader.model(plan, ver);
         validator.checkIntervals(plan.getAudience(), intervalNames(ver.getIntervalsJson()));
+        requireSetupFee(plan, ver);
         validator.checkPublishable(plan, m);
 
         // 1. price the version in every currency it is sold in, and run the margin guard on all of them
@@ -635,6 +640,21 @@ public class PlanService {
             );
         }
         return after;
+    }
+
+    /** W-4 (answered 2026-10-16): an ORG plan is always charged a one-time setup fee (E3), so a version without one is refused at publish. */
+    private void requireSetupFee(Plan plan, PlanVersion ver) {
+        if (!"ORG".equals(plan.getAudience())) return;
+        JsonNode rules = null;
+        try {
+            if (ver.getSeatRulesJson() != null && !ver.getSeatRulesJson().isBlank()) rules = mapper.readTree(ver.getSeatRulesJson());
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            rules = null;
+        }
+        JsonNode fee = rules == null ? null : rules.get("setupFeeProductId");
+        if (fee == null || fee.isNull() || !fee.canConvertToLong() || fee.asLong() <= 0) {
+            throw CatalogException.unprocessable("SETUP_FEE_REQUIRED", "An organization plan always charges a one-time setup fee: choose the setup fee product in the seat rules before publishing.", Map.of("field", "seatRules.setupFeeProductId"));
+        }
     }
 
     // ---- compare ---------------------------------------------------------------------------------------------------------

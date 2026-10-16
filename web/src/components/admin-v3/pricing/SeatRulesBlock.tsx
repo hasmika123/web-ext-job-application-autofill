@@ -24,8 +24,7 @@ function ProductSelect({ label, value, products, disabled, onPick }: { label: st
 /**
  * The organization half of the editor (K4.6; 04 section 9). Seat rules (minimum seats, the seat-base license, the setup fee and the
  * optional platform fee) are the version's `seatRules`; the SEAT_BASE and FEE components below them carry the prices. An
- * organization plan is expected to carry a setup fee (E3). The API does not refuse a publish without one yet (see
- * decisions-for-user), so this block says so; if the API ever answers 422 the publish sheet shows it inline.
+ * organization plan always carries a setup fee (E3): the API refuses a publish without one (422 SETUP_FEE_REQUIRED, decision W-4), and this block says so.
  */
 export default function SeatRulesBlock({
   version,
@@ -78,7 +77,7 @@ export default function SeatRulesBlock({
       )}
       {noSetup && (
         <p role="note" className="rounded-xl bg-brown-soft p-3 text-[13px] text-brown-deep">
-          No setup fee is chosen. An organization plan is expected to carry one (E3: always charged); the API does not enforce it at publish yet.
+          No setup fee is chosen. An organization plan always carries one (E3), so publishing is refused until you choose it.
         </p>
       )}
       {rows.length > 0 ? <ul className="space-y-3">{rows}</ul> : <p className="text-[13px] text-v2-muted">Add the seat base license and any fee as services (Add service).</p>}

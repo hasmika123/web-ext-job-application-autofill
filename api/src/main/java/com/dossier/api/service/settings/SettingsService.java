@@ -90,7 +90,9 @@ public class SettingsService {
         AdminSettingKeys.OPS_ERROR_DIGEST_TO,
         "dossier.ops.error-digest.to",
         AdminSettingKeys.OPS_ERROR_DIGEST_INTERVAL_MIN,
-        "dossier.ops.error-digest.interval"
+        "dossier.ops.error-digest.interval",
+        BillingSettingKeys.PUBLISH_ALLOW_WITHOUT_STRIPE,
+        "dossier.billing.publish-allow-without-stripe"
     );
 
     private final ResumeBuilderSettings settings;

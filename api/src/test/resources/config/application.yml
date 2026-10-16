@@ -116,6 +116,9 @@ dossier:
   # Org features are on in the suite; the flag tests switch it with the admin setting.
   orgs:
     enabled: true
+  # The suite has no Stripe key and publishes plans and prices; the PublishGate tests switch the admin setting off.
+  billing:
+    publish-allow-without-stripe: true
   # The service-to-service secret for /api/internal/** (ResumePdfJobIT sends it).
   internal:
     token: test-internal-token

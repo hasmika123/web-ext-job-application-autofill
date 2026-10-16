@@ -149,7 +149,7 @@ describe("organization plan editor", () => {
     expect(calls.find((c) => c.method === "PATCH")!.body?.seatRules).toMatchObject({ minSeats: 3, setupFeeProductId: 20, seatBaseProductId: 22, maxSeatsSetting: "enterprise.license.max_seats" });
   });
 
-  it("warns, without blocking, when no setup fee is chosen", () => {
+  it("warns that publishing is refused when no setup fee is chosen", () => {
     mount({ ...ORG_VERSION, seatRules: { ...ORG_VERSION.seatRules!, setupFeeProductId: null } });
     expect(screen.getByText(/No setup fee is chosen/)).toBeTruthy();
   });

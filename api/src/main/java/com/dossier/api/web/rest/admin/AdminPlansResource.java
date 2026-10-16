@@ -4,6 +4,9 @@ import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.catalog.PlanLifecycleService;
 import com.dossier.api.service.catalog.PlanPreviewService;
 import com.dossier.api.service.catalog.PlanService;
+import com.dossier.api.service.catalog.StripePriceImportService;
+import com.dossier.api.service.catalog.StripePriceImportService.ImportRequest;
+import com.dossier.api.service.catalog.StripePriceImportService.ImportResult;
 import com.dossier.api.service.catalog.dto.PlanDTOs.CompareDTO;
 import com.dossier.api.service.catalog.dto.PlanDTOs.ComponentsRequest;
 import com.dossier.api.service.catalog.dto.PlanDTOs.CreatePlanRequest;
@@ -50,8 +53,10 @@ public class AdminPlansResource {
     private final PlanService plans;
     private final PlanPreviewService preview;
     private final PlanLifecycleService lifecycle;
+    private final StripePriceImportService priceImport;
 
-    public AdminPlansResource(PlanService plans, PlanPreviewService preview, PlanLifecycleService lifecycle) {
+    public AdminPlansResource(PlanService plans, PlanPreviewService preview, PlanLifecycleService lifecycle, StripePriceImportService priceImport) {
+        this.priceImport = priceImport;
         this.plans = plans;
         this.preview = preview;
         this.lifecycle = lifecycle;
@@ -129,7 +134,7 @@ public class AdminPlansResource {
         description = "One transaction: margin guard on every offered currency, derived yearly rows, Stripe prices, the version, the snapshot and one catalog version. Needs the Idempotency-Key header "
             + "(400 IDEMPOTENCY_KEY_REQUIRED) and confirmVersion equal to the version (412 CONFIRM_MISMATCH). A replay with the same key answers 200 with the same version. "
             + "Errors: 409 NOT_DRAFT, 422 PLAN_PRICE_MISSING, 422 PLAN_DEPENDENCY_MISSING, 422 MARGIN_BELOW_FLOOR (overrideAllowed tells whether overrideReason can pass it), 422 BASE_PRODUCT_REQUIRED, "
-            + "422 FREE_PLAN_PRICED, 422 INTERVAL_NOT_ENABLED, 502 STRIPE_ERROR, 503 BILLING_DISABLED."
+            + "422 FREE_PLAN_PRICED, 422 INTERVAL_NOT_ENABLED, 422 SETUP_FEE_REQUIRED (an ORG plan without a setup fee), 422 LIVE_KEY_NOT_ALLOWED (a live Stripe key outside production), 502 STRIPE_ERROR, 503 BILLING_DISABLED (Stripe off, unless billing.publish.allow_without_stripe is on)."
     )
     @PostMapping("/{planKey}/versions/{v}/publish")
     public PlanVersionDTO publish(
@@ -139,6 +144,16 @@ public class AdminPlansResource {
         @RequestBody PublishPlanRequest body
     ) {
         return plans.publish(planKey, v, body, idempotencyKey);
+    }
+
+    @Operation(
+        summary = "Import the launch Stripe prices into a DRAFT Pro version (HIGH)",
+        description = "Cut-over step (decision B-01): reads STRIPE_PRICE_MONTHLY and STRIPE_PRICE_3MO from Stripe and creates the matching DRAFT MONTH and QUARTER price rows of the base product, "
+            + "with the Stripe price ids set. Idempotent, never overwrites a row, needs billing on. Errors: 503 BILLING_DISABLED, 409 NOT_DRAFT, 422 IMPORT_NOT_SUPPORTED, 422 STRIPE_PRICE_MISMATCH, 422 REASON_REQUIRED."
+    )
+    @PostMapping("/{planKey}/versions/{v}/import-stripe-prices")
+    public ImportResult importStripePrices(@PathVariable("planKey") String planKey, @PathVariable("v") int v, @RequestBody ImportRequest body) {
+        return priceImport.importPrices(planKey, v, body);
     }
 
     @Operation(summary = "Discard a DRAFT version", description = "409 NOT_DRAFT for anything published.")

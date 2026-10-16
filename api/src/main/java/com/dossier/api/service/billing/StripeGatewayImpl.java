@@ -756,6 +756,14 @@ public class StripeGatewayImpl implements StripeGateway {
         });
     }
 
+    @Override
+    public StripePriceInfo retrievePrice(String priceId) {
+        return read("retrieve a price", (c, o) -> {
+            com.stripe.model.Price p = c.prices().retrieve(priceId, o);
+            return new StripePriceInfo(p.getId(), p.getProduct(), p.getCurrency() == null ? null : p.getCurrency().toUpperCase(), nz(p.getUnitAmount()), Boolean.TRUE.equals(p.getActive()), intervalOf(p), p.getMetadata());
+        });
+    }
+
     private static PriceInterval intervalOf(com.stripe.model.Price p) {
         com.stripe.model.Price.Recurring r = p.getRecurring();
         if (r == null) return PriceInterval.ONE_TIME;

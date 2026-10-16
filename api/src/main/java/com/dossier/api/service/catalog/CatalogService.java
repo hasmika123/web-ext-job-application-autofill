@@ -70,6 +70,7 @@ public class CatalogService {
     private final AdminAuditService audit;
     private final List<PriceStripeSync> stripeSyncs;
     private final ObjectMapper mapper;
+    private final PublishGate publishGate;
     private final Clock clock;
 
     public CatalogService(
@@ -84,7 +85,8 @@ public class CatalogService {
         CatalogChangeRecorder changes,
         AdminAuditService audit,
         List<PriceStripeSync> stripeSyncs,
-        ObjectMapper mapper
+        ObjectMapper mapper,
+        PublishGate publishGate
     ) {
         this.prices = prices;
         this.publishes = publishes;
@@ -98,6 +100,7 @@ public class CatalogService {
         this.audit = audit;
         this.stripeSyncs = stripeSyncs;
         this.mapper = mapper;
+        this.publishGate = publishGate;
         this.clock = Clock.systemUTC();
     }
 
@@ -217,6 +220,7 @@ public class CatalogService {
     public PriceDTO publish(Long id, PublishPriceRequest r) {
         String reason = requireReason(r == null ? null : r.reason(), "Publishing a price");
         ProductPrice p = load(id);
+        publishGate.requirePublishable();
         if (!"DRAFT".equals(p.status())) throw CatalogException.conflict("PRICE_STATE", "Price " + id + " is " + p.status() + ", only a DRAFT can be published.", Map.of("status", p.status()));
         Product product = products.findById(p.getProductId()).orElseThrow(() -> CatalogException.notFound("product", "of price " + id));
         if (!Boolean.TRUE.equals(product.getActive())) throw CatalogException.unprocessable("PRODUCT_RETIRED", "Product " + product.getCode() + " is retired.", Map.of("productId", product.getId()));

@@ -29,7 +29,9 @@ function Refusal({ fail, currency }: { fail: AdminFail; currency: string }) {
     <div role="alert" className="space-y-1 rounded-xl border border-danger bg-danger/10 p-3 text-[13px] text-danger-text" data-publish-error={fail.code ?? fail.status}>
       <p className="font-semibold">{fail.error}</p>
       {fail.code === "MARGIN_BELOW_FLOOR" && fail.extra.overrideAllowed === false && <p>This failure cannot be overridden: a discounted or yearly row has to pass on its own.</p>}
-      {fail.code === "BILLING_DISABLED" && <p>Stripe is not configured here. Drafts stay editable.</p>}
+      {fail.code === "BILLING_DISABLED" && <p>Stripe is not configured here, so publishing is refused. Drafts stay editable; a QA stack can switch on the setting billing.publish.allow_without_stripe.</p>}
+      {fail.code === "LIVE_KEY_NOT_ALLOWED" && <p>This stack has a live Stripe key outside production. Use a test-mode key to publish.</p>}
+      {fail.code === "SETUP_FEE_REQUIRED" && <p>Choose the setup fee product in the seat rules, then publish again.</p>}
       {fail.code === "STRIPE_ERROR" && <p>Nothing was published: a Stripe step failed before the commit. You can try again; the same key is reused.</p>}
       {checks.length > 0 && (
         <ul className="space-y-1">
@@ -129,7 +131,7 @@ function PublishForm({ onClose, plan, version, preview, liveVersion, onPublished
 
         {preview?.impact && !preview.impact.stripeEnabled && (
           <p role="status" className="rounded-xl bg-brown-soft p-3 text-[13px] text-brown-deep">
-            Stripe is not configured here. Publishing records the version and its prices, but creates no Stripe prices; they are created at a later publish once a Stripe key is set.
+            Stripe is not configured here. Publishing is refused unless an administrator has allowed it for this stack (billing.publish.allow_without_stripe); then no Stripe prices are created and they follow at a later publish once a Stripe key is set.
           </p>
         )}
 

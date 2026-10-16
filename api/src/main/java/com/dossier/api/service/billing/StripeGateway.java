@@ -278,4 +278,12 @@ public interface StripeGateway {
      * The catalog reconciler compares them with {@code product_price}; it never writes.
      */
     java.util.List<StripePriceInfo> listPrices(int max);
+
+    /**
+     * Read-only: one Stripe Price by id, whatever created it (the price ids of the first launch carry no Kiwiply metadata). Used by the one-time price import
+     * (decision B-01). The default refuses so a test double that does not need it keeps compiling.
+     */
+    default StripePriceInfo retrievePrice(String priceId) {
+        throw new StripeGatewayException("retrievePrice is not supported by this gateway", StripeGatewayException.Kind.NOT_ENABLED, null, null);
+    }
 }

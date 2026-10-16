@@ -49,6 +49,9 @@ public final class BillingSettingKeys {
     public static final String DEFAULT_CURRENCY = "billing.default_currency";
     public static final String CURRENCIES = "billing.currencies";
     public static final String CATALOG_SHADOW = "billing.catalog.shadow";
+    public static final String TAX_MODE = "billing.tax.mode";
+    public static final String UPGRADE_PRORATION = "billing.upgrade.proration";
+    public static final String PUBLISH_ALLOW_WITHOUT_STRIPE = "billing.publish.allow_without_stripe";
     public static final String PUBLIC_CATALOG_CACHE_SECONDS = "billing.public_catalog.cache_seconds";
     public static final String PLAN_MAX_OPTIONAL_ADDONS = "billing.plan.max_optional_addons";
     public static final String PLAN_SUNSET_NOTICE_DAYS = "billing.plan.sunset_notice_days";
@@ -119,6 +122,12 @@ public final class BillingSettingKeys {
         // Proration and currency.
         k.add(new Key(PRORATION_AUTHORITY, Type.ENUM, "KIWIPLY", null, null, List.of("KIWIPLY"),
             "Who computes proration: Kiwiply (the only value; Stripe is always told not to prorate)." + NOT_ENFORCED, null, Risk.HIGH));
+        k.add(new Key(TAX_MODE, Type.ENUM, "UNDECIDED", null, null, List.of("UNDECIDED", "STRIPE_TAX", "NOT_COLLECTING"),
+            "How tax is handled on invoices (decision S-09): UNDECIDED (the default), STRIPE_TAX (Stripe Tax calculates it; turn on the Stripe-side automatic tax too) or NOT_COLLECTING (a recorded decision not to collect tax yet). A yearly invoice is twelve times larger, so the billing self-check warns while yearly billing is on and this is UNDECIDED. It records the decision; it does not itself switch Stripe's tax.",
+            null, Risk.HIGH));
+        k.add(new Key(UPGRADE_PRORATION, Type.ENUM, "NEW_BASE", null, null, List.of("NEW_BASE", "DIFFERENCE"),
+            "What an upgrade now (for example Pro to Autopilot) charges: NEW_BASE (the new base price for the rest of the period or term; the old base is already paid and is not credited, the design's table) or DIFFERENCE (only the price difference for the rest of the period).",
+            null, Risk.HIGH));
         k.add(new Key(DEFAULT_CURRENCY, Type.ENUM, "USD", null, null, List.of("USD", "EUR", "GBP", "CAD", "AUD", "INR"),
             "Currency of a price row when none is named (USD only today; it must be one of the offered currencies)." + NOT_ENFORCED, null, Risk.HIGH));
         k.add(new Key(CURRENCIES, Type.JSON, DEFAULT_CURRENCIES, null, null, null,
@@ -128,6 +137,9 @@ public final class BillingSettingKeys {
         // Rollout, caching and notices.
         k.add(new Key(CATALOG_SHADOW, Type.BOOL, "true", null, null, null,
             "Shadow mode of the catalog-based entitlement resolver: on = the current gates decide and the resolver is only compared; off = the resolver decides. Mismatches are logged as entitlement.shadow_mismatch (flip checklist: docs/subscriptions/README.md).", null, Risk.HIGH));
+        k.add(new Key(PUBLISH_ALLOW_WITHOUT_STRIPE, Type.BOOL, "false", null, null, null,
+            "Lets a plan or a price be published while Stripe is off (blank key): no Stripe Price is created and the row gets one at the next publish that needs it. Off (the default), such a publish is refused with 503 BILLING_DISABLED. For QA and local stacks only; switching it on is audited as HIGH. It never lifts the refusal of a live Stripe key outside production.",
+            null, Risk.HIGH));
         integer(k, PUBLIC_CATALOG_CACHE_SECONDS, 300, 0, 3600, Risk.LOW, "Seconds the public catalog (the pricing page) is cached. 0 = no cache." + NOT_ENFORCED);
         integer(k, PLAN_SUNSET_NOTICE_DAYS, 30, 1, 365, Risk.MEDIUM, "Days of notice before a plan version is sunset." + NOT_ENFORCED);
         integer(k, MIGRATION_NOTICE_DAYS, MIGRATION_NOTICE_HARD_MIN_DAYS, MIGRATION_NOTICE_HARD_MIN_DAYS, 365, Risk.HIGH,
