@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, type ComponentType } from "react";
+import { useCallback, useState, type ComponentType, type FormEvent } from "react";
 import {
   BookmarkIcon,
   BriefcaseIcon,
@@ -24,12 +24,15 @@ import {
   TrophyIcon,
   UserIcon,
   ZapIcon,
+  Button,
+  Input,
   cn,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot, openHelpPanel } from "@/components/ent/shell/ShellContext";
 import { EnterpriseMascot } from "@/lib/ent/mascot";
+import { PREFERRED_CONTACTS, TIME_ZONES, checkPhone, preferredLabel, timeZoneLabel } from "@/lib/ent/contact-fields";
 import { BASE, Card, CompanyMark, Empty, useWorkspaceData } from "./parts";
 import { CertificationForm, ChipList, EDIT_LINK, TextEditor } from "./ProfileEditors";
 import {
@@ -50,6 +53,7 @@ import {
   removeSkill,
   saveAvailability,
   saveCareerGoals,
+  saveContact,
   saveEmploymentTypes,
   saveSummary,
   saveWorkAuthorization,
@@ -205,6 +209,102 @@ function SummaryCard({ view, orgId, save, req }: CardProps) {
         </>
       ) : (
         <Empty>No summary yet. A short summary helps recruiters see your strengths at a glance.</Empty>
+      )}
+    </Card>
+  );
+}
+
+/** Work phone, time zone and preferred contact: what the assigned marketer sees (read-only for them). Contact data only. */
+function ContactCard({ view, orgId, save }: CardProps) {
+  const [editing, setEditing] = useState(false);
+  const m = view.me;
+  const [phone, setPhone] = useState(m.phone ?? "");
+  const [zone, setZone] = useState(m.timeZone ?? "");
+  const [pref, setPref] = useState(m.preferredContact ?? "");
+  const [error, setError] = useState<string | null>(null);
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    const local = checkPhone(phone);
+    if (local) return setError(local);
+    const err = await save(() => saveContact(orgId, { phone: phone.trim(), timeZone: zone, preferredContact: pref }), "Contact details saved");
+    if (err) return setError(err);
+    setEditing(false);
+  }
+  const open = () => {
+    setPhone(m.phone ?? "");
+    setZone(m.timeZone ?? "");
+    setPref(m.preferredContact ?? "");
+    setError(null);
+    setEditing(true);
+  };
+  return (
+    <Card id="profile-contact" title="Contact Details" icon={UserIcon} extra={editing ? null : <EditLink label="Edit contact details" onClick={open} />}>
+      {editing ? (
+        <form onSubmit={submit} aria-label="Edit contact details" className="space-y-2.5">
+          <div>
+            <label htmlFor="contact-phone" className="text-[12.5px] font-semibold text-ink">
+              Work phone
+            </label>
+            <Input id="contact-phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={32} value={phone} placeholder="e.g. (555) 010-0142" aria-invalid={error ? true : undefined} onChange={(e) => setPhone(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="contact-zone" className="text-[12.5px] font-semibold text-ink">
+              Time zone
+            </label>
+            <select id="contact-zone" value={zone} onChange={(e) => setZone(e.target.value)} className="h-10 w-full rounded-md border border-line bg-paper px-2 text-[14px] text-ink">
+              <option value="">Not set</option>
+              {TIME_ZONES.map((z) => (
+                <option key={z.value} value={z.value}>
+                  {z.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="contact-pref" className="text-[12.5px] font-semibold text-ink">
+              Best way to reach me
+            </label>
+            <select id="contact-pref" value={pref} onChange={(e) => setPref(e.target.value)} className="h-10 w-full rounded-md border border-line bg-paper px-2 text-[14px] text-ink">
+              <option value="">Not set</option>
+              {PREFERRED_CONTACTS.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="text-[12px] text-muted">Your assigned marketer can see these. Please don&apos;t include ID numbers or dates of birth.</p>
+          {error ? (
+            <p role="alert" className="text-[12.5px] font-medium text-v2-coral-ink">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" variant="accent">
+              Save
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        </form>
+      ) : m.phone || m.timeZone || m.preferredContact ? (
+        <dl data-contact className="grid gap-1.5 text-[13.5px]">
+          <div className="flex gap-2">
+            <dt className="w-24 flex-none text-muted">Phone</dt>
+            <dd className="min-w-0 break-words font-medium text-ink">{m.phone ?? "Not set"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-24 flex-none text-muted">Time zone</dt>
+            <dd className="min-w-0 break-words font-medium text-ink">{timeZoneLabel(m.timeZone) ?? "Not set"}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="w-24 flex-none text-muted">Reach me by</dt>
+            <dd className="min-w-0 break-words font-medium text-ink">{preferredLabel(m.preferredContact) ?? "Not set"}</dd>
+          </div>
+        </dl>
+      ) : (
+        <Empty>No contact details yet. Add a phone and time zone so your marketer can reach you.</Empty>
       )}
     </Card>
   );
@@ -654,6 +754,7 @@ export default function ConsultantProfilePage({ orgId, firstName: first }: Profi
             <TopCard view={view} save={save} jump={jump} />
             <div className="grid min-w-0 gap-4 sm:gap-5 md:grid-cols-2">
               <SummaryCard {...cardProps} />
+              <ContactCard {...cardProps} />
               <SkillsCard {...cardProps} />
               <CertificationsCard {...cardProps} />
               <ExperienceCard {...cardProps} />

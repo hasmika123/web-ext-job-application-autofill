@@ -43,7 +43,7 @@ export interface PrefItem {
 
 export interface ProfileView {
   orgId: number;
-  me: { consultantId: number; name: string; jobTitle: string | null; yearsExperience: number | null; location: string | null; workMode: string | null };
+  me: { consultantId: number; name: string; jobTitle: string | null; yearsExperience: number | null; location: string | null; workMode: string | null; phone: string | null; timeZone: string | null; preferredContact: string | null };
   availability: { status: AvailabilityStatus; since: string | null; availableFrom: string | null };
   strength: { percent: number; missing: Missing[] };
   summary: { text: string | null; source: "RESUME" | "PROFILE" | "NONE"; hasResume: boolean };
@@ -88,6 +88,9 @@ export function parseProfile(body: unknown): ProfileView | null {
       yearsExperience: numOrNull(body.me.yearsExperience),
       location: strOrNull(body.me.location),
       workMode: strOrNull(body.me.workMode),
+      phone: strOrNull(body.me.phone),
+      timeZone: strOrNull(body.me.timeZone),
+      preferredContact: strOrNull(body.me.preferredContact),
     },
     availability: { status, since: strOrNull(av.since), availableFrom: strOrNull(av.availableFrom) },
     strength: {
@@ -232,6 +235,7 @@ export const fetchProfile = (orgId: number | string, signal?: AbortSignal) => ca
 export const saveAvailability = (orgId: number | string, status: AvailabilityStatus) => call(orgId, "/availability", "PUT", { status });
 export const saveSummary = (orgId: number | string, text: string) => call(orgId, "/summary", "PUT", { text });
 export const saveCareerGoals = (orgId: number | string, text: string) => call(orgId, "/career-goals", "PUT", { text });
+export const saveContact = (orgId: number | string, body: { phone: string; timeZone: string; preferredContact: string }) => call(orgId, "/contact", "PUT", body);
 export const saveWorkAuthorization = (orgId: number | string, value: WorkAuthorization | null) => call(orgId, "/work-authorization", "PUT", { value });
 export const saveEmploymentTypes = (orgId: number | string, values: EmploymentType[]) => call(orgId, "/employment-types", "PUT", { values });
 export const addSkill = (orgId: number | string, skill: string) => call(orgId, "/skills", "POST", { skill });

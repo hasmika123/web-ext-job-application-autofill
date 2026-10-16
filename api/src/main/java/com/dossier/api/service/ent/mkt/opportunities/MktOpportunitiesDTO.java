@@ -37,7 +37,8 @@ public final class MktOpportunitiesDTO {
         Instant lastActivityAt,
         boolean stale,
         boolean ready,
-        String reason
+        String reason,
+        String state
     ) {}
 
     public record TopMatch(Long id, String jobTitle, String client, String location, int matchScore) {}
@@ -92,6 +93,12 @@ public final class MktOpportunitiesDTO {
 
     /** The marketer's answer to the consultant's question (1 to 1000 characters). */
     public record AnswerInfoRequest(String answer) {}
+
+    /** Why the marketer takes the assignment back (1 to 200 characters, required). */
+    public record WithdrawRequest(String reason) {}
+
+    /** The other consultant (inside the caller's scope) a declined or withdrawn opportunity is offered to. */
+    public record ReassignRequest(Long consultantId) {}
 
     public record NextActionRequest(Instant nextActionAt) {}
 

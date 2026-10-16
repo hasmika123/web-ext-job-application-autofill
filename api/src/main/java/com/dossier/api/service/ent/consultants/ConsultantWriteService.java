@@ -70,7 +70,8 @@ public class ConsultantWriteService {
     public static final Set<String> PRIORITY = Set.of("HIGH", "MEDIUM", "LOW");
     /** The keys a single edit accepts: anything else (orgId, status, memberId...) is refused, never bound. */
     public static final Set<String> EDITABLE = Set.of(
-        "jobTitle", "yearsExperience", "locationLabel", "workMode", "availabilityStatus", "availableFrom", "licenseStatus", "licenseValidUntil", "departmentGroupId"
+        "jobTitle", "yearsExperience", "locationLabel", "workMode", "availabilityStatus", "availableFrom", "licenseStatus", "licenseValidUntil", "departmentGroupId",
+        "phone", "timeZone", "preferredContact"
     );
 
     /**
@@ -302,6 +303,27 @@ public class ConsultantWriteService {
             if (!java.util.Objects.equals(v, c.getLocationLabel())) {
                 c.setLocationLabel(v);
                 changed.add("locationLabel");
+            }
+        }
+        if (body.containsKey("phone")) {
+            String v = ConsultantContact.phone(body.get("phone"));
+            if (!java.util.Objects.equals(v, c.getPhone())) {
+                c.setPhone(v);
+                changed.add("phone");
+            }
+        }
+        if (body.containsKey("timeZone")) {
+            String v = ConsultantContact.timeZone(body.get("timeZone"));
+            if (!java.util.Objects.equals(v, c.getTimeZone())) {
+                c.setTimeZone(v);
+                changed.add("timeZone");
+            }
+        }
+        if (body.containsKey("preferredContact")) {
+            String v = ConsultantContact.preferred(body.get("preferredContact"));
+            if (!java.util.Objects.equals(v, c.getPreferredContact())) {
+                c.setPreferredContact(v);
+                changed.add("preferredContact");
             }
         }
         if (body.containsKey("workMode")) {

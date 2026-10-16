@@ -523,6 +523,22 @@ class ConsultantProfileResourceIT {
     }
 
     @Test
+    void contactDetailsAreSavedValidatedAndPiiScanned() throws Exception {
+        JsonNode p = ok(send(put(path(a.getId(), "/contact")), "cwp-a-c1", json("phone", q("(555) 010-0142"), "timeZone", q("America/Chicago"), "preferredContact", q("phone"))), "set");
+        assertThat(p.path("me").path("phone").asText()).isEqualTo("(555) 010-0142");
+        assertThat(p.path("me").path("timeZone").asText()).isEqualTo("America/Chicago");
+        assertThat(p.path("me").path("preferredContact").asText()).isEqualTo("PHONE");
+        assertInvalid(send(put(path(a.getId(), "/contact")), "cwp-a-c1", json("phone", q("call me maybe"))), "letters in a phone");
+        assertInvalid(send(put(path(a.getId(), "/contact")), "cwp-a-c1", json("phone", q("555-0100"), "timeZone", q("Mars/Olympus"))), "unknown zone");
+        assertInvalid(send(put(path(a.getId(), "/contact")), "cwp-a-c1", json("phone", q("555-0100"), "preferredContact", q("CARRIER_PIGEON"))), "unknown preference");
+        assertPii(send(put(path(a.getId(), "/contact")), "cwp-a-c1", json("phone", q("123-45-6789"))), "an SSN-shaped phone");
+        p = profile("cwp-a-c1", a);
+        assertThat(p.path("me").path("phone").asText()).as("a refused write changes nothing").isEqualTo("(555) 010-0142");
+        p = ok(send(put(path(a.getId(), "/contact")), "cwp-a-c1", json("phone", q(""), "timeZone", "null", "preferredContact", "null")), "clear");
+        assertThat(p.path("me").path("phone").isNull()).isTrue();
+    }
+
+    @Test
     void everyFreeTextFieldRejectsSensitivePersonalData() throws Exception {
         String ssn = "My SSN is 123-45-6789";
         assertPii(send(put(path(a.getId(), "/summary")), "cwp-a-c1", json("text", q(ssn))), "summary");

@@ -292,7 +292,8 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/me-workspace/profile", Case.consultantRead()),
         Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/availability", Case.consultantWrite("{\"status\":\"NOTICE\"}", 200)),
         Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/summary", Case.consultantWrite("{\"text\":\"Hijacked summary\"}", 200)),
-        Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/career-goals", Case.consultantWrite("{\"text\":\"Hijacked goals\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/contact", Case.consultantWrite("{\"phone\":\"555-0100\",\"timeZone\":\"America/Chicago\",\"preferredContact\":\"EMAIL\"}", 200)),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/career-goals",Case.consultantWrite("{\"text\":\"Hijacked goals\"}", 200)),
         Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/work-authorization", Case.consultantWrite("{\"value\":\"authorized_no_sponsorship\"}", 200)),
         Map.entry("PUT /api/orgs/{orgId}/me-workspace/profile/employment-types", Case.consultantWrite("{\"values\":[\"CONTRACT\"]}", 200)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/profile/skills", Case.consultantWrite("{\"skill\":\"Hijack\"}", 200)),
@@ -533,7 +534,8 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mkt/followups/{id}/call", Case.mkt(200, "MARKETER_FOLLOWUP_CALL", w -> "{\"note\":\"Called the recruiter\"}", null)),
         Map.entry("POST /api/orgs/{orgId}/mkt/followups/{id}/reminder", Case.mkt(200, "MARKETER_FOLLOWUP_REMINDER", w -> "{\"note\":\"Nudge\"}", null)),
         // The browser extension's "save for consultant": needs an Idempotency-Key (request()). The world's job is already known by its ATS identity, so the call assigns the consultant to it.
-        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/from-extension", Case.mkt(200, "MARKETER_JOB_CAPTURE", w -> "{\"jobUrl\":\"https://boards.example.com/jobs/" + w.p + "-1\",\"title\":\"Hijack capture\",\"company\":\"Hijack Co\",\"atsPlatform\":\"greenhouse\",\"externalJobId\":\"" + w.p + "1\",\"consultantIds\":[" + w.consultantProfileId + "],\"keyInfo\":\"Lead with the integration work.\",\"extensionVersion\":\"1.0.0\"}", World::approveResume)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/job", Case.mkt(201, "MARKETER_JOB_CREATE", w -> "{\"title\":\"Hijack hand job\",\"company\":\"Hijack Co\",\"location\":\"Austin, TX\",\"workMode\":\"REMOTE\",\"description\":\"Entered by hand.\"}", World::mktHandJobStored)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/from-extension",Case.mkt(200, "MARKETER_JOB_CAPTURE", w -> "{\"jobUrl\":\"https://boards.example.com/jobs/" + w.p + "-1\",\"title\":\"Hijack capture\",\"company\":\"Hijack Co\",\"atsPlatform\":\"greenhouse\",\"externalJobId\":\"" + w.p + "1\",\"consultantIds\":[" + w.consultantProfileId + "],\"keyInfo\":\"Lead with the integration work.\",\"extensionVersion\":\"1.0.0\"}", World::approveResume)),
         Map.entry("GET /api/orgs/{orgId}/mkt/interviews", Case.mktRead()),
         Map.entry("GET /api/orgs/{orgId}/mkt/interviews/{interviewId}/prep", Case.mktRead()),
         // Ticking a prep item is the checklist's own working state (the item row carries who and when); it writes no audit row by design.
@@ -564,7 +566,9 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/bulk-assign", Case.mkt(200, "MARKETER_OPPORTUNITY_BULK_ASSIGN", w -> "{\"ids\":[" + w.mktMatchId + "]}", World::approveResume)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/notify", Case.mkt(200, "MARKETER_OPPORTUNITY_NOTIFY", w -> null, World::mktAwaitingInterest)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/request", Case.mkt(200, "MARKETER_OPPORTUNITY_REQUEST", w -> "{\"kind\":\"RESUME\"}", null)),
-        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/answer-info", Case.mkt(200, "MARKETER_OPPORTUNITY_INFO_ANSWER", w -> "{\"answer\":\"Yes, a W2 option is available.\"}", World::mktNeedsInfo)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/withdraw", Case.mkt(200, "MARKETER_OPPORTUNITY_WITHDRAW", w -> "{\"reason\":\"The client paused hiring for this role.\"}", World::mktAssignOpportunity)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/reassign", Case.mkt(200, "MARKETER_OPPORTUNITY_REASSIGN", w -> "{\"consultantId\":" + w.consultantId + "}", World::mktReassignable)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/answer-info",Case.mkt(200, "MARKETER_OPPORTUNITY_INFO_ANSWER", w -> "{\"answer\":\"Yes, a W2 option is available.\"}", World::mktNeedsInfo)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/review", Case.mkt(200, "MARKETER_OPPORTUNITY_REVIEW", w -> null, null)),
         Map.entry("PATCH /api/orgs/{orgId}/mkt/opportunities/{id}/next-action", Case.mkt(200, "MARKETER_OPPORTUNITY_NEXT_ACTION", w -> "{\"nextActionAt\":\"" + Instant.now().plusSeconds(5 * 86400L) + "\"}", null)),
         Map.entry("GET /api/orgs/{orgId}/mkt/performance", Case.mktRead()),
@@ -1287,6 +1291,50 @@ class OrgIsolationIT {
             em.clear();
         }
 
+        /** The assigned opportunity was declined by its consultant, and a second consultant of the world (approved resume, pair already suggested) can take it. */
+        void mktReassignable() {
+            mktAssignOpportunity();
+            com.dossier.api.domain.ent.talent.OrgResume second = new com.dossier.api.domain.ent.talent.OrgResume();
+            second.setOrgId(org.getId());
+            second.setConsultantId(consultantId);
+            second.setName(p + " second consultant resume");
+            second.setOwnerMemberId(owner.getId());
+            second.setApprovalStatus("APPROVED");
+            second.setApprovedAt(Instant.now());
+            talentResumes.saveAndFlush(second);
+            com.dossier.api.domain.ent.talent.RequirementMatch rm = new com.dossier.api.domain.ent.talent.RequirementMatch();
+            rm.setOrgId(org.getId());
+            rm.setRequirementId(jobId);
+            rm.setConsultantId(consultantId);
+            rm.setScore(70);
+            rm.setStatus("SUGGESTED");
+            rm.setReason("Skills align with this role.");
+            Long secondMatch = requirementMatches.saveAndFlush(rm).getId();
+            com.dossier.api.domain.ent.mkt.MktOpportunity o2 = new com.dossier.api.domain.ent.mkt.MktOpportunity();
+            o2.setOrgId(org.getId());
+            o2.setMatchId(secondMatch);
+            o2.setOwnerMemberId(owner.getId());
+            mktOpportunities.save(o2);
+            em.createQuery("update MktOpportunity o set o.state = 'DECLINED' where o.orgId = :o and o.matchId = :m").setParameter("o", org.getId()).setParameter("m", mktMatchId).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        /** The hand-typed job is already stored (the employer and job inserts of a new one run in transactions of their own, which would wait for this test's uncommitted rows). */
+        void mktHandJobStored() {
+            seedMkt();
+            com.dossier.api.domain.ent.talent.ClientRequirement jr = new com.dossier.api.domain.ent.talent.ClientRequirement();
+            jr.setOrgId(org.getId());
+            jr.setClientId(jobClientId);
+            jr.setTitle("Hijack hand job");
+            String key = com.dossier.api.service.ent.mkt.opportunities.MktManualJobService.manualKey("Hijack Co", "Hijack hand job", "Austin, TX");
+            jr.setUrlKey(key);
+            jr.setUrlKeyHash(com.dossier.api.service.ent.jobs.UrlKeys.hash(key));
+            clientRequirements.saveAndFlush(jr);
+            em.flush();
+            em.clear();
+        }
+
         void mktCompleteTask() {
             mktApi(HttpMethod.POST, "/mkt/tasks/" + mktTaskId + "/complete", null);
         }
@@ -1513,7 +1561,7 @@ class OrgIsolationIT {
         if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members") || route.key().equals("POST /api/orgs/{orgId}/resumes") || route.key().equals("POST /api/orgs/{orgId}/resumes/bulk")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension") || route.pattern().endsWith("/opportunities/job"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {

@@ -167,7 +167,7 @@ export interface TalentOverview {
   headline: string;
   workMode: string;
   availability: TalentRow["availability"];
-  contact: { workEmail: string; location: string; workAuthorization: string };
+  contact: { workEmail: string; location: string; workAuthorization: string; phone: string; timeZone: string; preferredContact: string };
   skills: string[];
   placement: { roleTitle: string; client: string; startDate: string; status: string } | null;
   resumes: { id: number; name: string; version: number; primary: boolean; approval: string; updatedAt: string }[];
@@ -189,7 +189,7 @@ export function parseOverview(raw: unknown): TalentOverview | null {
   const ap = isObj(raw.applications) ? raw.applications : {};
   return {
     id: base.id, name: base.name, title: str(raw.title), headline: str(raw.headline), workMode: str(raw.workMode), availability: base.availability,
-    contact: { workEmail: str(c.workEmail), location: str(c.location), workAuthorization: str(c.workAuthorization) },
+    contact: { workEmail: str(c.workEmail), location: str(c.location), workAuthorization: str(c.workAuthorization), phone: str(c.phone), timeZone: str(c.timeZone), preferredContact: str(c.preferredContact) },
     skills: strs(raw.skills),
     placement: pl ? { roleTitle: str(pl.roleTitle), client: str(pl.client), startDate: str(pl.startDate), status: str(pl.status) } : null,
     resumes: arr(raw.resumes).map((r) => ({ id: num(r.id), name: str(r.name), version: num(r.version, 1), primary: r.primary === true, approval: str(r.approval), updatedAt: str(r.updatedAt) })),

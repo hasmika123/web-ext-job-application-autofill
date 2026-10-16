@@ -123,6 +123,22 @@ public class ConsultantProfileService {
         return view(c, true);
     }
 
+    /** Replaces the three contact fields (a blank clears one). Contact data only; each value is validated and PII-scanned. */
+    @Transactional
+    public Response setContact(OrgMembership me, ConsultantProfileDTO.ContactBody body) {
+        ConsultantProfile c = home.requireSelf(me);
+        if (body == null) throw OrgException.invalid("body", "send the contact details");
+        String phone = com.dossier.api.service.ent.consultants.ConsultantContact.phone(body.phone()); // validate all three before touching the row
+        String zone = com.dossier.api.service.ent.consultants.ConsultantContact.timeZone(body.timeZone());
+        String preferred = com.dossier.api.service.ent.consultants.ConsultantContact.preferred(body.preferredContact());
+        c.setPhone(phone);
+        c.setTimeZone(zone);
+        c.setPreferredContact(preferred);
+        c.setUpdatedAt(Instant.now(clock));
+        consultants.save(c);
+        return view(c, true);
+    }
+
     @Transactional
     public Response setSummary(OrgMembership me, String text) {
         ConsultantProfile c = home.requireSelf(me);
@@ -375,7 +391,7 @@ public class ConsultantProfileService {
 
         return new Response(
             org,
-            new Me(c.getId(), c.getDisplayName(), c.getJobTitle(), c.getYearsExperience(), c.getLocationLabel(), c.getWorkMode()),
+            new Me(c.getId(), c.getDisplayName(), c.getJobTitle(), c.getYearsExperience(), c.getLocationLabel(), c.getWorkMode(), c.getPhone(), c.getTimeZone(), c.getPreferredContact()),
             new Availability(c.getAvailabilityStatus(), c.getAvailabilitySince(), c.getAvailableFrom()),
             new Strength(percent, List.copyOf(missing)),
             new Summary(summaryText, source, resume.isPresent()),

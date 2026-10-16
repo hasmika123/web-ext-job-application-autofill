@@ -158,6 +158,24 @@ public class ConsultantNotificationGenerator {
         return made;
     }
 
+    /**
+     * One notification pushed by an event that is not derivable from the consultant's own data (a marketer withdrew an opportunity). Same category
+     * and preference rules as the derived ones (the existing JOB_MATCH kind), idempotent by {@code sourceKey}; the key must not start with one of the
+     * self-closing prefixes. Returns whether a row was created. Joins the caller's transaction.
+     */
+    @Transactional
+    public boolean push(Long orgId, Long consultantId, String sourceKey, String category, String title, String body, String priority, String label, String href, String relatedType, Long relatedId) {
+        if (SELF_CLOSING.stream().anyMatch(sourceKey::startsWith)) throw new IllegalArgumentException("a pushed notification must not use a self-closing key");
+        if (notifications.findByOrgIdAndConsultantId(orgId, consultantId).stream().anyMatch(n -> sourceKey.equals(n.getSourceKey()))) return false;
+        CwsNotificationPref pref = prefs.findByOrgIdAndConsultantId(orgId, consultantId).stream().filter(p -> category.equals(p.getCategory())).findFirst().orElse(null);
+        if (!delivers(pref)) return false;
+        ConsultantProfile c = new ConsultantProfile();
+        c.setOrgId(orgId);
+        c.setId(consultantId);
+        notifications.save(build(c, new Candidate(sourceKey, category, title, body, priority, label, href, relatedType, relatedId, Instant.now(clock)), Instant.now(clock)));
+        return true;
+    }
+
     /** A category creates new notifications unless it is switched off or its in-app channel is off; no row yet means the defaults (on). */
     static boolean delivers(CwsNotificationPref p) {
         return p == null || (p.isEnabled() && p.isInApp());

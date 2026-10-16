@@ -26,7 +26,10 @@ public final class ConsultantProfileDTO {
         String careerGoals
     ) {}
 
-    public record Me(Long consultantId, String name, String jobTitle, Integer yearsExperience, String location, String workMode) {}
+    /** phone / timeZone (IANA id) / preferredContact (EMAIL, PHONE or TEXT) are the contact fields the assigned marketer sees; all optional. */
+    public record Me(Long consultantId, String name, String jobTitle, Integer yearsExperience, String location, String workMode, String phone, String timeZone, String preferredContact) {}
+
+    public record ContactBody(String phone, String timeZone, String preferredContact) {}
 
     /** status: AVAILABLE, ON_PROJECT, NOTICE or UNAVAILABLE. */
     public record Availability(String status, LocalDate since, LocalDate availableFrom) {}

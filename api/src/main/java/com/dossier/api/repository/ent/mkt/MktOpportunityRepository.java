@@ -18,7 +18,7 @@ public interface MktOpportunityRepository extends Repository<MktOpportunity, Lon
         "select new com.dossier.api.repository.ent.mkt.MktOpportunityRow("
             + "m.id, m.consultantId, p.displayName, m.requirementId, r.title, r.location, r.workMode, r.status, r.clientId, c.name, "
             + "m.score, m.reason, m.status, m.assignedAt, m.createdAt, "
-            + "o.id, o.interest, o.ownerMemberId, o.nextActionAt, o.lastResponseAt, o.interestRequestedAt, o.updatedAt, a.marketerMemberId) "
+            + "o.id, o.interest, o.ownerMemberId, o.nextActionAt, o.lastResponseAt, o.interestRequestedAt, o.updatedAt, a.marketerMemberId, o.state) "
             + "from RequirementMatch m "
             + "join ClientRequirement r on r.orgId = m.orgId and r.id = m.requirementId "
             + "join ClientAccount c on c.orgId = r.orgId and c.id = r.clientId "

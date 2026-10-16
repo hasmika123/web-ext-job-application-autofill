@@ -142,6 +142,20 @@ public class MktOpportunitiesResource {
         return service.answerInfo(me, id, body == null ? null : body.answer());
     }
 
+    @Operation(summary = "Withdraw an assignment (state CLOSED, reason WITHDRAWN). Body {reason} is required (1 to 200 characters, PII-scanned); the consultant is notified. 409 NOT_ASSIGNED / ILLEGAL_TRANSITION.")
+    @PostMapping("/{id}/withdraw")
+    @OrgPermissionRequired
+    public ActionResult withdraw(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long id, @RequestBody WithdrawRequest body) {
+        return service.withdraw(me, id, body == null ? null : body.reason());
+    }
+
+    @Operation(summary = "Offer a declined or withdrawn opportunity to another consultant of the caller's scope. Body {consultantId}. Answers the new row. 409 NOT_REASSIGNABLE / JOB_NOT_OPEN / RESUME_NOT_APPROVED.")
+    @PostMapping("/{id}/reassign")
+    @OrgPermissionRequired
+    public ActionResult reassign(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long id, @RequestBody ReassignRequest body) {
+        return service.reassign(me, id, body == null ? null : body.consultantId());
+    }
+
     @Operation(summary = "Record that the marketer reviewed the opportunity.")
     @PostMapping("/{id}/review")
     @OrgPermissionRequired

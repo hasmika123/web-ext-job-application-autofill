@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Button, MemberAvatar, Select, SheetFrame, Skeleton, Textarea, cn } from "@kiwiply/ui";
+import { Button, Input, MemberAvatar, Select, SheetFrame, Skeleton, Textarea, cn } from "@kiwiply/ui";
 import { relativeTime } from "@/lib/ent/dashboard";
 import {
-  INTEREST_LABELS, answerInfo, fetchDetail, fetchOptions, fetchReady, matchTone, nextActionText,
-  type Detail, type InfoThread, type JobOption, type Opportunity, type Option,
+  INTEREST_LABELS, answerInfo, checkHandJob, createJobByHand, fetchDetail, fetchOptions, fetchReady, followUpOf, matchTone, nextActionText, reassignOpportunity, withdrawOpportunity,
+  type Detail, type HandJobInput, type InfoThread, type JobOption, type Opportunity, type Option,
 } from "@/lib/ent/marketer-ws/opportunities";
+
+const EMPTY_HAND: HandJobInput = { title: "", company: "", location: "", workMode: "", description: "", jobUrl: "" };
 import { INTEREST_TONE, ResumeBadge } from "./bits";
 
 /**
@@ -68,8 +70,75 @@ function InfoBox({ orgId, id, info, onAnswered }: { orgId: number; id: number; i
   );
 }
 
+/**
+ * MKT-44: take an assignment back (a reason is required and the consultant is told) or, once the consultant declined or it was withdrawn, offer the job to
+ * another consultant of the caller's scope. Both call the API directly; the page reloads through {@code onChanged}. Nothing here answers or submits for anyone (E1).
+ */
+function FollowUpBox({ orgId, o, onChanged }: { orgId: number; o: Opportunity; onChanged: (message: string) => void }) {
+  const kind = followUpOf(o);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [others, setOthers] = useState<{ value: string; label: string }[] | null>(null);
+  const [target, setTarget] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (kind !== "REASSIGN" || !open) return;
+    let live = true;
+    void fetchOptions(orgId).then((opts) => {
+      if (live) setOthers((opts?.consultants ?? []).filter((c) => c.id !== o.consultant.id).map((c) => ({ value: String(c.id), label: c.name })));
+    });
+    return () => {
+      live = false;
+    };
+  }, [orgId, kind, open, o.consultant.id]);
+  if (!kind) return null;
+  const submit = async () => {
+    setBusy(true);
+    setError("");
+    const r = kind === "WITHDRAW" ? await withdrawOpportunity(orgId, o.id, reason.trim()) : await reassignOpportunity(orgId, o.id, Number(target));
+    setBusy(false);
+    if (r.ok) onChanged(r.message);
+    else setError(r.error);
+  };
+  return (
+    <Section title={kind === "WITHDRAW" ? "Withdraw" : "Offer to someone else"}>
+      {!open ? (
+        <Button variant="ghost" size="sm" data-opp-followup={kind.toLowerCase()} onClick={() => setOpen(true)}>
+          {kind === "WITHDRAW" ? "Withdraw this assignment" : "Re-assign to another consultant"}
+        </Button>
+      ) : kind === "WITHDRAW" ? (
+        <div data-opp-withdraw>
+          <p className="mb-1.5 text-[13px] text-muted">{o.consultant.name} is told the opportunity was withdrawn, with your reason.</p>
+          <Textarea aria-label="Reason for withdrawing" rows={3} maxLength={200} value={reason} placeholder="Why are you taking it back?" onChange={(e) => setReason(e.target.value)} />
+          {error ? <p role="alert" className="mt-1 text-[12.5px] text-danger-text">{error}</p> : null}
+          <div className="mt-2 flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" disabled={busy || !reason.trim()} onClick={() => void submit()}>Withdraw</Button>
+          </div>
+        </div>
+      ) : (
+        <div data-opp-reassign>
+          {others === null ? (
+            <Skeleton className="h-10 w-full" />
+          ) : others.length === 0 ? (
+            <p className="text-[13px] text-muted">You have no other consultant to offer this to.</p>
+          ) : (
+            <Select aria-label="Offer to" value={target} onChange={setTarget} placeholder="Choose a consultant" options={others} />
+          )}
+          {error ? <p role="alert" className="mt-1 text-[12.5px] text-danger-text">{error}</p> : null}
+          <div className="mt-2 flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" disabled={busy || !target} onClick={() => void submit()}>Offer the job</Button>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 /** Review (the marketer looks the opportunity over) and Compare (the same consultant's other open opportunities). */
-export function DetailDialog({ orgId, id, mode, onClose, onReview, busy }: { orgId: number; id: number | null; mode: "REVIEW" | "COMPARE"; onClose: () => void; onReview: (id: number) => void; busy: boolean }) {
+export function DetailDialog({ orgId, id, mode, onClose, onReview, onChanged, busy }: { orgId: number; id: number | null; mode: "REVIEW" | "COMPARE"; onClose: () => void; onReview: (id: number) => void; onChanged?: (message: string) => void; busy: boolean }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -115,6 +184,8 @@ export function DetailDialog({ orgId, id, mode, onClose, onReview, busy }: { org
             {o.reason ? <p className="mt-3 text-[13px] text-muted">Why it matches: {o.reason}</p> : null}
 
             {detail?.info ? <InfoBox orgId={orgId} id={o.id} info={detail.info} onAnswered={(answer) => setDetail((d) => (d && d.info ? { ...d, info: { ...d.info, answer } } : d))} /> : null}
+
+            {onChanged ? <FollowUpBox orgId={orgId} o={o} onChanged={onChanged} /> : null}
 
             {mode === "COMPARE" || alts.length > 0 ? (
               <Section title={`${o.consultant.name}'s other open opportunities`}>
@@ -169,6 +240,10 @@ export function AddDialog({ orgId, open, onClose, onCreate, busy }: { orgId: num
   const [failed, setFailed] = useState(false);
   const [consultant, setConsultant] = useState("");
   const [job, setJob] = useState("");
+  const [hand, setHand] = useState(false);
+  const [form, setForm] = useState<HandJobInput>(EMPTY_HAND);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (!open) return;
     let live = true;
@@ -183,8 +258,58 @@ export function AddDialog({ orgId, open, onClose, onCreate, busy }: { orgId: num
       setFailed(false);
       setConsultant("");
       setJob("");
+      setHand(false);
+      setForm(EMPTY_HAND);
+      setFormError(null);
     };
   }, [orgId, open]);
+
+  async function saveHandJob() {
+    const problem = checkHandJob(form);
+    if (problem) return setFormError(problem);
+    setSaving(true);
+    setFormError(null);
+    const r = await createJobByHand(orgId, form);
+    if (!r.ok) {
+      setSaving(false);
+      return setFormError(r.error);
+    }
+    const fresh = await fetchOptions(orgId); // the new job is on the list now: pick it for the marketer
+    setSaving(false);
+    if (fresh) setOpts(fresh);
+    setJob(String(r.jobId));
+    setHand(false);
+    setForm(EMPTY_HAND);
+  }
+
+  if (open && hand) {
+    const set = (patch: Partial<HandJobInput>) => setForm((f) => ({ ...f, ...patch }));
+    return (
+      <SheetFrame id="opp-add" open={open} onClose={onClose} title="Add a job by hand">
+        <div data-opp-dialog="hand-job" className="min-w-0">
+          <p className="mb-3 text-[13px] text-muted">Type in a job you found yourself. It is saved for your organization with the source Manual; nobody is contacted and nothing is submitted.</p>
+          <label className="mb-1 block text-[13px] font-semibold text-ink-soft" htmlFor="hand-title">Job title</label>
+          <Input id="hand-title" value={form.title} maxLength={300} onChange={(e) => set({ title: e.target.value })} />
+          <label className="mb-1 mt-3 block text-[13px] font-semibold text-ink-soft" htmlFor="hand-company">Company</label>
+          <Input id="hand-company" value={form.company} maxLength={200} onChange={(e) => set({ company: e.target.value })} />
+          <label className="mb-1 mt-3 block text-[13px] font-semibold text-ink-soft" htmlFor="hand-location">Location</label>
+          <Input id="hand-location" value={form.location} maxLength={300} placeholder="e.g. Austin, TX" onChange={(e) => set({ location: e.target.value })} />
+          <label className="mb-1 mt-3 block text-[13px] font-semibold text-ink-soft" htmlFor="hand-mode">Work mode</label>
+          <Select id="hand-mode" aria-label="Work mode" value={form.workMode} onChange={(v) => set({ workMode: v as HandJobInput["workMode"] })} placeholder="Choose a work mode" options={[{ value: "ONSITE", label: "On-site" }, { value: "HYBRID", label: "Hybrid" }, { value: "REMOTE", label: "Remote" }]} />
+          <label className="mb-1 mt-3 block text-[13px] font-semibold text-ink-soft" htmlFor="hand-desc">Description</label>
+          <Textarea id="hand-desc" rows={5} value={form.description} maxLength={4000} onChange={(e) => set({ description: e.target.value })} />
+          <label className="mb-1 mt-3 block text-[13px] font-semibold text-ink-soft" htmlFor="hand-url">Link (optional)</label>
+          <Input id="hand-url" type="url" value={form.jobUrl} maxLength={1000} placeholder="https://" onChange={(e) => set({ jobUrl: e.target.value })} />
+          <p className="mt-2 text-[12px] text-muted">Please don&apos;t include ID numbers or dates of birth.</p>
+          {formError ? <p role="alert" className="mt-2 text-[12.5px] font-medium text-v2-coral-ink">{formError}</p> : null}
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setHand(false)}>Back</Button>
+            <Button size="sm" disabled={saving} onClick={() => void saveHandJob()}>Save job</Button>
+          </div>
+        </div>
+      </SheetFrame>
+    );
+  }
   return (
     <SheetFrame id="opp-add" open={open} onClose={onClose} title="Add opportunity">
       <div data-opp-dialog="add" className="min-w-0">
@@ -199,6 +324,7 @@ export function AddDialog({ orgId, open, onClose, onCreate, busy }: { orgId: num
             <Select id="opp-add-consultant" aria-label="Consultant" value={consultant} onChange={setConsultant} placeholder="Choose a consultant" options={opts.consultants.map((c) => ({ value: String(c.id), label: c.name }))} />
             <label className="mb-1 mt-3 block text-[13px] font-semibold text-ink-soft" htmlFor="opp-add-job">Job</label>
             <Select id="opp-add-job" aria-label="Job" value={job} onChange={setJob} placeholder="Choose an open job" options={opts.jobs.map((j) => ({ value: String(j.id), label: `${j.title} - ${j.client}` }))} />
+            <button type="button" data-add-job-by-hand onClick={() => setHand(true)} className="mt-3 inline-flex min-h-9 items-center text-[13px] font-semibold text-accent-deep hover:underline">Add a job by hand</button>
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
               <Button size="sm" disabled={busy || !consultant || !job} onClick={() => onCreate(Number(consultant), Number(job))}>Add opportunity</Button>

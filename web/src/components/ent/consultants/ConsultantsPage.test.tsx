@@ -71,6 +71,9 @@ const detailOf = (p: Person): ConsultantDetail => ({
   consultant: rowOf(p),
   memberId: null,
   headline: null,
+  phone: null,
+  timeZone: null,
+  preferredContact: null,
   skills: [
     { skill: "Salesforce", primary: true },
     { skill: "Agile", primary: false },

@@ -113,6 +113,9 @@ export interface ConsultantDetail {
   consultant: ConsultantRow;
   memberId: number | null;
   headline: string | null;
+  phone: string | null;
+  timeZone: string | null;
+  preferredContact: string | null;
   skills: Skill[];
   availabilitySince: string | null;
   marketingStatus: string;
@@ -255,6 +258,9 @@ export interface PatchBody {
   licenseStatus?: LicenseStatus;
   licenseValidUntil?: string | null;
   departmentGroupId?: number | null;
+  phone?: string | null;
+  timeZone?: string | null;
+  preferredContact?: string | null;
 }
 
 /* ── labels ───────────────────────────────────────────────────────────────────────── */
