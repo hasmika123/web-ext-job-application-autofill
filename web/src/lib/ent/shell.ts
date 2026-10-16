@@ -34,7 +34,7 @@ const ADMIN_CHILDREN: Record<string, { key: string; label: string; slug: string 
  * Administration pages whose route is still the "on the way" placeholder, whether or not the API lists them for this member. Take a key out of this
  * set in the same change that builds its page (the sidebar test fails if one is both built and listed here).
  */
-export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set(["subscription", "licenses", "billing", "usage", "hr", "finance", "reports", "domains", "integrations"]);
+export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set(["subscription", "licenses", "billing", "usage", "hr", "finance", "domains", "integrations"]);
 
 /**
  * The whole Administration menu in the board's order (design/enterprise-talent/dashboard.png). The API sends only the items a member
