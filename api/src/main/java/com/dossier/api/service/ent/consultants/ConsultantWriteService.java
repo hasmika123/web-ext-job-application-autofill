@@ -1,5 +1,8 @@
 package com.dossier.api.service.ent.consultants;
 
+import com.dossier.api.domain.User;
+import com.dossier.api.domain.enumeration.OrgMemberStatus;
+import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.ConsultantSkill;
 import com.dossier.api.domain.ent.talent.MarketerAssignment;
@@ -70,7 +73,17 @@ public class ConsultantWriteService {
         "jobTitle", "yearsExperience", "locationLabel", "workMode", "availabilityStatus", "availableFrom", "licenseStatus", "licenseValidUntil", "departmentGroupId"
     );
 
-    public record CreateRequest(String displayName, String email, String jobTitle, Integer yearsExperience, String locationLabel, String workMode, List<String> skills, Long departmentGroupId) {}
+    /**
+     * {@code memberId} (optional) names the organization member this consultant IS: their sign-in then opens the consultant workspace and marketers can act for
+     * them. Left out, the seat whose account (or pending invitation) carries the same e-mail address is linked when exactly one is free.
+     */
+    public record CreateRequest(String displayName, String email, String jobTitle, Integer yearsExperience, String locationLabel, String workMode, List<String> skills, Long departmentGroupId, Long memberId) {}
+
+    /** A member of the organization who holds the Consultant role and has no consultant profile yet (the "link to an existing person" pickers). */
+    public record LinkableMember(Long memberId, String name, String email, String status) {}
+
+    public static final String CODE_MEMBER_LINKED = "MEMBER_ALREADY_LINKED";
+    public static final String CODE_CONSULTANT_LINKED = "CONSULTANT_ALREADY_LINKED";
 
     public record AssignRequest(Long marketerMemberId, Long backupMemberId, String priority) {}
 
@@ -158,6 +171,7 @@ public class ConsultantWriteService {
         c.setProfileCompleteness(completeness(!skills.isEmpty()));
         c.setCreatedAt(now);
         c.setUpdatedAt(now);
+        c.setMemberId(seatFor(orgId, in.memberId(), email));
         c = profiles.saveAndFlush(c);
         int order = 0;
         for (String s : skills) {
@@ -170,7 +184,82 @@ public class ConsultantWriteService {
             skillRepo.save(k);
         }
         skillRepo.flush();
-        audit.record(me, A_CREATE, TARGET, null, String.valueOf(c.getId()), "added a consultant");
+        audit.record(me, A_CREATE, TARGET, null, String.valueOf(c.getId()), c.getMemberId() == null ? "added a consultant" : "added a consultant linked to an organization account");
+        return query.detail(me, c.getId());
+    }
+
+    // ---- the link between a consultant profile and an organization member (D2/D3 of the 2026-10-16 audit) ---------------------------
+
+    private static final List<OrgMemberStatus> LINKABLE = List.of(OrgMemberStatus.ACTIVE, OrgMemberStatus.INVITED);
+
+    private boolean seatTaken(Long orgId, Long seatId) {
+        return em.createQuery("select count(c) from ConsultantProfile c where c.orgId = :o and c.memberId = :m", Long.class).setParameter("o", orgId).setParameter("m", seatId).getSingleResult() > 0;
+    }
+
+    /**
+     * The seat a consultant is linked to. An explicit {@code memberId} must be an ACTIVE or INVITED member of THIS organization that has no profile yet
+     * (422 / 409 otherwise); without one, the single free seat whose account address or invitation address equals {@code email}; otherwise none (a consultant
+     * who is only a record, with no sign-in).
+     */
+    private Long seatFor(Long orgId, Long explicit, String email) {
+        if (explicit != null) {
+            long ok = em.createQuery("select count(m) from OrgMember m where m.orgId = :o and m.id = :id and m.status in :st", Long.class)
+                .setParameter("o", orgId).setParameter("id", explicit).setParameter("st", LINKABLE).getSingleResult();
+            if (ok == 0) throw OrgException.invalid("memberId", "choose a member of this organization");
+            if (seatTaken(orgId, explicit)) throw OrgException.coded(409, CODE_MEMBER_LINKED, "This person already has a consultant profile", Map.of("field", "memberId"));
+            return explicit;
+        }
+        if (email == null) return null;
+        Set<Long> found = new LinkedHashSet<>(
+            em.createQuery(
+                "select m.id from OrgMember m where m.orgId = :o and m.status = com.dossier.api.domain.enumeration.OrgMemberStatus.ACTIVE and m.userId in (select u.id from User u where lower(u.email) = :e)",
+                Long.class
+            ).setParameter("o", orgId).setParameter("e", email).getResultList()
+        );
+        found.addAll(
+            em.createQuery(
+                "select m.id from OrgMember m where m.orgId = :o and m.status = com.dossier.api.domain.enumeration.OrgMemberStatus.INVITED and lower(m.inviteEmail) = :e", Long.class
+            ).setParameter("o", orgId).setParameter("e", email).getResultList()
+        );
+        found.removeIf(id -> seatTaken(orgId, id));
+        return found.size() == 1 ? found.iterator().next() : null;
+    }
+
+    /** People who hold the Consultant role and are not linked to a profile yet: what "Add consultant" and the drawer's "Link a sign-in" offer. */
+    @Transactional(readOnly = true)
+    public List<LinkableMember> linkableMembers(OrgMembership me) {
+        gate(me, ConsultantAccess.EDIT);
+        List<OrgMember> seats = em.createQuery(
+            "select m from OrgMember m where m.orgId = :o and m.status in :st " +
+                "and not exists (select 1 from ConsultantProfile c where c.orgId = m.orgId and c.memberId = m.id) " +
+                "and exists (select 1 from OrgMemberRole mr, OrgRoleDefinition r where mr.orgId = m.orgId and mr.memberId = m.id and mr.endsAt is null " +
+                "and r.id = mr.roleId and (r.templateKey = 'CONSULTANT' or (r.system = true and r.roleKey = 'CONSULTANT'))) order by m.id",
+            OrgMember.class
+        ).setParameter("o", me.orgId()).setParameter("st", LINKABLE).setMaxResults(200).getResultList();
+        List<LinkableMember> out = new ArrayList<>();
+        for (OrgMember m : seats) {
+            User u = m.getUserId() == null ? null : em.find(User.class, m.getUserId());
+            String name = u != null ? ((u.getFirstName() == null ? "" : u.getFirstName()) + " " + (u.getLastName() == null ? "" : u.getLastName())).trim() : m.getInviteName();
+            String email = u != null ? u.getEmail() : m.getInviteEmail();
+            if (name == null || name.isBlank()) name = email == null ? "Team member" : email;
+            out.add(new LinkableMember(m.getId(), name, email, m.getStatus().name()));
+        }
+        out.sort(java.util.Comparator.comparing(x -> x.name().toLowerCase(Locale.ROOT)));
+        return out;
+    }
+
+    /** Links an existing, unlinked consultant profile to a member (the same checks as {@link #create}); one CONSULTANT_UPDATE audit row. */
+    @Transactional
+    public ConsultantDTO.Detail linkMember(OrgMembership me, Long id, Long memberId) {
+        gate(me, ConsultantAccess.EDIT);
+        if (memberId == null || memberId <= 0) throw OrgException.invalid("memberId", "choose a person");
+        ConsultantProfile c = query.visible(me, id);
+        requireActive(c);
+        if (c.getMemberId() != null) throw OrgException.coded(409, CODE_CONSULTANT_LINKED, "This consultant is already linked to an organization account", Map.of());
+        c.setMemberId(seatFor(me.orgId(), memberId, null));
+        c.setUpdatedAt(now());
+        profiles.saveAndFlush(c);
+        audit.record(me, A_UPDATE, TARGET, null, String.valueOf(c.getId()), "linked an organization account");
         return query.detail(me, c.getId());
     }
 

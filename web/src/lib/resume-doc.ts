@@ -215,7 +215,9 @@ export type BuiltSource =
   | { kind: "profile" }
   | { kind: "scratch" }
   | { kind: "upload"; structured: StructuredResume; bio?: ParsedBio; fileName: string; keep?: KeepMask }
-  | { kind: "copy"; fromResumeId: number };
+  | { kind: "copy"; fromResumeId: number }
+  /** Inside an organization: a resume of the directory that has no builder document (a record), built from its fields. */
+  | { kind: "directory"; orgResumeId: number };
 
 export interface CreateBuiltBody {
   templateId?: string;

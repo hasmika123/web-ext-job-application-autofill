@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ComponentType, type ReactNode } from "react";
 import {
   Button,
   CheckCircleIcon,
@@ -41,6 +41,7 @@ import NewResumeSheet from "@/components/app-v3/resume-builder/NewResumeSheet";
 import { BuilderEnvProvider, consultantEnv, useBuilderEnv } from "@/components/app-v3/resume-builder/builderEnv";
 import CapDialog from "@/components/app-v3/resume-builder/list/CapDialog";
 import { EMPTY_PROFILE, capNotice, type CapNotice, type ProfileSummary, type ResumeChoice, type SourceId } from "@/components/app-v3/resume-builder/new-resume/model";
+import { createBuilt } from "@/lib/resume-doc";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { BASE, BeeCard, Card, Empty, Pill, TABLE, TD, TableHead, useWorkspaceData } from "./parts";
 import { EditSheet, PreviewSheet } from "./ResumesSheets";
@@ -56,6 +57,8 @@ import {
   duplicateResume,
   fetchPreview,
   fetchResumes,
+  fetchResumeSources,
+  type ResumeSources,
   fileNameOf,
   recordActivity,
   resumeHtml,
@@ -198,6 +201,8 @@ interface RowActions {
   onView: (r: ResumeRow) => void;
   /** Opens the resume in the Resume Builder (inside this workspace); a record with no builder document opens its details instead. */
   onEdit: (r: ResumeRow) => void;
+  /** "Open in builder": the editor for a resume with a builder document; for a record without one, an editable copy made from its fields, opened in the editor. */
+  onBuilder: (r: ResumeRow) => void;
   /** The name / visibility sheet. */
   onDetails: (r: ResumeRow) => void;
   onDuplicate: (r: ResumeRow) => void;
@@ -300,6 +305,7 @@ function ResumeTable({ rows, actions }: { rows: ResumeRow[]; actions: RowActions
                       }
                       items={[
                         { label: "Set as primary", icon: <StarIcon size={15} />, disabled: r.primary || r.awaitingMyApproval, onSelect: () => actions.onPrimary(r) },
+                        { label: "Open in builder", icon: <FileTextIcon size={15} />, disabled: off, onSelect: () => actions.onBuilder(r) },
                         { label: "Edit details", icon: <PencilIcon size={15} />, onSelect: () => actions.onDetails(r) },
                       ]}
                     />
@@ -524,9 +530,27 @@ function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: Resu
     setNewSource(source);
     setNewOpen(true);
   };
-  const choices: ResumeChoice[] = (view?.resumes ?? [])
-    .filter((r) => r.resumeId !== null)
-    .map((r) => ({ id: r.resumeId as number, name: r.title, kind: "BUILT" as const, updatedAt: r.updatedAt, score: null, templateId: null }));
+  // The chooser reads the organization's records (D10): the same career profile and resumes this page shows, not only the account's Common Profile. Read again
+  // whenever the chooser opens, so a resume made a moment ago is there to copy.
+  const [sources, setSources] = useState<ResumeSources | null>(null);
+  useEffect(() => {
+    if (!newOpen) return;
+    let live = true;
+    void fetchResumeSources(orgId).then((s) => {
+      if (live) setSources(s);
+    });
+    return () => {
+      live = false;
+    };
+  }, [newOpen, orgId]);
+  const profile: ProfileSummary = sources
+    ? { itemCount: sources.profile.itemCount, roles: sources.profile.roles, schools: sources.profile.schools, skills: sources.profile.skills, score: builder.profile.score, headline: sources.profile.headline }
+    : builder.profile;
+  const choices: ResumeChoice[] = sources
+    ? sources.resumes.map((r) => ({ id: r.resumeId ?? -r.id, name: r.name, kind: r.resumeId !== null ? ("BUILT" as const) : ("RECORD" as const), updatedAt: r.updatedAt, score: null, templateId: null }))
+    : (view?.resumes ?? [])
+        .filter((r) => r.resumeId !== null)
+        .map((r) => ({ id: r.resumeId as number, name: r.title, kind: "BUILT" as const, updatedAt: r.updatedAt, score: null, templateId: null }));
   const failed = (message: string) => toast({ title: message, variant: "error" });
 
   const loadPreview = useCallback(
@@ -601,6 +625,23 @@ function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: Resu
   };
 
   /** Edit opens the builder (same tab, same shell); a record with no builder document opens its details sheet. */
+  /** A record with no builder document (imported or seeded) is made editable by building a copy from its fields (new resume, under the license cap), then opened. */
+  const onOpenInBuilder = async (r: ResumeRow) => {
+    if (r.resumeId !== null) return router.push(env.editorHref(r.resumeId));
+    setBusy(r.id);
+    const res = await createBuilt({ label: `${r.title} (builder copy)`.slice(0, 200), target: r.targetRole ?? undefined, source: { kind: "directory", orgResumeId: r.id } }, env.createBuiltUrl);
+    setBusy(null);
+    if (res.kind === "ok") {
+      toast({ title: "An editable copy was made", description: "The original record is unchanged.", variant: "success" });
+      return router.push(env.editorHref(res.id));
+    }
+    if (res.kind === "limit") {
+      const plan = res.plan === "PRO" || res.plan === "AUTOPILOT" || res.plan === "ORGANIZATION" ? res.plan : "ORGANIZATION";
+      return setLimit({ message: res.message, plan, limit: res.limit });
+    }
+    failed(res.message);
+  };
+
   const onEdit = (r: ResumeRow) => {
     if (r.resumeId !== null) router.push(env.editorHref(r.resumeId));
     else setEditFor(r);
@@ -651,6 +692,7 @@ function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: Resu
     busy,
     onView,
     onEdit,
+    onBuilder: (r) => void onOpenInBuilder(r),
     onDetails: setEditFor,
     onDuplicate: (r) => void onDuplicate(r),
     onDownload,
@@ -726,10 +768,10 @@ function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: Resu
       <NewResumeSheet
         open={newOpen}
         onClose={() => setNewOpen(false)}
-        profile={builder.profile}
+        profile={profile}
         resumes={choices}
         defaultTemplateId={builder.defaultTemplateId}
-        targetSuggestions={builder.targetSuggestions}
+        targetSuggestions={profile.headline ? [profile.headline] : builder.targetSuggestions}
         initialSource={newSource}
         onLimit={setLimit}
       />

@@ -233,6 +233,16 @@ export interface CreateBody {
   workMode?: string;
   skills?: string[];
   departmentGroupId?: number | null;
+  /** The organization member this consultant IS (their sign-in opens the consultant workspace). Left out, a free member with the same address is linked by the API. */
+  memberId?: number | null;
+}
+
+/** A member who holds the Consultant role and has no profile yet: the "link to an existing person" pickers. */
+export interface LinkableMember {
+  memberId: number;
+  name: string;
+  email: string | null;
+  status: string;
 }
 
 export interface PatchBody {
@@ -569,6 +579,8 @@ export const consultantsApi = {
   patch: (orgId: Id, id: number, body: PatchBody, version: string) => call<ConsultantDetail>(`${base(orgId)}/${id}`, json("PATCH", body, { "if-match": version })),
   assignMarketer: (orgId: Id, id: number, body: { marketerMemberId: number; backupMemberId?: number | null; priority?: string }) =>
     call<ConsultantDetail>(`${base(orgId)}/${id}/marketer`, json("POST", body)),
+  linkableMembers: (orgId: Id) => call<LinkableMember[]>(`${base(orgId)}/linkable-members`, { cache: "no-store" }),
+  linkMember: (orgId: Id, id: number, memberId: number) => call<ConsultantDetail>(`${base(orgId)}/${id}/member`, json("POST", { memberId })),
   deactivate: (orgId: Id, id: number, reason: string) => call<ConsultantDetail>(`${base(orgId)}/${id}/deactivate`, json("POST", { reason })),
   reactivate: (orgId: Id, id: number) => call<ConsultantDetail>(`${base(orgId)}/${id}/reactivate`, json("POST", {})),
   createApplication: (orgId: Id, id: number, requirementId: number, key: string = newKey()) =>

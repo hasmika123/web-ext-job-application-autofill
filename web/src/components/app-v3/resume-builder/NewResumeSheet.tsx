@@ -623,7 +623,7 @@ function CopyPanel({ resumes, value, onChange, display }: { resumes: ResumeChoic
             )}
           >
             <span className="min-w-0 flex-1 truncate font-semibold text-v2-navy">{r.name}</span>
-            <span className="flex-none rounded-md bg-v2-blue-soft/70 px-2 py-0.5 text-[11.5px] font-medium text-v2-blue-ink">{r.kind === "BUILT" ? "Built" : "Uploaded"}</span>
+            <span className="flex-none rounded-md bg-v2-blue-soft/70 px-2 py-0.5 text-[11.5px] font-medium text-v2-blue-ink">{r.kind === "BUILT" ? "Built" : r.kind === "RECORD" ? "Record" : "Uploaded"}</span>
             {r.updatedAt && <span className="hidden flex-none text-[12px] text-v2-muted sm:inline">{formatDate(r.updatedAt, { month: "short", day: "numeric", year: "numeric" }, display)}</span>}
             {r.score !== null && <span className="flex-none text-[12px] font-bold text-v2-green-ink">{r.score}%</span>}
           </button>

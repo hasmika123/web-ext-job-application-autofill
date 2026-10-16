@@ -166,6 +166,7 @@ class ConsultantResumesResourceIT {
         r.setTargetRole("Role of " + name);
         r.setPrimaryForOrg(primary);
         r.setVisibility(visibility);
+        r.setApprovalStatus("APPROVED"); // the entity defaults to PENDING (a marketer-made resume waits for the consultant); these fixtures are the consultant's own, already approved rows
         r.setVersionNo(version);
         r.setHeadline(headline);
         r.setSummaryText(summary);

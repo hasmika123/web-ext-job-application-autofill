@@ -64,7 +64,8 @@ export function profileDescription(p: ProfileSummary, subject?: string | null): 
 export interface ResumeChoice {
   id: number;
   name: string;
-  kind: "BUILT" | "UPLOADED";
+  /** `RECORD`: a resume of the organization directory with no Resume Builder document (its `id` is the NEGATED directory id; see {@link directoryIdOf}). */
+  kind: "BUILT" | "UPLOADED" | "RECORD";
   updatedAt: string | null;
   score: number | null;
   /** The template it uses, so step 2 can name it ("Template: Modern") for a copy. */
@@ -166,6 +167,9 @@ export interface PayloadInput {
   copyFromId?: number | null;
 }
 
+/** A negative choice id stands for an organization directory record with no builder document: `-id` is the directory row. Null for a builder resume. */
+export const directoryIdOf = (choiceId: number): number | null => (choiceId < 0 ? -choiceId : null);
+
 /** The body of `POST /api/resumes/built` for the chosen source. */
 export function buildPayload(i: PayloadInput): CreateBuiltBody {
   let source: BuiltSource;
@@ -176,9 +180,12 @@ export function buildPayload(i: PayloadInput): CreateBuiltBody {
     case "scratch":
       source = { kind: "scratch" };
       break;
-    case "copy":
-      source = { kind: "copy", fromResumeId: i.copyFromId ?? 0 };
+    case "copy": {
+      const from = i.copyFromId ?? 0;
+      const directory = directoryIdOf(from);
+      source = directory !== null ? { kind: "directory", orgResumeId: directory } : { kind: "copy", fromResumeId: from };
       break;
+    }
     case "upload": {
       const u = i.upload;
       source = u

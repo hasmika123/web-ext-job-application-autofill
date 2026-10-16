@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import ResumeEditor from "@/components/app-v3/resume-builder/ResumeEditor";
-import { BuilderEnvProvider, consultantEnv } from "@/components/app-v3/resume-builder/builderEnv";
+import { BuilderEnvFromSpec } from "@/components/app-v3/resume-builder/builderEnv";
 import { NotYourRole } from "@/components/ent/shell/ShellStates";
 import { ErrorState } from "@kiwiply/ui";
 import { editorTitle, loadEditorData } from "@/lib/resume-editor-data";
@@ -10,8 +10,8 @@ import { getTenantSession } from "@/lib/ent/tenant-session";
 /**
  * A consultant's own resume in the Resume Builder, INSIDE the organization workspace (`/w/consultant/resumes/<id>`): the tenant URL, the organization's
  * logo, colours and menu around the very same `ResumeEditor` the personal app mounts. This page is a thin wrapper: the data comes from the shared
- * `loadEditorData`, the BFF routes the editor calls are the ordinary tenant-aware `/api/resumes/**`, and `consultantEnv` only says where the
- * organization's list and editor live. What the session may do (no sharing, no delete, no AI, the license's cap) comes from the API's capabilities.
+ * `loadEditorData`, the BFF routes the editor calls are the ordinary tenant-aware `/api/resumes/**`, and the plain-data spec only says where the
+ * organization's list and editor live (the env itself, with its `editorHref` function, is built on the client: a function cannot cross from a server component). What the session may do (no sharing, no delete, no AI, the license's cap) comes from the API's capabilities.
  */
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
@@ -32,7 +32,7 @@ export default async function ConsultantResumeEditorRoute({ params }: { params: 
   if (data.kind === "error") throw new Error(`Couldn't load the resume (${data.status}).`);
 
   return (
-    <BuilderEnvProvider env={consultantEnv(me.org.id)}>
+    <BuilderEnvFromSpec spec={{ mode: "consultant", orgId: me.org.id }}>
       <div data-builder-frame className="flex min-h-0 flex-1 flex-col overflow-hidden bg-v2-canvas">
         <ResumeEditor
           initial={data.initial}
@@ -45,6 +45,6 @@ export default async function ConsultantResumeEditorRoute({ params }: { params: 
           jobTarget={null}
         />
       </div>
-    </BuilderEnvProvider>
+    </BuilderEnvFromSpec>
   );
 }
