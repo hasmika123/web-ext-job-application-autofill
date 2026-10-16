@@ -108,6 +108,27 @@ class EntitlementServiceShadowTest {
     }
 
     @Test
+    void featuresOnTheProfileVersionFollowTheLegacyRuleWhileShadowedAndAreOnlyCompared() {
+        // R-1: a Pro user whose subscription is not linked to a plan version yet still gets the Pro keys; the empty resolver set is only logged
+        proUser("anika");
+        when(shadow.resolve("anika")).thenReturn(Optional.of(set(false, false)));
+        assertThat(service.featuresOf("anika")).hasValueSatisfying(keys -> assertThat(keys).contains(FeatureKeys.AI_RESUME_TAILORING, FeatureKeys.RESUME_LIBRARY));
+        verify(shadow).reportMismatch("anika", FeatureKeys.AI_RESUME_TAILORING, true, false);
+
+        when(repo.findOneByUserLogin("free")).thenReturn(Optional.empty());
+        when(shadow.resolve("free")).thenReturn(Optional.of(set(false, false)));
+        assertThat(service.featuresOf("free")).hasValueSatisfying(keys -> assertThat(keys).contains(FeatureKeys.RESUME_LIBRARY).doesNotContain(FeatureKeys.AI_RESUME_TAILORING));
+    }
+
+    @Test
+    void featuresComeFromTheResolverOnceTheShadowIsFlipped() {
+        when(shadow.shadowOn()).thenReturn(false);
+        when(shadow.resolve("anika")).thenReturn(Optional.of(set(true, true)));
+        assertThat(service.featuresOf("anika")).hasValueSatisfying(keys -> assertThat(keys).containsExactly("ai.server"));
+        assertThat(service.featuresOf("ent#7#anika")).isEmpty();
+    }
+
+    @Test
     void limitForIsEmptyAndComparedWhileShadowed() {
         assertThat(service.limitFor("anika", "resumes.max", 25)).isEmpty();
         verify(shadow).compareLimit("anika", "resumes.max", 25);

@@ -108,12 +108,11 @@ public class ProfileResource {
         entitlementService
             .entitlementsOf(login)
             .ifPresent(set -> {
-                java.util.TreeSet<String> keys = new java.util.TreeSet<>(set.features().keySet());
-                keys.addAll(set.capabilities());
-                vm.setFeatures(List.copyOf(keys));
                 vm.setLimits(set.limits());
                 vm.setPeriodEnd(set.periodEnd());
             });
+        // R-1: features[] follows the legacy rule while billing.catalog.shadow is on; the resolver is only compared
+        entitlementService.featuresOf(login).ifPresent(keys -> vm.setFeatures(List.copyOf(keys)));
         if (aiBudget != null) {
             var usage = aiBudget.usage(login);
             if ("budget".equals(usage.metered())) vm.setAiPct(usage.used());

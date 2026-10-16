@@ -34,8 +34,8 @@ export default function CapDialog({ notice, max, onManage, onClose }: { notice: 
             Manage resumes
           </Button>
           {canUpgrade && (
-            <Link href={upgradeHref ?? "/pricing"} className={buttonVariants("accent", "md")}>
-              {notice?.plan === "FREE" ? "See plans" : "Upgrade"}
+            <Link href={notice?.upgrade?.path ?? upgradeHref ?? "/pricing"} className={buttonVariants("accent", "md")}>
+              {notice?.upgrade ? `See ${notice.upgrade.planName ?? notice.upgrade.planKey}` : notice?.plan === "FREE" ? "See plans" : "Upgrade"}
             </Link>
           )}
         </>

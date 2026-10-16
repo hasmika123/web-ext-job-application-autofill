@@ -77,7 +77,10 @@ async function callAnthropic(apiKey, system, user, maxTokens) {
 const PRO_AI_MESSAGE = "Kiwiply AI is a Pro feature — upgrade, or add your own key.";
 
 function aiFailure(e) {
-  if (e && e.code === "PRO_REQUIRED") return { proRequired: true, error: PRO_AI_MESSAGE };
+  if (e && e.code === "PRO_REQUIRED") {
+    // K7.6: carry the server-chosen upgrade path so the panel can link straight to the right plan.
+    return { proRequired: true, error: PRO_AI_MESSAGE, upgradePath: e.upgrade && e.upgrade.path ? e.upgrade.path : null };
+  }
   return { error: String((e && e.message) || e) };
 }
 

@@ -45,6 +45,13 @@ public final class PersonalFeatureMap {
 
     private PersonalFeatureMap() {}
 
+    /** Decision R-1: the keys the legacy rule grants, sorted: the open ones, plus the Pro-gated ones for a Pro account. */
+    public static java.util.SortedSet<String> legacyKeys(boolean pro) {
+        java.util.TreeSet<String> out = new java.util.TreeSet<>(OPEN_KEYS);
+        if (pro) out.addAll(PRO_KEYS);
+        return out;
+    }
+
     public static Gate gate(String key) {
         if (key == null) return Gate.UNMAPPED;
         if (PRO_KEYS.contains(key)) return Gate.PRO;

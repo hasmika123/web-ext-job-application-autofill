@@ -160,9 +160,9 @@ public class EntitlementService {
     public void require(String login, String key) {
         if (has(login, key)) return;
         if (PersonalFeatureMap.legacyCode(key) == null) {
-            throw new ProRequiredException("PLAN_REQUIRED", "This feature is not part of your plan", java.util.Map.of("feature", key));
+            throw new ProRequiredException("PLAN_REQUIRED", "This feature is not part of your plan", java.util.Map.of("feature", key)).forFeature(key);
         }
-        throw new ProRequiredException(ProRequiredException.CODE_PRO_REQUIRED, "This feature is part of Kiwiply Pro");
+        throw new ProRequiredException(ProRequiredException.CODE_PRO_REQUIRED, "This feature is part of Kiwiply Pro").forFeature(key);
     }
 
     /** {@link #require(String, String)} for whoever is signed in. */
@@ -204,6 +204,31 @@ public class EntitlementService {
     public Optional<EntitlementSet> entitlementsOf(String login) {
         if (planResolver == null || shadow == null || Constants.isEnterpriseLogin(login)) return Optional.empty();
         return shadow.resolve(login);
+    }
+
+    /**
+     * The service keys for {@code features[]} on {@code GET /api/profile/version} (decision R-1). While {@code billing.catalog.shadow} is on, the LEGACY rule
+     * decides ({@link PersonalFeatureMap#legacyKeys}: open keys, plus the Pro-gated ones when {@link #legacyIsPro}) and the resolver's answer is only compared
+     * and logged as {@code entitlement.shadow_mismatch}; flipping the flag makes the resolver's features and capabilities the answer. Empty when the account
+     * is an enterprise account or the resolver is not wired.
+     */
+    public Optional<java.util.SortedSet<String>> featuresOf(String login) {
+        if (planResolver == null || shadow == null || Constants.isEnterpriseLogin(login)) return Optional.empty();
+        if (shadow.shadowOn()) {
+            java.util.SortedSet<String> legacy = PersonalFeatureMap.legacyKeys(legacyIsPro(login));
+            shadow.resolve(login).ifPresent(set -> {
+                java.util.Set<String> all = new java.util.TreeSet<>(PersonalFeatureMap.legacyKeys(true));
+                for (String key : all) {
+                    if (set.has(key) != legacy.contains(key)) shadow.reportMismatch(login, key, legacy.contains(key), set.has(key));
+                }
+            });
+            return Optional.of(legacy);
+        }
+        return shadow.resolve(login).map(set -> {
+            java.util.TreeSet<String> keys = new java.util.TreeSet<>(set.features().keySet());
+            keys.addAll(set.capabilities());
+            return keys;
+        });
     }
 
     /** True when the authenticated user is entitled to Pro. False when nobody is signed in. */

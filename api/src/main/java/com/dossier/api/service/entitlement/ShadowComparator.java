@@ -78,6 +78,11 @@ public class ShadowComparator {
         if (resolvedCents == null || resolvedCents != legacyCents) mismatch(login, "ai.budget", String.valueOf(legacyCents), String.valueOf(resolvedCents));
     }
 
+    /** A mismatch the caller already found (features[] on the profile version). */
+    public void reportMismatch(String login, String key, boolean legacy, boolean resolved) {
+        mismatch(login, key, String.valueOf(legacy), String.valueOf(resolved));
+    }
+
     private void mismatch(String login, String feature, String legacy, String resolved) {
         mismatches.incrementAndGet();
         LOG.warn("entitlement.shadow_mismatch login={} feature={} legacy={} resolved={}", login, feature, legacy, resolved);
