@@ -75,5 +75,33 @@ test("VIDEO-04 Who changed what: Updated ... by ... on an application, as admin,
   await expect(page.getByText(code || "APP-2026-065").first()).toBeVisible({ timeout: 30_000 });
   await narrate(page, "Ben's application shows that it was updated just now, by Sarah Chen. The marketer never has to ask who changed it.");
   await page.waitForTimeout(2200);
-  await narrate(page, "That is the change audit: who changed what, and when, for the admin, the consultant and the marketer alike.", 1500);
+  // ---- the same for a resume (Gamma): the marketer edits for the consultant, the consultant and the admin read who changed it
+  await f.switchTo("marco", "Resumes keep the same record. Marco is a marketer at Gamma Consulting, and he is improving a resume for his consultant Cora.", "/w/marketing/resumes");
+  await expect(page.getByRole("heading", { name: "Resumes", exact: true }).first()).toBeVisible({ timeout: 45_000 });
+  const resumeRow = page.locator("tbody tr", { hasText: "Cora Lindahl, Data Engineer" }).first();
+  await expect(resumeRow).toBeVisible({ timeout: 30_000 });
+  await resumeRow.click();
+  await narrate(page, "The board shows each resume with its last modified date and who changed it. He opens the drawer and chooses Edit in the resume builder.");
+  await page.locator("[data-edit-in-builder]").click();
+  await page.waitForURL(/\/w\/marketing\/resumes\/\d+$/, { timeout: 60_000 });
+  await expect(page.locator("[data-builder-frame]")).toBeVisible({ timeout: 45_000 });
+  const headline = page.getByRole("textbox", { name: "Headline" });
+  await headline.fill(`Data Engineer, pipelines and platforms ${Date.now() % 1000}`);
+  await expect(page.getByText(/Saved/).first()).toBeVisible();
+  await narrate(page, "He changes the headline. It saves by itself, and the header names who modified it last, and when.");
+
+  await f.switchTo("cora", "Now Cora, the consultant who owns the resume.", "/w/consultant/resumes");
+  await expect(page.locator("[data-consultant-resumes]")).toBeVisible({ timeout: 45_000 });
+  const touched = page.locator("tbody tr", { hasText: "waiting for your approval" }).first();
+  await expect(touched).toBeVisible({ timeout: 30_000 });
+  await touched.scrollIntoViewIfNeeded();
+  await narrate(page, "In My Resumes, the row says it was last modified just now by Marco, the marketer. And because a marketer wrote it, it is waiting for her approval again. Nothing a marketer writes counts until she approves it.");
+  await page.waitForTimeout(1500);
+
+  await f.switchTo("oscar", "And Oscar, the organization admin.", "/w/admin/resumes");
+  await expect(page.getByRole("heading", { name: "Resumes", exact: true }).first()).toBeVisible({ timeout: 45_000 });
+  await expect(page.locator("tbody tr").first()).toBeVisible({ timeout: 30_000 });
+  await narrate(page, "The organization's resume library shows the same line: last modified by Marco, the marketer. Versions inside the resume keep their own authors.");
+  await page.waitForTimeout(1500);
+  await narrate(page, "That is the change audit: who changed what, and when, on applications and on resumes, for the admin, the consultant and the marketer alike.", 1500);
 });
