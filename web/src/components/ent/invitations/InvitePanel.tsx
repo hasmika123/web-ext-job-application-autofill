@@ -10,6 +10,7 @@ import RoleSelect from "./RoleSelect";
 export type AddMode = "account" | "invite";
 
 export const MESSAGE_MAX = 500;
+const NONE = "none";
 
 export interface Sent {
   email: string;
@@ -45,6 +46,8 @@ export default function InvitePanel({
   const [fullName, setFullName] = useState("");
   const [roleIds, setRoleIds] = useState<number[]>([]);
   const [dept, setDept] = useState("");
+  const [team, setTeam] = useState("");
+  const [manager, setManager] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; role?: string; dept?: string; password?: string; form?: string }>({});
@@ -77,6 +80,13 @@ export default function InvitePanel({
 
   const departments = options?.departments ?? [];
   const needsDept = departments.length > 0;
+  // ADM-19: Team and Manager (reports-to) are optional. A team that belongs to a department is offered only with that department (the API refuses a mismatch).
+  const teams = (options?.teams ?? []).filter((t) => !dept || !t.parentGroupId || String(t.parentGroupId) === dept);
+  const managers = options?.managers ?? [];
+  const placement = {
+    ...(team ? { teamGroupId: Number(team) } : {}),
+    ...(manager ? { managerMemberId: Number(manager) } : {}),
+  };
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -102,6 +112,7 @@ export default function InvitePanel({
         roleIds,
         ...(fullName.trim() ? { fullName: fullName.trim() } : {}),
         ...(dept ? { departmentGroupId: Number(dept) } : {}),
+        ...placement,
       };
       setBusy(true);
       setSentTo(null);
@@ -116,6 +127,8 @@ export default function InvitePanel({
       setErrors({});
       setEmail("");
       setFullName("");
+      setTeam("");
+      setManager("");
       setPassword("");
       if (made.data.mode === "ACCOUNT_CREATED") {
         setCreds({ who, password: made.data.tempPassword ?? account.password ?? null, expiresAt: made.data.tempPasswordExpiresAt });
@@ -124,7 +137,7 @@ export default function InvitePanel({
       } else {
         // Legacy (shared-account) organizations only: the API sends INVITED when it could not create a new account, and the normal invitation went out instead.
         setCreatedNote(`An invitation was sent to ${who} instead of a new account. They accept it with the account they already use.`);
-        onSent({ email: who, body: { emails: [who], roleIds, ...(dept ? { departmentGroupId: Number(dept) } : {}) } });
+        onSent({ email: who, body: { emails: [who], roleIds, ...(dept ? { departmentGroupId: Number(dept) } : {}), ...placement } });
         void suggest();
       }
       emailRef.current?.focus();
@@ -135,6 +148,7 @@ export default function InvitePanel({
       roleIds,
       ...(fullName.trim() ? { fullName: fullName.trim() } : {}),
       ...(dept ? { departmentGroupId: Number(dept) } : {}),
+      ...placement,
       ...(message.trim() ? { message: message.trim() } : {}),
     };
     setBusy(true);
@@ -156,6 +170,8 @@ export default function InvitePanel({
     setSentTo(email.trim());
     setEmail("");
     setFullName("");
+    setTeam("");
+    setManager("");
     setMessage("");
     onSent({ email: body.emails[0], body });
     emailRef.current?.focus();
@@ -248,6 +264,7 @@ export default function InvitePanel({
             value={dept}
             onChange={(v) => {
               setDept(v);
+              setTeam("");
               if (errors.dept) setErrors((x) => ({ ...x, dept: undefined }));
             }}
             placeholder={needsDept ? "Select a department" : "None"}
@@ -256,6 +273,17 @@ export default function InvitePanel({
           />
         </Field>
       </div>
+
+      {(teams.length > 0 || managers.length > 0) && (
+        <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2" data-invite-placement>
+          <Field className="!mb-0" label={<>Team <span className="font-normal text-muted">(Optional)</span></>} htmlFor={`${uid}-team`}>
+            <Select id={`${uid}-team`} aria-label="Team" value={team || NONE} onChange={(v) => setTeam(v === NONE ? "" : v)} disabled={teams.length === 0} options={[{ value: NONE, label: "No team" }, ...teams.map((t) => ({ value: String(t.id), label: t.name }))]} />
+          </Field>
+          <Field className="!mb-0" label={<>Manager <span className="font-normal text-muted">(Optional)</span></>} htmlFor={`${uid}-manager`} hint="Who they report to.">
+            <Select id={`${uid}-manager`} aria-label="Manager" value={manager || NONE} onChange={(v) => setManager(v === NONE ? "" : v)} disabled={managers.length === 0} options={[{ value: NONE, label: "No manager" }, ...managers.map((m) => ({ value: String(m.memberId), label: m.name }))]} />
+          </Field>
+        </div>
+      )}
 
       {mode === "account" && (
         <Field className="!mb-0" label="Temporary password" required error={errors.password} htmlFor={`${uid}-pw`} hint="They must choose their own at first sign-in. You will see it once after saving." render={({ id, describedBy, invalid }) => (

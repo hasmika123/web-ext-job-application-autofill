@@ -315,7 +315,7 @@ is the unchanged flow behind ADM-15..18 (those stories now pick that mode first)
 | ADM-19 | Org admin adds an employee: generated password in the field, a weak one refused, role and department, Create Account, password shown once with Copy, Reset Password issues a second one once | AUTOMATED |
 | ADM-19b | The employee signs in on the tenant host, is held on Choose your password (pages come back, the API answers 403 PASSWORD_CHANGE_REQUIRED), chooses a password, lands on `/w/hr`; the temporary password no longer works; Reset Password now says they chose their own | AUTOMATED |
 
-Not built: the invitation form has no Team or Manager field (department only), so ADM-19 sets role and department.
+The invitation / Create account now form now also has optional **Team** and **Manager** (reports-to) fields (ADM-96); the member detail already shows both. ADM-19 itself still sets role and department; the browser walk of the new fields is not verified.
 
 ## Tenant forgot-password and the separate account (S9, decision O4; described only, no spec yet)
 
@@ -337,3 +337,13 @@ Not built: the invitation form has no Team or Manager field (department only), s
 - **Expected:** step 1 looks the same for any address (no hint that a personal account exists); step 2 lands on the workspace; step 3 shows her personal account exactly as before (its resumes, no Gamma membership); after step 4 Dana's Gamma session ends on its next click and she cannot sign in at Gamma ("not a member"), while the personal account still signs in and works; Gina's audit trail shows the removal and the account being disabled, without Dana's address.
 - **Pages / APIs:** Invitations, Members, `POST /api/orgs/{id}/members/account`, `POST /api/orgs/{id}/members/{seat}/offboard`, kiwiply.com `/login`.
 - **Status: STORY-ONLY (the API walk is `SeparateAccountsRegressionIT`)**
+
+### ADM-96 Gina picks a Team and a Manager when she creates or invites an employee
+- **Persona:** Gina (Owner). **Steps:** 1. Invitations, mode **Create account now**: fill email and role, pick a Team and a Manager, Create Account. 2. Repeat in **Send invitation** mode. 3. Open the new member (Members / Employees): Overview. 4. Leave both on "No team" / "No manager" for a third person.
+- **Expected:** the Team list narrows to the chosen department's teams; the member detail shows the team and manager; the API validates both against the same organization (a team from another organization or a manager outside it is the generic 404, a team outside the chosen department is refused); the third person has neither. The fields are hidden when the organization has no teams and no active members to choose.
+- **Pages / APIs:** `/w/admin/invitations`, `GET invitations/form-options` (now teams and managers), `POST members/account`, `POST invitations` (teamGroupId, managerMemberId; API unchanged). **Automation:** none yet (web `InvitePanel.account.test.tsx`). **Status: STORY-ONLY (browser not verified)**
+
+### ADM-97 Gina reviews which jobs were captured, by whom, with which extension version
+- **Persona:** Gina. **Steps:** 1. Audit Logs, tab **Captured jobs**. 2. Narrow by a date range, a search word and a source. 3. Next page. 4. Export CSV. 5. As a member without audit.view, open the same page.
+- **Expected:** one row per job with who captured it, when, source, extension version; the filters narrow it; the CSV has one line per row on screen and no cell starts with = + - or @ (it is prefixed with a quote); step 5 is the permission panel / generic 404.
+- **Pages / APIs:** `/w/admin/audit`, `GET /api/orgs/{orgId}/audit/job-data` (existing). **Automation:** none yet (web `JobDataAudit.test.tsx`). **Status: STORY-ONLY (browser not verified)**
