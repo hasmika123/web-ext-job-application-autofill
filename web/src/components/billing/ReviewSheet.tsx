@@ -64,10 +64,12 @@ export default function ReviewSheet({
 
   useEffect(() => {
     if (!open) return;
-    setConfirmedDeps([]);
-    void requote([]);
+    // the parent mounts this sheet per open, so the confirmations start empty
+    const timer = setTimeout(() => void requote([]), 0);
+    const counter = seq;
     return () => {
-      seq.current++;
+      clearTimeout(timer);
+      counter.current++;
     };
   }, [open, requote]);
 

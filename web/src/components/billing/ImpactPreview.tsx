@@ -44,7 +44,6 @@ export default function ImpactPreview({
   confirmedDeps: string[];
 }) {
   const cur = quote.current;
-  const per = PER[quote.interval];
   const name = (k: string) => names[k] ?? k;
   const intervalSentence = intervalChangeSentence(quote);
   const immediate = quote.effectiveAt === "now";

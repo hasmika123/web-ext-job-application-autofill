@@ -7,7 +7,7 @@ import type { Invoice } from "@/lib/subscription/types";
 /** The account's invoices (GET /api/billing/invoices, newest first, at most 36): number, date, status, amount, and the lines on tap. */
 export default function InvoiceList({ invoices }: { invoices: Invoice[] | null | "error" }) {
   if (invoices === null) return <p className="text-[13px] text-muted">Loading invoices...</p>;
-  if (invoices === "error") return <p className="text-[13px] text-muted">Invoices aren't available right now.</p>;
+  if (invoices === "error") return <p className="text-[13px] text-muted">Invoices aren&apos;t available right now.</p>;
   if (invoices.length === 0) return <p className="text-[13px] text-muted">No invoices yet. Your first one appears after your first payment.</p>;
   return (
     <ul className="flex flex-col divide-y divide-line" data-testid="invoice-list">

@@ -9,7 +9,7 @@ import type { EntitlementSet } from "@/lib/subscription/types";
  */
 export default function PlanMeters({ ent }: { ent: EntitlementSet | null | "error" }) {
   if (ent === null) return <p className="text-[13px] text-muted">Loading usage...</p>;
-  if (ent === "error") return <p className="text-[13px] text-muted">Usage isn't available right now.</p>;
+  if (ent === "error") return <p className="text-[13px] text-muted">Usage isn&apos;t available right now.</p>;
   const metered = ent.features.filter((f) => f.allowance != null && f.used != null);
   const ai = ent.aiPct;
   if (metered.length === 0 && ai == null) return <p className="text-[13px] text-muted">Usage meters appear here once your plan reports usage.</p>;

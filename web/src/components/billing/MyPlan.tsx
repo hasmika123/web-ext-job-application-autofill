@@ -12,10 +12,11 @@ import PlanMeters from "@/components/billing/PlanMeters";
 import ResponsiveSheet from "@/components/billing/ResponsiveSheet";
 import { confirmQuote, createQuote, getEntitlements, getInvoices, getMyPlan, getPublicCatalog, newIdempotencyKey, undoChange } from "@/lib/subscription/client";
 import { intervalSuffix, intervalTab, money, problemCopy, shortDate } from "@/lib/subscription/copy";
-import { carryAddons, changeProblemCopy, changeRequest, currentTarget, effectiveQuantity, offerableAddons, pendingFor, sameTarget, type Target } from "@/lib/subscription/plan-state";
+import { carryAddons, changeProblemCopy, changeRequest, currentTarget, offerableAddons, pendingFor, sameTarget, type Target } from "@/lib/subscription/plan-state";
 import type { EntitlementSet, Interval, Invoice, PendingChange, PlanQuote, PlanV3, PublicCatalog } from "@/lib/subscription/types";
 
 type Phase = "idle" | "loading" | "ready" | "error";
+type Problem = { code?: string; text: string };
 
 const PER: Record<Interval, string> = { MONTH: "mo", QUARTER: "3 mo", YEAR: "yr" };
 
@@ -36,9 +37,10 @@ export default function MyPlan({ initialPlan }: { initialPlan: PlanV3 }) {
   const currentKey = JSON.stringify(current);
   const [target, setTarget] = useState<Target | null>(current);
   const [confirmedDeps, setConfirmedDeps] = useState<string[]>([]);
-  const [quote, setQuote] = useState<PlanQuote | null>(null);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [problem, setProblem] = useState<{ code?: string; text: string } | null>(null);
+  // the answer to the latest quote request, tagged with the request it answers so an old answer is never shown for a newer change set
+  const [result, setResult] = useState<{ key: string; quote: PlanQuote | null; problem: Problem | null } | null>(null);
+  const [actionProblem, setActionProblem] = useState<(Problem & { key: string }) | null>(null);
+  const [seenPlanKey, setSeenPlanKey] = useState(currentKey);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [undoing, setUndoing] = useState<number | null>(null);
@@ -47,7 +49,6 @@ export default function MyPlan({ initialPlan }: { initialPlan: PlanV3 }) {
   const [switchOpen, setSwitchOpen] = useState(false);
   const desktop = useMediaQuery("(min-width: 1024px)", true);
   const keyRef = useRef<{ quoteId: number; key: string } | null>(null);
-  const seq = useRef(0);
   const barRef = useRef<HTMLDivElement>(null);
   useBottomBar(barRef);
 
@@ -72,53 +73,50 @@ export default function MyPlan({ initialPlan }: { initialPlan: PlanV3 }) {
     };
   }, []);
 
-  // a refreshed plan resets the pending change set to what is now held
-  useEffect(() => {
+  // a refreshed plan resets the pending change set to what is now held (adjusted while rendering, not in an effect)
+  if (seenPlanKey !== currentKey) {
+    setSeenPlanKey(currentKey);
     setTarget(current);
     setConfirmedDeps([]);
-    setQuote(null);
-    setPhase("idle");
-    setProblem(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentKey]);
+    setResult(null);
+    setActionProblem(null);
+  }
 
   const targetKey = JSON.stringify(target);
   const depsKey = confirmedDeps.join(",");
   const dirty = !!target && !!current && !sameTarget(target, current);
+  const requestKey = `${currentKey}|${targetKey}|${depsKey}|${tick}`;
 
   // the pending change set -> a CHANGE quote, debounced 400 ms
   useEffect(() => {
-    if (!target || !current || !dirty) {
-      seq.current++;
-      setQuote(null);
-      setPhase("idle");
-      setProblem(null);
-      return;
-    }
-    const mine = ++seq.current;
-    setPhase("loading");
+    if (!target || !current || !dirty) return;
+    let cancelled = false;
     const timer = setTimeout(async () => {
       const res = await createQuote({ ...changeRequest(target, current), confirmedCommercialDeps: confirmedDeps });
-      if (mine !== seq.current) return;
+      if (cancelled) return;
       if (res.ok) {
-        setQuote(res.data);
-        setPhase("ready");
-        setProblem(null);
-      } else {
-        setQuote(null);
-        const special = changeProblemCopy(res.problem.code, { max: res.problem.max });
-        if (special === null) {
-          setPhase("idle");
-          setProblem(null);
-        } else {
-          setProblem({ code: res.problem.code, text: special ?? problemCopy(res.problem.code, { max: res.problem.max }) });
-          setPhase("error");
-        }
+        setResult({ key: requestKey, quote: res.data, problem: null });
+        return;
       }
+      const special = changeProblemCopy(res.problem.code, { max: res.problem.max });
+      setResult({
+        key: requestKey,
+        quote: null,
+        problem: special === null ? null : { code: res.problem.code, text: special ?? problemCopy(res.problem.code, { max: res.problem.max }) },
+      });
     }, 400);
-    return () => clearTimeout(timer);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // the request key already covers target, current, deps and tick
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetKey, depsKey, currentKey, tick]);
+  }, [requestKey]);
+
+  const fresh = dirty && result?.key === requestKey ? result : null;
+  const quote = fresh?.quote ?? null;
+  const problem: Problem | null = (actionProblem?.key === requestKey ? actionProblem : null) ?? fresh?.problem ?? null;
+  const phase: Phase = !dirty ? "idle" : !fresh ? "loading" : quote ? "ready" : problem ? "error" : "idle";
 
   const catalogPlan = catalog?.plans.find((p) => p.planKey === target?.planKey);
   const names = useMemo(() => {
@@ -237,8 +235,7 @@ export default function MyPlan({ initialPlan }: { initialPlan: PlanV3 }) {
       setTick((n) => n + 1);
       return;
     }
-    setProblem({ code, text: problemCopy(code) });
-    setPhase("error");
+    setActionProblem({ key: requestKey, code, text: problemCopy(code) });
   }
 
   // ---- Free / not linked ------------------------------------------------------------------------------------------------------------
