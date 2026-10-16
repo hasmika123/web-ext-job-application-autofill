@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ACTIVITY_LABELS, changeText, escapeHtml, fileNameOf, parsePreview, parseResumes, resumeHtml, resumeText, sortResumes, verdictOf, type ResumePreview, type ResumeRow } from "./resumes";
+import { ACTIVITY_LABELS, changeText, escapeHtml, fileNameOf, parsePreview, parseResumeSources, parseResumes, resumeHtml, resumeText, sortResumes, verdictOf, type ResumePreview, type ResumeRow } from "./resumes";
 
 const tile = (value: number, extra: Record<string, unknown> = {}) => ({ value, previous: 1, delta: value - 1, deltaPct: 33.3, sparkline: [0, 1, 2], ...extra });
 
@@ -45,6 +45,28 @@ describe("parseResumes", () => {
     const v = parseResumes({ orgId: 1, me: {}, tiles: {} })!;
     expect(v.tiles.totalViews).toEqual({ value: 0, previous: null, delta: null, deltaPct: null, sparkline: [] });
     expect(v.resumes).toEqual([]);
+  });
+});
+
+describe("parseResumeSources (D10: the new-resume chooser reads the organization's records)", () => {
+  it("reads the profile counts and the copyable resumes, with null for a record that has no builder document", () => {
+    const v = parseResumeSources({
+      profile: { itemCount: 3, roles: 2, schools: 0, skills: 4, headline: "Salesforce Developer" },
+      resumes: [
+        { id: 7, resumeId: 41, name: "Backend CV", updatedAt: "2026-10-01T00:00:00Z" },
+        { id: 8, resumeId: null, name: "Imported CV", updatedAt: null },
+        { id: "x", name: "bad row" },
+      ],
+    })!;
+    expect(v.profile).toEqual({ itemCount: 3, roles: 2, schools: 0, skills: 4, headline: "Salesforce Developer" });
+    expect(v.resumes).toEqual([
+      { id: 7, resumeId: 41, name: "Backend CV", updatedAt: "2026-10-01T00:00:00Z" },
+      { id: 8, resumeId: null, name: "Imported CV", updatedAt: null },
+    ]);
+  });
+  it("is null for anything that is not the contract", () => {
+    expect(parseResumeSources(null)).toBeNull();
+    expect(parseResumeSources({ resumes: [] })).toBeNull();
   });
 });
 
