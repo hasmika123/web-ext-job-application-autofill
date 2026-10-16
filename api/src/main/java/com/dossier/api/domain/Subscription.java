@@ -60,6 +60,20 @@ public class Subscription implements Serializable {
     @Column(name = "cancel_at_period_end", nullable = false)
     private boolean cancelAtPeriodEnd = false;
 
+    /** The plan version this subscriber bought (K5.2; null until linked). Written by the webhook mirror and the legacy linker only. */
+    @Column(name = "plan_version_id")
+    private Long planVersionId;
+
+    /** MONTH | QUARTER | YEAR (K5.2; null until linked). */
+    @Column(name = "billing_interval", length = 10)
+    private String billingInterval;
+
+    @Column(name = "currency", length = 3, columnDefinition = "char(3)")
+    private String currency;
+
+    @Column(name = "current_period_start")
+    private Instant currentPeriodStart;
+
     /** `created` of the newest event applied here — Stripe doesn't guarantee delivery order. */
     @Column(name = "last_event_at")
     private Instant lastEventAt;
@@ -140,6 +154,38 @@ public class Subscription implements Serializable {
 
     public void setCancelAtPeriodEnd(boolean cancelAtPeriodEnd) {
         this.cancelAtPeriodEnd = cancelAtPeriodEnd;
+    }
+
+    public Long getPlanVersionId() {
+        return planVersionId;
+    }
+
+    public void setPlanVersionId(Long planVersionId) {
+        this.planVersionId = planVersionId;
+    }
+
+    public String getBillingInterval() {
+        return billingInterval;
+    }
+
+    public void setBillingInterval(String billingInterval) {
+        this.billingInterval = billingInterval;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public Instant getCurrentPeriodStart() {
+        return currentPeriodStart;
+    }
+
+    public void setCurrentPeriodStart(Instant currentPeriodStart) {
+        this.currentPeriodStart = currentPeriodStart;
     }
 
     public Instant getLastEventAt() {

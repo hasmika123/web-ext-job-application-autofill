@@ -16,16 +16,20 @@ public class BillingProblemException extends ErrorResponseException {
     private static final long serialVersionUID = 1L;
 
     public BillingProblemException(BillingException cause) {
-        super(
-            HttpStatus.valueOf(cause.getStatus()),
-            ProblemDetailWithCauseBuilder.instance()
-                .withStatus(cause.getStatus())
-                .withType(ErrorConstants.DEFAULT_TYPE)
-                .withTitle(cause.getMessage())
-                .withProperty("code", cause.getCode())
-                .withProperty("message", "error.billing")
-                .build(),
-            cause
-        );
+        super(HttpStatus.valueOf(cause.getStatus()), detail(cause), cause);
+    }
+
+    private static tech.jhipster.web.rest.errors.ProblemDetailWithCause detail(BillingException cause) {
+        ProblemDetailWithCauseBuilder builder = ProblemDetailWithCauseBuilder.instance()
+            .withStatus(cause.getStatus())
+            .withType(ErrorConstants.DEFAULT_TYPE)
+            .withTitle(cause.getMessage())
+            .withProperty("code", cause.getCode())
+            .withProperty("message", "error.billing");
+        // Details the client branches on (QUOTE_STALE reason, QUANTITY_LIMIT max, PLAN_SUNSET successor); never override code/message.
+        cause.getExtra().forEach((k, v) -> {
+            if (!"code".equals(k) && !"message".equals(k)) builder.withProperty(k, v);
+        });
+        return builder.build();
     }
 }

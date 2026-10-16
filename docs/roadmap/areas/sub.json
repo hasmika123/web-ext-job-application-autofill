@@ -898,7 +898,7 @@
     {
       "id": "K3.3",
       "epic": "K3",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [
@@ -1495,7 +1495,7 @@
     {
       "id": "K5.2",
       "epic": "K5",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [
@@ -1620,7 +1620,7 @@
     {
       "id": "K5.4",
       "epic": "K5",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "complexity": "M",
       "owners": [
@@ -1815,7 +1815,7 @@
     {
       "id": "K5.7",
       "epic": "K5",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "complexity": "S",
       "owners": [

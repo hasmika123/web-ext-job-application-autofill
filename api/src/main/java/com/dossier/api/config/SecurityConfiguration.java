@@ -84,6 +84,9 @@ public class SecurityConfiguration {
                     // way. It is NOT unprotected: the Stripe-Signature header is verified against
                     // the webhook secret before anything is read (see BillingWebhookResource).
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/billing/webhook")).permitAll()
+                    // The pricing page prices a basket without an account (anonymous quotes); the resource requires authentication itself for every
+                    // other kind and rate-limits by IP.
+                    .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/billing/quotes")).permitAll()
                     .requestMatchers(mvc.pattern("/api/admin/**")).hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/api/**")).authenticated()
                     .requestMatchers(mvc.pattern("/v3/api-docs/**")).hasAuthority(AuthoritiesConstants.ADMIN)

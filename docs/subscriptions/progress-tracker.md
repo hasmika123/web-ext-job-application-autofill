@@ -37,7 +37,7 @@
 | K2.5 | Admin plans API | Not Started | API | | | |
 | K3.1 | PricingEngine v2 + golden S1 | Completed | API | cf2f93aa | MinorTest, PricingEngineGoldenTest (S1-S3, G1-G14), PricingEnginePropertyTest, PricingArchTest, AnnualDerivationTest, DependencyRulesTest | pure engine in service/pricing; CatalogPort adapter and PricingInputsLoader wired by the coordinator |
 | K3.2 | MarginCalculator v2 + levers | Completed | API | fdd7602b | MarginCalculatorTest, MarginGuardCompositionTest, FeeModelSettingsTest | calculator only (no route yet: GET /api/admin/catalog/margin and fee-model are separate wiring); levers exact, see decisions E-1..E-4 |
-| K3.3 | Personal QuoteService | Not Started | API | | | |
+| K3.3 | Personal QuoteService | Completed | API | d161e58a | PersonalQuoteIT (9), PersonalBillingSettingKeysTest (3) | CHECKOUT, CHANGE, ANONYMOUS; promo codes refused (P-1); the catalog adapter is the plans stream's, ITs use an in-memory double |
 | K3.4 | Settings registry keys | Completed | API | 2cdef444 | BillingSettingKeysTest (7); SettingDefinitionsTest, SettingsServiceTest unchanged and green | first in S0; BillingSettingKeys; 03 section 2 + 08 section 7 parity test; out-of-bounds stays 400 (B-06) |
 | K4.1 | Plans list page | Not Started | Web | | | |
 | K4.2 | Plan editor | Not Started | Web | | | |
@@ -47,12 +47,12 @@
 | K4.6 | Org plan editor | Not Started | Web | | | |
 | K4.7 | Fixtures + Playwright admin-plans | Not Started | Web | | | |
 | K5.1 | Public catalog + /pricing from it | Not Started | API, Web | | | supersedes B1.5 |
-| K5.2 | subscription_addon + change tables; webhook | Not Started | API | | | |
-| K5.3 | Checkout from a quote | Not Started | API, Web | | | |
-| K5.4 | Change flow + applier + retry | Not Started | API | | | |
+| K5.2 | subscription_addon + change tables; webhook | Completed | API | 8a8e0384 | AddonCheckoutIT webhook cases, PersonalAddonWritersTest (2) | live_seq is NULL when closed (P-9); the mirror ignores non-catalog prices |
+| K5.3 | Checkout from a quote | In Progress | API, Web | 89d17949 | AddonCheckoutIT (7), BillingResourceIT unchanged (13) | API half done; web half (review sheet, success page) not started |
+| K5.4 | Change flow + applier + retry | Completed | API | 8baf7871 | AddonChangeIT (10) | retry job + settle; undo is Stripe-first (P-3) |
 | K5.5 | My plan page | Not Started | Web | | | |
 | K5.6 | Plan / interval switch | Not Started | API, Web | | | |
-| K5.7 | PlanDTO v3, invoices, entitlements/me | Not Started | API | | | |
+| K5.7 | PlanDTO v3, invoices, entitlements/me | Completed | API | c5051619 | PersonalEntitlementsIT (3), PersonalInvoiceServiceTest (4), LegacyReadersUnchangedIT (3, six-key compare) | source of entitlements/me is provisional until K7.1; invoices read the mirror port (K8.3) else Stripe |
 | K5.8 | Playwright pricing-addons + lint | Not Started | Web | | | |
 | K6.1 | Enterprise links + org plan read | Not Started | API | | | waits on X5.4/X6.12 |
 | K6.2 | Seat TRANSFER | Not Started | API | | | |
@@ -96,3 +96,4 @@
 - 2026-10-15 — Fable: design complete (`docs/subscriptions/01`–`11`, `decisions-for-user.md`); area `sub` (prefix K, 67 stories) added to the master roadmap; nothing built.
 - 2026-10-15 — Fable: user decisions applied — S-01 annual ON (K9 into phases S2/S3/S5), S-03 no existing subscribers (K8.4 no-data migration, K2.4 primitive FUTURE, shadow gate test-based), S-20 retire-to-Free default (K10.1/K10.9). `CLAUDE.md` amendment left for the user's session.
 - 2026-10-16 - resolver stream (sub-resolver2): K7.1 to K7.5, K7.7, K8.3, K8.4 built; shadow stays on; open questions R-1 to R-9 in decisions-for-user.md.
+- 2026-10-16 - sub-addons2: K3.3, K5.2, K5.4, K5.7 done and the K5.3 API half done (quotes, add-on tables and webhook mirror, confirm/applier/undo, PlanDTO v3, invoices, entitlements/me, checkout from a quote); open items P-1..P-11 in decisions-for-user.md.

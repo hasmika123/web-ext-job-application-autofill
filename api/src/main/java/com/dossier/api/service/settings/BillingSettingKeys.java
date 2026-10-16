@@ -54,6 +54,9 @@ public final class BillingSettingKeys {
     public static final String PLAN_SUNSET_NOTICE_DAYS = "billing.plan.sunset_notice_days";
     public static final String MIGRATION_NOTICE_DAYS = "billing.migration.notice_days";
     public static final String ADDON_MAX_TOTAL_QUANTITY = "billing.addon.max_total_quantity";
+    public static final String QUOTE_RATE_PER_MIN = "billing.quote.rate_per_min";
+    public static final String CHANGE_RETRY_MAX_ATTEMPTS = "billing.change.retry_max_attempts";
+    public static final String CHECKOUT_CONSENT_TEXT = "billing.checkout.consent_text";
 
     /** Hard minimum of {@link #MIGRATION_NOTICE_DAYS} (the legal floor for a price change, B4.2): the registry refuses lower. */
     public static final int MIGRATION_NOTICE_HARD_MIN_DAYS = 30;
@@ -102,11 +105,16 @@ public final class BillingSettingKeys {
             "Moving a seat from one consultant to another costs nothing and changes nothing in Stripe." + NOT_ENFORCED, null, Risk.MEDIUM));
 
         // Quotes, dated changes, seats, add-on limits.
-        integer(k, QUOTE_TTL_MINUTES, 15, 1, 240, Risk.LOW, "Minutes a personal quote stays valid before it must be recomputed." + NOT_ENFORCED);
+        integer(k, QUOTE_TTL_MINUTES, 15, 1, 240, Risk.LOW, "Minutes a personal quote stays valid before it must be recomputed.");
+        integer(k, QUOTE_RATE_PER_MIN, 30, 1, 600, Risk.LOW, "Most quote requests one IP address may make per minute (the pricing page asks anonymously, so this is the only brake).");
+        integer(k, CHANGE_RETRY_MAX_ATTEMPTS, 5, 1, 20, Risk.LOW, "How many times a confirmed subscription change that Stripe refused is retried before it is left FAILED for an administrator.");
+        k.add(new Key(CHECKOUT_CONSENT_TEXT, Type.STRING,
+            "Subscriptions renew automatically until cancelled. No refunds for partial periods: cancel anytime and keep access to the end of the period you paid for.",
+            null, null, null, "The consent line shown above the pay button of the hosted Stripe checkout.", null, Risk.MEDIUM));
         integer(k, FUTURE_DATED_MAX_DAYS, 30, 0, 60, Risk.LOW, "Furthest ahead (days) a change to a subscription may be dated." + NOT_ENFORCED);
         integer(k, LICENSE_MAX_SEATS, 500, 1, 5000, Risk.MEDIUM, "Most consultant seats one organization plan may hold." + NOT_ENFORCED);
         integer(k, PLAN_MAX_OPTIONAL_ADDONS, 8, 1, 50, Risk.LOW, "Most optional add-ons one plan version may offer." + NOT_ENFORCED);
-        integer(k, ADDON_MAX_TOTAL_QUANTITY, 10, 1, 100, Risk.LOW, "Most add-on units (all add-ons together) one subscription may hold." + NOT_ENFORCED);
+        integer(k, ADDON_MAX_TOTAL_QUANTITY, 10, 1, 100, Risk.LOW, "Most add-on units (all add-ons together) one subscription may hold.");
 
         // Proration and currency.
         k.add(new Key(PRORATION_AUTHORITY, Type.ENUM, "KIWIPLY", null, null, List.of("KIWIPLY"),

@@ -18,7 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * body as a route that does not exist, so nothing says the route is there for someone else:
  *
  * <ul>
- *   <li>personal-only routes: {@code /api/billing/**} (the personal Stripe plan) and {@code /api/profile/inbox/**} (the personal-plan inbox). An enterprise
+ *   <li>personal-only routes: {@code /api/billing/**} (the personal Stripe plan), {@code /api/entitlements/**} (the personal entitlement set) and {@code /api/profile/inbox/**} (the personal-plan inbox). An enterprise
  *       account has no personal plan; its inbox is {@code /api/orgs/{id}/me-workspace/inbox/**} and its billing is the organization's.</li>
  *   <li>{@code DELETE /api/account} (self-service erasure): enterprise accounts are erased through the organization (phase S8).</li>
  *   <li>an extension token ({@code ext=1}) reaches only {@link ExtensionRoutes} (of its own organization); everything else is 404.</li>
@@ -64,7 +64,7 @@ public class AccountKindRouteFilter extends OncePerRequestFilter {
     }
 
     static boolean isPersonalOnly(String path) {
-        return underneath(path, "/api/billing") || underneath(path, "/api/profile/inbox") || underneath(path, "/api/inbox");
+        return underneath(path, "/api/billing") || underneath(path, "/api/entitlements") || underneath(path, "/api/profile/inbox") || underneath(path, "/api/inbox");
     }
 
     private static boolean underneath(String path, String prefix) {
