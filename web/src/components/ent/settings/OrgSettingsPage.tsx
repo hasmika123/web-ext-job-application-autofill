@@ -83,6 +83,7 @@ export default function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
       return;
     }
     setPolicy(before);
+    if (r.kind === "DEMO") return; // the shell's one demo notice ("This is a demo account — changes aren't saved") already says it
     if (r.kind === "DENIED") void load();
     toast({ title: "Not saved", description: r.kind === "INVALID" ? r.message : "That change wasn't saved. Nothing changed.", variant: "error" });
   };
