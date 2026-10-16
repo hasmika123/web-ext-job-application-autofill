@@ -39,13 +39,13 @@
 | K3.2 | MarginCalculator v2 + levers | Completed | API | fdd7602b | MarginCalculatorTest, MarginGuardCompositionTest, FeeModelSettingsTest | calculator only (no route yet: GET /api/admin/catalog/margin and fee-model are separate wiring); levers exact, see decisions E-1..E-4 |
 | K3.3 | Personal QuoteService | Completed | API | d161e58a | PersonalQuoteIT (9), PersonalBillingSettingKeysTest (3) | CHECKOUT, CHANGE, ANONYMOUS; promo codes refused (P-1); the catalog adapter is the plans stream's, ITs use an in-memory double |
 | K3.4 | Settings registry keys | Completed | API | 2cdef444 | BillingSettingKeysTest (7); SettingDefinitionsTest, SettingsServiceTest unchanged and green | first in S0; BillingSettingKeys; 03 section 2 + 08 section 7 parity test; out-of-bounds stays 400 (B-06) |
-| K4.1 | Plans list page | Not Started | Web | | | |
-| K4.2 | Plan editor | Not Started | Web | | | |
-| K4.3 | Preview pane | Not Started | Web | | | |
-| K4.4 | Publish flow | Not Started | Web | | | |
-| K4.5 | Compare / subscribers / migration sheet | Not Started | Web | | | |
-| K4.6 | Org plan editor | Not Started | Web | | | |
-| K4.7 | Fixtures + Playwright admin-plans | Not Started | Web | | | |
+| K4.1 | Plans list page | Completed | Web | 96a3501b | PlansPage.test (7), plans.routes.test (BFF), admin-plans.test | /admin/pricing/plans (+ /admin/plans redirect), Pricing nav entry; Currency filter and the old-versions tile link waited on API fields (decisions W-2) |
+| K4.2 | Plan editor | Completed | Web | 3dacde9b | PlanEditor.test (10) | autosave queue + 409 reload, live margin ticks, dependency pre-add, 390 stepper; plan details save through a reason sheet (W-10); YEAR is derived only (W-11) |
+| K4.3 | Preview pane | Completed | Web | 638b6bf6 | PlanPreviewPane.test (8) | renders PlanPreviewDTO 1:1; no effective-date picker (P-07, W-7) |
+| K4.4 | Publish flow | Completed | Web | c8a9e3a3 | PublishSheet.test (8) | typed version + reason + override reason, Idempotency-Key, history from /catalog/versions (W-1); Stripe off is a notice not a block (P-02, W-6) |
+| K4.5 | Compare / subscribers / migration sheet | Code Complete | Web | d4b40525 | CompareVersions.test (8) | Retire... and Offer migration... are disabled with the reason until K10.9 exists (W-3); no PriceDelta chip (W-12) |
+| K4.6 | Org plan editor | Code Complete | Web | 67266bab, 3290f876 | OrgPlanEditor.test (5) | seat rules, roster preview, preset below individual; the API does not refuse a missing setup fee (W-4) |
+| K4.7 | Fixtures + Playwright admin-plans | Completed | Web | 617c3a80 | mock-plans.test | mock-plans.mjs + fixtures; web/e2e/journeys/admin-plans.spec.ts written, not run (no browser run in this stream) |
 | K5.1 | Public catalog + /pricing from it | Not Started | API, Web | | | supersedes B1.5 |
 | K5.2 | subscription_addon + change tables; webhook | Completed | API | 8a8e0384 | AddonCheckoutIT webhook cases, PersonalAddonWritersTest (2) | live_seq is NULL when closed (P-9); the mirror ignores non-catalog prices |
 | K5.3 | Checkout from a quote | In Progress | API, Web | 89d17949 | AddonCheckoutIT (7), BillingResourceIT unchanged (13) | API half done; web half (review sheet, success page) not started |
@@ -93,6 +93,7 @@
 | K10.11 | Retirement regression gate | Not Started | API, Web | | | |
 
 ## Log
+- 2026-10-16 - sub-web-admin: K4.1 to K4.7 built on branch sub-web-admin (plans list, editor, preview, publish, compare, org editor, mock + journey); API gaps W-1 to W-13 in decisions-for-user.md.
 - 2026-10-15 — Fable: design complete (`docs/subscriptions/01`–`11`, `decisions-for-user.md`); area `sub` (prefix K, 67 stories) added to the master roadmap; nothing built.
 - 2026-10-15 — Fable: user decisions applied — S-01 annual ON (K9 into phases S2/S3/S5), S-03 no existing subscribers (K8.4 no-data migration, K2.4 primitive FUTURE, shadow gate test-based), S-20 retire-to-Free default (K10.1/K10.9). `CLAUDE.md` amendment left for the user's session.
 - 2026-10-16 - resolver stream (sub-resolver2): K7.1 to K7.5, K7.7, K8.3, K8.4 built; shadow stays on; open questions R-1 to R-9 in decisions-for-user.md.

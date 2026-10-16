@@ -27,6 +27,7 @@ import { createMembersMock } from "./mock-members.mjs";
 import { createResumesMock } from "./mock-resumes.mjs";
 import { createGroupsMock } from "./mock-groups.mjs";
 import { createRolesMock } from "./mock-roles.mjs";
+import { createPlansMock } from "./mock-plans.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -277,6 +278,8 @@ const handleResumes = createResumesMock({ json });
 const handleGroups = createGroupsMock({ json, withBody, subOf: bearerSub });
 /* ── Roles & Permissions mock (X4.11: roles, catalog, diff, history, resync, member roles; scripts/mock-roles.mjs) ── */
 const handleRoles = createRolesMock({ json, withBody, hostOf });
+/* ── Plan builder mock (K4.7: plans, versions, preview, publish, compare, catalog, margin; scripts/mock-plans.mjs) ── */
+const handlePlans = createPlansMock({ json, withBody, subOf, isAdmin: (login) => !!ACCOUNTS[login]?.authorities.includes("ROLE_ADMIN") });
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
 const handleTracker = createTrackerMock({ APPLICATIONS, json, withBody, subOf, ago, findSensitive, isEmpty: (req) => isEmptyAccount(subOf(req)) });
 /* ── Job search mock (APP-E2E U4.0: search, suggest, detail, save, hide; scripts/mock-jobs.mjs) ── */
@@ -2006,6 +2009,7 @@ const server = http.createServer((req, res) => {
   if (handleResumes(req, res, path, method)) return;
   if (handleGroups(req, res, path, method)) return;
   if (ENTERPRISE_ENABLED && handleRoles(req, res, path, method)) return;
+  if (handlePlans(req, res, path, method)) return;
   if (handleSources(req, res, path, method)) return;
   if (handleBuilder(req, res, path, method)) return;
   if (handleAi(req, res, path, method)) return;
