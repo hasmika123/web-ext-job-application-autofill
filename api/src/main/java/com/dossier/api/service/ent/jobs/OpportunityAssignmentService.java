@@ -214,6 +214,14 @@ public class OpportunityAssignmentService {
      * locking read: the match insert runs in a transaction of its own and its foreign key to the job would wait on this transaction's lock.
      * A caller that has just created the job passes the entity itself ({@link #assign(AssignmentScope, OrgMembership, ClientRequirement, Long, Options)}).
      */
+    /**
+     * A board row in a fresh snapshot. The caller's own transaction (MySQL REPEATABLE READ) began before {@link #suggest} / {@link #assign} committed the
+     * match in a transaction of its own, so a plain read of the row just created finds nothing: callers re-read here when they need it back.
+     */
+    public java.util.Optional<com.dossier.api.repository.ent.mkt.MktOpportunityRow> readRowFresh(Long orgId, Long matchId) {
+        return tx.readOpportunityRow(orgId, matchId);
+    }
+
     @Transactional(noRollbackFor = OrgException.class)
     public Result assign(AssignmentScope scope, OrgMembership me, Long jobId, Long consultantId, Options options) {
         Long orgId = orgOf(scope, me);

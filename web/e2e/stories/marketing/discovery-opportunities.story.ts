@@ -1,35 +1,37 @@
 import { test, expect, narrate } from "../_support/story";
-import { boardRow, captureJob, consultantIdByName, conRow, jobBody, orgIdOf, ready, tileValue } from "./_mkt";
+import { boardRow, captureJob, consultantIdByName, conRow, jobBody, keepMarketed, orgIdOf, ready } from "./_mkt";
 
 /** Resumes, Job Discovery, Job Matches, Opportunities board and Job Streams (Omar, plus Sarah for cross-person set-up). */
 
 test.describe("MKT resumes, discovery, matches, opportunities, streams", () => {
   test("MKT-10 Omar reviews his consultants' resumes and previews one", async ({ as }) => {
+    // The Resumes board is the shared organization page, scoped to Omar's consultants (its tiles are [data-kpi=...], its rows tr[data-row-id]).
     const { page, go } = await as("omar");
     await go("/w/marketing/resumes");
-    await ready(page, "[data-mkt-resumes]").waitFor();
-    await narrate(page, "Four tiles: total resumes, profiles ready, needs update, approvals pending");
-    await expect(page.locator("[data-resumes-tiles] [data-stat-tile]")).toHaveCount(4);
-    const total = await tileValue(page, "total");
+    await expect(page.locator("[data-resumes-page]")).toBeVisible({ timeout: 45_000 });
+    await narrate(page, "Four tiles: total resumes, primary resumes, needs approval, updated this week");
+    for (const k of ["total", "primary", "needsApproval", "updatedThisWeek"]) await expect(page.locator(`[data-kpi-tiles] [data-kpi=${k}]`)).toBeVisible();
+    const total = Number((await page.locator("[data-kpi=total] [data-kpi-value]").innerText()).replace(/,/g, ""));
     expect(total).toBeGreaterThan(0);
 
     await narrate(page, "The table lists a resume per row with its approval state");
-    const rows = page.locator("[data-resume-row]");
+    const rows = page.locator("tr[data-row-id]");
+    await expect(rows.first()).toBeVisible();
     expect(await rows.count()).toBeGreaterThan(0);
-    await expect(rows.first()).toContainText(/Approved|Pending Review|Needs Update/);
+    await expect(rows.first().locator("[data-pill=approval]")).toBeVisible();
 
-    await narrate(page, "Searching for a name that does not exist shows an honest empty table");
-    await page.getByPlaceholder("Search consultants or resume titles...").fill("zzz-nobody-has-this-title");
+    await narrate(page, "Searching for a title that does not exist shows an honest empty table");
+    const search = page.getByRole("searchbox", { name: "Search resumes" });
+    await search.fill("zzz-nobody-has-this-title");
     await expect(rows).toHaveCount(0);
-    await page.getByPlaceholder("Search consultants or resume titles...").fill("");
+    await search.fill("");
     await expect(rows.first()).toBeVisible();
 
-    await narrate(page, "View opens a read-only preview of the resume");
-    await rows.first().getByRole("button", { name: /^View / }).click();
-    const drawer = page.locator("[data-resume-drawer]");
-    await expect(drawer).toBeVisible();
-    await expect(drawer.getByRole("article", { name: "Resume preview" })).toBeVisible();
-    await expect(drawer.locator("[aria-label=Summary], [aria-label=Skills]").first()).toBeVisible();
+    await narrate(page, "Opening a row shows the resume and its approval status");
+    await rows.first().click();
+    const drawer = page.locator("#ent-resume-sheet");
+    await expect(drawer.locator("[data-detail-body]")).toBeVisible();
+    await expect(drawer.getByText("Approval Status").first()).toBeVisible();
   });
 
   test("MKT-11 Omar searches Job Discovery and opens a job's details", async ({ as }) => {
@@ -60,10 +62,13 @@ test.describe("MKT resumes, discovery, matches, opportunities, streams", () => {
     for (const k of ["Client", "Location", "Rate", "Source"]) await expect(sheet.getByText(k, { exact: true }).first()).toBeVisible();
   });
 
+  test.describe("a consultant who is being marketed", () => {
+  keepMarketed("Ben Okafor"); // Ben is ON_PROJECT (marketing paused) in the seed: nothing can be assigned to him until he is available
+
   test("MKT-12 Omar assigns a job to Ben from Job Discovery and Ben receives it (the consultant still applies himself)", async ({ as }) => {
     const sarah = await as("sarah");
-    await sarah.go("/w/marketing/opportunities");
-    await ready(sarah.page, "[data-opportunities]").waitFor();
+    await sarah.go("/w/admin"); // Sarah only supplies the job here; her own marketing workspace is not built, so no marketing page is opened for her
+    await expect(sarah.page.locator("[data-enterprise-shell]")).toBeVisible({ timeout: 45_000 });
     const orgId = await orgIdOf(sarah.page);
     const anika = await consultantIdByName(sarah.page, orgId, "Anika Rao");
     const body = jobBody(Date.now(), [anika]);
@@ -91,7 +96,7 @@ test.describe("MKT resumes, discovery, matches, opportunities, streams", () => {
 
     const ben = await as("ben");
     await ben.go("/w/consultant/opportunities");
-    await ready(ben.page, "[data-con-opportunities]").waitFor();
+    await ready(ben.page, "[data-consultant-opportunities]").waitFor();
     await narrate(ben.page, "Ben has it in his Assigned Opportunities, assigned by Omar");
     await expect(conRow(ben.page, title)).toHaveCount(1);
     await expect(conRow(ben.page, title)).toContainText("Omar Haddad");
@@ -104,6 +109,7 @@ test.describe("MKT resumes, discovery, matches, opportunities, streams", () => {
     await narrate(page, "Four tiles summarize his matches");
     await expect(page.locator("[data-matches-tiles] [data-stat-tile]")).toHaveCount(4);
     const rows = page.locator("[data-match-row]");
+    await expect(rows.first().or(page.getByText(/Run a match to see suggestions|No matches fit these filters/))).toBeVisible(); // the board loads after the tiles
     if ((await rows.count()) === 0) {
       await expect(page.getByText(/Run a match to see suggestions|No matches fit these filters/)).toBeVisible();
       return;
@@ -142,8 +148,8 @@ test.describe("MKT resumes, discovery, matches, opportunities, streams", () => {
 
   test("MKT-15 Omar adds an opportunity, assigns it, and the consultant's answer stays the consultant's", async ({ as }) => {
     const sarah = await as("sarah");
-    await sarah.go("/w/marketing/opportunities");
-    await ready(sarah.page, "[data-opportunities]").waitFor();
+    await sarah.go("/w/admin");
+    await expect(sarah.page.locator("[data-enterprise-shell]")).toBeVisible({ timeout: 45_000 });
     const orgId = await orgIdOf(sarah.page);
     const anika = await consultantIdByName(sarah.page, orgId, "Anika Rao");
     const body = jobBody(Date.now(), [anika]);
@@ -174,6 +180,7 @@ test.describe("MKT resumes, discovery, matches, opportunities, streams", () => {
     }
     await expect(omar.page.locator("[data-opp-row]").filter({ hasText: title }).locator("[data-opp-interest=NO_RESPONSE]")).toBeVisible();
   });
+  });
 
   test("MKT-16 Omar adds a job stream, pauses it and resumes it", async ({ as }) => {
     const { page, go } = await as("omar");
@@ -194,6 +201,8 @@ test.describe("MKT resumes, discovery, matches, opportunities, streams", () => {
 
     await narrate(page, "Pause and Resume change its status");
     await row.getByRole("button", { name: "Pause" }).click();
+    await expect(row).toHaveCount(0); // a paused stream is inactive, and inactive streams are hidden unless Show Inactive is on
+    await page.getByRole("switch", { name: "Show Inactive" }).click();
     await expect(row).toContainText("Paused");
     await row.getByRole("button", { name: "Resume" }).click();
     await expect(row).toContainText("Active");

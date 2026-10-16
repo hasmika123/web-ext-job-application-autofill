@@ -44,6 +44,8 @@ test("ADM-11 Org admin edits an employee's job title and it is saved automatical
   await go("/w/admin/employees");
   await expect(page.locator("[data-employees-page]")).toBeVisible();
   await narrate(page, "Sarah opens Anika Rao's detail sheet");
+  // the roster pages 10 at a time and grows with every account the other stories add, so find her by name
+  await page.getByRole("searchbox", { name: "Search employees" }).fill("Anika Rao");
   await rowOf(page, "Anika Rao").click();
   const sheet = page.locator("#ent-employee-sheet");
   await expect(sheet.locator("[data-detail-body]")).toBeVisible();
@@ -55,6 +57,7 @@ test("ADM-11 Org admin edits an employee's job title and it is saved automatical
   await expect(sheet.locator("[data-title-status=saved]")).toBeVisible();
   await narrate(page, "After a reload the new title is still there");
   await page.reload();
+  await page.getByRole("searchbox", { name: "Search employees" }).fill("Anika Rao");
   await rowOf(page, "Anika Rao").click();
   await expect(sheet.getByRole("textbox", { name: "Job title" })).toHaveValue(newTitle);
   await sheet.getByRole("button", { name: "Close Anika Rao" }).click();

@@ -89,9 +89,17 @@ test("PLT-23 The org admin can read the job-data audit evidence", async ({ as })
     expect(Array.isArray(item.events)).toBe(true);
     expect(JSON.stringify(item.job)).not.toMatch(/"description"/); // no job text beyond title and employer
   }
+  // one job's evidence by id: a job of this organization answers 200 with exactly that job
+  const first = (r!.json.items as { job: { id: number } }[])[0];
+  if (first) {
+    const one = await directAudit(context, ACME, org, `?jobId=${first.job.id}`);
+    expect(one!.status).toBe(200);
+    expect(one!.json.items).toHaveLength(1);
+    expect(one!.json.items[0].job.id).toBe(first.job.id);
+  }
+  // a job id that is not this organization's (never issued, or another tenant's) is the generic 404, by design: "not found" never tells the two apart
   const none = await directAudit(context, ACME, org, "?jobId=999999999");
-  expect(none!.status).toBe(200);
-  expect(none!.json.items).toHaveLength(0);
+  expect(none!.status).toBe(404);
 });
 
 test("PLT-24 Everyone else gets the generic 404 from the audit evidence, even with a row-filtered audit grant", async ({ as }) => {

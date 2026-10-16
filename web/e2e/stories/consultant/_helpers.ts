@@ -62,8 +62,30 @@ export function isoDay(offsetDays: number): string {
 
 /** The kit's custom Select (`@kiwiply/ui` Select) is a button[aria-haspopup=listbox] plus a portal listbox of role=option. */
 export async function pick(page: Page, trigger: Locator, option: string | RegExp) {
-  await trigger.click();
-  await page.getByRole("option", { name: option, exact: typeof option === "string" }).first().click();
+  const choice = page.getByRole("option", { name: option, exact: typeof option === "string" }).first();
+  // A dropdown closes when the page scrolls (by design) and Playwright's scroll-into-view of the trigger can do exactly that: open it again until the option is up.
+  await expect(async () => {
+    if (!(await choice.isVisible().catch(() => false))) {
+      await trigger.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(300);
+      await trigger.click();
+    }
+    await expect(choice).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+  await choice.click();
+}
+
+/**
+ * Removes the tasks a story created earlier and never finished (a run that failed half way leaves them behind), so a story that creates tasks
+ * can run again on the same data. Only the consultant's own tasks whose name starts with `prefix`.
+ */
+export async function removeLeftoverTasks(page: Page, orgId: number, prefix: string) {
+  for (let round = 0; round < 5; round++) {
+    const r = await bff(page, "GET", `/api/orgs/${orgId}/me-workspace/tasks/list?q=${encodeURIComponent(prefix)}&sort=due&dir=asc&page=0&size=50`);
+    const mine = ((r.json?.items ?? []) as { id: number; title: string }[]).filter((t) => t.title.startsWith(prefix));
+    if (mine.length === 0) return;
+    for (const t of mine) await bff(page, "DELETE", `/api/orgs/${orgId}/me-workspace/tasks/${t.id}`);
+  }
 }
 
 /** Opens a row's kebab Menu and clicks an item. The page scrolls smoothly and a Menu closes on scroll, so retry until it is up. */

@@ -1,5 +1,5 @@
 import { test, expect, narrate } from "../_support/story";
-import { bff, orgIdOf, stamp } from "./_helpers";
+import { bff, orgIdOf, pickOption, stamp } from "./_helpers";
 
 test("ADM-20 Org admin sees the real departments and teams with live counts", async ({ as }) => {
   const { page, go } = await as("sarah");
@@ -64,8 +64,7 @@ test("ADM-21 Org admin creates a department and a team under it, moves a person,
   await expect(detail.getByRole("button", { name: "Delete" })).toBeDisabled();
 
   await narrate(page, "Sarah moves Ben back to Bench East");
-  await detail.getByRole("button", { name: "Move Ben Okafor to" }).click();
-  await page.getByRole("option", { name: "Bench East" }).click();
+  await pickOption(page, detail.getByRole("button", { name: "Move Ben Okafor to" }), page.getByRole("option", { name: "Bench East" }));
   await expect(detail.getByText("Nobody is in this team yet.")).toBeVisible({ timeout: 30_000 });
 
   await narrate(page, "The empty team can now be deleted");

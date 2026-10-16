@@ -1,5 +1,7 @@
-import { test, expect, narrate } from "../_support/story";
-import { PERSONAS, type PersonaKey } from "../_support/personas";
+import { existsSync } from "node:fs";
+import { test, expect, narrate, type Session } from "../_support/story";
+import { statePath } from "../_support/global-setup";
+import { PERSONAS, type Persona, type PersonaKey } from "../_support/personas";
 import { expectNotYourRole, expectOnTheWay, navKeys } from "./_platform";
 
 /** PLT: the shell around every role: landing, the workspace switcher, one menu per role, honest "on the way" pages. */
@@ -45,15 +47,30 @@ test("PLT-11 A member with one workspace never sees a switcher", async ({ as }) 
   }
 });
 
-test("PLT-12 Every persona lands on the workspace their primary role opens", async ({ as }) => {
-  for (const p of Object.values(PERSONAS)) {
-    const { page, go } = await as(p.key);
+/** Each person opens "/" on their own host and must land on the workspace their primary role opens, inside the shell, signed in as themselves. */
+async function expectEveryoneLandsHome(as: (who: PersonaKey) => Promise<Session>, people: Persona[]) {
+  for (const p of people) {
+    const { page, go, context } = await as(p.key as PersonaKey);
     await go("/");
     await page.waitForURL(`**/w/${p.home}`);
     await narrate(page, `${p.name} lands on /w/${p.home}`, 500);
     await expect(page.locator("[data-enterprise-shell]")).toBeVisible();
     await expect(page.locator("[data-account-menu]")).toHaveAttribute("aria-label", `Account menu for ${p.name}`);
+    await context.close(); // finish this person's recording now, so ten of them do not all flush at the end of the test
   }
+}
+
+test("PLT-12 Every persona lands on the workspace their primary role opens", async ({ as }) => {
+  test.setTimeout(300_000); // ten people, each in a fresh recorded browser
+  // Acme and Beta sign in with the one-click Demo accounts tab; Gamma's people (separate accounts) are PLT-12b
+  await expectEveryoneLandsHome(as, (Object.values(PERSONAS) as Persona[]).filter((p) => p.signIn !== "password"));
+});
+
+test("PLT-12b The people of a separate-accounts organization (Gamma) land on their own workspaces too", async ({ as }) => {
+  test.setTimeout(300_000);
+  const people = (Object.values(PERSONAS) as Persona[]).filter((p) => p.signIn === "password");
+  test.skip(people.some((p) => !existsSync(statePath(p.key))), "needs GAMMA_DEMO_PASSWORD at global setup (the password is never written in a spec)");
+  await expectEveryoneLandsHome(as, people);
 });
 
 test("PLT-13 Asking for a workspace you do not hold shows the denied state inside the shell, with a way back", async ({ as }) => {
@@ -77,7 +94,7 @@ test("PLT-14 Menu entries that are not built open an honest 'on the way' page, n
   const { page, go } = await as("sarah");
   await go("/w/admin");
   await narrate(page, "Sarah's full menu lists pages that are still being built");
-  for (const key of ["subscription", "licenses", "billing", "usage", "audit", "reports"]) {
+  for (const key of ["subscription", "licenses", "billing", "usage", "reports"]) {
     const item = page.locator(`[data-shell-sidebar] [data-nav-item=${key}]`);
     await item.scrollIntoViewIfNeeded();
     await item.click();
@@ -85,6 +102,11 @@ test("PLT-14 Menu entries that are not built open an honest 'on the way' page, n
     await expectOnTheWay(page);
     await narrate(page, `${key}: "This page is on the way"`, 500);
   }
+  // Audit Logs was on this list until the audit page was built (P0 audit fixes): it is a real page now, never "on the way"
+  await page.locator("[data-shell-sidebar] [data-nav-item=audit]").click();
+  await page.waitForURL("**/w/admin/audit");
+  await expect(page.getByRole("heading", { name: "Audit Logs", level: 1 })).toBeVisible();
+  await expect(page.locator("[data-coming-soon]")).toHaveCount(0);
 });
 
 const MENUS: { who: PersonaKey; present: string[]; absent: string[] }[] = [

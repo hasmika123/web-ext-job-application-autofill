@@ -18,7 +18,7 @@ test("PLT-05 The Demo accounts tab lists Acme's roster; paused and invited membe
   for (const name of ["Sarah Chen", "Omar Haddad", "Anika Rao", "Ben Okafor", "Hana Petrov", "Felix Ng", "Amara Silva", "Tomas Berg", "Eve Lindqvist"]) {
     await expect(page.getByRole("button", { name: `Sign in as ${name}` })).toBeVisible();
   }
-  await expect(page.locator("[data-demo-member]", { hasText: "Sarah Chen" }).locator("[data-demo-roles]")).toContainText("Org Admin");
+  await expect(page.locator("[data-demo-member]", { hasText: "Sarah Chen" }).locator("[data-demo-roles]")).toContainText("Organization Admin + Marketing Manager"); // the seeded role names, not an abbreviation
   await narrate(page, "Sam is paused and Nina is only invited: listed, but with no button");
   const sam = page.locator("[data-demo-member][data-status=SUSPENDED]");
   await expect(sam).toContainText("Sam Whitfield");

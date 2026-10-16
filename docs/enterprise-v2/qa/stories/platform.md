@@ -5,6 +5,8 @@ with the demo tenants **Acme Staffing** (`http://acme.localhost:3200`) and **Bet
 `DEMO_ALLOW_WRITES=true`. Roster source: `api/.../service/ent/EnterpriseDemoSeeder.java`. Sessions come from `_support/global-setup.ts`
 (one Demo-accounts sign-in per persona).
 
+Story-fix log 2026-10-16 (branch ent-story-fixes): fixed in the specs, none weakened: **PLT-05** (the Demo accounts tab shows the seeded role names, "Organization Admin + Marketing Manager"), **PLT-12** (split: Acme and Beta people are PLT-12; the separate-accounts people of Gamma are **PLT-12b**, which runs when their sign-ins were cached with `GAMMA_DEMO_PASSWORD`), **PLT-14** (Audit Logs is a built page now; the story asserts that), **PLT-23** (an unknown job id is the generic 404 by design, a job of this organization answers 200), **PLT-43** (the empty state's own title is the exact, always-visible line; the header subtitle is hidden on a phone). **PLT-42** was a real product bug, fixed: the Marketing home's Job Stream Monitor and Top Openings tables had no overflow box and pushed the page 76 px wider than a 390 px phone.
+
 Status key: **AUTOMATED** (a Playwright story drives it) · **BLOCKED:why** (cannot be driven safely or at all on the demo stack) ·
 **NOT-BUILT:roadmap** (the page or flow does not exist yet; the story records what the UI honestly does today).
 
