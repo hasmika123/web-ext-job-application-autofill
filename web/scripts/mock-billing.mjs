@@ -12,7 +12,8 @@
  *   GET  /api/billing/invoices, GET /api/entitlements/me
  *   POST /mock/billing/reset | /mock/billing/stale   back to Free | the next checkout / confirm answers 409 QUOTE_STALE once
  *
- * Env: MOCK_SUB=pro seeds a Pro monthly subscription with 2 Extra AI credits; MOCK_ANNUAL=0 turns the yearly tab off; MOCK_CATALOG=none publishes no
+ *   GET  /api/billing/retirement/me         K10.10: the retirement notice + locks; POST .../me/choice (Idempotency-Key); POST /mock/billing/retire?scenario=equal|dearer|locked|off
+ * Env: MOCK_RETIRE=equal|dearer|locked starts in a retirement scenario (equal / dearer imply MOCK_SUB=pro). MOCK_SUB=pro seeds a Pro monthly subscription with 2 Extra AI credits; MOCK_ANNUAL=0 turns the yearly tab off; MOCK_CATALOG=none publishes no
  * plan (the pricing page then shows today's static cards). The real API is the truth; keep this in step with it.
  */
 const CURRENCY = "USD";
@@ -133,11 +134,18 @@ export function createBillingMock({ json, withBody }) {
   let staleOnce = false;
   let sub = null;
 
+  // K10.10: MOCK_RETIRE=equal | dearer | locked (or POST /mock/billing/retire?scenario=...). equal / dearer: a Pro subscriber whose plan is being retired
+  // (the suggestion costs the same / more); locked: a Free account whose services fell back read-only. See retirementNotice() below.
+  const RETIRE_DAYS = 45;
+  let retire = { scenario: process.env.MOCK_RETIRE ?? "", decision: { status: "PENDING", planName: null }, effectiveAt: Date.now() + RETIRE_DAYS * DAY };
+  const retiring = () => retire.scenario === "equal" || retire.scenario === "dearer";
+
   const seed = () => {
     sub = null;
     quotes.clear();
     batches.clear();
-    if (process.env.MOCK_SUB === "pro") {
+    retire = { scenario: retire.scenario, decision: { status: "PENDING", planName: null }, effectiveAt: Date.now() + RETIRE_DAYS * DAY };
+    if (process.env.MOCK_SUB === "pro" || retiring()) {
       const now = Date.now();
       sub = { planKey: "PRO", interval: "MONTH", addons: { "ai.credits_extra": 2 }, periodStart: now - 10 * DAY, periodEnd: now + 20 * DAY, pending: [], scheduled: null, cancelAtPeriodEnd: false };
     }
@@ -200,13 +208,111 @@ export function createBillingMock({ json, withBody }) {
 
   const iso = (ms) => new Date(ms).toISOString();
 
+  // ---- K10.10 fixtures (the shapes of docs/subscriptions/11 section 12; the real API computes these) ----------------------------------------
+  const LOCKED = [
+    { featureKey: "ai.tailoring", name: "AI resume tailoring" },
+    { featureKey: "inbox.monitor", name: "Inbox monitoring" },
+    { featureKey: "jobs.matching", name: "AI job matching" },
+  ];
+  const lockedList = () => LOCKED.map((l) => ({ ...l, lockedSince: iso(Date.now() - 3 * DAY), lockedFromPlan: "PRO" }));
+
+  /** A quote the choice refers to; the mock keeps it so GET /api/billing/quotes/{id} answers. */
+  const retirementQuote = (planKey, interval, nowMode) => {
+    const quoteId = nextQuote++;
+    quotes.set(quoteId, { quoteId, kind: "RETIREMENT_SWITCH", status: "OPEN", createdAt: iso(Date.now()), expiresAt: iso(retire.effectiveAt), currency: CURRENCY, catalogVersion: 17, plan: { planKey, version: 2, name: PLANS[planKey].name }, interval, effectiveAt: nowMode ? "now" : iso(retire.effectiveAt), _target: { planKey, interval, addons: {} } });
+    return quoteId;
+  };
+
+  function retirementNotice() {
+    if (!retiring() || !sub) return null;
+    const dearer = retire.scenario === "dearer";
+    const succKey = dearer ? "AUTOPILOT" : "PRO";
+    const interval = sub.interval;
+    const carried = Object.fromEntries(Object.entries(effectiveAddons()).filter(([k]) => PLANS[succKey].optional.includes(k)));
+    const currentMinor = priceBasket(sub.planKey, interval, effectiveAddons());
+    const proposedMinor = priceBasket(succKey, interval, carried);
+    const uses = [
+      { featureKey: "ai.tailoring", name: "AI tailoring", detail: "27 of 40", covered: true },
+      { featureKey: "inbox.monitor", name: "Inbox monitoring", detail: null, covered: true },
+      { featureKey: "jobs.matching", name: "Daily matches", detail: null, covered: true },
+      { featureKey: "resume.library", name: "12 resumes", detail: "3 free slots", covered: true },
+    ];
+    const suggestion = {
+      successorPlanKey: succKey,
+      successorName: dearer ? "Autopilot" : "Pro v3",
+      interval,
+      currency: CURRENCY,
+      currentMinor,
+      proposedMinor,
+      deltaMinor: proposedMinor - currentMinor,
+      covers: uses.map((u) => u.name),
+      gaps: [],
+      monthlyEquivalentMinor: interval === "MONTH" ? proposedMinor : Math.round(proposedMinor / MONTHS[interval]),
+      annualAlternative: interval === "YEAR" ? null : { proposedMinor: PLANS[succKey].prices.YEAR, savingsMinor: Math.max(0, PLANS[succKey].prices.MONTH * 12 - PLANS[succKey].prices.YEAR) },
+      atRenewalQuoteId: retirementQuote(succKey, interval, false),
+      ...(dearer ? { nowQuoteId: retirementQuote(succKey, interval, true), nowTodayMinor: Math.round((proposedMinor - currentMinor) * 0.66) } : {}),
+    };
+    const others = (dearer ? [] : ["AUTOPILOT"]).map((k) => ({ planKey: k, name: PLANS[k].name, priceMinor: PLANS[k].prices[interval], interval, currency: CURRENCY }));
+    return {
+      retirementId: 7,
+      planKey: sub.planKey,
+      planName: `${PLANS[sub.planKey].name} v1`,
+      planVersion: 1,
+      effectiveAt: iso(retire.effectiveAt),
+      lastDay: false,
+      defaultOutcome: "FREE",
+      interval,
+      currency: CURRENCY,
+      uses,
+      suggestion,
+      others,
+      fallback: { locked: LOCKED.slice(0, 2), readOnlyResumes: 9 },
+      decision: retire.decision,
+      cancelPending: sub.cancelAtPeriodEnd,
+    };
+  }
+
   function handle(req, res, path, method) {
     if (method === "GET" && path === "/api/catalog/public") return json(res, 200, buildCatalog()), true;
 
     if (method === "POST" && path === "/mock/billing/reset") return seed(), json(res, 200, { ok: true }), true;
     if (method === "POST" && path === "/mock/billing/stale") return (staleOnce = true), json(res, 200, { ok: true }), true;
 
+    // ---- K10.10: retirement notice, choice and the locked (read-only) state after a fallback -----------------------------------------------
+    if (method === "POST" && path === "/mock/billing/retire") {
+      const scenario = new URL(req.url ?? "/", "http://mock").searchParams.get("scenario") ?? "";
+      retire.scenario = ["equal", "dearer", "locked"].includes(scenario) ? scenario : "";
+      seed();
+      return json(res, 200, { ok: true, scenario: retire.scenario }), true;
+    }
+
+    if (method === "GET" && path === "/api/billing/retirement/me") {
+      if (!authed(req)) return problem(res, 401, "UNAUTHENTICATED"), true;
+      return json(res, 200, { retirement: retirementNotice(), locks: retire.scenario === "locked" ? lockedList() : [] }), true;
+    }
+
+    if (method === "POST" && path === "/api/billing/retirement/me/choice") {
+      withBody(req, (b) => {
+        if (!authed(req)) return problem(res, 401, "UNAUTHENTICATED");
+        const key = req.headers["idempotency-key"];
+        if (!key || !/^[0-9a-f-]{36}$/i.test(String(key))) return problem(res, 400, "IDEMPOTENCY_KEY_REQUIRED");
+        const notice = retirementNotice();
+        if (!notice) return problem(res, 404, "RETIREMENT_NOT_FOUND");
+        const names = { SWITCH_AT_RENEWAL: "SWITCH_SCHEDULED", SWITCH_NOW: "SWITCHED_NOW", STAY_ON_FREE: "STAY_ON_FREE" };
+        if (!names[b.choice]) return problem(res, 400, "BAD_REQUEST");
+        retire.decision = { status: names[b.choice], planName: b.choice === "STAY_ON_FREE" ? "Free" : notice.suggestion?.successorName ?? null, decidedAt: iso(Date.now()) };
+        return json(res, 200, { retirement: retirementNotice(), locks: [] });
+      });
+      return true;
+    }
+
     if (method === "GET" && path === "/api/billing/me") {
+      if (!sub && retire.scenario === "locked") {
+        return (
+          json(res, 200, { plan: "FREE", status: "none", currentPeriodEnd: null, cancelAtPeriodEnd: false, billingEnabled: true, hasCustomer: true, lock: { since: iso(Date.now() - 3 * DAY), services: LOCKED.length } }),
+          true
+        );
+      }
       if (!sub) return false;
       const eff = effectiveAddons();
       const addons = Object.entries(sub.addons).map(([k, q]) => {
@@ -236,6 +342,7 @@ export function createBillingMock({ json, withBody }) {
           pendingChanges: sub.pending
             .filter((c) => c.status === "PENDING")
             .map((c) => ({ id: c.id, kind: c.kind, featureKey: c.featureKey, quantityFrom: c.quantityFrom, quantityTo: c.quantityTo, effectiveAt: iso(c.effectiveAt), status: c.status })),
+          retirement: retiring() ? { planName: `${PLANS[sub.planKey].name} v1`, effectiveAt: iso(retire.effectiveAt), decided: retire.decision.status !== "PENDING" } : null,
         }),
         true
       );
@@ -243,7 +350,7 @@ export function createBillingMock({ json, withBody }) {
 
     if (method === "GET" && path === "/api/entitlements/me") {
       if (!authed(req)) return problem(res, 401, "UNAUTHENTICATED"), true;
-      if (!sub) return json(res, 200, { planKey: "FREE", features: [], state: "FREE" }), true;
+      if (!sub) return json(res, 200, { planKey: "FREE", features: [], state: "FREE", ...(retire.scenario === "locked" ? { locked: lockedList() } : {}) }), true;
       const eff = effectiveAddons();
       const extraResumes = (eff["resumes.extra_10"] ?? 0) * 10;
       const credits = eff["ai.credits_extra"] ?? 0;
@@ -477,6 +584,7 @@ export function createBillingMock({ json, withBody }) {
           }
         }
         q.status = "APPLIED";
+        if (retiring() && changes.some((c) => c.kind === "PLAN_SWITCH" || c.kind === "INTERVAL_SWITCH")) retire.decision = { status: sub.scheduled ? "SWITCH_SCHEDULED" : "SWITCHED_NOW", planName: PLANS[t.planKey].name, decidedAt: iso(Date.now()) };
         const batch = { batchId: String(key), changes, proposedRecurringMinor: q.proposed.recurringMinor, nextInvoiceAt: q.nextInvoiceAt };
         batches.set(key, batch);
         return json(res, 200, batch);

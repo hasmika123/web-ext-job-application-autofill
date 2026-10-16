@@ -13,6 +13,7 @@ import type {
   PublicCatalog,
   QuoteRequestBody,
 } from "./types";
+import type { RetirementChoice, RetirementMe } from "./retirement";
 
 export type CallResult<T> = { ok: true; data: T } | { ok: false; status: number; problem: ApiProblem };
 
@@ -55,6 +56,20 @@ export function confirmQuote(quoteId: number, key: string, confirmedCommercialDe
 
 export function undoChange(changeId: number): Promise<CallResult<ChangeDTO>> {
   return call<ChangeDTO>(`/api/billing/changes/${changeId}`, { method: "DELETE" });
+}
+
+/** The subscriber's retirement notice (or `{ retirement: null }`) and the services locked read-only after a fallback. */
+export function getRetirement(): Promise<CallResult<RetirementMe>> {
+  return call<RetirementMe>("/api/billing/retirement/me");
+}
+
+/** Records the subscriber's choice. Money never travels from the browser: `quoteId` names a quote the API made. */
+export function chooseRetirement(choice: RetirementChoice, key: string, quoteId?: number): Promise<CallResult<RetirementMe>> {
+  return call<RetirementMe>("/api/billing/retirement/me/choice", {
+    method: "POST",
+    headers: { ...JSON_HEADERS, "idempotency-key": key },
+    body: JSON.stringify(quoteId == null ? { choice } : { choice, quoteId }),
+  });
 }
 
 export function getMyPlan(): Promise<CallResult<PlanV3>> {

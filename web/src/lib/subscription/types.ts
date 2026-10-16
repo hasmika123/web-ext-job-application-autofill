@@ -149,6 +149,10 @@ export type PlanV3 = {
   pendingChanges?: PendingChange[];
   /** Present when the plan version the subscriber holds is no longer sold (09 section 3.3); the API may not send it yet. */
   sunset?: { successorPlanKey?: string | null } | null;
+  /** K10.10: present while the subscriber's plan is being retired; `decided` once they chose. `effectiveAt` is their own date. */
+  retirement?: { planName: string; effectiveAt: string; decided: boolean; lastDay?: boolean } | null;
+  /** K10.10: present after a fallback while services are read-only (the full list is `locked[]` of the entitlements). */
+  lock?: { since: string; services: number } | null;
 };
 
 export type EntitlementFeature = {
@@ -172,6 +176,8 @@ export type EntitlementSet = {
   limits?: Record<string, number>;
   aiPct?: number | null;
   state?: string;
+  /** K10.10: services locked read-only after a fallback to Free (11 section 7.2). */
+  locked?: { featureKey: string; name: string; lockedSince: string; lockedFromPlan?: string | null }[];
 };
 
 export type InvoiceLine = { kind: string; description: string; quantity: number; unitAmountMinor?: number | null; amountMinor: number; proration: boolean };
