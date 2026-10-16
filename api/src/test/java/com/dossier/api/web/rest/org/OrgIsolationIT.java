@@ -348,10 +348,12 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/submissions/{id}/decline", Case.consultantWrite("{\"reason\":\"Hijacked decline\"}", 200)),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/opportunities", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/opportunities/{matchId}", Case.consultantRead()),
-        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/express-interest", Case.consultantWrite("{\"note\":\"Hijacked interest\"}", 200)),
-        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/need-more-info", Case.consultantWrite("{\"message\":\"Hijacked question\"}", 200)),
-        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/decline", Case.consultantWrite("{\"reason\":\"Hijacked decline\"}", 200)),
-        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/reopen", new Case(null, 200, null, false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.declineAssignedOpportunity(); })),
+        // The consultant's answer is the ONE shared mkt_opportunity record (the same transitions as /con/opportunities), so each answer writes its own CONSULTANT_OPPORTUNITY_* audit row.
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/express-interest", new Case("{\"note\":\"Hijacked interest\"}", 200, "CONSULTANT_OPPORTUNITY_INTERESTED", false, null, null, 1, World::makeOwnerAConsultant)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/need-more-info", new Case("{\"message\":\"Hijacked question\"}", 200, "CONSULTANT_OPPORTUNITY_INFO_REQUESTED", false, null, null, 1, World::makeOwnerAConsultant)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/decline", new Case("{\"reason\":\"Hijacked decline\"}", 200, "CONSULTANT_OPPORTUNITY_DECLINED", false, null, null, 1, World::makeOwnerAConsultant)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/reopen", new Case(null, 200, "CONSULTANT_OPPORTUNITY_REOPENED", false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.declineAssignedOpportunity(); })),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/applied", new Case(null, 200, "CONSULTANT_OPPORTUNITY_APPLIED", false, null, null, 1, World::makeOwnerAConsultant)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/request-resume-update", Case.consultantWrite("{\"note\":\"Hijacked update\"}", 200)),
         // The last eight consultant pages. {id} means the task / calendar entry / offer / notification by route prefix (see uri()).
         // ent-inbox: the consultant's OWN Gmail. Only the consultant reaches any of it (every other caller is the generic 404 below); the legitimate owner-as-consultant
@@ -1331,15 +1333,16 @@ class OrgIsolationIT {
             cwsInterviewFeedback.saveAndFlush(f);
         }
 
-        /** What the POST .../reopen route undoes: the owner declined the assigned opportunity. */
+        /** What the POST .../reopen route undoes: the owner declined the assigned opportunity (on the shared mkt_opportunity record). */
         void declineAssignedOpportunity() {
-            com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse r = new com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse();
-            r.setOrgId(org.getId());
-            r.setConsultantId(cwsConsultantId);
-            r.setRequirementId(assignedRequirementId);
-            r.setStatus(com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse.DECLINED);
-            r.setDeclineReason("Not for me.");
-            cwsOpportunityResponses.saveAndFlush(r);
+            com.dossier.api.domain.ent.mkt.MktOpportunity o = new com.dossier.api.domain.ent.mkt.MktOpportunity();
+            o.setOrgId(org.getId());
+            o.setMatchId(assignedMatchId);
+            o.setState("DECLINED");
+            o.setInterest("NOT_INTERESTED");
+            o.setDeclineReason("OTHER");
+            o.setDeclineNote("Not for me.");
+            mktOpportunities.save(o); em.flush();
         }
 
         void makeOwnerAConsultant() {

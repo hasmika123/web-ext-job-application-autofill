@@ -1,7 +1,9 @@
 package com.dossier.api.service.ent.consultantws;
 
 import com.dossier.api.domain.ent.consultantws.CwsJobSource;
+import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.repository.ent.consultantws.CwsJobSourceRepository;
+import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import java.net.URI;
 import java.util.Collection;
 import java.util.HashMap;
@@ -14,6 +16,10 @@ import org.springframework.stereotype.Service;
  * Reads the marketer-entered source link and quick info of jobs ({@code cws_job_source}) for the Job Discovery, Job Matches and Assigned Opportunities
  * pages. Kiwiply does not hold full job details: the consultant opens {@link Info#sourceUrl()} and applies on the source site with the extension.
  * The link is validated again on every read, so a bad row can never reach the browser as a link.
+ *
+ * <p>A job a marketer saved from the browser extension ("Save for consultant") has no {@code cws_job_source} row: its link is the requirement's own
+ * {@code job_url}. {@link #load} falls back to it (same https-only rule) whenever the marketer entered no usable link, so every page shows the
+ * same "Open job link" for the same job.
  */
 @Service
 public class ConsultantWsJobSourceReader {
@@ -26,18 +32,33 @@ public class ConsultantWsJobSourceReader {
     }
 
     private final CwsJobSourceRepository sources;
+    private final ClientRequirementRepository requirements;
 
-    public ConsultantWsJobSourceReader(CwsJobSourceRepository sources) {
+    public ConsultantWsJobSourceReader(CwsJobSourceRepository sources, ClientRequirementRepository requirements) {
         this.sources = sources;
+        this.requirements = requirements;
     }
 
-    /** The source info of the given jobs of one organization; jobs without a row are absent from the map. */
+    /**
+     * The source info of the given jobs of one organization. A job with neither a source row nor a usable {@code job_url} is absent from the map; a job
+     * whose row has no usable link takes the requirement's own {@code job_url} (keeping the row's name and quick info).
+     */
     public Map<Long, Info> load(Long orgId, Collection<Long> requirementIds) {
         Map<Long, Info> out = new HashMap<>();
         List<Long> ids = List.copyOf(requirementIds);
         for (int i = 0; i < ids.size(); i += 200) {
             for (CwsJobSource s : sources.findByOrgIdAndRequirementIdIn(orgId, ids.subList(i, Math.min(i + 200, ids.size())))) {
                 out.put(s.getRequirementId(), info(s));
+            }
+        }
+        List<Long> unlinked = ids.stream().filter(id -> out.get(id) == null || out.get(id).sourceUrl() == null).toList();
+        for (int i = 0; i < unlinked.size(); i += 200) {
+            for (ClientRequirement r : requirements.findByOrgIdAndIdIn(orgId, unlinked.subList(i, Math.min(i + 200, unlinked.size())))) {
+                if (!orgId.equals(r.getOrgId())) continue;
+                String url = safeUrl(r.getJobUrl());
+                if (url == null) continue;
+                Info row = out.get(r.getId());
+                out.put(r.getId(), new Info(url, row == null ? null : row.sourceName(), row == null ? null : row.quickInfo(), row != null && row.sample()));
             }
         }
         return out;

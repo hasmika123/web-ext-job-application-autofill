@@ -14,7 +14,10 @@ public final class OpportunitiesDTO {
     public record Tiles(Tile total, Tile high, Tile awaiting, Tile inReview, Tile declined) {}
 
     /**
-     * One assigned opportunity. {@code status} is NEW, AWAITING_RESPONSE, IN_REVIEW or DECLINED. {@code priority} is HIGH, MEDIUM or LOW;
+     * One assigned opportunity. {@code status} is NEW, AWAITING_RESPONSE, IN_REVIEW, DECLINED, APPLIED or CLOSED and comes from the ONE record of the
+     * consultant's answer, {@code mkt_opportunity.state} (the marketer's Opportunities board reads the same row); IN_REVIEW is the marketer's own step and is
+     * only ever set by the demo seed. {@code infoAnswered} says the marketer answered the consultant's question. {@code allowedActions} is what the page may offer
+     * right now (INTEREST, REQUEST_INFO, DECLINE, APPLIED, REOPEN, RESUME_UPDATE); nothing here applies for the consultant. {@code priority} is HIGH, MEDIUM or LOW;
      * {@code priorityDerived} says it came from the match score (no marketer input stored) and {@code dueDerived} that the due date is the
      * assignment date plus 14 days. {@code sourceUrl} (https only, or null), {@code sourceName} and {@code quickInfo} are the marketer's entries (Kiwiply holds no full posting); {@code sourceSample} marks demo stand-in rows. {@code daysLeft} is whole days from today (UTC) to the due date; negative = overdue.
      */
@@ -40,7 +43,9 @@ public final class OpportunitiesDTO {
         String sourceUrl,
         String sourceName,
         String quickInfo,
-        boolean sourceSample
+        boolean sourceSample,
+        boolean infoAnswered,
+        List<String> allowedActions
     ) {}
 
     /** What the right rail's "Recommended Next Steps" are derived from. */
@@ -67,6 +72,8 @@ public final class OpportunitiesDTO {
         String reason,
         String declineReason,
         String infoRequest,
+        String infoAnswer,
+        Instant appliedAt,
         String resumeUpdateNote,
         Instant resumeUpdateRequestedAt,
         Instant interestSentAt,

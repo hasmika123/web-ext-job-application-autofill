@@ -16,6 +16,8 @@ import com.dossier.api.repository.ent.consultantws.CwsNotificationPrefRepository
 import com.dossier.api.repository.ent.consultantws.CwsNotificationRepository;
 import com.dossier.api.repository.ent.consultantws.CwsOfferRepository;
 import com.dossier.api.repository.ent.consultantws.CwsOpportunityResponseRepository;
+import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
+import com.dossier.api.domain.ent.mkt.MktOpportunity;
 import com.dossier.api.repository.ent.consultantws.CwsSubmissionRepository;
 import com.dossier.api.repository.ent.consultantws.CwsTaskRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
@@ -78,6 +80,7 @@ public class ConsultantNotificationGenerator {
     private final CwsInterviewRepository interviews;
     private final CwsOfferRepository offers;
     private final CwsTaskRepository tasks;
+    private final MktOpportunityRepository opportunities;
     private final Clock clock;
 
     @Autowired
@@ -91,9 +94,10 @@ public class ConsultantNotificationGenerator {
         CwsSubmissionRepository submissions,
         CwsInterviewRepository interviews,
         CwsOfferRepository offers,
-        CwsTaskRepository tasks
+        CwsTaskRepository tasks,
+        MktOpportunityRepository opportunities
     ) {
-        this(notifications, prefs, matches, requirements, clients, responses, submissions, interviews, offers, tasks, Clock.systemUTC());
+        this(notifications, prefs, matches, requirements, clients, responses, submissions, interviews, offers, tasks, opportunities, Clock.systemUTC());
     }
 
     ConsultantNotificationGenerator(
@@ -107,6 +111,7 @@ public class ConsultantNotificationGenerator {
         CwsInterviewRepository interviews,
         CwsOfferRepository offers,
         CwsTaskRepository tasks,
+        MktOpportunityRepository opportunities,
         Clock clock
     ) {
         this.notifications = notifications;
@@ -119,6 +124,7 @@ public class ConsultantNotificationGenerator {
         this.interviews = interviews;
         this.offers = offers;
         this.tasks = tasks;
+        this.opportunities = opportunities;
         this.clock = clock;
     }
 
@@ -214,9 +220,13 @@ public class ConsultantNotificationGenerator {
         Set<Long> assignedReqIds = assigned.stream().map(RequirementMatch::getRequirementId).filter(Objects::nonNull).collect(Collectors.toSet());
         assignedReqIds.removeAll(reqs.keySet());
         Map<Long, ClientRequirement> more = assignedReqIds.isEmpty() ? Map.of() : requirements.findByOrgIdAndIdIn(org, assignedReqIds).stream().filter(r -> org.equals(r.getOrgId())).collect(Collectors.toMap(ClientRequirement::getId, Function.identity()));
+        // the consultant's answer is the shared mkt_opportunity record: anything past ASSIGNED / VIEWED has been answered
+        Map<Long, MktOpportunity> shared = assigned.isEmpty() ? Map.of() : opportunities.findByOrgIdAndMatchIdIn(org, assigned.stream().map(RequirementMatch::getId).toList()).stream().collect(Collectors.toMap(MktOpportunity::getMatchId, Function.identity(), (a, b) -> a));
         for (RequirementMatch m : assigned) {
             CwsOpportunityResponse resp = answered.get(m.getRequirementId());
             if (resp != null && !CwsOpportunityResponse.NEW.equals(resp.getStatus())) continue;
+            MktOpportunity answer = shared.get(m.getId());
+            if (answer != null && !"ASSIGNED".equals(answer.getState()) && !"VIEWED".equals(answer.getState())) continue;
             ClientRequirement r = reqs.containsKey(m.getRequirementId()) ? reqs.get(m.getRequirementId()) : more.get(m.getRequirementId());
             String job = jobText(r, clientName);
             boolean soon = resp != null && resp.getDueOn() != null && !resp.getDueOn().isAfter(today.plusDays(2));

@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import {
   BriefcaseIcon,
   Button,
+  CheckIcon,
   CalendarIcon,
   ClipboardCheckIcon,
   ChevronDownIcon,
@@ -41,6 +42,7 @@ import {
   SORT_OPTIONS,
   STATUS_LABEL,
   actionTarget,
+  can,
   canRespond,
   daysLeftText,
   decline,
@@ -48,6 +50,7 @@ import {
   expressInterest,
   fetchDetail,
   fetchOpportunities,
+  markApplied,
   needMoreInfo,
   nextSteps,
   rateText,
@@ -65,7 +68,9 @@ import {
 /**
  * Consultant Assigned Opportunities (design/enterprise-consultant/opportunities.webp): one call to `GET /api/orgs/{orgId}/me-workspace/opportunities`
  * draws the page for the signed-in consultant's OWN assigned jobs (the API sorts and pages). The writes (Express Interest, Need More Info, Decline
- * with undo, Request Resume Update) only record the consultant's answer for the marketer: nothing is applied for, submitted or sent anywhere.
+ * with undo, I applied, Request Resume Update) only record the consultant's answer for the marketer: nothing is applied for, submitted or sent anywhere.
+ * The answer is ONE record the marketer's Opportunities board reads too, so the marketer's answer to a question shows up in the details here. The buttons
+ * come from the row's `allowedActions`. `/w/consultant/opportunities/{matchId}` opens the same page with that job's details open.
  * Priority and due date are the marketer's inputs; where none is stored the API derives them and the row says so.
  */
 
@@ -133,9 +138,14 @@ function Tile({ spec, tile, index }: { spec: TileSpec; tile: OppTile | null; ind
 
 const Dot = () => <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 flex-none rounded-full bg-current" />;
 
-function StatusPill({ row }: { row: Pick<OppRow, "status"> & { interestSent?: boolean } }) {
-  // an opportunity you already answered is not "New" any more (the audit saw New beside Interest sent)
-  const s = row.status === "NEW" && row.interestSent ? { label: "Interested", tone: STATUS_LABEL.NEW.tone } : STATUS_LABEL[row.status];
+function StatusPill({ row }: { row: Pick<OppRow, "status"> & { interestSent?: boolean; infoAnswered?: boolean } }) {
+  // an opportunity you already answered is not "New" any more (the audit saw New beside Interest sent); a question your marketer answered is "Answered"
+  const s =
+    row.status === "NEW" && row.interestSent
+      ? { label: "Interested", tone: STATUS_LABEL.NEW.tone }
+      : row.status === "AWAITING_RESPONSE" && row.infoAnswered
+        ? { label: "Answered", tone: "green" as const }
+        : STATUS_LABEL[row.status];
   return (
     <Pill tone={s.tone} className="whitespace-normal py-0.5 leading-tight">
       <Dot />
@@ -160,7 +170,7 @@ function DueCell({ row }: { row: Pick<OppRow, "dueOn" | "daysLeft" | "status" | 
   return (
     <span className="block whitespace-nowrap" title={row.dueDerived ? "No due date set by your marketer: 14 days after the assignment" : "Set by your marketer"}>
       <span className="block font-semibold text-ink">{shortDate(row.dueOn) || "-"}</span>
-      <span className={cn("block text-[12px]", dueUrgent(row) ? "font-semibold text-v2-coral-ink" : "text-muted")}>{row.status === "DECLINED" ? "Declined" : daysLeftText(row.daysLeft)}</span>
+      <span className={cn("block text-[12px]", dueUrgent(row) ? "font-semibold text-v2-coral-ink" : "text-muted")}>{canRespond(row) ? daysLeftText(row.daysLeft) : STATUS_LABEL[row.status].label}</span>
     </span>
   );
 }
@@ -186,10 +196,10 @@ interface Actions {
   decline: (r: OppRow) => void;
   resume: (r: OppRow) => void;
   reopen: (r: OppRow) => void;
+  applied: (r: OppRow) => void;
 }
 
 function RowMenu({ row, a }: { row: OppRow; a: Actions }) {
-  const off = !canRespond(row);
   return (
     <Menu
       trigger={
@@ -198,11 +208,14 @@ function RowMenu({ row, a }: { row: OppRow; a: Actions }) {
         </button>
       }
       items={[
-        { label: row.interestSent ? "Interest sent" : "Express Interest", icon: <SendIcon size={15} />, disabled: off || row.interestSent, onSelect: () => a.interest(row) },
-        { label: "Request Resume Update", icon: <FileTextIcon size={15} />, disabled: off, onSelect: () => a.resume(row) },
-        { label: "Need More Info", icon: <HelpCircleIcon size={15} />, disabled: off, onSelect: () => a.askInfo(row) },
+        { label: row.interestSent ? "Interest sent" : "Express Interest", icon: <SendIcon size={15} />, disabled: !can(row, "INTEREST"), onSelect: () => a.interest(row) },
+        { label: "Request Resume Update", icon: <FileTextIcon size={15} />, disabled: !can(row, "RESUME_UPDATE"), onSelect: () => a.resume(row) },
+        { label: "Need More Info", icon: <HelpCircleIcon size={15} />, disabled: !can(row, "REQUEST_INFO"), onSelect: () => a.askInfo(row) },
+        { label: "I applied", icon: <CheckIcon size={15} />, disabled: !can(row, "APPLIED"), onSelect: () => a.applied(row) },
         { separator: true },
-        off ? { label: "Reopen", icon: <ChevronRightIcon size={15} />, onSelect: () => a.reopen(row) } : { label: "Decline Opportunity", icon: <XCircleIcon size={15} />, danger: true, onSelect: () => a.decline(row) },
+        row.status === "DECLINED"
+          ? { label: "Reopen", icon: <ChevronRightIcon size={15} />, disabled: !can(row, "REOPEN"), onSelect: () => a.reopen(row) }
+          : { label: "Decline Opportunity", icon: <XCircleIcon size={15} />, danger: true, disabled: !can(row, "DECLINE"), onSelect: () => a.decline(row) },
       ]}
     />
   );
@@ -273,7 +286,7 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice }: { view
                   </td>
                   <td className={TD}>
                     <StatusPill row={r} />
-                    {r.interestSent ? <span className="mt-1 block text-[11.5px] text-muted">Interest sent</span> : null}
+                    {r.interestSent && canRespond(r) ? <span className="mt-1 block text-[11.5px] text-muted">Interest sent</span> : null}
                   </td>
                   <td className={TD}>
                     <PriorityPill row={r} />
@@ -323,21 +336,26 @@ function DetailSheet({ row, detail, loading, onClose, a }: { row: OppRow | null;
           <div className="flex flex-wrap gap-2">
             {canRespond(row) ? (
               <>
-                <Button size="sm" variant="accent" disabled={row.interestSent} onClick={() => a.interest(row)}>
+                <Button size="sm" variant="accent" disabled={!can(row, "INTEREST")} onClick={() => a.interest(row)}>
                   {row.interestSent ? "Interest sent" : "Express Interest"}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => a.askInfo(row)}>
+                <Button size="sm" variant="ghost" disabled={!can(row, "REQUEST_INFO")} onClick={() => a.askInfo(row)}>
                   Need More Info
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => a.decline(row)}>
+                {can(row, "APPLIED") ? (
+                  <Button size="sm" variant="ghost" onClick={() => a.applied(row)}>
+                    I applied
+                  </Button>
+                ) : null}
+                <Button size="sm" variant="ghost" disabled={!can(row, "DECLINE")} onClick={() => a.decline(row)}>
                   Decline
                 </Button>
               </>
-            ) : (
-              <Button size="sm" variant="ghost" onClick={() => a.reopen(row)}>
+            ) : row.status === "DECLINED" ? (
+              <Button size="sm" variant="ghost" disabled={!can(row, "REOPEN")} onClick={() => a.reopen(row)}>
                 Reopen
               </Button>
-            )}
+            ) : null}
           </div>
         ) : undefined
       }
@@ -421,9 +439,23 @@ function DetailSheet({ row, detail, loading, onClose, a }: { row: OppRow | null;
                 </section>
               ) : null}
               {d.infoRequest ? (
-                <section>
+                <section data-info-thread>
                   <h4 className={head}>Your question for your marketer</h4>
                   <p className="mt-1 text-ink-soft">{d.infoRequest}</p>
+                  {d.infoAnswer ? (
+                    <div data-info-answer className="mt-2 rounded-xl bg-accent-soft px-3 py-2 text-ink">
+                      <span className="mb-0.5 block text-[12px] font-semibold text-accent-deep">{row.marketer ?? "Your marketer"} answered</span>
+                      {d.infoAnswer}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-[12.5px] text-muted">Waiting for {row.marketer ?? "your marketer"} to answer.</p>
+                  )}
+                </section>
+              ) : null}
+              {d.appliedAt ? (
+                <section data-applied-note>
+                  <h4 className={head}>You applied</h4>
+                  <p className="mt-1 text-ink-soft">You told your marketer you applied on {shortDate(d.appliedAt)}. Kiwiply never applies for you: you submit on the source site yourself.</p>
                 </section>
               ) : null}
               {d.resumeUpdateNote ? (
@@ -501,6 +533,32 @@ function TextDialog({ ask, busy, error, onCancel, onSend }: { ask: { kind: TextK
   );
 }
 
+/* ── "I applied" confirmation ───────────────────────────────────────────────────────────── */
+
+function AppliedDialog({ row, busy, onCancel, onConfirm }: { row: OppRow | null; busy: boolean; onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <Dialog
+      open={row !== null}
+      onClose={onCancel}
+      title={row ? `I applied: ${row.title}` : undefined}
+      footer={
+        <>
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Not yet
+          </Button>
+          <Button variant="accent" size="sm" disabled={busy} onClick={onConfirm}>
+            Yes, I applied
+          </Button>
+        </>
+      }
+    >
+      <p data-applied-confirm className="text-[13.5px] text-ink-soft">
+        Did you submit this application yourself on the source site? This only tells your marketer. Kiwiply never applies or submits for you.
+      </p>
+    </Dialog>
+  );
+}
+
 /* ── the right rail ─────────────────────────────────────────────────────────────────── */
 
 const STEP_ICON: Record<string, ComponentType<IconProps>> = { respond: ClipboardCheckIcon, resume: FileTextIcon, interviews: CalendarIcon, marketer: UsersIcon };
@@ -542,12 +600,12 @@ function NextSteps({ view }: { view: OppView }) {
 }
 
 function QuickActions({ target, a }: { target: OppRow | null; a: Actions }) {
-  const off = !target || !canRespond(target);
+  const off = (action: Parameters<typeof can>[1]) => !target || !can(target, action);
   const items: { key: string; title: string; sub: string; icon: ComponentType<IconProps>; disabled: boolean; run: () => void; danger?: boolean }[] = [
-    { key: "interest", title: "Express Interest", sub: "Let your marketer know", icon: SendIcon, disabled: off || !!target?.interestSent, run: () => target && a.interest(target) },
-    { key: "resume", title: "Request Resume Update", sub: "Update for a specific role", icon: FileTextIcon, disabled: off, run: () => target && a.resume(target) },
-    { key: "info", title: "Need More Info", sub: "Ask questions about the role", icon: HelpCircleIcon, disabled: off, run: () => target && a.askInfo(target) },
-    { key: "decline", title: "Decline Opportunity", sub: "Not a good fit for now", icon: XIcon, disabled: off, danger: true, run: () => target && a.decline(target) },
+    { key: "interest", title: "Express Interest", sub: "Let your marketer know", icon: SendIcon, disabled: off("INTEREST"), run: () => target && a.interest(target) },
+    { key: "resume", title: "Request Resume Update", sub: "Update for a specific role", icon: FileTextIcon, disabled: off("RESUME_UPDATE"), run: () => target && a.resume(target) },
+    { key: "info", title: "Need More Info", sub: "Ask questions about the role", icon: HelpCircleIcon, disabled: off("REQUEST_INFO"), run: () => target && a.askInfo(target) },
+    { key: "decline", title: "Decline Opportunity", sub: "Not a good fit for now", icon: XIcon, disabled: off("DECLINE"), danger: true, run: () => target && a.decline(target) },
   ];
   return (
     <Card id="opps-quick" title="Quick Actions" icon={SendIcon}>
@@ -583,32 +641,42 @@ function QuickActions({ target, a }: { target: OppRow | null; a: Actions }) {
 export interface OpportunitiesPageProps {
   orgId: number;
   firstName: string;
+  /** The match id when the URL is `/w/consultant/opportunities/{matchId}`: that job's details open on arrival. */
+  initialOpenId?: number | null;
 }
 
 type DetailState = { id: number; result: Fetched<OppDetail> } | null;
 
-export default function ConsultantOpportunitiesPage({ orgId, firstName: first }: OpportunitiesPageProps) {
+export default function ConsultantOpportunitiesPage({ orgId, firstName: first, initialOpenId = null }: OpportunitiesPageProps) {
   const toast = useToast();
   const [sort, setSort] = useState<SortKey>("due");
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchOpportunities(orgId, sort), [orgId, sort]));
   const loading = status === "loading";
   const [picked, setPicked] = useState<number | null>(null);
-  const [sheetId, setSheetId] = useState<number | null>(null);
+  const [sheetId, setSheetId] = useState<number | null>(initialOpenId);
   const [state, setState] = useState<DetailState>(null);
+  const [applying, setApplying] = useState<OppRow | null>(null);
   const [ask, setAsk] = useState<{ kind: TextKind; row: OppRow } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   const target = useMemo(() => (view ? actionTarget(view.rows, picked) : null), [view, picked]);
-  const sheetRow = view && sheetId !== null ? (view.rows.find((r) => r.matchId === sheetId) ?? null) : null;
-
   const loadDetail = useCallback(
     (id: number) => {
       void fetchDetail(orgId, id).then((result) => setState({ id, result }));
     },
     [orgId],
   );
+
+  // a deep link (`/w/consultant/opportunities/{matchId}`) opens that job's details once
+  useEffect(() => {
+    if (initialOpenId !== null) loadDetail(initialOpenId);
+  }, [initialOpenId, loadDetail]);
+
+  const loaded = state && state.id === sheetId ? state.result : null;
+  // the row from the page, else the one the detail came with (a job beyond the first page)
+  const sheetRow = sheetId === null ? null : ((view?.rows.find((r) => r.matchId === sheetId) ?? (loaded?.kind === "OK" ? loaded.view?.row : null)) ?? null);
 
   const done = (res: WriteResult, success: string, row: OppRow, undo?: () => void) => {
     if (res.ok) {
@@ -650,6 +718,21 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first }:
       setNotice("");
       void reopen(orgId, r.matchId).then((res) => done(res, "Opportunity reopened", r));
     },
+    applied: (r) => {
+      setNotice("");
+      setPicked(r.matchId);
+      setApplying(r);
+    },
+  };
+
+  const confirmApplied = async () => {
+    if (!applying) return;
+    const row = applying;
+    setBusy(true);
+    const res = await markApplied(orgId, row.matchId);
+    setBusy(false);
+    setApplying(null);
+    done(res, "Marked as applied. Your marketer can see it.", row);
   };
 
   const send = async (text: string) => {
@@ -670,7 +753,8 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first }:
 
   if (status === "denied") return <ErrorState what="your workspace" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
 
-  const detail = state && state.id === sheetId ? state.result : null;
+  const detail = loaded;
+  const missing = initialOpenId !== null && detail?.kind === "DENIED" && sheetId === initialOpenId;
 
   return (
     <div data-consultant-opportunities data-status={status} className="flex flex-col gap-4 sm:gap-5">
@@ -708,7 +792,13 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first }:
         </div>
       )}
 
+      {missing ? (
+        <div role="status" data-con-detail-missing className="rounded-[var(--radius-lg)] border border-line bg-paper p-4 text-[13.5px] text-ink">
+          This opportunity isn&apos;t available. It may have been withdrawn, or it isn&apos;t yours.
+        </div>
+      ) : null}
       <DetailSheet row={sheetRow} detail={detail} loading={detail === null} onClose={() => setSheetId(null)} a={actions} />
+      <AppliedDialog row={applying} busy={busy} onCancel={() => setApplying(null)} onConfirm={() => void confirmApplied()} />
       <TextDialog key={ask ? `${ask.kind}-${ask.row.matchId}` : "none"} ask={ask} busy={busy} error={error} onCancel={() => setAsk(null)} onSend={(t) => void send(t)} />
     </div>
   );

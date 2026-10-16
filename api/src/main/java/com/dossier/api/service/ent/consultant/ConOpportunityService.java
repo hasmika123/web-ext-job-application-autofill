@@ -188,9 +188,19 @@ public class ConOpportunityService {
     @Transactional
     public ConOpportunityDTO interest(OrgMembership me, Long id, String ifMatch) {
         ConScope.View view = scope.write(me);
+        recordInterest(view, me, id, ifMatch);
+        return one(view, id);
+    }
+
+    /**
+     * The transition behind {@link #interest}, for a caller that already resolved the consultant (the consultant workspace's Assigned Opportunities page
+     * gates with its own service, then writes the SAME record through this). Everything is org- and consultant-scoped by {@code view}.
+     */
+    @Transactional
+    public void recordInterest(ConScope.View view, OrgMembership me, Long id, String ifMatch) {
         MktOpportunity opp = load(view, id, ifMatch);
         String from = opp.getState();
-        if ("INTERESTED".equals(from)) return one(view, id);
+        if ("INTERESTED".equals(from)) return;
         if ("DECLINED".equals(from)) {
             ConOpportunityRow row = repo.findRow(view.orgId(), view.consultantId(), id).orElseThrow(OrgNotFoundException::new);
             if (!OPEN_JOB.contains(row.jobStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open any more.", Map.of());
@@ -203,11 +213,11 @@ public class ConOpportunityService {
         opp.setState("INTERESTED");
         opp.setInterest("INTERESTED");
         opp.setDeclineReason(null);
+        opp.setDeclineNote(null);
         opp.setLastResponseAt(now);
         save(opp, now);
         record(opp, "INTERESTED", view, "is interested", now);
         audit(me, "CONSULTANT_OPPORTUNITY_INTERESTED", opp, "from " + from);
-        return one(view, id);
     }
 
     /** ASSIGNED, VIEWED, INTERESTED to NEEDS_INFO with the consultant's question (the marketer sees it on the activity feed). */
@@ -217,20 +227,30 @@ public class ConOpportunityService {
         String q = question == null ? "" : question.strip();
         if (q.isEmpty() || q.length() > QUESTION_MAX) throw validation("question", "must be 1 to " + QUESTION_MAX + " characters");
         SensitiveContent.check("question", "question", q);
+        recordInfoRequest(view, me, id, q, false, ifMatch);
+        return one(view, id);
+    }
+
+    /**
+     * The transition behind {@link #requestInfo} for an already validated question (1 to {@value #QUESTION_MAX} characters, scanned). {@code reask} lets a
+     * consultant who is already in NEEDS_INFO send a NEW question (the old question and its answer are replaced and the marketer is told again); without
+     * it the same target is the usual no-op. The consultant workspace page passes {@code true}: pressing Need More Info twice must never lose the second question.
+     */
+    @Transactional
+    public void recordInfoRequest(ConScope.View view, OrgMembership me, Long id, String question, boolean reask, String ifMatch) {
         MktOpportunity opp = load(view, id, ifMatch);
         String from = opp.getState();
-        if ("NEEDS_INFO".equals(from)) return one(view, id);
-        if (!"ASSIGNED".equals(from) && !"VIEWED".equals(from) && !"INTERESTED".equals(from)) throw illegal(from, "NEEDS_INFO");
+        if ("NEEDS_INFO".equals(from) && !reask) return;
+        if (!"NEEDS_INFO".equals(from) && !"ASSIGNED".equals(from) && !"VIEWED".equals(from) && !"INTERESTED".equals(from)) throw illegal(from, "NEEDS_INFO");
         requireOpenJob(view, id);
         Instant now = clock.instant();
         opp.setState("NEEDS_INFO");
-        opp.setInfoRequest(q);
+        opp.setInfoRequest(question);
         opp.setInfoAnswer(null);
         opp.setLastResponseAt(now);
         save(opp, now);
         record(opp, "INFO_REQUESTED", view, "asked a question", now);
         audit(me, "CONSULTANT_OPPORTUNITY_INFO_REQUESTED", opp, "from " + from);
-        return one(view, id);
     }
 
     /** ASSIGNED, VIEWED, INTERESTED, NEEDS_INFO to DECLINED. The consultant's "no" is sovereign: no marketer action is needed or possible. */
@@ -242,20 +262,52 @@ public class ConOpportunityService {
         String n = note == null ? null : note.strip();
         if (n != null && n.length() > NOTE_MAX) throw validation("note", "must be at most " + NOTE_MAX + " characters");
         if (n != null && !n.isEmpty()) SensitiveContent.check("note", "note", n);
+        recordDecline(view, me, id, why, n, ifMatch);
+        return one(view, id);
+    }
+
+    /**
+     * The transition behind {@link #decline} for an already validated reason code ({@link #DECLINE_REASONS}) and note (null or up to 300 characters, scanned).
+     * The code is what the Opportunities board reads; the note is kept on the row and, cut to the event's 200 characters, on the activity feed.
+     */
+    @Transactional
+    public void recordDecline(ConScope.View view, OrgMembership me, Long id, String reasonCode, String note, String ifMatch) {
         MktOpportunity opp = load(view, id, ifMatch);
         String from = opp.getState();
-        if ("DECLINED".equals(from)) return one(view, id);
+        if ("DECLINED".equals(from)) return;
         if (!BEFORE_APPLY.contains(from)) throw illegal(from, "DECLINED");
+        String n = note == null || note.isBlank() ? null : note.strip();
         Instant now = clock.instant();
         opp.setState("DECLINED");
         opp.setInterest("NOT_INTERESTED");
-        opp.setDeclineReason(why);
+        opp.setDeclineReason(reasonCode);
+        opp.setDeclineNote(n);
         opp.setLastResponseAt(now);
         save(opp, now);
-        String text = "declined (" + why + ")" + (n == null || n.isEmpty() ? "" : ": " + n);
+        String text = "declined (" + reasonCode + ")" + (n == null ? "" : ": " + n);
         record(opp, "DECLINED", view, text.length() > 200 ? text.substring(0, 200) : text, now);
-        audit(me, "CONSULTANT_OPPORTUNITY_DECLINED", opp, why);
-        return one(view, id);
+        audit(me, "CONSULTANT_OPPORTUNITY_DECLINED", opp, reasonCode);
+    }
+
+    /**
+     * Undo a decline: DECLINED back to ASSIGNED (what the consultant said is cleared, the history stays in the events) while the job is open. Any other
+     * state is returned as it is (a no-op). Not part of the extension-facing matrix: the consultant workspace's page offers it as "Reopen".
+     */
+    @Transactional
+    public void recordReopen(ConScope.View view, OrgMembership me, Long id, String ifMatch) {
+        MktOpportunity opp = load(view, id, ifMatch);
+        if (!"DECLINED".equals(opp.getState())) return;
+        requireOpenJob(view, id);
+        Instant now = clock.instant();
+        opp.setState("ASSIGNED");
+        opp.setInterest("NO_RESPONSE");
+        opp.setDeclineReason(null);
+        opp.setDeclineNote(null);
+        opp.setInfoRequest(null);
+        opp.setInfoAnswer(null);
+        save(opp, now);
+        record(opp, "REOPENED", view, "reopened this opportunity", now);
+        audit(me, "CONSULTANT_OPPORTUNITY_REOPENED", opp, "from DECLINED");
     }
 
     /** "I applied": APPLIED, optionally tied to one of the caller's own tracked applications. */
@@ -293,15 +345,22 @@ public class ConOpportunityService {
 
     private ConOpportunityDTO markApplied(OrgMembership me, Long id, Long applicationId, String ifMatch, boolean explicitLink) {
         ConScope.View view = scope.write(me);
+        recordApplied(view, me, id, applicationId, ifMatch, explicitLink);
+        return one(view, id);
+    }
+
+    /** The "I applied" transition for a caller that already resolved the consultant (see {@link #recordInterest}). {@code applicationId} may be null. */
+    @Transactional
+    public void recordApplied(ConScope.View view, OrgMembership me, Long id, Long applicationId, String ifMatch, boolean explicitLink) {
         // Ownership first, before any state is looked at: someone else's application id is a plain 404 (IDOR), as is one that does not exist.
         Application app = applicationId == null ? null : applications.findOneByIdAndUserId(applicationId, view.userId()).orElseThrow(OrgNotFoundException::new);
         MktOpportunity opp = load(view, id, ifMatch);
         String from = opp.getState();
         MktPipelineApplicationLink live = links.findByOrgIdAndOpportunityIdAndUnlinkedAtIsNull(view.orgId(), id).orElse(null);
         if ("APPLIED".equals(from)) {
-            if (app == null) return one(view, id);
+            if (app == null) return;
             if (live != null) {
-                if (live.getPersonalApplicationId().equals(app.getId())) return one(view, id);
+                if (live.getPersonalApplicationId().equals(app.getId())) return;
                 throw OrgException.coded(409, ALREADY_LINKED, "Another application is already linked to this opportunity. Unlink it first.", Map.of());
             }
         } else if (!BEFORE_APPLY.contains(from)) {
@@ -310,7 +369,7 @@ public class ConOpportunityService {
         boolean flip = !"APPLIED".equals(from);
         if (flip) requireOpenJob(view, id); // recording that they applied to a posting that is gone is not an action on an open job
         ShareScope consent = app == null ? null : shares.scopeOf(view.orgId(), view.memberId());
-        if (!flip && consent != null && !consent.atLeast(ShareScope.SUMMARY)) return one(view, id); // nothing to record: already applied, and no link is allowed
+        if (!flip && consent != null && !consent.atLeast(ShareScope.SUMMARY)) return; // nothing to record: already applied, and no link is allowed
         Instant now = clock.instant();
         if (flip) {
             opp.setState("APPLIED");
@@ -321,14 +380,14 @@ public class ConOpportunityService {
         if (app == null) {
             record(opp, "APPLIED_UNLINKED", view, "says they applied (no tracked application linked)", now);
             audit(me, "CONSULTANT_OPPORTUNITY_APPLIED", opp, "from " + from + ", unlinked");
-            return one(view, id);
+            return;
         }
         if (!consent.atLeast(ShareScope.SUMMARY)) {
             // Consent NONE (doc 60 section 0.3 c): the consultant's own "I applied" is recorded on the opportunity, but no link row ties the organization to
             // their personal application, and nothing is projected. The honest state is "applied, no application shown".
             record(opp, "APPLIED_UNLINKED", view, "says they applied (the application is not shared with the organization)", now);
             audit(me, "CONSULTANT_OPPORTUNITY_APPLIED", opp, "from " + from + ", unlinked (consent)");
-            return one(view, id);
+            return;
         }
         MktPipelineApplicationLink created = new MktPipelineApplicationLink();
         created.setOrgId(view.orgId());
@@ -344,7 +403,6 @@ public class ConOpportunityService {
         links.save(created);
         record(opp, "APPLIED", view, flip ? "applied (tracked application linked)" : "linked a tracked application", now);
         audit(me, explicitLink && !flip ? "CONSULTANT_OPPORTUNITY_LINKED" : "CONSULTANT_OPPORTUNITY_APPLIED", opp, "from " + from + ", application " + app.getId());
-        return one(view, id);
     }
 
     // ---- allowed actions -----------------------------------------------------------------------------------------------------
