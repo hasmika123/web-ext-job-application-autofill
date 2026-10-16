@@ -66,6 +66,14 @@ public class UserBillingHandler {
 
     private InvoiceMirror invoiceMirror;
 
+    private com.dossier.api.service.retirement.ServiceLockService serviceLocks;
+
+    /** Optional (story K10.5): after a subscription change the read-only locks that are moot (the feature is held again) are closed; the gates never wait for it. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setServiceLocks(com.dossier.api.service.retirement.ServiceLockService serviceLocks) {
+        this.serviceLocks = serviceLocks;
+    }
+
     /** Optional (K8.3): without it only the subscription mirror is written, exactly as before. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setInvoiceMirror(InvoiceMirror invoiceMirror) {
@@ -155,6 +163,13 @@ public class UserBillingHandler {
         // K5.2: the add-on rows, the plan link and the quote status follow the subscription's items. Items whose prices are not catalog prices are ignored.
         addonMirror.syncSubscription(sub, event);
         subscriptionRepository.save(sub);
+        if (serviceLocks != null && sub.getUser() != null) {
+            try {
+                serviceLocks.reconcile(sub.getUser().getId(), sub.getUser().getLogin());
+            } catch (RuntimeException e) {
+                LOG.warn("Could not reconcile the service locks of {}: {}", sub.getUser().getLogin(), e.toString());
+            }
+        }
     }
 
     /** {@code invoice.paid} — the charge went through, so the subscription is in good standing. */
