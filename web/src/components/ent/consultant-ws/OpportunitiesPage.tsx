@@ -41,7 +41,6 @@ import {
   SORT_OPTIONS,
   STATUS_LABEL,
   actionTarget,
-  canMarkApplied,
   canRespond,
   daysLeftText,
   decline,
@@ -49,7 +48,6 @@ import {
   expressInterest,
   fetchDetail,
   fetchOpportunities,
-  markApplied,
   needMoreInfo,
   nextSteps,
   rateText,
@@ -158,11 +156,11 @@ function PriorityPill({ row }: { row: Pick<OppRow, "priority" | "priorityDerived
   );
 }
 
-function DueCell({ row }: { row: Pick<OppRow, "dueOn" | "daysLeft" | "status" | "dueDerived" | "appliedAt"> }) {
+function DueCell({ row }: { row: Pick<OppRow, "dueOn" | "daysLeft" | "status" | "dueDerived"> }) {
   return (
     <span className="block whitespace-nowrap" title={row.dueDerived ? "No due date set by your marketer: 14 days after the assignment" : "Set by your marketer"}>
       <span className="block font-semibold text-ink">{shortDate(row.dueOn) || "-"}</span>
-      <span className={cn("block text-[12px]", dueUrgent(row) ? "font-semibold text-v2-coral-ink" : "text-muted")}>{row.status === "DECLINED" ? "Declined" : row.appliedAt ? "Applied" : daysLeftText(row.daysLeft)}</span>
+      <span className={cn("block text-[12px]", dueUrgent(row) ? "font-semibold text-v2-coral-ink" : "text-muted")}>{row.status === "DECLINED" ? "Declined" : daysLeftText(row.daysLeft)}</span>
     </span>
   );
 }
@@ -188,7 +186,6 @@ interface Actions {
   decline: (r: OppRow) => void;
   resume: (r: OppRow) => void;
   reopen: (r: OppRow) => void;
-  applied: (r: OppRow) => void;
 }
 
 function RowMenu({ row, a }: { row: OppRow; a: Actions }) {
@@ -204,9 +201,8 @@ function RowMenu({ row, a }: { row: OppRow; a: Actions }) {
         { label: row.interestSent ? "Interest sent" : "Express Interest", icon: <SendIcon size={15} />, disabled: off || row.interestSent, onSelect: () => a.interest(row) },
         { label: "Request Resume Update", icon: <FileTextIcon size={15} />, disabled: off, onSelect: () => a.resume(row) },
         { label: "Need More Info", icon: <HelpCircleIcon size={15} />, disabled: off, onSelect: () => a.askInfo(row) },
-        { label: row.appliedAt ? "Marked as applied" : "I applied", icon: <ClipboardCheckIcon size={15} />, disabled: !canMarkApplied(row), onSelect: () => a.applied(row) },
         { separator: true },
-        off ?{ label: "Reopen", icon: <ChevronRightIcon size={15} />, onSelect: () => a.reopen(row) } : { label: "Decline Opportunity", icon: <XCircleIcon size={15} />, danger: true, onSelect: () => a.decline(row) },
+        off ? { label: "Reopen", icon: <ChevronRightIcon size={15} />, onSelect: () => a.reopen(row) } : { label: "Decline Opportunity", icon: <XCircleIcon size={15} />, danger: true, onSelect: () => a.decline(row) },
       ]}
     />
   );
@@ -332,9 +328,6 @@ function DetailSheet({ row, detail, loading, onClose, a }: { row: OppRow | null;
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => a.askInfo(row)}>
                   Need More Info
-                </Button>
-                <Button size="sm" variant="ghost" disabled={!canMarkApplied(row)} onClick={() => a.applied(row)}>
-                  {row.appliedAt ? "Marked as applied" : "I applied"}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => a.decline(row)}>
                   Decline
@@ -652,11 +645,6 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first }:
       setError("");
       setPicked(r.matchId);
       setAsk({ kind: "resume", row: r });
-    },
-    applied: (r) => {
-      setNotice("");
-      setPicked(r.matchId);
-      void markApplied(orgId, r.matchId).then((res) => done(res, "Marked as applied. Your marketer can see it.", r));
     },
     reopen: (r) => {
       setNotice("");

@@ -94,8 +94,6 @@ class OpportunitiesResourceIT {
     @Autowired private CwsOpportunityResponseRepository responses;
     @Autowired private CwsMatchInterestRepository interests;
     @Autowired private CwsJobSourceRepository jobSources;
-    @Autowired private com.dossier.api.repository.ent.mkt.MktOpportunityRepository pipeline;
-    @Autowired private com.dossier.api.repository.ent.mkt.MktOpportunityEventRepository pipelineEvents;
 
     private OrgFixtures fx;
     private Organization a;
@@ -284,35 +282,6 @@ class OpportunitiesResourceIT {
         ClientAccount other = client(a, "Globex Hidden");
         ClientRequirement hr = requirement(a, other, "Hidden Secret Role", "Cobol");
         match(c2, hr, "ASSIGNED", 97, now.minus(Duration.ofHours(5)), true);
-    }
-
-    @Test
-    void iAppliedRecordsApplicationOnceForTheMarketerAndNeverForAStranger() throws Exception {
-        seedC1();
-        settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_CONSULTANT_JOBS, "{\"on\":true}", WHO, Instant.now()));
-        cache.invalidate();
-        assertThat(row(page("cws-o-a-c1", a), o1.getId()).path("appliedAt").isNull()).as("not applied yet").isTrue();
-
-        JsonNode first = actOk(o1.getId(), "applied", null);
-        assertThat(first.path("state").asText()).isEqualTo("APPLIED");
-        assertThat(first.path("appliedAt").asText()).isNotBlank();
-        // the marketer's board reads the pipeline row: APPLIED, with one timeline event
-        var opp = pipeline.findByOrgIdAndMatchId(a.getId(), o1.getId()).orElseThrow();
-        assertThat(opp.getState()).isEqualTo("APPLIED");
-        assertThat(pipelineEvents.findByOrgIdAndOpportunityIdOrderByOccurredAtDesc(a.getId(), opp.getId())).extracting("kind").contains("APPLIED_UNLINKED");
-        // the page row shows it
-        assertThat(row(page("cws-o-a-c1", a), o1.getId()).path("appliedAt").asText()).isNotBlank();
-
-        // idempotent: a second press records nothing new
-        int events = pipelineEvents.findByOrgIdAndOpportunityIdOrderByOccurredAtDesc(a.getId(), opp.getId()).size();
-        assertThat(actOk(o1.getId(), "applied", null).path("state").asText()).isEqualTo("APPLIED");
-        assertThat(pipelineEvents.findByOrgIdAndOpportunityIdOrderByOccurredAtDesc(a.getId(), opp.getId())).hasSize(events);
-
-        // a declined opportunity must be reopened first; someone else's match and a stranger are the generic 404
-        assertStatus(act("cws-o-a-c1", a, o4.getId(), "applied", null), 422, "declined");
-        seedC2();
-        assertGeneric404(act("cws-o-a-c2", a, o1.getId(), "applied", null), "another consultant's match");
-        assertGeneric404(act("cws-o-b-owner", a, o1.getId(), "applied", null), "a stranger from another organization");
     }
 
     // ---- calls ----------------------------------------------------------------------------------------------------

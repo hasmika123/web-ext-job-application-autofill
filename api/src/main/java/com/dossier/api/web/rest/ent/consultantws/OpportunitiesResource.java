@@ -2,7 +2,6 @@ package com.dossier.api.web.rest.ent.consultantws;
 
 import com.dossier.api.service.ent.consultantws.OpportunitiesDTO;
 import com.dossier.api.service.ent.consultantws.OpportunitiesService;
-import com.dossier.api.service.ent.consultantws.OpportunityAppliedService;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,11 +22,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class OpportunitiesResource {
 
     private final OpportunitiesService service;
-    private final OpportunityAppliedService appliedService;
 
-    public OpportunitiesResource(OpportunitiesService service, OpportunityAppliedService appliedService) {
+    public OpportunitiesResource(OpportunitiesService service) {
         this.service = service;
-        this.appliedService = appliedService;
     }
 
     @Operation(summary = "Assigned Opportunities page", description = "Tiles, one page of the caller's own assigned opportunities (sort due, priority or newest; page size capped at 50) and the facts behind the next steps.")
@@ -98,12 +95,5 @@ public class OpportunitiesResource {
         @RequestBody(required = false) OpportunitiesDTO.ResumeUpdateRequest body
     ) {
         return service.requestResumeUpdate(me, matchId, body == null ? null : body.note());
-    }
-
-    @Operation(summary = "I applied", description = "The consultant says they applied on the source site. Only records it: the pipeline state becomes APPLIED (the marketer's board shows it), one audit row. Idempotent. Kiwiply never submits or applies for anyone.")
-    @PostMapping("/{matchId}/applied")
-    @OrgPermissionRequired
-    public OpportunitiesDTO.Applied applied(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable long matchId) {
-        return appliedService.applied(me, matchId);
     }
 }

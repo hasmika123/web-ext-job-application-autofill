@@ -169,24 +169,6 @@ describe("Assigned Opportunities from real data", () => {
     expect(writes().map((c) => c.url)).toEqual(["/api/orgs/2/me-workspace/opportunities/1/express-interest", "/api/orgs/2/me-workspace/opportunities/1/express-interest"]);
   });
 
-  it("I applied posts once to the applied route, only records it, and an applied row offers no second press", async () => {
-    await mount();
-    fireEvent.click(within(rowOf(1)).getByRole("button", { name: "More actions for Senior Java Developer" }));
-    fireEvent.click(screen.getByRole("menuitem", { name: "I applied" }));
-    await flush();
-    expect(writes()).toEqual([{ method: "POST", url: "/api/orgs/2/me-workspace/opportunities/1/applied", body: "{}" }]);
-    // nothing in the menu applies or submits for the consultant
-    expect(screen.queryByRole("menuitem", { name: /submit|apply for me/i })).toBeNull();
-  });
-
-  it("an applied row reads Applied and its I applied action is disabled; a declined row offers none", async () => {
-    current = page({ rows: [orow({ matchId: 1, appliedAt: "2026-10-15T00:00:00Z" }), orow({ matchId: 3, status: "DECLINED", daysLeft: -1 })] });
-    await mount();
-    expect(within(rowOf(1)).getByText("Applied")).toBeTruthy();
-    fireEvent.click(within(rowOf(1)).getByRole("button", { name: "More actions for Senior Java Developer" }));
-    expect((screen.getByRole("menuitem", { name: "Marked as applied" }) as HTMLButtonElement).disabled || screen.getByRole("menuitem", { name: "Marked as applied" }).getAttribute("aria-disabled") === "true").toBe(true);
-  });
-
   it("Need More Info needs 3 characters and posts the message", async () => {
     await mount();
     fireEvent.click(screen.getByRole("button", { name: /Need More Info/ }));
