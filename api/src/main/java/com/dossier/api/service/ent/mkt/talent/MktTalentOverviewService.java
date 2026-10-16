@@ -95,7 +95,7 @@ public class MktTalentOverviewService {
         MktTalentService.Fact fact = talent.buildFacts(orgId, List.of(c), now).get(0);
 
         String authorization = profileDetails.findByOrgIdAndConsultantId(orgId, consultantId).map(CwsProfileDetail::getWorkAuthorization).filter(s -> !s.isBlank()).orElse(null);
-        Contact contact = new Contact(blankToNull(c.getEmail()), blankToNull(c.getLocationLabel()), authorization);
+        Contact contact = new Contact(blankToNull(c.getEmail()), blankToNull(c.getLocationLabel()), authorization, blankToNull(c.getPhone()), blankToNull(c.getTimeZone()), blankToNull(c.getPreferredContact()));
 
         List<TalentApplication> apps = access.allows(view, consultantId, Area.APPLICATIONS) ? applications.findForConsultant(orgId, consultantId) : List.of();
         List<TalentInterview> ivs = access.allows(view, consultantId, Area.INTERVIEWS) ? interviews.findUpcomingForConsultant(orgId, consultantId, now).stream().limit(MAX_INTERVIEWS).toList() : List.of();

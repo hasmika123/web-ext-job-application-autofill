@@ -232,7 +232,7 @@ public class ConsultantQueryService {
         );
         ConsultantDTO.Checklist checklist = new ConsultantDTO.Checklist(true, !skills.isEmpty(), resumes > 0, c.isHasCertifications(), c.isHasPreferences());
         return new ConsultantDTO.Detail(
-            row, c.getMemberId(), c.getHeadline(), skills.stream().map(s -> new ConsultantDTO.Skill(s.getSkill(), s.isPrimarySkill())).toList(),
+            row, c.getMemberId(), c.getHeadline(), c.getPhone(), c.getTimeZone(), c.getPreferredContact(), skills.stream().map(s -> new ConsultantDTO.Skill(s.getSkill(), s.isPrimarySkill())).toList(),
             c.getAvailabilitySince(), c.getMarketingStatus(), dept, assignment, checklist, (int) apps, (int) upcoming, (int) resumes, actions, versionOf(c)
         );
     }

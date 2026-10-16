@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ConsentChip, ErrorState, MemberAvatar, ReadinessRing, SideSheet, Skeleton, useNarrow } from "@kiwiply/ui";
 import { RelationTag, RelTime } from "@/components/app-v3/applications/UpdatedBy";
 import { rowActorLine } from "@/lib/actors";
+import { preferredLabel, timeZoneLabel } from "@/lib/ent/contact-fields";
 import { fetchTalentDetail, fetchTalentOverview, yearsText, type TalentDetail, type TalentOverview } from "@/lib/ent/marketer-ws/talent";
 import { AvailabilityChip, ResumeChip } from "./chips";
 
@@ -115,6 +116,9 @@ export default function ProfileDrawer({
                 <h3 className="mb-2 text-[13px] font-bold text-ink">Contact</h3>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px]">
                   <div className="col-span-2"><dt className="text-muted">Work e-mail</dt><dd className="font-semibold text-ink">{o.contact.workEmail ? <a className="text-accent-deep hover:underline" href={`mailto:${o.contact.workEmail}`}>{o.contact.workEmail}</a> : "-"}</dd></div>
+                  <div data-contact-phone><dt className="text-muted">Phone</dt><dd className="font-semibold text-ink">{o.contact.phone ? <a className="text-accent-deep hover:underline" href={`tel:${o.contact.phone.replace(/[^0-9+]/g, "")}`}>{o.contact.phone}</a> : "-"}</dd></div>
+                  <div data-contact-zone><dt className="text-muted">Time zone</dt><dd className="font-semibold text-ink">{timeZoneLabel(o.contact.timeZone) ?? "-"}</dd></div>
+                  {o.contact.preferredContact ? <div className="col-span-2" data-contact-pref><dt className="text-muted">Best way to reach</dt><dd className="font-semibold text-ink">{preferredLabel(o.contact.preferredContact) ?? o.contact.preferredContact}</dd></div> : null}
                   <div><dt className="text-muted">Location</dt><dd className="font-semibold text-ink">{o.contact.location || "-"}</dd></div>
                   <div><dt className="text-muted">Work mode</dt><dd className="font-semibold text-ink">{o.workMode ? o.workMode.toLowerCase() : "-"}</dd></div>
                   {o.contact.workAuthorization ? <div className="col-span-2"><dt className="text-muted">Work authorization</dt><dd className="font-semibold text-ink">{o.contact.workAuthorization}</dd></div> : null}

@@ -43,6 +43,7 @@ import {
   type LicenseStatus,
   type PatchBody,
 } from "@/lib/ent/consultants";
+import { ContactFields } from "./ContactCard";
 import { AvailabilityPill, LicensePill, ProfileRing } from "./parts";
 import { ActivityTab, ApplicationsTab, AssignmentsTab } from "./Tabs";
 import { useConsultantDetail, type SaveResult } from "./useConsultantDetail";
@@ -141,6 +142,20 @@ function Overview({ detail, canEdit, save, onSaved, onTab, onFlow }: { detail: C
             ))}
           </ul>
         )}
+      </Card>
+
+      <Card icon={<MailIcon size={16} />} title="Contact">
+        <ContactFields
+          detail={detail}
+          canEdit={canEdit}
+          onSave={async (body) => {
+            const r = await save(body);
+            if (!r.ok) return r.message;
+            onSaved(r.detail);
+            toast({ title: "Contact details saved", variant: "success" });
+            return null;
+          }}
+        />
       </Card>
 
       <div className="grid grid-cols-2 gap-3">

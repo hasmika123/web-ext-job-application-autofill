@@ -44,6 +44,18 @@ public class ConsultantProfile implements Serializable {
     @Column(name = "work_mode", length = 20)
     private String workMode;
 
+    /** Contact data only (digits, +, space, dash, parentheses); validated by {@code ConsultantContact}. */
+    @Column(name = "phone", length = 32)
+    private String phone;
+
+    /** An IANA zone id such as America/Chicago. */
+    @Column(name = "time_zone", length = 64)
+    private String timeZone;
+
+    /** EMAIL, PHONE or TEXT. */
+    @Column(name = "preferred_contact", length = 40)
+    private String preferredContact;
+
     @Column(name = "availability_status", length = 20, nullable = false)
     private String availabilityStatus = "AVAILABLE";
 
@@ -111,6 +123,12 @@ public class ConsultantProfile implements Serializable {
     public void setLocationLabel(String locationLabel) { this.locationLabel = locationLabel; }
     public String getWorkMode() { return workMode; }
     public void setWorkMode(String workMode) { this.workMode = workMode; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public String getTimeZone() { return timeZone; }
+    public void setTimeZone(String timeZone) { this.timeZone = timeZone; }
+    public String getPreferredContact() { return preferredContact; }
+    public void setPreferredContact(String preferredContact) { this.preferredContact = preferredContact; }
     public String getAvailabilityStatus() { return availabilityStatus; }
     public void setAvailabilityStatus(String availabilityStatus) { this.availabilityStatus = availabilityStatus; }
     public LocalDate getAvailableFrom() { return availableFrom; }

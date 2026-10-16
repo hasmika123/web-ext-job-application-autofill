@@ -61,6 +61,13 @@ public class ConsultantProfileResource {
         return service.setAvailability(me, body.status());
     }
 
+    @Operation(summary = "Set my contact details", description = "phone (digits, +, spaces, dashes, parentheses; 7 to 15 digits), timeZone (an IANA id such as America/Chicago) and preferredContact (EMAIL, PHONE or TEXT); a blank clears one. Contact data only, PII-scanned. Visible read-only to the assigned marketer.")
+    @PutMapping("/contact")
+    @OrgPermissionRequired
+    public Response contact(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @RequestBody com.dossier.api.service.ent.consultantws.ConsultantProfileDTO.ContactBody body) {
+        return service.setContact(me, body);
+    }
+
     @Operation(summary = "Edit the professional summary", description = "Saved on the primary resume, or on the profile while the consultant has no resume. Blank clears it. PII-scanned.")
     @PutMapping("/summary")
     @OrgPermissionRequired

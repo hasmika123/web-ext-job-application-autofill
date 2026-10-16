@@ -18,7 +18,7 @@ public final class MktTalentOverviewDtos {
     private MktTalentOverviewDtos() {}
 
     /** {@code workAuthorization} is the stored status LABEL (for example "Citizen"), null when none is stored. */
-    public record Contact(String workEmail, String location, String workAuthorization) {}
+    public record Contact(String workEmail, String location, String workAuthorization, String phone, String timeZone, String preferredContact) {}
 
     /** The consultant's current placement: role, client and start date only. */
     public record Placement(Long placementId, String roleTitle, String client, LocalDate startDate, String status) {}
