@@ -327,6 +327,10 @@ public class PersonalQuoteService {
             throw new BillingException(422, "PLAN_NOT_SELLABLE", "Choose a plan", Map.of("planKey", ""));
         }
         Plan plan = plans.findByPlanKey(req.planKey().trim().toUpperCase(Locale.ROOT)).orElseThrow(() -> notSellable(req.planKey()));
+        if ("RETIRING".equals(plan.getStatus())) {
+            // story K10.1: a plan being retired takes no new buyers; the answer names the ranked successors the admin chose
+            throw new BillingException(410, "PLAN_RETIRING", "This plan is no longer sold", Map.of("successors", retiringSuccessors(plan.getId()), "planKey", plan.getPlanKey()));
+        }
         if ("SUNSET".equals(plan.getStatus()) || "RETIRED".equals(plan.getStatus())) {
             Map<String, Object> extra = new LinkedHashMap<>();
             extra.put("successor", plan.getSuccessorPlanId() == null ? null : plans.findById(plan.getSuccessorPlanId()).map(Plan::getPlanKey).orElse(null));
@@ -485,9 +489,33 @@ public class PersonalQuoteService {
             if (finalAddons.equals(currentQty)) throw new BillingException(422, "NO_CHANGE", "Nothing would change");
         }
 
+        rejectRetiringAddons(finalAddons, currentQty);
         PlanQuoteDTO dto = dto(ctx, comps, byFeature, defs, baseProduct, proposed, summary, current, impact, finalAddons, currentQty, outcome, periodEnd);
         Meta meta = meta(ctx, finalAddons, currentQty, proposed, current, periodEnd);
         return new Built(dto, hash(meta), meta, periodEnd);
+    }
+
+    /** Story K10.1: an add-on that is RETIRING or RETIRED cannot be added or increased (410 PLAN_RETIRING with its ranked successors); one already held may stay. */
+    private void rejectRetiringAddons(Map<String, Integer> wanted, Map<String, Integer> held) {
+        for (Map.Entry<String, Integer> e : wanted.entrySet()) {
+            if (e.getValue() <= held.getOrDefault(e.getKey(), 0)) continue;
+            List<String> life = jdbc.queryForList("SELECT lifecycle FROM feature_definition WHERE feature_key = ?", String.class, e.getKey());
+            if (life.isEmpty() || "ACTIVE".equals(life.get(0))) continue;
+            List<String> successors = jdbc.queryForList(
+                "SELECT s.successor_feature_key FROM plan_retirement_successor s JOIN plan_retirement r ON r.id = s.retirement_id WHERE r.feature_key = ? AND r.kind = 'ADDON' "
+                    + "AND r.status IN ('NOTICING','COMPLETING','COMPLETED') AND s.successor_feature_key IS NOT NULL ORDER BY r.id DESC, s.successor_rank",
+                String.class,
+                e.getKey()
+            );
+            throw new BillingException(410, "PLAN_RETIRING", "This add-on is no longer sold", Map.of("featureKey", e.getKey(), "successors", successors.stream().distinct().toList()));
+        }
+    }
+
+    /** The ranked successor plan keys of the newest retirement of {@code planId} (empty when none was ranked). */
+    private List<String> retiringSuccessors(Long planId) {
+        List<Long> newest = jdbc.queryForList("SELECT id FROM plan_retirement WHERE plan_id = ? AND status IN ('NOTICING','COMPLETING','COMPLETED') ORDER BY id DESC LIMIT 1", Long.class, planId);
+        if (newest.isEmpty()) return List.of();
+        return jdbc.queryForList("SELECT successor_plan_key FROM plan_retirement_successor WHERE retirement_id = ? AND successor_plan_key IS NOT NULL ORDER BY successor_rank", String.class, newest.get(0));
     }
 
     private Instant engineInputsAt(Ctx ctx) {

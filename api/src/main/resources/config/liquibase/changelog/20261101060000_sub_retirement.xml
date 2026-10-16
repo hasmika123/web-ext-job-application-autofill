@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The retirement lifecycle (docs/subscriptions/11-plan-retirement.md section 10; stories K10.1 to K10.5). plan_retirement is the audited object, plan_retirement_successor
+        the admin-ranked replacements, plan_retirement_item one row per affected subscription (its effective date only ever moves later), service_lock the read-only overlay
+        a Free fallback leaves behind (a lock row never grants anything; release is instant because the check ignores a lock whose feature is held again), billing_notice
+        the dedupe ledger of every notice sent. Two columns of the spec are renamed because MySQL reserves them: "interval" is billing_interval and "rank" is successor_rank.
+        Seat locks (seat_service_lock) belong to the enterprise story K10.7 and are not created here. Additive; every change set is guarded; empty rollbacks.
+    -->
+    <changeSet id="sub-retirement-table" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="plan_retirement"/></not></preConditions>
+        <createTable tableName="plan_retirement">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="plan_id" type="bigint"/>
+            <column name="plan_version_id" type="bigint"/>
+            <column name="feature_key" type="varchar(60)"/>
+            <column name="price_id" type="bigint"/>
+            <column name="audience" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="DRAFT"><constraints nullable="false"/></column>
+            <column name="mode" type="varchar(20)" defaultValue="RETIRE_AT_RENEWAL"><constraints nullable="false"/></column>
+            <column name="default_outcome" type="varchar(20)" defaultValue="FREE"><constraints nullable="false"/></column>
+            <column name="notice_schedule_json" type="json"><constraints nullable="false"/></column>
+            <column name="min_notice_days" type="int"><constraints nullable="false"/></column>
+            <column name="channels_json" type="json"><constraints nullable="false"/></column>
+            <column name="message_md" type="varchar(2000)"/>
+            <column name="reason" type="varchar(500)"><constraints nullable="false"/></column>
+            <column name="plan_status_before" type="varchar(12)"/>
+            <column name="version_status_before" type="varchar(12)"/>
+            <column name="started_at" type="${datetimeType}"/>
+            <column name="started_by" type="varchar(50)"/>
+            <column name="approved_by" type="varchar(50)"/>
+            <column name="cancelled_at" type="${datetimeType}"/>
+            <column name="cancelled_by" type="varchar(50)"/>
+            <column name="completed_at" type="${datetimeType}"/>
+            <column name="impact_json" type="json"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="created_by" type="varchar(50)"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="plan_retirement" baseColumnNames="plan_id" constraintName="fk_plan_retirement_plan"
+                                 referencedTableName="plan" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="plan_retirement" baseColumnNames="plan_version_id" constraintName="fk_plan_retirement_version"
+                                 referencedTableName="plan_version" referencedColumnNames="id"/>
+        <createIndex tableName="plan_retirement" indexName="ix_plan_retirement_status">
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="plan_retirement" indexName="ix_plan_retirement_plan">
+            <column name="plan_id"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-retirement-successor-table" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="plan_retirement_successor"/></not></preConditions>
+        <createTable tableName="plan_retirement_successor">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="retirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="successor_plan_key" type="varchar(40)"/>
+            <column name="successor_feature_key" type="varchar(60)"/>
+            <column name="successor_rank" type="int"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(200)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="plan_retirement_successor" baseColumnNames="retirement_id" constraintName="fk_prs_retirement"
+                                 referencedTableName="plan_retirement" referencedColumnNames="id" onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="plan_retirement_successor" columnNames="retirement_id, successor_rank" constraintName="ux_prs_rank"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-retirement-item-table" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="plan_retirement_item"/></not></preConditions>
+        <createTable tableName="plan_retirement_item">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="retirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="scope" type="varchar(8)"><constraints nullable="false"/></column>
+            <column name="user_id" type="bigint"/>
+            <column name="subscription_id" type="bigint"/>
+            <column name="org_id" type="bigint"/>
+            <column name="org_subscription_id" type="bigint"/>
+            <column name="license_id" type="bigint"/>
+            <column name="retire_effective_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="billing_interval" type="varchar(10)"><constraints nullable="false"/></column>
+            <column name="previous_version_id" type="bigint"/>
+            <column name="monthly_minor" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="suggestion_json" type="json"/>
+            <column name="suggested_quote_id" type="bigint"/>
+            <column name="status" type="varchar(16)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="choice_kind" type="varchar(24)"/>
+            <column name="note" type="varchar(200)"/>
+            <column name="decided_at" type="${datetimeType}"/>
+            <column name="decided_change_id" type="bigint"/>
+            <column name="stripe_ref" type="varchar(255)"/>
+            <column name="cancel_set_at" type="${datetimeType}"/>
+            <column name="applied_at" type="${datetimeType}"/>
+            <column name="last_notice_days" type="int"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="plan_retirement_item" baseColumnNames="retirement_id" constraintName="fk_pri_retirement"
+                                 referencedTableName="plan_retirement" referencedColumnNames="id" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="plan_retirement_item" baseColumnNames="user_id" constraintName="fk_pri_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <addUniqueConstraint tableName="plan_retirement_item" columnNames="retirement_id, subscription_id, license_id" constraintName="ux_pri"/>
+        <createIndex tableName="plan_retirement_item" indexName="ix_pri_status">
+            <column name="retirement_id"/>
+            <column name="status"/>
+        </createIndex>
+        <createIndex tableName="plan_retirement_item" indexName="ix_pri_effective">
+            <column name="status"/>
+            <column name="retire_effective_at"/>
+        </createIndex>
+        <createIndex tableName="plan_retirement_item" indexName="ix_pri_user">
+            <column name="user_id"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-service-lock-table" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="service_lock"/></not></preConditions>
+        <createTable tableName="service_lock">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="locked_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="locked_from_plan_version_id" type="bigint"/>
+            <column name="retirement_id" type="bigint"/>
+            <column name="reason" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="released_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="service_lock" baseColumnNames="user_id" constraintName="fk_service_lock_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <createIndex tableName="service_lock" indexName="ix_service_lock_user">
+            <column name="user_id"/>
+            <column name="released_at"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-service-lock-live-seq" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="service_lock" columnName="live_seq"/></not></preConditions>
+        <!-- 0 while live, NULL once released (MySQL refuses a generated column that reads the auto-increment id, decision P-9): UNIQUE (user, feature, live_seq) = one live lock per feature. -->
+        <sql dbms="mysql">ALTER TABLE service_lock ADD COLUMN live_seq BIGINT GENERATED ALWAYS AS (IF(released_at IS NULL, 0, NULL)) STORED</sql>
+        <sql dbms="mysql">CREATE UNIQUE INDEX ux_service_lock_live ON service_lock (user_id, feature_key, live_seq)</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-billing-notice-table" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="billing_notice"/></not></preConditions>
+        <createTable tableName="billing_notice">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="subscription_id" type="bigint"/>
+            <column name="retirement_id" type="bigint"/>
+            <column name="item_id" type="bigint"/>
+            <column name="kind" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="dedupe_key" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="channels" type="varchar(60)"/>
+            <column name="subject" type="varchar(200)"/>
+            <column name="payload_json" type="json"/>
+            <column name="status" type="varchar(12)" defaultValue="SENT"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="billing_notice" columnNames="dedupe_key" constraintName="ux_billing_notice_dedupe"/>
+        <addForeignKeyConstraint baseTableName="billing_notice" baseColumnNames="user_id" constraintName="fk_billing_notice_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <createIndex tableName="billing_notice" indexName="ix_billing_notice_retirement">
+            <column name="retirement_id"/>
+            <column name="item_id"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-feature-definition-lifecycle" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="feature_definition" columnName="lifecycle"/></not></preConditions>
+        <addColumn tableName="feature_definition">
+            <column name="lifecycle" type="varchar(12)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

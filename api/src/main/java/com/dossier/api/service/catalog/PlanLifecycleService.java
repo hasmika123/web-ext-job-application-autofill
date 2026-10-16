@@ -81,15 +81,16 @@ public class PlanLifecycleService {
         String why = reason(reason, "Archiving a version");
         Plan p = plan(planKey);
         PlanVersion v = versions.findByPlanIdAndVersion(p.getId(), version).orElseThrow(() -> CatalogException.notFound("plan version", planKey + " v" + version));
-        if (!"SUPERSEDED".equals(v.getStatus())) {
-            throw CatalogException.conflict("VERSION_STATE", "Version " + version + " is " + v.getStatus() + ": only a SUPERSEDED version can be archived.", Map.of("status", v.getStatus()));
+        if (!"SUPERSEDED".equals(v.getStatus()) && !"RETIRING".equals(v.getStatus())) {
+            throw CatalogException.conflict("VERSION_STATE", "Version " + version + " is " + v.getStatus() + ": only a SUPERSEDED or RETIRING version can be archived.", Map.of("status", v.getStatus()));
         }
         long held = counts.byVersion(p.getId()).getOrDefault(version, 0L);
         if (held > 0) throw CatalogException.conflict("VERSION_IN_USE", "Version " + version + " of " + planKey + " still has " + held + " subscriber(s).", Map.of("planKey", planKey, "version", version, "subscribers", held));
+        String before = v.getStatus();
         v.setStatus("RETIRED");
         v.setUpdatedAt(Instant.now().truncatedTo(ChronoUnit.MILLIS));
         versions.saveAndFlush(v);
-        changes.record(CatalogChangeRecorder.ENTITY_PLAN_VERSION, planKey + ":" + version, Map.of("status", "SUPERSEDED"), Map.of("status", "RETIRED"), why);
+        changes.record(CatalogChangeRecorder.ENTITY_PLAN_VERSION, planKey + ":" + version, Map.of("status", before), Map.of("status", "RETIRED"), why);
         audit.record(PLAN_VERSION_ARCHIVED, AdminAuditService.TARGET_CATALOG, "plan:" + planKey + ":v" + version, why, "risk=HIGH plan=" + planKey + " version=" + version);
     }
 
