@@ -496,6 +496,8 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/status", Case.people(200, "INTERVIEW_STATUS", 1, w -> "{\"status\":\"IN_PROGRESS\"}", null, w -> w.interviewState("SCHEDULED"))),
         Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/reminder", Case.people(200, "INTERVIEW_REMINDER", 1, w -> "{}", null, w -> w.interviewState("SCHEDULED"))),
         Map.entry("POST /api/orgs/{orgId}/interviews/{interviewId}/feedback", Case.people(201, "INTERVIEW_FEEDBACK", 1, w -> "{\"rating\":4,\"recommendation\":\"ADVANCE\"}", null, w -> w.interviewState("COMPLETED"))),
+        // Org Admin Reports (reports.view at ORG scope): a read, no audit row; a stranger or a member without the key gets the generic 404.
+        Map.entry("GET /api/orgs/{orgId}/reports/overview", Case.read()),
         // Enterprise V2 Placements page (docs/enterprise-v2/page-placements.md): reads write no audit row; every mutation writes one PLACEMENT_* row.
         Map.entry("GET /api/orgs/{orgId}/placements", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/placements/counts", Case.read()),

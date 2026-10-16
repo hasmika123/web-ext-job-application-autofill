@@ -327,7 +327,7 @@ Not built: the invitation form has no Team or Manager field (department only), s
 - **Status: STORY-ONLY (S10 automates and runs it on the QA stack)**
 
 ### ADM-93 The admin dialogs describe a new, separate organization account
-- **Persona:** Olivia (Org Admin). **Steps:** open Invitations, mode "Create account now". **Expected:** the helper line says the organization account is created now with a temporary password and that any personal Kiwiply account the person has is not touched or linked; the result is always the shown-once temporary-password dialog (no "already has a Kiwiply account" outcome for a SEPARATE organization).
+- **Persona:** Olivia (Org Admin). **Steps:** open Invitations, mode "Create account now". **Expected:** the helper line says their account in your organization is created now with a temporary password and that it is a separate account that never touches or links to any personal account they have (it no longer names "Kiwiply account"); the result is always the shown-once temporary-password dialog (no "already has a Kiwiply account" outcome for a SEPARATE organization).
 - **Status: STORY-ONLY**
 
 ## Separate accounts end to end for a person who also has a personal account (S10, decision O4; described only, no spec yet)
@@ -337,3 +337,19 @@ Not built: the invitation form has no Team or Manager field (department only), s
 - **Expected:** step 1 looks the same for any address (no hint that a personal account exists); step 2 lands on the workspace; step 3 shows her personal account exactly as before (its resumes, no Gamma membership); after step 4 Dana's Gamma session ends on its next click and she cannot sign in at Gamma ("not a member"), while the personal account still signs in and works; Gina's audit trail shows the removal and the account being disabled, without Dana's address.
 - **Pages / APIs:** Invitations, Members, `POST /api/orgs/{id}/members/account`, `POST /api/orgs/{id}/members/{seat}/offboard`, kiwiply.com `/login`.
 - **Status: STORY-ONLY (the API walk is `SeparateAccountsRegressionIT`)**
+
+## Reports and the activation checklist (demo-day gaps; described only, no spec yet)
+
+### ADM-96 The Org Admin reads the canned reports and downloads them as CSV
+- **Persona:** Sarah (Org Admin of Acme Staffing). **Goal:** see how the organization is doing in a few numbers and take the tables to a meeting.
+- **Steps:** 1. Open Reports in the sidebar (`/w/admin/reports`). 2. Read the six tiles (active consultants, available and in marketing, applications in range, interviews completed, active placements, median time to first submission). 3. Read the applications-by-stage chart and table and the week-over-week column, the applications-per-week chart, the interviews scheduled-versus-completed chart, the placements started-and-ended chart for the last six months, the two consultant donuts (marketing status, availability), the top clients and the marketer workload tables. 4. Switch "Last 30 days" to "Last 90 days". 5. Press "Download CSV" and open the file.
+- **Expected:** every number is computed by the API from Acme's own rows (there is no sample data and no money); marketers appear by name only, never by email; switching the range reloads with the 90-day figures and the pressed button changes; the CSV holds every table with a title row and a header row, and a client named like `=HYPERLINK(...)` is written as text (a leading quote), never as a formula; an organization with no rows yet sees "Nothing to report yet" and the download is off; at 390 px the cards stack and wide tables scroll inside their card, not the page. A member who holds `reports.view` only for their own people (a marketing specialist) never sees this page: the menu does not list it and the API answers the generic 404.
+- **Pages / APIs:** `/w/admin/reports`, `GET /api/orgs/{orgId}/reports/overview?range=30|90` (`reports.view` at ORG scope).
+- **Status: STORY-ONLY (API figures are checked against independent SQL counts in `OrgReportsIT`)**
+
+### ADM-97 A new organization sees the activation checklist on the dashboard until it is set up
+- **Persona:** Priya (Owner of a freshly created organization). **Goal:** know what to do first.
+- **Steps:** 1. Sign in and open the Dashboard. 2. Read "Get your organization ready" (0 of 5 done: set your branding, add a department, invite or create your first employees, assign roles, assign consultants to a marketer). 3. Publish the branding and return: the step is ticked and the bar moves. 4. Press the x on the card. 5. Reload.
+- **Expected:** the ticks come from the organization's real state (nobody ticks them by hand); each step links to the page where it is done; when all five are done the card disappears for good; pressing the x hides it for 7 days for that administrator only (another administrator still sees it), and a failed save brings the card back with a message; Acme Staffing, which is fully set up, never shows the card.
+- **Pages / APIs:** `/w/admin` (Dashboard), the `checklist` widget of `GET /api/orgs/{orgId}/dashboard`, `POST /api/orgs/{orgId}/dashboard/alerts/CHECKLIST/dismiss`.
+- **Status: STORY-ONLY (the widget is checked in `OrgReportsIT`; the card in `ChecklistCard.test.tsx`)**

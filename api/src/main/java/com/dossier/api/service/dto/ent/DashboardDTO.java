@@ -35,7 +35,7 @@ public final class DashboardDTO {
     @Schema(description = "One widget. data is present only when state is ok; its shape is named by key (see the *Data schemas).")
     public record Widget(
         @Schema(
-            description = "consultants.total, employees.active, applications.active, interviews.upcoming, placements, finance.summary, team.performance, pipeline.overview, quick.actions, alerts, activity.recent, invites.pending, subscription.summary"
+            description = "consultants.total, employees.active, applications.active, interviews.upcoming, placements, finance.summary, team.performance, pipeline.overview, quick.actions, alerts, activity.recent, invites.pending, subscription.summary, checklist"
         )
         String key,
         State state,
@@ -46,8 +46,8 @@ public final class DashboardDTO {
         @Schema(description = "The module the widget belongs to, when it is unavailable because of it")
         String module,
         @Schema(
-            oneOf = { StatTile.class, TeamPerformance.class, Pipeline.class, Invites.class, Activity.class, Alerts.class, QuickActions.class, SubscriptionSummary.class },
-            description = "consultants.total, employees.active: StatTile. invites.pending: Invites. activity.recent: Activity. alerts: Alerts. quick.actions: QuickActions. subscription.summary: SubscriptionSummary."
+            oneOf = { StatTile.class, TeamPerformance.class, Pipeline.class, Invites.class, Checklist.class, Activity.class, Alerts.class, QuickActions.class, SubscriptionSummary.class },
+            description = "consultants.total, employees.active: StatTile. invites.pending: Invites. activity.recent: Activity. alerts: Alerts. quick.actions: QuickActions. checklist: ChecklistData. subscription.summary: SubscriptionSummary."
         )
         Object data
     ) {}
@@ -71,6 +71,12 @@ public final class DashboardDTO {
             this(value, previous, deltaPct, sparkline, comparedTo, counts, null, null);
         }
     }
+
+    @Schema(name = "ChecklistItem", description = "One step of the activation checklist: done is computed from the organization's real state; href is where to do it.")
+    public record ChecklistItem(String key, String label, String hint, boolean done, String href) {}
+
+    @Schema(name = "ChecklistData", description = "The activation checklist (14 section 2.4). The widget is empty (reason COMPLETE or DISMISSED) once nothing is left to show.")
+    public record Checklist(int done, int total, List<ChecklistItem> items) {}
 
     @Schema(name = "InvitesData")
     public record Invites(long invited, long expiringSoon, long suspended) {}

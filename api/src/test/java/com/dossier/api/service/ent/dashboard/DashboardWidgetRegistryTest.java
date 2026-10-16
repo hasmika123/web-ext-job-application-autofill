@@ -38,6 +38,7 @@ class DashboardWidgetRegistryTest {
             new TalentWidgets.TeamPerformanceWidget(),
             new TalentWidgets.PipelineWidget(),
             new QuickActionsProvider(),
+            new ChecklistProvider(),
             new AlertsProvider(null),
             new InvitesPendingProvider(),
             new ActivityRecentProvider(null, null),
