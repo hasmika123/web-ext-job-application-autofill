@@ -63,6 +63,12 @@ export default function BillingCard({ plan }: { plan: Plan }) {
         {isPro ? <ManageBillingButton /> : <UpgradeButton plan="monthly" />}
       </div>
 
+      {isPro ? (
+        <Link href="/settings/plan" className="text-[13px] font-semibold text-accent-deep hover:underline">
+          My plan: add-ons, billing period and invoices →
+        </Link>
+      ) : null}
+
       {/* A failed charge is recoverable and the user is the only one who can fix it — so say so
           plainly, and reassure them nothing has been switched off yet. */}
       {plan.status === "past_due" ? (

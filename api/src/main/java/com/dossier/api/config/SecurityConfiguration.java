@@ -87,6 +87,9 @@ public class SecurityConfiguration {
                     // The pricing page prices a basket without an account (anonymous quotes); the resource requires authentication itself for every
                     // other kind and rate-limits by IP.
                     .requestMatchers(mvc.pattern(HttpMethod.POST, "/api/billing/quotes")).permitAll()
+                    // The pricing page's catalog: published public plans only, read-only, cached (K5.1).
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/catalog/public")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/catalog/public/plans/*")).permitAll()
                     .requestMatchers(mvc.pattern("/api/admin/**")).hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/api/**")).authenticated()
                     .requestMatchers(mvc.pattern("/v3/api-docs/**")).hasAuthority(AuthoritiesConstants.ADMIN)

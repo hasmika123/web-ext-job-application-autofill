@@ -185,4 +185,10 @@ public class FakeStripeGateway implements StripeGateway {
 
     @Override
     public void advanceTestClock(String clockId, Instant to, IdempotencyKey key) {}
+
+    /** The catalog reconciler's read of Stripe (merge of the catalog and add-ons streams): this fake has no Stripe prices. */
+    @Override
+    public List<StripePriceInfo> listPrices(int max) {
+        return List.of();
+    }
 }
