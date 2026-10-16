@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Subscription module seeds and backfills (docs/subscriptions/08-data-model.md section 5; stories K1.4, K2.1). Every change here is idempotent and
+        additive: a rerun inserts nothing and never overwrites a row an admin has edited.
+
+        sub-seed-services (K1.4): the services, secondary limits, dependency graph, products and inactive presets of CatalogSeedData, through the
+        customChange CatalogSeedChange. It creates NO product_price row: the catalog ships with products and without prices, and an admin publishes
+        them. The dependency graph and the limits are seeded here (not in K1.2) because they point at the services this change creates.
+    -->
+    <changeSet id="sub-seed-services" author="subscription" runInTransaction="false">
+        <customChange class="com.dossier.api.service.catalog.seed.CatalogSeedChange"/>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

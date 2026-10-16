@@ -124,5 +124,6 @@
     <include file="config/liquibase/changelog/20261109010000_extension_connect_code.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261101010000_sub_catalog.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261101011000_sub_catalog_doc21.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261101040000_sub_backfill.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
