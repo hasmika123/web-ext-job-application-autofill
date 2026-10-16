@@ -14,6 +14,8 @@ import TasksPage from "./tasks/TasksPage";
 import ActivitiesPage from "./activity/ActivitiesPage";
 import PerformancePage from "./performance/PerformancePage";
 import type { MktPageProps } from "./parts";
+import { firstNameOf } from "@/lib/ent/dashboard";
+import type { MeTenant } from "@/lib/ent/workspaces";
 
 /**
  * The Marketing workspace's real pages, keyed by the first path segment under `/w/marketing`. The catch-all route calls this once;
@@ -53,4 +55,16 @@ export function marketingPage(slug: string[], props: MktPageProps): ReactNode | 
     default:
       return null;
   }
+}
+
+/**
+ * The Marketing workspace page for `slug`, with the props every one of them takes, from the signed-in member. ONE place builds them: the catch-all route and every
+ * explicit `[workspace]/<page>` route that must hand the Marketing workspace its own page (D5 of the 2026-10-16 audit: `[workspace]/jobs/page.tsx` shadowed the
+ * catch-all and answered "on the way" to a marketer, so `JobDiscoveryPage` never mounted). Null when the member has no organization id or the page is not built.
+ */
+export function marketingPageFor(me: MeTenant, slug: string[]): ReactNode | null {
+  if (!me.org.id) return null;
+  const nav = me.workspaces.find((w) => w.key === "marketing")?.nav ?? [];
+  const hrefs = Object.fromEntries(nav.map((n) => [n.key, n.href]));
+  return marketingPage(slug, { orgId: me.org.id, orgName: me.org.displayName, firstName: firstNameOf(me.person.name), hrefs, selfMemberId: me.member.id });
 }

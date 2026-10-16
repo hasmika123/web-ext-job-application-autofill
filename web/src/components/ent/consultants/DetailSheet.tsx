@@ -48,7 +48,7 @@ import { ActivityTab, ApplicationsTab, AssignmentsTab } from "./Tabs";
 import { useConsultantDetail, type SaveResult } from "./useConsultantDetail";
 
 export type SheetMode = "push" | "overlay" | "sheet";
-export type FlowKind = "marketer" | "license" | "department" | "application" | "deactivate" | "reactivate";
+export type FlowKind = "marketer" | "license" | "department" | "application" | "deactivate" | "reactivate" | "link";
 
 const UNDO_MS = 9000; // config-literal-ok: how long an Undo stays offered (UI timing)
 
@@ -118,6 +118,7 @@ function Overview({ detail, canEdit, save, onSaved, onTab, onFlow }: { detail: C
   ];
   if (a.assignMarketer) quick.push({ key: "marketer", label: "Assign Marketer", icon: <UserIcon size={16} />, run: () => onFlow("marketer", detail) });
   if (a.edit) quick.push({ key: "license", label: "Manage License", icon: <GearIcon size={16} />, run: () => onFlow("license", detail) });
+  if (a.edit && detail.memberId === null) quick.push({ key: "link", label: "Link a sign-in", icon: <UserIcon size={16} />, run: () => onFlow("link", detail) });
   if (a.edit) quick.push({ key: "department", label: "Add to Department", icon: <UsersIcon size={16} />, run: () => onFlow("department", detail) });
   if (a.createApplication) quick.push({ key: "application", label: "Create Job Application", icon: <BriefcaseIcon size={16} />, run: () => onFlow("application", detail) });
   if (a.deactivate) quick.push({ key: "deactivate", label: "Deactivate Consultant", icon: <TrashIcon size={16} />, run: () => onFlow("deactivate", detail), danger: true });

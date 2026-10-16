@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import DashboardPage from "@/components/ent/dashboard/DashboardPage";
 import { consultantPage } from "@/components/ent/consultant-ws/registry";
-import { marketingPage } from "@/components/ent/marketer-ws/registry";
+import { marketingPageFor } from "@/components/ent/marketer-ws/registry";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
 import { firstNameOf } from "@/lib/ent/dashboard";
 import { getTenantSession } from "@/lib/ent/tenant-session";
@@ -49,11 +49,9 @@ export default async function WorkspaceCatchAll({ params }: { params: Promise<{ 
       />
     );
   }
-  if (hit.kind === "page" && workspace === "marketing" && me.org.id) {
+  if (hit.kind === "page" && workspace === "marketing") {
     // The Marketing workspace's real pages (one folder each under components/ent/marketer-ws); the rest keep "on the way".
-    const nav = me.workspaces.find((w) => w.key === "marketing")?.nav ?? [];
-    const hrefs = Object.fromEntries(nav.map((n) => [n.key, n.href]));
-    const page = marketingPage(slug ?? [], { orgId: me.org.id, orgName: me.org.displayName, firstName: firstNameOf(me.person.name), hrefs, selfMemberId: me.member.id });
+    const page = marketingPageFor(me, slug ?? []);
     if (page) return page;
   }
   if (hit.kind === "page" && workspace === "consultant" && me.org.id) {

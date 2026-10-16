@@ -408,6 +408,8 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/applications", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/activity", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/job-options", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/linkable-members", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/member", Case.versioned(200, "CONSULTANT_UPDATE", w -> "{\"memberId\":" + w.member.getId() + "}", w -> null)),
         Map.entry("POST /api/orgs/{orgId}/consultants", Case.write("{\"displayName\":\"Isolation Test\",\"email\":\"isolation.test@example.org\"}", 201, "CONSULTANT_CREATE")),
         Map.entry("PATCH /api/orgs/{orgId}/consultants/{consultantId}", Case.versioned(200, "CONSULTANT_UPDATE", w -> "{\"locationLabel\":\"Hijacked\"}", w -> w.consultantVersion)),
         Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/marketer", Case.versioned(200, "CONSULTANT_ASSIGN", w -> "{\"marketerMemberId\":" + w.member.getId() + "}", w -> null)),

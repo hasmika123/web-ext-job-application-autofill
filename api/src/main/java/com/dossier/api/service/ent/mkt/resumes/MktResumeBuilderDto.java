@@ -15,7 +15,7 @@ public final class MktResumeBuilderDto {
     /** What the chooser says about the consultant's saved profile (never the values themselves, only counts and the headline). */
     public record NewResumeProfileSummary(int itemCount, int roles, int schools, int skills, String headline) {}
 
-    /** A resume of the consultant the "copy" source can start from. {@code id} is the Resume Builder resume id. */
+    /** A resume of the consultant the "copy" source can start from. {@code id} is the Resume Builder resume id, or (kind RECORD: a directory record with no builder document) the NEGATED directory id. */
     public record NewResumeCopyable(Long id, String name, String kind, Instant updatedAt) {}
 
     /** The sources the chooser offers for one consultant. */

@@ -10951,6 +10951,46 @@
         }
       }
     },
+    "/api/orgs/{orgId}/consultants/{consultantId}/member" : {
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Link a consultant profile to an organization member",
+        "description" : "consultants.edit. Body: memberId (an ACTIVE or INVITED member of this organization with no profile: 422 / 409 MEMBER_ALREADY_LINKED; the consultant must not be linked yet: 409 CONSULTANT_ALREADY_LINKED). Their sign-in then opens the consultant workspace. One CONSULTANT_UPDATE audit row.",
+        "operationId" : "linkMember",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/consultants/{consultantId}/marketer" : {
       "post" : {
         "tags" : [ "consultants" ],
@@ -19909,6 +19949,26 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/resumes/sources" : {
+      "get" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "What the new-resume chooser offers",
+        "description" : "{profile: {itemCount, roles, schools, skills, headline}, resumes: [{id, resumeId, name, updatedAt}]}: the account's profile items, or the career profile in this organization when there are none; and the caller's approved resumes (resumeId is null for a directory record with no builder document: copy it with source {kind:'directory', orgResumeId: id}). resumes.manage required; 404 for everyone else.",
+        "operationId" : "sources",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Sources"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/profile" : {
       "get" : {
         "tags" : [ "consultant-workspace" ],
@@ -21558,6 +21618,29 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Activity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/linkable-members" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "People who can be linked to a consultant profile",
+        "description" : "consultants.edit. Members (ACTIVE or INVITED) who hold the Consultant role and have no profile yet: {memberId, name, email, status}. The pickers of Add consultant and of the drawer's Link a sign-in.",
+        "operationId" : "linkableMembers",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LinkableMember"
+                  }
                 }
               }
             }
@@ -33629,6 +33712,64 @@
           }
         }
       },
+      "SourceProfile" : {
+        "type" : "object",
+        "properties" : {
+          "itemCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "roles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "schools" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "skills" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "headline" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SourceResume" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "resumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Sources" : {
+        "type" : "object",
+        "properties" : {
+          "profile" : {
+            "$ref" : "#/components/schemas/SourceProfile"
+          },
+          "resumes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SourceResume"
+            }
+          }
+        }
+      },
       "OfferPage" : {
         "type" : "object",
         "properties" : {
@@ -34208,6 +34349,24 @@
             "format" : "int32"
           },
           "roundLabel" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LinkableMember" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "email" : {
             "type" : "string"
           },
           "status" : {

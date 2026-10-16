@@ -183,6 +183,33 @@ public class OrgConsultantResource {
     }
 
     @Operation(
+        summary = "People who can be linked to a consultant profile",
+        description = "consultants.edit. Members (ACTIVE or INVITED) who hold the Consultant role and have no profile yet: {memberId, name, email, status}. The pickers of Add consultant and of the drawer's Link a sign-in."
+    )
+    @GetMapping("/linkable-members")
+    @OrgPermissionRequired
+    public List<ConsultantWriteService.LinkableMember> linkableMembers(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {
+        return write.linkableMembers(me);
+    }
+
+    @Operation(
+        summary = "Link a consultant profile to an organization member",
+        description = "consultants.edit. Body: memberId (an ACTIVE or INVITED member of this organization with no profile: 422 / 409 MEMBER_ALREADY_LINKED; the consultant must not be linked yet: 409 CONSULTANT_ALREADY_LINKED). " +
+            "Their sign-in then opens the consultant workspace. One CONSULTANT_UPDATE audit row."
+    )
+    @PostMapping("/{consultantId}/member")
+    @OrgPermissionRequired
+    public ConsultantDTO.Detail linkMember(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long consultantId,
+        @RequestBody Map<String, Object> body
+    ) {
+        demoGuard.assertNotDemo();
+        Object raw = body == null ? null : body.get("memberId");
+        return write.linkMember(me, consultantId, raw instanceof Number n ? n.longValue() : null);
+    }
+
+    @Operation(
         summary = "Assign or change the marketer",
         description = "assignments.manage (a TEAM holder may only name marketers inside their team). Body: marketerMemberId (an ACTIVE seat with marketer capacity: 422 MARKETER_INVALID), backupMemberId, priority. " +
             "One CONSULTANT_ASSIGN audit row when the marketer changes."

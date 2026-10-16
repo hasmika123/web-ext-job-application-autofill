@@ -22,6 +22,7 @@ import com.dossier.api.service.ent.authz.AuthzOperation;
 import com.dossier.api.service.ent.authz.AuthzRequest;
 import com.dossier.api.service.ent.authz.Beneficiary;
 import com.dossier.api.service.ent.mkt.MktScope;
+import com.dossier.api.service.ent.resumes.ConsultantCareerSeed;
 import com.dossier.api.service.ent.mkt.resumes.MktResumeBuilderDto.NewResumeConsultant;
 import com.dossier.api.service.ent.mkt.resumes.MktResumeBuilderDto.NewResumeCopyable;
 import com.dossier.api.service.ent.mkt.resumes.MktResumeBuilderDto.NewResumeBody;
@@ -60,6 +61,10 @@ public class MktResumeBuilderService {
 
     public static final String EDIT_KEY = MktResumesService.EDIT_KEY;
     public static final String AUDIT_CREATE = "MARKETER_RESUME_CREATE";
+
+    /** Where "Use their profile" and a directory copy get their content (the organization's career profile); absent in hand-wired unit tests. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ConsultantCareerSeed careerSeed;
 
     private final MktScope scope;
     private final AuthorizationService authorization;
@@ -128,22 +133,29 @@ public class MktResumeBuilderService {
         MktScope.View view = editView(me);
         ConsultantProfile c = consultant(view, me.orgId(), consultantId);
         User owner = accountOf(me.orgId(), c).orElseThrow(MktResumeBuilderService::noAccount);
-        List<ProfileItem> items = profileItems.findByUserIdAndDeletedAtIsNullOrderBySectionAscPositionAsc(owner.getId()).stream().filter(i -> !i.isHidden()).toList();
-        int skills = 0;
-        for (ProfileItem i : items) if (i.getSection() == ProfileSection.SKILL) skills += skillCount(i.getDataJson());
-        NewResumeProfileSummary profile = new NewResumeProfileSummary(
-            items.size(),
-            (int) items.stream().filter(i -> i.getSection() == ProfileSection.EXPERIENCE).count(),
-            (int) items.stream().filter(i -> i.getSection() == ProfileSection.EDUCATION).count(),
-            skills,
-            headlineOf(owner)
-        );
+        NewResumeProfileSummary profile;
+        if (careerSeed != null) {
+            ConsultantCareerSeed.Summary s = careerSeed.summary(me.orgId(), c, owner.getId());
+            profile = new NewResumeProfileSummary(s.itemCount(), s.roles(), s.schools(), s.skills(), s.headline() != null ? s.headline() : headlineOf(owner));
+        } else {
+            List<ProfileItem> items = profileItems.findByUserIdAndDeletedAtIsNullOrderBySectionAscPositionAsc(owner.getId()).stream().filter(i -> !i.isHidden()).toList();
+            int skills = 0;
+            for (ProfileItem i : items) if (i.getSection() == ProfileSection.SKILL) skills += skillCount(i.getDataJson());
+            profile = new NewResumeProfileSummary(
+                items.size(),
+                (int) items.stream().filter(i -> i.getSection() == ProfileSection.EXPERIENCE).count(),
+                (int) items.stream().filter(i -> i.getSection() == ProfileSection.EDUCATION).count(),
+                skills,
+                headlineOf(owner)
+            );
+        }
         List<NewResumeCopyable> copyable = orgResumes
             .findByOrgIdAndConsultantId(me.orgId(), c.getId())
             .stream()
-            .filter(r -> r.getResumeId() != null)
+            .filter(r -> !"PENDING".equals(r.getApprovalStatus()) && !"REJECTED".equals(r.getApprovalStatus()))
             .sorted(Comparator.comparing(OrgResume::getUpdatedAt).reversed())
-            .map(r -> new NewResumeCopyable(r.getResumeId(), r.getName(), "BUILT", r.getUpdatedAt()))
+            // a builder resume is copied by its resume id; a directory record with no builder document by its NEGATED directory id ({kind:'directory'})
+            .map(r -> r.getResumeId() != null ? new NewResumeCopyable(r.getResumeId(), r.getName(), "BUILT", r.getUpdatedAt()) : new NewResumeCopyable(-r.getId(), r.getName(), "RECORD", r.getUpdatedAt()))
             .toList();
         return new NewResumeSources(c.getId(), c.getDisplayName(), profile, copyable);
     }
@@ -158,10 +170,11 @@ public class MktResumeBuilderService {
         User owner = accountOf(me.orgId(), c).orElseThrow(MktResumeBuilderService::noAccount);
         NewResumeBody b = body == null ? new NewResumeBody(null, null, null, null) : body;
         requireCopySourceInDirectory(me.orgId(), c, b.source());
+        JsonNode source = careerSeed == null ? b.source() : careerSeed.resolve(me.orgId(), c, owner.getId(), b.source());
         BuiltResumeDTO built = ResumeActAs.run(
             owner,
             new ResumeActAs.Scope(me.orgId(), me.login(), me.userId()),
-            () -> docs.createBuilt(b.templateId(), b.target(), b.label(), b.source())
+            () -> docs.createBuilt(b.templateId(), b.target(), b.label(), source)
         );
         Long resumeId = built.resume().getId();
         OrgResume row = orgResumes
@@ -234,7 +247,7 @@ public class MktResumeBuilderService {
     }
 
     private static OrgException noAccount() {
-        return OrgException.coded(409, "CONSULTANT_HAS_NO_ACCOUNT", "This consultant has no sign-in yet, so they could not approve a resume made for them.", Map.of());
+        return OrgException.coded(409, "CONSULTANT_HAS_NO_ACCOUNT", "This consultant needs an organization account (an account of this organization, not a personal one), so they could not approve a resume made for them.", Map.of());
     }
 
     private static String sourceKind(JsonNode source) {
