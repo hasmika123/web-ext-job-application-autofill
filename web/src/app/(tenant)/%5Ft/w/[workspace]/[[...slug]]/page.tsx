@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import DashboardPage from "@/components/ent/dashboard/DashboardPage";
 import ReportsPage from "@/components/ent/reports/ReportsPage";
-import { consultantPage } from "@/components/ent/consultant-ws/registry";
 import { marketingPageFor } from "@/components/ent/marketer-ws/registry";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
 import { firstNameOf } from "@/lib/ent/dashboard";
