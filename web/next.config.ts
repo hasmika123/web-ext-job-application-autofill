@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { siteSecurityHeaders } from "./src/lib/site-headers";
 
 // The repo root is the npm-workspace root (root package.json + lockfile). web/ is a member,
 // so `next` and @kiwiply/ui resolve from the ROOT node_modules — Turbopack + file-tracing
@@ -25,6 +26,10 @@ const nextConfig: NextConfig = {
   // tracer cannot see. Include them so the standalone image has them at ../packages/ui (relative to
   // the server's cwd, web/).
   serverExternalPackages: ["playwright-core"],
+  // T5.2: security headers on the main site (tenant hosts add theirs in the proxy; see src/lib/site-headers.ts).
+  async headers() {
+    return [{ source: "/:path*", headers: siteSecurityHeaders(process.env.NODE_ENV !== "production") }];
+  },
   outputFileTracingIncludes: {
     "/api/resumes/[id]/export": [
       "../packages/ui/styles/resume.css",

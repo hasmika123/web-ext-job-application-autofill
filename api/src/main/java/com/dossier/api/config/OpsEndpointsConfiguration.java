@@ -26,4 +26,13 @@ public class OpsEndpointsConfiguration {
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 5);
         return bean;
     }
+
+    /** T5.2: safe response headers (HSTS, nosniff, referrer, framing, permissions) on every API response. */
+    @Bean
+    public FilterRegistrationBean<com.dossier.api.web.filter.SecurityHeadersFilter> securityHeadersFilter() {
+        FilterRegistrationBean<com.dossier.api.web.filter.SecurityHeadersFilter> bean = new FilterRegistrationBean<>(new com.dossier.api.web.filter.SecurityHeadersFilter());
+        bean.addUrlPatterns("/*");
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
+        return bean;
+    }
 }

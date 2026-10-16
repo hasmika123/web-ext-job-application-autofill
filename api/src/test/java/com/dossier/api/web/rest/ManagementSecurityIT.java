@@ -2,6 +2,7 @@ package com.dossier.api.web.rest;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dossier.api.IntegrationTest;
@@ -26,7 +27,20 @@ class ManagementSecurityIT {
     }
 
     @Test
-    void prometheusNeedsACredential() throws Exception {
+    void everyApiResponseCarriesTheSafeHeaders() throws Exception {
+        for (String path : new String[] { "/management/health", "/api/profile/version", "/api/does-not-exist" }) {
+            mockMvc.perform(get(path))
+                .andExpect(header().string("Strict-Transport-Security", "max-age=31536000; includeSubDomains"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("Referrer-Policy", "no-referrer"))
+                .andExpect(header().exists("Content-Security-Policy"))
+                .andExpect(header().exists("Permissions-Policy"))
+                .andExpect(header().string("X-Frame-Options", "DENY"));
+        }
+    }
+
+    @Test
+    void prometheusNeedsACredential()throws Exception {
         mockMvc.perform(get("/management/prometheus")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/management/prometheus").header("Authorization", "Bearer wrong")).andExpect(status().isUnauthorized());
     }
