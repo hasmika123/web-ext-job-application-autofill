@@ -338,19 +338,19 @@ Not built: the invitation form has no Team or Manager field (department only), s
 - **Pages / APIs:** Invitations, Members, `POST /api/orgs/{id}/members/account`, `POST /api/orgs/{id}/members/{seat}/offboard`, kiwiply.com `/login`.
 - **Status: STORY-ONLY (the API walk is `SeparateAccountsRegressionIT`)**
 
-### ADM-98 The Org Admin writes the organization's privacy policy from the template and submits it for review
+### ADM-120 The Org Admin writes the organization's privacy policy from the template and submits it for review
 - **Persona:** Oscar (Org Admin of Acme Staffing). **Steps:** 1. Open Policies from the Administration menu. 2. Open "Privacy Policy" (state Draft, "Template shown") and choose "Start from template": the text appears with "Acme Staffing" and the support address merged in. 3. Edit a sentence, choose "Save draft". 4. Choose "Submit for review".
 - **Expected:** the preview matches the text and takes the organization's colours; after step 4 the state reads "In review", the editor is locked and only "Withdraw from review" is offered; `acme.localhost/privacy` still shows the neutral template (a draft or an in-review text is never public); History shows the submission without the text.
 - **Pages / APIs:** Policies, `POST /api/orgs/{id}/policies/PRIVACY/template`, `PUT .../draft`, `POST .../request-review`.
 - **Status: STORY-ONLY (covered by `OrgPolicyResourceIT`, `PoliciesPage.test.tsx`)**
 
-### ADM-99 The Org Admin sees the reviewer's comment, fixes the text and resubmits; or withdraws a submission
+### ADM-121 The Org Admin sees the reviewer's comment, fixes the text and resubmits; or withdraws a submission
 - **Persona:** Oscar. **Preconditions:** a Kiwiply reviewer sent the privacy policy back with the note "Please name your data protection contact." **Steps:** 1. The bell shows "Changes requested to your Privacy Policy". 2. Open Policies: the page shows the state "Changes requested" and the note. 3. Add the contact, save, submit again. 4. On the Terms policy, submit and then choose "Withdraw from review".
 - **Expected:** step 3 puts it back in review as version 2 (version 1 stays in History as sent back); step 4 returns Terms to Draft and the reviewer's queue no longer lists it; an attempt to edit while in review is refused with a clear message; HTML, images and unsafe links in the text are refused with "HTML is not allowed" style messages and nothing is saved.
 - **Pages / APIs:** Policies, bell, `POST .../request-review`, `POST .../withdraw`.
 - **Status: STORY-ONLY (covered by `OrgPolicyResourceIT`)**
 
-### ADM-100 An organization with review switched off publishes its own policy at once
+### ADM-122 An organization with review switched off publishes its own policy at once
 - **Persona:** the app admin sets `enterprise.policies.require_review` to off; Oscar. **Steps:** 1. Oscar saves a Terms text and chooses "Publish". 2. Open `acme.localhost/terms` signed out.
 - **Expected:** the button reads "Publish" instead of "Submit for review"; the public page shows Oscar's text at once, with "Last updated"; History of the organization shows `POLICY_SUBMIT` and `POLICY_APPROVE` by Oscar's login; turning the setting back on restores the review step for the next change (the live text stays).
 - **Pages / APIs:** Policies, Settings (platform admin), `GET /api/public/tenant/policies/TERMS`.

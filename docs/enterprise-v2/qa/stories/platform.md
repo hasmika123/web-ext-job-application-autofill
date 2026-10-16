@@ -404,14 +404,14 @@ Temporary passwords are read from the shown-once dialog at run time and never pr
 - **Status: STORY-ONLY (covered by `EnterpriseAccountMigrationJobIT` and `EnterpriseAccountInvariantIT`)**
 
 ### APP-08 The app admin approves an organization's first privacy policy
-- **Persona:** the Kiwiply app admin. **Preconditions:** Acme submitted its privacy policy (ADM-98). **Steps:** 1. Open Policy reviews: Acme Staffing, Privacy Policy, "first publication". 2. Open it: the whole text shows as added lines. 3. Choose "Approve and publish".
+- **Persona:** the Kiwiply app admin. **Preconditions:** Acme submitted its privacy policy (ADM-120). **Steps:** 1. Open Policy reviews: Acme Staffing, Privacy Policy, "first publication". 2. Open it: the whole text shows as added lines. 3. Choose "Approve and publish".
 - **Expected:** the queue empties; `acme.localhost/privacy` shows the approved text (version 1, "Last updated"); Acme's Org Admins get an in-app notice "Privacy Policy is published"; Acme's History shows `POLICY_APPROVE` by the app admin's login (not an Acme member); the admin audit log records it.
 - **Pages / APIs:** Policy reviews (`/admin/policy-reviews`), `GET /api/admin/org-policies`, `POST /api/admin/org-policies/{id}/approve`.
 - **Status: STORY-ONLY (covered by `OrgPolicyResourceIT`, `PolicyReviewsPage.test.tsx`)**
 
 ### APP-09 The app admin compares an update with the live text and sends it back with a comment
 - **Persona:** the app admin. **Preconditions:** Acme has version 1 live and submitted version 2. **Steps:** 1. Open the submission: a line diff against version 1 (removed lines struck through, added lines highlighted, "+N lines, -M lines"). 2. "Request changes" is disabled until the note field has text; write "Name your data protection contact." and send.
-- **Expected:** version 1 stays public; Acme sees "Changes requested" with the note (ADM-99); a second decision on the same submission is refused (409) and a withdrawn one cannot be decided; an Org Admin of Acme calling the review API gets 401/403, never data.
+- **Expected:** version 1 stays public; Acme sees "Changes requested" with the note (ADM-121); a second decision on the same submission is refused (409) and a withdrawn one cannot be decided; an Org Admin of Acme calling the review API gets 401/403, never data.
 - **Pages / APIs:** Policy reviews, `POST /api/admin/org-policies/{id}/request-changes`.
 - **Status: STORY-ONLY (covered by `OrgPolicyResourceIT`)**
 

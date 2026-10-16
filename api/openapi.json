@@ -105,6 +105,9 @@
     "name" : "tracker-act-for",
     "description" : "A marketer saves a job for an assigned consultant (save only, never submit)."
   }, {
+    "name" : "org-policies",
+    "description" : "Organization policy pages: draft, template, request review, withdraw."
+  }, {
     "name" : "notifications",
     "description" : "In-app notifications."
   }, {
@@ -125,6 +128,9 @@
   }, {
     "name" : "interviews",
     "description" : "Interviews: the table, KPI tiles, pipeline, analytics and the detail drawer; recorded schedules, reschedules, status changes, reminder requests and feedback."
+  }, {
+    "name" : "tenant",
+    "description" : "Public tenant policy pages for the host a visitor arrived on."
   }, {
     "name" : "profile-suggestions",
     "description" : "Suggested profile values learned while applying; reviewed by the user."
@@ -1210,6 +1216,52 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/OrgResumePolicyDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/policies/{policyKind}/draft" : {
+      "put" : {
+        "tags" : [ "org-policies" ],
+        "summary" : "Save the draft",
+        "description" : "Body: {body}. A small Markdown subset; HTML, images and unsafe links are refused (422 POLICY_BODY_INVALID). If-Match: the draftVersion the editor last saw (409 POLICY_DRAFT_CONFLICT when stale). 409 POLICY_STATE while in review.",
+        "operationId" : "saveDraft",
+        "parameters" : [ {
+          "name" : "policyKind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "If-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
                 }
               }
             }
@@ -5531,6 +5583,88 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/policies/{policyKind}/withdraw" : {
+      "post" : {
+        "tags" : [ "org-policies" ],
+        "summary" : "Take an in-review submission back to the draft",
+        "operationId" : "withdraw",
+        "parameters" : [ {
+          "name" : "policyKind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/policies/{policyKind}/template" : {
+      "post" : {
+        "tags" : [ "org-policies" ],
+        "summary" : "Replace the draft with the neutral template (the organization's name and support contact merged in)",
+        "operationId" : "template",
+        "parameters" : [ {
+          "name" : "policyKind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/policies/{policyKind}/request-review" : {
+      "post" : {
+        "tags" : [ "org-policies" ],
+        "summary" : "Send the draft to a Kiwiply reviewer",
+        "description" : "409 POLICY_STATE unless DRAFT or CHANGES_REQUESTED; 409 POLICY_NOTHING_TO_SEND when it equals the live text.",
+        "operationId" : "requestReview",
+        "parameters" : [ {
+          "name" : "policyKind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
                 }
               }
             }
@@ -14721,6 +14855,80 @@
         }
       }
     },
+    "/api/admin/org-policies/{id}/request-changes" : {
+      "post" : {
+        "tags" : [ "admin-policy-review-resource" ],
+        "operationId" : "requestChanges",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReviewDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/org-policies/{id}/approve" : {
+      "post" : {
+        "tags" : [ "admin-policy-review-resource" ],
+        "operationId" : "approve_2",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReviewDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/job-sources" : {
       "get" : {
         "tags" : [ "admin-job-source-resource" ],
@@ -16834,6 +17042,56 @@
         }
       }
     },
+    "/api/public/tenant/policies" : {
+      "get" : {
+        "tags" : [ "tenant" ],
+        "summary" : "The policy kinds this host offers (key, title, page path)",
+        "operationId" : "kinds",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/KindLink"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/public/tenant/policies/{kind}" : {
+      "get" : {
+        "tags" : [ "tenant" ],
+        "summary" : "One policy of the host's organization",
+        "description" : "No authentication. {kind} is PRIVACY, TERMS, ACCEPTABLE_USE, SUPPORT_CONTACT (or a configured kind; privacy / acceptable-use / support also work). source=PUBLISHED is the approved text, source=TEMPLATE the neutral text shown until one is published. Cache-Control: public, max-age=60, Vary: X-Kiwiply-Host.",
+        "operationId" : "policy",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PublicPolicy"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/public/tenant/demo" : {
       "get" : {
         "tags" : [ "demo" ],
@@ -18113,12 +18371,58 @@
         }
       }
     },
+    "/api/orgs/{orgId}/policies" : {
+      "get" : {
+        "tags" : [ "org-policies" ],
+        "summary" : "Every configured policy kind with its state and what is live",
+        "operationId" : "list_17",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ListView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/policies/{policyKind}" : {
+      "get" : {
+        "tags" : [ "org-policies" ],
+        "summary" : "One policy: the draft, the live text and the history",
+        "operationId" : "get_18",
+        "parameters" : [ {
+          "name" : "policyKind",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/placements/{placementId}" : {
       "get" : {
         "tags" : [ "placements" ],
         "summary" : "One placement: the detail drawer",
         "description" : "Placement details, the engagement timeline (start, midpoint, end and how far today is), extension status with every request, post-placement availability, the timeline events and notes, what the caller may do (actions) and, for a few minutes after the caller's own latest change, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_18",
+        "operationId" : "get_19",
         "parameters" : [ {
           "name" : "placementId",
           "in" : "path",
@@ -18311,7 +18615,7 @@
         "tags" : [ "mkt-talent" ],
         "summary" : "The My Assigned Talent board",
         "description" : "{kpis, counts, facets, items, total, page, size, cards, views, canAddConsultant} in one call. Filters: q, status (AVAILABLE_NOW|IN_INTERVIEW|NEEDS_UPDATE|PENDING_APPROVAL), skill, location, experience (0-2|3-5|6-8|9+), availability (AVAILABLE_NOW|IN_INTERVIEW|SOON|LATER|ON_PROJECT|UNAVAILABLE), sort (name|experience|location|apps|jobs|availability, '-' = descending), page, size (cap 100). consultants.view required; 404 for everyone else.",
-        "operationId" : "list_17",
+        "operationId" : "list_18",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -18484,7 +18788,7 @@
         "tags" : [ "mkt-submissions" ],
         "summary" : "Withdraw a draft",
         "description" : "submissions.record. The record leaves the board; its history is kept. 409 unless it is still a draft.",
-        "operationId" : "withdraw",
+        "operationId" : "withdraw_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -18526,7 +18830,7 @@
         "tags" : [ "mkt-resumes" ],
         "summary" : "The Resumes board (one call)",
         "description" : "{kpis (total, profilesReady, needUpdates, approvalsPending), items, total, page, size, skills, activity, canApprove}. resumes.view_for (ASSIGNED for a marketer). Query: q (consultant, resume title or target role), skill, status (APPROVED|PENDING|NEEDS_UPDATE), updated (7d|30d|3m|6m|all), availability, sort (modified|consultant|title|version|completeness|approval[,asc|desc]), page (from 0), size (1-100).",
-        "operationId" : "list_18",
+        "operationId" : "list_19",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -18681,7 +18985,7 @@
         "tags" : [ "mkt-performance" ],
         "summary" : "The Performance board (one call)",
         "description" : "{generatedAt, kpis[6], weekly, trend, funnel, readiness, streams, top[5], benchmarks, goals, actions}. weeks = 4w|8w|12w; trend, funnel, streams = 1m|3m|6m; benchmarks, goals = month|lastMonth. A section with no rows is empty or null. 404 without reports.view.",
-        "operationId" : "get_19",
+        "operationId" : "get_20",
         "parameters" : [ {
           "name" : "weeks",
           "in" : "query",
@@ -18891,7 +19195,7 @@
         "tags" : [ "mkt-matches" ],
         "summary" : "The Job Matches board (one call)",
         "description" : "{kpis, filters, items, total, page, size, topToday, explanation}. Filters: consultantId, skill (primary skill), clientId, score (high|mid|low), q; sort: score|consultant|job|client|created, '-' = descending (default -score); page (0-based), size (max 100); selected = the match whose explanation to return.",
-        "operationId" : "list_19",
+        "operationId" : "list_20",
         "parameters" : [ {
           "name" : "page",
           "in" : "query",
@@ -18981,7 +19285,7 @@
       "get" : {
         "tags" : [ "mkt-matches" ],
         "summary" : "One match with its explanation and insights (Review drawer)",
-        "operationId" : "get_20",
+        "operationId" : "get_21",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -19046,7 +19350,7 @@
         "tags" : [ "mkt-jobs" ],
         "summary" : "The Job Discovery board",
         "description" : "{kpis, items, total, page, size, canAssign, facets, trendingSkills, topClients, alerts, savedSearches, streams}. matches.run required. Filters: q, skills (comma separated, any), location, workType (ON_SITE|HYBRID|REMOTE), visa, source, rateMin/rateMax (dollars per hour; a yearly rate is /2080), sort (posted_desc|posted_asc|rate_desc|title_asc|client_asc), page (0-based), size (max 100). 404 for everyone without the permission.",
-        "operationId" : "list_20",
+        "operationId" : "list_21",
         "parameters" : [ {
           "name" : "page",
           "in" : "query",
@@ -19349,7 +19653,7 @@
         "tags" : [ "mkt-home" ],
         "summary" : "The Marketing Home board (one call)",
         "description" : "{kpis[6], talent[5], streams[5], openings[5], pipeline, tasks[5], interviews[4], activity[5]}. Each section is empty (or null) when its source has no rows or the caller may not read its page. 404 without consultants.view.",
-        "operationId" : "get_21",
+        "operationId" : "get_22",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -19369,7 +19673,7 @@
         "tags" : [ "mkt-followups" ],
         "summary" : "One bucket as a page (today, overdue, upcoming, completed, waiting)",
         "description" : "page (0-based), size (cap 100), q (title, detail, client or consultant), sort = dueAt|priority|consultant[,desc].",
-        "operationId" : "list_21",
+        "operationId" : "list_22",
         "parameters" : [ {
           "name" : "bucket",
           "in" : "query",
@@ -19431,7 +19735,7 @@
         "tags" : [ "mkt-applications" ],
         "summary" : "The Applications board",
         "description" : "{kpis, tracker{items,total,page,size,tabs,filters,notShared}, funnel, overdue, overdueTotal, updates, perms}. Query: q, consultantId, clientId, stage (applied|awaiting|interviewing|offer|hired|not_selected|all), period and funnelPeriod (1m|3m|6m|12m|all), sort (appliedOn,desc|asc), page (0-based), size (max 100). A consultant who shares less than FULL shows the stage only; one who shares nothing is counted in tracker.notShared and listed nowhere.",
-        "operationId" : "get_22",
+        "operationId" : "get_23",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -19521,7 +19825,7 @@
         "tags" : [ "members" ],
         "summary" : "List employees",
         "description" : "Paged, server-driven table of the Employees board. Needs a people permission (member.view_summary, hr.view or one of the members.* keys); the rows are only the seats inside the widest scope the caller holds it at. Query: q (name, email, title, role or department/team name; 2 to 80 characters), status (repeatable or comma separated: INVITED, ACTIVE, SUSPENDED, LEFT, REMOVED; default INVITED, ACTIVE, SUSPENDED), roleId, departmentId, teamId, managerId, sort=field,dir (repeatable; name, joined, status, lastActive; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 25). Answers a PageDTO and X-Total-Count. A row seen only through a summary scope carries no work email, manager or consent (summaryOnly = true).",
-        "operationId" : "list_22",
+        "operationId" : "list_23",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -19778,7 +20082,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "The task table",
         "description" : "One filtered, sorted page of the caller's tasks (page size 1 to 50) with the tab counts.",
-        "operationId" : "list_23",
+        "operationId" : "list_24",
         "parameters" : [ {
           "name" : "tab",
           "in" : "query",
@@ -20077,7 +20381,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "My career profile",
         "description" : "Identity, strength with the missing details, summary, skills, certifications, experience highlights, preferences, work-authorization choice and career goals, all for the caller's own consultant record. 404 for everyone else.",
-        "operationId" : "get_23",
+        "operationId" : "get_24",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -20291,7 +20595,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Offers table",
         "description" : "One filtered, sorted page of the caller's offers (size 1 to 50).",
-        "operationId" : "list_24",
+        "operationId" : "list_25",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -21615,7 +21919,7 @@
         "tags" : [ "org-dashboard" ],
         "summary" : "The Org Admin dashboard",
         "description" : "{orgId, generatedAt, widgets: [{key, state: ok|empty|unavailable|error, reason?, module?, data?}]} in board order. dashboard.view_org required; each widget additionally needs its own permission (otherwise it is absent) and its module on (otherwise state unavailable, reason NOT_ENABLED, no data). data is present only when state is ok. 404 for everyone else, and whenever the enterprise or roles flag is off for the organization.",
-        "operationId" : "get_24",
+        "operationId" : "get_25",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -21795,7 +22099,7 @@
         "tags" : [ "consultant-opportunities" ],
         "summary" : "My assigned opportunities",
         "description" : "{items, total}. Filters: state (comma list of ASSIGNED, VIEWED, INTERESTED, NEEDS_INFO, DECLINED, APPLIED, CLOSED), page (from 0), size (default 20, max 100). match=<job page url> or atsPlatform + externalJobId return the opportunities of that posting instead (for the browser extension).",
-        "operationId" : "list_25",
+        "operationId" : "list_26",
         "parameters" : [ {
           "name" : "state",
           "in" : "query",
@@ -21859,7 +22163,7 @@
       "get" : {
         "tags" : [ "consultant-opportunities" ],
         "summary" : "One of my assigned opportunities (404 for anyone else's)",
-        "operationId" : "get_25",
+        "operationId" : "get_26",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -22047,7 +22351,7 @@
       "get" : {
         "tags" : [ "org-branding" ],
         "summary" : "Published values, the draft, its version and the publish history",
-        "operationId" : "get_26",
+        "operationId" : "get_27",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22112,7 +22416,7 @@
         "tags" : [ "audit" ],
         "summary" : "The organization audit log",
         "description" : "{items:[{id, at, action, label, actorName, targetType, targetName}], total, page, size, actions:[{action,label}]}, newest first. Filters: action (an action key), from and to (ISO instants, from inclusive, to exclusive). page from 0, size 1 to 100 (default 25). Free text, logins and IP hashes are never sent. audit.view at ORG scope and not row-filtered; 404 otherwise.",
-        "operationId" : "list_26",
+        "operationId" : "list_27",
         "parameters" : [ {
           "name" : "action",
           "in" : "query",
@@ -22465,7 +22769,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_27",
+        "operationId" : "get_28",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -23644,7 +23948,7 @@
     "/api/admin/users/{login}/sessions" : {
       "get" : {
         "tags" : [ "admin-session-resource" ],
-        "operationId" : "list_27",
+        "operationId" : "list_28",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -23674,7 +23978,7 @@
     "/api/admin/subscribers" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "list_28",
+        "operationId" : "list_29",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -23782,7 +24086,7 @@
     "/api/admin/settings" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "list_29",
+        "operationId" : "list_30",
         "parameters" : [ {
           "name" : "area",
           "in" : "query",
@@ -23852,7 +24156,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_28",
+        "operationId" : "get_29",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -24010,10 +24314,66 @@
         }
       }
     },
+    "/api/admin/org-policies" : {
+      "get" : {
+        "tags" : [ "admin-policy-review-resource" ],
+        "operationId" : "queue",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/QueueRow"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/org-policies/{id}" : {
+      "get" : {
+        "tags" : [ "admin-policy-review-resource" ],
+        "operationId" : "detail_13",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReviewDetail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/inquiries" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "list_30",
+        "operationId" : "list_31",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -24113,7 +24473,7 @@
     "/api/admin/customers" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "list_31",
+        "operationId" : "list_32",
         "parameters" : [ {
           "name" : "filter",
           "in" : "query",
@@ -24173,7 +24533,7 @@
     "/api/admin/customers/{login}" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "detail_13",
+        "operationId" : "detail_14",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -24221,7 +24581,7 @@
     "/api/admin/bug-reports" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "list_32",
+        "operationId" : "list_33",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -30782,6 +31142,52 @@
           }
         }
       },
+      "ReviewDetail" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "orgId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "orgName" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "proposedBody" : {
+            "type" : "string"
+          },
+          "liveBody" : {
+            "type" : "string"
+          },
+          "liveVersion" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "reviewComment" : {
+            "type" : "string"
+          }
+        }
+      },
       "AddRequest" : {
         "type" : "object",
         "properties" : {
@@ -31370,6 +31776,51 @@
           },
           "login" : {
             "$ref" : "#/components/schemas/Login"
+          }
+        }
+      },
+      "KindLink" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PublicPolicy" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "body" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "orgName" : {
+            "type" : "string"
+          },
+          "supportEmail" : {
+            "type" : "string"
           }
         }
       },
@@ -35368,6 +35819,42 @@
           },
           "host" : {
             "type" : "string"
+          }
+        }
+      },
+      "QueueRow" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "orgId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "orgName" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "submittedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "hasLive" : {
+            "type" : "boolean"
           }
         }
       },

@@ -206,7 +206,7 @@ the API re-checks with scope) · **Entitlement / module** · **Empty state** · 
 | Integrations → `/w/admin/integrations` | `IntegrationsPage` (Phase 12) — hidden until the module | — | `integrations.manage` | integrations | — | X12.3 (E) |
 | Audit Logs → `/w/admin/audit` | `AuditLogPage` | `GET …/audit` | `audit.view` | — | "No activity yet" | X4.9 |
 | Settings → `/w/admin/settings` | `OrgSettingsPage` (14 §4) | `GET/PATCH /api/orgs/{id}`, `…/settings` | `org.settings.manage` | — | — | X2.9 |
-| Policies → `/w/admin/policies` | `PoliciesPage` (62): one editor per policy kind, preview, Start from template, Save draft, Submit for review / Withdraw, reviewer comment, history | `GET …/policies[/{kind}]`, `PUT …/{kind}/draft`, `POST …/{kind}/template\|submit\|withdraw` | `org.settings.manage` | `enterprise.policies.kinds` | "Template shown" until a policy is published | 62 (ADM-98..100) |
+| Policies → `/w/admin/policies` | `PoliciesPage` (62): one editor per policy kind, preview, Start from template, Save draft, Submit for review / Withdraw, reviewer comment, history | `GET …/policies[/{kind}]`, `PUT …/{kind}/draft`, `POST …/{kind}/template\|submit\|withdraw` | `org.settings.manage` | `enterprise.policies.kinds` | "Template shown" until a policy is published | 62 (ADM-120..122) |
 | My Profile | avatar menu → `/me` (13) — **not** a nav item | | | | | X2.7 |
 
 ### 5.2 MARKETING — Talent Marketing Specialist (D owns the pages; B owns the nav/shell contract)
