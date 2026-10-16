@@ -254,6 +254,13 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/branding/versions/{versionNo}/restore", Case.write(null, 200, OrgAuditService.BRANDING_RESTORE)),
         Map.entry("POST /api/orgs/{orgId}/branding/assets/{kind}", Case.upload(200, OrgAuditService.BRANDING_ASSET)),
         Map.entry("DELETE /api/orgs/{orgId}/branding/assets/{kind}", Case.write(null, 200, null)),
+        // Tenant policy pages (docs/enterprise-v2/62): the Org Admin's draft / template / submit / withdraw. Publishing is the platform reviewer's (AdminPolicyReviewResource), never an org route.
+        Map.entry("GET /api/orgs/{orgId}/policies", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/policies/{policyKind}", Case.read()),
+        Map.entry("PUT /api/orgs/{orgId}/policies/{policyKind}/draft", Case.write("{\"body\":\"# Hijacked\\n\\nText of the policy.\"}", 200, OrgAuditService.POLICY_DRAFT_SAVE)),
+        Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/template", Case.write(null, 200, OrgAuditService.POLICY_TEMPLATE)),
+        Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/submit", Case.people(200, OrgAuditService.POLICY_SUBMIT, 1, null, null, w -> w.seedPolicy(false))),
+        Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/withdraw", Case.people(200, OrgAuditService.POLICY_WITHDRAW, 1, null, null, w -> w.seedPolicy(true))),
         Map.entry("POST /api/orgs/{orgId}/members/invite", Case.write("{\"emails\":[\"newcomer@example.org\"],\"role\":\"MEMBER\"}", 200, OrgAuditService.MEMBER_INVITE)),
         Map.entry("POST /api/orgs/{orgId}/members/{memberId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND)),
         // Direct account creation with a temporary password: the legitimate call creates an account (HIGH audit row); a reset of a member who
@@ -675,6 +682,7 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.talent.RequirementMatchRepository jobMatches;
     @Autowired private com.dossier.api.service.ent.members.OrgMemberQueryService memberQuery;
     @Autowired private OrgBrandingRepository brandings;
+    @Autowired private com.dossier.api.service.ent.OrgPolicyService policyService;
     @Autowired private OrgBrandingVersionRepository brandingVersions;
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository talentConsultants;
     @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository talentResumes;
@@ -1193,6 +1201,12 @@ class OrgIsolationIT {
             return Long.parseLong(id.substring(id.indexOf(':') + 1)); // the activity feed names a manual line MANUAL:<id>
         }
 
+        /** Tenant policy pages: a PRIVACY draft started from the template, and optionally submitted (so a withdraw has something to take back). */
+        void seedPolicy(boolean submitIt) {
+            policyService.startFromTemplate(me(owner), "PRIVACY");
+            if (submitIt) policyService.submit(me(owner), "PRIVACY");
+        }
+
         void seedMkt() {
             if (mktSeeded) return;
             mktSeeded = true;
@@ -1373,6 +1387,7 @@ class OrgIsolationIT {
             ids.put("memberId", String.valueOf(member.getId()));
             ids.put("offboardingId", String.valueOf(offboardingId));
             ids.put("kind", "logo");
+            ids.put("policyKind", "PRIVACY");
             ids.put("pendingMemberId", String.valueOf(pending.getId())); // X1.8's resend names the INVITED seat; every other {memberId} route is the ACTIVE member
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             ids.put("alertKey", "MEMBERS_SUSPENDED");
@@ -1575,6 +1590,10 @@ class OrgIsolationIT {
         s.append(com.dossier.api.web.rest.ent.ApplicationItSupport.fingerprint(em, w.org.getId()));
         s.append(com.dossier.api.web.rest.ent.PlacementItSupport.fingerprint(em, w.org.getId()));
         s.append(mktFingerprint(w.org.getId()));
+        for (String table : List.of("org_policy", "org_policy_version")) {
+            s.append(table).append(':').append(em.createNativeQuery("select * from " + table + " where org_id = ?1 order by 1").setParameter(1, w.org.getId()).getResultList().stream().map(r -> r instanceof Object[] a ? Arrays.deepToString(a) : String.valueOf(r)).toList()).append('
+');
+        }
         return s.toString();
     }
 

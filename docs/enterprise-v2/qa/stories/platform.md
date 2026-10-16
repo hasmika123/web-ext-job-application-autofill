@@ -402,3 +402,33 @@ Temporary passwords are read from the shown-once dialog at run time and never pr
 - **Expected:** the apply creates two new enterprise accounts, repoints the two seats and leaves every personal account (id, password, resumes, sessions) exactly as it was; the second check says 0 and `readyForSeparate` true; the organization stays SHARED and `enterprise.separate_accounts` is not changed (flipping is a separate, deliberate step); History of the organization shows one HIGH row `ADMIN_ACCOUNT_MIGRATE` without addresses; the health query lists eight invariants with counts only (no address, login or name) and a total of 0 on a healthy database.
 - **Pages / APIs:** `GET /api/admin/orgs/{id}/account-mode-check`, `GET /api/admin/orgs/account-migration/report`, `POST /api/admin/orgs/{id}/account-migration`, `GET /api/admin/enterprise-accounts/health`.
 - **Status: STORY-ONLY (covered by `EnterpriseAccountMigrationJobIT` and `EnterpriseAccountInvariantIT`)**
+
+### APP-08 The app admin approves an organization's first privacy policy
+- **Persona:** the Kiwiply app admin. **Preconditions:** Acme submitted its privacy policy (ADM-98). **Steps:** 1. Open Policy reviews: Acme Staffing, Privacy Policy, "first publication". 2. Open it: the whole text shows as added lines. 3. Choose "Approve and publish".
+- **Expected:** the queue empties; `acme.localhost/privacy` shows the approved text (version 1, "Last updated"); Acme's Org Admins get an in-app notice "Privacy Policy is published"; Acme's History shows `POLICY_APPROVE` by the app admin's login (not an Acme member); the admin audit log records it.
+- **Pages / APIs:** Policy reviews (`/admin/policy-reviews`), `GET /api/admin/org-policies`, `POST /api/admin/org-policies/{id}/approve`.
+- **Status: STORY-ONLY (covered by `OrgPolicyResourceIT`, `PolicyReviewsPage.test.tsx`)**
+
+### APP-09 The app admin compares an update with the live text and sends it back with a comment
+- **Persona:** the app admin. **Preconditions:** Acme has version 1 live and submitted version 2. **Steps:** 1. Open the submission: a line diff against version 1 (removed lines struck through, added lines highlighted, "+N lines, -M lines"). 2. "Request changes" is disabled until the note field has text; write "Name your data protection contact." and send.
+- **Expected:** version 1 stays public; Acme sees "Changes requested" with the note (ADM-99); a second decision on the same submission is refused (409) and a withdrawn one cannot be decided; an Org Admin of Acme calling the review API gets 401/403, never data.
+- **Pages / APIs:** Policy reviews, `POST /api/admin/org-policies/{id}/request-changes`.
+- **Status: STORY-ONLY (covered by `OrgPolicyResourceIT`)**
+
+### PLT-60 A visitor of an organization's address reads its policies, never Kiwiply's
+- **Persona:** a signed-out visitor at `acme.localhost`. **Steps:** 1. Open `/privacy`, `/terms`, `/acceptable-use`, `/support` (no sign-in is asked). 2. Open the footer links of the sign-in page, the forgot-password page and an invitation page. 3. Open `/policies/not-a-kind`.
+- **Expected:** every page shows Acme's logo, colours and name, the neutral template until Acme publishes (no Kiwiply name, logo or link anywhere), and a row of Acme's other policy links on the same host; `/policies/not-a-kind` is Acme's own "page doesn't exist" page; `kiwiply.com/privacy` still shows the Kiwiply policy; a draft or an in-review text is never visible.
+- **Pages / APIs:** `/privacy`, `/terms`, `/acceptable-use`, `/support`, `/policies/{slug}`, `GET /api/public/tenant/policies[/{kind}]`.
+- **Status: STORY-ONLY (covered by `policy-pages.test.tsx`, `OrgPolicyResourceIT`)**
+
+### PLT-61 No link in an enterprise account leads to a Kiwiply page
+- **Persona:** Cora (consultant of Acme, signed in at `acme.localhost`). **Steps:** 1. Open the account menu: Privacy policy and Terms of use. 2. Open the help panel (the "?" card): Support and contact, Privacy policy, Terms of use. 3. Open Inbox: the privacy line and the profile link in the connect guide. 4. Open the Resume Builder in a locked state (no AI in the license). 5. Open the invitation e-mail and the account-created e-mail footers.
+- **Expected:** every link stays on `acme.localhost` (the policy pages, `/w/consultant/profile`); no "See Pro" or pricing link appears; the wording says "This workspace", never "Kiwiply"; the e-mail footers link to `https://acme.../privacy`, `/terms`, `/support` and carry no Kiwiply address line; the only intentional platform-side link is "Connect extension", which opens the one-time-code connect page (doc 19 section 6.3).
+- **Pages / APIs:** shell, Inbox, Resume Builder, e-mail templates; guarded by `web/src/lib/ent/tenant-links.test.ts` and `EnterpriseMailFooterTest`.
+- **Status: STORY-ONLY (covered by the two guard tests)**
+
+### PLT-62 The policy kinds are an admin setting
+- **Persona:** the app admin. **Steps:** 1. In Settings set `enterprise.policies.kinds` to add `COOKIES`. 2. Open an organization's Policies page and `acme.localhost/policies/cookies`.
+- **Expected:** a Cookie Policy appears in every organization's Policies list (state Draft) and its public page shows a neutral template until published; removing the key hides it again (published text is kept); an invalid list (lower case, duplicates, empty) is refused by the Settings page.
+- **Pages / APIs:** Settings, Policies, `/policies/{slug}`.
+- **Status: STORY-ONLY (covered by `PolicyPagesUnitTest`)**

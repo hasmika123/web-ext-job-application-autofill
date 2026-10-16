@@ -82,6 +82,11 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_LICENSE_RESUMES_MAX = "org.license.resumes_max";
     /** Resume Builder inside an organization workspace: whether a consultant may create share links (recruiter link, named people) for their organization resumes. Off unless the organization turns it on; a marketer acting for a consultant never can. */
     public static final String ORG_RESUMES_CONSULTANT_SHARE_LINKS = "org.resumes.consultant_share_links";
+    /** Tenant policy pages (docs/enterprise-v2/62): whether a Kiwiply admin must approve an organization's policy before it goes live (default true), the policy kinds each organization may publish, and the longest body. */
+    public static final String POLICIES_REQUIRE_REVIEW = "enterprise.policies.require_review";
+    public static final String POLICIES_KINDS = "enterprise.policies.kinds";
+    public static final String POLICIES_MAX_CHARS = "enterprise.policies.max_chars";
+    public static final String DEFAULT_POLICY_KINDS = "[\"PRIVACY\",\"TERMS\",\"ACCEPTABLE_USE\",\"SUPPORT_CONTACT\"]";
     public static final String BILLING_MODE_DEFAULT = "enterprise.billing.mode_default";
     public static final String QUOTE_TTL_MINUTES = "enterprise.quote.ttl_minutes";
     public static final String USAGE_RETENTION_MONTHS = "enterprise.usage.retention_months";
@@ -112,6 +117,7 @@ public final class EnterpriseSettingKeys {
     public static final String DEFAULT_CONSUMER_DOMAINS = "[\"gmail.com\",\"googlemail.com\",\"yahoo.com\",\"hotmail.com\",\"outlook.com\",\"live.com\",\"icloud.com\",\"me.com\",\"aol.com\",\"proton.me\",\"protonmail.com\",\"gmx.com\",\"mail.com\"]";
 
     private static final Pattern HOSTNAME = Pattern.compile("(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*");
+    private static final Pattern POLICY_KIND = Pattern.compile("[A-Z][A-Z_]{1,39}");
     private static final Pattern ORG_ID_TEXT = Pattern.compile("[1-9][0-9]{0,18}");
     private static final String NOT_ENFORCED = " Not enforced yet: it takes effect once the feature that reads it ships.";
 
@@ -158,6 +164,12 @@ public final class EnterpriseSettingKeys {
             "An organization invitation can only be accepted by the account whose email matches the invited address (409 INVITE_EMAIL_MISMATCH otherwise). Off: any signed-in account may accept and the acceptance is audited with a mismatch flag. An organization can override it in org_setting.", null, Risk.MEDIUM));
         k.add(new Key(SEPARATE_ACCOUNTS, Type.BOOL, "false", null, null, null,
             "Separate enterprise accounts (decision O4): when on, an organization in SEPARATE account mode has its own enterprise accounts, kept apart from personal accounts even when the email is the same. Off = every account is a personal account (today's behaviour). Leave it off until the separate-accounts phases have shipped and the production check query is clean.", null, Risk.HIGH));
+        k.add(new Key(POLICIES_REQUIRE_REVIEW, Type.BOOL, "true", null, null, null,
+            "Organization policy pages (privacy, terms, ...): on = an organization's submitted policy goes live only after a Kiwiply admin approves it in Policy reviews; off = a submission publishes at once (still audited). Until a policy is published the organization's host shows a neutral template.", null, Risk.MEDIUM));
+        k.add(new Key(POLICIES_KINDS, Type.JSON, DEFAULT_POLICY_KINDS, null, null, null,
+            "The policy kinds every organization can publish on its own host, as a JSON list of upper-case keys (1 to 12, e.g. PRIVACY, TERMS, ACCEPTABLE_USE, SUPPORT_CONTACT, COOKIES). A known key has its own page path (/privacy, /terms, /acceptable-use, /support); any other is served at /policies/{key}.",
+            EnterpriseSettingKeys::policyKinds, Risk.LOW));
+        integer(k, POLICIES_MAX_CHARS, 40000, 500, 200000, Risk.LOW, "Organization policy pages: the longest policy body (characters) an Org Admin can save.");
         integer(k, ORG_MARKETING_OVERLOAD_PCT, 90, 50, 100, Risk.LOW, "Marketing Assignments: a marketer counts as overloaded once assigned consultants reach this percent of their capacity. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_BULK_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: most consultants one assign, update, unassign or undo call may name. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_CAPACITY_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: the highest capacity (consultants at once) a marketer may be given. An organization can override it in org_setting.");
@@ -230,6 +242,16 @@ public final class EnterpriseSettingKeys {
                 boolean ok = e.isIntegralNumber() ? e.canConvertToLong() && e.longValue() > 0 : e.isTextual() && ORG_ID_TEXT.matcher(e.textValue()).matches();
                 if (!ok) return false;
             }
+        }
+        return true;
+    }
+
+    /** A JSON list of 1 to 12 distinct policy kind keys: upper-case letters and underscores, 2 to 40 characters, starting with a letter. */
+    public static boolean policyKinds(JsonNode n) {
+        if (n == null || !n.isArray() || n.isEmpty() || n.size() > 12) return false;
+        Set<String> seen = new java.util.HashSet<>();
+        for (JsonNode e : n) {
+            if (!e.isTextual() || !POLICY_KIND.matcher(e.textValue()).matches() || !seen.add(e.textValue())) return false;
         }
         return true;
     }

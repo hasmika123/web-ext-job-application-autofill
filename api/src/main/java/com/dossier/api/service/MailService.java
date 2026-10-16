@@ -182,6 +182,7 @@ public class MailService {
         context.setVariable("pays", pays == null ? List.of() : pays);
         context.setVariable("paysList", pays == null ? "" : String.join(", ", pays));
         context.setVariable("link", link);
+        context.setVariable("policyBase", originOf(link)); // the footer's Privacy / Terms / Help point at the host the invitation link is on
         context.setVariable("expires", expires);
         context.setVariable("message", message == null || message.isBlank() ? null : message);
         context.setVariable("logoUrl", logoUrl);
@@ -254,6 +255,7 @@ public class MailService {
         context.setVariable("name", name == null || name.isBlank() ? null : name);
         context.setVariable("orgName", orgName);
         context.setVariable("signInUrl", signInUrl);
+        context.setVariable("policyBase", originOf(signInUrl)); // the footer links to this host's own policy pages (docs/enterprise-v2/62)
         context.setVariable("expires", expiresText);
         context.setVariable("brand", b.brandHex());
         context.setVariable("logoUrl", b.logoUrl());
@@ -261,5 +263,18 @@ public class MailService {
         context.setVariable("assetBase", jHipsterProperties.getMail().getBaseUrl() + "/email"); // the art lives in web/public/email
         context.setVariable("email", to);
         return context;
+    }
+
+    /** {@code scheme://authority} of an absolute http(s) URL, else null: the organization's own host, used to build its policy-page links. */
+    static String originOf(String url) {
+        if (url == null || url.isBlank()) return null;
+        try {
+            java.net.URI u = java.net.URI.create(url.strip());
+            String scheme = u.getScheme();
+            if (u.getHost() == null || scheme == null || !(scheme.equals("https") || scheme.equals("http"))) return null;
+            return scheme + "://" + u.getAuthority();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }
