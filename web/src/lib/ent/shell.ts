@@ -277,7 +277,10 @@ export function bannersFor(me: MeTenant, ws: Workspace, changed: boolean): { id:
 export function helpLinks(supportEmail: string | null | undefined): { label: string; href: string; external?: boolean }[] {
   const links: { label: string; href: string; external?: boolean }[] = [];
   if (supportEmail) links.push({ label: `Email ${supportEmail}`, href: `mailto:${supportEmail}`, external: true });
-  links.push({ label: "Kiwiply help center", href: "https://kiwiply.com/support", external: true });
+  // The organization's own pages on THIS host (docs/enterprise-v2/62): a member of an enterprise account never lands on a Kiwiply page.
+  links.push({ label: "Support and contact", href: "/support" });
+  links.push({ label: "Privacy policy", href: "/privacy" });
+  links.push({ label: "Terms of use", href: "/terms" });
   return links;
 }
 

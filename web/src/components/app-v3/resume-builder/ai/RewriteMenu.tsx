@@ -1,9 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import { LockIcon, Menu, MoreVerticalIcon, Popover, SparklesIcon, Tooltip, cn, iconButtonClass } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import { COPY, REWRITE_MODES, type RewriteMode } from "@/lib/resume-ai";
+import UpgradeLink from "../UpgradeLink";
 
 export interface RewriteMenuProps {
   /** The plan has no builder AI: the button is a lock with the Pro chip that leads to the plans, never a dead control. */
@@ -60,9 +60,9 @@ function LockPopover({ variant, subject, onLockedClick, className }: Pick<Rewrit
         <div className="text-[13px]">
           <p className="font-bold text-ink">{COPY.locked}</p>
           <p className="mt-1 text-ink-soft">{COPY.lockedBody}</p>
-          <Link href="/pricing" onClick={close} className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-accent px-3 font-bold text-on-accent hover:brightness-95 max-sm:min-h-11">
+          <UpgradeLink onClick={close} className="mt-2 inline-flex min-h-9 items-center rounded-lg bg-accent px-3 font-bold text-on-accent hover:brightness-95 max-sm:min-h-11">
             See Pro
-          </Link>
+          </UpgradeLink>
         </div>
       )}
     </Popover>

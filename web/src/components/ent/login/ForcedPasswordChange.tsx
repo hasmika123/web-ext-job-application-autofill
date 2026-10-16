@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertIcon, ArrowRightIcon, EyeIcon, EyeOffIcon, LockIcon, cn } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import PolicyLinks from "@/components/ent/policy/PolicyLinks";
 
 /**
  * The forced first-sign-in password change on a tenant host. An administrator created this account with a temporary password;
@@ -129,6 +130,7 @@ export default function ForcedPasswordChange({ name, logoUrl }: ForcedPasswordCh
             </button>
           </form>
         </section>
+        <PolicyLinks tone="plain" className="mt-5 text-[var(--brand-800)]" />
       </div>
     </main>
   );

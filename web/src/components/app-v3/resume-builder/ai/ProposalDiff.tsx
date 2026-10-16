@@ -2,7 +2,6 @@
 
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent, RefObject } from "react";
-import Link from "next/link";
 import { AiDisclosure, AlertIcon, Button, ChoiceGroup, DiffText, InfoIcon, LockIcon, SideSheet, SparklesIcon, Spinner, cn } from "@kiwiply/ui";
 import { diffWords } from "@/lib/diff";
 import {
@@ -18,6 +17,7 @@ import {
   type ProposalResult,
   type RewriteMode,
 } from "@/lib/resume-ai";
+import UpgradeLink from "../UpgradeLink";
 
 // config-literal-ok: side-sheet width is layout geometry (DESIGN 13.3), not a tunable
 const SHEET_WIDTH = 560;
@@ -391,9 +391,9 @@ export function LockCard({ className }: { className?: string }) {
       </span>
       <p className="mt-3 text-[15px] font-bold text-ink">{COPY.locked}</p>
       <p className="mx-auto mt-1 max-w-[34ch] text-[13px] text-ink-soft">{COPY.lockedBody}</p>
-      <Link href="/pricing" className="mt-3 inline-flex min-h-9 items-center rounded-lg bg-accent px-4 text-[13px] font-bold text-on-accent hover:brightness-95 max-sm:min-h-11">
+      <UpgradeLink className="mt-3 inline-flex min-h-9 items-center rounded-lg bg-accent px-4 text-[13px] font-bold text-on-accent hover:brightness-95 max-sm:min-h-11">
         See Pro
-      </Link>
+      </UpgradeLink>
     </div>
   );
 }

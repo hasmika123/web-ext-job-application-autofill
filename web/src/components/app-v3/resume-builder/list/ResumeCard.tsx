@@ -30,6 +30,7 @@ import type { ResumeCardModel } from "./adapter";
 import type { CardActions } from "./actions";
 import type { ViewMode } from "./constants";
 import { thumbFor } from "./templateThumbs";
+import UpgradeLink from "../UpgradeLink";
 
 const ICON_BTN =
   "inline-flex h-10 w-10 flex-none cursor-pointer items-center justify-center rounded-[10px] border border-v2-line bg-paper text-ink " +
@@ -242,9 +243,9 @@ export default function ResumeCard({ model: m, layout, display, onManage, action
           </Tooltip>
         ) : (
           <Tooltip content="AI suggestions are part of Pro">
-            <Link href="/pricing" className={cn(ICON_BTN, "text-v2-muted")} aria-label={`AI tools for ${m.name} (Pro)`}>
+            <UpgradeLink className={cn(ICON_BTN, "text-v2-muted")} aria-label={`AI tools for ${m.name} (Pro)`}>
               <LockIcon size={16} />
-            </Link>
+            </UpgradeLink>
           </Tooltip>
         ))}
     </div>

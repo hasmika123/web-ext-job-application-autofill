@@ -43,6 +43,17 @@ export interface InboxEndpoints {
   notify: string;
 }
 
+/** The in-app links of this component. The personal Settings page uses the defaults; a tenant workspace passes tenant-relative ones. */
+export interface InboxLinks {
+  privacy: string;
+  profile: string;
+  pricing: string;
+  /** What the text calls the product: "Kiwiply" on the personal pages, the organization's own wording in a workspace. */
+  appName: string;
+}
+
+const PERSONAL_LINKS: InboxLinks = { privacy: "/privacy", profile: "/profile", pricing: "/pricing", appName: "Kiwiply" };
+
 const PERSONAL_ENDPOINTS: InboxEndpoints = { connect: "/api/inbox", notify: "/api/inbox/notify" };
 
 const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } as const;
@@ -67,6 +78,7 @@ export default function InboxConnect({
   endpoints = PERSONAL_ENDPOINTS,
   locked,
   onChanged,
+  links = PERSONAL_LINKS,
 }: {
   /** Whether inbox tracking is included for this person (their Pro plan, or in a workspace their organization's license). */
   isPro: boolean;
@@ -76,6 +88,8 @@ export default function InboxConnect({
   locked?: ReactNode;
   /** Called after a connect or disconnect; the default refreshes the server-rendered page. */
   onChanged?: () => void;
+  /** Where the in-text links go. A workspace of an organization passes its OWN host's pages (privacy policy, profile), never the Kiwiply site's. */
+  links?: InboxLinks;
 }) {
   const router = useRouter();
   const toast = useToast();
@@ -107,10 +121,10 @@ export default function InboxConnect({
       <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-6 shadow-[var(--shadow)]">
         <h2 className="font-display text-lg font-semibold text-ink">Let your inbox update your board</h2>
         <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-          Connect the Gmail you apply from and Kiwiply reads replies from employers — confirmations, interview invites,
+          Connect the Gmail you apply from and {links.appName} reads replies from employers — confirmations, interview invites,
           rejections, offers — and moves each application along for you. It only ever reads.
         </p>
-        <Link href="/pricing" className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
+        <Link href={links.pricing} className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
           Part of Pro →
         </Link>
       </div>
@@ -155,9 +169,9 @@ export default function InboxConnect({
 
   const readOnly = (
     <p className="text-[12.5px] leading-relaxed text-muted">
-      Kiwiply only reads. We never send, move or delete mail — and you can cut us off at any time by deleting the app
+      {links.appName} only reads. We never send, move or delete mail — and you can cut us off at any time by deleting the app
       password in your Google account. Mail we read is kept for 12 months after it was sent, then deleted. See the{" "}
-      <Link href="/privacy" className="underline">
+      <Link href={links.privacy} className="underline">
         Privacy Policy
       </Link>
       .
@@ -210,7 +224,7 @@ export default function InboxConnect({
           <div className="mt-4 border-t border-line pt-4">
             <Switch
               label="Email me about interviews and offers"
-              description="Sent to your Kiwiply account's email, not this Gmail. Every other update shows under Notifications."
+              description={`Sent to your ${links.appName} account's email, not this Gmail. Every other update shows under Notifications.`}
               checked={notifyEmail}
               onCheckedChange={(v) => void toggleNotify(v)}
             />
@@ -220,7 +234,7 @@ export default function InboxConnect({
             {confirming ? (
               <div className="flex flex-col gap-3">
                 <p className="text-[13px] text-ink">
-                  Disconnecting deletes the saved app password and any mail Kiwiply has read from this inbox. To be sure we
+                  Disconnecting deletes the saved app password and any mail {links.appName} has read from this inbox. To be sure we
                   can&apos;t sign in again, also delete the app password in{" "}
                   <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className={external}>
                     your Google account
@@ -272,7 +286,7 @@ export default function InboxConnect({
             create a new Gmail
           </a>{" "}
           and apply from it. Put it as the email on your{" "}
-          <Link href="/profile" className={external}>
+          <Link href={links.profile} className={external}>
             profile
           </Link>{" "}
           so autofill uses it.
@@ -289,7 +303,7 @@ export default function InboxConnect({
           <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className={external}>
             App passwords
           </a>
-          , name it &ldquo;Kiwiply&rdquo;, and copy the 16 letters Google shows. It&apos;s shown once.
+          , name it &ldquo;{links.appName}&rdquo;, and copy the 16 letters Google shows. It&apos;s shown once.
         </Step>
       </ol>
 

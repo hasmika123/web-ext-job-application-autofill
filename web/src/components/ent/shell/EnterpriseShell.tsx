@@ -6,10 +6,12 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   BottomSheet,
   ChevronLeftIcon,
+  FileTextIcon,
   IconButton,
   MemberAvatar,
   MenuIcon,
   SearchIcon,
+  ShieldIcon,
   SignOutIcon,
   Tooltip,
   UserIcon,
@@ -395,6 +397,12 @@ export default function EnterpriseShell({
           <div className="mt-2 flex flex-col gap-1 border-t border-line px-3 pt-3">
             <Link href="/me" onClick={() => setNavOpen(false)} className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium text-ink hover:bg-paper-2">
               <UserIcon size={18} className="text-muted" /> My profile
+            </Link>
+            <Link href="/privacy" onClick={() => setNavOpen(false)} className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium text-ink hover:bg-paper-2">
+              <ShieldIcon size={18} className="text-muted" /> Privacy policy
+            </Link>
+            <Link href="/terms" onClick={() => setNavOpen(false)} className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium text-ink hover:bg-paper-2">
+              <FileTextIcon size={18} className="text-muted" /> Terms of use
             </Link>
             <button type="button" onClick={() => void signOut()} className="flex min-h-11 items-center gap-3 rounded-lg px-3 text-left text-[14px] font-medium text-danger-text hover:bg-paper-2">
               <SignOutIcon size={18} /> Sign out

@@ -54,6 +54,7 @@ const NAV: NavItem[] = [
   { href: "/admin/users", label: "Users", icon: <UsersIcon className={ICON} /> },
   { href: "/admin/customers", label: "Customers", icon: <CreditCardIcon className={ICON} /> },
   { href: "/admin/organizations", label: "Organizations", icon: <BuildingIcon className={ICON} /> },
+  { href: "/admin/policy-reviews", label: "Policy reviews", icon: <FileTextIcon className={ICON} /> },
   { href: "/admin/ai", label: "AI usage", icon: <AiIcon className={ICON} /> },
   { href: "/admin/ai/providers", label: "AI providers", icon: <GearIcon className={ICON} /> },
   { href: "/admin/job-sources", label: "Job sources", icon: <BoardIcon className={ICON} /> },

@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { ErrorState, LockIcon, MailIcon, ShieldIcon, Skeleton, cn } from "@kiwiply/ui";
-import InboxConnect from "@/components/settings/InboxConnect";
+import InboxConnect, { type InboxLinks } from "@/components/settings/InboxConnect";
 import PageHeader from "@/components/ent/shell/ShellContext";
 import LocalDate from "@/components/LocalDate";
 import { Card, Empty, Pill, useWorkspaceData } from "./parts";
@@ -16,6 +16,9 @@ import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, sta
  * The privacy line is part of the page, in words: only the consultant sees the mail; the organization sees the stage an application reached and
  * nothing the mail said. Nothing here is shown to anyone else: the routes answer the consultant and are the generic 404 for every other member.
  */
+
+/** Every link inside the connect guide stays on THIS organization's host: its own privacy policy (docs/enterprise-v2/62), the consultant's profile, and no pricing page (the license decides). */
+const TENANT_INBOX_LINKS: InboxLinks = { privacy: "/privacy", profile: "/w/consultant/profile", pricing: "/w/consultant/features", appName: "This workspace" };
 
 const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } as const;
 const BTN = "inline-flex min-h-8 items-center rounded-lg px-3.5 text-[13px] font-semibold disabled:opacity-60";
@@ -31,7 +34,7 @@ function PrivacyCard() {
         <p className="mt-1 leading-relaxed">
           This is your own Gmail, connected with an app password that is kept encrypted and never shown again. Your organization, your marketer and
           your administrators never see the password, the address, a subject, a sender or a word of a message. They only see the stage an application
-          reaches (for example, Interview), the same as if you had updated it yourself. Kiwiply only reads; it never sends, moves or deletes mail.
+          reaches (for example, Interview), the same as if you had updated it yourself. This workspace only reads; it never sends, moves or deletes mail.
         </p>
       </div>
     </section>
@@ -143,6 +146,7 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
             endpoints={inboxEndpoints(orgId)}
             locked={<Locked />}
             onChanged={() => void reload()}
+            links={TENANT_INBOX_LINKS}
           />
           {v.inbox.connected && v.entitled && v.inbox.status !== "NEEDS_RECONNECT" ? (
             <>

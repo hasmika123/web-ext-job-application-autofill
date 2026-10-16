@@ -522,9 +522,11 @@ export default function ResumeSettingsSheet({ resumeId, meta, onMeta, config, ac
                       onCheckedChange={(v) => void setShareWithOrg(v)}
                     />
                   )}
-                  <Link href="/settings/organizations" className="w-fit text-[13px] font-semibold text-v2-blue hover:underline">
-                    Change sharing
-                  </Link>
+                  {env.kind === "personal" && (
+                    <Link href="/settings/organizations" className="w-fit text-[13px] font-semibold text-v2-blue hover:underline">
+                      Change sharing
+                    </Link>
+                  )}
                 </div>
               </div>
             )}

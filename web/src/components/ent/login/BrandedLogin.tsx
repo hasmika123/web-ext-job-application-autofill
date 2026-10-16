@@ -19,6 +19,7 @@ import {
   cn,
 } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import PolicyLinks, { type PolicyLinkItem } from "@/components/ent/policy/PolicyLinks";
 import { safeReturnTo } from "@/lib/tenant-urls";
 
 /**
@@ -53,6 +54,8 @@ export interface BrandedLoginProps {
   preview?: boolean;
   /** Same-host relative path to land on after sign-in. */
   next?: string;
+  /** The organization's policy pages (privacy, terms, ...) for the footer; the four defaults when the page was not given the host's list. */
+  policyLinks?: PolicyLinkItem[];
 }
 
 type View = "form" | "mfa" | "notMember" | "unavailable";
@@ -97,7 +100,7 @@ const SPARKS: CSSProperties[] = [
   { left: 20, top: 28, transform: "rotate(112deg)" },
 ];
 
-export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessage, supportEmail, microsoft = false, google = false, preview = false, next }: BrandedLoginProps) {
+export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessage, supportEmail, microsoft = false, google = false, preview = false, next, policyLinks }: BrandedLoginProps) {
   const router = useRouter();
   const uid = useId();
   const emailId = `${uid}-email`;
@@ -375,6 +378,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
                       <span>Contact IT Support</span>
                     )}
                   </p>
+                  <PolicyLinks links={policyLinks} tone="plain" className="pt-1" />
                 </div>
               </form>
             )}

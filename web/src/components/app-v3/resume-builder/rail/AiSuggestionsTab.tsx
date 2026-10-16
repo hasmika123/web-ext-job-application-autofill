@@ -2,13 +2,13 @@
 
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent, TouchEvent } from "react";
-import Link from "next/link";
 import { AiDisclosure, ArrowRightIcon, Button, ChevronLeftIcon, ChevronRightIcon, LockIcon, SparklesIcon, Skeleton, Spinner, Tooltip, cn } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import { COPY, quotaSentence, suggestionNeedsReview, type AiProposal } from "@/lib/resume-ai";
 import RailCard from "../RailCard";
 import SuggestionCard from "./SuggestionCard";
 import type { Suggestions } from "./useSuggestions";
+import UpgradeLink from "../UpgradeLink";
 
 /** A horizontal swipe shorter than this many px is a tap, not a swipe. */
 const SWIPE_PX = 40;
@@ -45,9 +45,9 @@ export function SuggestionsLock() {
         <LockIcon className="h-5 w-5" />
       </span>
       <p className="mt-2 text-[14px] font-semibold text-ink">{COPY.suggestLocked}</p>
-      <Link href="/pricing" onClick={() => track("resume_ai_locked_click", { task: "suggest", from: "rail" })} className="mt-2 inline-flex min-h-9 items-center text-[13px] font-bold text-v2-blue hover:underline max-sm:min-h-11">
+      <UpgradeLink onClick={() => track("resume_ai_locked_click", { task: "suggest", from: "rail" })} className="mt-2 inline-flex min-h-9 items-center text-[13px] font-bold text-v2-blue hover:underline max-sm:min-h-11">
         See Pro
-      </Link>
+      </UpgradeLink>
     </div>
   );
 }
