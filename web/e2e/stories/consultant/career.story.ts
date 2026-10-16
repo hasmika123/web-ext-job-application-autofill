@@ -76,7 +76,7 @@ test("CON-42 Anika asks to negotiate a pending offer: her request is recorded fo
   await expect(dlg.getByRole("alert")).not.toBeEmpty();
   await dlg.getByLabel("What you would like to negotiate").fill(`QA story ${stamp()}: I would like to talk about the start date.`);
   await dlg.getByRole("button", { name: "Send request" }).click();
-  await expect(page.getByText("Negotiation requested")).toBeVisible();
+  await expect(page.getByText("Negotiation requested").first()).toBeVisible(); // the toast, the offer card and the drawer all say it
   await expect(page.locator("[data-offer][data-status=NEGOTIATION]").first()).toBeVisible();
 });
 
@@ -111,7 +111,10 @@ test("CON-44 Ben works his onboarding checklist (with Undo), posts a status upda
   const items = page.locator("[data-check]");
   await expect(items.first()).toBeVisible();
   const unchecked = page.locator("[data-check][aria-checked=false]").first();
-  const target = (await unchecked.count()) ? unchecked : items.first();
+  // Pin the item by its own id: "the first unchecked one" stops matching the moment it is ticked (and matches ANOTHER item when two are open), so the
+  // story left the checklist in whatever state an earlier run had. The Undo below puts this item back, so the story can run again.
+  const id = await ((await unchecked.count()) ? unchecked : items.first()).getAttribute("data-check");
+  const target = page.locator(`[data-check="${id}"]`);
   const was = await target.getAttribute("aria-checked");
   await target.click();
   await expect(target).toHaveAttribute("aria-checked", was === "true" ? "false" : "true");
@@ -122,7 +125,7 @@ test("CON-44 Ben works his onboarding checklist (with Undo), posts a status upda
   await page.locator("[data-quick=client]").click();
   const client = page.getByRole("dialog", { name: "Client details" });
   await expect(client.locator("[data-client-details]")).toBeVisible();
-  await client.getByRole("button", { name: /^Close/ }).click();
+  await client.getByRole("button", { name: /^Close/ }).first().click(); // the header's X and the footer's Close button
 
   await narrate(page, "Update Status posts a short note to his placement activity");
   await page.locator("[data-quick=status]").click();

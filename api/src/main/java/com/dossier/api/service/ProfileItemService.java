@@ -352,7 +352,10 @@ public class ProfileItemService {
         if (def == null) return;
 
         if (bio == null) {
+            // the provisioner's locking read waits for a concurrent first seed and returns its committed row, marker included: without
+            // this re-check every caller that raced on a missing bio seeded the profile again (one Skills group per caller)
             bio = newBio(user);
+            if (ProfileMeta.isSeeded(ProfileMeta.read(bio.getMetaJson()))) return;
         } else {
             em.refresh(bio, LockModeType.PESSIMISTIC_WRITE); // wait for a concurrent seed, then re-read its result
             if (ProfileMeta.isSeeded(ProfileMeta.read(bio.getMetaJson()))) return;
@@ -591,7 +594,12 @@ public class ProfileItemService {
         return bioRepository.findByUserId(userId).stream().findFirst().orElse(null);
     }
 
+    /** Race-safe get-or-create of the bio ({@link BioProvisioner}); absent in hand-wired unit tests, which use the plain insert below. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.BioProvisioner bioProvisioner;
+
     private Bio newBio(User user) {
+        if (bioProvisioner != null) return bioProvisioner.getOrCreate(user);
         Bio bio = new Bio();
         bio.setPayload("{}");
         bio.setUpdatedAt(Instant.now());

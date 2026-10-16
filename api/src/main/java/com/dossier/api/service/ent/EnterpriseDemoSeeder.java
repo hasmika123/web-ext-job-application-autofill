@@ -28,6 +28,16 @@ import com.dossier.api.repository.ent.OrgBrandingRepository;
 import com.dossier.api.repository.ent.OrgHostnameRepository;
 import com.dossier.api.repository.ent.OrgMemberRoleRepository;
 import com.dossier.api.repository.ent.OrgRoleRepository;
+import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
+import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
+import com.dossier.api.repository.ent.talent.MarketerAssignmentRepository;
+import com.dossier.api.repository.ent.talent.MarketerCapacityRepository;
+import com.dossier.api.domain.ent.talent.ConsultantProfile;
+import com.dossier.api.domain.ent.talent.ConsultantSkill;
+import com.dossier.api.domain.ent.talent.MarketerAssignment;
+import com.dossier.api.domain.ent.talent.MarketerCapacity;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import com.dossier.api.domain.org.OrgAuditEvent;
 import com.dossier.api.repository.org.OrgAuditEventRepository;
 import com.dossier.api.repository.org.OrgGroupRepository;
@@ -242,6 +252,19 @@ public class EnterpriseDemoSeeder {
     @Autowired(required = false)
     private OrgAuditEventRepository auditRows;
 
+    /** Optional for the same reason: Gamma's consultants (a profile linked to each seat, assigned to the marketer) are written by {@link #seedGammaTalent}. */
+    @Autowired(required = false)
+    private ConsultantProfileRepository consultantProfiles;
+
+    @Autowired(required = false)
+    private ConsultantSkillRepository consultantSkills;
+
+    @Autowired(required = false)
+    private MarketerAssignmentRepository marketerAssignments;
+
+    @Autowired(required = false)
+    private MarketerCapacityRepository marketerCapacities;
+
     /** Optional for the same reason: only {@link #seedSeparate()} needs it. */
     @Autowired(required = false)
     private DemoEnterpriseAccounts enterpriseAccounts;
@@ -353,6 +376,7 @@ public class EnterpriseDemoSeeder {
             }
             seatsByOrg.put(t.orgKey(), seats);
             seedActivity(org, t, now);
+            seedAuditTrail(org, t, now);
         }
 
         assign(seatsByOrg.get("acme"), "sarah", "anika", AssignmentKind.PRIMARY, now, counts);
@@ -412,6 +436,8 @@ public class EnterpriseDemoSeeder {
             index++;
         }
         assign(seats, "marco", "cora", AssignmentKind.PRIMARY, now, counts);
+        assign(seats, "marco", "dana", AssignmentKind.PRIMARY, now, counts);
+        seedGammaTalent(org, seats, now);
         if (auditRows != null && auditRows.countByOrgId(org.getId()) == 0) {
             record(org, owner.getLogin(), OrgAuditService.ORG_CREATE, OrgAuditService.TARGET_ORG, null, now.minus(40, ChronoUnit.DAYS));
             record(org, owner.getLogin(), OrgAuditService.BRANDING_PUBLISH, OrgAuditService.TARGET_BRANDING, null, now.minus(39, ChronoUnit.DAYS));
@@ -424,6 +450,91 @@ public class EnterpriseDemoSeeder {
         resolver.invalidate();
         LOG.info("Separate-accounts demo seeded ({}): {} enterprise accounts, {} seats created", t.host(), counts[0], counts[1]);
         return new SeparateResult(true, null, 1, counts[0], counts[1]);
+    }
+
+    /** The consultants of Gamma: (person key, job title, years, city, skills). */
+    private static final List<Object[]> GAMMA_CONSULTANTS = List.of(
+        new Object[] { "cora", "Salesforce Developer", 7, "Austin, TX", List.of("Salesforce", "Apex", "Lightning", "SQL") },
+        new Object[] { "dana", "Data Engineer", 9, "Denver, CO", List.of("Python", "Airflow", "Snowflake", "SQL") }
+    );
+
+    /**
+     * Gamma's consultants are real consultant profiles LINKED to their seats (D2/D3 of the 2026-10-16 audit: a profile with no {@code member_id} means the
+     * person's sign-in lands on "This page isn't part of your role" and no marketer can prepare a resume for them), and Marco, the marketer, is assigned to both so
+     * he can start a resume for each (the strict rule: the consultants are ENTERPRISE accounts of Gamma, which they are). A profile that already exists for the
+     * same address (added by hand before this seed learned to link) is linked in place, never duplicated. Idempotent. Acme and Beta are not touched here.
+     */
+    private void seedGammaTalent(Organization org, Map<String, OrgMember> seats, Instant now) {
+        if (consultantProfiles == null || marketerAssignments == null) return;
+        OrgMember marketer = seats.get("marco");
+        if (marketer != null && marketerCapacities != null && marketerCapacities.findByOrgId(org.getId()).stream().noneMatch(c -> marketer.getId().equals(c.getMemberId()))) {
+            MarketerCapacity cap = new MarketerCapacity();
+            cap.setOrgId(org.getId());
+            cap.setMemberId(marketer.getId());
+            cap.setCapacity(10);
+            cap.setTitleLabel("Marketing Specialist");
+            marketerCapacities.save(cap);
+        }
+        for (Object[] spec : GAMMA_CONSULTANTS) {
+            String key = (String) spec[0];
+            OrgMember seat = seats.get(key);
+            Person person = GAMMA.people().stream().filter(x -> x.key().equals(key)).findFirst().orElse(null);
+            if (seat == null || person == null) continue;
+            String email = person.email(GAMMA.orgKey());
+            List<ConsultantProfile> all = consultantProfiles.findByOrgId(org.getId());
+            ConsultantProfile c = all.stream().filter(x -> seat.getId().equals(x.getMemberId())).findFirst()
+                .orElseGet(() -> all.stream().filter(x -> x.getMemberId() == null && email.equalsIgnoreCase(x.getEmail())).findFirst().orElse(null));
+            boolean fresh = c == null;
+            if (fresh) {
+                LocalDate today = LocalDate.now(ZoneOffset.UTC);
+                c = new ConsultantProfile();
+                c.setOrgId(org.getId());
+                c.setDisplayName(person.first() + " " + person.last());
+                c.setEmail(email.toLowerCase());
+                c.setJobTitle((String) spec[1]);
+                c.setHeadline(spec[1] + " with " + spec[2] + " years of experience");
+                c.setYearsExperience((Integer) spec[2]);
+                c.setLocationLabel((String) spec[3]);
+                c.setWorkMode("REMOTE");
+                c.setAvailabilityStatus("AVAILABLE");
+                c.setAvailabilitySince(today.minusDays(14));
+                c.setBenchSince(today.minusDays(14));
+                c.setMarketingStatus("ACTIVE");
+                c.setLicenseStatus("ACTIVE");
+                c.setLicenseValidUntil(today.plusDays(200));
+                c.setStatus("ACTIVE");
+                c.setProfileCompleteness(60);
+                c.setCreatedAt(now.minus(30, ChronoUnit.DAYS));
+                c.setUpdatedAt(now.minus(2, ChronoUnit.DAYS));
+            }
+            c.setMemberId(seat.getId());
+            c = consultantProfiles.saveAndFlush(c);
+            if (fresh && consultantSkills != null) {
+                int order = 0;
+                for (Object skill : (List<?>) spec[4]) {
+                    ConsultantSkill k = new ConsultantSkill();
+                    k.setOrgId(org.getId());
+                    k.setConsultantId(c.getId());
+                    k.setSkill((String) skill);
+                    k.setPrimarySkill(order < 2);
+                    k.setSortOrder(order++);
+                    consultantSkills.save(k);
+                }
+            }
+            if (marketer != null && marketerAssignments.findByOrgIdAndConsultantId(org.getId(), c.getId()).isEmpty()) {
+                MarketerAssignment a = new MarketerAssignment();
+                a.setOrgId(org.getId());
+                a.setConsultantId(c.getId());
+                a.setMarketerMemberId(marketer.getId());
+                a.setPriority("MEDIUM");
+                a.setStatus("ACTIVE");
+                a.setAssignedAt(now.minus(20, ChronoUnit.DAYS));
+                a.setAssignedByMemberId(seats.get("oscar") == null ? marketer.getId() : seats.get("oscar").getId());
+                a.setLastActivityAt(now.minus(1, ChronoUnit.DAYS));
+                a.setUpdatedAt(now.minus(1, ChronoUnit.DAYS));
+                marketerAssignments.save(a);
+            }
+        }
     }
 
     private User separateAccount(Organization org, Person p, int[] counts) {
@@ -471,6 +582,79 @@ public class EnterpriseDemoSeeder {
         record(org, omar, OrgAuditService.ASSIGNMENT_CREATE, OrgAuditService.TARGET_MEMBER, t.people().get(3).login(t.orgKey()), now.minus(27, ChronoUnit.DAYS));
         record(org, admin, OrgAuditService.MEMBER_SUSPEND, OrgAuditService.TARGET_MEMBER, t.people().get(9).login(t.orgKey()), now.minus(6, ChronoUnit.DAYS));
         record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, null, now.minus(2, ChronoUnit.DAYS));
+    }
+
+    /**
+     * The Audit Logs page's demo data: a few dozen believable rows (people, roles, groups, branding, a sign-in refusal, an export, a retention
+     * run) over the last 45 days for the fictional Acme, with a spread of actors and risk levels. Written once: it is skipped when the
+     * organization already has a {@code ROLE_UPDATE} row, so a second run adds nothing. Details carry names and counts only, never an
+     * address, a password or a number that identifies a person.
+     */
+    private void seedAuditTrail(Organization org, Tenant t, Instant now) {
+        if (auditRows == null || !t.orgKey().equals("acme") || auditRows.countByOrgIdAndAction(org.getId(), "ROLE_UPDATE") > 0) return;
+        String sarah = t.people().get(0).login(t.orgKey());
+        String omar = t.people().get(1).login(t.orgKey());
+        String anika = t.people().get(2).login(t.orgKey());
+        String ben = t.people().get(3).login(t.orgKey());
+        String hana = t.people().get(4).login(t.orgKey());
+        String felix = t.people().get(5).login(t.orgKey());
+        String amara = t.people().get(6).login(t.orgKey());
+        String tomas = t.people().get(7).login(t.orgKey());
+        String sam = t.people().get(9).login(t.orgKey());
+        Object[][] rows = {
+            // days ago, hours offset, actor (null = system), actor role, action, target type, target login, risk, details
+            { 44, 3, sarah, "ADMIN", "GROUP_CREATE", "GROUP", null, "LOW", "{\"name\":\"Sales\",\"kind\":\"DEPARTMENT\"}" },
+            { 44, 2, sarah, "ADMIN", "GROUP_CREATE", "GROUP", null, "LOW", "{\"name\":\"Recruiting\",\"kind\":\"DEPARTMENT\"}" },
+            { 43, 5, sarah, "ADMIN", "GROUP_CREATE", "GROUP", null, "LOW", "{\"name\":\"East coast team\",\"kind\":\"TEAM\"}" },
+            { 42, 1, sarah, "ADMIN", "ROLE_CREATE", "ROLE", null, "MEDIUM", "{\"name\":\"Senior recruiter\",\"template\":\"MARKETING_SPECIALIST\"}" },
+            { 41, 4, sarah, "ADMIN", "ROLE_UPDATE", "ROLE", null, "MEDIUM", "{\"name\":\"Senior recruiter\",\"added\":[\"jobs.view\",\"resumes.view\"],\"removed\":[]}" },
+            { 40, 2, sarah, "ADMIN", "MEMBER_ACCOUNT_CREATE", "MEMBER", hana, "HIGH", "mode=ACCOUNT_CREATED roles=[HR_SPECIALIST]" },
+            { 40, 1, sarah, "ADMIN", "MEMBER_ACCOUNT_CREATE", "MEMBER", felix, "HIGH", "mode=ACCOUNT_CREATED roles=[FINANCE_SPECIALIST]" },
+            { 38, 6, sarah, "ADMIN", "MEMBER_INVITE", "MEMBER", amara, "LOW", "roles=[ACCOUNT_MANAGER]" },
+            { 38, 5, sarah, "ADMIN", "MEMBER_INVITE", "MEMBER", tomas, "LOW", "roles=[TALENT_ACQUISITION]" },
+            { 37, 3, amara, "MEMBER", "MEMBER_JOIN", "MEMBER", amara, "LOW", null },
+            { 37, 2, tomas, "MEMBER", "MEMBER_JOIN", "MEMBER", tomas, "LOW", null },
+            { 35, 4, sarah, "ADMIN", "ORG_SETTINGS", "ORG", null, "MEDIUM", "{\"changed\":[\"support contact\",\"welcome message\"]}" },
+            { 33, 2, sarah, "ADMIN", "GROUP_MOVE", "GROUP", null, "LOW", "moved=3 to=East coast team" },
+            { 31, 5, sarah, "ADMIN", "GROUP_LEAD", "GROUP", omar, "MEDIUM", "{\"group\":\"East coast team\"}" },
+            { 29, 3, sarah, "ADMIN", "ROLE_ASSIGN", "ROLE", omar, "MEDIUM", "{\"role\":\"Senior recruiter\"}" },
+            { 27, 1, sarah, "ADMIN", "ASSIGNMENT_CREATE", "MEMBER", anika, "LOW", "{\"marketer\":\"Omar Haddad\",\"kind\":\"PRIMARY\"}" },
+            { 26, 2, sarah, "ADMIN", "ASSIGNMENT_CREATE", "MEMBER", ben, "LOW", "{\"marketer\":\"Omar Haddad\",\"kind\":\"PRIMARY\"}" },
+            { 24, 6, felix, "FINANCE", "BILLING_VIEW", "REPORT", null, "LOW", null },
+            { 22, 3, sarah, "ADMIN", "BRANDING_ASSET", "BRANDING", null, "LOW", "{\"asset\":\"logo\",\"action\":\"replaced\"}" },
+            { 22, 2, sarah, "ADMIN", "BRANDING_PUBLISH", "BRANDING", null, "LOW", null },
+            { 20, 4, sarah, "ADMIN", "MEMBER_PASSWORD_RESET", "MEMBER", hana, "HIGH", null },
+            { 18, 1, null, null, "LOGIN_DENIED_NOT_MEMBER", "SESSION", null, "MEDIUM", "a sign-in on this address was refused: no seat" },
+            { 16, 5, hana, "MEMBER", "SHARE_READ_FULL", "MEMBER", anika, "MEDIUM", "{\"scope\":\"profile\"}" },
+            { 14, 3, sarah, "ADMIN", "ROLE_REVOKE", "ROLE", omar, "MEDIUM", "{\"role\":\"Senior recruiter\"}" },
+            { 14, 2, sarah, "ADMIN", "ROLE_ASSIGN", "ROLE", omar, "MEDIUM", "{\"role\":\"Marketing specialist\"}" },
+            { 12, 4, omar, "MARKETER", "MARKETER_SAVE_FOR_CONSULTANT", "APPLICATION", anika, "MEDIUM", "saved a job for the consultant's tracker" },
+            { 11, 2, omar, "MARKETER", "MARKETER_SAVE_FOR_CONSULTANT", "APPLICATION", ben, "MEDIUM", "saved a job for the consultant's tracker" },
+            { 10, 3, sarah, "ADMIN", "EXPORT", "REPORT", null, "MEDIUM", "{\"report\":\"members\",\"rows\":11}" },
+            { 9, 1, null, null, "HISTORY_PURGED", "ORG", null, "LOW", "applications=6 interviews=3" },
+            { 8, 5, sarah, "ADMIN", "GROUP_UPDATE", "GROUP", null, "LOW", "{\"name\":\"East coast team\",\"renamedFrom\":\"East team\"}" },
+            { 7, 2, sarah, "ADMIN", "MEMBER_SUSPEND", "MEMBER", sam, "HIGH", "{\"status\":\"SUSPENDED\"}" },
+            { 6, 4, sarah, "ADMIN", "MEMBER_INVITE_RESEND", "MEMBER", null, "LOW", null },
+            { 5, 3, sarah, "ADMIN", "ORG_SETTINGS", "ORG", null, "HIGH", "{\"changed\":[\"require MFA\"],\"from\":\"off\",\"to\":\"on\"}" },
+            { 4, 6, felix, "FINANCE", "BILLING_PLAN_VIEW", "REPORT", null, "LOW", null },
+            { 3, 2, sarah, "ADMIN", "ROLE_UPDATE", "ROLE", null, "MEDIUM", "{\"name\":\"Senior recruiter\",\"added\":[\"reports.view\"],\"removed\":[\"resumes.view\"]}" },
+            { 2, 5, sarah, "ADMIN", "MEMBER_ROLE", "MEMBER", tomas, "MEDIUM", "{\"from\":\"Talent acquisition\",\"to\":\"Account manager\"}" },
+            { 1, 3, sarah, "ADMIN", "MEMBER_INVITE", "MEMBER", null, "LOW", "roles=[CONSULTANT]" },
+            { 0, 4, sarah, "ADMIN", "GROUP_DELETE", "GROUP", null, "MEDIUM", "{\"name\":\"Unused team\"}" },
+        };
+        for (Object[] r : rows) {
+            OrgAuditEvent e = new OrgAuditEvent();
+            e.setOrgId(org.getId());
+            e.setActorLogin(r[2] == null ? OrgAuditService.SYSTEM_ACTOR : (String) r[2]);
+            e.setActorRole((String) r[3]);
+            e.setAction((String) r[4]);
+            e.setTargetType((String) r[5]);
+            e.setTargetLogin((String) r[6]);
+            e.setRisk((String) r[7]);
+            e.setDetails((String) r[8]);
+            e.setCreatedAt(now.minus((Integer) r[0], ChronoUnit.DAYS).minus((Integer) r[1], ChronoUnit.HOURS));
+            auditRows.save(e);
+        }
     }
 
     private void record(Organization org, String actorLogin, String action, String targetType, String targetLogin, Instant at) {
@@ -522,7 +706,12 @@ public class EnterpriseDemoSeeder {
     /** Published branding (colours, welcome copy, support address and a generated logo through the FileStorage seam). */
     private void ensureBranding(Organization org, Tenant t, Instant now) {
         OrgBranding b = brandings.findByOrgId(org.getId()).orElse(null);
-        if (b != null && b.getPublishedAt() != null && b.getLogoKey() != null) return;
+        if (b != null && b.getPublishedAt() != null && b.getLogoKey() != null) {
+            // The row survives a new checkout / wiped upload folder while the file does not: re-draw it under the same key so the
+            // published logo never 404s (the demo logo is generated, so this is idempotent).
+            if (!storage.exists(b.getLogoKey())) storage.store(b.getLogoKey(), logo(t), "image/png");
+            return;
+        }
         if (b == null) {
             b = new OrgBranding();
             b.setOrgId(org.getId());

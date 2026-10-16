@@ -15,6 +15,7 @@ import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.MarketerAssignment;
+import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.enumeration.OrgStatus;
@@ -33,6 +34,7 @@ import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.MarketerAssignmentRepository;
+import com.dossier.api.repository.ent.talent.OrgResumeRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.ResumeBuilderSettings;
@@ -65,6 +67,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
+@org.springframework.test.context.TestPropertySource(properties = "spring.datasource.hikari.maximum-pool-size=4") // an assignment writes through REQUIRES_NEW helpers: a second connection beside the test's transaction
 class MktJobsIT {
 
     private static final String WHO = "mkt-jobs-it";
@@ -83,6 +86,7 @@ class MktJobsIT {
     @Autowired private ClientRequirementRepository requirements;
     @Autowired private ConsultantProfileRepository consultants;
     @Autowired private MarketerAssignmentRepository assignments;
+    @Autowired private OrgResumeRepository orgResumes;
     @Autowired private MktJobMatchRepository matches;
     @Autowired private MktJobMetaRepository metas;
     @Autowired private MktSavedSearchRepository searches;
@@ -120,6 +124,7 @@ class MktJobsIT {
         jobB = job(b, cb, "Hidden Job");
         mine = consultant(a, "Alex Morgan");
         notMine = consultant(a, "Priya Sharma");
+        approvedResume(a, mine);
         assign(a, mine, marketer);
         assign(a, notMine, other);
         match(a, jobA, mine, 95);
@@ -189,6 +194,16 @@ class MktJobsIT {
         return consultants.saveAndFlush(c);
     }
 
+    /** A job can only be assigned to a consultant with an approved resume (409 RESUME_NOT_APPROVED); a stored resume starts PENDING. */
+    private void approvedResume(Organization org, ConsultantProfile c) {
+        OrgResume r = new OrgResume();
+        r.setOrgId(org.getId());
+        r.setConsultantId(c.getId());
+        r.setName(c.getDisplayName() + " resume");
+        r.setApprovalStatus("APPROVED");
+        orgResumes.saveAndFlush(r);
+    }
+
     private void assign(Organization org, ConsultantProfile c, OrgMember marketer) {
         MarketerAssignment as = new MarketerAssignment();
         as.setOrgId(org.getId());
@@ -239,7 +254,10 @@ class MktJobsIT {
         assertThat(viewerBoard.path("kpis").path("highMatch").path("value").asLong()).as("the viewer has no assigned consultants").isZero();
     }
 
+    // Assigning writes through REQUIRES_NEW helpers (the match insert and its ledger row), which cannot see or lock-wait on rows the test's own transaction has not
+    // committed: this one test runs without the class transaction, on an organization pair of its own (named by nanoTime), so what it commits touches nobody else.
     @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void assignWritesOneAssignedMatchAndNothingElse() throws Exception {
         long before = matches.findByOrgIdAndStatus(a.getId(), "ASSIGNED").size();
         MvcResult r = call("mkt-jobs-marketer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + mine.getId() + "}"));
@@ -275,6 +293,37 @@ class MktJobsIT {
         assertThat(d).hasSize(1);
         assertThat(d.get(0).path("name").asText()).isEqualTo("Alex Morgan");
         assertThat(d.get(0).path("score").asInt()).isEqualTo(95);
+    }
+
+    // Like assignWrites, the last step assigns through REQUIRES_NEW helpers that cannot see the class transaction's uncommitted rows, so this test commits its own (nanoTime-named) organizations.
+    @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void aConsultantOnAProjectIsListedDisabledWithTheReasonAndAssigningThemIsAClear409() throws Exception {
+        mine.setMarketingStatus("PAUSED"); // on a project
+        consultants.saveAndFlush(mine);
+        JsonNode d = om.readTree(call("mkt-jobs-marketer", get(base(a) + "/" + jobA.getId() + "/candidates")).getResponse().getContentAsString());
+        assertThat(d).as("still listed, so the picker can show them disabled").hasSize(1);
+        assertThat(d.get(0).path("pausedReason").asText()).isEqualTo("On a project — marketing paused");
+
+        MvcResult r = call("mkt-jobs-marketer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + mine.getId() + "}"));
+        assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(409);
+        JsonNode body = om.readTree(r.getResponse().getContentAsString());
+        assertThat(body.path("code").asText()).isEqualTo("CONSULTANT_PAUSED");
+        assertThat(body.toString()).contains("on a project").doesNotContain("not_found");
+        assertThat(matches.findByOrgIdAndRequirementIdAndConsultantId(a.getId(), jobA.getId(), mine.getId()).orElseThrow().getStatus()).as("nothing was assigned").isEqualTo("SUGGESTED");
+
+        // strangers and unassigned consultants keep the generic 404, paused or not
+        notMine.setMarketingStatus("PAUSED");
+        consultants.saveAndFlush(notMine);
+        assertGeneric404(call("mkt-jobs-marketer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + notMine.getId() + "}")), "a paused consultant of another marketer");
+        assertGeneric404(call("mkt-jobs-viewer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + mine.getId() + "}")), "no opportunities.manage, paused consultant");
+
+        // back to ACTIVE marketing: assignable again; an INACTIVE consultant is still the old 404
+        mine.setMarketingStatus("ACTIVE");
+        consultants.saveAndFlush(mine);
+        MvcResult again = call("mkt-jobs-marketer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + mine.getId() + "}"));
+        assertThat(again.getResponse().getStatus()).as("assignable again: " + again.getResponse().getContentAsString()).isEqualTo(200);
+        assertThat(again.getResponse().getContentAsString()).as("no longer refused as paused").doesNotContain("CONSULTANT_PAUSED");
     }
 
     @Test

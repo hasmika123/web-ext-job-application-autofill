@@ -73,6 +73,16 @@ describe("MarketingHomePage", () => {
     expect(screen.getByText("Resume updated with new certifications")).toBeTruthy();
   });
 
+  // PLT-42 (390 px): a table wider than its card must scroll inside an overflow box, never widen the page. jsdom has no layout, so this
+  // checks the structure; the story suite measures the real overflow at 390 px.
+  it("keeps every table inside its own horizontal-scroll box so the page never scrolls sideways on a phone", async () => {
+    mount();
+    await screen.findByText("Senior Java Developer");
+    const tables = Array.from(document.querySelectorAll("[data-marketing-home] table"));
+    expect(tables.length).toBeGreaterThanOrEqual(4);
+    for (const t of tables) expect(t.closest(".overflow-x-auto"), "a table sits in an overflow-x-auto box").toBeTruthy();
+  });
+
   it("says so, with no rows and no number, when a section is empty", async () => {
     vi.stubGlobal("fetch", reply(200, fixture({ talent: [], streams: [], openings: [], pipeline: null, tasks: [], interviews: [], activity: [], kpis: [] })));
     mount();

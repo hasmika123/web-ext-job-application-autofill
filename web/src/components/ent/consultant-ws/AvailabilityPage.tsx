@@ -534,7 +534,7 @@ function UpcomingCard({ view, onEdit, onDelete }: { view: AvailabilityView; onEd
       {rows.some((b) => b.sample) ? (
         <p data-sample-note className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-muted">
           <SampleMark />
-          Approval is your marketer&apos;s step. Until the marketing workspace is connected, the status on demo entries is a stand-in.
+          Entries marked Sample were seeded for the demo. Approval of time off is your marketer&apos;s step and has no screen on their side yet.
         </p>
       ) : null}
     </Card>
@@ -632,7 +632,7 @@ function QuickActions({ onUpdate, onShare, onBlocked, shared }: { onUpdate: () =
       </ul>
       {shared ? (
         <p role="status" data-share-note className="mt-3 rounded-lg bg-accent-soft p-2.5 text-[12.5px] leading-snug text-accent-deep">
-          Your marketer sees this on their side once the marketing workspace is connected. Nothing was sent.
+          Your marketer is not notified from here. Nothing was sent.
         </p>
       ) : null}
     </Card>

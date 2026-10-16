@@ -133,9 +133,11 @@ test("CON-13 Anika reviews her resumes, previews one and sees the activity count
   await expect(sheet.locator("[data-resume-paper]")).not.toBeEmpty();
   await sheet.getByRole("button", { name: `Close ${title}` }).click();
 
-  await narrate(page, "Create New Resume is honest: it says coming soon rather than faking a form");
+  // Stale after an intentional product change (ent-resume, 2026-10-15): Create New Resume is real now. It opens the same chooser as the personal app (CON-80 is the full story).
+  await narrate(page, "Create New Resume opens the chooser: profile, upload, copy, or a blank page");
   await page.locator("[data-create-resume]").click();
-  await expect(page.getByText("Creating a resume from scratch is coming soon")).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Start from scratch")).toBeVisible();
+  await page.keyboard.press("Escape");
 });
 
 test("CON-14 Anika renames a resume, changes its visibility and switches her primary resume (then restores everything)", async ({ as }) => {
@@ -154,7 +156,7 @@ test("CON-14 Anika renames a resume, changes its visibility and switches her pri
   await sheet.getByLabel("Resume name").fill(newName);
   await narrate(page, "and saves the new name");
   await sheet.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByText("Resume updated")).toBeVisible();
+  await expect(page.getByText("Resume updated").first()).toBeVisible();
   await expect(page.locator("[data-resume]", { hasText: newName })).toHaveCount(1);
 
   await narrate(page, "She makes it the primary resume used in applications");

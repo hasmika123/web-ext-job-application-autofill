@@ -61,6 +61,18 @@ public final class ConsultantResumesDTO {
     /** Body of {@code POST /built}: the personal builder's create (template, target, name, source: profile, scratch, upload or copy). */
     public record BuiltResumeBody(String templateId, String target, String label, com.fasterxml.jackson.databind.JsonNode source) {}
 
+    /** What the new-resume chooser says about the consultant's profile source (counts and the headline only). */
+    public record SourceProfile(int itemCount, int roles, int schools, int skills, String headline) {}
+
+    /**
+     * A resume the "copy" source can start from. {@code resumeId} is the Resume Builder resume (copy it with {@code {kind:'copy', fromResumeId}}); null for a
+     * directory record with no builder document, which is copied with {@code {kind:'directory', orgResumeId: id}}.
+     */
+    public record SourceResume(Long id, Long resumeId, String name, java.time.Instant updatedAt) {}
+
+    /** {@code GET .../sources}: what "Use my profile" and "Copy an existing resume" offer, read from the organization's records. */
+    public record Sources(SourceProfile profile, java.util.List<SourceResume> resumes) {}
+
     /** The new resume: the directory row's id, the Resume Builder resume id (open it at `/w/consultant/resumes/{resumeId}`) and the row as the page lists it. */
     public record BuiltResumeCreated(Long orgResumeId, Long resumeId, ResumeRow row) {}
 

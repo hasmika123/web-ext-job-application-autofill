@@ -165,6 +165,9 @@
     "name" : "billing-webhook",
     "description" : "Stripe webhook receiver. Authenticated by signature, not by session."
   }, {
+    "name" : "audit",
+    "description" : "Organization audit: the log of who did what (read only)."
+  }, {
     "name" : "org-members",
     "description" : "Seats of an organization: invites, and the consent-scoped list."
   }, {
@@ -10951,6 +10954,46 @@
         }
       }
     },
+    "/api/orgs/{orgId}/consultants/{consultantId}/member" : {
+      "post" : {
+        "tags" : [ "consultants" ],
+        "summary" : "Link a consultant profile to an organization member",
+        "description" : "consultants.edit. Body: memberId (an ACTIVE or INVITED member of this organization with no profile: 422 / 409 MEMBER_ALREADY_LINKED; the consultant must not be linked yet: 409 CONSULTANT_ALREADY_LINKED). Their sign-in then opens the consultant workspace. One CONSULTANT_UPDATE audit row.",
+        "operationId" : "linkMember",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "additionalProperties" : { }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/consultants/{consultantId}/marketer" : {
       "post" : {
         "tags" : [ "consultants" ],
@@ -19909,6 +19952,26 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/resumes/sources" : {
+      "get" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "What the new-resume chooser offers",
+        "description" : "{profile: {itemCount, roles, schools, skills, headline}, resumes: [{id, resumeId, name, updatedAt}]}: the account's profile items, or the career profile in this organization when there are none; and the caller's approved resumes (resumeId is null for a directory record with no builder document: copy it with source {kind:'directory', orgResumeId: id}). resumes.manage required; 404 for everyone else.",
+        "operationId" : "sources",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Sources"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/profile" : {
       "get" : {
         "tags" : [ "consultant-workspace" ],
@@ -21565,6 +21628,29 @@
         }
       }
     },
+    "/api/orgs/{orgId}/consultants/linkable-members" : {
+      "get" : {
+        "tags" : [ "consultants" ],
+        "summary" : "People who can be linked to a consultant profile",
+        "description" : "consultants.edit. Members (ACTIVE or INVITED) who hold the Consultant role and have no profile yet: {memberId, name, email, status}. The pickers of Add consultant and of the drawer's Link a sign-in.",
+        "operationId" : "linkableMembers",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LinkableMember"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/consultants/filters" : {
       "get" : {
         "tags" : [ "consultants" ],
@@ -21914,6 +22000,66 @@
                   "additionalProperties" : {
                     "$ref" : "#/components/schemas/ColourCheck"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/audit" : {
+      "get" : {
+        "tags" : [ "audit" ],
+        "summary" : "The organization audit log",
+        "description" : "{items:[{id, at, action, label, actorName, targetType, targetName}], total, page, size, actions:[{action,label}]}, newest first. Filters: action (an action key), from and to (ISO instants, from inclusive, to exclusive). page from 0, size 1 to 100 (default 25). Free text, logins and IP hashes are never sent. audit.view at ORG scope and not row-filtered; 404 otherwise.",
+        "operationId" : "list_26",
+        "parameters" : [ {
+          "name" : "action",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Response"
                 }
               }
             }
@@ -23398,7 +23544,7 @@
     "/api/admin/users/{login}/sessions" : {
       "get" : {
         "tags" : [ "admin-session-resource" ],
-        "operationId" : "list_26",
+        "operationId" : "list_27",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -23428,7 +23574,7 @@
     "/api/admin/subscribers" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "list_27",
+        "operationId" : "list_28",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -23536,7 +23682,7 @@
     "/api/admin/settings" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "list_28",
+        "operationId" : "list_29",
         "parameters" : [ {
           "name" : "area",
           "in" : "query",
@@ -23767,7 +23913,7 @@
     "/api/admin/inquiries" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "list_29",
+        "operationId" : "list_30",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -23867,7 +24013,7 @@
     "/api/admin/customers" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "list_30",
+        "operationId" : "list_31",
         "parameters" : [ {
           "name" : "filter",
           "in" : "query",
@@ -23975,7 +24121,7 @@
     "/api/admin/bug-reports" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "list_31",
+        "operationId" : "list_32",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -33399,6 +33545,9 @@
           },
           "matchStatus" : {
             "type" : "string"
+          },
+          "pausedReason" : {
+            "type" : "string"
           }
         }
       },
@@ -33626,6 +33775,64 @@
           },
           "status" : {
             "type" : "string"
+          }
+        }
+      },
+      "SourceProfile" : {
+        "type" : "object",
+        "properties" : {
+          "itemCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "roles" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "schools" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "skills" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "headline" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SourceResume" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "resumeId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Sources" : {
+        "type" : "object",
+        "properties" : {
+          "profile" : {
+            "$ref" : "#/components/schemas/SourceProfile"
+          },
+          "resumes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SourceResume"
+            }
           }
         }
       },
@@ -34208,6 +34415,24 @@
             "format" : "int32"
           },
           "roundLabel" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LinkableMember" : {
+        "type" : "object",
+        "properties" : {
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "email" : {
             "type" : "string"
           },
           "status" : {

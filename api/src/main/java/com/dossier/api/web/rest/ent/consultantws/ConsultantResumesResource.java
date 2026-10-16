@@ -53,6 +53,17 @@ public class ConsultantResumesResource {
         return service.createBuilt(me, body);
     }
 
+    @Operation(
+        summary = "What the new-resume chooser offers",
+        description = "{profile: {itemCount, roles, schools, skills, headline}, resumes: [{id, resumeId, name, updatedAt}]}: the account's profile items, or the career profile in this organization when there are none; and the caller's approved resumes " +
+            "(resumeId is null for a directory record with no builder document: copy it with source {kind:'directory', orgResumeId: id}). resumes.manage required; 404 for everyone else."
+    )
+    @GetMapping("/sources")
+    @OrgPermissionRequired
+    public ConsultantResumesDTO.Sources sources(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {
+        return service.sources(me);
+    }
+
     @Operation(summary = "Resume preview", description = "The structured fields (headline, summary, skills, experience) one of the caller's own resumes is drawn, downloaded and printed from.")
     @GetMapping("/{resumeId}/preview")
     @OrgPermissionRequired

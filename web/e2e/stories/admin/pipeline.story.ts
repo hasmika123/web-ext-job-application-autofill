@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect, narrate } from "../_support/story";
-import { bff, orgIdOf } from "./_helpers";
+import { bff, orgIdOf, pickOption } from "./_helpers";
 
 const kpi = (page: Page, k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
 const num = async (page: Page, k: string) => Number((await kpi(page, k).innerText()).replace(/,/g, ""));
@@ -161,7 +161,8 @@ test("ADM-56 Org admin switches Applications to the pipeline board and the analy
 
 // ------------------------------------------------------------------ interviews
 
-const dock = (page: Page) => page.locator("[data-drawer-dock]");
+/** The interview's detail drawer: docked beside the table from 1680 px, a side dialog below that (at 1440 the docked column squeezed the table: intended). */
+const dock = (page: Page) => page.locator("[data-drawer-dock], [role=dialog]:has([data-detail-body])");
 
 test("ADM-57 Org admin filters interviews, records a status with Undo, and reschedules one", async ({ as }) => {
   const { page, go } = await as("sarah");
@@ -179,7 +180,11 @@ test("ADM-57 Org admin filters interviews, records a status with Undo, and resch
   await page.getByRole("option", { name: "Completed" }).click();
   await expect(page).toHaveURL(/status=COMPLETED/);
   await expect(page.locator("[data-showing]")).toContainText(`of ${await num(page, "completed")}`);
-  await page.getByRole("button", { name: "Clear filters" }).first().click();
+  // The toolbar has no "Clear filters" button (that one belongs to the empty state); the filter is cleared by choosing "All Statuses".
+  await page.locator('[role=search] button[aria-label="Status"]').click();
+  await page.getByRole("option", { name: "All Statuses" }).click();
+  await expect(page).not.toHaveURL(/status=/);
+  await expect(page.locator("[data-showing]")).toContainText(`of ${total.toLocaleString("en-US")} interviews`);
 
   await narrate(page, "Open a Scheduled interview and record it as In Progress, then Undo");
   await page.locator('[role=search] button[aria-label="Status"]').click();
@@ -190,15 +195,14 @@ test("ADM-57 Org admin filters interviews, records a status with Undo, and resch
   await row.click();
   await expect(page).toHaveURL(new RegExp(`iv=${id}`));
   await expect(dock(page).locator(`[data-interview-id="${id}"]`)).toBeVisible();
-  await dock(page).locator("[data-status-trigger]").click();
-  await page.getByRole("menuitem", { name: "Record as In Progress" }).click();
+  await pickOption(page, dock(page).locator("[data-status-trigger]"), page.getByRole("menuitem", { name: "Record as In Progress" })); // a menu closes when the page scrolls
   await expect(page.getByText(/recorded as In Progress/)).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).last().click();
   await expect(page.getByText("Undone", { exact: true })).toBeVisible();
 
   await narrate(page, "Reschedule through the dialog; the Timeline remembers");
   await dock(page).locator('[data-action="reschedule"]').click();
-  const dialog = page.getByRole("dialog");
+  const dialog = page.locator("[role=dialog]:has([data-reschedule-dialog])");
   await expect(dialog.locator("[data-reschedule-dialog]")).toBeVisible();
   await dialog.locator('input[type="time"]').fill("16:30");
   await dialog.locator("[data-reschedule-submit]").click();
@@ -332,10 +336,14 @@ test("ADM-62 Org admin requests a placement extension and undoes it", async ({ a
   await go("/w/admin/placements");
   await expect(page.locator("[data-placements-page]")).toBeVisible();
   const drawer = page.locator("[data-docked-drawer] [data-detail-body]");
-  const quiet = page.locator("tr[data-row-id]:has([data-next-action=NONE])").first();
-  await expect(quiet).toBeVisible();
+  // The board lists the placements that end soonest first, so the first page holds none that is quiet: ask the same list for one with nothing to do.
+  const orgId = await orgIdOf(page);
+  const list = (await bff(page, "GET", `/api/orgs/${orgId}/placements?tab=active&size=100`)).json;
+  const quiet = (list.items as { id: number; nextAction: { kind: string } }[]).find((p) => p.nextAction.kind === "NONE");
+  expect(quiet, "an active placement with nothing to do").toBeTruthy();
   await narrate(page, "Open a placement with nothing to do");
-  await quiet.click();
+  await go(`/w/admin/placements?pl=${quiet!.id}`);
+  await expect(page.locator("[data-placements-page]")).toBeVisible();
   await expect(drawer.locator("[data-field=end]")).toBeVisible();
   const endText = await drawer.locator("[data-field=end]").innerText();
   const m = /([A-Z][a-z]{2} \d{1,2}, \d{4})/.exec(endText);

@@ -9,6 +9,8 @@ import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
+import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
+import com.dossier.api.repository.ent.talent.OrgResumeRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.ResumeBuilderSettings;
@@ -35,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
-@TestPropertySource(properties = { "dossier.demo.enabled=true", "dossier.demo.enterprise-seed=true", "dossier.demo.create-accounts=false" })
+@TestPropertySource(properties = { "dossier.demo.enabled=true", "dossier.demo.enterprise-seed=true", "dossier.demo.create-accounts=false", "spring.datasource.hikari.maximum-pool-size=4" }) // the job insert is REQUIRES_NEW: a second connection beside the request's
 @org.junit.jupiter.api.Timeout(180)
 class MktMatchesIT {
 
@@ -46,6 +48,8 @@ class MktMatchesIT {
     @Autowired private OrganizationRepository orgs;
     @Autowired private RequirementMatchRepository matches;
     @Autowired private ClientRequirementRepository requirements;
+    @Autowired private ConsultantProfileRepository consultants;
+    @Autowired private OrgResumeRepository orgResumes;
     @Autowired private ResumeBuilderSettings settings;
     @Autowired private TenantResolver resolver;
 
@@ -88,6 +92,9 @@ class MktMatchesIT {
         RequirementMatch target = matches.findByOrgId(acme.getId()).stream()
             .filter(m -> "SUGGESTED".equals(m.getStatus()))
             .filter(m -> requirements.findByOrgIdAndId(acme.getId(), m.getRequirementId()).map(x -> "OPEN".equals(x.getStatus())).orElse(false))
+            // assigning is gated (one place, OpportunityAssignmentService): an ACTIVE consultant open to marketing, with an approved resume
+            .filter(m -> consultants.findByOrgIdAndId(acme.getId(), m.getConsultantId()).map(c -> "ACTIVE".equals(c.getStatus()) && "ACTIVE".equals(c.getMarketingStatus())).orElse(false))
+            .filter(m -> orgResumes.existsByOrgIdAndConsultantIdAndApprovalStatus(acme.getId(), m.getConsultantId(), "APPROVED"))
             .findFirst().orElseThrow();
         MvcResult r = mockMvc.perform(post(url(acme, "/" + target.getId() + "/assign")).with(user("demo-ent-acme-sarah"))).andReturn();
         assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200);

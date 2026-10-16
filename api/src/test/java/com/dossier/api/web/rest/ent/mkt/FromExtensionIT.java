@@ -41,7 +41,7 @@ import org.springframework.test.web.servlet.MvcResult;
  */
 @IntegrationTest
 @AutoConfigureMockMvc
-@TestPropertySource(properties = { "dossier.demo.enabled=true", "dossier.demo.enterprise-seed=true", "dossier.demo.create-accounts=false" })
+@TestPropertySource(properties = { "dossier.demo.enabled=true", "dossier.demo.enterprise-seed=true", "dossier.demo.create-accounts=false", "spring.datasource.hikari.maximum-pool-size=4" }) // the job insert is REQUIRES_NEW: a second connection beside the request's
 @org.junit.jupiter.api.Timeout(240)
 class FromExtensionIT {
 
@@ -56,6 +56,7 @@ class FromExtensionIT {
     @Autowired private ObjectMapper om;
     @Autowired private OrganizationRepository orgs;
     @Autowired private JdbcTemplate jdbc;
+    @Autowired private org.springframework.transaction.PlatformTransactionManager txManager;
     @Autowired private ResumeBuilderSettings settings;
     @Autowired private TenantResolver resolver;
 
@@ -65,6 +66,7 @@ class FromExtensionIT {
     private String link;
 
     @BeforeEach
+    @org.junit.jupiter.api.Timeout(240) // seeds the whole demo world when it is the first class on an empty database (the default for lifecycle methods is 15 s)
     void seed() {
         assertThat(baseSeeder.seed().ran()).isTrue();
         assertThat(talentSeeder.seed().ran()).isTrue();
@@ -76,6 +78,13 @@ class FromExtensionIT {
 
     @AfterEach
     void cleanUp() {
+        // the test datasource is auto-commit OFF: a bare JdbcTemplate statement is rolled back when its connection goes back to the pool, so the clean-up needs a transaction
+        new org.springframework.transaction.support.TransactionTemplate(txManager).executeWithoutResult(status -> cleanUpRows());
+        settings.invalidate();
+        resolver.invalidate();
+    }
+
+    private void cleanUpRows() {
         for (Long job : createdJobs) {
             jdbc.update("delete from mkt_opportunity_event where opportunity_id in (select o.id from mkt_opportunity o join requirement_match m on m.org_id = o.org_id and m.id = o.match_id where m.requirement_id = ?)", job);
             jdbc.update("delete from mkt_opportunity where match_id in (select id from requirement_match where requirement_id = ?)", job);
@@ -85,8 +94,6 @@ class FromExtensionIT {
             jdbc.update("delete from client_requirement where id = ?", job);
         }
         jdbc.update("delete from idempotency_record where org_id in (?, ?)", acme, beta);
-        settings.invalidate();
-        resolver.invalidate();
     }
 
     private String body(List<Long> consultantIds) throws Exception {
@@ -120,10 +127,16 @@ class FromExtensionIT {
     }
 
     private List<Long> consultantsOf(String login, Long org) throws Exception {
+        return consultantsOf(login, org, true);
+    }
+
+    private List<Long> consultantsOf(String login, Long org, boolean assignableOnly) throws Exception {
         MvcResult r = mockMvc.perform(get("/api/orgs/" + org + "/mkt/opportunities/options").with(user(login))).andReturn();
         assertThat(r.getResponse().getStatus()).isEqualTo(200);
         List<Long> ids = new ArrayList<>();
         for (JsonNode c : om.readTree(r.getResponse().getContentAsString()).path("consultants")) ids.add(c.path("id").asLong());
+        // the picker lists every consultant in scope; only an ACTIVE one open to marketing can be assigned (CONSULTANT_INACTIVE otherwise), and the demo has inactive ones
+        if (assignableOnly) ids.removeIf(id -> jdbc.queryForObject("select count(*) from consultant_profile where org_id = ? and id = ? and status = 'ACTIVE' and marketing_status = 'ACTIVE'", Long.class, org, id) == 0L);
         return ids;
     }
 
@@ -152,7 +165,7 @@ class FromExtensionIT {
     @Test
     void oneCallAssignsSeveralConsultantsReportsTheOnesOutsideTheScopeAndReplaysOnRetry() throws Exception {
         List<Long> mine = consultantsOf(MARKETER, acme);
-        Set<Long> visible = new HashSet<>(mine);
+        Set<Long> visible = new HashSet<>(consultantsOf(MARKETER, acme, false));
         Long foreign = consultantsOf(ADMIN, acme).stream().filter(id -> !visible.contains(id)).findFirst().orElse(null);
         assertThat(foreign).as("Acme has a consultant that jessica does not market").isNotNull();
         List<Long> ask = new ArrayList<>(mine.subList(0, Math.min(2, mine.size())));
@@ -172,7 +185,7 @@ class FromExtensionIT {
         // the ledger: one CAPTURED, one ASSIGNED per assigned consultant
         long jobId = out.path("jobId").asLong();
         assertThat(jdbc.queryForObject("select count(*) from job_data_event where org_id = ? and requirement_id = ? and event_type = 'CAPTURED'", Long.class, acme, jobId)).isEqualTo(1L);
-        assertThat(jdbc.queryForObject("select count(*) from job_data_event where org_id = ? and requirement_id = ? and event_type = 'ASSIGNED'", Long.class, acme, jobId)).isEqualTo((long) ask.size() - 1);
+        assertThat(jdbc.queryForObject("select count(*) from job_data_event where org_id = ? and requirement_id = ? and event_type = 'ASSIGNED'", Long.class, acme, jobId)).as(out.toString()).isEqualTo((long) ask.size() - 1);
         assertThat(jdbc.queryForObject("select detail_level from client_requirement where id = ?", String.class, jobId)).isEqualTo("MINIMAL");
         assertThat(jdbc.queryForObject("select capture_method from client_requirement where id = ?", String.class, jobId)).isEqualTo("USER_CLICK");
 

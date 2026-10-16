@@ -11,12 +11,13 @@ import { notFound, orgOk } from "@/lib/ent/members-bff";
 const ID = "\\d{1,18}";
 const ROUTES: { method: string; pattern: RegExp; body: boolean }[] = [
   { method: "GET", pattern: /^$/, body: false },
-  { method: "GET", pattern: /^(counts|filters)$/, body: false },
+  { method: "GET", pattern: /^(counts|filters|linkable-members)$/, body: false },
   { method: "GET", pattern: new RegExp(`^${ID}$`), body: false },
   { method: "GET", pattern: new RegExp(`^${ID}/(assignments|applications|activity|job-options)$`), body: false },
   { method: "POST", pattern: /^$/, body: true },
   { method: "PATCH", pattern: new RegExp(`^${ID}$`), body: true },
-  { method: "POST", pattern: new RegExp(`^${ID}/(marketer|deactivate|reactivate|applications|applications/save)$`), body: true },
+  { method: "POST", pattern: new RegExp(`^${ID}/(marketer|deactivate|reactivate|applications|member)$`), body: true },
+  { method: "POST", pattern: new RegExp(`^${ID}/applications/save$`), body: true },
   { method: "POST", pattern: /^bulk\/(availability|marketer|status)$/, body: true },
 ];
 

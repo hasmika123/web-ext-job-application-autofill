@@ -28,6 +28,8 @@ export interface Viewer {
   id?: number | null;
   login?: string | null;
   memberId?: number | null;
+  /** An organization page (the tenant host): the platform is not named there, so a system change reads "automatically" (D15, 2026-10-16 audit). */
+  org?: boolean;
 }
 
 export type AnyActor = ChangeActor | LoginActor | null | undefined;
@@ -83,7 +85,7 @@ export function actorLine(actor: AnyActor, kind: string | null | undefined, sour
     case "ASSISTANT":
       return "by Kiwiply AI";
     case "SYSTEM":
-      return "by Kiwiply";
+      return me?.org ? "automatically" : "by Kiwiply";
     default: {
       const who = actorText(actor, me);
       return who === "you" && source === "EXTENSION" ? "by you via the extension" : `by ${who}`;

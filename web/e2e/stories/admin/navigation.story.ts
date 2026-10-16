@@ -2,7 +2,7 @@ import { test, expect, narrate } from "../_support/story";
 import { shellReady } from "./_helpers";
 
 /** Admin menu slugs whose page exists as its own route (components/ent/**). Everything else in the menu renders "This page is on the way". */
-const BUILT = ["", "employees", "invitations", "teams", "departments", "roles", "consultants", "resumes", "marketing-assignments", "jobs", "applications", "interviews", "clients", "placements", "branding"];
+const BUILT = ["", "employees", "invitations", "teams", "departments", "roles", "consultants", "resumes", "marketing-assignments", "jobs", "applications", "interviews", "clients", "placements", "branding", "settings", "audit"];
 
 test("ADM-05 Org admin walks the Administration menu: built pages open, unbuilt ones say 'on the way'", async ({ as }) => {
   const { page, go } = await as("sarah");
@@ -32,16 +32,17 @@ test("ADM-05 Org admin walks the Administration menu: built pages open, unbuilt 
     }
   }
   await narrate(page, `Pages still on the way: ${onTheWay.length}`);
-  // Subscription, licenses, billing, usage, HR, Finance, reports, domains, integrations, audit and settings are not built yet.
-  expect(onTheWay.length).toBeLessThanOrEqual(11);
+  // Subscription, licenses, billing, usage, HR, Finance, reports, domains and integrations are not built yet. Settings is built since ent-resume (the
+  // share-links switch) and Audit Logs since the P0 audit fixes (the Audit Logs page): both are in BUILT above and must open as real pages.
+  expect(onTheWay.length).toBeLessThanOrEqual(9);
 });
 
 test("ADM-06 Org admin opens an unbuilt menu page and sees the honest 'on the way' state", async ({ as }) => {
   const { page, go } = await as("sarah");
   await go("/w/admin");
   await shellReady(page);
-  const target = page.locator('[data-shell-sidebar] a[data-nav-item][href^="/w/admin/audit"], [data-shell-sidebar] a[data-nav-item][href^="/w/admin/reports"], [data-shell-sidebar] a[data-nav-item][href^="/w/admin/settings"]').first();
-  test.skip((await target.count()) === 0, "Audit/Reports/Settings are not in this member's menu");
+  const target = page.locator('[data-shell-sidebar] a[data-nav-item][href^="/w/admin/reports"]').first(); // Audit Logs and Settings are real pages now
+  test.skip((await target.count()) === 0, "Reports is not in this member's menu");
   const label = ((await target.innerText()) || "").trim();
   await narrate(page, `Sarah clicks ${label} in the sidebar`);
   await target.click();

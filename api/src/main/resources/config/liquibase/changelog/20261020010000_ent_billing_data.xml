@@ -261,7 +261,10 @@
         <addUniqueConstraint tableName="subscription_change" columnNames="org_id, id" constraintName="uk_subscription_change_org_id"/>
         <addForeignKeyConstraint baseTableName="subscription_change" baseColumnNames="org_id, actor_member_id" constraintName="fk_subscription_change_1" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="subscription_change" indexName="ix_subscription_change_at"><column name="org_id"/><column name="occurred_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="subscription_change" constraintName="fk_subscription_change_1"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-billing-data-consultant_license" author="enterprise" runInTransaction="false">
@@ -298,7 +301,11 @@
         <createIndex tableName="consultant_license" indexName="ix_consultant_license_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
         <createIndex tableName="consultant_license" indexName="ix_consultant_license_ends"><column name="org_id"/><column name="ends_at"/></createIndex>
         <createIndex tableName="consultant_license" indexName="ix_consultant_license_renews"><column name="org_id"/><column name="renews_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="consultant_license" constraintName="fk_consultant_license_2"/>
+            <dropForeignKeyConstraint baseTableName="consultant_license" constraintName="fk_consultant_license_5"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-billing-data-consultant_license-keys" author="enterprise" runInTransaction="false">
@@ -335,7 +342,10 @@
         <addForeignKeyConstraint baseTableName="license_feature" baseColumnNames="org_id, added_by_member_id" constraintName="fk_license_feature_5" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="license_feature" indexName="ix_license_feature_license"><column name="org_id"/><column name="license_id"/></createIndex>
         <createIndex tableName="license_feature" indexName="ix_license_feature_feature"><column name="org_id"/><column name="feature_key"/><column name="live"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="license_feature" constraintName="fk_license_feature_5"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-billing-data-license_feature-keys" author="enterprise" runInTransaction="false">
@@ -368,7 +378,10 @@
         <addForeignKeyConstraint baseTableName="license_change" baseColumnNames="org_id, actor_member_id" constraintName="fk_license_change_2" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="license_change" indexName="ix_license_change_status"><column name="org_id"/><column name="status"/><column name="effective_at"/></createIndex>
         <createIndex tableName="license_change" indexName="ix_license_change_license"><column name="org_id"/><column name="license_id"/><column name="created_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="license_change" constraintName="fk_license_change_2"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-billing-data-org_invoice" author="enterprise" runInTransaction="false">
@@ -449,7 +462,10 @@
         <addForeignKeyConstraint baseTableName="org_payment" baseColumnNames="org_id, recorded_by_member_id" constraintName="fk_org_payment_3" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="org_payment" indexName="ix_org_payment_invoice"><column name="org_id"/><column name="invoice_id"/></createIndex>
         <createIndex tableName="org_payment" indexName="ix_org_payment_at"><column name="org_id"/><column name="occurred_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_payment" constraintName="fk_org_payment_3"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-billing-data-org_billing_adjustment" author="enterprise" runInTransaction="false">
@@ -472,7 +488,10 @@
         <addForeignKeyConstraint baseTableName="org_billing_adjustment" baseColumnNames="org_id, applied_invoice_id" constraintName="fk_org_billing_adjustment_1" referencedTableName="org_invoice" referencedColumnNames="org_id, id"/>
         <addForeignKeyConstraint baseTableName="org_billing_adjustment" baseColumnNames="org_id, created_by_member_id" constraintName="fk_org_billing_adjustment_2" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="org_billing_adjustment" indexName="ix_org_billing_adjustment_status"><column name="org_id"/><column name="status"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_billing_adjustment" constraintName="fk_org_billing_adjustment_2"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-billing-data-usage_event" author="enterprise" runInTransaction="false">
@@ -562,7 +581,10 @@
         <addForeignKeyConstraint baseTableName="feature_credit" baseColumnNames="org_id, created_by_member_id" constraintName="fk_feature_credit_3" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="feature_credit" indexName="ix_feature_credit_period"><column name="org_id"/><column name="period_key"/></createIndex>
         <createIndex tableName="feature_credit" indexName="ix_feature_credit_consultant"><column name="org_id"/><column name="consultant_id"/><column name="period_key"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="feature_credit" constraintName="fk_feature_credit_3"/>
+        </rollback>
     </changeSet>
 
 </databaseChangeLog>

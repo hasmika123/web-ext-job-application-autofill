@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import ResumeEditor from "@/components/app-v3/resume-builder/ResumeEditor";
-import { BuilderEnvProvider, actForEditorEnv } from "@/components/app-v3/resume-builder/builderEnv";
+import { BuilderEnvFromSpec } from "@/components/app-v3/resume-builder/builderEnv";
 import { NotYourRole } from "@/components/ent/shell/ShellStates";
 import { ErrorState } from "@kiwiply/ui";
 import { serverApiFetch } from "@/lib/api";
@@ -12,7 +12,7 @@ import { can } from "@/lib/ent/workspaces";
 /**
  * A marketer editing an ASSIGNED consultant's resume in the Resume Builder (`/w/marketing/resumes/<directory row>`), in act-for mode: the very same
  * `ResumeEditor` as everywhere else, mounted inside the organization's shell. A thin wrapper: the row is looked up through the Resumes board's own detail
- * call (which names the builder resume behind it), the editor's calls carry the row (`actForEditorEnv`), and the API's act-for gate decides every one of
+ * call (which names the builder resume behind it), the editor's calls carry the row (a plain-data spec; the env with its functions is built on the client), and the API's act-for gate decides every one of
  * them (organization host, resumes.edit_for, ASSIGNED scope, allow-listed routes) with the generic 404. What a marketer may do here (no sharing, no delete,
  * no primary, no AI) comes from the API's capabilities, and what they write waits for the consultant's approval.
  */
@@ -47,7 +47,7 @@ export default async function MarketerResumeEditorRoute({ params }: { params: Pr
   if (data.kind === "error") throw new Error(`Couldn't load the resume (${data.status}).`);
 
   return (
-    <BuilderEnvProvider env={actForEditorEnv(row, resumeId)}>
+    <BuilderEnvFromSpec spec={{ mode: "actForEditor", orgResumeId: row, resumeId }}>
       <div data-builder-frame className="flex min-h-0 flex-1 flex-col overflow-hidden bg-v2-canvas">
         <ResumeEditor
           initial={data.initial}
@@ -60,6 +60,6 @@ export default async function MarketerResumeEditorRoute({ params }: { params: Pr
           jobTarget={null}
         />
       </div>
-    </BuilderEnvProvider>
+    </BuilderEnvFromSpec>
   );
 }

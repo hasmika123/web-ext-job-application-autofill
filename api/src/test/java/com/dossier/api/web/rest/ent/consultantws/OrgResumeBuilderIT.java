@@ -444,7 +444,7 @@ class OrgResumeBuilderIT {
         OrgResume after = orgResumes.findByOrgIdAndId(a.getId(), orgResumeId).orElseThrow();
         assertThat(after.getApprovedByMemberId()).isEqualTo(c1.getMemberId());
         assertThat(after.getApprovedAt()).isNotNull();
-        assertThat(events.forResumes(a.getId(), List.of(orgResumeId))).extracting(MktResumeEvent::getKind).endsWith(MktResumeEvent.APPROVED);
+        assertThat(events.forResumes(a.getId(), List.of(orgResumeId))).extracting(MktResumeEvent::getKind).contains(MktResumeEvent.APPROVED);
         assertThat(ok(send("orb-a-c1", post(me(a) + "/" + orgResumeId + "/approve")), 409).path("code").asText()).isEqualTo("NOT_PENDING");
         assertThat(send("orb-a-c1", post(me(a) + "/" + orgResumeId + "/primary")).getResponse().getStatus()).isEqualTo(200);
     }
@@ -686,6 +686,99 @@ class OrgResumeBuilderIT {
         assertThat(viaBoard).isNotNull();
         assertThat(viaBoard.path("updatedBy").asText()).as("the owner is the newest actor, shown by name").isNotBlank().doesNotContain("ent#");
     }
+    // ---- D10 (2026-10-16 audit): the chooser reads the organization's records ---------------------------------------------------
+
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantSkillRepository skillRows;
+
+    private OrgResume record(ConsultantProfile c, String name, boolean primary) {
+        OrgResume r = new OrgResume();
+        r.setOrgId(c.getOrgId());
+        r.setConsultantId(c.getId());
+        r.setMemberId(c.getMemberId());
+        r.setName(name);
+        r.setApprovalStatus("APPROVED");
+        r.setPrimaryForOrg(primary);
+        r.setSummaryText("Backend engineer who ships.");
+        r = orgResumes.saveAndFlush(r);
+        int order = 0;
+        for (String[] e : new String[][] { { "Staff Engineer", "Globex Corp", "2021" }, { "Engineer", "Initech", "2017" } }) {
+            com.dossier.api.domain.ent.talent.OrgResumeExperience x = new com.dossier.api.domain.ent.talent.OrgResumeExperience();
+            x.setOrgId(c.getOrgId());
+            x.setResumeId(r.getId());
+            x.setTitle(e[0]);
+            x.setEmployer(e[1]);
+            x.setStartYear(Integer.parseInt(e[2]));
+            x.setSortOrder(order++);
+            orgExperience.saveAndFlush(x);
+        }
+        return r;
+    }
+
+    private void skill(ConsultantProfile c, String name, boolean primary, int order) {
+        com.dossier.api.domain.ent.talent.ConsultantSkill s = new com.dossier.api.domain.ent.talent.ConsultantSkill();
+        s.setOrgId(c.getOrgId());
+        s.setConsultantId(c.getId());
+        s.setSkill(name);
+        s.setPrimarySkill(primary);
+        s.setSortOrder(order);
+        skillRows.saveAndFlush(s);
+    }
+
+    @Test
+    void theChooserCountsTheCareerProfileAndListsEveryApprovedResumeNotOnlyBuilderDocuments() throws Exception {
+        skill(c1, "Java", true, 0);
+        skill(c1, "SQL", false, 1);
+        OrgResume record = record(c1, "Imported CV", true);
+
+        JsonNode src = ok(send("orb-a-c1", get(me(a) + "/sources")), 200);
+        assertThat(src.path("profile").path("roles").asInt()).as("the work history of the primary resume").isEqualTo(2);
+        assertThat(src.path("profile").path("skills").asInt()).isEqualTo(2);
+        assertThat(src.path("profile").path("itemCount").asInt()).as("not the empty-profile state").isGreaterThan(0);
+        assertThat(src.path("resumes")).hasSize(1);
+        assertThat(src.path("resumes").get(0).path("id").asLong()).isEqualTo(record.getId());
+        assertThat(src.path("resumes").get(0).path("resumeId").isNull()).as("a record with no builder document").isTrue();
+
+        // "Use my profile" builds from that career profile
+        JsonNode fromProfile = consultantCreates("orb-a-c1", "{\"label\":\"From my profile\",\"source\":\"profile\"}");
+        String doc = ok(send("orb-a-c1", get("/api/profile/resumes/" + fromProfile.path("resumeId").asLong() + "/doc")), 200).toString();
+        assertThat(doc).contains("Globex Corp").contains("Initech").contains("Java");
+
+        // a record is copied into the builder as a new, editable resume
+        JsonNode copied = consultantCreates("orb-a-c1", "{\"label\":\"Imported CV (copy)\",\"source\":{\"kind\":\"directory\",\"orgResumeId\":" + record.getId() + "}}");
+        assertThat(copied.path("row").path("approvalStatus").asText()).isEqualTo("APPROVED");
+        assertThat(ok(send("orb-a-c1", get("/api/profile/resumes/" + copied.path("resumeId").asLong() + "/doc")), 200).toString()).contains("Globex Corp").contains("Backend engineer who ships.");
+
+        // the sources now list the built resumes by their builder id
+        JsonNode again = ok(send("orb-a-c1", get(me(a) + "/sources")), 200);
+        assertThat(again.path("resumes")).hasSize(3);
+
+        // another consultant's record, another organization's, and a stranger are all the generic 404
+        OrgResume theirs = record(c2, "Robin's CV", false);
+        assertGeneric404(send("orb-a-c1", post(me(a) + "/built").content("{\"source\":{\"kind\":\"directory\",\"orgResumeId\":" + theirs.getId() + "}}")), "another consultant's record");
+        assertGeneric404(send("orb-a-c1", post(me(a) + "/built").content("{\"source\":{\"kind\":\"directory\",\"orgResumeId\":999999999}}")), "unknown record");
+        assertGeneric404(send("orb-a-marketer", get(me(a) + "/sources")), "a marketer has no consultant sources");
+        assertGeneric404(send("orb-b-owner", get(me(a) + "/sources")), "another organization's owner");
+    }
+
+    @Test
+    void aConsultantsFirstResumeIsTheirPrimaryOneAndALaterOneIsNot() throws Exception {
+        JsonNode first = consultantCreates("orb-a-c1", "{\"label\":\"First\",\"source\":\"scratch\"}");
+        assertThat(first.path("row").path("primary").asBoolean()).as("the personal flag already makes the first resume the default").isTrue();
+        JsonNode second = consultantCreates("orb-a-c1", "{\"label\":\"Second\",\"source\":\"scratch\"}");
+        assertThat(second.path("row").path("primary").asBoolean()).isFalse();
+        assertThat(orgResumes.findByOrgIdAndConsultantId(a.getId(), c1.getId()).stream().filter(OrgResume::isPrimaryForOrg).count()).isEqualTo(1);
+
+    }
+
+    @Test
+    void aResumeAMarketerMadeBecomesThePrimaryOneWhenTheConsultantApprovesItAndHasNone() throws Exception {
+        JsonNode made = ok(send("orb-a-marketer", post(mkt(a) + "/consultants/" + c1.getId() + "/built").content("{\"label\":\"For Casey\",\"source\":\"scratch\"}")), 201);
+        long orgResumeId = made.path("orgResumeId").asLong();
+        assertThat(orgResumes.findByOrgIdAndId(a.getId(), orgResumeId).orElseThrow().isPrimaryForOrg()).as("pending, so not primary yet").isFalse();
+        assertThat(ok(approve("orb-a-c1", orgResumeId), 200).path("primary").asBoolean()).isTrue();
+        assertThat(events.forResumes(a.getId(), List.of(orgResumeId))).extracting(MktResumeEvent::getKind).contains("PRIMARY_SET");
+    }
+
     // ---- security review of the act-for mechanism (2026-10-15) ----------------------------------------------------------
 
     private static final String ORIGINAL_KEY = "resume-originals/%d/%d-0000-original.pdf";

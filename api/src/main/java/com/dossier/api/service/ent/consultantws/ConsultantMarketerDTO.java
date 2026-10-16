@@ -30,7 +30,7 @@ public final class ConsultantMarketerDTO {
     /** The consultant's current marketer; the whole object is null when nobody is assigned. No photo, no email, no phone. */
     public record Marketer(Long memberId, String name, String title, Instant assignedAt) {}
 
-    /** SAMPLE: how quickly the marketer replies is not measured anywhere yet. */
+    /** How quickly the marketer replies is not measured anywhere, so the page sends no badge: {@code label} and {@code detail} are null. */
     public record Badge(boolean sample, String label, String detail) {}
 
     /** stage: MARKETING (assigned, no application yet) or the application stage; priority: HIGH/MEDIUM/LOW derived from the match score. */

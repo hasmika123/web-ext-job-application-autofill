@@ -311,6 +311,33 @@ export async function fetchResumes(orgId: number | string, signal?: AbortSignal)
   }
 }
 
+/** What the new-resume chooser offers, read from the ORGANIZATION's records (`GET .../me-workspace/resumes/sources`): the profile card's counts and the copyable resumes. */
+export interface ResumeSources {
+  profile: { itemCount: number; roles: number; schools: number; skills: number; headline: string | null };
+  /** `resumeId` null = a directory record with no builder document: it is copied with `{kind: "directory", orgResumeId: id}`. */
+  resumes: { id: number; resumeId: number | null; name: string; updatedAt: string | null }[];
+}
+
+export function parseResumeSources(data: unknown): ResumeSources | null {
+  if (!isObj(data) || !isObj(data.profile)) return null;
+  const p = data.profile;
+  const resumes = arr(data.resumes).flatMap((r) => {
+    if (!isObj(r) || typeof r.id !== "number" || typeof r.name !== "string") return [];
+    return [{ id: r.id, resumeId: numOrNull(r.resumeId), name: r.name, updatedAt: strOrNull(r.updatedAt) }];
+  });
+  return { profile: { itemCount: num(p.itemCount), roles: num(p.roles), schools: num(p.schools), skills: num(p.skills), headline: strOrNull(p.headline) }, resumes };
+}
+
+export async function fetchResumeSources(orgId: number | string): Promise<ResumeSources | null> {
+  try {
+    const res = await fetch(`${base(orgId)}/sources`, { headers: { accept: "application/json" }, cache: "no-store" });
+    if (!res.ok) return null;
+    return parseResumeSources(await res.json().catch(() => null));
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchPreview(orgId: number | string, resumeId: number): Promise<{ kind: "OK"; preview: ResumePreview } | { kind: "FAILED" | "DENIED" }> {
   try {
     const res = await fetch(`${base(orgId)}/${resumeId}/preview`, { headers: { accept: "application/json" }, cache: "no-store" });

@@ -188,7 +188,7 @@ export function AssignSheet({
     const r = await assignJob(orgId, job.id, picked);
     setBusy(false);
     if (r.ok) onDone(r.value, rows?.find((c) => c.consultantId === picked)?.name ?? "the consultant");
-    else setError(r.status === 409 ? "This job is no longer open." : r.status === 404 ? "That consultant isn't available to you." : r.error);
+    else setError(r.status === 409 ? r.error : r.status === 404 ? "That consultant isn't available to you." : r.error);
   };
 
   return (
@@ -221,12 +221,17 @@ export function AssignSheet({
           <ul role="radiogroup" aria-label="Consultants" className="flex flex-col gap-1.5">
             {(rows ?? []).map((c) => (
               <li key={c.consultantId}>
-                <label data-candidate={c.consultantId} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2", picked === c.consultantId ? "border-accent bg-accent-soft" : "border-line hover:border-accent")}>
-                  <input type="radio" name={`assign-${id}`} checked={picked === c.consultantId} onChange={() => setPicked(c.consultantId)} className="sr-only" />
+                <label
+                  data-candidate={c.consultantId}
+                  data-paused={c.pausedReason ? "true" : undefined}
+                  title={c.pausedReason ?? undefined}
+                  className={cn("flex items-center gap-3 rounded-lg border px-3 py-2", c.pausedReason ? "cursor-not-allowed border-line opacity-60" : "cursor-pointer", picked === c.consultantId ? "border-accent bg-accent-soft" : !c.pausedReason && "border-line hover:border-accent")}
+                >
+                  <input type="radio" name={`assign-${id}`} checked={picked === c.consultantId} disabled={!!c.pausedReason} onChange={() => setPicked(c.consultantId)} className="sr-only" />
                   <MemberAvatar name={c.name} size={34} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13.5px] font-semibold text-ink">{c.name}</span>
-                    <span className="block truncate text-[12px] text-muted">{[c.title, c.availability && c.availability.toLowerCase().replace(/_/g, " ")].filter(Boolean).join(" - ")}</span>
+                    <span className="block truncate text-[12px] text-muted">{c.pausedReason ?? [c.title, c.availability && c.availability.toLowerCase().replace(/_/g, " ")].filter(Boolean).join(" - ")}</span>
                   </span>
                   {c.matchStatus === "ASSIGNED" ? <span className="rounded-md bg-v2-green-soft px-2 py-0.5 text-[11.5px] font-semibold text-v2-green-ink">Assigned</span> : null}
                   {c.score !== null ? <span className={cn("rounded-full px-2.5 py-0.5 text-[12px] font-bold", c.score >= 80 ? TINTS.green : TINTS.amber)}>{c.score}%</span> : null}

@@ -103,7 +103,7 @@ export type TileKey = (typeof TILE_KEYS)[number];
 
 export const TILE_TITLES: Record<TileKey, string> = {
   "consultants.total": "Total Consultants",
-  "employees.active": "Active Employees",
+  "employees.active": "Active Staff", // staff only (consultants are Total Consultants): the Employees page counts everyone, so "Active Employees" here read 13 beside 15 there
   "applications.active": "Open Applications",
   "interviews.upcoming": "Upcoming Interviews",
   placements: "Active Placements",

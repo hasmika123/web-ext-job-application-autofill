@@ -418,7 +418,12 @@ public class OnboardingService {
         return bioRepository.findByUserId(uid).stream().findFirst().orElse(null);
     }
 
+    /** Race-safe get-or-create of the bio ({@link BioProvisioner}); absent in hand-wired unit tests, which use the plain insert below. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.BioProvisioner bioProvisioner;
+
     private Bio newBio(User user) {
+        if (bioProvisioner != null) return bioProvisioner.getOrCreate(user);
         Bio bio = new Bio();
         bio.setPayload("{}");
         bio.setUpdatedAt(now());

@@ -160,7 +160,8 @@ public class OrgResumeLinkService {
         row.setKind(madeForThem ? "ORG_MANAGED" : "PERSONAL_SHARED");
         row.setVisibility("INTERNAL");
         row.setApprovalStatus(madeForThem ? "PENDING" : "APPROVED");
-        row.setPrimaryForOrg(false);
+        // D10: a consultant's FIRST approved resume is their primary one (the personal flag already says so: the first resume of an account is its default)
+        row.setPrimaryForOrg(!madeForThem && resumes.findByOrgIdAndConsultantId(orgId, consultant.get().getId()).stream().noneMatch(OrgResume::isPrimaryForOrg));
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         project(row, resume, docOf(resume));
@@ -170,6 +171,7 @@ public class OrgResumeLinkService {
         Long actorMemberId = madeForThem ? actor.getId() : seat.get().getId();
         log(row, MktResumeEvent.CREATED, actorMemberId, null, now);
         if (madeForThem) log(row, MktResumeEvent.APPROVAL_REQUESTED, actorMemberId, null, now.plusMillis(1));
+        if (row.isPrimaryForOrg()) log(row, "PRIMARY_SET", actorMemberId, "First resume", now.plusMillis(1));
         return Optional.of(row);
     }
 

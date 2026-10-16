@@ -336,6 +336,55 @@ class OrgConsultantResourceIT extends MemberItSupport {
         assertGeneric404(call(login("bowner"), post(url(a)), body.replace("Fay", "Ivy"), null, key()), "another organization's owner");
     }
 
+    // ---- the link to an organization member (D2/D3 of the 2026-10-16 audit) ------------------------------------------------------
+
+    @Test
+    void aNewConsultantIsLinkedToTheMemberYouPickOrWhoseAddressMatches() throws Exception {
+        // picked: c1 holds the Consultant role and has no profile
+        String picked = "{\"displayName\":\"Anika Khan\",\"email\":\"anika.k@" + p + ".example.org\",\"memberId\":" + c1.getId() + "}";
+        JsonNode d = json(call(login("owner"), post(url(a)), picked, null, key()));
+        assertThat(d.path("memberId").asLong()).isEqualTo(c1.getId());
+        assertThat(newestAudit(a).getAction()).isEqualTo("CONSULTANT_CREATE");
+        // the same person can not hold two profiles; a member of another organization or an unknown id is refused
+        assertCode(call(login("owner"), post(url(a)), picked.replace("anika.k@", "anika.again@"), null, key()), 409, "MEMBER_ALREADY_LINKED");
+        assertStatus(call(login("owner"), post(url(a)), "{\"displayName\":\"Zoe Zed\",\"email\":\"zoe@" + p + ".example.org\",\"memberId\":" + bMember.getId() + "}", null, key()), 422);
+        assertStatus(call(login("owner"), post(url(a)), "{\"displayName\":\"Zoe Zed\",\"email\":\"zoe@" + p + ".example.org\",\"memberId\":999999999}", null, key()), 422);
+
+        // matched: c2's account address is "<login>@example.com"; adding a consultant with that address links her
+        String matched = "{\"displayName\":\"Anita Rao\",\"email\":\"" + login("c2") + "@example.com\"}";
+        assertThat(json(call(login("owner"), post(url(a)), matched, null, key())).path("memberId").asLong()).isEqualTo(c2.getId());
+
+        // no seat carries this address: a record with no sign-in
+        JsonNode loose = json(call(login("owner"), post(url(a)), "{\"displayName\":\"Lou Loose\",\"email\":\"lou@" + p + ".example.org\"}", null, key()));
+        assertThat(loose.path("memberId").isNull()).isTrue();
+    }
+
+    @Test
+    void linkableMembersAreConsultantsWithoutAProfileAndAnExistingProfileCanBeLinkedLater() throws Exception {
+        JsonNode before = json(call(login("owner"), get(url(a) + "/linkable-members")));
+        java.util.List<Long> ids = new ArrayList<>();
+        for (JsonNode n : before) ids.add(n.path("memberId").asLong());
+        assertThat(ids).containsExactlyInAnyOrder(c1.getId(), c2.getId());
+        assertThat(before.get(0).has("email")).isTrue();
+
+        // Cy is a record with no sign-in: link Anika's seat to him
+        JsonNode linked = json(call(login("owner"), post(url(a) + "/" + cy.getId() + "/member"), "{\"memberId\":" + c1.getId() + "}"));
+        assertThat(linked.path("memberId").asLong()).isEqualTo(c1.getId());
+        assertThat(newestAudit(a).getAction()).isEqualTo("CONSULTANT_UPDATE");
+        // linked once; the seat is taken now; a second link on the same row is a conflict
+        assertCode(call(login("owner"), post(url(a) + "/" + cy.getId() + "/member"), "{\"memberId\":" + c2.getId() + "}"), 409, "CONSULTANT_ALREADY_LINKED");
+        assertCode(call(login("owner"), post(url(a) + "/" + ed.getId() + "/member"), "{\"memberId\":" + c1.getId() + "}"), 409, "MEMBER_ALREADY_LINKED");
+        JsonNode after = json(call(login("owner"), get(url(a) + "/linkable-members")));
+        assertThat(after).hasSize(1);
+        assertThat(after.get(0).path("memberId").asLong()).isEqualTo(c2.getId());
+
+        // strangers: no edit key, another organization
+        assertGeneric404(call(login("spec"), get(url(a) + "/linkable-members")), "a specialist");
+        assertGeneric404(call(login("bowner"), get(url(a) + "/linkable-members")), "another organization's owner");
+        assertGeneric404(call(login("spec"), post(url(a) + "/" + ed.getId() + "/member"), "{\"memberId\":" + c2.getId() + "}"), "a specialist");
+        assertGeneric404(call(login("bowner"), post(url(a) + "/" + zed.getId() + "/member"), "{\"memberId\":" + c2.getId() + "}"), "another organization's owner");
+    }
+
     // ---- marketer ---------------------------------------------------------------------------------------------------------------
 
     @Test

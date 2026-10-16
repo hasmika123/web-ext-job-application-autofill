@@ -5,6 +5,7 @@ import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.JobDataEvent;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
+import com.dossier.api.repository.ent.mkt.MktOpportunityRow;
 import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
@@ -144,6 +145,12 @@ public class JobIdentityTx {
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Optional<Long> readMatchId(Long orgId, Long requirementId, Long consultantId) {
         return matches.findByOrgIdAndRequirementIdAndConsultantId(orgId, requirementId, consultantId).map(RequirementMatch::getId);
+    }
+
+    /** A board row in a fresh snapshot: a match another transaction committed after the caller's snapshot began (the one just inserted here) is visible. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Optional<MktOpportunityRow> readOpportunityRow(Long orgId, Long matchId) {
+        return opportunities.findRow(orgId, matchId);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)

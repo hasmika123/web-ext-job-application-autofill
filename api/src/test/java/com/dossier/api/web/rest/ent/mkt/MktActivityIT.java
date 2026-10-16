@@ -110,7 +110,7 @@ class MktActivityIT {
     private Set<Long> jessicasConsultants() {
         Long memberId = jessicasMemberId();
         Set<Long> ids = new HashSet<>();
-        for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) if (memberId.equals(a.getMarketerMemberId()) || memberId.equals(a.getBackupMemberId())) ids.add(a.getConsultantId());
+        for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) if ("ACTIVE".equals(a.getStatus()) && (memberId.equals(a.getMarketerMemberId()) || memberId.equals(a.getBackupMemberId()))) ids.add(a.getConsultantId());
         return ids;
     }
 

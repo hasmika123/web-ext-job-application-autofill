@@ -217,7 +217,7 @@ public class MktMatchesService {
         OpportunityAssignmentService.Result assigned = assignment.assign(write, me, m.getRequirementId(), m.getConsultantId(),
             OpportunityAssignmentService.Options.none().withAudit(new OpportunityAssignmentService.Audit("MKT_MATCH_ASSIGN", "MATCH", String.valueOf(m.getId()),
                 r -> "consultantId=" + r.consultantId() + ";requirementId=" + r.jobId() + ";score=" + r.score())));
-        if (assigned.refused()) throw conflict(assigned.reason(), "This consultant is not active, so nothing can be assigned", null);
+        if (assigned.refused()) throw conflict(assigned.reason(), OpportunityAssignmentService.CONSULTANT_PAUSED.equals(assigned.reason()) ? "This consultant is on a project and their marketing is paused, so nothing can be assigned" : "This consultant is not active, so nothing can be assigned", null);
         return rowOf(me.orgId(), matches.findByOrgIdAndId(me.orgId(), matchId).orElseThrow(OrgNotFoundException::new));
     }
 

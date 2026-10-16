@@ -119,6 +119,8 @@
         <sql>UPDATE talent_application_event SET actor_kind = 'SYSTEM' WHERE actor_member_id IS NULL AND actor_kind = 'PERSON'</sql>
         <sql>UPDATE talent_interview_event SET actor_kind = 'SYSTEM' WHERE actor_member_id IS NULL AND actor_kind = 'PERSON'</sql>
         <sql>UPDATE mkt_submission_event SET actor_kind = 'SYSTEM' WHERE actor_member_id IS NULL AND actor_kind = 'PERSON'</sql>
+        <!-- Rollback: nothing to undo. actor_kind was added by changeset -6, and undoing -6 drops the column (and the data) anyway. -->
+        <rollback/>
     </changeSet>
 
     <!-- Backfill, head records: the actor of the newest (updated_by) and oldest (created_by) event, when a person; else left null. -->
@@ -167,5 +169,7 @@
             UPDATE talent_application_note SET updated_by_member_id = author_member_id, updated_at = created_at
             WHERE updated_by_member_id IS NULL AND author_member_id IS NOT NULL
         </sql>
+        <!-- Rollback: nothing to undo. This only fills the created_by_member_id / updated_by_member_id / updated_at columns that changesets -1 to -5 added, and undoing those drops them (and the data) anyway. -->
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

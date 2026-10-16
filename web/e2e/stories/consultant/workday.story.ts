@@ -1,5 +1,5 @@
 import { test, expect, narrate } from "../_support/story";
-import { isoDay, menuAction, openPage, pageTitle, pick, stamp, tileValue } from "./_helpers";
+import { isoDay, menuAction, openPage, orgIdOf, pageTitle, pick, removeLeftoverTasks, stamp, tileValue } from "./_helpers";
 
 /** Tasks & Follow-ups, Activity Timeline, My Features, Notifications and Settings: the consultant's day-to-day housekeeping. */
 
@@ -22,9 +22,9 @@ test("CON-50 Anika reads her Tasks & Follow-ups: tiles, tabs with counts, search
   await page.getByLabel("Search tasks").fill("");
 
   await narrate(page, "The Priority filter and the Completed tab work too");
-  await page.getByLabel("Priority").selectOption({ label: "High" });
+  await page.getByLabel("Priority", { exact: true }).selectOption({ label: "High" });
   await expect(page.locator("[data-task]").first()).toBeVisible();
-  await page.getByLabel("Priority").selectOption({ index: 0 });
+  await page.getByLabel("Priority", { exact: true }).selectOption({ index: 0 });
   await page.locator("[data-tab=COMPLETED]").click();
   await expect(page.locator("[data-tab=COMPLETED]")).toHaveAttribute("aria-selected", "true");
   await page.locator("[data-tab=ALL]").click();
@@ -33,6 +33,10 @@ test("CON-50 Anika reads her Tasks & Follow-ups: tiles, tabs with counts, search
 test("CON-51 Anika creates her own task, completes and reopens it, edits it and deletes it", async ({ as }) => {
   const { page, go } = await as("anika");
   await openPage(page, go, "tasks");
+  // self-contained: a run that failed half way leaves its task behind, and the list pages 8 at a time, so clear those first and find the new one by name
+  await removeLeftoverTasks(page, await orgIdOf(page), "QA story task");
+  await page.reload();
+  await expect(page.locator("[data-consultant-tasks][data-status=ready]")).toBeVisible();
   const title = `QA story task ${stamp()}`;
 
   await narrate(page, "New Task opens a small form: only she can see her own to-do list");
@@ -44,15 +48,17 @@ test("CON-51 Anika creates her own task, completes and reopens it, edits it and 
   await dlg.getByLabel("Task type").selectOption({ label: "Communication" });
   await dlg.getByRole("button", { name: "Add task" }).click();
   await expect(page.getByText("Task added")).toBeVisible();
+  await page.getByRole("searchbox", { name: "Search tasks" }).fill(title); // the list pages 8 at a time, ordered by due date
   const row = page.locator("[data-task]", { hasText: title });
   await expect(row).toBeVisible();
   await expect(row).toHaveAttribute("data-status", "NOT_STARTED");
 
   await narrate(page, "She ticks it off, then reopens it");
-  await row.getByRole("checkbox", { name: `Complete ${title}` }).check();
+  // click, not check(): the box renames itself ("Complete" -> "Reopen") and the row re-renders when the status changes, which check() reads as "did not change"
+  await row.getByRole("checkbox", { name: `Complete ${title}` }).click();
   await expect(page.getByText("Task completed")).toBeVisible();
   await expect(page.locator("[data-task]", { hasText: title })).toHaveAttribute("data-status", "DONE");
-  await page.locator("[data-task]", { hasText: title }).getByRole("checkbox", { name: `Reopen ${title}` }).uncheck();
+  await page.locator("[data-task]", { hasText: title }).getByRole("checkbox", { name: `Reopen ${title}` }).click();
   await expect(page.locator("[data-task]", { hasText: title })).toHaveAttribute("data-status", "NOT_STARTED");
 
   await narrate(page, "She edits the name from the row menu");
@@ -178,7 +184,7 @@ test("CON-56 Anika reviews Settings: account, privacy choices, honest security a
   await narrate(page, "Password and two-factor are managed on her Kiwiply account; they are never shown or faked here");
   await expect(page.locator("[data-security-row]").first()).toContainText(/Password|Two-Factor|Login/);
   await expect(page.locator("input[type=password]")).toHaveCount(0);
-  await expect(page.locator("[data-security-link]")).toHaveAttribute("href", "/settings");
+  await expect(page.locator("[data-security-link]")).toHaveAttribute("href", "/me#security"); // one basic My profile page for every member (D6)
 
   await narrate(page, "Connected tools are not available yet, and the buttons say so");
   await expect(page.locator("[data-tool]").first()).toContainText("Not available yet");

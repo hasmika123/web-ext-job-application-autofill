@@ -46,7 +46,10 @@
         <addForeignKeyConstraint baseTableName="client_account" baseColumnNames="org_id, owner_member_id" constraintName="fk_client_account_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <addUniqueConstraint tableName="client_account" columnNames="org_id, id" constraintName="uk_client_account_org_id"/>
         <createIndex tableName="client_account" indexName="ix_client_account_kind"><column name="org_id"/><column name="kind"/><column name="status"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="client_account" constraintName="fk_client_account_owner"/>
+        </rollback>
     </changeSet>
 
     <!-- Business contacts of a client: name, title and work email only (no phone). -->
@@ -107,7 +110,10 @@
         <createIndex tableName="consultant_profile" indexName="ix_consultant_profile_avail"><column name="org_id"/><column name="availability_status"/><column name="marketing_status"/></createIndex>
         <createIndex tableName="consultant_profile" indexName="ix_consultant_profile_license"><column name="org_id"/><column name="license_status"/></createIndex>
         <createIndex tableName="consultant_profile" indexName="ix_consultant_profile_created"><column name="org_id"/><column name="created_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="consultant_profile" constraintName="fk_consultant_profile_member"/>
+        </rollback>
     </changeSet>
 
     <!-- Skills of a consultant; primary_skill marks the chips shown in the directory. -->
@@ -144,7 +150,10 @@
         <addForeignKeyConstraint baseTableName="marketer_capacity" baseColumnNames="org_id" constraintName="fk_marketer_capacity_org" referencedTableName="organization" referencedColumnNames="id"/>
         <addForeignKeyConstraint baseTableName="marketer_capacity" baseColumnNames="org_id, member_id" constraintName="fk_marketer_capacity_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <addUniqueConstraint tableName="marketer_capacity" columnNames="org_id, member_id" constraintName="uk_marketer_capacity_member"/>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="marketer_capacity" constraintName="fk_marketer_capacity_member"/>
+        </rollback>
     </changeSet>
 
     <!-- One current marketer (+ optional backup) per consultant for the Marketing Assignments board; consultants need not be seats, so org_assignment cannot hold it. -->
@@ -171,7 +180,12 @@
         <addUniqueConstraint tableName="marketer_assignment" columnNames="org_id, consultant_id" constraintName="uk_marketer_assignment_consultant"/>
         <createIndex tableName="marketer_assignment" indexName="ix_marketer_assignment_marketer"><column name="org_id"/><column name="marketer_member_id"/><column name="status"/></createIndex>
         <createIndex tableName="marketer_assignment" indexName="ix_marketer_assignment_assigned"><column name="org_id"/><column name="assigned_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="marketer_assignment" constraintName="fk_marketer_assignment_marketer"/>
+            <dropForeignKeyConstraint baseTableName="marketer_assignment" constraintName="fk_marketer_assignment_backup"/>
+            <dropForeignKeyConstraint baseTableName="marketer_assignment" constraintName="fk_marketer_assignment_assigned_by"/>
+        </rollback>
     </changeSet>
 
     <!-- A client job (34 section 2); the Jobs board. status adds IN_REVIEW to the doc list. -->
@@ -211,7 +225,10 @@
         <createIndex tableName="client_requirement" indexName="ix_client_requirement_status"><column name="org_id"/><column name="status"/><column name="posted_at"/></createIndex>
         <createIndex tableName="client_requirement" indexName="ix_client_requirement_client"><column name="org_id"/><column name="client_id"/></createIndex>
         <createIndex tableName="client_requirement" indexName="ix_client_requirement_posted"><column name="org_id"/><column name="posted_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="client_requirement" constraintName="fk_client_requirement_owner"/>
+        </rollback>
     </changeSet>
 
     <!-- Required skills of a requirement. -->
@@ -254,7 +271,10 @@
         <addUniqueConstraint tableName="requirement_match" columnNames="org_id, requirement_id, consultant_id" constraintName="uk_requirement_match_pair"/>
         <createIndex tableName="requirement_match" indexName="ix_requirement_match_consultant"><column name="org_id"/><column name="consultant_id"/><column name="status"/></createIndex>
         <createIndex tableName="requirement_match" indexName="ix_requirement_match_score"><column name="org_id"/><column name="requirement_id"/><column name="score"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="requirement_match" constraintName="fk_requirement_match_assigned_by"/>
+        </rollback>
     </changeSet>
 
     <!-- Metadata-only org resume (30 section 3); resume_id is a future link to a person resume and has no FK. Preview text lives in headline, summary_text and org_resume_experience. -->
@@ -293,7 +313,12 @@
         <createIndex tableName="org_resume" indexName="ix_org_resume_approval"><column name="org_id"/><column name="approval_status"/></createIndex>
         <createIndex tableName="org_resume" indexName="ix_org_resume_updated"><column name="org_id"/><column name="updated_at"/></createIndex>
         <createIndex tableName="org_resume" indexName="ix_org_resume_created"><column name="org_id"/><column name="created_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="org_resume" constraintName="fk_org_resume_member"/>
+            <dropForeignKeyConstraint baseTableName="org_resume" constraintName="fk_org_resume_approved_by"/>
+            <dropForeignKeyConstraint baseTableName="org_resume" constraintName="fk_org_resume_owner"/>
+        </rollback>
     </changeSet>
 
     <!-- Experience entries a resume preview is drawn from. -->
@@ -350,7 +375,10 @@
         <createIndex tableName="talent_application" indexName="ix_talent_application_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
         <createIndex tableName="talent_application" indexName="ix_talent_application_marketer"><column name="org_id"/><column name="marketer_member_id"/><column name="stage"/></createIndex>
         <createIndex tableName="talent_application" indexName="ix_talent_application_created"><column name="org_id"/><column name="created_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_application" constraintName="fk_talent_application_marketer"/>
+        </rollback>
     </changeSet>
 
     <!-- Append-only application history (timeline, activity, stage-change deltas). -->
@@ -372,7 +400,10 @@
         <addForeignKeyConstraint baseTableName="talent_application_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_talent_application_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="talent_application_event" indexName="ix_talent_app_event_app"><column name="org_id"/><column name="application_id"/><column name="occurred_at"/></createIndex>
         <createIndex tableName="talent_application_event" indexName="ix_talent_app_event_time"><column name="org_id"/><column name="occurred_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_application_event" constraintName="fk_talent_application_event_actor"/>
+        </rollback>
     </changeSet>
 
     <!-- Notes on an application. -->
@@ -390,7 +421,10 @@
         <addForeignKeyConstraint baseTableName="talent_application_note" baseColumnNames="org_id, application_id" constraintName="fk_talent_application_note_application" referencedTableName="talent_application" referencedColumnNames="org_id, id"/>
         <addForeignKeyConstraint baseTableName="talent_application_note" baseColumnNames="org_id, author_member_id" constraintName="fk_talent_application_note_author" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="talent_application_note" indexName="ix_talent_app_note_app"><column name="org_id"/><column name="application_id"/><column name="created_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_application_note" constraintName="fk_talent_application_note_author"/>
+        </rollback>
     </changeSet>
 
     <!-- Interview slots (33 precursor): feeds Upcoming Interviews and Next Interview. -->

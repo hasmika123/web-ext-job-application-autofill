@@ -14,6 +14,7 @@ import {
   type CreateBody,
   type GroupRef,
   type JobOption,
+  type LinkableMember,
   type LicenseStatus,
   type MarketerOption,
   type PatchBody,
@@ -89,7 +90,7 @@ const NONE = "__none";
 
 /* ── Add Consultant ─────────────────────────────────────────────────────────────── */
 
-export function AddConsultantDialog({ open, onClose, departments, onCreate }: { open: boolean; onClose: () => void; departments: GroupRef[]; onCreate: (body: CreateBody) => Promise<Outcome> }) {
+export function AddConsultantDialog({ open, onClose, departments, linkable = [], onCreate }: { open: boolean; onClose: () => void; departments: GroupRef[]; linkable?: LinkableMember[]; onCreate: (body: CreateBody) => Promise<Outcome> }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [title, setTitle] = useState("");
@@ -98,8 +99,10 @@ export function AddConsultantDialog({ open, onClose, departments, onCreate }: { 
   const [mode, setMode] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [dept, setDept] = useState(NONE);
+  const [person, setPerson] = useState(NONE);
   useEffect(() => {
     if (open) {
+      setPerson(NONE);
       setName("");
       setEmail("");
       setTitle("");
@@ -133,9 +136,27 @@ export function AddConsultantDialog({ open, onClose, departments, onCreate }: { 
           workMode: mode || undefined,
           skills: skills.length > 0 ? skills : undefined,
           departmentGroupId: dept === NONE ? undefined : Number(dept),
+          memberId: person === NONE ? undefined : Number(person),
         })
       }
     >
+      {linkable.length > 0 && (
+        <Field label="Existing person" hint="Pick someone who already has the Consultant role so their sign-in opens the consultant workspace. Leave it empty to add a record only; a person with the same email is linked for you.">
+          <Select
+            aria-label="Existing person"
+            value={person}
+            onChange={(v) => {
+              setPerson(v);
+              const m = linkable.find((x) => String(x.memberId) === v);
+              if (m) {
+                setName(m.name);
+                if (m.email) setEmail(m.email);
+              }
+            }}
+            options={[{ value: NONE, label: "Not a member yet" }, ...linkable.map((m) => ({ value: String(m.memberId), label: m.email ? `${m.name} (${m.email})` : m.name }))]}
+          />
+        </Field>
+      )}
       <Field label="Full name">
         <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} autoComplete="off" autoFocus />
       </Field>
@@ -255,6 +276,35 @@ export function DepartmentDialog({ open, onClose, detail, departments, onApply }
       onApply={() => onApply(pick === NONE ? null : Number(pick))}
     >
       <Select aria-label="Department" value={pick} onChange={setPick} options={[{ value: NONE, label: "No department" }, ...departments.map((g) => ({ value: String(g.id), label: g.name }))]} />
+    </Frame>
+  );
+}
+
+/* ── Link a sign-in ─────────────────────────────────────────────────────────────── */
+
+export function LinkMemberDialog({ open, onClose, subject, linkable, loading, onApply }: { open: boolean; onClose: () => void; subject: string; linkable: LinkableMember[]; loading: boolean; onApply: (memberId: number) => Promise<Outcome> }) {
+  const [pick, setPick] = useState("");
+  useEffect(() => {
+    if (open) setPick("");
+  }, [open]);
+  return (
+    <Frame
+      id="ent-consultant-link"
+      open={open}
+      onClose={onClose}
+      title="Link a sign-in"
+      hint={`Choose the person who is ${subject}. Their sign-in then opens the consultant workspace, and their marketer can prepare resumes for them.`}
+      applyLabel="Link"
+      canApply={pick !== ""}
+      onApply={() => onApply(Number(pick))}
+    >
+      {loading ? (
+        <p className="text-[13px] text-muted">Loading people…</p>
+      ) : linkable.length === 0 ? (
+        <p className="text-[13px] text-muted">Everyone who holds the Consultant role is already linked. Invite the person from Invitations with the Consultant role first.</p>
+      ) : (
+        <Select aria-label="Person" value={pick} onChange={setPick} options={[{ value: "", label: "Choose a person" }, ...linkable.map((m) => ({ value: String(m.memberId), label: m.email ? `${m.name} (${m.email})` : m.name }))]} />
+      )}
     </Frame>
   );
 }

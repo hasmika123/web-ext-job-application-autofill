@@ -112,7 +112,7 @@ class OpportunityAssignmentServiceTest {
 
         world.people.get(CON).setStatus("ACTIVE");
         world.people.get(CON).setMarketingStatus("PAUSED");
-        assertThat(assign(null).reason()).as("marketing_status counts too").isEqualTo("CONSULTANT_INACTIVE");
+        assertThat(assign(null).reason()).as("a paused marketing status is its own, clearer reason").isEqualTo("CONSULTANT_PAUSED");
 
         world.people.get(CON).setMarketingStatus("ACTIVE");
         assertThat(assign(null).refused()).isFalse();

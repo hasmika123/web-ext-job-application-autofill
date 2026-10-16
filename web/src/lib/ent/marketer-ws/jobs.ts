@@ -55,7 +55,11 @@ export interface JobDetail {
   summaryNote: string | null;
   employment: string | null; duration: string | null; experienceLevel: string | null; matches: MatchRow[];
 }
-export interface Candidate { consultantId: number; name: string; title: string | null; availability: string | null; score: number | null; matchStatus: string | null; memberId: number | null }
+export interface Candidate { consultantId: number; name: string; title: string | null; availability: string | null; score: number | null; matchStatus: string | null;
+  /** Why this consultant cannot be assigned right now ("On a project — marketing paused"); null when they can. */
+  pausedReason: string | null;
+  /** The organization seat of the consultant (what "Save for a consultant" names); null when they have none. */
+  memberId: number | null }
 export interface SavedForConsultant { applicationId: number; status: string; alreadySaved: boolean }
 export interface AssignResult { matchId: number; requirementId: number; consultantId: number; status: string; score: number; created: boolean }
 
@@ -136,7 +140,7 @@ export function parseDetail(raw: unknown): JobDetail | null {
 }
 
 export const parseCandidates = (raw: unknown): Candidate[] =>
-  Array.isArray(raw) ? raw.filter(isObj).map((c) => ({ consultantId: num(c.consultantId), name: str(c.name), title: strOrNull(c.title), availability: strOrNull(c.availability), score: numOrNull(c.score), matchStatus: strOrNull(c.matchStatus), memberId: numOrNull(c.memberId) })) : [];
+  Array.isArray(raw) ? raw.filter(isObj).map((c) => ({ consultantId: num(c.consultantId), name: str(c.name), title: strOrNull(c.title), availability: strOrNull(c.availability), score: numOrNull(c.score), matchStatus: strOrNull(c.matchStatus), pausedReason: strOrNull(c.pausedReason), memberId: numOrNull(c.memberId) })) : [];
 
 /** The query string of the board call. Empty filters are left out. */
 export function jobsQuery(f: JobFilters, page: number, size = PAGE_SIZE): string {

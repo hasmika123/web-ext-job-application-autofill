@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useLayoutEffect, type ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, useMemo, type ReactNode } from "react";
 
 /**
  * Where the ONE Resume Builder is mounted. The personal app (`/resume-builder`), a consultant's own resumes inside an organization workspace
@@ -145,6 +145,19 @@ function ActForHeader({ row, resumeId }: { row: number; resumeId: number }) {
   return null;
 }
 
+/**
+ * The serialisable description of a {@link BuilderEnv}. A server component (the tenant editor routes) cannot hand a `BuilderEnv` to a client component
+ * because it carries a function (`editorHref`), and a function cannot cross the server/client boundary (the page then fails with "Error in the Server
+ * Components render"). Server routes pass this plain-data spec to {@link BuilderEnvFromSpec}, which builds the env inside the client.
+ */
+export type BuilderEnvSpec =
+  | { mode: "consultant"; orgId: number | string }
+  | { mode: "actForEditor"; orgResumeId: number; resumeId: number };
+
+export function envFromSpec(spec: BuilderEnvSpec): BuilderEnv {
+  return spec.mode === "consultant" ? consultantEnv(spec.orgId) : actForEditorEnv(spec.orgResumeId, spec.resumeId);
+}
+
 const BuilderEnvContext = createContext<BuilderEnv>(PERSONAL_ENV);
 
 export function BuilderEnvProvider({ env, children }: { env: BuilderEnv; children: ReactNode }) {
@@ -154,6 +167,14 @@ export function BuilderEnvProvider({ env, children }: { env: BuilderEnv; childre
       {children}
     </BuilderEnvContext.Provider>
   );
+}
+
+/** For server components: takes plain data only (see {@link BuilderEnvSpec}) and builds the env, with its functions, on the client. */
+export function BuilderEnvFromSpec({ spec, children }: { spec: BuilderEnvSpec; children: ReactNode }) {
+  const key = spec.mode === "consultant" ? `c:${spec.orgId}` : `a:${spec.orgResumeId}:${spec.resumeId}`;
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the key stands for the spec's primitive fields
+  const env = useMemo(() => envFromSpec(spec), [key]);
+  return <BuilderEnvProvider env={env}>{children}</BuilderEnvProvider>;
 }
 
 export function useBuilderEnv(): BuilderEnv {
