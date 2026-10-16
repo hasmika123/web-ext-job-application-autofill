@@ -1,5 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
-import { expect, type Session } from "../_support/story";
+import { test, expect, type Session } from "../_support/story";
 import { PERSONAS, type PersonaKey } from "../_support/personas";
 
 /**
@@ -31,16 +31,17 @@ export async function orgIdOf(page: Page): Promise<number> {
 /** The root marker of a page, once its first load has finished. */
 export function ready(page: Page, root: string): Locator {
   // Several marketing pages are now the shared organization pages and carry no data-status marker: their title in the page header is the signal.
-  return page.locator(`${root}[data-status=ready], [data-page-header] h1, main h1`).first();
+  // It must be INSIDE the signed-in shell: a signed-out browser shows the sign-in page, whose own <h1> must never count as "the page is ready".
+  return page.locator(`${root}[data-status=ready], [data-enterprise-shell] [data-page-header] h1, [data-enterprise-shell] main h1`).first();
 }
 
 /** A same-origin call through the web app (cookies attached by the browser). Used for the BFF routes that exist. */
-export async function bff<T = unknown>(page: Page, path: string, init?: { method?: string; body?: unknown }): Promise<{ status: number; json: T | null }> {
+export async function bff<T = unknown>(page: Page, path: string, init?: { method?: string; body?: unknown; headers?: Record<string, string> }): Promise<{ status: number; json: T | null }> {
   return page.evaluate(
     async ({ path, init }) => {
       const res = await fetch(path, {
         method: init?.method ?? "GET",
-        headers: { accept: "application/json", ...(init?.body !== undefined ? { "content-type": "application/json" } : {}) },
+        headers: { accept: "application/json", ...(init?.body !== undefined ? { "content-type": "application/json" } : {}), ...(init?.headers ?? {}) },
         body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
       });
       return { status: res.status, json: (await res.json().catch(() => null)) as T | null };
@@ -174,9 +175,9 @@ export async function boardRow(page: Page, title: string): Promise<Locator> {
   return row;
 }
 
-/** The consultant's list row of one job (matched by its unique title). */
+/** The consultant's list row of one job on the live Assigned Opportunities page (matched by its unique title). */
 export function conRow(page: Page, title: string): Locator {
-  return page.locator("[data-con-opportunities] [data-con-row]").filter({ hasText: title });
+  return page.locator("[data-consultant-opportunities] [data-opp]").filter({ hasText: title });
 }
 
 /** Click a sidebar entry by its label and wait for the URL (client-side navigation). */
@@ -190,4 +191,42 @@ export async function tileValue(page: Page, id: string): Promise<number> {
   const el = page.locator(`[data-stat-tile="${id}"] [data-tile-value]`).first();
   await expect(el).toHaveText(/^[\d,]+$/);
   return Number((await el.innerText()).replace(/,/g, ""));
+}
+
+/**
+ * Sets a consultant's availability the way the Consultants page does (PATCH with the version it read), as an administrator whose page is open.
+ * A consultant who is ON_PROJECT is not being marketed (marketing PAUSED: nothing can be assigned, the API answers CONSULTANT_PAUSED), so the stories
+ * that hand Ben a job first make him AVAILABLE and put him back afterwards. Returns what it was.
+ */
+export async function setAvailability(page: Page, orgId: number, fullName: string, status: string): Promise<string> {
+  const list = (await bff<{ items: { id: number; name: string; availability: string }[] }>(page, `/api/orgs/${orgId}/consultants?q=${encodeURIComponent(fullName)}&size=5`)).json;
+  const row = list?.items.find((c) => c.name === fullName);
+  if (!row) throw new Error(`${fullName} is not in the consultant list`);
+  if (row.availability === status) return status;
+  const detail = (await bff<{ version: string }>(page, `/api/orgs/${orgId}/consultants/${row.id}`)).json;
+  const r = await bff(page, `/api/orgs/${orgId}/consultants/${row.id}`, { method: "PATCH", body: { availabilityStatus: status }, headers: { "if-match": detail!.version } });
+  if (r.status >= 300) throw new Error(`could not set ${fullName} to ${status}: HTTP ${r.status}`);
+  return row.availability;
+}
+
+/**
+ * Registers hooks on the enclosing describe: before each story the consultant is AVAILABLE (so a marketer can hand them a job), after each it is back to
+ * what it was. Sarah (Org Admin) does it through the same page API an administrator uses.
+ */
+export function keepMarketed(fullName: string) {
+  let was: string | null = null;
+  test.beforeEach(async ({ as }) => {
+    const sarah = await as("sarah");
+    await sarah.go("/w/admin");
+    await expect(sarah.page.locator("[data-enterprise-shell]")).toBeVisible({ timeout: 45_000 });
+    was = await setAvailability(sarah.page, await orgIdOf(sarah.page), fullName, "AVAILABLE");
+  });
+  test.afterEach(async ({ as }) => {
+    if (!was || was === "AVAILABLE") return;
+    const sarah = await as("sarah");
+    await sarah.go("/w/admin");
+    await expect(sarah.page.locator("[data-enterprise-shell]")).toBeVisible({ timeout: 45_000 });
+    await setAvailability(sarah.page, await orgIdOf(sarah.page), fullName, was);
+    was = null;
+  });
 }
