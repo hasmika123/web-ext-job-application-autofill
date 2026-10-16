@@ -50,9 +50,13 @@ export interface InboxLinks {
   pricing: string;
   /** What the text calls the product: "Kiwiply" on the personal pages, the organization's own wording in a workspace. */
   appName: string;
+  /** "Kiwiply account" on the personal pages, "account" in a workspace (as in "Sent to your account's email"). */
+  accountName: string;
+  /** The name suggested for the Google app password. */
+  passwordLabel: string;
 }
 
-const PERSONAL_LINKS: InboxLinks = { privacy: "/privacy", profile: "/profile", pricing: "/pricing", appName: "Kiwiply" };
+const PERSONAL_LINKS: InboxLinks = { privacy: "/privacy", profile: "/profile", pricing: "/pricing", appName: "Kiwiply", accountName: "Kiwiply account", passwordLabel: "Kiwiply" };
 
 const PERSONAL_ENDPOINTS: InboxEndpoints = { connect: "/api/inbox", notify: "/api/inbox/notify" };
 
@@ -69,6 +73,8 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
     </li>
   );
 }
+
+const sentenceCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 const external = "font-semibold text-accent-deep underline-offset-2 hover:underline";
 
@@ -169,7 +175,7 @@ export default function InboxConnect({
 
   const readOnly = (
     <p className="text-[12.5px] leading-relaxed text-muted">
-      {links.appName} only reads. We never send, move or delete mail — and you can cut us off at any time by deleting the app
+      {sentenceCase(links.appName)} only reads. We never send, move or delete mail — and you can cut us off at any time by deleting the app
       password in your Google account. Mail we read is kept for 12 months after it was sent, then deleted. See the{" "}
       <Link href={links.privacy} className="underline">
         Privacy Policy
@@ -224,7 +230,7 @@ export default function InboxConnect({
           <div className="mt-4 border-t border-line pt-4">
             <Switch
               label="Email me about interviews and offers"
-              description={`Sent to your ${links.appName} account's email, not this Gmail. Every other update shows under Notifications.`}
+              description={`Sent to your ${links.accountName}'s email, not this Gmail. Every other update shows under Notifications.`}
               checked={notifyEmail}
               onCheckedChange={(v) => void toggleNotify(v)}
             />
@@ -303,7 +309,7 @@ export default function InboxConnect({
           <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className={external}>
             App passwords
           </a>
-          , name it &ldquo;{links.appName}&rdquo;, and copy the 16 letters Google shows. It&apos;s shown once.
+          , name it &ldquo;{links.passwordLabel}&rdquo;, and copy the 16 letters Google shows. It&apos;s shown once.
         </Step>
       </ol>
 

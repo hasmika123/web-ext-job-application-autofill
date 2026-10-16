@@ -186,10 +186,10 @@ export default function PoliciesPage({ orgId }: { orgId: number }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" variant="secondary" disabled={locked || busy} onClick={() => void run(() => startFromTemplate(orgId, detail.kind), "Template loaded into the draft")}>
+            <Button type="button" variant="accent-soft" disabled={locked || busy} onClick={() => void run(() => startFromTemplate(orgId, detail.kind), "Template loaded into the draft")}>
               Start from template
             </Button>
-            <Button type="button" variant="secondary" disabled={locked || busy || !dirty || tooLong || !text.trim()} onClick={() => void run(() => saveDraft(orgId, detail.kind, text, detail.draftVersion), "Draft saved")}>
+            <Button type="button" variant="accent-soft" disabled={locked || busy || !dirty || tooLong || !text.trim()} onClick={() => void run(() => saveDraft(orgId, detail.kind, text, detail.draftVersion), "Draft saved")}>
               Save draft
             </Button>
             {locked ? (

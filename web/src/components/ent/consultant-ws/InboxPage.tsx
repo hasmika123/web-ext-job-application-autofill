@@ -18,7 +18,7 @@ import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, sta
  */
 
 /** Every link inside the connect guide stays on THIS organization's host: its own privacy policy (docs/enterprise-v2/62), the consultant's profile, and no pricing page (the license decides). */
-const TENANT_INBOX_LINKS: InboxLinks = { privacy: "/privacy", profile: "/w/consultant/profile", pricing: "/w/consultant/features", appName: "This workspace" };
+const TENANT_INBOX_LINKS: InboxLinks = { privacy: "/privacy", profile: "/w/consultant/profile", pricing: "/w/consultant/features", appName: "this workspace", accountName: "account", passwordLabel: "Inbox" };
 
 const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } as const;
 const BTN = "inline-flex min-h-8 items-center rounded-lg px-3.5 text-[13px] font-semibold disabled:opacity-60";

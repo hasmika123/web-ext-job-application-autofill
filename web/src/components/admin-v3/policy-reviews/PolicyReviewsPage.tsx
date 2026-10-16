@@ -155,7 +155,7 @@ export default function PolicyReviewsPage() {
                 <Button type="button" variant="primary" disabled={busy} onClick={() => void decide("approve")}>
                   Approve and publish
                 </Button>
-                <Button type="button" variant="secondary" disabled={busy || comment.trim() === ""} onClick={() => void decide("request-changes")}>
+                <Button type="button" variant="accent-soft" disabled={busy || comment.trim() === ""} onClick={() => void decide("request-changes")}>
                   Request changes
                 </Button>
               </div>
