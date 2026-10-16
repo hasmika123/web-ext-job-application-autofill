@@ -2,6 +2,10 @@
 
 Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: **omar** (Omar Haddad, Marketing Specialist, scope ASSIGNED: his own book, which includes Ben Okafor), **sarah** (Sarah Chen, Org Admin + Marketing Manager, primary marketer of Anika Rao), **anika** and **ben** (Consultants). Tenant: Acme Staffing (`acme.localhost`). Run order does not matter; every writing story makes its own rows with `Date.now()` in the name and never touches the seeded roster.
 
+## Story-fix log 2026-10-16 (branch ent-story-fixes)
+
+The 19 stories that failed after the marketing pages became the shared organization pages were rewritten against the current DOM and kept their ids: Resumes, Applications and Interviews are the shared pages (tiles `[data-kpi=...]`, rows `tr[data-row-id]`, drawers `#ent-resume-sheet` / `#ent-application-sheet`), and the consultant side of the pipeline is the live Assigned Opportunities page (`[data-consultant-opportunities] [data-opp]`). Two facts about the seed shaped the stories: **Ben is ON_PROJECT, so his marketing is paused** and nothing can be assigned to him (the API answers CONSULTANT_PAUSED), so the pipeline stories first make him AVAILABLE through the Consultants API as Sarah and put him back afterwards (`keepMarketed`); and **Sarah's Marketing Manager workspace is not built**, so she never opens a marketing page (she only supplies jobs and ids). Statuses below: AUTOMATED unless marked; **BLOCKED** stories keep their steps in the spec under `test.fixme` with the reason, so they run the day the gap is closed. Product defects found are listed in `videos-index.md` (Findings): one was fixed (Add opportunity answered 404 for the row it created), one is queued (the two consultant Assigned Opportunities implementations that do not share a record).
+
 ## Area overview
 
 **What the role does.** The Marketing Specialist prepares work for the consultants assigned to them: keeps profiles and resumes ready, finds and matches openings, assigns them to consultants as opportunities, prepares submission packages, tracks applications and interviews, and chases follow-ups. **E1 is absolute:** a marketer prepares, requests and records; the **consultant submits**. Nothing in this workspace applies, submits, signs in as a consultant or sets a consultant's own answer. Kiwiply never submits.
@@ -41,7 +45,7 @@ Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: 
 - **Steps:** open `/w/marketing`; read Assigned Consultants; open `/w/marketing/talent`; search "Anika".
 - **Expected:** dashboard renders; Assigned Consultants > 0; exactly one row "Anika Rao".
 - **Open question for the coordinator:** if Sarah's workspace switcher does not list Marketing on the live stack the first assertion fails and this story documents a real gap (the runbook once said the Marketing module was deferred).
-- **Automated by:** `home-talent.story.ts` "MKT-03 Sarah (marketing manager) opens the same workspace with her own book". **Status: AUTOMATED**
+- **Automated by:** `home-talent.story.ts` "MKT-03 ...". **Status: BLOCKED: the Marketing Manager workspace (`/w/marketing-mgmt`) is a placeholder and `/w/marketing` is refused to Sarah** (the steps stay in the spec under `test.fixme`). **MKT-03b** (AUTOMATED) pins today's honest behaviour: "This isn't part of your role" on `/w/marketing`, "on the way" on `/w/marketing-mgmt`.
 
 ### MKT-04 Omar finds a consultant, filters by status and opens the profile drawer
 - **Persona:** omar. **Goal:** work his assigned talent.
@@ -125,29 +129,29 @@ Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: 
 - **Steps:** Omar captures for Ben. Ben opens `/w/consultant/opportunities`; the row shows state **New**, company, "Omar Haddad". Ben opens the job: sections Note (marketer's text), Pay ("$70 - $80 / hr"), Source (the link), and the "Why Dossier never applies for you" box. **Open job posting** opens the source site in a new tab (stubbed locally). State becomes **Viewed**. Ben presses **Interested**; state **Interested**; tab "Interested" lists the row. Omar reloads the board.
 - **Expected:** Omar's row shows `data-opp-interest=INTERESTED`; Recent Opportunity Activity contains "is interested". The consultant detail never shows a job description.
 - **Pages / APIs:** `GET con/opportunities`, `POST con/opportunities/{id}/viewed|interest`, `GET mkt/opportunities`.
-- **Automated by:** `job-pipeline.story.ts` "MKT-21 ...". **Status: AUTOMATED**
+- **Now (live consultant page):** Ben opens the row (marketer name, apply helper), Open job link, Express Interest; his row reads Interested. **Automated by:** `job-pipeline.story.ts` "MKT-21". **Status: AUTOMATED** for the consultant side. Two parts are **BLOCKED (product gap)**: a job saved from the extension has no `cws_job_source` row, so Open job link is disabled (annotated BLOCKED in the run), and **MKT-21b** (Omar's board reads Interested) is `test.fixme`: the live page's Express Interest does not reach the marketer's board (stays No response).
 
 ### MKT-22 Ben asks a question, Omar answers it, Ben reads the answer
 - **Steps:** Ben opens the job by its deep link `/w/consultant/opportunities/{id}`, **Ask a question**, sends. State **Needs info**; "Waiting for Omar Haddad to answer". Omar's board activity shows "asked a question"; the Review dialog timeline too. Omar answers (API `answer-info`, keyed by the board row's match id). Ben reloads.
 - **Expected:** Ben sees the answer text and "Omar Haddad answered"; state stays **Needs info** until Ben acts (only the consultant moves it on); Ben then presses Interested -> **Interested**.
 - **Note:** the marketer-side answer box does not exist in the UI (MKT-41); this story answers over HTTP.
 - **Pages / APIs:** `POST con/opportunities/{id}/request-info`, `POST mkt/opportunities/{matchId}/answer-info`.
-- **Automated by:** `job-pipeline.story.ts` "MKT-22 ...". **Status: AUTOMATED**
+- **Now:** Ben sends the question from the row menu (Need More Info) and is told it was sent. **Status: AUTOMATED** for that. **MKT-22b** (Omar sees the question, answers, Ben reads the answer) is **BLOCKED (product gap)**: the question does not reach the marketer (answer-info answers 409 NO_OPEN_INFO_REQUEST) and the live page shows no answer.
 
 ### MKT-23 Ben declines with a reason and Omar sees Not Interested
 - **Steps:** Ben opens the job, **Decline**, picks "Pay doesn't work", writes a note, **Decline job**. Tab Declined lists it. Omar's board.
 - **Expected:** Omar's row `NOT_INTERESTED` (button becomes **Compare**); the detail timeline contains "declined". The decline is final for the marketer (no marketer action reverses it).
-- **Automated by:** `job-pipeline.story.ts` "MKT-23 ...". **Status: AUTOMATED**
+- **Now:** Ben declines from the row menu with a reason; his row reads Declined and the sheet keeps his reason. **Status: AUTOMATED** for that. **MKT-23b** (Omar's board shows Not Interested) is **BLOCKED (product gap)**: the board stays No response.
 
 ### MKT-24 Ben presses "I applied"; the marketer sees that he says he applied
 - **Steps:** Ben opens the job; the helper copy says the extension tracks supported sites and otherwise "press I applied after you submit". He presses **I applied**: state **Applied**, button gone, tab Applied lists it. Omar opens the opportunity's details.
 - **Expected:** timeline shows "says they applied"; none of Omar's row-menu entries mentions applying or submitting (no marketer path to APPLIED).
-- **Automated by:** `job-pipeline.story.ts` "MKT-24 ...". **Status: AUTOMATED**
+- **Automated by:** `job-pipeline.story.ts` "MKT-24 ...". **Status: BLOCKED: the live Assigned Opportunities page has no "I applied" action** (only the shadowed registry page had it). **MKT-24b** (AUTOMATED) keeps the E1 guarantee: Ben's page offers no Apply, Submit or I applied and Omar's board menu has no way to mark it applied or submit.
 
 ### MKT-25 Sarah saves a job for Anika only: Anika sees it, Ben does not
 - **Personas:** sarah, anika, ben. **Goal:** per-consultant isolation of the pipeline.
 - **Expected:** Anika's list has the row "Sarah Chen"; Ben's list does not; Ben opening `/w/consultant/opportunities/{anikaOppId}` shows the "not found" panel (`[data-con-detail-missing]`) and never the title.
-- **Automated by:** `job-pipeline.story.ts` "MKT-25 ...". **Status: AUTOMATED**
+- **Now:** Ben's by-id check is the API (`GET me-workspace/opportunities/{id}` answers the generic 404). **Automated by:** `job-pipeline.story.ts` "MKT-25 ...". **Status: AUTOMATED**
 
 ### MKT-26 The from-extension call refuses bad input and stays idempotent
 - **Persona:** omar (+ sarah for Anika's id, ben for the forbidden call). **Goal:** the contract guard rails.
@@ -197,7 +201,7 @@ Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: 
 ### MKT-36 Omar checks Performance; Sarah opens the same page
 - **Steps:** six tile titles (Assigned Consultants, Active Submissions, Interview Rate, Offer Rate, Placements This Month, Follow-up Completion); cards Submissions by Week, Interviews vs Offers, Placement Funnel, Consultant Readiness; Sarah's session shows the funnel card.
 - **Expected:** Assigned Consultants > 0. Empty chart cards say "no numbers yet" rather than faking data.
-- **Automated by:** `tracking-and-work.story.ts` "MKT-36 ...". **Status: AUTOMATED**
+- **Automated by:** `tracking-and-work.story.ts` "MKT-36 ..." (Omar). **Status: AUTOMATED**. **MKT-36b** (Sarah opens the same page for her own book) is **BLOCKED**: her Marketing Manager workspace is not built (`test.fixme`).
 
 ### MKT-47 Sarah starts "New resume for Anika" (an assigned consultant) in the Resume Builder
 - **Persona:** sarah (assigned to Anika) and omar (not assigned). **Goal:** a marketer prepares a resume for a consultant in the one Resume Builder, in act-for mode.

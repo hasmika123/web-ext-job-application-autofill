@@ -4,7 +4,13 @@ Area key `ADM`. Specs: `web/e2e/stories/admin/*.story.ts` (helpers in `_helpers.
 (`web/playwright.stories.config.ts`) against the real stack (Spring API + MySQL + `next start`, demo tenants
 `acme.localhost:3200` and `beta.localhost:3200`, API started with `DEMO_ALLOW_WRITES=true`).
 
+## Story-fix log 2026-10-16 (branch ent-story-fixes)
+
+All 51 stories are AUTOMATED and green on a fresh database. Fixed in the specs, none weakened: **ADM-05/06** (Audit Logs is a real page since the P0 audit fixes, so it is no longer on the "on the way" list), **ADM-21 and ADM-57** (dropdowns and menus close when the page scrolls, so the spec re-opens them until the option is up; the interviews toolbar has no "Clear filters" button, the filter is cleared with "All Statuses"; at 1440 px the interview drawer is a side dialog, the docked column starts at 1680 px), **ADM-55** (passes on a clean run; it had failed from timing), **ADM-62** (the placements board lists those ending soonest first, so the first page holds no placement with nothing to do: the story asks the same API for one and opens it with `?pl=<id>`).
+
 ## Area overview
+
+
 
 **What the role does.** The Organization Admin (Sarah Chen, who also holds Marketing Manager) runs the Acme Staffing tenant: she sees
 the whole organization on one dashboard, manages the people (employees, invitations, departments, teams, roles and permissions),

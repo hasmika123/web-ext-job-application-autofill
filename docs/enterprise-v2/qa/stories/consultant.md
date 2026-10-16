@@ -3,6 +3,10 @@
 > Written 2026-10-14 against branch `ent-integration-all`. Sources read: `docs/enterprise-v2/consultant-workspace-merge-notes.md`, `consultant-job-source-flow.md`, `page-consultant-*.md`, `docs/HANDOFF-ENT-CONSULTANT-WORKSPACE.md`, `59-job-phase1-extension-flow.md`, the components under `web/src/components/ent/consultant-ws/**`, the demo seeders under `api/.../service/ent/consultantws/`, and `web/e2e/journeys/consultant-*.spec.ts`.
 > Status vocabulary is the one in `00-README.md` section 6. **Every story marked AUTOMATED has a spec written in `web/e2e/stories/consultant/` that has not been run yet** (the coordinator runs the stack). Treat AUTOMATED as "spec exists, first green run pending", and downgrade to BLOCKED if the run proves otherwise.
 
+## Story-fix log 2026-10-16 (branch ent-story-fixes)
+
+Fixed in the specs, none weakened: **CON-01 and CON-30** (D12: Home and My Marketer no longer show Sample messages or a "Responsive" badge; the card says "No messages yet" and Send Message / Schedule Call / View Calendar are disabled with the reason), **CON-20** (the marketer's quick info exists only on jobs the marketer wrote it for, so the story opens one of those), **CON-42** (the toast, the card and the drawer all say "Negotiation requested"), **CON-44** (the story pinned "the first unchecked item", which stops matching once ticked: it now pins the item by id, so it is repeatable), **CON-47 and CON-57** (dropdowns re-open until the option is up), **CON-51** (the task list pages 8 at a time, ordered by due date: the story removes its own leftovers first and finds the new task by searching its name, so earlier runs cannot break it), **CON-56** (the security link goes to `/me#security`, the one basic My profile page).
+
 ## 1. Area overview
 
 **Who:** the consultant (a staffing consultancy's placed or placeable contractor). Roles: `CONSULTANT`. Demo people: **Anika Rao** (available, 8 years, marketer Sarah Chen) and **Ben Okafor** (on a project, 7 years, marketer Omar Haddad). Sam Whitfield (suspended) and Nina Vogel (invited) cannot sign in.

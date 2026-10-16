@@ -42,6 +42,9 @@ test("CON-20 Anika searches Job Discovery, filters, sorts and opens a job's deta
   await expect(cards.first()).toBeVisible();
 
   // The marketer's quick info is shown only on a job the marketer wrote a note or a source for (a job an administrator created has none), so open one of those.
+  // "Newest" puts the jobs other stories created (they have no source row) first and they keep piling up, so look among the seeded jobs by name.
+  await page.getByRole("search").getByRole("textbox").first().fill("Developer");
+  await page.getByRole("search").getByRole("button", { name: "Search" }).click();
   const withInfo = cards.filter({ has: page.locator("[data-quick-info]") });
   await expect(withInfo.first()).toBeVisible();
   const title = (await withInfo.first().locator("h3 button").first().innerText()).trim();
