@@ -236,6 +236,29 @@ export function invitesOf(w: DashboardWidget | null): InvitesData | null {
   return { invited: Number(d.invited) || 0, expiringSoon: Number(d.expiringSoon) || 0, suspended: Number(d.suspended) || 0 };
 }
 
+export interface ChecklistItemData {
+  key: string;
+  label: string;
+  hint: string;
+  done: boolean;
+  href: string;
+}
+export interface ChecklistData {
+  done: number;
+  total: number;
+  items: ChecklistItemData[];
+}
+
+/** The activation checklist (14 section 2.4): present only while the API says `ok` (it is `empty` once complete or dismissed). */
+export function checklistOf(w: DashboardWidget | null): ChecklistData | null {
+  if (!w || w.state !== "ok" || !isObj(w.data) || !Array.isArray(w.data.items)) return null;
+  const items: ChecklistItemData[] = w.data.items
+    .filter((x): x is Record<string, unknown> => isObj(x) && typeof x.key === "string" && typeof x.label === "string" && typeof x.href === "string")
+    .map((x) => ({ key: x.key as string, label: x.label as string, hint: typeof x.hint === "string" ? x.hint : "", done: x.done === true, href: x.href as string }));
+  if (items.length === 0) return null;
+  return { done: items.filter((i) => i.done).length, total: items.length, items };
+}
+
 export function subscriptionOf(w: DashboardWidget | null): SubscriptionSummaryData | null {
   if (!w || w.state !== "ok" || !isObj(w.data) || typeof w.data.orgStatus !== "string") return null;
   return { orgStatus: w.data.orgStatus, setupFeePaidAt: str(w.data.setupFeePaidAt) };

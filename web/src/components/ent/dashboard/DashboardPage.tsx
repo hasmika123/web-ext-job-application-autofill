@@ -63,6 +63,7 @@ import {
   type QuickActionItem,
   type TileKey,
 } from "@/lib/ent/dashboard";
+import ChecklistCard from "./ChecklistCard";
 import { CARD, CardError, CardHead, CardSkeleton, StatTile, TONES, Unavailable, UpdatedAt, emptyText, type IconTone, type TileSpec } from "./parts";
 
 /**
@@ -577,6 +578,16 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
     };
   }, [orgId]);
 
+  // The activation checklist: "x" hides it at once and tells the API (7 days); a failed save brings it back so it never lies.
+  const [checklistGone, setChecklistGone] = useState(false);
+  const dismissChecklist = useCallback(async () => {
+    setChecklistGone(true);
+    if (!(await dismissAlert(orgId, "CHECKLIST"))) {
+      setChecklistGone(false);
+      toast({ title: "Couldn't dismiss the checklist", description: "It is back on the page. Try again in a moment.", variant: "error" });
+    }
+  }, [orgId, toast]);
+
   const w = useCallback((key: string): DashboardWidget | null => widgetOf(view, key), [view]);
   const body = useCallback((key: string): CardBody => ({ loading, widget: w(key), onRetry: () => void reload() }), [loading, w, reload]);
 
@@ -633,6 +644,8 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
               <StatTile key={key} index={i} loading={loading} widget={w(key)} spec={{ key, title: TILE_TITLES[key], ...TILES[key] }} onRetry={() => void reload()} />
             ))}
           </section>
+
+          {checklistGone ? null : <ChecklistCard widget={w("checklist")} onDismiss={() => void dismissChecklist()} />}
 
           <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.77fr)_minmax(0,1.16fr)_minmax(0,1fr)] xl:gap-[17px]">
             <TeamPerformanceCard body={body("team.performance")} />
