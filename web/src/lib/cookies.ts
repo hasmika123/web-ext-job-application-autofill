@@ -38,6 +38,15 @@ export function sessionCookieOptionsFor(tenant: boolean) {
   return tenant ? { ...base, secure: true } : base;
 }
 
+/**
+ * Options that EXPIRE a session cookie. A browser ignores a `Set-Cookie` for a `__Host-` name that lacks `Secure` (and a
+ * deletion is just a `Set-Cookie` with `Max-Age=0`), so the delete must carry the SAME attributes the cookie was set with:
+ * `Secure` on a tenant host, `Path=/`, no `Domain`. A bare `cookies.delete(name)` leaves a tenant member signed in.
+ */
+export function expiredCookieOptionsFor(tenant: boolean) {
+  return { ...sessionCookieOptionsFor(tenant), maxAge: 0, expires: new Date(0) };
+}
+
 /** Options for the httpOnly session cookies. Used wherever these cookies are written. */
 export function sessionCookieOptions() {
   return {

@@ -54,6 +54,7 @@ class SeparateDemoSeederIT {
     @Autowired private OrgHostnameRepository hostnames;
     @Autowired private TenantResolver resolver;
     @Autowired private ResumeBuilderSettings settings;
+    @Autowired private com.dossier.api.service.ent.EnterpriseFeatureFlag flags;
 
     @AfterEach
     void forget() {
@@ -107,6 +108,17 @@ class SeparateDemoSeederIT {
         OrgMember ginaSeat = members.findByOrgIdAndUserIdAndStatusIn(g.getId(), gina.getId(), List.of(OrgMemberStatus.ACTIVE)).get(0);
         assertThat(ginaSeat.getDisplayLabel()).isEqualTo(RoleTemplates.OWNER);
         assertThat(g.getCreatedByUserId()).isEqualTo(gina.getId());
+    }
+
+    @Test
+    void everyLiveEnterpriseFlagIsOnForGammaToo() {
+        seeder.seed();
+        seeder.seedSeparate();
+        long gammaId = gamma().getId();
+        for (var k : com.dossier.api.service.settings.EnterpriseSettingKeys.all()) {
+            if (k.key().startsWith("flag.enterprise")) assertThat(flags.isEnabled(k.key(), gammaId)).as(k.key()).isTrue();
+        }
+        assertThat(flags.isEnabled(com.dossier.api.service.settings.EnterpriseSettingKeys.FLAG_MARKETING, Long.MAX_VALUE - 7)).as("an unrelated organization stays dark").isFalse();
     }
 
     @Test

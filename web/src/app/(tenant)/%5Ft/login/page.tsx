@@ -11,16 +11,21 @@ import { getTenant } from "@/lib/tenant";
  * comes from its PUBLISHED branding. Title: "Sign in · {displayName}" (the layout's template).
  * X2.6: a visitor who is already signed in (a tid-bound session the API accepts on THIS host) never sees the form: they go to
  * `?next=` (same-host paths only) or their landing. A token the API refuses (expired, another tenant's) shows the form.
+ * `/login?switch` shows the form even when signed in (sign in as a different member; the new session replaces the old one).
  * The DRAFT_PREVIEW banner and the pending/suspended panels wait for their endpoints (X2.18, the 403 flags).
  */
 export const metadata: Metadata = { title: "Sign in" };
 
-export default async function TenantLoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[] }> }) {
+export default async function TenantLoginPage({ searchParams }: { searchParams: Promise<{ next?: string | string[]; switch?: string | string[] }> }) {
   const t = await getTenant();
   if (t.kind !== "TENANT") return null; // the layout already answered
-  const { next } = await searchParams;
-  const to = destinationFor(await getTenantSession(), next);
-  if (to) redirect(to);
+  const { next, switch: switchAccount } = await searchParams;
+  // `?switch`: a signed-in member who wants to sign in as someone else (the demo accounts tab, a second account) sees the form
+  // instead of being bounced to their landing. Signing in replaces the session cookies; nothing is cleared until then.
+  if (switchAccount === undefined) {
+    const to = destinationFor(await getTenantSession(), next);
+    if (to) redirect(to);
+  }
   const b = t.tenant.branding;
   return (
     <>
