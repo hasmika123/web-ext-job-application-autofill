@@ -90,14 +90,18 @@ public class ConsultantResumesResource {
         return ResponseEntity.noContent().build();
     }
 
-    @Operation(summary = "Approve a resume a marketer made for me", description = "Only while it waits for the consultant (a resume a marketer made or edited through the builder). resumes.manage required; 409 NOT_PENDING for anything else.")
+    @Operation(summary = "Approve a resume a marketer made for me", description = "Only while it waits for the consultant (a resume a marketer made or edited through the builder). Body {versionNo, contentHash}: the version the consultant reviewed (both from the row they were shown); 422 without them, 409 RESUME_CHANGED when the resume changed since. resumes.manage required; 409 NOT_PENDING for anything else.")
     @PostMapping("/{resumeId}/approve")
     @OrgPermissionRequired
-    public ConsultantResumesDTO.ResumeRow approveMyResume(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long resumeId) {
-        return service.approve(me, resumeId);
+    public ConsultantResumesDTO.ResumeRow approveMyResume(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long resumeId,
+        @RequestBody(required = false) ConsultantResumesDTO.ResumeApproval body
+    ) {
+        return service.approve(me, resumeId, body);
     }
 
-    @Operation(summary = "Send a resume a marketer made for me back", description = "Body: {note?} (at most 200 characters). The marketer's board reads it as Needs update until they edit it again. resumes.manage required; 409 NOT_PENDING when it is not waiting for the consultant.")
+    @Operation(summary = "Send a resume a marketer made for me back", description = "Body: {note?, versionNo, contentHash} (note at most 200 characters; versionNo and contentHash are the version the consultant reviewed: 422 without them, 409 RESUME_CHANGED when the resume changed since). The marketer's board reads it as Needs update until they edit it again. resumes.manage required; 409 NOT_PENDING when it is not waiting for the consultant.")
     @PostMapping("/{resumeId}/request-changes")
     @OrgPermissionRequired
     public ConsultantResumesDTO.ResumeRow requestChangesMyResume(

@@ -48,8 +48,15 @@ public final class ConsultantResumesDTO {
         String approvalStatus,
         Long resumeId,
         boolean awaitingMyApproval,
-        String updatedBy
+        String updatedBy,
+        String contentHash
     ) {}
+
+    /**
+     * Body of {@code POST .../{id}/approve}: WHICH version the consultant reviewed ({@code versionNo} and {@code contentHash} of the row they were shown),
+     * so an approval can never cover a version they did not see (a marketer may save again between the click and the request: 409 RESUME_CHANGED).
+     */
+    public record ResumeApproval(Integer versionNo, String contentHash) {}
 
     /** Body of {@code POST /built}: the personal builder's create (template, target, name, source: profile, scratch, upload or copy). */
     public record BuiltResumeBody(String templateId, String target, String label, com.fasterxml.jackson.databind.JsonNode source) {}
@@ -58,7 +65,7 @@ public final class ConsultantResumesDTO {
     public record BuiltResumeCreated(Long orgResumeId, Long resumeId, ResumeRow row) {}
 
     /** Body of {@code POST .../{id}/request-changes}: what the marketer should change (optional, at most 200 characters). */
-    public record ResumeChangeRequest(String note) {}
+    public record ResumeChangeRequest(String note, Integer versionNo, String contentHash) {}
 
     public record Check(String key, String label, boolean done) {}
 
