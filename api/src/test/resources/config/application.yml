@@ -119,6 +119,9 @@ dossier:
   # The service-to-service secret for /api/internal/** (ResumePdfJobIT sends it).
   internal:
     token: test-internal-token
+  # X1.13: the Prometheus scrape token (>= 32 chars) used by ManagementSecurityIT
+  management:
+    scrape-token: test-scrape-token-test-scrape-token-0123
   # Uploads go through the local-filesystem FileStorage driver (the default) into a throwaway dir.
   storage:
     driver: local

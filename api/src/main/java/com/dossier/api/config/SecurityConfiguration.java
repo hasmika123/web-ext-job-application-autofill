@@ -37,7 +37,7 @@ public class SecurityConfiguration {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc, ObjectProvider<AccountScopes> accountScopes, ObjectProvider<com.dossier.api.service.ent.members.EnterpriseAccountLifecycle> enterpriseAccounts) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, MvcRequestMatcher.Builder mvc, ObjectProvider<AccountScopes> accountScopes, ObjectProvider<com.dossier.api.service.ent.members.EnterpriseAccountLifecycle> enterpriseAccounts, @org.springframework.beans.factory.annotation.Value("${dossier.management.scrape-token:}") String scrapeToken) throws Exception {
         http
             .cors(withDefaults())
             .csrf(csrf -> csrf.disable())
@@ -91,8 +91,8 @@ public class SecurityConfiguration {
                     .requestMatchers(mvc.pattern("/v3/api-docs/**")).hasAuthority(AuthoritiesConstants.ADMIN)
                     .requestMatchers(mvc.pattern("/management/health")).permitAll()
                     .requestMatchers(mvc.pattern("/management/health/**")).permitAll()
-                    .requestMatchers(mvc.pattern("/management/info")).permitAll()
-                    .requestMatchers(mvc.pattern("/management/prometheus")).permitAll()
+                    // X1.13: metrics need an admin JWT or the dedicated scrape token; info is admin-only (the /management/** rule below)
+                    .requestMatchers(mvc.pattern("/management/prometheus")).hasAnyAuthority(AuthoritiesConstants.ADMIN, ScrapeTokenFilter.AUTHORITY)
                     .requestMatchers(mvc.pattern("/management/**")).hasAuthority(AuthoritiesConstants.ADMIN)
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -102,6 +102,8 @@ public class SecurityConfiguration {
                     .accessDeniedHandler(new BearerTokenAccessDeniedHandler())
             )
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(withDefaults()))
+            // X1.13: the scrape token authenticates /management/prometheus only, ahead of the JWT filter
+            .addFilterBefore(new ScrapeTokenFilter(scrapeToken), BearerTokenAuthenticationFilter.class)
             // Enterprise V2 (X1.5): after bearer authentication, keep tenant-bound tokens on their own tenant's routes.
             .addFilterAfter(new TenantTokenBindingFilter(accountScopes), BearerTokenAuthenticationFilter.class)
             // Decision O4: an enterprise account has no personal plan or personal inbox; those routes answer the generic 404 for its tokens.

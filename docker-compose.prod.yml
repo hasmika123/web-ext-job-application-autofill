@@ -114,6 +114,7 @@ services:
       # The SAME value is set on the web service below. Blank = the internal routes refuse everything
       # and no PDF is generated in the background (manual "Export PDF" still works). Only in the box's .env.
       - DOSSIER_INTERNAL_TOKEN=${DOSSIER_INTERNAL_TOKEN:-}
+      - DOSSIER_SCRAPE_TOKEN=${DOSSIER_SCRAPE_TOKEN:-}
       # Enterprise V2 tenant hosts: the web server proves it is the web server with this secret (same value on the web
       # service). The prod profile REQUIRES it: blank = no X-Kiwiply-Host is believed, so no tenant host resolves.
       - DOSSIER_TENANT_HOST_SECRET=${DOSSIER_TENANT_HOST_SECRET:-}
