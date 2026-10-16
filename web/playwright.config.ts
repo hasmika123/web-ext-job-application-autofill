@@ -18,6 +18,22 @@ const launchOptions = {
   executablePath: process.env.PW_CHROMIUM_PATH || undefined,
 };
 
+/** Journeys that only run against the REAL stack (Spring API + MySQL + `next start`); each is driven by a playwright.real*.config.ts. */
+const REAL_STACK_SPECS = [
+  "journeys/consultant-home.spec.ts",
+  "journeys/consultant-pages.spec.ts",
+  "journeys/tenant-applications.spec.ts",
+  "journeys/tenant-clients.spec.ts",
+  "journeys/tenant-consultants.spec.ts",
+  "journeys/tenant-employees.spec.ts",
+  "journeys/tenant-groups.spec.ts",
+  "journeys/tenant-interviews.spec.ts",
+  "journeys/tenant-jobs.spec.ts",
+  "journeys/tenant-marketing-assignments.spec.ts",
+  "journeys/tenant-placements.spec.ts",
+  "journeys/tenant-resumes.spec.ts",
+];
+
 export default defineConfig({
   testDir: "./e2e",
   testMatch: ["auth.setup.ts", "journeys/**/*.spec.ts"],
@@ -36,6 +52,8 @@ export default defineConfig({
     {
       name: "chromium",
       testMatch: "journeys/**/*.spec.ts",
+      // these journeys need the seeded Spring + MySQL stack (see their own playwright.real*.config.ts); the mock has no talent data
+      testIgnore: REAL_STACK_SPECS,
       dependencies: ["setup"],
       use: { ...devices["Desktop Chrome"], channel: process.env.PW_CHANNEL || undefined, launchOptions },
     },

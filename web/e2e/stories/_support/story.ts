@@ -35,9 +35,9 @@ export async function narrate(page: Page, text: string, ms = PAUSE) {
 }
 
 export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session> }>({
-  as: async ({ browser }, use) => {
+  as: async ({ browser }, provide) => {
     const opened: BrowserContext[] = [];
-    await use(async (who) => {
+    await provide(async (who) => {
       const persona = PERSONAS[who];
       const file = statePath(who);
       const context = await browser.newContext({
