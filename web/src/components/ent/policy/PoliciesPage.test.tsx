@@ -52,6 +52,7 @@ async function mount() {
     </ToastProvider>,
   );
   await flush();
+  await flush(); // the list answers first, then the selected policy is read
 }
 const click = async (name: RegExp) => {
   fireEvent.click(screen.getByRole("button", { name }));
