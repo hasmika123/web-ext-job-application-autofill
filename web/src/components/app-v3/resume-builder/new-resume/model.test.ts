@@ -122,6 +122,8 @@ describe("buildPayload", () => {
     expect(buildPayload({ source: "profile", name: " My CV ", target: "  " })).toEqual({ source: { kind: "profile" }, label: "My CV" });
     expect(buildPayload({ source: "scratch", name: "", target: "Dev", templateId: "modern" })).toEqual({ source: { kind: "scratch" }, target: "Dev", templateId: "modern" });
     expect(buildPayload({ source: "copy", name: "X (copy)", target: "", copyFromId: 9 })).toEqual({ source: { kind: "copy", fromResumeId: 9 }, label: "X (copy)" });
+    // a directory record with no builder document is carried as the NEGATED directory id (D10)
+    expect(buildPayload({ source: "copy", name: "X (copy)", target: "", copyFromId: -41 })).toEqual({ source: { kind: "directory", orgResumeId: 41 }, label: "X (copy)" });
   });
 
   it("carries the upload with its KeepMask", () => {

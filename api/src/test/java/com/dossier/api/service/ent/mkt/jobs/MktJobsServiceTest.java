@@ -439,13 +439,16 @@ class MktJobsServiceTest {
     }
 
     @Test
-    void anInactiveConsultantIsStill404AndAPausedMarketingStatusToo() {
+    void anInactiveConsultantIsStill404AndAPausedMarketingStatusIsAClear409() {
         ConsultantProfile alex = consultants.findByOrgId(ORG).get(0);
         alex.setStatus("INACTIVE");
         assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 10L, 100L)).isInstanceOf(OrgNotFoundException.class);
         alex.setStatus("ACTIVE");
         alex.setMarketingStatus("PAUSED");
-        assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 10L, 100L)).isInstanceOf(OrgNotFoundException.class);
+        assertThatThrownBy(() -> service.assign(me("opportunities.manage"), 10L, 100L)).isInstanceOfSatisfying(OrgException.class, e -> {
+            assertThat(e.getStatus()).isEqualTo(409);
+            assertThat(e.getCode()).isEqualTo("CONSULTANT_PAUSED");
+        });
         assertThat(world.matchStore).isEmpty();
     }
 

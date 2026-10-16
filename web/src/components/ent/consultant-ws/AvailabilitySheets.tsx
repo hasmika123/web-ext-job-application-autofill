@@ -146,7 +146,7 @@ function BlockForm({ state, today, onClose, onSave, onDelete }: { state: BlockSh
       </Field>
       <p id={`${id}-rule`} className={NOTE}>
         {draft.kind === "VACATION"
-          ? "A vacation starts as Pending: approving it is your marketer's step, and the marketing workspace isn't connected yet."
+          ? "A vacation starts as Pending. Approval by your marketer has no screen on their side yet, and nothing is sent to them."
           : draft.kind === "AVAILABLE"
             ? "Marks these days as open to work. It can't sit on top of time off."
             : "Personal days and holidays are saved as Approved. They can't overlap another entry."}{" "}

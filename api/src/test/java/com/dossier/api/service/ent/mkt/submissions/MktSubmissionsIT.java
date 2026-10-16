@@ -68,6 +68,7 @@ class MktSubmissionsIT {
     private Long beta;
 
     @BeforeEach
+    @org.junit.jupiter.api.Timeout(240) // the first class to run on an empty database seeds the whole demo world: more than the 15 s default of lifecycle methods
     void seed() {
         assertThat(baseSeeder.seed().ran()).isTrue();
         talentSeeder.seed();

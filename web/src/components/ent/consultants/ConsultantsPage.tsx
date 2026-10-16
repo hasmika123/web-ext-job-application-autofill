@@ -28,11 +28,12 @@ import {
   type DetailTab,
   type Filters,
   type JobOption,
+  type LinkableMember,
   type PageState,
   type PatchBody,
   type UndoPlan,
 } from "@/lib/ent/consultants";
-import { AddConsultantDialog, ApplicationDialog, BulkAvailabilityDialog, DepartmentDialog, LicenseDialog, MarketerDialog, type Outcome } from "./Dialogs";
+import { AddConsultantDialog, ApplicationDialog, BulkAvailabilityDialog, DepartmentDialog, LicenseDialog, LinkMemberDialog, MarketerDialog, type Outcome } from "./Dialogs";
 import DetailSheet, { type FlowKind } from "./DetailSheet";
 import { ConsultantsTable, Pagination } from "./ConsultantsTable";
 import HelpBeeCard from "./HelpBeeCard";
@@ -94,6 +95,18 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
   const [moreOpen, setMoreOpen] = useState(false);
   const [flow, setFlow] = useState<Flow>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [linkable, setLinkable] = useState<{ loading: boolean; items: LinkableMember[] }>({ loading: false, items: [] });
+  // the "Existing person" picker of Add consultant: read when the dialog opens
+  useEffect(() => {
+    if (!addOpen) return;
+    let live = true;
+    void consultantsApi.linkableMembers(orgId).then((r) => {
+      if (live) setLinkable({ loading: false, items: r.ok ? r.data : [] });
+    });
+    return () => {
+      live = false;
+    };
+  }, [addOpen, orgId]);
   const [bulkDialog, setBulkDialog] = useState<"availability" | "marketer" | null>(null);
   const [bulkDeactivate, setBulkDeactivate] = useState(false);
   const [jobs, setJobs] = useState<{ loading: boolean; items: JobOption[] }>({ loading: false, items: [] });
@@ -309,6 +322,10 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
         return;
       }
       setFlow({ kind, id, name, marketerId, detail });
+      if (kind === "link") {
+        setLinkable({ loading: true, items: [] });
+        void consultantsApi.linkableMembers(orgId).then((r) => setLinkable({ loading: false, items: r.ok ? r.data : [] }));
+      }
       if (kind === "application") {
         setJobs({ loading: true, items: [] });
         void consultantsApi.jobOptions(orgId, id).then((r) => setJobs({ loading: false, items: r.ok ? r.data : [] }));
@@ -571,7 +588,22 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
         />
       </div>
 
-      <AddConsultantDialog open={addOpen} onClose={() => setAddOpen(false)} departments={filters.departments} onCreate={createConsultant} />
+      <AddConsultantDialog open={addOpen} onClose={() => setAddOpen(false)} departments={filters.departments} linkable={linkable.items} onCreate={createConsultant} />
+      <LinkMemberDialog
+        open={flow?.kind === "link"}
+        onClose={() => setFlow(null)}
+        subject={flow?.name ?? "this consultant"}
+        linkable={linkable.items}
+        loading={linkable.loading}
+        onApply={async (memberId) => {
+          if (!flow) return { ok: false, error: "Nothing selected." };
+          const r = await consultantsApi.linkMember(orgId, flow.id, memberId);
+          if (!r.ok) return { ok: false, error: errorSentence(r) };
+          toast({ title: `${flow.name} is linked to their sign-in`, variant: "success" });
+          refresh();
+          return { ok: true };
+        }}
+      />
       <MarketerDialog
         open={flow?.kind === "marketer"}
         onClose={() => setFlow(null)}

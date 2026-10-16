@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { test, expect, narrate } from "../_support/story";
-import { bff, openRowMenu, orgIdOf, stamp } from "./_helpers";
+import { bff, openRowMenu, orgIdOf, pickFirstDepartment, stamp } from "./_helpers";
 
 const rowOf = (page: Page, name: string) => page.locator("tr[data-row-id]", { hasText: name });
 const kpi = (page: Page, k: string) => page.locator(`[data-kpi=${k}] [data-kpi-value]`);
@@ -44,6 +44,8 @@ test("ADM-11 Org admin edits an employee's job title and it is saved automatical
   await go("/w/admin/employees");
   await expect(page.locator("[data-employees-page]")).toBeVisible();
   await narrate(page, "Sarah opens Anika Rao's detail sheet");
+  // the roster pages 10 at a time and grows with every account the other stories add, so find her by name
+  await page.getByRole("searchbox", { name: "Search employees" }).fill("Anika Rao");
   await rowOf(page, "Anika Rao").click();
   const sheet = page.locator("#ent-employee-sheet");
   await expect(sheet.locator("[data-detail-body]")).toBeVisible();
@@ -55,6 +57,7 @@ test("ADM-11 Org admin edits an employee's job title and it is saved automatical
   await expect(sheet.locator("[data-title-status=saved]")).toBeVisible();
   await narrate(page, "After a reload the new title is still there");
   await page.reload();
+  await page.getByRole("searchbox", { name: "Search employees" }).fill("Anika Rao");
   await rowOf(page, "Anika Rao").click();
   await expect(sheet.getByRole("textbox", { name: "Job title" })).toHaveValue(newTitle);
   await sheet.getByRole("button", { name: "Close Anika Rao" }).click();
@@ -140,12 +143,7 @@ test("ADM-15 Org admin invites an employee, resends and revokes the invitation",
   await panel.getByLabel(/Full Name/).fill("Eli Story");
   await panel.getByRole("button", { name: /^Role/ }).click();
   await panel.getByRole("checkbox", { name: /^Consultant/ }).check();
-  const dept = panel.getByRole("button", { name: "Department" });
-  if (await dept.isEnabled()) {
-    await dept.evaluate((el) => el.scrollIntoView({ block: "center" })); // the list opens under the trigger and closes on scroll
-    await dept.click();
-    await page.getByRole("option").first().click();
-  }
+  await pickFirstDepartment(page, panel);
   await panel.getByLabel(/Personal Message/).fill("Welcome to the team.");
   await panel.getByRole("button", { name: /Send Invitation/ }).click();
   await expect(page.getByText("Invite sent")).toBeVisible({ timeout: 20_000 });
@@ -158,12 +156,12 @@ test("ADM-15 Org admin invites an employee, resends and revokes the invitation",
   await expect(page.locator("[data-invitation-activity]")).toContainText("Eli Story");
 
   await narrate(page, "Resend");
-  await row.getByRole("button", { name: "Row actions" }).click();
+  await openRowMenu(page, row, /Resend/);
   await page.getByRole("menuitem", { name: /Resend/ }).click();
   await expect(page.getByText("Invitation sent again")).toBeVisible();
 
   await narrate(page, "Revoke: the chip flips and the counters move");
-  await row.getByRole("button", { name: "Row actions" }).click();
+  await openRowMenu(page, row, /Revoke/);
   await page.getByRole("menuitem", { name: /Revoke/ }).click();
   await expect(row.locator('[data-invitation-status="REVOKED"]')).toBeVisible();
   await expect(page.getByText("Invitation revoked")).toBeVisible();
@@ -203,12 +201,7 @@ test("ADM-17 Sending an invitation can be undone from the toast", async ({ as })
   await panel.getByLabel(/Email Address/).fill(email);
   await panel.getByRole("button", { name: /^Role/ }).click();
   await panel.getByRole("checkbox", { name: /^Consultant/ }).check();
-  const dept = panel.getByRole("button", { name: "Department" });
-  if (await dept.isEnabled()) {
-    await dept.evaluate((el) => el.scrollIntoView({ block: "center" })); // the list opens under the trigger and closes on scroll
-    await dept.click();
-    await page.getByRole("option").first().click();
-  }
+  await pickFirstDepartment(page, panel);
   await panel.getByRole("button", { name: /Send Invitation/ }).click();
   await expect(page.getByText("Invite sent")).toBeVisible({ timeout: 20_000 });
   await expect.poll(() => invKpi(page, "PENDING")).toBe(pending0 + 1);

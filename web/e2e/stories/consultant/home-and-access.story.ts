@@ -48,8 +48,12 @@ test("CON-01 Anika opens her consultant Home and sees her own pipeline at a glan
   await expect(page.locator("[data-home-card=home-tasks] [data-task]").first()).toBeVisible();
   await expect(page.locator("[data-home-card=home-matches] [data-match]").first()).toBeVisible();
 
-  await narrate(page, "Marketer messages are labelled Sample until the marketing workspace is connected");
-  await expect(page.locator("[data-home-card=home-messages] [data-sample]")).toBeVisible();
+  // D12 (audit fixes): Home invents nothing for the marketer side any more. There is no message channel yet, so the card says so honestly instead of
+  // showing Sample messages.
+  await narrate(page, "There is no message channel with the marketer yet, so the Marketer Messages card is honest about being empty");
+  const messages = page.locator("[data-home-card=home-messages]");
+  await expect(messages).toContainText("No messages yet");
+  await expect(messages.locator("[data-sample]")).toHaveCount(0);
 });
 
 test("CON-02 Anika jumps from Home into her work with Quick Actions and View All links", async ({ as }) => {

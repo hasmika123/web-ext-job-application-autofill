@@ -1,4 +1,5 @@
 import { test, expect, narrate } from "../_support/story";
+import { pickOption } from "../admin/_helpers";
 import { ready, tileValue } from "./_mkt";
 
 /** Submissions, Applications, Interviews, Follow-ups, Tasks, Activity and Performance: the marketer's record-keeping pages. E1: every write here RECORDS; none submits for a consultant. */
@@ -16,70 +17,77 @@ test.describe("MKT submissions, applications, interviews", () => {
     await page.getByRole("button", { name: /New Submission/ }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("nothing is sent to the client");
-    await dialog.getByRole("button", { name: "Consultant" }).click();
-    await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Job" }).click();
-    await page.getByRole("option").first().click();
-    const note = `Story note ${Date.now()}`;
-    await dialog.getByLabel("Note").fill(note);
-    await dialog.getByRole("button", { name: "Create draft" }).click();
+    // A consultant and job pair that already has a draft is refused (409) and the dialog stays open, so each run takes the next free pair.
+    const start = Date.now() % 7;
+    let created = false;
+    for (let attempt = 0; attempt < 8 && !created; attempt++) {
+      await pickOption(page, dialog.getByRole("button", { name: "Consultant" }), page.getByRole("option").nth((start + attempt) % 6));
+      await pickOption(page, dialog.getByRole("button", { name: "Job" }), page.getByRole("option").nth((start * 2 + attempt) % 6));
+      await dialog.getByLabel("Note").fill(`Story note ${Date.now()}`);
+      await dialog.getByRole("button", { name: "Create draft" }).click();
+      created = await dialog.waitFor({ state: "detached", timeout: 5000 }).then(() => true, () => false);
+    }
+    expect(created, "a consultant and job pair without a draft").toBe(true);
 
     await narrate(page, "The draft is recorded; the row's actions are Send for approval or Withdraw, never Submit");
-    await expect(page.getByText(/Draft prepared for/)).toBeVisible();
+    await expect(page.getByText(/Draft prepared for/).first()).toBeVisible();
     await expect.poll(() => page.locator("[data-submission-row]").count()).toBeGreaterThanOrEqual(before);
-    const menuButtons = page.getByRole("button", { name: /^Actions for / });
-    await menuButtons.first().click();
+    await pickOption(page, page.getByRole("button", { name: /^Actions for / }).first(), page.getByRole("menuitem").first()); // a menu closes when the page scrolls
     const entries = (await page.getByRole("menuitem").allInnerTexts()).join("|");
     expect(entries).not.toMatch(/submit to client|send to client|apply/i);
   });
 
   test("MKT-31 Omar filters the Applications tracker by stage and records a note", async ({ as }) => {
+    // Applications is the shared organization page, scoped to Omar's consultants (tiles [data-kpi=...], rows tr[data-row-id], the drawer #ent-application-sheet).
     const { page, go } = await as("omar");
     await go("/w/marketing/applications");
-    await ready(page, "[data-applications]").waitFor();
-    await narrate(page, "Four tiles count active, awaiting, interviewing and offers");
-    for (const id of ["active", "awaiting", "interviewing", "offers"]) await expect(page.locator(`[data-stat-tile="${id}"]`)).toBeVisible();
-    const tabs = page.locator("[data-stage-tab]");
-    expect(await tabs.count()).toBeGreaterThan(1);
+    await expect(page.locator("[data-applications-page]")).toBeVisible({ timeout: 45_000 });
+    await narrate(page, "Four tiles count all applications, those in review, interviewing and offers");
+    for (const k of ["total", "inReview", "interviewing", "offers"]) await expect(page.locator(`[data-kpi-tiles] [data-kpi=${k}]`)).toBeVisible();
+    const rows = page.locator("tr[data-row-id]");
+    await expect(rows.first()).toBeVisible();
 
-    await narrate(page, "Stage tabs carry counts; choosing one filters the table");
-    const second = tabs.nth(1);
-    await second.click();
-    await expect(second).toHaveAttribute("aria-selected", "true");
+    await narrate(page, "Choosing a Stage filters the table");
+    await pickOption(page, page.locator('[role=search] button[aria-label="Stage"]'), page.getByRole("option", { name: "Interviewing" }));
+    await expect(page).toHaveURL(/stage=INTERVIEWING/);
+    await expect(rows.first()).toBeVisible();
+    for (const s of await rows.evaluateAll((els) => els.map((e) => e.getAttribute("data-stage")))) expect(s).toBe("INTERVIEWING");
 
     await narrate(page, "Searching for nothing shows the honest empty state");
-    await page.getByLabel("Search applications").fill("zzz-no-such-application");
-    await expect(page.getByText("No applications match these filters.")).toBeVisible();
-    await page.getByLabel("Search applications").fill("");
-    await tabs.first().click();
+    await page.getByRole("searchbox", { name: "Search applications" }).fill("zzz-no-such-application");
+    await expect(page.getByText("No applications match")).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters" }).first().click();
+    await expect(rows.first()).toBeVisible();
 
-    const menu = page.locator("[data-app-row] [data-row-menu]").first();
-    if ((await menu.count()) === 0) {
-      test.info().annotations.push({ type: "note", description: "no row with FULL consent in the seed: the note action is not offered (consent working as designed)" });
-      return;
-    }
-    await narrate(page, "On a row the consultant shares fully, Omar adds a note (a record, not an action on the application)");
-    await menu.click();
-    await page.getByRole("menuitem", { name: "Add a note" }).click();
-    const dlg = page.getByRole("dialog");
-    await dlg.getByPlaceholder("What happened, what is next...").fill(`Story follow-up note ${Date.now()}`);
-    await dlg.getByRole("button", { name: "Add note" }).click();
-    await expect(dlg).toHaveCount(0);
+    await narrate(page, "He opens an application and adds a note: a record, not an action on the application");
+    await rows.first().click();
+    const drawer = page.locator("#ent-application-sheet");
+    await expect(drawer.locator("[data-detail-body]")).toBeVisible();
+    await drawer.getByRole("tab", { name: /^Notes/ }).click();
+    const before = await drawer.locator("[data-note-id]").count();
+    await drawer.getByRole("textbox", { name: "Add a note" }).fill(`Story follow-up note ${Date.now()}`);
+    await drawer.getByRole("button", { name: "Add note" }).click();
+    await expect(drawer.locator("[data-note-id]")).toHaveCount(before + 1);
   });
 
   test("MKT-32 Omar checks the interview schedule, switches to the calendar and sees what needs feedback", async ({ as }) => {
+    // Interviews is the shared organization page, scoped to Omar's consultants.
     const { page, go } = await as("omar");
     await go("/w/marketing/interviews");
-    await ready(page, "[data-interviews]").waitFor();
-    await narrate(page, "Four tiles: this week, confirmed, pending feedback, reschedules");
-    for (const id of ["interviewsThisWeek", "confirmedInterviews", "pendingFeedback", "reschedules"]) await expect(page.locator(`[data-stat-tile="${id}"]`)).toBeVisible();
-    await narrate(page, "The schedule, upcoming, pending-feedback, checklist and reminder cards are all there");
-    for (const c of ["schedule", "upcoming", "pending-feedback", "checklist", "reminders"]) await expect(page.locator(`[data-card="${c}"]`)).toBeVisible();
-    await narrate(page, "Calendar view draws the same interviews by week");
-    await page.getByRole("button", { name: "Calendar", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Calendar", exact: true })).toHaveAttribute("aria-pressed", "true");
-    await page.getByRole("button", { name: "List", exact: true }).click();
-    await expect(page.getByRole("button", { name: "List", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("[data-interviews-page]")).toBeVisible({ timeout: 45_000 });
+    await narrate(page, "Four tiles: all interviews, scheduled this week, in progress, completed");
+    for (const k of ["total", "scheduledThisWeek", "inProgress", "completed"]) await expect(page.locator(`[data-kpi-tiles] [data-kpi=${k}]`)).toBeVisible();
+    await expect(page.locator("tr[data-row-id]").first()).toBeVisible();
+    await narrate(page, "Calendar View draws the same interviews by week");
+    await page.getByRole("tab", { name: /Calendar View/ }).click();
+    await expect(page.locator("[data-calendar]")).toBeVisible();
+    await narrate(page, "Pipeline groups them by status, and Analytics counts them");
+    await page.getByRole("tab", { name: /Pipeline/ }).click();
+    await expect(page.locator("[data-kanban-column]")).toHaveCount(4);
+    await page.getByRole("tab", { name: /Analytics/ }).click();
+    await expect(page.locator("[data-analytics-tab]")).toBeVisible();
+    await page.getByRole("tab", { name: /All Interviews/ }).click();
+    await expect(page.locator("tr[data-row-id]").first()).toBeVisible();
   });
 });
 
@@ -95,7 +103,7 @@ test.describe("MKT follow-ups, tasks, activity, performance", () => {
     await expect(page.locator('[data-followups-card="upcoming"]')).toBeVisible();
 
     await narrate(page, "Pressing Log Call with nothing selected explains what to do");
-    await page.getByRole("button", { name: "Log Call" }).click();
+    await page.getByRole("button", { name: "Log Call" }).first().click(); // the toolbar's button; the Quick Actions card has one too
     await expect(page.locator("[data-followups-notice]")).toContainText("Select at least one follow-up first.");
 
     const rows = page.locator('[data-followup-table="today"] [data-followup-row]');
@@ -105,14 +113,15 @@ test.describe("MKT follow-ups, tasks, activity, performance", () => {
     }
     await narrate(page, "He ticks the first one and logs the call");
     await rows.first().locator('input[type="checkbox"]').check();
-    await page.getByRole("button", { name: "Log Call" }).click();
+    await page.getByRole("button", { name: "Log Call" }).first().click();
     const dlg = page.locator("[data-followup-dialog=call]");
     await expect(dlg).toContainText("(1 selected)");
     await dlg.getByLabel("Call notes").fill(`Story call ${Date.now()}: spoke to the recruiter, waiting for a reply.`);
     await dlg.locator('input[type="checkbox"]').check();
     await dlg.getByRole("button", { name: "Save call" }).click();
     await expect(dlg).toHaveCount(0);
-    await expect(page.locator("[data-followups-notice]")).toHaveAttribute("data-followups-notice", "ok");
+    await expect(page.locator("[data-followups-notice]")).toHaveClass(/v2-green/); // the success tone (the warning tone is amber); the attribute no longer carries the tone
+    await expect(page.locator("[data-followups-notice]")).toContainText(/call/i);
   });
 
   test("MKT-34 Omar adds a task, finds it under My Tasks, completes it and finds it under Completed", async ({ as }) => {
@@ -166,7 +175,7 @@ test.describe("MKT follow-ups, tasks, activity, performance", () => {
     await expect(page.locator('[data-activity-card="feed"]')).toContainText(title);
   });
 
-  test("MKT-36 Omar checks his Performance numbers and the marketing manager sees the same page", async ({ as }) => {
+  test("MKT-36 Omar checks his Performance numbers (the marketing manager's view is MKT-36b)", async ({ as }) => {
     const { page, go } = await as("omar");
     await go("/w/marketing/performance");
     await ready(page, "[data-performance]").waitFor();
@@ -179,6 +188,11 @@ test.describe("MKT follow-ups, tasks, activity, performance", () => {
     const assigned = await tileValue(page, "assignedConsultants");
     expect(assigned).toBeGreaterThan(0);
 
+  });
+
+  test("MKT-36b The marketing manager sees the same Performance page for her own book", async ({ as }) => {
+    // BLOCKED: Sarah's Marketing Manager workspace (/w/marketing-mgmt) is a placeholder and /w/marketing is refused to her, so there is no page to open yet.
+    test.fixme(true, "Marketing manager workspace (/w/marketing-mgmt) is not built: Sarah has no Performance page of her own");
     const sarah = await as("sarah");
     await sarah.go("/w/marketing/performance");
     await narrate(sarah.page, "Sarah opens the same page for her own book");

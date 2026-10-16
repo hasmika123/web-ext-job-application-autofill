@@ -59,7 +59,11 @@
         <createIndex tableName="hr_employee" indexName="ix_hr_employee_dept"><column name="org_id"/><column name="department_group_id"/></createIndex>
         <createIndex tableName="hr_employee" indexName="ix_hr_employee_start"><column name="org_id"/><column name="start_date"/></createIndex>
         <createIndex tableName="hr_employee" indexName="ix_hr_employee_name"><column name="org_id"/><column name="display_name"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="hr_employee" constraintName="fk_hr_employee_member"/>
+            <dropForeignKeyConstraint baseTableName="hr_employee" constraintName="fk_hr_employee_manager_member"/>
+        </rollback>
     </changeSet>
 
     <!-- A note on an employee (Notes tab). Free text goes through the PII scanner on write. -->
@@ -78,7 +82,10 @@
         <addForeignKeyConstraint baseTableName="hr_employee_note" baseColumnNames="org_id, author_member_id" constraintName="fk_hr_employee_note_author_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <addUniqueConstraint tableName="hr_employee_note" columnNames="org_id, id" constraintName="uk_hr_employee_note_org_id"/>
         <createIndex tableName="hr_employee_note" indexName="ix_hr_employee_note_employee"><column name="org_id"/><column name="employee_id"/><column name="created_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="hr_employee_note" constraintName="fk_hr_employee_note_author_member"/>
+        </rollback>
     </changeSet>
 
     <!-- One onboarding checklist item of an employee (title, due date, done). -->
@@ -209,7 +216,10 @@
         <addUniqueConstraint tableName="hr_lifecycle_event" columnNames="org_id, id" constraintName="uk_hr_lifecycle_event_org_id"/>
         <createIndex tableName="hr_lifecycle_event" indexName="ix_hr_lifecycle_event_employee"><column name="org_id"/><column name="employee_id"/><column name="occurred_at"/></createIndex>
         <createIndex tableName="hr_lifecycle_event" indexName="ix_hr_lifecycle_event_time"><column name="org_id"/><column name="occurred_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="hr_lifecycle_event" constraintName="fk_hr_lifecycle_event_actor_member"/>
+        </rollback>
     </changeSet>
 
     <!-- Finance terms of a placement that talent_placement does not carry: pay rate, account manager, payment terms. Rates are records, never money movement. -->
@@ -232,7 +242,10 @@
         <addForeignKeyConstraint baseTableName="finance_placement_terms" baseColumnNames="org_id, account_manager_member_id" constraintName="fk_finance_placement_terms_account_manager_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <addUniqueConstraint tableName="finance_placement_terms" columnNames="org_id, id" constraintName="uk_finance_placement_terms_org_id"/>
         <addUniqueConstraint tableName="finance_placement_terms" columnNames="org_id, placement_id" constraintName="uk_finance_placement_terms_placement_id"/>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="finance_placement_terms" constraintName="fk_finance_placement_terms_account_manager_member"/>
+        </rollback>
     </changeSet>
 
     <!-- An invoice record org to client (issue = marked sent by the org; Kiwiply never sends or collects). -->
@@ -289,7 +302,10 @@
         <createIndex tableName="finance_timesheet" indexName="ix_finance_timesheet_status"><column name="org_id"/><column name="status"/><column name="submitted_at"/></createIndex>
         <createIndex tableName="finance_timesheet" indexName="ix_finance_timesheet_period"><column name="org_id"/><column name="period_start"/></createIndex>
         <createIndex tableName="finance_timesheet" indexName="ix_finance_timesheet_consultant"><column name="org_id"/><column name="consultant_id"/><column name="period_start"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="finance_timesheet" constraintName="fk_finance_timesheet_decided_by_member"/>
+        </rollback>
     </changeSet>
 
     <!-- The Placement Finance row: one placement in one calendar month (rate snapshot, hours, revenue, payout, margin, invoice status). The month series are sums over these rows. -->
@@ -410,7 +426,10 @@
         <createIndex tableName="report_definition" indexName="ix_report_definition_type"><column name="org_id"/><column name="report_type"/><column name="status"/></createIndex>
         <createIndex tableName="report_definition" indexName="ix_report_definition_lastrun"><column name="org_id"/><column name="last_run_at"/></createIndex>
         <createIndex tableName="report_definition" indexName="ix_report_definition_owner"><column name="org_id"/><column name="owner_member_id"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="report_definition" constraintName="fk_report_definition_owner_member"/>
+        </rollback>
     </changeSet>
 
     <!-- A metric a report includes (the Included Metrics bullets). -->
@@ -445,7 +464,10 @@
         <addForeignKeyConstraint baseTableName="report_recipient" baseColumnNames="org_id, member_id" constraintName="fk_report_recipient_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <addUniqueConstraint tableName="report_recipient" columnNames="org_id, id" constraintName="uk_report_recipient_org_id"/>
         <addUniqueConstraint tableName="report_recipient" columnNames="org_id, definition_id, member_id" constraintName="uk_report_recipient_definition_id_member_id"/>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="report_recipient" constraintName="fk_report_recipient_member"/>
+        </rollback>
     </changeSet>
 
     <!-- One run of a report (History tab, Last Run Summary): status, trigger, who, summary. -->
@@ -471,7 +493,10 @@
         <addUniqueConstraint tableName="report_run" columnNames="org_id, id" constraintName="uk_report_run_org_id"/>
         <createIndex tableName="report_run" indexName="ix_report_run_definition"><column name="org_id"/><column name="definition_id"/><column name="started_at"/></createIndex>
         <createIndex tableName="report_run" indexName="ix_report_run_time"><column name="org_id"/><column name="started_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="report_run" constraintName="fk_report_run_run_by_member"/>
+        </rollback>
     </changeSet>
 
     <!-- An export record (Exports tab): metadata only, no file bytes; READY until expires_at (24 h), then EXPIRED. -->
@@ -497,7 +522,10 @@
         <addUniqueConstraint tableName="report_export" columnNames="org_id, id" constraintName="uk_report_export_org_id"/>
         <createIndex tableName="report_export" indexName="ix_report_export_time"><column name="org_id"/><column name="requested_at"/></createIndex>
         <createIndex tableName="report_export" indexName="ix_report_export_definition"><column name="org_id"/><column name="definition_id"/><column name="requested_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="report_export" constraintName="fk_report_export_requested_by_member"/>
+        </rollback>
     </changeSet>
 
 </databaseChangeLog>

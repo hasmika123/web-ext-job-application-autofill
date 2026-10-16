@@ -302,6 +302,7 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/profile/prefs", Case.consultantWrite("{\"kind\":\"ROLE\",\"value\":\"Hijack role\"}", 200)),
         Map.entry("DELETE /api/orgs/{orgId}/me-workspace/profile/prefs/{prefId}", Case.consultantWrite(null, 200)),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/resumes", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/resumes/sources", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/preview", Case.consultantRead()),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/primary", Case.consultantWrite(null, 200)),
         Map.entry("PATCH /api/orgs/{orgId}/me-workspace/resumes/{resumeId}", Case.consultantWrite("{\"name\":\"Hijacked resume\"}", 200)),
@@ -408,6 +409,8 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/applications", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/activity", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/consultants/{consultantId}/job-options", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/consultants/linkable-members", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/member", Case.versioned(200, "CONSULTANT_UPDATE", w -> "{\"memberId\":" + w.member.getId() + "}", w -> null)),
         Map.entry("POST /api/orgs/{orgId}/consultants", Case.write("{\"displayName\":\"Isolation Test\",\"email\":\"isolation.test@example.org\"}", 201, "CONSULTANT_CREATE")),
         Map.entry("PATCH /api/orgs/{orgId}/consultants/{consultantId}", Case.versioned(200, "CONSULTANT_UPDATE", w -> "{\"locationLabel\":\"Hijacked\"}", w -> w.consultantVersion)),
         Map.entry("POST /api/orgs/{orgId}/consultants/{consultantId}/marketer", Case.versioned(200, "CONSULTANT_ASSIGN", w -> "{\"marketerMemberId\":" + w.member.getId() + "}", w -> null)),
@@ -507,6 +510,7 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/undo", Case.people(200, "PLACEMENT_UNDO", 1, w -> "{\"eventId\":" + w.plUndoEventId + "}", w -> null, World::preparePlacementUndo)),
         // Enterprise V2 job data audit (docs/enterprise-v2/60 section 11): read only, needs audit.view at ORG scope (the owner has it, every role without it gets the generic 404).
         Map.entry("GET /api/orgs/{orgId}/audit/job-data", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/audit", Case.read()),
         // Enterprise V2 Marketing workspace (mkt/**, ent-marketer). The legitimate caller is the owner (every marketing permission at ORG scope) in a world whose marketing module is on and whose
         // marketing rows were made through the real API (World.seedMkt). Reads write no audit row; every write records its own MARKETER_* row; the writes below that are documented as audit-free
         // are personal working state of the caller (a saved view, a saved search's "seen" marker, a prep checklist tick), like the dashboard alert dismissal above.

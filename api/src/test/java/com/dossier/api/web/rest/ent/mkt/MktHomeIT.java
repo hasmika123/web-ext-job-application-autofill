@@ -77,7 +77,7 @@ class MktHomeIT {
         Long userId = users.findOneByLogin(JESSICA).orElseThrow().getId();
         Long memberId = members.findByOrgIdAndUserIdAndStatusIn(acme.getId(), userId, List.of(OrgMemberStatus.ACTIVE)).get(0).getId();
         Set<Long> ids = new HashSet<>();
-        for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) if (memberId.equals(a.getMarketerMemberId()) || memberId.equals(a.getBackupMemberId())) ids.add(a.getConsultantId());
+        for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) if ("ACTIVE".equals(a.getStatus()) && (memberId.equals(a.getMarketerMemberId()) || memberId.equals(a.getBackupMemberId()))) ids.add(a.getConsultantId());
         return ids;
     }
 

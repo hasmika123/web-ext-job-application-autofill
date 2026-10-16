@@ -67,7 +67,10 @@
         <addForeignKeyConstraint baseTableName="talent_interview_event" baseColumnNames="org_id, interview_id" constraintName="fk_talent_iv_event_iv" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
         <addForeignKeyConstraint baseTableName="talent_interview_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_talent_iv_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="talent_interview_event" indexName="ix_talent_iv_event_iv"><column name="org_id"/><column name="interview_id"/><column name="occurred_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_interview_event" constraintName="fk_talent_iv_event_actor"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-interviews-5-feedback" author="enterprise" runInTransaction="false">
@@ -86,6 +89,9 @@
         <addForeignKeyConstraint baseTableName="talent_interview_feedback" baseColumnNames="org_id, interview_id" constraintName="fk_talent_iv_feedback_iv" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
         <addForeignKeyConstraint baseTableName="talent_interview_feedback" baseColumnNames="org_id, author_member_id" constraintName="fk_talent_iv_feedback_author" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="talent_interview_feedback" indexName="ix_talent_iv_feedback_iv"><column name="org_id"/><column name="interview_id"/><column name="created_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_interview_feedback" constraintName="fk_talent_iv_feedback_author"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>

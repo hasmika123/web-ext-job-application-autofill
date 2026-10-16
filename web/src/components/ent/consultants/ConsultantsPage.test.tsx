@@ -148,6 +148,7 @@ function answer(c: Call): { status: number; body?: unknown } {
     return { status: 201, body: detailOf(p) };
   }
   if (c.path === "/counts") return { status: 200, body: counts };
+  if (c.path === "/linkable-members") return { status: 200, body: [{ memberId: 31, name: "Dana Moreau", email: "dana@acme.test", status: "ACTIVE" }] };
   if (c.path === "/filters") {
     return {
       status: 200,
@@ -198,6 +199,10 @@ function answer(c: Call): { status: number; body?: unknown } {
     if (c.method === "POST" && sub === "/reactivate") {
       p.status = "ACTIVE";
       return { status: 200, body: detailOf(p) };
+    }
+    if (c.method === "POST" && sub === "/member") {
+      const memberId = (c.body as { memberId: number }).memberId;
+      return { status: 200, body: { ...detailOf(p), memberId } };
     }
     if (c.method === "POST" && sub === "/marketer") {
       p.marketer = "Sarah Chen";
@@ -396,7 +401,7 @@ describe("Consultants: the drawer", () => {
     expect(within(d).getByText("8 years of experience")).toBeTruthy();
     expect(d.querySelectorAll("[data-checklist] li")).toHaveLength(5);
     expect(d.querySelectorAll("[data-checklist] [data-done=true]")).toHaveLength(3);
-    expect(Array.from(d.querySelectorAll("[data-quick-action]")).map((b) => b.getAttribute("data-quick-action"))).toEqual(["applications", "marketer", "license", "department", "application", "deactivate"]);
+    expect(Array.from(d.querySelectorAll("[data-quick-action]")).map((b) => b.getAttribute("data-quick-action"))).toEqual(["applications", "marketer", "license", "link", "department", "application", "deactivate"]);
     expect(within(d).getByText("Need help managing consultants?")).toBeTruthy();
   });
 
@@ -480,6 +485,34 @@ describe("Consultants: actions", () => {
     expect(post.headers["idempotency-key"]).toMatch(/.{8,}/);
     expect(screen.getByText("Fay Fox was added")).toBeTruthy();
     expect(nav.search).toBe("c=99");
+  });
+
+  it("offers the people who hold the Consultant role and links the one picked (D2/D3)", async () => {
+    await mount();
+    fireEvent.click(screen.getAllByRole("button", { name: /Add Consultant/ })[0]);
+    await settle();
+    const dialog = screen.getByRole("dialog", { name: "Add Consultant" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Existing person" }));
+    fireEvent.click(screen.getByRole("option", { name: "Dana Moreau (dana@acme.test)" }));
+    expect((within(dialog).getByLabelText("Full name") as HTMLInputElement).value).toBe("Dana Moreau");
+    expect((within(dialog).getByLabelText("Work email") as HTMLInputElement).value).toBe("dana@acme.test");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add consultant" }));
+    await settle();
+    expect(calls.find((c) => c.method === "POST" && c.path === "/")!.body).toMatchObject({ displayName: "Dana Moreau", memberId: 31 });
+  });
+
+  it("links a sign-in to a consultant who has none, from the drawer", async () => {
+    await mount({ search: "c=1" });
+    await settle();
+    fireEvent.click(drawer().querySelector("[data-quick-action=link]")!);
+    await settle();
+    const dialog = screen.getByRole("dialog", { name: "Link a sign-in" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Person" }));
+    fireEvent.click(screen.getByRole("option", { name: "Dana Moreau (dana@acme.test)" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Link" }));
+    await settle();
+    expect(calls.find((c) => c.method === "POST" && c.path === "/1/member")!.body).toEqual({ memberId: 31 });
+    expect(screen.getByText("Jessica Davis is linked to their sign-in")).toBeTruthy();
   });
 
   it("shows the server's sentence when a duplicate email is refused, and keeps the form", async () => {

@@ -31,6 +31,7 @@ import com.dossier.api.service.ent.consultantws.ConsultantResumesDTO.Tiles;
 import com.dossier.api.service.ResumeDocService;
 import com.dossier.api.service.ResumeMetaService;
 import com.dossier.api.service.dto.BuiltResumeDTO;
+import com.dossier.api.service.ent.resumes.ConsultantCareerSeed;
 import com.dossier.api.service.ent.resumes.OrgResumeAuthors;
 import com.dossier.api.service.ent.resumes.OrgResumeCap;
 import com.dossier.api.service.ent.resumes.OrgResumeLinkService;
@@ -90,6 +91,10 @@ public class ConsultantResumesService {
     /** The document hash an approval is checked against; absent in hand-wired unit tests (then no hash is offered and an approve cannot match). */
     @Autowired(required = false)
     private ResumeDocRepository docRepository;
+
+    /** Where "Use my profile" and a directory copy get their content (the organization's career profile); absent in hand-wired unit tests (then the builder's own sources). */
+    @Autowired(required = false)
+    private ConsultantCareerSeed careerSeed;
 
     @Autowired
     public ConsultantResumesService(
@@ -243,9 +248,26 @@ public class ConsultantResumesService {
     public ConsultantResumesDTO.BuiltResumeCreated createBuilt(OrgMembership me, ConsultantResumesDTO.BuiltResumeBody body) {
         ConsultantProfile c = requireWriter(me);
         ConsultantResumesDTO.BuiltResumeBody b = body == null ? new ConsultantResumesDTO.BuiltResumeBody(null, null, null, null) : body;
-        BuiltResumeDTO built = OrgResumeCap.inOrg(c.getOrgId(), () -> docs.createBuilt(b.templateId(), b.target(), b.label(), b.source()));
+        com.fasterxml.jackson.databind.JsonNode source = careerSeed == null ? b.source() : careerSeed.resolve(c.getOrgId(), c, me.userId(), b.source());
+        BuiltResumeDTO built = OrgResumeCap.inOrg(c.getOrgId(), () -> docs.createBuilt(b.templateId(), b.target(), b.label(), source));
         OrgResume row = linked(c.getOrgId(), built.resume().getId());
         return new ConsultantResumesDTO.BuiltResumeCreated(row.getId(), built.resume().getId(), rowOf(row));
+    }
+
+    /**
+     * What the new-resume chooser offers, from the ORGANIZATION's records (D10): the profile card counts the account's profile items or, when there are
+     * none, the career profile shown on My Career Profile; the copy card lists every approved resume of the consultant, builder document or not.
+     */
+    @Transactional(readOnly = true)
+    public ConsultantResumesDTO.Sources sources(OrgMembership me) {
+        ConsultantProfile c = home.requireSelf(me);
+        ConsultantCareerSeed.Summary s = careerSeed == null ? new ConsultantCareerSeed.Summary(0, 0, 0, 0, null) : careerSeed.summary(c.getOrgId(), c, me.userId());
+        List<ConsultantResumesDTO.SourceResume> copyable = resumes.findByOrgIdAndConsultantId(c.getOrgId(), c.getId()).stream()
+            .filter(r -> !awaiting(r))
+            .sorted(Comparator.comparing(OrgResume::getUpdatedAt).reversed())
+            .map(r -> new ConsultantResumesDTO.SourceResume(r.getId(), r.getResumeId(), r.getName(), r.getUpdatedAt()))
+            .toList();
+        return new ConsultantResumesDTO.Sources(new ConsultantResumesDTO.SourceProfile(s.itemCount(), s.roles(), s.schools(), s.skills(), s.headline()), copyable);
     }
 
     private OrgResume linked(Long orgId, Long resumeId) {
@@ -332,8 +354,12 @@ public class ConsultantResumesService {
         r.setApprovalStatus("APPROVED");
         r.setApprovedAt(now);
         r.setApprovedByMemberId(me.memberId());
+        // D10: a consultant with no primary resume yet gets this one as their primary (the first approved resume)
+        boolean firstPrimary = resumes.findByOrgIdAndConsultantId(c.getOrgId(), c.getId()).stream().noneMatch(OrgResume::isPrimaryForOrg);
+        if (firstPrimary) r.setPrimaryForOrg(true);
         resumes.saveAndFlush(r);
         log(me, r, MktResumeEvent.APPROVED, null, now);
+        if (firstPrimary) log(me, r, "PRIMARY_SET", "First approved resume", now.plusMillis(1));
         audit.record(me, "RESUME_APPROVE", OrgAuditService.TARGET_RESUME, null, String.valueOf(r.getId()), "by the consultant, version=" + r.getVersionNo());
         return rowOf(r);
     }

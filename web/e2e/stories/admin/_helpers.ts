@@ -43,10 +43,42 @@ export async function openRowMenu(page: Page, row: ReturnType<Page["locator"]>, 
   }).toPass({ timeout: 20_000 });
 }
 
+/**
+ * Opens a dropdown and clicks one option. A dropdown closes when the page scrolls (by design), and Playwright's own scroll-into-view of the
+ * trigger can do exactly that, so open it again until the option is up instead of assuming the first click left it open.
+ */
+export async function pickOption(page: Page, trigger: ReturnType<Page["locator"]>, option: ReturnType<Page["locator"]>) {
+  await expect(async () => {
+    if (!(await option.isVisible().catch(() => false))) {
+      await trigger.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(400);
+      await trigger.click();
+    }
+    await expect(option).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 20_000 });
+  await option.click();
+}
+
 /** Waits for the tenant shell to be drawn (sidebar + main), reloading once if the first workspace call missed on a cold API. */
 export async function shellReady(page: Page) {
   await expect(async () => {
     if (!(await page.locator("[data-enterprise-shell]").isVisible().catch(() => false))) await page.reload();
     await expect(page.locator("[data-enterprise-shell]")).toBeVisible({ timeout: 15_000 });
   }).toPass({ timeout: 90_000 });
+}
+
+/** Opens the Invite panel's Department list and picks the first department (the list closes when the page scrolls, so retry until an option is up). */
+export async function pickFirstDepartment(page: Page, panel: ReturnType<Page["locator"]>) {
+  const dept = panel.getByRole("button", { name: "Department" });
+  if (!(await dept.isEnabled())) return;
+  const option = page.getByRole("option").first();
+  await expect(async () => {
+    if (!(await option.isVisible().catch(() => false))) {
+      await dept.evaluate((el) => el.scrollIntoView({ block: "center" }));
+      await page.waitForTimeout(500);
+      await dept.click();
+    }
+    await expect(option).toBeVisible({ timeout: 2000 });
+  }).toPass({ timeout: 30_000 });
+  await option.click();
 }

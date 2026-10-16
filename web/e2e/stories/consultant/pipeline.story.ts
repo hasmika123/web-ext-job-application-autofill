@@ -7,7 +7,7 @@ import { lettersStamp, openPage, pageTitle, stamp, tileValue } from "./_helpers"
  * source site with her own extension and only records / follows status here.
  */
 
-test("CON-30 Anika sees who her marketer is and what they are working on; messaging says honestly that it is not connected yet", async ({ as }) => {
+test("CON-30 Anika sees who her marketer is and what they are working on; messaging says honestly that it is not available yet", async ({ as }) => {
   const { page, go } = await as("anika");
   await narrate(page, "Anika opens My Marketer");
   await openPage(page, go, "marketer");
@@ -15,18 +15,19 @@ test("CON-30 Anika sees who her marketer is and what they are working on; messag
 
   await narrate(page, "Her marketer is Sarah Chen (the demo pins Anika to Sarah)");
   await expect(page.locator("[data-marketer-name]")).toHaveText("Sarah Chen");
-  await expect(page.locator("[data-response-badge] [data-sample]")).toBeVisible(); // 'Responsive' badge is a stand-in
+  await expect(page.locator("[data-response-badge]")).toHaveCount(0); // D12: no invented 'Responsive' badge: nothing measures a response time yet
 
   await narrate(page, "Current Focus lists real opportunities; Upcoming Follow-ups come from the next steps on her applications");
   await expect(page.locator("[data-focus-opportunity]").first()).toBeVisible();
   await expect(page.locator("[data-followup]").first()).toBeVisible();
 
-  await narrate(page, "Send Message opens an honest dialog: nothing is sent or scheduled");
-  await page.locator("[data-marketer-action='Send Message']").click();
-  const dlg = page.getByRole("dialog", { name: "Messaging arrives with the marketing workspace" });
-  await expect(dlg).toContainText("Send Message is not connected yet. Nothing was sent or scheduled.");
-  await dlg.getByRole("button", { name: "Got it" }).click();
-  await expect(dlg).toHaveCount(0);
+  // D12: there is no message, call or request channel, so Send Message, Schedule Call and View Calendar are disabled and say why (no dialog pretends to send)
+  await narrate(page, "Send Message, Schedule Call and View Calendar are disabled, and the tooltip says why: nothing can be sent or scheduled yet");
+  for (const label of ["Send Message", "Schedule Call", "View Calendar"]) {
+    const button = page.locator(`[data-marketer-action='${label}']`);
+    await expect(button).toBeDisabled();
+    await expect(button).toHaveAttribute("title", /isn't available yet/);
+  }
 
   await narrate(page, "A focus opportunity leads to Assigned Opportunities");
   await page.locator("[data-focus-opportunity]").first().getByRole("link", { name: /^View / }).click();

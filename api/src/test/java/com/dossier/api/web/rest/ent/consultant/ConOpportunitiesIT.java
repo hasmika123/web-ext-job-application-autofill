@@ -13,6 +13,10 @@ import com.dossier.api.domain.ent.OrgMemberRole;
 import com.dossier.api.domain.ent.OrgRoleDefinition;
 import com.dossier.api.domain.ent.OrgRolePermission;
 import com.dossier.api.domain.ent.mkt.MktOpportunity;
+import com.dossier.api.domain.enumeration.ShareScope;
+import com.dossier.api.domain.org.DataShare;
+import com.dossier.api.repository.org.DataShareRepository;
+import com.dossier.api.service.org.OrgShareConsent;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
@@ -91,6 +95,7 @@ class ConOpportunitiesIT {
     @Autowired private MktOpportunityEventRepository opportunityEvents;
     @Autowired private MktPipelineApplicationLinkRepository links;
     @Autowired private ApplicationRepository applications;
+    @Autowired private DataShareRepository dataShares;
 
     private OrgFixtures fx;
     private Organization a;
@@ -118,6 +123,13 @@ class ConOpportunitiesIT {
         actor(a, "con-nobody", new String[][] { { "dashboard.view_org", "ORG" } });
         actor(b, "con-b-consultant", new String[][] { { "opportunities.respond", "OWN" } });
 
+        // "I applied" only ties the organization to her tracked application when she shares at least a SUMMARY with it (consent NONE records the state, no link)
+        DataShare share = new DataShare();
+        share.setOrgId(a.getId());
+        share.setMemberId(anikaSeat.getId());
+        share.setScope(ShareScope.SUMMARY);
+        share.setConsentVersion(OrgShareConsent.CURRENT);
+        dataShares.saveAndFlush(share);
         anika = consultant(a, "Anika Rao", anikaSeat.getId());
         ben = consultant(a, "Ben Cole", benSeat.getId());
         ClientAccount client = client(a, "TechCorp");
@@ -219,6 +231,7 @@ class ConOpportunitiesIT {
         ap.setRoleTitle(title);
         ap.setStatus(ApplicationStatus.APPLIED);
         ap.setCreatedAt(Instant.now());
+        ap.setUpdatedAt(ap.getCreatedAt()); // application.updated_at is @NotNull: a fixture row needs it like any other writer
         return applications.saveAndFlush(ap);
     }
 

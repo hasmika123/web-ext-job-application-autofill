@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import com.dossier.api.IntegrationTest;
+import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.ent.OrgSetting;
 import com.dossier.api.domain.ent.talent.ClientAccount;
@@ -17,6 +18,7 @@ import com.dossier.api.domain.ent.talent.TalentApplication;
 import com.dossier.api.domain.ent.talent.TalentPlacement;
 import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.domain.org.Organization;
+import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.ent.OrgSettingRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientContactRepository;
@@ -25,6 +27,8 @@ import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.TalentApplicationRepository;
 import com.dossier.api.repository.ent.talent.TalentPlacementRepository;
+import com.dossier.api.service.ResumeBuilderSettings;
+import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -57,6 +61,8 @@ class OrgClientResourceIT extends MemberItSupport {
     @Autowired private TalentApplicationRepository applications;
     @Autowired private TalentPlacementRepository placements;
     @Autowired private OrgSettingRepository orgSettings;
+    @Autowired private AppSettingRepository appSettings;
+    @Autowired private ResumeBuilderSettings platformSettings;
 
     private OrgMember am; // an Account Manager: clients.view + clients.manage + requirements.manage
     private ClientAccount alpha; // Technology, ACTIVE, owner = Olivia, 2 open requirements, one placed consultant, activity 3 days ago
@@ -294,9 +300,9 @@ class OrgClientResourceIT extends MemberItSupport {
     void theTilesAreComputedFromRowsOfThisOrganization() throws Exception {
         JsonNode s = json(call(login("owner"), get(url(a) + "/summary")));
         assertThat(s.path("totalClients").path("value").asInt()).isEqualTo(3);
-        assertThat(s.path("totalClients").path("previous").asInt()).as("created at least 30 days ago").isEqualTo(3 - 0);
+        assertThat(s.path("totalClients").path("previous").asInt()).as("created at least 30 days ago: Alpha and Beta, not Gamma (10 days)").isEqualTo(2);
         assertThat(s.path("activeRequirements").path("value").asInt()).isEqualTo(2);
-        assertThat(s.path("newThisMonth").path("value").asInt()).isZero();
+        assertThat(s.path("newThisMonth").path("value").asInt()).as("created in the last 30 days: Gamma").isEqualTo(1);
         assertThat(s.path("placementsViaClients").path("value").asInt()).isEqualTo(1);
         assertThat(s.path("totalClients").path("series")).hasSize(8);
         assertThat(s.path("facets").path("health").toString()).contains("\"value\":\"HEALTHY\",\"label\":\"HEALTHY\",\"count\":1").contains("\"value\":\"AT_RISK\",\"label\":\"AT_RISK\",\"count\":1");
@@ -506,9 +512,16 @@ class OrgClientResourceIT extends MemberItSupport {
         assertStatus(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"title\":\"SSN 123-45-6789\"}", null, key()), 422);
         assertGeneric404(call(login("spec"), post(u), "{\"name\":\"Jo Doe\"}", null, key()), "a specialist cannot add contacts");
         assertThat(contacts.findByOrgIdAndClientId(a.getId(), alpha.getId())).hasSize(2);
-        // the consumer-domain list is a setting, not code
-        setting("org.clients.consumer_email_domains", "[\"alpha.example.com\"]");
-        assertCode(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"email\":\"jo@alpha.example.com\"}", null, key()), 422, "WORK_EMAIL_REQUIRED");
+        // the consumer-domain list is a PLATFORM setting (app_setting), not code and not an org override (an organization may only override the two day counts)
+        AppSetting domains = appSettings.saveAndFlush(new AppSetting(EnterpriseSettingKeys.ORG_CLIENTS_CONSUMER_DOMAINS, "[\"alpha.example.com\"]", "it", Instant.now()));
+        platformSettings.invalidate();
+        try {
+            assertCode(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"email\":\"jo@alpha.example.com\"}", null, key()), 422, "WORK_EMAIL_REQUIRED");
+        } finally {
+            appSettings.delete(domains);
+            appSettings.flush();
+            platformSettings.invalidate();
+        }
     }
 
     @Test
@@ -549,7 +562,8 @@ class OrgClientResourceIT extends MemberItSupport {
         String u = url(a, alpha) + "/notes";
         assertStatus(call(login("am"), post(u), "{\"body\":\"\"}", null, key()), 422);
         assertStatus(call(login("am"), post(u), "{\"body\":\"" + "x".repeat(1001) + "\"}", null, key()), 422);
-        assertStatus(call(login("am"), post(u), "{\"body\":\"Their card is 4111 1111 1111 1111\"}", null, key()), 422);
+        // a card number is not one of the never-collected classes (cards go to Stripe, never to us); an SSN is
+        assertStatus(call(login("am"), post(u), "{\"body\":\"Their SSN is 123-45-6789\"}", null, key()), 422);
         assertStatus(call(login("am"), post(u), "{\"body\":\"<b>x</b>\"}", null, key()), 422);
         assertThat(call(login("am"), post(u), "{\"body\":\"ok\",\"clientId\":9}", null, key()).getResponse().getStatus()).isGreaterThanOrEqualTo(400);
         assertGeneric404(call(login("spec"), post(u), "{\"body\":\"hello there\"}", null, key()), "a specialist cannot write notes");

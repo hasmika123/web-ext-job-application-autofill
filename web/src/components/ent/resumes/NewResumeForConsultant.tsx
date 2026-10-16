@@ -93,7 +93,7 @@ export default function NewResumeForConsultant({ orgId, onCreated }: { orgId: nu
     () => (sources ? { itemCount: sources.profile.itemCount, roles: sources.profile.roles, schools: sources.profile.schools, skills: sources.profile.skills, score: null, headline: sources.profile.headline } : { itemCount: 0, roles: 0, schools: 0, skills: 0, score: null, headline: null }),
     [sources],
   );
-  const choices = useMemo<ResumeChoice[]>(() => (sources?.resumes ?? []).map((r) => ({ id: r.id, name: r.name, kind: "BUILT" as const, updatedAt: r.updatedAt, score: null, templateId: null })), [sources]);
+  const choices = useMemo<ResumeChoice[]>(() => (sources?.resumes ?? []).map((r) => ({ id: r.id, name: r.name, kind: r.kind === "RECORD" ? ("RECORD" as const) : ("BUILT" as const), updatedAt: r.updatedAt, score: null, templateId: null })), [sources]);
   const env = useMemo(() => (chosen ? actForEnv(orgId, chosen.consultantId) : null), [orgId, chosen]);
 
   const close = () => {
@@ -130,7 +130,7 @@ export default function NewResumeForConsultant({ orgId, onCreated }: { orgId: nu
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-semibold text-ink">{c.name}</span>
-                    <span className="block truncate text-[12.5px] text-muted">{c.hasAccount ? (c.title ?? "") : "No sign-in yet: they could not approve a resume made for them"}</span>
+                    <span className="block truncate text-[12.5px] text-muted">{c.hasAccount ? (c.title ?? "") : "Needs an organization account: they could not approve a resume made for them"}</span>
                   </span>
                   {loadingSources ? <Spinner role="presentation" aria-hidden className="h-4 w-4" /> : null}
                 </button>

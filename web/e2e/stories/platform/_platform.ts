@@ -26,8 +26,10 @@ export async function expectNotYourRole(page: Page) {
 
 /** "This page is on the way": a menu entry whose page is not built yet (never a 404). */
 export async function expectOnTheWay(page: Page) {
-  await expect(page.locator("[data-coming-soon]")).toBeVisible();
-  await expect(page.getByText("This page is on the way").first()).toBeVisible();
+  const soon = page.locator("[data-coming-soon]");
+  await expect(soon).toBeVisible();
+  // the header's subtitle ("This page is on the way.") is hidden on a phone; the empty state's own title is the exact, always-visible line
+  await expect(soon.getByText("This page is on the way", { exact: true })).toBeVisible();
 }
 
 /** No horizontal page scroll at the current viewport (1px of rounding allowed). */

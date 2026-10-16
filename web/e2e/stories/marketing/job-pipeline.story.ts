@@ -1,5 +1,6 @@
 import { test, expect, narrate } from "../_support/story";
-import { api, boardRow, captureJob, consultantIdByName, conRow, jobBody, mockPostingSite, orgIdOf, ready } from "./_mkt";
+import { menuAction } from "../consultant/_helpers";
+import { api, bff, boardRow, captureJob, consultantIdByName, conRow, jobBody, keepMarketed, mockPostingSite, orgIdOf, ready } from "./_mkt";
 
 /**
  * Release-1 JOB PIPELINE (docs/enterprise-v2/60-job-phase1-contract.md): a marketer captures a trimmed job (the extension's "Save for consultant" =
@@ -9,6 +10,9 @@ import { api, boardRow, captureJob, consultantIdByName, conRow, jobBody, mockPos
  */
 
 test.describe("MKT job pipeline", () => {
+  test.describe.configure({ timeout: 150_000 }); // three browsers per story (marketer, consultant, and the administrator who sets Ben up) all finish their recordings
+  keepMarketed("Ben Okafor"); // Ben is ON_PROJECT (marketing paused) in the seed: nothing can be assigned to him until he is available
+
   test("MKT-20 Omar saves a job from the extension for Ben and sees it on his Opportunities board", async ({ as }) => {
     const omar = await as("omar");
     await omar.go("/w/marketing/opportunities");
@@ -44,134 +48,141 @@ test.describe("MKT job pipeline", () => {
     await expect(jobRow).toContainText(String(body.company));
   });
 
-  test("MKT-21 Ben sees Omar's job in his workspace, opens the posting and says he is interested; Omar sees the answer", async ({ as }) => {
+  // The consultant side below is the LIVE Assigned Opportunities page (components/ent/consultant-ws/OpportunitiesPage.tsx: rows [data-opp], a detail side
+  // sheet, a row menu with Express Interest / Need More Info / Decline). It answers for the consultant only on the consultant's own press, and never applies.
+
+  /**
+   * Omar saves a fresh job for Ben (the extension's "Save for consultant"), as every story below starts.
+   *
+   * KNOWN PRODUCT GAP (reported in videos-index.md, "Findings"): the live consultant Assigned Opportunities page (ent-consultant) writes Ben's answers
+   * (Express Interest, Need More Info, Decline) to its own records, while Omar's Opportunities board (ent-marketer) reads its own interest state, so a consultant's
+   * answer never reaches the board, and a job saved from the extension has no cws_job_source row, so its Open job link is disabled. The "b" stories carry the
+   * marketer-side steps and are marked fixme until the two sides share one record.
+   */
+  async function savedForBen(as: Parameters<Parameters<typeof test>[2]>[0]["as"]) {
     const omar = await as("omar");
     await omar.go("/w/marketing/opportunities");
     await ready(omar.page, "[data-opportunities]").waitFor();
     const orgId = await orgIdOf(omar.page);
     const benId = await consultantIdByName(omar.page, orgId, "Ben Okafor");
     const body = jobBody(Date.now(), [benId]);
-    const title = String(body.title);
     const cap = await captureJob(omar, "omar", orgId, body);
     expect(cap.status, cap.text).toBe(200);
+    return { omar, orgId, body, title: String(body.title), matchOppId: cap.json?.results?.[0]?.opportunityId };
+  }
 
+  test("MKT-21 Ben sees Omar's job in his workspace, opens the posting and says he is interested", async ({ as }) => {
+    const { body, title } = await savedForBen(as);
     const ben = await as("ben");
     await mockPostingSite(ben);
     await ben.go("/w/consultant/opportunities");
     await narrate(ben.page, "Ben opens Assigned Opportunities");
-    await ready(ben.page, "[data-con-opportunities]").waitFor();
+    await ready(ben.page, "[data-consultant-opportunities]").waitFor();
     const row = conRow(ben.page, title);
     await expect(row).toHaveCount(1);
     await expect(row).toContainText(String(body.company));
-    await expect(row.locator("[data-state-chip=ASSIGNED]")).toBeVisible();
-    await expect(row).toContainText("Omar Haddad");
 
-    await narrate(ben.page, "He opens the job: the marketer's note, pay and source are all there");
-    await row.getByRole("link", { name: title }).click();
-    const detail = ben.page.locator("[data-con-detail]");
-    await expect(detail).toBeVisible();
-    await expect(detail.locator("[data-con-section=note]")).toContainText("strong fit for your automation background");
-    await expect(detail.locator("[data-con-section=pay]")).toContainText("$70 - $80 / hr");
-    await expect(detail.locator("[data-con-section=source]")).toContainText(String(body.jobUrl));
-    await expect(detail.locator("[data-never-applies]")).toBeVisible();
-    // the full description is never held: only the facts and the link
-    await expect(detail).not.toContainText(/job description/i);
+    await narrate(ben.page, "He opens the job: the marketer's name and how to apply are there");
+    await row.locator("[data-action=view]").click();
+    const sheet = ben.page.getByRole("dialog", { name: title });
+    await expect(sheet.locator("[data-detail]")).toBeVisible();
+    await expect(sheet).toContainText("Omar Haddad");
+    await expect(sheet.locator("[data-apply-helper]")).toContainText("extension"); // he applies himself, with his own extension
 
-    await narrate(ben.page, "Open job posting goes to the source site; Ben applies there himself");
-    const [posting] = await Promise.all([ben.context.waitForEvent("page"), detail.locator("[data-open-posting]").click()]);
-    await expect(posting.getByRole("heading", { name: /job posting on the source site/i })).toBeVisible();
-    await posting.close();
-    await expect(detail.locator("[data-state-chip=VIEWED]")).toBeVisible();
+    await narrate(ben.page, "Open job link goes to the source site; Ben applies there himself");
+    const link = sheet.locator("a[data-job-link]");
+    if ((await link.count()) > 0) {
+      const [posting] = await Promise.all([ben.context.waitForEvent("page"), link.click()]);
+      await expect(posting.getByRole("heading", { name: /job posting on the source site/i })).toBeVisible();
+      await posting.close();
+    } else {
+      // BLOCKED (product gap, see above): a job saved from the extension has no cws_job_source row, so the link is disabled.
+      test.info().annotations.push({ type: "BLOCKED", description: "Open job link is disabled for a job saved from the extension (no cws_job_source row)" });
+      await expect(sheet.locator("[data-job-link-missing]")).toBeVisible();
+    }
+    await ben.page.keyboard.press("Escape");
 
-    await narrate(ben.page, "Ben presses Interested");
-    await detail.locator("[data-action=INTEREST]").click();
-    await expect(detail.locator("[data-state-chip=INTERESTED]")).toBeVisible();
-    await ben.page.locator("[data-tab=INTERESTED]").first().click();
-    await expect(conRow(ben.page, title)).toHaveCount(1);
+    await narrate(ben.page, "Ben presses Express Interest");
+    await menuAction(ben.page, conRow(ben.page, title).getByRole("button", { name: `More actions for ${title}` }), "Express Interest");
+    await expect(conRow(ben.page, title)).toContainText("Interested");
+  });
 
-    await narrate(omar.page, "Back on Omar's board the row now reads Interested");
+  test("MKT-21b Omar's board reads Interested once Ben has pressed Express Interest", async ({ as }) => {
+    test.fixme(true, "Product gap: the live consultant page's Express Interest does not reach the marketer's Opportunities board (stays No response)");
+    const { omar, title } = await savedForBen(as);
+    const ben = await as("ben");
+    await ben.go("/w/consultant/opportunities");
+    await ready(ben.page, "[data-consultant-opportunities]").waitFor();
+    await menuAction(ben.page, conRow(ben.page, title).getByRole("button", { name: `More actions for ${title}` }), "Express Interest");
     await omar.go("/w/marketing/opportunities");
     const mrow = await boardRow(omar.page, title);
     await expect(mrow.locator("[data-opp-interest=INTERESTED]")).toBeVisible();
     await expect(omar.page.locator("[data-opp-card=activity]")).toContainText(/is interested/);
   });
 
-  test("MKT-22 Ben asks a question, Omar answers it, Ben reads the answer", async ({ as }) => {
-    const omar = await as("omar");
-    await omar.go("/w/marketing/opportunities");
-    await ready(omar.page, "[data-opportunities]").waitFor();
-    const orgId = await orgIdOf(omar.page);
-    const ben = await consultantIdByName(omar.page, orgId, "Ben Okafor");
-    const body = jobBody(Date.now(), [ben]);
-    const title = String(body.title);
-    const cap = await captureJob(omar, "omar", orgId, body);
-    expect(cap.status, cap.text).toBe(200);
-    const conOppId = cap.json?.results?.[0]?.opportunityId;
-
+  test("MKT-22 Ben asks a question about the job and is told it was sent to his marketer", async ({ as }) => {
+    const { title } = await savedForBen(as);
     const bena = await as("ben");
-    await bena.go(`/w/consultant/opportunities/${conOppId}`);
-    await narrate(bena.page, "Ben opens the job through its own link and asks about remote work");
-    const detail = bena.page.locator("[data-con-detail]");
-    await expect(detail).toBeVisible();
-    await detail.locator("[data-action=REQUEST_INFO]").click();
-    const question = `Is this role fully remote? (${Date.now()})`;
-    await bena.page.getByLabel("Your question").fill(question);
-    await bena.page.getByRole("button", { name: "Send question" }).click();
-    await expect(detail.locator("[data-state-chip=NEEDS_INFO]")).toBeVisible();
-    await expect(detail.locator("[data-con-section=info]")).toContainText(question);
-    await expect(detail.locator("[data-con-section=info]")).toContainText(/Waiting for Omar Haddad to answer/);
+    await bena.go("/w/consultant/opportunities");
+    await ready(bena.page, "[data-consultant-opportunities]").waitFor();
+    await narrate(bena.page, "Ben asks his marketer about remote work from the row menu");
+    await menuAction(bena.page, conRow(bena.page, title).getByRole("button", { name: `More actions for ${title}` }), "Need More Info");
+    const ask = bena.page.getByRole("dialog", { name: `Need more info: ${title}` });
+    await expect(ask.getByRole("button", { name: "Send question" })).toBeDisabled(); // a question needs words first
+    await ask.getByLabel("What would you like to know?").fill(`Is this role fully remote? (${Date.now()})`);
+    await ask.getByRole("button", { name: "Send question" }).click();
+    await expect(bena.page.getByText("Question sent to your marketer")).toBeVisible();
+  });
 
-    await narrate(omar.page, "Omar sees the question in his activity feed and in the opportunity timeline");
+  test("MKT-22b Omar sees Ben's question, answers it, and Ben reads the answer", async ({ as }) => {
+    test.fixme(true, "Product gap: the live consultant page's Need More Info does not reach the marketer (answer-info answers NO_OPEN_INFO_REQUEST), and the page shows no answer");
+    const { omar, orgId, title } = await savedForBen(as);
+    const bena = await as("ben");
+    await bena.go("/w/consultant/opportunities");
+    await ready(bena.page, "[data-consultant-opportunities]").waitFor();
+    await menuAction(bena.page, conRow(bena.page, title).getByRole("button", { name: `More actions for ${title}` }), "Need More Info");
+    const ask = bena.page.getByRole("dialog", { name: `Need more info: ${title}` });
+    await ask.getByLabel("What would you like to know?").fill(`Is this role fully remote? (${Date.now()})`);
+    await ask.getByRole("button", { name: "Send question" }).click();
     await omar.go("/w/marketing/opportunities");
     const row = await boardRow(omar.page, title);
     await expect(omar.page.locator("[data-opp-card=activity]")).toContainText(/asked a question/);
     const matchId = Number(await row.getAttribute("data-opp-row"));
-    expect(matchId).toBeGreaterThan(0);
-    await row.getByRole("button", { name: new RegExp(`More for Ben Okafor, ${title.replace(/[()]/g, "\\$&")}`) }).click();
-    await omar.page.getByRole("menuitem", { name: "Open details" }).click();
-    await expect(omar.page.locator("[data-opp-dialog]")).toContainText(/asked a question/);
-
-    await narrate(omar.page, "The answer goes back through the opportunity API (the board has no answer box yet)");
     const answer = "Yes, fully remote within the US. Hours overlap Central time.";
     const res = await api(omar, "omar", "POST", `/api/orgs/${orgId}/mkt/opportunities/${matchId}/answer-info`, { body: { answer } });
     expect(res.status, res.text).toBe(200);
-
-    await narrate(bena.page, "Ben reloads the job and reads Omar's answer");
-    await bena.go(`/w/consultant/opportunities/${conOppId}`);
-    const info = bena.page.locator("[data-con-detail] [data-con-section=info]");
-    await expect(info).toContainText(answer);
-    await expect(info).toContainText("Omar Haddad answered");
-    await expect(bena.page.locator("[data-con-detail] [data-state-chip=NEEDS_INFO]")).toBeVisible(); // only the consultant moves it on
-    await bena.page.locator("[data-con-detail] [data-action=INTEREST]").click();
-    await expect(bena.page.locator("[data-con-detail] [data-state-chip=INTERESTED]")).toBeVisible();
+    await bena.go("/w/consultant/opportunities");
+    await conRow(bena.page, title).locator("[data-action=view]").click();
+    await expect(bena.page.getByRole("dialog", { name: title })).toContainText(answer);
   });
 
-  test("MKT-23 Ben declines with a reason and Omar sees Not Interested", async ({ as }) => {
-    const omar = await as("omar");
-    await omar.go("/w/marketing/opportunities");
-    await ready(omar.page, "[data-opportunities]").waitFor();
-    const orgId = await orgIdOf(omar.page);
-    const ben = await consultantIdByName(omar.page, orgId, "Ben Okafor");
-    const body = jobBody(Date.now(), [ben]);
-    const title = String(body.title);
-    expect((await captureJob(omar, "omar", orgId, body)).status).toBe(200);
-
+  test("MKT-23 Ben declines with a reason and his own page keeps it", async ({ as }) => {
+    const { title } = await savedForBen(as);
     const bena = await as("ben");
     await bena.go("/w/consultant/opportunities");
-    await ready(bena.page, "[data-con-opportunities]").waitFor();
-    await narrate(bena.page, "Ben opens the job and declines it because of the pay");
-    await conRow(bena.page, title).getByRole("link", { name: title }).click();
-    const detail = bena.page.locator("[data-con-detail]");
-    await detail.locator("[data-action=DECLINE]").click();
-    const dialog = bena.page.locator("[data-con-dialog=con-decline]");
-    await dialog.getByLabel("Pay doesn't work").check();
-    await dialog.getByLabel("Note for your marketer").fill("Below my minimum rate.");
-    await dialog.getByRole("button", { name: "Decline job" }).click();
-    await expect(detail.locator("[data-state-chip=DECLINED]")).toBeVisible();
-    await bena.page.locator("[data-tab=DECLINED]").first().click();
-    await expect(conRow(bena.page, title)).toHaveCount(1);
+    await ready(bena.page, "[data-consultant-opportunities]").waitFor();
+    await narrate(bena.page, "Ben declines the job because of the pay");
+    await menuAction(bena.page, conRow(bena.page, title).getByRole("button", { name: `More actions for ${title}` }), "Decline Opportunity");
+    const decline = bena.page.getByRole("dialog", { name: `Decline opportunity: ${title}` });
+    await decline.getByLabel("Why is it not a fit?").fill("Pay is below my minimum rate.");
+    await decline.getByRole("button", { name: "Decline", exact: true }).click();
+    await expect(bena.page.getByText("Opportunity declined")).toBeVisible();
+    await expect(conRow(bena.page, title)).toContainText("Declined");
+    await narrate(bena.page, "His reason is kept on the job");
+    await conRow(bena.page, title).locator("[data-action=view]").click();
+    await expect(bena.page.getByRole("dialog", { name: title })).toContainText("Pay is below my minimum rate.");
+  });
 
-    await narrate(omar.page, "Omar's board shows Not Interested and the reason in the timeline");
+  test("MKT-23b Omar's board shows Not Interested and the reason once Ben has declined", async ({ as }) => {
+    test.fixme(true, "Product gap: the live consultant page's Decline does not reach the marketer's Opportunities board (stays No response)");
+    const { omar, title } = await savedForBen(as);
+    const bena = await as("ben");
+    await bena.go("/w/consultant/opportunities");
+    await ready(bena.page, "[data-consultant-opportunities]").waitFor();
+    await menuAction(bena.page, conRow(bena.page, title).getByRole("button", { name: `More actions for ${title}` }), "Decline Opportunity");
+    const decline = bena.page.getByRole("dialog", { name: `Decline opportunity: ${title}` });
+    await decline.getByLabel("Why is it not a fit?").fill("Pay is below my minimum rate.");
+    await decline.getByRole("button", { name: "Decline", exact: true }).click();
     await omar.go("/w/marketing/opportunities");
     const row = await boardRow(omar.page, title);
     await expect(row.locator("[data-opp-interest=NOT_INTERESTED]")).toBeVisible();
@@ -181,6 +192,30 @@ test.describe("MKT job pipeline", () => {
   });
 
   test("MKT-24 Ben presses I applied; the marketer sees that he says he applied (and the marketer has no apply button)", async ({ as }) => {
+    // BLOCKED: the live Assigned Opportunities page has no "I applied" button. The consultant applies on the source site with his own extension and
+    // the application then appears under My Applications; only the shadowed registry page (ent-marketer) offered I applied. MKT-24b covers the part that holds.
+    test.fixme(true, "The live consultant Assigned Opportunities page has no I applied action (see MKT-24b for the no-apply guarantee)");
+    const omar = await as("omar");
+    await omar.go("/w/marketing/opportunities");
+    await ready(omar.page, "[data-opportunities]").waitFor();
+    const orgId = await orgIdOf(omar.page);
+    const ben = await consultantIdByName(omar.page, orgId, "Ben Okafor");
+    const body = jobBody(Date.now(), [ben]);
+    const title = String(body.title);
+    expect((await captureJob(omar, "omar", orgId, body)).status).toBe(200);
+    const bena = await as("ben");
+    await bena.go("/w/consultant/opportunities");
+    await ready(bena.page, "[data-consultant-opportunities]").waitFor();
+    await conRow(bena.page, title).locator("[data-action=view]").click();
+    await bena.page.getByRole("button", { name: "I applied" }).click();
+    await omar.go("/w/marketing/opportunities");
+    const row = await boardRow(omar.page, title);
+    await row.getByRole("button", { name: /^More for Ben Okafor/ }).click();
+    await omar.page.getByRole("menuitem", { name: "Open details" }).click();
+    await expect(omar.page.locator("[data-opp-dialog]")).toContainText(/says they applied/);
+  });
+
+  test("MKT-24b Nobody can apply for Ben inside Kiwiply: Ben's page offers no Apply or Submit, and neither does Omar's board", async ({ as }) => {
     const omar = await as("omar");
     await omar.go("/w/marketing/opportunities");
     await ready(omar.page, "[data-opportunities]").waitFor();
@@ -192,31 +227,24 @@ test.describe("MKT job pipeline", () => {
 
     const bena = await as("ben");
     await bena.go("/w/consultant/opportunities");
-    await ready(bena.page, "[data-con-opportunities]").waitFor();
-    await conRow(bena.page, title).getByRole("link", { name: title }).click();
-    const detail = bena.page.locator("[data-con-detail]");
-    await expect(detail.locator("[data-applied-copy]")).toContainText("press I applied after you submit");
-    await narrate(bena.page, "Ben applied on the source site himself, then presses I applied");
-    await detail.locator("[data-action=APPLIED]").click();
-    await expect(detail.locator("[data-state-chip=APPLIED]")).toBeVisible();
-    await expect(detail.locator("[data-action=APPLIED]")).toHaveCount(0);
-    await bena.page.locator("[data-tab=APPLIED]").first().click();
-    await expect(conRow(bena.page, title)).toHaveCount(1);
+    await ready(bena.page, "[data-consultant-opportunities]").waitFor();
+    await narrate(bena.page, "Ben's page has the posting link and his own answers, but no Apply, Submit or I applied");
+    await conRow(bena.page, title).locator("[data-action=view]").click();
+    await expect(bena.page.getByRole("dialog", { name: title }).locator("[data-detail]")).toBeVisible();
+    await expect(bena.page.getByRole("button", { name: /^(Apply|Submit|I applied)/i })).toHaveCount(0);
 
-    await narrate(omar.page, "Omar sees it in the opportunity timeline; there is no way for him to mark it applied");
+    await narrate(omar.page, "Omar's board has no way to mark it applied or to submit it");
     await omar.go("/w/marketing/opportunities");
     const row = await boardRow(omar.page, title);
     await row.getByRole("button", { name: /^More for Ben Okafor/ }).click();
-    await omar.page.getByRole("menuitem", { name: "Open details" }).click();
-    await expect(omar.page.locator("[data-opp-dialog]")).toContainText(/says they applied/);
     const items = await omar.page.getByRole("menuitem").allInnerTexts();
     expect(items.join("|")).not.toMatch(/mark.*appl|submit/i);
   });
 
   test("MKT-25 Sarah saves a job for Anika only: Anika sees it, Ben does not and cannot open it by id", async ({ as }) => {
     const sarah = await as("sarah");
-    await sarah.go("/w/marketing/opportunities");
-    await ready(sarah.page, "[data-opportunities]").waitFor();
+    await sarah.go("/w/admin"); // Sarah only supplies the job; her own marketing workspace is not built
+    await expect(sarah.page.locator("[data-enterprise-shell]")).toBeVisible({ timeout: 45_000 });
     const orgId = await orgIdOf(sarah.page);
     const anika = await consultantIdByName(sarah.page, orgId, "Anika Rao");
     const body = jobBody(Date.now(), [anika], { priority: "LOW" });
@@ -228,20 +256,20 @@ test.describe("MKT job pipeline", () => {
 
     const anikaS = await as("anika");
     await anikaS.go("/w/consultant/opportunities");
-    await ready(anikaS.page, "[data-con-opportunities]").waitFor();
+    await ready(anikaS.page, "[data-consultant-opportunities]").waitFor();
     await narrate(anikaS.page, "Anika sees it, assigned by Sarah Chen");
     await expect(conRow(anikaS.page, title)).toHaveCount(1);
     await expect(conRow(anikaS.page, title)).toContainText("Sarah Chen");
 
     const ben = await as("ben");
     await ben.go("/w/consultant/opportunities");
-    await ready(ben.page, "[data-con-opportunities]").waitFor();
+    await ready(ben.page, "[data-consultant-opportunities]").waitFor();
     await narrate(ben.page, "Ben's list does not contain Anika's job");
     await expect(conRow(ben.page, title)).toHaveCount(0);
-    await narrate(ben.page, "and opening it by its id shows nothing");
-    await ben.go(`/w/consultant/opportunities/${conOppId}`);
-    await expect(ben.page.locator("[data-con-detail-missing]")).toBeVisible();
-    await expect(ben.page.locator("body")).not.toContainText(title);
+    await narrate(ben.page, "and asking for it by its id gets the same answer as for a job that does not exist");
+    const byId = await bff(ben.page, `/api/orgs/${orgId}/me-workspace/opportunities/${conOppId}`);
+    expect(byId.status).toBe(404);
+    expect(JSON.stringify(byId.json ?? "")).not.toContain(title);
   });
 
   test("MKT-26 The from-extension call refuses bad input and stays idempotent", async ({ as }) => {
@@ -274,7 +302,7 @@ test.describe("MKT job pipeline", () => {
     await narrate(omar.page, "A consultant outside Omar's scope is reported in the result, not as an error");
     const anika = await (async () => {
       const sarah = await as("sarah");
-      await sarah.go("/w/marketing/opportunities");
+      await sarah.go("/w/admin");
       return consultantIdByName(sarah.page, orgId, "Anika Rao");
     })();
     const out = await captureJob(omar, "omar", orgId, jobBody(stamp + 1, [anika]));

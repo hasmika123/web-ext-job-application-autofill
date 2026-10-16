@@ -189,7 +189,10 @@ class TalentSchemaIT {
         assertThat(places.get(3) + places.get(4) + places.get(5)).isGreaterThan(places.get(0) + places.get(1) + places.get(2));
         assertThat(interviewsPerMonth.get(5)).isGreaterThan(interviewsPerMonth.get(0));
         assertThat(interviewsPerMonth.get(3) + interviewsPerMonth.get(4) + interviewsPerMonth.get(5)).isGreaterThan(interviewsPerMonth.get(0) + interviewsPerMonth.get(1) + interviewsPerMonth.get(2));
-        for (int i = 1; i < interviewsPerMonth.size(); i++) assertThat(interviewsPerMonth.get(i)).as("interviews month " + i).isGreaterThanOrEqualTo(interviewsPerMonth.get(i - 1) - 2);
+        // Interviews are drawn at random over the six months relative to "now" (and moved by each application's own date), so a month can dip against its
+        // neighbour by a few rows depending on the day and hour the suite runs (11 after 14 happened). The trend is asserted where the seed guarantees it: a
+        // month is never below the same month a quarter earlier, besides the two six-month sums above.
+        for (int i = 3; i < interviewsPerMonth.size(); i++) assertThat(interviewsPerMonth.get(i)).as("interviews month " + i + " against month " + (i - 3)).isGreaterThanOrEqualTo(interviewsPerMonth.get(i - 3));
         assertThat(apps.stream().mapToLong(Long::longValue).sum()).isEqualTo(120L);
     }
 

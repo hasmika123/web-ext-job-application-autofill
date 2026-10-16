@@ -190,11 +190,11 @@ public class MktOpportunitiesService {
     public Options options(OrgMembership me, String q) {
         MktScope.View view = scope.resolve(me, PERMISSION);
         String needle = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
-        List<Option> people = consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(view.orgId(), "ACTIVE").stream()
+        List<ConsultantOption> people = consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(view.orgId(), "ACTIVE").stream()
             .filter(c -> view.sees(c.getId()))
             .filter(c -> needle.isEmpty() || c.getDisplayName().toLowerCase(Locale.ROOT).contains(needle))
             .limit(100)
-            .map(c -> new Option(c.getId(), c.getDisplayName()))
+            .map(c -> new ConsultantOption(c.getId(), c.getDisplayName(), OpportunityAssignmentService.pausedReason(c)))
             .toList();
         Map<Long, String> clientNames = new HashMap<>();
         for (ClientAccount a : clients.findByOrgId(view.orgId())) clientNames.put(a.getId(), a.getName());
@@ -245,7 +245,7 @@ public class MktOpportunitiesService {
         if (added.existing()) {
             throw OrgException.coded(409, "OPPORTUNITY_EXISTS", "That consultant already has this opportunity.", Map.of("opportunityId", added.matchId()));
         }
-        return result(view, added.matchId(), "Opportunity added.", true, now);
+        return result(view, added.matchId(), "Opportunity added.", true, now, true);
     }
 
     /** SUGGESTED to ASSIGNED, then ask the consultant for their interest. Needs an approved resume (the approval gate of 31 section 4). */
@@ -388,6 +388,7 @@ public class MktOpportunitiesService {
             case "ALREADY_ASSIGNED" -> OrgException.coded(409, code, "This opportunity is already assigned.", Map.of());
             case "RESUME_NOT_APPROVED" -> OrgException.coded(409, code, "The consultant needs an approved resume before this can be assigned.", Map.of());
             case "JOB_NOT_OPEN" -> OrgException.coded(409, code, "That job is not open.", Map.of());
+            case OpportunityAssignmentService.CONSULTANT_PAUSED -> OrgException.coded(409, code, "This consultant is on a project and their marketing is paused, so nothing can be assigned.", Map.of());
             case OpportunityAssignmentService.CONSULTANT_INACTIVE -> OrgException.coded(409, code, "That consultant is not active, so nothing can be assigned.", Map.of());
             default -> new OrgNotFoundException();
         };
@@ -444,13 +445,26 @@ public class MktOpportunitiesService {
     }
 
     private ActionResult result(MktScope.View view, Long id, String message, boolean changed, Instant now) {
-        Row row = require(view, id, now);
+        return result(view, id, message, changed, now, false);
+    }
+
+    /** {@code justCreated}: the match was committed by the assignment service's own transaction a moment ago (Add opportunity), so read it in a fresh snapshot. */
+    private ActionResult result(MktScope.View view, Long id, String message, boolean changed, Instant now, boolean justCreated) {
+        Row row = require(view, id, now, justCreated);
         return new ActionResult(item(row, memberNames(view.orgId(), Set.of(row.ownerId() == null ? -1L : row.ownerId())), now), message, changed);
     }
 
     /** The row, or the generic 404 (missing, another tenant's, a consultant outside the caller's scope, or no longer open). */
     private Row require(MktScope.View view, Long id, Instant now) {
-        MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
+        return require(view, id, now, false);
+    }
+
+    /**
+     * {@code justCreated} only for the one caller that just had the match committed by a transaction of its own (a plain read cannot see it): its re-read
+     * runs in a fresh transaction. Every other id (and every 404) stays on the caller's connection, so a missing row never takes a second one from the pool.
+     */
+    private Row require(MktScope.View view, Long id, Instant now, boolean justCreated) {
+        MktOpportunityRow raw = (justCreated ? repo.findRow(view.orgId(), id).or(() -> assignment.readRowFresh(view.orgId(), id)) : repo.findRow(view.orgId(), id)).orElseThrow(OrgNotFoundException::new);
         scope.require(view, raw.consultantId());
         Row row = enrich(raw, resumeInfo(view.orgId(), now), now);
         if (!row.open()) throw new OrgNotFoundException();

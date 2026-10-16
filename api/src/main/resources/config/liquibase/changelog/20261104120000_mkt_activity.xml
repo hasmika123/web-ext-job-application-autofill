@@ -39,6 +39,9 @@
         <createIndex tableName="mkt_activity" indexName="ix_mkt_activity_when"><column name="org_id"/><column name="occurred_at"/></createIndex>
         <createIndex tableName="mkt_activity" indexName="ix_mkt_activity_consultant"><column name="org_id"/><column name="consultant_id"/><column name="occurred_at"/></createIndex>
         <createIndex tableName="mkt_activity" indexName="ix_mkt_activity_status"><column name="org_id"/><column name="status"/><column name="occurred_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_activity" constraintName="fk_mkt_activity_actor"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>

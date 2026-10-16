@@ -51,7 +51,11 @@ export default function ShellNav({
         >
           <NavIcon name={item.icon} />
           {collapsed ? null : <span className="min-w-0 flex-1 truncate">{item.text}</span>}
-          {collapsed ? null : item.key === "hr" || item.key === "finance" ? <ChevronDownIcon size={14} className="flex-none opacity-70" /> : <span className="sr-only">(soon)</span>}
+          {collapsed ? null : (
+            <span data-soon-chip className="flex-none rounded-md bg-paper-2 px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted">
+              Soon<span className="sr-only"> (soon)</span>
+            </span>
+          )}
         </Link>
       );
       return collapsed ? (

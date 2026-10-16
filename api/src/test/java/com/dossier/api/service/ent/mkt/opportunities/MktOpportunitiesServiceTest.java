@@ -566,6 +566,36 @@ class MktOpportunitiesServiceTest {
     }
 
     @Test
+    void anOpportunityAddedInThisRequestIsReadBackInAFreshSnapshot() {
+        // Add opportunity: the match is committed by the assignment service's own transaction, so the caller's snapshot (MySQL REPEATABLE READ) cannot see it
+        // with a plain read. The page used to answer 404 although the opportunity existed (and the dialog stayed open); the row is now re-read in a fresh snapshot.
+        ConsultantProfile c = new ConsultantProfile();
+        c.setId(1L);
+        c.setOrgId(ORG);
+        c.setDisplayName("Alex");
+        c.setStatus("ACTIVE");
+        c.setMarketingStatus("ACTIVE");
+        when(consultants.findByOrgIdAndId(ORG, 1L)).thenReturn(Optional.of(c));
+        ClientRequirement open = new ClientRequirement();
+        open.setId(7L);
+        open.setStatus("OPEN");
+        when(requirements.findByOrgIdAndId(ORG, 7L)).thenReturn(Optional.of(open));
+        when(matches.findByOrgIdAndRequirementIdAndConsultantId(ORG, 7L, 1L)).thenReturn(Optional.empty());
+        when(tx.insertMatch(any(RequirementMatch.class))).thenReturn(900L);
+        RequirementMatch inserted = new RequirementMatch();
+        inserted.setId(900L);
+        inserted.setStatus("SUGGESTED");
+        inserted.setScore(0);
+        when(matches.lockByOrgIdAndId(ORG, 900L)).thenReturn(Optional.of(inserted)); // a locking read sees the latest commit
+        // the caller's snapshot has no row 900 (rows is empty); the fresh read does
+        when(tx.readOpportunityRow(ORG, 900L)).thenReturn(Optional.of(row(900, 1, "Alex", 1, "C", 0, "SUGGESTED", null, 0, 0)));
+        MktOpportunitiesDTO.ActionResult added = service.create(me, 1L, 7L);
+        assertThat(added.message()).isEqualTo("Opportunity added.");
+        assertThat(added.item()).isNotNull();
+        verify(tx).readOpportunityRow(ORG, 900L);
+    }
+
+    @Test
     void assigningAnAssignedOpportunityWhoseConsultantDeclinedReopensItInsteadOfRefusing() {
         approvedResume(1);
         add(row(1, 1, "Alex", 1, "TechCorp", 92, "ASSIGNED", "NOT_INTERESTED", 1, 5));

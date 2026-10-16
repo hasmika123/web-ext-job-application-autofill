@@ -138,6 +138,26 @@ class MktOpportunitiesIT {
     }
 
     @Test
+    void aConsultantOnAProjectIsListedDisabledInThePickerAndAssigningThemIsAClear409() throws Exception {
+        JsonNode mine = list(MARKETER, acme, "?days=0&size=100");
+        JsonNode item = mine.path("items").get(0);
+        long oppId = item.path("id").asLong();
+        long consultantId = item.path("consultant").path("id").asLong();
+        jdbc.update("update client_requirement set status = 'OPEN' where org_id = ? and id = (select requirement_id from requirement_match where id = ?)", acme, oppId);
+        jdbc.update("update consultant_profile set marketing_status = 'PAUSED' where org_id = ? and id = ?", acme, consultantId);
+
+        JsonNode options = json(mockMvc.perform(get("/api/orgs/" + acme + "/mkt/opportunities/options").with(user(MARKETER))).andReturn(), 200);
+        JsonNode paused = null;
+        for (JsonNode c : options.path("consultants")) if (c.path("id").asLong() == consultantId) paused = c;
+        assertThat(paused).as("still listed").isNotNull();
+        assertThat(paused.path("pausedReason").asText()).isEqualTo("On a project — marketing paused");
+
+        MvcResult r = mockMvc.perform(post("/api/orgs/" + acme + "/mkt/opportunities/" + oppId + "/assign").with(user(MARKETER))).andReturn();
+        assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(409);
+        assertThat(om.readTree(r.getResponse().getContentAsString()).path("code").asText()).isEqualTo("CONSULTANT_PAUSED");
+    }
+
+    @Test
     void anotherTenantIsA404NotA403() throws Exception {
         json(mockMvc.perform(get("/api/orgs/" + beta + "/mkt/opportunities").with(user(MARKETER))).andReturn(), 404);
         json(mockMvc.perform(get("/api/orgs/" + acme + "/mkt/opportunities").with(user(BETA_MARKETER))).andReturn(), 404);

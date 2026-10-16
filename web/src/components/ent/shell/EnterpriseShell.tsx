@@ -29,6 +29,7 @@ import HelpCard from "./HelpCard";
 import { NavIcon } from "./nav-icons";
 import { ShellSlotContext, type PageHeaderValue } from "./ShellContext";
 import ShellBell from "./ShellBell";
+import DemoRefusalNotice from "@/components/ent/shell/DemoRefusalNotice";
 import ShellNav from "./ShellNav";
 import ShellSearch from "./ShellSearch";
 import { useAccessChanged } from "./useAccessChanged";
@@ -345,6 +346,7 @@ export default function EnterpriseShell({
             </div>
             {children}
           </main>
+          <DemoRefusalNotice />
         </div>
 
         {/* the help panel the pages' own "Ask a question..." cards open (the sidebar card is gone; this is only the panel) */}

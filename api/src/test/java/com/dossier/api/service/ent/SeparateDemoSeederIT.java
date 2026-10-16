@@ -1,6 +1,7 @@
 package com.dossier.api.service.ent;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import com.dossier.api.IntegrationTest;
@@ -157,5 +158,101 @@ class SeparateDemoSeederIT {
         assertThat(EnterpriseDemoSeeder.TENANTS).as("the other demo seeders walk this list").doesNotContain(EnterpriseDemoSeeder.GAMMA);
         // acme's synthetic people are still demo logins, never enterprise accounts
         assertThat(users.findOneByLogin("demo-ent-acme-sarah").orElseThrow().getOrgId()).isNull();
+    }
+
+    // ---- D2/D3 (2026-10-16 audit): Gamma's consultants are linked to their seats and assigned to the marketer ---------------
+
+    @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository consultantProfiles;
+    @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentRepository marketerAssignments;
+
+    private String loginOf(String key) {
+        return users.findOneByOrgIdAndEmailIgnoreCase(gamma().getId(), emailOf(key)).orElseThrow().getLogin();
+    }
+
+    private OrgMember seatOf(String key) {
+        User u = users.findOneByOrgIdAndEmailIgnoreCase(gamma().getId(), emailOf(key)).orElseThrow();
+        return members.findByOrgIdAndUserIdAndStatusIn(gamma().getId(), u.getId(), List.of(OrgMemberStatus.ACTIVE)).get(0);
+    }
+
+    private com.dossier.api.domain.ent.talent.ConsultantProfile profileOf(String key) {
+        return consultantProfiles.findByOrgIdAndMemberId(gamma().getId(), seatOf(key).getId()).orElse(null);
+    }
+
+    @Test
+    void gammasConsultantsHaveAProfileLinkedToTheirSeatAndAreAssignedToTheMarketer() {
+        seeder.seed();
+        seeder.seedSeparate();
+        for (String key : List.of("cora", "dana")) {
+            var c = profileOf(key);
+            assertThat(c).as(key + " has a consultant profile linked to her member").isNotNull();
+            assertThat(c.getStatus()).isEqualTo("ACTIVE");
+            var a = marketerAssignments.findByOrgIdAndConsultantId(gamma().getId(), c.getId()).orElseThrow();
+            assertThat(a.getMarketerMemberId()).isEqualTo(seatOf("marco").getId());
+            assertThat(a.getStatus()).isEqualTo("ACTIVE");
+        }
+        long profilesBefore = consultantProfiles.countByOrgId(gamma().getId());
+        seeder.seedSeparate();
+        assertThat(consultantProfiles.countByOrgId(gamma().getId())).as("a second run adds nothing").isEqualTo(profilesBefore);
+    }
+
+    @Test
+    void aProfileAddedByHandWithoutALinkIsLinkedInPlaceNotDuplicated() {
+        seeder.seed();
+        seeder.seedSeparate();
+        var cora = profileOf("cora");
+        cora.setMemberId(null); // the state the audit found after "Add consultant" (member_id NULL)
+        consultantProfiles.saveAndFlush(cora);
+        long before = consultantProfiles.countByOrgId(gamma().getId());
+        seeder.seedSeparate();
+        assertThat(profileOf("cora")).isNotNull();
+        assertThat(profileOf("cora").getId()).isEqualTo(cora.getId());
+        assertThat(consultantProfiles.countByOrgId(gamma().getId())).isEqualTo(before);
+    }
+
+    private MvcResult as(String login, org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder req) throws Exception {
+        return mockMvc.perform(req.with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(login)).contentType(MediaType.APPLICATION_JSON)).andReturn();
+    }
+
+    private JsonNode okJson(MvcResult r, int status) throws Exception {
+        assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(status);
+        return mapper.readTree(r.getResponse().getContentAsString());
+    }
+
+    @Test
+    void theGammaActForJourneyMarketerPreparesAResumeItWaitsAndTheConsultantApprovesIt() throws Exception {
+        seeder.seed();
+        seeder.seedSeparate();
+        long oid = gamma().getId();
+        String marco = loginOf("marco");
+        String cora = loginOf("cora");
+        String dana = loginOf("dana");
+        var coraProfile = profileOf("cora");
+        String mkt = "/api/orgs/" + oid + "/mkt/resumes";
+        String me = "/api/orgs/" + oid + "/me-workspace/resumes";
+
+        // the consultant workspace opens for both (it was a 404 before the profile was linked)
+        okJson(as(dana, get("/api/orgs/" + oid + "/me-workspace/resumes")), 200);
+        okJson(as(cora, get("/api/orgs/" + oid + "/me-workspace/resumes")), 200);
+
+        // Marco's picker lists both, both with a sign-in (they are enterprise accounts of Gamma)
+        JsonNode picker = okJson(as(marco, get(mkt + "/consultants")), 200);
+        assertThat(picker).extracting(n -> n.path("name").asText()).containsExactlyInAnyOrder("Cora Lindahl", "Dana Moreau");
+        for (JsonNode c : picker) assertThat(c.path("hasAccount").asBoolean()).as(c.path("name").asText()).isTrue();
+
+        // he prepares a resume for Cora: it is PENDING and hers
+        JsonNode created = okJson(as(marco, post(mkt + "/consultants/" + coraProfile.getId() + "/built").content("{\"label\":\"Prepared for Cora\",\"source\":\"scratch\"}")), 201);
+        long orgResumeId = created.path("orgResumeId").asLong();
+        assertThat(created.path("detail").path("row").path("approval").asText()).isEqualTo("PENDING");
+
+        // Dana can not approve Cora's resume; Cora can, naming the version she reviewed
+        assertThat(as(dana, post(me + "/" + orgResumeId + "/approve").content("{\"versionNo\":1}")).getResponse().getStatus()).isEqualTo(404);
+        JsonNode mine = okJson(as(cora, get(me)), 200);
+        JsonNode row = null;
+        for (JsonNode r : mine.path("resumes")) if (r.path("id").asLong() == orgResumeId) row = r;
+        assertThat(row).as("the resume waits on Cora's page").isNotNull();
+        assertThat(row.path("awaitingMyApproval").asBoolean()).isTrue();
+        String decision = "{\"versionNo\":" + row.path("versionNo").asInt() + ",\"contentHash\":\"" + row.path("contentHash").asText() + "\"}";
+        JsonNode approved = okJson(as(cora, post(me + "/" + orgResumeId + "/approve").content(decision)), 200);
+        assertThat(approved.path("approvalStatus").asText()).isEqualTo("APPROVED");
     }
 }

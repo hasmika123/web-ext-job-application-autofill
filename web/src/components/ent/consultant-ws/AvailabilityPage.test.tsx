@@ -253,7 +253,7 @@ describe("Availability from real data", () => {
   it("Share with Marketer is honest: it sends nothing", async () => {
     await mount();
     fireEvent.click(document.querySelector('[data-quick="share"]') as HTMLElement);
-    expect(document.querySelector("[data-share-note]")!.textContent).toContain("once the marketing workspace is connected");
+    expect(document.querySelector("[data-share-note]")!.textContent).toContain("is not notified from here");
     expect(writes()).toHaveLength(0);
     expect(document.querySelector('[data-quick="locations"]')!.getAttribute("href")).toBe("/w/consultant/profile");
   });

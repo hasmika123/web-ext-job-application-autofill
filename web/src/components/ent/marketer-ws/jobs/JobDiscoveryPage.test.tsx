@@ -329,6 +329,38 @@ describe("JobDiscoveryPage", () => {
     expect(calls.every((c) => !/submi/i.test(c.url))).toBe(true);
   });
 
+  it("a consultant on a project is listed, disabled, with the reason, and cannot be picked", async () => {
+    serve((url) => {
+      if (url.endsWith("/jobs/1/candidates")) return json(200, [
+        { consultantId: 5, name: "Alex Morgan", title: null, availability: null, score: 92, matchStatus: null, pausedReason: null },
+        { consultantId: 9, name: "Ben Okafor", title: "Engineer", availability: "ON_PROJECT", score: null, matchStatus: null, pausedReason: "On a project — marketing paused" },
+      ]);
+      return undefined;
+    });
+    await board();
+    fireEvent.click(screen.getByRole("button", { name: "Assign Senior Java Developer" }));
+    await screen.findByText("Alex Morgan");
+    const ben = document.querySelector("[data-candidate='9']") as HTMLElement;
+    expect(ben.getAttribute("data-paused")).toBe("true");
+    expect(within(ben).getByText("On a project — marketing paused")).toBeTruthy();
+    expect((ben.querySelector("input") as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(ben);
+    expect((screen.getByRole("button", { name: "Assign" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("shows the API's CONSULTANT_PAUSED sentence kindly when such a request reaches the API anyway", async () => {
+    serve((url, method) => {
+      if (url.endsWith("/jobs/1/candidates")) return json(200, [{ consultantId: 5, name: "Alex Morgan", title: null, availability: null, score: null, matchStatus: null, pausedReason: null }]);
+      if (method === "POST") return json(409, { error: "This consultant is on a project and their marketing is paused, so nothing can be assigned.", code: "CONSULTANT_PAUSED" });
+      return undefined;
+    });
+    await board();
+    fireEvent.click(screen.getByRole("button", { name: "Assign Senior Java Developer" }));
+    fireEvent.click(await screen.findByText("Alex Morgan"));
+    fireEvent.click(screen.getByRole("button", { name: "Assign" }));
+    await screen.findByText(/on a project and their marketing is paused/);
+  });
+
   it("explains a refused assignment and keeps the drawer open", async () => {
     serve((url, method) => {
       if (url.endsWith("/jobs/1/candidates")) return json(200, [{ consultantId: 5, name: "Alex Morgan", title: null, availability: null, score: null, matchStatus: null }]);

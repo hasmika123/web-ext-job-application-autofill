@@ -28,6 +28,16 @@ import com.dossier.api.repository.ent.OrgBrandingRepository;
 import com.dossier.api.repository.ent.OrgHostnameRepository;
 import com.dossier.api.repository.ent.OrgMemberRoleRepository;
 import com.dossier.api.repository.ent.OrgRoleRepository;
+import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
+import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
+import com.dossier.api.repository.ent.talent.MarketerAssignmentRepository;
+import com.dossier.api.repository.ent.talent.MarketerCapacityRepository;
+import com.dossier.api.domain.ent.talent.ConsultantProfile;
+import com.dossier.api.domain.ent.talent.ConsultantSkill;
+import com.dossier.api.domain.ent.talent.MarketerAssignment;
+import com.dossier.api.domain.ent.talent.MarketerCapacity;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import com.dossier.api.domain.org.OrgAuditEvent;
 import com.dossier.api.repository.org.OrgAuditEventRepository;
 import com.dossier.api.repository.org.OrgGroupRepository;
@@ -242,6 +252,19 @@ public class EnterpriseDemoSeeder {
     @Autowired(required = false)
     private OrgAuditEventRepository auditRows;
 
+    /** Optional for the same reason: Gamma's consultants (a profile linked to each seat, assigned to the marketer) are written by {@link #seedGammaTalent}. */
+    @Autowired(required = false)
+    private ConsultantProfileRepository consultantProfiles;
+
+    @Autowired(required = false)
+    private ConsultantSkillRepository consultantSkills;
+
+    @Autowired(required = false)
+    private MarketerAssignmentRepository marketerAssignments;
+
+    @Autowired(required = false)
+    private MarketerCapacityRepository marketerCapacities;
+
     /** Optional for the same reason: only {@link #seedSeparate()} needs it. */
     @Autowired(required = false)
     private DemoEnterpriseAccounts enterpriseAccounts;
@@ -412,6 +435,8 @@ public class EnterpriseDemoSeeder {
             index++;
         }
         assign(seats, "marco", "cora", AssignmentKind.PRIMARY, now, counts);
+        assign(seats, "marco", "dana", AssignmentKind.PRIMARY, now, counts);
+        seedGammaTalent(org, seats, now);
         if (auditRows != null && auditRows.countByOrgId(org.getId()) == 0) {
             record(org, owner.getLogin(), OrgAuditService.ORG_CREATE, OrgAuditService.TARGET_ORG, null, now.minus(40, ChronoUnit.DAYS));
             record(org, owner.getLogin(), OrgAuditService.BRANDING_PUBLISH, OrgAuditService.TARGET_BRANDING, null, now.minus(39, ChronoUnit.DAYS));
@@ -424,6 +449,91 @@ public class EnterpriseDemoSeeder {
         resolver.invalidate();
         LOG.info("Separate-accounts demo seeded ({}): {} enterprise accounts, {} seats created", t.host(), counts[0], counts[1]);
         return new SeparateResult(true, null, 1, counts[0], counts[1]);
+    }
+
+    /** The consultants of Gamma: (person key, job title, years, city, skills). */
+    private static final List<Object[]> GAMMA_CONSULTANTS = List.of(
+        new Object[] { "cora", "Salesforce Developer", 7, "Austin, TX", List.of("Salesforce", "Apex", "Lightning", "SQL") },
+        new Object[] { "dana", "Data Engineer", 9, "Denver, CO", List.of("Python", "Airflow", "Snowflake", "SQL") }
+    );
+
+    /**
+     * Gamma's consultants are real consultant profiles LINKED to their seats (D2/D3 of the 2026-10-16 audit: a profile with no {@code member_id} means the
+     * person's sign-in lands on "This page isn't part of your role" and no marketer can prepare a resume for them), and Marco, the marketer, is assigned to both so
+     * he can start a resume for each (the strict rule: the consultants are ENTERPRISE accounts of Gamma, which they are). A profile that already exists for the
+     * same address (added by hand before this seed learned to link) is linked in place, never duplicated. Idempotent. Acme and Beta are not touched here.
+     */
+    private void seedGammaTalent(Organization org, Map<String, OrgMember> seats, Instant now) {
+        if (consultantProfiles == null || marketerAssignments == null) return;
+        OrgMember marketer = seats.get("marco");
+        if (marketer != null && marketerCapacities != null && marketerCapacities.findByOrgId(org.getId()).stream().noneMatch(c -> marketer.getId().equals(c.getMemberId()))) {
+            MarketerCapacity cap = new MarketerCapacity();
+            cap.setOrgId(org.getId());
+            cap.setMemberId(marketer.getId());
+            cap.setCapacity(10);
+            cap.setTitleLabel("Marketing Specialist");
+            marketerCapacities.save(cap);
+        }
+        for (Object[] spec : GAMMA_CONSULTANTS) {
+            String key = (String) spec[0];
+            OrgMember seat = seats.get(key);
+            Person person = GAMMA.people().stream().filter(x -> x.key().equals(key)).findFirst().orElse(null);
+            if (seat == null || person == null) continue;
+            String email = person.email(GAMMA.orgKey());
+            List<ConsultantProfile> all = consultantProfiles.findByOrgId(org.getId());
+            ConsultantProfile c = all.stream().filter(x -> seat.getId().equals(x.getMemberId())).findFirst()
+                .orElseGet(() -> all.stream().filter(x -> x.getMemberId() == null && email.equalsIgnoreCase(x.getEmail())).findFirst().orElse(null));
+            boolean fresh = c == null;
+            if (fresh) {
+                LocalDate today = LocalDate.now(ZoneOffset.UTC);
+                c = new ConsultantProfile();
+                c.setOrgId(org.getId());
+                c.setDisplayName(person.first() + " " + person.last());
+                c.setEmail(email.toLowerCase());
+                c.setJobTitle((String) spec[1]);
+                c.setHeadline(spec[1] + " with " + spec[2] + " years of experience");
+                c.setYearsExperience((Integer) spec[2]);
+                c.setLocationLabel((String) spec[3]);
+                c.setWorkMode("REMOTE");
+                c.setAvailabilityStatus("AVAILABLE");
+                c.setAvailabilitySince(today.minusDays(14));
+                c.setBenchSince(today.minusDays(14));
+                c.setMarketingStatus("ACTIVE");
+                c.setLicenseStatus("ACTIVE");
+                c.setLicenseValidUntil(today.plusDays(200));
+                c.setStatus("ACTIVE");
+                c.setProfileCompleteness(60);
+                c.setCreatedAt(now.minus(30, ChronoUnit.DAYS));
+                c.setUpdatedAt(now.minus(2, ChronoUnit.DAYS));
+            }
+            c.setMemberId(seat.getId());
+            c = consultantProfiles.saveAndFlush(c);
+            if (fresh && consultantSkills != null) {
+                int order = 0;
+                for (Object skill : (List<?>) spec[4]) {
+                    ConsultantSkill k = new ConsultantSkill();
+                    k.setOrgId(org.getId());
+                    k.setConsultantId(c.getId());
+                    k.setSkill((String) skill);
+                    k.setPrimarySkill(order < 2);
+                    k.setSortOrder(order++);
+                    consultantSkills.save(k);
+                }
+            }
+            if (marketer != null && marketerAssignments.findByOrgIdAndConsultantId(org.getId(), c.getId()).isEmpty()) {
+                MarketerAssignment a = new MarketerAssignment();
+                a.setOrgId(org.getId());
+                a.setConsultantId(c.getId());
+                a.setMarketerMemberId(marketer.getId());
+                a.setPriority("MEDIUM");
+                a.setStatus("ACTIVE");
+                a.setAssignedAt(now.minus(20, ChronoUnit.DAYS));
+                a.setAssignedByMemberId(seats.get("oscar") == null ? marketer.getId() : seats.get("oscar").getId());
+                a.setLastActivityAt(now.minus(1, ChronoUnit.DAYS));
+                a.setUpdatedAt(now.minus(1, ChronoUnit.DAYS));
+                marketerAssignments.save(a);
+            }
+        }
     }
 
     private User separateAccount(Organization org, Person p, int[] counts) {
