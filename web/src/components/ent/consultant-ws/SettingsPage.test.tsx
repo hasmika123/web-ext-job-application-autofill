@@ -86,7 +86,7 @@ describe("ConsultantSettingsPage", () => {
     expect(text).not.toMatch(/Last changed|Enabled|Connected\b.*Last synced/);
     expect(document.querySelectorAll("[data-security-row]")).toHaveLength(3);
     expect(screen.getAllByText("Managed in your account settings")).toHaveLength(3);
-    expect(document.querySelector("[data-security-link]")!.getAttribute("href")).toBe("/settings");
+    expect(document.querySelector("[data-security-link]")!.getAttribute("href")).toBe("/me#security");
     const buttons = screen.getAllByRole("button", { name: /^Connect .* \(not available yet\)$/ });
     expect(buttons).toHaveLength(4);
     for (const b of buttons) expect((b as HTMLButtonElement).disabled).toBe(true);
