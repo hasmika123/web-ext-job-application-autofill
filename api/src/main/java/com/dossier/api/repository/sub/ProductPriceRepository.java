@@ -56,4 +56,39 @@ public interface ProductPriceRepository extends Repository<ProductPrice, Long> {
 
     @Query("select count(p) from ProductPrice p where p.productId = :productId and p.active = true")
     long countActiveByProduct(@Param("productId") Long productId);
+
+    /** The row in force at {@code at}: published, effective_from <= at and not ended before it (newest first; the caller takes the first). */
+    @Query(
+        "select p from ProductPrice p where p.productId = :productId and p.audience = :audience and p.billingInterval = :billingInterval and p.currency = :currency "
+            + "and p.publishedAt is not null and p.effectiveFrom <= :at and (p.effectiveUntil is null or p.effectiveUntil > :at) order by p.effectiveFrom desc, p.id desc"
+    )
+    List<ProductPrice> findEffectiveAt(
+        @Param("productId") Long productId,
+        @Param("audience") String audience,
+        @Param("billingInterval") String billingInterval,
+        @Param("currency") String currency,
+        @Param("at") Instant at
+    );
+
+    /** Unpublished rows of one key, newest first: what publishing a plan version will publish with it. */
+    @Query(
+        "select p from ProductPrice p where p.productId = :productId and p.audience = :audience and p.billingInterval = :billingInterval and p.currency = :currency "
+            + "and p.publishedAt is null and p.retiredAt is null order by p.id desc"
+    )
+    List<ProductPrice> findDrafts(
+        @Param("productId") Long productId,
+        @Param("audience") String audience,
+        @Param("billingInterval") String billingInterval,
+        @Param("currency") String currency
+    );
+
+    /** Rows that are published (active or scheduled) but have no Stripe price yet: published while Stripe was off. */
+    @Query("select p from ProductPrice p where p.publishedAt is not null and p.retiredAt is null and p.stripePriceId is null order by p.id")
+    List<ProductPrice> findLiveWithoutStripePrice();
+
+    @Query("select p from ProductPrice p where p.stripePriceId = :stripePriceId")
+    Optional<ProductPrice> findByStripePriceId(@Param("stripePriceId") String stripePriceId);
+
+    @Query("select p from ProductPrice p where p.publishedAt is not null order by p.id")
+    List<ProductPrice> findAllPublished();
 }

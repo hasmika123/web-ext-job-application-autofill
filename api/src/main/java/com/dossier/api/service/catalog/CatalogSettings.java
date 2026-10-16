@@ -41,6 +41,11 @@ public class CatalogSettings {
         return settings.getString(BillingSettingKeys.DEFAULT_CURRENCY);
     }
 
+    /** {@code billing.annual.default_discount_bp}: the global yearly discount a derived YEAR price uses when neither the component nor the plan names one. */
+    public int annualDefaultDiscountBp() {
+        return settings.getInt(BillingSettingKeys.ANNUAL_DEFAULT_DISCOUNT_BP);
+    }
+
     public String feeModel() {
         return settings.getString(BillingSettingKeys.FEES_MODEL);
     }

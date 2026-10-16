@@ -24,4 +24,20 @@ public interface PlanVersionRepository extends Repository<PlanVersion, Long> {
     /** The one PUBLISHED version of a plan, if any (the generated live_key makes a second one impossible). */
     @Query("select v from PlanVersion v where v.planId = :planId and v.status = 'PUBLISHED'")
     Optional<PlanVersion> findLive(@Param("planId") Long planId);
+
+    void delete(PlanVersion entity);
+
+    void flush();
+
+    /** The PUBLISHED versions whose plan base is {@code productId} (at most one per plan; the catalog port reads the AI budget from it). */
+    @Query("select v from PlanVersion v where v.baseProductId = :productId and v.status = 'PUBLISHED' order by v.id desc")
+    List<PlanVersion> findLiveByBaseProduct(@Param("productId") Long productId);
+
+    List<PlanVersion> findByStatusOrderByIdAsc(String status);
+
+    @Query("select v from PlanVersion v where v.snapshotHash is not null order by v.id")
+    List<PlanVersion> findHashed();
+
+    @Query("select count(v) from PlanVersion v where v.planId = :planId and v.status = 'DRAFT'")
+    long countDrafts(@Param("planId") Long planId);
 }

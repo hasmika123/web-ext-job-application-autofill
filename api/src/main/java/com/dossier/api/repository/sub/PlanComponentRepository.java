@@ -11,4 +11,13 @@ public interface PlanComponentRepository extends Repository<PlanComponent, Long>
     long count();
 
     List<PlanComponent> findByPlanVersionIdOrderBySortOrderAscIdAsc(Long planVersionId);
+
+    <S extends PlanComponent> List<S> saveAll(Iterable<S> entities);
+
+    void flush();
+
+    /** Removes every component of one version (the full replacement of the components, or a discarded draft). */
+    long deleteByPlanVersionId(Long planVersionId);
+
+    List<PlanComponent> findByProductId(Long productId);
 }
