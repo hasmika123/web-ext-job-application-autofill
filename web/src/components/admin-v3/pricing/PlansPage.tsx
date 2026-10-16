@@ -7,6 +7,7 @@ import { AdminFilterBar, AdminHero, AdminPanel, AdminSaveProvider, AdminStatTile
 import type { AdminColumn } from "../common";
 import { PLAN_DOMAIN } from "./planStates";
 import { useListQuery } from "@/lib/list-query";
+import { canStartRetirement, isRetiring } from "@/lib/admin-retirements";
 import { adminFetch } from "@/lib/admin-client";
 import {
   AUDIENCE_LABEL,
@@ -187,15 +188,22 @@ function Inner() {
                     Compare versions
                   </Button>
                 )}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  disabled
-                  title="Retiring a plan needs the retirement wizard (K10), which has no API route yet."
-                  className="min-h-11 sm:min-h-0"
-                >
-                  Sunset…
-                </Button>
+                {isRetiring(p.status) ? (
+                  <Button type="button" variant="ghost" onClick={() => router.push(`/admin/pricing/plans/${p.planKey}/retirements`)} className="min-h-11 sm:min-h-0">
+                    Retirement progress
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={!canStartRetirement(p.status)}
+                    title={canStartRetirement(p.status) ? undefined : "Only a published plan can be retired."}
+                    onClick={() => router.push(`/admin/pricing/plans/${p.planKey}/retire`)}
+                    className="min-h-11 sm:min-h-0"
+                  >
+                    Retire…
+                  </Button>
+                )}
                 <Button type="button" variant="ghost" disabled title="Duplicate as… is not built yet." className="min-h-11 sm:min-h-0">
                   Duplicate as…
                 </Button>

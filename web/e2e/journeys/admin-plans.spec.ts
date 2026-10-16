@@ -48,7 +48,8 @@ test.describe("at 1440px", () => {
     await page.getByRole("option", { name: "Sunset" }).click();
     await expect(table.getByText("Org Consultancy")).toBeVisible();
     await expect(table.getByText("Pro Student")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Sunset…" }).first()).toBeDisabled();
+    // K10.9: a retiring plan opens its progress; the retirement wizard itself is covered by admin-retirement.spec.ts
+    await expect(page.getByRole("button", { name: "Retirement progress" }).first()).toBeEnabled();
   });
 
   test("price Extra AI credits below the floor, read the lever, raise it, publish with the typed version, see it in History", async ({ page }) => {
