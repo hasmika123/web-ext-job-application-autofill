@@ -67,6 +67,7 @@ export default function InboxConnect({
   endpoints = PERSONAL_ENDPOINTS,
   locked,
   onChanged,
+  links,
 }: {
   /** Whether inbox tracking is included for this person (their Pro plan, or in a workspace their organization's license). */
   isPro: boolean;
@@ -76,7 +77,14 @@ export default function InboxConnect({
   locked?: ReactNode;
   /** Called after a connect or disconnect; the default refreshes the server-rendered page. */
   onChanged?: () => void;
+  /**
+   * Where the privacy policy and the profile page live. On kiwiply.com the defaults are right; on a tenant host `/privacy` and `/profile` are not pages
+   * (404), so the workspace passes its own: the platform's absolute privacy URL and the consultant's own profile route (null = no link, plain text).
+   */
+  links?: { privacy?: string; profile?: string | null };
 }) {
+  const privacyHref = links?.privacy ?? "/privacy";
+  const profileHref = links && "profile" in links ? links.profile : "/profile";
   const router = useRouter();
   const toast = useToast();
   const [address, setAddress] = useState(view?.address ?? "");
@@ -157,9 +165,15 @@ export default function InboxConnect({
     <p className="text-[12.5px] leading-relaxed text-muted">
       Kiwiply only reads. We never send, move or delete mail — and you can cut us off at any time by deleting the app
       password in your Google account. Mail we read is kept for 12 months after it was sent, then deleted. See the{" "}
-      <Link href="/privacy" className="underline">
-        Privacy Policy
-      </Link>
+      {/^https?:/.test(privacyHref) ? (
+        <a href={privacyHref} target="_blank" rel="noopener noreferrer" className="underline">
+          Privacy Policy
+        </a>
+      ) : (
+        <Link href={privacyHref} className="underline">
+          Privacy Policy
+        </Link>
+      )}
       .
     </p>
   );
@@ -272,9 +286,13 @@ export default function InboxConnect({
             create a new Gmail
           </a>{" "}
           and apply from it. Put it as the email on your{" "}
-          <Link href="/profile" className={external}>
-            profile
-          </Link>{" "}
+          {profileHref ? (
+            <Link href={profileHref} className={external}>
+              profile
+            </Link>
+          ) : (
+            "profile"
+          )}{" "}
           so autofill uses it.
         </Step>
         <Step n={2} title="Turn on 2-Step Verification">

@@ -46,6 +46,21 @@ afterEach(() => {
 });
 
 describe("New resume for a consultant: the picker, then the SAME chooser in act-for mode", () => {
+  it("says so plainly (no wall of disabled rows) when none of the assigned consultants has an organization account", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => respond(200, [{ consultantId: 10, name: "Seatless Person", title: null, hasAccount: false }])),
+    );
+    render(
+      <ToastProvider>
+        <NewResumeForConsultant orgId={2} onCreated={vi.fn()} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /New resume for/ }));
+    expect(await screen.findByText(/None of your assigned consultants has an organization account yet/)).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Consultants" })).toBeNull();
+  });
+
   it("lists the assigned consultants (one without a sign-in can not be chosen), opens the chooser for the chosen one and creates through the act-for route", async () => {
     const onCreated = vi.fn();
     render(

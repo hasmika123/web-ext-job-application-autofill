@@ -117,6 +117,11 @@ export default function NewResumeForConsultant({ orgId, onCreated }: { orgId: nu
           <ErrorState what="your consultants" description="They didn't load. Nothing has changed." variant="inline" onRetry={() => setAttempt((n) => n + 1)} />
         ) : picker.consultants.length === 0 ? (
           <p className="text-[13.5px] text-ink-soft">You have no assigned consultants yet.</p>
+        ) : picker.consultants.every((c) => !c.hasAccount) ? (
+          <p data-no-account-consultants className="text-[13.5px] leading-relaxed text-ink-soft">
+            None of your assigned consultants has an organization account yet, so none of them could approve a resume made for them. Once a consultant joins with an
+            organization account, they show up here.
+          </p>
         ) : (
           <ul className="flex max-h-[50vh] flex-col gap-2 overflow-y-auto" aria-label="Consultants">
             {picker.consultants.map((c) => (

@@ -136,6 +136,13 @@ describe("the save status chip (Notion-style autosave, DECISIONS #32)", () => {
     expect(screen.getByRole("status").closest("header")).not.toBeNull();
   });
 
+  it("on a phone the PDF text sits right after the save chip (same order class), not before the close button", () => {
+    bar({ status: "saved", pdf: { status: "PENDING" } });
+    const cls = document.querySelector('[data-pdf-status="updating"]')?.className ?? "";
+    expect(cls).toContain("order-2");
+    expect(cls).toContain("md:order-none");
+  });
+
   it("the PDF state stays a separate secondary text beside it", () => {
     bar({ status: "saved", pdf: { status: "PENDING" } });
     expect(document.querySelector('[data-pdf-status="updating"]')?.textContent).toContain("PDF updating…");
