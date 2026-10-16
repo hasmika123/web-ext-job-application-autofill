@@ -99,4 +99,51 @@ class BioFirstTouchRaceIT {
 
         assertThat(bios.findByUserId(u.getId())).as("exactly one bio row however the race went").hasSize(1);
     }
+
+    /**
+     * The same race one step later (found in the natural-voice videos: Cora's resume from her profile showed the Skills group twice): every caller that
+     * found no bio got the winner's row from the provisioner and seeded the profile again, so each section was copied once per caller. The seed now
+     * re-checks the marker on the row the provisioner returns.
+     */
+    @Test
+    void concurrentFirstProfileRequestsSeedTheProfileExactlyOnce() throws Exception {
+        String login = "seed-race-" + System.nanoTime();
+        User u = freshUser(login);
+        Resume r = new Resume().label("Main").r2ObjectKey("").status(ResumeStatus.CONFIRMED).createdAt(Instant.now());
+        r.setUser(u);
+        r.setDefaultResume(true);
+        r.setParsedJson(
+            "{\"experience\":[{\"title\":\"Engineer\",\"company\":\"Acme\",\"startDate\":\"2020\",\"endDate\":\"2022\",\"bullets\":[\"Built things\"]}],\"skills\":[\"Salesforce\",\"Apex\",\"Lightning\",\"SQL\"]}"
+        );
+        resumes.saveAndFlush(r);
+
+        int callers = 4;
+        ExecutorService pool = Executors.newFixedThreadPool(callers);
+        CountDownLatch go = new CountDownLatch(1);
+        List<Future<Integer>> results = new ArrayList<>();
+        for (int i = 0; i < callers; i++) {
+            results.add(
+                pool.submit(() -> {
+                    go.await();
+                    return mockMvc.perform(get("/api/profile/items").with(user(login))).andReturn().getResponse().getStatus();
+                })
+            );
+        }
+        go.countDown();
+        for (Future<Integer> f : results) assertThat(f.get()).isEqualTo(200);
+        pool.shutdown();
+
+        Integer skillRows = jdbc.queryForObject(
+            "select count(*) from profile_item where user_id = ? and section = 'SKILL' and deleted_at is null",
+            Integer.class,
+            u.getId()
+        );
+        Integer roleRows = jdbc.queryForObject(
+            "select count(*) from profile_item where user_id = ? and section = 'EXPERIENCE' and deleted_at is null",
+            Integer.class,
+            u.getId()
+        );
+        assertThat(skillRows).as("one Skills group, however many first requests raced").isEqualTo(1);
+        assertThat(roleRows).as("one copy of each role").isEqualTo(1);
+    }
 }

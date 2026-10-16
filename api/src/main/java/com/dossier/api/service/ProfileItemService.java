@@ -352,7 +352,10 @@ public class ProfileItemService {
         if (def == null) return;
 
         if (bio == null) {
+            // the provisioner's locking read waits for a concurrent first seed and returns its committed row, marker included: without
+            // this re-check every caller that raced on a missing bio seeded the profile again (one Skills group per caller)
             bio = newBio(user);
+            if (ProfileMeta.isSeeded(ProfileMeta.read(bio.getMetaJson()))) return;
         } else {
             em.refresh(bio, LockModeType.PESSIMISTIC_WRITE); // wait for a concurrent seed, then re-read its result
             if (ProfileMeta.isSeeded(ProfileMeta.read(bio.getMetaJson()))) return;
