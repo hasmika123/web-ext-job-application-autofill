@@ -142,7 +142,8 @@ export class Flow {
   async go(path: string) {
     await this.page.goto(`${hostOf(this.persona)}${path}`);
     // A cold API can miss the first workspace call; the page then offers "Try again". A person would press it, so do the same (at most twice).
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
+      await this.page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => undefined);
       const retry = this.page.getByRole("button", { name: "Try again" });
       if (!(await retry.isVisible().catch(() => false))) break;
       console.log("[flow] workspace load failed on " + path + ": pressing Try again");
