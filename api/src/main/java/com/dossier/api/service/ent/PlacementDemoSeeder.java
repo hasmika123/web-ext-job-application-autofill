@@ -65,6 +65,7 @@ public class PlacementDemoSeeder {
             long placements = count("select count(p) from TalentPlacement p where p.orgId = :o", org.getId());
             if (placements == 0) continue;
             fillGaps(org.getId());
+            if ("acme".equals(spec.slug())) pastHistory(org.getId());
             long events = count("select count(e) from PlacementEvent e where e.orgId = :o", org.getId());
             if (events > 0) continue; // already seeded: idempotent
             int n = new Gen(org.getId(), spec.seed()).run();
@@ -76,6 +77,51 @@ public class PlacementDemoSeeder {
 
     private long count(String jpql, Long orgId) {
         return ((Number) em.createQuery(jpql).setParameter("o", orgId).getSingleResult()).longValue();
+    }
+
+    /**
+     * Anika Rao is the demo consultant who is between roles ("On notice"): her Placements page says "No active placement yet", which looked empty on stage.
+     * Give her one recent, ENDED placement so "Past Placements" has a believable history. Idempotent: only when she has no placement of any status, and
+     * an ended placement never makes her "active", so her On-notice stories (CON-45) are untouched.
+     */
+    private void pastHistory(Long orgId) {
+        ConsultantProfile c = em.createQuery("select c from ConsultantProfile c where c.orgId = :o and c.displayName = 'Anika Rao' order by c.id", ConsultantProfile.class)
+            .setParameter("o", orgId).setMaxResults(1).getResultStream().findFirst().orElse(null);
+        if (c == null || count("select count(p) from TalentPlacement p where p.orgId = :o and p.consultantId = " + c.getId(), orgId) > 0) return;
+        ClientAccount client = em.createQuery("select c from ClientAccount c where c.orgId = :o and c.status = 'ACTIVE' order by c.id", ClientAccount.class)
+            .setParameter("o", orgId).setMaxResults(1).getResultStream().findFirst().orElse(null);
+        if (client == null) return;
+        Instant now = Instant.now();
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        TalentPlacement p = new TalentPlacement();
+        p.setOrgId(orgId);
+        p.setConsultantId(c.getId());
+        p.setClientId(client.getId());
+        p.setRoleTitle(c.getJobTitle() == null ? "Consultant" : c.getJobTitle());
+        p.setStatus("ENDED");
+        p.setStartDate(today.minusDays(400));
+        p.setEndDate(today.minusDays(24));
+        p.setRateUnit("HOUR");
+        p.setBillRateMinor(9500L);
+        p.setCurrency("USD");
+        p.setPlacementType("CONTRACT");
+        p.setAccountManagerMemberId(em.createQuery("select ma.marketerMemberId from MarketerAssignment ma where ma.orgId = :o and ma.consultantId = :c", Long.class)
+            .setParameter("o", orgId).setParameter("c", c.getId()).getResultStream().findFirst().orElse(null));
+        p.setCompletedAt(now.minus(24, ChronoUnit.DAYS));
+        p.setCreatedAt(now.minus(400, ChronoUnit.DAYS));
+        p.setUpdatedAt(now.minus(24, ChronoUnit.DAYS));
+        em.persist(p);
+        em.flush();
+        PlacementEvent e = new PlacementEvent();
+        e.setOrgId(orgId);
+        e.setPlacementId(p.getId());
+        e.setEventType("CREATED");
+        e.setActorMemberId(p.getAccountManagerMemberId());
+        e.setDetail("Placement recorded");
+        e.setOccurredAt(p.getCreatedAt());
+        em.persist(e);
+        em.flush();
+        LOG.info("Placements demo: gave Anika Rao one past placement");
     }
 
     /** Rows seeded before the page existed (or by a fresh database) have no account manager, contact or type: derive them from the marketer assignment, the client and the job. */
