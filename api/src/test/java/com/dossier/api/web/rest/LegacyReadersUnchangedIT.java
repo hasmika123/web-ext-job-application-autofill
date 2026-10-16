@@ -39,8 +39,18 @@ class LegacyReadersUnchangedIT {
     @Autowired private SubscriptionPlanLinker linker;
     @Autowired private JdbcTemplate jdbc;
 
+    private static final java.util.List<String> LEGACY_PLAN_KEYS = java.util.List.of("plan", "status", "currentPeriodEnd", "cancelAtPeriodEnd", "billingEnabled", "hasCustomer");
+
     private String body(String path) throws Exception {
-        return mockMvc.perform(get(path)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String raw = mockMvc.perform(get(path)).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        // K5.7 (the one justified edit to this baseline test): once a subscription is linked to a plan version, GET /api/billing/me ADDS fields (planKey,
+        // interval, addons, ...). The six keys every legacy reader depends on must stay byte-identical, so for that route compare exactly those six.
+        if (!path.equals("/api/billing/me")) return raw;
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        com.fasterxml.jackson.databind.JsonNode all = mapper.readTree(raw);
+        com.fasterxml.jackson.databind.node.ObjectNode six = mapper.createObjectNode();
+        for (String k : LEGACY_PLAN_KEYS) six.set(k, all.get(k));
+        return six.toString();
     }
 
     private void assertUnchangedAcrossTheLink(String label) throws Exception {
