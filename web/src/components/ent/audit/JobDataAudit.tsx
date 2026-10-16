@@ -88,7 +88,7 @@ export default function JobDataAudit({ orgId }: { orgId: number }) {
             Clear filters
           </Button>
         ) : null}
-        <Button variant="secondary" data-job-data-export disabled={shown.length === 0} onClick={() => download("captured-jobs.csv", jobDataCsv(shown))}>
+        <Button variant="accent-soft" data-job-data-export disabled={shown.length === 0} onClick={() => download("captured-jobs.csv", jobDataCsv(shown))}>
           Export CSV
         </Button>
       </div>

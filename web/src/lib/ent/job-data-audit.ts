@@ -59,7 +59,7 @@ export function parseJobData(json: unknown): JobDataPage | null {
     return [
       {
         job: {
-          id: j.id,
+          id: Number(j.id),
           title: str(j.title) ?? "Untitled job",
           employer: str(j.employer),
           captureSource: str(j.captureSource),
