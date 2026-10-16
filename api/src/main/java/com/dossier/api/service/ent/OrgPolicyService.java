@@ -1,5 +1,6 @@
 package com.dossier.api.service.ent;
 
+import com.dossier.api.service.privacy.SensitiveContent;
 import com.dossier.api.domain.ent.OrgBranding;
 import com.dossier.api.domain.ent.OrgPolicy;
 import com.dossier.api.domain.ent.OrgPolicyVersion;
@@ -126,6 +127,7 @@ public class OrgPolicyService {
         String kind = kindOrNotFound(rawKind);
         loadEditableOrg(me);
         String clean = PolicyBodySanitizer.sanitize(body, maxChars());
+        SensitiveContent.check("body", "body", clean); // X11.7: a policy the organization writes never carries a never-collected value
         OrgPolicy p = rowForWrite(me.orgId(), kind);
         requireEditable(p);
         if (ifMatch != null && ifMatch != p.getDraftVersion()) {

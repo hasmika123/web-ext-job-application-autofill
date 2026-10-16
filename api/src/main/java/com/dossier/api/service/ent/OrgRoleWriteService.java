@@ -1,5 +1,6 @@
 package com.dossier.api.service.ent;
 
+import com.dossier.api.service.privacy.SensitiveContent;
 import com.dossier.api.domain.ent.OrgMemberRole;
 import com.dossier.api.domain.ent.OrgRoleDefinition;
 import com.dossier.api.domain.ent.OrgRolePermission;
@@ -694,6 +695,7 @@ public class OrgRoleWriteService {
         String n = raw.strip().replaceAll("\\s+", " ");
         if (n.length() > NAME_MAX) throw OrgException.invalid("name", "at most " + NAME_MAX + " characters");
         if (n.chars().anyMatch(Character::isISOControl) || n.indexOf('<') >= 0 || n.indexOf('>') >= 0) throw OrgException.invalid("name", "contains characters that are not allowed");
+        SensitiveContent.check("name", "name", n); // X11.7
         return n;
     }
 
@@ -703,6 +705,7 @@ public class OrgRoleWriteService {
         if (d.isEmpty()) return null;
         if (d.length() > DESCRIPTION_MAX) throw OrgException.invalid("description", "at most " + DESCRIPTION_MAX + " characters");
         if (d.chars().anyMatch(c -> Character.isISOControl(c) && c != '\n') || d.indexOf('<') >= 0 || d.indexOf('>') >= 0) throw OrgException.invalid("description", "contains characters that are not allowed");
+        SensitiveContent.check("description", "description", d); // X11.7
         return d;
     }
 

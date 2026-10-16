@@ -66,6 +66,14 @@ class BugReportServiceTest {
     }
 
     @Test
+    void aSensitiveValuePastedIntoAReportIsScrubbedBeforeItIsStoredOrMailed() {
+        service.submit("web", "crash log: SSN: 123-45-6789 and bank account number: 123456789012", "BUG", null, null, null, null);
+        ArgumentCaptor<BugReport> captor = ArgumentCaptor.forClass(BugReport.class);
+        verify(repository).save(captor.capture());
+        assertThat(captor.getValue().getMessage()).doesNotContain("123-45-6789").doesNotContain("123456789012").contains("crash log");
+    }
+
+    @Test
     void submitFillsUserLoginFromSecurityContext() {
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("alice", null));
         service.submit("web", "hi", "IDEA", null, null, null, null);

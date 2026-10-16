@@ -169,6 +169,7 @@ public class OrgAccountService {
     public ResetResult reset(OrgMembership me, Long memberId, String rawReason) {
         String reason = rawReason == null ? "" : rawReason.strip();
         if (reason.length() < 10) throw OrgException.invalid("reason", "a reason of at least 10 characters is required");
+        SensitiveContent.check("reason", "reason", reason); // X11.7: the reason is stored in the audit trail
         OrgMember seat = members.findByOrgIdAndId(me.orgId(), memberId).orElseThrow(OrgNotFoundException::new);
         if (seat.getUserId() == null || seat.getStatus() != OrgMemberStatus.ACTIVE || seat.getUserId().equals(me.userId())) throw new OrgNotFoundException();
         if (seat.getRole() == OrgRole.OWNER && me.role() != OrgRole.OWNER) throw new OrgNotFoundException();
