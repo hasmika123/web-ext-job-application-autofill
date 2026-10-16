@@ -123,8 +123,8 @@ export function parseMarketer(body: unknown): MarketerView | null {
         }
       : null,
     responseBadge: {
-      sample: badge.sample !== false,
-      label: str(badge.label, "Responsive"),
+      sample: badge.sample === true,
+      label: str(badge.label),
       detail: str(badge.detail),
     },
     focusOpportunities: rows(body.focusOpportunities, (o) =>

@@ -338,7 +338,7 @@ class ConsultantHomeResourceIT {
         assertThat(sub.path("sample").asBoolean()).as("the tile now counts the consultant's own pending submissions").isFalse();
         assertThat(sub.path("value").asLong()).isZero();
         assertThat(sub.path("deltaPct").isNull()).isTrue();
-        assertThat(sub.path("sparkline")).isEmpty();
+        assertThat(sub.path("sparkline")).as("six weekly points, all zero (pre-existing stale assertion: the tile always draws its sparkline)").hasSize(6).allSatisfy(n -> assertThat(n.asLong()).isZero());
 
         // recommended = open matches the consultant has not applied to, best score first
         JsonNode rec = h.path("recommendedMatches");
@@ -367,7 +367,6 @@ class ConsultantHomeResourceIT {
         assertThat(iv.get(0).path("title").asText()).isEqualTo("QA Architect");
         assertThat(iv.get(0).path("company").asText()).isEqualTo("Acme Corp");
         assertThat(iv.get(0).path("durationMinutes").asInt()).isEqualTo(45);
-        assertThat(iv.get(0).path("mode").asText()).isEqualTo("VIDEO");
         assertThat(iv.get(0).path("modeSample").asBoolean()).as("the mode comes from the consultant's own interview detail").isFalse();
         assertThat(iv.get(0).path("mode").asText()).isEqualTo("NOT_SET");
 
@@ -382,7 +381,7 @@ class ConsultantHomeResourceIT {
         assertThat(keys).contains("matches", "interview-prep", "follow-up").anyMatch(k -> k.startsWith("task-")).doesNotContain("availability");
         assertThat(texts(focus.path("items"), "label")).contains("Review 1 new job match", "Update rate card");
 
-        assertThat(h.path("marketerMessages").path("sample").asBoolean()).isTrue();
+        assertThat(h.path("marketerMessages").path("sample").asBoolean()).isFalse();
         assertThat(h.path("marketerMessages").path("items")).isEmpty();
         assertThat(h.path("resumeStrength").path("checks")).hasSize(5);
         assertThat(h.path("resumeStrength").path("hasResume").asBoolean()).isFalse();
