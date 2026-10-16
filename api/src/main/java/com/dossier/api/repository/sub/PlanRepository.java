@@ -18,4 +18,8 @@ public interface PlanRepository extends Repository<Plan, Long> {
     List<Plan> findAllByOrderBySortOrderAscIdAsc();
 
     List<Plan> findByAudienceOrderBySortOrderAscIdAsc(String audience);
+
+    <S extends Plan> S saveAndFlush(S entity);
+
+    List<Plan> findByStatusOrderBySortOrderAscIdAsc(String status);
 }

@@ -33,7 +33,7 @@ public final class MarginCalculator {
     static final String BELOW_FLOOR = "MARGIN_BELOW_FLOOR";
     static final String TIER_BELOW_FLOOR = "TIER_BELOW_FLOOR";
     static final String PRESET_BELOW_INDIVIDUAL = "PRESET_BELOW_INDIVIDUAL";
-    static final int MIN_REASON_LENGTH = 20;
+    static final int MIN_REASON_LENGTH = 10;
     /** Upper bound of the lever search (10 billion major units): keeps basis-point arithmetic far from overflow. */
     static final long MAX_SEARCH_MINOR = 1_000_000_000_000L;
 
@@ -304,7 +304,7 @@ public final class MarginCalculator {
     // ---- publish decision, re-evaluation ---------------------------------------------------------------------------------
 
     /**
-     * The publish rule (Phase 18 D4): a failing row blocks the publish unless overrideReason has at least 20 characters (HIGH audit
+     * The publish rule (Phase 18 D4): a failing row blocks the publish unless overrideReason has at least 10 characters (B-05) (HIGH audit
      * CATALOG_MARGIN_OVERRIDE, written by the caller when this returns true). Discount rows, tier rows and mirrored presets are
      * refused outright. Returns true when an override was needed and given.
      */
