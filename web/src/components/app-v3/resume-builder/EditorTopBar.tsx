@@ -172,7 +172,7 @@ export default function EditorTopBar({
         onRetry={onRetrySave}
         className="order-2 md:order-none"
       />
-      <PdfStatusSuffix pdf={pdf} onRetry={onPdfRetry} className="-ml-2" />
+      <PdfStatusSuffix pdf={pdf} onRetry={onPdfRetry} className="order-2 -ml-2 md:order-none" />
       {approvalNotice && (
         <span data-approval-notice className="order-2 inline-flex min-h-8 items-center rounded-full border border-v2-amber/40 bg-v2-amber-soft px-3 text-[12.5px] font-semibold text-ink md:order-none">
           {approvalNotice}
