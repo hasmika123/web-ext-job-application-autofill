@@ -27,6 +27,7 @@ import { createMembersMock } from "./mock-members.mjs";
 import { createResumesMock } from "./mock-resumes.mjs";
 import { createGroupsMock } from "./mock-groups.mjs";
 import { createRolesMock } from "./mock-roles.mjs";
+import { createBillingMock } from "./mock-billing.mjs";
 import { readFileSync } from "node:fs";
 import { aiCallsFixture, aiConfigFixture, aiHistoryFixture } from "./fixtures/admin-ai.mjs";
 
@@ -275,6 +276,8 @@ const handleMembers = createMembersMock({ json, subOf: bearerSub });
 const handleResumes = createResumesMock({ json });
 /* ── Departments and Teams mock (X4.5: groups, leads, moves for Acme; scripts/mock-groups.mjs) ── */
 const handleGroups = createGroupsMock({ json, withBody, subOf: bearerSub });
+/* ── Subscription customer mock (K5.1/K5.3/K5.5/K5.6: public catalog, quotes, checkout, confirm + undo, plan v3, invoices, entitlements; scripts/mock-billing.mjs) ── */
+const handleBilling = createBillingMock({ json, withBody });
 /* ── Roles & Permissions mock (X4.11: roles, catalog, diff, history, resync, member roles; scripts/mock-roles.mjs) ── */
 const handleRoles = createRolesMock({ json, withBody, hostOf });
 /* ── Applications tracker mock (APP-E2E U6.2/U6.4: list v2, detail, patch, notes, bulk, interviews, .ics; scripts/mock-tracker.mjs) ── */
@@ -1997,6 +2000,7 @@ const server = http.createServer((req, res) => {
   // Unlike every other write in this mock, these succeed, so the editor can be tried without the API.
   // ETag / If-Match / 409 / 422 / 402 behave like ResumeDocResource. To force a 409 from outside:
   //   curl -X POST http://localhost:<MOCK_API_PORT>/mock/resumes/<id>/edit-elsewhere   (bumps the server copy)
+  if (handleBilling(req, res, path, method)) return;
   if (handleBranding(req, res, path, method)) return;
   if (ENTERPRISE_ENABLED && handleInvitations(req, res, path, method)) return;
   if (handleDashboard(req, res, path, method)) return;
