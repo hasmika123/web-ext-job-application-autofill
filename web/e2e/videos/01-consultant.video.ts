@@ -136,6 +136,8 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   await page.waitForURL(/\/w\/consultant\/resumes\/\d+$/, { timeout: 60_000 });
   await expect(page.locator("[data-builder-frame]")).toBeVisible({ timeout: 45_000 });
   await narrate(page, "The editor opens inside her organization's frame. It saves by itself, so there is no Save button, and it records who last changed it.");
+  await page.getByRole("textbox", { name: "Name" }).fill("Cora Lindahl");
+  await page.getByRole("textbox", { name: "Email" }).fill("cora.lindahl@gamma.example.com");
   const headline = page.getByRole("textbox", { name: "Headline" });
   await headline.fill("Salesforce Developer, building clean integrations");
   await narrate(page, "She sharpens her headline.");
@@ -147,8 +149,7 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   await skill.fill("Apex");
   await skill.press("Enter");
   await narrate(page, "She writes a summary and keeps her skills current. The resume score on the right guides what to improve.");
-  await page.getByRole("button", { name: "More actions", exact: true }).first().click();
-  await page.getByRole("menuitem", { name: /Save version/ }).click();
+  await menuAction(page, page.getByRole("button", { name: "More actions", exact: true }).first(), /Save version/);
   await narrate(page, "Save version freezes this moment as a named version she can compare with or restore later.");
   const versionDialog = page.getByRole("dialog");
   const label = versionDialog.getByRole("textbox").first();
@@ -184,8 +185,10 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   const first = waiting.first();
   const ftitle = ((await first.getByRole("button", { name: /^Approve / }).getAttribute("aria-label")) ?? "").replace(/^Approve /, "");
   await narrate(page, `She presses Approve on "${ftitle}".`);
+  const before = await waiting.count();
   await first.getByRole("button", { name: /^Approve / }).click();
   await expect(page.getByText("Approved").first()).toBeVisible({ timeout: 20_000 });
+  await expect.poll(() => waiting.count(), { timeout: 20_000 }).toBeLessThan(before);
   if ((await waiting.count()) > 0) {
     const second = waiting.first();
     const stitle = ((await second.getByRole("button", { name: /^Send back / }).getAttribute("aria-label")) ?? "").replace(/^Send back /, "");
@@ -193,11 +196,12 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
     await second.getByRole("button", { name: /^Send back / }).click();
     await page.getByLabel("What should change").fill("Please add my 2019 role at the logistics client.");
     await page.waitForTimeout(1200);
-    await page.getByRole("dialog").getByRole("button", { name: "Send back" }).click();
-    await page.waitForTimeout(1500);
+    await page.getByRole("dialog").getByRole("button", { name: "Send back", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 20_000 });
+    await page.waitForTimeout(1200);
   }
   await narrate(page, "Approving makes it ready to use. Sending back tells the marketer it needs an update, with her note. Nobody else can approve it for her.");
-  const approvedRow = page.locator("tbody tr", { hasText: ftitle }).first();
+  const approvedRow = page.locator("tbody tr", { hasText: ftitle }).filter({ hasNot: page.getByRole("button", { name: /^Approve / }) }).first();
   await approvedRow.getByRole("button", { name: `More actions for ${ftitle}` }).click();
   await narrate(page, "Only an approved resume can be her primary one. She sets it as primary from the row menu.");
   await page.getByRole("menuitem", { name: "Set as primary" }).click();
