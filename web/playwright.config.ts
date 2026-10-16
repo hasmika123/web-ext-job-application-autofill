@@ -23,6 +23,7 @@ const REAL_STACK_SPECS = [
   "journeys/consultant-home.spec.ts",
   "journeys/consultant-pages.spec.ts",
   "journeys/tenant-applications.spec.ts",
+  "journeys/tenant-audit-fixes.spec.ts",
   "journeys/tenant-clients.spec.ts",
   "journeys/tenant-consultants.spec.ts",
   "journeys/tenant-employees.spec.ts",
