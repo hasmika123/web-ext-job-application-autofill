@@ -220,6 +220,7 @@ export function keepMarketed(fullName: string) {
     await sarah.go("/w/admin");
     await expect(sarah.page.locator("[data-enterprise-shell]")).toBeVisible({ timeout: 45_000 });
     was = await setAvailability(sarah.page, await orgIdOf(sarah.page), fullName, "AVAILABLE");
+    await sarah.context.close(); // finish this hook's recording now
   });
   test.afterEach(async ({ as }) => {
     if (!was || was === "AVAILABLE") return;
@@ -228,5 +229,6 @@ export function keepMarketed(fullName: string) {
     await expect(sarah.page.locator("[data-enterprise-shell]")).toBeVisible({ timeout: 45_000 });
     await setAvailability(sarah.page, await orgIdOf(sarah.page), fullName, was);
     was = null;
+    await sarah.context.close();
   });
 }

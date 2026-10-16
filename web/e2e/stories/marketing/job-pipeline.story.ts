@@ -10,6 +10,7 @@ import { api, bff, boardRow, captureJob, consultantIdByName, conRow, jobBody, ke
  */
 
 test.describe("MKT job pipeline", () => {
+  test.describe.configure({ timeout: 150_000 }); // three browsers per story (marketer, consultant, and the administrator who sets Ben up) all finish their recordings
   keepMarketed("Ben Okafor"); // Ben is ON_PROJECT (marketing paused) in the seed: nothing can be assigned to him until he is available
 
   test("MKT-20 Omar saves a job from the extension for Ben and sees it on his Opportunities board", async ({ as }) => {

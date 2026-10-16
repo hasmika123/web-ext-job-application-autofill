@@ -1,5 +1,5 @@
 import { test, expect, narrate } from "../_support/story";
-import { boardRow, captureJob, consultantIdByName, conRow, jobBody, keepMarketed, orgIdOf, ready, tileValue } from "./_mkt";
+import { boardRow, captureJob, consultantIdByName, conRow, jobBody, keepMarketed, orgIdOf, ready } from "./_mkt";
 
 /** Resumes, Job Discovery, Job Matches, Opportunities board and Job Streams (Omar, plus Sarah for cross-person set-up). */
 

@@ -17,19 +17,22 @@ test.describe("MKT submissions, applications, interviews", () => {
     await page.getByRole("button", { name: /New Submission/ }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toContainText("nothing is sent to the client");
-    await dialog.getByRole("button", { name: "Consultant" }).click();
-    await page.getByRole("option").first().click();
-    await dialog.getByRole("button", { name: "Job" }).click();
-    await page.getByRole("option").first().click();
-    const note = `Story note ${Date.now()}`;
-    await dialog.getByLabel("Note").fill(note);
-    await dialog.getByRole("button", { name: "Create draft" }).click();
+    // A consultant and job pair that already has a draft is refused (409) and the dialog stays open, so each run takes the next free pair.
+    const start = Date.now() % 7;
+    let created = false;
+    for (let attempt = 0; attempt < 8 && !created; attempt++) {
+      await pickOption(page, dialog.getByRole("button", { name: "Consultant" }), page.getByRole("option").nth((start + attempt) % 6));
+      await pickOption(page, dialog.getByRole("button", { name: "Job" }), page.getByRole("option").nth((start * 2 + attempt) % 6));
+      await dialog.getByLabel("Note").fill(`Story note ${Date.now()}`);
+      await dialog.getByRole("button", { name: "Create draft" }).click();
+      created = await dialog.waitFor({ state: "detached", timeout: 5000 }).then(() => true, () => false);
+    }
+    expect(created, "a consultant and job pair without a draft").toBe(true);
 
     await narrate(page, "The draft is recorded; the row's actions are Send for approval or Withdraw, never Submit");
     await expect(page.getByText(/Draft prepared for/).first()).toBeVisible();
     await expect.poll(() => page.locator("[data-submission-row]").count()).toBeGreaterThanOrEqual(before);
-    const menuButtons = page.getByRole("button", { name: /^Actions for / });
-    await menuButtons.first().click();
+    await pickOption(page, page.getByRole("button", { name: /^Actions for / }).first(), page.getByRole("menuitem").first()); // a menu closes when the page scrolls
     const entries = (await page.getByRole("menuitem").allInnerTexts()).join("|");
     expect(entries).not.toMatch(/submit to client|send to client|apply/i);
   });
