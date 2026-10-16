@@ -60,6 +60,66 @@ public class AiCall implements Serializable {
     @Column(name = "error_kind", length = 24)
     private String errorKind;
 
+    /** The catalog service this call served (K7.2, docs/subscriptions/06 section 6); null for calls with no service (the admin probe). */
+    @Column(name = "feature_key", length = 60)
+    private String featureKey;
+
+    /** The personal usage-ledger reservation behind this call, once a caller reserves (K7.5); null until then. */
+    @Column(name = "usage_event_id")
+    private Long usageEventId;
+
+    /** {@code PERSONAL} or {@code ORG}; null on rows written before K7.2. */
+    @Column(name = "usage_scope", length = 8)
+    private String usageScope;
+
+    /** The organization an ORG-scoped call was made for; null on the personal path. */
+    @Column(name = "org_id")
+    private Long orgId;
+
+    /** The consultant an ORG-scoped call benefited; null on the personal path. */
+    @Column(name = "beneficiary_login", length = 50)
+    private String beneficiaryLogin;
+
+    public String getFeatureKey() {
+        return featureKey;
+    }
+
+    public void setFeatureKey(String featureKey) {
+        this.featureKey = featureKey;
+    }
+
+    public Long getUsageEventId() {
+        return usageEventId;
+    }
+
+    public void setUsageEventId(Long usageEventId) {
+        this.usageEventId = usageEventId;
+    }
+
+    public String getUsageScope() {
+        return usageScope;
+    }
+
+    public void setUsageScope(String usageScope) {
+        this.usageScope = usageScope;
+    }
+
+    public Long getOrgId() {
+        return orgId;
+    }
+
+    public void setOrgId(Long orgId) {
+        this.orgId = orgId;
+    }
+
+    public String getBeneficiaryLogin() {
+        return beneficiaryLogin;
+    }
+
+    public void setBeneficiaryLogin(String beneficiaryLogin) {
+        this.beneficiaryLogin = beneficiaryLogin;
+    }
+
     public Long getId() {
         return id;
     }
