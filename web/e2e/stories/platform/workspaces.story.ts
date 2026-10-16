@@ -11,7 +11,7 @@ test("PLT-10 Sarah has two workspaces: she lands on Administration and switches 
   await expect(page.locator("[data-enterprise-shell]")).toBeVisible();
   await page.locator("[data-account-menu]").click();
   await narrate(page, "Her account menu offers Switch workspace");
-  await page.getByText("Switch workspace").click();
+  await page.getByRole("menuitem", { name: "Switch workspace" }).click();
   const panel = page.locator("[data-workspace-switcher=panel]");
   await expect(panel).toBeVisible();
   const rows = page.getByRole("menuitemradio");

@@ -25,7 +25,7 @@ test.describe("MKT submissions, applications, interviews", () => {
     await dialog.getByRole("button", { name: "Create draft" }).click();
 
     await narrate(page, "The draft is recorded; the row's actions are Send for approval or Withdraw, never Submit");
-    await expect(page.getByText(/Draft prepared for/)).toBeVisible();
+    await expect(page.getByText(/Draft prepared for/).first()).toBeVisible();
     await expect.poll(() => page.locator("[data-submission-row]").count()).toBeGreaterThanOrEqual(before);
     const menuButtons = page.getByRole("button", { name: /^Actions for / });
     await menuButtons.first().click();

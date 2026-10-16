@@ -56,3 +56,14 @@ Why two organizations: Acme Staffing is the rich demo tenant (153 consultants, a
    (`STORY_TTS_CACHE=<folder>` keeps the generated speech; ffmpeg path in `FFMPEG`, default is the winget install.)
 5. How it works: `narrate()` in `web/e2e/stories/_support/story.ts` writes `{ms since video start, text}` to the log when `STORY_NARRATION_LOG` is set and then waits for the spoken length plus a pause (`STORY_SPEECH_PAD_MS`, default 700). `web/scripts/story-video/` holds the SAPI script (`speak.ps1`), the speech cache (`tts.cjs`) and the renderer (`render.cjs`: sample-accurate mix, then ffmpeg to H.264 + AAC). Needs Playwright's own ffmpeg (`npx playwright install ffmpeg`) for the recording.
 6. Re-running adds data: each take creates a few resumes for Cora, a submission draft and a task. Use a fresh database if you want a pristine look.
+
+## Story suite state after this work (one worker, real stack, fresh sign-ins per area)
+
+| Area | Last full run | After the spec fixes made here (re-run of the failures) | Still failing, and why |
+|---|---|---|---|
+| Admin (ADM) | 47 passed, 4 failed | not improved | ADM-21 (departments and teams) and ADM-55, ADM-57, ADM-62 (pipeline): timing and data accumulation against the shared pages; not diagnosed further. ADM-05, ADM-15, ADM-19 and ADM-19b were fixed (see Findings 5) |
+| Consultant (CON) | 45 passed, 8 failed | CON-13, CON-14, CON-20, CON-47, CON-50, CON-57 now pass (6 of 8) | CON-44 (onboarding checklist state) and CON-51 (a task created in the story is not found): data left by earlier runs |
+| Marketing (MKT) | 6 passed, 21 failed | 8 passed, 19 failed | Stale after the marketing pages became the shared organization pages: the old `data-*` markers (`data-stat-tile`, `data-task-row`, `data-con-row`, `data-perf-card` and others) no longer exist, so most stories need a rewrite against the current DOM. Video 02 covers the same flows with the current selectors. Fixed here: the `*.localhost` lookup in `captureJob` (it fell over on Node's DNS), the `ready()` helper, strict-mode name clashes |
+| Platform (PLT, APP) | 36 passed, 15 failed | 46 passed, 5 failed | PLT-23 (audit evidence answers 404 for the org admin), PLT-42 (a role's home overflows 390 px by 76 px: a real layout finding), PLT-43, PLT-05 (demo role label), PLT-12 (timeout). Fixed here: APP-02..05 (strict "Copied"), PLT-10, the API URL variable of PLT-23/24 |
+
+Totals counted per area at the last run of each: 45 + 47 + 46 + 8 passed; the failures above are listed, none was hidden or weakened. The four recorded videos use their own specs (`web/e2e/videos/`) and passed on the stack above.

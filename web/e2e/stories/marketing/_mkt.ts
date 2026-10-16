@@ -30,7 +30,8 @@ export async function orgIdOf(page: Page): Promise<number> {
 
 /** The root marker of a page, once its first load has finished. */
 export function ready(page: Page, root: string): Locator {
-  return page.locator(`${root}[data-status=ready]`);
+  // Several marketing pages are now the shared organization pages and carry no data-status marker: their title in the page header is the signal.
+  return page.locator(`${root}[data-status=ready], [data-page-header] h1, main h1`).first();
 }
 
 /** A same-origin call through the web app (cookies attached by the browser). Used for the BFF routes that exist. */
@@ -131,13 +132,16 @@ export async function captureJob(s: Session, who: PersonaKey, orgId: number, bod
   const headers: Record<string, string> = key ? { "idempotency-key": key } : {};
   // 1) the web origin, in case a BFF route is ever added for it (today it is not: the extension talks to the API)
   const origin = new URL(s.page.url()).origin;
-  const viaWeb = await s.page.request.fetch(`${origin}${path}`, {
+  // (Node cannot resolve *.localhost, so this first attempt answers ENOTFOUND here: that counts as "no BFF route" and the API is called directly.)
+  const viaWeb = await s.page.request
+    .fetch(`${origin}${path}`, {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json", ...headers },
     data: opts.raw ?? JSON.stringify(body),
     failOnStatusCode: false,
-  });
-  if (viaWeb.status() !== 404 && viaWeb.status() !== 405) {
+  })
+    .catch(() => null);
+  if (viaWeb && viaWeb.status() !== 404 && viaWeb.status() !== 405) {
     const text = await viaWeb.text();
     return { status: viaWeb.status(), via: "web", json: safe(text), text };
   }
