@@ -1591,8 +1591,7 @@ class OrgIsolationIT {
         s.append(com.dossier.api.web.rest.ent.PlacementItSupport.fingerprint(em, w.org.getId()));
         s.append(mktFingerprint(w.org.getId()));
         for (String table : List.of("org_policy", "org_policy_version")) {
-            s.append(table).append(':').append(em.createNativeQuery("select * from " + table + " where org_id = ?1 order by 1").setParameter(1, w.org.getId()).getResultList().stream().map(r -> r instanceof Object[] a ? Arrays.deepToString(a) : String.valueOf(r)).toList()).append('
-');
+            s.append(table).append(':').append(em.createNativeQuery("select * from " + table + " where org_id = ?1 order by 1").setParameter(1, w.org.getId()).getResultList().stream().map(r -> r instanceof Object[] a ? Arrays.deepToString(a) : String.valueOf(r)).toList()).append('\n');
         }
         return s.toString();
     }
