@@ -27,17 +27,20 @@ public class UserBillingHandler {
     private final UserRepository userRepository;
     private final MailService mailService;
     private final StripeProperties stripeProperties;
+    private final com.dossier.api.service.billing.personal.PersonalAddonMirror addonMirror;
 
     public UserBillingHandler(
         SubscriptionRepository subscriptionRepository,
         UserRepository userRepository,
         MailService mailService,
-        StripeProperties stripeProperties
+        StripeProperties stripeProperties,
+        com.dossier.api.service.billing.personal.PersonalAddonMirror addonMirror
     ) {
         this.subscriptionRepository = subscriptionRepository;
         this.userRepository = userRepository;
         this.mailService = mailService;
         this.stripeProperties = stripeProperties;
+        this.addonMirror = addonMirror;
     }
 
     /** Apply one verified, non-duplicate, personal-scope event to the {@code subscription} mirror (moved unchanged from {@code BillingWebhookService}, K8.1). */
@@ -125,6 +128,9 @@ public class UserBillingHandler {
         if (event.cancelAtPeriodEnd() != null) sub.setCancelAtPeriodEnd(event.cancelAtPeriodEnd());
         sub.setLastEventAt(event.created());
         touch(sub);
+        subscriptionRepository.save(sub);
+        // K5.2: the add-on rows, the plan link and the quote status follow the subscription's items. Items whose prices are not catalog prices are ignored.
+        addonMirror.syncSubscription(sub, event);
         subscriptionRepository.save(sub);
     }
 

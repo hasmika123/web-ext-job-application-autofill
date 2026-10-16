@@ -128,5 +128,7 @@
     <include file="config/liquibase/changelog/20261101030000_sub_personal.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261101040000_sub_backfill.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261120010000_sub_stripe_event_scope.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121010000_sub_personal_quote.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121020000_sub_personal_addons.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
