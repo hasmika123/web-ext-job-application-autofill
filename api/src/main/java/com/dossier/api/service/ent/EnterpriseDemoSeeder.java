@@ -793,9 +793,14 @@ public class EnterpriseDemoSeeder {
      * Switches the enterprise flags on for the demo organizations through the same registry rows the flags read. A flag an admin
      * already turned on for everyone is left alone; otherwise the demo organizations are added to its allow list, so the
      * programme stays dark for every other organization on a shared dev database.
+     *
+     * <p>Which flags: every LIVE {@code flag.enterprise*} key of the registry ({@link EnterpriseSettingKeys#all()}), so a story that
+     * promotes a module flag from {@link EnterpriseSettingKeys#deferred()} to live lights it for the demo organizations with no
+     * edit here. A deferred flag is never written: it is not registered, nothing reads it, and a row for it would only fake a module
+     * whose pages and APIs do not exist yet (billing, hrFinance, integrations, analytics and extensionWorkspaces at the time of writing).
      */
     private void enableFlags(Set<Long> orgIds) {
-        for (String key : List.of(EnterpriseSettingKeys.FLAG_ENTERPRISE, EnterpriseSettingKeys.FLAG_DOMAINS, EnterpriseSettingKeys.FLAG_ROLES, EnterpriseSettingKeys.FLAG_MARKETING, EnterpriseSettingKeys.FLAG_CONSULTANT_JOBS)) {
+        for (String key : liveEnterpriseFlagKeys()) {
             ObjectNode flag = mapper.createObjectNode();
             JsonNode current = settingRows.findById(key).map(r -> parse(r.getValue())).orElse(null);
             Set<Long> allow = new LinkedHashSet<>();
@@ -820,6 +825,11 @@ public class EnterpriseDemoSeeder {
             allow.forEach(arr::add);
             write(key, flag.toString());
         }
+    }
+
+    /** Every live (registered, not deferred) enterprise flag key, in registry order. */
+    static List<String> liveEnterpriseFlagKeys() {
+        return EnterpriseSettingKeys.all().stream().map(k -> k.key()).filter(k -> k.startsWith("flag.enterprise")).toList();
     }
 
     /** {@code localhost} joins the tenant base domains in the registry (the resolver also needs dossier.tenant-host.allow-localhost-tenants). */

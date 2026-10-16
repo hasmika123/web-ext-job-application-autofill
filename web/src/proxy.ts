@@ -3,9 +3,10 @@ import { apiUrl } from "@/lib/config";
 import { SURFACE_HEADER, isRewriteExempt, isTenantRoutePath, isTenantPublicPath, requestHost, TENANT_HOST_HEADER, TENANT_ROUTE_PREFIX, tenantApiHeaders } from "@/lib/tenant-host";
 import { resolveHost } from "@/lib/tenant";
 import { clientIpFromHeaders } from "@/lib/rate-limit";
-import { ACCESS_COOKIE, REFRESH_COOKIE, sessionCookieNames, sessionCookieOptions, sessionCookieOptionsFor } from "@/lib/cookies";
+import { ACCESS_COOKIE, REFRESH_COOKIE, expiredCookieOptionsFor, sessionCookieNames, sessionCookieOptions, sessionCookieOptionsFor } from "@/lib/cookies";
 import { hasTenantClaim, isExpired, passwordChangeRequired } from "@/lib/jwt-claims";
 import { sameOriginForUnsafe } from "@/lib/origin-check";
+import { setTenantSecurityHeaders } from "@/lib/tenant-headers";
 import { loginRedirectPath } from "@/lib/tenant-urls";
 
 /**
@@ -57,11 +58,8 @@ function withHost(request: NextRequest, host: string, surface: "platform" | "ten
 // ---- tenant hosts (X2.6) ----------------------------------------------------------------------------------------------
 
 /** Security headers every tenant response carries (the full CSP set is X3.7; these four are the ones with no downside now). */
-function tenantHeaders(res: NextResponse): NextResponse {
-  res.headers.set("X-Robots-Tag", "noindex, nofollow");
-  res.headers.set("X-Content-Type-Options", "nosniff");
-  res.headers.set("X-Frame-Options", "DENY");
-  res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+function tenantHeaders(res: NextResponse, pathname: string): NextResponse {
+  setTenantSecurityHeaders(res.headers, pathname);
   return res;
 }
 
@@ -91,7 +89,8 @@ async function tenantSession(request: NextRequest, host: string): Promise<Tenant
 }
 
 async function tenantRequest(request: NextRequest, host: string, pathname: string, served: boolean) {
-  const notFound = () => tenantHeaders(new NextResponse("Not Found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } }));
+  const withTenantHeaders = (res: NextResponse) => tenantHeaders(res, pathname);
+  const notFound = () => withTenantHeaders(new NextResponse("Not Found", { status: 404, headers: { "content-type": "text/plain; charset=utf-8" } }));
   // T27: a state-changing request must come from this very host (Origin, else Referer); anything else is a generic 404.
   if (!sameOriginForUnsafe(request.method, request.headers, host)) return notFound();
 
@@ -102,12 +101,21 @@ async function tenantRequest(request: NextRequest, host: string, pathname: strin
     return NextResponse.rewrite(url, { request: { headers } });
   };
   // Not a served tenant (unknown host, or the API is down): the tenant layout answers 404 / "try again". No session logic.
-  if (!served) return tenantHeaders(isRewriteExempt(pathname) ? NextResponse.next({ request: { headers } }) : rewrite());
+  if (!served) return withTenantHeaders(isRewriteExempt(pathname) ? NextResponse.next({ request: { headers } }) : rewrite());
+
+  // The browser asks `/favicon.ico` on its own (the <link> is per-organization, but a tab, bookmark or history entry asks the bare
+  // path): on a served tenant that is the organization's own favicon, never Kiwiply's (`src/app/favicon.ico`).
+  if (pathname === "/favicon.ico") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/tenant-assets/favicon";
+    url.search = "";
+    return withTenantHeaders(NextResponse.rewrite(url, { request: { headers } }));
+  }
 
   const isAuthApi = pathname === "/api/auth" || pathname.startsWith("/api/auth/");
   const isStaticOrAsset = pathname.startsWith("/_next/") || pathname.startsWith("/tenant-assets/") || (!pathname.startsWith("/api/") && isRewriteExempt(pathname));
   // The BFF auth endpoints write the cookies themselves; static files and tenant assets need no session.
-  if (isAuthApi || isStaticOrAsset) return tenantHeaders(NextResponse.next({ request: { headers } }));
+  if (isAuthApi || isStaticOrAsset) return withTenantHeaders(NextResponse.next({ request: { headers } }));
 
   const session = await tenantSession(request, host);
   if (session.renewed) {
@@ -131,7 +139,7 @@ async function tenantRequest(request: NextRequest, host: string, pathname: strin
       redirect.cookies.set(names.access, session.renewed.accessToken, opts);
       if (session.renewed.refreshToken) redirect.cookies.set(names.refresh, session.renewed.refreshToken, opts);
     }
-    return tenantHeaders(redirect);
+    return withTenantHeaders(redirect);
   }
   let response: NextResponse;
   if (!session.authed && !isApi && !isTenantPublicPath(pathname)) {
@@ -145,10 +153,11 @@ async function tenantRequest(request: NextRequest, host: string, pathname: strin
     if (session.hadCookies) {
       // dead or foreign cookies: drop them so the sign-in page starts clean
       const names = sessionCookieNames(true);
-      response.cookies.delete(names.access);
-      response.cookies.delete(names.refresh);
+      const expired = expiredCookieOptionsFor(true); // __Host- cookies are only removed by a Secure, Path=/ expiry
+      response.cookies.set(names.access, "", expired);
+      response.cookies.set(names.refresh, "", expired);
     }
-    return tenantHeaders(response);
+    return withTenantHeaders(response);
   }
   response = isApi ? NextResponse.next({ request: { headers } }) : rewrite();
   if (session.renewed) {
@@ -157,7 +166,7 @@ async function tenantRequest(request: NextRequest, host: string, pathname: strin
     response.cookies.set(names.access, session.renewed.accessToken, opts);
     if (session.renewed.refreshToken) response.cookies.set(names.refresh, session.renewed.refreshToken, opts);
   }
-  return tenantHeaders(response);
+  return withTenantHeaders(response);
 }
 
 // ---- the platform (unchanged) ------------------------------------------------------------------------------------------
@@ -174,8 +183,9 @@ async function platformSession(request: NextRequest, host: string) {
     const headers = withHost(request, host, "platform");
     headers.set("cookie", request.cookies.toString());
     const dropped = NextResponse.next({ request: { headers } });
-    dropped.cookies.delete(ACCESS_COOKIE);
-    dropped.cookies.delete(REFRESH_COOKIE);
+    const expired = expiredCookieOptionsFor(false);
+    dropped.cookies.set(ACCESS_COOKIE, "", expired);
+    dropped.cookies.set(REFRESH_COOKIE, "", expired);
     return dropped;
   }
 

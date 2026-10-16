@@ -28,8 +28,10 @@ import { safeReturnTo } from "@/lib/tenant-urls";
  * literal), the support address and which social buttons exist (Google / Microsoft, only when the org's login options enable
  * them). Nothing is hard-coded to one organization and nothing falls back to another organization or to the Kiwiply site.
  *
- * Layout: a full-bleed illustrated plate (desk, bee, cat; no baked text) behind live HTML. From 1024 px the heading sits on
- * the left and a frosted-glass card on the right; below that the heading, the scene, then the card overlapping its lower part.
+ * Layout: a full-bleed illustrated plate (desk, bee, cat; no baked text) behind live HTML. From 768 px (a tablet or a laptop pane,
+ * not just a desktop) the scene fills the screen and the heading + frosted-glass card sit in a panel on the right, so the form is
+ * above the fold (the panel is a little narrower and tighter from 768 to 1023, the 1024+ look is unchanged); below 768 the heading,
+ * the scene (a capped height on a wide phone), then the card overlapping its lower part.
  *
  * States: the form; the admin / org MFA code step; NOT_A_MEMBER (correct credentials, no seat: a calm panel with "use a
  * different account" and no organization data); UNAVAILABLE (the API could not be reached: try again); 401 (an inline
@@ -75,7 +77,7 @@ const SCENE = { src: "/ent/login/bg-scene.webp", width: 1672, height: 941 };
 
 /** One decorative image: a tall crop around the bee that fades into the sky on a phone, full-bleed cover on a desktop. */
 function LoginBackdrop() {
-  const img = getImageProps({ ...SCENE, alt: "", sizes: "(min-width: 1024px) 100vw, 160vw", quality: 85 });
+  const img = getImageProps({ ...SCENE, alt: "", sizes: "(min-width: 768px) 100vw, 160vw", quality: 85 });
   return (
     <img
       {...img.props}
@@ -83,7 +85,7 @@ function LoginBackdrop() {
       data-tenant-plate
       loading="eager"
       fetchPriority="high"
-      className="pointer-events-none absolute inset-x-0 top-0 -z-10 block h-[150vw] w-full select-none object-cover [object-position:24%_40%] [mask-image:linear-gradient(to_bottom,black_72%,transparent)] lg:inset-0 lg:h-full lg:[mask-image:none] lg:[object-position:42%_14%]"
+      className="pointer-events-none absolute inset-x-0 top-0 -z-10 block h-[150vw] w-full select-none object-cover [object-position:24%_40%] [mask-image:linear-gradient(to_bottom,black_72%,transparent)] sm:h-[min(150vw,900px)] md:inset-0 md:h-full md:[mask-image:none] md:[object-position:30%_14%] lg:[object-position:42%_14%]"
     />
   );
 }
@@ -215,13 +217,13 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
     <main className="tenant-sky relative isolate min-h-dvh overflow-x-hidden text-[var(--brand-900)]" data-tenant-login>
       <LoginBackdrop />
       <div className="mx-auto flex min-h-dvh w-full max-w-[1600px] flex-col">
-        <div className="tenant-panel contents lg:absolute lg:inset-y-0 lg:right-6 xl:right-10 lg:z-10 lg:flex lg:w-[clamp(420px,34vw,520px)] lg:flex-col lg:overflow-y-auto lg:px-12 lg:py-10 lg:[&>*]:shrink-0 lg:[&>:first-child]:mt-auto lg:[&>:last-child]:mb-auto">
+        <div className="tenant-panel contents md:absolute md:inset-y-0 md:right-3 lg:right-6 xl:right-10 md:z-10 md:flex md:w-[clamp(400px,50vw,440px)] lg:w-[clamp(420px,34vw,520px)] md:flex-col md:overflow-y-auto md:px-4 md:py-6 lg:px-12 lg:py-10 md:[&>*]:shrink-0 md:[&>:first-child]:mt-auto md:[&>:last-child]:mb-auto">
         {/* ── heading (real text: the plate has none) ── */}
         <section
-          className="tenant-login-rise flex min-h-[36vw] flex-col items-center px-6 pt-7 text-center lg:mb-8 lg:min-h-0 lg:items-start lg:p-0 lg:text-left"
+          className="tenant-login-rise flex min-h-[min(36vw,141px)] flex-col items-center px-6 pt-7 text-center sm:min-h-0 md:mb-5 md:items-start md:p-0 md:text-left lg:mb-8"
           aria-labelledby={`${uid}-title`}
         >
-          <h1 id={`${uid}-title`} className="font-body relative max-w-[16ch] text-[32px] font-extrabold leading-[1.05] tracking-tight [text-shadow:0_0_10px_rgb(255_255_255/0.35)] sm:max-w-none sm:text-[48px] lg:text-[40px] xl:text-[44px]">
+          <h1 id={`${uid}-title`} className="font-body relative max-w-[16ch] text-[32px] font-extrabold leading-[1.05] tracking-tight [text-shadow:0_0_10px_rgb(255_255_255/0.35)] sm:max-w-none sm:text-[40px] md:text-[34px] lg:text-[40px] xl:text-[44px]">
             {title}
             <span aria-hidden className="relative inline-block h-0 w-0 align-top">
               <span className="tenant-spark absolute -top-1 left-2 h-9 w-9 sm:h-11 sm:w-11 lg:top-0">
@@ -231,15 +233,15 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
               </span>
             </span>
           </h1>
-          <p className="mt-2 max-w-[30ch] text-[15px] [text-shadow:0_0_8px_rgb(255_255_255/0.35)] leading-snug text-[var(--brand-800)] sm:max-w-[40ch] sm:text-[20px] lg:mt-3 lg:max-w-none lg:text-[17px]">{subtitle}</p>
+          <p className="mt-2 max-w-[30ch] text-[15px] [text-shadow:0_0_8px_rgb(255_255_255/0.35)] leading-snug text-[var(--brand-800)] sm:max-w-[40ch] sm:text-[17px] md:mt-2 md:max-w-none md:text-[16px] lg:mt-3 lg:text-[17px]">{subtitle}</p>
         </section>
 
         {/* the bee scene lives in the plate; this spacer keeps the card below it on a phone / tablet */}
-        <div aria-hidden className="h-[70vw] lg:hidden" />
+        <div aria-hidden className="h-[min(70vw,273px)] sm:h-[min(70vw,170px)] md:hidden" />
 
         {/* ── sign-in card (overlaps the lower part of the scene on a phone) ── */}
-        <section className="relative z-10 mx-auto w-full max-w-[480px] px-4 pb-10 sm:px-0 lg:max-w-none lg:p-0" aria-label="Sign in">
-          <div className="tenant-glass rounded-[28px] px-5 py-7 sm:px-9 sm:py-9">
+        <section className="relative z-10 mx-auto w-full max-w-[480px] px-4 pb-10 sm:px-0 md:max-w-none md:p-0" aria-label="Sign in">
+          <div className="tenant-glass rounded-[28px] px-5 py-7 sm:px-9 sm:py-9 md:px-6 md:py-7 lg:px-9 lg:py-9">
             {view === "notMember" && <NotMember name={name} onDifferent={switchAccount} />}
             {view === "unavailable" && <Unavailable onRetry={() => setView(mfaToken ? "mfa" : "form")} />}
             {view === "mfa" && (
@@ -395,14 +397,14 @@ function CardHeader({ title, subtitle, name, logoUrl, preview }: { title: string
   return (
     <div className="mb-6 flex items-center gap-4">
       <div className="min-w-0 flex-1">
-        <h2 className="font-body text-[32px] font-extrabold leading-tight tracking-tight sm:text-[38px]">{title}</h2>
+        <h2 className="font-body text-[32px] font-extrabold leading-tight tracking-tight sm:text-[38px] md:text-[32px] lg:text-[38px]">{title}</h2>
         <p className="mt-1 text-[15px] leading-snug text-[var(--brand-800)] sm:text-[16px]">{subtitle}</p>
       </div>
       <span aria-hidden className="h-16 w-px shrink-0 bg-[var(--brand-border)] sm:h-20" />
       <div
         data-logo-slot={placeholder ? "placeholder" : "logo"}
         className={cn(
-          "grid h-[68px] w-[92px] shrink-0 place-items-center rounded-2xl p-2 sm:h-[84px] sm:w-[116px]",
+          "grid h-[68px] w-[92px] shrink-0 place-items-center rounded-2xl p-2 sm:h-[84px] sm:w-[116px] md:h-[68px] md:w-[92px] lg:h-[84px] lg:w-[116px]",
           placeholder && "border-2 border-dashed border-[var(--brand-border)] bg-[var(--brand-subtle)] text-[var(--brand-text)]",
         )}
       >
