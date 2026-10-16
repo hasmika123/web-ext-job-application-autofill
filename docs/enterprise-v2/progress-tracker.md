@@ -447,6 +447,7 @@
 - 2026-10-16 - fix: the three IT failures after merging ent-actfor-fixes and ent-share-links are NOT caused by the combination; all three are the failures already documented as pre-existing in HANDOFF-ENT-RESUME-BUILDER-IN-ORG-REPORT.md and fail alone. Stale tests fixed (no main code changed, no assertion weakened): ConsultantResumesResourceIT fixture rows now state APPROVED (entity default is PENDING since d5bc7cca); MktResumesIT reads every page of the admin list (page cap 100 < seeded rows) and gives its seed() 120 s instead of the suite 15 s default. ConsultantResumesResourceIT, MktResumesIT, OrgResumeBuilderIT, ShareLink ITs and OrgIsolationIT green.
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 - 2026-10-16 - ent-demo (Sonnet, `demo-marketer-gaps2`): Talent Marketer gaps 2: consultant contact fields (phone, time zone, preferred contact; Liquibase 20261116010000, own Profile card, Org Admin drawer, marketer overview, fictional Acme seed), MKT-40 add a job by hand (`POST mkt/opportunities/job`, opportunities.manage, source MANUAL, deduped, audited), MKT-44 withdraw/reassign (`/withdraw`, `/reassign`, consultant notified, audit), Job Streams grid/filters hardened for 390 px (code-level only; browser check NOT verified, Playwright paused); stories MKT-40/44/50/53 updated.
 =======
 
@@ -455,3 +456,6 @@
 =======
 - 2026-10-16 - ent-demo admin gaps (Sonnet, `demo-admin-gaps`): Org Admin Reports page (`GET /api/orgs/{orgId}/reports/overview?range=30|90`, `reports.view` at ORG scope, real queries only, OrgIsolationIT row, OrgReportsIT against independent SQL counts; web tiles, 5 charts, tables, CSV with formula-safe cells), dashboard activation checklist widget (computed from real state, dismissible 7 days via the alert dismiss route, key CHECKLIST), invite copy no longer names a Kiwiply account, dead alert links /w/admin/assignments fixed to marketing-assignments, stories ADM-96/97. Browser walks not run (paused): not verified. OrgIsolationIT.everyOrgRepositoryMethodIsExercisedAcrossTenants fails on OrgAuditEventRepository.countByOrgIdAndAction, which comes from the base branch, not this work.
 >>>>>>> demo-admin-gaps
+=======
+- 2026-10-16 - ent-demo (Sonnet, `demo-pending-stories`): MKT-46 Captured jobs tab on Audit Logs (job-data audit, CSV with formula guard) and ADM-19 optional Team/Manager on Create account now + Send invitation (stories ADM-96, ADM-97); MKT-24 I applied was dropped here, it is built on ent-opp-unify. Web tests not yet run (see report).
+>>>>>>> demo-pending-stories

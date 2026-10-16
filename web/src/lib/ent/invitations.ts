@@ -43,16 +43,17 @@ export type ActivityKind = "INVITED" | "ACCEPTED" | "REVOKED" | "EXPIRED";
 export interface Activity { kind: ActivityKind; at: string; invitationId: number | null; email: string; name: string | null; actor: PersonRef | null }
 
 export interface RoleOption { id: number; key: string; name: string; description: string | null }
-export interface GroupOption { id: number; name: string }
+export interface GroupOption { id: number; name: string; /** A team's department, when it has one. */ parentGroupId?: number | null }
+export interface ManagerOption { memberId: number; name: string }
 /** What the invite form offers (the BFF's `form-options`): roles from GET roles, departments from GET groups. */
-export interface FormOptions { roles: RoleOption[]; departments: GroupOption[]; rolesAvailable: boolean; departmentsAvailable: boolean }
+export interface FormOptions { roles: RoleOption[]; departments: GroupOption[]; rolesAvailable: boolean; departmentsAvailable: boolean; /** ADM-19: optional Team and Manager (reports-to) choices. */ teams?: GroupOption[]; managers?: ManagerOption[] }
 
 export type RowStatus = "INVITED" | "INVALID" | "DUPLICATE" | "ALREADY_MEMBER";
 export interface InviteRow { entry: string; email: string | null; status: RowStatus; reason: string | null; memberId: number | null }
 export interface InviteResult { batchId: number | null; invited: { memberId: number; email: string; name: string | null }[]; rows: InviteRow[] }
 export interface BulkItem { id: number; status: "OK" | "FAILED"; code: string | null }
 
-export interface InviteBody { emails: string[]; fullName?: string; roleIds: number[]; departmentGroupId?: number; message?: string }
+export interface InviteBody { emails: string[]; fullName?: string; roleIds: number[]; departmentGroupId?: number; teamGroupId?: number; managerMemberId?: number; message?: string }
 
 export interface ListQuery {
   status: InviteStatus | "";
@@ -218,6 +219,8 @@ export interface AccountBody {
   password?: string;
   roleIds: number[];
   departmentGroupId?: number;
+  teamGroupId?: number;
+  managerMemberId?: number;
 }
 /** `ACCOUNT_CREATED`: active at once, must change the temporary password. `INVITED`: the address already had an account, so a normal invitation was sent instead. */
 export interface AccountResult { memberId: number | null; email: string; mode: "ACCOUNT_CREATED" | "INVITED"; tempPassword: string | null; tempPasswordExpiresAt: string | null; roleIds: number[] }

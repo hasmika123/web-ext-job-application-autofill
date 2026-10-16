@@ -120,3 +120,36 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     expect(calls.some((c) => c.url.endsWith("/members/account"))).toBe(false);
   });
 });
+
+describe("InvitePanel: optional Team and Manager (ADM-19)", () => {
+  const WITH_PLACEMENT: FormOptions = { ...OPTIONS, teams: [{ id: 31, name: "Platform", parentGroupId: null }], managers: [{ memberId: 5, name: "Mira Manager" }] };
+
+  it("offers no Team or Manager choice when the organization has neither", () => {
+    render(<InvitePanel orgId={7} options={OPTIONS} onSent={() => undefined} />);
+    expect(document.querySelector("[data-invite-placement]")).toBeNull();
+  });
+
+  it("Create account now sends the chosen team and manager (reports-to) to the API", async () => {
+    render(<InvitePanel orgId={7} options={WITH_PLACEMENT} onSent={() => undefined} />);
+    await waitFor(() => expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toBe(GENERATED));
+    await fillValid();
+    fireEvent.click(screen.getByRole("button", { name: "Team" }));
+    fireEvent.click(screen.getByRole("option", { name: "Platform" }));
+    fireEvent.click(screen.getByRole("button", { name: "Manager" }));
+    fireEvent.click(screen.getByRole("option", { name: "Mira Manager" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create Account" }));
+    await screen.findByRole("dialog", { name: "Account created" });
+    expect(calls.find((c) => c.url.endsWith("/members/account"))!.body).toMatchObject({ teamGroupId: 31, managerMemberId: 5 });
+  });
+
+  it("Send invitation sends them too, and leaves them out when nothing was chosen", async () => {
+    render(<InvitePanel orgId={7} options={WITH_PLACEMENT} onSent={() => undefined} />);
+    fireEvent.click(screen.getByRole("radio", { name: /Send invitation/ }));
+    await fillValid("lee@example.test");
+    fireEvent.click(screen.getByRole("button", { name: /Send Invitation/ }));
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/invitations") && c.method === "POST")).toBe(true));
+    const sent = calls.find((c) => c.url.endsWith("/invitations") && c.method === "POST")!.body!;
+    expect(sent).not.toHaveProperty("teamGroupId");
+    expect(sent).not.toHaveProperty("managerMemberId");
+  });
+});

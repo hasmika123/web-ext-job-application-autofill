@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import AuditPage from "@/components/ent/audit/AuditPage";
+import AuditTabs from "@/components/ent/audit/AuditTabs";
 import PageHeader from "@/components/ent/shell/ShellContext";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
 import { ErrorState } from "@kiwiply/ui";
@@ -27,7 +27,7 @@ export default async function WorkspaceAuditRoute({ params }: { params: Promise<
   return (
     <>
       <PageHeader title="Audit Logs" subtitle="Who did what in your organization, and when." />
-      <AuditPage orgId={me.org.id} />
+      <AuditTabs orgId={me.org.id} />
     </>
   );
 }

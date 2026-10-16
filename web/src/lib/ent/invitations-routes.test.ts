@@ -63,7 +63,7 @@ describe("the invitations BFF", () => {
       .mockReturnValueOnce(Response.json([{ id: 1, key: "OWNER", name: "Owner" }, { id: 6, key: "CONSULTANT", name: "Consultant", description: "d", permissions: [{ key: "x" }] }]))
       .mockReturnValueOnce(Response.json({ status: 403 }, { status: 403 })) as unknown as () => Response;
     const res = await formOptions(new Request("http://x"), ctx("2"));
-    expect(await res.json()).toEqual({ roles: [{ id: 6, key: "CONSULTANT", name: "Consultant", description: "d" }], departments: [], rolesAvailable: true, departmentsAvailable: false });
+    expect(await res.json()).toEqual({ roles: [{ id: 6, key: "CONSULTANT", name: "Consultant", description: "d" }], departments: [], teams: [], managers: [], rolesAvailable: true, departmentsAvailable: false });
     reply = vi
       .fn()
       .mockReturnValueOnce(Response.json([]))

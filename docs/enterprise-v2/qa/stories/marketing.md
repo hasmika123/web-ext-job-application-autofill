@@ -147,6 +147,7 @@ The 19 stories that failed after the marketing pages became the shared organizat
 - **Steps:** Ben opens the job; the helper copy says the extension tracks supported sites and otherwise "press I applied after you submit". He presses **I applied**: state **Applied**, button gone, tab Applied lists it. Omar opens the opportunity's details.
 - **Expected:** timeline shows "says they applied"; none of Omar's row-menu entries mentions applying or submitting (no marketer path to APPLIED).
 - **Automated by:** `job-pipeline.story.ts` "MKT-24 ...". **Status: AUTOMATED.** The live page now has **I applied** (row menu and details footer) behind a confirmation ("Kiwiply never applies or submits for you"); it only records Ben's own statement (state APPLIED, event "says they applied"), creates no application and submits nothing. **MKT-24b** (AUTOMATED) keeps the E1 guarantee: Ben's page offers no Apply or Submit button and Omar's board menu has no way to mark it applied or submit.
+- **Automated by:** `job-pipeline.story.ts` "MKT-24 ...". **Status: BLOCKED here: built on `ent-opp-unify` (one Assigned Opportunities page with I applied); not part of this branch.** **MKT-24b** (AUTOMATED) keeps the E1 guarantee: Ben's page offers no Apply, Submit or I applied and Omar's board menu has no way to mark it applied or submit.
 
 ### MKT-25 Sarah saves a job for Anika only: Anika sees it, Ben does not
 - **Personas:** sarah, anika, ben. **Goal:** per-consultant isolation of the pipeline.
@@ -242,7 +243,7 @@ The 19 stories that failed after the marketing pages became the shared organizat
 - **Status: BLOCKED: seed-dependent, not yet automated.** Needs SUGGESTED rows with updated resumes (Bulk) and assigned rows with no answer (Notify). The dialogs exist; the buttons are only asserted present in MKT-14.
 
 ### MKT-46 Admin audit of captured job data (who captured which job, when, with which extension version)
-- **Status: BLOCKED to ADM area.** `GET /api/orgs/{orgId}/audit/job-data` exists (doc 61 section 11); its page belongs to the admin stories.
+- **Status: BUILT, browser walk not verified.** Audit Logs (`/w/admin/audit`) has a **Captured jobs** tab over `GET /api/orgs/{orgId}/audit/job-data` (audit.view at ORG scope; anyone else the generic 404): job, who captured it, when, source and method, extension version, event count; date filters (API), search and source filter, paging, **Export CSV** of the rows on screen with spreadsheet formulas neutralized. Web `JobDataAudit.test.tsx`. See ADM-97.
 
 ## Summary
 
