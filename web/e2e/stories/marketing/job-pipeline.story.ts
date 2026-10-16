@@ -54,10 +54,9 @@ test.describe("MKT job pipeline", () => {
   /**
    * Omar saves a fresh job for Ben (the extension's "Save for consultant"), as every story below starts.
    *
-   * KNOWN PRODUCT GAP (reported in videos-index.md, "Findings"): the live consultant Assigned Opportunities page (ent-consultant) writes Ben's answers
-   * (Express Interest, Need More Info, Decline) to its own records, while Omar's Opportunities board (ent-marketer) reads its own interest state, so a consultant's
-   * answer never reaches the board, and a job saved from the extension has no cws_job_source row, so its Open job link is disabled. The "b" stories carry the
-   * marketer-side steps and are marked fixme until the two sides share one record.
+   * The consultant's answer is ONE record (mkt_opportunity): the live page's Express Interest, Need More Info, Decline, Reopen and I applied write it, and
+   * Omar's Opportunities board, its activity feed and answer-info read the same row (the "b" stories carry the marketer-side steps). A job saved from the
+   * extension has no cws_job_source row, so its Open job link is the job's own link.
    */
   async function savedForBen(as: Parameters<Parameters<typeof test>[2]>[0]["as"]) {
     const omar = await as("omar");
@@ -91,15 +90,10 @@ test.describe("MKT job pipeline", () => {
 
     await narrate(ben.page, "Open job link goes to the source site; Ben applies there himself");
     const link = sheet.locator("a[data-job-link]");
-    if ((await link.count()) > 0) {
-      const [posting] = await Promise.all([ben.context.waitForEvent("page"), link.click()]);
-      await expect(posting.getByRole("heading", { name: /job posting on the source site/i })).toBeVisible();
-      await posting.close();
-    } else {
-      // BLOCKED (product gap, see above): a job saved from the extension has no cws_job_source row, so the link is disabled.
-      test.info().annotations.push({ type: "BLOCKED", description: "Open job link is disabled for a job saved from the extension (no cws_job_source row)" });
-      await expect(sheet.locator("[data-job-link-missing]")).toBeVisible();
-    }
+    await expect(link).toHaveCount(1); // the job's own link: a job saved from the extension has no cws_job_source row
+    const [posting] = await Promise.all([ben.context.waitForEvent("page"), link.click()]);
+    await expect(posting.getByRole("heading", { name: /job posting on the source site/i })).toBeVisible();
+    await posting.close();
     await ben.page.keyboard.press("Escape");
 
     await narrate(ben.page, "Ben presses Express Interest");
@@ -108,7 +102,6 @@ test.describe("MKT job pipeline", () => {
   });
 
   test("MKT-21b Omar's board reads Interested once Ben has pressed Express Interest", async ({ as }) => {
-    test.fixme(true, "Product gap: the live consultant page's Express Interest does not reach the marketer's Opportunities board (stays No response)");
     const { omar, title } = await savedForBen(as);
     const ben = await as("ben");
     await ben.go("/w/consultant/opportunities");
@@ -135,7 +128,6 @@ test.describe("MKT job pipeline", () => {
   });
 
   test("MKT-22b Omar sees Ben's question, answers it, and Ben reads the answer", async ({ as }) => {
-    test.fixme(true, "Product gap: the live consultant page's Need More Info does not reach the marketer (answer-info answers NO_OPEN_INFO_REQUEST), and the page shows no answer");
     const { omar, orgId, title } = await savedForBen(as);
     const bena = await as("ben");
     await bena.go("/w/consultant/opportunities");
@@ -174,7 +166,6 @@ test.describe("MKT job pipeline", () => {
   });
 
   test("MKT-23b Omar's board shows Not Interested and the reason once Ben has declined", async ({ as }) => {
-    test.fixme(true, "Product gap: the live consultant page's Decline does not reach the marketer's Opportunities board (stays No response)");
     const { omar, title } = await savedForBen(as);
     const bena = await as("ben");
     await bena.go("/w/consultant/opportunities");
@@ -192,9 +183,7 @@ test.describe("MKT job pipeline", () => {
   });
 
   test("MKT-24 Ben presses I applied; the marketer sees that he says he applied (and the marketer has no apply button)", async ({ as }) => {
-    // BLOCKED: the live Assigned Opportunities page has no "I applied" button. The consultant applies on the source site with his own extension and
-    // the application then appears under My Applications; only the shadowed registry page (ent-marketer) offered I applied. MKT-24b covers the part that holds.
-    test.fixme(true, "The live consultant Assigned Opportunities page has no I applied action (see MKT-24b for the no-apply guarantee)");
+    // "I applied" is the consultant's own statement that he applied on the source site (a confirmation first; nothing is submitted by Kiwiply).
     const omar = await as("omar");
     await omar.go("/w/marketing/opportunities");
     await ready(omar.page, "[data-opportunities]").waitFor();
@@ -207,15 +196,19 @@ test.describe("MKT job pipeline", () => {
     await bena.go("/w/consultant/opportunities");
     await ready(bena.page, "[data-consultant-opportunities]").waitFor();
     await conRow(bena.page, title).locator("[data-action=view]").click();
-    await bena.page.getByRole("button", { name: "I applied" }).click();
+    await bena.page.getByRole("dialog", { name: title }).getByRole("button", { name: "I applied" }).click();
+    await narrate(bena.page, "A confirmation says Kiwiply never applies for him; he confirms that he did");
+    await expect(bena.page.locator("[data-applied-confirm]")).toContainText("never applies or submits for you");
+    await bena.page.getByRole("button", { name: "Yes, I applied" }).click();
+    await expect(bena.page.getByText("Marked as applied. Your marketer can see it.")).toBeVisible();
+    await expect(conRow(bena.page, title)).toContainText("Applied");
     await omar.go("/w/marketing/opportunities");
     const row = await boardRow(omar.page, title);
-    await row.getByRole("button", { name: /^More for Ben Okafor/ }).click();
-    await omar.page.getByRole("menuitem", { name: "Open details" }).click();
+    await menuAction(omar.page, row.getByRole("button", { name: /^More for Ben Okafor/ }), "Open details");
     await expect(omar.page.locator("[data-opp-dialog]")).toContainText(/says they applied/);
   });
 
-  test("MKT-24b Nobody can apply for Ben inside Kiwiply: Ben's page offers no Apply or Submit, and neither does Omar's board", async ({ as }) => {
+  test("MKT-24b Nobody can apply for Ben inside Kiwiply: Ben's page offers no Apply or Submit (only his own I applied statement), and neither does Omar's board", async ({ as }) => {
     const omar = await as("omar");
     await omar.go("/w/marketing/opportunities");
     await ready(omar.page, "[data-opportunities]").waitFor();
@@ -228,10 +221,10 @@ test.describe("MKT job pipeline", () => {
     const bena = await as("ben");
     await bena.go("/w/consultant/opportunities");
     await ready(bena.page, "[data-consultant-opportunities]").waitFor();
-    await narrate(bena.page, "Ben's page has the posting link and his own answers, but no Apply, Submit or I applied");
+    await narrate(bena.page, "Ben's page has the posting link and his own answers, but no Apply or Submit (I applied is only his statement, behind a confirmation)");
     await conRow(bena.page, title).locator("[data-action=view]").click();
     await expect(bena.page.getByRole("dialog", { name: title }).locator("[data-detail]")).toBeVisible();
-    await expect(bena.page.getByRole("button", { name: /^(Apply|Submit|I applied)/i })).toHaveCount(0);
+    await expect(bena.page.getByRole("button", { name: /^(Apply|Submit)/i })).toHaveCount(0);
 
     await narrate(omar.page, "Omar's board has no way to mark it applied or to submit it");
     await omar.go("/w/marketing/opportunities");
