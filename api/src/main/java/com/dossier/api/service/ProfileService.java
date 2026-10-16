@@ -373,8 +373,13 @@ public class ProfileService {
             }
             return;
         }
-        boolean pro = entitlementService.isPro(login);
-        int limit = resumeLimit(pro);
+        boolean pro = entitlementService.has(login, com.dossier.api.service.entitlement.FeatureKeys.Capability.AI_SERVER);
+        int legacyLimit = resumeLimit(pro);
+        // K7.3: the catalog decides the cap once the shadow is off; while shadowed the legacy constants answer and the resolver is only compared
+        int limit = entitlementService
+            .limitFor(login, com.dossier.api.service.entitlement.FeatureKeys.Limit.RESUMES_MAX, legacyLimit)
+            .map(Long::intValue)
+            .orElse(legacyLimit);
         long live = resumeRepository
             .findByUserIsCurrentUser()
             .stream()

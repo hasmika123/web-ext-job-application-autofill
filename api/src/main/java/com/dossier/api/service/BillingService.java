@@ -72,7 +72,7 @@ public class BillingService {
 
         // Already paying: sending them through checkout again would create a second
         // subscription and charge them twice. The portal is where they belong.
-        if (entitlementService.isPro(user.getLogin())) {
+        if (entitlementService.hasPaidPlan(user.getLogin())) {
             throw new BillingException(
                 HttpStatus.CONFLICT.value(),
                 BillingException.CODE_ALREADY_SUBSCRIBED,
