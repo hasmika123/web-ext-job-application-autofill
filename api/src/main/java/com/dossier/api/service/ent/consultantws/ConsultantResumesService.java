@@ -363,10 +363,11 @@ public class ConsultantResumesService {
      */
     private void requireReviewedVersion(OrgResume r, Integer versionNo, String contentHash) {
         if (versionNo == null) throw OrgException.invalid("versionNo", "is required: send the version you reviewed");
-        if (contentHash == null || contentHash.isBlank()) throw OrgException.invalid("contentHash", "is required: send the version you reviewed");
         String current = hashOf(r);
+        // a row with no builder document behind it has no content to change under the consultant's hands: its version number is the whole token
+        if (current != null && (contentHash == null || contentHash.isBlank())) throw OrgException.invalid("contentHash", "is required: send the version you reviewed");
         int currentVersion = r.getVersionNo() == null ? 1 : r.getVersionNo();
-        if (versionNo != currentVersion || current == null || !current.equals(contentHash.strip())) {
+        if (versionNo != currentVersion || (current != null && !current.equals(contentHash.strip()))) {
             throw OrgException.coded(409, "RESUME_CHANGED", "This resume changed after you opened it. Review the new version, then decide.", Map.of("versionNo", currentVersion));
         }
     }
