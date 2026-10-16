@@ -34,7 +34,10 @@
         <addForeignKeyConstraint baseTableName="talent_placement" baseColumnNames="org_id, client_contact_id" constraintName="fk_talent_placement_contact" referencedTableName="client_contact" referencedColumnNames="org_id, id"/>
         <createIndex tableName="talent_placement" indexName="ix_talent_placement_pool"><column name="org_id"/><column name="redeployment_pool"/></createIndex>
         <createIndex tableName="talent_placement" indexName="ix_talent_placement_am"><column name="org_id"/><column name="account_manager_member_id"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_placement" constraintName="fk_talent_placement_am"/>
+        </rollback>
     </changeSet>
 
     <!-- Existing rows: the account manager is the consultant's marketer, the contact is the client's first contact, the type follows the job's employment. -->
@@ -78,7 +81,11 @@
         <addForeignKeyConstraint baseTableName="placement_extension" baseColumnNames="org_id, decided_by_member_id" constraintName="fk_placement_ext_decided_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="placement_extension" indexName="ix_placement_ext_placement"><column name="org_id"/><column name="placement_id"/><column name="status"/></createIndex>
         <createIndex tableName="placement_extension" indexName="ix_placement_ext_status"><column name="org_id"/><column name="status"/><column name="created_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="placement_extension" constraintName="fk_placement_ext_requested_by"/>
+            <dropForeignKeyConstraint baseTableName="placement_extension" constraintName="fk_placement_ext_decided_by"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="ent-placements-5-note" author="enterprise" runInTransaction="false">
@@ -95,7 +102,10 @@
         <addForeignKeyConstraint baseTableName="placement_note" baseColumnNames="org_id, placement_id" constraintName="fk_placement_note_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
         <addForeignKeyConstraint baseTableName="placement_note" baseColumnNames="org_id, author_member_id" constraintName="fk_placement_note_author" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="placement_note" indexName="ix_placement_note_placement"><column name="org_id"/><column name="placement_id"/><column name="created_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="placement_note" constraintName="fk_placement_note_author"/>
+        </rollback>
     </changeSet>
 
     <!-- Append-only timeline of a placement; prev_* hold the state before the change, which is what an Undo restores. -->
@@ -120,6 +130,9 @@
         <addForeignKeyConstraint baseTableName="placement_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_placement_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="placement_event" indexName="ix_placement_event_placement"><column name="org_id"/><column name="placement_id"/><column name="occurred_at"/></createIndex>
         <createIndex tableName="placement_event" indexName="ix_placement_event_type"><column name="org_id"/><column name="event_type"/><column name="occurred_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="placement_event" constraintName="fk_placement_event_actor"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>

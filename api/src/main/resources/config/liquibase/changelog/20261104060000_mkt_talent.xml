@@ -35,6 +35,9 @@
         <addUniqueConstraint tableName="mkt_saved_view" columnNames="org_id, id" constraintName="uk_mkt_saved_view_org_id"/>
         <addUniqueConstraint tableName="mkt_saved_view" columnNames="org_id, member_id, page_key, name" constraintName="uk_mkt_saved_view_name"/>
         <createIndex tableName="mkt_saved_view" indexName="ix_mkt_saved_view_member"><column name="org_id"/><column name="member_id"/><column name="page_key"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_saved_view" constraintName="fk_mkt_saved_view_member"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>

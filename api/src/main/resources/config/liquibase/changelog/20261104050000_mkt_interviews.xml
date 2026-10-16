@@ -78,7 +78,10 @@
         <addForeignKeyConstraint baseTableName="mkt_interview_feedback" baseColumnNames="org_id, interview_id" constraintName="fk_mkt_interview_feedback_interview" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
         <addForeignKeyConstraint baseTableName="mkt_interview_feedback" baseColumnNames="org_id, recorded_by_member_id" constraintName="fk_mkt_interview_feedback_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="mkt_interview_feedback" indexName="ix_mkt_interview_feedback_interview"><column name="org_id"/><column name="interview_id"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_interview_feedback" constraintName="fk_mkt_interview_feedback_member"/>
+        </rollback>
     </changeSet>
 
     <changeSet id="mkt-interviews-4-mkt_interview_event" author="enterprise" runInTransaction="false">
@@ -97,6 +100,9 @@
         <addForeignKeyConstraint baseTableName="mkt_interview_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_mkt_interview_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="mkt_interview_event" indexName="ix_mkt_interview_event_kind"><column name="org_id"/><column name="kind"/><column name="occurred_at"/></createIndex>
         <createIndex tableName="mkt_interview_event" indexName="ix_mkt_interview_event_interview"><column name="org_id"/><column name="interview_id"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_interview_event" constraintName="fk_mkt_interview_event_actor"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>

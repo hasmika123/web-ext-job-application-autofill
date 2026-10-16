@@ -47,7 +47,10 @@
     <changeSet id="phase1-job-identity-4-captured_by_fk" author="enterprise" runInTransaction="false">
         <preConditions onFail="MARK_RAN"><not><foreignKeyConstraintExists foreignKeyTableName="client_requirement" foreignKeyName="fk_client_requirement_captured_by"/></not></preConditions>
         <addForeignKeyConstraint baseTableName="client_requirement" baseColumnNames="org_id, captured_by_member_id" constraintName="fk_client_requirement_captured_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="client_requirement" constraintName="fk_client_requirement_captured_by"/>
+        </rollback>
     </changeSet>
 
     <!-- requirement_match: optimistic locking. -->

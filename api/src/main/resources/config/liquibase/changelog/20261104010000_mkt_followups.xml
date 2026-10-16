@@ -40,7 +40,10 @@
         <createIndex tableName="mkt_followup" indexName="ix_mkt_followup_due"><column name="org_id"/><column name="status"/><column name="due_at"/></createIndex>
         <createIndex tableName="mkt_followup" indexName="ix_mkt_followup_consultant"><column name="org_id"/><column name="consultant_id"/><column name="due_at"/></createIndex>
         <createIndex tableName="mkt_followup" indexName="ix_mkt_followup_completed"><column name="org_id"/><column name="completed_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_followup" constraintName="fk_mkt_followup_owner"/>
+        </rollback>
     </changeSet>
 
     <!-- Append-only log of what the marketer did on a follow-up: a call logged, a reminder REQUEST recorded (nothing is mailed), a status change. -->
@@ -60,6 +63,9 @@
         <addForeignKeyConstraint baseTableName="mkt_followup_event" baseColumnNames="org_id, by_member_id" constraintName="fk_mkt_followup_event_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="mkt_followup_event" indexName="ix_mkt_followup_event_followup"><column name="org_id"/><column name="followup_id"/><column name="occurred_at"/></createIndex>
         <createIndex tableName="mkt_followup_event" indexName="ix_mkt_followup_event_kind"><column name="org_id"/><column name="kind"/><column name="occurred_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_followup_event" constraintName="fk_mkt_followup_event_by"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>
