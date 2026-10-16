@@ -170,6 +170,15 @@ public class ApplicationSyncService {
     }
 
     /**
+     * Whether the current user already has an entry for the job this payload names (the same match {@link #upsertApplication} uses). The marketer's
+     * "Save for consultant" asks it first so that saving a job the consultant already moved along never pulls its status back to SAVED (X9.15).
+     */
+    @Transactional(readOnly = true)
+    public boolean hasEntryFor(ApplicationDTO dto) {
+        return findDedupMatch(dto) != null;
+    }
+
+    /**
      * Partial update of one of the current user's applications (status changes,
      * confirm-submit, manual edits from the board). A {@code null} field is left
      * as-is. 404 if the application isn't owned by the current user.

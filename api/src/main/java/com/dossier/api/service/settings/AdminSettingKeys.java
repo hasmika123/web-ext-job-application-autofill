@@ -36,6 +36,8 @@ public final class AdminSettingKeys {
     public static final String JOBS_DISABLE_AFTER_FAILURES = "jobs.disable_after_failures";
     public static final String INBOX_POLL_MINUTES = "inbox.poll_minutes";
     public static final String INBOX_RETENTION_DAYS = "inbox.retention_days";
+    /** Change audit (docs/change-audit/README.md section 4.4): months of {@code application_event} history kept; 0 = for the life of the application. */
+    public static final String TRACKER_HISTORY_RETENTION_MONTHS = "tracker.history.retention_months";
     public static final String OPS_ERROR_DIGEST_TO = "ops.error_digest.to";
     public static final String OPS_ERROR_DIGEST_INTERVAL_MIN = "ops.error_digest.interval_min";
     public static final String OPS_MAINTENANCE = "ops.maintenance";
@@ -78,6 +80,9 @@ public final class AdminSettingKeys {
         // Inbox (the user's own Gmail over IMAP).
         integer(k, INBOX_POLL_MINUTES, 15, 5, 120, Risk.MEDIUM, "How often connected inboxes are read, in minutes." + NOT_ENFORCED);
         integer(k, INBOX_RETENTION_DAYS, 365, 30, 730, Risk.HIGH, "Stored mail is deleted this many days after it was sent." + NOT_ENFORCED);
+
+        // Tracker history (change audit, U6.15): read by TrackerHistoryRetentionJob. 0 = for the life of the application (decision D5).
+        integer(k, TRACKER_HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW, "Months of application history kept; 0 keeps it as long as the application exists.");
 
         // Ops.
         k.add(new Key(OPS_ERROR_DIGEST_TO, Type.STRING, "", null, null, null, "Where the server-error digest is emailed. Blank = the deployment's recipient." + NOT_ENFORCED, null, Risk.LOW));
