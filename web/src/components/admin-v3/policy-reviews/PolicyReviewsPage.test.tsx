@@ -43,7 +43,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const flush = () => act(async () => void (await new Promise((res) => setTimeout(res, 30))));
+const flush = () => act(async () => void (await new Promise((res) => setTimeout(res, 150))));
 
 describe("Policy reviews", () => {
   it("lists what is waiting and shows a line diff against the live text", async () => {

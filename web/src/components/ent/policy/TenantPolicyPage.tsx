@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import TenantLogo from "@/components/ent/login/TenantLogo";
 import PolicyLinks from "@/components/ent/policy/PolicyLinks";
@@ -34,9 +35,9 @@ export default async function TenantPolicyPage({ kind }: { kind: string }) {
     <div className="min-h-dvh bg-paper-2 text-ink" data-tenant-policy-page data-policy-kind={policy.kind}>
       <header className="border-b border-line bg-paper">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-          <a href="/" aria-label={`${policy.orgName} home`} className="inline-flex min-h-11 items-center">
+          <Link href="/" aria-label={`${policy.orgName} home`} className="inline-flex min-h-11 items-center">
             <TenantLogo name={t.tenant.displayName} logoUrl={t.tenant.branding?.logoUrl} size="bar" />
-          </a>
+          </Link>
           <a href="/login" className="inline-flex min-h-11 items-center text-[14px] font-semibold text-accent-deep hover:underline">
             Sign in
           </a>

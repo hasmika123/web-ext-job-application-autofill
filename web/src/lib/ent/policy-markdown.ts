@@ -27,7 +27,7 @@ export function safeHref(target: string): boolean {
   return t.startsWith("/") || t.startsWith("#");
 }
 
-const LINK = /^\[([^\]]*)\]\(\s*([^)\s]*)[^)]*\)/;
+const LINK = /^\[([^\]]*)\]\(\s*((?:[^()\s]|\([^()]*\))*)(?:\s+[^)]*)?\)/;
 
 /** Inline parse. Unbalanced markers are literal text. Depth is bounded by the nesting of `**` / `*` / `[ ]`, itself bounded by the line length. */
 export function parseInline(src: string): Inline[] {

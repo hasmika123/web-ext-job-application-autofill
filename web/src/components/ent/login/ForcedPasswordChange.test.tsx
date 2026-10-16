@@ -37,7 +37,9 @@ describe("ForcedPasswordChange", () => {
     vi.stubGlobal("fetch", fetchMock);
     render(<ForcedPasswordChange name="Acme Staffing" />);
     expect(screen.getByText(/temporary password for Acme Staffing/)).toBeTruthy();
-    expect(screen.queryByRole("navigation")).toBeNull();
+    // the only navigation is the organization's own policy links (same-host paths), nothing that leaves the page
+    const navs = screen.queryAllByRole("navigation");
+    expect(navs.every((n) => n.hasAttribute("data-policy-links"))).toBe(true);
     fill("tmp", "abc", "abc");
     fireEvent.click(screen.getByRole("button", { name: /Save and continue/ }));
     expect(screen.getByRole("alert").textContent).toMatch(/at least 4/);
