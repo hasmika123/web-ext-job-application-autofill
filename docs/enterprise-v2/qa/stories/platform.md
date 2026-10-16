@@ -386,3 +386,17 @@ Temporary passwords are read from the shown-once dialog at run time and never pr
 - **Expected:** the dialog always shows a temporary password (never "no password was issued ... existing account"); the owner's personal account still signs in on kiwiply.com with its old password, keeps its resume and has no new membership; the platform `/org` console and the admin customer lists show nothing for the new enterprise account.
 - **Pages / APIs:** `/admin/organizations`, `POST /api/admin/organizations`.
 - **Status: STORY-ONLY**
+
+## Seeds, migration tool and health query (S10, decision O4; described only, no spec yet)
+
+### APP-07 The owner is created while a personal account with that email exists
+- **Persona:** the app admin. **Preconditions:** the QA stack is seeded with Gamma Consulting (`gamma.localhost`, SEPARATE); a personal account `gina.alvarez@gamma.example.com` is created on kiwiply.com first (password of its own, one saved resume). **Steps:** 1. In Organizations choose Create organization with that exact owner address. 2. Read the shown-once dialog and copy the temporary password. 3. Open the new address, sign in with the address and the temporary password, choose a password. 4. On kiwiply.com sign in with the address and the personal password.
+- **Expected:** the dialog and the response are identical to those of an address nobody has used (a temporary password, `CREATED`); the owner lands on the Organization Dashboard of the new organization; the personal account signs in only on kiwiply.com, still has its resume and password, shows no organization anywhere, and the temporary or the chosen enterprise password is refused on kiwiply.com while the personal password is refused on the new address.
+- **Pages / APIs:** `/admin/organizations`, `POST /api/admin/orgs`, tenant `/login`, kiwiply.com `/login`.
+- **Status: STORY-ONLY (the API half is covered by `SeparateAccountsRegressionIT`)**
+
+### PLT-56 The app admin checks accounts before an organization is switched to separate accounts
+- **Persona:** the app admin (API tools only: there is no page for these yet). **Preconditions:** a legacy SHARED organization whose two members are personal accounts. **Steps:** 1. `GET /api/admin/orgs/{id}/account-mode-check`: `seatsOnPersonalAccounts` is 2, `readyForSeparate` false. 2. `POST /api/admin/orgs/{id}/account-migration` with `{"apply":false}`: a dry-run report (`wouldCreate` 2, nothing written). 3. The same with `{"apply":true,"reason":"..."}` (10+ characters). 4. Repeat the check. 5. `GET /api/admin/enterprise-accounts/health`.
+- **Expected:** the apply creates two new enterprise accounts, repoints the two seats and leaves every personal account (id, password, resumes, sessions) exactly as it was; the second check says 0 and `readyForSeparate` true; the organization stays SHARED and `enterprise.separate_accounts` is not changed (flipping is a separate, deliberate step); History of the organization shows one HIGH row `ADMIN_ACCOUNT_MIGRATE` without addresses; the health query lists eight invariants with counts only (no address, login or name) and a total of 0 on a healthy database.
+- **Pages / APIs:** `GET /api/admin/orgs/{id}/account-mode-check`, `GET /api/admin/orgs/account-migration/report`, `POST /api/admin/orgs/{id}/account-migration`, `GET /api/admin/enterprise-accounts/health`.
+- **Status: STORY-ONLY (covered by `EnterpriseAccountMigrationJobIT` and `EnterpriseAccountInvariantIT`)**

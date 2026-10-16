@@ -323,3 +323,11 @@ Not built: the invitation form has no Team or Manager field (department only), s
 ### ADM-93 The admin dialogs describe a new, separate organization account
 - **Persona:** Olivia (Org Admin). **Steps:** open Invitations, mode "Create account now". **Expected:** the helper line says the organization account is created now with a temporary password and that any personal Kiwiply account the person has is not touched or linked; the result is always the shown-once temporary-password dialog (no "already has a Kiwiply account" outcome for a SEPARATE organization).
 - **Status: STORY-ONLY**
+
+## Separate accounts end to end for a person who also has a personal account (S10, decision O4; described only, no spec yet)
+
+### ADM-94 Dana is created at Gamma, works there, is offboarded, and her personal account is never involved
+- **Persona:** Gina (Owner of Gamma Consulting, `gamma.localhost`) and Dana (Gamma consultant who also has a personal Kiwiply account with the same address `dana.moreau@gamma.example.com`). **Steps:** 1. Gina opens Invitations, mode "Create account now", adds Dana (role Consultant) and copies the temporary password. 2. Dana signs in at `gamma.localhost` with her address and the temporary password and chooses a password. 3. Dana opens kiwiply.com and signs in with her personal password. 4. Gina offboards Dana from Members (reason, then type her name).
+- **Expected:** step 1 looks the same for any address (no hint that a personal account exists); step 2 lands on the workspace; step 3 shows her personal account exactly as before (its resumes, no Gamma membership); after step 4 Dana's Gamma session ends on its next click and she cannot sign in at Gamma ("not a member"), while the personal account still signs in and works; Gina's audit trail shows the removal and the account being disabled, without Dana's address.
+- **Pages / APIs:** Invitations, Members, `POST /api/orgs/{id}/members/account`, `POST /api/orgs/{id}/members/{seat}/offboard`, kiwiply.com `/login`.
+- **Status: STORY-ONLY (the API walk is `SeparateAccountsRegressionIT`)**
