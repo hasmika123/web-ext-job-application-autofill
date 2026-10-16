@@ -27,6 +27,8 @@ export interface BuilderEnv {
   keepOriginal: boolean;
   /** The organization directory row a marketer is editing the consultant's resume for; every `/api` call of the editor then names it (see {@link ActForHeader}). */
   actForRow: number | null;
+  /** The builder resume behind {@link actForRow}: the ONLY resume whose `/api/resumes/<id>/...` calls carry the act-for header. */
+  actForResumeId: number | null;
 }
 
 export const PERSONAL_ENV: BuilderEnv = {
@@ -39,6 +41,7 @@ export const PERSONAL_ENV: BuilderEnv = {
   createBuiltUrl: "/api/resumes/built",
   keepOriginal: true,
   actForRow: null,
+  actForResumeId: null,
 };
 
 /** A consultant's own resumes inside their organization workspace: same builder, the tenant URL, the license's cap, no Kiwiply plans. */
@@ -53,6 +56,7 @@ export function consultantEnv(orgId: number | string): BuilderEnv {
     createBuiltUrl: `/api/orgs/${orgId}/me-workspace/resumes/built`,
     keepOriginal: true,
     actForRow: null,
+    actForResumeId: null,
   };
 }
 
@@ -68,11 +72,12 @@ export function actForEnv(orgId: number | string, consultantId: number | string)
     createBuiltUrl: `/api/orgs/${orgId}/mkt/resumes/consultants/${consultantId}/built`,
     keepOriginal: false,
     actForRow: null,
+    actForResumeId: null,
   };
 }
 
 /** A marketer editing a consultant's resume in the same editor: the directory row it is for travels on every call, the API gate decides. */
-export function actForEditorEnv(orgResumeId: number): BuilderEnv {
+export function actForEditorEnv(orgResumeId: number, resumeId: number): BuilderEnv {
   return {
     kind: "actFor",
     listHref: "/w/marketing/resumes",
@@ -83,28 +88,60 @@ export function actForEditorEnv(orgResumeId: number): BuilderEnv {
     createBuiltUrl: "",
     keepOriginal: false,
     actForRow: orgResumeId,
+    actForResumeId: resumeId,
   };
 }
 
+/** The act-for header's name (the API's gate reads it; the BFF forwards it). */
+export const ACT_FOR_HEADER = "X-Kiwiply-Act-For";
+
+/** The one browser route that tells the editor what it may show; it carries no resume id. */
+const BUILDER_CONFIG_PATHS = new Set(["/api/resumes/builder-config", "/api/profile/resume-builder/config"]);
+
 /**
- * While a marketer edits a consultant's resume, every same-origin `/api/` call the one editor makes carries `X-Kiwiply-Act-For: <row>`. The editor's many
- * fetchers stay exactly what they are; the BFF forwards the header (`serverApiFetch`) and the API's act-for gate checks organization host, permission, ASSIGNED
- * scope and an allow-list of routes on every call, so the header grants nothing by itself. Installed before the editor's own effects run and always removed.
+ * Whether a request of the act-for editor names the act-for resume: a SAME-ORIGIN URL whose path is `/api/resumes/<resumeId>` (or beneath it), or the
+ * builder-config route. Cross-origin URLs, other resumes and every other `/api/` path (the marketer's own data) are never tagged.
  */
-function ActForHeader({ row }: { row: number }) {
-  useLayoutEffect(() => {
-    const original = window.fetch;
-    window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = typeof input === "string" ? input : input instanceof URL ? input.pathname : input.url;
-      if (!url.startsWith("/api/")) return original(input, init);
-      const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
-      headers.set("X-Kiwiply-Act-For", String(row));
-      return original(input, { ...init, headers });
-    };
-    return () => {
-      window.fetch = original;
-    };
-  }, [row]);
+export function actForApplies(input: RequestInfo | URL, resumeId: number, origin: string): boolean {
+  let url: URL;
+  try {
+    const raw = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    url = new URL(raw, origin);
+  } catch {
+    return false;
+  }
+  if (url.origin !== origin) return false;
+  if (BUILDER_CONFIG_PATHS.has(url.pathname)) return true;
+  const own = `/api/resumes/${resumeId}`;
+  return url.pathname === own || url.pathname.startsWith(`${own}/`);
+}
+
+/**
+ * Wraps `window.fetch` so the act-for editor's calls about THE act-for resume carry `X-Kiwiply-Act-For: <row>`. The editor's ~20 lib fetchers stay what they
+ * are (threading a header through all of them is not a contained change); the wrapper is narrow instead: same-origin, `/api/resumes/<that resume>/...` and
+ * the builder config only. The API's act-for gate re-checks organization host, token tenant, permission, ASSIGNED scope and an allow-list of routes on every
+ * call, so the header grants nothing by itself. Returns an uninstall that always restores fetch (and turns the wrapper into a pass-through even if
+ * something else wrapped fetch on top of it in the meantime).
+ */
+export function installActForFetch(row: number, resumeId: number): () => void {
+  const original = window.fetch;
+  let active = true;
+  const wrapped: typeof window.fetch = (input, init) => {
+    if (!active || !actForApplies(input, resumeId, window.location.origin)) return original(input, init);
+    const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+    headers.set(ACT_FOR_HEADER, String(row));
+    return original(input, { ...init, headers });
+  };
+  window.fetch = wrapped;
+  return () => {
+    active = false;
+    if (window.fetch === wrapped) window.fetch = original;
+  };
+}
+
+/** Installed before the editor's own effects run; removed on unmount and whenever the row or resume changes. */
+function ActForHeader({ row, resumeId }: { row: number; resumeId: number }) {
+  useLayoutEffect(() => installActForFetch(row, resumeId), [row, resumeId]);
   return null;
 }
 
@@ -113,7 +150,7 @@ const BuilderEnvContext = createContext<BuilderEnv>(PERSONAL_ENV);
 export function BuilderEnvProvider({ env, children }: { env: BuilderEnv; children: ReactNode }) {
   return (
     <BuilderEnvContext.Provider value={env}>
-      {env.actForRow !== null && <ActForHeader row={env.actForRow} />}
+      {env.actForRow !== null && env.actForResumeId !== null && <ActForHeader row={env.actForRow} resumeId={env.actForResumeId} />}
       {children}
     </BuilderEnvContext.Provider>
   );

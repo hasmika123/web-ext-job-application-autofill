@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createRef } from "react";
 import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@kiwiply/ui";
 import { DEFAULT_BUILDER_CONFIG, PERSONAL_CAPABILITIES } from "@/lib/resume-builder-config.shared";
 import { testMeta } from "./test-meta";
@@ -14,7 +14,7 @@ vi.mock("@/lib/resume-meta", async (orig) => ({ ...(await orig<typeof import("@/
 
 import EditorTopBar from "./EditorTopBar";
 import ResumeSettingsSheet from "./ResumeSettingsSheet";
-import { BuilderEnvProvider, PERSONAL_ENV, actForEditorEnv, consultantEnv } from "./builderEnv";
+import { BuilderEnvProvider, PERSONAL_ENV, actForApplies, actForEditorEnv, consultantEnv } from "./builderEnv";
 
 afterEach(() => {
   cleanup();
@@ -42,6 +42,7 @@ describe("the builder environment", () => {
     expect(PERSONAL_ENV.brandHref).toBe("/dashboard");
     expect(PERSONAL_ENV.upgradeHref).toBe("/pricing");
     expect(PERSONAL_ENV.actForRow).toBeNull();
+    expect(PERSONAL_ENV.actForResumeId).toBeNull();
   });
 
   it("an organization workspace has its own URLs, its own create route, no Kiwiply logo link and nothing to buy", () => {
@@ -58,7 +59,7 @@ describe("the builder environment", () => {
     expect(screen.getByText("Kiwiply logo")).toBeTruthy();
     unmount();
     render(
-      <BuilderEnvProvider env={actForEditorEnv(5)}>
+      <BuilderEnvProvider env={actForEditorEnv(5, 42)}>
         <EditorTopBar {...barProps()} approvalNotice="Pending consultant approval" />
       </BuilderEnvProvider>,
     );
@@ -66,26 +67,99 @@ describe("the builder environment", () => {
     expect(document.querySelector("[data-approval-notice]")?.textContent).toBe("Pending consultant approval");
   });
 
-  it("acting for someone names the directory row on every same-origin /api call, leaves other calls alone, and always restores fetch", async () => {
+  describe("the act-for fetch wrapper", () => {
+    const ORIGIN = window.location.origin;
     const calls: { url: string; header: string | null }[] = [];
-    const original = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      calls.push({ url: String(input), header: new Headers(init?.headers).get("X-Kiwiply-Act-For") });
-      return new Response("{}");
+    let original: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      calls.length = 0;
+      original = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        calls.push({ url: String(input instanceof Request ? input.url : input), header: new Headers(init?.headers).get("X-Kiwiply-Act-For") });
+        return new Response("{}");
+      });
+      window.fetch = original as unknown as typeof window.fetch;
     });
-    vi.stubGlobal("fetch", original);
-    window.fetch = original as unknown as typeof window.fetch;
-    const { unmount } = render(
-      <BuilderEnvProvider env={actForEditorEnv(5)}>
-        <span>editor</span>
-      </BuilderEnvProvider>,
-    );
-    await window.fetch("/api/resumes/42/doc", { headers: { "if-match": "1" } });
-    await window.fetch("/some/other/path");
-    expect(calls[0]).toEqual({ url: "/api/resumes/42/doc", header: "5" });
-    expect(calls[1].header).toBeNull();
-    unmount();
-    expect(window.fetch).toBe(original);
-    vi.unstubAllGlobals();
+
+    const mountFor = (row: number, resumeId: number) =>
+      render(
+        <BuilderEnvProvider env={actForEditorEnv(row, resumeId)}>
+          <span>editor</span>
+        </BuilderEnvProvider>,
+      );
+
+    it("tags only the act-for resume's own /api/resumes/<id> calls and the builder config", async () => {
+      const { unmount } = mountFor(5, 42);
+      await window.fetch("/api/resumes/42/doc", { headers: { "if-match": "1" } });
+      await window.fetch("/api/resumes/42");
+      await window.fetch("/api/resumes/builder-config");
+      await window.fetch(`${ORIGIN}/api/resumes/42/doc/pdf-status`);
+      expect(calls.map((c) => c.header)).toEqual(["5", "5", "5", "5"]);
+      expect(calls[0].url).toBe("/api/resumes/42/doc");
+      unmount();
+    });
+
+    it("never tags a cross-origin URL, another resume, a look-alike path or a non-builder /api path", async () => {
+      const { unmount } = mountFor(5, 42);
+      await window.fetch("https://evil.example/api/resumes/42/doc");
+      await window.fetch("//evil.example/api/resumes/42/doc");
+      await window.fetch("/api/resumes/43/doc");
+      await window.fetch("/api/resumes/420/doc");
+      await window.fetch("/api/resumes/42x/doc");
+      await window.fetch("/api/resumes/42/../43/doc"); // normalises to another resume
+      await window.fetch("/api/orgs/2/me-workspace/resumes");
+      await window.fetch("/api/profile");
+      await window.fetch("/some/other/path");
+      await window.fetch(new Request(`${ORIGIN}/api/billing/plan`));
+      expect(calls).toHaveLength(10);
+      for (const c of calls) expect(c.header, c.url).toBeNull();
+      unmount();
+    });
+
+    it("a Request object for the act-for resume is tagged and keeps its own headers", async () => {
+      const { unmount } = mountFor(5, 42);
+      await window.fetch(new Request(`${ORIGIN}/api/resumes/42/doc`, { headers: { "if-match": "2" } }));
+      expect(calls[0].header).toBe("5");
+      unmount();
+    });
+
+    it("restores fetch on unmount", () => {
+      const { unmount } = mountFor(5, 42);
+      expect(window.fetch).not.toBe(original);
+      unmount();
+      expect(window.fetch).toBe(original);
+    });
+
+    it("switching rows re-tags with the new row for the new resume, and fetch is restored in the end", async () => {
+      const { rerender, unmount } = mountFor(5, 42);
+      rerender(
+        <BuilderEnvProvider env={actForEditorEnv(6, 43)}>
+          <span>editor</span>
+        </BuilderEnvProvider>,
+      );
+      await window.fetch("/api/resumes/42/doc");
+      await window.fetch("/api/resumes/43/doc");
+      expect(calls.map((c) => c.header)).toEqual([null, "6"]);
+      unmount();
+      expect(window.fetch).toBe(original);
+    });
+
+    it("a wrapper left behind by something that wrapped on top of it passes straight through once unmounted", async () => {
+      const { unmount } = mountFor(5, 42);
+      const mine = window.fetch;
+      const onTop = vi.fn((input: RequestInfo | URL, init?: RequestInit) => mine(input, init));
+      window.fetch = onTop as unknown as typeof window.fetch;
+      unmount();
+      await window.fetch("/api/resumes/42/doc");
+      expect(calls[0].header).toBeNull();
+    });
+
+    it("actForApplies reads the URL against the page's own origin", () => {
+      expect(actForApplies("/api/resumes/42/doc", 42, ORIGIN)).toBe(true);
+      expect(actForApplies(new URL(`${ORIGIN}/api/resumes/42/meta`), 42, ORIGIN)).toBe(true);
+      expect(actForApplies("http://[bad", 42, ORIGIN)).toBe(false);
+      expect(actForApplies(`${ORIGIN}.evil.example/api/resumes/42/doc`, 42, ORIGIN)).toBe(false);
+    });
   });
 
   it("acting for someone draws no Download menu (saving a version and storing a PDF are the owner's)", () => {

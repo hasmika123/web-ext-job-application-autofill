@@ -12,6 +12,20 @@ import { getBuilderConfig, type ResumeBuilderConfig } from "@/lib/resume-builder
 import { parseEtag, type ResumeDocDTO } from "@/lib/resume-doc";
 import type { ResumeMeta } from "@/lib/resume-meta";
 
+/**
+ * Defence in depth: the API already sends an acting marketer a document without storage keys; this drops them again before the document is handed to the
+ * client component, so a key can never reach the marketer's browser through this loader even if an older API answers with one.
+ */
+export function withoutStorageKeys(dto: ResumeDocDTO): ResumeDocDTO {
+  const doc = dto.doc as unknown as { meta?: Record<string, unknown>; basics?: Record<string, unknown> } | undefined;
+  if (!doc) return dto;
+  const meta = doc.meta ? Object.fromEntries(Object.entries(doc.meta).filter(([k]) => k !== "originalFileKey")) : doc.meta;
+  const photo = doc.basics?.photo;
+  const basics =
+    doc.basics && photo && typeof photo === "object" ? { ...doc.basics, photo: Object.fromEntries(Object.entries(photo as Record<string, unknown>).filter(([k]) => k !== "key")) } : doc.basics;
+  return { ...dto, doc: { ...doc, meta, basics } as unknown as ResumeDocDTO["doc"] };
+}
+
 const actForInit = (actFor: number | null | undefined): RequestInit => (actFor ? { headers: { "X-Kiwiply-Act-For": String(actFor) } } : {});
 
 /**
@@ -110,7 +124,7 @@ export async function loadEditorData(id: string, actFor: number | null = null): 
   if (docRes.status === 401 || docRes.status === 403) return { kind: "signin" };
   if (docRes.status === 404 || docRes.status === 400) return { kind: "notFound" };
   if (!docRes.ok) return { kind: "error", status: docRes.status };
-  const dto = docRes.dto as ResumeDocDTO;
+  const dto = actFor ? withoutStorageKeys(docRes.dto as ResumeDocDTO) : (docRes.dto as ResumeDocDTO);
   // The ETag is the version of record; the body carries the same number.
   const docVersion = parseEtag(docRes.etag) ?? dto.docVersion;
   const aiUsageLine = aiUsage ? describeAiUsage(aiUsage) : null;

@@ -192,7 +192,7 @@ describe("ConsultantResumesPage", () => {
   it("a resume a marketer made waits for the consultant: Approve and Send back are theirs, with a note", async () => {
     handler = (u, m) => {
       if (m === "GET" && u === "/api/orgs/2/me-workspace/resumes") {
-        return { status: 200, json: fixture({ resumes: [{ id: 12, title: "Made by Sarah", targetRole: null, primary: false, updatedAt: "2026-10-14T10:24:00Z", visibility: "INTERNAL", versionNo: 1, approvalStatus: "PENDING", resumeId: 88, awaitingMyApproval: true }] }) };
+        return { status: 200, json: fixture({ resumes: [{ id: 12, title: "Made by Sarah", targetRole: null, primary: false, updatedAt: "2026-10-14T10:24:00Z", visibility: "INTERNAL", versionNo: 1, approvalStatus: "PENDING", resumeId: 88, awaitingMyApproval: true, contentHash: "h-12" }] }) };
       }
       return undefined;
     };
@@ -201,12 +201,14 @@ describe("ConsultantResumesPage", () => {
     // it can not become primary until approved
     fireEvent.click(screen.getByRole("button", { name: "Approve Made by Sarah" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/resumes/12/approve"))).toBe(true));
+    // the decision names the version she was shown (versionNo and contentHash of her row), never "whatever is current"
+    expect(calls.find((c) => c.method === "POST" && c.url.endsWith("/resumes/12/approve"))?.body).toBe(JSON.stringify({ versionNo: 1, contentHash: "h-12" }));
     fireEvent.click(screen.getByRole("button", { name: "Send back Made by Sarah" }));
     fireEvent.change(await screen.findByLabelText("What should change"), { target: { value: "Please add my 2019 role" } });
     fireEvent.click(screen.getByRole("button", { name: "Send back" }));
     await waitFor(() => {
       const c = calls.find((x) => x.method === "POST" && x.url.endsWith("/resumes/12/request-changes"));
-      expect(c?.body).toBe(JSON.stringify({ note: "Please add my 2019 role" }));
+      expect(c?.body).toBe(JSON.stringify({ versionNo: 1, contentHash: "h-12", note: "Please add my 2019 role" }));
     });
   });
 

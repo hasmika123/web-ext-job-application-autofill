@@ -44,12 +44,13 @@ describe("the tenant-aware BFF of the one Resume Builder", () => {
   });
 
   it("the consultant's approve and send-back go to their own resume routes", async () => {
-    await approve(new Request("http://x.test/", { method: "POST" }), ctx({ orgId: "2", resumeId: "12" }));
+    await approve(post({ versionNo: 3, contentHash: "abc", extra: "ignored" }), ctx({ orgId: "2", resumeId: "12" }));
     expect(serverApiFetch.mock.calls[0][0]).toBe("/api/orgs/2/me-workspace/resumes/12/approve");
-    await requestChanges(post({ note: "Please add my 2019 role", extra: "ignored" }), ctx({ orgId: "2", resumeId: "12" }));
+    expect(JSON.parse(String(serverApiFetch.mock.calls[0][1]?.body))).toEqual({ versionNo: 3, contentHash: "abc" });
+    await requestChanges(post({ note: "Please add my 2019 role", versionNo: 3, contentHash: "abc", extra: "ignored" }), ctx({ orgId: "2", resumeId: "12" }));
     const [path, init] = serverApiFetch.mock.calls[1];
     expect(path).toBe("/api/orgs/2/me-workspace/resumes/12/request-changes");
-    expect(JSON.parse(String(init?.body))).toEqual({ note: "Please add my 2019 role" });
+    expect(JSON.parse(String(init?.body))).toEqual({ note: "Please add my 2019 role", versionNo: 3, contentHash: "abc" });
   });
 
   it("the marketer's picker, sources and act-for create go to the Marketing routes", async () => {
