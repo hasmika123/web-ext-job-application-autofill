@@ -11,9 +11,26 @@
         sub-seed-services (K1.4): the services, secondary limits, dependency graph, products and inactive presets of CatalogSeedData, through the
         customChange CatalogSeedChange. It creates NO product_price row: the catalog ships with products and without prices, and an admin publishes
         them. The dependency graph and the limits are seeded here (not in K1.2) because they point at the services this change creates.
+
+        sub-seed-plans (K2.1): the plans FREE, PRO, AUTOPILOT and ORG_STANDARD (version 1 each) as compositions of those services, behaviour-identical to
+        today. Only FREE is PUBLISHED (it needs no price); the others stay DRAFT until an admin publishes their prices.
+
+        sub-backfill-subscriptions (K2.1): every existing personal subscription row is pointed at the plan version it bought (PRO v1 with the interval of
+        its Stripe price, or FREE v1). A no-data migration today (S-03: there are no existing subscribers); idempotent; Pro rows that match no configured
+        price id are linked without an interval and logged (SUBSCRIPTION_BACKFILL_STRICT=true turns that into a failed migration).
     -->
     <changeSet id="sub-seed-services" author="subscription" runInTransaction="false">
         <customChange class="com.dossier.api.service.catalog.seed.CatalogSeedChange"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-seed-plans" author="subscription" runInTransaction="false">
+        <customChange class="com.dossier.api.service.catalog.seed.PlanSeedChange"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-backfill-subscriptions" author="subscription" runInTransaction="false">
+        <customChange class="com.dossier.api.service.catalog.seed.SubscriptionBackfillChange"/>
         <rollback/>
     </changeSet>
 </databaseChangeLog>
