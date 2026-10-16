@@ -48,3 +48,9 @@ Errors: wrong org = the generic 404; a closed org is read-only (`ORG_NOT_EDITABL
 ## 5. Link audit (see the PR notes and `web/src/lib/ent/tenant-links.test.ts`)
 
 Tenant components may not hard-code `kiwiply.com` or a platform-only route. The test scans `components/ent`, `components/tenant`, `lib/ent`, `app/(tenant)` and the shared components a workspace renders (`InboxConnect`) and fails on a hit that is not on the explicit allow-list. Tenant e-mail footers link to the tenant host's policy pages (`TenantUrls.originForHost(host) + "/privacy"`).
+
+## 6. Built vs. left for later
+
+* **Built:** everything in sections 1 to 5 above. The Org Admin gate is `org.settings.manage` (same as Branding and Settings); a dedicated `policies.manage` permission was not added because the permission catalog and the role seeds are data owned by the roles work.
+* **Not built (open):** the optional small "Powered by Kiwiply" line (there is no branding setting for it, so nothing renders it; default off by construction); cookie / security kinds ship as an admin-setting change only (the list is data, no template text exists for them beyond a generic page); a notification to the Kiwiply reviewers when a policy is submitted (the queue is the signal); the tenant-host **password-reset** e-mail still uses the personal (green) template and `kiwiply.com` footer links (it is `passwordResetEmail.html` with a `baseUrl`; moving it to the enterprise theme is a MailService change, listed in the PR notes); custom-domain hosts need nothing extra (the policy routes follow the resolved host).
+* **Browser checks not run** (Playwright and browser walks are paused): the stories ADM-98..100, APP-08/09, PLT-60..62 are described, covered by vitest / IT only.
