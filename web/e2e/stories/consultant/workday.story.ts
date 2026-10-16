@@ -22,9 +22,9 @@ test("CON-50 Anika reads her Tasks & Follow-ups: tiles, tabs with counts, search
   await page.getByLabel("Search tasks").fill("");
 
   await narrate(page, "The Priority filter and the Completed tab work too");
-  await page.getByLabel("Priority").selectOption({ label: "High" });
+  await page.getByLabel("Priority", { exact: true }).selectOption({ label: "High" });
   await expect(page.locator("[data-task]").first()).toBeVisible();
-  await page.getByLabel("Priority").selectOption({ index: 0 });
+  await page.getByLabel("Priority", { exact: true }).selectOption({ index: 0 });
   await page.locator("[data-tab=COMPLETED]").click();
   await expect(page.locator("[data-tab=COMPLETED]")).toHaveAttribute("aria-selected", "true");
   await page.locator("[data-tab=ALL]").click();

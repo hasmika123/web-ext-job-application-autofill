@@ -63,7 +63,7 @@ test("PLT-22 Bea sees only Beta: her workspace shows her organization and none o
  * (read from the stored browser state) and the tenant host header, exactly as the BFF would. STORY_API_URL (default http://localhost:8080) and
  * DOSSIER_TENANT_HOST_SECRET (when the API requires it) must match the running stack.
  */
-const API = process.env.STORY_API_URL ?? "http://localhost:8080";
+const API = process.env.STORY_API_URL ?? process.env.E2E_API_URL ?? "http://localhost:8080";
 
 async function directAudit(context: BrowserContext, host: string, orgId: number, query = "") {
   const cookies = await context.cookies(host);

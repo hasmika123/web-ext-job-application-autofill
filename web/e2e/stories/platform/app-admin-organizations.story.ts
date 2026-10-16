@@ -79,7 +79,7 @@ async function createOrganization(page: Page, over: Partial<{ label: string; nam
   await expect(field).toBeVisible();
   const tempPassword = await field.inputValue();
   await shown.getByRole("button", { name: "Copy" }).click();
-  await expect(shown.getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect(shown.getByRole("button", { name: "Copied", exact: true })).toBeVisible();
   await shown.getByRole("button", { name: "I have copied it" }).click();
   await page.waitForURL(/\/admin\/organizations\/\d+$/);
   const id = Number(new URL(page.url()).pathname.split("/").pop());
