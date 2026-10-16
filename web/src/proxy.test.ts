@@ -294,6 +294,14 @@ describe("tenant response headers and chrome surface (X2.6)", () => {
     }
   });
 
+  it("/favicon.ico on a served tenant is the organization's own favicon asset, not Kiwiply's; on the platform it is untouched", async () => {
+    stubApi(true);
+    const tenant = await proxy(req("/favicon.ico", "acme.localhost"));
+    expect(new URL(rewritten(tenant)!).pathname).toBe("/tenant-assets/favicon");
+    expect(override(tenant, "x-kiwiply-host")).toBe("acme.localhost");
+    expect(rewritten(await proxy(req("/favicon.ico", "localhost:3100")))).toBeNull();
+  });
+
   it("an unknown tenant host is the tenant surface as well (no Kiwiply chrome on the 404)", async () => {
     stubApi(true);
     expect(override(await proxy(req("/", "nobody.localhost")), "x-kiwiply-surface")).toBe("tenant");

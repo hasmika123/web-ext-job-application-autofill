@@ -103,6 +103,15 @@ async function tenantRequest(request: NextRequest, host: string, pathname: strin
   // Not a served tenant (unknown host, or the API is down): the tenant layout answers 404 / "try again". No session logic.
   if (!served) return withTenantHeaders(isRewriteExempt(pathname) ? NextResponse.next({ request: { headers } }) : rewrite());
 
+  // The browser asks `/favicon.ico` on its own (the <link> is per-organization, but a tab, bookmark or history entry asks the bare
+  // path): on a served tenant that is the organization's own favicon, never Kiwiply's (`src/app/favicon.ico`).
+  if (pathname === "/favicon.ico") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/tenant-assets/favicon";
+    url.search = "";
+    return withTenantHeaders(NextResponse.rewrite(url, { request: { headers } }));
+  }
+
   const isAuthApi = pathname === "/api/auth" || pathname.startsWith("/api/auth/");
   const isStaticOrAsset = pathname.startsWith("/_next/") || pathname.startsWith("/tenant-assets/") || (!pathname.startsWith("/api/") && isRewriteExempt(pathname));
   // The BFF auth endpoints write the cookies themselves; static files and tenant assets need no session.

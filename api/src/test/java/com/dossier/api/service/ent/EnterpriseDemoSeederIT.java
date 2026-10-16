@@ -64,6 +64,8 @@ class EnterpriseDemoSeederIT {
     @Autowired private OrgMemberRoleRepository memberRoles;
     @Autowired private OrgAssignmentRepository assignments;
     @Autowired private EnterpriseFeatureFlag flags;
+    @Autowired private TenantModules modules;
+    @Autowired private com.dossier.api.repository.AppSettingRepository settingRows;
     @Autowired private TenantResolver resolver;
     @Autowired private ResumeBuilderSettings settings;
 
@@ -211,6 +213,25 @@ class EnterpriseDemoSeederIT {
     }
 
     @Test
+    void everyLiveEnterpriseFlagIsOnForTheDemoOrgsAndEveryDeferredOneIsLeftAlone() {
+        var live = com.dossier.api.service.settings.EnterpriseSettingKeys.all().stream().map(k -> k.key()).filter(k -> k.startsWith("flag.enterprise")).toList();
+        assertThat(live).as("the live flags are the ones the seeder lights").containsExactlyInAnyOrder(
+            "flag.enterprise", "flag.enterprise.domains", "flag.enterprise.roles", "flag.enterprise.marketing", "flag.enterprise.consultant_jobs");
+        for (String key : live) {
+            for (Organization o : List.of(acme(), beta())) assertThat(flags.isEnabled(key, o.getId())).as(key + " for " + o.getSlug()).isTrue();
+            assertThat(flags.isEnabled(key, Long.MAX_VALUE - 7)).as(key + " stays dark for an unrelated organization").isFalse();
+        }
+        // The deferred module flags (billing, hr_finance, extension_workspaces, integrations, analytics) are not registered: no pages or APIs read
+        // them yet, so the seeder writes no row for them and the module booleans stay honestly false.
+        for (var d : com.dossier.api.service.settings.EnterpriseSettingKeys.deferred()) {
+            if (d.key().startsWith("flag.enterprise")) assertThat(settingRows.findById(d.key())).as("no row for deferred " + d.key()).isEmpty();
+        }
+        assertThat(modules.forOrg(acme().getId())).containsEntry("marketing", true).containsEntry("roles", true).containsEntry("domains", true)
+            .containsEntry("billing", false).containsEntry("hrFinance", false).containsEntry("integrations", false)
+            .containsEntry("analytics", false).containsEntry("extensionWorkspaces", false);
+    }
+
+    @Test
     void aSecondRunCreatesNothing() {
         long usersBefore = users.count();
         long seatsBefore = members.countByOrgIdAndStatusIn(acme().getId(), List.of(OrgMemberStatus.ACTIVE, OrgMemberStatus.INVITED, OrgMemberStatus.SUSPENDED));
@@ -258,7 +279,7 @@ class EnterpriseDemoSeederIT {
         assertThat(me.getResponse().getStatus()).as(me.getResponse().getContentAsString()).isEqualTo(200);
         JsonNode body = mapper.readTree(me.getResponse().getContentAsString());
         assertThat(body.get("roles")).hasSize(2);
-        // two ROLES; a workspace opens only when its home module is live, and Marketing's flag is still deferred (not registrable), so only ADMIN opens today
+        // two ROLES; a workspace opens only when its home module is live, ADMIN is the first (Sarah's order); Marketing opens too now that its flag is live
         assertThat(body.get("workspaces").size()).isGreaterThanOrEqualTo(1);
         assertThat(body.get("workspaces").get(0).get("key").asText()).isEqualTo("admin");
         assertThat(body.get("person").get("name").asText()).isEqualTo("Sarah Chen");
