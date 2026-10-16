@@ -24,7 +24,7 @@ describe("TenantIconCleanup (D15: no platform icon on a tenant host)", () => {
     expect(isPlatformIconHref("data:image/svg+xml,%3Csvg%3E")).toBe(false);
   });
 
-  it("removes the platform link and keeps the organization's", () => {
+  it("disarms the platform link and keeps the organization's", () => {
     link("icon", "/favicon.ico?favicon.abc.ico");
     link("icon", "/tenant-assets/logo?v=1");
     render(<TenantIconCleanup />);
