@@ -346,14 +346,12 @@ class ConsultantMarketerResourceIT {
         assertThat(mf.get(1).path("title").asText()).isEqualTo("Targeting Java, AWS roles");
         assertThat(mf.get(2).path("title").asText()).isEqualTo("Working 3 assigned opportunities");
 
-        assertThat(p.path("responseBadge").path("sample").asBoolean()).isTrue();
-        assertThat(p.path("messages").path("sample").asBoolean()).isTrue();
-        assertThat(p.path("messages").path("items")).hasSize(4);
-        assertThat(p.path("messages").path("items").get(0).path("from").asText()).isEqualTo("Emily Carter");
-        assertThat(p.path("actionPlan").path("sample").asBoolean()).isTrue();
-        assertThat(p.path("actionPlan").path("items")).isNotEmpty();
-        assertThat(p.path("notes").path("sample").asBoolean()).isTrue();
-        assertThat(p.path("notes").path("items")).isNotEmpty();
+        // nothing invented (D12): no reply-time badge, no messages, no shared plan, no notes
+        assertThat(p.path("responseBadge").path("label").isNull()).isTrue();
+        assertThat(p.path("messages").path("sample").asBoolean()).isFalse();
+        assertThat(p.path("messages").path("items")).isEmpty();
+        assertThat(p.path("actionPlan").path("items")).isEmpty();
+        assertThat(p.path("notes").path("items")).isEmpty();
     }
 
     @Test

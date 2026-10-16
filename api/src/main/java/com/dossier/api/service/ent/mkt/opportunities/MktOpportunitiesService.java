@@ -190,11 +190,11 @@ public class MktOpportunitiesService {
     public Options options(OrgMembership me, String q) {
         MktScope.View view = scope.resolve(me, PERMISSION);
         String needle = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
-        List<Option> people = consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(view.orgId(), "ACTIVE").stream()
+        List<ConsultantOption> people = consultants.findByOrgIdAndStatusOrderByDisplayNameAsc(view.orgId(), "ACTIVE").stream()
             .filter(c -> view.sees(c.getId()))
             .filter(c -> needle.isEmpty() || c.getDisplayName().toLowerCase(Locale.ROOT).contains(needle))
             .limit(100)
-            .map(c -> new Option(c.getId(), c.getDisplayName()))
+            .map(c -> new ConsultantOption(c.getId(), c.getDisplayName(), OpportunityAssignmentService.pausedReason(c)))
             .toList();
         Map<Long, String> clientNames = new HashMap<>();
         for (ClientAccount a : clients.findByOrgId(view.orgId())) clientNames.put(a.getId(), a.getName());
@@ -388,6 +388,7 @@ public class MktOpportunitiesService {
             case "ALREADY_ASSIGNED" -> OrgException.coded(409, code, "This opportunity is already assigned.", Map.of());
             case "RESUME_NOT_APPROVED" -> OrgException.coded(409, code, "The consultant needs an approved resume before this can be assigned.", Map.of());
             case "JOB_NOT_OPEN" -> OrgException.coded(409, code, "That job is not open.", Map.of());
+            case OpportunityAssignmentService.CONSULTANT_PAUSED -> OrgException.coded(409, code, "This consultant is on a project and their marketing is paused, so nothing can be assigned.", Map.of());
             case OpportunityAssignmentService.CONSULTANT_INACTIVE -> OrgException.coded(409, code, "That consultant is not active, so nothing can be assigned.", Map.of());
             default -> new OrgNotFoundException();
         };

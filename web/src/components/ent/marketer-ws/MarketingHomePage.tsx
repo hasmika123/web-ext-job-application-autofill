@@ -154,7 +154,7 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
         })}
       </section>
 
-      <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.72fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.72fr)]">
         {card(
           <>
             <Head icon={UsersIcon} title="My Assigned Talent" tint="text-accent-deep" viewAll={talentHref} />
@@ -249,7 +249,7 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
         </section>
       </div>
 
-      <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.85fr)_minmax(0,1.05fr)]">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.85fr)_minmax(0,1.05fr)]">
         {card(
           <>
             <Head icon={BriefcaseIcon} title="Top Openings for My Talent" tint="text-accent-deep" viewAll={hrefs.matches ?? null} />
@@ -354,7 +354,7 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
         )}
       </div>
 
-      <div className="grid gap-4 sm:gap-5 lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5 lg:grid-cols-2">
         {card(
           <>
             <Head icon={CalendarIcon} title="Upcoming Interviews" tint="text-v2-pink-ink" viewAll={hrefs.interviews ?? null} />

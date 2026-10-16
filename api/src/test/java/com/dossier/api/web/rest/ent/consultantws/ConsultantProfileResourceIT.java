@@ -280,7 +280,7 @@ class ConsultantProfileResourceIT {
         assertThat(p.path("me").path("yearsExperience").asInt()).isEqualTo(8);
         assertThat(p.path("me").path("location").asText()).isEqualTo("Austin, TX");
         assertThat(p.path("availability").path("status").asText()).isEqualTo("AVAILABLE");
-        assertThat(p.path("strength").path("percent").asInt()).as("the stored profile_completeness").isEqualTo(78);
+        assertThat(p.path("strength").path("percent").asInt()).as("the live checklist (3 of 9 present), not the stored profile_completeness of 78").isEqualTo(33);
         assertThat(p.path("summary").path("text").asText()).isEqualTo("Seasoned engineer.");
         assertThat(p.path("summary").path("source").asText()).isEqualTo("RESUME");
         assertThat(texts(p.path("skills"), "skill")).containsExactly("Java", "Spring Boot");

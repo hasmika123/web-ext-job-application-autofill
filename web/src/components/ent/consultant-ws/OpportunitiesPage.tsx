@@ -133,8 +133,9 @@ function Tile({ spec, tile, index }: { spec: TileSpec; tile: OppTile | null; ind
 
 const Dot = () => <span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 flex-none rounded-full bg-current" />;
 
-function StatusPill({ row }: { row: Pick<OppRow, "status"> }) {
-  const s = STATUS_LABEL[row.status];
+function StatusPill({ row }: { row: Pick<OppRow, "status"> & { interestSent?: boolean } }) {
+  // an opportunity you already answered is not "New" any more (the audit saw New beside Interest sent)
+  const s = row.status === "NEW" && row.interestSent ? { label: "Interested", tone: STATUS_LABEL.NEW.tone } : STATUS_LABEL[row.status];
   return (
     <Pill tone={s.tone} className="whitespace-normal py-0.5 leading-tight">
       <Dot />

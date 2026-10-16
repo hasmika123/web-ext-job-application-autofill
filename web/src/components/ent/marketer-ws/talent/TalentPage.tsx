@@ -218,7 +218,7 @@ export default function TalentPage({ orgId, hrefs }: MktPageProps) {
         })}
       </section>
 
-      <div className="grid items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 min-[1680px]:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
           <section data-talent-card="table" aria-label="My Assigned Consultants" className={CARD}>
             <Head icon={UsersIcon} title="My Assigned Consultants" tint="blue" count={loading ? "..." : (counts?.all ?? 0)}>
@@ -366,7 +366,7 @@ export default function TalentPage({ orgId, hrefs }: MktPageProps) {
             ) : null}
           </section>
 
-          <div className="grid gap-4 sm:gap-5 lg:grid-cols-3">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-4 sm:gap-5 lg:grid-cols-3">
             <section data-talent-card="available" className={CARD}>
               <Head icon={UsersIcon} title="Available Now" tint="green" count={counts?.availableNow ?? 0}>
                 <button type="button" onClick={() => showStatus("AVAILABLE_NOW")} className={OUTLINE_BTN}>View all</button>

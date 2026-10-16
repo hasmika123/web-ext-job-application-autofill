@@ -278,6 +278,34 @@ class MktJobsIT {
     }
 
     @Test
+    void aConsultantOnAProjectIsListedDisabledWithTheReasonAndAssigningThemIsAClear409() throws Exception {
+        mine.setMarketingStatus("PAUSED"); // on a project
+        consultants.saveAndFlush(mine);
+        JsonNode d = om.readTree(call("mkt-jobs-marketer", get(base(a) + "/" + jobA.getId() + "/candidates")).getResponse().getContentAsString());
+        assertThat(d).as("still listed, so the picker can show them disabled").hasSize(1);
+        assertThat(d.get(0).path("pausedReason").asText()).isEqualTo("On a project — marketing paused");
+
+        MvcResult r = call("mkt-jobs-marketer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + mine.getId() + "}"));
+        assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(409);
+        JsonNode body = om.readTree(r.getResponse().getContentAsString());
+        assertThat(body.path("code").asText()).isEqualTo("CONSULTANT_PAUSED");
+        assertThat(body.toString()).contains("on a project").doesNotContain("not_found");
+        assertThat(matches.findByOrgIdAndRequirementIdAndConsultantId(a.getId(), jobA.getId(), mine.getId()).orElseThrow().getStatus()).as("nothing was assigned").isEqualTo("SUGGESTED");
+
+        // strangers and unassigned consultants keep the generic 404, paused or not
+        notMine.setMarketingStatus("PAUSED");
+        consultants.saveAndFlush(notMine);
+        assertGeneric404(call("mkt-jobs-marketer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + notMine.getId() + "}")), "a paused consultant of another marketer");
+        assertGeneric404(call("mkt-jobs-viewer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + mine.getId() + "}")), "no opportunities.manage, paused consultant");
+
+        // back to ACTIVE marketing: assignable again; an INACTIVE consultant is still the old 404
+        mine.setMarketingStatus("ACTIVE");
+        consultants.saveAndFlush(mine);
+        MvcResult again = call("mkt-jobs-marketer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + mine.getId() + "}"));
+        assertThat(again.getResponse().getContentAsString()).as("no longer refused as paused").doesNotContain("CONSULTANT_PAUSED");
+    }
+
+    @Test
     void savedSearchesBelongToTheirOwner() throws Exception {
         MvcResult created = call("mkt-jobs-marketer", post(base(a) + "/saved-searches").content("{\"name\":\"Java East\",\"criteria\":{\"skills\":[\"Java\"],\"location\":\"NY\"}}"));
         assertThat(created.getResponse().getStatus()).as(created.getResponse().getContentAsString()).isEqualTo(201);

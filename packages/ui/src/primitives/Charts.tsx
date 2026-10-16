@@ -326,9 +326,9 @@ export function DonutChart({ slices, total, totalLabel, label, size = 150, legen
         {slices.map((s, i) => (
           <li key={s.key} className={cn("flex items-center text-ink-soft", board ? "gap-2 py-[6px] text-[14.5px]" : "gap-2 py-1 text-[13px]")}>
             <span aria-hidden className={cn("flex-none rounded-full", board ? "h-3.5 w-3.5" : "h-2.5 w-2.5")} style={{ background: s.color ?? chartColor(i) }} />
-            <span className="min-w-0 flex-1 leading-tight">{s.label}</span>
-            <span className={cn("text-right tabular-nums text-ink", board ? "w-6 font-bold" : "w-8 font-semibold")}>{s.value}</span>
-            <span className={cn("text-right tabular-nums text-muted", board ? "w-10" : "w-10")}>{Math.round(parts[i] * 100)}%</span>
+            <span className="min-w-0 flex-1 break-words leading-tight">{s.label}</span>
+            <span className={cn("flex-none text-right tabular-nums text-ink", board ? "w-7 font-bold" : "w-8 font-semibold")}>{s.value}</span>
+            <span className={cn("flex-none text-right tabular-nums text-muted", board ? "w-10" : "w-10")}>{Math.round(parts[i] * 100)}%</span>
           </li>
         ))}
       </ul>

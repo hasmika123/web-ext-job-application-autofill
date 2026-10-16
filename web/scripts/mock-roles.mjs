@@ -29,8 +29,8 @@ const at = (scope, keys) => Object.fromEntries(keys.map((k) => [k, scope]));
 const SYSTEM = [
   ["OWNER", "Owner", "Everything an Organization Admin can do, plus closing the organization and handing it over. Cannot be edited."],
   ["ORG_ADMIN", "Organization Admin", "Runs the organization: settings, people, roles, licences and billing. Cannot close it or hand it over."],
-  ["STAFF", "Staff", "Looks after a group of members in a school or bootcamp (existing flow)."],
-  ["MEMBER", "Member", "An ordinary member of a school or bootcamp (existing flow)."],
+  ["STAFF", "Staff", "Looks after a group of members."],
+  ["MEMBER", "Member", "An ordinary member of the organization."],
   ["CONSULTANT", "Consultant", "A consultant: their own opportunities, applications, interviews and resumes. Submits for themselves."],
   ["MARKETING_SPECIALIST", "Marketing Specialist", "Prepares and tracks applications for the consultants assigned to them. Never submits."],
   ["MARKETING_MANAGER", "Marketing Manager", "Leads a marketing team: assignments, approvals, workload and escalations."],

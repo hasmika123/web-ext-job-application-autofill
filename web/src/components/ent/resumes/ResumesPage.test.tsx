@@ -312,7 +312,7 @@ describe("Resumes: the drawer", () => {
     expect(body.querySelector("[data-resume-paper]")?.textContent).toContain("Globex");
     expect(body.querySelector("[data-resume-paper]")?.textContent).toContain("Java");
     expect(within(body as HTMLElement).getByText("v3 (Latest)")).toBeTruthy();
-    expect(within(body as HTMLElement).getByText("842 KB")).toBeTruthy();
+    expect(within(body as HTMLElement).queryByText("842 KB")).toBeNull(); // the directory stores no file: no size beside "No file is stored"
     for (const name of ["Preview", "Print", "Set as Primary"]) expect(within(body as HTMLElement).getByRole("button", { name })).toBeTruthy();
     expect(body.querySelector('a[download][href$="/api/orgs/2/resumes/11/export?format=txt"]')).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/phone|\(555\)/i);

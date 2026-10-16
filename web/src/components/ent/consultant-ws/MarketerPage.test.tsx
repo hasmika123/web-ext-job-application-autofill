@@ -110,30 +110,28 @@ describe("My Marketer from real data", () => {
     expect([...document.querySelectorAll("[data-focus-item]")].map((e) => e.getAttribute("data-focus-item"))).toEqual(["marketing", "skills"]);
   });
 
-  it("marks the marketer's half of the relationship as Sample", async () => {
+  it("invents nothing for the marketer's half: no sample marks, no reply badge, honest empty cards", async () => {
+    reply = () => ({ status: 200, body: { ...full(), responseBadge: { sample: false, label: null, detail: null }, messages: { sample: false, items: [] }, actionPlan: { sample: false, items: [] }, notes: { sample: false, items: [] } } });
     await mount();
-    expect(within(document.querySelector("[data-response-badge]") as HTMLElement).getByText("Sample")).toBeTruthy();
-    for (const id of ["marketer-plan", "marketer-messages", "marketer-notes"]) expect(card(id).querySelector("[data-sample]"), id).toBeTruthy();
-    for (const id of ["marketer-focus-opps", "marketer-followups", "marketer-focus"]) expect(card(id).querySelector("[data-sample]"), id).toBeNull();
+    expect(document.querySelector("[data-response-badge]")).toBeNull();
+    expect(document.querySelector("[data-sample]")).toBeNull();
+    expect(within(card("marketer-messages")).getByText("No messages yet.")).toBeTruthy();
+    expect(within(card("marketer-notes")).getByText("No notes yet.")).toBeTruthy();
   });
 
-  it("opens an honest dialog from Send Message and never claims anything was sent", async () => {
+  it("the messaging buttons are disabled with the reason as their tooltip and nothing opens or is sent", async () => {
     await mount();
+    for (const name of ["Send Message", "Schedule Call", "View Calendar"]) {
+      const all = screen.getAllByRole("button", { name }) as HTMLButtonElement[];
+      for (const b of all) {
+        expect(b.disabled, name).toBe(true);
+        expect(b.title).toContain("isn't available yet");
+      }
+    }
+    expect((screen.getByRole("button", { name: /Ask About Opportunity/ }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByRole("dialog")).toBeNull();
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Send Message" }));
-    });
-    const d = screen.getByRole("dialog");
-    expect(within(d).getByText("Messaging arrives with the marketing workspace")).toBeTruthy();
-    expect(within(d).getByText(/Nothing was sent or scheduled/)).toBeTruthy();
-    await act(async () => {
-      fireEvent.click(within(d).getByRole("button", { name: "Got it" }));
-    });
-    expect(screen.queryByRole("dialog")).toBeNull();
-    await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Ask About Opportunity/ }));
-    });
-    expect(within(screen.getByRole("dialog")).getByText(/Ask About Opportunity is not connected yet/)).toBeTruthy();
+    expect(document.body.textContent).not.toContain("until the marketing workspace");
+    expect(document.body.textContent).not.toContain("not connected");
   });
 
   it("has an honest empty state when no marketer is assigned", async () => {

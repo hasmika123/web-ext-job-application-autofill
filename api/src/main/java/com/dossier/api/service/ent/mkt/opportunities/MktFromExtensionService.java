@@ -216,7 +216,7 @@ public class MktFromExtensionService {
             .withOpportunity(c.keyInfo(), c.priority(), c.dueOn());
         try {
             OpportunityAssignmentService.Result r = assignment.assign(view, me, job, consultantId, options); // the entity, not its id: a job created in this request is invisible to a plain re-read
-            if (r.refused()) return new ConsultantResult(consultantId, null, false, r.reason());
+            if (r.refused()) return new ConsultantResult(consultantId, null, false, OpportunityAssignmentService.CONSULTANT_PAUSED.equals(r.reason()) ? REASON_INACTIVE : r.reason()); // the extension contract has one "not assignable" reason
             return new ConsultantResult(consultantId, r.opportunityId(), r.existing(), null);
         } catch (OrgNotFoundException gone) {
             // an id that does not exist in this organization looks exactly like one outside the caller's scope
