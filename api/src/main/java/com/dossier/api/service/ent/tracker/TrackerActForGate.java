@@ -10,6 +10,7 @@ import com.dossier.api.service.ent.authz.AuthorizationService;
 import com.dossier.api.service.ent.authz.AuthzOperation;
 import com.dossier.api.service.ent.authz.AuthzRequest;
 import com.dossier.api.service.ent.authz.Beneficiary;
+import com.dossier.api.service.ent.mkt.MarketerAccess;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
@@ -35,8 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
  * {@link TrackerActAs#run}. O4: nothing here signs in as the consultant or reads their credentials; the swap lasts one call and is undone.
  *
  * <p>Assignment visibility (docs/enterprise-v2/19b: the Org Admin's per-assignment "APPLICATIONS" tick) is a design that has not been built (no
- * visibility table or key exists in the code yet), so the check that exists today is the assignment itself. When 19b lands, its single
- * {@code MarketerAccess.allows(.., APPLICATIONS)} call belongs in {@link #authorize}, right after the assignment check.
+ * visibility table or key exists in the code yet), so the check that exists today is the assignment itself. The seam for it is built:
+ * {@link MarketerAccess#require} with {@code Area.APPLICATIONS} runs in {@link #authorize} right after the assignment check, and answers yes for every assigned
+ * consultant (decision O5). When O6 lands only the body of {@link MarketerAccess#allows} changes.
  */
 @Service
 public class TrackerActForGate {
@@ -48,6 +50,7 @@ public class TrackerActForGate {
     public record Grant(User owner, TrackerActAs.Scope scope, Long consultantMemberId) {}
 
     private final MktScope scope;
+    private final MarketerAccess marketerAccess;
     private final AuthorizationService authorization;
     private final ConsultantProfileRepository consultants;
     private final OrgMemberRepository members;
@@ -55,12 +58,14 @@ public class TrackerActForGate {
 
     public TrackerActForGate(
         MktScope scope,
+        MarketerAccess marketerAccess,
         AuthorizationService authorization,
         ConsultantProfileRepository consultants,
         OrgMemberRepository members,
         UserRepository users
     ) {
         this.scope = scope;
+        this.marketerAccess = marketerAccess;
         this.authorization = authorization;
         this.consultants = consultants;
         this.members = members;
@@ -76,6 +81,7 @@ public class TrackerActForGate {
         authorization.require(AuthzRequest.of(orgId, List.of(PERMISSION), Beneficiary.PATH_MEMBER, consultantMemberId, AuthzOperation.WRITE).withActor(me));
         ConsultantProfile profile = consultants.findByOrgIdAndMemberId(orgId, consultantMemberId).orElseThrow(OrgNotFoundException::new);
         scope.require(view, profile.getId());
+        marketerAccess.require(view, profile.getId(), MarketerAccess.Area.APPLICATIONS); // the O6 seam: true for an assigned consultant today (docs/enterprise-v2/19b)
         User owner = members
             .findByOrgIdAndId(orgId, consultantMemberId)
             .filter(m -> m.getStatus() == OrgMemberStatus.ACTIVE && m.getUserId() != null)

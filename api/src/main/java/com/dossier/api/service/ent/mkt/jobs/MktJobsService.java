@@ -239,7 +239,7 @@ public class MktJobsService {
             String hay = (c.getDisplayName() + " " + (c.getJobTitle() == null ? "" : c.getJobTitle())).toLowerCase(Locale.ROOT);
             if (!needle.isEmpty() && !hay.contains(needle)) continue;
             RequirementMatch m = byConsultant.get(c.getId());
-            out.add(new Candidate(c.getId(), c.getDisplayName(), c.getJobTitle(), c.getAvailabilityStatus(), m == null ? null : m.getScore(), m == null ? null : m.getStatus()));
+            out.add(new Candidate(c.getId(), c.getDisplayName(), c.getJobTitle(), c.getAvailabilityStatus(), m == null ? null : m.getScore(), m == null ? null : m.getStatus(), c.getMemberId()));
         }
         out.sort(Comparator.comparing(Candidate::score, Comparator.nullsLast(Comparator.<Integer>reverseOrder())).thenComparing(Candidate::name, String.CASE_INSENSITIVE_ORDER));
         return out.stream().limit(MAX_PAGE_SIZE).toList();

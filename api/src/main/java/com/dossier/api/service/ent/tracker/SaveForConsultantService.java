@@ -34,6 +34,9 @@ public class SaveForConsultantService {
     /** The job facts a marketer may save for a consultant. Everything else about the application is the consultant's to add. */
     public record Request(String company, String roleTitle, String jobUrl, String location, String externalJobId, String atsPlatform, Long postingId) {}
 
+    /** The consultant's application as their tracker holds it, and whether they already had this job (an idempotent re-save). */
+    public record Outcome(ApplicationDTO application, boolean alreadySaved) {}
+
     private final TrackerActForGate gate;
     private final ApplicationSyncService sync;
     private final OrgAuditService audit;
@@ -47,6 +50,12 @@ public class SaveForConsultantService {
     /** Saves the job for the consultant whose seat is {@code consultantMemberId}; returns the consultant's application as the consultant's tracker holds it. */
     @Transactional
     public ApplicationDTO save(OrgMembership me, Long consultantMemberId, Request request) {
+        return saveWithOutcome(me, consultantMemberId, request).application();
+    }
+
+    /** {@link #save}, also telling whether the consultant already had this job (matched by {@code ApplicationKeys}: the same posting is never saved twice). */
+    @Transactional
+    public Outcome saveWithOutcome(OrgMembership me, Long consultantMemberId, Request request) {
         Grant grant = gate.authorize(me, consultantMemberId);
         if (request == null) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "a job is required");
         SensitiveContent.check("company", "company", request.company());
@@ -60,12 +69,14 @@ public class SaveForConsultantService {
         dto.setExternalJobId(request.externalJobId());
         dto.setAtsPlatform(request.atsPlatform());
 
+        java.util.concurrent.atomic.AtomicBoolean existed = new java.util.concurrent.atomic.AtomicBoolean(false);
         ApplicationDTO saved = TrackerActAs.run(
             grant.owner(),
             grant.scope(),
             () -> {
                 // A job the consultant already has is only re-identified: its status, source, location and the rest stay the consultant's.
-                if (!sync.hasEntryFor(dto)) {
+                existed.set(sync.hasEntryFor(dto));
+                if (!existed.get()) {
                     dto.setLocation(request.location());
                     dto.setPostingId(request.postingId());
                     dto.setStatus(ApplicationStatus.SAVED);
@@ -89,6 +100,6 @@ public class SaveForConsultantService {
             grant.owner().getLogin(),
             "MEDIUM"
         );
-        return saved;
+        return new Outcome(saved, existed.get());
     }
 }

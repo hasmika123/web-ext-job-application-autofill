@@ -594,6 +594,11 @@ class OrgIsolationIT {
         Map.entry("DELETE /api/orgs/{orgId}/mkt/submissions/views/{viewId}", Case.mkt(204, null, w -> null, null)),
         Map.entry("GET /api/orgs/{orgId}/mkt/talent", Case.mktRead()),
         Map.entry("GET /api/orgs/{orgId}/mkt/talent/{consultantId}", Case.mktRead()),
+        // Demo gaps: the selected consultant in full (read-only, MarketerAccess seam), and a marketer saving a job for an assigned consultant (save only, never submit).
+        Map.entry("GET /api/orgs/{orgId}/mkt/talent/{consultantId}/overview", Case.mktRead()),
+        // The only consultant with an enterprise account in this world is the owner, and acting for yourself is refused (the generic 404), so a legitimate call here is the 404 that writes nothing;
+        // the success path (assigned marketer saves, duplicate, audit, Updated by) is in SaveForConsultantResourceIT.
+        Map.entry("POST /api/orgs/{orgId}/consultants/{memberId}/applications/save", Case.denied("{\"company\":\"Isolation Co\",\"roleTitle\":\"Engineer\"}")),
         Map.entry("POST /api/orgs/{orgId}/mkt/talent/views", Case.mkt(201, null, w -> "{\"name\":\"Hijack view\",\"q\":\"python\"}", null)),
         Map.entry("DELETE /api/orgs/{orgId}/mkt/talent/views/{viewId}", Case.mkt(204, null, w -> null, null)),
         Map.entry("GET /api/orgs/{orgId}/mkt/tasks", Case.mktRead()),

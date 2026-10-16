@@ -329,6 +329,33 @@ describe("JobDiscoveryPage", () => {
     expect(calls.every((c) => !/submi/i.test(c.url))).toBe(true);
   });
 
+  it("Save for a consultant puts the job on the assigned consultant's own list as Saved; nothing is applied or submitted (E1)", async () => {
+    serve((url, method) => {
+      if (url.endsWith("/jobs/1/candidates")) return json(200, [{ consultantId: 5, name: "Alex Morgan", title: "Java Developer", availability: "AVAILABLE", score: 92, matchStatus: null, memberId: 50 }, { consultantId: 6, name: "No Seat", title: null, availability: null, score: null, matchStatus: null, memberId: null }]);
+      if (method === "POST" && url.endsWith("/consultants/50/applications/save")) return json(200, { applicationId: 9, company: "TechCorp", roleTitle: "Senior Java Developer", status: "SAVED", alreadySaved: false });
+      if (/\/mkt\/jobs\/1$/.test(url)) return json(200, { job: ROWS[0], description: "Build services.", employment: null, duration: null, experienceLevel: null, matches: [] });
+      return undefined;
+    });
+    await board();
+    fireEvent.click(screen.getByRole("button", { name: "View Senior Java Developer" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Save for a consultant" }));
+    expect(await screen.findByText(/does not apply to the job: the consultant applies themselves/)).toBeTruthy();
+    // a consultant with no organization account cannot be picked for a save
+    fireEvent.click(await screen.findByText("No Seat"));
+    fireEvent.click(screen.getByRole("button", { name: "Save job" }));
+    await screen.findByText(/no organization account yet/);
+    fireEvent.click(screen.getByText("Alex Morgan"));
+    fireEvent.click(screen.getByRole("button", { name: "Save job" }));
+    await screen.findByText(/Saved for Alex Morgan - Senior Java Developer/);
+    const post = calls.find((c) => c.method === "POST")!;
+    expect(post.url).toBe("/api/orgs/2/consultants/50/applications/save");
+    const sent = JSON.parse(post.body!);
+    expect(sent.roleTitle).toBe("Senior Java Developer");
+    expect(sent.status).toBeUndefined();
+    expect(calls.filter((c) => c.method !== "GET")).toHaveLength(1);
+    expect(calls.every((c) => !/submi/i.test(c.url))).toBe(true);
+  });
+
   it("explains a refused assignment and keeps the drawer open", async () => {
     serve((url, method) => {
       if (url.endsWith("/jobs/1/candidates")) return json(200, [{ consultantId: 5, name: "Alex Morgan", title: null, availability: null, score: null, matchStatus: null }]);

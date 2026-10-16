@@ -55,7 +55,8 @@ export interface JobDetail {
   summaryNote: string | null;
   employment: string | null; duration: string | null; experienceLevel: string | null; matches: MatchRow[];
 }
-export interface Candidate { consultantId: number; name: string; title: string | null; availability: string | null; score: number | null; matchStatus: string | null }
+export interface Candidate { consultantId: number; name: string; title: string | null; availability: string | null; score: number | null; matchStatus: string | null; memberId: number | null }
+export interface SavedForConsultant { applicationId: number; status: string; alreadySaved: boolean }
 export interface AssignResult { matchId: number; requirementId: number; consultantId: number; status: string; score: number; created: boolean }
 
 /** The filter row + search box + sort + page: everything the board asks the API. */
@@ -135,7 +136,7 @@ export function parseDetail(raw: unknown): JobDetail | null {
 }
 
 export const parseCandidates = (raw: unknown): Candidate[] =>
-  Array.isArray(raw) ? raw.filter(isObj).map((c) => ({ consultantId: num(c.consultantId), name: str(c.name), title: strOrNull(c.title), availability: strOrNull(c.availability), score: numOrNull(c.score), matchStatus: strOrNull(c.matchStatus) })) : [];
+  Array.isArray(raw) ? raw.filter(isObj).map((c) => ({ consultantId: num(c.consultantId), name: str(c.name), title: strOrNull(c.title), availability: strOrNull(c.availability), score: numOrNull(c.score), matchStatus: strOrNull(c.matchStatus), memberId: numOrNull(c.memberId) })) : [];
 
 /** The query string of the board call. Empty filters are left out. */
 export function jobsQuery(f: JobFilters, page: number, size = PAGE_SIZE): string {
@@ -218,7 +219,17 @@ export const assignJob = (orgId: number | string, jobId: number, consultantId: n
   call(`${base(orgId)}/${jobId}/assign`, { method: "POST", body: JSON.stringify({ consultantId }) }, (raw): AssignResult | null =>
     isObj(raw) ? { matchId: num(raw.matchId), requirementId: num(raw.requirementId), consultantId: num(raw.consultantId), status: str(raw.status), score: num(raw.score), created: raw.created === true } : null,
   );
-export const saveSearch = (orgId: number | string, name: string, criteria: Criteria) =>
+/**
+ * "Save a job for <consultant>": puts the job on the assigned consultant's own tracker as SAVED (X9.12). It never applies, fills or submits (E1); saving the
+ * same job twice is the same entry. The consultant is named by the organization seat (`memberId`), as the API route is.
+ */
+export const saveJobForConsultant = (orgId: number | string, memberId: number, job: JobRow) =>
+  call(
+    `/api/orgs/${orgId}/consultants/${memberId}/applications/save`,
+    { method: "POST", body: JSON.stringify({ company: job.client.name, roleTitle: job.title, location: job.location || null }) },
+    (raw): SavedForConsultant | null => (isObj(raw) ? { applicationId: num(raw.applicationId), status: str(raw.status), alreadySaved: raw.alreadySaved === true } : null),
+  );
+export const saveSearch =(orgId: number | string, name: string, criteria: Criteria) =>
   call(`${base(orgId)}/saved-searches`, { method: "POST", body: JSON.stringify({ name, criteria }) }, (raw): SavedSearch | null => (isObj(raw) ? { id: num(raw.id), name: str(raw.name), criteria: parseCriteria(raw.criteria), newCount: num(raw.newCount) } : null));
 export const markSearchSeen = (orgId: number | string, id: number) => call(`${base(orgId)}/saved-searches/${id}/seen`, { method: "POST" }, () => true);
 export const deleteSearch = (orgId: number | string, id: number) => call(`${base(orgId)}/saved-searches/${id}`, { method: "DELETE" }, () => true);

@@ -77,7 +77,7 @@ public final class MktJobsDTO {
     public record Detail(Job job, String description, String employment, String duration, String experienceLevel, List<MatchRow> matches, String summaryNote) {}
 
     /** A consultant the caller may assign; {@code score}/{@code matchStatus} are null when there is no match row yet. */
-    public record Candidate(Long consultantId, String name, String title, String availability, Integer score, String matchStatus) {}
+    public record Candidate(Long consultantId, String name, String title, String availability, Integer score, String matchStatus, Long memberId) {}
 
     public record AssignRequest(Long consultantId) {}
 

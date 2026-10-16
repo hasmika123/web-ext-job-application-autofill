@@ -6,8 +6,8 @@ import { ArrowDownIcon, ArrowUpIcon, Button, ChevronDownIcon, MemberAvatar, Sear
 import type { IconProps } from "@kiwiply/ui";
 import { deltaFromPct, relativeTime } from "@/lib/ent/dashboard";
 import {
-  PRIORITY_LABELS, WORK_TYPE_LABELS, assignJob, fetchCandidates, fetchJobDetail, sourceLogo,
-  type AssignResult, type Candidate, type JobDetail, type JobRow, type Priority,
+  PRIORITY_LABELS, WORK_TYPE_LABELS, assignJob, fetchCandidates, fetchJobDetail, saveJobForConsultant, sourceLogo,
+  type AssignResult, type Candidate, type JobDetail, type JobRow, type Priority, type SavedForConsultant,
 } from "@/lib/ent/marketer-ws/jobs";
 import { TINTS } from "../parts";
 
@@ -133,7 +133,17 @@ export const PANEL = "absolute left-0 top-full z-30 mt-1 w-72 max-w-[85vw] round
 const field = "h-10 w-full rounded-lg border border-line bg-paper px-3 text-[13.5px] text-ink placeholder:text-muted focus:border-accent focus:outline-none";
 
 /** The assignment picker: the consultants the marketer may see, best match first. Records an ASSIGNED match; the consultant submits (E1). */
-export function AssignSheet({ orgId, job, onClose, onDone }: { orgId: number; job: JobRow; onClose: () => void; onDone: (r: AssignResult, who: string) => void }) {
+export function AssignSheet({
+  orgId, job, onClose, onDone, mode = "assign", onSaved,
+}: {
+  orgId: number;
+  job: JobRow;
+  onClose: () => void;
+  onDone: (r: AssignResult, who: string) => void;
+  /** "save": the same picker, but the job is put on the consultant's own tracker as SAVED (X9.12) instead of recording a match. Never applies. */
+  mode?: "assign" | "save";
+  onSaved?: (r: SavedForConsultant, who: string) => void;
+}) {
   const id = useId();
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Candidate[] | null>(null);
@@ -161,6 +171,19 @@ export function AssignSheet({ orgId, job, onClose, onDone }: { orgId: number; jo
 
   const submit = async () => {
     if (picked === null || busy) return;
+    if (mode === "save") {
+      const who = rows?.find((c) => c.consultantId === picked);
+      if (!who || who.memberId === null) {
+        setError("This consultant has no organization account yet, so a job can't be saved for them.");
+        return;
+      }
+      setBusy(true);
+      const saved = await saveJobForConsultant(orgId, who.memberId, job);
+      setBusy(false);
+      if (saved.ok) onSaved?.(saved.value, who.name);
+      else setError(saved.status === 404 ? "That consultant isn't available to you." : saved.status === 429 ? "Too many saves in a minute. Try again shortly." : saved.error);
+      return;
+    }
     setBusy(true);
     const r = await assignJob(orgId, job.id, picked);
     setBusy(false);
@@ -170,17 +193,19 @@ export function AssignSheet({ orgId, job, onClose, onDone }: { orgId: number; jo
 
   return (
     <SideSheet
-      id={`assign-${id}`} side="right" mode="overlay" open width={460} title="Assign a consultant" description={`${job.title} - ${job.client.name}`} onClose={onClose}
+      id={`assign-${id}`} side="right" mode="overlay" open width={460} title={mode === "save" ? "Save this job for a consultant" : "Assign a consultant"} description={`${job.title} - ${job.client.name}`} onClose={onClose}
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="accent" onClick={() => void submit()} disabled={picked === null || busy}>{busy ? "Assigning..." : "Assign"}</Button>
+          <Button variant="accent" onClick={() => void submit()} disabled={picked === null || busy}>{mode === "save" ? (busy ? "Saving..." : "Save job") : busy ? "Assigning..." : "Assign"}</Button>
         </div>
       }
     >
       <div data-assign-sheet className="flex flex-col gap-3 p-1">
         <p className="rounded-lg bg-accent-soft px-3 py-2 text-[12.5px] text-accent-deep">
-          Assigning records the match for your consultant. It does not apply to the job: the consultant submits the application themselves.
+          {mode === "save"
+            ? "Saving adds this job to the consultant's own job list as Saved, with your name on it. It does not apply to the job: the consultant applies themselves."
+            : "Assigning records the match for your consultant. It does not apply to the job: the consultant submits the application themselves."}
         </p>
         <label className="relative block">
           <span className="sr-only">Search consultants</span>
@@ -216,7 +241,7 @@ export function AssignSheet({ orgId, job, onClose, onDone }: { orgId: number; jo
 }
 
 /** The "View" drawer: the job's facts, description and the best matches among the consultants the caller may see. */
-export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign, now }: { orgId: number; job: JobRow; matchesHref: string | null; canAssign: boolean; onClose: () => void; onAssign: () => void; now: number }) {
+export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign, onSave, now }: { orgId: number; job: JobRow; matchesHref: string | null; canAssign: boolean; onClose: () => void; onAssign: () => void; onSave?: () => void; now: number }) {
   const id = useId();
   const [detail, setDetail] = useState<JobDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -249,6 +274,7 @@ export function JobSheet({ orgId, job, matchesHref, canAssign, onClose, onAssign
       footer={
         <div className="flex items-center justify-end gap-2">
           {matchesHref ? <Link href={`${matchesHref}?job=${job.id}`} className="inline-flex h-10 items-center rounded-lg border border-line px-4 text-[13.5px] font-semibold text-accent-deep hover:bg-accent-soft">Match</Link> : null}
+          {canAssign && onSave ? <Button variant="ghost" onClick={onSave}>Save for a consultant</Button> : null}
           {canAssign ? <Button variant="accent" onClick={onAssign}>Assign</Button> : null}
         </div>
       }

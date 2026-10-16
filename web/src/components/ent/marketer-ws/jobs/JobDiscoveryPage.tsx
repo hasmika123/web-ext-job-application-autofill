@@ -46,6 +46,7 @@ export default function JobDiscoveryPage({ orgId, hrefs }: MktPageProps) {
   const [selected, setSelected] = useState<Set<number>>(() => new Set());
   const [viewing, setViewing] = useState<JobRow | null>(null);
   const [assigning, setAssigning] = useState<JobRow | null>(null);
+  const [saving, setSaving] = useState<JobRow | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [showAllSearches, setShowAllSearches] = useState(false);
@@ -532,7 +533,20 @@ export default function JobDiscoveryPage({ orgId, hrefs }: MktPageProps) {
       </div>
 
       {viewing ? (
-        <JobSheet orgId={orgId} job={viewing} matchesHref={matchesHref} canAssign={canAssign} now={now} onClose={() => setViewing(null)} onAssign={() => { setAssigning(viewing); setViewing(null); }} />
+        <JobSheet orgId={orgId} job={viewing} matchesHref={matchesHref} canAssign={canAssign} now={now} onClose={() => setViewing(null)} onAssign={() => { setAssigning(viewing); setViewing(null); }} onSave={() => { setSaving(viewing); setViewing(null); }} />
+      ) : null}
+      {saving ? (
+        <AssignSheet
+          orgId={orgId}
+          job={saving}
+          mode="save"
+          onClose={() => setSaving(null)}
+          onDone={() => setSaving(null)}
+          onSaved={(r, who) => {
+            setNotice(`${r.alreadySaved ? "Already saved:" : "Saved for"} ${who} - ${saving.title}. It is on their job list; the consultant applies themselves.`);
+            setSaving(null);
+          }}
+        />
       ) : null}
       {assigning ? (
         <AssignSheet

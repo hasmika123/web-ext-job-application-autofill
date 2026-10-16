@@ -16,7 +16,7 @@ const ROUTES: { method: string; pattern: RegExp; body: boolean }[] = [
   { method: "GET", pattern: new RegExp(`^${ID}/(assignments|applications|activity|job-options)$`), body: false },
   { method: "POST", pattern: /^$/, body: true },
   { method: "PATCH", pattern: new RegExp(`^${ID}$`), body: true },
-  { method: "POST", pattern: new RegExp(`^${ID}/(marketer|deactivate|reactivate|applications)$`), body: true },
+  { method: "POST", pattern: new RegExp(`^${ID}/(marketer|deactivate|reactivate|applications|applications/save)$`), body: true },
   { method: "POST", pattern: /^bulk\/(availability|marketer|status)$/, body: true },
 ];
 
