@@ -2,7 +2,7 @@ import { test, expect, narrate } from "../_support/story";
 import { shellReady } from "./_helpers";
 
 /** Admin menu slugs whose page exists as its own route (components/ent/**). Everything else in the menu renders "This page is on the way". */
-const BUILT = ["", "employees", "invitations", "teams", "departments", "roles", "consultants", "resumes", "marketing-assignments", "jobs", "applications", "interviews", "clients", "placements", "branding"];
+const BUILT = ["", "employees", "invitations", "teams", "departments", "roles", "consultants", "resumes", "marketing-assignments", "jobs", "applications", "interviews", "clients", "placements", "branding", "settings"];
 
 test("ADM-05 Org admin walks the Administration menu: built pages open, unbuilt ones say 'on the way'", async ({ as }) => {
   const { page, go } = await as("sarah");
@@ -32,7 +32,7 @@ test("ADM-05 Org admin walks the Administration menu: built pages open, unbuilt 
     }
   }
   await narrate(page, `Pages still on the way: ${onTheWay.length}`);
-  // Subscription, licenses, billing, usage, HR, Finance, reports, domains, integrations, audit and settings are not built yet.
+  // Subscription, licenses, billing, usage, HR, Finance, reports, domains, integrations and audit are not built yet (Settings is built since ent-resume: the share-links switch).
   expect(onTheWay.length).toBeLessThanOrEqual(11);
 });
 

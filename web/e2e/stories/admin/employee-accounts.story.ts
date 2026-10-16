@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { test, expect, narrate } from "../_support/story";
 import { PORT } from "../_support/personas";
+import { pickFirstDepartment } from "./_helpers";
 
 /**
  * ADM-19 / ADM-19b: employee onboarding with a temporary password. The Org Admin creates the account now (roles and department as the
@@ -33,12 +34,8 @@ test("ADM-19 Org admin adds an employee with a temporary password: role and depa
   await panel.getByLabel(/Full Name/).fill(person.name);
   await panel.getByRole("button", { name: /^Role/ }).click();
   await panel.getByRole("checkbox", { name: /^HR Specialist/ }).check();
-  const dept = panel.getByRole("button", { name: "Department" });
-  if (await dept.isEnabled()) {
-    await dept.evaluate((el) => el.scrollIntoView({ block: "center" })); // the list opens under the trigger and closes on scroll: put the trigger mid-screen first
-    await dept.click();
-    await page.getByRole("option").first().click();
-  }
+  await panel.getByRole("button", { name: /^Role/ }).click(); // close the role list: left open it pushes the Department list below the fold
+  await pickFirstDepartment(page, panel);
   await narrate(page, "A password that breaks the rule is refused before anything is created");
   await pwField.fill("ab");
   await panel.getByRole("button", { name: "Create Account" }).click();
@@ -53,7 +50,7 @@ test("ADM-19 Org admin adds an employee with a temporary password: role and depa
   await expect(shown.getByRole("alert")).toContainText("Shown once");
   const first = await shown.getByTestId("temp-password").inputValue();
   await shown.getByRole("button", { name: "Copy" }).click();
-  await expect(shown.getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect(shown.getByRole("button", { name: "Copied", exact: true })).toBeVisible();
   await shown.getByRole("button", { name: "I have copied it" }).click();
   await expect(page.getByTestId("temp-password")).toHaveCount(0);
   await expect(panel.getByText(`Account created for ${person.email}.`)).toBeVisible();
