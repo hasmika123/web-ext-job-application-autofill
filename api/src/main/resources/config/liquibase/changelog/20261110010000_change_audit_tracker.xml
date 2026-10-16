@@ -101,6 +101,8 @@
         <sql>
             UPDATE application_event SET actor_kind = 'ASSISTANT' WHERE actor_kind = 'SYSTEM' AND actor_user_id IS NULL AND source = 'ASSISTANT'
         </sql>
+        <!-- Rollback: nothing to undo. This only fills columns that changeset -1 added, and undoing -1 drops them (and the data) anyway. -->
+        <rollback/>
     </changeSet>
 
     <!-- Backfill, head records: the owner created and last wrote every existing application, note and interview. -->
@@ -130,5 +132,7 @@
                 updated_by_login = (SELECT u.login FROM jhi_user u WHERE u.id = interview.user_id)
             WHERE user_id IS NOT NULL AND updated_by_user_id IS NULL AND updated_at IS NOT NULL
         </sql>
+        <!-- Rollback: nothing to undo. This only fills the created_by_* / updated_by_* columns that changesets -2 to -4 added, and undoing those drops them (and the data) anyway. -->
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

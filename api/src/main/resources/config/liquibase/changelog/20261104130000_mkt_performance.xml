@@ -28,7 +28,10 @@
         <addUniqueConstraint tableName="mkt_goal" columnNames="org_id, id" constraintName="uk_mkt_goal_org_id"/>
         <addUniqueConstraint tableName="mkt_goal" columnNames="org_id, owner_member_id, metric, period" constraintName="uk_mkt_goal_owner_metric"/>
         <createIndex tableName="mkt_goal" indexName="ix_mkt_goal_owner"><column name="org_id"/><column name="owner_member_id"/><column name="metric"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_goal" constraintName="fk_mkt_goal_owner"/>
+        </rollback>
     </changeSet>
 
     <!-- The industry figure a rate is compared with on the Performance board (Interview Rate, Offer Rate, Placement Rate). One row per organization and metric; percent with two decimals. -->

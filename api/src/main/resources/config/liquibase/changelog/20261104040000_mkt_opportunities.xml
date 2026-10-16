@@ -45,7 +45,10 @@
         <addUniqueConstraint tableName="mkt_opportunity" columnNames="org_id, match_id" constraintName="uk_mkt_opportunity_match"/>
         <createIndex tableName="mkt_opportunity" indexName="ix_mkt_opportunity_interest"><column name="org_id"/><column name="interest"/></createIndex>
         <createIndex tableName="mkt_opportunity" indexName="ix_mkt_opportunity_owner"><column name="org_id"/><column name="owner_member_id"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_opportunity" constraintName="fk_mkt_opportunity_owner"/>
+        </rollback>
     </changeSet>
 
     <!-- The Recent Opportunity Activity feed and the detail timeline. text is a short verb phrase (no free text from a person). -->
@@ -66,6 +69,9 @@
         <addForeignKeyConstraint baseTableName="mkt_opportunity_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_mkt_opportunity_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <createIndex tableName="mkt_opportunity_event" indexName="ix_mkt_opportunity_event_opp"><column name="org_id"/><column name="opportunity_id"/><column name="occurred_at"/></createIndex>
         <createIndex tableName="mkt_opportunity_event" indexName="ix_mkt_opportunity_event_time"><column name="org_id"/><column name="occurred_at"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_opportunity_event" constraintName="fk_mkt_opportunity_event_actor"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>

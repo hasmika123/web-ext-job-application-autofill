@@ -71,9 +71,9 @@ export async function narrate(page: Page, text: string, ms = PAUSE) {
 }
 
 export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session>; flow: (opts?: { who?: PersonaKey }) => Promise<Flow> }>({
-  as: async ({ browser }, use) => {
+  as: async ({ browser }, provide) => {
     const opened: BrowserContext[] = [];
-    await use(async (who) => {
+    await provide(async (who) => {
       const persona = PERSONAS[who];
       const file = statePath(who);
       await freshSignIn(browser, who); // a cached sign-in older than a few minutes is renewed first (see global-setup)
@@ -96,9 +96,9 @@ export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session>; flo
    * One continuous, recorded browser for a whole business flow. `switchTo(who)` swaps the signed-in person (cookies from the cached sign-in)
    * without leaving the recording, so a flow that crosses roles (consultant -> marketer -> consultant) stays ONE video.
    */
-  flow: async ({ browser }, use) => {
+  flow: async ({ browser }, provide) => {
     const opened: BrowserContext[] = [];
-    await use(async (opts) => {
+    await provide(async (opts) => {
       const t0 = Date.now();
       const context = await browser.newContext({
         viewport: { width: 1440, height: 900 },

@@ -32,6 +32,9 @@
         <addForeignKeyConstraint baseTableName="cws_job_source" baseColumnNames="org_id, requirement_id" constraintName="fk_cws_job_source_req" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
         <addForeignKeyConstraint baseTableName="cws_job_source" baseColumnNames="org_id, added_by_member_id" constraintName="fk_cws_job_source_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <addUniqueConstraint tableName="cws_job_source" columnNames="org_id, requirement_id" constraintName="uk_cws_job_source_req"/>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="cws_job_source" constraintName="fk_cws_job_source_member"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>

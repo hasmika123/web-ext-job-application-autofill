@@ -52,6 +52,9 @@
         <addForeignKeyConstraint baseTableName="mkt_saved_search" baseColumnNames="org_id, owner_member_id" constraintName="fk_mkt_saved_search_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
         <addUniqueConstraint tableName="mkt_saved_search" columnNames="org_id, id" constraintName="uk_mkt_saved_search_org_id"/>
         <createIndex tableName="mkt_saved_search" indexName="ix_mkt_saved_search_owner"><column name="org_id"/><column name="owner_member_id"/></createIndex>
-        <rollback/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_saved_search" constraintName="fk_mkt_saved_search_owner"/>
+        </rollback>
     </changeSet>
 </databaseChangeLog>

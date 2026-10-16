@@ -13,13 +13,20 @@ test("an unknown host is a 404 with the generic page and no cookie", async ({ re
   const res = await get(request, "nobody.localhost:3100");
   expect(res.status()).toBe(404);
   expect(res.headers()["set-cookie"]).toBeUndefined();
-  expect(await res.text()).toContain("isn&#x27;t available");
+  // `next dev` streams the generic not-found page in the flight payload (the apostrophe is not HTML-escaped there); a production render escapes it
+  expect(await res.text()).toMatch(/isn(&#x27;|')t available/);
 });
 
 test("a served host renders the tenant tree with the display name as the title", async ({ request }) => {
-  const res = await get(request, "acme.localhost:3100");
+  // login-first routing (X2.6): a signed-out visit to "/" on a tenant host is sent to its own sign-in page, which is the tenant tree
+  const root = await get(request, "acme.localhost:3100");
+  expect(root.status()).toBe(307);
+  expect(root.headers()["location"]).toBe("/login");
+  const res = await get(request, "acme.localhost:3100", "/login");
   expect(res.status()).toBe(200);
-  expect(await res.text()).toContain("<title>Acme Staffing</title>");
+  const html = await res.text();
+  expect(html).toMatch(/<title>[^<]*Acme[^<]*<\/title>/);
+  expect(html).not.toContain("<title>Kiwiply");
 });
 
 test("the platform host is untouched, and /_t is not reachable on it", async ({ request }) => {
