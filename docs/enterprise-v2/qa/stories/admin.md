@@ -353,12 +353,12 @@ The invitation / Create account now form now also has optional **Team** and **Ma
 - **Expected:** the ticks come from the organization's real state (nobody ticks them by hand); each step links to the page where it is done; when all five are done the card disappears for good; pressing the x hides it for 7 days for that administrator only (another administrator still sees it), and a failed save brings the card back with a message; Acme Staffing, which is fully set up, never shows the card.
 - **Pages / APIs:** `/w/admin` (Dashboard), the `checklist` widget of `GET /api/orgs/{orgId}/dashboard`, `POST /api/orgs/{orgId}/dashboard/alerts/CHECKLIST/dismiss`.
 - **Status: STORY-ONLY (the widget is checked in `OrgReportsIT`; the card in `ChecklistCard.test.tsx`)**
-### ADM-96 Gina picks a Team and a Manager when she creates or invites an employee
+### ADM-110 Gina picks a Team and a Manager when she creates or invites an employee
 - **Persona:** Gina (Owner). **Steps:** 1. Invitations, mode **Create account now**: fill email and role, pick a Team and a Manager, Create Account. 2. Repeat in **Send invitation** mode. 3. Open the new member (Members / Employees): Overview. 4. Leave both on "No team" / "No manager" for a third person.
 - **Expected:** the Team list narrows to the chosen department's teams; the member detail shows the team and manager; the API validates both against the same organization (a team from another organization or a manager outside it is the generic 404, a team outside the chosen department is refused); the third person has neither. The fields are hidden when the organization has no teams and no active members to choose.
 - **Pages / APIs:** `/w/admin/invitations`, `GET invitations/form-options` (now teams and managers), `POST members/account`, `POST invitations` (teamGroupId, managerMemberId; API unchanged). **Automation:** none yet (web `InvitePanel.account.test.tsx`). **Status: STORY-ONLY (browser not verified)**
 
-### ADM-97 Gina reviews which jobs were captured, by whom, with which extension version
+### ADM-111 Gina reviews which jobs were captured, by whom, with which extension version
 - **Persona:** Gina. **Steps:** 1. Audit Logs, tab **Captured jobs**. 2. Narrow by a date range, a search word and a source. 3. Next page. 4. Export CSV. 5. As a member without audit.view, open the same page.
 - **Expected:** one row per job with who captured it, when, source, extension version; the filters narrow it; the CSV has one line per row on screen and no cell starts with = + - or @ (it is prefixed with a quote); step 5 is the permission panel / generic 404.
 - **Pages / APIs:** `/w/admin/audit`, `GET /api/orgs/{orgId}/audit/job-data` (existing). **Automation:** none yet (web `JobDataAudit.test.tsx`). **Status: STORY-ONLY (browser not verified)**

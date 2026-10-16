@@ -137,8 +137,6 @@ export default function InvitePanel({
       } else {
         // Legacy (shared-account) organizations only: the API sends INVITED when it could not create a new account, and the normal invitation went out instead.
         setCreatedNote(`An invitation was sent to ${who} instead of a new account. Accepting it sets up their login for your organization.`);
-        onSent({ email: who, body: { emails: [who], roleIds, ...(dept ? { departmentGroupId: Number(dept) } : {}) } });
-        setCreatedNote(`An invitation was sent to ${who} instead of a new account. They accept it with the account they already use.`);
         onSent({ email: who, body: { emails: [who], roleIds, ...(dept ? { departmentGroupId: Number(dept) } : {}), ...placement } });
         void suggest();
       }
