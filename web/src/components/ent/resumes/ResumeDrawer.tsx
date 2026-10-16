@@ -2,6 +2,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect -- data loader: the effect starts a fetch and the answer is stored (the pattern of the other admin pages) */
 
+import { WORK_MODE_LABEL } from "@/lib/ent/jobs";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode, RefObject } from "react";
 import {
@@ -31,7 +32,6 @@ import {
 import {
   errorSentence,
   exportUrl,
-  fileSizeText,
   formatDate,
   resumesApi,
   versionText,
@@ -311,7 +311,7 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
               {c.location && (
                 <li>
                   {c.location}
-                  {c.workMode ? ` (${c.workMode.toLowerCase()})` : ""}
+                  {c.workMode ? ` (${WORK_MODE_LABEL[c.workMode] ?? c.workMode.toLowerCase().replace(/_/g, " ")})` : ""}
                 </li>
               )}
             </ul>
@@ -339,7 +339,8 @@ export default function ResumeDrawer(p: ResumeDrawerProps) {
             {r.updatedBy ? <span className="font-normal text-muted" data-modified-by> by {r.updatedBy}</span> : null}
           </Field>
           <Field icon={<FileTextIcon size={14} />} label="File Size">
-            {fileSizeText(r.fileSizeKb) || <span className="font-normal text-muted">Not stored</span>}
+            {/* the directory stores no file (the preview is drawn from the record): a size next to "No file is stored" contradicted itself */}
+            <span className="font-normal text-muted">Not stored</span>
           </Field>
           <Field icon={<UserIcon size={14} />} label="Owner">
             {r.owner ? (

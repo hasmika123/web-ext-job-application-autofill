@@ -104,4 +104,62 @@ test.describe("enterprise audit fixes (real stack)", () => {
     await cora2.getByRole("button", { name: /^Approve / }).first().click();
     await expect(cora2.getByText(/approved|Approved/).first()).toBeVisible();
   });
+
+  for (const who of ["Omar Haddad", "Anika Rao", "Sarah Chen"]) {
+    test(`D6: ${who} opens My profile, Notifications and Security from the avatar menu`, async ({ page }) => {
+      await demoSignIn(page, who);
+      await page.locator("[data-account-menu]").click();
+      await page.getByRole("menuitem", { name: "My profile" }).click();
+      await page.waitForURL((u) => u.pathname === "/me");
+      await expect(page.locator("[data-my-profile]")).toBeVisible();
+      await expect(page.getByText("This page could not be found")).toHaveCount(0);
+      await expect(page.locator("#notifications")).toBeVisible();
+      await expect(page.locator("#security")).toBeVisible();
+      await expect(page.locator("[data-my-roles]")).not.toBeEmpty();
+      await page.locator("[data-account-menu]").click();
+      await page.getByRole("menuitem", { name: "Security" }).click();
+      await page.waitForURL((u) => u.pathname === "/me" && u.hash === "#security");
+    });
+  }
+
+  test("D6: Connect extension opens an install-first dialog, not a red error", async ({ page }) => {
+    await demoSignIn(page, "Omar Haddad");
+    await page.locator("[data-account-menu]").click();
+    await page.getByRole("menuitem", { name: "Connect extension" }).click();
+    await expect(page.getByText("Install the Kiwiply extension first")).toBeVisible();
+    await expect(page.locator("[data-install-extension]")).toHaveAttribute("href", /^https:/);
+  });
+
+  test("D15 + D9: tenant 404 is the organization's own, one icon link, unbuilt admin pages read Soon", async ({ page }) => {
+    await demoSignIn(page, "Sarah Chen");
+    await page.goto(`${acme}/definitely-not-a-page`);
+    await expect(page.locator("[data-tenant-page-not-found]")).toBeVisible();
+    await expect(page).toHaveTitle(/Page not found · Acme/);
+    await expect(page.getByText(/Kiwiply/)).toHaveCount(0);
+    await page.goto(`${acme}/w/admin`);
+    await expect(page.locator("[data-nav-item=reports] [data-soon-chip]")).toBeVisible();
+    await expect(page.locator("[data-nav-item=domains] [data-soon-chip]")).toBeVisible();
+    await expect(page.locator("[data-nav-item=employees] [data-soon-chip]")).toHaveCount(0);
+    await page.waitForTimeout(800);
+    expect(await page.locator('head link[rel~="icon"]').count()).toBe(1);
+  });
+
+  test("D9: Audit Logs is a real page: who did what, filter by kind", async ({ page }) => {
+    await demoSignIn(page, "Sarah Chen");
+    await page.goto(`${acme}/w/admin/audit`);
+    await expect(page.locator("[data-audit-page]")).toBeVisible();
+    await expect(page.locator("[data-audit-row]").first()).toBeVisible();
+    await expect(page.getByText("This page is on the way")).toHaveCount(0);
+    await expect(page.locator("[data-nav-item=audit] [data-soon-chip]")).toHaveCount(0);
+    expect(await page.locator("body").innerText()).not.toContain("ent#");
+  });
+
+  test("D12: My Marketer shows no sample content and the messaging buttons say why they are off", async ({ page }) => {
+    await demoSignIn(page, "Anika Rao");
+    await page.goto(`${acme}/w/consultant/marketer`);
+    await expect(page.locator("#marketer-card")).toBeVisible();
+    await expect(page.locator("#marketer-messages [data-sample], #marketer-plan [data-sample], #marketer-notes [data-sample]")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Send Message" }).first()).toBeDisabled();
+    await expect(page.getByText(/until the marketing workspace/)).toHaveCount(0);
+  });
 });
