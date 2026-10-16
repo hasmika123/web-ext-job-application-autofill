@@ -281,6 +281,80 @@ public class CatalogService {
         return after;
     }
 
+    /** What {@link #publishBatch} made live: the catalog version, the instant, and the rows (stamped, with their Stripe price ids when Stripe is on). */
+    public record PublishedBatch(int catalogVersion, Instant effectiveFrom, List<PriceDTO> prices) {}
+
+    /**
+     * Publish several DRAFT prices and name the plan versions that go live with them under ONE catalog version (story K2.2, docs/subscriptions/04 section 4): a
+     * single {@code catalog_publish} row lists the price ids and the plan version ids, every row is effective now, and each row replaces the ACTIVE row of its key.
+     * The margin guard is the caller's ({@code PlanService.publish}); a single-price {@link #publish} stays unguarded (decision recorded in decisions-for-user.md).
+     * Stripe order: every new Stripe Price is created first and the replaced ones are deactivated last, so a failed create leaves the old prices untouched in Stripe.
+     */
+    @Transactional
+    public PublishedBatch publishBatch(List<Long> priceIds, List<Long> planVersionIds, String summary, String reason) {
+        String why = requireReason(reason, "Publishing a plan");
+        Instant now = clock.instant();
+        int version = publishes.currentVersion() + 1;
+        List<PriceDTO> out = new ArrayList<>();
+        List<ProductPrice> replacedRows = new ArrayList<>();
+        List<ProductPrice> stamped = new ArrayList<>();
+        for (Long id : priceIds) {
+            ProductPrice p = load(id);
+            if (!"DRAFT".equals(p.status())) throw CatalogException.conflict("PRICE_STATE", "Price " + id + " is " + p.status() + ", only a DRAFT can be published.", Map.of("status", p.status()));
+            Product product = products.findById(p.getProductId()).orElseThrow(() -> CatalogException.notFound("product", "of price " + id));
+            if (!Boolean.TRUE.equals(product.getActive())) throw CatalogException.unprocessable("PRODUCT_RETIRED", "Product " + product.getCode() + " is retired.", Map.of("productId", product.getId()));
+            checkIntervalAndCurrency(p.getAudience(), p.getBillingInterval(), p.getCurrency());
+            if (!prices.findScheduled(p.getProductId(), p.getAudience(), p.getBillingInterval(), p.getCurrency()).isEmpty()) {
+                throw CatalogException.conflict("PRICE_ACTIVE_EXISTS", "A price for this product, audience, interval and currency is already scheduled; retire it first.", keyExtra(p));
+            }
+            ProductPrice replaced = prices.findActive(p.getProductId(), p.getAudience(), p.getBillingInterval(), p.getCurrency()).orElse(null);
+            PriceDTO replacedBefore = replaced == null ? null : PriceDTO.from(replaced, product.getCode());
+            if (replaced != null) {
+                replaced.setEffectiveUntil(now);
+                replaced.setActive(false);
+                replaced.setRetiredAt(now);
+                prices.saveAndFlush(replaced);
+                replacedRows.add(replaced);
+            }
+            PriceDTO before = PriceDTO.from(p, product.getCode());
+            p.setEffectiveFrom(now);
+            p.setPublishedAt(now);
+            p.setCatalogVersion(version);
+            p.setActive(true);
+            try {
+                p = prices.saveAndFlush(p);
+            } catch (DataIntegrityViolationException e) {
+                throw CatalogException.conflict("PRICE_ACTIVE_EXISTS", "Another price for this product, audience, interval and currency is active.", keyExtra(p));
+            }
+            for (PriceStripeSync s : stripeSyncs) s.onPublish(p);
+            p = prices.saveAndFlush(p);
+            stamped.add(p);
+            PriceDTO after = PriceDTO.from(p, product.getCode());
+            out.add(after);
+            changes.record(CatalogChangeRecorder.ENTITY_PRODUCT_PRICE, String.valueOf(p.getId()), before, after, why);
+            if (replaced != null) changes.record(CatalogChangeRecorder.ENTITY_PRODUCT_PRICE, String.valueOf(replaced.getId()), replacedBefore, PriceDTO.from(replaced, product.getCode()), "replaced by price " + p.getId() + ": " + why);
+            audit.record(
+                AdminAuditService.CATALOG_PRICE_PUBLISH, AdminAuditService.TARGET_CATALOG, "price:" + p.getId(), why,
+                "risk=HIGH catalogVersion=" + version + " product=" + product.getCode() + " " + p.getAudience() + " " + p.getBillingInterval() + " " + p.getAmountMinor() + " " + p.getCurrency() + " withPlanVersions=" + planVersionIds
+            );
+        }
+        for (ProductPrice r : replacedRows) stripeSyncs.forEach(s -> s.onRetire(r));
+        CatalogPublish c = new CatalogPublish();
+        c.setId(version);
+        c.setPublishedAt(now);
+        c.setPublishedBy(actor());
+        c.setSummary(summary == null ? null : summary.length() > 2000 ? summary.substring(0, 2000) : summary);
+        c.setPriceIdsJson(write(stamped.stream().map(ProductPrice::getId).toList()));
+        c.setPlanVersionIdsJson(write(planVersionIds == null ? List.of() : planVersionIds));
+        c.setSnapshotHash(sha256(write(out) + write(planVersionIds == null ? List.of() : planVersionIds)));
+        try {
+            publishes.saveAndFlush(c);
+        } catch (DataIntegrityViolationException e) {
+            throw CatalogException.conflict("CATALOG_VERSION_CONFLICT", "Another publish took catalog version " + version + "; try again.", Map.of("version", version));
+        }
+        return new PublishedBatch(version, now, out);
+    }
+
     /** Retire a price (HIGH). Immediate by default; a future {@code effectiveUntil} keeps the row in force until then. */
     @Transactional
     public PriceDTO retire(Long id, RetirePriceRequest r) {

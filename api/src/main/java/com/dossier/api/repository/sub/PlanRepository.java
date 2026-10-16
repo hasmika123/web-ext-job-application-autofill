@@ -11,6 +11,10 @@ public interface PlanRepository extends Repository<Plan, Long> {
 
     long count();
 
+    void delete(Plan entity);
+
+    void flush();
+
     Optional<Plan> findById(Long id);
 
     Optional<Plan> findByPlanKey(String planKey);

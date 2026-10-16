@@ -27,6 +27,8 @@ public interface PlanVersionRepository extends Repository<PlanVersion, Long> {
 
     void delete(PlanVersion entity);
 
+    void flush();
+
     /** The PUBLISHED versions whose plan base is {@code productId} (at most one per plan; the catalog port reads the AI budget from it). */
     @Query("select v from PlanVersion v where v.baseProductId = :productId and v.status = 'PUBLISHED' order by v.id desc")
     List<PlanVersion> findLiveByBaseProduct(@Param("productId") Long productId);

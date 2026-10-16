@@ -34,6 +34,8 @@ public class CatalogReconciler {
 
     public static final String KIND = "CATALOG";
     private static final int MAX_PRICES = 5000;
+    /** The codes this reconciler owns; other CATALOG rows (the snapshot hash check) are resolved by their own job. */
+    private static final Set<String> MANAGED = Set.of("UNKNOWN_PRICE", "AMOUNT_MISMATCH", "ACTIVE_MISMATCH", "MISSING_IN_STRIPE");
 
     private final StripeGateway gateway;
     private final ProductPriceRepository prices;
@@ -85,7 +87,7 @@ public class CatalogReconciler {
         int resolved = 0;
         List<BillingDrift> openRows = drifts.findOpen(KIND);
         for (BillingDrift d : openRows) {
-            if (!current.contains(d.getCode() + "|" + d.getSubject())) {
+            if (MANAGED.contains(d.getCode()) && !current.contains(d.getCode() + "|" + d.getSubject())) {
                 d.setResolvedAt(Instant.now());
                 d.setResolvedBy("system");
                 d.setNote("No longer differs.");
