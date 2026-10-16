@@ -10,7 +10,7 @@ Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: 
 
 **Pages that exist** (`/w/marketing/...`): Home (`/`), My Assigned Talent (`talent`), Resumes, Job Discovery (`jobs`), Job Matches (`matches`), Opportunities, Job Streams (`streams`), Submissions, Applications, Interviews, Follow-ups (`followups`), Tasks, Activities (`activity`), Performance. All 14 are real pages backed by `/api/orgs/{orgId}/mkt/**`. The consultant side of the pipeline is `/w/consultant/opportunities[/{id}]`.
 
-**Resume Builder in act-for mode (MKT-47, MKT-48) was added by ent-resume and is BLOCKED (not yet run in a browser).** **Not built / not in a browser-drivable form:** the extension itself (Save-for-consultant drawer, consultant "Assigned by" chip, submit-detect auto-link), a marketer UI to answer a consultant's question (API only), a marketer UI to create a job by hand (Job Discovery has no "Add job"; Sarah can use `/w/admin/jobs`), a marketer UI to withdraw an assignment, org-level job-data audit page (belongs to the ADM area). See MKT-40..46.
+**Resume Builder in act-for mode (MKT-47, MKT-48) was added by ent-resume and is BLOCKED (not yet run in a browser).** **Not built / not in a browser-drivable form:** the extension itself (Save-for-consultant drawer, consultant "Assigned by" chip, submit-detect auto-link), a marketer UI to create a job by hand (Job Discovery has no "Add job"; Sarah can use `/w/admin/jobs`), a marketer UI to withdraw an assignment, org-level job-data audit page (belongs to the ADM area). See MKT-40..46.
 
 **How the extension call is automated.** Playwright cannot drive the extension, so `captureJob()` performs the same HTTP call as the signed-in marketer: first against the web origin (no BFF route exists today, so it answers 404), then directly against the API with the marketer's own access token (read from the session cookie) and the tenant-host headers. Needs `E2E_API_URL` (default `http://localhost:18183`) and `DOSSIER_TENANT_HOST_SECRET` (same value as the API and `next start`). The marketer's answer to a consultant question (`POST .../mkt/opportunities/{matchId}/answer-info`) has no BFF route either and is called the same way.
 
@@ -130,7 +130,7 @@ Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: 
 ### MKT-22 Ben asks a question, Omar answers it, Ben reads the answer
 - **Steps:** Ben opens the job by its deep link `/w/consultant/opportunities/{id}`, **Ask a question**, sends. State **Needs info**; "Waiting for Omar Haddad to answer". Omar's board activity shows "asked a question"; the Review dialog timeline too. Omar answers (API `answer-info`, keyed by the board row's match id). Ben reloads.
 - **Expected:** Ben sees the answer text and "Omar Haddad answered"; state stays **Needs info** until Ben acts (only the consultant moves it on); Ben then presses Interested -> **Interested**.
-- **Note:** the marketer-side answer box does not exist in the UI (MKT-41); this story answers over HTTP.
+- **Note:** the marketer-side answer box is the Review dialog of the board (MKT-41, built; story MKT-52); this story answers over HTTP.
 - **Pages / APIs:** `POST con/opportunities/{id}/request-info`, `POST mkt/opportunities/{matchId}/answer-info`.
 - **Automated by:** `job-pipeline.story.ts` "MKT-22 ...". **Status: AUTOMATED**
 
@@ -217,7 +217,7 @@ Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: 
 - **Status: NOT-BUILT** (Job Discovery has no "Add job"; the extension is the capture path; Sarah can create jobs on `/w/admin/jobs`, covered by the ADM area). Roadmap: doc 54 (job frontend design).
 
 ### MKT-41 A marketer answers a consultant's question from the Opportunities board
-- **Status: NOT-BUILT (UI) / API ready.** `POST mkt/opportunities/{matchId}/answer-info` exists and is exercised by MKT-22, but there is no BFF route and no answer box on the board or in the Review dialog. Roadmap: marketer page follow-up to doc 60 section 4.
+- **Status: BUILT (demo day, branch `demo-marketer-gaps`); browser story MKT-52.** The Review dialog shows the question and an answer box; the BFF route `answer-info` was added.
 
 ### MKT-42 The marketer presses "Save for consultant" in the browser extension drawer
 - **Status: BLOCKED: Playwright cannot drive the real extension.** Covered at API level by MKT-20/26; the extension has its own unit tests (trim, board rule for LinkedIn/Indeed/Dice company blanking, no-submit).
@@ -240,7 +240,7 @@ Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: 
 |---|---|
 | AUTOMATED | 27 (MKT-01..06, 10..16, 20..26, 30..36) |
 | BLOCKED | 6 (MKT-42, 43, 45, 46, 47, 48: the last two not yet run in a browser) |
-| NOT-BUILT | 3 (MKT-40, 41, 44) |
+| NOT-BUILT | 2 (MKT-40, 44) |
 
 ## Invitation creates the organization account (S9, decision O4; described only, no spec yet)
 
@@ -251,3 +251,23 @@ Specs: `web/e2e/stories/marketing/*.story.ts` (helpers in `_mkt.ts`). Personas: 
 - **Expected:** there is no "sign in with your existing account" step; the response carries Acme's tenant session (cookies written by the web, never shown); the member row is ACTIVE with the invited role; Mina can sign out and back in with her email and the chosen password; an expired or revoked link shows one generic message. If Mina also has a personal Kiwiply account with the same address, it is unchanged (still signs in on kiwiply.com with its own password).
 - **Pages / APIs:** `/join/t/{token}`, `GET /api/join/{token}` (createsAccount true), `POST /api/join/{token}/accept` via `/api/join/{token}/accept` (BFF).
 - **Status: STORY-ONLY (S10 automates and runs it on the QA stack)**
+
+## Demo-day gaps closed on the Talent Marketer workspace (described only, no spec yet)
+
+### MKT-50 Sarah opens an assigned consultant on My Assigned Talent and sees everything she needs to market them
+- **Persona:** sarah (Marketing Specialist, ASSIGNED scope). **Goal:** read one consultant's profile without leaving the page.
+- **Steps:** 1. Open `/w/marketing/talent`. 2. Press **View Profile** on an assigned consultant (for example Anika Rao). 3. Read the drawer: Contact (work e-mail, location, work mode, the work authorization label only if one is stored), Current placement (role, client, since), Skills, Resumes (name, version, primary, Approved or Pending approval), Applications (total and open, a chip per stage, the five latest each with "Updated 2h ago by <name> <ROLE>"), Upcoming interviews, Assigned jobs. 4. Open **Resumes** from the footer links. 5. Try a consultant who is not hers (the id in the API URL).
+- **Expected:** every section above is filled from the organization's own rows; no phone, time zone, date of birth, identity or bank number and no money amount appears anywhere (the API does not store a phone or a time zone for a consultant); a consultant who is not assigned to Sarah, another organization's id and a non-marketer all answer the same generic 404 and the drawer says "This consultant isn't one of yours".
+- **Pages / APIs:** `/w/marketing/talent`; `GET mkt/talent/{consultantId}/overview` (one call, behind the single `MarketerAccess.allows(caller, consultant, AREA)` seam: today true for assigned consultants, O5; decision O6 will only change that method). **Automation:** none yet (Java `MktTalentIT`, `MarketerAccessTest`; web `TalentPage.test.tsx`). **Status: STORY-ONLY**
+
+### MKT-51 Sarah saves a job for Anika from Job Discovery
+- **Persona:** sarah, anika. **Goal:** put a job on a consultant's own list without applying for her.
+- **Steps:** 1. Open `/w/marketing/jobs`, press **View** on a job, press **Save for a consultant**. 2. Pick Anika (a consultant without an organization account cannot be saved for), press **Save job**. 3. Press it again for the same job. 4. Anika opens her applications.
+- **Expected:** a notice "Saved for Anika Rao - <job>. It is on their job list; the consultant applies themselves." The second time: "Already saved:". Anika sees the job in her own list with status **Saved**, source organization, and "Updated by Sarah Lee on behalf of you" in its history; Sarah's own list is unchanged. Nothing is applied, filled or submitted. An unassigned consultant, a consultant account (calling the route), a member without the permission and another organization's marketer all get the generic 404 and nothing is written. More than 30 saves a minute answer 429.
+- **Pages / APIs:** `POST /api/orgs/{orgId}/consultants/{memberId}/applications/save` (BFF `consultants/**`), `GET mkt/jobs/{id}/candidates` (now carries the seat id). **Automation:** none yet (Java `SaveForConsultantResourceIT`; web `JobDiscoveryPage.test.tsx`). **Status: STORY-ONLY**
+
+### MKT-52 Sarah answers Ben's question from the Review dialog
+- **Persona:** sarah, ben. **Goal:** answer a consultant's question without leaving the board (completes MKT-41).
+- **Steps:** 1. Ben asks a question on an assigned job (MKT-22). 2. Sarah opens `/w/marketing/opportunities`, presses **Review** on that row. 3. Read "Question from the consultant", type an answer, press **Send answer**. 4. Ben reloads his job.
+- **Expected:** Sarah's answer appears under the question ("Your answer: ..."); the timeline shows the answer was sent without copying its text; Ben sees it and the state stays **Needs info** until he acts. Once Ben has moved on the thread stays readable but the box is gone. Free text with a Social Security or bank number is refused (422, nothing saved).
+- **Pages / APIs:** `/w/marketing/opportunities`; `GET mkt/opportunities/{id}` (now `info`), `POST mkt/opportunities/{id}/answer-info`. **Automation:** none yet (Java `MktOpportunitiesAnswerInfoTest`; web `OpportunitiesPage.test.tsx`). **Status: STORY-ONLY**
