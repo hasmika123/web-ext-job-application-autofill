@@ -1,0 +1,164 @@
+# Real gaps B: Enterprise V2 stories X7..X12 and the extension (audit of 2026-10-16)
+
+Read-only audit of `origin/version2` (branch `roadmap-reconcile-b`). Nothing was built, run or tested: every verdict is from reading code, Liquibase, test names and the QA docs. `docs/roadmap/areas/ent.json`, `ext.json`, `progress-tracker.md` are stale (they still say `not_started` for almost everything below).
+"unverified" = I could not confirm from code alone. Tests were NOT run, so "tests exist" never means "tests pass".
+
+## 0. How to read this
+
+- **The build did not follow the X7..X12 specs literally.** The talent/consultant/marketing work was built page-first (Sessions "ent-talent", "ent-consultant", "ent-marketing", "ent-demo") on `talent_*`, `cws_*` (consultant workspace) and `mkt_*` (marketer workspace) tables, not on the spec tables (`org_feature_consent`, `job_opportunity`, `opportunity_match`, `pipeline_event`, `interview_slot`). So "DONE" below means "the user-visible capability exists in the shape that was built", and the spec-only mechanisms that are missing are listed under "missing".
+- **Decisions that changed the specs** (progress-tracker 2026-10-14): O4 separate enterprise accounts (no workspace header; the extension has one account at a time), O5 an assigned marketer sees ALL of the consultant's resumes and applications (no per-feature consent gate; `MarketerAccess.allows` is the single seam), O6 per-assignment visibility is later (PARKED). That is why X7.6 / X7.10 (per-feature act-for consent + act-for AI) are not built.
+- Verdict words: DONE, PARTIAL, NOT BUILT, PARKED (user decision: Marketing Manager workspace, O6, timesheets/finance-ops), DEFERRED (subscription/billing).
+- Size: S under a day, M 2-4 days, L a week or more. Importance: BLOCKER = a first paying consultancy cannot run its business / security promise without it; IMPORTANT = needed soon after; LATER.
+- Counts (69 stories X7.1..X12.12): **DONE 22, PARTIAL 23, NOT BUILT 20, PARKED 4, DEFERRED 0** (billing items are X6, outside this audit; the admin billing menu entries are listed in section 3). Extension (5 extra stories): DONE 2, PARTIAL 1, NOT BUILT 2.
+
+## 1. Tables per epic
+
+### X7 Consultants and resumes (10)
+| id | title | verdict | evidence | missing | size | importance |
+|---|---|---|---|---|---|---|
+| X7.1 | Consultant directory API | DONE | `OrgConsultantResource` (list, counts, filters, detail, assignments, bulk), `ConsultantQueryService`, `OrgConsultantResourceIT`, `MktTalentResource` (marketer scope) | spec's consent projection (`ShareField.project`) not used for marketers (O5); per-list SHARE_READ_FULL audit unverified | S | LATER, O5 made it moot |
+| X7.2 | Consultant profile overlay | PARTIAL | `cws_profile_detail/pref`, `cws_work_preference`, `cws_availability_*`, `ConsultantProfileService`, `ConsultantAvailabilityService`; consultant edits own | marketer "propose, consultant accepts" flow (no proposal table/route found); work-auth category list + 422 unverified | M | LATER |
+| X7.3 | Org resume links API | DONE | `org_resume`, `OrgResumeLinkService`, `OrgResumeResource` (list/primary/visibility/decision/bulk/export), `ResumeAccess`, `OrgResumeLinkServiceTest`, `OrgResumeResourceIT` | PERSONAL_SHARED sync from consent (replaced by O5 policy); ResumeViewEvent(ORG) audit unverified | S | LATER |
+| X7.4 | Resume approval workflow | PARTIAL | `MktResumesResource` approval-request/approve/needs-update; `ConsultantResumesResource` approve/request-changes; `OpportunityAssignmentService` refuses unapproved (409 RESUME_NOT_APPROVED) | status-based only: no `approved_version` pin, no STALE state, no "later autosave flips to STALE", no retention protection of a pinned version | M | IMPORTANT, a marketer can edit after approval and the approved text silently changes |
+| X7.5 | Marketer-made resumes (act-for builder) | DONE | `ActForBuilderGate` (header `X-Kiwiply-Act-For`, allow-list, tid check), `MktResumeBuilderResource` (/built), audit `MARKETER_RESUME_EDIT`, `ActForBuilderGateTest`, `NewResumeForConsultant.tsx` | works only in SEPARATE-accounts orgs; on Acme (shared accounts) the picker is all disabled (DEMO-READINESS); MarketerVerbsTest absent; browser walk of MKT-47/48 not run | S | IMPORTANT, needs a Gamma-style org to demo |
+| X7.6 | org_feature_consent (per-feature act-for consent, cooldown) | NOT BUILT | no table, no `CONSENT_COOLDOWN`; setting `org.consent.request_cooldown_days` is marked "Not enforced yet" in `EnterpriseSettingKeys`; "Ask Anika" not found | whole feature; O5 removed the need for the resume case, but any act-for AI or future O6 needs it | M | LATER |
+| X7.7 | Marketing readiness checklist | PARTIAL | profile-completeness `ReadinessRing` in marketer `ProfileDrawer`, `MktPerformanceService` readiness numbers | weighted checklist (profile, approved resume, availability, license, consent), nextAction, 60 s recompute | S | LATER |
+| X7.8 | Consultants page | DONE | `components/ent/consultants/*`, `marketer-ws/talent/*`, `/w/{ws}/consultants`, `tenant-consultants.spec.ts`, 25 page tests (per tracker) | HR read-only column projection and 390 axe unverified | S | LATER |
+| X7.9 | Org Resumes page + consultant tab | DONE | `components/ent/resumes/*`, `marketer-ws/resumes`, `consultant-ws/ResumesPage.tsx`, `tenant-resumes.spec.ts` | `edit_allowed` toggle and consent card (consent model changed); Playwright share flow unverified | S | LATER |
+| X7.10 | Act-for AI in the builder | NOT BUILT | `ActForBuilderGate` allow-list deliberately 404s AI routes; `ResumeAiService` serves only the owner | AI rewrite/tailor for a marketer, `AiCallContext(actor, beneficiary)`, charging to the consultant's license | L | LATER, product wants marketer-made resumes first without AI |
+
+### X8 Marketing workspace (13)
+| id | title | verdict | evidence | missing | size | importance |
+|---|---|---|---|---|---|---|
+| X8.1 | Marketing workspace shell | DONE | 14 pages in `marketer-ws/registry.tsx` (Home, My Assigned Talent, Resumes, Job Discovery, Matches, Opportunities, Streams, Submissions, Applications, Interviews, Follow-ups, Tasks, Activities, Performance); DEMO-READINESS: all 13-14 open with data | Home and Job Streams overflow at 390 px | S | LATER |
+| X8.2 | Job discovery + curated banks | DONE | `MktJobsResource/Service`, `MktManualJobResource` (add by hand, dedupe, 409 OPPORTUNITY_EXISTS), `MktFromExtensionResource`, `MktStreamsResource` (stream rules), `MktJobsIT`, `MktManualJobIT` | freshness job (HEAD 404/410 closes posting) not found; stream "sync" has no scheduler (only `EnterpriseHistoryRetentionJob`-style jobs exist) so streams are not refreshed automatically; WireMock zero-GET test unverified | M | IMPORTANT, stale jobs |
+| X8.3 | AI matching on demand | PARTIAL | `MktMatchesResource/Service`, `MktMatchRules` (rule-based score: availability fit etc.), `MktMatchesIT` | no AI call at all: no `ai.job_matching` metering, no `ai_call`, no consent/402 path, no `opportunity_match` table (rows derived) | L | LATER, rule matching is shippable |
+| X8.4 | Opportunity assignment API | PARTIAL | `MktOpportunitiesResource` assign / bulk-assign / withdraw / reassign / request / answer-info / review / notify; `OpportunityAssignmentService`; `MktOpportunitiesWithdrawTest`; consultant notified | open-matches cap (409 ASSIGNMENT_CAP), DuplicateGuard, BoardPolicy, manager-approval hold, `marketing.assisted_applications` metering; STALE resume (no pin) | M | IMPORTANT |
+| X8.5 | Authorization requests | PARTIAL | `MktSubmissionsResource` request-approval/approval; `ConsultantSubmissionsResource` approve/decline; `cws_submission`; MktSubmissionsIT, ConsultantSubmissionsResourceIT | RESUME_STALE re-check, scope on authorization, manager Approvals page (Marketing Manager = PARKED) | M | IMPORTANT |
+| X8.6 | Follow-ups, tasks, escalations | PARTIAL | `MktFollowupsResource` (complete/call/reminder), `MktTasksResource` (calendar, reassign), `MktActivityResource`, `mkt_followup_event`, ITs for each | suggested task after 7 idle days, grouped digest email / `alerts.advanced`, Escalations page (PARKED with Marketing Manager) | M | LATER |
+| X8.7 | Marketer performance view | DONE | `MktPerformanceResource/Service` (+ goals PUT), `MktPerformanceIT`, `PerformancePage` | historical counts after reassignment unverified | S | LATER |
+| X8.8 | Duplicate-submission guard | NOT BUILT | only same-URL dedupe at opportunity creation (`MktManualJobService`, from-extension); no cross-consultant / vendor-chain / same-employer window rule, no setting | the guard + setting + audit of override | M | IMPORTANT, double-submitting one employer hurts a consultancy's reputation |
+| X8.9 | NoSubmitSurfaceTest + MarketerScopeTest + E2E-D to authorization | PARTIAL | `NoSubmitSurfaceTest`, `NoSubmitFromExtensionTest`, `MktScopeTest`, `MarketerAccessTest`, `ConScopeTest`; web stories under `web/e2e/stories/{marketing,consultant}` | `/api/orgs/**` coverage of NoSubmitSurfaceTest rule set unverified; lint rule for "Submit application" in `(tenant)` unverified; e2e-d spec not found (Playwright paused) | S | BLOCKER-lite: the "we never submit" promise needs a green guard test over org routes (verify first, then S) |
+| X8.10 | Pipeline schema | PARTIAL | tables `mkt_opportunity`, `mkt_opportunity_event`, `mkt_submission(_event)`, `mkt_followup(_event)`, `cws_opportunity_response`, `pipeline_application_link` | spec's generic `job_opportunity` / `opportunity_match` / `pipeline_event` schema does not exist (different shape, works) | S | LATER, decide to bless the current shape and close the story |
+| X8.11 | OrgMatchJob nightly + Job Matches tab | NOT BUILT | no `@Scheduled` in `service/ent/mkt`; Matches tab exists (`JobMatchesPage`, `consultant-ws/MatchesPage`) but is computed on request | nightly job, per-day idempotency, consent skip, usage_event | M | LATER |
+| X8.12 | Assign bar + Opportunities Kanban | DONE | `marketer-ws/opportunities/OpportunitiesPage`, `bulk-assign` endpoint, MktOpportunities tests | Kanban drag-to-assign and "Waiting for approval" chip unverified; cap/duplicate inline warnings depend on X8.4 gaps | S | LATER |
+| X8.13 | Pipeline engine (transitions registry) | NOT BUILT | transitions are hand-coded per service (`MktOpportunitiesService`, `MktSubmissionsService`); no `PipelineTransitions` / `PipelineService` | data-driven registry + single transit() with event | L | LATER, refactor, no customer sees it |
+
+### X9 Consultant workspace and applications (15)
+| id | title | verdict | evidence | missing | size | importance |
+|---|---|---|---|---|---|---|
+| X9.1 | Consultant workspace shell | DONE | 20 routes under `(tenant)/%5Ft/w/consultant/*`; DEMO-READINESS: 40 loads, 200, no console errors | none known | S | LATER |
+| X9.2 | Assigned jobs + application link via submit-detect | DONE | `ConOpportunitiesResource` (viewed/interest/applied/link/unlink), `PipelineApplicationLinker` (listens to `ApplicationEventRecorded`), `pipeline_application_link`, `PipelineApplicationLinkerTest`, `ConOpportunityServiceTest` | marketer sees APPLIED "within one poll": unverified live | S | LATER |
+| X9.3 | Org application tracking | DONE | `OrgApplicationResource` (list/pipeline/analytics/stage), `MktApplicationsResource` (409 STAGE_OWNED_BY_CONSULTANT), `application_event` | timeline merge details unverified | S | LATER |
+| X9.4 | Applications page (org) | DONE | `components/ent/applications`, `tenant-applications.spec.ts`, `OrgApplicationResourceIT` 23 tests | none | S | LATER |
+| X9.5 | Interview coordination | PARTIAL | `OrgInterviewResource` (schedule/reschedule/status/reminder/feedback), `MktInterviewsResource` (confirm/reschedule/prep), `ConsultantInterviewsResource` | propose-slots / consultant confirms into own calendar (`interview_slot`) absent; all actions are records by E1 design | M | LATER |
+| X9.6 | Interviews page (org) + calendar | DONE | `components/ent/interviews`, month calendar + pipeline tabs, `tenant-interviews.spec.ts` | none | S | LATER |
+| X9.7 | AI interview preparation | PARTIAL | `InterviewPrepService`, `cws_prep_*`, `InterviewPrepResource` self-scored practice (class comment: "There is no AI") | `interview.ai_prep` entitlement and any AI backend | L | LATER |
+| X9.8 | Offers | PARTIAL | consultant side: `ConsultantOffersResource` accept/decline/negotiate, `cws_offer(_event)` | org side "extend/record an offer" (offers appear only via demo seeder), feedback capture, Account Manager Offers page | M | IMPORTANT, offers are how a placement starts |
+| X9.9 | Extension workspace API | DONE | `ProfileWorkspaces`, `account` in `/api/profile/version`, `ExtensionRoutes` allow-list, `ExtensionWorldIT`, `FromExtensionIT`, `MktFromExtensionService` (409 OPPORTUNITY_EXISTS) | workspace header filter dropped by O4 (intended) | S | LATER |
+| X9.10 | E2E-D completion / E2E-E | PARTIAL | `qa/E2E-JOURNEYS.md`, story suites `web/e2e/stories`; DEMO-READINESS: full suites not run (PLT-05/10/12 failed) | no run of submit-in-own-session -> interview -> outcome; Playwright paused; extension+Playwright config unverified | M | IMPORTANT, no proof the core journey works end to end |
+| X9.11 | Consultant Home | DONE | `ConsultantHomeResource/Service`, `consultant-ws/HomePage.tsx`, `consultant-home.spec.ts` | none | S | LATER |
+| X9.12 | Extension side (workspace chip, partitions, assigned jobs, Save for consultant) | DONE (adapted) | `src/lib/workspace.js`, `entrypoints/panel/{MarketerView,AssignedJobs,workspace-actions}`, tests `workspace.test.js`, `workspace_modes.test.js`, `enterprise_accounts.test.js`, `account_clear.test.js`, `no_submit.test.js`; version 0.67.0 | chip is an account chip (O4), not a workspace chip; `npm test` not run here; Playwright e2e-e unverified | S | LATER |
+| X9.13 | Records carry who/when | DONE | json says done; `EntChangeActors`, `EntChangeAuditMigrationIT` | not re-verified | S | LATER |
+| X9.14 | "Updated by Sarah (marketer)" display | DONE | json says done; consultant resume list shows "by Anika Rao" (DEMO-READINESS) | not re-verified | S | LATER |
+| X9.15 | Act-for on the personal tracker | DONE | `SaveForConsultantResource`, `TrackerActForGate`, `SaveForConsultantService`, `SaveForConsultantIT` | json says in_progress; code and ITs exist | S | LATER |
+
+### X10 Clients, requirements, placements (10)
+| id | title | verdict | evidence | missing | size | importance |
+|---|---|---|---|---|---|---|
+| X10.1 | Client model API | PARTIAL | `OrgClientResource` (summary, contacts, requirements GET, patch, notes), `client_account`, `client_contact`, `client_note`, `OrgClientResourceIT` | `client_relationship` (vendor chain: end client / vendor / prime) absent; no delete/merge | M | IMPORTANT, vendor chains are core to consultancies |
+| X10.2 | Client requirements intake | PARTIAL | `client_requirement`, `requirement_skill`, `requirement_match`; read-only `GET /clients/requirements`; listed in drawer | no create / edit / import / paste intake, no status workflow, no dedupe (`ClientWriteService` has client, contact, note only) | M | BLOCKER: without requirements intake the Account Manager has nothing to work |
+| X10.3 | Candidate submissions as records | PARTIAL | `mkt_submission(_event)` + `MktSubmissionsResource` (status, request-approval) | submission is not linked to a client requirement; shortlisted/rejected client-side outcomes; uniqueness (consultant, requirement) | M | IMPORTANT |
+| X10.4 | Placement lifecycle API | PARTIAL | `OrgPlacementResource` create / extend / extension-requests + decision / complete / redeploy / undo / notes, `PlacementRules`, `OrgPlacementResourceIT`, `placement_event` | PENDING_START/ON_HOLD/TERMINATED states (only UPCOMING/ACTIVE/ENDED/EXTENSION_REQUESTED/IN_POOL); marking Hired does not create a placement (per tracker) | M | IMPORTANT |
+| X10.5 | Account Manager workspace | PARTIAL | ACCOUNTS nav: Clients, Interviews, Placements are real pages; `RoleTemplates.ACCOUNT_MANAGER` | Home, Contacts, Requirements, Submissions, Offers show "on the way" | L | IMPORTANT |
+| X10.6 | Placement declaration + celebration | NOT BUILT | consultant `ConsultantPlacementResource` is read + checklist + status note; no "I got placed" declaration, no org celebration | declaration route + org notification + mascot moment | S | LATER |
+| X10.7 | Pipeline reports | NOT BUILT | `OrgReportsService` has submissions/time-to-first-submission tiles only | requirement fill rate, time-to-place, submissions per consultant | M | IMPORTANT |
+| X10.8 | Timesheets bridge | PARKED | none (user decision: timesheets/finance-ops parked) | n/a | L | LATER |
+| X10.9 | Clients pages | DONE | `components/ent/clients/*`, `tenant-clients.spec.ts` | `/w/accounts/clients` with account-manager scope unverified | S | LATER |
+| X10.10 | Placements board/list | DONE | `components/ent/placements/*`, `tenant-placements.spec.ts` | SideSheet Extend/End/Terminate: terminate absent (see X10.4) | S | LATER |
+
+### X11 HR and Finance (record-only) (9)
+| id | title | verdict | evidence | missing | size | importance |
+|---|---|---|---|---|---|---|
+| X11.1 | HR lifecycle records | NOT BUILT | schema + entities + repos only (`hr_employee`, `hr_lifecycle_event`, `hr_onboarding_item`, `hr_offboarding_task`; `domain/ent/ops/Hr*`), filled by `OpsDemoSeeder`; no service, no REST | API + UI | L | IMPORTANT |
+| X11.2 | Compliance checklists + policy acks | NOT BUILT | `hr_document_requirement`, `hr_training(_record)` tables only; `hr_task`/`policy_ack` names do not exist | API + UI | M | LATER |
+| X11.3 | HR workspace | PARTIAL | HR nav: only Employees is real (shared `employees` page); Home, Onboarding, Documents, Compliance, Lifecycle, Offboarding, Candidates, Talent Pools, Reports are "on the way" | the rest | L | IMPORTANT |
+| X11.4 | Finance workspace | PARKED | 9 Finance nav items all "on the way"; `finance_*` tables seeded | finance-ops parked | L | LATER |
+| X11.5 | Finance records for placements | PARKED | `finance_placement_terms/period`, `finance_invoice`, `finance_payment` tables + entities; no API | parked with finance-ops | L | LATER |
+| X11.6 | HR/Finance reports + audited CSV | PARTIAL | Admin Reports page `GET /reports/overview` with formula-safe CSV (`OrgReportsIT`); `report_*` tables | HR/Finance report families and retention setting | M | LATER |
+| X11.7 | PII scanner on every path | PARTIAL | `service/privacy/SensitiveContent(+Patterns)` used by notes, resumes, from-extension, client notes (SENSITIVE_CONTENT tests: 30 in `src/test`) | `@NoSensitiveText` coverage test, `PdfTextScanner` refusal of uploaded PDFs, "every write path" proof | M | BLOCKER: "we never collect sensitive PII" is a product-wide promise; add an ArchUnit coverage test |
+| X11.8 | Talent Acquisition / talent pools | NOT BUILT | only permission keys + role template (`EntPermissions`, `RoleTemplates.TALENT_ACQUISITION`) | tables, API, pages | L | LATER |
+| X11.9 | Product H embedding (timesheets, approvals) | PARKED | none | parked | L | LATER |
+
+### X12 Analytics, integrations, autopilot prepare, platform (12)
+| id | title | verdict | evidence | missing | size | importance |
+|---|---|---|---|---|---|---|
+| X12.1 | Org analytics API with k-anonymity | PARTIAL | `OrgReportsService` + `OrgReportsResource` overview (real queries, `OrgReportsIT`), dashboard widgets `TalentWidgets` | no k-anonymity floor code found, no pipeline/license/usage metrics families | M | IMPORTANT |
+| X12.2 | Autopilot prepare, API | NOT BUILT | no autopilot code in `service/ent`; ships off by decision D2 | everything | L | LATER |
+| X12.3 | Integrations (webhooks) | NOT BUILT | only the flag key `flag.enterprise.integrations`; no `org_webhook` | module | L | LATER |
+| X12.4 | SSO per org | NOT BUILT | no SAML/OIDC code | module | L | IMPORTANT for larger consultancies, LATER for a first customer |
+| X12.5 | Second-instance readiness (ShedLock) | NOT BUILT | no ShedLock; `EnterpriseHistoryRetentionJob` javadoc says there is no lock library; ~9 `@Scheduled` jobs | locks, shared rate limits | M | LATER (single box today) |
+| X12.6 | Cloudflare for SaaS runbook | NOT BUILT | only design discussion in `02`, `07`, `08` | runbook | S | LATER |
+| X12.7 | Advanced reporting (family filter) | PARTIAL | Admin `ReportsPage`; `report_definition/run/export/recipient` tables | MARKETING_MGMT / HR / FINANCE report families, scheduled runs | M | LATER |
+| X12.8 | Executive / Viewer workspace | NOT BUILT | EXEC nav (Home, Reports) = "on the way" | page + counts-only tiles | M | LATER |
+| X12.9 | Autopilot prepare, extension | NOT BUILT | `grep autopilot` in `job-autofill/src` and `entrypoints` = 0 hits | (also E7.1-E7.7 Autopilot is not built at all) | L | LATER |
+| X12.10 | SSO JIT mapping | NOT BUILT | none | depends on X12.4 | M | LATER |
+| X12.11 | TOTP and passkeys | NOT BUILT | only `AdminMfaService` (platform admin MFA) | second factors for all users | L | IMPORTANT for security reviews |
+| X12.12 | Platform Analytics page | NOT BUILT | `(admin)/admin/analytics` exists but is the personal-product analytics, no cross-tenant org aggregates | cross-tenant, Kiwiply-only aggregates | M | LATER |
+
+### Extension stories related to enterprise sessions
+| id | title | verdict | evidence | missing | size | importance |
+|---|---|---|---|---|---|---|
+| E11.1 | "Save for consultant..." (MARKETER sessions) | DONE | `MarketerView.tsx` ("Save for consultant"), `workspace.js` `marketerFacade`, `tracking.js` `saveForConsultant` -> `POST mkt/opportunities/from-extension` | `npm test` not run here | S | LATER |
+| E11.2 | Submit-detect links consultant submission to assignment | DONE | server `PipelineApplicationLinker` on `ApplicationEventRecorded`; extension `markApplied` + `AssignedJobs.tsx` | live check of a real submit unverified | S | LATER |
+| E5.11 | Account chip shows plan source ("Pro via Acme") | NOT BUILT | no `via` field in `PlanDTO`; no string in panel (chip shows account kind/org only, S7 note) | `via{orgId,orgName}` on version + chip text | S | IMPORTANT: a consultant must see whose plan pays |
+| E7.7 | Autopilot QA + marketer assignment source | NOT BUILT | Autopilot absent in the extension | all of E7 | L | LATER |
+| E12.1 | Connect v2 extension half | PARTIAL | ext.json says partial; server side done (`ext_connect_code`, `ConnectCodeIT`, tenant "Connect extension"); extension reads code in `connect-relay.content.ts`/options | Chrome ping/pong, Edge id check, paste-code fallback unverified | S | IMPORTANT, first connect must not fail |
+
+## 2. Top 10 real gaps (in order of what hurts a first paying consultancy)
+
+1. **Client requirements intake (X10.2)**. Requirements are read-only seed data; an Account Manager cannot enter a requirement, so submissions (X10.3) and fill reports (X10.7) have nothing to attach to. M.
+2. **PII guard coverage proof (X11.7)**. `SensitiveContent` is called on many paths but nothing proves *every* write path (PDF uploads included); the promise is product-wide. Add the ArchUnit coverage test + PDF refusal. M.
+3. **No-submit guard over `/api/orgs/**` verified green (X8.9)**. Confirm `NoSubmitSurfaceTest` includes the org routes and add the lint for a "Submit application" control under `(tenant)`; then run E2E-D. S to verify, M to finish.
+4. **Resume approval pin / STALE (X7.4)**. Status-only approval lets a marketer change text after the consultant approved it. Pin `approved_version`, flip to STALE on later edits, gate assignment and authorization on it. M.
+5. **Duplicate-submission guard + assignment cap (X8.8 / X8.4)**. Same employer submitted twice via two consultants/vendors is the reputational risk of a bench-selling business. M.
+6. **Offers and placement start (X9.8, X10.4, X10.6)**. Consultant can respond to offers, but no org user can create one (seed only); hiring does not create a placement; no PENDING_START/TERMINATED. M.
+7. **Account Manager workspace completion (X10.5, X10.1 vendor relationships)**. Contacts, Requirements, Submissions, Offers pages and the vendor chain. L.
+8. **End-to-end proof (X9.10)**. Playwright is paused, PLT-05/10/12 fail, MKT-47/48 and CON-84/85 only run on Gamma; run the core journey (assign -> consultant applies in own session -> interview -> outcome) once and keep it green. M.
+9. **HR workspace (X11.1-X11.3)**. Tables, entities and seeded data exist; no service, API or pages except Employees. L.
+10. **Extension account clarity (E5.11) + connect fallback (E12.1)**. Show whose plan pays ("Pro via Acme") and make connect robust on Chrome/Edge. S+S.
+
+Honourable mentions: stream/job freshness scheduler (X8.2), org analytics with k-anonymity (X12.1), TOTP/passkeys (X12.11), SSO (X12.4), ShedLock before a second API instance (X12.5).
+
+## 3. Admin sidebar entries that still show "This page is on the way"
+
+Source: `web/src/lib/ent/shell.ts` `ADMIN_NOT_BUILT` (8 keys, shown greyed with a "Soon" chip) + the catch-all `app/(tenant)/%5Ft/w/[workspace]/[[...slug]]/page.tsx` for every non-admin workspace page without a folder. `DEMO-READINESS.md` agrees ("out of scope; do not click in the demo").
+
+### Administration (`/w/admin`)
+| menu entry | key | story that would build it |
+|---|---|---|
+| Subscription Overview | subscription | DEFERRED, X6 billing (subscription overview) |
+| Consultant Licenses | licenses | DEFERRED, X6 billing (license management); tables `consultant_license`, `license_*` exist |
+| Billing | billing | DEFERRED, X6 billing (invoices/payments); `org_invoice`, `org_payment` tables exist |
+| Feature Usage | usage | DEFERRED, X6 usage metering (`usage_event/counter` tables exist) |
+| HR (and children Onboarding, Documents, Compliance) | hr | X11.3 (+ X11.1, X11.2) |
+| Finance (children Invoices, Payments, Timesheets) | finance | X11.4 / X11.5 / X11.9, PARKED |
+| Domains | domains | X3 custom-domain story (E5, user applies the Caddy change); story id unverified |
+| Integrations | integrations | X12.3 |
+Real in Admin: Dashboard, Employees, Invitations, Teams, Departments, Roles & Permissions, Consultants, Resumes, Marketing Assignments, Jobs, Applications, Interviews, Clients, Placements, Reports, Branding, Audit Logs, Settings.
+
+### Other workspaces (catch-all "on the way", from `config/ent/workspaces.json`)
+| workspace | pages still placeholders | story |
+|---|---|---|
+| Marketing (`/w/marketing`) | none (14 routes real) | n/a |
+| Marketing management (`/w/marketing-mgmt`) | Home, Team, Assignments, Pipeline, Approvals, Workload, Escalations, Reports | PARKED (Marketing Manager workspace; X8.5 approvals, X8.6 escalations, X8.7) |
+| Consultant (`/w/consultant`) | none (20 routes real) | n/a |
+| HR / People (`/w/hr`) | Home, Onboarding, Documents, Compliance, Lifecycle, Offboarding, Candidates, Talent Pools, Reports (Employees is real) | X11.3, X11.1, X11.2, X11.8, X11.6 |
+| Finance (`/w/finance`) | all 9: Home, Subscriptions, Billing, Invoices, Placements, Timesheets, Approvals, Payments, Reports | X11.4, X11.5, X11.9 (PARKED) + X6 billing (DEFERRED) |
+| Accounts / Account Manager (`/w/accounts`) | Home, Contacts, Requirements, Submissions, Offers (Clients, Interviews, Placements are real) | X10.5 (+ X10.2, X10.3, X9.8) |
+| Exec (`/w/exec`) | Home, Reports | X12.8 (+ X12.1, X12.7) |
+Also: the Organization Dashboard keeps `NotYetBuiltProvider` placeholders registered for widgets whose module is not enabled (they answer "not enabled", never a fake number); the six talent ones were replaced by `TalentWidgets`, the analytics tile still depends on X12.1.
+
+## 4. What I could not verify
+
+Not run: Gradle, vitest, Playwright, extension `npm test` (instructed). Not opened in a browser. Unverified items are marked in the tables: freshness/HEAD job, Kanban drag, k-anonymity floors, ResumeViewEvent(ORG) audit, NoSubmitSurfaceTest coverage of `/api/orgs`, live APPLIED propagation, Chrome/Edge connect fallback, story ids for Domains (X3) and billing (X6). The json `done` marks on X9.13/X9.14 were taken from the roadmap and spot-checked only by file names.
