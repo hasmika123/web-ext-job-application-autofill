@@ -182,7 +182,7 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
     }
 
     /** A short human label for an audit action key (no free text from the row). */
-    static String label(OrgAuditEvent e) {
+    public static String label(OrgAuditEvent e) {
         return switch (e.getAction()) {
             case OrgAuditService.ORG_CREATE -> "created the organization";
             case OrgAuditService.ORG_SETTINGS -> "changed the organization settings";
