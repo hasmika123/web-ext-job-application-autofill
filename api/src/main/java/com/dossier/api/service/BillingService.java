@@ -40,14 +40,17 @@ public class BillingService {
     private final EntitlementService entitlementService;
     private final StripeGateway stripeGateway;
     private final StripeProperties props;
+    private final com.dossier.api.service.billing.personal.QuoteCheckoutService quoteCheckout;
 
     public BillingService(
         SubscriptionRepository subscriptionRepository,
         UserRepository userRepository,
         EntitlementService entitlementService,
         StripeGateway stripeGateway,
-        StripeProperties props
+        StripeProperties props,
+        com.dossier.api.service.billing.personal.QuoteCheckoutService quoteCheckout
     ) {
+        this.quoteCheckout = quoteCheckout;
         this.subscriptionRepository = subscriptionRepository;
         this.userRepository = userRepository;
         this.entitlementService = entitlementService;
@@ -79,6 +82,11 @@ public class BillingService {
                 "You're already on Kiwiply Pro"
             );
         }
+
+        // K5.3: when the catalog can sell PRO at this interval, this is a checkout from a CHECKOUT quote (line items = the quote). Until an administrator
+        // publishes PRO prices the catalog cannot, and the environment price ids below keep working exactly as before.
+        java.util.Optional<String> fromCatalog = quoteCheckout.tryCatalogCheckout(user.getLogin(), plan);
+        if (fromCatalog.isPresent()) return fromCatalog.get();
 
         String priceId = priceFor(plan);
         Subscription sub = findOrCreateRow(user);
