@@ -278,4 +278,41 @@ public interface StripeGateway {
      * The catalog reconciler compares them with {@code product_price}; it never writes.
      */
     java.util.List<StripePriceInfo> listPrices(int max);
+
+    // ------------------------------------------------------------------------------------------------------------------
+    // K8.5: the reconciler's reads and the admin replay (docs/subscriptions/07 s7). Read-only. Default methods so a test double written before K8.5 still
+    // compiles; they refuse like every other method when billing is off.
+    // ------------------------------------------------------------------------------------------------------------------
+
+    /** A subscription as Stripe holds it now, reduced to what the personal reconciler compares. */
+    record SubscriptionSnapshot(
+        String id,
+        String customerId,
+        String status,
+        boolean cancelAtPeriodEnd,
+        java.time.Instant periodStart,
+        java.time.Instant periodEnd,
+        String scheduleId,
+        java.util.List<StripeWebhookEvent.Item> items
+    ) {
+        public SubscriptionSnapshot {
+            items = items == null ? java.util.List.of() : java.util.List.copyOf(items);
+        }
+    }
+
+    /**
+     * Read-only: the subscription as Stripe holds it now. Returns null when Stripe has no such subscription (it was deleted long ago); any other failure
+     * throws {@link StripeGatewayException}.
+     */
+    default SubscriptionSnapshot retrieveSubscription(String subscriptionId) {
+        throw new StripeGatewayException("Billing is not enabled", StripeGatewayException.Kind.NOT_ENABLED, null, null);
+    }
+
+    /**
+     * Read-only: a past event by id, in the same reduced shape a webhook delivery has, for the admin replay. Stripe keeps events for 30 days. Throws
+     * {@link StripeGatewayException} (stripe code {@code resource_missing}) when Stripe does not know it.
+     */
+    default StripeWebhookEvent retrieveEvent(String eventId) {
+        throw new StripeGatewayException("Billing is not enabled", StripeGatewayException.Kind.NOT_ENABLED, null, null);
+    }
 }

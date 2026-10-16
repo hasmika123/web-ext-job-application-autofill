@@ -83,6 +83,10 @@ public class AdminAuditService {
     public static final String CATALOG_PRICE_CREATE = "CATALOG_PRICE_CREATE";
     public static final String CATALOG_PRICE_PUBLISH = "CATALOG_PRICE_PUBLISH";
     public static final String CATALOG_PRICE_RETIRE = "CATALOG_PRICE_RETIRE";
+    // Billing operations (K8.5): replaying a Stripe event and resolving a reconciler drift row are HIGH and carry a reason.
+    public static final String TARGET_BILLING = "BILLING";
+    public static final String BILLING_EVENT_REPLAY = "BILLING_EVENT_REPLAY";
+    public static final String BILLING_DRIFT_RESOLVE = "BILLING_DRIFT_RESOLVE";
 
     private static final Logger LOG = LoggerFactory.getLogger(AdminAuditService.class);
 

@@ -103,6 +103,54 @@ public class BillingWebhookService {
         }
     }
 
+    /** What an admin replay did: the row that records it, the event it re-applied and how that ended. */
+    public record ReplayResult(String replayRowId, String originalEventId, String status) {}
+
+    /**
+     * Re-apply a Stripe event the admin fetched by id (K8.5), bypassing the duplicate check on purpose: the point is to run the handler again for an event
+     * that was lost, failed or applied wrongly. It is recorded as its own {@code stripe_event} row ({@code replay:{evt}:{n}}, {@code replayed_from},
+     * {@code replayed_by}), so the original keeps its history, and goes through the same scope router and handlers as a delivery. The handlers' own
+     * ordering rule still applies: an event older than the row's {@code last_event_at} changes nothing. A failure is recorded and rethrown. An original
+     * stored as {@code failed} is settled to {@code ok} by a successful replay. It never calls Stripe: the event was already read.
+     */
+    public ReplayResult replay(StripeWebhookEvent event, String actor) {
+        long n = stripeEventRepository.countByReplayedFrom(event.id()) + 1;
+        String rowId = "replay:" + event.id() + ":" + n;
+        String by = actor == null ? "system" : actor.substring(0, Math.min(actor.length(), 50));
+        newTx.executeWithoutResult(s -> {
+            StripeEvent row = new StripeEvent();
+            row.setId(rowId);
+            row.setType(event.type());
+            row.setReceivedAt(Instant.now());
+            row.setStatus(StripeEvent.STATUS_OK);
+            describeOnto(row, event);
+            row.setScope(router.routeOf(event).label());
+            row.setOrgId(event.orgId());
+            row.setReplayedFrom(event.id());
+            row.setReplayedBy(by);
+            stripeEventRepository.saveAndFlush(row);
+        });
+        try {
+            apply(event);
+        } catch (RuntimeException e) {
+            LOG.error("Replay of Stripe event {} ({}) failed", event.id(), event.type(), e);
+            mark(rowId, event, StripeEvent.STATUS_FAILED, e.toString());
+            throw e;
+        }
+        mark(rowId, event, StripeEvent.STATUS_OK, null);
+        newTx.executeWithoutResult(s ->
+            stripeEventRepository
+                .findById(event.id())
+                .filter(o -> StripeEvent.STATUS_FAILED.equals(o.getStatus()))
+                .ifPresent(o -> {
+                    o.setStatus(StripeEvent.STATUS_OK);
+                    o.setProcessedAt(Instant.now());
+                    stripeEventRepository.save(o);
+                })
+        );
+        return new ReplayResult(rowId, event.id(), StripeEvent.STATUS_OK);
+    }
+
     /**
      * Insert the event row, in its own transaction so the record survives a failed apply.
      *
@@ -153,9 +201,13 @@ public class BillingWebhookService {
     }
 
     private void mark(StripeWebhookEvent event, String status, String error) {
+        mark(event.id(), event, status, error);
+    }
+
+    private void mark(String rowId, StripeWebhookEvent event, String status, String error) {
         newTx.executeWithoutResult(s ->
             stripeEventRepository
-                .findById(event.id())
+                .findById(rowId)
                 .ifPresent(row -> {
                     row.setStatus(status);
                     row.setProcessedAt(Instant.now());

@@ -33,6 +33,9 @@ public class FakeStripeGateway implements StripeGateway {
     public final List<CheckoutSpec> checkoutSpecs = new ArrayList<>();
     public final List<String> checkoutKeys = new ArrayList<>();
     public List<InvoiceSummary> invoices = new ArrayList<>();
+    /** K8.5: what {@link #retrieveEvent} and {@link #retrieveSubscription} answer, by id (a missing event id throws resource_missing; a missing subscription answers null). */
+    public final Map<String, StripeWebhookEvent> events = new HashMap<>();
+    public final Map<String, SubscriptionSnapshot> subscriptionSnapshots = new HashMap<>();
     private final Set<String> seenKeys = new HashSet<>();
     private final Map<String, String> results = new HashMap<>();
     private int counter = 0;
@@ -47,6 +50,8 @@ public class FakeStripeGateway implements StripeGateway {
         checkoutSpecs.clear();
         checkoutKeys.clear();
         invoices = new ArrayList<>();
+        events.clear();
+        subscriptionSnapshots.clear();
         seenKeys.clear();
         results.clear();
         okItemKeys.clear();
@@ -185,6 +190,20 @@ public class FakeStripeGateway implements StripeGateway {
 
     @Override
     public void advanceTestClock(String clockId, Instant to, IdempotencyKey key) {}
+
+    @Override
+    public StripeWebhookEvent retrieveEvent(String eventId) {
+        if (!enabled) throw new StripeGatewayException("off", StripeGatewayException.Kind.NOT_ENABLED, null, null);
+        StripeWebhookEvent e = events.get(eventId);
+        if (e == null) throw new StripeGatewayException("no such event", StripeGatewayException.Kind.INVALID_REQUEST, "resource_missing", null);
+        return e;
+    }
+
+    @Override
+    public SubscriptionSnapshot retrieveSubscription(String subscriptionId) {
+        if (!enabled) throw new StripeGatewayException("off", StripeGatewayException.Kind.NOT_ENABLED, null, null);
+        return subscriptionSnapshots.get(subscriptionId);
+    }
 
     /** The catalog reconciler's read of Stripe (merge of the catalog and add-ons streams): this fake has no Stripe prices. */
     @Override
