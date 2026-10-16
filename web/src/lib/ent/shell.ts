@@ -31,6 +31,12 @@ const ADMIN_CHILDREN: Record<string, { key: string; label: string; slug: string 
 };
 
 /**
+ * Administration pages whose route is still the "on the way" placeholder, whether or not the API lists them for this member. Take a key out of this
+ * set in the same change that builds its page (the sidebar test fails if one is both built and listed here).
+ */
+export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set(["subscription", "licenses", "billing", "usage", "hr", "finance", "reports", "domains", "integrations", "audit"]);
+
+/**
  * The whole Administration menu in the board's order (design/enterprise-talent/dashboard.png). The API sends only the items a member
  * may open with their modules on; the others are shown too, greyed with a "Soon" chip and leading to the honest "on the way" page,
  * so the menu always reads as the full product. Everything the API does send wins over this list (its href, label, icon).
@@ -117,8 +123,10 @@ export function navSections(ws: Workspace, terminology?: Record<string, string> 
     }
     for (const n of ws.nav) if (!ADMIN_FULL.some((f) => f.key === n.key)) ordered.push({ item: n, soon: false });
   } else for (const n of ws.nav) ordered.push({ item: n, soon: false });
-  for (const { item, soon } of ordered) {
+  for (const { item, soon: missing } of ordered) {
     const d = decorate(item);
+    // D9 (2026-10-16 audit): a page the API lists but nobody has built yet reads "Soon" exactly like one it does not list, so the menu never promises more than it opens
+    const soon = missing || ADMIN_NOT_BUILT.has(item.key);
     if (soon) {
       d.soon = true;
       delete d.children;
