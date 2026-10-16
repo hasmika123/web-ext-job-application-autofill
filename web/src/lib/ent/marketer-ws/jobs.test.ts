@@ -50,7 +50,7 @@ describe("parseJobs", () => {
     expect(parseDetail({})).toBeNull();
     expect(parseDetail({ job: { id: 1, title: "T" }, matches: [{ consultantId: 2, name: "A", score: 90, status: "ASSIGNED" }, 5] })!.matches).toHaveLength(1);
     expect(parseCandidates("x")).toEqual([]);
-    expect(parseCandidates([{ consultantId: 1, name: "Alex", score: 9 }, null])).toEqual([{ consultantId: 1, name: "Alex", title: null, availability: null, score: 9, matchStatus: null }]);
+    expect(parseCandidates([{ consultantId: 1, name: "Alex", score: 9 }, null])).toEqual([{ consultantId: 1, name: "Alex", title: null, availability: null, score: 9, matchStatus: null, memberId: null }]);
   });
 });
 
