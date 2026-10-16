@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Subscription module, catalog layer (docs/subscriptions/08-data-model.md section 2; stories K1.1 to K1.3). ONE catalog for both worlds:
+        feature_definition (= a SERVICE) and product are widened for individuals as well as organizations, and the effective-dated price table,
+        the publish ledger and the change log are created. Additive only (LiquibaseAdditiveTest): no drop, rename or modify; every changeSet is
+        guarded so a rerun, or the enterprise X5 changelog landing first, is a no-op (MARK_RAN). Rollbacks are empty on purpose (columns and tables
+        stay; nothing reads them until a later story does).
+
+        Defaults keep every foundation row exactly as it was: audience ORG, pool_mode PER_CONSULTANT, sold_to ORG. The catalog ships WITHOUT prices.
+    -->
+
+    <changeSet id="sub-catalog-feature-definition-widen" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="feature_definition" columnName="audience"/></not></preConditions>
+        <addColumn tableName="feature_definition">
+            <column name="audience" type="varchar(12)" defaultValue="ORG"><constraints nullable="false"/></column>
+            <column name="category" type="varchar(16)"/>
+            <column name="pool_mode" type="varchar(16)" defaultValue="PER_CONSULTANT"><constraints nullable="false"/></column>
+            <column name="ai_budget_cents" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="consumes_ai" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="reserve_ttl_seconds" type="int" defaultValueNumeric="900"><constraints nullable="false"/></column>
+            <column name="stackable" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="max_quantity" type="int"/>
+            <column name="additive" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="eligibility_json" type="json"/>
+            <column name="entitlement_keys_json" type="json"/>
+            <column name="limit_key" type="varchar(40)"/>
+            <column name="visibility" type="varchar(12)" defaultValue="PUBLIC"><constraints nullable="false"/></column>
+            <column name="catalog_version" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"/>
+            <column name="updated_by" type="varchar(50)"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-catalog-feature-definition-audience-index" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="feature_definition" indexName="ix_feature_definition_audience"/></not></preConditions>
+        <createIndex tableName="feature_definition" indexName="ix_feature_definition_audience">
+            <column name="audience"/>
+            <column name="active"/>
+            <column name="sort_order"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-catalog-product-widen" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="product" columnName="sold_to"/></not></preConditions>
+        <addColumn tableName="product">
+            <column name="sold_to" type="varchar(12)" defaultValue="ORG"><constraints nullable="false"/></column>
+            <column name="stripe_product_id" type="varchar(255)"/>
+            <column name="quantity_basis" type="varchar(10)"/>
+            <column name="role_key" type="varchar(40)"/>
+            <column name="updated_at" type="${datetimeType}"/>
+            <column name="updated_by" type="varchar(50)"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-catalog-product-stripe-index" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="product" indexName="ux_product_stripe"/></not></preConditions>
+        <createIndex tableName="product" indexName="ux_product_stripe" unique="true">
+            <column name="stripe_product_id"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <!--
+        catalog_change is created with the first story that writes to the catalog (K1.1; the design lists it with K1.3): one row per catalog write
+        with the entity, before/after JSON, the actor and the reason. Whichever of this and the enterprise X5 changelog lands first creates it.
+    -->
+    <changeSet id="sub-catalog-change" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="catalog_change"/></not></preConditions>
+        <createTable tableName="catalog_change">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="entity" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="entity_id" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="before_json" type="json"/>
+            <column name="after_json" type="json"/>
+            <column name="actor_login" type="varchar(50)"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(500)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex tableName="catalog_change" indexName="ix_catalog_change_entity">
+            <column name="entity"/>
+            <column name="entity_id"/>
+        </createIndex>
+        <createIndex tableName="catalog_change" indexName="ix_catalog_change_created">
+            <column name="created_at"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>
