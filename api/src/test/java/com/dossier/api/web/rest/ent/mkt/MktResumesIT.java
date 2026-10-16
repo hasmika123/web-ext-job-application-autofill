@@ -87,10 +87,17 @@ class MktResumesIT {
     }
 
     private Set<Long> ids(String login, Organization org) throws Exception {
-        MvcResult r = getAs(login, base(org) + "?size=100");
-        assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200);
+        // the board pages at 100 at most and the demo seed holds more resumes than that: read every page
         Set<Long> out = new HashSet<>();
-        for (JsonNode i : json(r).path("items")) out.add(i.path("id").asLong());
+        long total = Long.MAX_VALUE;
+        for (int page = 0; out.size() < total; page++) {
+            MvcResult r = getAs(login, base(org) + "?size=100&page=" + page);
+            assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200);
+            JsonNode body = json(r);
+            total = body.path("total").asLong();
+            if (body.path("items").isEmpty()) break;
+            for (JsonNode i : body.path("items")) out.add(i.path("id").asLong());
+        }
         return out;
     }
 

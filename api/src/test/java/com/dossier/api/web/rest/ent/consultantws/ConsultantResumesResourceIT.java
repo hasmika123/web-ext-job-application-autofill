@@ -465,6 +465,9 @@ class ConsultantResumesResourceIT {
     void renameAndVisibilityAreValidatedScannedForSensitiveDataAndOwnOnly() throws Exception {
         seedC1();
         seedC2();
+        // a stored row starts PENDING (the entity default); this test is about a resume that was already approved, so say so
+        r2.setApprovalStatus("APPROVED");
+        resumes.saveAndFlush(r2);
         MvcResult ok = patchTo("cwsr-a-c1", a, r2.getId(), "{\"name\":\"  Renamed   Resume \",\"visibility\":\"private\"}");
         assertThat(ok.getResponse().getStatus()).as(ok.getResponse().getContentAsString()).isEqualTo(200);
         JsonNode row = om.readTree(ok.getResponse().getContentAsString());

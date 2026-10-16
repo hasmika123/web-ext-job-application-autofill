@@ -338,7 +338,8 @@ class ConsultantHomeResourceIT {
         assertThat(sub.path("sample").asBoolean()).as("the tile now counts the consultant's own pending submissions").isFalse();
         assertThat(sub.path("value").asLong()).isZero();
         assertThat(sub.path("deltaPct").isNull()).isTrue();
-        assertThat(sub.path("sparkline")).isEmpty();
+        // a real tile carries the cumulative weekly series; with no pending submissions it is six zeros (it used to be empty while the tile was sample data)
+        assertThat(sub.path("sparkline")).hasSize(6).allSatisfy(n -> assertThat(n.asLong()).isZero());
 
         // recommended = open matches the consultant has not applied to, best score first
         JsonNode rec = h.path("recommendedMatches");
@@ -367,7 +368,6 @@ class ConsultantHomeResourceIT {
         assertThat(iv.get(0).path("title").asText()).isEqualTo("QA Architect");
         assertThat(iv.get(0).path("company").asText()).isEqualTo("Acme Corp");
         assertThat(iv.get(0).path("durationMinutes").asInt()).isEqualTo(45);
-        assertThat(iv.get(0).path("mode").asText()).isEqualTo("VIDEO");
         assertThat(iv.get(0).path("modeSample").asBoolean()).as("the mode comes from the consultant's own interview detail").isFalse();
         assertThat(iv.get(0).path("mode").asText()).isEqualTo("NOT_SET");
 

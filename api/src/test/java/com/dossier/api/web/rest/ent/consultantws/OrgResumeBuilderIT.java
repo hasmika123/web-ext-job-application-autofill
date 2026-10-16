@@ -904,6 +904,7 @@ class OrgResumeBuilderIT {
         // a label change is not archive or primary: still allowed; and the personal product (no organization host) is untouched
         assertThat(onHost("orb-a-c1", put(route).content("{\"starred\":true}")).getResponse().getStatus()).isEqualTo(200);
         assertThat(send("orb-a-c1", put(route).content("{\"archived\":true}")).getResponse().getStatus()).isEqualTo(200);
+    }
 
     // ---- consultant share links: an org setting, default off ---------------------------------------------------------------
 

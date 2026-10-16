@@ -242,7 +242,12 @@ class BillingSchemaIT {
         assertThat(invoices.findByOrgIdAndKindAndPeriodStartBetweenOrderByPeriodStartAsc(acme, "RECURRING", first.minusMonths(24), first)).hasSize(12);
         // tiles: one overdue invoice, outstanding > 0, the latest invoice open, a failed payment exists but the success rate is high
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
-        assertThat(invoices.countOverdue(acme, today)).isEqualTo(1L);
+        // The seeded onboarding invoice (due 30 days ago) is always overdue. The latest recurring invoice stays open and is due 14 days after its
+        // period ends, so from the 15th of the month on it is overdue too: the expectation follows the calendar instead of assuming "exactly one".
+        long expectedOverdue = invoices.findByOrgId(acme).stream().filter(i -> "OPEN".equals(i.getStatus()) && i.getDueDate().isBefore(today)).count();
+        assertThat(invoices.countOverdue(acme, today)).isEqualTo(expectedOverdue);
+        assertThat(expectedOverdue).as("the onboarding invoice, plus the latest recurring one once its 14 days are up").isBetween(1L, 2L);
+        assertThat(invoices.findOverdue(acme, today)).anyMatch(i -> i.getDescription().startsWith("Onboarding and training services"));
         assertThat(invoices.sumOutstanding(acme)).isPositive();
         Instant from = today.minusYears(1).atStartOfDay().toInstant(ZoneOffset.UTC);
         Instant to = Instant.now().plusSeconds(60);

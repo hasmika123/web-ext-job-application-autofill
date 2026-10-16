@@ -15,6 +15,7 @@ import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.MarketerAssignment;
+import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.RequirementMatch;
 import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.enumeration.OrgStatus;
@@ -33,6 +34,7 @@ import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.MarketerAssignmentRepository;
+import com.dossier.api.repository.ent.talent.OrgResumeRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.ResumeBuilderSettings;
@@ -65,6 +67,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
+@org.springframework.test.context.TestPropertySource(properties = "spring.datasource.hikari.maximum-pool-size=4") // an assignment writes through REQUIRES_NEW helpers: a second connection beside the test's transaction
 class MktJobsIT {
 
     private static final String WHO = "mkt-jobs-it";
@@ -83,6 +86,7 @@ class MktJobsIT {
     @Autowired private ClientRequirementRepository requirements;
     @Autowired private ConsultantProfileRepository consultants;
     @Autowired private MarketerAssignmentRepository assignments;
+    @Autowired private OrgResumeRepository orgResumes;
     @Autowired private MktJobMatchRepository matches;
     @Autowired private MktJobMetaRepository metas;
     @Autowired private MktSavedSearchRepository searches;
@@ -120,6 +124,7 @@ class MktJobsIT {
         jobB = job(b, cb, "Hidden Job");
         mine = consultant(a, "Alex Morgan");
         notMine = consultant(a, "Priya Sharma");
+        approvedResume(a, mine);
         assign(a, mine, marketer);
         assign(a, notMine, other);
         match(a, jobA, mine, 95);
@@ -189,6 +194,16 @@ class MktJobsIT {
         return consultants.saveAndFlush(c);
     }
 
+    /** A job can only be assigned to a consultant with an approved resume (409 RESUME_NOT_APPROVED); a stored resume starts PENDING. */
+    private void approvedResume(Organization org, ConsultantProfile c) {
+        OrgResume r = new OrgResume();
+        r.setOrgId(org.getId());
+        r.setConsultantId(c.getId());
+        r.setName(c.getDisplayName() + " resume");
+        r.setApprovalStatus("APPROVED");
+        orgResumes.saveAndFlush(r);
+    }
+
     private void assign(Organization org, ConsultantProfile c, OrgMember marketer) {
         MarketerAssignment as = new MarketerAssignment();
         as.setOrgId(org.getId());
@@ -239,7 +254,10 @@ class MktJobsIT {
         assertThat(viewerBoard.path("kpis").path("highMatch").path("value").asLong()).as("the viewer has no assigned consultants").isZero();
     }
 
+    // Assigning writes through REQUIRES_NEW helpers (the match insert and its ledger row), which cannot see or lock-wait on rows the test's own transaction has not
+    // committed: this one test runs without the class transaction, on an organization pair of its own (named by nanoTime), so what it commits touches nobody else.
     @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void assignWritesOneAssignedMatchAndNothingElse() throws Exception {
         long before = matches.findByOrgIdAndStatus(a.getId(), "ASSIGNED").size();
         MvcResult r = call("mkt-jobs-marketer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + mine.getId() + "}"));
