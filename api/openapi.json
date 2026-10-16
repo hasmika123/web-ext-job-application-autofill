@@ -1167,7 +1167,7 @@
       "get" : {
         "tags" : [ "org-resume-policy" ],
         "summary" : "The organization's resume policy",
-        "description" : "consultantShareLinks is the value in force; overridden says whether this organization set it itself.",
+        "description" : "consultantShareLinks is the value in force; overridden says whether this organization set it itself; activeConsultantLinks is how many live share links and named-person grants on the organization's resumes switching it off would pause.",
         "operationId" : "get",
         "responses" : {
           "200" : {
@@ -1185,7 +1185,7 @@
       "put" : {
         "tags" : [ "org-resume-policy" ],
         "summary" : "Let consultants create share links, or stop them",
-        "description" : "Body {consultantShareLinks: true|false} (422 otherwise). A marketer acting for a consultant can never create share links, whatever this says. One ORG_SETTINGS audit row when the value changed.",
+        "description" : "Body {consultantShareLinks: true|false} (422 otherwise). A marketer acting for a consultant can never create share links, whatever this says. Off pauses every existing consultant share link of the organization's resumes right away (they open nothing, not even a hint); on restores those not revoked or expired meanwhile. One ORG_SETTINGS audit row when the value changed (old, new, linksPaused or linksRestored).",
         "operationId" : "put",
         "requestBody" : {
           "content" : {
@@ -25589,6 +25589,10 @@
           },
           "overridden" : {
             "type" : "boolean"
+          },
+          "activeConsultantLinks" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -27355,6 +27359,10 @@
           },
           "url" : {
             "type" : "string"
+          },
+          "paused" : {
+            "type" : "boolean",
+            "description" : "True while the owner's organization has consultant sharing off: the grant is kept but opens nothing (it can still be revoked) and works again when sharing is back on."
           }
         }
       },

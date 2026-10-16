@@ -35,7 +35,10 @@ public class OrgResumePolicyResource {
         this.demoGuard = demoGuard;
     }
 
-    @Operation(summary = "The organization's resume policy", description = "consultantShareLinks is the value in force; overridden says whether this organization set it itself.")
+    @Operation(
+        summary = "The organization's resume policy",
+        description = "consultantShareLinks is the value in force; overridden says whether this organization set it itself; activeConsultantLinks is how many live share links and named-person grants on the organization's resumes switching it off would pause."
+    )
     @GetMapping
     @OrgPermissionRequired(OrgPermission.ORG_SETTINGS_MANAGE)
     public ResponseEntity<OrgResumePolicyDTO> get(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {
@@ -44,7 +47,7 @@ public class OrgResumePolicyResource {
 
     @Operation(
         summary = "Let consultants create share links, or stop them",
-        description = "Body {consultantShareLinks: true|false} (422 otherwise). A marketer acting for a consultant can never create share links, whatever this says. One ORG_SETTINGS audit row when the value changed."
+        description = "Body {consultantShareLinks: true|false} (422 otherwise). A marketer acting for a consultant can never create share links, whatever this says. Off pauses every existing consultant share link of the organization's resumes right away (they open nothing, not even a hint); on restores those not revoked or expired meanwhile. One ORG_SETTINGS audit row when the value changed (old, new, linksPaused or linksRestored)."
     )
     @PutMapping
     @OrgPermissionRequired(OrgPermission.ORG_SETTINGS_MANAGE)

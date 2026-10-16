@@ -1,6 +1,7 @@
 package com.dossier.api.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -22,6 +23,7 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.service.ResumeAccessService.Via;
 import com.dossier.api.service.dto.ResumeAccessDTOs.SharedResumeDTO;
 import com.dossier.api.service.dto.ResumeDocDTO;
+import com.dossier.api.service.ent.resumes.ConsultantShareLinkPause;
 import com.dossier.api.service.resume.OrgResumeSharing;
 import com.dossier.api.service.storage.FileStorage;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,6 +38,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -170,6 +173,49 @@ class ResumeAccessServiceTest {
     void oneLiveGrantAmongDeadOnesIsEnough() {
         grantsReturn(grant(4L, "friend", NOW.minus(1, ChronoUnit.DAYS), null), grant(6L, "friend", null, null));
         assertThat(service.access(RESUME, "friend")).contains(new ResumeAccessService.Access(Via.USER, 6L));
+    }
+
+    // ---- paused by the organization (consultant sharing off): kept, but opens nothing ---------------
+
+    private ConsultantShareLinkPause pausedBy(boolean paused) {
+        ConsultantShareLinkPause pause = mock(ConsultantShareLinkPause.class);
+        when(pause.isPaused(RESUME)).thenReturn(paused);
+        ReflectionTestUtils.setField(service, "sharePause", pause);
+        return pause;
+    }
+
+    @Test
+    void aPausedUserGrantCannotReadAndComesBackWhenTheOrganizationAllowsSharingAgain() {
+        grantsReturn(grant(5L, "friend", null, null));
+        ConsultantShareLinkPause pause = pausedBy(true);
+        assertThat(service.canRead(RESUME, "friend")).isFalse();
+        assertThat(service.canRead(RESUME, "owner")).as("the owner is never paused").isTrue();
+        when(pause.isPaused(RESUME)).thenReturn(false);
+        assertThat(service.access(RESUME, "friend")).contains(new ResumeAccessService.Access(Via.USER, 5L));
+    }
+
+    @Test
+    void aPausedLinkIsExactlyAnUnknownLinkAndWritesNoViewEvent() {
+        String token = "T".repeat(32);
+        ResumeBuilderSettings settings = mock(ResumeBuilderSettings.class);
+        when(settings.getBool(ResumeBuilderSettingKeys.FEATURE_SHARE_LINKS)).thenReturn(true);
+        ReflectionTestUtils.setField(service, "settings", settings);
+        ResumeAccess link = new ResumeAccess();
+        link.setId(8L);
+        link.setResumeId(RESUME);
+        link.setSubjectType(ResumeAccess.SUBJECT_LINK);
+        link.setToken(token);
+        link.setAllowDownload(true);
+        when(grants.findByToken(token)).thenReturn(Optional.of(link));
+        ConsultantShareLinkPause pause = pausedBy(true);
+
+        assertThat(service.linkExists(token)).isFalse();
+        assertThatThrownBy(() -> service.publicView(token)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("404");
+        assertThatThrownBy(() -> service.publicPdf(token)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("404");
+        verify(views, never()).saveAndFlush(any(ResumeViewEvent.class));
+
+        when(pause.isPaused(RESUME)).thenReturn(false);
+        assertThat(service.linkExists(token)).as("restored").isTrue();
     }
 
     // ---- the organisation: only under FULL consent, only with the flag ------------------------------

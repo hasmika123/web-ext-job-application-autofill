@@ -106,6 +106,10 @@ public class ResumeAccessService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.dossier.api.service.ent.resumes.OrgResumePolicy orgPolicy;
 
+    /** Whether a resume's existing share links are paused because its organization turned sharing off (decided live, never stored); absent in hand-wired unit tests, where nothing is paused. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.resumes.ConsultantShareLinkPause sharePause;
+
     private final String webBaseUrl;
     private final SecureRandom random = new SecureRandom();
 
@@ -156,7 +160,7 @@ public class ResumeAccessService {
 
         Instant now = Instant.now();
         for (ResumeAccess g : accessRepository.findByResumeIdAndSubjectTypeAndSubjectLoginAndRevokedAtIsNull(resumeId, ResumeAccess.SUBJECT_USER, viewerLogin)) {
-            if (g.isActive(now)) return Optional.of(new Access(Via.USER, g.getId()));
+            if (g.isActive(now) && !paused(resumeId)) return Optional.of(new Access(Via.USER, g.getId()));
         }
         OrgResumeSharing org = orgSharing.getIfAvailable();
         if (org != null && !Boolean.FALSE.equals(resume.getShareWithOrg()) && org.isFullPairedViewer(ownerLogin, viewerLogin)) {
@@ -180,8 +184,9 @@ public class ResumeAccessService {
         Map<String, ResumeActorDTO> by = actors.resolve(logins);
         List<AccessGrantDTO> grants = new ArrayList<>();
         List<AccessGrantDTO> links = new ArrayList<>();
+        boolean paused = paused(resumeId);
         for (ResumeAccess a : rows) {
-            (a.isLink() ? links : grants).add(toDto(a, now, by));
+            (a.isLink() ? links : grants).add(toDto(a, now, by, paused));
         }
         return new ResumeAccessOverviewDTO(orgOf(resume, user), grants, links, viewRepository.countByResumeId(resumeId));
     }
@@ -218,13 +223,13 @@ public class ResumeAccessService {
         a.setExpiresAt(expiresAt);
         a.setLabel(cleanLabel);
         accessRepository.saveAndFlush(a);
-        return toDto(a, now, actors.resolve(Set.of(grantee.getLogin())));
+        return toDto(a, now, actors.resolve(Set.of(grantee.getLogin())), paused(resumeId));
     }
 
     public AccessGrantDTO createLink(Long resumeId, Instant expiresAt, String label, Boolean allowDownload) {
         User user = currentUser();
         Resume resume = owned(resumeId, user);
-        return toDto(newLink(resume, user, expiresAt, label, allowDownload), Instant.now(), Map.of());
+        return toDto(newLink(resume, user, expiresAt, label, allowDownload), Instant.now(), Map.of(), paused(resumeId));
     }
 
     /**
@@ -239,7 +244,7 @@ public class ResumeAccessService {
             .filter(g -> g.isLink() && g.getRevokedAt() == null)
             .orElseThrow(ResumeAccessService::notFound);
         a.setAllowDownload(allowDownload);
-        return toDto(accessRepository.saveAndFlush(a), Instant.now(), Map.of());
+        return toDto(accessRepository.saveAndFlush(a), Instant.now(), Map.of(), paused(resumeId));
     }
 
     /** Revoke a grant of this resume. Idempotent; an id that is not a grant of this (owned) resume is a 404. */
@@ -329,7 +334,7 @@ public class ResumeAccessService {
         List<SharedResumeDTO> out = new ArrayList<>();
         Set<Long> seen = new HashSet<>();
         for (ResumeAccess g : accessRepository.findBySubjectTypeAndSubjectLoginAndRevokedAtIsNull(ResumeAccess.SUBJECT_USER, me)) {
-            if (!g.isActive(now) || !seen.add(g.getResumeId())) continue;
+            if (!g.isActive(now) || paused(g.getResumeId()) || !seen.add(g.getResumeId())) continue;
             resumeRepository
                 .findById(g.getResumeId())
                 .filter(r -> r.getKind() == ResumeKind.BUILT)
@@ -442,6 +447,7 @@ public class ResumeAccessService {
         return accessRepository
             .findByToken(token)
             .filter(a -> a.isLink() && a.isActive(Instant.now()))
+            .filter(a -> !paused(a.getResumeId())) // paused by the organization: the same "not found" as any dead link
             .filter(a -> resumeRepository.findById(a.getResumeId()).filter(r -> r.getKind() == ResumeKind.BUILT).isPresent());
     }
 
@@ -482,7 +488,12 @@ public class ResumeAccessService {
         return sb.toString();
     }
 
-    private AccessGrantDTO toDto(ResumeAccess a, Instant now, Map<String, ResumeActorDTO> by) {
+    /** Whether this resume's existing share links and grants are paused by its organization right now (never stored: read from the organization's setting each time). */
+    private boolean paused(Long resumeId) {
+        return sharePause != null && sharePause.isPaused(resumeId);
+    }
+
+    private AccessGrantDTO toDto(ResumeAccess a, Instant now, Map<String, ResumeActorDTO> by, boolean resumePaused) {
         boolean link = a.isLink();
         ResumeActorDTO actor = a.getSubjectLogin() == null ? null : by.get(a.getSubjectLogin());
         return new AccessGrantDTO(
@@ -498,7 +509,8 @@ public class ResumeAccessService {
             a.getCreatedAt(),
             a.getViewCount(),
             a.getLastViewedAt(),
-            link ? webBaseUrl + "/r/" + a.getToken() : null
+            link ? webBaseUrl + "/r/" + a.getToken() : null,
+            resumePaused && a.isActive(now)
         );
     }
 

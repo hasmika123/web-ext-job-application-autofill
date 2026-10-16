@@ -4,13 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@kiwiply/ui";
 import OrgSettingsPage from "./OrgSettingsPage";
 
-let current: { consultantShareLinks: boolean; overridden: boolean };
+let current: { consultantShareLinks: boolean; overridden: boolean; activeConsultantLinks: number };
 let calls: { method: string; url: string; body: unknown }[];
 let writeStatus = 200;
 
 beforeEach(() => {
   calls = [];
-  current = { consultantShareLinks: false, overridden: false };
+  current = { consultantShareLinks: false, overridden: false, activeConsultantLinks: 3 };
   writeStatus = 200;
   vi.stubGlobal(
     "fetch",
@@ -18,7 +18,7 @@ beforeEach(() => {
       const method = init.method ?? "GET";
       const body = init.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ method, url, body });
-      if (method === "PUT" && writeStatus === 200) current = { consultantShareLinks: body.consultantShareLinks, overridden: true };
+      if (method === "PUT" && writeStatus === 200) current = { ...current, consultantShareLinks: body.consultantShareLinks, overridden: true };
       const status = method === "PUT" ? writeStatus : 200;
       return new Response(JSON.stringify(status === 200 ? current : { error: "Nope." }), { status, headers: { "content-type": "application/json" } });
     }),
@@ -62,6 +62,69 @@ describe("the org admin's consultant share-link switch", () => {
     await flush();
     expect(calls.filter((c) => c.method === "PUT").map((c) => c.body)).toEqual([{ consultantShareLinks: true }, { consultantShareLinks: false }]);
     expect(toggle().getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("turning it ON needs no confirmation", async () => {
+    await mount();
+    fireEvent.click(toggle());
+    await flush();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(calls.filter((c) => c.method === "PUT")).toHaveLength(1);
+  });
+
+  describe("turning it OFF", () => {
+    beforeEach(() => {
+      current = { consultantShareLinks: true, overridden: true, activeConsultantLinks: 3 };
+    });
+
+    it("asks first, naming how many links stop working, and Cancel keeps it on without saving", async () => {
+      await mount();
+      expect(toggle().getAttribute("aria-checked")).toBe("true");
+      fireEvent.click(toggle());
+      await flush();
+      const dialog = screen.getByRole("dialog");
+      expect(dialog.textContent).toContain("3 active share links will stop working right away. You can turn sharing back on later to restore them.");
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await flush();
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(toggle().getAttribute("aria-checked")).toBe("true");
+      expect(calls.filter((c) => c.method === "PUT")).toEqual([]);
+    });
+
+    it("says it in the singular for one link, and plainly when there are none", async () => {
+      current = { consultantShareLinks: true, overridden: true, activeConsultantLinks: 1 };
+      await mount();
+      fireEvent.click(toggle());
+      await flush();
+      expect(screen.getByRole("dialog").textContent).toContain("1 active share link will stop working right away. You can turn sharing back on later to restore it.");
+      cleanup();
+
+      current = { consultantShareLinks: true, overridden: true, activeConsultantLinks: 0 };
+      await mount();
+      fireEvent.click(toggle());
+      await flush();
+      expect(screen.getByRole("dialog").textContent).toContain("No share links are active right now");
+    });
+
+    it("saves only after the admin confirms, then offers Undo, which restores the links by turning it back on", async () => {
+      await mount();
+      fireEvent.click(toggle());
+      await flush();
+      expect(calls.filter((c) => c.method === "PUT")).toEqual([]);
+      fireEvent.click(screen.getByRole("button", { name: "Turn off" }));
+      await flush();
+      expect(calls.filter((c) => c.method === "PUT")).toEqual([{ method: "PUT", url: "/api/orgs/7/resume-policy", body: { consultantShareLinks: false } }]);
+      expect(toggle().getAttribute("aria-checked")).toBe("false");
+      expect(document.querySelector("[data-saved-tick]")).not.toBeNull();
+      expect(screen.getByText("Consultants can no longer create share links")).toBeTruthy();
+      expect(screen.getByText(/3 share links are paused/)).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+      await flush();
+      expect(calls.filter((c) => c.method === "PUT").map((c) => c.body)).toEqual([{ consultantShareLinks: false }, { consultantShareLinks: true }]);
+      expect(toggle().getAttribute("aria-checked")).toBe("true");
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
   });
 
   it("puts the switch back and says why when the save is refused", async () => {

@@ -40,6 +40,7 @@ import com.dossier.api.service.ent.LegacyRoleMirror;
 import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.ent.RoleTemplates;
 import com.dossier.api.service.ent.TenantResolver;
+import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import com.dossier.api.web.rest.org.OrgFixtures;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -92,6 +93,10 @@ class OrgResumeBuilderIT {
     @Autowired private MktResumeEventRepository events;
     @Autowired private ResumeRepository resumes;
     @Autowired private ResumeDocVersionRepository versions;
+    @Autowired private com.dossier.api.repository.ResumeDocRepository resumeDocs;
+    @Autowired private com.dossier.api.repository.ResumeAccessRepository accessRows;
+    @Autowired private com.dossier.api.repository.org.OrgAuditEventRepository audit;
+    @Autowired private com.dossier.api.service.storage.FileStorage storage;
 
     private OrgFixtures fx;
     private Organization a;
@@ -717,5 +722,177 @@ class OrgResumeBuilderIT {
         ok(onHost("orb-a-owner", put(policy(a)).content("{\"consultantShareLinks\":false}")), 200);
         assertThat(capabilitiesOf("orb-a-c1").path("shareLinks").asBoolean()).as("the org's own choice wins").isFalse();
         assertThat(onHost("orb-a-c1", post("/api/profile/resumes/" + id + "/access/link").content("{}")).getResponse().getStatus()).isEqualTo(404);
+    }
+
+    // ---- switching sharing off PAUSES existing links and people (user decision 2026-10-15); switching it on restores them ------------
+
+    private static final byte[] PDF = "%PDF-1.4 pause test".getBytes();
+    private static final java.util.concurrent.atomic.AtomicInteger IP = new java.util.concurrent.atomic.AtomicInteger(1);
+
+    private MvcResult publicGet(String path) throws Exception {
+        return mockMvc.perform(get(path).with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous()).header("X-Forwarded-For", "203.0.113." + IP.getAndIncrement())).andReturn();
+    }
+
+    private static String tokenOf(JsonNode link) {
+        String url = link.path("url").asText();
+        return url.substring(url.lastIndexOf("/r/") + 3);
+    }
+
+    /** A problem body without the echoed request path: everything else must be identical between two refusals. */
+    private String sameProblem(MvcResult r) throws Exception {
+        String body = r.getResponse().getContentAsString();
+        if (body.isBlank()) return "";
+        ObjectNode n = (ObjectNode) om.readTree(body);
+        n.remove("instance");
+        n.remove("path");
+        return n.toString();
+    }
+
+    private void makeCurrentPdf(long resumeId) {
+        com.dossier.api.domain.ResumeDoc d = resumeDocs.findById(resumeId).orElseThrow();
+        Resume r = d.getResume();
+        String key = storage.objectKeyFor(r.getUser().getId(), resumeId, "resume.pdf");
+        storage.store(key, PDF, "application/pdf");
+        r.setr2ObjectKey(key);
+        resumes.saveAndFlush(r);
+        d.setPdfStatus(com.dossier.api.service.resume.ResumePdfState.READY);
+        d.setExportedHash(com.dossier.api.service.ResumeDocService.renderHash(d));
+        d.setExportedAt(Instant.now());
+        resumeDocs.saveAndFlush(d);
+    }
+
+    private JsonNode setSharing(boolean on) throws Exception {
+        return ok(onHost("orb-a-owner", put(policy(a)).content("{\"consultantShareLinks\":" + on + "}")), 200);
+    }
+
+    private void assertSameAsUnknown(String path, String unknownPath, String what) throws Exception {
+        MvcResult dead = publicGet(path);
+        MvcResult unknown = publicGet(unknownPath);
+        assertThat(dead.getResponse().getStatus()).as(what + " status").isEqualTo(404).isEqualTo(unknown.getResponse().getStatus());
+        assertThat(sameProblem(dead)).as(what + " body is exactly an unknown link's").isEqualTo(sameProblem(unknown));
+    }
+
+    @Test
+    void switchingConsultantSharingOffPausesExistingLinksAndPeopleAndSwitchingItOnRestoresThem() throws Exception {
+        long id = consultantCreates("orb-a-c1", "{\"label\":\"Casey's own\",\"source\":\"scratch\"}").path("resumeId").asLong();
+        String base = "/api/profile/resumes/" + id;
+        setSharing(true);
+        JsonNode link = ok(onHost("orb-a-c1", post(base + "/access/link").content("{\"allowDownload\":true,\"label\":\"Acme recruiter\"}")), 201);
+        String token = tokenOf(link);
+        JsonNode person = ok(onHost("orb-a-c1", post(base + "/access").content("{\"email\":\"admin@localhost\"}")), 201);
+        makeCurrentPdf(id);
+        String unknown = "A".repeat(32);
+
+        // sharing on: everything opens, and the policy counts the two live shares
+        assertThat(publicGet("/api/public/resumes/" + token).getResponse().getStatus()).isEqualTo(200);
+        assertThat(publicGet("/api/public/resumes/" + token + "/pdf").getResponse().getContentAsByteArray()).isEqualTo(PDF);
+        assertThat(send("admin", get("/api/profile/resumes/shared/" + id + "/doc")).getResponse().getStatus()).isEqualTo(200);
+        assertThat(ok(send("admin", get("/api/profile/resumes/shared-with-me")), 200).findValuesAsText("name")).contains("Casey's own");
+        JsonNode counted = ok(onHost("orb-a-owner", get(policy(a))), 200);
+        assertThat(counted.path("activeConsultantLinks").asLong()).isEqualTo(2);
+        assertThat(ok(onHost("orb-a-c1", get(base + "/access")), 200).findValuesAsText("paused")).containsOnly("false");
+
+        // OFF: the policy answers with the count, and every serving path is exactly an unknown link's not-found
+        JsonNode off = setSharing(false);
+        assertThat(off.path("consultantShareLinks").asBoolean()).isFalse();
+        assertThat(off.path("activeConsultantLinks").asLong()).as("kept, not deleted").isEqualTo(2);
+        assertSameAsUnknown("/api/public/resumes/" + token, "/api/public/resumes/" + unknown, "the page of a paused link");
+        assertSameAsUnknown("/api/public/resumes/" + token + "/pdf", "/api/public/resumes/" + unknown + "/pdf", "the PDF of a paused link");
+        assertThat(send("admin", get("/api/profile/resumes/shared/" + id + "/doc")).getResponse().getStatus()).as("a named person's document").isEqualTo(404);
+        assertThat(send("admin", get("/api/profile/resumes/shared/" + id + "/export?format=pdf")).getResponse().getStatus()).as("a named person's PDF").isEqualTo(404);
+        assertThat(ok(send("admin", get("/api/profile/resumes/shared-with-me")), 200).findValuesAsText("name")).as("not listed while paused").doesNotContain("Casey's own");
+
+        // the consultant sees them as paused, can still revoke, and cannot create new ones
+        JsonNode overview = ok(onHost("orb-a-c1", get(base + "/access")), 200);
+        assertThat(overview.path("links")).hasSize(1);
+        assertThat(overview.path("links").get(0).path("paused").asBoolean()).isTrue();
+        assertThat(overview.path("grants").get(0).path("paused").asBoolean()).isTrue();
+        assertThat(capabilitiesOf("orb-a-c1").path("shareLinks").asBoolean()).isFalse();
+        assertThat(onHost("orb-a-c1", post(base + "/access/link").content("{}")).getResponse().getStatus()).isEqualTo(404);
+        assertThat(onHost("orb-a-c1", post(base + "/access").content("{\"email\":\"admin@localhost\"}")).getResponse().getStatus()).isEqualTo(404);
+
+        // ON again: both work, nothing needed re-creating, and the details of the audit row say what happened
+        JsonNode on = setSharing(true);
+        assertThat(on.path("activeConsultantLinks").asLong()).isEqualTo(2);
+        assertThat(publicGet("/api/public/resumes/" + token).getResponse().getStatus()).isEqualTo(200);
+        assertThat(publicGet("/api/public/resumes/" + token + "/pdf").getResponse().getContentAsByteArray()).isEqualTo(PDF);
+        assertThat(send("admin", get("/api/profile/resumes/shared/" + id + "/doc")).getResponse().getStatus()).isEqualTo(200);
+        assertThat(ok(onHost("orb-a-c1", get(base + "/access")), 200).findValuesAsText("paused")).containsOnly("false");
+        assertThat(person.path("id").asLong()).isPositive();
+
+        List<String> details = audit
+            .findByOrgIdAndAction(a.getId(), OrgAuditService.ORG_SETTINGS, org.springframework.data.domain.PageRequest.of(0, 20))
+            .map(com.dossier.api.domain.org.OrgAuditEvent::getDetails)
+            .toList();
+        String key = EnterpriseSettingKeys.ORG_RESUMES_CONSULTANT_SHARE_LINKS;
+        assertThat(details).contains(
+            "setting=" + key + " old=false new=true linksRestored=2",
+            "setting=" + key + " old=true new=false linksPaused=2"
+        );
+    }
+
+    @Test
+    void aLinkRevokedOrExpiredWhilePausedStaysDeadWhenSharingComesBack() throws Exception {
+        long id = consultantCreates("orb-a-c1", "{\"label\":\"Casey's own\",\"source\":\"scratch\"}").path("resumeId").asLong();
+        String base = "/api/profile/resumes/" + id;
+        setSharing(true);
+        JsonNode revokedLink = ok(onHost("orb-a-c1", post(base + "/access/link").content("{}")), 201);
+        JsonNode expiringLink = ok(onHost("orb-a-c1", post(base + "/access/link").content("{}")), 201);
+        JsonNode keptLink = ok(onHost("orb-a-c1", post(base + "/access/link").content("{}")), 201);
+        JsonNode person = ok(onHost("orb-a-c1", post(base + "/access").content("{\"email\":\"admin@localhost\"}")), 201);
+
+        setSharing(false);
+        // the consultant can still revoke a paused link
+        assertThat(onHost("orb-a-c1", org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete(base + "/access/" + revokedLink.path("id").asLong())).getResponse().getStatus()).isEqualTo(204);
+        // another one runs out its time while paused
+        var expiring = accessRows.findById(expiringLink.path("id").asLong()).orElseThrow();
+        expiring.setExpiresAt(Instant.now().minusSeconds(60));
+        accessRows.saveAndFlush(expiring);
+        assertThat(ok(onHost("orb-a-c1", get(base + "/access")), 200).path("links")).as("the revoked one is gone from the list").hasSize(2);
+
+        setSharing(true);
+        assertThat(publicGet("/api/public/resumes/" + tokenOf(revokedLink)).getResponse().getStatus()).as("revoked while paused").isEqualTo(404);
+        assertThat(publicGet("/api/public/resumes/" + tokenOf(expiringLink)).getResponse().getStatus()).as("expired while paused").isEqualTo(404);
+        assertThat(publicGet("/api/public/resumes/" + tokenOf(keptLink)).getResponse().getStatus()).as("untouched, so it is back").isEqualTo(200);
+        assertThat(send("admin", get("/api/profile/resumes/shared/" + id + "/doc")).getResponse().getStatus()).isEqualTo(200);
+        assertThat(person.path("id").asLong()).isPositive();
+    }
+
+    @Test
+    void personalResumesAndOtherOrganizationsAreNotPausedByThisOrganizationsSwitch() throws Exception {
+        // an organization A resume with a live link, then A switches sharing off
+        long aResume = consultantCreates("orb-a-c1", "{\"label\":\"Casey's own\",\"source\":\"scratch\"}").path("resumeId").asLong();
+        setSharing(true);
+        String aToken = tokenOf(ok(onHost("orb-a-c1", post("/api/profile/resumes/" + aResume + "/access/link").content("{}")), 201));
+
+        // a PERSONAL resume (no organization at all) with a link
+        long personal = ok(send("admin", post("/api/profile/resumes/built").content("{\"label\":\"Admin personal\"}")), 201).at("/resume/id").asLong();
+        String personalToken = tokenOf(ok(send("admin", post("/api/profile/resumes/" + personal + "/access/link").content("{}")), 201));
+
+        // a resume that organization B links into ITS directory, with a link; B has not turned sharing on (default off)
+        long bResume = ok(send("admin", post("/api/profile/resumes/built").content("{\"label\":\"Linked into B\"}")), 201).at("/resume/id").asLong();
+        String bToken = tokenOf(ok(send("admin", post("/api/profile/resumes/" + bResume + "/access/link").content("{}")), 201));
+        OrgResume linked = new OrgResume();
+        linked.setOrgId(b.getId());
+        linked.setConsultantId(cb.getId());
+        linked.setResumeId(bResume);
+        linked.setName("Linked into B");
+        orgResumes.saveAndFlush(linked);
+
+        setSharing(false);
+        assertThat(publicGet("/api/public/resumes/" + aToken).getResponse().getStatus()).as("A's own link is paused").isEqualTo(404);
+        assertThat(publicGet("/api/public/resumes/" + personalToken).getResponse().getStatus()).as("a personal resume is untouched").isEqualTo(200);
+        assertThat(publicGet("/api/public/resumes/" + bToken).getResponse().getStatus()).as("B has sharing off by default, so B's link is paused on B's own setting").isEqualTo(404);
+
+        // B turns it on: B's link works while A (off) stays paused, and the count of each organization is its own
+        OrgSetting bOn = new OrgSetting();
+        bOn.setOrgId(b.getId());
+        bOn.setSettingKey(EnterpriseSettingKeys.ORG_RESUMES_CONSULTANT_SHARE_LINKS);
+        bOn.setValueJson("true");
+        orgSettings.saveAndFlush(bOn);
+        assertThat(publicGet("/api/public/resumes/" + bToken).getResponse().getStatus()).as("B's own switch decides B's link").isEqualTo(200);
+        assertThat(publicGet("/api/public/resumes/" + aToken).getResponse().getStatus()).as("A stays paused").isEqualTo(404);
+        assertThat(ok(onHost("orb-a-owner", get(policy(a))), 200).path("activeConsultantLinks").asLong()).as("A counts only its own resumes").isEqualTo(1);
+        assertThat(ok(send("orb-b-owner", get(policy(b))), 200).path("activeConsultantLinks").asLong()).as("B counts only its own resumes").isEqualTo(1);
     }
 }

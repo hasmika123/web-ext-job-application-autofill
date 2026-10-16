@@ -17,7 +17,8 @@ public final class ResumeAccessDTOs {
     /**
      * One grant. {@code subjectType} is USER or LINK. A USER grant carries the grantee's {@code login} and display
      * {@code name}; a LINK grant carries {@code url} (the address to send) and {@code allowDownload}.
-     * {@code expired} marks a grant past its expiry that has not been removed yet (it opens nothing).
+     * {@code expired} marks a grant past its expiry that has not been removed yet (it opens nothing). {@code paused} marks a live grant
+     * that an organization's "consultant share links" switch (off) currently keeps from opening anything.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record AccessGrantDTO(
@@ -33,7 +34,8 @@ public final class ResumeAccessDTOs {
         Instant createdAt,
         int viewCount,
         Instant lastViewedAt,
-        String url
+        String url,
+        @Schema(description = "True while the owner's organization has consultant sharing off: the grant is kept but opens nothing (it can still be revoked) and works again when sharing is back on.") boolean paused
     ) {}
 
     /** The organisation row of Resume settings; the whole object is null when the org area is not there or the owner has no org. */

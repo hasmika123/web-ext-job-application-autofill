@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CheckIcon, ErrorState, FileTextIcon, Skeleton, Switch, useToast } from "@kiwiply/ui";
+import { Button, CheckIcon, Dialog, ErrorState, FileTextIcon, Skeleton, Switch, useToast } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
 import { fetchResumePolicy, saveConsultantShareLinks, type ResumePolicy } from "@/lib/ent/resume-policy";
 
@@ -15,11 +15,19 @@ export interface OrgSettingsPageProps {
   orgId: number;
 }
 
+/** "3 active share links will stop working" (`stop`), or "3 share links are" (the toast: "3 share links are paused"). */
+function linksText(n: number, stop = false): string {
+  const noun = n === 1 ? "share link" : "share links";
+  if (stop) return `${n} active ${noun} will stop working`;
+  return `${n} ${noun} ${n === 1 ? "is" : "are"}`;
+}
+
 export default function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
   const toast = useToast();
   const [policy, setPolicy] = useState<ResumePolicy | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "failed" | "denied">("loading");
   const [saved, setSaved] = useState(false);
+  const [confirmOff, setConfirmOff] = useState(false);
   const policyRef = useRef<ResumePolicy | null>(null);
   const tick = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -67,6 +75,8 @@ export default function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
       flashTick();
       toast({
         title: value ? "Consultants can now create share links" : "Consultants can no longer create share links",
+        // Turning it off paused the existing links (kept, not deleted); Undo, like turning it on again, brings them back.
+        description: !value && before.activeConsultantLinks > 0 ? `${linksText(before.activeConsultantLinks)} paused. Turn this back on to restore ${before.activeConsultantLinks === 1 ? "it" : "them"}.` : undefined,
         variant: "success",
         action: undoable ? { label: "Undo", onClick: () => void change(before.consultantShareLinks, false) } : undefined,
       });
@@ -95,7 +105,8 @@ export default function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
             label="Share links"
             description="Let consultants create share links for their organization resumes"
             checked={policy.consultantShareLinks}
-            onCheckedChange={(v) => void change(v)}
+            // Turning it ON just saves (autosave, check, Undo). Turning it OFF pauses every existing link, so it asks first.
+            onCheckedChange={(v) => (v ? void change(true) : setConfirmOff(true))}
           />
         </div>
         <span aria-live="polite" title={saved ? "Saved" : undefined} data-saved-tick={saved ? "" : undefined} className="inline-flex h-5 w-5 flex-none items-center justify-center text-green-600">
@@ -110,6 +121,35 @@ export default function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
       <p className="mt-3 text-[12.5px] leading-snug text-muted">
         Off by default. A marketer preparing a resume for a consultant can never create share links, whatever this says.
       </p>
+      <Dialog
+        open={confirmOff}
+        onClose={() => setConfirmOff(false)}
+        title="Turn off share links?"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmOff(false)} className="max-sm:min-h-11" data-confirm-cancel>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              className="max-sm:min-h-11"
+              data-confirm-off
+              onClick={() => {
+                setConfirmOff(false);
+                void change(false);
+              }}
+            >
+              Turn off
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-ink-soft" data-confirm-copy>
+          {policy.activeConsultantLinks > 0
+            ? `${linksText(policy.activeConsultantLinks, true)} right away. You can turn sharing back on later to restore ${policy.activeConsultantLinks === 1 ? "it" : "them"}.`
+            : "No share links are active right now. Consultants will no longer be able to create them. You can turn sharing back on later."}
+        </p>
+      </Dialog>
     </section>
   );
 }

@@ -8,6 +8,8 @@ export interface ResumePolicy {
   consultantShareLinks: boolean;
   /** True when the organization has set it itself. */
   overridden: boolean;
+  /** Live share links and named-person grants on the organization's resumes: what switching sharing off pauses at once (and on restores). */
+  activeConsultantLinks: number;
 }
 
 export type PolicyResult = { kind: "OK"; policy: ResumePolicy } | { kind: "DENIED" } | { kind: "INVALID"; message: string } | { kind: "FAILED" };
@@ -16,7 +18,8 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object
 
 export function parsePolicy(json: unknown): ResumePolicy | null {
   if (!isObj(json) || typeof json.consultantShareLinks !== "boolean") return null;
-  return { consultantShareLinks: json.consultantShareLinks, overridden: json.overridden === true };
+  const n = typeof json.activeConsultantLinks === "number" && Number.isFinite(json.activeConsultantLinks) ? Math.max(0, Math.floor(json.activeConsultantLinks)) : 0;
+  return { consultantShareLinks: json.consultantShareLinks, overridden: json.overridden === true, activeConsultantLinks: n };
 }
 
 const base = (orgId: number | string) => `/api/orgs/${orgId}/resume-policy`;

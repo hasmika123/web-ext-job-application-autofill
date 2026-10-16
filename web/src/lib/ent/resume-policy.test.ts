@@ -6,15 +6,16 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("resume policy client", () => {
   it("parses only a well-formed policy; the override flag defaults to false", () => {
-    expect(parsePolicy({ consultantShareLinks: true, overridden: true })).toEqual({ consultantShareLinks: true, overridden: true });
-    expect(parsePolicy({ consultantShareLinks: false })).toEqual({ consultantShareLinks: false, overridden: false });
+    expect(parsePolicy({ consultantShareLinks: true, overridden: true, activeConsultantLinks: 3 })).toEqual({ consultantShareLinks: true, overridden: true, activeConsultantLinks: 3 });
+    expect(parsePolicy({ consultantShareLinks: false })).toEqual({ consultantShareLinks: false, overridden: false, activeConsultantLinks: 0 });
+    expect(parsePolicy({ consultantShareLinks: true, activeConsultantLinks: -2 })?.activeConsultantLinks).toBe(0);
     expect(parsePolicy({ consultantShareLinks: "yes" })).toBeNull();
     expect(parsePolicy(null)).toBeNull();
   });
 
   it("maps the API's answers: ok, denied (403/404), invalid (400/422), failed", async () => {
-    vi.stubGlobal("fetch", reply(200, { consultantShareLinks: true, overridden: true }));
-    expect(await fetchResumePolicy(3)).toEqual({ kind: "OK", policy: { consultantShareLinks: true, overridden: true } });
+    vi.stubGlobal("fetch", reply(200, { consultantShareLinks: true, overridden: true, activeConsultantLinks: 2 }));
+    expect(await fetchResumePolicy(3)).toEqual({ kind: "OK", policy: { consultantShareLinks: true, overridden: true, activeConsultantLinks: 2 } });
     vi.stubGlobal("fetch", reply(404, {}));
     expect(await fetchResumePolicy(3)).toEqual({ kind: "DENIED" });
     vi.stubGlobal("fetch", reply(422, { error: "must be true or false" }));
