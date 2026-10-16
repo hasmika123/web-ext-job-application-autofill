@@ -90,6 +90,7 @@ below are the URL segments after the rewrite, not folder names:
 /login                 → _t/login/page.tsx     BrandedLogin (11 §3)
 /forgot-password, /reset-password, /account/activate      → branded wrappers of the existing forms
 /join/t/[token], /join/[slug]/[code]                       → branded join (12 §5)
+/privacy, /terms, /acceptable-use, /support, /policies/[slug] → _t/<name>/page.tsx  the organization's own policy pages (62): public, its branding, never Kiwiply's
 /me, /me#…             → _t/me/page.tsx        basic profile (13)
 /w/[workspace]/…       → _t/w/[workspace]/layout.tsx  (shell) + pages per §5
 /tenant-unavailable    → rendered by the layout for UNKNOWN (never linked)
@@ -205,6 +206,7 @@ the API re-checks with scope) · **Entitlement / module** · **Empty state** · 
 | Integrations → `/w/admin/integrations` | `IntegrationsPage` (Phase 12) — hidden until the module | — | `integrations.manage` | integrations | — | X12.3 (E) |
 | Audit Logs → `/w/admin/audit` | `AuditLogPage` | `GET …/audit` | `audit.view` | — | "No activity yet" | X4.9 |
 | Settings → `/w/admin/settings` | `OrgSettingsPage` (14 §4) | `GET/PATCH /api/orgs/{id}`, `…/settings` | `org.settings.manage` | — | — | X2.9 |
+| Policies → `/w/admin/policies` | `PoliciesPage` (62): one editor per policy kind, preview, Start from template, Save draft, Submit for review / Withdraw, reviewer comment, history | `GET …/policies[/{kind}]`, `PUT …/{kind}/draft`, `POST …/{kind}/template\|submit\|withdraw` | `org.settings.manage` | `enterprise.policies.kinds` | "Template shown" until a policy is published | 62 (ADM-120..122) |
 | My Profile | avatar menu → `/me` (13) — **not** a nav item | | | | | X2.7 |
 
 ### 5.2 MARKETING — Talent Marketing Specialist (D owns the pages; B owns the nav/shell contract)
@@ -304,6 +306,7 @@ permissions; k-anonymity rules for anything per-person) · Reports `/w/exec/repo
 |---|---|
 | Platform Home (existing), Organizations + Tenant Provisioning (`/admin/organizations`, `/[id]`) | X1.11 |
 | Domains (`/admin/domains`: every hostname, states, re-check, suspend/resume, Google-origin flag) | X3.3, X3.7 |
+| Policy reviews (`/admin/policy-reviews`: organizations' submitted privacy / terms / acceptable-use / support texts, line diff against the live text, approve or request changes; 62) | 62 (APP-08, APP-09) |
 | Subscriptions (org billing ops), Feature Catalog, Pricing, Commercial Agreements | X6.9, X6.10 (C) |
 | Integrations (delivery health across orgs) | X12.3 |
 | Platform Analytics (`/admin/analytics`, cross-tenant aggregates only) | X12.12 |

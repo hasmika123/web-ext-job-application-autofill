@@ -15,6 +15,7 @@ import {
   type ResumeMeta,
   type ResumeVersion,
 } from "@/lib/resume-meta";
+import { useBuilderEnv } from "./builderEnv";
 import { actorText, expiryText, versionKindChip, viewsText, visibilityLabel } from "./headerBar";
 
 /** The last N versions the header's Version menu lists (DESIGN 10.16); the rest are in All versions. */
@@ -61,6 +62,7 @@ export function VisibilityPanel({
   onPeople: () => void;
   onManage: () => void;
 }) {
+  const env = useBuilderEnv();
   const hasOrg = visibility.orgPaired !== null;
   const orgUsable = hasOrg && visibility.orgScope === "FULL";
   const orgOn = visibility.mode === "ORG" || (orgUsable && visibility.shareWithOrg);
@@ -85,7 +87,7 @@ export function VisibilityPanel({
               </span>
             </span>
           </button>
-          {!orgUsable && (
+          {!orgUsable && env.kind === "personal" && (
             <Link href="/settings/organizations" className="flex-none text-[12.5px] font-semibold text-v2-blue hover:underline">
               Change sharing
             </Link>

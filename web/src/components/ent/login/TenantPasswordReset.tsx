@@ -3,6 +3,7 @@
 import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { AlertIcon, ArrowRightIcon, LockIcon, MailIcon } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import PolicyLinks from "@/components/ent/policy/PolicyLinks";
 import { newPasswordProblem } from "@/lib/ent/join";
 
 /**
@@ -28,6 +29,7 @@ function Shell({ name, logoUrl, title, children }: { name: string; logoUrl?: str
           </div>
           {children}
         </section>
+        <PolicyLinks tone="plain" className="mt-5 text-[var(--brand-800)]" />
       </div>
     </main>
   );

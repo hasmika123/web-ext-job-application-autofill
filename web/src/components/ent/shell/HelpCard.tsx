@@ -34,7 +34,7 @@ export function HelpPanel({ open, onClose, orgName, supportEmail }: { open: bool
 
 /**
  * "Need help?" (16 s2.1): the enterprise bee, a one-line offer and "Ask a question...". There is no assistant behind it yet, so the
- * button opens a small help panel that says so and offers the organization's support email and the Kiwiply help centre.
+ * button opens a small help panel that says so and offers the organization's support email and its own policy pages.
  * `bee=false` (the page already shows a bee, or the rail is collapsed) keeps the card text-only.
  */
 export default function HelpCard({ firstName, orgName, supportEmail, bee = true, cardHidden = false, collapsed = false }: { firstName: string; orgName: string; supportEmail?: string | null; bee?: boolean; cardHidden?: boolean; collapsed?: boolean }) {

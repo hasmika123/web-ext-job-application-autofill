@@ -4,6 +4,7 @@ import BrandedLogin from "@/components/ent/login/BrandedLogin";
 import TenantDemoTab from "@/components/ent/login/TenantDemoTab";
 import { destinationFor, getTenantSession } from "@/lib/ent/tenant-session";
 import { getTenant } from "@/lib/tenant";
+import { getTenantPolicyLinks } from "@/lib/tenant-policies";
 
 /**
  * The tenant sign-in (X2.3): `acme.localhost/login` is rewritten here by `proxy.ts` (the tree lives at `%5Ft`). The tenant
@@ -39,6 +40,7 @@ export default async function TenantLoginPage({ searchParams }: { searchParams: 
       microsoft={t.tenant.login?.microsoft === true}
       google={t.tenant.login?.google === true}
       next={typeof next === "string" ? next : undefined}
+      policyLinks={await getTenantPolicyLinks()}
     />
     {/* X1.12: the dev-style "Demo accounts" tab; renders nothing unless the API says DEMO_ENABLED + ENT_DEMO_SEED are on for this host. */}
     <TenantDemoTab />

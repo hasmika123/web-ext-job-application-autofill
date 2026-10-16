@@ -24,6 +24,9 @@ public interface OrgMemberRepository extends Repository<OrgMember, Long> {
 
     long countByOrgIdAndStatus(Long orgId, OrgMemberStatus status);
 
+    /** The people holding one of {@code roles} in the organization with the given seat status (who is told when a policy is decided). */
+    List<OrgMember> findByOrgIdAndRoleInAndStatus(Long orgId, Collection<OrgRole> roles, OrgMemberStatus status);
+
     long countByOrgIdAndRoleAndStatus(Long orgId, OrgRole role, OrgMemberStatus status);
 
     long countByOrgIdAndGroupIdAndStatusIn(Long orgId, Long groupId, Collection<OrgMemberStatus> statuses);

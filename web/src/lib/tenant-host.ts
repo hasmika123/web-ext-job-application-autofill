@@ -93,11 +93,19 @@ export function isRewriteExempt(pathname: string): boolean {
 export const SURFACE_HEADER = "x-kiwiply-surface";
 
 /**
+ * The organization's policy pages (docs/enterprise-v2/62): public on a tenant host so a legal link never needs a sign-in and never
+ * leaves the host. The platform's own /privacy and /terms are served on platform hosts only.
+ */
+export const TENANT_POLICY_PATHS = ["/privacy", "/terms", "/acceptable-use", "/support", "/policies"] as const;
+
+const TENANT_PUBLIC_PATHS: readonly string[] = ["/login", "/forgot-password", "/reset-password", "/account/activate", "/join", ...TENANT_POLICY_PATHS];
+
+/**
  * Tenant paths a signed-out visitor may open (X2.6): the sign-in and its helpers. Everything else on a tenant host is login-first.
  * `/join/...` (the invite pages, X2.6 wrappers) are listed now so they work signed out when they land.
  */
 export function isTenantPublicPath(pathname: string): boolean {
-  return ["/login", "/forgot-password", "/reset-password", "/account/activate", "/join"].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return TENANT_PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 export function isTenantRoutePath(pathname: string): boolean {

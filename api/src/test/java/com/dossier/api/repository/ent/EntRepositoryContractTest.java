@@ -30,7 +30,10 @@ class EntRepositoryContractTest {
         "OrgRoleRepository.findSystemByRoleKey",
         "OrgRoleRepository.findSystemRoles",
         "OrgRolePermissionRepository.findAllSystemRolePermissions",
-        "OrgRolePermissionRepository.deleteSystemRolePermissions"
+        "OrgRolePermissionRepository.deleteSystemRolePermissions",
+        // Policy reviews (docs/enterprise-v2/62): the Kiwiply reviewer reads submissions across organizations; reachable only through the ROLE_ADMIN resource.
+        "OrgPolicyVersionRepository.findByStatusOldestFirst",
+        "OrgPolicyVersionRepository.findOneById"
     );
 
     private static List<Class<?>> entRepositories() throws ClassNotFoundException {

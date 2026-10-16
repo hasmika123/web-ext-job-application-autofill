@@ -1,10 +1,10 @@
 "use client";
 
 import type { RefObject } from "react";
-import Link from "next/link";
 import { ArrowRightIcon, CheckCircleIcon, LightbulbIcon, LockIcon, SideSheet, SparklesIcon } from "@kiwiply/ui";
 import type { ResumeScoreGroupId, ResumeScoreReport } from "@kiwiply/ui";
 import { RIGHT_SHEET_WIDTH, type SheetMode } from "./state/ui";
+import UpgradeLink from "./UpgradeLink";
 
 const TRIM_CLASS =
   "mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-v2-green-soft px-3 text-[12.5px] font-semibold text-v2-green-ink hover:brightness-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent max-sm:min-h-11";
@@ -88,11 +88,11 @@ export default function TipsSheet({
                         </button>
                       )}
                       {tip.id === "F4" && trim && !trim.allowed && (
-                        <Link href="/pricing" data-trim-longest onClick={trim.onLocked} className={TRIM_CLASS}>
+                        <UpgradeLink data-trim-longest onClick={trim.onLocked} className={TRIM_CLASS}>
                           <LockIcon className="h-3.5 w-3.5" />
                           Trim the longest bullets
                           <span className="rounded bg-v2-violet-soft px-1.5 py-0.5 text-[10.5px] font-bold uppercase tracking-wide text-v2-violet-ink">Pro</span>
-                        </Link>
+                        </UpgradeLink>
                       )}
                     </div>
                     {tip.target && (

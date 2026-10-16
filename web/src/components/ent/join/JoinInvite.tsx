@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertIcon, ArrowRightIcon, CheckIcon, EyeIcon, EyeOffIcon, LockIcon, cn } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import PolicyLinks from "@/components/ent/policy/PolicyLinks";
 import { SCOPE_COPY, newPasswordProblem, type JoinPreview, type ShareScope } from "@/lib/ent/join";
 
 /**
@@ -180,6 +181,9 @@ export default function JoinInvite({ token, name, logoUrl, preview, signedIn }: 
                   <p className="mt-2 whitespace-pre-wrap leading-snug text-[var(--brand-800)]">{preview.consent.text}</p>
                 </details>
               ) : null}
+              <p className="mb-4 text-[13.5px] leading-snug text-[var(--brand-800)]" data-join-policy-note>
+                How {name} handles your information is in its <a href="/privacy" className="font-semibold text-accent-deep hover:underline">Privacy Policy</a> and <a href="/terms" className="font-semibold text-accent-deep hover:underline">Terms of Use</a>.
+              </p>
               <Alert text={error} />
               <button type="submit" disabled={busy} aria-busy={busy} className={SUBMIT}>
                 {busy ? (
@@ -193,6 +197,7 @@ export default function JoinInvite({ token, name, logoUrl, preview, signedIn }: 
             </form>
           )}
         </section>
+        <PolicyLinks tone="plain" className="mt-5 text-[var(--brand-800)]" />
       </div>
     </main>
   );

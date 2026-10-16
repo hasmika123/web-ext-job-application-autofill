@@ -105,6 +105,14 @@ public class OrgAuditService {
     public static final String BRANDING_RESTORE = "BRANDING_RESTORE";
     public static final String BRANDING_ASSET = "BRANDING_ASSET";
     public static final String TARGET_BRANDING = "BRANDING";
+    /** Tenant policy pages (docs/enterprise-v2/62). */
+    public static final String POLICY_DRAFT_SAVE = "POLICY_DRAFT_SAVE";
+    public static final String POLICY_TEMPLATE = "POLICY_TEMPLATE";
+    public static final String POLICY_SUBMIT = "POLICY_SUBMIT";
+    public static final String POLICY_WITHDRAW = "POLICY_WITHDRAW";
+    public static final String POLICY_APPROVE = "POLICY_APPROVE";
+    public static final String POLICY_REQUEST_CHANGES = "POLICY_REQUEST_CHANGES";
+    public static final String TARGET_POLICY = "POLICY";
 
     // --- Target kinds ---
     public static final String TARGET_ORG = "ORG";

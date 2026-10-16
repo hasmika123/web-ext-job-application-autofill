@@ -81,7 +81,7 @@ class WorkspaceServiceTest {
         assertThat(slugs(all)).containsExactly("admin");
         assertThat(navKeys(all, "admin")).containsExactly(
             "home", "employees", "invitations", "teams", "departments", "roles", "consultants", "resumes", "assignments", "jobs", "applications", "interviews", "clients",
-            "placements", "subscription", "licenses", "billing", "usage", "hr", "finance", "reports", "branding", "domains", "integrations", "audit", "settings"
+            "placements", "subscription", "licenses", "billing", "usage", "hr", "finance", "reports", "branding", "domains", "integrations", "audit", "settings", "policies"
         );
         assertThat(all.landingKey()).isEqualTo("ADMIN");
         assertThat(all.landingHome()).isEqualTo("/w/admin");
@@ -91,7 +91,7 @@ class WorkspaceServiceTest {
     void withTheModulesOffTheAdminMenuLosesExactlyTheModulePages() {
         WorkspaceService.Result off = compute(ALL_OFF, "ORG_ADMIN");
         assertThat(navKeys(off, "admin")).containsExactly(
-            "home", "employees", "invitations", "teams", "departments", "assignments", "applications", "interviews", "placements", "reports", "branding", "audit", "settings"
+            "home", "employees", "invitations", "teams", "departments", "assignments", "applications", "interviews", "placements", "reports", "branding", "audit", "settings", "policies"
         );
         Map<String, Boolean> rolesAndDomains = new LinkedHashMap<>(ALL_OFF);
         rolesAndDomains.put("roles", true);

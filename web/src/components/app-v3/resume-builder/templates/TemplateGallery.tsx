@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeftIcon, Button, cn } from "@kiwiply/ui";
 import { track } from "@/lib/analytics";
 import type { ResumeBuilderConfig } from "@/lib/resume-builder-config.shared";
+import { useBuilderEnv } from "../builderEnv";
 import { thumbFor } from "../list/templateThumbs";
 import { capabilityChips, galleryCapabilities, galleryTemplates, templateHref } from "./model";
 
@@ -25,6 +26,7 @@ const CHIP_TONE: Record<string, string> = {
  * list and the admin's capability overrides, never from names written here.
  */
 export default function TemplateGallery({ config }: { config: ResumeBuilderConfig }) {
+  const listHref = useBuilderEnv().listHref;
   const router = useRouter();
   const templates = galleryTemplates(config.templates.enabled, config.templates.default);
 
@@ -35,7 +37,7 @@ export default function TemplateGallery({ config }: { config: ResumeBuilderConfi
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-5">
       <div>
-        <Link href="/resume-builder" className="inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-semibold text-v2-blue hover:underline sm:min-h-0">
+        <Link href={listHref} className="inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-semibold text-v2-blue hover:underline sm:min-h-0">
           <ArrowLeftIcon size={15} aria-hidden />
           My Resumes
         </Link>

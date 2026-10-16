@@ -51,6 +51,8 @@ public class SecurityConfiguration {
                     // Enterprise V2 (X1.3): the host-derived public view of a tenant. 404 while enterprise is off or the host is unknown.
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/demo")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/policies")).permitAll()
+                    .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/policies/*")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.GET, "/api/public/tenant/assets/*")).permitAll()
                     .requestMatchers(mvc.pattern(HttpMethod.HEAD, "/api/public/tenant/assets/*")).permitAll()
                     // The two public on/off switches (orgs, demo): booleans only, cached, never per-user (PublicConfigResource).

@@ -4,7 +4,9 @@ import TenantLogo from "@/components/ent/login/TenantLogo";
 import { serverApiFetch } from "@/lib/api";
 import { getTenantSession } from "@/lib/ent/tenant-session";
 import { parsePreview } from "@/lib/ent/join";
+import PolicyLinks from "@/components/ent/policy/PolicyLinks";
 import { getTenant } from "@/lib/tenant";
+import { getTenantPolicyLinks } from "@/lib/tenant-policies";
 
 /**
  * `acme.localhost/join/t/{token}` (rewritten here by `proxy.ts`; `/join` is a public tenant path). The preview is public (the link is
@@ -54,6 +56,7 @@ export default async function TenantJoinPage({ params }: { params: Promise<{ tok
           <a href="/login" className="mt-6 inline-flex min-h-[44px] items-center justify-center font-semibold text-accent-deep hover:underline">
             Go to sign in
           </a>
+          <PolicyLinks links={await getTenantPolicyLinks()} tone="plain" className="mt-6" />
         </div>
       </main>
     );

@@ -21,7 +21,7 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     ]);
     // the whole menu is shown (the board's order); what the member's modules do not open yet is flagged "soon", never hidden
     expect(sections[1].items.map((i) => i.text)).toEqual(["Subscription Overview", "Consultant Licenses", "Billing", "Feature Usage", "HR", "Finance", "Reports"]);
-    expect(sections[2].items.map((i) => i.text)).toEqual(["Organization Branding", "Domains", "Integrations", "Audit Logs", "Settings"]);
+    expect(sections[2].items.map((i) => i.text)).toEqual(["Organization Branding", "Domains", "Integrations", "Audit Logs", "Settings", "Policies"]);
     const soon = sections.flatMap((s) => s.items).filter((i) => i.soon).map((i) => i.key);
     expect(soon).toEqual(expect.arrayContaining(["hr", "finance", "integrations"]));
     expect(sections.flatMap((s) => s.items).find((i) => i.key === "employees")?.soon).toBeUndefined();

@@ -254,6 +254,13 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/branding/versions/{versionNo}/restore", Case.write(null, 200, OrgAuditService.BRANDING_RESTORE)),
         Map.entry("POST /api/orgs/{orgId}/branding/assets/{kind}", Case.upload(200, OrgAuditService.BRANDING_ASSET)),
         Map.entry("DELETE /api/orgs/{orgId}/branding/assets/{kind}", Case.write(null, 200, null)),
+        // Tenant policy pages (docs/enterprise-v2/62): the Org Admin's draft / template / submit / withdraw. Publishing is the platform reviewer's (AdminPolicyReviewResource), never an org route.
+        Map.entry("GET /api/orgs/{orgId}/policies", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/policies/{policyKind}", Case.read()),
+        Map.entry("PUT /api/orgs/{orgId}/policies/{policyKind}/draft", Case.write("{\"body\":\"# Hijacked\\n\\nText of the policy.\"}", 200, OrgAuditService.POLICY_DRAFT_SAVE)),
+        Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/template", Case.write(null, 200, OrgAuditService.POLICY_TEMPLATE)),
+        Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/request-review", Case.people(200, OrgAuditService.POLICY_SUBMIT, 1, null, null, w -> w.seedPolicy(false))),
+        Map.entry("POST /api/orgs/{orgId}/policies/{policyKind}/withdraw", Case.people(200, OrgAuditService.POLICY_WITHDRAW, 1, null, null, w -> w.seedPolicy(true))),
         Map.entry("POST /api/orgs/{orgId}/members/invite", Case.write("{\"emails\":[\"newcomer@example.org\"],\"role\":\"MEMBER\"}", 200, OrgAuditService.MEMBER_INVITE)),
         Map.entry("POST /api/orgs/{orgId}/members/{memberId}/resend", Case.write(null, 200, OrgAuditService.MEMBER_INVITE_RESEND)),
         // Direct account creation with a temporary password: the legitimate call creates an account (HIGH audit row); a reset of a member who
@@ -681,6 +688,7 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.talent.RequirementMatchRepository jobMatches;
     @Autowired private com.dossier.api.service.ent.members.OrgMemberQueryService memberQuery;
     @Autowired private OrgBrandingRepository brandings;
+    @Autowired private com.dossier.api.service.ent.OrgPolicyService policyService;
     @Autowired private OrgBrandingVersionRepository brandingVersions;
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository talentConsultants;
     @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository talentResumes;
@@ -1199,6 +1207,12 @@ class OrgIsolationIT {
             return Long.parseLong(id.substring(id.indexOf(':') + 1)); // the activity feed names a manual line MANUAL:<id>
         }
 
+        /** Tenant policy pages: a PRIVACY draft started from the template, and optionally submitted (so a withdraw has something to take back). */
+        void seedPolicy(boolean submitIt) {
+            policyService.startFromTemplate(me(owner), "PRIVACY");
+            if (submitIt) policyService.requestReview(me(owner), "PRIVACY");
+        }
+
         void seedMkt() {
             if (mktSeeded) return;
             mktSeeded = true;
@@ -1423,6 +1437,7 @@ class OrgIsolationIT {
             ids.put("memberId", String.valueOf(member.getId()));
             ids.put("offboardingId", String.valueOf(offboardingId));
             ids.put("kind", "logo");
+            ids.put("policyKind", "PRIVACY");
             ids.put("pendingMemberId", String.valueOf(pending.getId())); // X1.8's resend names the INVITED seat; every other {memberId} route is the ACTIVE member
             ids.put("invitationId", String.valueOf(pending.getId())); // an invitation is a seat in state INVITED
             ids.put("alertKey", "MEMBERS_SUSPENDED");
@@ -1625,6 +1640,9 @@ class OrgIsolationIT {
         s.append(com.dossier.api.web.rest.ent.ApplicationItSupport.fingerprint(em, w.org.getId()));
         s.append(com.dossier.api.web.rest.ent.PlacementItSupport.fingerprint(em, w.org.getId()));
         s.append(mktFingerprint(w.org.getId()));
+        for (String table : List.of("org_policy", "org_policy_version")) {
+            s.append(table).append(':').append(em.createNativeQuery("select * from " + table + " where org_id = ?1 order by 1").setParameter(1, w.org.getId()).getResultList().stream().map(r -> r instanceof Object[] a ? Arrays.deepToString(a) : String.valueOf(r)).toList()).append('\n');
+        }
         return s.toString();
     }
 
@@ -1724,7 +1742,7 @@ class OrgIsolationIT {
             if (ids.equals(b.ids())) continue; // the route has no row id: nothing of A's to name
             Matcher m = VAR.matcher(route.pattern());
             boolean hasRowId = false;
-            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("alertKey") && !m.group(1).equals("itemKey") && !m.group(1).equals("category") && !m.group(1).equals("ruleKey"); // kind, alertKey, itemKey, category and ruleKey are fixed words, not rows
+            while (m.find()) hasRowId |= !m.group(1).equals("orgId") && !m.group(1).equals("kind") && !m.group(1).equals("policyKind") && !m.group(1).equals("alertKey") && !m.group(1).equals("itemKey") && !m.group(1).equals("category") && !m.group(1).equals("ruleKey"); // kind, alertKey, itemKey, category and ruleKey are fixed words, not rows
             if (!hasRowId) continue;
             assertGeneric404(hostile(route, uri(route, ids), a, user("bravo-owner")), route.key() + " as B's owner with B's orgId and A's row id");
             variants++;
@@ -1799,7 +1817,7 @@ class OrgIsolationIT {
             assertThat(orgs.findByOrgId(B).orElseThrow().getId()).isNotEqualTo(A);
             assertThat(orgs.countByCreatedByUserId(a.owner.getUserId())).as("scoped by the creating person").isZero(); // fixtures set no creator
         }));
-        checks.put("OrgMemberRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdAndUserIdAndStatusIn", "findByOrgIdAndInviteEmailAndStatusIn", "countByOrgIdAndStatus", "countByOrgIdAndRoleAndStatus", "countByOrgIdAndGroupIdAndStatusIn", "countByOrgIdAndStatusIn", "countByOrgIdAndRoleAndStatusIn", "countByOrgIdAndInviteSentAtAfter", "countByOrgIdAndInviteBatchId", "findByInviteTokenHash", "findByOrgIdAndIdIn", "findExpiredInvites", "findOrgIdsWithExpiredInvites"), () -> {
+        checks.put("OrgMemberRepository", new RepoCheck(Set.of("findByOrgIdAndId", "findByOrgIdAndUserIdAndStatusIn", "findByOrgIdAndInviteEmailAndStatusIn", "countByOrgIdAndStatus", "countByOrgIdAndRoleAndStatus", "countByOrgIdAndGroupIdAndStatusIn", "countByOrgIdAndStatusIn", "countByOrgIdAndRoleAndStatusIn", "countByOrgIdAndInviteSentAtAfter", "countByOrgIdAndInviteBatchId", "findByInviteTokenHash", "findByOrgIdAndIdIn", "findExpiredInvites", "findOrgIdsWithExpiredInvites", "findByOrgIdAndRoleInAndStatus"), () -> {
             assertThat(members.findByOrgIdAndId(B, a.owner.getId())).isEmpty();
             assertThat(members.findByOrgIdAndId(B, a.member.getId())).isEmpty();
             assertThat(members.findByOrgIdAndUserIdAndStatusIn(B, a.member.getUserId(), List.of(OrgMemberStatus.ACTIVE, OrgMemberStatus.SUSPENDED))).isEmpty();
@@ -1811,6 +1829,7 @@ class OrgIsolationIT {
             assertThat(members.countByOrgIdAndRoleAndStatusIn(B, OrgRole.ADMIN, OrgMemberStatus.LIVE)).as("A's admins and the suspended / invited ones are not B's").isZero();
             assertThat(members.countByOrgIdAndInviteSentAtAfter(B, java.time.Instant.now().minus(java.time.Duration.ofDays(1)))).as("only B's own pending invite counts toward B's daily cap").isEqualTo(1);
             assertThat(members.countByOrgIdAndInviteBatchId(B, 0L)).isZero();
+            assertThat(members.findByOrgIdAndRoleInAndStatus(B, List.of(OrgRole.OWNER, OrgRole.ADMIN), OrgMemberStatus.ACTIVE)).as("only B's own owner and admins are told about a policy decision").allSatisfy(m -> assertThat(m.getOrgId()).isEqualTo(B)).extracting(OrgMember::getId).doesNotContain(a.owner.getId());
             assertThat(members.findByOrgIdAndIdIn(B, List.of(a.owner.getId(), a.pending.getId()))).as("A's seats by id are not B's").isEmpty();
             java.time.Instant farFuture = java.time.Instant.now().plus(java.time.Duration.ofDays(3650));
             assertThat(members.findExpiredInvites(B, farFuture, org.springframework.data.domain.PageRequest.of(0, 50))).as("only B's own invitations, never A's").isNotEmpty().allSatisfy(m -> assertThat(m.getOrgId()).isEqualTo(B));

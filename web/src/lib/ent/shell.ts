@@ -13,7 +13,7 @@ const ADMIN_GROUP: Record<string, number> = {
   home: 0, employees: 0, invitations: 0, teams: 0, departments: 0, roles: 0, consultants: 0, resumes: 0, assignments: 0, jobs: 0,
   applications: 0, interviews: 0, clients: 0, placements: 0,
   subscription: 1, licenses: 1, billing: 1, usage: 1, hr: 1, finance: 1, reports: 1,
-  branding: 2, domains: 2, integrations: 2, audit: 2, settings: 2,
+  branding: 2, domains: 2, integrations: 2, audit: 2, settings: 2, policies: 2,
 };
 
 /** The two expandable Administration rows (HR, Finance): their pages under `/w/admin/<key>/...` (gated by the parent's permission). */
@@ -68,6 +68,7 @@ const ADMIN_FULL: { key: string; label: string; icon: string; href: string }[] =
   { key: "integrations", label: "Integrations", icon: "Webhook", href: "/w/admin/integrations" },
   { key: "audit", label: "Audit Logs", icon: "Shield", href: "/w/admin/audit" },
   { key: "settings", label: "Settings", icon: "Gear", href: "/w/admin/settings" },
+  { key: "policies", label: "Policies", icon: "FileText", href: "/w/admin/policies" },
 ];
 
 export interface ShellNavItem extends NavItem {
@@ -277,7 +278,10 @@ export function bannersFor(me: MeTenant, ws: Workspace, changed: boolean): { id:
 export function helpLinks(supportEmail: string | null | undefined): { label: string; href: string; external?: boolean }[] {
   const links: { label: string; href: string; external?: boolean }[] = [];
   if (supportEmail) links.push({ label: `Email ${supportEmail}`, href: `mailto:${supportEmail}`, external: true });
-  links.push({ label: "Kiwiply help center", href: "https://kiwiply.com/support", external: true });
+  // The organization's own pages on THIS host (docs/enterprise-v2/62): a member of an enterprise account never lands on a Kiwiply page.
+  links.push({ label: "Support and contact", href: "/support" });
+  links.push({ label: "Privacy policy", href: "/privacy" });
+  links.push({ label: "Terms of use", href: "/terms" });
   return links;
 }
 
