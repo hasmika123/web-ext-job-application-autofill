@@ -76,7 +76,7 @@ const HREFS = { matches: "/w/marketing/matches", jobs: "/w/marketing/jobs", acti
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 interface Call { url: string; method: string; body: string }
-function stub(list: () => Response = () => json(200, fixture())) {
+function stub(list: () => Response = () => json(200, fixture()), info: unknown = null) {
   const calls: Call[] = [];
   vi.stubGlobal(
     "fetch",
@@ -87,7 +87,7 @@ function stub(list: () => Response = () => json(200, fixture())) {
       if (call.method === "POST" && /\/request$/.test(url)) return json(200, { message: "Asked Michael Park to update their resume.", changed: true });
       if (call.method === "POST" && /\/notify$/.test(url)) return json(200, { done: 2, skipped: [], message: "Asked 2 consultants for their interest." });
       if (call.method === "POST") return json(200, { message: "Done.", changed: true });
-      if (/\/opportunities\/\d+$/.test(url)) return json(200, { item: ROWS[5], alternatives: [ROWS[0]], events: [] });
+      if (/\/opportunities\/\d+$/.test(url)) return json(200, { item: ROWS[5], alternatives: [ROWS[0]], events: [], info });
       if (/\/options/.test(url)) return json(200, { consultants: [{ id: 1, name: "Alex Morgan" }], jobs: [{ id: 9, title: "Java Lead", client: "TechCorp", location: "NY" }] });
       return list();
     }),
@@ -289,6 +289,36 @@ describe("OpportunitiesPage", () => {
     fireEvent.click(within(await row(1)).getByRole("button", { name: "Review" }));
     fireEvent.click(await screen.findByRole("button", { name: "Mark as reviewed" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/review"))).toBe(true));
+  });
+
+  it("Review shows the consultant's question and sends the marketer's answer (MKT-41); only the answer is posted", async () => {
+    const calls = stub(undefined, { question: "Is the role onsite three days a week?", answer: "", awaitingAnswer: true });
+    mount();
+    fireEvent.click(within(await row(1)).getByRole("button", { name: "Review" }));
+    expect(await screen.findByText("Is the role onsite three days a week?")).toBeTruthy();
+    const send = screen.getByRole("button", { name: "Send answer" }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Your answer"), { target: { value: "Two days onsite, three remote." } });
+    fireEvent.click(send);
+    await waitFor(() => expect(calls.some((c) => c.method === "POST" && /\/opportunities\/\d+\/answer-info$/.test(c.url))).toBe(true));
+    const post = calls.find((c) => c.url.endsWith("/answer-info"))!;
+    expect(JSON.parse(post.body)).toEqual({ answer: "Two days onsite, three remote." });
+    await waitFor(() => expect(document.querySelector("[data-opp-info-answer]")?.textContent).toContain("Two days onsite"));
+    expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
+  });
+
+  it("Review shows no answer box when the consultant asked nothing, and no input once the question is closed", async () => {
+    stub();
+    mount();
+    fireEvent.click(within(await row(1)).getByRole("button", { name: "Review" }));
+    await screen.findByText("Timeline");
+    expect(document.querySelector("[data-opp-info]")).toBeNull();
+    cleanup();
+    stub(undefined, { question: "Visa sponsorship?", answer: "Not needed.", awaitingAnswer: false });
+    mount();
+    fireEvent.click(within(await row(1)).getByRole("button", { name: "Review" }));
+    expect(await screen.findByText("Visa sponsorship?")).toBeTruthy();
+    expect(screen.queryByLabelText("Your answer")).toBeNull();
   });
 
   it("Send Opportunity Notifications asks to confirm, then posts the request", async () => {

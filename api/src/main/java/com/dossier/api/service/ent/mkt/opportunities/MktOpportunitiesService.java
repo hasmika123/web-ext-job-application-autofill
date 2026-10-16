@@ -182,7 +182,11 @@ public class MktOpportunitiesService {
         alternatives.forEach(a -> ids.add(a.ownerId()));
         timeline.forEach(t -> ids.add(t.actorMemberId()));
         Map<Long, String> names = memberNames(view.orgId(), ids);
-        return new Detail(item(row, names, now), alternatives.stream().map(a -> item(a, names, now)).toList(), activity(timeline));
+        Info info = repo.findByOrgIdAndMatchId(view.orgId(), id)
+            .filter(o -> o.getInfoRequest() != null && !o.getInfoRequest().isBlank())
+            .map(o -> new Info(o.getInfoRequest(), o.getInfoAnswer(), "NEEDS_INFO".equals(o.getState()) && "ASSIGNED".equals(row.r().matchStatus())))
+            .orElse(null);
+        return new Detail(item(row, names, now), alternatives.stream().map(a -> item(a, names, now)).toList(), activity(timeline), info);
     }
 
     /** Consultants the caller may see and open jobs, for the Add Opportunity dialog. */

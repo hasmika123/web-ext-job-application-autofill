@@ -176,6 +176,28 @@ class MktOpportunitiesAnswerInfoTest {
     }
 
     @Test
+    void theDetailCarriesTheQuestionAndTheAnswerSoTheBoardCanShowAnAnswerBox() {
+        lenient().when(repo.findByOrgIdAndMatchId(eq(ORG), eq(5L))).thenAnswer(i -> Optional.of(opp));
+        var open = service.detail(me, 5L).info();
+        assertThat(open.question()).isEqualTo("Is the role remote?");
+        assertThat(open.answer()).isNull();
+        assertThat(open.awaitingAnswer()).as("NEEDS_INFO on an assigned match").isTrue();
+
+        service.answerInfo(me, 5L, "Fully remote.");
+        assertThat(service.detail(me, 5L).info().answer()).isEqualTo("Fully remote.");
+
+        opp.setState("INTERESTED"); // the consultant moved on: the thread stays readable, the box closes
+        assertThat(service.detail(me, 5L).info().awaitingAnswer()).isFalse();
+    }
+
+    @Test
+    void theDetailHasNoInfoWhenTheConsultantNeverAsked() {
+        opp.setInfoRequest(null);
+        lenient().when(repo.findByOrgIdAndMatchId(eq(ORG), eq(5L))).thenAnswer(i -> Optional.of(opp));
+        assertThat(service.detail(me, 5L).info()).isNull();
+    }
+
+    @Test
     void anUnusedLockIsNotTakenWhenTheRowIsGone() {
         row = null;
         assertThatThrownBy(() -> service.answerInfo(me, 5L, "answer")).isInstanceOf(OrgNotFoundException.class);

@@ -63,7 +63,9 @@ export interface OpportunitiesView {
   activity: Activity[];
   filters: { consultants: Option[]; clients: Option[] };
 }
-export interface Detail { item: Opportunity; alternatives: Opportunity[]; events: Activity[] }
+/** The consultant's question and the marketer's answer (MKT-41). `awaitingAnswer`: the question is open and the marketer may answer it. */
+export interface InfoThread { question: string; answer: string; awaitingAnswer: boolean }
+export interface Detail { item: Opportunity; alternatives: Opportunity[]; events: Activity[]; info: InfoThread | null }
 export interface JobOption { id: number; title: string; client: string; location: string }
 export interface Options { consultants: Option[]; jobs: JobOption[] }
 
@@ -150,7 +152,9 @@ export function parseOpportunities(raw: unknown): OpportunitiesView | null {
 export function parseDetail(raw: unknown): Detail | null {
   if (!isObj(raw)) return null;
   const item = parseOpportunity(raw.item);
-  return item ? { item, alternatives: items(raw.alternatives), events: activityOf(raw.events) } : null;
+  const i = isObj(raw.info) && str(raw.info.question) ? raw.info : null;
+  const info: InfoThread | null = i ? { question: str(i.question), answer: str(i.answer), awaitingAnswer: i.awaitingAnswer === true } : null;
+  return item ? { item, alternatives: items(raw.alternatives), events: activityOf(raw.events), info } : null;
 }
 
 export function parseOptions(raw: unknown): Options {
@@ -245,6 +249,8 @@ export const assignOpportunity = (orgId: number | string, id: number) => send(or
 export const bulkAssign = (orgId: number | string, ids: number[]) => send(orgId, "/bulk-assign", "POST", { ids });
 export const requestFromConsultant = (orgId: number | string, id: number, kind: "INTEREST" | "RESUME") => send(orgId, `/${id}/request`, "POST", { kind });
 export const notifyAwaiting = (orgId: number | string) => send(orgId, "/notify", "POST");
+/** Answers the consultant's open question. The consultant's own state never changes: only they move the opportunity on. */
+export const answerInfo = (orgId: number | string, id: number, answer: string) => send(orgId, `/${id}/answer-info`, "POST", { answer });
 export const reviewOpportunity = (orgId: number | string, id: number) => send(orgId, `/${id}/review`, "POST");
 export const setNextAction = (orgId: number | string, id: number, nextActionAt: string | null) => send(orgId, `/${id}/next-action`, "PATCH", { nextActionAt });
 export const createOpportunity = (orgId: number | string, consultantId: number, requirementId: number) => send(orgId, "", "POST", { consultantId, requirementId });

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Button, MemberAvatar, Select, SheetFrame, Skeleton, cn } from "@kiwiply/ui";
+import { Button, MemberAvatar, Select, SheetFrame, Skeleton, Textarea, cn } from "@kiwiply/ui";
 import { relativeTime } from "@/lib/ent/dashboard";
 import {
-  INTEREST_LABELS, fetchDetail, fetchOptions, fetchReady, matchTone, nextActionText,
-  type Detail, type JobOption, type Opportunity, type Option,
+  INTEREST_LABELS, answerInfo, fetchDetail, fetchOptions, fetchReady, matchTone, nextActionText,
+  type Detail, type InfoThread, type JobOption, type Opportunity, type Option,
 } from "@/lib/ent/marketer-ws/opportunities";
 import { INTEREST_TONE, ResumeBadge } from "./bits";
 
@@ -27,6 +27,46 @@ const Fact = ({ label, children }: { label: string; children: ReactNode }) => (
     <dd className="truncate text-[13.5px] font-semibold text-ink">{children}</dd>
   </div>
 );
+
+/**
+ * MKT-41: the consultant asked a question about the job; the marketer answers it here. Only the answer is sent: the consultant's own interest and state
+ * stay theirs (E1: the marketer prepares, requests and records; the consultant decides).
+ */
+function InfoBox({ orgId, id, info, onAnswered }: { orgId: number; id: number; info: InfoThread; onAnswered: (answer: string) => void }) {
+  const [text, setText] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const send = async () => {
+    const answer = text.trim();
+    if (!answer || sending) return;
+    setSending(true);
+    setError("");
+    const r = await answerInfo(orgId, id, answer);
+    setSending(false);
+    if (r.ok) {
+      setText("");
+      onAnswered(answer);
+    } else setError(r.error);
+  };
+  return (
+    <Section title="Question from the consultant">
+      <div data-opp-info className="rounded-lg border border-line bg-paper-2 p-3 text-[13.5px]">
+        <p className="text-ink">{info.question}</p>
+        {info.answer ? <p data-opp-info-answer className="mt-2 border-t border-line pt-2 text-ink-soft"><span className="font-semibold text-ink">Your answer: </span>{info.answer}</p> : null}
+      </div>
+      {info.awaitingAnswer ? (
+        <div className="mt-2">
+          <Textarea aria-label="Your answer" rows={3} maxLength={1000} value={text} placeholder={info.answer ? "Add to your answer..." : "Answer the question..."} onChange={(e) => setText(e.target.value)} />
+          {error ? <p role="alert" className="mt-1 text-[12.5px] text-danger-text">{error}</p> : null}
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[12px] text-muted">Only the consultant moves this opportunity on.</span>
+            <Button size="sm" disabled={sending || !text.trim()} onClick={() => void send()}>{info.answer ? "Send another answer" : "Send answer"}</Button>
+          </div>
+        </div>
+      ) : null}
+    </Section>
+  );
+}
 
 /** Review (the marketer looks the opportunity over) and Compare (the same consultant's other open opportunities). */
 export function DetailDialog({ orgId, id, mode, onClose, onReview, busy }: { orgId: number; id: number | null; mode: "REVIEW" | "COMPARE"; onClose: () => void; onReview: (id: number) => void; busy: boolean }) {
@@ -73,6 +113,8 @@ export function DetailDialog({ orgId, id, mode, onClose, onReview, busy }: { org
               <Fact label="Status">{o.status === "ASSIGNED" ? "Assigned" : "Suggested"}</Fact>
             </dl>
             {o.reason ? <p className="mt-3 text-[13px] text-muted">Why it matches: {o.reason}</p> : null}
+
+            {detail?.info ? <InfoBox orgId={orgId} id={o.id} info={detail.info} onAnswered={(answer) => setDetail((d) => (d && d.info ? { ...d, info: { ...d.info, answer } } : d))} /> : null}
 
             {mode === "COMPARE" || alts.length > 0 ? (
               <Section title={`${o.consultant.name}'s other open opportunities`}>

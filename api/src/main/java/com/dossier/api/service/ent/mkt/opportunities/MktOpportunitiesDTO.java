@@ -64,7 +64,13 @@ public final class MktOpportunitiesDTO {
         Filters filters
     ) {}
 
-    public record Detail(Item item, List<Item> alternatives, List<Activity> events) {}
+    /**
+     * The consultant's question about the job and the marketer's answer (MKT-41). {@code awaitingAnswer}: the question is open and the marketer may answer it
+     * (state NEEDS_INFO, still assigned). Null on {@link Detail} when the consultant never asked. Free text typed by people, so never part of a list row.
+     */
+    public record Info(String question, String answer, boolean awaitingAnswer) {}
+
+    public record Detail(Item item, List<Item> alternatives, List<Activity> events, Info info) {}
 
     /** The answer of a write: the row as it is now, and a short sentence the page shows. {@code changed} is false when the request was already made a moment ago. */
     public record ActionResult(Item item, String message, boolean changed) {}
