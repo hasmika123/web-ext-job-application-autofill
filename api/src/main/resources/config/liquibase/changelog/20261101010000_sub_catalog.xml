@@ -93,4 +93,79 @@
         </createIndex>
         <rollback/>
     </changeSet>
+
+    <!--
+        K1.3: prices are immutable, effective-dated rows. Nothing updates an amount: a new price is a new row; a replaced row is retired
+        (active = false, retired_at, effective_until). At most one ACTIVE row exists per (product, audience, interval, currency): the generated
+        active_key column is non-NULL only while active = true and carries the UNIQUE index. Rows ship with NO data: the catalog has no prices
+        until an admin publishes one.
+    -->
+    <changeSet id="sub-catalog-product-price" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="product_price"/></not></preConditions>
+        <createTable tableName="product_price">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="product_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="audience" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="billing_interval" type="varchar(10)"><constraints nullable="false"/></column>
+            <column name="amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)"><constraints nullable="false"/></column>
+            <column name="stripe_price_id" type="varchar(255)"/>
+            <column name="payout_minor" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="subscriber_discount_bp" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="margin_bp_worst" type="int"/>
+            <column name="margin_bp_typical" type="int"/>
+            <column name="fee_model_version" type="int"/>
+            <column name="annual_source" type="varchar(10)"/>
+            <column name="derived_from_price_id" type="bigint"/>
+            <column name="derived_discount_bp" type="int"/>
+            <column name="accepts_promos" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="country_set" type="varchar(400)"/>
+            <column name="active" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="effective_from" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="effective_until" type="${datetimeType}"/>
+            <column name="published_at" type="${datetimeType}"/>
+            <column name="retired_at" type="${datetimeType}"/>
+            <column name="catalog_version" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="created_by" type="varchar(50)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="product_price" baseColumnNames="product_id" constraintName="fk_product_price_product"
+                                 referencedTableName="product" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="product_price" baseColumnNames="derived_from_price_id" constraintName="fk_product_price_derived"
+                                 referencedTableName="product_price" referencedColumnNames="id"/>
+        <createIndex tableName="product_price" indexName="ux_product_price_stripe" unique="true">
+            <column name="stripe_price_id"/>
+        </createIndex>
+        <createIndex tableName="product_price" indexName="ix_product_price_lookup">
+            <column name="product_id"/>
+            <column name="audience"/>
+            <column name="billing_interval"/>
+            <column name="currency"/>
+            <column name="effective_from"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-catalog-product-price-active-key" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="product_price" columnName="active_key"/></not></preConditions>
+        <!-- Generated columns have no portable Liquibase syntax: plain MySQL DDL, same technique as jhi_user.account_scope_key. -->
+        <sql dbms="mysql">ALTER TABLE product_price ADD COLUMN active_key VARCHAR(80) GENERATED ALWAYS AS (IF(active, CONCAT_WS(':', product_id, audience, billing_interval, currency), NULL)) STORED</sql>
+        <sql dbms="mysql">CREATE UNIQUE INDEX ux_product_price_active ON product_price (active_key)</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-catalog-publish" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="catalog_publish"/></not></preConditions>
+        <createTable tableName="catalog_publish">
+            <column name="id" type="int"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="published_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="published_by" type="varchar(50)"><constraints nullable="false"/></column>
+            <column name="summary" type="varchar(2000)"/>
+            <column name="price_ids_json" type="json"/>
+            <column name="feature_keys_json" type="json"/>
+            <column name="plan_version_ids_json" type="json"/>
+            <column name="snapshot_hash" type="char(64)"/>
+        </createTable>
+        <rollback/>
+    </changeSet>
 </databaseChangeLog>
