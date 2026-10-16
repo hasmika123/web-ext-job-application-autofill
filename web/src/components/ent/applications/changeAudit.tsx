@@ -13,7 +13,7 @@ import UpdatedBy, { RelationTag, absoluteTime } from "@/components/app-v3/applic
  */
 
 /** The viewer of an organization page: their seat. */
-export const seatViewer = (memberId: number | null | undefined): Viewer => ({ memberId: memberId ?? null });
+export const seatViewer = (memberId: number | null | undefined): Viewer => ({ memberId: memberId ?? null, org: true });
 
 /**
  * The header lines of a record: "Updated 2h ago by Sarah Chen MARKETER" (title: the absolute time and who), and, when the record says who added it,
@@ -61,7 +61,7 @@ function shortDay(iso: string): string {
 export function feedActor(by: AnyActor, me: Viewer): { name: string; tag?: string } | undefined {
   if (!by) return undefined;
   if (isViewer(by, me)) return { name: "you" };
-  const name = by && "kind" in by && by.kind !== "PERSON" ? "Kiwiply" : actorText(by, me);
+  const name = by && "kind" in by && by.kind !== "PERSON" ? "Automatically" : actorText(by, me);
   const relation = "relation" in by ? by.relation : null;
   return relation ? { name, tag: relation.toUpperCase() } : { name };
 }
