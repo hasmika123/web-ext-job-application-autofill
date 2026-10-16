@@ -207,28 +207,30 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
             ) : !v || v.streams.length === 0 ? (
               <Empty>No job streams are connected yet.</Empty>
             ) : (
-              <table className="w-full text-left text-[13px]">
-                <thead>
-                  <tr className="bg-paper-2 text-[12px] font-semibold text-ink-soft">
-                    <th className="rounded-l-lg px-2 py-2">Source</th>
-                    <th className="px-2">Status</th>
-                    <th className="px-2">New Openings</th>
-                    <th className="px-2">Last Sync</th>
-                    <th className="rounded-r-lg" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {v.streams.map((s) => (
-                    <tr key={s.source} data-stream-row={s.source} className="border-b border-line last:border-0">
-                      <td className="px-2 py-2"><span className="flex items-center gap-2 font-semibold text-ink"><SourceLogo source={s.source} src={logoFor(s.source)} />{s.source}</span></td>
-                      <td className="px-2"><span className="inline-block rounded-md bg-v2-green-soft px-2 py-0.5 text-[12px] font-semibold text-v2-green-ink">{s.status}</span></td>
-                      <td className="px-2 font-semibold text-ink">{s.newOpenings}</td>
-                      <td className="px-2 text-ink-soft">{s.lastSyncAt ? relativeTime(s.lastSyncAt, now) : "-"}</td>
-                      <td className="px-1"><More label={`More for ${s.source}`} /></td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[13px]">
+                  <thead>
+                    <tr className="bg-paper-2 text-[12px] font-semibold text-ink-soft">
+                      <th className="rounded-l-lg px-2 py-2">Source</th>
+                      <th className="px-2">Status</th>
+                      <th className="px-2">New Openings</th>
+                      <th className="px-2">Last Sync</th>
+                      <th className="rounded-r-lg" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {v.streams.map((s) => (
+                      <tr key={s.source} data-stream-row={s.source} className="border-b border-line last:border-0">
+                        <td className="px-2 py-2"><span className="flex items-center gap-2 font-semibold text-ink"><SourceLogo source={s.source} src={logoFor(s.source)} />{s.source}</span></td>
+                        <td className="px-2"><span className="inline-block rounded-md bg-v2-green-soft px-2 py-0.5 text-[12px] font-semibold text-v2-green-ink">{s.status}</span></td>
+                        <td className="px-2 font-semibold text-ink">{s.newOpenings}</td>
+                        <td className="px-2 text-ink-soft">{s.lastSyncAt ? relativeTime(s.lastSyncAt, now) : "-"}</td>
+                        <td className="px-1"><More label={`More for ${s.source}`} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </>,
           "streams",
@@ -258,30 +260,32 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
             ) : !v || v.openings.length === 0 ? (
               <Empty>No strong openings for your talent right now.</Empty>
             ) : (
-              <table className="w-full text-left text-[13px]">
-                <thead>
-                  <tr className="bg-paper-2 text-[12px] font-semibold text-ink-soft">
-                    <th className="rounded-l-lg px-2 py-2">Job Title</th>
-                    <th className="px-2">Client</th>
-                    <th className="px-2">Location</th>
-                    <th className="px-2">Match</th>
-                    <th className="px-2">Action</th>
-                    <th className="rounded-r-lg" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {v.openings.map((o) => (
-                    <tr key={o.id} data-opening-row={o.id} className="border-b border-line last:border-0">
-                      <td className="px-2 py-2 font-semibold text-ink">{o.title}</td>
-                      <td className="px-2 text-ink-soft">{o.client}</td>
-                      <td className="px-2 text-ink-soft">{o.location}</td>
-                      <td className="px-2"><span className={cn("inline-block rounded-full px-2.5 py-0.5 text-[12px] font-bold", matchTone(o.matchPct) === "green" ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-amber-soft text-v2-amber-ink")}>{o.matchPct}%</span></td>
-                      <td className="px-2">{hrefs.opportunities ? <Link href={`${hrefs.opportunities}?job=${o.id}`} className="inline-block rounded-md bg-accent px-3 py-1 text-[12px] font-bold text-white">Assign</Link> : null}</td>
-                      <td className="px-1"><More label={`More for ${o.title}`} /></td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[13px]">
+                  <thead>
+                    <tr className="bg-paper-2 text-[12px] font-semibold text-ink-soft">
+                      <th className="rounded-l-lg px-2 py-2">Job Title</th>
+                      <th className="px-2">Client</th>
+                      <th className="px-2">Location</th>
+                      <th className="px-2">Match</th>
+                      <th className="px-2">Action</th>
+                      <th className="rounded-r-lg" />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {v.openings.map((o) => (
+                      <tr key={o.id} data-opening-row={o.id} className="border-b border-line last:border-0">
+                        <td className="px-2 py-2 font-semibold text-ink">{o.title}</td>
+                        <td className="px-2 text-ink-soft">{o.client}</td>
+                        <td className="px-2 text-ink-soft">{o.location}</td>
+                        <td className="px-2"><span className={cn("inline-block rounded-full px-2.5 py-0.5 text-[12px] font-bold", matchTone(o.matchPct) === "green" ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-amber-soft text-v2-amber-ink")}>{o.matchPct}%</span></td>
+                        <td className="px-2">{hrefs.opportunities ? <Link href={`${hrefs.opportunities}?job=${o.id}`} className="inline-block rounded-md bg-accent px-3 py-1 text-[12px] font-bold text-white">Assign</Link> : null}</td>
+                        <td className="px-1"><More label={`More for ${o.title}`} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </>,
           "openings",
