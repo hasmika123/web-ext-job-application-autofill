@@ -2,7 +2,7 @@
   "area": "user",
   "name": "Job-seeker dashboard, auth, account, web↔extension",
   "prefix": "U",
-  "updated": "2026-10-15",
+  "updated": "2026-10-16",
   "epics": [
     {
       "id": "U0",
@@ -3755,7 +3755,7 @@
       "id": "U6.15",
       "epic": "U6",
       "title": "History privacy: export carries resolved labels, erasure renders \"a former member\" / \"a deleted account\", tracker.history.retention_months + TrackerHistoryRetentionJob",
-      "status": "not_started",
+      "status": "done",
       "size": "S",
       "owners": [
         "API"

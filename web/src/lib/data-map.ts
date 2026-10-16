@@ -51,10 +51,10 @@ export const DATA_MAP: readonly DataMapEntry[] = [
   {
     id: "applications",
     label: "Applications",
-    tables: ["application", "fill_event"],
-    purpose: "The jobs you saved or applied to, their status and notes, so your board stays up to date.",
+    tables: ["application", "application_event", "fill_event"],
+    purpose: "The jobs you saved or applied to, their status and notes, so your board stays up to date, and who changed what and when.",
     whoSees: "You. Kiwiply admins see counts and status.",
-    retention: "Until you delete them or your account.",
+    retention: "Until you delete them or your account. The history of an application is kept as long as the application exists, unless Kiwiply sets a shorter limit.",
   },
   {
     id: "learned",
