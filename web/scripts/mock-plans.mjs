@@ -19,6 +19,7 @@
  * (422 SETUP_FEE_REQUIRED) so the page's inline refusal can be exercised: that is a deliberate difference, see
  * docs/subscriptions/decisions-for-user.md. POST /mock/plans/reset restores the seed. Nothing is persisted.
  */
+import { createRetirementsState } from "./mock-retirements.mjs";
 import { DEPENDENCIES, NOW, PRICES, PRODUCTS, SERVICES, SUBSCRIBERS, SUBSCRIBER_ROWS, seedPlans } from "./fixtures/admin-plans.mjs";
 
 const CURRENCY = "USD";
@@ -498,8 +499,20 @@ export function createPlansState({ stripeEnabled = process.env.MOCK_STRIPE !== "
     return ok({ planKey: plan.planKey, a, b, diff, subscribers: { a: by[a] ?? 0, b: by[b] ?? 0 }, marginByIntervalA: margins(plan, va), marginByIntervalB: margins(plan, vb) });
   }
 
+  // K10.9: the retirement wizard's API lives in mock-retirements.mjs; it reads the plan list and writes RETIRING / RETIRED / PUBLISHED back
+  const retirements = createRetirementsState({
+    plansOf: () => plans.map((p) => ({ planKey: p.planKey, name: p.name, status: p.status, liveVersion: p.versions.find((v) => v.status === "PUBLISHED")?.version ?? null })),
+    setStatus: (key, status) => {
+      const pl = find(key);
+      if (pl) pl.status = status;
+    },
+    subscribersOf: (key) => Object.values(SUBSCRIBERS[key] ?? {}).reduce((n, x) => n + x, 0),
+  });
+
   function handle({ method, path, query = new URLSearchParams(), body = {}, headers = {}, admin = true }) {
+    if (path === "/mock/retirements/reset" || path === "/mock/retirements/event" || path.startsWith("/api/admin/retirements")) return retirements.handle({ method, path, query, body, admin });
     if (path === "/mock/plans/reset" && method === "POST") {
+      retirements.handle({ method: "POST", path: "/mock/retirements/reset" });
       plans = seedPlans();
       prices = PRICES.map((p) => ({ currency: CURRENCY, ...p }));
       catalogVersion = 17;
@@ -623,16 +636,16 @@ export function createPlansState({ stripeEnabled = process.env.MOCK_STRIPE !== "
 export function createPlansMock({ json, withBody, subOf, isAdmin }) {
   const state = createPlansState();
   return (req, res, path, method) => {
-    if (!path.startsWith("/api/admin/plans") && !path.startsWith("/api/admin/catalog") && path !== "/mock/plans/reset") return false;
+    if (!path.startsWith("/api/admin/plans") && !path.startsWith("/api/admin/catalog") && !path.startsWith("/api/admin/retirements") && !path.startsWith("/mock/retirements") && path !== "/mock/plans/reset") return false;
     const sub = subOf(req);
-    if (!sub && path !== "/mock/plans/reset") {
+    if (!sub && path !== "/mock/plans/reset" && !path.startsWith("/mock/retirements")) {
       req.resume();
       json(res, 401, { error: "Unauthorized" });
       return true;
     }
     const url = new URL(req.url ?? "/", "http://mock");
     const run = (body) => {
-      const out = state.handle({ method, path, query: url.searchParams, body, headers: req.headers, admin: path === "/mock/plans/reset" || isAdmin(sub) });
+      const out = state.handle({ method, path, query: url.searchParams, body, headers: req.headers, admin: path === "/mock/plans/reset" || path.startsWith("/mock/retirements") || isAdmin(sub) });
       if (!out) return json(res, 404, { code: "NOT_FOUND" });
       if (out.status === 204) {
         res.writeHead(204);
