@@ -43,8 +43,10 @@ describe("session cookies by host kind (X2.6, T19)", () => {
     state.jar.set("kiwiply_access", "A");
     state.jar.set("kiwiply_refresh", "R");
     expect([await getAccessToken(), await getRefreshToken()]).toEqual(["A", "R"]);
+    state.sets = [];
     await clearAuthCookies();
-    expect(state.deletes).toEqual(["kiwiply_access", "kiwiply_refresh"]);
+    expect(state.sets.map((x) => [x.name, x.value])).toEqual([["kiwiply_access", ""], ["kiwiply_refresh", ""]]);
+    for (const x of state.sets) expect(x.opts).toMatchObject({ maxAge: 0, path: "/", httpOnly: true });
   });
 
   it("tenant host (enterprise on): the __Host- names, always Secure, host-only, Path=/", async () => {
@@ -56,8 +58,15 @@ describe("session cookies by host kind (X2.6, T19)", () => {
     state.jar.set("__Host-kiwiply_access", "TA");
     state.jar.set("kiwiply_access", "PLATFORM-COOKIE");
     expect(await getAccessToken()).toBe("TA"); // a plain cookie on a tenant host (a shadow) is ignored
+    state.sets = [];
     await clearAuthCookies();
-    expect(state.deletes).toEqual(["__Host-kiwiply_access", "__Host-kiwiply_refresh"]);
+    // a __Host- cookie is only removed by a Set-Cookie that is itself Secure + Path=/ (no Domain); a bare delete is ignored by the browser
+    expect(state.sets.map((x) => [x.name, x.value])).toEqual([["__Host-kiwiply_access", ""], ["__Host-kiwiply_refresh", ""]]);
+    for (const x of state.sets) {
+      expect(x.opts).toMatchObject({ secure: true, path: "/", httpOnly: true, maxAge: 0 });
+      expect(x.opts).not.toHaveProperty("domain");
+    }
+    expect(state.deletes).toEqual([]);
   });
 
   it("platform host never reads a __Host- cookie", async () => {
@@ -76,7 +85,15 @@ describe("session cookies by host kind (X2.6, T19)", () => {
     state.host = "acme.kiwiply.com";
     state.flag = "unreachable";
     await setAuthCookies("a");
-    expect(state.sets.map((s) => s.name)).toEqual(["__Host-kiwiply_access"]);
+    expect(state.sets.map((s) => s.name)).toEqual(["__Host-kiwiply_access", "__Host-kiwiply_refresh"]);
+  });
+
+  it("a sign-in without a refresh token expires the previous member's refresh cookie instead of leaving it to be renewed", async () => {
+    state.host = "acme.kiwiply.com";
+    await setAuthCookies("new-access");
+    expect(state.sets[0]).toMatchObject({ name: "__Host-kiwiply_access", value: "new-access" });
+    expect(state.sets[1]).toMatchObject({ name: "__Host-kiwiply_refresh", value: "" });
+    expect(state.sets[1].opts).toMatchObject({ maxAge: 0, secure: true, path: "/" });
   });
 
   it("outside a request it is the platform", async () => {
