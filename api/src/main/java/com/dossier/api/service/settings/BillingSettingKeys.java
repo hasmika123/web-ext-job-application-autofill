@@ -60,6 +60,18 @@ public final class BillingSettingKeys {
     public static final String QUOTE_RATE_PER_MIN = "billing.quote.rate_per_min";
     public static final String CHANGE_RETRY_MAX_ATTEMPTS = "billing.change.retry_max_attempts";
     public static final String CHECKOUT_CONSENT_TEXT = "billing.checkout.consent_text";
+    public static final String RETIREMENT_NOTICE_SCHEDULE_DAYS = "billing.retirement.notice_schedule_days";
+    public static final String RETIREMENT_MIN_NOTICE_DAYS = "billing.retirement.min_notice_days";
+    public static final String RETIREMENT_CHANNELS = "billing.retirement.channels";
+    public static final String RETIREMENT_DEFAULT_OUTCOME = "billing.retirement.default_outcome";
+    public static final String RETIREMENT_SUGGESTION_LOOKBACK_PERIODS = "billing.retirement.suggestion_lookback_periods";
+    public static final String RETIREMENT_CANCEL_LEAD_HOURS = "billing.retirement.cancel_lead_hours";
+    public static final String ENTERPRISE_RETIREMENT_NOTICE_SCHEDULE_DAYS = "enterprise.retirement.notice_schedule_days";
+
+    /** Hard minimum of {@link #RETIREMENT_MIN_NOTICE_DAYS} (S-22, the legal floor for a price change, B4.2): the registry refuses lower. */
+    public static final int RETIREMENT_MIN_NOTICE_HARD_MIN_DAYS = 30;
+    public static final String DEFAULT_RETIREMENT_NOTICE_SCHEDULE = "[60,30,7,1]";
+    public static final String DEFAULT_RETIREMENT_CHANNELS = "[\"EMAIL\",\"IN_APP\"]";
 
     /** Hard minimum of {@link #MIGRATION_NOTICE_DAYS} (the legal floor for a price change, B4.2): the registry refuses lower. */
     public static final int MIGRATION_NOTICE_HARD_MIN_DAYS = 30;
@@ -145,6 +157,24 @@ public final class BillingSettingKeys {
         integer(k, MIGRATION_NOTICE_DAYS, MIGRATION_NOTICE_HARD_MIN_DAYS, MIGRATION_NOTICE_HARD_MIN_DAYS, 365, Risk.HIGH,
             "Days of notice a subscriber gets before a price or plan change reaches them. Cannot go below 30 (the legal minimum for a price change)." + NOT_ENFORCED);
 
+        // Plan, add-on and price retirement (docs/subscriptions/11-plan-retirement.md section 4.1 and 10; stories K10.1 to K10.5).
+        k.add(new Key(RETIREMENT_NOTICE_SCHEDULE_DAYS, Type.JSON, DEFAULT_RETIREMENT_NOTICE_SCHEDULE, null, null, null,
+            "Days before each subscriber's effective date on which a retirement notice is sent, a JSON list of distinct whole numbers 1 to 365 (default 60, 30, 7, 1). A wizard may override it per retirement.",
+            BillingSettingKeys::noticeSchedule, Risk.HIGH));
+        k.add(new Key(RETIREMENT_MIN_NOTICE_DAYS, Type.INT, String.valueOf(RETIREMENT_MIN_NOTICE_HARD_MIN_DAYS), (double) RETIREMENT_MIN_NOTICE_HARD_MIN_DAYS, 365d, null,
+            "The least notice a subscriber gets before a retirement reaches them. Cannot go below 30 (the legal minimum for a price change).", null, Risk.HIGH));
+        k.add(new Key(RETIREMENT_CHANNELS, Type.JSON, DEFAULT_RETIREMENT_CHANNELS, null, null, null,
+            "Channels a retirement notice uses, a JSON list drawn from EMAIL and IN_APP (default both).", BillingSettingKeys::noticeChannels, Risk.MEDIUM));
+        k.add(new Key(RETIREMENT_DEFAULT_OUTCOME, Type.ENUM, "FREE", null, null, List.of("FREE", "MIGRATE_AT_RENEWAL", "CANCEL"),
+            "What happens to a subscriber who never responds to a retirement: FREE (the account moves to Free and its services go read-only, nothing is deleted; decision S-19), MIGRATE_AT_RENEWAL (only when nobody would pay more) or CANCEL.",
+            null, Risk.HIGH));
+        integer(k, RETIREMENT_SUGGESTION_LOOKBACK_PERIODS, 2, 1, 12, Risk.LOW, "How many past billing periods of usage the closest-match suggestion looks at.");
+        integer(k, RETIREMENT_CANCEL_LEAD_HOURS, 36, 2, 168, Risk.MEDIUM,
+            "How many hours before a subscriber's effective date the undecided ones are set to end at the period end in Stripe (so no new invoice is ever created for a retiring plan).");
+        k.add(new Key(ENTERPRISE_RETIREMENT_NOTICE_SCHEDULE_DAYS, Type.JSON, "[90,60,30,7]", null, null, null,
+            "Notice days for an organization's plan retirement, a JSON list of distinct whole numbers 1 to 365 (default 90, 60, 30, 7)." + NOT_ENFORCED,
+            BillingSettingKeys::noticeSchedule, Risk.HIGH));
+
         Map<String, Key> by = new LinkedHashMap<>();
         for (Key key : k) {
             if (by.put(key.key(), key) != null) throw new IllegalStateException("duplicate billing setting key " + key.key());
@@ -176,6 +206,26 @@ public final class BillingSettingKeys {
             String v = e.textValue();
             boolean ok = v.equals("MONTH") || v.equals("YEAR") || (individual && v.equals("QUARTER"));
             if (!ok || !seen.add(v)) return false;
+        }
+        return true;
+    }
+
+    /** A JSON list of 1 to 12 distinct whole numbers from 1 to 365 (retirement notice days). */
+    static boolean noticeSchedule(JsonNode n) {
+        if (n == null || !n.isArray() || n.isEmpty() || n.size() > 12) return false;
+        Set<Integer> seen = new HashSet<>();
+        for (JsonNode e : n) {
+            if (!e.isInt() || e.intValue() < 1 || e.intValue() > 365 || !seen.add(e.intValue())) return false;
+        }
+        return true;
+    }
+
+    /** A non-empty JSON list of distinct channels drawn from EMAIL and IN_APP. */
+    static boolean noticeChannels(JsonNode n) {
+        if (n == null || !n.isArray() || n.isEmpty() || n.size() > 2) return false;
+        Set<String> seen = new HashSet<>();
+        for (JsonNode e : n) {
+            if (!e.isTextual() || !(e.textValue().equals("EMAIL") || e.textValue().equals("IN_APP")) || !seen.add(e.textValue())) return false;
         }
         return true;
     }

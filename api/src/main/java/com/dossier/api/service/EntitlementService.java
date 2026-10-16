@@ -88,6 +88,45 @@ public class EntitlementService {
         this.shadow = shadow;
     }
 
+    /**
+     * The read-only locks a Free fallback leaves behind (story K10.6). Optional like the resolver: without it every method here behaves exactly as before. A lock is an
+     * overlay: it is consulted only for a feature that is NOT held, so a person who holds the feature again is ALLOWED at once, whatever a lock row says.
+     */
+    private com.dossier.api.service.retirement.ServiceLockService locks;
+
+    @Autowired(required = false)
+    public void setServiceLocks(com.dossier.api.service.retirement.ServiceLockService locks) {
+        this.locks = locks;
+    }
+
+    /** How a feature stands for one account (docs/subscriptions/11 section 7.2): held, locked read-only after a retirement, or simply not part of the plan. */
+    public enum Access {
+        ALLOWED,
+        LOCKED,
+        DENIED,
+    }
+
+    /** The tri-state for a personal account. {@code has} stays a plain boolean (ALLOWED only). */
+    public Access access(String login, String key) {
+        if (has(login, key)) return Access.ALLOWED;
+        return lockOf(login, key).isPresent() ? Access.LOCKED : Access.DENIED;
+    }
+
+    /** The live lock of a service that is not held, if there is one (an enterprise account never has one). */
+    public java.util.Optional<com.dossier.api.service.retirement.ServiceLockService.Lock> lockOf(String login, String key) {
+        if (locks == null || Constants.isEnterpriseLogin(login)) return Optional.empty();
+        return locks.liveByLogin(login, key);
+    }
+
+    /**
+     * Gate a READ of a service: passes when the feature is held or locked read-only (a locked service is still readable, listable and exportable), refuses like
+     * {@link #require} when it was never part of the plan. Reads never reserve usage.
+     */
+    public void requireRead(String login, String key) {
+        if (access(login, key) != Access.DENIED) return;
+        require(login, key);
+    }
+
 
     /**
      * The entitlement rule, as a pure function so it can be unit-tested as a status × period
@@ -159,6 +198,18 @@ public class EntitlementService {
      */
     public void require(String login, String key) {
         if (has(login, key)) return;
+        // a write or a consume on a service that is read-only after a retirement: 402 FEATURE_LOCKED with the way out (story K10.6)
+        var lock = lockOf(login, key);
+        if (lock.isPresent()) {
+            var l = lock.get();
+            java.util.Map<String, Object> extra = new java.util.LinkedHashMap<>();
+            extra.put("featureKey", l.featureKey());
+            extra.put("name", l.name());
+            extra.put("lockedSince", l.lockedSince().toString());
+            if (l.lockedFromPlanKey() != null) extra.put("lockedFrom", l.lockedFromPlanKey());
+            extra.put("upgrade", java.util.Map.of("path", "/settings/plan"));
+            throw new ProRequiredException("FEATURE_LOCKED", "This service is read-only until you pick a plan that includes it", extra);
+        }
         if (PersonalFeatureMap.legacyCode(key) == null) {
             throw new ProRequiredException("PLAN_REQUIRED", "This feature is not part of your plan", java.util.Map.of("feature", key)).forFeature(key);
         }

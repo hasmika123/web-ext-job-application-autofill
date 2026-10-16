@@ -6,6 +6,7 @@ import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSource;
@@ -154,6 +155,22 @@ public class MailService {
         context.setVariable("link", link);
         String content = templateEngine.process("mail/notificationEmail", context);
         sendEmailSync(user.getEmail(), title, content, false, true);
+    }
+
+    /**
+     * Story K10.3: a plan, add-on or price is being retired (or, once the date has passed, the account moved to Free). The words are written by the retirement notice composer
+     * from the copy register and arrive in the model, already in the user's language: subject, preheader, kicker, line1, line2, intro, stripTitle, stripText, paragraphs, emphasis,
+     * button, footer, link. Sent to the account's own address; carries no secret.
+     */
+    @Async
+    public void sendRetirementNoticeEmail(User user, Map<String, Object> model) {
+        if (user.getEmail() == null) return;
+        Locale locale = Locale.forLanguageTag(user.getLangKey() == null ? "en" : user.getLangKey());
+        Context context = new Context(locale);
+        model.forEach(context::setVariable);
+        context.setVariable("assetBase", jHipsterProperties.getMail().getBaseUrl() + "/email"); // the art lives in web/public/email
+        String content = templateEngine.process("mail/retirementNotice", context);
+        sendEmailSync(user.getEmail(), String.valueOf(model.get("subject")), content, false, true);
     }
 
     /**

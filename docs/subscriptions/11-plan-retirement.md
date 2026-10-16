@@ -10,6 +10,49 @@
 > state formerly called `SUNSET` is `RETIRING` below; the tables of §10 extend `08`. Stories: epic **K10** in
 > `docs/roadmap/areas/sub.json` (and K2.4 narrows to grandfathering + the migration primitive).
 
+## API contract as built (branch `sub-retire-api`, stories K10.1 to K10.6, K10.8, K10.11)
+
+> The reference the web streams (K10.9 wizard, K10.10 customer pages) build against. Everything below is on the API; the DTO records live in
+> `api/src/main/java/com/dossier/api/service/retirement/dto/`. Money is `*Minor` longs; timestamps are ISO-8601 UTC; absent values are omitted.
+> Errors are RFC 7807 problems with a machine `code` (admin routes: `CatalogException`; customer routes: `BillingException`); clients branch on `code`.
+> Not built here: enterprise seats and organization plans (K10.7: `audience ORG` answers `422 AUDIENCE_NOT_SUPPORTED`) and `kind PRICE` (`422 KIND_NOT_SUPPORTED`).
+
+### Admin routes (`ROLE_ADMIN`, base `/api/admin/retirements`; every write is HIGH: a `reason` of 20+ characters, audit and catalog_change rows)
+| Method and path | Body / query | Answer |
+|---|---|---|
+| `POST /api/admin/retirements` | `CreateRequest{kind PLAN or ADDON, planKey, version?, featureKey?, mode?, defaultOutcome?, noticeScheduleDays?[], minNoticeDays?, channels?[], messageMd?, reason, successors?[{planKey or featureKey, rank?, note?}]}` | `201 RetirementDTO` (status `DRAFT`; defaults come from the settings: `RETIRE_AT_RENEWAL`, `FREE`, `[60,30,7,1]`, 30, `["EMAIL","IN_APP"]`) |
+| `GET /api/admin/retirements?status=&page=&size=` | | `RetirementPage{items[RetirementDTO], total, page, size}`, newest first |
+| `GET /api/admin/retirements/{id}` | | `RetirementDTO` |
+| `PATCH /api/admin/retirements/{id}` | `UpdateRequest{mode?, defaultOutcome?, noticeScheduleDays?, minNoticeDays?, channels?, messageMd?, reason}` (DRAFT only) | `RetirementDTO` |
+| `GET /api/admin/retirements/{id}/impact` | | `ImpactDTO{subscribers, byInterval{}, byStatus{}, mrrMinor, earliestEffectiveAt, latestEffectiveAt}`: computed now for a DRAFT (writes nothing), from the items once started |
+| `PUT /api/admin/retirements/{id}/successors` | `{successors:[{planKey or featureKey, rank?, note?}], reason}` (DRAFT, NOTICING, COMPLETING) | `RetirementDTO` |
+| `GET /api/admin/retirements/{id}/coverage` | | `CoverageDTO` (K10.2, below) |
+| `POST /api/admin/retirements/{id}/start` | `{reason, confirmKey}` (confirmKey = the typed plan key, or feature key) | `RetirementDTO` with `status NOTICING` (`COMPLETED` at once when nobody is on it, or with `mode KEEP_INDEFINITELY`) |
+| `POST /api/admin/retirements/{id}/cancel` | `{reason, confirmKey}` (a DRAFT needs no confirmKey) | `RetirementDTO` (`CANCELLED`) |
+| `POST /api/admin/retirements/{id}/complete` | `{reason}` | `RetirementDTO` (`COMPLETED`; the plan, version or add-on is RETIRED) |
+| `GET /api/admin/retirements/{id}/items?status=&interval=&page=&size=` | | `ItemPage{items[ItemDTO], total, page, size}` |
+| `GET /api/admin/retirements/{id}/notices?page=&size=` | | `NoticePage{items[NoticeDTO{id, itemId, login, kind, channels, subject, status, createdAt}], total, page, size}` (K10.3) |
+| `GET /api/admin/retirements/{id}/notices/preview?subscriptionId=` | | `NoticePreviewDTO{subject, intro, suggest?, defaultOutcome, cancel, message?, effectiveAt, sample}` (K10.3; a sample subscriber when `subscriptionId` is absent) |
+| `POST /api/admin/retirements/{id}/items/{itemId}/resend` | `{reason}` | `{sent, days, noticeId}` (K10.3; audited, bypasses the day dedupe once) |
+
+`RetirementDTO{id, kind, planKey, planName, version?, featureKey?, audience, status DRAFT|NOTICING|COMPLETING|COMPLETED|CANCELLED, mode, defaultOutcome, noticeScheduleDays[], minNoticeDays, channels[], messageMd?, reason, successors[SuccessorDTO{planKey?, planName?, featureKey?, rank, note?}], itemCounts{status: n}, impact?, startedAt?, startedBy?, cancelledAt?, completedAt?, createdAt, createdBy}`.
+`ItemDTO{id, retirementId, login, subscriptionId, interval, retireEffectiveAt, status PENDING|SWITCHED_NOW|SWITCH_SCHEDULED|CANCELLED|FELL_BACK|MIGRATED|EXCLUDED, choiceKind?, monthlyMinor, suggestion?{...}, suggestedQuoteId?, lastNoticeDays?, decidedAt?, appliedAt?, note?}` (`login` is the admin's alone).
+
+Admin errors: `404 NOT_FOUND`; `409 NOT_DRAFT`, `RETIREMENT_EXISTS`, `RETIREMENT_IN_PROGRESS {acted}` (cancel after a subscriber acted; the switch stays), `RETIREMENT_CLOSED`, `ITEMS_PENDING {pending}`, `DRAFT_EXISTS` (discard the plan's draft first), `PLAN_STATE`, `VERSION_STATE`, `FREE_PLAN_MISSING`, `PLAN_HAS_SUBSCRIBERS`; `412 CONFIRM_MISMATCH {expected}`; `422 REASON_REQUIRED {minLength 20}`, `KIND_NOT_SUPPORTED`, `AUDIENCE_NOT_SUPPORTED`, `FREE_PLAN_PROTECTED`, `MIN_NOTICE_TOO_SHORT {min 30}`, `SUCCESSOR_REQUIRED`, `SUCCESSOR_NOT_SELLABLE`, `PRICE_INCREASE_REQUIRES_CONSENT {affected}` (default outcome `MIGRATE_AT_RENEWAL` while any subscriber would pay more), `INVALID_VALUE {field}`.
+
+### New-purchase refusals (the quote routes, `POST /api/billing/quotes`)
+A RETIRING plan or add-on answers `410 PLAN_RETIRING {planKey?, featureKey?, successors: [planKey or featureKey, ranked]}`. A plan draft that includes a RETIRING or RETIRED service is refused at publish with `422 SERVICE_RETIRING {featureKey, lifecycle}`. The public catalog lists PUBLISHED plans only, so a RETIRING plan leaves `/pricing` on its own.
+
+### Customer routes (signed-in personal account; an enterprise account gets the generic 404)
+- `GET /api/billing/me` gains, **only while the subscriber's plan is being retired and their date is ahead**, `sunset: {successorPlanKey?: string, retirementId, effectiveAt, defaultOutcome, itemStatus}` (the web banner reads `sunset.successorPlanKey` today and stays hidden when `sunset` is absent; `itemStatus` is PENDING, SWITCH_SCHEDULED or CANCELLED). It is additive: a subscriber outside a retirement sees today's body byte for byte. The services that are read-only after a fallback are on `GET /api/entitlements/me` (`locked[]`) and on `GET /api/billing/retirement/me` (`fallback.locks[]`), not on `/api/billing/me`.
+- `GET /api/billing/retirement/me` (K10.4) returns `RetirementMeDTO{retirementId, state CHANGING|FELL_BACK|SWITCHED, subjectKind PLAN|ADDON, planKey, planName, planVersion, featureKey?, effectiveAt, itemStatus, interval, currency, currentRecurringMinor, defaultOutcome, message?, used[{featureKey, name, covered}], suggestion?: SuggestionDTO, alternatives[SuggestionDTO], lockPreview[{featureKey, name}], choice?{kind, decidedAt, planKey?, effectiveAt?}, fallback?{appliedAt, locks[{featureKey, name, lockedSince}]}}`, or `404 NO_RETIREMENT` when none applies. `SuggestionDTO{successorKey, successorName, covered[], gaps[], currentMinor, proposedMinor, deltaMinor, priceDirection SAME|LOWER|HIGHER, interval, monthlyEquivalentMinor, annualAlternative?{proposedMinor, savingsMinor}, quoteId}`.
+- `POST /api/billing/retirement/me/choice` (K10.4; header `Idempotency-Key` UUID required) with `{kind: SWITCH_NOW|SWITCH_AT_RENEWAL|PICK|LATER|CANCEL, quoteId?, planKey?, interval?, addons?[{featureKey, quantity}]}` returns `ChoiceResultDTO{state, itemStatus, effectiveAt, scheduled, quote?: PlanQuoteDTO, change?{id, kind, effectiveAt, status}, cancelAtPeriodEnd?}`. `PICK` only creates a fresh quote (`quote`) for the chosen plan; confirm it with `SWITCH_NOW` or `SWITCH_AT_RENEWAL` and its `quoteId`. A higher price takes effect now only with `SWITCH_NOW` (the subscriber's explicit consent, prorated); an equal or lower price is always applied at `effectiveAt` (`scheduled: true`); `CANCEL` wins over any switch and keeps the plan to the period end; the last confirmed choice replaces the earlier scheduled one. A switch never changes the billing interval, and the successor must offer every add-on the subscriber holds at the quantity they hold (`422 SUCCESSOR_NOT_AVAILABLE {reason: ADDON_NOT_OFFERED, featureKey}`; the suggestion lists those as `gaps`). For an add-on retirement (`subjectKind ADDON`) only `LATER` and `CANCEL` (let the line end on its date) are accepted; switching add-ons is the ordinary My plan flow. Errors: `400 IDEMPOTENCY_KEY_REQUIRED`, `404 NO_RETIREMENT`, `409 CANCEL_PENDING`, `QUOTE_STALE {reason}`, `410 QUOTE_EXPIRED`, `422 INVALID_CHOICE`, `SUCCESSOR_NOT_AVAILABLE`, `INTERVAL_NOT_AVAILABLE`, `502 STRIPE_ERROR`, `503 BILLING_DISABLED`.
+- `GET /api/entitlements/me` gains `locked: [{featureKey, name, lockedSince, lockedFrom}]` (K10.6, absent when empty) and `GET /api/entitlements/check?feature=` gains `access: ALLOWED|LOCKED|DENIED` (`allowed` stays true only for ALLOWED; a LOCKED feature has `reasonCode FEATURE_LOCKED`).
+- A write or consume call on a locked service answers `402 FEATURE_LOCKED {featureKey, name, lockedSince, lockedFrom, upgrade{path}}` (it replaces `PRO_REQUIRED` for that account only); reads are never gated, lists keep every row and exports keep working.
+
+### CoverageDTO (K10.2)
+`{subscribers, fullyCovered, withGaps, wouldPayMore, unavailable, bySuccessor[{planKey or featureKey, name, rank, fullyCovered, withGaps, wouldPayMore, notSold}], gapFeatures[{featureKey, name, count}], migrateAllowed}`. `fullyCovered`/`withGaps`/`wouldPayMore` count each subscriber against their best successor; `bySuccessor` counts them against each ranked one (`notSold` = that successor does not sell the subscriber's interval); `unavailable` = no price could be read. `migrateAllowed` is true when no subscriber would pay more under the rank-1 successor (the wizard offers `MIGRATE_AT_RENEWAL` only then).
+
 ## 1. Principles (each is an acceptance test somewhere in §13)
 1. **Nobody loses paid time or features early.** A retirement never shortens a paid period; yearly terms
    run to their renewal.

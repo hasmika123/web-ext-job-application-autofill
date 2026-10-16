@@ -509,6 +509,17 @@ public class PlanService {
 
     // ---- publish ---------------------------------------------------------------------------------------------------------
 
+    /** 422 SERVICE_RETIRING: a draft that includes a service that is being (or has been) retired cannot be published (docs/subscriptions/11 section 2.2, story K10.1). */
+    private void requireNoRetiringService(PlanVersion ver) {
+        for (PlanComponent c : components.findByPlanVersionIdOrderBySortOrderAscIdAsc(ver.getId())) {
+            features.findByFeatureKey(c.getFeatureKey()).ifPresent(d -> {
+                if (d.getLifecycle() != null && !"ACTIVE".equals(d.getLifecycle())) {
+                    throw CatalogException.unprocessable("SERVICE_RETIRING", "Service " + d.getFeatureKey() + " is " + d.getLifecycle() + ": remove it from the draft before publishing.", Map.of("featureKey", d.getFeatureKey(), "lifecycle", d.getLifecycle()));
+                }
+            });
+        }
+    }
+
     @Transactional
     public PlanVersionDTO publish(String planKey, int v, PublishPlanRequest r, String idempotencyKey) {
         if (idempotencyKey == null || idempotencyKey.isBlank()) {
@@ -535,6 +546,7 @@ public class PlanService {
         validator.checkIntervals(plan.getAudience(), intervalNames(ver.getIntervalsJson()));
         requireSetupFee(plan, ver);
         validator.checkPublishable(plan, m);
+        requireNoRetiringService(ver);
 
         // 1. price the version in every currency it is sold in, and run the margin guard on all of them
         List<PriceBook> usedBooks = new ArrayList<>();

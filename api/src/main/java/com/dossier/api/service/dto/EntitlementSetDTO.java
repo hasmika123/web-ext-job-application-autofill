@@ -22,8 +22,29 @@ public record EntitlementSetDTO(
     List<String> capabilities,
     Map<String, Long> limits,
     Integer aiPct,
-    String state
+    String state,
+    List<LockedEntry> locked
 ) implements Serializable {
+    /** The shape before the retirement lifecycle: no locked services. */
+    public EntitlementSetDTO(
+        String planKey,
+        Integer planVersion,
+        String interval,
+        Instant periodStart,
+        Instant periodEnd,
+        List<FeatureEntry> features,
+        List<String> capabilities,
+        Map<String, Long> limits,
+        Integer aiPct,
+        String state
+    ) {
+        this(planKey, planVersion, interval, periodStart, periodEnd, features, capabilities, limits, aiPct, state, null);
+    }
+
+    /** A service that is read-only since {@code lockedSince} after a plan was retired (docs/subscriptions/11 section 7); absent from the body when there is none. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record LockedEntry(String featureKey, String name, Instant lockedSince, String lockedFrom) implements Serializable {}
+
     /** {@code source} is PLAN (included in the plan) or ADDON (bought on top); {@code quantity} is 1 for a plan feature. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record FeatureEntry(
@@ -40,5 +61,10 @@ public record EntitlementSetDTO(
 
     /** The answer of {@code GET /api/entitlements/check}: a UI hint, never a reservation. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
-    public record Check(boolean allowed, String reasonCode, Map<String, Object> details, Map<String, Object> upgrade) implements Serializable {}
+    public record Check(boolean allowed, String reasonCode, Map<String, Object> details, Map<String, Object> upgrade, String access) implements Serializable {
+        /** The shape before the retirement lifecycle: no tri-state. */
+        public Check(boolean allowed, String reasonCode, Map<String, Object> details, Map<String, Object> upgrade) {
+            this(allowed, reasonCode, details, upgrade, null);
+        }
+    }
 }

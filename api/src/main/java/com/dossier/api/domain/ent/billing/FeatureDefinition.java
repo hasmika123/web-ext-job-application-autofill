@@ -85,6 +85,10 @@ public class FeatureDefinition implements Serializable {
     @Column(name = "visibility", length = 12, nullable = false)
     private String visibility = "PUBLIC";
 
+    /** ACTIVE, RETIRING or RETIRED (docs/subscriptions/11 section 2.2; story K10.1): a service that is not ACTIVE cannot join a plan version or a new basket. */
+    @Column(name = "lifecycle", length = 12, nullable = false)
+    private String lifecycle = "ACTIVE";
+
     @Column(name = "catalog_version", nullable = false)
     private Integer catalogVersion = 0;
 
@@ -151,6 +155,8 @@ public class FeatureDefinition implements Serializable {
     public void setCatalogVersion(Integer catalogVersion) { this.catalogVersion = catalogVersion; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public String getLifecycle() { return lifecycle; }
+    public void setLifecycle(String lifecycle) { this.lifecycle = lifecycle; }
     public String getUpdatedBy() { return updatedBy; }
     public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
 }

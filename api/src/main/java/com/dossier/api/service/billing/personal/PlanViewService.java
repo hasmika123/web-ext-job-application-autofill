@@ -78,6 +78,14 @@ public class PlanViewService {
         this.productPrices = productPrices;
     }
 
+    private com.dossier.api.service.retirement.RetirementPlanView retirementView;
+
+    /** Optional (story K10.4): without it the body never carries a {@code sunset} block, exactly as before the retirement lifecycle. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setRetirementView(com.dossier.api.service.retirement.RetirementPlanView retirementView) {
+        this.retirementView = retirementView;
+    }
+
     /** The plan view for the authenticated user. */
     public PlanDTO currentUserPlan() {
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user"));
@@ -118,7 +126,7 @@ public class PlanViewService {
             .filter(c -> c.getEffectiveAt() != null && c.getEffectiveAt().isAfter(now) && (SubscriptionChangeApplier.isSwitch(c) || (c.getQuantityTo() != null && c.getQuantityFrom() != null && c.getQuantityTo() < c.getQuantityFrom())))
             .map(PlanViewService::pending)
             .toList();
-        return new PlanDTO(
+        PlanDTO out = new PlanDTO(
             v1.plan(),
             v1.status(),
             v1.currentPeriodEnd(),
@@ -136,6 +144,9 @@ public class PlanViewService {
             List.copyOf(featureKeys),
             List.copyOf(pendingChanges)
         );
+        if (retirementView == null) return out;
+        PlanDTO.Sunset sunset = retirementView.sunset(sub.getUser().getId());
+        return sunset == null ? out : out.withSunset(sunset);
     }
 
     private static PlanDTO.PendingChange pending(PersonalSubscriptionChange c) {

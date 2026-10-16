@@ -125,8 +125,28 @@ public class PersonalEntitlementService {
             List.copyOf(capabilities),
             limits,
             null,
-            state(sub, paid)
+            state(sub, paid),
+            lockedOf(user, capabilities)
         );
+    }
+
+    private com.dossier.api.service.retirement.ServiceLockService locks;
+
+    /** Optional (story K10.6): without it the body has no {@code locked} member, exactly as before the retirement lifecycle. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setServiceLocks(com.dossier.api.service.retirement.ServiceLockService locks) {
+        this.locks = locks;
+    }
+
+    /** The services read-only after a retirement fallback, minus any the account holds again; null when there are none (the body then has no such member). */
+    private List<EntitlementSetDTO.LockedEntry> lockedOf(User user, Set<String> held) {
+        if (locks == null) return null;
+        List<EntitlementSetDTO.LockedEntry> out = new ArrayList<>();
+        for (var l : locks.live(user.getId())) {
+            if (held.contains(l.featureKey())) continue;
+            out.add(new EntitlementSetDTO.LockedEntry(l.featureKey(), l.name(), l.lockedSince(), l.lockedFromPlanKey()));
+        }
+        return out.isEmpty() ? null : List.copyOf(out);
     }
 
     public EntitlementSetDTO.Check check(String login, String featureKey) {
@@ -136,7 +156,13 @@ public class PersonalEntitlementService {
         Map<String, Object> details = new LinkedHashMap<>();
         details.put("featureKey", featureKey.trim());
         if (set.planKey() != null) details.put("planKey", set.planKey());
-        return new EntitlementSetDTO.Check(allowed, allowed ? "OK" : "FEATURE_NOT_IN_PLAN", details, null);
+        boolean locked = !allowed && set.locked() != null && set.locked().stream().anyMatch(l -> l.featureKey().equals(featureKey.trim()));
+        if (locked) {
+            // a service that is read-only after a retirement: readable, not usable, one tap to unlock
+            details.put("lockedSince", set.locked().stream().filter(l -> l.featureKey().equals(featureKey.trim())).findFirst().get().lockedSince().toString());
+            return new EntitlementSetDTO.Check(false, "FEATURE_LOCKED", details, Map.of("path", "/settings/plan"), "LOCKED");
+        }
+        return new EntitlementSetDTO.Check(allowed, allowed ? "OK" : "FEATURE_NOT_IN_PLAN", details, null, allowed ? "ALLOWED" : "DENIED");
     }
 
     private static FeatureEntry entry(String key, FeatureDefinition d, String source, int quantity, Long allowance) {
