@@ -102,6 +102,9 @@
     "name" : "mkt-applications",
     "description" : "Marketing workspace: the Applications board (KPIs, tracker, funnel, overdue actions, recent updates) and the marketer's records."
   }, {
+    "name" : "tracker-act-for",
+    "description" : "A marketer saves a job for an assigned consultant (save only, never submit)."
+  }, {
     "name" : "notifications",
     "description" : "In-app notifications."
   }, {
@@ -10944,6 +10947,45 @@
         }
       }
     },
+    "/api/orgs/{orgId}/consultants/{memberId}/applications/save" : {
+      "post" : {
+        "tags" : [ "tracker-act-for" ],
+        "summary" : "Save a job for an assigned consultant",
+        "description" : "Body: {company, roleTitle, jobUrl?, location?, externalJobId?, atsPlatform?, postingId?}. Creates the application on the CONSULTANT's tracker with status SAVED, source org, history 'Updated by <marketer> on behalf of <consultant>'; a job the consultant already has keeps its status (alreadySaved = true). Needs member.act_for and an active assignment; 404 for anything else; 429 over 30 saves a minute. Never submits.",
+        "operationId" : "save_3",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Request"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Saved"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/consultants/{consultantId}/reactivate" : {
       "post" : {
         "tags" : [ "consultants" ],
@@ -12374,7 +12416,7 @@
         "tags" : [ "job-search" ],
         "summary" : "Save a job to the board",
         "description" : "Creates (or updates, by the board's dedup) a SAVED application from the stored posting. Returns {applicationId}.",
-        "operationId" : "save_3",
+        "operationId" : "save_4",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -18381,6 +18423,35 @@
         }
       }
     },
+    "/api/orgs/{orgId}/mkt/talent/{consultantId}/overview" : {
+      "get" : {
+        "tags" : [ "mkt-talent" ],
+        "summary" : "The selected consultant, in full, for their assigned marketer",
+        "description" : "{id, name, title, headline, workMode, availability, resume, contact{workEmail, location, workAuthorization (a stored status label or null)}, skills, placement{role, client, startDate, status} (no money), resumes, applications{total, open, byStage, recent[5] with updatedBy}, interviews}. No identity numbers, no date of birth, no bank details, no amounts. consultants.view; 404 for a consultant that is not the caller's, another organization's id, or anyone else.",
+        "operationId" : "overview_2",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Overview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/mkt/submissions/{id}" : {
       "get" : {
         "tags" : [ "mkt-submissions" ],
@@ -19150,7 +19221,7 @@
         "tags" : [ "mkt-interviews" ],
         "summary" : "The Interviews board (one call)",
         "description" : "{generatedAt, kpis[4], schedule{items,total,page,size,from,to}, upcoming[<=5], pendingFeedback[<=5], checklist, reminders[<=5], clients[]}. from/to (yyyy-MM-dd) default to the viewer's current week (Sunday start; tzOffsetMinutes = local minus UTC); status = CONFIRMED|SCHEDULED|PENDING_FEEDBACK|RESCHEDULED|AWAITING_CONFIRMATION|COMPLETED; sort = date|consultant|client|role|status|round; size is capped at 100.",
-        "operationId" : "overview_2",
+        "operationId" : "overview_3",
         "parameters" : [ {
           "name" : "from",
           "in" : "query",
@@ -20554,7 +20625,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Filter options, recommended filters, trending skills, saved and recent searches",
         "description" : "Everything the page's right rail and filter bar need, computed from the organization's OPEN jobs and the caller's own rows.",
-        "operationId" : "overview_3",
+        "operationId" : "overview_4",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -24292,7 +24363,7 @@
     "/api/admin/analytics" : {
       "get" : {
         "tags" : [ "admin-analytics-resource" ],
-        "operationId" : "overview_4",
+        "operationId" : "overview_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -30027,6 +30098,54 @@
           }
         }
       },
+      "Request" : {
+        "type" : "object",
+        "properties" : {
+          "company" : {
+            "type" : "string"
+          },
+          "roleTitle" : {
+            "type" : "string"
+          },
+          "jobUrl" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "externalJobId" : {
+            "type" : "string"
+          },
+          "atsPlatform" : {
+            "type" : "string"
+          },
+          "postingId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Saved" : {
+        "type" : "object",
+        "properties" : {
+          "applicationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "company" : {
+            "type" : "string"
+          },
+          "roleTitle" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "alreadySaved" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApplicationCreated" : {
         "type" : "object",
         "properties" : {
@@ -33577,6 +33696,10 @@
           },
           "pausedReason" : {
             "type" : "string"
+          },
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
