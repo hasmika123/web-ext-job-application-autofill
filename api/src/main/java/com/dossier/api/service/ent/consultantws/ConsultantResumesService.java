@@ -6,6 +6,7 @@ import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.ConsultantSkill;
 import com.dossier.api.domain.ent.talent.OrgResume;
 import com.dossier.api.domain.ent.talent.OrgResumeExperience;
+import com.dossier.api.repository.ResumeDocRepository;
 import com.dossier.api.repository.ent.consultantws.CwsResumeActivityRepository;
 import com.dossier.api.repository.ent.mkt.MktResumeEventRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
@@ -86,6 +87,10 @@ public class ConsultantResumesService {
     @Autowired(required = false)
     private OrgResumeAuthors authors;
 
+    /** The document hash an approval is checked against; absent in hand-wired unit tests (then no hash is offered and an approve cannot match). */
+    @Autowired(required = false)
+    private ResumeDocRepository docRepository;
+
     @Autowired
     public ConsultantResumesService(
         ConsultantHomeService home,
@@ -163,7 +168,7 @@ public class ConsultantResumesService {
         );
 
         Map<Long, String> by = authors == null ? Map.of() : authors.modifiedBy(org, mine);
-        List<ResumeRow> rows = mine.stream().sorted(Comparator.comparing(OrgResume::getUpdatedAt).reversed()).map(r -> row(r, by.get(r.getId()))).toList();
+        List<ResumeRow> rows = mine.stream().sorted(Comparator.comparing(OrgResume::getUpdatedAt).reversed()).map(r -> row(r, by.get(r.getId()), awaiting(r) ? hashOf(r) : null)).toList();
         boolean hasExperience = mine.stream().anyMatch(r -> !experience.findByOrgIdAndResumeIdOrderBySortOrderAsc(org, r.getId()).isEmpty());
         boolean hasSkills = skills.findByOrgIdAndConsultantIdOrderBySortOrderAsc(org, c.getId()).size() >= 3;
         boolean hasSummary = mine.stream().anyMatch(r -> notBlank(r.getSummaryText()));
@@ -318,10 +323,11 @@ public class ConsultantResumesService {
      * used until they do). Only that resume, only while it waits for them; anything else is the same 409.
      */
     @Transactional
-    public ResumeRow approve(OrgMembership me, Long resumeId) {
+    public ResumeRow approve(OrgMembership me, Long resumeId, ConsultantResumesDTO.ResumeApproval body) {
         ConsultantProfile c = requireWriter(me);
         OrgResume r = own(c, resumeId);
         if (!awaiting(r)) throw OrgException.coded(409, "NOT_PENDING", "This resume is not waiting for your approval.", Map.of());
+        requireReviewedVersion(r, body == null ? null : body.versionNo(), body == null ? null : body.contentHash());
         Instant now = Instant.now(clock);
         r.setApprovalStatus("APPROVED");
         r.setApprovedAt(now);
@@ -338,6 +344,7 @@ public class ConsultantResumesService {
         ConsultantProfile c = requireWriter(me);
         OrgResume r = own(c, resumeId);
         if (!awaiting(r)) throw OrgException.coded(409, "NOT_PENDING", "This resume is not waiting for your approval.", Map.of());
+        requireReviewedVersion(r, body == null ? null : body.versionNo(), body == null ? null : body.contentHash());
         String note = body == null || body.note() == null || body.note().isBlank() ? null : cleanNote(body.note());
         Instant now = Instant.now(clock);
         r.setApprovalStatus("REJECTED");
@@ -347,6 +354,28 @@ public class ConsultantResumesService {
         log(me, r, MktResumeEvent.MARKED_FOR_UPDATE, note, now);
         audit.record(me, "RESUME_CHANGES_REQUESTED", OrgAuditService.TARGET_RESUME, null, String.valueOf(r.getId()), "by the consultant, version=" + r.getVersionNo());
         return rowOf(r);
+    }
+
+    /**
+     * The consultant decides on the version they were shown, never on whatever is current: both the version number and the document's content hash of
+     * the row they reviewed must still be current, else 409 RESUME_CHANGED (a marketer saved in between; the page reloads and they review again).
+     * A decision that names no version is refused, so there is no way to approve "whatever is there now".
+     */
+    private void requireReviewedVersion(OrgResume r, Integer versionNo, String contentHash) {
+        if (versionNo == null) throw OrgException.invalid("versionNo", "is required: send the version you reviewed");
+        String current = hashOf(r);
+        // a row with no builder document behind it has no content to change under the consultant's hands: its version number is the whole token
+        if (current != null && (contentHash == null || contentHash.isBlank())) throw OrgException.invalid("contentHash", "is required: send the version you reviewed");
+        int currentVersion = r.getVersionNo() == null ? 1 : r.getVersionNo();
+        if (versionNo != currentVersion || (current != null && !current.equals(contentHash.strip()))) {
+            throw OrgException.coded(409, "RESUME_CHANGED", "This resume changed after you opened it. Review the new version, then decide.", Map.of("versionNo", currentVersion));
+        }
+    }
+
+    /** The content hash of the builder document behind a row; null when there is none. */
+    private String hashOf(OrgResume r) {
+        if (docRepository == null || r.getResumeId() == null) return null;
+        return docRepository.findContentHashByResumeId(r.getResumeId()).orElse(null);
     }
 
     private void log(OrgMembership me, OrgResume r, String kind, String detail, Instant at) {
@@ -388,12 +417,17 @@ public class ConsultantResumesService {
     }
 
     static ResumeRow row(OrgResume r, String updatedBy) {
-        return new ResumeRow(r.getId(), r.getName(), r.getTargetRole(), r.isPrimaryForOrg(), r.getUpdatedAt(), r.getVisibility(), r.getVersionNo() == null ? 1 : r.getVersionNo(), r.getApprovalStatus(), r.getResumeId(), awaiting(r), updatedBy);
+        return row(r, updatedBy, null);
+    }
+
+    /** {@code contentHash} is offered only for a row that waits for the consultant (the version they are asked to approve). */
+    static ResumeRow row(OrgResume r, String updatedBy, String contentHash) {
+        return new ResumeRow(r.getId(), r.getName(), r.getTargetRole(), r.isPrimaryForOrg(), r.getUpdatedAt(), r.getVisibility(), r.getVersionNo() == null ? 1 : r.getVersionNo(), r.getApprovalStatus(), r.getResumeId(), awaiting(r), updatedBy, contentHash);
     }
 
     /** One row as the page lists it, with who last changed it. */
     private ResumeRow rowOf(OrgResume r) {
-        return row(r, authors == null ? null : authors.modifiedBy(r.getOrgId(), r));
+        return row(r, authors == null ? null : authors.modifiedBy(r.getOrgId(), r), awaiting(r) ? hashOf(r) : null);
     }
 
     /** A resume a marketer made or edited for this consultant, waiting for them: only the consultant decides it. */

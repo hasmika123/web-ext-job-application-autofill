@@ -10,7 +10,8 @@ const getBuilderConfig = vi.fn(async (init?: RequestInit) => ({ templates: { def
 vi.mock("@/lib/resume-builder-config", () => ({ getBuilderConfig: (i?: RequestInit) => getBuilderConfig(i) }));
 vi.mock("react", async (orig) => ({ ...(await orig<typeof import("react")>()), cache: <T,>(fn: T) => fn }));
 
-import { editorTitle, loadEditorData } from "./resume-editor-data";
+import { editorTitle, loadEditorData, withoutStorageKeys } from "./resume-editor-data";
+import type { ResumeDocDTO } from "./resume-doc";
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), { status, headers });
 const header = (init: RequestInit | undefined, name: string) => new Headers(init?.headers).get(name);
@@ -62,6 +63,25 @@ describe("loadEditorData: one loader for every place the one editor is mounted",
     expect(getBuilderConfig).toHaveBeenCalledWith({ headers: { "X-Kiwiply-Act-For": "5" } });
     expect(serverApiFetch.mock.calls.some(([p]) => p.endsWith("/doc/import"))).toBe(false);
     expect(serverApiFetch.mock.calls.some(([p]) => p === "/api/profile" || p === "/api/profile/resumes")).toBe(false);
+  });
+
+  it("acting for someone drops any storage key from the document before the client sees it (defence in depth), the owner's own load is untouched", async () => {
+    const keyed = {
+      docVersion: 3,
+      label: "Casey's",
+      doc: { meta: { title: "T", originalFileKey: "resume-originals/7/1-o.pdf" }, basics: { name: "Ada", photo: { key: "resume-photos/7/1-p.png", updatedAt: "2026-10-01T00:00:00Z" } } },
+    };
+    serverApiFetch.mockImplementation(async (path) => (path.endsWith("/doc") ? json(keyed, 200, { etag: '"3"' }) : json({}, 404)));
+    const acting = await loadEditorData("42", 5);
+    expect(acting.kind).toBe("ok");
+    if (acting.kind === "ok") expect(JSON.stringify(acting.initial)).not.toMatch(/resume-originals|resume-photos|originalFileKey/);
+    const own = await loadEditorData("42");
+    if (own.kind === "ok") expect(JSON.stringify(own.initial)).toContain("resume-photos");
+    // the photo object stays (the editor knows there is one) and the input is not modified
+    const dto = keyed as unknown as ResumeDocDTO;
+    const out = withoutStorageKeys(dto) as unknown as { doc: { basics: { photo: Record<string, string> } } };
+    expect(out.doc.basics.photo).toEqual({ updatedAt: "2026-10-01T00:00:00Z" });
+    expect(JSON.stringify(keyed)).toContain("resume-originals");
   });
 
   it("a resume that is not the caller's (or a refused act-for) is a plain not-found, a signed-out call is sign-in, anything else is an error", async () => {

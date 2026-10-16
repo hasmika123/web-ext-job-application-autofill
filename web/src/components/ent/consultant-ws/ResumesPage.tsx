@@ -608,9 +608,13 @@ function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: Resu
 
   const onApprove = async (r: ResumeRow) => {
     setBusy(r.id);
-    const res = await approveResume(orgId, r.id);
+    const res = await approveResume(orgId, r);
     setBusy(null);
-    if (!res.ok) return failed(res.message);
+    if (!res.ok) {
+      failed(res.message);
+      void reload(); // a stale version (the marketer saved again) shows its new state, ready to be reviewed
+      return;
+    }
     toast({ title: "Approved", description: "This version of the resume is ready to use.", variant: "success" });
     void reload();
   };
@@ -619,9 +623,13 @@ function ResumesPageBody({ orgId, firstName: first, builder = NO_BUILDER }: Resu
     const r = sendBack;
     if (!r) return;
     setBusy(r.id);
-    const res = await requestResumeChanges(orgId, r.id, note.trim() || undefined);
+    const res = await requestResumeChanges(orgId, r, note.trim() || undefined);
     setBusy(null);
-    if (!res.ok) return failed(res.message);
+    if (!res.ok) {
+      failed(res.message);
+      void reload();
+      return;
+    }
     setSendBack(null);
     setNote("");
     toast({ title: "Sent back to your marketer", variant: "success" });

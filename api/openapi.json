@@ -8501,7 +8501,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Send a resume a marketer made for me back",
-        "description" : "Body: {note?} (at most 200 characters). The marketer's board reads it as Needs update until they edit it again. resumes.manage required; 409 NOT_PENDING when it is not waiting for the consultant.",
+        "description" : "Body: {note?, versionNo, contentHash} (note at most 200 characters; versionNo and contentHash are the version the consultant reviewed: 422 without them, 409 RESUME_CHANGED when the resume changed since). The marketer's board reads it as Needs update until they edit it again. resumes.manage required; 409 NOT_PENDING when it is not waiting for the consultant.",
         "operationId" : "requestChangesMyResume",
         "parameters" : [ {
           "name" : "resumeId",
@@ -8597,7 +8597,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Approve a resume a marketer made for me",
-        "description" : "Only while it waits for the consultant (a resume a marketer made or edited through the builder). resumes.manage required; 409 NOT_PENDING for anything else.",
+        "description" : "Only while it waits for the consultant (a resume a marketer made or edited through the builder). Body {versionNo, contentHash}: the version the consultant reviewed (both from the row they were shown); 422 without them, 409 RESUME_CHANGED when the resume changed since. resumes.manage required; 409 NOT_PENDING for anything else.",
         "operationId" : "approveMyResume",
         "parameters" : [ {
           "name" : "resumeId",
@@ -8608,6 +8608,15 @@
             "format" : "int64"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResumeApproval"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -28922,6 +28931,13 @@
         "properties" : {
           "note" : {
             "type" : "string"
+          },
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "contentHash" : {
+            "type" : "string"
           }
         }
       },
@@ -28963,6 +28979,21 @@
             "type" : "boolean"
           },
           "updatedBy" : {
+            "type" : "string"
+          },
+          "contentHash" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ResumeApproval" : {
+        "type" : "object",
+        "properties" : {
+          "versionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "contentHash" : {
             "type" : "string"
           }
         }

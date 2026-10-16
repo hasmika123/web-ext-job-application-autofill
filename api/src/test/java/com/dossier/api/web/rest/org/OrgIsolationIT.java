@@ -306,8 +306,8 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/duplicate", Case.consultantWrite(null, 201)),
         // Resume Builder in the organization workspace (ent-resume): a consultant creates a builder resume under the license cap, and approves (or sends back) one a marketer made for them. Create writes no org audit row (the consultant's own data); the two decisions record theirs.
         Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/built", Case.consultantWrite("{\"label\":\"Hijacked builder resume\",\"source\":\"scratch\"}", 201)),
-        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/approve", new Case(null, 200, "RESUME_APPROVE", false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.makeCwsResumeAwaitConsultant(); })),
-        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/request-changes", new Case("{\"note\":\"Please add my last role\"}", 200, "RESUME_CHANGES_REQUESTED", false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.makeCwsResumeAwaitConsultant(); })),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/approve", new Case("{\"versionNo\":1}", 200, "RESUME_APPROVE", false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.makeCwsResumeAwaitConsultant(); })),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/request-changes", new Case("{\"note\":\"Please add my last role\",\"versionNo\":1}", 200, "RESUME_CHANGES_REQUESTED", false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.makeCwsResumeAwaitConsultant(); })),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/marketer", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/matches", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/matches/{matchId}", Case.consultantRead()),
@@ -892,6 +892,10 @@ class OrgIsolationIT {
             cp.setDisplayName("Isolation Consultant");
             cp.setEmail(prefix + "-consultant@example.org");
             cp = consultantProfiles.saveAndFlush(cp);
+            // decision O4 + the act-for review (2026-10-15): a marketer only prepares a resume for a consultant whose sign-in is an ENTERPRISE account of the organization
+            com.dossier.api.domain.User ownerAccount = users.findById(owner.getUserId()).orElseThrow();
+            ownerAccount.setOrgId(org.getId());
+            users.saveAndFlush(ownerAccount);
             com.dossier.api.domain.ent.talent.ConsultantSkill sk = new com.dossier.api.domain.ent.talent.ConsultantSkill();
             sk.setOrgId(org.getId());
             sk.setConsultantId(cp.getId());

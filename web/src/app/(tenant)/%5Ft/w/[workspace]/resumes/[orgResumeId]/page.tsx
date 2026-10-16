@@ -47,7 +47,7 @@ export default async function MarketerResumeEditorRoute({ params }: { params: Pr
   if (data.kind === "error") throw new Error(`Couldn't load the resume (${data.status}).`);
 
   return (
-    <BuilderEnvProvider env={actForEditorEnv(row)}>
+    <BuilderEnvProvider env={actForEditorEnv(row, resumeId)}>
       <div data-builder-frame className="flex min-h-0 flex-1 flex-col overflow-hidden bg-v2-canvas">
         <ResumeEditor
           initial={data.initial}

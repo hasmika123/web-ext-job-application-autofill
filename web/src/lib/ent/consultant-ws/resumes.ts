@@ -36,6 +36,8 @@ export interface ResumeRow {
   awaitingMyApproval: boolean;
   /** Who last changed it, as a display name ("Sarah Chen (marketer)" for a marketer); null when nobody is known to have. */
   updatedBy: string | null;
+  /** The document hash of the version waiting for the consultant (only while `awaitingMyApproval`); sent back with a decision so it covers exactly what they saw. */
+  contentHash: string | null;
 }
 
 export interface Check {
@@ -136,6 +138,7 @@ export function parseResumeRow(o: unknown): ResumeRow | null {
     resumeId: numOrNull(o.resumeId),
     awaitingMyApproval: o.awaitingMyApproval === true,
     updatedBy: strOrNull(o.updatedBy),
+    contentHash: strOrNull(o.contentHash),
   };
 }
 
@@ -341,8 +344,11 @@ const rowOnly = (j: unknown) => parseResumeRow(j);
 export const setPrimary = (orgId: number | string, id: number) => write(`${base(orgId)}/${id}/primary`, "POST", undefined, rowOnly);
 export const patchResume = (orgId: number | string, id: number, body: { name?: string; visibility?: Visibility }) => write(`${base(orgId)}/${id}`, "PATCH", body, rowOnly);
 export const duplicateResume = (orgId: number | string, id: number) => write(`${base(orgId)}/${id}/duplicate`, "POST", undefined, rowOnly);
-/** The consultant approves a resume a marketer made or edited for them (409 NOT_PENDING when it is not waiting for them). */
-export const approveResume = (orgId: number | string, id: number) => write(`${base(orgId)}/${id}/approve`, "POST", undefined, rowOnly);
-/** The consultant sends such a resume back; the optional note reaches the marketer. */
-export const requestResumeChanges = (orgId: number | string, id: number, note?: string) => write(`${base(orgId)}/${id}/request-changes`, "POST", note ? { note } : {}, rowOnly);
+/** What a decision names: the version the consultant was shown (the API answers 409 RESUME_CHANGED when the resume moved on since). */
+export const reviewedVersion = (r: Pick<ResumeRow, "versionNo" | "contentHash">) => ({ versionNo: r.versionNo, contentHash: r.contentHash ?? "" });
+/** The consultant approves the version of a resume a marketer made or edited for them that they reviewed (409 NOT_PENDING when it is not waiting for them). */
+export const approveResume = (orgId: number | string, row: ResumeRow) => write(`${base(orgId)}/${row.id}/approve`, "POST", reviewedVersion(row), rowOnly);
+/** The consultant sends the version they reviewed back; the optional note reaches the marketer. */
+export const requestResumeChanges = (orgId: number | string, row: ResumeRow, note?: string) =>
+  write(`${base(orgId)}/${row.id}/request-changes`, "POST", { ...reviewedVersion(row), ...(note ? { note } : {}) }, rowOnly);
 export const recordActivity = (orgId: number | string, id: number, kind: "VIEWED" | "DOWNLOADED" | "SHARED") => write<null>(`${base(orgId)}/${id}/activity`, "POST", { kind }, () => null);

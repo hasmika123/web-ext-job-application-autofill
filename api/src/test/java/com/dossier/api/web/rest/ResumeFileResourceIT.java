@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +26,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -121,9 +124,67 @@ class ResumeFileResourceIT {
     @Test
     void aMissingObjectIsA404NotAServerError() throws Exception {
         Resume resume = newResume();
-        resume.setr2ObjectKey("resumes/1/vanished-" + System.nanoTime() + ".pdf");
+        resume.setr2ObjectKey("resumes/" + resume.getUser().getId() + "/" + resume.getId() + "-vanished-" + System.nanoTime() + ".pdf"); // the owner's own prefix: a vanished object, not a foreign key
         resumeRepository.saveAndFlush(resume);
 
         mockMvc.perform(get("/api/resumes/" + resume.getId() + "/file")).andExpect(status().isNotFound());
+    }
+    // ---- a stored key outside the owner's own prefix is never followed (security review 2026-10-15) ----------------------
+
+    /** Somebody else's file in the blob store (the admin's), and its key. */
+    private String victimObject() {
+        User admin = userRepository.findOneByLogin("admin").orElseThrow();
+        String key = "resumes/" + admin.getId() + "/987654-" + System.nanoTime() + "-secret.pdf";
+        storage.store(key, "%PDF-1.7 the victim's private resume".getBytes(StandardCharsets.UTF_8), "application/pdf");
+        return key;
+    }
+
+    @Test
+    void aPoisonedPointerToSomebodyElsesObjectIsNeitherDownloadedNorDeletedNorReplacedOver() throws Exception {
+        String victim = victimObject();
+        Resume resume = newResume();
+        resume.setr2ObjectKey(victim); // a row that already carries a foreign pointer (written by the old bug)
+        resumeRepository.saveAndFlush(resume);
+        String url = "/api/resumes/" + resume.getId() + "/file";
+
+        mockMvc.perform(get(url)).andExpect(status().isNotFound());
+        mockMvc.perform(delete(url)).andExpect(status().isNoContent());
+        assertThat(storage.exists(victim)).as("DELETE must not touch a key outside the owner's prefix").isTrue();
+
+        // an upload replaces the pointer with the resume's own key and does not delete the foreign object it replaced
+        mockMvc.perform(multipart(url).file(pdf("%PDF-1.7 mine"))).andExpect(status().isOk());
+        String mine = resumeRepository.findById(resume.getId()).orElseThrow().getr2ObjectKey();
+        assertThat(mine).startsWith("resumes/" + resume.getUser().getId() + "/" + resume.getId() + "-");
+        assertThat(storage.exists(victim)).isTrue();
+        storage.delete(victim);
+    }
+
+    @Test
+    void aClientCannotSetTheObjectKeyThroughTheProfileRouteSoItCanNeverReadSomebodyElsesFile() throws Exception {
+        String victim = victimObject();
+        Resume resume = newResume();
+        String url = "/api/resumes/" + resume.getId() + "/file";
+
+        // the old bug: PUT /api/profile/resumes/{id} {"r2ObjectKey": "<someone else's key>"} then GET .../file served their bytes
+        mockMvc
+            .perform(put("/api/profile/resumes/" + resume.getId()).contentType(MediaType.APPLICATION_JSON).content("{\"label\":\"mine\",\"r2ObjectKey\":\"" + victim + "\"}"))
+            .andExpect(status().isOk());
+        Resume after = resumeRepository.findById(resume.getId()).orElseThrow();
+        assertThat(after.getLabel()).isEqualTo("mine");
+        assertThat(after.getr2ObjectKey()).as("the pointer is server-assigned only").isNotEqualTo(victim).isEmpty();
+        mockMvc.perform(get(url)).andExpect(status().isNotFound());
+        mockMvc.perform(delete(url)).andExpect(status().isNoContent());
+        assertThat(storage.exists(victim)).isTrue();
+
+        // creating a resume with a key does not set it either
+        String created = mockMvc
+            .perform(post("/api/profile/resumes").contentType(MediaType.APPLICATION_JSON).content("{\"label\":\"new\",\"r2ObjectKey\":\"" + victim + "\"}"))
+            .andExpect(status().isCreated())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        long id = new com.fasterxml.jackson.databind.ObjectMapper().readTree(created).get("id").asLong();
+        assertThat(resumeRepository.findById(id).orElseThrow().getr2ObjectKey()).isEmpty();
+        storage.delete(victim);
     }
 }

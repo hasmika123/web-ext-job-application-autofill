@@ -18,6 +18,10 @@ public interface ResumeDocRepository extends JpaRepository<ResumeDoc, Long> {
 
     List<ResumeDoc> findByUserId(Long userId);
 
+    /** The content hash of a document, without loading it (the consultant's approve compares it with the version they reviewed). */
+    @Query("select d.contentHash from ResumeDoc d where d.resumeId = :resumeId")
+    Optional<String> findContentHashByResumeId(@Param("resumeId") Long resumeId);
+
     /**
      * Just the list-view columns per document (template + export state + PDF job state) - the list
      * views must not load every doc_json. {@code themeJson} (a few hundred bytes, 8 KB at most) is what

@@ -3,6 +3,7 @@ package com.dossier.api;
 import static com.tngtech.archunit.base.DescribedPredicate.alwaysTrue;
 import static com.tngtech.archunit.core.domain.JavaClass.Predicates.belongToAnyOf;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noMethods;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
 import com.tngtech.archunit.core.importer.ImportOption.DoNotIncludeTests;
@@ -110,4 +111,61 @@ class TechnicalStructureTest {
                 }
             }
         );
+    // Act-for (Enterprise V2, doc 30 section 6) swaps the identity ON THE REQUEST THREAD for the duration of a handler. A handler that hands the request to
+    // another thread (an async return type) would leave that swap open on a pooled thread, or run its continuation without it. The window is also closed
+    // by ActForBuilderInterceptor.afterConcurrentHandlingStarted and cleared by ActForCleanupFilter, but the cheapest wall is to keep the builder routes
+    // synchronous: no controller under /api/profile/** (and the builder's other resources) may return or wrap an async type.
+    @ArchTest
+    static final ArchRule builderControllersNeverReturnAsyncTypes = noMethods()
+        .that()
+        .areDeclaredInClassesThat(builderControllers())
+        .should(notInvolveAsyncReturnTypes());
+
+    private static com.tngtech.archunit.base.DescribedPredicate<com.tngtech.archunit.core.domain.JavaClass> builderControllers() {
+        java.util.Set<String> named = java.util.Set.of("ResumeFileResource", "MktResumeBuilderResource", "ConsultantResumesResource");
+        return new com.tngtech.archunit.base.DescribedPredicate<>("controllers under /api/profile/** or the Resume Builder's other resources") {
+            @Override
+            public boolean test(com.tngtech.archunit.core.domain.JavaClass c) {
+                if (named.contains(c.getSimpleName())) return true;
+                if (!c.isAnnotatedWith(org.springframework.web.bind.annotation.RestController.class)) return false;
+                return c
+                    .tryGetAnnotationOfType(org.springframework.web.bind.annotation.RequestMapping.class)
+                    .map(m -> java.util.Arrays.stream(m.value()).anyMatch(v -> v.startsWith("/api/profile")))
+                    .orElse(false);
+            }
+        };
+    }
+
+    /** The async return types Spring MVC understands (by name, so a type that is not on the classpath cannot break the build). */
+    static final java.util.List<String> ASYNC_TYPES = java.util.List.of(
+        "org.springframework.web.context.request.async.DeferredResult",
+        "java.util.concurrent.Callable",
+        "java.util.concurrent.CompletableFuture",
+        "java.util.concurrent.Future",
+        "org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody",
+        "org.springframework.web.context.request.async.WebAsyncTask",
+        "org.springframework.web.servlet.mvc.method.annotation.ResponseBodyEmitter",
+        "reactor.core.publisher.Mono",
+        "reactor.core.publisher.Flux"
+    );
+
+    private static com.tngtech.archunit.lang.ArchCondition<com.tngtech.archunit.core.domain.JavaMethod> notInvolveAsyncReturnTypes() {
+        return new com.tngtech.archunit.lang.ArchCondition<>("not return (or wrap) an async type") {
+            @Override
+            public void check(com.tngtech.archunit.core.domain.JavaMethod method, com.tngtech.archunit.lang.ConditionEvents events) {
+                for (com.tngtech.archunit.core.domain.JavaClass t : method.getReturnType().getAllInvolvedRawTypes()) {
+                    for (String banned : ASYNC_TYPES) {
+                        if (t.isAssignableTo(banned)) {
+                            events.add(
+                                com.tngtech.archunit.lang.SimpleConditionEvent.violated(
+                                    method,
+                                    method.getFullName() + " returns " + t.getName() + ", an async type (act-for must stay on the request thread)"
+                                )
+                            );
+                        }
+                    }
+                }
+            }
+        };
+    }
 }

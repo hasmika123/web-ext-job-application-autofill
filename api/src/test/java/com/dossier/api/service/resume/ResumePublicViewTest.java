@@ -53,4 +53,26 @@ class ResumePublicViewTest {
         JsonNode bare = OM.createObjectNode();
         assertThat(ResumePublicView.scrub(bare).toString()).isEqualTo("{}");
     }
+    @Test
+    void anEditorWhoIsNotTheOwnerGetsTheWholeDocumentWithoutAnyStorageKey() throws Exception {
+        JsonNode input = OM.readTree(
+            "{\"meta\":{\"title\":\"Backend\",\"target\":\"Staff\",\"originalFileKey\":\"resume-originals/7/1-o.pdf\",\"language\":\"en\"}," +
+            "\"basics\":{\"name\":\"Ada\",\"photo\":{\"key\":\"resume-photos/7/1-p.png\",\"updatedAt\":\"2026-10-01T00:00:00Z\"}}," +
+            "\"sections\":[{\"id\":\"s1\",\"kind\":\"SUMMARY\",\"items\":[{\"id\":\"i1\",\"text\":\"resumes/are/good\",\"attachmentKey\":\"application-attachments/7/2-x.pdf\",\"fileKey\":\"not-a-storage-key\"}]}]}"
+        );
+        String before = input.toString();
+        JsonNode out = ResumePublicView.withoutStorageKeys(input);
+        assertThat(out.toString()).doesNotContain("resume-originals").doesNotContain("resume-photos").doesNotContain("application-attachments").doesNotContain("originalFileKey");
+        // the content, the owner's notes (target) and the photo OBJECT (without its key) stay: the editor still needs them
+        assertThat(out.at("/meta/target").asText()).isEqualTo("Staff");
+        assertThat(out.at("/basics/photo/updatedAt").asText()).isEqualTo("2026-10-01T00:00:00Z");
+        assertThat(out.at("/basics/photo/key").isMissingNode()).isTrue();
+        // a user's own text that merely looks like a path is content, never removed; only fields NAMED like a key that hold a storage key go
+        assertThat(out.at("/sections/0/items/0/text").asText()).isEqualTo("resumes/are/good");
+        assertThat(out.at("/sections/0/items/0/fileKey").asText()).isEqualTo("not-a-storage-key");
+        assertThat(out.at("/sections/0/items/0/attachmentKey").isMissingNode()).isTrue();
+        assertThat(input.toString()).as("the input is never modified").isEqualTo(before);
+        JsonNode text = OM.getNodeFactory().textNode("x");
+        assertThat(ResumePublicView.withoutStorageKeys(text)).isSameAs(text);
+    }
 }

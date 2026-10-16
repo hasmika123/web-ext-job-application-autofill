@@ -81,7 +81,7 @@ public class ResumeFileResource {
                 .build();
         }
         // Replace any previously stored object so we don't orphan stored bytes.
-        String previousKey = resume.getr2ObjectKey();
+        String previousKey = ownKeyOf(resume);
         String key = storageService.objectKeyFor(userId, resume.getId(), file.getOriginalFilename());
         storageService.store(key, file.getBytes(), file.getContentType());
         resume.setr2ObjectKey(key);
@@ -98,7 +98,7 @@ public class ResumeFileResource {
     @GetMapping
     public ResponseEntity<byte[]> download(@PathVariable("id") Long id) {
         Resume resume = ownedResumeOr404(id);
-        String key = resume.getr2ObjectKey();
+        String key = ownKeyOf(resume);
         if (key == null || key.isBlank()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No file stored for this resume");
         }
@@ -120,7 +120,7 @@ public class ResumeFileResource {
     @DeleteMapping
     public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         Resume resume = ownedResumeOr404(id);
-        String key = resume.getr2ObjectKey();
+        String key = ownKeyOf(resume);
         if (key != null && !key.isBlank()) {
             storageService.delete(key);
         }
@@ -138,6 +138,19 @@ public class ResumeFileResource {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Resume not found");
         }
         return found.get();
+    }
+
+    /**
+     * The resume's stored key, but only when it lies under THIS resume's own prefix ({@code resumes/<ownerId>/<resumeId>-...}); anything else
+     * (a blank slot, or a key that names somebody else's object) is "no file", so a load or delete never follows a foreign key.
+     */
+    private static String ownKeyOf(Resume resume) {
+        String key = resume.getr2ObjectKey();
+        if (key == null || key.isBlank()) return null;
+        Long ownerId = resume.getUser() == null ? null : resume.getUser().getId();
+        if (StorageKeys.isResumeKey(ownerId, resume.getId(), key)) return key;
+        LOG.warn("Resume {} points at a stored object outside its own prefix; ignoring the pointer", resume.getId());
+        return null;
     }
 
     private static String safeDownloadName(Resume resume) {

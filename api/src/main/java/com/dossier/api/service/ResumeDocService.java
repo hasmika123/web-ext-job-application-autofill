@@ -28,6 +28,7 @@ import com.dossier.api.service.resume.ResumeDocumentSeeder;
 import com.dossier.api.service.resume.ResumeDocumentText;
 import com.dossier.api.service.resume.ResumeDocumentUpgrader;
 import com.dossier.api.service.resume.ResumeActAs;
+import com.dossier.api.service.resume.ResumePublicView;
 import com.dossier.api.service.resume.ResumeDocEvent;
 import com.dossier.api.service.resume.ResumeDocumentValidator;
 import com.dossier.api.service.resume.ResumePdfState;
@@ -414,6 +415,18 @@ public class ResumeDocService {
         }
     }
 
+    /** Acting for the owner: {@code basics.photo} of a save is the stored one, whatever the client sent (the acting editor never held its key). */
+    private static void keepPhoto(JsonNode doc, JsonNode stored) {
+        if (doc == null || !doc.path("basics").isObject()) return;
+        ObjectNode basics = (ObjectNode) doc.get("basics");
+        JsonNode photo = stored == null ? null : stored.path("basics").get("photo");
+        if (photo == null || photo.isNull() || !photo.isObject()) {
+            if (basics.has("photo")) basics.putNull("photo");
+        } else {
+            basics.set("photo", photo.deepCopy());
+        }
+    }
+
     private static String originalKeyOf(JsonNode doc) {
         JsonNode k = doc == null ? null : doc.path("meta").get("originalFileKey");
         return k != null && k.isTextual() && !k.textValue().isBlank() ? k.textValue() : null;
@@ -429,6 +442,10 @@ public class ResumeDocService {
     private String copyOriginalAside(User user, Resume resume) {
         String key = resume.getr2ObjectKey();
         if (key == null || key.isBlank()) return null;
+        if (!StorageKeys.isResumeKey(user.getId(), resume.getId(), key)) { // never copy a stored object that is not this resume's own
+            LOG.warn("Resume {} points at a stored object outside its own prefix; its file is not kept aside", resume.getId());
+            return null;
+        }
         try {
             FileStorage.StoredFile f = storage.load(key);
             String ext = key.contains(".") ? key.substring(key.lastIndexOf('.')) : ".pdf";
@@ -649,6 +666,8 @@ public class ResumeDocService {
         ResumeMetaMirror.apply(doc, d.getResume().getLabel(), d.getResume().getTarget());
         // meta.originalFileKey is server-written too (it names a stored file the owner may download): a save never sets it.
         keepOriginalFileKey(doc, storedDoc(d));
+        // A marketer acting for the owner never sees a storage key (the response is scrubbed), so a save cannot carry one back: the stored photo stays.
+        if (ResumeActAs.current().isPresent()) keepPhoto(doc, storedDoc(d));
         // meta.tailoredFrom is server-written: a save may echo the stored value, never introduce, change or drop it.
         JsonNode storedTailoredFrom = tailoredFromOf(ResumeDocumentUpgrader.upgrade(parseQuietly(d.getDocJson())));
         JsonNode incomingTailoredFrom = tailoredFromOf(doc);
@@ -1078,7 +1097,16 @@ public class ResumeDocService {
     }
 
     private ResumeDocException conflict(ResumeDoc d) {
-        return ResumeDocException.conflict(d.getDocVersion(), storedDoc(d));
+        return ResumeDocException.conflict(d.getDocVersion(), visibleDoc(d));
+    }
+
+    /**
+     * The document as the CALLER may see it: the owner gets it whole; a marketer acting for the owner ({@link ResumeActAs}) gets it without any
+     * storage key (original file, photo), which name objects only the owner may fetch. Every response that carries a document goes through here.
+     */
+    private static JsonNode visibleDoc(ResumeDoc d) {
+        JsonNode doc = storedDoc(d);
+        return ResumeActAs.current().isPresent() ? ResumePublicView.withoutStorageKeys(doc) : doc;
     }
 
     /** The stored document as the current schema: a v1 row is upgraded in memory, never rewritten by a read. */
@@ -1112,7 +1140,7 @@ public class ResumeDocService {
         dto.setResumeId(d.getResumeId());
         dto.setLabel(resume.getLabel());
         dto.setKind(resume.getKind());
-        dto.setDoc(storedDoc(d));
+        dto.setDoc(visibleDoc(d));
         dto.setSchemaVersion(ResumeDocument.SCHEMA_VERSION);
         dto.setTemplateId(d.getTemplateId());
         dto.setTheme(parseQuietly(d.getThemeJson()));

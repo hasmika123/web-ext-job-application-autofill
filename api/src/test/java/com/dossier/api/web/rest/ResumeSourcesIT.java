@@ -345,9 +345,12 @@ class ResumeSourcesIT {
 
     @Test
     void importTurnsAnUploadedResumeIntoABuiltOneInPlaceAndKeepsTheFileAside() throws Exception {
-        String fileKey = storage.objectKeyFor(user().getId(), 1L, "cv.pdf");
+        Resume file = uploadedWithFile("");
+        // the stored file is the resume's own, under resumes/<user>/<resume id>-... (a key that is not is never followed)
+        String fileKey = storage.objectKeyFor(user().getId(), file.getId(), "cv.pdf");
         storage.store(fileKey, "%PDF-original".getBytes(StandardCharsets.UTF_8), "application/pdf");
-        Resume file = uploadedWithFile(fileKey);
+        file.setr2ObjectKey(fileKey);
+        resumeRepository.saveAndFlush(file);
 
         String res = mockMvc.perform(post("/api/profile/resumes/" + file.getId() + "/doc/import")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
 

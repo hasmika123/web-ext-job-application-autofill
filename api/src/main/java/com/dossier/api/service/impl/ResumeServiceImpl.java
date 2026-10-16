@@ -109,7 +109,7 @@ public class ResumeServiceImpl implements ResumeService {
             .findById(id)
             .ifPresent(resume -> {
                 String key = resume.getr2ObjectKey();
-                if (key != null && !key.isBlank()) storage.delete(key);
+                if (key != null && !key.isBlank() && com.dossier.api.service.storage.StorageKeys.isUserKey(resume.getUser() == null ? null : resume.getUser().getId(), key)) storage.delete(key); // never outside the owner's own prefixes
                 if (resume.getUser() != null) storedFileEraser.deleteResumeFiles(resume.getUser().getId(), id);
             });
         resumeRepository.deleteById(id);

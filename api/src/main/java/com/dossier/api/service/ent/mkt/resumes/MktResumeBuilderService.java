@@ -157,6 +157,7 @@ public class MktResumeBuilderService {
         ConsultantProfile c = consultant(view, me.orgId(), consultantId);
         User owner = accountOf(me.orgId(), c).orElseThrow(MktResumeBuilderService::noAccount);
         NewResumeBody b = body == null ? new NewResumeBody(null, null, null, null) : body;
+        requireCopySourceInDirectory(me.orgId(), c, b.source());
         BuiltResumeDTO built = ResumeActAs.run(
             owner,
             new ResumeActAs.Scope(me.orgId(), me.login(), me.userId()),
@@ -183,6 +184,24 @@ public class MktResumeBuilderService {
         return new NewResumeCreated(row.getId(), resumeId, c.getId(), board.detail(me, row.getId()));
     }
 
+    /**
+     * A {@code copy} source must be one of the consultant's resumes the ORGANIZATION may see: linked into this organization's directory for this very
+     * consultant. The builder's own copy only checks ownership, so without this a marketer could clone any resume the consultant owns, linked or not
+     * (a private one, one made for another organization). Anything else is the generic 404.
+     */
+    private void requireCopySourceInDirectory(Long orgId, ConsultantProfile c, JsonNode source) {
+        // read the kind exactly as ResumeDocService does (trimmed, any case), so no spelling of "copy" slips past this check
+        if (!"copy".equalsIgnoreCase(sourceKind(source).trim())) return;
+        JsonNode from = source.get("fromResumeId");
+        Long fromResumeId = from != null && from.canConvertToLong() ? from.longValue() : null;
+        if (fromResumeId == null) throw new OrgNotFoundException();
+        boolean linked = orgResumes
+            .findByOrgIdAndConsultantId(orgId, c.getId())
+            .stream()
+            .anyMatch(r -> fromResumeId.equals(r.getResumeId()) && orgId.equals(r.getOrgId()) && c.getId().equals(r.getConsultantId()));
+        if (!linked) throw new OrgNotFoundException();
+    }
+
     // ---- gate -------------------------------------------------------------------------------------------------------------------
 
     private MktScope.View editView(OrgMembership me) {
@@ -199,14 +218,19 @@ public class MktResumeBuilderService {
         return c;
     }
 
-    /** The consultant's account: their ACTIVE seat's user. Empty for a consultant with no sign-in (or a seat that is not active). */
+    /**
+     * The consultant's account: their ACTIVE seat's user, but only when it is an ENTERPRISE account of THIS organization (decision O4: personal and
+     * enterprise accounts are separate and never connected, so a personal account behind a legacy shared seat is never prepared for). Empty for a
+     * consultant with no sign-in, a seat that is not active, or a personal account.
+     */
     private Optional<User> accountOf(Long orgId, ConsultantProfile c) {
         if (c.getMemberId() == null) return Optional.empty();
         return members
             .findByOrgIdAndId(orgId, c.getMemberId())
             .filter(m -> m.getStatus() == OrgMemberStatus.ACTIVE && m.getUserId() != null)
             .map(OrgMember::getUserId)
-            .flatMap(users::findById);
+            .flatMap(users::findById)
+            .filter(u -> orgId.equals(u.getOrgId()) && u.isActivated());
     }
 
     private static OrgException noAccount() {

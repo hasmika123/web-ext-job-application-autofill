@@ -30,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
  * <ol>
  *   <li>the request is on an organization host (the organization comes from the host, never from the header) and the caller is an ACTIVE member of it;</li>
  *   <li>the caller holds {@code resumes.edit_for} and the consultant of that row is inside their ASSIGNED scope (the same gate as the Marketing page);</li>
- *   <li>the row is linked to a builder resume, the consultant has an account, and the caller is not that consultant;</li>
+ *   <li>the caller's token is bound to this very organization ({@code tid} equals the host's organization; a token with no {@code tid} is refused);</li>
+ *   <li>the row is linked to a builder resume, the consultant profile is ACTIVE, and the consultant's account is an ENTERPRISE account of this organization
+ *       (decision O4: a personal account is never acted for), activated, on an ACTIVE seat; and the caller is not that consultant;</li>
  *   <li>the route is on the short allow-list ({@link #allows}) and names that very resume. Everything else (sharing, delete, primary, archive, AI, the original
  *       file, checkpoints and restores, rename) is NOT acting-for material and is a 404 here: the capabilities the builder shows are enforced, not just hidden.</li>
  * </ol>
@@ -106,9 +108,13 @@ public class ActForBuilderGate {
         return false;
     }
 
-    /** Authorises one act-for request or throws the generic 404. {@code orgId} is the tenant host's organization. */
+    /**
+     * Authorises one act-for request or throws the generic 404. {@code orgId} is the tenant host's organization; {@code tokenTenantId} is the {@code tid} claim
+     * of the caller's token (null when it has none, which is refused: an act-for session is always an organization session).
+     */
     @Transactional(readOnly = true)
-    public Grant authorize(Long orgId, String rawLinkId, String method, String path) {
+    public Grant authorize(Long orgId, Long tokenTenantId, String rawLinkId, String method, String path) {
+        if (orgId == null || tokenTenantId == null || !tokenTenantId.equals(orgId)) throw new OrgNotFoundException();
         Long linkId = parse(rawLinkId);
         OrgMembership me = access.resolve(orgId).orElseThrow(OrgNotFoundException::new);
         MktScope.View view = scope.resolve(me, MktResumesService.EDIT_KEY);
@@ -117,11 +123,13 @@ public class ActForBuilderGate {
         if (link.getResumeId() == null) throw new OrgNotFoundException();
         scope.require(view, link.getConsultantId());
         ConsultantProfile c = consultants.findByOrgIdAndId(orgId, link.getConsultantId()).orElseThrow(OrgNotFoundException::new);
-        if (c.getMemberId() == null) throw new OrgNotFoundException();
+        if (c.getMemberId() == null || !"ACTIVE".equals(c.getStatus())) throw new OrgNotFoundException();
         User owner = members
             .findByOrgIdAndId(orgId, c.getMemberId())
             .filter(m -> m.getStatus() == OrgMemberStatus.ACTIVE && m.getUserId() != null)
             .flatMap(m -> users.findById(m.getUserId()))
+            // O4: only a real ENTERPRISE account of THIS organization is ever acted for (a personal account, even on a legacy shared seat, is not ours to edit)
+            .filter(u -> orgId.equals(u.getOrgId()) && u.isActivated())
             .orElseThrow(OrgNotFoundException::new);
         if (owner.getId().equals(me.userId())) throw new OrgNotFoundException(); // acting for yourself is just editing your own resume
         if (!allows(method, path, link.getResumeId())) throw new OrgNotFoundException();

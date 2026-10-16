@@ -107,7 +107,7 @@ describe("the one header bar follows the session's capabilities", () => {
   });
 
   it("a marketer acting for a consultant: nothing but editing and looking (no rename, duplicate, versions, settings, sharing, primary, archive, delete)", () => {
-    bar(ACT_FOR, actForEditorEnv(5));
+    bar(ACT_FOR, actForEditorEnv(5, 42));
     expect(within(header()).queryByRole("button", { name: "Rename" })).toBeNull();
     // there is nothing left to offer, so there is no empty menu either
     expect(within(header()).queryByText("More actions")).toBeNull();

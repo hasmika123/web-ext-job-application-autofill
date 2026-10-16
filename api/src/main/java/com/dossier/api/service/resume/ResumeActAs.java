@@ -43,6 +43,14 @@ public final class ResumeActAs {
         return s == null ? ownerLogin : s.actorLogin();
     }
 
+    /**
+     * The request-end safety net ({@code ActForCleanupFilter}): forgets the acting scope of this thread whatever happened to the window. It does not touch the
+     * security context (Spring Security clears that itself at the end of every request); it only guarantees the pooled thread carries no acting scope on.
+     */
+    public static void clearThread() {
+        CURRENT.remove();
+    }
+
     /** An open acting window; closing it restores the caller. Idempotent. */
     public static final class Handle implements AutoCloseable {
         private final SecurityContext before;
