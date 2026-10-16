@@ -255,6 +255,46 @@ export const reviewOpportunity = (orgId: number | string, id: number) => send(or
 export const setNextAction = (orgId: number | string, id: number, nextActionAt: string | null) => send(orgId, `/${id}/next-action`, "PATCH", { nextActionAt });
 export const createOpportunity = (orgId: number | string, consultantId: number, requirementId: number) => send(orgId, "", "POST", { consultantId, requirementId });
 
+export interface HandJobInput {
+  title: string;
+  company: string;
+  location: string;
+  workMode: "ONSITE" | "HYBRID" | "REMOTE" | "";
+  description: string;
+  jobUrl: string;
+}
+export type HandJobOutcome = { ok: true; jobId: number; existing: boolean } | { ok: false; error: string };
+
+/** The first thing wrong with the form, or null (the API checks the same rules and the PII scan). */
+export function checkHandJob(i: HandJobInput): string | null {
+  if (i.title.trim().length < 2) return "Enter the job title.";
+  if (!i.company.trim()) return "Enter the company.";
+  if (!i.location.trim()) return "Enter the location.";
+  if (!i.workMode) return "Choose a work mode.";
+  if (!i.description.trim()) return "Add a short description.";
+  if (i.jobUrl.trim() && !/^https:\/\/\S+$/i.test(i.jobUrl.trim())) return "The link must start with https://";
+  return null;
+}
+
+/** MKT-40: add a job by hand (source MANUAL). Needs the opportunities permission only; the job is org-owned and de-duplicated by the API. */
+export async function createJobByHand(orgId: number | string, i: HandJobInput): Promise<HandJobOutcome> {
+  try {
+    const body: Record<string, string> = { title: i.title.trim(), company: i.company.trim(), location: i.location.trim(), workMode: i.workMode, description: i.description.trim() };
+    if (i.jobUrl.trim()) body.jobUrl = i.jobUrl.trim();
+    const res = await fetch(`/api/orgs/${orgId}/mkt/opportunities/job`, {
+      method: "POST",
+      headers: { accept: "application/json", "content-type": "application/json", "idempotency-key": crypto.randomUUID() },
+      body: JSON.stringify(body),
+    });
+    const data: unknown = await res.json().catch(() => null);
+    const d = isObj(data) ? data : {};
+    if (!res.ok || typeof d.jobId !== "number") return { ok: false, error: str(d.error, str(d.message, "That didn't work. Nothing was saved.")) };
+    return { ok: true, jobId: d.jobId, existing: d.existingJob === true };
+  } catch {
+    return { ok: false, error: "Couldn't reach the server. Nothing was saved." };
+  }
+}
+
 /** "Today", "1 day", "3 days" by calendar day; a date in the past is "Overdue"; none is "-". */
 export function nextActionText(iso: string | null, now: number = Date.now()): string {
   if (!iso) return "-";

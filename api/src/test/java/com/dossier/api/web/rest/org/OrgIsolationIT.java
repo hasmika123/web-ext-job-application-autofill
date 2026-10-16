@@ -532,7 +532,8 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mkt/followups/{id}/call", Case.mkt(200, "MARKETER_FOLLOWUP_CALL", w -> "{\"note\":\"Called the recruiter\"}", null)),
         Map.entry("POST /api/orgs/{orgId}/mkt/followups/{id}/reminder", Case.mkt(200, "MARKETER_FOLLOWUP_REMINDER", w -> "{\"note\":\"Nudge\"}", null)),
         // The browser extension's "save for consultant": needs an Idempotency-Key (request()). The world's job is already known by its ATS identity, so the call assigns the consultant to it.
-        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/from-extension", Case.mkt(200, "MARKETER_JOB_CAPTURE", w -> "{\"jobUrl\":\"https://boards.example.com/jobs/" + w.p + "-1\",\"title\":\"Hijack capture\",\"company\":\"Hijack Co\",\"atsPlatform\":\"greenhouse\",\"externalJobId\":\"" + w.p + "1\",\"consultantIds\":[" + w.consultantProfileId + "],\"keyInfo\":\"Lead with the integration work.\",\"extensionVersion\":\"1.0.0\"}", World::approveResume)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/job", Case.mkt(201, "MARKETER_JOB_CREATE", w -> "{\"title\":\"Hijack hand job\",\"company\":\"Hijack Co\",\"location\":\"Austin, TX\",\"workMode\":\"REMOTE\",\"description\":\"Entered by hand.\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/from-extension",Case.mkt(200, "MARKETER_JOB_CAPTURE", w -> "{\"jobUrl\":\"https://boards.example.com/jobs/" + w.p + "-1\",\"title\":\"Hijack capture\",\"company\":\"Hijack Co\",\"atsPlatform\":\"greenhouse\",\"externalJobId\":\"" + w.p + "1\",\"consultantIds\":[" + w.consultantProfileId + "],\"keyInfo\":\"Lead with the integration work.\",\"extensionVersion\":\"1.0.0\"}", World::approveResume)),
         Map.entry("GET /api/orgs/{orgId}/mkt/interviews", Case.mktRead()),
         Map.entry("GET /api/orgs/{orgId}/mkt/interviews/{interviewId}/prep", Case.mktRead()),
         // Ticking a prep item is the checklist's own working state (the item row carries who and when); it writes no audit row by design.
@@ -1511,7 +1512,7 @@ class OrgIsolationIT {
         if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members") || route.key().equals("POST /api/orgs/{orgId}/resumes") || route.key().equals("POST /api/orgs/{orgId}/resumes/bulk")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension") || route.pattern().endsWith("/opportunities/job"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {

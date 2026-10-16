@@ -46,6 +46,16 @@ public class JobDataLedger {
         return e;
     }
 
+    /** The CAPTURED row of a job a marketer typed in by hand (the actor is the member, not the extension): saved in the job's own insert transaction. */
+    public JobDataEvent enteredByHandEvent(ClientRequirement job, Long actorMemberId, String requestId, Collection<String> fieldNames) {
+        JobDataEvent e = base(job.getOrgId(), job.getId(), JobDataEvent.CAPTURED, actorMemberId, JobDataEvent.ACTOR_MEMBER);
+        e.setDetailLevelAfter(job.getDetailLevel());
+        e.setFields(join(fieldNames));
+        e.setSourceRef(cut(job.getJobUrl(), SOURCE_REF_MAX));
+        e.setRequestId(cut(requestId, 64));
+        return e;
+    }
+
     /** A consultant was put in front of the job (or put back after a decline, a close or a dismissal): {@code consultantId} is an id, not a name. */
     public JobDataEvent assigned(Long orgId, Long jobId, Long actorMemberId, Long consultantId, boolean again) {
         JobDataEvent e = base(orgId, jobId, JobDataEvent.ASSIGNED, actorMemberId, JobDataEvent.ACTOR_MEMBER);
