@@ -514,7 +514,8 @@ describe("the role editor", () => {
     expect(document.querySelector("[data-role-stale]")).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Reload/ }));
     await waitFor(() => expect(document.querySelector("[data-role-stale]")).toBeNull());
-    expect(scopeButton("reports.view", "Team").getAttribute("aria-checked")).toBe("true");
+    // the reload re-fetches the role, so its permission rows are briefly gone: wait for them, then for the saved scope
+    await waitFor(() => expect(scopeButton("reports.view", "Team").getAttribute("aria-checked")).toBe("true"));
   });
 
   it("shows the diff chip, expands the differences, and restores to the template after a diff-first confirm", async () => {
