@@ -24,6 +24,8 @@ export default defineConfig({
   use: {
     baseURL: `http://acme.localhost:${port}`,
     trace: "off",
+    actionTimeout: 20_000, // a missing control fails the take in 20 s instead of hanging for the whole test timeout
+    navigationTimeout: 60_000,
     screenshot: "only-on-failure",
     video: "off", // the flow fixture records its own context
     viewport: { width: 1440, height: 900 },

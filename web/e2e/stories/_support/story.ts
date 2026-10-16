@@ -108,6 +108,7 @@ export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session>; flo
       const page = await context.newPage();
       startNarration(page, t0);
       const f = new Flow(page, context);
+      if (process.env.STORY_LOG_ERRORS) page.on("response", (r) => { if (r.status() >= 400 && !/favicon|_next\/image/.test(r.url())) console.log(`[http ${r.status()}] ${r.request().method()} ${new URL(r.url()).pathname}`); });
       if (opts?.who) await f.signInAs(opts.who);
       return f;
     });
@@ -140,6 +141,14 @@ export class Flow {
   /** Open a path on the current person's tenant host. */
   async go(path: string) {
     await this.page.goto(`${hostOf(this.persona)}${path}`);
+    // A cold API can miss the first workspace call; the page then offers "Try again". A person would press it, so do the same (at most twice).
+    for (let i = 0; i < 2; i++) {
+      const retry = this.page.getByRole("button", { name: "Try again" });
+      if (!(await retry.isVisible().catch(() => false))) break;
+      console.log("[flow] workspace load failed on " + path + ": pressing Try again");
+      await retry.click();
+      await this.page.waitForTimeout(1500);
+    }
   }
 
   /** Full-screen title card (flow name, roles) with an intro voice line; stays at least `minMs`. */
