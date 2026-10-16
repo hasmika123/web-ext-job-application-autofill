@@ -29,7 +29,7 @@
 | K1.3 | product_price + catalog_publish/change + CatalogService | Completed | API | 1030e53e | CatalogResourceIT (10) | supersedes B1.1/A3.1 table half; no Stripe object until K1.5 (PriceStripeSync seam); future-dated publish via CatalogActivationJob |
 | K1.4 | Seed individual services (no prices) + FeatureKeys test | Completed | API | 5dc1f895 | FeatureKeyRegistryTest (6), CatalogSeedIT (5) | dependency graph + limits + presets seeded here, not in K1.2 |
 | K1.5 | Stripe product/price at publish + CatalogReconcileJob | Completed | API | 1b52a491 | CatalogStripePublisherTest (6), CatalogReconcilerTest (5), StripeGatewayListPricesTest (3) | silent with a blank key (P-02); wiring b2805aa7: AdminCatalogMarginResourceIT (5) |
-| K1.6 | Re-home hard-coded config | Not Started | API | | | last in S2 |
+| K1.6 | Re-home hard-coded config | Code Complete | API | 9cd1587b | ConfigRehomeIT (2), AiBudgetServiceTest + ProfileService tests unchanged | CatalogDefaults; legacy values stay the fallback until PRO v1 is published; MRR from catalog rows not the invoice mirror (F-7) |
 | K2.1 | plan tables + seeds + subscription backfill | Completed | API | 1fbb1dde | PlanSeedTest (6), PlanSeedIT (6), SubscriptionBackfillIT (3), LegacyReadersUnchangedIT (3), BillingResourceIT/BillingWebhookIT/EntitlementServiceTest unchanged | no price rows: only FREE v1 PUBLISHED (B-01); backfill non-strict by default (B-02) |
 | K2.2 | PlanService invariants + publish | Completed | API | 304b3c78 | PlanPublishIT (23), PlanPublishStripeIT (4), PlanSnapshotTest (4) | integrity job skips seed snapshots (P-16) |
 | K2.3 | PlanPreviewDTO | Completed | API | 80211c4e | PlanPreviewIT (6) | roster G1 = 7992 |
@@ -59,7 +59,7 @@
 | K5.3 | Checkout from a quote | Completed | API, Web | 89d17949 (API), a1b23010 (web) | AddonCheckoutIT (7), BillingResourceIT unchanged (13), ReviewSheet.test (2), CatalogPricing.test review-sheet cases | web half: review sheet, success page with add-ons, /billing/cancelled (set STRIPE_CANCEL_URL to it; the default /pricing still works) |
 | K5.4 | Change flow + applier + retry | Completed | API | 8baf7871 | AddonChangeIT (10) | retry job + settle; undo is Stripe-first (P-3) |
 | K5.5 | My plan page | Completed | Web | b0f2197e, 657c2aa7 | MyPlan.test (8), plan-state.test (7) | /settings/plan; sunset banner renders only if GET /api/billing/me sends `sunset` (it does not yet) |
-| K5.6 | Plan / interval switch | In Progress | API, Web | b0f2197e (web) | MyPlan.test switch cases | web half done (interval tabs, switch sheet, S-04 sentences) and mocked in web/scripts/mock-billing.mjs; API half NOT built: a CHANGE quote with another planKey or interval answers 422 PLAN_SWITCH_UNSUPPORTED (PersonalQuoteService.resolveChange), the page explains it |
+| K5.6 | Plan / interval switch | Code Complete | API, Web | 68e27306 (API), b0f2197e (web) | SwitchRulesTest (6), SubscriptionSwitchIT (13: upgrade, downgrade, interval, fallback, landing, cancel wins, undo) | PLAN_SWITCH_UNSUPPORTED removed; DTO unchanged so web/BFF untouched; F-1..F-6 in decisions-for-user.md |
 | K5.7 | PlanDTO v3, invoices, entitlements/me | Completed | API | c5051619 | PersonalEntitlementsIT (3), PersonalInvoiceServiceTest (4), LegacyReadersUnchangedIT (3, six-key compare) | source of entitlements/me is provisional until K7.1; invoices read the mirror port (K8.3) else Stripe |
 | K5.8 | Playwright pricing-addons + lint | Not Started | Web | | | |
 | K6.1 | Enterprise links + org plan read | Not Started | API | | | waits on X5.4/X6.12 |
@@ -73,7 +73,7 @@
 | K7.3 | Migrate 14 call sites | Completed | API | c0da177c | AtsScoreServiceTest, InboxServiceTest, InboxServiceViaOrgTest, InboxEntitlementTest (stub renames only), BillingResourceIT, BillingWebhookIT | @RequiresFeature/AuthzCoverageTest not built (R-2) |
 | K7.4 | features[] on /version + extension | Completed | API, Ext | e01e0677 | ProfileVersionWorkspacesTest (8), ProfileResourceIT (11), OpenApiContractIT | API half only; extension half open |
 | K7.5 | Personal usage ledger | Completed | API | 97117c49 | UsageLedgerPersonalTest (8), AllowanceResolverTest (4), UsageSweeperJobTest (1) | no caller reserves yet (R-7) |
-| K7.6 | PLAN_REQUIRED upgrade object + UpgradeSheet | Not Started | API, Web | | | |
+| K7.6 | PLAN_REQUIRED upgrade object + UpgradeSheet | Code Complete | API, Web, Ext | 60a4f4eb | UpgradeAdvisorTest (5), UpgradeSheet.test (4), tracking.test (extension) | upgrade block on 402 bodies; UpgradeSheet + cap dialog + extension resume CTA; other upsells not wired (F-8) |
 | K7.7 | Regression gate | Completed | API | 6df1b6ae | ShadowCompareTest (2), PlanResolverTest no-leak test, LegacyReadersUnchangedIT (3) | flip checklist in README; IT form of E13/E14 waits on K5.2 (R-8) |
 | K8.1 | Webhook scope router | Completed | API | 5840f3f6 | BillingScopeRouterTest (5), BillingWebhookIT unchanged (17) | account-kind guards + webhook routing; UserBillingHandler moved unchanged; OrgBillingWebhookHandler no-op seam; stripe_event.scope/org_id (replayed_* deferred to K8.5) |
 | K8.2 | StripeGateway growth | Completed | API | ea3e4762 | StripeGatewayImplTest (12), StripeWebhookEventParseTest (4) | shared with X6.6: org-only methods (createOrgCustomer, coupons, createInvoiceForPrices, refunds) still X6.6 |
@@ -83,11 +83,11 @@
 | K8.6 | FakeStripeGateway harness + runbook P | Not Started | API | | | human step: test clocks |
 | K8.7 | Billing-disabled parity | Not Started | API, Web | | | |
 | K9.1 | YEAR rows + guard + golden S2/S3 | Completed | API | da26e84c, 304b3c78 | AnnualPriceDeriverTest (5), PlanPublishIT yearly cases | derived rows at plan publish under the guard |
-| K9.2 | Annual proration / term rules (personal) | Not Started | API | | | phase S3 |
+| K9.2 | Annual proration / term rules (personal) | Code Complete | API | 68e27306 | SwitchRulesTest annual rows, SubscriptionSwitchIT annual cases | proration on the annual unit; term-end rules; org appliers are K9.5 |
 | K9.3 | Monthly sub-windows on annual | Not Started | API | | | phase S2 |
 | K9.4 | Annual customer UX | Completed | Web | a6b8c161, 657c2aa7 | CatalogPricing.test (yearly tab, hide when off), ReviewSheet.test (yearly variant), MyPlan.test (interval sentence) | Yearly tab, "billed once a year / about x per month / save y" from DTO fields, S-04 term-end sentences; Playwright fixtures: MOCK_ANNUAL=0 toggles the mock |
 | K9.5 | Org annual | Not Started | API, Web | | | phase S5 |
-| K9.6 | Annual operations runbook + self-check | Not Started | API | | | phase S3; S-09 tax mode |
+| K9.6 | Annual operations runbook + self-check | Code Complete | API | 2e5b0b7e (runbook), 68e27306 (self-check) | BillingSelfCheckTest (3) | billing.tax.mode records S-09; the check warns, it does not refuse (F-9) |
 | K10.1 | Retirement model + states + effective dates | Not Started | API | | | |
 | K10.2 | SuccessorAdvisor | Not Started | API | | | |
 | K10.3 | Notice schedule + copy | Not Started | API | | | |
@@ -101,6 +101,7 @@
 | K10.11 | Retirement regression gate | Not Started | API, Web | | | |
 
 ## Log
+- 2026-10-16 - sub-fin-billing: decisions W-4, P-15, W-6, R-1, B-01 applied; K1.6, K7.6, K5.6 (API), K9.2, K9.6 built; open items F-1..F-9 in decisions-for-user.md. Statuses are Code Complete: the final locked batch (OpenApiContractIT, LiquibaseAdditiveTest, TechnicalStructureTest, full unit task, web vitest) waits for the coordinator go; roadmap --set done follows it.
 - 2026-10-16 - sub-web-admin: K4.1 to K4.7 built on branch sub-web-admin (plans list, editor, preview, publish, compare, org editor, mock + journey); API gaps W-1 to W-13 in decisions-for-user.md.
 - 2026-10-15 — Fable: design complete (`docs/subscriptions/01`–`11`, `decisions-for-user.md`); area `sub` (prefix K, 67 stories) added to the master roadmap; nothing built.
 - 2026-10-15 — Fable: user decisions applied — S-01 annual ON (K9 into phases S2/S3/S5), S-03 no existing subscribers (K8.4 no-data migration, K2.4 primitive FUTURE, shadow gate test-based), S-20 retire-to-Free default (K10.1/K10.9). `CLAUDE.md` amendment left for the user's session.
