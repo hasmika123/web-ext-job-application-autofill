@@ -351,6 +351,8 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/express-interest", Case.consultantWrite("{\"note\":\"Hijacked interest\"}", 200)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/need-more-info", Case.consultantWrite("{\"message\":\"Hijacked question\"}", 200)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/decline", Case.consultantWrite("{\"reason\":\"Hijacked decline\"}", 200)),
+        // MKT-24 "I applied": records the pipeline state through the consultant gate, which needs flag.enterprise.consultant_jobs (off in this world), so every caller gets the generic 404; the behaviour is in OpportunitiesResourceIT.
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/applied", Case.denied(null)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/reopen", new Case(null, 200, null, false, null, null, 1, w -> { w.makeOwnerAConsultant(); w.declineAssignedOpportunity(); })),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/opportunities/{matchId}/request-resume-update", Case.consultantWrite("{\"note\":\"Hijacked update\"}", 200)),
         // The last eight consultant pages. {id} means the task / calendar entry / offer / notification by route prefix (see uri()).

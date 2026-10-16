@@ -16,7 +16,7 @@ public final class OpportunitiesDTO {
     /**
      * One assigned opportunity. {@code status} is NEW, AWAITING_RESPONSE, IN_REVIEW or DECLINED. {@code priority} is HIGH, MEDIUM or LOW;
      * {@code priorityDerived} says it came from the match score (no marketer input stored) and {@code dueDerived} that the due date is the
-     * assignment date plus 14 days. {@code sourceUrl} (https only, or null), {@code sourceName} and {@code quickInfo} are the marketer's entries (Kiwiply holds no full posting); {@code sourceSample} marks demo stand-in rows. {@code daysLeft} is whole days from today (UTC) to the due date; negative = overdue.
+     * assignment date plus 14 days. {@code sourceUrl} (https only, or null), {@code sourceName} and {@code quickInfo} are the marketer's entries (Kiwiply holds no full posting); {@code sourceSample} marks demo stand-in rows. {@code appliedAt} is set once the consultant pressed "I applied" (null = not). {@code daysLeft} is whole days from today (UTC) to the due date; negative = overdue.
      */
     public record Row(
         long matchId,
@@ -40,7 +40,8 @@ public final class OpportunitiesDTO {
         String sourceUrl,
         String sourceName,
         String quickInfo,
-        boolean sourceSample
+        boolean sourceSample,
+        Instant appliedAt
     ) {}
 
     /** What the right rail's "Recommended Next Steps" are derived from. */
@@ -84,4 +85,7 @@ public final class OpportunitiesDTO {
 
     /** What a write did. {@code status} is the row's status afterwards. */
     public record Outcome(long matchId, String status, boolean interestSent, Instant interestSentAt, boolean resumeUpdateRequested) {}
+
+    /** What "I applied" did: the pipeline state afterwards (APPLIED) and when. */
+    public record Applied(long matchId, String state, Instant appliedAt) {}
 }

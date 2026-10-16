@@ -7,7 +7,7 @@ import { forward, readObject } from "@/lib/admin-proxy";
 const isId = (v: string): boolean => /^\d{1,18}$/.test(v);
 const notFound = () => Response.json({ error: "Not found." }, { status: 404 });
 
-export const ACTIONS: readonly string[] = ["express-interest", "need-more-info", "decline", "reopen", "request-resume-update"];
+export const ACTIONS: readonly string[] = ["express-interest", "need-more-info", "decline", "reopen", "request-resume-update", "applied"];
 
 export async function opportunitiesCall(
   params: Promise<{ orgId: string; matchId?: string; action?: string }>,

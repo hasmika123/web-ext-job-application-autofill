@@ -36,6 +36,8 @@ export interface OppRow extends JobSource {
   missingSkills: number;
   interestSent: boolean;
   assignedAt: string | null;
+  /** Set once the consultant pressed "I applied" (MKT-24); null = not yet. */
+  appliedAt: string | null;
 }
 
 export interface NextSteps {
@@ -119,6 +121,7 @@ export function parseRow(o: unknown): OppRow | null {
     missingSkills: Math.max(0, num(o.missingSkills)),
     interestSent: o.interestSent === true,
     assignedAt: strOrNull(o.assignedAt),
+    appliedAt: strOrNull(o.appliedAt),
     ...parseJobSource(o),
   };
 }
@@ -207,6 +210,9 @@ export const dueUrgent = (r: Pick<OppRow, "daysLeft" | "status">): boolean => r.
 
 /** Opportunities the quick actions can act on: a declined one only offers reopen. */
 export const canRespond = (r: Pick<OppRow, "status">): boolean => r.status !== "DECLINED";
+
+/** "I applied" is offered while the opportunity is open and not yet marked applied. */
+export const canMarkApplied = (r: Pick<OppRow, "status" | "appliedAt">): boolean => canRespond(r) && !r.appliedAt;
 
 /** The row the quick actions act on: the picked one while it exists, else the first row. */
 export function actionTarget(rows: OppRow[], picked: number | null): OppRow | null {
@@ -307,4 +313,6 @@ export const expressInterest = (orgId: number, matchId: number, note?: string) =
 export const needMoreInfo = (orgId: number, matchId: number, message: string) => write(`${base(orgId)}/${matchId}/need-more-info`, { message });
 export const decline = (orgId: number, matchId: number, reason: string) => write(`${base(orgId)}/${matchId}/decline`, { reason });
 export const reopen = (orgId: number, matchId: number) => write(`${base(orgId)}/${matchId}/reopen`);
+/** "I applied": the consultant applied themselves on the source site. Only records it for the marketer; Kiwiply never applies or submits. Idempotent. */
+export const markApplied = (orgId: number, matchId: number) => write(`${base(orgId)}/${matchId}/applied`);
 export const requestResumeUpdate = (orgId: number, matchId: number, note?: string) => write(`${base(orgId)}/${matchId}/request-resume-update`, note ? { note } : {});

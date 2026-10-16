@@ -3,6 +3,7 @@ package com.dossier.api.service.ent.consultantws;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.ent.consultantws.CwsMatchInterest;
 import com.dossier.api.domain.ent.consultantws.CwsOpportunityResponse;
+import com.dossier.api.domain.ent.mkt.MktOpportunity;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
@@ -15,6 +16,7 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.ent.OrgMemberDirectoryRepository;
 import com.dossier.api.repository.ent.consultantws.CwsMatchInterestRepository;
 import com.dossier.api.repository.ent.consultantws.CwsOpportunityResponseRepository;
+import com.dossier.api.repository.ent.mkt.MktOpportunityRepository;
 import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
@@ -92,6 +94,7 @@ public class OpportunitiesService {
     private final UserRepository users;
     private final TalentInterviewRepository interviews;
     private final ConsultantWsJobSourceReader sources;
+    private final MktOpportunityRepository opportunities;
     private final Clock clock;
 
     @Autowired
@@ -109,9 +112,10 @@ public class OpportunitiesService {
         OrgMemberDirectoryRepository memberDirectory,
         UserRepository users,
         TalentInterviewRepository interviews,
-        ConsultantWsJobSourceReader sources
+        ConsultantWsJobSourceReader sources,
+        MktOpportunityRepository opportunities
     ) {
-        this(gate, authorization, matches, requirements, clients, requirementSkills, consultantSkills, responses, interests, assignments, memberDirectory, users, interviews, sources, Clock.systemUTC());
+        this(gate, authorization, matches, requirements, clients, requirementSkills, consultantSkills, responses, interests, assignments, memberDirectory, users, interviews, sources, opportunities, Clock.systemUTC());
     }
 
     OpportunitiesService(
@@ -129,6 +133,7 @@ public class OpportunitiesService {
         UserRepository users,
         TalentInterviewRepository interviews,
         ConsultantWsJobSourceReader sources,
+        MktOpportunityRepository opportunities,
         Clock clock
     ) {
         this.gate = gate;
@@ -145,6 +150,7 @@ public class OpportunitiesService {
         this.users = users;
         this.interviews = interviews;
         this.sources = sources;
+        this.opportunities = opportunities;
         this.clock = clock;
     }
 
@@ -470,6 +476,7 @@ public class OpportunitiesService {
         final Map<Long, CwsOpportunityResponse> responseByReq;
         final Set<Long> interestReqs;
         final Map<Long, ConsultantWsJobSourceReader.Info> sourceInfo;
+        final Map<Long, Instant> appliedByMatch;
         final Map<Long, String> marketerNames;
         final String assignmentMarketer;
 
@@ -482,6 +489,12 @@ public class OpportunitiesService {
             sourceInfo = reqs.isEmpty() ? Map.of() : sources.load(org, reqs.keySet());
             responseByReq = responses.findByOrgIdAndConsultantId(org, c.getId()).stream().collect(Collectors.toMap(CwsOpportunityResponse::getRequirementId, Function.identity(), (a, b) -> a));
             interestReqs = interests.findByOrgIdAndConsultantId(org, c.getId()).stream().map(CwsMatchInterest::getRequirementId).collect(Collectors.toSet());
+
+            // MKT-24: matches the consultant said they applied to (the pipeline overlay's APPLIED state)
+            List<Long> matchIds = list.stream().map(RequirementMatch::getId).toList();
+            appliedByMatch = matchIds.isEmpty() ? Map.of() : opportunities.findByOrgIdAndMatchIdIn(org, matchIds).stream()
+                .filter(o -> "APPLIED".equals(o.getState()))
+                .collect(Collectors.toMap(MktOpportunity::getMatchId, o -> o.getAppliedAt() != null ? o.getAppliedAt() : o.getUpdatedAt(), (a, b) -> a));
 
             // the marketer: who assigned the match (a person of this organization), else the consultant's ACTIVE marketer assignment
             Optional<MarketerAssignment> assignment = assignments.findByOrgIdAndConsultantId(org, c.getId()).filter(a -> "ACTIVE".equals(a.getStatus()));
@@ -538,7 +551,7 @@ public class OpportunitiesService {
             m.getId(), r.getId(), r.getTitle(), skills.stream().map(RequirementSkill::getSkill).limit(3).toList(), cl == null ? null : cl.getName(),
             r.getLocation(), r.getWorkMode(), marketer, resp.map(CwsOpportunityResponse::getStatus).orElse(CwsOpportunityResponse.NEW), priority, priorityDerived,
             due, dueDerived, (int) ChronoUnit.DAYS.between(today, due), score, missing, ctx.interestReqs.contains(r.getId()), assignedAt,
-            src.sourceUrl(), src.sourceName(), src.quickInfo(), src.sample()
+            src.sourceUrl(), src.sourceName(), src.quickInfo(), src.sample(), ctx.appliedByMatch.get(m.getId())
         );
     }
 }

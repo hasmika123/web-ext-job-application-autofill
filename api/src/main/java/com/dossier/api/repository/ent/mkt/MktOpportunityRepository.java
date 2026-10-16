@@ -35,6 +35,8 @@ public interface MktOpportunityRepository extends Repository<MktOpportunity, Lon
 
     Optional<MktOpportunity> findByOrgIdAndMatchId(Long orgId, Long matchId);
 
+    List<MktOpportunity> findByOrgIdAndMatchIdIn(Long orgId, java.util.Collection<Long> matchIds);
+
     List<MktOpportunity> findByOrgId(Long orgId);
 
     long countByOrgId(Long orgId);
