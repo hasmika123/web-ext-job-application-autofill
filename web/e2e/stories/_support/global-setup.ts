@@ -1,5 +1,5 @@
 import { chromium, type FullConfig, type Page } from "@playwright/test";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { PERSONAS, hostOf, type Persona } from "./personas";
 
@@ -25,6 +25,8 @@ async function signInWithPassword(page: Page, p: Persona) {
  * Sign every persona in once (the demo-account list is rate-limited) and keep each browser state for the stories.
  * STORY_PERSONAS=anika,omar limits the run to those people (the web login rate limit is 10 per 5 minutes per IP).
  * Password personas (Gamma) are only signed in when GAMMA_DEMO_PASSWORD is set.
+ * STORY_REUSE_SIGNIN_MIN=8 keeps a sign-in younger than 8 minutes instead of signing in again (re-running one area right after another
+ * would otherwise trip the web login limit); older than the access token's life, a cached sign-in would need a refresh, so keep it short.
  */
 export default async function globalSetup(_config: FullConfig) {
   mkdirSync(AUTH_DIR, { recursive: true });
@@ -32,6 +34,8 @@ export default async function globalSetup(_config: FullConfig) {
   const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || undefined });
   for (const p of Object.values(PERSONAS) as Persona[]) {
     if (only.length ? !only.includes(p.key) : p.signIn === "password" && !process.env.GAMMA_DEMO_PASSWORD) continue;
+    const reuseMin = Number(process.env.STORY_REUSE_SIGNIN_MIN ?? 0);
+    if (reuseMin > 0 && existsSync(statePath(p.key)) && Date.now() - statSync(statePath(p.key)).mtimeMs < reuseMin * 60_000) continue;
     const ctx = await browser.newContext();
     const page = await ctx.newPage();
     try {
