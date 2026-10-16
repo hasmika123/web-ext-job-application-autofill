@@ -451,7 +451,8 @@ public class MktOpportunitiesService {
 
     /** The row, or the generic 404 (missing, another tenant's, a consultant outside the caller's scope, or no longer open). */
     private Row require(MktScope.View view, Long id, Instant now) {
-        MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
+        // a match committed by the assignment service's own transaction (Add opportunity) is not in this transaction's snapshot: read it fresh before giving up
+        MktOpportunityRow raw = repo.findRow(view.orgId(), id).or(() -> assignment.readRowFresh(view.orgId(), id)).orElseThrow(OrgNotFoundException::new);
         scope.require(view, raw.consultantId());
         Row row = enrich(raw, resumeInfo(view.orgId(), now), now);
         if (!row.open()) throw new OrgNotFoundException();
