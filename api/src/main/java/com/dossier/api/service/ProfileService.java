@@ -1,6 +1,7 @@
 package com.dossier.api.service;
 
 import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.StorageKeys;
 import com.dossier.api.service.storage.StoredFileEraser;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
@@ -277,10 +278,8 @@ public class ProfileService {
             resume.setStatus(ResumeStatus.NEEDS_REVIEW);
         }
         // The file is uploaded separately (see ResumeFileResource); until then the
-        // object key is empty (the column is non-null).
-        if (resume.getr2ObjectKey() == null) {
-            resume.setr2ObjectKey("");
-        }
+        // object key is empty (the column is non-null). The key is server-assigned only: whatever a client sent is dropped.
+        resume.setr2ObjectKey("");
         // Default/base resume: the user's FIRST resume auto-becomes the default; an explicit
         // request also wins. Either way, unset any prior default first (at most one per user).
         boolean firstResume = resumeRepository.findByUserIsCurrentUser().isEmpty();
@@ -413,9 +412,11 @@ public class ProfileService {
         if (dto.getStatus() != null) {
             resume.setStatus(dto.getStatus());
         }
-        // Only overwrite the stored-file pointer when the client actually sends one.
-        if (dto.getr2ObjectKey() != null) {
-            resume.setr2ObjectKey(dto.getr2ObjectKey());
+        // The stored-file pointer is SERVER-assigned (ResumeFileResource and the PDF job write it, under the owner's own prefix): a client-sent
+        // r2ObjectKey is ignored here, otherwise a caller could point their resume at somebody else's object and read or delete it.
+        // An organization's directory row owns the archive and primary state of a linked resume (409 MANAGED_BY_ORGANIZATION); a no-op for a personal request.
+        if (orgResumePolicy != null && (Boolean.TRUE.equals(dto.getArchived()) || Boolean.TRUE.equals(dto.getDefaultResume()))) {
+            orgResumePolicy.requireNotOrganizationManaged(id);
         }
         if (dto.getArchived() != null) {
             resume.setArchived(dto.getArchived());
@@ -465,7 +466,7 @@ public class ProfileService {
                 ". Archive it instead of deleting so those applications keep their resume."
             );
         }
-        String key = resume.getr2ObjectKey();
+        String key = StorageKeys.isResumeKey(resume.getUser().getId(), id, resume.getr2ObjectKey()) ? resume.getr2ObjectKey() : null; // never delete an object that is not this resume's own
         Long userId = resume.getUser().getId();
         // Tailored copies of this master are cut loose first (DESIGN 8.9): each keeps its content and becomes a master.
         resumeLineageService.detachChildren(id, userId, currentUser().getLogin());

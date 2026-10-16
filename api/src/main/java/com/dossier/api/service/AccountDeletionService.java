@@ -190,7 +190,7 @@ public class AccountDeletionService {
         List<Resume> resumes = resumeRepository.findByUserIsCurrentUser();
         for (Resume resume : resumes) {
             String key = resume.getr2ObjectKey();
-            if (key != null && !key.isBlank()) {
+            if (key != null && !key.isBlank() && com.dossier.api.service.storage.StorageKeys.isUserKey(resume.getUser() == null ? null : resume.getUser().getId(), key)) { // never delete an object outside this account's own prefixes
                 storageService.delete(key);
             }
         }
@@ -247,7 +247,7 @@ public class AccountDeletionService {
         List<Resume> resumes = resumeRepository.findByUserId(userId);
         for (Resume resume : resumes) {
             String key = resume.getr2ObjectKey();
-            if (key != null && !key.isBlank()) {
+            if (key != null && !key.isBlank() && com.dossier.api.service.storage.StorageKeys.isUserKey(resume.getUser() == null ? null : resume.getUser().getId(), key)) { // never delete an object outside this account's own prefixes
                 storageService.delete(key);
             }
         }

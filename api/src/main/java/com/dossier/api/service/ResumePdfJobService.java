@@ -178,7 +178,7 @@ public class ResumePdfJobService {
             if (docs.markReady(resumeId, row.getDocVersion(), renderHash, Instant.now()) == 1) {
                 resumes.updateObjectKey(resumeId, newKey);
                 String old = row.getR2ObjectKey();
-                if (old != null && !old.isBlank() && !old.equals(newKey)) deleteQuietly(old);
+                if (old != null && !old.isBlank() && !old.equals(newKey) && StorageKeys.isResumeKey(row.getUserId(), resumeId, old)) deleteQuietly(old); // never delete a foreign object
                 ready.increment();
                 if (row.getPdfRequestedAt() != null) latency.record(Duration.between(row.getPdfRequestedAt(), Instant.now()));
                 LOG.info("pdf-job {} stored pages={} fits={} bytes={}", resumeId, pages, fits, bytes.length);

@@ -25,6 +25,7 @@ import com.dossier.api.service.resume.OrgResumeSharing;
 import com.dossier.api.service.resume.ResumePdfState;
 import com.dossier.api.service.resume.ResumePublicView;
 import com.dossier.api.service.storage.FileStorage;
+import com.dossier.api.service.storage.StorageKeys;
 import com.dossier.api.service.storage.FileStorage.StoredFile;
 import com.dossier.api.service.storage.StorageObjectNotFoundException;
 import java.security.SecureRandom;
@@ -525,7 +526,7 @@ public class ResumeAccessService {
     private PdfFile currentPdf(Resume resume) {
         ResumeDoc doc = resumeDocRepository.findById(resume.getId()).orElseThrow(ResumeAccessService::notFound);
         String key = resume.getr2ObjectKey();
-        if (!isPdfCurrent(doc) || key == null || key.isBlank()) throw ResumeAccessException.pdfNotReady();
+        if (!isPdfCurrent(doc) || key == null || key.isBlank() || !StorageKeys.isResumeKey(resume.getUser() == null ? null : resume.getUser().getId(), resume.getId(), key)) throw ResumeAccessException.pdfNotReady();
         try {
             return new PdfFile(storage.load(key), resume.getLabel());
         } catch (StorageObjectNotFoundException e) {

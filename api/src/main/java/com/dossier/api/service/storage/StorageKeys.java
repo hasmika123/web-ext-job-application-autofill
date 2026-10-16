@@ -44,6 +44,30 @@ public final class StorageKeys {
         return RESUME_SCOPED.stream().map(p -> p + "/" + userId + "/" + resumeId + "-").toList();
     }
 
+    /**
+     * Whether {@code key} is one of THIS resume's own objects: it starts with {@code <prefix>/<ownerId>/<resumeId>-} for a resume-scoped prefix and
+     * carries no path tricks. The one check every loader or deleter of a key read from the database makes before touching the blob store, so a key
+     * that names somebody else's object (a stray row, a hostile write that slipped past an earlier check) is never followed.
+     */
+    public static boolean isResumeKey(Long ownerId, Long resumeId, String key) {
+        if (ownerId == null || resumeId == null || key == null || key.isBlank() || hasPathTricks(key)) return false;
+        for (String prefix : resumePrefixes(ownerId, resumeId)) if (key.startsWith(prefix)) return true;
+        return false;
+    }
+
+    /** Whether {@code key} lies under one of {@code ownerId}'s own prefixes (account and bulk erasure, where the resume id is not the point). */
+    public static boolean isUserKey(Long ownerId, String key) {
+        if (ownerId == null || key == null || key.isBlank() || hasPathTricks(key)) return false;
+        for (String prefix : userPrefixes(ownerId)) if (key.startsWith(prefix)) return true;
+        return false;
+    }
+
+    private static boolean hasPathTricks(String key) {
+        if (key.contains("\\") || key.startsWith("/")) return true;
+        for (String segment : key.split("/", -1)) if (segment.isEmpty() || segment.equals(".") || segment.equals("..")) return true;
+        return false;
+    }
+
     static String objectKeyFor(String prefix, Long userId, Long entityId, String fileName) {
         // <prefix>/<userId>/<entityId>-<uuid>-<filename> — namespaced per user, unique.
         return (

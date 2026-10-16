@@ -87,4 +87,37 @@ class StorageKeysTest {
         for (List<String> l : lists) all.addAll(l);
         return all;
     }
+    @Test
+    void aKeyIsTheResumesOwnOnlyUnderItsOwnersAndItsOwnPrefixWithNoPathTricks() {
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resumes/42/7-aaa-cv.pdf")).isTrue();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resume-originals/42/7-bbb-original.docx")).isTrue();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resume-photos/42/7-ccc-photo.jpg")).isTrue();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resume-thumbs/42/7-" + "a".repeat(64) + ".png")).isTrue();
+        // another owner, another resume (7 vs 70), another kind of object, no key at all
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resumes/43/7-aaa-cv.pdf")).isFalse();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resumes/42/70-aaa-cv.pdf")).isFalse();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "application-attachments/42/7-aaa-x.pdf")).isFalse();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resumes/4/27-aaa-cv.pdf")).isFalse();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "")).isFalse();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, null)).isFalse();
+        assertThat(StorageKeys.isResumeKey(null, 7L, "resumes/42/7-aaa-cv.pdf")).isFalse();
+        assertThat(StorageKeys.isResumeKey(42L, null, "resumes/42/7-aaa-cv.pdf")).isFalse();
+        // traversal out of the prefix
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resumes/42/7-aaa/../../43/7-aaa-cv.pdf")).isFalse();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resumes/42/7-a\\..\\b.pdf")).isFalse();
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "/resumes/42/7-aaa-cv.pdf")).isFalse();
+        // two dots inside a file name are fine (they are not a path segment)
+        assertThat(StorageKeys.isResumeKey(42L, 7L, "resumes/42/7-aaa-my..cv.pdf")).isTrue();
+    }
+
+    @Test
+    void aUserKeyIsAnyObjectUnderOneOfTheUsersOwnPrefixes() {
+        assertThat(StorageKeys.isUserKey(42L, "resumes/42/7-aaa-cv.pdf")).isTrue();
+        assertThat(StorageKeys.isUserKey(42L, "application-attachments/42/9-d-x.pdf")).isTrue();
+        assertThat(StorageKeys.isUserKey(42L, "resumes/43/7-aaa-cv.pdf")).isFalse();
+        assertThat(StorageKeys.isUserKey(42L, "resumes/4/2-aaa-cv.pdf")).isFalse();
+        assertThat(StorageKeys.isUserKey(42L, "resumes/42/../43/7-a.pdf")).isFalse();
+        assertThat(StorageKeys.isUserKey(42L, "k")).isFalse();
+        assertThat(StorageKeys.isUserKey(42L, null)).isFalse();
+    }
 }
