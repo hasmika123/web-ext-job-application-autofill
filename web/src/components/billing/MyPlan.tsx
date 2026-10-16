@@ -7,12 +7,14 @@ import { Button, Card, Skeleton } from "@/components/ui";
 import AddonSteppers, { type AddonRow } from "@/components/billing/AddonSteppers";
 import ImpactPreview from "@/components/billing/ImpactPreview";
 import InvoiceList from "@/components/billing/InvoiceList";
+import LockedServices from "@/components/billing/LockedServices";
 import ManageBillingButton from "@/components/billing/ManageBillingButton";
 import PlanMeters from "@/components/billing/PlanMeters";
 import ResponsiveSheet from "@/components/billing/ResponsiveSheet";
 import { confirmQuote, createQuote, getEntitlements, getInvoices, getMyPlan, getPublicCatalog, newIdempotencyKey, undoChange } from "@/lib/subscription/client";
 import { intervalSuffix, intervalTab, money, problemCopy, shortDate } from "@/lib/subscription/copy";
 import { carryAddons, changeProblemCopy, changeRequest, currentTarget, offerableAddons, pendingFor, sameTarget, type Target } from "@/lib/subscription/plan-state";
+import { COPY } from "@/lib/subscription/retirement";
 import type { EntitlementSet, Interval, Invoice, PendingChange, PlanQuote, PlanV3, PublicCatalog } from "@/lib/subscription/types";
 
 type Phase = "idle" | "loading" | "ready" | "error";
@@ -257,6 +259,7 @@ export default function MyPlan({ initialPlan }: { initialPlan: PlanV3 }) {
             {isPro ? <ManageBillingButton /> : plan.billingEnabled ? <Link href="/pricing" className="inline-flex items-center rounded-full bg-accent px-5 py-[11px] text-sm font-semibold text-on-accent">See plans</Link> : null}
           </div>
         </Card>
+        <LockedServices ent={ent} />
         <p className="text-[12.5px] text-muted">No refunds for partial periods. Cancel any time, one tap.</p>
       </div>
     );
@@ -306,7 +309,16 @@ export default function MyPlan({ initialPlan }: { initialPlan: PlanV3 }) {
 
   return (
     <div className="flex flex-col gap-5" data-testid="my-plan">
-      {plan.sunset ? (
+      {plan.retirement ? (
+        <Card className="border-brown bg-brown-soft" data-testid="retirement-notice">
+          <p className="text-sm text-brown-deep">
+            {COPY.banner(plan.retirement.planName, plan.retirement.effectiveAt)}. You keep everything until then.{" "}
+            <Link href="/settings/plan/changing" className="font-semibold underline">
+              {plan.retirement.decided ? "Review your choice" : COPY.bannerCta}
+            </Link>
+          </p>
+        </Card>
+      ) : plan.sunset ? (
         <Card className="border-brown bg-brown-soft" data-testid="sunset-banner">
           <p className="text-sm text-brown-deep">
             {plan.planName} v{plan.planVersion} is no longer offered. You keep it while you stay subscribed.{" "}
@@ -399,6 +411,8 @@ export default function MyPlan({ initialPlan }: { initialPlan: PlanV3 }) {
           </Card>
         </div>
       </div>
+
+      <LockedServices ent={ent} />
 
       <Card className="flex flex-col gap-3">
         <p className="font-display text-lg font-semibold text-ink">Invoices</p>

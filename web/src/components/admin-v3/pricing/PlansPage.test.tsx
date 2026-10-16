@@ -81,12 +81,17 @@ describe("PlansPage", () => {
     expect(push).toHaveBeenCalledWith("/admin/pricing/plans/PRO/v/2");
   });
 
-  it("keeps Sunset... disabled with its reason on every row", () => {
+  it("enables Retire... on a published plan and opens the wizard; a draft cannot be retired; a retiring plan opens its progress (K10.9)", () => {
     stubViewport(DESKTOP);
     renderPage();
-    const sunset = screen.getAllByRole("button", { name: "Sunset…" });
-    expect(sunset.length).toBeGreaterThanOrEqual(ROWS.length);
-    for (const b of sunset) expect((b as HTMLButtonElement).disabled).toBe(true);
+    const retire = screen.getAllByRole("button", { name: "Retire…" }) as HTMLButtonElement[];
+    // FREE, PRO (published) enabled; PRO_STUDENT (draft) disabled with its reason; ORG_CONSULTANCY is SUNSET -> progress button instead
+    expect(retire.filter((b) => !b.disabled).length).toBeGreaterThanOrEqual(2);
+    expect(retire.filter((b) => b.disabled).every((b) => b.title === "Only a published plan can be retired.")).toBe(true);
+    fireEvent.click(retire.find((b) => !b.disabled)!);
+    expect(push).toHaveBeenCalledWith(expect.stringMatching(/^\/admin\/pricing\/plans\/(FREE|PRO)\/retire$/));
+    fireEvent.click(screen.getAllByRole("button", { name: "Retirement progress" })[0]);
+    expect(push).toHaveBeenCalledWith("/admin/pricing/plans/ORG_CONSULTANCY/retirements");
   });
 
   it("renders cards on a phone with one price line", () => {
