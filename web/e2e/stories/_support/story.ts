@@ -1,10 +1,11 @@
-import { test as base, expect, type BrowserContext, type Page } from "@playwright/test";
+import { test as base, expect, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { statePath } from "./global-setup";
 import { PERSONAS, hostOf, type PersonaKey } from "./personas";
+import { HUMAN, highlight, installHuman } from "./human";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const tts = require("../../../scripts/story-video/tts.cjs") as { spokenMs: (text: string) => number };
+const tts = require("../../../scripts/story-video/tts.cjs") as { spokenMs: (text: string) => number; spokenMsAsync: (text: string) => Promise<number>; VOICE: string };
 
 /**
  * Every story spec imports { test, expect } from here.
@@ -26,7 +27,7 @@ export interface Session {
 const PAUSE = Number(process.env.STORY_PAUSE_MS ?? 900);
 const LOG_FILE = process.env.STORY_NARRATION_LOG || "";
 /** After the voice finishes, wait this long before the next step so a viewer can breathe. */
-const SPEECH_PAD = Number(process.env.STORY_SPEECH_PAD_MS ?? 700);
+const SPEECH_PAD = Number(process.env.STORY_SPEECH_PAD_MS ?? (HUMAN ? 450 : 700));
 /** Playwright starts the screencast a little after the page object exists; the voice is shifted by this much to line up with the captions. */
 const VIDEO_LEAD = Number(process.env.STORY_VIDEO_LEAD_MS ?? -120);
 
@@ -39,7 +40,7 @@ const states = new WeakMap<Page, NarrationState>();
 function writeLog(state: NarrationState, outputDir: string) {
   if (!LOG_FILE) return;
   mkdirSync(dirname(LOG_FILE), { recursive: true });
-  writeFileSync(LOG_FILE, JSON.stringify({ outputDir, voice: process.env.STORY_VOICE || "Microsoft Zira Desktop", entries: state.entries }, null, 1), "utf8");
+  writeFileSync(LOG_FILE, JSON.stringify({ outputDir, voice: tts.VOICE, entries: state.entries }, null, 1), "utf8");
 }
 
 /** Start the narration clock for a page the moment it exists (that is when Playwright starts the video). */
@@ -47,8 +48,8 @@ export function startNarration(page: Page, t0 = Date.now()) {
   if (LOG_FILE) states.set(page, { t0, entries: [] });
 }
 
-export async function narrate(page: Page, text: string, ms = PAUSE) {
-  await page
+function showCaption(page: Page, text: string) {
+  return page
     .evaluate((t) => {
       let el = document.getElementById("__story_caption");
       if (!el) {
@@ -60,14 +61,32 @@ export async function narrate(page: Page, text: string, ms = PAUSE) {
       el.textContent = t;
     }, text)
     .catch(() => undefined);
-  let wait = ms;
+}
+
+/**
+ * Say a line: on-screen caption + (in a narrated recording) the spoken line, then wait for the voice to finish plus a pause.
+ * `at` is the element the line is about: with STORY_HUMAN=1 the cursor glides to it and a soft ring marks it while the voice talks.
+ */
+export async function narrate(page: Page, text: string, ms = PAUSE, at?: Locator) {
+  await narrateDo(page, text, async () => {
+    if (at) await highlight(page, at, 2800);
+  }, ms);
+}
+
+/** Say a line while doing something: the action runs during the speech (the way a person talks and clicks), then the rest of the line is waited out. */
+export async function narrateDo(page: Page, text: string, action: () => Promise<unknown>, ms = PAUSE) {
   const state = states.get(page);
+  const spoken = state ? await tts.spokenMsAsync(text) : 0; // measured before the caption shows, so the pacing follows the voice
+  const t = Date.now();
+  await showCaption(page, text);
   if (state) {
     state.entries.push({ ms: Math.max(0, Date.now() - state.t0 + VIDEO_LEAD), text });
     writeLog(state, test.info().outputDir);
-    wait = Math.max(ms, tts.spokenMs(text) + SPEECH_PAD);
   }
-  await page.waitForTimeout(wait);
+  await action();
+  const wait = state ? Math.max(ms, spoken + SPEECH_PAD) : ms;
+  const left = wait - (Date.now() - t);
+  if (left > 0) await page.waitForTimeout(left);
 }
 
 export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session>; flow: (opts?: { who?: PersonaKey }) => Promise<Flow> }>({
@@ -85,6 +104,7 @@ export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session>; flo
       });
       opened.push(context);
       const page = await context.newPage();
+      await installHuman(context, page);
       startNarration(page, t0);
       return { page, context, go: async (path) => void (await page.goto(`${hostOf(persona)}${path}`)) };
     });
@@ -106,6 +126,7 @@ export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session>; flo
       });
       opened.push(context);
       const page = await context.newPage();
+      await installHuman(context, page);
       startNarration(page, t0);
       const f = new Flow(page, context);
       if (process.env.STORY_LOG_ERRORS) page.on("response", (r) => { if (r.status() >= 400 && !/favicon|_next\/image/.test(r.url())) console.log(`[http ${r.status()}] ${r.request().method()} ${new URL(r.url()).pathname}`); });
@@ -150,6 +171,7 @@ export class Flow {
       await retry.click();
       await this.page.waitForTimeout(1500);
     }
+    if (HUMAN) await this.page.waitForTimeout(1100); // a beat after the page loads, so the viewer can look before anything moves
   }
 
   /** Full-screen title card (flow name, roles) with an intro voice line; stays at least `minMs`. */

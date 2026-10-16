@@ -39,6 +39,32 @@ Why two organizations: Acme Staffing is the rich demo tenant (153 consultants, a
 - Shows: Sarah edits the next action and adds a note on Ben's application and sees "Updated just now by you"; the Activity tab lists each change; Ben (consultant) reads "Updated just now by Sarah Chen" with the admin tag; Omar (Ben's marketer) sees the same line in his Applications table. Then Marco edits Cora's resume in act-for mode; the builder header reads "by Marco Bellini (marketer)"; Cora's My Resumes shows the same line and the resume waits for her approval again; Oscar's resume library shows it too.
 - Honest notes: "on behalf of" wording on an application needs the save-for-consultant route (X9.12), which is not built, so it is not shown. The admin side of the resume version history is the version list in the builder (shown in video 01).
 
+## Natural voice (Ava), recorded 2026-10-16
+
+A second set of the same four flows, re-scripted as a person talking you through it and re-recorded on a fresh database (`dossier_ent_videos3`, version2 at `c9a755bf`). The Zira originals above stay exactly as they were in the parent folder; nothing was deleted or overwritten.
+
+Folder: `C:\work_bench6_april\claude_code_work_bench\kiwiply-videos
+atural-voice\` (same file names as the originals, `.srt` next to each; `04` is `04-who-changed-what.mp4`).
+
+| # | File | Length |
+|---|---|---|
+| 01 | `01-consultant-resume-and-applying.mp4` | 8.4 min |
+| 02 | `02-marketer-a-day-and-a-new-resume-for-a-consultant.mp4` | 6.9 min |
+| 03 | `03-org-admin-running-the-organization.mp4` | 6.7 min |
+| 04 | `04-who-changed-what.mp4` | 5.0 min |
+
+- Voice: Microsoft neural `en-US-AvaMultilingualNeural` through `edge-tts` (needs the network), rate -5%. Switch: `STORY_TTS=edge` (default stays `sapi`), `STORY_TTS_VOICE=<voice>`, `STORY_TTS_RATE=<+/-n%>`, own cache with `STORY_TTS_CACHE`. Other candidates: `en-US-AndrewMultilingualNeural`, `en-US-EmmaMultilingualNeural`, `en-US-BrianMultilingualNeural`.
+- Walkthrough style (opt-in, `STORY_HUMAN=1`, code in `web/e2e/stories/_support/human.ts`): a visible cursor that glides with easing to each element, a hover beat and a click ripple before every click, human-speed typing, smooth scrolling, a soft ring around what the narrator talks about, a beat after each page loads. Normal story runs never load it. `narrate(page, text, ms, at?)` and `narrateDo(page, text, action)` (speak while doing) are in `story.ts`.
+- Recording: `node scripts/story-video/prewarm.cjs e2e/videos/<spec>` generates the speech first (parallel), then record with `STORY_HUMAN=1 STORY_TTS=edge STORY_SLOWMO=40 ...`, then `render.cjs` as above. Gamma sign-in uses `GAMMA_DEMO_PASSWORD`.
+- Recording order was 03, 02, 04, 01 (not 03, 04, 02, 01): on a fresh database, video 04's resume segment needs the "Cora Lindahl, Data Engineer" resume that video 02 creates, and 01 needs the marketer-made resumes of 02 and 04.
+
+What differs from the first recordings:
+
+1. Video 04: in the fresh demo data Ben Okafor's applications carry no marketer (`APP-CWS-4-x`), so Omar's Applications table does not list them. The marketer segment now follows an application Omar does look after (`APP-2026-119`): Sarah edits its next action on camera, then Omar sees "Updated ... by Sarah Chen". The Ben (consultant) segment is unchanged. Finding: if Ben's applications should be visible to his marketer, the demo seed needs to set their marketer.
+2. Video 01: the builder showed the "Skills" group twice for Cora's profile-based resume (same four skills in both). The video shows it as it is; the spec types into the first one. Worth a look as a product finding.
+3. The first take of 01 failed on that duplicate-field click, so Cora has one extra "Salesforce Developer" resume in `dossier_ent_videos3`. No effect on the videos.
+4. Video 03 recorded on the first try with no spec change other than the new script.
+
 ## Findings (nothing here was fixed by the video work unless stated)
 
 1. Product: the seeded Acme secondary colour `#f59e0b` fails the product's own publish contrast rule (the publish error asks for `#a56a07`). Seed data issue; no code change made.

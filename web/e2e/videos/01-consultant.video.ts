@@ -1,4 +1,4 @@
-import { test, expect, narrate } from "../stories/_support/story";
+import { test, expect, narrate, narrateDo } from "../stories/_support/story";
 import { ROOTS, menuAction } from "../stories/consultant/_helpers";
 
 /**
@@ -30,24 +30,24 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   await f.titleCard({
     title: "A consultant's workspace",
     roles: "Consultant  |  Acme Staffing and Gamma Consulting",
-    intro: "Welcome. In this walkthrough, a consultant follows her opportunities, applies herself, tracks every application, and builds her resume.",
+    intro: "Hi! In this video I'll walk you through a consultant's workspace in Kiwiply: following her opportunities, applying herself, tracking every application, and building her resume.",
     minMs: 3500,
   });
 
   // ---- home and profile
   await open(f, "");
-  await narrate(page, "Anika is a consultant at Acme Staffing. She signs in and lands on her own Home.");
-  await narrate(page, "Six numbers summarize her matches, opportunities, applications, interviews, approvals and placement. Everything on this page is her own data.");
+  await narrate(page, "Okay, I'm signed in as Anika, a consultant at Acme Staffing. This is her own Home page.");
+  await narrate(page, "These six numbers sum up her matches, opportunities, applications, interviews, approvals and placement. And everything on this page is her own data.");
   await page.mouse.wheel(0, 520);
-  await narrate(page, "Below are her matches, her assigned jobs, her applications, interviews, tasks and resume strength.");
+  await narrate(page, "Scrolling down, there are her matches, her assigned jobs, her applications, interviews, tasks, and how strong her resume is.");
   await page.mouse.wheel(0, -900);
   await open(f, "profile");
-  await narrate(page, "My Career Profile holds her skills, certifications and preferences. The profile guard refuses ID numbers and birth dates, because Kiwiply never stores them.");
+  await narrate(page, "Let's open My Career Profile. It holds her skills, certifications and preferences. And notice what's not here: the profile refuses ID numbers and birth dates, because Kiwiply never stores them.");
   await page.waitForTimeout(1500);
 
   // ---- assigned opportunities: accept one and apply herself
   await open(f, "opportunities");
-  await narrate(page, "Her marketer assigns jobs to her. Assigned Opportunities lists each one with its priority, due date and the marketer's quick notes.");
+  await narrate(page, "Her marketer assigns jobs to her, so let's see Assigned Opportunities. Each one has a priority, a due date, and the marketer's quick notes.");
   const rows = page.locator("[data-opp]");
   await expect.poll(() => rows.count()).toBeGreaterThanOrEqual(3);
   let chosen = -1;
@@ -56,7 +56,7 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
     await rows.nth(i).getByRole("button", { name: `More actions for ${title}` }).click();
     const express = page.getByRole("menuitem", { name: "Express Interest" });
     if (await express.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await narrate(page, `She likes "${title}". From the row menu she chooses Express Interest, which tells her marketer she wants it.`);
+      await narrate(page, `I like "${title}". So from the row menu I'll choose Express Interest, which tells my marketer I want it.`);
       await express.click();
       await expect(page.getByText(/Interest sent|interest/i).first()).toBeVisible({ timeout: 15_000 });
       chosen = i;
@@ -66,105 +66,106 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   }
   if (chosen < 0) chosen = 0;
   const title = ((await rows.nth(chosen).getByRole("button", { name: /^View / }).getAttribute("aria-label")) ?? "").replace(/^View /, "");
-  await narrate(page, "Accepting only records her wish. Nothing is applied for, and nothing is sent to the employer.");
+  await narrate(page, "Remember, that only records my wish. Nothing is applied for, and nothing is sent to the employer.");
   await rows.nth(chosen).locator("[data-action=view]").click();
   const sheet = page.getByRole("dialog", { name: title });
   await expect(sheet.locator("[data-quick-info]")).toBeVisible();
-  await narrate(page, "The detail shows the marketer's job notes and why she was matched. The Open job link button leads to the employer's own posting.");
+  await narrate(page, "The detail shows the marketer's job notes and why I was matched. And the Open job link button leads to the employer's own posting.");
   const href = await sheet.locator("a[data-job-link]").getAttribute("href");
-  await narrate(page, "Now Anika applies by herself. Kiwiply never submits an application for anyone.");
+  await narrate(page, "Now I'll apply by myself. Kiwiply never submits an application for anyone.");
   await page.goto(href ?? "https://jobs.example.com/demo");
   await expect(page.getByRole("button", { name: "Apply now" })).toBeVisible();
-  await narrate(page, "This is the employer's page. In real life she applies here with her own Kiwiply browser extension, which fills the form but never submits it. Here she clicks Apply herself.");
+  await narrate(page, "This is the employer's page. In real life I'd apply here with my own Kiwiply browser extension, which fills the form but never submits it. Here, I just click Apply myself.");
   await page.getByRole("button", { name: "Apply now" }).click();
   await expect(page.getByText("Kiwiply submitted nothing.")).toBeVisible();
   await page.waitForTimeout(2500);
 
   // ---- track the application
   await open(f, "applications");
-  await narrate(page, "Back in Kiwiply, My Applications tracks every application she has: its stage, its next step, and the pipeline summary.");
+  await narrate(page, "Back in Kiwiply, My Applications tracks every application I have: its stage, its next step, and a pipeline summary.");
   const apps = page.locator("[data-application]");
   await expect.poll(() => apps.count()).toBeGreaterThanOrEqual(3);
   await apps.first().locator("[data-action=view]").click();
   const detail = page.locator("[data-detail]");
   await expect(detail).toBeVisible();
-  await narrate(page, "One application opens with its stage timeline and who last updated it. The page is read-only: there is no submit button anywhere.");
+  await narrate(page, "Let me open one. It shows its stage timeline, and who last updated it. This page is read-only: there is no submit button anywhere.");
   await page.waitForTimeout(1500);
   await page.keyboard.press("Escape");
 
   // ---- submissions the marketer prepared
   await open(f, "submissions");
-  await narrate(page, "Submissions and Approvals: when her marketer prepares an application, it waits here for her decision.");
+  await narrate(page, "Next, Submissions and Approvals. When my marketer prepares an application, it waits here for my decision.");
   const pending = page.locator("[data-submission]");
   if ((await pending.count()) > 0) {
     const stitle = ((await pending.first().getByRole("button", { name: /^Approve / }).getAttribute("aria-label")) ?? "").replace(/^Approve /, "");
-    await narrate(page, `She approves "${stitle}". The dialog explains what approving means before she confirms.`);
+    await narrate(page, `I'll approve "${stitle}". The dialog explains what approving means before I confirm.`);
     await pending.first().locator("[data-action=approve]").click();
     const dlg = page.getByRole("dialog", { name: "Approve this submission?" });
     await expect(dlg.locator("[data-approve-copy]")).toBeVisible();
     await page.waitForTimeout(1500);
     await dlg.getByRole("button", { name: "Yes, approve" }).click();
     await expect(page.getByText(/Nothing was sent to the client by Kiwiply/)).toBeVisible();
-    await narrate(page, "Approving records her decision. Nothing is sent to the client by Kiwiply.");
+    await narrate(page, "Approving only records my decision. Nothing is sent to the client by Kiwiply.");
   } else {
-    await narrate(page, "Nothing is waiting for her approval right now. Past submissions show what happened next.");
+    await narrate(page, "Nothing is waiting for my approval right now. Past submissions show what happened next.");
   }
 
   // ---- interviews and prep
   await open(f, "interviews");
-  await narrate(page, "Interviews lists what is coming up, with a calendar. She opens one to add how she will join and a private prep note.");
+  await narrate(page, "Now Interviews. It lists what's coming up, with a calendar. I can open one to add how I'll join, and a private prep note.");
   await page.locator("[data-interview]").first().locator("[data-action=view]").click();
   await expect(page.locator("[data-interview-sheet]")).toBeVisible();
   await page.waitForTimeout(2000);
   await page.keyboard.press("Escape");
   await open(f, "interview-prep");
-  await narrate(page, "Interview Prep has a checklist and practice sessions, so she walks in ready.");
+  await narrate(page, "And Interview Prep has a checklist and practice sessions, so I walk in ready.");
   await page.waitForTimeout(1500);
 
   // ---- Gamma: Cora builds her resumes in the Resume Builder
-  await f.switchTo("cora", "Now the Resume Builder. Cora works at Gamma Consulting, an organization with its own separate accounts.", "/w/consultant/resumes");
+  await f.switchTo("cora", "Now for the Resume Builder. Let's meet Cora, who works at Gamma Consulting, an organization where everyone has their own separate account.", "/w/consultant/resumes");
   await expect(page.locator("[data-consultant-resumes]")).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "The organization's name, logo and menu stay around her all the time. This is My Resumes.");
+  await narrate(page, "Notice her organization's name, logo and menu stay around her the whole time. This is My Resumes.");
   await page.locator("[data-create-resume]").click();
   const chooser = page.getByRole("dialog");
   await expect(chooser.getByText(/Your saved profile/)).toBeVisible();
-  await narrate(page, "Create New Resume offers four starting points: her profile, an upload, a copy of an existing resume, or a blank page. She starts from her profile.");
+  await narrate(page, "Create New Resume gives four starting points: my profile, an upload, a copy of an existing resume, or a blank page. I'll start from my profile, and watch how it fills in.", undefined, chooser);
   await chooser.getByRole("radio", { name: /profile/i }).first().click();
   await chooser.getByRole("button", { name: "Continue" }).click();
   await chooser.getByLabel("Resume name").fill("Cora Lindahl, Salesforce Developer");
   await chooser.getByRole("button", { name: "Create resume" }).click();
   await page.waitForURL(/\/w\/consultant\/resumes\/\d+$/, { timeout: 60_000 });
   await expect(page.locator("[data-builder-frame]")).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "The editor opens inside her organization's frame. It saves by itself, so there is no Save button, and it records who last changed it.");
+  await narrate(page, "The editor opens inside the organization's frame. It saves by itself, so there's no Save button, and it records who last changed it.");
   await page.getByRole("textbox", { name: "Name" }).fill("Cora Lindahl");
   await page.getByRole("textbox", { name: "Email" }).fill("cora.lindahl@gamma.example.com");
   const headline = page.getByRole("textbox", { name: "Headline" });
-  await headline.fill("Salesforce Developer, building clean integrations");
-  await narrate(page, "She sharpens her headline.");
+  await narrateDo(page, "Let me sharpen the headline.", async () => {
+    await headline.fill("Salesforce Developer, building clean integrations");
+  });
   await page.getByRole("button", { name: "Add Section" }).first().click();
   await page.getByRole("button", { name: /Professional Summary/ }).click();
-  await narrate(page, "Add Section lets her add a professional summary, work experience, education, projects and more.");
+  await narrate(page, "Add Section lets me add a professional summary, work experience, education, projects and more.");
   await page.getByRole("textbox", { name: "Summary" }).fill("Salesforce developer with seven years of experience building reliable integrations and clear admin tooling for growing teams.");
-  const skill = page.getByRole("textbox", { name: "Skills in Skills" });
+  const skill = page.getByRole("textbox", { name: "Skills in Skills" }).first();
   await skill.fill("Apex");
   await skill.press("Enter");
-  await narrate(page, "She writes a summary and keeps her skills current. The resume score on the right guides what to improve.");
+  await narrate(page, "I'll write a summary and keep my skills current. The resume score on the right guides what to improve.");
   await menuAction(page, page.getByRole("button", { name: "More actions", exact: true }).first(), /Save version/);
-  await narrate(page, "Save version freezes this moment as a named version she can compare with or restore later.");
+  await narrate(page, "Save version freezes this moment as a named version, which I can compare with or restore later.");
   const versionDialog = page.getByRole("dialog");
   const label = versionDialog.getByRole("textbox").first();
   if (await label.isVisible({ timeout: 3000 }).catch(() => false)) await label.fill("First draft");
   await versionDialog.getByRole("button", { name: /Save/ }).last().click();
   await page.waitForTimeout(1200);
   await page.getByRole("button", { name: /^v\d+/ }).first().click();
-  await narrate(page, "The version chip lists every version with who made it and when, with Compare and Restore.");
+  await narrate(page, "The version chip lists every version, with who made it and when, plus Compare and Restore.");
   await page.waitForTimeout(1500);
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Close editor" }).click();
   await page.waitForURL(/\/w\/consultant\/resumes$/, { timeout: 45_000 });
 
   await expect(page.locator("[data-consultant-resumes]")).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "Her first resume is in the list at once, with who last modified it and when. Now a second one from scratch, for a different kind of role.");
+  await narrate(page, "My first resume is in the list right away, with who last modified it and when. Now let's make a second one from scratch, for a different kind of role.");
   await page.locator("[data-create-resume]").click();
   const chooser2 = page.getByRole("dialog");
   await chooser2.getByRole("radio", { name: /Start from scratch/ }).click();
@@ -173,7 +174,7 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   await chooser2.getByRole("button", { name: "Create resume" }).click();
   await page.waitForURL(/\/w\/consultant\/resumes\/\d+$/, { timeout: 60_000 });
   await expect(page.locator("[data-builder-frame]")).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "A blank resume has just her name and contact details. She would add the rest the same way.");
+  await narrate(page, "A blank resume starts with just a name and contact details. I'd add the rest the same way.");
   await page.getByRole("button", { name: "Close editor" }).click();
   await page.waitForURL(/\/w\/consultant\/resumes$/, { timeout: 45_000 });
   await expect(page.locator("[data-consultant-resumes]")).toBeVisible({ timeout: 45_000 });
@@ -181,10 +182,10 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   // ---- approve, or send back, what the marketer made
   const waiting = page.locator("tbody tr", { hasText: "waiting for your approval" });
   await expect.poll(() => waiting.count(), { timeout: 20_000 }).toBeGreaterThanOrEqual(1);
-  await narrate(page, "Some rows read Made for you, waiting for your approval. Her marketer Marco prepared these. What a marketer writes never counts until she approves it.");
+  await narrate(page, "Now look at these rows. They read Made for you, waiting for your approval. My marketer Marco prepared them. And what a marketer writes never counts until I approve it.");
   const first = waiting.first();
   const ftitle = ((await first.getByRole("button", { name: /^Approve / }).getAttribute("aria-label")) ?? "").replace(/^Approve /, "");
-  await narrate(page, `She presses Approve on "${ftitle}".`);
+  await narrate(page, `I'll press Approve on "${ftitle}".`);
   const before = await waiting.count();
   await first.getByRole("button", { name: /^Approve / }).click();
   await expect(page.getByText("Approved").first()).toBeVisible({ timeout: 20_000 });
@@ -192,7 +193,7 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
   if ((await waiting.count()) > 0) {
     const second = waiting.first();
     const stitle = ((await second.getByRole("button", { name: /^Send back / }).getAttribute("aria-label")) ?? "").replace(/^Send back /, "");
-    await narrate(page, `For another one, "${stitle}", she presses Send back and says what should change.`);
+    await narrate(page, `For another one, "${stitle}", I'll press Send back, and say what should change.`);
     await second.getByRole("button", { name: /^Send back / }).click();
     await page.getByLabel("What should change").fill("Please add my 2019 role at the logistics client.");
     await page.waitForTimeout(1200);
@@ -200,11 +201,11 @@ test("VIDEO-01 Consultant: home, opportunities, applying herself, tracking, inte
     await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 20_000 });
     await page.waitForTimeout(1200);
   }
-  await narrate(page, "Approving makes it ready to use. Sending back tells the marketer it needs an update, with her note. Nobody else can approve it for her.");
+  await narrate(page, "Approving makes it ready to use. Sending back tells the marketer it needs an update, along with my note. And nobody else can approve it for me.");
   const approvedRow = page.locator("tbody tr", { hasText: ftitle }).filter({ hasNot: page.getByRole("button", { name: /^Approve / }) }).first();
   await approvedRow.getByRole("button", { name: `More actions for ${ftitle}` }).click();
-  await narrate(page, "Only an approved resume can be her primary one. She sets it as primary from the row menu.");
+  await narrate(page, "Only an approved resume can be my primary one. So I'll set it as primary from the row menu.");
   await page.getByRole("menuitem", { name: "Set as primary" }).click();
   await page.waitForTimeout(1800);
-  await narrate(page, "That is the consultant's side: find work, apply herself, track everything, and own her resumes. Kiwiply helps, and never submits for her.", 1500);
+  await narrate(page, "And that's the consultant's side: find work, apply yourself, track everything, and own your resumes. Kiwiply helps, but it never submits for you. Thanks for watching!", 1500);
 });
