@@ -278,6 +278,7 @@ class OrgInterviewResourceIT extends MemberItSupport {
 
     @Test
     void undoRevertsTheCallersOwnLatestChangeAndKeepsBothEventsInTheHistory() throws Exception {
+        int recorded = json(read("owner", "/" + iv1.getId())).path("timeline").size(); // the fixture is inserted straight into the table, so it has no CREATED event
         JsonNode moved = json(send("owner", post(url() + "/" + iv1.getId() + "/status"), "{\"status\":\"CANCELLED\",\"reason\":\"Client postponed\"}"));
         long eventId = moved.path("undo").path("eventId").asLong();
         assertThat(eventId).isPositive();
@@ -287,7 +288,7 @@ class OrgInterviewResourceIT extends MemberItSupport {
         JsonNode d = json(send("owner", post(url() + "/" + iv1.getId() + "/status"), "{\"undoEventId\":" + eventId + "}"));
         assertThat(d.path("status").asText()).isEqualTo("SCHEDULED");
         assertThat(d.path("timeline").get(0).path("type").asText()).isEqualTo("STATUS_REVERT");
-        assertThat(d.path("timeline")).hasSize(3); // created, cancelled, undone: nothing is erased
+        assertThat(d.path("timeline")).hasSize(recorded + 2); // cancelled and undone are both kept: nothing is erased
         assertThat(d.path("undo").isNull()).isTrue();
         assertThat(auditCount(a, "INTERVIEW_STATUS_UNDO") - before).isEqualTo(1);
         assertCode(send("owner", post(url() + "/" + iv1.getId() + "/status"), "{\"undoEventId\":" + eventId + "}"), 422, "UNDO_NOT_AVAILABLE");
@@ -413,7 +414,7 @@ class OrgInterviewResourceIT extends MemberItSupport {
         assertThat(newestAudit(a).getDetails()).doesNotContain("Excellent");
         assertStatus(send("owner", post(url() + "/" + iv2.getId() + "/feedback"), "{\"rating\":9,\"recommendation\":\"ADVANCE\"}"), 422);
         assertStatus(send("owner", post(url() + "/" + iv2.getId() + "/feedback"), "{\"rating\":3,\"recommendation\":\"MAYBE\"}"), 422);
-        assertStatus(send("owner", post(url() + "/" + iv2.getId() + "/feedback"), "{\"rating\":3,\"recommendation\":\"HOLD\",\"note\":\"card 4111 1111 1111 1111\"}"), 422);
+        assertStatus(send("owner", post(url() + "/" + iv2.getId() + "/feedback"), "{\"rating\":3,\"recommendation\":\"HOLD\",\"note\":\"SSN 123-45-6789\"}"), 422);
     }
 
     @Test
