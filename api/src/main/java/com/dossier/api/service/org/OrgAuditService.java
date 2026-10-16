@@ -89,6 +89,7 @@ public class OrgAuditService {
     public static final String ADMIN_MODULE_OFF = "ADMIN_MODULE_OFF";
     public static final String ADMIN_HOSTNAME_SUSPEND = "ADMIN_HOSTNAME_SUSPEND";
     public static final String ADMIN_HOSTNAME_RESUME = "ADMIN_HOSTNAME_RESUME";
+    public static final String ADMIN_ACCOUNT_MIGRATE = "ADMIN_ACCOUNT_MIGRATE";
     public static final String TARGET_HOSTNAME = "HOSTNAME";
     /** X1.5: correct credentials on this organization's host by someone with no active seat (recorded in the tenant's own trail). */
     public static final String LOGIN_DENIED_NOT_MEMBER = "LOGIN_DENIED_NOT_MEMBER";

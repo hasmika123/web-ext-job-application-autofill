@@ -70,6 +70,8 @@ public class AdminAuditService {
     public static final String ORG_MODULE_SET = "ORG_MODULE_SET";
     public static final String ORG_HOSTNAME_SUSPEND = "ORG_HOSTNAME_SUSPEND";
     public static final String ORG_HOSTNAME_RESUME = "ORG_HOSTNAME_RESUME";
+    /** Decision O4, S10: seats of a SHARED organization moved from personal accounts to new enterprise accounts. */
+    public static final String ORG_ACCOUNT_MIGRATE = "ORG_ACCOUNT_MIGRATE";
     public static final String TARGET_AI_PROVIDER = "AI_PROVIDER";
     public static final String AI_PROVIDER_TEST = "AI_PROVIDER_TEST";
 
