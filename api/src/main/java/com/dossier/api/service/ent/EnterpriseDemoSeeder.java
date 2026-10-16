@@ -376,6 +376,7 @@ public class EnterpriseDemoSeeder {
             }
             seatsByOrg.put(t.orgKey(), seats);
             seedActivity(org, t, now);
+            seedAuditTrail(org, t, now);
         }
 
         assign(seatsByOrg.get("acme"), "sarah", "anika", AssignmentKind.PRIMARY, now, counts);
@@ -583,6 +584,79 @@ public class EnterpriseDemoSeeder {
         record(org, admin, OrgAuditService.MEMBER_INVITE, OrgAuditService.TARGET_MEMBER, null, now.minus(2, ChronoUnit.DAYS));
     }
 
+    /**
+     * The Audit Logs page's demo data: a few dozen believable rows (people, roles, groups, branding, a sign-in refusal, an export, a retention
+     * run) over the last 45 days for the fictional Acme, with a spread of actors and risk levels. Written once: it is skipped when the
+     * organization already has a {@code ROLE_UPDATE} row, so a second run adds nothing. Details carry names and counts only, never an
+     * address, a password or a number that identifies a person.
+     */
+    private void seedAuditTrail(Organization org, Tenant t, Instant now) {
+        if (auditRows == null || !t.orgKey().equals("acme") || auditRows.countByOrgIdAndAction(org.getId(), "ROLE_UPDATE") > 0) return;
+        String sarah = t.people().get(0).login(t.orgKey());
+        String omar = t.people().get(1).login(t.orgKey());
+        String anika = t.people().get(2).login(t.orgKey());
+        String ben = t.people().get(3).login(t.orgKey());
+        String hana = t.people().get(4).login(t.orgKey());
+        String felix = t.people().get(5).login(t.orgKey());
+        String amara = t.people().get(6).login(t.orgKey());
+        String tomas = t.people().get(7).login(t.orgKey());
+        String sam = t.people().get(9).login(t.orgKey());
+        Object[][] rows = {
+            // days ago, hours offset, actor (null = system), actor role, action, target type, target login, risk, details
+            { 44, 3, sarah, "ADMIN", "GROUP_CREATE", "GROUP", null, "LOW", "{\"name\":\"Sales\",\"kind\":\"DEPARTMENT\"}" },
+            { 44, 2, sarah, "ADMIN", "GROUP_CREATE", "GROUP", null, "LOW", "{\"name\":\"Recruiting\",\"kind\":\"DEPARTMENT\"}" },
+            { 43, 5, sarah, "ADMIN", "GROUP_CREATE", "GROUP", null, "LOW", "{\"name\":\"East coast team\",\"kind\":\"TEAM\"}" },
+            { 42, 1, sarah, "ADMIN", "ROLE_CREATE", "ROLE", null, "MEDIUM", "{\"name\":\"Senior recruiter\",\"template\":\"MARKETING_SPECIALIST\"}" },
+            { 41, 4, sarah, "ADMIN", "ROLE_UPDATE", "ROLE", null, "MEDIUM", "{\"name\":\"Senior recruiter\",\"added\":[\"jobs.view\",\"resumes.view\"],\"removed\":[]}" },
+            { 40, 2, sarah, "ADMIN", "MEMBER_ACCOUNT_CREATE", "MEMBER", hana, "HIGH", "mode=ACCOUNT_CREATED roles=[HR_SPECIALIST]" },
+            { 40, 1, sarah, "ADMIN", "MEMBER_ACCOUNT_CREATE", "MEMBER", felix, "HIGH", "mode=ACCOUNT_CREATED roles=[FINANCE_SPECIALIST]" },
+            { 38, 6, sarah, "ADMIN", "MEMBER_INVITE", "MEMBER", amara, "LOW", "roles=[ACCOUNT_MANAGER]" },
+            { 38, 5, sarah, "ADMIN", "MEMBER_INVITE", "MEMBER", tomas, "LOW", "roles=[TALENT_ACQUISITION]" },
+            { 37, 3, amara, "MEMBER", "MEMBER_JOIN", "MEMBER", amara, "LOW", null },
+            { 37, 2, tomas, "MEMBER", "MEMBER_JOIN", "MEMBER", tomas, "LOW", null },
+            { 35, 4, sarah, "ADMIN", "ORG_SETTINGS", "ORG", null, "MEDIUM", "{\"changed\":[\"support contact\",\"welcome message\"]}" },
+            { 33, 2, sarah, "ADMIN", "GROUP_MOVE", "GROUP", null, "LOW", "moved=3 to=East coast team" },
+            { 31, 5, sarah, "ADMIN", "GROUP_LEAD", "GROUP", omar, "MEDIUM", "{\"group\":\"East coast team\"}" },
+            { 29, 3, sarah, "ADMIN", "ROLE_ASSIGN", "ROLE", omar, "MEDIUM", "{\"role\":\"Senior recruiter\"}" },
+            { 27, 1, sarah, "ADMIN", "ASSIGNMENT_CREATE", "MEMBER", anika, "LOW", "{\"marketer\":\"Omar Haddad\",\"kind\":\"PRIMARY\"}" },
+            { 26, 2, sarah, "ADMIN", "ASSIGNMENT_CREATE", "MEMBER", ben, "LOW", "{\"marketer\":\"Omar Haddad\",\"kind\":\"PRIMARY\"}" },
+            { 24, 6, felix, "FINANCE", "BILLING_VIEW", "REPORT", null, "LOW", null },
+            { 22, 3, sarah, "ADMIN", "BRANDING_ASSET", "BRANDING", null, "LOW", "{\"asset\":\"logo\",\"action\":\"replaced\"}" },
+            { 22, 2, sarah, "ADMIN", "BRANDING_PUBLISH", "BRANDING", null, "LOW", null },
+            { 20, 4, sarah, "ADMIN", "MEMBER_PASSWORD_RESET", "MEMBER", hana, "HIGH", null },
+            { 18, 1, null, null, "LOGIN_DENIED_NOT_MEMBER", "SESSION", null, "MEDIUM", "a sign-in on this address was refused: no seat" },
+            { 16, 5, hana, "MEMBER", "SHARE_READ_FULL", "MEMBER", anika, "MEDIUM", "{\"scope\":\"profile\"}" },
+            { 14, 3, sarah, "ADMIN", "ROLE_REVOKE", "ROLE", omar, "MEDIUM", "{\"role\":\"Senior recruiter\"}" },
+            { 14, 2, sarah, "ADMIN", "ROLE_ASSIGN", "ROLE", omar, "MEDIUM", "{\"role\":\"Marketing specialist\"}" },
+            { 12, 4, omar, "MARKETER", "MARKETER_SAVE_FOR_CONSULTANT", "APPLICATION", anika, "MEDIUM", "saved a job for the consultant's tracker" },
+            { 11, 2, omar, "MARKETER", "MARKETER_SAVE_FOR_CONSULTANT", "APPLICATION", ben, "MEDIUM", "saved a job for the consultant's tracker" },
+            { 10, 3, sarah, "ADMIN", "EXPORT", "REPORT", null, "MEDIUM", "{\"report\":\"members\",\"rows\":11}" },
+            { 9, 1, null, null, "HISTORY_PURGED", "ORG", null, "LOW", "applications=6 interviews=3" },
+            { 8, 5, sarah, "ADMIN", "GROUP_UPDATE", "GROUP", null, "LOW", "{\"name\":\"East coast team\",\"renamedFrom\":\"East team\"}" },
+            { 7, 2, sarah, "ADMIN", "MEMBER_SUSPEND", "MEMBER", sam, "HIGH", "{\"status\":\"SUSPENDED\"}" },
+            { 6, 4, sarah, "ADMIN", "MEMBER_INVITE_RESEND", "MEMBER", null, "LOW", null },
+            { 5, 3, sarah, "ADMIN", "ORG_SETTINGS", "ORG", null, "HIGH", "{\"changed\":[\"require MFA\"],\"from\":\"off\",\"to\":\"on\"}" },
+            { 4, 6, felix, "FINANCE", "BILLING_PLAN_VIEW", "REPORT", null, "LOW", null },
+            { 3, 2, sarah, "ADMIN", "ROLE_UPDATE", "ROLE", null, "MEDIUM", "{\"name\":\"Senior recruiter\",\"added\":[\"reports.view\"],\"removed\":[\"resumes.view\"]}" },
+            { 2, 5, sarah, "ADMIN", "MEMBER_ROLE", "MEMBER", tomas, "MEDIUM", "{\"from\":\"Talent acquisition\",\"to\":\"Account manager\"}" },
+            { 1, 3, sarah, "ADMIN", "MEMBER_INVITE", "MEMBER", null, "LOW", "roles=[CONSULTANT]" },
+            { 0, 4, sarah, "ADMIN", "GROUP_DELETE", "GROUP", null, "MEDIUM", "{\"name\":\"Unused team\"}" },
+        };
+        for (Object[] r : rows) {
+            OrgAuditEvent e = new OrgAuditEvent();
+            e.setOrgId(org.getId());
+            e.setActorLogin(r[2] == null ? OrgAuditService.SYSTEM_ACTOR : (String) r[2]);
+            e.setActorRole((String) r[3]);
+            e.setAction((String) r[4]);
+            e.setTargetType((String) r[5]);
+            e.setTargetLogin((String) r[6]);
+            e.setRisk((String) r[7]);
+            e.setDetails((String) r[8]);
+            e.setCreatedAt(now.minus((Integer) r[0], ChronoUnit.DAYS).minus((Integer) r[1], ChronoUnit.HOURS));
+            auditRows.save(e);
+        }
+    }
+
     private void record(Organization org, String actorLogin, String action, String targetType, String targetLogin, Instant at) {
         OrgAuditEvent e = new OrgAuditEvent();
         e.setOrgId(org.getId());
@@ -632,7 +706,12 @@ public class EnterpriseDemoSeeder {
     /** Published branding (colours, welcome copy, support address and a generated logo through the FileStorage seam). */
     private void ensureBranding(Organization org, Tenant t, Instant now) {
         OrgBranding b = brandings.findByOrgId(org.getId()).orElse(null);
-        if (b != null && b.getPublishedAt() != null && b.getLogoKey() != null) return;
+        if (b != null && b.getPublishedAt() != null && b.getLogoKey() != null) {
+            // The row survives a new checkout / wiped upload folder while the file does not: re-draw it under the same key so the
+            // published logo never 404s (the demo logo is generated, so this is idempotent).
+            if (!storage.exists(b.getLogoKey())) storage.store(b.getLogoKey(), logo(t), "image/png");
+            return;
+        }
         if (b == null) {
             b = new OrgBranding();
             b.setOrgId(org.getId());
