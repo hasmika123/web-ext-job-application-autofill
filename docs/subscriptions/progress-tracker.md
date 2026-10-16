@@ -10,7 +10,7 @@
 | Phase | Gate | Status |
 |---|---|---|
 | S0 Foundations | additive changelogs on a prod-like dump; legacy readers byte-identical; price ids reused | Not Started |
-| S1 Resolver in shadow | ShadowCompareTest green + zero prod mismatches over one release; shadow flipped; features on /version | Not Started |
+| S1 Resolver in shadow | ShadowCompareTest green + zero prod mismatches over one release; shadow flipped; features on /version | Code complete (branch sub-resolver2); the one-release wait and the flip remain |
 | S2 Plans and builder (incl. annual rows K9.1, K9.3) | PRO v2 + AUTOPILOT v1 published from admin with monthly, quarterly and yearly prices; env-var prices deleted | Not Started |
 | S3 Individual add-ons and annual UX (K9.2, K9.4, K9.6) | credits bought yearly and removed end to end; interval switch; harness green; zero drift for a week; tax mode decided (S-09) | Not Started |
 | S4 Retirement lifecycle | scenario R in CI and test account; NoEarlyLossIT green; default retire-to-Free | Not Started |
@@ -60,17 +60,17 @@
 | K6.4 | Org plan card | Not Started | Web | | | |
 | K6.5 | Seat matrix + bulk transfer | Not Started | API, Web | | | |
 | K6.6 | QuoteSummary / invoice line extensions | Not Started | Web, API | | | |
-| K7.1 | PlanResolver + EntitlementSet + shadow | Not Started | API | | | supersedes B1.2 |
-| K7.2 | AI budget window from the set | Not Started | API | | | |
-| K7.3 | Migrate 14 call sites | Not Started | API | | | |
-| K7.4 | features[] on /version + extension | Not Started | API, Ext | | | version bump |
-| K7.5 | Personal usage ledger | Not Started | API | | | |
+| K7.1 | PlanResolver + EntitlementSet + shadow | Completed | API | 88879ed7 | PlanResolverTest (18), GrantWriterGuardTest (3), EntitlementServiceShadowTest (8), EntitlementServiceTest unchanged (14) | pure core + PlanResolver; shadow on by default; sub_resolver changelog holds all resolver-stream tables |
+| K7.2 | AI budget window from the set | Completed | API | 0801ec55 | AiBudgetPeriodTest (5), AiBudgetServiceTest unchanged (26) | legacy window decides while shadowed; ai_call feature columns written on both paths |
+| K7.3 | Migrate 14 call sites | Completed | API | c0da177c | AtsScoreServiceTest, InboxServiceTest, InboxServiceViaOrgTest, InboxEntitlementTest (stub renames only), BillingResourceIT, BillingWebhookIT | @RequiresFeature/AuthzCoverageTest not built (R-2) |
+| K7.4 | features[] on /version + extension | Completed | API, Ext | e01e0677 | ProfileVersionWorkspacesTest (8), ProfileResourceIT (11), OpenApiContractIT | API half only; extension half open |
+| K7.5 | Personal usage ledger | Completed | API | 97117c49 | UsageLedgerPersonalTest (8), AllowanceResolverTest (4), UsageSweeperJobTest (1) | no caller reserves yet (R-7) |
 | K7.6 | PLAN_REQUIRED upgrade object + UpgradeSheet | Not Started | API, Web | | | |
-| K7.7 | Regression gate | Not Started | API | | | |
+| K7.7 | Regression gate | Completed | API | 6df1b6ae | ShadowCompareTest (2), PlanResolverTest no-leak test, LegacyReadersUnchangedIT (3) | flip checklist in README; IT form of E13/E14 waits on K5.2 (R-8) |
 | K8.1 | Webhook scope router | Completed | API | 5840f3f6 | BillingScopeRouterTest (5), BillingWebhookIT unchanged (17) | account-kind guards + webhook routing; UserBillingHandler moved unchanged; OrgBillingWebhookHandler no-op seam; stripe_event.scope/org_id (replayed_* deferred to K8.5) |
 | K8.2 | StripeGateway growth | Completed | API | ea3e4762 | StripeGatewayImplTest (12), StripeWebhookEventParseTest (4) | shared with X6.6: org-only methods (createOrgCustomer, coupons, createInvoiceForPrices, refunds) still X6.6 |
-| K8.3 | Personal invoice mirror | Not Started | API | | | |
-| K8.4 | No-data migration + runbook (S-03) | Not Started | API | | | |
+| K8.3 | Personal invoice mirror | Completed | API | bc26b990 | InvoiceMapperTest (3), InvoiceMirrorTest (7), BillingWebhookIT (17) | owns invoice/invoice_line; K5.7 reads them |
+| K8.4 | No-data migration + runbook (S-03) | Completed | API | 9698e284 | BackfillPeriodStartJobTest (4), CatalogSeedIT, PlanSeedIT, SubscriptionBackfillIT | runbook in README; no PRO price rows (R-9) |
 | K8.5 | Personal reconciler + replay | Not Started | API | | | |
 | K8.6 | FakeStripeGateway harness + runbook P | Not Started | API | | | human step: test clocks |
 | K8.7 | Billing-disabled parity | Not Started | API, Web | | | |
@@ -95,3 +95,4 @@
 ## Log
 - 2026-10-15 — Fable: design complete (`docs/subscriptions/01`–`11`, `decisions-for-user.md`); area `sub` (prefix K, 67 stories) added to the master roadmap; nothing built.
 - 2026-10-15 — Fable: user decisions applied — S-01 annual ON (K9 into phases S2/S3/S5), S-03 no existing subscribers (K8.4 no-data migration, K2.4 primitive FUTURE, shadow gate test-based), S-20 retire-to-Free default (K10.1/K10.9). `CLAUDE.md` amendment left for the user's session.
+- 2026-10-16 - resolver stream (sub-resolver2): K7.1 to K7.5, K7.7, K8.3, K8.4 built; shadow stays on; open questions R-1 to R-9 in decisions-for-user.md.

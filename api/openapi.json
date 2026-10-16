@@ -32062,6 +32062,27 @@
           },
           "account" : {
             "$ref" : "#/components/schemas/Account"
+          },
+          "features" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "limits" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "aiPct" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "periodEnd" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
