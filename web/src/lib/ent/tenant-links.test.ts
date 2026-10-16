@@ -34,6 +34,8 @@ const KIWIPLY_URL = /kiwiply\.com/i;
 /** file (relative to src) + the exact text that is allowed there, with the reason. */
 const ALLOWED: { file: string; text: string; why: string }[] = [
   { file: "lib/tenant-host.ts", text: "/account/activate", why: "a tenant route: the account-activation page is served on the tenant host" },
+  { file: "lib/ent/consultant-ws/profile.ts", text: '"/contact', why: "the org API sub-path for the consultant's contact details, not a page" },
+  { file: "app/api/orgs/[orgId]/me-workspace/profile/contact/route.ts", text: '"/contact"', why: "the same org API sub-path in its BFF route, not a page" },
 ];
 
 function walk(path: string, out: string[] = []): string[] {

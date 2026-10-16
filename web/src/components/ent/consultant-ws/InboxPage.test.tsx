@@ -63,12 +63,14 @@ const mount = async () => {
 };
 
 describe("ConsultantInboxPage", () => {
-  it("only links to pages that exist on a tenant host (no /privacy, /profile or /settings)", async () => {
+  it("only links to pages that exist on a tenant host (its own /privacy, no /profile, /settings or Kiwiply site)", async () => {
     await mount();
     const hrefs = [...document.querySelectorAll("a")].map((a) => a.getAttribute("href") ?? "");
     expect(hrefs).toContain("/w/consultant/profile");
-    expect(hrefs).toContain("https://kiwiply.com/privacy");
-    for (const dead of ["/privacy", "/profile", "/settings", "/pricing"]) expect(hrefs).not.toContain(dead);
+    // the organization's OWN privacy page on its host (docs/enterprise-v2/62), never the Kiwiply site
+    expect(hrefs).toContain("/privacy");
+    expect(hrefs.some((h) => /kiwiply\.com/i.test(h))).toBe(false);
+    for (const dead of ["/profile", "/settings", "/pricing"]) expect(hrefs).not.toContain(dead);
   });
 
   it("says plainly that the organization never sees the mailbox", async () => {

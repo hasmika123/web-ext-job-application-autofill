@@ -43,12 +43,12 @@ class OrgInviteEmailIT {
     @Test
     void theEmailNamesTheInviterTheOrgTheRoleTheLinkTheExpiryAndHasTheNotYouLine() throws Exception {
         MimeMessage m = send("Aarav", "Priya Nair", List.of());
-        assertThat(m.getSubject()).isEqualTo("Priya Nair invited you to join Acme Bootcamp on Kiwiply");
+        assertThat(m.getSubject()).isEqualTo("Priya Nair invited you to join Acme Bootcamp");
         assertThat(m.getAllRecipients()[0]).hasToString("aarav@example.org");
         String html = (String) m.getContent();
         assertThat(html)
             .contains("Hi Aarav,")
-            .contains("Priya Nair invited you to join Acme Bootcamp on Kiwiply as a member.")
+            .contains("Priya Nair invited you to join Acme Bootcamp as a member.")
             .contains("href=\"https://kiwiply.com/join/t/AbC123\"")
             .contains("Join Acme Bootcamp")
             .contains("This link works until 28 Oct 2026.")
@@ -59,7 +59,7 @@ class OrgInviteEmailIT {
     @Test
     void withoutAnInviterNameTheTeamIsNamedAndWithoutAGreetingNameItIsHiThere() throws Exception {
         MimeMessage m = send(null, null, List.of());
-        assertThat(m.getSubject()).isEqualTo("You are invited to join Acme Bootcamp on Kiwiply");
+        assertThat(m.getSubject()).isEqualTo("You are invited to join Acme Bootcamp");
         assertThat((String) m.getContent()).contains("Hi there,").contains("The Acme Bootcamp team invited you to join Acme Bootcamp");
     }
 
