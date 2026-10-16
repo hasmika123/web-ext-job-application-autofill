@@ -249,3 +249,103 @@ describe("Assigned Opportunities from real data", () => {
     expect(screen.getByText(/didn't load/)).toBeTruthy();
   });
 });
+
+describe("one answer shared with the marketer", () => {
+  it("I applied asks first, then posts the consultant's own statement and tells them the marketer can see it", async () => {
+    await mount();
+    fireEvent.click(within(rowOf(1)).getByRole("button", { name: "More actions for Senior Java Developer" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "I applied" }));
+    await flush();
+    expect(writes()).toEqual([]);
+    expect(document.querySelector("[data-applied-confirm]")!.textContent).toMatch(/Kiwiply never applies or submits for you/);
+    fireEvent.click(screen.getByRole("button", { name: "Not yet" }));
+    await flush();
+    expect(writes()).toEqual([]);
+
+    fireEvent.click(within(rowOf(1)).getByRole("button", { name: "More actions for Senior Java Developer" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "I applied" }));
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: "Yes, I applied" }));
+    await flush();
+    expect(writes()).toEqual([{ method: "POST", url: "/api/orgs/2/me-workspace/opportunities/1/applied", body: JSON.stringify({}) }]);
+    expect(screen.getByText("Marked as applied. Your marketer can see it.")).toBeTruthy();
+  });
+
+  it("an applied row is a statement, not work: an Applied pill, no actions, no due pressure", async () => {
+    current = page({ rows: [orow({ matchId: 1, status: "APPLIED", daysLeft: -4, allowedActions: [] })] });
+    await mount();
+    expect(within(rowOf(1)).getByText("Applied", { selector: "span:not(.block)" })).toBeTruthy();
+    expect(within(rowOf(1)).getByText("Applied", { selector: "span.block" }).className).not.toContain("coral");
+    expect((document.querySelector("[data-quick='interest']") as HTMLButtonElement).disabled).toBe(true);
+    expect((document.querySelector("[data-quick='info']") as HTMLButtonElement).disabled).toBe(true);
+    expect((document.querySelector("[data-quick='resume']") as HTMLButtonElement).disabled).toBe(true);
+    expect((document.querySelector("[data-quick='decline']") as HTMLButtonElement).disabled).toBe(true);
+    expect(writes()).toEqual([]);
+  });
+
+  it("the buttons follow allowedActions: a closed job leaves only the resume note and Decline", async () => {
+    current = page({ rows: [orow({ matchId: 1, allowedActions: ["RESUME_UPDATE", "DECLINE"] })] });
+    await mount();
+    expect((document.querySelector("[data-quick='interest']") as HTMLButtonElement).disabled).toBe(true);
+    expect((document.querySelector("[data-quick='info']") as HTMLButtonElement).disabled).toBe(true);
+    expect((document.querySelector("[data-quick='resume']") as HTMLButtonElement).disabled).toBe(false);
+    expect((document.querySelector("[data-quick='decline']") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("the marketer's answer to the question shows on the details, and the row says Answered", async () => {
+    current = page({ rows: [orow({ matchId: 1, status: "AWAITING_RESPONSE", infoAnswered: true })] });
+    const withAnswer = { ...detail(1), row: orow({ matchId: 1, status: "AWAITING_RESPONSE", infoAnswered: true }), infoRequest: "Is this role fully remote?", infoAnswer: "Yes, fully remote within the US." };
+    const base = (fetch as unknown as ReturnType<typeof vi.fn>).getMockImplementation()! as (u: string, i?: RequestInit) => Promise<Response>;
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init: RequestInit = {}) =>
+      /opportunities\/1$/.test(url) && (init.method ?? "GET") === "GET" ? new Response(JSON.stringify(withAnswer), { status: 200 }) : base(url, init),
+    );
+    await mount();
+    expect(within(rowOf(1)).getByText("Answered")).toBeTruthy();
+    fireEvent.click(within(rowOf(1)).getByRole("button", { name: "View Senior Java Developer" }));
+    await flush();
+    const thread = document.querySelector("[data-info-thread]") as HTMLElement;
+    expect(within(thread).getByText("Is this role fully remote?")).toBeTruthy();
+    expect(within(thread).getByText(/Michael Torres answered/)).toBeTruthy();
+    expect(within(thread).getByText("Yes, fully remote within the US.")).toBeTruthy();
+  });
+
+  it("a question still waiting says so instead of showing an answer", async () => {
+    const waiting = { ...detail(2), row: orow({ matchId: 2, status: "AWAITING_RESPONSE" }), infoRequest: "Any travel?", infoAnswer: null };
+    const base = (fetch as unknown as ReturnType<typeof vi.fn>).getMockImplementation()! as (u: string, i?: RequestInit) => Promise<Response>;
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init: RequestInit = {}) =>
+      /opportunities\/2$/.test(url) && (init.method ?? "GET") === "GET" ? new Response(JSON.stringify(waiting), { status: 200 }) : base(url, init),
+    );
+    await mount();
+    fireEvent.click(within(rowOf(2)).getByRole("button", { name: "View Cloud Architect" }));
+    await flush();
+    const thread = document.querySelector("[data-info-thread]") as HTMLElement;
+    expect(thread.textContent).toMatch(/Waiting for your marketer to answer/);
+    expect(document.querySelector("[data-info-answer]")).toBeNull();
+  });
+
+  it("the deep link opens that job's details, even one beyond the first page, and a job that is not theirs is 'not available'", async () => {
+    const onlyHere = { ...detail(77), row: orow({ matchId: 77, title: "Beyond The First Page" }) };
+    const base = (fetch as unknown as ReturnType<typeof vi.fn>).getMockImplementation()! as (u: string, i?: RequestInit) => Promise<Response>;
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init: RequestInit = {}) => {
+      if (/opportunities\/77$/.test(url)) return new Response(JSON.stringify(onlyHere), { status: 200 });
+      if (/opportunities\/404$/.test(url)) return new Response("{}", { status: 404 });
+      return base(url, init);
+    });
+    render(
+      <ToastProvider>
+        <OpportunitiesPage orgId={2} firstName="Anika Rao" initialOpenId={77} />
+      </ToastProvider>,
+    );
+    await flush();
+    expect(document.querySelector("[data-detail='77']")).not.toBeNull();
+    expect(document.querySelector("[data-con-detail-missing]")).toBeNull();
+    cleanup();
+    render(
+      <ToastProvider>
+        <OpportunitiesPage orgId={2} firstName="Anika Rao" initialOpenId={404} />
+      </ToastProvider>,
+    );
+    await flush();
+    expect(document.querySelector("[data-con-detail-missing]")!.textContent).toMatch(/isn't available/);
+  });
+});

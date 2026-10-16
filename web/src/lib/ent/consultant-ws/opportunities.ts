@@ -6,7 +6,9 @@
 import { initialsOf, type Tone } from "./home";
 import { parseJobSource, type JobSource } from "./jobSource";
 
-export type OppStatus = "NEW" | "AWAITING_RESPONSE" | "IN_REVIEW" | "DECLINED";
+export type OppStatus = "NEW" | "AWAITING_RESPONSE" | "IN_REVIEW" | "DECLINED" | "APPLIED" | "CLOSED";
+/** What the API says the page may offer for a row right now (INTEREST and the rest); the buttons are drawn from this and from nothing else. */
+export type OppAction = "INTEREST" | "REQUEST_INFO" | "DECLINE" | "APPLIED" | "REOPEN" | "RESUME_UPDATE";
 export type OppPriority = "HIGH" | "MEDIUM" | "LOW";
 export type SortKey = "due" | "priority" | "newest";
 
@@ -36,6 +38,9 @@ export interface OppRow extends JobSource {
   missingSkills: number;
   interestSent: boolean;
   assignedAt: string | null;
+  /** The marketer answered the consultant's question (the answer is on the detail). */
+  infoAnswered: boolean;
+  allowedActions: OppAction[];
 }
 
 export interface NextSteps {
@@ -79,6 +84,9 @@ export interface OppDetail {
   reason: string | null;
   declineReason: string | null;
   infoRequest: string | null;
+  /** The marketer's answer to the question above; null until they answer. */
+  infoAnswer: string | null;
+  appliedAt: string | null;
   resumeUpdateNote: string | null;
   interestSentAt: string | null;
   timeline: TimelineEvent[];
@@ -90,7 +98,15 @@ const numOrNull = (v: unknown): number | null => (typeof v === "number" && Numbe
 const strOrNull = (v: unknown): string | null => (typeof v === "string" && v !== "" ? v : null);
 const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 
-const STATUSES: readonly string[] = ["NEW", "AWAITING_RESPONSE", "IN_REVIEW", "DECLINED"];
+const STATUSES: readonly string[] = ["NEW", "AWAITING_RESPONSE", "IN_REVIEW", "DECLINED", "APPLIED", "CLOSED"];
+const ACTIONS: readonly string[] = ["INTEREST", "REQUEST_INFO", "DECLINE", "APPLIED", "REOPEN", "RESUME_UPDATE"];
+
+/** Used only when an older API does not send `allowedActions`: what the status alone allows. */
+export function defaultActions(status: OppStatus, interestSent: boolean): OppAction[] {
+  if (status === "DECLINED") return ["REOPEN"];
+  if (status === "APPLIED" || status === "CLOSED") return [];
+  return [...(interestSent ? [] : (["INTEREST"] as const)), "REQUEST_INFO", "RESUME_UPDATE", "DECLINE", "APPLIED"];
+}
 const PRIORITIES: readonly string[] = ["HIGH", "MEDIUM", "LOW"];
 
 function tileOf(v: unknown): OppTile {
@@ -100,6 +116,8 @@ function tileOf(v: unknown): OppTile {
 
 export function parseRow(o: unknown): OppRow | null {
   if (!isObj(o) || typeof o.matchId !== "number" || typeof o.title !== "string") return null;
+  const status = (typeof o.status === "string" && STATUSES.includes(o.status) ? o.status : "NEW") as OppStatus;
+  const interestSent = o.interestSent === true;
   return {
     matchId: o.matchId,
     requirementId: num(o.requirementId),
@@ -109,7 +127,7 @@ export function parseRow(o: unknown): OppRow | null {
     location: strOrNull(o.location),
     workMode: strOrNull(o.workMode),
     marketer: strOrNull(o.marketer),
-    status: typeof o.status === "string" && STATUSES.includes(o.status) ? (o.status as OppStatus) : "NEW",
+    status,
     priority: typeof o.priority === "string" && PRIORITIES.includes(o.priority) ? (o.priority as OppPriority) : "MEDIUM",
     priorityDerived: o.priorityDerived === true,
     dueOn: strOrNull(o.dueOn),
@@ -117,8 +135,10 @@ export function parseRow(o: unknown): OppRow | null {
     daysLeft: num(o.daysLeft),
     score: Math.max(0, Math.min(100, num(o.score))),
     missingSkills: Math.max(0, num(o.missingSkills)),
-    interestSent: o.interestSent === true,
+    interestSent,
     assignedAt: strOrNull(o.assignedAt),
+    infoAnswered: o.infoAnswered === true,
+    allowedActions: Array.isArray(o.allowedActions) ? (o.allowedActions.filter((a): a is OppAction => typeof a === "string" && ACTIONS.includes(a))) : defaultActions(status, interestSent),
     ...parseJobSource(o),
   };
 }
@@ -167,6 +187,8 @@ export function parseDetail(body: unknown): OppDetail | null {
     reason: strOrNull(body.reason),
     declineReason: strOrNull(body.declineReason),
     infoRequest: strOrNull(body.infoRequest),
+    infoAnswer: strOrNull(body.infoAnswer),
+    appliedAt: strOrNull(body.appliedAt),
     resumeUpdateNote: strOrNull(body.resumeUpdateNote),
     interestSentAt: strOrNull(body.interestSentAt),
     timeline: arr(body.timeline).flatMap((o) => (isObj(o) && typeof o.key === "string" && typeof o.label === "string" ? [{ key: o.key, label: o.label, at: strOrNull(o.at) }] : [])),
@@ -186,6 +208,8 @@ export const STATUS_LABEL: Record<OppStatus, { label: string; tone: Tone }> = {
   AWAITING_RESPONSE: { label: "Awaiting Response", tone: "amber" },
   IN_REVIEW: { label: "In Review", tone: "violet" },
   DECLINED: { label: "Declined", tone: "red" },
+  APPLIED: { label: "Applied", tone: "green" },
+  CLOSED: { label: "Closed", tone: "slate" },
 };
 
 export const PRIORITY_LABEL: Record<OppPriority, { label: string; tone: Tone }> = {
@@ -203,10 +227,14 @@ export function daysLeftText(days: number): string {
 }
 
 /** Coral from 3 days left down, and when overdue. A declined opportunity is no longer pressing. */
-export const dueUrgent = (r: Pick<OppRow, "daysLeft" | "status">): boolean => r.status !== "DECLINED" && r.daysLeft <= 3;
+export const dueUrgent = (r: Pick<OppRow, "daysLeft" | "status">): boolean => canRespond(r) && r.daysLeft <= 3;
 
-/** Opportunities the quick actions can act on: a declined one only offers reopen. */
-export const canRespond = (r: Pick<OppRow, "status">): boolean => r.status !== "DECLINED";
+/** Opportunities the quick actions can act on (a declined one only offers reopen, an applied or closed one nothing). */
+export const canRespond = (r: Pick<OppRow, "status">): boolean => r.status === "NEW" || r.status === "AWAITING_RESPONSE" || r.status === "IN_REVIEW";
+
+/** Whether the API allows this action on the row right now. */
+export const can = (r: Pick<OppRow, "allowedActions">, a: OppAction): boolean => r.allowedActions.includes(a);
+
 
 /** The row the quick actions act on: the picked one while it exists, else the first row. */
 export function actionTarget(rows: OppRow[], picked: number | null): OppRow | null {
@@ -307,4 +335,6 @@ export const expressInterest = (orgId: number, matchId: number, note?: string) =
 export const needMoreInfo = (orgId: number, matchId: number, message: string) => write(`${base(orgId)}/${matchId}/need-more-info`, { message });
 export const decline = (orgId: number, matchId: number, reason: string) => write(`${base(orgId)}/${matchId}/decline`, { reason });
 export const reopen = (orgId: number, matchId: number) => write(`${base(orgId)}/${matchId}/reopen`);
+/** "I applied": the consultant's own statement that they applied on the source site. Nothing is submitted anywhere. */
+export const markApplied = (orgId: number, matchId: number) => write(`${base(orgId)}/${matchId}/applied`);
 export const requestResumeUpdate = (orgId: number, matchId: number, note?: string) => write(`${base(orgId)}/${matchId}/request-resume-update`, note ? { note } : {});

@@ -4,7 +4,7 @@ import { actionTarget, canRespond, daysLeftText, dueUrgent, nextSteps, parseDeta
 const tile = (value: number, extra: Record<string, unknown> = {}) => ({ value, previous: 1, deltaPct: 10, sparkline: [0, 1, 2], ...extra });
 const row = (over: Partial<OppRow> = {}): OppRow => ({
   matchId: 1, requirementId: 10, title: "Java Dev", skills: ["Java"], company: "TechCorp", location: "Austin, TX", workMode: "HYBRID", marketer: "Morgan",
-  status: "NEW", priority: "HIGH", priorityDerived: false, dueOn: "2026-10-16", dueDerived: false, daysLeft: 2, score: 90, missingSkills: 0, interestSent: false, assignedAt: null, sourceUrl: null, sourceName: null, quickInfo: null, sourceSample: false, ...over,
+  status: "NEW", priority: "HIGH", priorityDerived: false, dueOn: "2026-10-16", dueDerived: false, daysLeft: 2, score: 90, missingSkills: 0, interestSent: false, assignedAt: null, sourceUrl: null, sourceName: null, quickInfo: null, sourceSample: false, infoAnswered: false, allowedActions: [], ...over,
 });
 
 describe("the marketer's source link on an opportunity row", () => {
@@ -84,5 +84,39 @@ describe("nextSteps", () => {
     expect(s[2].href).toBe("/w/consultant/interview-prep");
     expect(nextSteps({ toRespond: 0, soonestDueDays: null, resumeGaps: 0, upcomingInterviews: 0, hasMarketer: false }, "/w/consultant").map((x) => x.key)).toEqual(["marketer"]);
     expect(nextSteps({ toRespond: 1, soonestDueDays: -1, resumeGaps: 0, upcomingInterviews: 0, hasMarketer: true }, "/w/consultant")[0].title).toBe("Respond to 1 opportunity");
+  });
+});
+
+describe("the shared answer on a row and its details", () => {
+  it("reads infoAnswered and allowedActions, and drops names the API does not know", () => {
+    const v = parseOpportunities({ orgId: 2, tiles: {}, rows: [
+      { matchId: 1, title: "A", status: "AWAITING_RESPONSE", infoAnswered: true, allowedActions: ["REQUEST_INFO", "DECLINE", "SUBMIT", 4] },
+      { matchId: 2, title: "B", status: "APPLIED", allowedActions: [] },
+      { matchId: 3, title: "C", status: "CLOSED", allowedActions: [] },
+    ] })!;
+    expect(v.rows[0]).toMatchObject({ status: "AWAITING_RESPONSE", infoAnswered: true, allowedActions: ["REQUEST_INFO", "DECLINE"] });
+    expect(v.rows[1]).toMatchObject({ status: "APPLIED", infoAnswered: false, allowedActions: [] });
+    expect(v.rows[2]).toMatchObject({ status: "CLOSED", allowedActions: [] });
+  });
+
+  it("falls back to what the status allows when an older API sends no actions", () => {
+    const v = parseOpportunities({ orgId: 2, tiles: {}, rows: [{ matchId: 1, title: "A" }, { matchId: 2, title: "B", interestSent: true }, { matchId: 3, title: "C", status: "DECLINED" }, { matchId: 4, title: "D", status: "APPLIED" }] })!;
+    expect(v.rows[0].allowedActions).toEqual(["INTEREST", "REQUEST_INFO", "RESUME_UPDATE", "DECLINE", "APPLIED"]);
+    expect(v.rows[1].allowedActions).not.toContain("INTEREST");
+    expect(v.rows[2].allowedActions).toEqual(["REOPEN"]);
+    expect(v.rows[3].allowedActions).toEqual([]);
+  });
+
+  it("reads the marketer's answer and the applied time on the detail", () => {
+    const d = parseDetail({ row: { matchId: 1, title: "A" }, infoRequest: "Remote?", infoAnswer: "Yes.", appliedAt: "2026-10-16T10:00:00Z" })!;
+    expect(d).toMatchObject({ infoRequest: "Remote?", infoAnswer: "Yes.", appliedAt: "2026-10-16T10:00:00Z" });
+    expect(parseDetail({ row: { matchId: 1, title: "A" } })).toMatchObject({ infoAnswer: null, appliedAt: null });
+  });
+
+  it("applied and closed rows are not work to respond to", () => {
+    expect(canRespond({ status: "APPLIED" })).toBe(false);
+    expect(canRespond({ status: "CLOSED" })).toBe(false);
+    expect(canRespond({ status: "AWAITING_RESPONSE" })).toBe(true);
+    expect(dueUrgent({ status: "APPLIED", daysLeft: -9 })).toBe(false);
   });
 });
