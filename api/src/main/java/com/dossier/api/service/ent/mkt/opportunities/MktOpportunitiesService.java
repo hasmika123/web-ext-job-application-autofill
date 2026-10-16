@@ -23,6 +23,8 @@ import com.dossier.api.repository.ent.talent.ConsultantSkillRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
 import com.dossier.api.repository.ent.talent.RequirementSkillRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.domain.ent.consultantws.CwsNotification;
+import com.dossier.api.service.ent.consultantws.ConsultantNotificationGenerator;
 import com.dossier.api.service.ent.jobs.OpportunityAssignmentService;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.ent.mkt.opportunities.MktOpportunitiesDTO.*;
@@ -70,6 +72,7 @@ public class MktOpportunitiesService {
     public static final int DEFAULT_SIZE = 8;
     public static final int MAX_SIZE = 100;
     public static final int MAX_BULK = 50;
+    public static final int REASON_MAX = 200;
     static final int SPARK_WEEKS = 8;
     static final Duration NOTIFY_COOLDOWN = Duration.ofHours(24);
     static final Duration DEDUPE = Duration.ofHours(1);
@@ -107,6 +110,7 @@ public class MktOpportunitiesService {
     private final UserRepository users;
     private final OrgAuditService audit;
     private final Clock clock;
+    private ConsultantNotificationGenerator notifier;
 
     @Autowired
     public MktOpportunitiesService(
@@ -136,6 +140,12 @@ public class MktOpportunitiesService {
         this.users = users;
         this.audit = audit;
         this.clock = clock;
+    }
+
+    /** The consultant's notification feed (withdraw and reassign tell the consultant). Optional so the plain-constructor unit tests need no feed. */
+    @Autowired(required = false)
+    void setNotifier(ConsultantNotificationGenerator notifier) {
+        this.notifier = notifier;
     }
 
     // ---- reads ----------------------------------------------------------------------------------------------------------------
@@ -371,6 +381,66 @@ public class MktOpportunitiesService {
         return result(view, id, at == null ? "Next action cleared." : "Next action updated.", true, now);
     }
 
+    /**
+     * MKT-44: the marketer takes an assignment back. The opportunity becomes CLOSED with reason WITHDRAWN and the marketer's reason text (required, at most
+     * 200 characters, PII-scanned) is kept on the timeline and the audit row. The consultant is told on their own notification feed (the existing
+     * Job Match kind). 409 {@code NOT_ASSIGNED} when the row was never assigned, 409 {@code ILLEGAL_TRANSITION} when the consultant already declined or
+     * applied or it is closed. Prepares nothing else: it never answers or submits for anyone (E1).
+     */
+    @Transactional
+    public ActionResult withdraw(OrgMembership me, Long id, String reason) {
+        MktScope.View view = scope.resolve(me, PERMISSION);
+        String text = reason == null ? "" : reason.strip();
+        if (text.isEmpty() || text.length() > REASON_MAX) throw OrgException.coded(400, "VALIDATION", "reason: enter 1 to " + REASON_MAX + " characters", Map.of("field", "reason"));
+        SensitiveContent.check("reason", "reason", text);
+        Instant now = clock.instant();
+        MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
+        scope.require(view, raw.consultantId());
+        if (raw.oppId() == null || !"ASSIGNED".equals(raw.matchStatus())) throw OrgException.coded(409, "NOT_ASSIGNED", "Only an assigned opportunity can be withdrawn.", Map.of());
+        assignment.withdraw(view, me, raw.oppId(), text); // writes the one MARKETER_OPPORTUNITY_WITHDRAW audit row (with the reason) and the CLOSED event
+        if (notifier != null) {
+            String body = (raw.jobTitle() == null ? "An opportunity" : raw.jobTitle()) + " was withdrawn by your marketer: " + text;
+            notifier.push(view.orgId(), raw.consultantId(), "withdrawn:" + raw.oppId() + ":" + now.getEpochSecond(), CwsNotification.JOB_MATCH, "Opportunity Withdrawn", body.length() > 300 ? body.substring(0, 300) : body,
+                CwsNotification.MEDIUM, "View", "/w/consultant/opportunities", "OPPORTUNITY", id);
+        }
+        return result(view, id, "Withdrawn. " + raw.consultantName() + " was told.", true, now);
+    }
+
+    /**
+     * MKT-44: a declined (or withdrawn) opportunity is offered to ANOTHER consultant of the caller's scope, through the one assignment path (same gates:
+     * job open, active consultant, approved resume). The old row stays as the consultant left it; its timeline records where the job went. 409
+     * {@code NOT_REASSIGNABLE} for any other state, 404 for a consultant outside the caller's scope. Answers the NEW row. The new consultant sees it in
+     * their feed as "Opportunity Awaiting Your Response" (a pair that is reopened gets that notice pushed, because its old one is already closed).
+     */
+    @Transactional
+    public ActionResult reassign(OrgMembership me, Long id, Long toConsultantId) {
+        MktScope.View view = scope.resolve(me, PERMISSION);
+        if (toConsultantId == null) throw OrgException.coded(400, "VALIDATION", "Choose a consultant.", Map.of("field", "consultantId"));
+        Instant now = clock.instant();
+        MktOpportunityRow raw = repo.findRow(view.orgId(), id).orElseThrow(OrgNotFoundException::new);
+        scope.require(view, raw.consultantId());
+        if (toConsultantId.equals(raw.consultantId())) throw OrgException.coded(400, "VALIDATION", "Choose a different consultant.", Map.of("field", "consultantId"));
+        scope.require(view, toConsultantId);
+        MktOpportunity opp = raw.oppId() == null ? null : repo.findByOrgIdAndId(view.orgId(), raw.oppId()).orElse(null);
+        boolean declined = opp != null && "DECLINED".equals(opp.getState());
+        boolean withdrawn = opp != null && "CLOSED".equals(opp.getState()) && OpportunityAssignmentService.CLOSED_WITHDRAWN.equals(opp.getClosedReason());
+        if (!declined && !withdrawn) throw OrgException.coded(409, "NOT_REASSIGNABLE", "Only a declined or withdrawn opportunity can be offered to someone else.", Map.of());
+        if (!OPEN_JOB.contains(raw.requirementStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open.", Map.of());
+        String toName = consultants.findByOrgIdAndId(view.orgId(), toConsultantId).map(c -> c.getDisplayName()).orElseThrow(OrgNotFoundException::new);
+        OpportunityAssignmentService.Audit auditRow = new OpportunityAssignmentService.Audit("MARKETER_OPPORTUNITY_REASSIGN", "OPPORTUNITY", String.valueOf(id), r -> "from consultant " + raw.consultantId() + " to consultant " + toConsultantId);
+        OpportunityAssignmentService.Result assigned =
+            assignment.assign(view, me, raw.requirementId(), toConsultantId, OpportunityAssignmentService.Options.none().withOwner(me.memberId()).askingInterest().withAudit(auditRow));
+        if (assigned.refused()) throw assignError(assigned.reason());
+        if (assigned.existing()) throw assignError("ALREADY_ASSIGNED");
+        record(opp, "OFFERED_ELSEWHERE", me.memberId(), "was offered to " + toName + " instead", now);
+        if (notifier != null && assigned.reopened()) {
+            String job = raw.jobTitle() == null ? "An opportunity" : raw.jobTitle();
+            notifier.push(view.orgId(), toConsultantId, "reassigned:" + assigned.matchId() + ":" + now.getEpochSecond(), CwsNotification.JOB_MATCH, "Opportunity Awaiting Your Response",
+                job + " was assigned to you. Let your marketer know if you are interested.", CwsNotification.MEDIUM, "Respond", "/w/consultant/opportunities", "OPPORTUNITY", assigned.matchId());
+        }
+        return result(view, assigned.matchId(), "Offered to " + toName + ". They were asked for their interest.", true, now, true);
+    }
+
     // ---- internals --------------------------------------------------------------------------------------------------------------
 
     /** Null when assigned; otherwise the reason code. The pair rules and every gate live in {@link OpportunityAssignmentService}. */
@@ -531,7 +601,7 @@ public class MktOpportunitiesService {
         Person owner = e.ownerId() == null ? null : new Person(e.ownerId(), names.getOrDefault(e.ownerId(), "Team member"), null);
         return new Item(
             r.matchId(), new Person(r.consultantId(), r.consultantName(), null), r.requirementId(), r.jobTitle(), place(r), r.clientId(), r.clientName(), r.score() == null ? 0 : r.score(),
-            e.interest(), e.resume(), owner, r.nextActionAt(), e.action(), r.matchStatus(), e.last(), e.stale(), e.ready(), r.reason()
+            e.interest(), e.resume(), owner, r.nextActionAt(), e.action(), r.matchStatus(), e.last(), e.stale(), e.ready(), r.reason(), r.oppState()
         );
     }
 

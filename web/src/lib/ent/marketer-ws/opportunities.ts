@@ -46,6 +46,8 @@ export interface Opportunity {
   stale: boolean;
   ready: boolean;
   reason: string | null;
+  /** The marketing state of the assignment (ASSIGNED, VIEWED, INTERESTED, NEEDS_INFO, DECLINED, APPLIED, CLOSED); null while it only exists as a suggestion. */
+  state: string | null;
 }
 export interface TopMatch { id: number; jobTitle: string; client: string; location: string; matchScore: number }
 export interface Slice { key: Interest; label: string; count: number }
@@ -119,6 +121,7 @@ export function parseOpportunity(x: unknown): Opportunity | null {
     stale: x.stale === true,
     ready: x.ready === true,
     reason: orNull(x.reason),
+    state: orNull(x.state),
   };
 }
 const items = (x: unknown): Opportunity[] => (Array.isArray(x) ? x.map(parseOpportunity).filter((o): o is Opportunity => o !== null) : []);
@@ -251,7 +254,18 @@ export const requestFromConsultant = (orgId: number | string, id: number, kind: 
 export const notifyAwaiting = (orgId: number | string) => send(orgId, "/notify", "POST");
 /** Answers the consultant's open question. The consultant's own state never changes: only they move the opportunity on. */
 export const answerInfo = (orgId: number | string, id: number, answer: string) => send(orgId, `/${id}/answer-info`, "POST", { answer });
-export const reviewOpportunity = (orgId: number | string, id: number) => send(orgId, `/${id}/review`, "POST");
+/** MKT-44: take an assignment back. The reason is required (1 to 200 characters); the consultant is told. */
+export const withdrawOpportunity = (orgId: number | string, id: number, reason: string) => send(orgId, `/${id}/withdraw`, "POST", { reason });
+/** MKT-44: offer a declined or withdrawn opportunity to another consultant of the caller's scope. */
+export const reassignOpportunity = (orgId: number | string, id: number, consultantId: number) => send(orgId, `/${id}/reassign`, "POST", { consultantId });
+/** Which of the two follow-ups a row offers: a live assignment can be withdrawn, a declined or withdrawn one can be offered to someone else. */
+export function followUpOf(o: Pick<Opportunity, "status" | "state">): "WITHDRAW" | "REASSIGN" | null {
+  if (o.status !== "ASSIGNED") return null;
+  if (o.state === "DECLINED" || o.state === "CLOSED") return "REASSIGN";
+  if (o.state === "ASSIGNED" || o.state === "VIEWED" || o.state === "INTERESTED" || o.state === "NEEDS_INFO") return "WITHDRAW";
+  return null;
+}
+export const reviewOpportunity =(orgId: number | string, id: number) => send(orgId, `/${id}/review`, "POST");
 export const setNextAction = (orgId: number | string, id: number, nextActionAt: string | null) => send(orgId, `/${id}/next-action`, "PATCH", { nextActionAt });
 export const createOpportunity = (orgId: number | string, consultantId: number, requirementId: number) => send(orgId, "", "POST", { consultantId, requirementId });
 

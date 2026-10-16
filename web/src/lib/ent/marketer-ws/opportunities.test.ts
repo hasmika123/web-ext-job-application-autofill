@@ -133,3 +133,34 @@ describe("small helpers", () => {
     expect(matchTone(79)).toBe("amber");
   });
 });
+
+describe("MKT-40 / MKT-44 helpers", () => {
+  it("offers Withdraw on a live assignment and Re-assign on a declined or withdrawn one", async () => {
+    const { followUpOf, checkHandJob, withdrawOpportunity, reassignOpportunity, createJobByHand } = await import("./opportunities");
+    expect(followUpOf({ status: "ASSIGNED", state: "ASSIGNED" })).toBe("WITHDRAW");
+    expect(followUpOf({ status: "ASSIGNED", state: "NEEDS_INFO" })).toBe("WITHDRAW");
+    expect(followUpOf({ status: "ASSIGNED", state: "DECLINED" })).toBe("REASSIGN");
+    expect(followUpOf({ status: "ASSIGNED", state: "CLOSED" })).toBe("REASSIGN");
+    expect(followUpOf({ status: "ASSIGNED", state: "APPLIED" })).toBeNull();
+    expect(followUpOf({ status: "SUGGESTED", state: "ASSIGNED" })).toBeNull();
+
+    const ok = { title: "Platform Engineer", company: "Acme", location: "Austin, TX", workMode: "REMOTE" as const, description: "Found it.", jobUrl: "" };
+    expect(checkHandJob(ok)).toBeNull();
+    expect(checkHandJob({ ...ok, title: "x" })).toMatch(/title/);
+    expect(checkHandJob({ ...ok, workMode: "" })).toMatch(/work mode/);
+    expect(checkHandJob({ ...ok, jobUrl: "http://nope.example.com" })).toMatch(/https/);
+
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ jobId: 41, existingJob: false }), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const made = await createJobByHand(4, ok);
+    expect(made).toEqual({ ok: true, jobId: 41, existing: false });
+    const call = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(call[0]).toBe("/api/orgs/4/mkt/opportunities/job");
+    expect(JSON.parse(String(call[1].body))).toEqual({ title: "Platform Engineer", company: "Acme", location: "Austin, TX", workMode: "REMOTE", description: "Found it." });
+    expect((call[1].headers as Record<string, string>)["idempotency-key"]).toBeTruthy();
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ message: "Withdrawn.", changed: true }), { status: 200 })));
+    expect(await withdrawOpportunity(4, 5, "paused")).toMatchObject({ ok: true });
+    expect(await reassignOpportunity(4, 5, 11)).toMatchObject({ ok: true });
+  });
+});

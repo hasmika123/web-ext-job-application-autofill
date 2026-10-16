@@ -459,6 +459,12 @@ public class OpportunityAssignmentService {
      */
     @Transactional(noRollbackFor = OrgException.class)
     public void withdraw(AssignmentScope scope, OrgMembership me, Long opportunityId) {
+        withdraw(scope, me, opportunityId, null);
+    }
+
+    /** {@link #withdraw(AssignmentScope, OrgMembership, Long)} with the marketer's reason, kept on the timeline event and the audit row (already validated and PII-scanned by the caller). */
+    @Transactional(noRollbackFor = OrgException.class)
+    public void withdraw(AssignmentScope scope, OrgMembership me, Long opportunityId, String reasonText) {
         Long orgId = orgOf(scope, me);
         MktOpportunity opp = opportunities.lockByOrgIdAndId(orgId, opportunityId == null ? -1L : opportunityId).orElseThrow(OrgNotFoundException::new);
         RequirementMatch match = matches.findByOrgIdAndId(orgId, opp.getMatchId()).orElseThrow(OrgNotFoundException::new);
@@ -466,17 +472,23 @@ public class OpportunityAssignmentService {
         if (!CLOSABLE.contains(opp.getState())) {
             throw OrgException.coded(409, "ILLEGAL_TRANSITION", "That is not possible from the opportunity's current state.", Map.of("state", opp.getState(), "target", "CLOSED"));
         }
-        close(me, opp, CLOSED_WITHDRAWN, "was withdrawn by the marketer", clock.instant());
+        String why = reasonText == null || reasonText.isBlank() ? null : reasonText.strip();
+        String eventText = why == null ? "was withdrawn by the marketer" : "was withdrawn by the marketer: " + (why.length() > 160 ? why.substring(0, 160) : why);
+        close(me, opp, CLOSED_WITHDRAWN, eventText, clock.instant(), "MARKETER_OPPORTUNITY_WITHDRAW", why == null ? CLOSED_WITHDRAWN : CLOSED_WITHDRAWN + ": " + why);
     }
 
     private void close(OrgMembership me, MktOpportunity opp, String reason, String eventText, Instant now) {
+        close(me, opp, reason, eventText, now, "OPPORTUNITY_CLOSED", reason);
+    }
+
+    private void close(OrgMembership me, MktOpportunity opp, String reason, String eventText, Instant now, String auditAction, String auditDetails) {
         opp.setState("CLOSED");
         opp.setClosedAt(now);
         opp.setClosedReason(reason);
         opp.setUpdatedAt(now);
         opportunities.save(opp);
         record(opp, EVENT_CLOSED, me.memberId(), eventText, now);
-        audit.record(me, "OPPORTUNITY_CLOSED", "OPPORTUNITY", null, String.valueOf(opp.getId()), reason);
+        audit.record(me, auditAction, "OPPORTUNITY", null, String.valueOf(opp.getId()), auditDetails);
     }
 
     // ---- internals ---------------------------------------------------------------------------------------------------------------

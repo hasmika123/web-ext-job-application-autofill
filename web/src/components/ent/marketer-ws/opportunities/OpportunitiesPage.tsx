@@ -413,6 +413,11 @@ export default function OpportunitiesPage({ orgId, firstName, hrefs }: MktPagePr
         busy={working}
         onClose={() => setDialog(null)}
         onReview={(id) => void run(null, () => reviewOpportunity(orgId, id)).then(() => setDialog(null))}
+        onChanged={(message) => {
+          toast({ title: message, variant: "success" });
+          reload();
+          setDialog(null);
+        }}
       />
       <AddDialog
         orgId={orgId}

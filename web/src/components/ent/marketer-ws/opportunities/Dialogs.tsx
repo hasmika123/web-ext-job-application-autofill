@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button, Input, MemberAvatar, Select, SheetFrame, Skeleton, Textarea, cn } from "@kiwiply/ui";
 import { relativeTime } from "@/lib/ent/dashboard";
 import {
-  INTEREST_LABELS, answerInfo, checkHandJob, createJobByHand, fetchDetail, fetchOptions, fetchReady, matchTone, nextActionText,
+  INTEREST_LABELS, answerInfo, checkHandJob, createJobByHand, fetchDetail, fetchOptions, fetchReady, followUpOf, matchTone, nextActionText, reassignOpportunity, withdrawOpportunity,
   type Detail, type HandJobInput, type InfoThread, type JobOption, type Opportunity, type Option,
 } from "@/lib/ent/marketer-ws/opportunities";
 
@@ -70,8 +70,75 @@ function InfoBox({ orgId, id, info, onAnswered }: { orgId: number; id: number; i
   );
 }
 
+/**
+ * MKT-44: take an assignment back (a reason is required and the consultant is told) or, once the consultant declined or it was withdrawn, offer the job to
+ * another consultant of the caller's scope. Both call the API directly; the page reloads through {@code onChanged}. Nothing here answers or submits for anyone (E1).
+ */
+function FollowUpBox({ orgId, o, onChanged }: { orgId: number; o: Opportunity; onChanged: (message: string) => void }) {
+  const kind = followUpOf(o);
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [others, setOthers] = useState<{ value: string; label: string }[] | null>(null);
+  const [target, setTarget] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (kind !== "REASSIGN" || !open) return;
+    let live = true;
+    void fetchOptions(orgId).then((opts) => {
+      if (live) setOthers((opts?.consultants ?? []).filter((c) => c.id !== o.consultant.id).map((c) => ({ value: String(c.id), label: c.name })));
+    });
+    return () => {
+      live = false;
+    };
+  }, [orgId, kind, open, o.consultant.id]);
+  if (!kind) return null;
+  const submit = async () => {
+    setBusy(true);
+    setError("");
+    const r = kind === "WITHDRAW" ? await withdrawOpportunity(orgId, o.id, reason.trim()) : await reassignOpportunity(orgId, o.id, Number(target));
+    setBusy(false);
+    if (r.ok) onChanged(r.message);
+    else setError(r.error);
+  };
+  return (
+    <Section title={kind === "WITHDRAW" ? "Withdraw" : "Offer to someone else"}>
+      {!open ? (
+        <Button variant="ghost" size="sm" data-opp-followup={kind.toLowerCase()} onClick={() => setOpen(true)}>
+          {kind === "WITHDRAW" ? "Withdraw this assignment" : "Re-assign to another consultant"}
+        </Button>
+      ) : kind === "WITHDRAW" ? (
+        <div data-opp-withdraw>
+          <p className="mb-1.5 text-[13px] text-muted">{o.consultant.name} is told the opportunity was withdrawn, with your reason.</p>
+          <Textarea aria-label="Reason for withdrawing" rows={3} maxLength={200} value={reason} placeholder="Why are you taking it back?" onChange={(e) => setReason(e.target.value)} />
+          {error ? <p role="alert" className="mt-1 text-[12.5px] text-danger-text">{error}</p> : null}
+          <div className="mt-2 flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" disabled={busy || !reason.trim()} onClick={() => void submit()}>Withdraw</Button>
+          </div>
+        </div>
+      ) : (
+        <div data-opp-reassign>
+          {others === null ? (
+            <Skeleton className="h-10 w-full" />
+          ) : others.length === 0 ? (
+            <p className="text-[13px] text-muted">You have no other consultant to offer this to.</p>
+          ) : (
+            <Select aria-label="Offer to" value={target} onChange={setTarget} placeholder="Choose a consultant" options={others} />
+          )}
+          {error ? <p role="alert" className="mt-1 text-[12.5px] text-danger-text">{error}</p> : null}
+          <div className="mt-2 flex justify-end gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button size="sm" disabled={busy || !target} onClick={() => void submit()}>Offer the job</Button>
+          </div>
+        </div>
+      )}
+    </Section>
+  );
+}
+
 /** Review (the marketer looks the opportunity over) and Compare (the same consultant's other open opportunities). */
-export function DetailDialog({ orgId, id, mode, onClose, onReview, busy }: { orgId: number; id: number | null; mode: "REVIEW" | "COMPARE"; onClose: () => void; onReview: (id: number) => void; busy: boolean }) {
+export function DetailDialog({ orgId, id, mode, onClose, onReview, onChanged, busy }: { orgId: number; id: number | null; mode: "REVIEW" | "COMPARE"; onClose: () => void; onReview: (id: number) => void; onChanged?: (message: string) => void; busy: boolean }) {
   const [detail, setDetail] = useState<Detail | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -117,6 +184,8 @@ export function DetailDialog({ orgId, id, mode, onClose, onReview, busy }: { org
             {o.reason ? <p className="mt-3 text-[13px] text-muted">Why it matches: {o.reason}</p> : null}
 
             {detail?.info ? <InfoBox orgId={orgId} id={o.id} info={detail.info} onAnswered={(answer) => setDetail((d) => (d && d.info ? { ...d, info: { ...d.info, answer } } : d))} /> : null}
+
+            {onChanged ? <FollowUpBox orgId={orgId} o={o} onChanged={onChanged} /> : null}
 
             {mode === "COMPARE" || alts.length > 0 ? (
               <Section title={`${o.consultant.name}'s other open opportunities`}>

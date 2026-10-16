@@ -499,7 +499,7 @@ class OpportunityAssignmentServiceTest {
         assertThat(opp.getState()).isEqualTo("CLOSED");
         assertThat(opp.getClosedReason()).isEqualTo("WITHDRAWN");
         assertThat(world.eventKinds()).containsExactly("CLOSED");
-        verify(world.audit).record(eq(me), eq("OPPORTUNITY_CLOSED"), eq("OPPORTUNITY"), isNull(), eq(String.valueOf(opp.getId())), eq("WITHDRAWN"));
+        verify(world.audit).record(eq(me), eq("MARKETER_OPPORTUNITY_WITHDRAW"), eq("OPPORTUNITY"), isNull(), eq(String.valueOf(opp.getId())), eq("WITHDRAWN"));
         // nothing left to withdraw
         assertThatThrownBy(() -> service.withdraw(all, me, opp.getId())).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getStatus()).isEqualTo(409));
         opp.setState("DECLINED");

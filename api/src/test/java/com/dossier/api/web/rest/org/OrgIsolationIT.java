@@ -564,7 +564,9 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/bulk-assign", Case.mkt(200, "MARKETER_OPPORTUNITY_BULK_ASSIGN", w -> "{\"ids\":[" + w.mktMatchId + "]}", World::approveResume)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/notify", Case.mkt(200, "MARKETER_OPPORTUNITY_NOTIFY", w -> null, World::mktAwaitingInterest)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/request", Case.mkt(200, "MARKETER_OPPORTUNITY_REQUEST", w -> "{\"kind\":\"RESUME\"}", null)),
-        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/answer-info", Case.mkt(200, "MARKETER_OPPORTUNITY_INFO_ANSWER", w -> "{\"answer\":\"Yes, a W2 option is available.\"}", World::mktNeedsInfo)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/withdraw", Case.mkt(200, "MARKETER_OPPORTUNITY_WITHDRAW", w -> "{\"reason\":\"The client paused hiring for this role.\"}", World::mktAssignOpportunity)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/reassign", Case.mkt(200, "MARKETER_OPPORTUNITY_REASSIGN", w -> "{\"consultantId\":" + w.consultantId + "}", World::mktReassignable)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/answer-info",Case.mkt(200, "MARKETER_OPPORTUNITY_INFO_ANSWER", w -> "{\"answer\":\"Yes, a W2 option is available.\"}", World::mktNeedsInfo)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/{id}/review", Case.mkt(200, "MARKETER_OPPORTUNITY_REVIEW", w -> null, null)),
         Map.entry("PATCH /api/orgs/{orgId}/mkt/opportunities/{id}/next-action", Case.mkt(200, "MARKETER_OPPORTUNITY_NEXT_ACTION", w -> "{\"nextActionAt\":\"" + Instant.now().plusSeconds(5 * 86400L) + "\"}", null)),
         Map.entry("GET /api/orgs/{orgId}/mkt/performance", Case.mktRead()),
@@ -1283,6 +1285,35 @@ class OrgIsolationIT {
         void mktNeedsInfo() {
             mktAssignOpportunity();
             em.createQuery("update MktOpportunity o set o.state = 'NEEDS_INFO', o.infoRequest = 'Is a W2 option available?' where o.orgId = :o").setParameter("o", org.getId()).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        /** The assigned opportunity was declined by its consultant, and a second consultant of the world (approved resume, pair already suggested) can take it. */
+        void mktReassignable() {
+            mktAssignOpportunity();
+            com.dossier.api.domain.ent.talent.OrgResume second = new com.dossier.api.domain.ent.talent.OrgResume();
+            second.setOrgId(org.getId());
+            second.setConsultantId(consultantId);
+            second.setName(p + " second consultant resume");
+            second.setOwnerMemberId(owner.getId());
+            second.setApprovalStatus("APPROVED");
+            second.setApprovedAt(Instant.now());
+            talentResumes.saveAndFlush(second);
+            com.dossier.api.domain.ent.talent.RequirementMatch rm = new com.dossier.api.domain.ent.talent.RequirementMatch();
+            rm.setOrgId(org.getId());
+            rm.setRequirementId(jobId);
+            rm.setConsultantId(consultantId);
+            rm.setScore(70);
+            rm.setStatus("SUGGESTED");
+            rm.setReason("Skills align with this role.");
+            Long secondMatch = requirementMatches.saveAndFlush(rm).getId();
+            com.dossier.api.domain.ent.mkt.MktOpportunity o2 = new com.dossier.api.domain.ent.mkt.MktOpportunity();
+            o2.setOrgId(org.getId());
+            o2.setMatchId(secondMatch);
+            o2.setOwnerMemberId(owner.getId());
+            mktOpportunities.save(o2);
+            em.createQuery("update MktOpportunity o set o.state = 'DECLINED' where o.orgId = :o and o.matchId = :m").setParameter("o", org.getId()).setParameter("m", mktMatchId).executeUpdate();
             em.flush();
             em.clear();
         }
