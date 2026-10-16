@@ -14,6 +14,7 @@
 | `02-use-case-catalogue.md` | Index of every use-case story (ADM / MKT / CON / PLT) and the cross-role end-to-end journeys | QA lead |
 | `03-test-data-and-environment.md` | Demo tenants, what is seeded, reset, switches, known environment gaps | QA lead, developers |
 | `stories/admin.md`, `stories/marketing.md`, `stories/consultant.md`, `stories/platform.md` | The use-case stories themselves (written separately; the catalogue indexes them) | QA lead |
+| `E2E-JOURNEYS.md` | Cross-page, cross-persona **end-to-end journeys** (`E2E-ONB/STF/CON/MKT/XC-*`), feature by feature: enterprise onboarding and setup, staff onboarding and roles, consultant profile + resume + applying with the browser extension (captured-fixture design, never live LinkedIn, never auto-submit), marketer assignments and act-for resumes, status tracking. Each story carries run mode, automation status (runnable / partial / blocked), priority and the spec file to write; plus the P0 build order, the seed accounts (incl. Gamma) and the gap list | QA lead, the Sonnet agent writing the Playwright specs |
 
 The stories describe behaviour in business language and carry a status (section 6). The runnable counterpart of an `AUTOMATED` story is a Playwright "story" spec that records a video of the walkthrough (section 3).
 
