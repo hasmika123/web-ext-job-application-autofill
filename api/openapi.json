@@ -102,6 +102,9 @@
     "name" : "mkt-applications",
     "description" : "Marketing workspace: the Applications board (KPIs, tracker, funnel, overdue actions, recent updates) and the marketer's records."
   }, {
+    "name" : "tracker-act-for",
+    "description" : "A marketer saves a job for an assigned consultant (save only, never submit)."
+  }, {
     "name" : "notifications",
     "description" : "In-app notifications."
   }, {
@@ -119,6 +122,9 @@
   }, {
     "name" : "org-join",
     "description" : "Join an organization from an invite or a join code."
+  }, {
+    "name" : "org-reports",
+    "description" : "Organization reports: roster, applications funnel, interviews, placements, clients and marketer workload."
   }, {
     "name" : "interviews",
     "description" : "Interviews: the table, KPI tiles, pipeline, analytics and the detail drawer; recorded schedules, reschedules, status changes, reminder requests and feedback."
@@ -10761,7 +10767,7 @@
       "post" : {
         "tags" : [ "org-dashboard" ],
         "summary" : "Hide an alert for 7 days (for the caller only)",
-        "description" : "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT, APPLICATIONS_OVERDUE, LICENSES_ATTENTION, MARKETERS_OVERLOADED, APPLICATIONS_NEW, INTERVIEWS_WEEK, PLACEMENT_NEW, RESUMES_PENDING, CONSULTANTS_UNASSIGNED). Other administrators still see it. Unknown key, or no dashboard.view_org: 404.",
+        "description" : "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT, APPLICATIONS_OVERDUE, LICENSES_ATTENTION, MARKETERS_OVERLOADED, APPLICATIONS_NEW, INTERVIEWS_WEEK, PLACEMENT_NEW, RESUMES_PENDING, CONSULTANTS_UNASSIGNED) or CHECKLIST (the activation checklist card). Other administrators still see it. Unknown key, or no dashboard.view_org: 404.",
         "operationId" : "dismiss_6",
         "parameters" : [ {
           "name" : "alertKey",
@@ -10908,6 +10914,45 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/{memberId}/applications/save" : {
+      "post" : {
+        "tags" : [ "tracker-act-for" ],
+        "summary" : "Save a job for an assigned consultant",
+        "description" : "Body: {company, roleTitle, jobUrl?, location?, externalJobId?, atsPlatform?, postingId?}. Creates the application on the CONSULTANT's tracker with status SAVED, source org, history 'Updated by <marketer> on behalf of <consultant>'; a job the consultant already has keeps its status (alreadySaved = true). Needs member.act_for and an active assignment; 404 for anything else; 429 over 30 saves a minute. Never submits.",
+        "operationId" : "save_3",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Request"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Saved"
                 }
               }
             }
@@ -12345,7 +12390,7 @@
         "tags" : [ "job-search" ],
         "summary" : "Save a job to the board",
         "description" : "Creates (or updates, by the board's dedup) a SAVED application from the stored posting. Returns {applicationId}.",
-        "operationId" : "save_3",
+        "operationId" : "save_4",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -18042,6 +18087,34 @@
         }
       }
     },
+    "/api/orgs/{orgId}/reports/overview" : {
+      "get" : {
+        "tags" : [ "org-reports" ],
+        "summary" : "The reports overview",
+        "description" : "Query: range = 30 or 90 (days, default 30; 400 RANGE_INVALID otherwise). Answers the headline tiles, the consultant roster by marketing status and availability, the applications funnel by stage with week-over-week change, interviews scheduled vs completed, placements started and ended per month, the top clients by running placements, the marketer workload and the median time to first submission. reports.view at ORG scope required; 404 for everyone else.",
+        "operationId" : "overview_2",
+        "parameters" : [ {
+          "name" : "range",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Overview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/placements/{placementId}" : {
       "get" : {
         "tags" : [ "placements" ],
@@ -18345,6 +18418,35 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/mkt/talent/{consultantId}/overview" : {
+      "get" : {
+        "tags" : [ "mkt-talent" ],
+        "summary" : "The selected consultant, in full, for their assigned marketer",
+        "description" : "{id, name, title, headline, workMode, availability, resume, contact{workEmail, location, workAuthorization (a stored status label or null)}, skills, placement{role, client, startDate, status} (no money), resumes, applications{total, open, byStage, recent[5] with updatedBy}, interviews}. No identity numbers, no date of birth, no bank details, no amounts. consultants.view; 404 for a consultant that is not the caller's, another organization's id, or anyone else.",
+        "operationId" : "overview_3",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Overview"
                 }
               }
             }
@@ -19121,7 +19223,7 @@
         "tags" : [ "mkt-interviews" ],
         "summary" : "The Interviews board (one call)",
         "description" : "{generatedAt, kpis[4], schedule{items,total,page,size,from,to}, upcoming[<=5], pendingFeedback[<=5], checklist, reminders[<=5], clients[]}. from/to (yyyy-MM-dd) default to the viewer's current week (Sunday start; tzOffsetMinutes = local minus UTC); status = CONFIRMED|SCHEDULED|PENDING_FEEDBACK|RESCHEDULED|AWAITING_CONFIRMATION|COMPLETED; sort = date|consultant|client|role|status|round; size is capped at 100.",
-        "operationId" : "overview_2",
+        "operationId" : "overview_4",
         "parameters" : [ {
           "name" : "from",
           "in" : "query",
@@ -20525,7 +20627,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Filter options, recommended filters, trending skills, saved and recent searches",
         "description" : "Everything the page's right rail and filter bar need, computed from the organization's OPEN jobs and the caller's own rows.",
-        "operationId" : "overview_3",
+        "operationId" : "overview_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -24263,7 +24365,7 @@
     "/api/admin/analytics" : {
       "get" : {
         "tags" : [ "admin-analytics-resource" ],
-        "operationId" : "overview_4",
+        "operationId" : "overview_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -29998,6 +30100,54 @@
           }
         }
       },
+      "Request" : {
+        "type" : "object",
+        "properties" : {
+          "company" : {
+            "type" : "string"
+          },
+          "roleTitle" : {
+            "type" : "string"
+          },
+          "jobUrl" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "externalJobId" : {
+            "type" : "string"
+          },
+          "atsPlatform" : {
+            "type" : "string"
+          },
+          "postingId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Saved" : {
+        "type" : "object",
+        "properties" : {
+          "applicationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "company" : {
+            "type" : "string"
+          },
+          "roleTitle" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "alreadySaved" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApplicationCreated" : {
         "type" : "object",
         "properties" : {
@@ -33041,6 +33191,100 @@
           }
         }
       },
+      "Funnel" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "thisWeek" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastWeek" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deltaPct" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "stages" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/StageRow"
+            }
+          },
+          "weekly" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WeekPoint"
+            }
+          }
+        }
+      },
+      "Slice" : {
+        "type" : "object",
+        "description" : "A count by a named bucket.",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "StageRow" : {
+        "type" : "object",
+        "description" : "enteredThisWeek / enteredLastWeek: applications that entered the stage in the last 7 days and the 7 days before; deltaPct is null when last week was 0.",
+        "properties" : {
+          "key" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "enteredThisWeek" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "enteredLastWeek" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deltaPct" : {
+            "type" : "number",
+            "format" : "double"
+          }
+        }
+      },
+      "WeekPoint" : {
+        "type" : "object",
+        "description" : "One week (starting Monday): value is the main count, second the comparison count (see the report).",
+        "properties" : {
+          "weekStart" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "second" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "PickerItem" : {
         "type" : "object",
         "properties" : {
@@ -33376,24 +33620,6 @@
           }
         }
       },
-      "Funnel" : {
-        "type" : "object",
-        "properties" : {
-          "period" : {
-            "type" : "string"
-          },
-          "total" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "stages" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Stage"
-            }
-          }
-        }
-      },
       "Stage" : {
         "type" : "object",
         "properties" : {
@@ -33479,21 +33705,6 @@
           }
         }
       },
-      "Slice" : {
-        "type" : "object",
-        "properties" : {
-          "key" : {
-            "type" : "string"
-          },
-          "label" : {
-            "type" : "string"
-          },
-          "count" : {
-            "type" : "integer",
-            "format" : "int64"
-          }
-        }
-      },
       "JobOption" : {
         "type" : "object",
         "properties" : {
@@ -33548,6 +33759,10 @@
           },
           "pausedReason" : {
             "type" : "string"
+          },
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
