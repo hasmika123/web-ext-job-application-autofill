@@ -522,7 +522,12 @@ public class EnterpriseDemoSeeder {
     /** Published branding (colours, welcome copy, support address and a generated logo through the FileStorage seam). */
     private void ensureBranding(Organization org, Tenant t, Instant now) {
         OrgBranding b = brandings.findByOrgId(org.getId()).orElse(null);
-        if (b != null && b.getPublishedAt() != null && b.getLogoKey() != null) return;
+        if (b != null && b.getPublishedAt() != null && b.getLogoKey() != null) {
+            // The row survives a new checkout / wiped upload folder while the file does not: re-draw it under the same key so the
+            // published logo never 404s (the demo logo is generated, so this is idempotent).
+            if (!storage.exists(b.getLogoKey())) storage.store(b.getLogoKey(), logo(t), "image/png");
+            return;
+        }
         if (b == null) {
             b = new OrgBranding();
             b.setOrgId(org.getId());
