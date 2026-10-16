@@ -65,6 +65,13 @@ public class TalentApplication implements Serializable {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
+    // Change audit (docs/change-audit/README.md section 2.2): the seat that made / last wrote this row. No foreign key: a row outlives an erased seat.
+    @Column(name = "created_by_member_id")
+    private Long createdByMemberId;
+
+    @Column(name = "updated_by_member_id")
+    private Long updatedByMemberId;
+
     @Column(name = "personal_application_id")
     private Long personalApplicationId;
 
@@ -118,6 +125,10 @@ public class TalentApplication implements Serializable {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public Long getCreatedByMemberId() { return createdByMemberId; }
+    public void setCreatedByMemberId(Long createdByMemberId) { this.createdByMemberId = createdByMemberId; }
+    public Long getUpdatedByMemberId() { return updatedByMemberId; }
+    public void setUpdatedByMemberId(Long updatedByMemberId) { this.updatedByMemberId = updatedByMemberId; }
     public Long getPersonalApplicationId() { return personalApplicationId; }
     public void setPersonalApplicationId(Long personalApplicationId) { this.personalApplicationId = personalApplicationId; }
     public String getEntryPath() { return entryPath; }

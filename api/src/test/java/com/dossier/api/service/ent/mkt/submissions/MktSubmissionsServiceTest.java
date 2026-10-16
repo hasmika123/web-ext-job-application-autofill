@@ -83,7 +83,7 @@ class MktSubmissionsServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new MktSubmissionsService(scope, authorization, repo, events, views, audit, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new MktSubmissionsService(scope, authorization, repo, events, views, audit, new com.dossier.api.service.ent.applications.EntChangeActors(org.mockito.Mockito.mock(com.dossier.api.repository.ent.EntChangeActorRepository.class), org.mockito.Mockito.mock(com.dossier.api.repository.UserRepository.class)), Clock.fixed(NOW, ZoneOffset.UTC));
         when(repo.save(any(MktSubmission.class))).thenAnswer(i -> {
             MktSubmission s = i.getArgument(0);
             if (s.getId() == null) s.setId(100L);

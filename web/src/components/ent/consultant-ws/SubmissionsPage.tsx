@@ -36,6 +36,8 @@ import { CARD, TONES, type IconTone } from "@/components/ent/dashboard/parts";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
 import { deltaText, employmentLabel, firstName, placeLabel } from "@/lib/ent/consultant-ws/home";
+import type { Viewer } from "@/lib/actors";
+import { UpdatedMeta, seatViewer } from "@/components/ent/applications/changeAudit";
 import {
   APPROVE_COPY,
   CHECKLIST,
@@ -506,8 +508,9 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function ReviewSheet({ row, detail, busy, onClose, a }: { row: SubRow | null; detail: Fetched<SubDetail> | null; busy: boolean; onClose: () => void; a: Actions }) {
+function ReviewSheet({ row, detail, busy, onClose, a, me }: { row: SubRow | null; detail: Fetched<SubDetail> | null; busy: boolean; onClose: () => void; a: Actions; me: Viewer }) {
   const live = detail?.kind === "OK" && detail.view ? detail.view : null;
+  const [now] = useState(() => Date.now());
   const r = live?.row ?? row;
   const pending = r?.status === "PENDING_APPROVAL";
   const due = r ? dueOf(r.dueAt) : null;
@@ -550,6 +553,7 @@ function ReviewSheet({ row, detail, busy, onClose, a }: { row: SubRow | null; de
             {pending && due ? <span className={cn("text-[13px] font-semibold", DUE_TEXT[due.kind])}>{`Due ${due.head.toLowerCase() === due.head ? due.head : due.head}${due.sub ? `, ${due.sub}` : ""}`}</span> : null}
             {r.sample ? <SampleMark /> : null}
           </div>
+          <UpdatedMeta updatedAt={live.updatedAt} updatedBy={live.updatedBy} createdAt={live.createdAt} createdBy={live.createdBy} me={me} now={now} />
           <dl className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2">
             <Fact label="Client">{r.company ?? "-"}</Fact>
             <Fact label="Location">{placeLabel(live.location, live.workMode)}</Fact>
@@ -759,9 +763,11 @@ function ChecklistCard() {
 export interface SubmissionsPageProps {
   orgId: number;
   firstName: string;
+  /** The consultant's own seat: "by you" in the Updated line is decided by it. */
+  selfMemberId?: number | null;
 }
 
-export default function ConsultantSubmissionsPage({ orgId, firstName: first }: SubmissionsPageProps) {
+export default function ConsultantSubmissionsPage({ orgId, firstName: first, selfMemberId }: SubmissionsPageProps) {
   const router = useRouter();
   const toast = useToast();
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchSubmissions(orgId), [orgId]));
@@ -892,7 +898,7 @@ export default function ConsultantSubmissionsPage({ orgId, firstName: first }: S
         </>
       )}
 
-      <ReviewSheet row={reviewRow} detail={detail} busy={reviewRow !== null && busy.has(reviewRow.id)} onClose={() => setReviewId(null)} a={actions} />
+      <ReviewSheet row={reviewRow} detail={detail} busy={reviewRow !== null && busy.has(reviewRow.id)} onClose={() => setReviewId(null)} a={actions} me={seatViewer(selfMemberId)} />
       <ApproveDialog row={approving} busy={approving !== null && busy.has(approving.id)} onCancel={() => setApproving(null)} onConfirm={confirmApprove} />
       <DeclineDialog row={declining} busy={declining !== null && busy.has(declining.id)} error={declineError} onCancel={() => setDeclining(null)} onConfirm={confirmDecline} />
     </div>

@@ -45,7 +45,9 @@ import {
   type Step,
 } from "@/lib/ent/applications";
 import BeeBanner from "@/components/ent/shell/BeeBanner";
+import type { Viewer } from "@/lib/actors";
 import { useApplicationDetail, useStageMove, type SaveResult } from "./hooks";
+import { UpdatedMeta, changesDetail, feedActor, seatViewer } from "./changeAudit";
 import { ClientTile, StagePill } from "./parts";
 
 export type DrawerMode = "push" | "overlay" | "sheet";
@@ -68,6 +70,8 @@ export interface DetailDrawerProps {
   /** Where "View Job" and "View Profile" lead (the workspace pages), or null when the menu does not list them. */
   jobsHref: string | null;
   consultantsHref: string | null;
+  /** The viewer's own seat: "you" in "Updated 2h ago by you" and the feed is decided by comparing it with the actor. */
+  selfMemberId?: number | null;
   supportEmail?: string | null;
   returnFocusTo?: RefObject<HTMLElement | null>;
 }
@@ -228,14 +232,15 @@ function MarketerField({ orgId, detail, save }: { orgId: number | string; detail
   );
 }
 
-function toFeed(events: EventItem[], prefix: string): TimelineEvent[] {
+/** The history as a feed: who did it comes from the change-audit actor (name + relation tag; "Kiwiply SYSTEM" for the platform), not from the stored marketer. */
+function toFeed(events: EventItem[], prefix: string, me: Viewer): TimelineEvent[] {
   return events.map((e) => ({
     id: `${prefix}-${e.id}`,
     at: e.at,
     source: "application_event" as const,
     title: eventTitle(e),
-    detail: e.detail ?? undefined,
-    actor: e.actor ? { name: e.actor.name } : undefined,
+    detail: changesDetail(e.changes, e.detail ?? undefined) ?? undefined,
+    actor: e.by ? feedActor(e.by, me) : e.actor ? { name: e.actor.name } : undefined,
   }));
 }
 
@@ -323,6 +328,8 @@ export default function DetailDrawer(p: DetailDrawerProps) {
   const [editFor, setEditFor] = useState<number | null>(null);
   const editing = editFor !== null && editFor === p.applicationId;
   const [progressOpen, setProgressOpen] = useState(true);
+  const seat = seatViewer(p.selfMemberId);
+  const [now] = useState(() => Date.now());
   const move = useStageMove(p.orgId, (d) => {
     replace(d);
     p.onChanged(d);
@@ -354,6 +361,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
               <StagePill stage={d.stage} reason={d.closedReason} />
               {d.employmentLabel && <span className="ent-pill" data-tone="grey">{EMPLOYMENT[d.employmentLabel] ?? d.employmentLabel}</span>}
             </div>
+            <UpdatedMeta className="mt-1.5" updatedAt={d.updatedAt} updatedBy={d.updatedBy} createdAt={d.createdAt} createdBy={d.createdBy} me={seat} now={now} />
           </div>
         </div>
         <div className="mt-2.5 flex items-center gap-2.5">
@@ -459,7 +467,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
           </TabPanel>
 
           <TabPanel value="timeline" className="pt-3">
-            <TimelineFeed events={toFeed(d.timeline, "t")} empty="No stage changes have been recorded yet." />
+            <TimelineFeed events={toFeed(d.timeline, "t", seat)} empty="No stage changes have been recorded yet." />
           </TabPanel>
           <TabPanel value="notes" className="pt-3">
             <NotesPanel
@@ -472,7 +480,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
             />
           </TabPanel>
           <TabPanel value="activity" className="pt-3">
-            <TimelineFeed events={toFeed(d.activity, "a")} empty="Nothing has happened on this application yet." />
+            <TimelineFeed events={toFeed(d.activity, "a", seat)} empty="Nothing has happened on this application yet." />
           </TabPanel>
         </Tabs>
         </div>

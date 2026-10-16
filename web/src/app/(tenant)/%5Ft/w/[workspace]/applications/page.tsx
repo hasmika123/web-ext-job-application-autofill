@@ -33,6 +33,7 @@ export default async function WorkspaceApplicationsRoute({ params }: { params: P
         permissions={me.permissions}
         jobsHref={hrefOf("jobs")}
         consultantsHref={hrefOf("consultants")}
+        selfMemberId={me.member.id}
         supportEmail={null}
       />
     </Suspense>

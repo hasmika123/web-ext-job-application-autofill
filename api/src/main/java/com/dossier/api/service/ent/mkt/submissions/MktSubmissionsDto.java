@@ -1,5 +1,6 @@
 package com.dossier.api.service.ent.mkt.submissions;
 
+import com.dossier.api.service.dto.ChangeActorDTO;
 import java.time.Instant;
 import java.util.List;
 
@@ -31,7 +32,7 @@ public final class MktSubmissionsDto {
      */
     public record Row(
         Long id, String code, Person consultant, Job job, ClientRef client, Instant submissionDate, String approvalState, ResumeRef resume,
-        String status, String bucket, List<String> actions
+        String status, String bucket, List<String> actions, Instant updatedAt, ChangeActorDTO updatedBy
     ) {}
 
     public record Bucket(String key, String label, long count, int pct) {}

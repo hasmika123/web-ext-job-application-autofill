@@ -26,9 +26,11 @@ import {
   statusTone,
   type Application,
 } from "@/lib/applications";
+import { rowActorLine, type Viewer } from "@/lib/actors";
 import { useListQuery, type Filters } from "@/lib/list-query";
 import { undoToast } from "@/lib/undo-toast";
 import ApplicationDetail from "./ApplicationDetail";
+import { RelationTag, RelTime } from "./UpdatedBy";
 
 type TabKey = "all" | "applied" | "in-review" | "interview" | "offer" | "rejected" | "archived";
 
@@ -67,7 +69,7 @@ export function tabOf(filters: Filters): TabKey {
  * (a side panel on a desktop, a bottom sheet on a phone; `?app=<id>` deep-links to it). A real account with no
  * applications gets the mascot empty state, never a sample row.
  */
-export default function ApplicationsV3Page({ initialOpenId = null, isPro = false }: { initialOpenId?: number | null; isPro?: boolean }) {
+export default function ApplicationsV3Page({ initialOpenId = null, isPro = false, me = null }: { initialOpenId?: number | null; isPro?: boolean; me?: Viewer | null }) {
   const router = useRouter();
   const toast = useToast();
   const list = useListQuery<Application>("/api/applications", {
@@ -142,7 +144,7 @@ export default function ApplicationsV3Page({ initialOpenId = null, isPro = false
     {
       key: "title",
       primary: true,
-      className: "w-[34%]",
+      className: "w-[30%]",
       header: "Job",
       render: (a) => (
         <span className="flex items-center gap-3">
@@ -166,7 +168,7 @@ export default function ApplicationsV3Page({ initialOpenId = null, isPro = false
     },
     {
       key: "status",
-      className: "w-[16%]",
+      className: "w-[14%]",
       header: "Status",
       render: (a) => (
         <span className="flex flex-wrap items-center gap-1">
@@ -177,10 +179,30 @@ export default function ApplicationsV3Page({ initialOpenId = null, isPro = false
         </span>
       ),
     },
-    { key: "applied", className: "w-[14%] whitespace-nowrap", header: "Applied", render: (a) => <span className="text-[13.5px] text-v2-ink-soft">{shortDay(a.appliedAt) || "—"}</span> },
+    { key: "applied", className: "w-[12%] whitespace-nowrap", header: "Applied", render: (a) => <span className="text-[13.5px] text-v2-ink-soft">{shortDay(a.appliedAt) || "—"}</span> },
+    {
+      key: "updated",
+      className: "w-[14%]",
+      header: "Updated",
+      render: (a) => {
+        // D2: "by you" never fills a personal board; another person or a non-person (the extension, your email) always shows.
+        const by = rowActorLine(a.updatedBy, me);
+        return (
+          <span className="text-[13px] leading-snug text-v2-ink-soft" data-updated-cell>
+            {a.updatedAt ? <RelTime iso={a.updatedAt} /> : "—"}
+            {by && (
+              <span className="block text-[12px] text-v2-muted">
+                {by}
+                <RelationTag actor={a.updatedBy} me={me} className="ml-1 align-middle" />
+              </span>
+            )}
+          </span>
+        );
+      },
+    },
     {
       key: "next",
-      className: "w-[22%]",
+      className: "w-[16%]",
       header: "Next step",
       render: (a) => (
         <span className="text-[13px] leading-snug text-v2-ink-soft">
@@ -214,7 +236,7 @@ export default function ApplicationsV3Page({ initialOpenId = null, isPro = false
     </span>
   );
 
-  const detail = <ApplicationDetail id={openId} seed={seed} isPro={isPro} onClose={() => openApp(null)} onRow={onRow} onStale={refetch} returnFocusTo={returnRef} />;
+  const detail = <ApplicationDetail id={openId} seed={seed} isPro={isPro} me={me} onClose={() => openApp(null)} onRow={onRow} onStale={refetch} returnFocusTo={returnRef} />;
 
   if (trulyEmpty) {
     return (
@@ -290,7 +312,7 @@ export default function ApplicationsV3Page({ initialOpenId = null, isPro = false
 
         <div className="px-3 pb-4 sm:px-4" aria-busy={list.isFetching}>
           {list.isLoading ? (
-            <TableSkeleton label="Loading your applications" columns={4} />
+            <TableSkeleton label="Loading your applications" columns={5} />
           ) : list.error && !list.data ? (
             <ErrorState what="your applications" description={list.error.message} requestId={list.error.requestId} onRetry={refetch} />
           ) : list.items.length === 0 ? (

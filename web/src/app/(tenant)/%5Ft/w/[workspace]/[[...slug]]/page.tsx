@@ -53,7 +53,7 @@ export default async function WorkspaceCatchAll({ params }: { params: Promise<{ 
     // The Marketing workspace's real pages (one folder each under components/ent/marketer-ws); the rest keep "on the way".
     const nav = me.workspaces.find((w) => w.key === "marketing")?.nav ?? [];
     const hrefs = Object.fromEntries(nav.map((n) => [n.key, n.href]));
-    const page = marketingPage(slug ?? [], { orgId: me.org.id, orgName: me.org.displayName, firstName: firstNameOf(me.person.name), hrefs });
+    const page = marketingPage(slug ?? [], { orgId: me.org.id, orgName: me.org.displayName, firstName: firstNameOf(me.person.name), hrefs, selfMemberId: me.member.id });
     if (page) return page;
   }
   if (hit.kind === "page" && workspace === "consultant" && me.org.id) {

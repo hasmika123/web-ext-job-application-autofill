@@ -1,5 +1,6 @@
 package com.dossier.api.service.dto.ent;
 
+import com.dossier.api.service.dto.ChangeActorDTO;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -133,7 +134,10 @@ public final class InterviewDTO {
         List<String> nextStatuses,
         Actions actions,
         UndoToken undo,
-        Instant createdAt
+        Instant createdAt,
+        Instant updatedAt,
+        ChangeActorDTO updatedBy,
+        ChangeActorDTO createdBy
     ) {}
 
     /** Body of {@code POST /interviews}. */

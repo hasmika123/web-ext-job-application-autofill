@@ -21,6 +21,7 @@ import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.service.org.OrgNotFoundException;
 import com.dossier.api.service.privacy.SensitiveContent;
+import com.dossier.api.service.tracker.Changes;
 import jakarta.persistence.EntityManager;
 import java.time.Clock;
 import java.time.Instant;
@@ -169,16 +170,18 @@ public class ApplicationCommandService {
         a.setStageChangedAt(now);
         a.setCreatedAt(now);
         a.setUpdatedAt(now);
+        a.setCreatedByMemberId(me.memberId());
+        a.setUpdatedByMemberId(me.memberId());
         resumes.findByOrgIdAndConsultantId(orgId, consultant.getId()).stream().filter(OrgResume::isPrimaryForOrg).findFirst().ifPresent(r -> a.setResumeId(r.getId()));
         saveWithCode(a, applied.getYear());
 
         Map<Long, String> who = names.memberNames(orgId, java.util.Arrays.asList(me.memberId(), marketer));
-        record(a, "CREATED", null, ApplicationStages.ASSIGNED, me, marketer == null ? "Added to the pipeline" : "Assigned to " + who.getOrDefault(marketer, "a marketer"), now);
+        record(a, "CREATED", null, ApplicationStages.ASSIGNED, me, marketer == null ? "Added to the pipeline" : "Assigned to " + who.getOrDefault(marketer, "a marketer"), now, null);
         if (stage.equals(ApplicationStages.SUBMITTED)) {
             a.setStage(ApplicationStages.SUBMITTED);
             a.setStageChangedAt(now.plusMillis(1));
             applications.save(a);
-            record(a, "STAGE_CHANGE", ApplicationStages.ASSIGNED, ApplicationStages.SUBMITTED, me, "Recorded as submitted by the consultant", now.plusMillis(1));
+            record(a, "STAGE_CHANGE", ApplicationStages.ASSIGNED, ApplicationStages.SUBMITTED, me, "Recorded as submitted by the consultant", now.plusMillis(1), new Changes().code("stage", ApplicationStages.ASSIGNED, ApplicationStages.SUBMITTED));
         }
         audit.record(me, AUDIT_CREATE, TARGET, null, String.valueOf(a.getId()), "{\"code\":\"" + a.getCode() + "\",\"stage\":\"" + a.getStage() + "\"}");
         return query.detailOf(me, a);
@@ -220,6 +223,7 @@ public class ApplicationCommandService {
         if (body == null || body.isEmpty()) throw OrgException.invalid("body", "send at least one field");
         for (String k : body.keySet()) if (!PATCH_FIELDS.contains(k)) throw OrgException.coded(422, "FIELD_UNKNOWN", "Unknown field: " + k, Map.of("field", k));
         StringBuilder what = new StringBuilder();
+        Changes changes = new Changes();
         Map<String, Object> audited = new java.util.LinkedHashMap<>();
         boolean closed = ApplicationStages.CLOSED.equals(a.getStage());
 
@@ -230,6 +234,8 @@ public class ApplicationCommandService {
             if (body.containsKey("nextAction")) action = textOf("nextAction", body.get("nextAction"), NEXT_ACTION_MAX);
             if (body.containsKey("nextActionDue")) due = dateOf("nextActionDue", body.get("nextActionDue"));
             if (!java.util.Objects.equals(action, a.getNextAction()) || !java.util.Objects.equals(due, a.getNextActionDue())) {
+                if (!java.util.Objects.equals(action, a.getNextAction())) changes.text("nextAction");
+                if (!java.util.Objects.equals(due, a.getNextActionDue())) changes.date("nextActionDue", a.getNextActionDue(), due);
                 a.setNextAction(action);
                 a.setNextActionDue(due);
                 what.append("Next action: ").append(action == null ? "cleared" : action);
@@ -244,6 +250,7 @@ public class ApplicationCommandService {
                 if (!access.canWrite(me, List.of(ApplicationAccess.KEY_REASSIGN), a)) throw new OrgNotFoundException();
                 if (next != null) requireMarketer(me.orgId(), next);
                 Long before = a.getMarketerMemberId();
+                changes.number("marketerMemberId", before, next);
                 a.setMarketerMemberId(next);
                 Map<Long, String> who = names.memberNames(me.orgId(), java.util.Arrays.asList(next, before));
                 if (what.length() > 0) what.append("; ");
@@ -253,7 +260,7 @@ public class ApplicationCommandService {
         }
         if (audited.isEmpty()) return query.detailOf(me, a); // nothing changed: no event, no audit row
         applications.save(a);
-        record(a, "UPDATE", null, null, me, what.toString(), Instant.now(clock));
+        record(a, "UPDATE", null, null, me, what.toString(), Instant.now(clock), changes);
         audit.record(me, AUDIT_UPDATE, TARGET, null, String.valueOf(a.getId()), json(audited));
         return query.detailOf(me, a);
     }
@@ -289,7 +296,9 @@ public class ApplicationCommandService {
         a.setClosedReason(reason);
         a.setStageChangedAt(now);
         applications.save(a);
-        record(a, "STAGE_CHANGE", from, to, me, reason == null ? null : "Closed: " + reason.toLowerCase(Locale.ROOT).replace('_', ' '), now);
+        Changes moved = new Changes().code("stage", from, to);
+        if (reason != null) moved.code("closedReason", null, reason);
+        record(a, "STAGE_CHANGE", from, to, me, reason == null ? null : "Closed: " + reason.toLowerCase(Locale.ROOT).replace('_', ' '), now, moved);
         audit.record(me, AUDIT_STAGE, TARGET, null, String.valueOf(a.getId()), json(Map.of("from", from, "to", to)));
         return query.detailOf(me, a);
     }
@@ -311,7 +320,7 @@ public class ApplicationCommandService {
         a.setClosedReason(null);
         a.setStageChangedAt(evs.size() > 1 ? evs.get(evs.size() - 2).getOccurredAt() : a.getCreatedAt());
         applications.save(a);
-        record(a, "STAGE_REVERT", undone, back, me, "Undone: back to " + ApplicationStages.label(back), now);
+        record(a, "STAGE_REVERT", undone, back, me, "Undone: back to " + ApplicationStages.label(back), now, new Changes().code("stage", undone, back));
         audit.record(me, AUDIT_STAGE_UNDO, TARGET, null, String.valueOf(a.getId()), json(Map.of("from", undone, "to", back)));
         return query.detailOf(me, a);
     }
@@ -333,8 +342,10 @@ public class ApplicationCommandService {
         n.setAuthorMemberId(me.memberId());
         n.setBody(body);
         n.setCreatedAt(now);
+        n.setUpdatedByMemberId(me.memberId());
+        n.setUpdatedAt(now);
         notes.saveAndFlush(n);
-        record(a, "NOTE", null, null, me, body.length() > 300 ? body.substring(0, 300) : body, now);
+        record(a, "NOTE", null, null, me, body.length() > 300 ? body.substring(0, 300) : body, now, new Changes().text("body"));
         audit.record(me, AUDIT_NOTE, TARGET, null, String.valueOf(a.getId()), "{\"noteId\":" + n.getId() + "}");
         return query.detailOf(me, a);
     }
@@ -353,8 +364,12 @@ public class ApplicationCommandService {
         if (!ok) throw OrgException.coded(422, "INVALID_MARKETER", "That person is not an active marketer of this organization", Map.of());
     }
 
-    private void record(TalentApplication a, String type, String from, String to, OrgMembership actor, String detail, Instant at) {
+    /** The one writer of this record's history: stamps the event (actor, kind PERSON, what changed) and the record's own updated_by (change audit). */
+    private void record(TalentApplication a, String type, String from, String to, OrgMembership actor, String detail, Instant at, Changes changes) {
+        a.setUpdatedByMemberId(actor.memberId());
         TalentApplicationEvent e = new TalentApplicationEvent();
+        e.setActorKind("PERSON");
+        e.setChanges(changes == null ? null : changes.toJson());
         e.setOrgId(a.getOrgId());
         e.setApplicationId(a.getId());
         e.setEventType(type);

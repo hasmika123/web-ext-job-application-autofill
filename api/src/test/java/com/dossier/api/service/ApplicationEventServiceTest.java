@@ -9,6 +9,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.dossier.api.domain.Application;
+import com.dossier.api.service.tracker.ChangeActor;
+import com.dossier.api.service.tracker.ChangeActors;
 import com.dossier.api.domain.ApplicationEvent;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
@@ -35,6 +37,7 @@ class ApplicationEventServiceTest {
     private TrackerUsers users;
     private final List<ApplicationEvent> saved = new ArrayList<>();
     private ApplicationEventService service;
+    private static final ChangeActor.Actor ACTOR = new ChangeActor.Actor("PERSON", 7L, "user", null);
 
     @BeforeEach
     void setUp() {
@@ -48,7 +51,7 @@ class ApplicationEventServiceTest {
         User u = new User();
         u.setId(7L);
         when(users.current()).thenReturn(u);
-        service = new ApplicationEventService(events, applications, TrackerTestSupport.settings(), users, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new ApplicationEventService(events, applications, TrackerTestSupport.settings(), users, mock(ChangeActors.class), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private static Application app(ApplicationStatus status) {
@@ -61,7 +64,7 @@ class ApplicationEventServiceTest {
     @Test
     void aStatusChangeWritesOneEventAndMovesTheGhostedClock() {
         Application a = app(ApplicationStatus.INTERVIEW);
-        assertThat(service.recordStatus(a, ApplicationStatus.APPLIED, ApplicationStatus.INTERVIEW, ApplicationEvent.SRC_WEB, null, null)).isTrue();
+        assertThat(service.recordStatus(a, ApplicationStatus.APPLIED, ApplicationStatus.INTERVIEW, ApplicationEvent.SRC_WEB, null, null, ACTOR)).isTrue();
 
         assertThat(saved).hasSize(1);
         ApplicationEvent e = saved.get(0);
@@ -76,8 +79,8 @@ class ApplicationEventServiceTest {
     @Test
     void noStatusChangeWritesNothing() {
         Application a = app(ApplicationStatus.APPLIED);
-        assertThat(service.recordStatus(a, ApplicationStatus.APPLIED, ApplicationStatus.APPLIED, "WEB", null, null)).isFalse();
-        assertThat(service.recordStatus(a, ApplicationStatus.APPLIED, null, "WEB", null, null)).isFalse();
+        assertThat(service.recordStatus(a, ApplicationStatus.APPLIED, ApplicationStatus.APPLIED, "WEB", null, null, ACTOR)).isFalse();
+        assertThat(service.recordStatus(a, ApplicationStatus.APPLIED, null, "WEB", null, null, ACTOR)).isFalse();
         verify(events, never()).save(any());
         assertThat(a.getLastEventAt()).isNull();
     }
@@ -85,7 +88,7 @@ class ApplicationEventServiceTest {
     @Test
     void aNewApplicationIsCreatedWithItsFirstStatusSoFirstBecameXHolds() {
         Application a = app(ApplicationStatus.APPLIED);
-        service.recordCreated(a, "EXTENSION");
+        service.recordCreated(a, "EXTENSION", ACTOR);
 
         ApplicationEvent e = saved.get(0);
         assertThat(e.getKind()).isEqualTo(ApplicationEvent.CREATED);
@@ -98,14 +101,14 @@ class ApplicationEventServiceTest {
     void aBackDatedEventNeverMakesAnApplicationLookFresher() {
         Application a = app(ApplicationStatus.APPLIED);
         a.setLastEventAt(NOW);
-        service.recordAt(a, ApplicationEvent.NOTE, null, null, "SYSTEM", 1L, "Note added", NOW.minusSeconds(86400 * 5));
+        service.recordAt(a, ApplicationEvent.NOTE, null, null, "SYSTEM", 1L, "Note added", NOW.minusSeconds(86400 * 5), ACTOR, null);
         assertThat(a.getLastEventAt()).isEqualTo(NOW);
         assertThat(saved.get(0).getCreatedAt()).isEqualTo(NOW.minusSeconds(86400 * 5));
     }
 
     @Test
     void summariesAreCappedToTheColumn() {
-        service.record(app(ApplicationStatus.APPLIED), ApplicationEvent.FIELD, null, null, "WEB", null, "x".repeat(500));
+        service.record(app(ApplicationStatus.APPLIED), ApplicationEvent.FIELD, null, null, "WEB", null, "x".repeat(500), ACTOR, null);
         assertThat(saved.get(0).getSummary()).hasSize(200);
     }
 
@@ -160,6 +163,7 @@ class ApplicationEventServiceTest {
             applications,
             TrackerTestSupport.settings(ResumeBuilderSettingKeys.TRACKER_ACTIVITY_MAX_DAYS, "14"),
             users,
+            mock(ChangeActors.class),
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
         assertThat(tight.activity(60, null)).hasSize(14);

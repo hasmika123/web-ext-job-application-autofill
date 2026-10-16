@@ -4,6 +4,8 @@
  * page uses (due-time wording, status pills, sort, paging text). Nothing here touches React and there is no fallback number: every figure
  * is the API's answer. Approving or declining only records the consultant's decision; nothing is sent to a client from here.
  */
+import type { ChangeActor } from "@/lib/actors";
+import { changeActorOf } from "./applications";
 import { initialsOf, shortDate, type Tone } from "./home";
 
 export type SubStatus = "PENDING_APPROVAL" | "APPROVED" | "DECLINED" | "SUBMITTED_TO_CLIENT" | "CLIENT_INTERVIEW" | "NOT_SELECTED" | "CLOSED";
@@ -77,6 +79,10 @@ export interface SubDetail {
   description: string | null;
   resume: ResumeSummary | null;
   createdAt: string | null;
+  /** Change audit: when it last changed and by whom, and who prepared it (by name, with the relation to this consultant). */
+  updatedAt: string | null;
+  updatedBy: ChangeActor | null;
+  createdBy: ChangeActor | null;
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -168,6 +174,9 @@ export function parseDetail(body: unknown): SubDetail | null {
       ? { id: r.id as number, name: r.name as string, versionNo: numOrNull(r.versionNo), headline: strOrNull(r.headline), summary: strOrNull(r.summary), fileName: strOrNull(r.fileName), updatedAt: strOrNull(r.updatedAt) }
       : null,
     createdAt: strOrNull(body.createdAt),
+    updatedAt: strOrNull(body.updatedAt),
+    updatedBy: changeActorOf(body.updatedBy),
+    createdBy: changeActorOf(body.createdBy),
   };
 }
 

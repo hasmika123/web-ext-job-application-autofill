@@ -144,6 +144,76 @@ describe("My Applications (list v2)", () => {
   });
 });
 
+describe("My Applications: the Updated column (change audit)", () => {
+  const ME = { id: 7, login: "anika" };
+  const HOUR = 3_600_000; // config-literal-ok: test fixture
+  const ago = (h: number) => new Date(Date.now() - h * HOUR).toISOString();
+
+  beforeEach(() => {
+    respond = () => ({
+      items: [
+        row(1, { updatedAt: ago(2), updatedBy: { userId: 7, label: "Anika Shah", kind: "PERSON" } }),
+        row(2, { updatedAt: ago(72), updatedBy: { userId: null, label: "Kiwiply", kind: "EXTENSION" } }),
+        row(3, { updatedAt: ago(5), updatedBy: { userId: null, label: "Sarah Chen", kind: "PERSON", relation: "marketer" } }),
+        row(4, { updatedAt: ago(30), updatedBy: { userId: null, label: "Kiwiply", kind: "MAIL" } }),
+        row(5, { updatedAt: ago(1), updatedBy: { userId: null, label: "ent#9#leak@x.com", kind: "PERSON" } }),
+      ],
+      total: 5,
+      page: 0,
+      size: 20,
+      summary: SUMMARY,
+    });
+  });
+
+  const mountAsMe = () =>
+    render(
+      <ToastProvider>
+        <ApplicationsV3Page me={ME} />
+      </ToastProvider>,
+    );
+  const cellOf = (role: string) => {
+    const cells = Array.from(document.querySelectorAll("[data-updated-cell]")) as HTMLElement[];
+    return cells.find((c) => c.closest("tr")?.textContent?.includes(role)) as HTMLElement;
+  };
+
+  it("has an Updated column header", async () => {
+    mountAsMe();
+    await screen.findAllByText("Role 1");
+    expect(screen.getAllByText("Updated").length).toBeGreaterThan(0);
+  });
+
+  it("shows when, and never 'by you' (D2) on a row the viewer changed", async () => {
+    mountAsMe();
+    await screen.findAllByText("Role 1");
+    const mine = cellOf("Role 1");
+    expect(mine.textContent).toContain("2 hours ago");
+    expect(mine.textContent).not.toMatch(/by you/);
+    expect(document.body.textContent).not.toMatch(/by you/);
+  });
+
+  it("shows the extension, the inbox and another person (with the tag) on their rows", async () => {
+    mountAsMe();
+    await screen.findAllByText("Role 1");
+    expect(cellOf("Role 2").textContent).toContain("by the extension");
+    expect(cellOf("Role 4").textContent).toContain("by Kiwiply from your email");
+    expect(cellOf("Role 3").textContent).toContain("by Sarah Chen");
+    expect(within(cellOf("Role 3")).getByText("MARKETER")).toBeTruthy();
+  });
+
+  it("never renders an enterprise login", async () => {
+    mountAsMe();
+    await screen.findAllByText("Role 1");
+    expect(document.body.textContent).not.toContain("ent#");
+    expect(cellOf("Role 5").textContent).toContain("by a member");
+  });
+
+  it("the sort menu sorts by updatedAt (Recently updated is the default)", async () => {
+    mountAsMe();
+    await screen.findAllByText("Role 1");
+    expect(urls[0]).toContain("sort=updatedAt");
+  });
+});
+
 describe("tabOf", () => {
   it("reads the tab from the filters", () => {
     expect(tabOf({})).toBe("all");

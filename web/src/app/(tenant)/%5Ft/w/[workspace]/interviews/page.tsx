@@ -25,7 +25,7 @@ export default async function WorkspaceInterviewsRoute({ params }: { params: Pro
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
   return (
     <Suspense fallback={null}>
-      <InterviewsPage orgId={me.org.id} orgName={me.org.displayName} workspace={workspace} permissions={me.permissions} supportEmail={null} />
+      <InterviewsPage orgId={me.org.id} orgName={me.org.displayName} workspace={workspace} permissions={me.permissions} selfMemberId={me.member.id} supportEmail={null} />
     </Suspense>
   );
 }

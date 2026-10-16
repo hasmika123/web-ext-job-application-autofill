@@ -18,6 +18,7 @@ import com.dossier.api.service.ent.authz.AuthorizationService;
 import com.dossier.api.service.ent.authz.AuthzOperation;
 import com.dossier.api.service.ent.authz.AuthzRequest;
 import com.dossier.api.service.ent.authz.Beneficiary;
+import com.dossier.api.service.ent.applications.EntChangeActors;
 import com.dossier.api.service.ent.consultantws.ConsultantSubmissionsDTO.Decision;
 import com.dossier.api.service.ent.consultantws.ConsultantSubmissionsDTO.Detail;
 import com.dossier.api.service.ent.consultantws.ConsultantSubmissionsDTO.PastPage;
@@ -80,6 +81,7 @@ public class ConsultantSubmissionsService {
     private final OrgResumeRepository resumes;
     private final OrgMemberDirectoryRepository memberDirectory;
     private final UserRepository users;
+    private final EntChangeActors changeActors;
     private final Clock clock;
 
     @Autowired
@@ -91,9 +93,10 @@ public class ConsultantSubmissionsService {
         ClientAccountRepository clients,
         OrgResumeRepository resumes,
         OrgMemberDirectoryRepository memberDirectory,
-        UserRepository users
+        UserRepository users,
+        EntChangeActors changeActors
     ) {
-        this(gate, authorization, submissions, requirements, clients, resumes, memberDirectory, users, Clock.systemUTC());
+        this(gate, authorization, submissions, requirements, clients, resumes, memberDirectory, users, changeActors, Clock.systemUTC());
     }
 
     ConsultantSubmissionsService(
@@ -105,8 +108,10 @@ public class ConsultantSubmissionsService {
         OrgResumeRepository resumes,
         OrgMemberDirectoryRepository memberDirectory,
         UserRepository users,
+        EntChangeActors changeActors,
         Clock clock
     ) {
+        this.changeActors = changeActors;
         this.gate = gate;
         this.authorization = authorization;
         this.submissions = submissions;
@@ -215,7 +220,15 @@ public class ConsultantSubmissionsService {
         ResumeSummary resume = res == null ? null : new ResumeSummary(res.getId(), res.getName(), res.getVersionNo(), res.getHeadline(), res.getSummaryText(), res.getFileName(), res.getUpdatedAt());
         String desc = r.getDescriptionText();
         if (desc != null && desc.length() > MAX_DESCRIPTION) desc = desc.substring(0, MAX_DESCRIPTION).stripTrailing() + "...";
-        return new Detail(row, s.getDeclineReason(), r.getLocation(), r.getWorkMode(), desc, resume, s.getCreatedAt());
+        EntChangeActors.Subject subject = new EntChangeActors.Subject(s.getConsultantId(), s.getMarketerMemberId());
+        java.util.Set<Long> ids = new java.util.HashSet<>();
+        ids.add(s.getUpdatedByMemberId());
+        ids.add(s.getCreatedByMemberId());
+        EntChangeActors.Lookup actors = changeActors.load(org, ids, List.of(subject));
+        return new Detail(
+            row, s.getDeclineReason(), r.getLocation(), r.getWorkMode(), desc, resume, s.getCreatedAt(),
+            s.getUpdatedAt(), actors.of(s.getUpdatedByMemberId(), null, subject), actors.of(s.getCreatedByMemberId(), null, subject)
+        );
     }
 
     // ---- the two decisions ----------------------------------------------------------------------------------------
@@ -228,7 +241,7 @@ public class ConsultantSubmissionsService {
     public Decision approve(OrgMembership me, long id) {
         ConsultantProfile c = requireAuthorizer(me);
         CwsSubmission s = own(c.getOrgId(), c.getId(), id);
-        return decide(c, s, CwsSubmission.APPROVED, null);
+        return decide(c, s, CwsSubmission.APPROVED, null, me.memberId());
     }
 
     /** Declines a pending submission with a reason (3 to 300 characters, scanned for sensitive data). A second call is a 409. */
@@ -236,12 +249,12 @@ public class ConsultantSubmissionsService {
     public Decision decline(OrgMembership me, long id, String reason) {
         ConsultantProfile c = requireAuthorizer(me);
         CwsSubmission s = own(c.getOrgId(), c.getId(), id);
-        return decide(c, s, CwsSubmission.DECLINED, cleanReason(reason));
+        return decide(c, s, CwsSubmission.DECLINED, cleanReason(reason), me.memberId());
     }
 
-    private Decision decide(ConsultantProfile c, CwsSubmission s, String to, String reason) {
+    private Decision decide(ConsultantProfile c, CwsSubmission s, String to, String reason, Long deciderMemberId) {
         Instant now = Instant.now(clock);
-        int moved = submissions.transition(c.getOrgId(), c.getId(), s.getId(), CwsSubmission.PENDING, to, now, reason);
+        int moved = submissions.transition(c.getOrgId(), c.getId(), s.getId(), CwsSubmission.PENDING, to, now, reason, deciderMemberId);
         if (moved == 0) {
             CwsSubmission fresh = own(c.getOrgId(), c.getId(), s.getId());
             throw OrgException.coded(409, CODE_NOT_PENDING, notPendingMessage(fresh.getStatus()), Map.of("status", fresh.getStatus()));

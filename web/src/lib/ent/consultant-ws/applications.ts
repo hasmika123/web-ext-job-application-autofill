@@ -4,6 +4,7 @@
  * (stage / source labels, next step, status updates text). The page is read-only: the marketer prepares, the consultant submits outside
  * Kiwiply. Nothing here touches React and there is no fallback number: every figure is the API's answer.
  */
+import type { ChangeActor } from "@/lib/actors";
 import { initialsOf, type Tone } from "./home";
 
 export interface AppTile {
@@ -77,7 +78,9 @@ export interface TimelineEntry {
   type: "CREATED" | "STAGE_CHANGE";
   fromStage: string | null;
   toStage: string;
+  /** The original YOU | MARKETER | TEAM word; `actor` is who did it by name, with the relation to this consultant (change audit). */
   by: Actor;
+  actor: ChangeActor | null;
   at: string;
 }
 
@@ -86,6 +89,21 @@ export interface AppDetail {
   createdAt: string | null;
   stageChangedAt: string | null;
   timeline: TimelineEntry[];
+  updatedAt: string | null;
+  updatedBy: ChangeActor | null;
+  createdBy: ChangeActor | null;
+}
+
+/** An API `ChangeActorDTO`, or null for anything else (a malformed answer never breaks the sheet). */
+export function changeActorOf(v: unknown): ChangeActor | null {
+  if (!isObj(v) || typeof v.label !== "string" || typeof v.kind !== "string") return null;
+  return {
+    userId: numOrNull(v.userId),
+    memberId: numOrNull(v.memberId),
+    label: v.label,
+    relation: typeof v.relation === "string" ? v.relation : null,
+    kind: v.kind,
+  };
 }
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -166,9 +184,12 @@ export function parseDetail(body: unknown): AppDetail | null {
     stageChangedAt: strOrNull(body.stageChangedAt),
     timeline: rows(body.timeline, (o) =>
       typeof o.id === "number" && typeof o.toStage === "string" && typeof o.at === "string"
-        ? { id: o.id, type: o.type === "CREATED" ? "CREATED" : "STAGE_CHANGE", fromStage: strOrNull(o.fromStage), toStage: o.toStage, by: actorOf(o.by), at: o.at }
+        ? { id: o.id, type: o.type === "CREATED" ? "CREATED" : "STAGE_CHANGE", fromStage: strOrNull(o.fromStage), toStage: o.toStage, by: actorOf(o.by), actor: changeActorOf(o.actor), at: o.at }
         : null,
     ),
+    updatedAt: strOrNull(body.updatedAt),
+    updatedBy: changeActorOf(body.updatedBy),
+    createdBy: changeActorOf(body.createdBy),
   };
 }
 

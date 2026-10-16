@@ -61,6 +61,10 @@ public class OrgAuditService {
     public static final String SHARE_READ_FULL = "SHARE_READ_FULL";
     public static final String SHARE_SCOPE_CHANGED = "SHARE_SCOPE_CHANGED";
     public static final String EXPORT = "EXPORT";
+    /** X9.15: the nightly retention job deleted old application / interview / submission history rows (one SYSTEM row per organization per run; counts only). */
+    public static final String HISTORY_PURGED = "HISTORY_PURGED";
+    /** X9.15: a marketer saved a job onto an assigned consultant's own tracker (MEDIUM; the beneficiary is the consultant's login). */
+    public static final String MARKETER_SAVE_FOR_CONSULTANT = "MARKETER_SAVE_FOR_CONSULTANT";
 
     /** Action families that are defined by their own area; a key in one of these starts with the prefix. */
     public static final String PREFIX_BILLING = "BILLING_";

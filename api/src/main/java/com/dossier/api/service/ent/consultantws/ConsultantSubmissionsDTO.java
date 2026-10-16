@@ -1,6 +1,7 @@
 package com.dossier.api.service.ent.consultantws;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.dossier.api.service.dto.ChangeActorDTO;
 import java.time.Instant;
 import java.util.List;
 
@@ -48,7 +49,8 @@ public final class ConsultantSubmissionsDTO {
     public record ResumeSummary(long id, String name, Integer versionNo, String headline, String summary, String fileName, Instant updatedAt) {}
 
     @JsonInclude(JsonInclude.Include.ALWAYS)
-    public record Detail(Row row, String declineReason, String location, String workMode, String description, ResumeSummary resume, Instant createdAt) {}
+    /** {@code updatedBy} / {@code createdBy}: who last changed it and who prepared it, by name with the relation to this consultant (change audit). */
+    public record Detail(Row row, String declineReason, String location, String workMode, String description, ResumeSummary resume, Instant createdAt, Instant updatedAt, ChangeActorDTO updatedBy, ChangeActorDTO createdBy) {}
 
     public record DeclineRequest(String reason) {}
 

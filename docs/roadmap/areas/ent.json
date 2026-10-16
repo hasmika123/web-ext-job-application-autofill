@@ -3,7 +3,7 @@
   "name": "Enterprise V2 — multi-tenant portals, roles, consultant licensing, talent marketing",
   "prefix": "X",
   "summary": "Multi-tenant enterprise portals on the one shared deployment: each organization gets its own domain and branded login, configurable multi-role workspaces, consultant licenses priced as a base plus feature add-ons, and the talent-marketing pipeline (consultants submit; marketers prepare; HR and Finance record only). DESIGN COMPLETE: 46 design docs, 154 stories, every part of the requirements covered. BUILD: Phase 1 foundation under way (X1.1-X1.5 done: flags, tenancy schema, tenant resolution, branded-host web routing, tenant-bound sessions).",
-  "updated": "2026-10-14",
+  "updated": "2026-10-15",
   "epics": [
     {
       "id": "X0",
@@ -7375,6 +7375,211 @@
       "dod": "Extension workspace-aware and still single-account; versions bumped; tracker Completed. Plus the common DoD in `06-phase-plan.md` §5.",
       "complexity": "M",
       "design": "docs/enterprise-v2/07-backlog.md"
+    },
+    {
+      "id": "X9.13",
+      "epic": "X9",
+      "title": "Enterprise records carry who/when: updated_by_member_id (+ created_by) on talent_application, talent_interview, talent_application_note, mkt_submission, cws_submission; actor_kind + changes on the ent event tables; relation in ChangeActorDTO; backfill",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "X9.3",
+        "U6.12",
+        "U6.13"
+      ],
+      "relates": [
+        "X8.13",
+        "X1.10",
+        "X4.7"
+      ],
+      "persona": "Marketer, Org Admin, consultant (each in their own enterprise account, O4)",
+      "objective": "Every organization record a person can change names its last modifier and the person behind every history row, with the relation to the consultant the record is about.",
+      "story": "As an Org Admin I want every application, interview, submission and note in my organization to say who last changed it and when, with each history row naming the person and their relation to the consultant, so that the whole team sees the same receipts.",
+      "genz": "Same receipts for the org. Marketer, admin, consultant — named, tagged, timed.",
+      "functional": [
+        "Columns (docs/change-audit/README.md §2.2): created_by_member_id, updated_by_member_id on talent_application, talent_interview, mkt_submission, cws_submission; updated_by_member_id + updated_at on talent_application_note; actor_kind (PERSON | SYSTEM, default PERSON) + changes VARCHAR(1000) on talent_application_event, talent_interview_event, mkt_submission_event. No on_behalf_of on ent rows: the beneficiary is the record's consultant_id, always.",
+        "Every mutation path stamps updated_by_member_id and writes its event with actor_kind PERSON and changes: ApplicationCommandService (create/patch/stage/undo/addNote), MktApplicationsService (addNote/setNextAction/markFollowUpDone/recordStage), InterviewCommandService, MktSubmissionsService, ConsultantSubmissionsService (approve/decline → updated_by = consultant). PipelineApplicationLinkWork / LinkedApplicationProjection rows: actor_kind SYSTEM, actor_member_id null, updated_by null.",
+        "ApplicationNames.personName gains the ChangeActors fallbacks: never an ent# login (step 3 skipped for enterprise logins → \"a member\"), ERASED seat or no user → \"a former member\". Shared with ChangeActors through one static helper so both sides give the same words.",
+        "relation on ChangeActorDTO, computed per record against its consultant: the consultant's assigned marketer (org_assignment, ACTIVE) → marketer; OWNER / ORG_ADMIN role → admin; the record's own consultant seat → consultant; any other seat → member; SYSTEM → system (D6: fixed five words, not role display names).",
+        "DTOs: ApplicationDTO (ent) Row + Detail gain updatedAt, updatedBy; EventItem.actor becomes ChangeActorDTO (memberId, label, relation, kind) + changes; NoteItem.author gains relation; ConsultantApplicationsDTO.TimelineEntry.by → ChangeActorDTO and Detail.updatedBy; MktApplicationsDTO.Row gains updatedAt, updatedBy; interview and submission DTOs likewise.",
+        "Backfill: event rows with actor_member_id null → SYSTEM; head records updated_by_member_id = the actor of their newest event where one exists (else null)."
+      ],
+      "ui": [
+        "None (X9.14)."
+      ],
+      "backend": [
+        "Entities, the five command services, ApplicationNames + ChangeActors shared helper, relation computation (one query over org_assignment + OrgMemberRole per page), DTOs, query services (ApplicationQueryService detail/rows, ConsultantApplicationsService, MktApplicationsService)."
+      ],
+      "db": [
+        "Liquibase 2026111002_change_audit_enterprise.xml: addColumn per table above, index on (org_id, updated_by_member_id) for talent_application and mkt_submission; backfill changeSet with preconditions; all additive, org_id untouched."
+      ],
+      "apis": [
+        "GET /api/orgs/{orgId}/applications and …/{id}; GET /api/orgs/{orgId}/me-workspace/applications/{id}; GET /api/orgs/{orgId}/mkt/applications; interview and submission reads — new fields only, contracts otherwise unchanged; openapi.json regenerated."
+      ],
+      "permissions": [
+        "No new key: history inherits the record's gate (pipeline.view ASSIGNED / member.view_full / applications.manage OWN / requireSelf). Tenant from the host; a foreign org id or member id is the generic 404."
+      ],
+      "entitlements": [],
+      "ac": [
+        "A marketer's stage move writes a talent_application_event with actor_kind PERSON, actor_member_id = the marketer, changes [{\"f\":\"stage\",\"from\":\"APPLIED\",\"to\":\"INTERVIEW\"}], and sets talent_application.updated_by_member_id = the marketer; the Detail DTO shows updatedBy.label = \"Sarah Chen\", relation \"marketer\".",
+        "The consultant's own approve on cws_submission sets updated_by_member_id = the consultant; the admin's edit yields relation \"admin\"; a linker projection yields actor_kind SYSTEM and updatedBy null (rendered \"Kiwiply\").",
+        "An enterprise account with no first/last name and no display_label is labelled \"a member\", never its ent# login (contract test over every ent response body); an ERASED seat is \"a former member\".",
+        "A member id of another organization in any of these rows resolves to \"a member\" and never a name; GET of a foreign application id is 404 (OrgIsolationIT extended).",
+        "Backfill: every pre-existing event with a null actor is SYSTEM; re-run changes zero rows."
+      ],
+      "tests": [
+        "EntChangeAuditMigrationIT: columns, defaults, backfill, idempotency.",
+        "ApplicationCommandServiceTest / MktApplicationsServiceTest / InterviewCommandServiceTest / MktSubmissionsServiceTest / ConsultantSubmissionsServiceTest: updated_by + event actor + changes on every mutation.",
+        "RelationTest: marketer / admin / consultant / member / system per README §2.5.",
+        "ApplicationNamesTest: ent# never shown, former member, cross-org id → \"a member\".",
+        "OrgIsolationIT: foreign ids 404 on the new reads; no ent# in bodies.",
+        "ChangeAuditCoverageTest extended with the five ent entities."
+      ],
+      "tech": "Keep the event writers where they are (ApplicationCommandService.record, MktApplicationsService private writer) and add the two fields; do not introduce a generic change_log (README §2.1). Relation is computed in the query layer from org_assignment and OrgMemberRole in one batch, cached per request.",
+      "complexity": "M",
+      "dod": "Migration + services + DTOs + tests green; openapi.json; progress-tracker.md row; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "X9.14",
+      "epic": "X9",
+      "title": "Org and consultant workspace display: \"Updated … by Sarah Chen (marketer)\" in the org DetailDrawer and table, marketer tracker, consultant My Applications timeline (names + relation instead of YOU / MARKETER / TEAM); erased seat → \"a former member\"",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "X9.13",
+        "X9.4",
+        "U6.14"
+      ],
+      "relates": [
+        "X2.15",
+        "X9.1"
+      ],
+      "persona": "Org Admin / Marketing Manager on the org Applications page; marketer in their tracker; consultant in My Applications",
+      "objective": "The consultant and the admin see the same \"by Sarah Chen (marketer)\" on the same record; every org surface shows who last touched a record and when.",
+      "story": "As a consultant I want to see that my marketer Sarah moved my application to Interview two hours ago, and as the Org Admin I want to see the same line on the org page, so that nobody wonders who did what.",
+      "genz": "One line, both sides, same name. No \"someone\".",
+      "functional": [
+        "Org Applications DetailDrawer (ent/applications/DetailDrawer.tsx): header meta line \"◷ Updated 2h ago by Sarah Chen MARKETER\" (title absolute) + \"Created Sep 30 by Priya Raman ADMIN\"; the Activity feed passes actor.label + relation into TimelineFeed's existing actor.tag; SYSTEM rows read \"Kiwiply SYSTEM\"; changes render as the collapsed Details chip row of U6.14.",
+        "ApplicationsTable.tsx: \"Updated\" column (timeAgo; second line the actor + tag; D2 hides \"by you\" for the viewer's own rows); card layout at 390 puts \"Updated 2h ago · Sarah Chen\" on the meta line.",
+        "Marketer tracker (marketer-ws/applications/TrackerTable.tsx): same Updated column and row meta.",
+        "Consultant My Applications (consultant-ws/ApplicationsPage.tsx): the timeline's by renders actorLine(entry.by) — \"by you\", \"by Sarah Chen MARKETER\", \"by Priya Raman ADMIN\", \"by Kiwiply\"; detail header gets the Updated line; the existing notice that marketer internal notes are hidden stays.",
+        "Interviews and Submissions pages (both workspaces): the detail sheet header gets the Updated line (no new columns in their tables in this story).",
+        "All from @kiwiply/ui (MemberAvatar, TimelineFeed, DataTable, StatusDot, ClockIcon); shared actorText / actorLine from web/src/lib/actors.ts (U6.14); tenant theme tokens only (X2.12 hex-literal lint)."
+      ],
+      "ui": [
+        "Wireframes 390 / 1440 in docs/change-audit/README.md §3.4."
+      ],
+      "backend": [
+        "None."
+      ],
+      "db": [
+        "None."
+      ],
+      "apis": [
+        "Consumes X9.13 fields through the existing BFF routes (web/src/app/api/orgs/[orgId]/applications, me-workspace/applications, mkt/applications); the ent types in hooks.ts / shared.ts gain updatedAt, updatedBy, actor.relation, changes."
+      ],
+      "permissions": [
+        "None new (the API already scoped the rows)."
+      ],
+      "entitlements": [],
+      "ac": [
+        "On a demo org, the consultant's My Applications detail and the admin's DetailDrawer show the identical line \"Updated 2h ago by Sarah Chen MARKETER\" for the same stage move.",
+        "A system projection shows \"Kiwiply SYSTEM\" in the feed and \"Updated 12d ago by Kiwiply\" in the header.",
+        "An erased seat shows \"a former member\"; an ent# login never appears in the DOM of any ent page (test over rendered text of the four pages).",
+        "ApplicationsTable sorts by Updated; the admin's own rows do not show \"by you\"; 390 cards wrap without horizontal scroll; 1440 columns keep their widths.",
+        "Playwright 390 / 1440 for the org Applications page and the consultant My Applications page."
+      ],
+      "tests": [
+        "DetailDrawer.test.tsx: header line per kind/relation; feed tags; Details chip.",
+        "ApplicationsTable + TrackerTable tests: Updated column, D2, sort.",
+        "consultant-ws/ApplicationsPage.test.tsx: by → actorLine strings for you / marketer / admin / system / former member.",
+        "Playwright 390 / 1440 on both pages against the demo seed."
+      ],
+      "tech": "Reuse TimelineFeed.actor.tag (packages/ui/src/enterprise/boards.tsx) — no new primitive. The consultant page keeps its sourceBadge (submission source) separate from the actor line; they answer different questions.",
+      "complexity": "M",
+      "dod": "Web tests + Playwright green; no hex literals; progress-tracker.md; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "X9.15",
+      "epic": "X9",
+      "title": "Act-for on the personal tracker: TrackerActAs used by X9.12 \"Save for consultant…\", on-behalf-of stamped, consultant sees \"by Sarah Chen (marketer)\", cross-tenant and unassigned → 404; enterprise.history.retention_months + purge for the ent event tables",
+      "status": "in_progress",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.13",
+        "X9.12",
+        "X4.7",
+        "X9.13"
+      ],
+      "relates": [
+        "X7.10",
+        "U6.15",
+        "X12.5"
+      ],
+      "persona": "Marketer saving a job onto an assigned consultant's board; the consultant; the Org Admin setting retention",
+      "objective": "The first real act-for write on a personal application is attributed to the marketer, for the consultant, and gated exactly like the resume act-for; org history retention is an admin setting.",
+      "story": "As a consultant I want a job my marketer saved for me to appear on my board as \"Saved by Sarah Chen (marketer)\", never as something I did, so that my tracker stays honest about who did what.",
+      "genz": "Sarah saved it, it says Sarah saved it. Your board, your truth.",
+      "functional": [
+        "Act-for gate for the tracker (mirrors ActForBuilderGate of the resume branch): organization from the host, member.act_for at ASSIGNED scope, the consultant's seat ACTIVE, assignment visibility APPLICATIONS on (19b), the consultant's personal account resolved through the seat (O4: the marketer never signs in as the consultant). Anything short → the generic 404.",
+        "X9.12's \"Save for consultant…\" (POST /api/orgs/{orgId}/consultants/{memberId}/applications/save, body {postingId | jobUrl, …}) runs the existing ApplicationSyncService.create inside TrackerActAs.run(owner = consultant, scope(orgId, marketerLogin, marketerUserId)): the row is the consultant's (user_id), status SAVED, source \"org\"; the CREATED event has actor_kind PERSON, actor = marketer, on_behalf_of = consultant, source WEB; application.created_by/updated_by = marketer.",
+        "Only this route opens TrackerActAs; no HTTP surface opens a longer window; a nested act-for is refused (IllegalStateException → 500 in tests, never reachable in prod).",
+        "Every act-for write also records the org security row (OrgAuditService MARKETER_SAVE_FOR_CONSULTANT, beneficiary = consultant login, MEDIUM) — the history row is for the person, the audit row is for the org.",
+        "Setting enterprise.history.retention_months (EnterpriseSettingKeys, integer, default 0, range 0–120, Risk.LOW); EnterpriseHistoryRetentionJob (nightly, ShedLock) purges talent_application_event, talent_interview_event, mkt_submission_event rows older than N months per org (org_setting override when present), keeping each record's newest row; one SYSTEM org_audit_event HISTORY_PURGED per org per run with the count."
+      ],
+      "ui": [
+        "None here (X9.12 owns the extension/web action; U6.14 / X9.14 own the rendering, which already handles on-behalf-of)."
+      ],
+      "backend": [
+        "TrackerActForGate, the save-for-consultant service method wrapping ApplicationSyncService.create in TrackerActAs, OrgAuditService key, EnterpriseSettingKeys entry, EnterpriseHistoryRetentionJob, repository bulk deletes used only by the job."
+      ],
+      "db": [
+        "None (U6.12 / X9.13 columns)."
+      ],
+      "apis": [
+        "POST /api/orgs/{orgId}/consultants/{memberId}/applications/save (X9.12's route, now attributed); settings API exposes the new key; openapi.json regenerated."
+      ],
+      "permissions": [
+        "member.act_for (ASSIGNED) + assignment visibility APPLICATIONS; the consultant's own reads unchanged (owner). Platform admin never acts for anyone here."
+      ],
+      "entitlements": [
+        "The org module gate of X9.12 (module.talent_marketing) applies; no new entitlement."
+      ],
+      "ac": [
+        "Marketer Sarah (assigned, APPLICATIONS on) saves a job for Anika: Anika's GET /api/profile/applications/{id} shows updatedBy.label \"Sarah Chen\", relation \"marketer\", events[0].actorKind PERSON, onBehalfOf = Anika; Sarah's own personal tracker (if any) has no new row.",
+        "The same call by a marketer not assigned to Anika, or with APPLICATIONS off, or from another org's host, or naming a consultant member id of another org, is 404 with no row written and no history row.",
+        "The response bodies and Anika's export never contain an ent# string; the org audit row names the beneficiary login.",
+        "TrackerActAs is closed after the request even when ApplicationSyncService throws (SecurityContext restored; verified by a test that fails the create).",
+        "With enterprise.history.retention_months = 6 the job purges rows older than 6 months per org, keeps the newest per record, writes one HISTORY_PURGED audit row per org, and is a no-op at 0."
+      ],
+      "tests": [
+        "TrackerActForGateTest: every refusal branch (unassigned, visibility off, suspended seat, foreign org, foreign member id) → 404.",
+        "SaveForConsultantIT: attribution of the CREATED event and head record; marketer's own tracker untouched; audit row; no ent# in bodies.",
+        "TrackerActAsCleanupTest: context restored after an exception.",
+        "OrgIsolationIT: cross-tenant save → 404.",
+        "EnterpriseHistoryRetentionJobTest: 0 / 6 months, per-org override, newest kept, audit row, idempotent."
+      ],
+      "tech": "Copy the shape of ResumeActAs / ActForBuilderGate exactly (same thread-local contract, same \"the caller already proved access\" rule); do not add a second swap mechanism. The job follows TrackerHistoryRetentionJob (U6.15) with an org loop.",
+      "complexity": "M",
+      "dod": "Gate + attributed save + retention + tests green; openapi.json; progress-tracker.md; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
     },
     {
       "id": "X9.10",

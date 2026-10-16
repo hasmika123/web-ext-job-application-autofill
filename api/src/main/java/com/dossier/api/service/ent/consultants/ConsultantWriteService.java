@@ -413,6 +413,8 @@ public class ConsultantWriteService {
         a.setStageChangedAt(now);
         a.setCreatedAt(now);
         a.setUpdatedAt(now);
+        a.setCreatedByMemberId(me.memberId());
+        a.setUpdatedByMemberId(me.memberId());
         a = applicationRepo.saveAndFlush(a);
         TalentApplicationEvent e = new TalentApplicationEvent();
         e.setOrgId(orgId);

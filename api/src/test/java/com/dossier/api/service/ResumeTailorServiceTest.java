@@ -98,7 +98,7 @@ class ResumeTailorServiceTest {
         app.setCompany("Acme");
         when(applications.findById(5L)).thenReturn(Optional.of(app));
 
-        service = new ResumeTailorService(provider, budget, metering, resumes, applications, tailors, users, profile, true);
+        service = new ResumeTailorService(provider, budget, metering, resumes, applications, tailors, users, profile, org.mockito.Mockito.mock(ApplicationEventService.class), true);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("user", "x"));
     }
 

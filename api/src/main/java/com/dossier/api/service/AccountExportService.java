@@ -109,7 +109,8 @@ public class AccountExportService {
         out.put("account", account);
         out.put("bio", profileService.getProfile().orElse(null));
         out.put("resumes", profileService.listResumes());
-        out.put("applications", applicationSyncService.listApplications());
+        // Change audit (U6.15): "added by" / "last changed by" as labels resolved now, never an account id or an enterprise login.
+        out.put("applications", trackerDataService.withActorLabels(applicationSyncService.listApplications(), u.getId()));
         // APP-E2E U6.1: the tracker's memory - timeline events, notes and interviews.
         out.putAll(trackerDataService.exportForUser(u.getId()));
         // E2E-U4.0: what the user hid in job search.

@@ -9,6 +9,8 @@ import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.InboxMessageRepository;
 import com.dossier.api.repository.InterviewRepository;
 import com.dossier.api.service.dto.ApplicationDTO;
+import com.dossier.api.service.dto.ChangeActorDTO;
+import com.dossier.api.service.tracker.ChangeActors;
 import com.dossier.api.service.dto.TrackerDTOs.ApplicationDetailDTO;
 import com.dossier.api.service.dto.ListPage;
 import com.dossier.api.service.dto.ListQuery;
@@ -80,6 +82,7 @@ public class ApplicationListService {
     private final ApplicationNoteRepository noteRepository;
     private final InterviewRepository interviewRepository;
     private final InboxMessageRepository inboxMessages;
+    private final ChangeActors actors;
     private final Clock clock;
 
     @Autowired
@@ -92,9 +95,10 @@ public class ApplicationListService {
         ApplicationEventService eventService,
         ApplicationNoteRepository noteRepository,
         InterviewRepository interviewRepository,
-        InboxMessageRepository inboxMessages
+        InboxMessageRepository inboxMessages,
+        ChangeActors actors
     ) {
-        this(applications, mapper, em, trackerUsers, settings, eventService, noteRepository, interviewRepository, inboxMessages, Clock.systemUTC());
+        this(applications, mapper, em, trackerUsers, settings, eventService, noteRepository, interviewRepository, inboxMessages, actors, Clock.systemUTC());
     }
 
     ApplicationListService(
@@ -107,8 +111,10 @@ public class ApplicationListService {
         ApplicationNoteRepository noteRepository,
         InterviewRepository interviewRepository,
         InboxMessageRepository inboxMessages,
+        ChangeActors actors,
         Clock clock
     ) {
+        this.actors = actors;
         this.applications = applications;
         this.mapper = mapper;
         this.em = em;
@@ -283,10 +289,15 @@ public class ApplicationListService {
         Map<Long, Object[]> next = new HashMap<>();
         for (Object[] row : interviewRepository.upcomingFor(ids, now)) next.putIfAbsent((Long) row[0], row); // soonest first
         int ghostDays = settings.getInt(ResumeBuilderSettingKeys.TRACKER_GHOSTED_AFTER_DAYS);
+        // Who added it and who changed it last: one batch resolve per page (docs/change-audit/README.md).
+        Map<Long, ChangeActorDTO> updatedBy = actors.updatedBy(apps);
+        Map<Long, ChangeActorDTO> createdBy = actors.createdBy(apps);
 
         List<ApplicationDTO> out = new ArrayList<>(apps.size());
         for (Application a : apps) {
             ApplicationDTO dto = mapper.toDto(a);
+            dto.setUpdatedBy(updatedBy.get(a.getId()));
+            dto.setCreatedBy(createdBy.get(a.getId()));
             Object[] n = next.get(a.getId());
             dto.setGhosted(ApplicationDerivations.isGhosted(a, now, ghostDays));
             dto.setNextStep(

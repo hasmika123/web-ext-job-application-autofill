@@ -1,3 +1,4 @@
+import type { ChangeActor } from "@/lib/actors";
 /**
  * The Interviews page: the types of the interviews API (`OrgInterviewResource`), the client that talks to the BFF under
  * `/api/orgs/{orgId}/interviews`, the URL state of the page (tab, filters, page, open interview: a link reproduces the view) and the
@@ -235,6 +236,10 @@ export interface InterviewDetail {
   actions: Actions;
   undo: UndoToken | null;
   createdAt: string;
+  /** Change audit: when it last changed and by whom; who scheduled it (by name, with the relation to the consultant). */
+  updatedAt?: string | null;
+  updatedBy?: ChangeActor | null;
+  createdBy?: ChangeActor | null;
 }
 
 /* ── URL state ───────────────────────────────────────────────────────────────────── */

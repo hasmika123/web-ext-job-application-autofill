@@ -30,7 +30,7 @@ const ALL = "all";
 const SEARCH_DEBOUNCE_MS = 300;
 const FILTER = "h-9 w-[150px] flex-none";
 
-export default function ApplicationsPage({ orgId, hrefs }: MktPageProps) {
+export default function ApplicationsPage({ orgId, hrefs, selfMemberId }: MktPageProps) {
   const [query, setQuery] = useState<BoardQuery>(DEFAULT_QUERY);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ApplicationsView | null>(null);
@@ -177,6 +177,7 @@ export default function ApplicationsPage({ orgId, hrefs }: MktPageProps) {
               sortAsc={query.sort === "appliedOn,asc"}
               onSort={() => patch({ sort: query.sort === "appliedOn,asc" ? "appliedOn,desc" : "appliedOn,asc" })}
               onChanged={reload}
+              selfMemberId={selfMemberId}
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted">
               <span data-tracker-count>

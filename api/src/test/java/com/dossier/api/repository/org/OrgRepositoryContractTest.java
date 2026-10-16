@@ -34,6 +34,8 @@ class OrgRepositoryContractTest {
         "OrgMemberRepository.findByInviteTokenHash",
         // the invite expiry job (X1.15): the one query that lists WHICH organizations have work; each org then runs inside TenantScoped
         "OrgMemberRepository.findOrgIdsWithExpiredInvites",
+        // the history retention job (X9.15): lists WHICH organizations to visit; each one then runs inside TenantScoped
+        "OrganizationRepository.findAllOrgIds",
         "OrgJoinCodeRepository.findByCode"
     );
 

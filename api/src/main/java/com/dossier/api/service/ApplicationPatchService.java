@@ -11,6 +11,8 @@ import com.dossier.api.service.dto.TrackerDTOs.BulkFailure;
 import com.dossier.api.service.dto.TrackerDTOs.BulkRequest;
 import com.dossier.api.service.dto.TrackerDTOs.BulkResult;
 import com.dossier.api.service.privacy.SensitiveContent;
+import com.dossier.api.service.tracker.ChangeActor;
+import com.dossier.api.service.tracker.ChangeRecorder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -129,9 +131,14 @@ public class ApplicationPatchService {
     }
 
     // ---- the change itself --------------------------------------------------
-
+    /**
+     * Applies one PATCH. Everything it changes is collected into ONE timeline row (a STATUS event when the status moved, else FIELD / RESUME) that lists
+     * every changed field in {@code changes}, names the actor and stamps the application's {@code updated_by_*}. A request that changes nothing writes
+     * nothing, and leaves {@code updated_at} alone.
+     */
     void apply(User user, Application app, ObjectNode body, Instant now) {
         String source = ApplicationEvent.SRC_WEB;
+        ChangeRecorder rec = new ChangeRecorder(eventService, app, source, ChangeActor.forOwner(user));
 
         if (body.has("status")) {
             ApplicationStatus to = status(body.get("status"));
@@ -142,7 +149,7 @@ public class ApplicationPatchService {
                 if (app.getAppliedAt() == null) app.setAppliedAt(now);
                 if (!Boolean.TRUE.equals(app.getSubmissionConfirmed())) app.setSubmissionConfirmed(true);
             }
-            eventService.recordStatus(app, before, to, source, null, null);
+            rec.status(before, to, null);
         }
 
         if (body.has("nextAction")) {
@@ -150,24 +157,27 @@ public class ApplicationPatchService {
             if (v != null) SensitiveContent.check("nextAction", "nextAction", v);
             if (!Objects.equals(v, app.getNextAction())) {
                 app.setNextAction(v);
-                eventService.record(app, ApplicationEvent.FIELD, null, null, source, null, v == null ? "Next step cleared" : "Next step: " + v);
+                rec.text("nextAction", v == null ? "Next step cleared" : "Next step: " + v);
             }
         }
         if (body.has("nextActionAt")) {
-            app.setNextActionAt(instant(body.get("nextActionAt"), "nextActionAt"));
+            Instant at = instant(body.get("nextActionAt"), "nextActionAt");
+            Instant before = app.getNextActionAt();
+            app.setNextActionAt(at);
+            if (!Objects.equals(at, before)) rec.instant("nextActionAt", before, at, at == null ? "Next step date cleared" : "Next step date set");
         }
 
         if (body.has("starred")) {
-            app.setStarred(bool(body.get("starred"), "starred"));
+            boolean starred = bool(body.get("starred"), "starred");
+            boolean before = Boolean.TRUE.equals(app.getStarred());
+            app.setStarred(starred);
+            if (starred != before) rec.flag("starred", before, starred, starred ? "Starred" : "Unstarred");
         }
         if (body.has("archived")) {
             boolean archived = bool(body.get("archived"), "archived");
-            if (archived != Boolean.TRUE.equals(app.getArchived())) {
-                app.setArchived(archived);
-                eventService.record(app, ApplicationEvent.FIELD, null, null, source, null, archived ? "Archived" : "Restored from archive");
-            } else {
-                app.setArchived(archived);
-            }
+            boolean before = Boolean.TRUE.equals(app.getArchived());
+            app.setArchived(archived);
+            if (archived != before) rec.flag("archived", before, archived, archived ? "Archived" : "Restored from archive");
         }
 
         if (body.has("resumeId")) {
@@ -175,12 +185,12 @@ public class ApplicationPatchService {
             Long before = app.getResume() == null ? null : app.getResume().getId();
             if (n.isNull()) {
                 app.setResume(null);
-                if (before != null) eventService.record(app, ApplicationEvent.RESUME, null, null, source, null, "Resume removed");
+                if (before != null) rec.resume(before, null, "Resume removed");
             } else if (n.canConvertToLong() && n.isIntegralNumber()) {
                 Resume r = trackerUsers.resume(user, n.asLong());
                 app.setResume(r);
                 if (!Objects.equals(before, r.getId())) {
-                    eventService.record(app, ApplicationEvent.RESUME, null, null, source, r.getId(), r.getLabel() == null ? "Resume changed" : "Resume: " + r.getLabel());
+                    rec.resume(before, r.getId(), r.getLabel() == null ? "Resume changed" : "Resume: " + r.getLabel());
                 }
             } else {
                 throw TrackerException.invalid("resumeId", "must be a resume id or null");
@@ -192,21 +202,14 @@ public class ApplicationPatchService {
             String outcome = n.isNull() ? null : n.isTextual() ? n.textValue().trim().toUpperCase(Locale.ROOT) : "?";
             if (outcome != null && !OUTCOMES.contains(outcome)) throw TrackerException.invalid("outcome", "use ACCEPTED, DECLINED or null");
             if (!Objects.equals(outcome, app.getOutcome())) {
+                String outcomeBefore = app.getOutcome();
                 app.setOutcome(outcome);
                 app.setAcceptedAt("ACCEPTED".equals(outcome) ? now : null);
-                eventService.record(
-                    app,
-                    ApplicationEvent.FIELD,
-                    null,
-                    null,
-                    source,
-                    null,
-                    outcome == null ? "Offer reopened" : outcome.equals("ACCEPTED") ? "Accepted the offer" : "Declined the offer"
-                );
+                rec.code("outcome", outcomeBefore, outcome, outcome == null ? "Offer reopened" : outcome.equals("ACCEPTED") ? "Accepted the offer" : "Declined the offer");
             }
         }
 
-        app.setUpdatedAt(now);
+        rec.flush();
     }
 
     // ---- field readers ------------------------------------------------------

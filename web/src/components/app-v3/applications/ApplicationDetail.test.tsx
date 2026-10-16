@@ -94,7 +94,9 @@ afterEach(() => {
 
 const callsTo = (method: string, url: string) => calls.filter((c) => c.method === method && c.url === url);
 
-function open(opts: { data?: ApplicationDetailData } = {}) {
+const ME = { id: 7, login: "anika" };
+
+function open(opts: { data?: ApplicationDetailData; me?: { id: number; login: string } | null } = {}) {
   const data = opts.data ?? detail();
   routes.set("GET /api/applications/1", () => json(data));
   const onRow = vi.fn();
@@ -102,7 +104,7 @@ function open(opts: { data?: ApplicationDetailData } = {}) {
   const onClose = vi.fn();
   render(
     <ToastProvider>
-      <ApplicationDetail id={1} seed={data} isPro={false} onClose={onClose} onRow={onRow} onStale={onStale} />
+      <ApplicationDetail id={1} seed={data} isPro={false} me={opts.me === undefined ? ME : opts.me} onClose={onClose} onRow={onRow} onStale={onStale} />
     </ToastProvider>,
   );
   return { onRow, onStale, onClose };
@@ -125,7 +127,8 @@ describe("ApplicationDetail: the sheet", () => {
     expect(within(picker).getByRole("button", { name: "Applied" }).getAttribute("aria-pressed")).toBe("true");
     const timeline = within(sheet()).getByRole("list", { name: "Timeline" });
     expect(within(timeline).getByText("Applied")).toBeTruthy();
-    expect(within(timeline).getByText("via the extension")).toBeTruthy();
+    // An old payload names only the channel: the person's own extension save reads "by you via the extension".
+    expect(within(timeline).getByText("by you via the extension")).toBeTruthy();
   });
 
   it("the five tabs, with the counts the server gave", async () => {
@@ -142,7 +145,7 @@ describe("ApplicationDetail: the sheet", () => {
     const picker = within(sheet()).getByRole("group", { name: "Application status" });
     fireEvent.click(within(picker).getByRole("button", { name: "Under review" }));
     expect(within(picker).getByRole("button", { name: "Under review" }).getAttribute("aria-pressed")).toBe("true");
-    expect(onRow).toHaveBeenCalledWith(1, { status: "IN_REVIEW" });
+    expect(onRow).toHaveBeenCalledWith(1, expect.objectContaining({ status: "IN_REVIEW" }));
     await waitFor(() => expect(callsTo("PATCH", "/api/applications/1")[0]?.body).toEqual({ status: "IN_REVIEW" }));
     const undo = await screen.findByRole("button", { name: "Undo" });
     expect(screen.getByText("Moved to Under review")).toBeTruthy();

@@ -1,5 +1,7 @@
 package com.dossier.api.service.dto.ent;
 
+import com.dossier.api.service.dto.ChangeActorDTO;
+import com.dossier.api.service.dto.TrackerDTOs.ChangeDTO;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -39,7 +41,9 @@ public final class ApplicationDTO {
         String nextAction,
         LocalDate nextActionDue,
         boolean overdue,
-        Instant stageChangedAt
+        Instant stageChangedAt,
+        Instant updatedAt,
+        ChangeActorDTO updatedBy
     ) {}
 
     /** {@code PageDTO} of 40-api-specs.md section 7. */
@@ -90,9 +94,14 @@ public final class ApplicationDTO {
     /** One step of the stepper: {@code state} is DONE, CURRENT or FUTURE; {@code reachedAt} is the first time that stage was recorded. */
     public record Step(String stage, String label, Instant reachedAt, String state) {}
 
-    public record EventItem(Long id, String type, String fromStage, String toStage, Marketer actor, String detail, Instant at) {}
+    /**
+     * One history row. {@code actor} is the original {name, initials} shape (kept so the existing screens keep working); {@code by} is who did it in the
+     * change-audit words: label (never an enterprise login), relation to the consultant (marketer | admin | consultant | member | system) and kind
+     * (PERSON | SYSTEM). {@code changes} lists the fields that changed (names, and enum / date values only: never free text).
+     */
+    public record EventItem(Long id, String type, String fromStage, String toStage, Marketer actor, String detail, Instant at, ChangeActorDTO by, List<ChangeDTO> changes) {}
 
-    public record NoteItem(Long id, Marketer author, String body, Instant createdAt) {}
+    public record NoteItem(Long id, Marketer author, String body, Instant createdAt, ChangeActorDTO by) {}
 
     /** What the caller may do with this application (the page draws a control only when true; the API is the real gate). */
     public record Actions(boolean edit, boolean moveStage, boolean addNote, boolean reassign) {}
@@ -121,7 +130,11 @@ public final class ApplicationDTO {
         List<NoteItem> notes,
         long notesCount,
         Actions actions,
-        UndoToken undo
+        UndoToken undo,
+        Instant createdAt,
+        ChangeActorDTO createdBy,
+        Instant updatedAt,
+        ChangeActorDTO updatedBy
     ) {}
 
     /** Present for a few minutes after the caller's own latest stage move: the id to send back to undo it. */

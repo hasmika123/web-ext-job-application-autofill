@@ -353,6 +353,8 @@ public class JobWriteService {
             app.setStageChangedAt(now);
             app.setCreatedAt(now);
             app.setUpdatedAt(now);
+            app.setCreatedByMemberId(me.memberId());
+            app.setUpdatedByMemberId(me.memberId());
             Optional<MarketerAssignment> ma = assignments.findByOrgIdAndConsultantId(orgId, consultant.getId());
             app.setMarketerMemberId(ma.map(MarketerAssignment::getMarketerMemberId).orElse(null));
             app.setResumeId(primaryResume(orgId, consultant.getId()));

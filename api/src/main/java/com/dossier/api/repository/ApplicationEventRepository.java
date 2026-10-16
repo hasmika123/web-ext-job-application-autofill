@@ -21,6 +21,13 @@ public interface ApplicationEventRepository extends JpaRepository<ApplicationEve
     /** Newest first; the caller passes the page size (the detail view's event cap). */
     List<ApplicationEvent> findByApplicationIdOrderByCreatedAtDescIdDesc(Long applicationId, Pageable page);
 
+    /** The newest event of each of these applications (id breaks a tie in time): who last touched them when no person is stamped on the head record. */
+    @Query(
+        "select e from ApplicationEvent e where e.id in " +
+        "(select max(e2.id) from ApplicationEvent e2 where e2.applicationId in :ids group by e2.applicationId)"
+    )
+    List<ApplicationEvent> newestFor(@Param("ids") Collection<Long> ids);
+
     long countByApplicationId(Long applicationId);
 
     long countByApplicationIdAndKind(Long applicationId, String kind);
@@ -50,4 +57,19 @@ public interface ApplicationEventRepository extends JpaRepository<ApplicationEve
     @Modifying
     @Query("delete from ApplicationEvent e where e.applicationId in (select a.id from Application a where a.user.id = :userId)")
     int deleteByUser(@Param("userId") Long userId);
+
+    // ---- History retention (U6.15): the next two are used ONLY by TrackerHistoryRetentionJob (the one deleter besides account erasure). ----
+
+    /** Ids of events older than {@code cutoff} that are NOT the newest event of their application (time, then id): what the retention window may delete. Oldest first. */
+    @Query(
+        "select e.id from ApplicationEvent e where e.createdAt < :cutoff and exists " +
+        "(select 1 from ApplicationEvent n where n.applicationId = e.applicationId and (n.createdAt > e.createdAt or (n.createdAt = e.createdAt and n.id > e.id))) order by e.id"
+    )
+    List<Long> purgeableIds(@Param("cutoff") Instant cutoff, Pageable page);
+
+    /** Deletes exactly these events (the ids {@link #purgeableIds} returned); the retention job only. */
+    @Transactional
+    @Modifying
+    @Query("delete from ApplicationEvent e where e.id in :ids")
+    int deletePurgeable(@Param("ids") Collection<Long> ids);
 }

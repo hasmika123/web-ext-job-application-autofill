@@ -6,6 +6,7 @@
  */
 import { call, type TrackerResult } from "@/lib/tracker-client";
 import type { Interview } from "@/lib/interviews";
+import type { ChangeActor } from "@/lib/actors";
 
 /** The wire statuses, in funnel order. */
 export const APPLICATION_STATUSES = ["DRAFT", "SAVED", "APPLIED", "IN_REVIEW", "INTERVIEW", "OFFER", "REJECTED", "WITHDRAWN"] as const;
@@ -86,6 +87,16 @@ export interface Application {
   interviewsCount?: number | null;
   notesCount?: number | null;
   mailCount?: number | null;
+  /** Change audit: who added it and who last changed it (`updatedAt` is when). Never an enterprise login. */
+  createdBy?: ChangeActor | null;
+  updatedBy?: ChangeActor | null;
+}
+
+/** One field that changed: names for free-text fields (the value stays on the record), values for enums, flags and dates. */
+export interface FieldChange {
+  f: string;
+  from?: string | null;
+  to?: string | null;
 }
 
 export interface TimelineEvent {
@@ -93,10 +104,15 @@ export interface TimelineEvent {
   kind: string;
   fromStatus: string | null;
   toStatus: string | null;
+  /** The channel: EXTENSION | WEB | INBOX | SYSTEM | ASSISTANT. Who did it is `actor` / `actorKind`. */
   source: string;
   refId: number | null;
   summary: string | null;
   createdAt: string;
+  actor?: ChangeActor | null;
+  actorKind?: string | null;
+  onBehalfOf?: ChangeActor | null;
+  changes?: FieldChange[] | null;
 }
 
 export interface ApplicationNote {
@@ -158,6 +174,20 @@ export interface BulkResult {
 
 export function getApplication(id: number): Promise<TrackerResult<ApplicationDetailData>> {
   return call("GET", `/api/applications/${id}`);
+}
+
+/** The full history of one application, newest first, from page `page` (the server clamps `size`). */
+export function getApplicationEvents(id: number, page = 0, size?: number): Promise<TrackerResult<EventsPage>> {
+  const q = new URLSearchParams({ page: String(page) });
+  if (size) q.set("size", String(size));
+  return call("GET", `/api/applications/${id}/events?${q.toString()}`);
+}
+
+export interface EventsPage {
+  items: TimelineEvent[];
+  total: number;
+  page: number;
+  size: number;
 }
 
 export function patchApplication(id: number, patch: ApplicationPatch): Promise<TrackerResult<Application>> {

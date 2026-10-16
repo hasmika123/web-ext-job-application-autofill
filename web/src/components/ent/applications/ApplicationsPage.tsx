@@ -73,6 +73,8 @@ export interface ApplicationsPageProps {
   /** Menu hrefs of the pages "View Job" / "View Profile" lead to; null when the member's menu does not list them. */
   jobsHref: string | null;
   consultantsHref: string | null;
+  /** The viewer's own seat (`me.member.id`): "you" in the Updated lines is decided by it. */
+  selfMemberId?: number | null;
   supportEmail?: string | null;
 }
 
@@ -80,7 +82,7 @@ type ListState = { status: "loading" } | { status: "error"; message: string } | 
 type PipelineState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; columns: Column[] };
 type AnalyticsState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; data: Analytics };
 
-export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref, consultantsHref, supportEmail }: ApplicationsPageProps) {
+export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref, consultantsHref, selfMemberId, supportEmail }: ApplicationsPageProps) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -412,6 +414,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
                     selected={selected}
                     onToggle={toggleRow}
                     onTogglePage={togglePage}
+                    selfMemberId={selfMemberId}
                   />
                   <Pagination page={view.page} size={view.size} total={total} shown={rows.length} onPage={(page) => setView({ page }, false)} onSize={(size) => setView({ size })} />
                 </>
@@ -470,6 +473,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
           reloadToken={reloadToken}
           jobsHref={jobsHref}
           consultantsHref={consultantsHref}
+          selfMemberId={selfMemberId}
           supportEmail={supportEmail}
         />
       </div>

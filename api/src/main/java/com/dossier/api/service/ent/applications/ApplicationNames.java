@@ -1,10 +1,12 @@
 package com.dossier.api.service.ent.applications;
 
 import com.dossier.api.domain.User;
+import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.org.OrgMember;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.ent.OrgMemberDirectoryRepository;
 import com.dossier.api.service.dto.ent.ApplicationDTO;
+import com.dossier.api.service.tracker.ChangeActors;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,11 +44,12 @@ public class ApplicationNames {
 
     public ApplicationDTO.Marketer marketer(Long memberId, Map<Long, String> names) {
         if (memberId == null) return null;
-        String name = names.getOrDefault(memberId, "Member");
+        String name = names.getOrDefault(memberId, ChangeActors.A_MEMBER);
         return new ApplicationDTO.Marketer(memberId, name, initials(name));
     }
 
     static String personName(User u, OrgMember seat) {
+        if (seat != null && seat.getStatus() == OrgMemberStatus.ERASED) return ChangeActors.FORMER_MEMBER;
         if (u != null) {
             String n = ((u.getFirstName() == null ? "" : u.getFirstName().strip()) + " " + (u.getLastName() == null ? "" : u.getLastName().strip())).strip();
             if (!n.isEmpty()) return n;
@@ -54,7 +57,8 @@ public class ApplicationNames {
         if (seat != null && seat.getDisplayLabel() != null && !seat.getDisplayLabel().isBlank()) return seat.getDisplayLabel().strip();
         String email = u != null && u.getEmail() != null && !u.getEmail().isBlank() ? u.getEmail() : seat == null ? null : seat.getInviteEmail();
         if (email != null && !email.isBlank()) return email.contains("@") ? email.substring(0, email.indexOf('@')) : email;
-        return seat == null ? "Member" : "Member " + seat.getId();
+        // no user behind a seat that is not merely invited: the person is gone; otherwise nothing is known (an enterprise login is never a fallback)
+        return u == null && seat != null && seat.getStatus() != OrgMemberStatus.INVITED ? ChangeActors.FORMER_MEMBER : ChangeActors.A_MEMBER;
     }
 
     public static String initials(String name) {

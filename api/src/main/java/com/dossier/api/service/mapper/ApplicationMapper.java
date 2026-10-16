@@ -22,6 +22,9 @@ public interface ApplicationMapper extends EntityMapper<ApplicationDTO, Applicat
     @Mapping(target = "interviewsCount", ignore = true)
     @Mapping(target = "notesCount", ignore = true)
     @Mapping(target = "mailCount", ignore = true)
+    // Change audit: the tracker's reads resolve these through ChangeActors (a name, never a login).
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
     ApplicationDTO toDto(Application s);
 
     @Named("userLogin")

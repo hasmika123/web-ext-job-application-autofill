@@ -16,5 +16,5 @@ export default async function ConsultantApplicationsRoute() {
   const { me } = session;
   if (!me.workspaces.some((w) => w.key === "consultant")) return <NotYourRole />;
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
-  return <ConsultantApplicationsPage orgId={me.org.id} firstName={me.person.name} />;
+  return <ConsultantApplicationsPage orgId={me.org.id} firstName={me.person.name} selfMemberId={me.member.id} />;
 }

@@ -110,6 +110,39 @@ describe("My Applications from real data", () => {
     expect(document.querySelectorAll("[data-timeline] li")).toHaveLength(2);
   });
 
+  it("the timeline and the header say who did it, by name with the relation (change audit: you / marketer / admin / Kiwiply / a former member)", async () => {
+    const actor = (label: string, relation: string, memberId: number | null, kind = "PERSON") => ({ userId: null, memberId, label, relation, kind });
+    const audited = {
+      ...detail,
+      updatedAt: new Date(Date.now() - 2 * 3_600_000).toISOString(), // config-literal-ok: test fixture
+      updatedBy: actor("Sarah Chen", "marketer", 21),
+      createdBy: actor("Priya Raman", "admin", 22),
+      timeline: [
+        { id: 1, type: "CREATED", fromStage: null, toStage: "ASSIGNED", by: "TEAM", actor: actor("Priya Raman", "admin", 22), at: "2024-10-01T00:00:00Z" },
+        { id: 2, type: "STAGE_CHANGE", fromStage: "ASSIGNED", toStage: "SUBMITTED", by: "YOU", actor: actor("Anika Rao", "consultant", 11), at: "2024-10-05T00:00:00Z" },
+        { id: 3, type: "STAGE_CHANGE", fromStage: "SUBMITTED", toStage: "UNDER_REVIEW", by: "MARKETER", actor: actor("Sarah Chen", "marketer", 21), at: "2024-10-08T00:00:00Z" },
+        { id: 4, type: "STAGE_CHANGE", fromStage: "UNDER_REVIEW", toStage: "INTERVIEWING", by: "TEAM", actor: actor("Kiwiply", "system", null, "SYSTEM"), at: "2024-10-10T00:00:00Z" },
+        { id: 5, type: "STAGE_CHANGE", fromStage: "INTERVIEWING", toStage: "OFFER", by: "TEAM", actor: actor("a former member", "member", 99), at: "2024-10-12T00:00:00Z" },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => new Response(JSON.stringify(/applications\/\d+$/.test(url) ? audited : current), { status: 200, headers: { "content-type": "application/json" } })),
+    );
+    render(<ApplicationsPage orgId={2} firstName="Anika Rao" selfMemberId={11} />);
+    await flush();
+    fireEvent.click(screen.getByLabelText("View Senior Java Developer at Amazon"));
+    await flush();
+    const sheet = document.querySelector("[data-detail='1']") as HTMLElement;
+    const line = sheet.querySelector("[data-updated-by]") as HTMLElement;
+    expect(line.textContent).toMatch(/Updated 2 hours ago by Sarah Chen/);
+    expect(within(line).getByText("MARKETER")).toBeTruthy();
+    expect(sheet.querySelector("[data-created-by]")!.textContent).toContain("Priya Raman");
+    const lines = [...sheet.querySelectorAll("[data-actor-line]")].map((n) => n.textContent);
+    expect(lines).toEqual(["by Priya Raman" + "ADMIN", "by you", "by Sarah Chen" + "MARKETER", "by Kiwiply", "by a former member" + "MEMBER"]);
+    expect(sheet.textContent).not.toContain("ent#");
+  });
+
   it("shows honest empty states", async () => {
     current = page({ rows: [], recent: [], paging: { page: 0, size: 10, total: 0, pages: 0 }, funnel: [{ key: "TOTAL", count: 0, percent: null }], statuses: [{ key: "ALL", count: 0 }] });
     await mount();

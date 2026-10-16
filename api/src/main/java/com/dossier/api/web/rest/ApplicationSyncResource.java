@@ -11,7 +11,9 @@ import com.dossier.api.service.dto.TrackerDTOs.ActivityDay;
 import com.dossier.api.service.dto.TrackerDTOs.ApplicationDetailDTO;
 import com.dossier.api.service.dto.TrackerDTOs.ApplicationListPage;
 import com.dossier.api.service.dto.TrackerDTOs.ApplicationPatchRequest;
+import com.dossier.api.service.dto.ListPage;
 import com.dossier.api.service.dto.TrackerDTOs.BulkRequest;
+import com.dossier.api.service.dto.TrackerDTOs.EventDTO;
 import com.dossier.api.service.dto.TrackerDTOs.BulkResult;
 import com.dossier.api.service.dto.TrackerDTOs.NoteDTO;
 import com.dossier.api.service.dto.TrackerDTOs.NoteRequest;
@@ -117,6 +119,21 @@ public class ApplicationSyncResource {
     public ApplicationDetailDTO getApplication(@PathVariable("id") Long id) {
         LOG.debug("REST request to get application {} for the current user", id);
         return listService.detail(id);
+    }
+
+    /** {@code GET /api/profile/applications/:id/events} : the full history of one application, newest first, paged. */
+    @Operation(
+        summary = "One application's full history",
+        description = "Every history row of one of my applications, newest first (id breaks a tie), as {items, total, page, size}. Each row names who did it (actor, actorKind, onBehalfOf: never an enterprise login), " +
+        "the channel (source) and what changed (changes: field names, and enum / date values only). size defaults to tracker.history.pageDefaultSize and is clamped to tracker.history.pageMaxSize. 404 if not owned."
+    )
+    @GetMapping("/{id}/events")
+    public ListPage<EventDTO> applicationHistory(
+        @PathVariable("id") Long id,
+        @RequestParam(name = "page", required = false) Integer page,
+        @RequestParam(name = "size", required = false) Integer size
+    ) {
+        return eventService.history(id, page, size);
     }
 
     // No @Valid: the tracker fills server-owned fields (createdAt/updatedAt/user) and

@@ -1,5 +1,7 @@
 package com.dossier.api.service.ent.consultant;
 
+import com.dossier.api.service.tracker.Changes;
+
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.ent.talent.TalentApplication;
 import com.dossier.api.domain.ent.talent.TalentApplicationEvent;
@@ -62,6 +64,7 @@ public class LinkedApplicationProjection {
             row.setPersonalApplicationId(personalApplicationId);
             row.setStageSource(SOURCE_SYSTEM);
             row.setUpdatedAt(now);
+            row.setUpdatedByMemberId(null); // the system wrote last: the row reads "Kiwiply", never the person who edited it before
             detail = "Linked to the consultant's own application";
         } else {
             ClientRequirement job = requirements.findByOrgIdAndId(orgId, jobId).orElse(null);
@@ -96,6 +99,7 @@ public class LinkedApplicationProjection {
             Instant now = clock.instant();
             row.setPersonalApplicationId(null);
             row.setUpdatedAt(now);
+            row.setUpdatedByMemberId(null);
             projections.save(row);
             event(orgId, row.getId(), "UNLINKED", row.getStage(), row.getStage(), "The consultant unlinked their application", now);
         });
@@ -125,6 +129,7 @@ public class LinkedApplicationProjection {
             row.setStageSource(com.dossier.api.domain.ApplicationEvent.SRC_INBOX.equals(source) ? SOURCE_INBOX : SOURCE_SYSTEM); // still SYSTEM-owned: only the label differs
             row.setStageChangedAt(now);
             row.setUpdatedAt(now);
+            row.setUpdatedByMemberId(null);
             projections.save(row);
             event(orgId, row.getId(), "STAGE_CHANGE", from, stage, "Followed the consultant's own application" + (com.dossier.api.domain.ApplicationEvent.SRC_INBOX.equals(source) ? " (source: INBOX)" : ""), now);
         }
@@ -151,6 +156,8 @@ public class LinkedApplicationProjection {
         e.setToStage(to);
         e.setDetail(detail);
         e.setOccurredAt(at);
+        e.setActorKind("SYSTEM"); // no person behind a projection: actor_member_id stays null
+        if ("STAGE_CHANGE".equals(type) && to != null) e.setChanges(new Changes().code("stage", from, to).toJson());
         events.save(e);
     }
 }

@@ -17,7 +17,9 @@ import com.dossier.api.repository.ent.mkt.MktApplicationNoteRepository;
 import com.dossier.api.repository.ent.mkt.MktApplicationRepository;
 import com.dossier.api.repository.ent.mkt.MktApplicationRequirementRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.service.ent.applications.EntChangeActors;
 import com.dossier.api.service.ent.mkt.MktScope;
+import com.dossier.api.service.tracker.Changes;
 import com.dossier.api.service.ent.mkt.applications.MktApplicationStages.Group;
 import com.dossier.api.service.ent.mkt.applications.MktApplicationsDTO.*;
 import com.dossier.api.service.org.DataShareService;
@@ -92,6 +94,7 @@ public class MktApplicationsService {
     private final UserRepository users;
     private final DataShareService shares;
     private final OrgAuditService audit;
+    private final EntChangeActors changeActors;
     private final Clock clock;
 
     @Autowired
@@ -106,9 +109,10 @@ public class MktApplicationsService {
         OrgMemberRepository members,
         UserRepository users,
         DataShareService shares,
-        OrgAuditService audit
+        OrgAuditService audit,
+        EntChangeActors changeActors
     ) {
-        this(scope, apps, events, notes, consultants, clients, requirements, members, users, shares, audit, Clock.systemUTC());
+        this(scope, apps, events, notes, consultants, clients, requirements, members, users, shares, audit, changeActors, Clock.systemUTC());
     }
 
     MktApplicationsService(
@@ -123,8 +127,10 @@ public class MktApplicationsService {
         UserRepository users,
         DataShareService shares,
         OrgAuditService audit,
+        EntChangeActors changeActors,
         Clock clock
     ) {
+        this.changeActors = changeActors;
         this.scope = scope;
         this.apps = apps;
         this.events = events;
@@ -176,7 +182,9 @@ public class MktApplicationsService {
         List<A> sorted = inStage.stream().sorted(asc ? byDate : byDate.reversed()).toList();
         int size = q.size() <= 0 ? DEFAULT_SIZE : Math.min(q.size(), MAX_SIZE);
         int page = Math.max(0, q.page());
-        List<Row> items = sorted.stream().skip((long) page * size).limit(size).map(a -> row(a, l.people())).toList();
+        List<A> pageRows = sorted.stream().skip((long) page * size).limit(size).toList();
+        EntChangeActors.Lookup actors = actorsOf(view.orgId(), pageRows);
+        List<Row> items = pageRows.stream().map(a -> row(a, l.people(), actors)).toList();
         Map<Group, Long> counts = filtered.stream().collect(Collectors.groupingBy(A::group, Collectors.counting()));
         List<Tab> tabs = new ArrayList<>();
         tabs.add(new Tab("all", "All Applications", filtered.size()));
@@ -265,13 +273,27 @@ public class MktApplicationsService {
         return new Consultant(a.consultant().getId(), a.consultant().getDisplayName(), null, a.full() ? "FULL" : "SUMMARY");
     }
 
-    private Row row(A a, Map<Long, Person> people) {
+    /** Who last touched each row of the page, with the relation to its consultant: one batch (change audit). */
+    private EntChangeActors.Lookup actorsOf(Long orgId, List<A> rows) {
+        Set<Long> ids = new HashSet<>();
+        List<EntChangeActors.Subject> subjects = new ArrayList<>();
+        for (A a : rows) {
+            if (!a.full()) continue; // below FULL consent only stage movements are shared: no actor either
+            ids.add(a.app().getUpdatedByMemberId());
+            subjects.add(new EntChangeActors.Subject(a.app().getConsultantId(), a.app().getMarketerMemberId()));
+        }
+        return changeActors.load(orgId, ids, subjects);
+    }
+
+    private Row row(A a, Map<Long, Person> people, EntChangeActors.Lookup actors) {
         TalentApplication t = a.app();
         Group g = a.group();
         Person owner = t.getMarketerMemberId() == null ? null : people.get(t.getMarketerMemberId());
+        EntChangeActors.Subject subject = new EntChangeActors.Subject(t.getConsultantId(), t.getMarketerMemberId());
         return new Row(
             t.getId(), a.full() ? t.getCode() : null, consultantOf(a), a.full() ? a.role() : null, a.full() ? a.client() : null, a.full() ? t.getSourceLabel() : null,
-            a.full() ? t.getAppliedOn() : null, new StageRef(g.key(), g.label()), owner, a.full() ? t.getNextAction() : null, a.full() ? t.getNextActionDue() : null
+            a.full() ? t.getAppliedOn() : null, new StageRef(g.key(), g.label()), owner, a.full() ? t.getNextAction() : null, a.full() ? t.getNextActionDue() : null,
+            a.full() ? t.getUpdatedAt() : null, a.full() ? actors.of(t.getUpdatedByMemberId(), null, subject) : null
         );
     }
 
@@ -442,8 +464,10 @@ public class MktApplicationsService {
         n.setApplicationId(app.getId());
         n.setAuthorMemberId(me.memberId());
         n.setBody(body);
+        n.setUpdatedByMemberId(me.memberId());
+        n.setUpdatedAt(clock.instant());
         notes.save(n);
-        event(me, app, "NOTE", null, null, "Note added");
+        event(me, app, "NOTE", null, null, "Note added", new Changes().text("body"));
         audit(me, "MKT_APPLICATION_NOTE", app, "note");
         return single(me, app);
     }
@@ -454,14 +478,17 @@ public class MktApplicationsService {
         String action = req == null || req.nextAction() == null ? "" : req.nextAction().strip();
         if (action.length() > ACTION_MAX) throw OrgException.invalid("nextAction", "is too long");
         if (!action.isEmpty()) SensitiveContent.check("nextAction", "nextAction", action);
+        Changes changed = new Changes().text("nextAction");
+        java.time.LocalDate dueAfter = action.isEmpty() || req == null ? null : req.dueDate();
+        if (!java.util.Objects.equals(dueAfter, app.getNextActionDue())) changed.date("nextActionDue", app.getNextActionDue(), dueAfter);
         if (action.isEmpty()) {
             app.setNextAction(null);
             app.setNextActionDue(null);
-            event(me, app, "NOTE", null, null, "Next action cleared");
+            event(me, app, "NOTE", null, null, "Next action cleared", changed);
         } else {
             app.setNextAction(action);
             app.setNextActionDue(req.dueDate());
-            event(me, app, "NOTE", null, null, "Next action set" + (req.dueDate() == null ? "" : " (due " + req.dueDate() + ")"));
+            event(me, app, "NOTE", null, null, "Next action set" + (req.dueDate() == null ? "" : " (due " + req.dueDate() + ")"), changed);
         }
         apps.save(app);
         audit(me, "MKT_APPLICATION_NEXT_ACTION", app, "nextAction");
@@ -473,10 +500,11 @@ public class MktApplicationsService {
         TalentApplication app = writable(me, FOLLOWUPS_KEY, applicationId);
         if (app.getNextAction() == null || app.getNextAction().isBlank()) throw OrgException.invalid("nextAction", "there is no follow-up to complete");
         String done = app.getNextAction();
+        java.time.LocalDate dueBefore = app.getNextActionDue();
         app.setNextAction(null);
         app.setNextActionDue(null);
         apps.save(app);
-        event(me, app, "NOTE", null, null, "Follow-up done: " + (done.length() > 200 ? done.substring(0, 200) : done));
+        event(me, app, "NOTE", null, null, "Follow-up done: " + (done.length() > 200 ? done.substring(0, 200) : done), new Changes().text("nextAction").date("nextActionDue", dueBefore, null));
         audit(me, "MKT_APPLICATION_FOLLOWUP_DONE", app, "followUpDone");
         return single(me, app);
     }
@@ -507,7 +535,9 @@ public class MktApplicationsService {
         app.setClosedReason(reason);
         app.setStageChangedAt(clock.instant());
         apps.save(app);
-        event(me, app, "STAGE_CHANGE", from, to, "Recorded by the marketer" + (reason == null ? "" : " (" + reason + ")"));
+        Changes moved = new Changes().code("stage", from, to);
+        if (reason != null) moved.code("closedReason", null, reason);
+        event(me, app, "STAGE_CHANGE", from, to, "Recorded by the marketer" + (reason == null ? "" : " (" + reason + ")"), moved);
         audit(me, "MKT_APPLICATION_STAGE_RECORDED", app, g.key());
         return single(me, app);
     }
@@ -524,8 +554,12 @@ public class MktApplicationsService {
         return app;
     }
 
-    private void event(OrgMembership me, TalentApplication app, String type, String from, String to, String detail) {
+    /** The marketer workspace's writer of an application's history: stamps the event (actor, PERSON, what changed) and the record's updated_by (change audit). */
+    private void event(OrgMembership me, TalentApplication app, String type, String from, String to, String detail, Changes changes) {
+        app.setUpdatedByMemberId(me.memberId());
         TalentApplicationEvent e = new TalentApplicationEvent();
+        e.setActorKind("PERSON");
+        e.setChanges(changes == null ? null : changes.toJson());
         e.setOrgId(me.orgId());
         e.setApplicationId(app.getId());
         e.setEventType(type);
@@ -547,6 +581,7 @@ public class MktApplicationsService {
         ClientRequirement r = requirements.findByOrgIdAndIdIn(me.orgId(), List.of(app.getRequirementId())).stream().findFirst().orElse(null);
         ClientAccount k = clients.findByOrgIdAndIdIn(me.orgId(), List.of(app.getClientId())).stream().findFirst().orElse(null);
         Map<Long, Person> people = app.getMarketerMemberId() == null ? Map.of() : people(me.orgId(), Set.of(app.getMarketerMemberId()));
-        return row(new A(app, c, true, r == null ? null : r.getTitle(), k == null ? null : k.getName(), List.of()), people);
+        A one = new A(app, c, true, r == null ? null : r.getTitle(), k == null ? null : k.getName(), List.of());
+        return row(one, people, actorsOf(me.orgId(), List.of(one)));
     }
 }

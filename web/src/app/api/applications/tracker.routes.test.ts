@@ -6,6 +6,7 @@ vi.mock("@/lib/config", () => ({ apiUrl: (p: string) => `http://api.test${p}` })
 
 import { GET as listGET } from "./route";
 import { GET as detailGET, PATCH as detailPATCH } from "./[id]/route";
+import { GET as eventsGET } from "./[id]/events/route";
 import { GET as activityGET } from "./activity/route";
 import { POST as bulkPOST } from "./bulk/route";
 import { POST as notePOST } from "./[id]/notes/route";
@@ -72,6 +73,22 @@ describe("GET /api/applications/:id (detail)", () => {
   it("relays the 404 for someone else's application", async () => {
     serverApiFetch.mockResolvedValue(json({ title: "Not Found" }, 404));
     expect((await detailGET(req("GET", "/api/applications/9"), idCtx("9"))).status).toBe(404);
+  });
+});
+
+describe("GET /api/applications/:id/events (full history)", () => {
+  it("proxies to the paged history endpoint with the query untouched", async () => {
+    serverApiFetch.mockResolvedValue(json({ items: [], total: 0, page: 1, size: 50 }));
+    const res = await eventsGET(req("GET", "/api/applications/7/events?page=1&size=50"), idCtx("7"));
+    expect(res.status).toBe(200);
+    expect(serverApiFetch.mock.calls[0]![0]).toBe("/api/profile/applications/7/events?page=1&size=50");
+  });
+
+  it("refuses a non-numeric id before calling Spring, and relays the 404 for someone else's application", async () => {
+    expect((await eventsGET(req("GET", "/api/applications/x/events"), idCtx("x"))).status).toBe(400);
+    expect(serverApiFetch).not.toHaveBeenCalled();
+    serverApiFetch.mockResolvedValue(json({ title: "Not Found" }, 404));
+    expect((await eventsGET(req("GET", "/api/applications/9/events"), idCtx("9"))).status).toBe(404);
   });
 });
 

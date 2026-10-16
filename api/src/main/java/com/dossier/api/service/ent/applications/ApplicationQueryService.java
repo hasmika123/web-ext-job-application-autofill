@@ -77,6 +77,7 @@ public class ApplicationQueryService {
     private final ConsultantProfileRepository consultants;
     private final ClientAccountRepository clients;
     private final MarketerCapacityRepository capacities;
+    private final EntChangeActors changeActors;
     private final Clock clock;
 
     @Autowired
@@ -90,9 +91,10 @@ public class ApplicationQueryService {
         ClientRequirementRepository requirements,
         ConsultantProfileRepository consultants,
         ClientAccountRepository clients,
-        MarketerCapacityRepository capacities
+        MarketerCapacityRepository capacities,
+        EntChangeActors changeActors
     ) {
-        this(em, access, names, applications, events, notes, requirements, consultants, clients, capacities, Clock.systemUTC());
+        this(em, access, names, applications, events, notes, requirements, consultants, clients, capacities, changeActors, Clock.systemUTC());
     }
 
     ApplicationQueryService(
@@ -106,8 +108,10 @@ public class ApplicationQueryService {
         ConsultantProfileRepository consultants,
         ClientAccountRepository clients,
         MarketerCapacityRepository capacities,
+        EntChangeActors changeActors,
         Clock clock
     ) {
+        this.changeActors = changeActors;
         this.em = em;
         this.access = access;
         this.names = names;
@@ -205,6 +209,7 @@ public class ApplicationQueryService {
                     case "stage" -> STAGE_RANK;
                     case "nextAction" -> "a.nextActionDue";
                     case "moved" -> "a.stageChangedAt";
+                    case "updated" -> "a.updatedAt"; // the Updated column (change audit)
                     default -> throw sortInvalid(raw);
                 };
                 if (out.length() > 0) out.append(", ");
@@ -216,7 +221,7 @@ public class ApplicationQueryService {
     }
 
     private static OrgException sortInvalid(String raw) {
-        return OrgException.coded(400, "SORT_INVALID", "Sort by applied, job, consultant, client, stage, nextAction or moved (asc or desc): " + raw, Map.of());
+        return OrgException.coded(400, "SORT_INVALID", "Sort by applied, job, consultant, client, stage, nextAction, moved or updated (asc or desc): " + raw, Map.of());
     }
 
     private Query query(String jpql, Where w) {
@@ -252,18 +257,29 @@ public class ApplicationQueryService {
         for (Object[] r : rows) marketerIds.add(((TalentApplication) r[0]).getMarketerMemberId());
         Map<Long, String> who = names.memberNames(orgId, marketerIds);
         LocalDate today = LocalDate.now(clock);
+        // Who last touched each row, with the relation to its consultant: one batch for the whole page (change audit).
+        Set<Long> updaters = new HashSet<>();
+        List<EntChangeActors.Subject> subjects = new ArrayList<>();
+        for (Object[] r : rows) {
+            TalentApplication a = (TalentApplication) r[0];
+            updaters.add(a.getUpdatedByMemberId());
+            subjects.add(new EntChangeActors.Subject(a.getConsultantId(), a.getMarketerMemberId()));
+        }
+        EntChangeActors.Lookup actors = changeActors.load(orgId, updaters, subjects);
         List<ApplicationDTO.Row> out = new ArrayList<>();
         for (Object[] r : rows) {
             TalentApplication a = (TalentApplication) r[0];
-            out.add(row(a, (ClientRequirement) r[1], (ConsultantProfile) r[2], (ClientAccount) r[3], who, today));
+            out.add(row(a, (ClientRequirement) r[1], (ConsultantProfile) r[2], (ClientAccount) r[3], who, today, actors));
         }
         return out;
     }
 
-    private ApplicationDTO.Row row(TalentApplication a, ClientRequirement r, ConsultantProfile c, ClientAccount cl, Map<Long, String> who, LocalDate today) {
+    private ApplicationDTO.Row row(TalentApplication a, ClientRequirement r, ConsultantProfile c, ClientAccount cl, Map<Long, String> who, LocalDate today, EntChangeActors.Lookup actors) {
+        EntChangeActors.Subject subject = new EntChangeActors.Subject(a.getConsultantId(), a.getMarketerMemberId());
         return new ApplicationDTO.Row(
             a.getId(), a.getCode(), r.getId(), r.getTitle(), r.getEmploymentLabel(), consultantRef(c), clientRef(cl), a.getAppliedOn(), a.getStage(), a.getClosedReason(),
-            names.marketer(a.getMarketerMemberId(), who), a.getNextAction(), a.getNextActionDue(), overdue(a, today), a.getStageChangedAt()
+            names.marketer(a.getMarketerMemberId(), who), a.getNextAction(), a.getNextActionDue(), overdue(a, today), a.getStageChangedAt(),
+            a.getUpdatedAt(), actors.of(a.getUpdatedByMemberId(), null, subject)
         );
     }
 
@@ -563,12 +579,17 @@ public class ApplicationQueryService {
         ns.forEach(n -> ids.add(n.getAuthorMemberId()));
         Map<Long, String> who = names.memberNames(orgId, ids);
         LocalDate today = LocalDate.now(clock);
+        EntChangeActors.Subject subject = new EntChangeActors.Subject(a.getConsultantId(), a.getMarketerMemberId());
+        Set<Long> actorIds = new HashSet<>(ids);
+        actorIds.add(a.getUpdatedByMemberId());
+        actorIds.add(a.getCreatedByMemberId());
+        EntChangeActors.Lookup actors = changeActors.load(orgId, actorIds, List.of(subject));
 
-        List<ApplicationDTO.EventItem> all = evs.stream().map(e -> eventItem(e, who)).toList();
+        List<ApplicationDTO.EventItem> all = evs.stream().map(e -> eventItem(e, who, actors, subject)).toList();
         List<ApplicationDTO.EventItem> timeline = all.stream().filter(e -> ApplicationStages.STATE_EVENTS.contains(e.type())).toList();
         List<ApplicationDTO.EventItem> activity = new ArrayList<>(all);
         java.util.Collections.reverse(activity);
-        List<ApplicationDTO.NoteItem> noteItems = ns.stream().map(n -> new ApplicationDTO.NoteItem(n.getId(), names.marketer(n.getAuthorMemberId(), who), n.getBody(), n.getCreatedAt())).toList();
+        List<ApplicationDTO.NoteItem> noteItems = ns.stream().map(n -> new ApplicationDTO.NoteItem(n.getId(), names.marketer(n.getAuthorMemberId(), who), n.getBody(), n.getCreatedAt(), actors.of(n.getAuthorMemberId(), null, subject))).toList();
 
         boolean edit = access.canWrite(me, ApplicationAccess.WRITE_KEYS, a);
         boolean canRecord = edit && access.canWrite(me, List.of(ApplicationAccess.KEY_RECORD, ApplicationAccess.KEY_FOLLOWUP, ApplicationAccess.KEY_OFFERS), a);
@@ -580,12 +601,16 @@ public class ApplicationQueryService {
             a.getId(), a.getCode(), r.getId(), r.getTitle(), r.getEmploymentLabel(), consultantRef(c), clientRef(cl), a.getAppliedOn(), a.getStage(), a.getClosedReason(), a.getSourceLabel(),
             names.marketer(a.getMarketerMemberId(), who), a.getNextAction(), a.getNextActionDue(), overdue(a, today), a.getStageChangedAt(),
             steps(a, evs), mayMove ? ApplicationStages.next(a.getStage()) : List.of(), timeline, activity, noteItems, ns.size(),
-            new ApplicationDTO.Actions(edit, mayMove, edit, reassign), undo
+            new ApplicationDTO.Actions(edit, mayMove, edit, reassign), undo,
+            a.getCreatedAt(), actors.of(a.getCreatedByMemberId(), null, subject), a.getUpdatedAt(), actors.of(a.getUpdatedByMemberId(), null, subject)
         );
     }
 
-    private ApplicationDTO.EventItem eventItem(TalentApplicationEvent e, Map<Long, String> who) {
-        return new ApplicationDTO.EventItem(e.getId(), e.getEventType(), e.getFromStage(), e.getToStage(), names.marketer(e.getActorMemberId(), who), e.getDetail(), e.getOccurredAt());
+    private ApplicationDTO.EventItem eventItem(TalentApplicationEvent e, Map<Long, String> who, EntChangeActors.Lookup actors, EntChangeActors.Subject subject) {
+        return new ApplicationDTO.EventItem(
+            e.getId(), e.getEventType(), e.getFromStage(), e.getToStage(), names.marketer(e.getActorMemberId(), who), e.getDetail(), e.getOccurredAt(),
+            actors.of(e.getActorMemberId(), e.getActorKind(), subject), com.dossier.api.service.tracker.Changes.parse(e.getChanges())
+        );
     }
 
     /** The stepper: the first time each stage was recorded (a reverted stage forgets its date), the current stage marked. */
