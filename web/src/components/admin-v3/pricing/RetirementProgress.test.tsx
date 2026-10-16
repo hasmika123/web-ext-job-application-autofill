@@ -131,10 +131,10 @@ describe("RetirementProgress (K10.9)", () => {
 
   it("resends a notice and excludes a row with a reason", async () => {
     renderIt();
-    fireEvent.click(screen.getByRole("button", { name: /Resend notice/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: /Resend notice/ })[0]);
     await waitFor(() => expect(calls.find((c) => c.path === "/retirements/7/items/7000/resend")).toBeTruthy());
     expect(list.spies.refetch).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "Exclude…" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Exclude…" })[0]);
     fireEvent.change(await screen.findByPlaceholderText("Why this subscriber is excluded"), { target: { value: "Enterprise contract, handled by sales" } });
     fireEvent.click(screen.getByRole("button", { name: "Exclude" }));
     await waitFor(() => expect(calls.find((c) => c.path === "/retirements/7/items/7000/exclude")).toBeTruthy());
@@ -142,7 +142,7 @@ describe("RetirementProgress (K10.9)", () => {
 
   it("links the personal rows to the admin account page and renders cards on a phone", () => {
     renderIt();
-    expect(screen.getByRole("link", { name: /Open subscriber/ }).getAttribute("href")).toBe("/admin/users/priya.nair");
+    expect(screen.getAllByRole("link", { name: /Open subscriber/ })[0].getAttribute("href")).toBe("/admin/users/priya.nair");
     cleanup();
     stubViewport(PHONE);
     renderIt();
