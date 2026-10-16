@@ -53,3 +53,10 @@
 - **K10.1 / K10.9** default to `RETIRE_AT_RENEWAL` + Free + read-only (S-20/S-19).
 - **K3.2** ships `billing.fees.model=SIMPLE` (S-11 a) and shows both numbers.
 - Nothing in this module edits `CLAUDE.md`; the S-01 amendment sentence (table above) is applied by the user's session.
+
+## Open items from the Stripe stream (K8.1, K8.2) — safe defaults applied
+
+| # | Question | Options | Recommendation | Safe default applied | Where |
+|---|---|---|---|---|---|
+| **K8-Q1** | **`createSubscription(... startBillingAt)` uses `trial_end` as the "start billing at that instant" mechanism (07 s2.3).** Stripe then reports the new subscription as `trialing` until that instant. The mirror's live-status set already counts `trialing`, but `EntitlementService.isProFor` must give no access to a `trialing` row that was never paid for (an interval switch replaces a paid subscription, so access continues from the old one until its period end). OK to keep this mechanism, or prefer a subscription schedule for every interval switch (no second subscription)? | (a) Keep: new subscription with anchor, access rules decided by K5/K8.4 (assert no entitlement gap and no double charge). (b) Schedule phases only; refuse intervals Stripe cannot mix. | **(a)**, with the assertion in `IntervalSwitchIT` | **(a)** — the gateway method exists and is documented; nothing calls it yet | 07 s2.3 |
+| **K8-Q2** | **Year price encoding.** 07 s1 says YEAR is `interval=month, interval_count=12`. Stripe also offers `interval=year`. Invoices and the portal read the same either way; month x 12 keeps one code path for QUARTER/YEAR. | (a) month x 12 (as designed). (b) `year` x 1. | **(a)** | **(a)** — `PriceInterval.YEAR.intervalCount()==12`; switching is one line in `StripeGatewayImpl.createPrice` | 07 s1 |
