@@ -156,7 +156,7 @@ export default function JobStreamsPage({ orgId, hrefs }: MktPageProps) {
   const series = (v?.chart.series ?? []).map((s, i) => ({ key: s.key, label: s.label, values: s.values, color: chartColor(i) }));
 
   return (
-    <div data-job-streams data-status={status} className="flex flex-col gap-4 sm:gap-5">
+    <div data-job-streams data-status={status} className="flex min-w-0 max-w-full flex-col gap-4 sm:gap-5">
       {header}
 
       <section aria-label="Key numbers" data-streams-tiles className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
@@ -184,7 +184,7 @@ export default function JobStreamsPage({ orgId, hrefs }: MktPageProps) {
         })}
       </section>
 
-      <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+      <div className="grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
         <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
           <section data-streams-card="sources" aria-label="Job Source Streams" className={CARD}>
             <header className="mb-3 flex flex-wrap items-start gap-3">
@@ -200,7 +200,7 @@ export default function JobStreamsPage({ orgId, hrefs }: MktPageProps) {
             </header>
 
             <div className="mb-3 flex flex-wrap items-center gap-2.5">
-              <label className="relative min-w-[200px] flex-1 sm:max-w-[220px]">
+              <label className="relative min-w-0 basis-full flex-1 sm:basis-56 sm:max-w-[220px]">
                 <span className="sr-only">Search job sources</span>
                 <SearchIcon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
                 <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search job sources..." className="pl-9" />
@@ -210,21 +210,21 @@ export default function JobStreamsPage({ orgId, hrefs }: MktPageProps) {
                 value={query.source ?? ALL}
                 onChange={(x) => setQuery((q) => ({ ...q, source: x || undefined }))}
                 options={[{ value: ALL, label: "All Sources" }, ...filters.sources.map((s) => ({ value: s, label: s }))]}
-                className="w-[168px]"
+                className="w-full min-w-0 sm:w-[168px]"
               />
               <Select
                 aria-label="Status"
                 value={query.status ?? ALL}
                 onChange={(x) => setQuery((q) => ({ ...q, status: x || undefined }))}
                 options={[{ value: ALL, label: "All Statuses" }, ...filters.statuses.map((s) => ({ value: s, label: STATUS_LABEL[s] }))]}
-                className="w-[168px]"
+                className="w-full min-w-0 sm:w-[168px]"
               />
               <Select
                 aria-label="Client"
                 value={query.client ?? ALL}
                 onChange={(x) => setQuery((q) => ({ ...q, client: x || undefined }))}
                 options={[{ value: ALL, label: "All Clients" }, ...filters.clients.map((s) => ({ value: s, label: s }))]}
-                className="w-[168px]"
+                className="w-full min-w-0 sm:w-[168px]"
               />
               <div className="ml-auto">
                 <Switch label="Show Inactive" checked={query.showInactive === true} onCheckedChange={(on) => setQuery((q) => ({ ...q, showInactive: on || undefined }))} />
@@ -375,7 +375,7 @@ export default function JobStreamsPage({ orgId, hrefs }: MktPageProps) {
             )}
           </section>
 
-          <div className="grid gap-4 sm:gap-5 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,0.95fr)]">
+          <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-2 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_minmax(0,0.95fr)]">
             <section data-streams-card="activity" aria-label="Sync Activity" className={CARD}>
               <CardHead icon={ClockIcon} title="Sync Activity">
                 {v && v.activity.length > ACTIVITY_SHOWN ? (

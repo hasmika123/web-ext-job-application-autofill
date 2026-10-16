@@ -218,7 +218,10 @@ The 19 stories that failed after the marketing pages became the shared organizat
 ## Not automated: blocked or not built
 
 ### MKT-40 A marketer creates a job by hand in the Marketing workspace
-- **Status: NOT-BUILT** (Job Discovery has no "Add job"; the extension is the capture path; Sarah can create jobs on `/w/admin/jobs`, covered by the ADM area). Roadmap: doc 54 (job frontend design).
+- **Persona:** omar (Marketing Specialist, no `requirements.manage`). **Goal:** add a job he found himself and put it in front of a consultant.
+- **Steps:** 1. Open `/w/marketing/opportunities`, press **Add Opportunity**, then **Add a job by hand**. 2. Fill title, company, location, work mode, description (the link is optional), press **Save job**. 3. The job is chosen in the job picker; choose a consultant and press **Add opportunity**. 4. Enter the same job again.
+- **Expected:** the job exists once for Acme with source **Manual**, owner Omar, detail level minimal, one CAPTURED row on the job data ledger by Omar (actor member, not the extension) and one `MARKETER_JOB_CREATE` audit row; it shows in Job Discovery and in the Add opportunity picker. Entering it again answers the stored job (same id, `existingJob: true`, no second row). A description with a Social Security or bank number is refused (422), a non-https link is refused (400). No new permission is needed: the route uses `opportunities.manage`, the key of the whole board and of Save for consultant, so a Marketing Specialist cannot edit or close the organization's other jobs; another organization's marketer gets the generic 404. Nothing is assigned or sent to a consultant until the marketer adds the opportunity and assigns it.
+- **Pages / APIs:** `POST /api/orgs/{orgId}/mkt/opportunities/job` (Idempotency-Key, BFF `mkt/opportunities/job`). **Automation:** none yet (Java `MktManualJobIT`, `OrgIsolationIT` coverage row; web `opportunities.test.ts`). **Status: STORY-ONLY** (built on `demo-marketer-gaps2`)
 
 ### MKT-41 A marketer answers a consultant's question from the Opportunities board
 - **Status: BUILT (demo day, branch `demo-marketer-gaps`); browser story MKT-52.** The Review dialog shows the question and an answer box; the BFF route `answer-info` was added.
@@ -230,7 +233,10 @@ The 19 stories that failed after the marketing pages became the shared organizat
 - **Status: BLOCKED: needs the extension and a real ATS submit.** Manual "I applied" is MKT-24. The server linker (consent >= SUMMARY, job match by ATS id or url key, `LINK_SUGGESTED` for company+title) is covered by API integration tests, not browser stories.
 
 ### MKT-44 A marketer withdraws an assignment (state CLOSED, reason WITHDRAWN) and re-assigns a declined one
-- **Status: NOT-BUILT (UI).** `OpportunityAssignmentService.withdraw` exists; the board has no Withdraw or Re-assign-declined entry.
+- **Personas:** omar, ben (declines), anika. **Goal:** take an assignment back with a reason, and offer a declined job to someone else.
+- **Steps:** 1. Omar opens an assigned row on `/w/marketing/opportunities`, **Review**, **Withdraw this assignment**, types a reason (required), **Withdraw**. 2. Ben opens his notifications. 3. Ben declines another assigned job (MKT-21 style). 4. Omar opens that row, **Re-assign to another consultant**, picks Anika, **Offer the job**.
+- **Expected:** the withdrawn opportunity is CLOSED with reason WITHDRAWN, the timeline says "was withdrawn by the marketer: <reason>", one `MARKETER_OPPORTUNITY_WITHDRAW` audit row carries the reason, Ben has a new notification "Opportunity Withdrawn" (Job Match kind) with the reason. An empty or 201-character reason is refused (400), a reason with an identity or bank number is refused (422), an already declined, applied or closed row answers 409 `ILLEGAL_TRANSITION`. The re-assign goes through the one assignment path (same gates: job open, active consultant, approved resume), Anika sees "Opportunity Awaiting Your Response", the old row stays declined with "was offered to Anika Rao instead" on its timeline and one `MARKETER_OPPORTUNITY_REASSIGN` audit row; a row that is not declined or withdrawn answers 409 `NOT_REASSIGNABLE`; a consultant outside Omar's book is the generic 404. Nothing is answered, applied or submitted for anyone.
+- **Pages / APIs:** `POST mkt/opportunities/{matchId}/withdraw`, `POST mkt/opportunities/{matchId}/reassign` (BFF routes added). **Automation:** none yet (Java `MktOpportunitiesWithdrawTest`, `OrgIsolationIT` coverage rows; web `opportunities.test.ts`). **Status: STORY-ONLY** (built on `demo-marketer-gaps2`)
 
 ### MKT-45 Bulk Assign, Send Opportunity Notifications and Export on the Opportunities board
 - **Status: BLOCKED: seed-dependent, not yet automated.** Needs SUGGESTED rows with updated resumes (Bulk) and assigned rows with no answer (Notify). The dialogs exist; the buttons are only asserted present in MKT-14.
@@ -244,7 +250,8 @@ The 19 stories that failed after the marketing pages became the shared organizat
 |---|---|
 | AUTOMATED | 27 (MKT-01..06, 10..16, 20..26, 30..36) |
 | BLOCKED | 6 (MKT-42, 43, 45, 46, 47, 48: the last two not yet run in a browser) |
-| NOT-BUILT | 2 (MKT-40, 44) |
+| NOT-BUILT | 0 (MKT-40 and MKT-44 were built on `demo-marketer-gaps2`, story-only until their browser specs exist) |
+| STORY-ONLY | MKT-40, 44, 50..53 (described, built, not yet automated) |
 
 ## Invitation creates the organization account (S9, decision O4; described only, no spec yet)
 
@@ -261,7 +268,7 @@ The 19 stories that failed after the marketing pages became the shared organizat
 ### MKT-50 Sarah opens an assigned consultant on My Assigned Talent and sees everything she needs to market them
 - **Persona:** sarah (Marketing Specialist, ASSIGNED scope). **Goal:** read one consultant's profile without leaving the page.
 - **Steps:** 1. Open `/w/marketing/talent`. 2. Press **View Profile** on an assigned consultant (for example Anika Rao). 3. Read the drawer: Contact (work e-mail, location, work mode, the work authorization label only if one is stored), Current placement (role, client, since), Skills, Resumes (name, version, primary, Approved or Pending approval), Applications (total and open, a chip per stage, the five latest each with "Updated 2h ago by <name> <ROLE>"), Upcoming interviews, Assigned jobs. 4. Open **Resumes** from the footer links. 5. Try a consultant who is not hers (the id in the API URL).
-- **Expected:** every section above is filled from the organization's own rows; no phone, time zone, date of birth, identity or bank number and no money amount appears anywhere (the API does not store a phone or a time zone for a consultant); a consultant who is not assigned to Sarah, another organization's id and a non-marketer all answer the same generic 404 and the drawer says "This consultant isn't one of yours".
+- **Expected:** every section above is filled from the organization's own rows; the contact block also shows the consultant's phone, time zone and best way to reach them when the consultant (or an Org Admin) filled them in (MKT-53); no date of birth, identity or bank number and no money amount appears anywhere; a consultant who is not assigned to Sarah, another organization's id and a non-marketer all answer the same generic 404 and the drawer says "This consultant isn't one of yours".
 - **Pages / APIs:** `/w/marketing/talent`; `GET mkt/talent/{consultantId}/overview` (one call, behind the single `MarketerAccess.allows(caller, consultant, AREA)` seam: today true for assigned consultants, O5; decision O6 will only change that method). **Automation:** none yet (Java `MktTalentIT`, `MarketerAccessTest`; web `TalentPage.test.tsx`). **Status: STORY-ONLY**
 
 ### MKT-51 Sarah saves a job for Anika from Job Discovery
@@ -275,3 +282,9 @@ The 19 stories that failed after the marketing pages became the shared organizat
 - **Steps:** 1. Ben asks a question on an assigned job (MKT-22). 2. Sarah opens `/w/marketing/opportunities`, presses **Review** on that row. 3. Read "Question from the consultant", type an answer, press **Send answer**. 4. Ben reloads his job.
 - **Expected:** Sarah's answer appears under the question ("Your answer: ..."); the timeline shows the answer was sent without copying its text; Ben sees it and the state stays **Needs info** until he acts. Once Ben has moved on the thread stays readable but the box is gone. Free text with a Social Security or bank number is refused (422, nothing saved).
 - **Pages / APIs:** `/w/marketing/opportunities`; `GET mkt/opportunities/{id}` (now `info`), `POST mkt/opportunities/{id}/answer-info`. **Automation:** none yet (Java `MktOpportunitiesAnswerInfoTest`; web `OpportunitiesPage.test.tsx`). **Status: STORY-ONLY**
+
+### MKT-53 A consultant's phone and time zone reach their marketer
+- **Persona:** ben (consultant), alice or an Org Admin, omar (Ben's marketer). **Goal:** the person who markets a consultant can reach them.
+- **Steps:** 1. Ben opens `/w/consultant/profile`, **Contact Details**, **Edit**: phone, time zone, best way to reach him, **Save** (a demo phone looks like (555) 010-0142). 2. An Org Admin opens Consultants, Ben's drawer, the **Contact** card, **Edit contact details**. 3. Omar opens My Assigned Talent, **View Profile** on Ben.
+- **Expected:** the saved phone, time zone and preferred contact show in Ben's profile, the Org Admin drawer and Omar's drawer (read-only, phone is a `tel:` link); a marketer who is not assigned to Ben still gets the generic 404. Letters in a phone, a phone with fewer than 7 or more than 15 digits, a time zone that is not an IANA id and an unknown preference are refused (422/400), and a Social Security shaped value is refused by the sensitive-data scanner (422, nothing saved). No date of birth, identity or bank number can be stored here. The Acme demo consultants carry believable fictional contacts (555-01xx numbers).
+- **Pages / APIs:** `PUT me-workspace/profile/contact` (BFF added), `PATCH consultants/{id}` (phone, timeZone, preferredContact), `GET mkt/talent/{id}/overview` (contact). **Automation:** none yet (Java `ConsultantContactTest`, `ConsultantProfileResourceIT`, `OrgIsolationIT` coverage row; web `contact-fields.test.ts`). **Status: STORY-ONLY**
