@@ -33545,6 +33545,9 @@
           },
           "matchStatus" : {
             "type" : "string"
+          },
+          "pausedReason" : {
+            "type" : "string"
           }
         }
       },

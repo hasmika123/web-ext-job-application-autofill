@@ -75,7 +75,10 @@ public final class MktOpportunitiesDTO {
 
     public record JobOption(Long id, String title, String client, String location) {}
 
-    public record Options(List<Option> consultants, List<JobOption> jobs) {}
+    /** {@code pausedReason} is non-null for a consultant who cannot be assigned right now (shown disabled with these words). */
+    public record ConsultantOption(Long id, String name, String pausedReason) {}
+
+    public record Options(List<ConsultantOption> consultants, List<JobOption> jobs) {}
 
     public record CreateRequest(Long consultantId, Long requirementId) {}
 

@@ -162,4 +162,17 @@ test.describe("enterprise audit fixes (real stack)", () => {
     await expect(page.getByRole("button", { name: "Send Message" }).first()).toBeDisabled();
     await expect(page.getByText(/until the marketing workspace/)).toHaveCount(0);
   });
+
+  test("Job Discovery: a consultant on a project is listed disabled with the reason and cannot be assigned", async ({ page }) => {
+    await demoSignIn(page, "Omar Haddad");
+    await page.goto(`${acme}/w/marketing/jobs`);
+    await expect(page.locator("[data-jobs-page]")).toBeVisible();
+    await page.locator("[data-job-row]").first().getByRole("button", { name: /^Assign / }).click();
+    const sheet = page.locator("[data-assign-sheet]");
+    await expect(sheet.locator("[data-candidate]").first()).toBeVisible();
+    const paused = sheet.locator("[data-candidate][data-paused=true]");
+    await expect(paused.first()).toBeVisible();
+    await expect(paused.first()).toContainText("On a project — marketing paused");
+    await expect(paused.first().locator("input")).toBeDisabled();
+  });
 });

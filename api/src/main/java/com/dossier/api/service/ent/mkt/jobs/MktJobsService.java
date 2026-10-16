@@ -239,7 +239,7 @@ public class MktJobsService {
             String hay = (c.getDisplayName() + " " + (c.getJobTitle() == null ? "" : c.getJobTitle())).toLowerCase(Locale.ROOT);
             if (!needle.isEmpty() && !hay.contains(needle)) continue;
             RequirementMatch m = byConsultant.get(c.getId());
-            out.add(new Candidate(c.getId(), c.getDisplayName(), c.getJobTitle(), c.getAvailabilityStatus(), m == null ? null : m.getScore(), m == null ? null : m.getStatus()));
+            out.add(new Candidate(c.getId(), c.getDisplayName(), c.getJobTitle(), c.getAvailabilityStatus(), m == null ? null : m.getScore(), m == null ? null : m.getStatus(), OpportunityAssignmentService.pausedReason(c)));
         }
         out.sort(Comparator.comparing(Candidate::score, Comparator.nullsLast(Comparator.<Integer>reverseOrder())).thenComparing(Candidate::name, String.CASE_INSENSITIVE_ORDER));
         return out.stream().limit(MAX_PAGE_SIZE).toList();
@@ -261,7 +261,11 @@ public class MktJobsService {
                 .withNewMatch(() -> overlapScore(orgId, jobId, consultantId), "Assigned by a marketer", "MANUAL")
                 .withAudit(new OpportunityAssignmentService.Audit(AUDIT_ASSIGN, TARGET, String.valueOf(jobId),
                     r -> "{\"consultantId\":" + consultantId + ",\"created\":" + r.created() + "}")));
-        if (assigned.refused()) throw new OrgNotFoundException(); // an inactive consultant is not found here, as before
+        // an inactive consultant is not found here, as before; a consultant whose marketing is paused (in scope, so no secret) gets a clear 409 the page words kindly
+        if (OpportunityAssignmentService.CONSULTANT_PAUSED.equals(assigned.reason())) {
+            throw OrgException.coded(409, OpportunityAssignmentService.CONSULTANT_PAUSED, "This consultant is on a project and their marketing is paused, so nothing can be assigned.", Map.of());
+        }
+        if (assigned.refused()) throw new OrgNotFoundException();
         return new AssignResult(assigned.matchId(), jobId, consultantId, "ASSIGNED", assigned.score(), assigned.created());
     }
 

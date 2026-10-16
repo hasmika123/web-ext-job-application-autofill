@@ -51,6 +51,14 @@ public class OpportunityAssignmentService {
 
     public static final Set<String> OPEN_JOB = Set.of("OPEN", "IN_REVIEW");
     public static final String CONSULTANT_INACTIVE = "CONSULTANT_INACTIVE";
+    /** An ACTIVE consultant whose marketing is not active (on a project, being prepared, not marketed): in scope, so a clear 409 rather than a stranger-style 404. */
+    public static final String CONSULTANT_PAUSED = "CONSULTANT_PAUSED";
+
+    /** The words a picker shows beside a consultant who cannot be assigned right now; null when they can. */
+    public static String pausedReason(ConsultantProfile c) {
+        if (c == null || !"ACTIVE".equals(c.getStatus()) || "ACTIVE".equals(c.getMarketingStatus())) return null;
+        return "PAUSED".equals(c.getMarketingStatus()) ? "On a project — marketing paused" : "Not being marketed right now";
+    }
     public static final String EVENT_ASSIGNED = "ASSIGNED";
     public static final String EVENT_REASSIGNED = "REASSIGNED";
     public static final String EVENT_CLOSED = "CLOSED";
@@ -234,7 +242,8 @@ public class OpportunityAssignmentService {
         Options o = options == null ? Options.none() : options;
         ConsultantProfile consultant = consultants.findByOrgIdAndId(orgId, consultantId).orElseThrow(OrgNotFoundException::new);
         if (!OPEN_JOB.contains(job.getStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open.", Map.of());
-        if (!"ACTIVE".equals(consultant.getStatus()) || !"ACTIVE".equals(consultant.getMarketingStatus())) return Result.refused(jobId, consultantId, CONSULTANT_INACTIVE);
+        if (!"ACTIVE".equals(consultant.getStatus())) return Result.refused(jobId, consultantId, CONSULTANT_INACTIVE);
+        if (!"ACTIVE".equals(consultant.getMarketingStatus())) return Result.refused(jobId, consultantId, CONSULTANT_PAUSED);
         if (!"EXTENSION".equals(job.getCaptureSource()) && !resumes.existsByOrgIdAndConsultantIdAndApprovalStatus(orgId, consultantId, "APPROVED")) {
             throw OrgException.coded(409, "RESUME_NOT_APPROVED", "The consultant needs an approved resume before this can be assigned.", Map.of());
         }
