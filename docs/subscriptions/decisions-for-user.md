@@ -53,3 +53,19 @@
 - **K10.1 / K10.9** default to `RETIRE_AT_RENEWAL` + Free + read-only (S-20/S-19).
 - **K3.2** ships `billing.fees.model=SIMPLE` (S-11 a) and shows both numbers.
 - Nothing in this module edits `CLAUDE.md`; the S-01 amendment sentence (table above) is applied by the user's session.
+
+## Build-time questions from the catalog stream (K3.4, K1.1 to K1.4, K2.1; 2026-10-15)
+
+Safe defaults were applied so nothing is blocked; each is a one-line change if you decide otherwise.
+
+| # | Question | Safe default applied | Where |
+|---|---|---|---|
+| **B-01** | **Seed prices for PRO v1?** 08 section 5 step 2 seeds PRO MONTH 1999 / QUARTER 4999 rows from the live Stripe price ids, but the rule for this build is that the catalog ships WITHOUT prices. | No `product_price` row is seeded. FREE v1 is PUBLISHED; PRO, AUTOPILOT and ORG_STANDARD v1 are DRAFT until an admin publishes prices and then the version. Should K8.4 seed PRO rows from `STRIPE_PRICE_MONTHLY` / `STRIPE_PRICE_3MO` (amounts 1999/4999 from CLAUDE.md) so PRO v1 can be PUBLISHED on the live box? | `PlanSeedData`, K8.4 |
+| **B-02** | **Backfill strictness.** The design says an unmapped Pro row fails the migration. | A Pro row matching neither configured price id is linked to PRO v1 with no interval and logged; `SUBSCRIPTION_BACKFILL_STRICT=true` makes it a failed migration. Failing a production boot on a QA/demo database was judged worse than a warning. | `SubscriptionBackfillChange` |
+| **B-03** | **Dependencies and audience.** The 21 section 3.4 row "every FEATURE requires `base.consultant` (TECHNICAL)" is seeded for BOTH-audience services too. | A dependency on a service that is not offered to a plan's audience does not apply to that plan (so an individual plan never needs `base.consultant`). K2.2/K2.3 must implement that rule. | `CatalogSeedData.DEPENDENCIES` |
+| **B-04** | **One product per shared service.** 08 names `FEAT_AI_CREDITS`, 21 section 6 names `FEAT_AI_CREDITS_EXTRA`. | One product `FEAT_AI_CREDITS` (sold to BOTH) serves both worlds; the audience is on the price row. | `CatalogSeedData.PRODUCTS` |
+| **B-05** | **Reason length for HIGH catalog writes.** 09 says 20 characters, the settings registry uses 10. | 10 (`CatalogException.REASON_MIN_LENGTH`), one constant. | `CatalogService`, `ServiceService` |
+| **B-06** | **Out-of-bounds status.** K3.4 says 422 OUT_OF_BOUNDS; the existing settings registry answers 400 `SETTING_OUT_OF_BOUNDS`. | Kept the registry behaviour (all settings behave the same). | `SettingsException` |
+| **B-07** | **`catalog.manage` / `catalog.view` permissions.** They belong to the staff-role model (A0), which does not exist yet. | `ROLE_ADMIN` only on every `/api/admin/catalog/**` route; the finer permissions narrow it later. | `Admin*Resource` |
+| **B-08** | **Anyone-of dependency encoding.** `feature_dependency` has no anyOf column. | The pseudo key `any:consumes_ai` (COMMERCIAL) in `requires_feature_key`; it is not an edge in the cycle search. | `DependencyGraph` |
+| **B-09** | **Enterprise X5.2 must guard its own createTable** for the four doc-21 tables the same way (`not tableExists`, MARK_RAN) and keep the column names of `20261101011000_sub_catalog_doc21.xml`. | Proven both ways on scratch schemas (`CatalogTablesPreconditionIT`). | X5.2 |

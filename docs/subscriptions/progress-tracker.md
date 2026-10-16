@@ -4,7 +4,7 @@
 > Keep this file and `docs/roadmap/areas/sub.json` in sync on every transition (`node docs/roadmap/build-master-roadmap.mjs --set K1.1=in_progress`
 > edits the JSON and regenerates the HTML; then update the row here with the commit SHA and the test names).
 > Every Completed row must reference actual code and tests. Design docs: `README.md` in this folder.
-> Last update: 2026-10-15 (design complete; nothing built).
+> Last update: 2026-10-16 (catalog stream: K3.4, K1.1 to K1.4, K2.1 built on branch sub-catalog; BillingSchemaIT fails after the 15th of any month for a reason that predates this branch: BillingDemoSeeder makes the current month invoice due on day 15 and the test expects one overdue invoice).
 
 ## Phase gates
 | Phase | Gate | Status |
@@ -24,13 +24,13 @@
 ## Stories
 | id | title (short) | status | owner | commit | tests | notes |
 |---|---|---|---|---|---|---|
-| K1.1 | Widen feature_definition/product + services API | Not Started | API | | | |
-| K1.2 | Doc-21 tables if absent + dependency editor | Not Started | API | | | shared with X5.2 |
-| K1.3 | product_price + catalog_publish/change + CatalogService | Not Started | API | | | supersedes B1.1/A3.1 table half |
-| K1.4 | Seed individual services (no prices) + FeatureKeys test | Not Started | API | | | |
+| K1.1 | Widen feature_definition/product + services API | Completed | API | 31338bd9 | ServiceServiceTest (8), AdminCatalogServicesResourceIT (5), LiquibaseAdditiveTest (3), BillingSchemaIT (pre-existing day-of-month failure, see header) | catalog_change created here; ROLE_ADMIN only (B-07) |
+| K1.2 | Doc-21 tables if absent + dependency editor | Completed | API | fccd204e | FeatureDependencyTest (6), CatalogTablesPreconditionIT (2, both orders), AdminCatalogRulesResourceIT (5) | shared with X5.2; tables in 20261101011000_sub_catalog_doc21.xml; X5.2 must guard its createTable (B-09) |
+| K1.3 | product_price + catalog_publish/change + CatalogService | Completed | API | 1030e53e | CatalogResourceIT (10) | supersedes B1.1/A3.1 table half; no Stripe object until K1.5 (PriceStripeSync seam); future-dated publish via CatalogActivationJob |
+| K1.4 | Seed individual services (no prices) + FeatureKeys test | Completed | API | 5dc1f895 | FeatureKeyRegistryTest (6), CatalogSeedIT (5) | dependency graph + limits + presets seeded here, not in K1.2 |
 | K1.5 | Stripe product/price at publish + CatalogReconcileJob | Not Started | API | | | |
 | K1.6 | Re-home hard-coded config | Not Started | API | | | last in S2 |
-| K2.1 | plan tables + seeds + subscription backfill | Not Started | API | | | |
+| K2.1 | plan tables + seeds + subscription backfill | Completed | API | 1fbb1dde | PlanSeedTest (6), PlanSeedIT (6), SubscriptionBackfillIT (3), LegacyReadersUnchangedIT (3), BillingResourceIT/BillingWebhookIT/EntitlementServiceTest unchanged | no price rows: only FREE v1 PUBLISHED (B-01); backfill non-strict by default (B-02) |
 | K2.2 | PlanService invariants + publish | Not Started | API | | | |
 | K2.3 | PlanPreviewDTO | Not Started | API | | | |
 | K2.4 | Grandfathering invariants + PlanRetireGuard | Not Started | API | | | version-migration primitive FUTURE (S-03) |
@@ -38,7 +38,7 @@
 | K3.1 | PricingEngine v2 + golden S1 | Not Started | API | | | one engine with X5.5 |
 | K3.2 | MarginCalculator v2 + levers | Not Started | API | | | fee model per S-11 |
 | K3.3 | Personal QuoteService | Not Started | API | | | |
-| K3.4 | Settings registry keys | Not Started | API | | | first in S0 |
+| K3.4 | Settings registry keys | Completed | API | 2cdef444 | BillingSettingKeysTest (7); SettingDefinitionsTest, SettingsServiceTest unchanged and green | first in S0; BillingSettingKeys; 03 section 2 + 08 section 7 parity test; out-of-bounds stays 400 (B-06) |
 | K4.1 | Plans list page | Not Started | Web | | | |
 | K4.2 | Plan editor | Not Started | Web | | | |
 | K4.3 | Preview pane | Not Started | Web | | | |
