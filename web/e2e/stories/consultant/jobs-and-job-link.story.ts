@@ -41,7 +41,10 @@ test("CON-20 Anika searches Job Discovery, filters, sorts and opens a job's deta
   await filters.getByRole("button", { name: "Clear All" }).click();
   await expect(cards.first()).toBeVisible();
 
-  const title = (await cards.first().locator("h3 button").first().innerText()).trim();
+  // The marketer's quick info is shown only on a job the marketer wrote a note or a source for (a job an administrator created has none), so open one of those.
+  const withInfo = cards.filter({ has: page.locator("[data-quick-info]") });
+  await expect(withInfo.first()).toBeVisible();
+  const title = (await withInfo.first().locator("h3 button").first().innerText()).trim();
   await narrate(page, `She opens the details of "${title}"`);
   await page.getByRole("button", { name: `View ${title}`, exact: true }).first().click();
   const sheet = page.getByRole("dialog", { name: title });
