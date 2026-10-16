@@ -28,13 +28,13 @@
 | K1.2 | Doc-21 tables if absent + dependency editor | Completed | API | fccd204e | FeatureDependencyTest (6), CatalogTablesPreconditionIT (2, both orders), AdminCatalogRulesResourceIT (5) | shared with X5.2; tables in 20261101011000_sub_catalog_doc21.xml; X5.2 must guard its createTable (B-09) |
 | K1.3 | product_price + catalog_publish/change + CatalogService | Completed | API | 1030e53e | CatalogResourceIT (10) | supersedes B1.1/A3.1 table half; no Stripe object until K1.5 (PriceStripeSync seam); future-dated publish via CatalogActivationJob |
 | K1.4 | Seed individual services (no prices) + FeatureKeys test | Completed | API | 5dc1f895 | FeatureKeyRegistryTest (6), CatalogSeedIT (5) | dependency graph + limits + presets seeded here, not in K1.2 |
-| K1.5 | Stripe product/price at publish + CatalogReconcileJob | Not Started | API | | | |
+| K1.5 | Stripe product/price at publish + CatalogReconcileJob | Completed | API | 1b52a491 | CatalogStripePublisherTest (6), CatalogReconcilerTest (5), StripeGatewayListPricesTest (3) | silent with a blank key (P-02); wiring b2805aa7: AdminCatalogMarginResourceIT (5) |
 | K1.6 | Re-home hard-coded config | Not Started | API | | | last in S2 |
 | K2.1 | plan tables + seeds + subscription backfill | Completed | API | 1fbb1dde | PlanSeedTest (6), PlanSeedIT (6), SubscriptionBackfillIT (3), LegacyReadersUnchangedIT (3), BillingResourceIT/BillingWebhookIT/EntitlementServiceTest unchanged | no price rows: only FREE v1 PUBLISHED (B-01); backfill non-strict by default (B-02) |
-| K2.2 | PlanService invariants + publish | Not Started | API | | | |
-| K2.3 | PlanPreviewDTO | Not Started | API | | | |
-| K2.4 | Grandfathering invariants + PlanRetireGuard | Not Started | API | | | version-migration primitive FUTURE (S-03) |
-| K2.5 | Admin plans API | Not Started | API | | | |
+| K2.2 | PlanService invariants + publish | Completed | API | 304b3c78 | PlanPublishIT (23), PlanPublishStripeIT (4), PlanSnapshotTest (4) | integrity job skips seed snapshots (P-16) |
+| K2.3 | PlanPreviewDTO | Completed | API | 80211c4e | PlanPreviewIT (6) | roster G1 = 7992 |
+| K2.4 | Grandfathering invariants + PlanRetireGuard | Completed | API | 331518df | GrandfatherIT (4) | version-migration primitive FUTURE (S-03); retire/archive service-only (P-14) |
+| K2.5 | Admin plans API | Completed | API | bf49b805 | AdminPlansResourceIT (7), OpenApiContractIT | api/openapi.json regenerated |
 | K3.1 | PricingEngine v2 + golden S1 | Completed | API | cf2f93aa | MinorTest, PricingEngineGoldenTest (S1-S3, G1-G14), PricingEnginePropertyTest, PricingArchTest, AnnualDerivationTest, DependencyRulesTest | pure engine in service/pricing; CatalogPort adapter and PricingInputsLoader wired by the coordinator |
 | K3.2 | MarginCalculator v2 + levers | Completed | API | fdd7602b | MarginCalculatorTest, MarginGuardCompositionTest, FeeModelSettingsTest | calculator only (no route yet: GET /api/admin/catalog/margin and fee-model are separate wiring); levers exact, see decisions E-1..E-4 |
 | K3.3 | Personal QuoteService | Not Started | API | | | |
@@ -74,7 +74,7 @@
 | K8.5 | Personal reconciler + replay | Not Started | API | | | |
 | K8.6 | FakeStripeGateway harness + runbook P | Not Started | API | | | human step: test clocks |
 | K8.7 | Billing-disabled parity | Not Started | API, Web | | | |
-| K9.1 | YEAR rows + guard + golden S2/S3 | Not Started | API | | | phase S2 (S-01 ON) |
+| K9.1 | YEAR rows + guard + golden S2/S3 | Completed | API | da26e84c, 304b3c78 | AnnualPriceDeriverTest (5), PlanPublishIT yearly cases | derived rows at plan publish under the guard |
 | K9.2 | Annual proration / term rules (personal) | Not Started | API | | | phase S3 |
 | K9.3 | Monthly sub-windows on annual | Not Started | API | | | phase S2 |
 | K9.4 | Annual customer UX | Not Started | Web | | | phase S3 |
