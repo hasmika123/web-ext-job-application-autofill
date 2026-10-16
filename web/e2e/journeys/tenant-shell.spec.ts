@@ -50,14 +50,20 @@ test.describe("desktop 1440", () => {
     for (const href of new Set(hrefs.map((h) => h.split("#")[0]))) {
       const res = await page.goto(`${base}${href}`);
       expect(res?.status(), href).toBe(200);
-      await expect(page.locator("[data-coming-soon], [data-branding-page], [data-invitations-page], [data-dashboard], [data-employees-page], [data-roles-page]").first(), href).toBeVisible();
+      await expect(page.locator("[data-coming-soon], [data-ent-page], [data-branding-page], [data-invitations-page], [data-dashboard], [data-employees-page], [data-roles-page], [data-consultants-page], [data-resumes-page], [data-marketing-assignments-page], [data-jobs-page], [data-applications-page], [data-interviews-page], [data-clients-page], [data-placements-page], [data-org-settings]").or(page.locator("[data-page-header]").filter({ hasText: "Settings" })).first(), href).toBeVisible(); // Settings is real-API only: on the mock it frames its own "couldn't load" state under the page header
     }
   });
 
   test("Sarah: two workspaces, the switcher (and Ctrl+Shift+W), the second workspace's menu, a refused workspace", async ({ page }) => {
     await signIn(page, "sarah@acme.com");
     await page.goto(`${base}/w/admin`);
-    await expect(page.locator("[data-workspace-switcher=sidebar]")).toContainText("Administration");
+    await page.waitForSelector("[data-enterprise-shell]");
+    // the boards' shell has no switcher chip in the sidebar: the switcher is a menu opened from the account menu ("Switch workspace") or Ctrl+Shift+W
+    await expect(page.locator("[data-workspace-switcher=sidebar]")).toHaveCount(0);
+    await page.getByRole("button", { name: /Account menu for/ }).click();
+    await page.getByRole("menuitem", { name: "Switch workspace" }).click();
+    await expect(page.locator("[data-workspace-switcher=panel]")).toContainText("Administration");
+    await page.keyboard.press("Escape");
     const rows = page.getByRole("menuitemradio");
     // the shortcut is a client listener: retry until the page has hydrated
     await expect(async () => {

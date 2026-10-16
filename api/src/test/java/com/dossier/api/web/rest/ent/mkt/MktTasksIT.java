@@ -102,15 +102,28 @@ class MktTasksIT {
         Long jessica = memberOf(JESSICA, acme);
         assertThat(b.path("kpis")).hasSize(4);
         assertThat(b.path("kpis").get(0).path("key").asText()).isEqualTo("total");
-        assertThat(b.path("tabs").path("all").asLong()).isEqualTo(MktTasksDemoSeeder.OPEN);
-        assertThat(b.path("tabs").path("my").asLong()).isEqualTo(MktTasksDemoSeeder.OPEN);
+        // the seed gives every marketer 24 open (5 overdue) and 16 completed this week, for ALL of the consultants of her assignments; a task about a consultant whose
+        // assignment is no longer ACTIVE is out of her scope (MktScope ignores a PAUSED assignment), so those rows are taken off the seeded numbers
+        Set<Long> inScope = new HashSet<>();
+        for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) if ("ACTIVE".equals(a.getStatus()) && (jessica.equals(a.getMarketerMemberId()) || jessica.equals(a.getBackupMemberId()))) inScope.add(a.getConsultantId());
+        long hiddenOpen = 0, hiddenOverdue = 0, hiddenCompleted = 0;
+        for (MktTask t : tasks.findByOrgId(acme.getId())) {
+            if (!jessica.equals(t.getOwnerMemberId()) || t.getConsultantId() == null || inScope.contains(t.getConsultantId())) continue;
+            if ("COMPLETED".equals(t.getStatus())) hiddenCompleted++;
+            else {
+                hiddenOpen++;
+                if (t.getDueAt() != null && t.getDueAt().isBefore(java.time.Instant.now())) hiddenOverdue++;
+            }
+        }
+        assertThat(b.path("tabs").path("all").asLong()).isEqualTo(MktTasksDemoSeeder.OPEN - hiddenOpen);
+        assertThat(b.path("tabs").path("my").asLong()).isEqualTo(MktTasksDemoSeeder.OPEN - hiddenOpen);
         assertThat(b.path("tabs").path("team").asLong()).as("an ASSIGNED marketer has no team tab").isZero();
-        assertThat(b.path("tabs").path("overdue").asLong()).isEqualTo(MktTasksDemoSeeder.OVERDUE);
-        assertThat(b.path("tabs").path("completed").asLong()).isEqualTo(MktTasksDemoSeeder.COMPLETED_THIS_WEEK);
+        assertThat(b.path("tabs").path("overdue").asLong()).isEqualTo(MktTasksDemoSeeder.OVERDUE - hiddenOverdue);
+        assertThat(b.path("tabs").path("completed").asLong()).isEqualTo(MktTasksDemoSeeder.COMPLETED_THIS_WEEK - hiddenCompleted);
         assertThat(b.path("tasks").path("items").size()).isLessThanOrEqualTo(10);
         for (JsonNode row : b.path("tasks").path("items")) assertThat(row.path("ownerMemberId").asLong()).isEqualTo(jessica);
         Set<Long> mine = new HashSet<>();
-        for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) if (jessica.equals(a.getMarketerMemberId()) || jessica.equals(a.getBackupMemberId())) mine.add(a.getConsultantId());
+        for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) if ("ACTIVE".equals(a.getStatus()) && (jessica.equals(a.getMarketerMemberId()) || jessica.equals(a.getBackupMemberId()))) mine.add(a.getConsultantId());
         for (JsonNode row : b.path("tasks").path("items")) if (!row.path("consultantId").isNull()) assertThat(mine).contains(row.path("consultantId").asLong());
         long owners = tasks.findByOrgId(acme.getId()).stream().map(MktTask::getOwnerMemberId).distinct().count();
         assertThat(owners).as("every marketer with assignments got tasks").isGreaterThan(1);

@@ -24,6 +24,10 @@ import com.dossier.api.service.ent.TenantResolver;
 import com.dossier.api.service.ent.mkt.followups.MktFollowupsDemoSeeder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -96,7 +100,7 @@ class MktFollowupsIT {
         Long userId = users.findOneByLogin(JESSICA).orElseThrow().getId();
         Long memberId = members.findByOrgIdAndUserIdAndStatusIn(acme.getId(), userId, List.of(OrgMemberStatus.ACTIVE)).get(0).getId();
         Set<Long> ids = new HashSet<>();
-        for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) if (memberId.equals(a.getMarketerMemberId()) || memberId.equals(a.getBackupMemberId())) ids.add(a.getConsultantId());
+        for (MarketerAssignment a : assignments.findByOrgId(acme.getId())) if ("ACTIVE".equals(a.getStatus()) && (memberId.equals(a.getMarketerMemberId()) || memberId.equals(a.getBackupMemberId()))) ids.add(a.getConsultantId());
         return ids;
     }
 
@@ -105,8 +109,17 @@ class MktFollowupsIT {
         JsonNode b = board(JESSICA, acme);
         assertThat(b.path("kpis")).hasSize(4);
         assertThat(b.path("kpis").get(0).path("key").asText()).isEqualTo("dueToday");
-        assertThat(b.path("kpis").get(2).path("value").asLong()).as("18 completed today per marketer").isEqualTo(18);
-        assertThat(b.path("kpis").get(3).path("value").asLong()).as("14 waiting").isEqualTo(14);
+        // the seed gives each marketer 18 completed today and 14 waiting on their own consultants; a marketer also sees the consultants she BACKS UP, whose
+        // rows the other marketer's seed made, so the board number is counted from the rows of every consultant she may see (not a fixed 18 / 14)
+        Set<Long> visibleConsultants = jessicasConsultants();
+        Instant dayStart = LocalDate.now(ZoneOffset.UTC).atStartOfDay().toInstant(ZoneOffset.UTC);
+        List<MktFollowup> hers = followups.findByOrgId(acme.getId()).stream().filter(f -> visibleConsultants.contains(f.getConsultantId())).toList();
+        long completedToday = hers.stream().filter(f -> "COMPLETED".equals(f.getStatus()) && f.getCompletedAt() != null && !f.getCompletedAt().isBefore(dayStart) && f.getCompletedAt().isBefore(dayStart.plus(1, ChronoUnit.DAYS))).count();
+        long waiting = hers.stream().filter(f -> "WAITING".equals(f.getStatus())).count();
+        assertThat(completedToday).as("at least the 18 seeded for her own consultants").isGreaterThanOrEqualTo(18);
+        assertThat(waiting).as("at least the 14 seeded for her own consultants").isGreaterThanOrEqualTo(14);
+        assertThat(b.path("kpis").get(2).path("value").asLong()).as("completed today").isEqualTo(completedToday);
+        assertThat(b.path("kpis").get(3).path("value").asLong()).as("waiting").isEqualTo(waiting);
         assertThat(b.path("overdue").path("total").asLong()).isGreaterThanOrEqualTo(6);
         assertThat(b.path("upcoming").path("total").asLong()).isGreaterThanOrEqualTo(14);
         assertThat(b.path("today").path("items").size()).isLessThanOrEqualTo(50);
