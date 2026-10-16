@@ -1806,7 +1806,7 @@ class OrgIsolationIT {
             assertThat(domains.findByOrgIdAndId(B, a.domain.getId())).isEmpty();
             assertThat(domains.findByOrgIdOrderByDomain(B)).extracting(OrgDomain::getId).doesNotContain(a.domain.getId());
         }));
-        checks.put("OrgAuditEventRepository", new RepoCheck(Set.of("findByOrgId", "findByOrgIdAndAction", "findByOrgIdAndActionIn", "findByOrgIdAndTargetTypeAndTargetId", "countByOrgId", "countByOrgIdAndActorLogin", "countByOrgIdAndActionInAndCreatedAtAfter"), () -> {
+        checks.put("OrgAuditEventRepository", new RepoCheck(Set.of("findByOrgId", "findByOrgIdAndAction", "findByOrgIdAndActionIn", "findByOrgIdAndTargetTypeAndTargetId", "countByOrgId", "countByOrgIdAndActorLogin", "countByOrgIdAndAction", "countByOrgIdAndActionInAndCreatedAtAfter"), () -> {
             List<String> roleActions = List.of("ROLE_CREATE", "ROLE_UPDATE", "ROLE_ASSIGN", "ROLE_DELETE", "ROLE_RESYNC");
             assertThat(audit.countByOrgIdAndActionInAndCreatedAtAfter(B, roleActions, java.time.Instant.EPOCH)).as("counts B's own rows of those actions only, never A's").isEqualTo(audit.findByOrgIdAndActionIn(B, roleActions, PageRequest.of(0, 1000)).getTotalElements());
             assertThat(audit.findByOrgIdAndActionIn(B, List.of("ROLE_CREATE", "ROLE_UPDATE", "ROLE_ASSIGN", "ROLE_DELETE", "ROLE_RESYNC"), PageRequest.of(0, 100)).getContent()).extracting(OrgAuditEvent::getOrgId).doesNotContain(A);
@@ -1814,6 +1814,9 @@ class OrgIsolationIT {
             assertThat(audit.findByOrgId(B, PageRequest.of(0, 100)).getContent()).extracting(OrgAuditEvent::getOrgId).containsOnly(B);
             assertThat(audit.findByOrgIdAndAction(B, OrgAuditService.SHARE_SCOPE_CHANGED, PageRequest.of(0, 100)).getContent()).extracting(OrgAuditEvent::getActorLogin).containsOnly("bravo-member");
             assertThat(audit.countByOrgIdAndActorLogin(B, "alpha-owner")).as("A's actor never appears in B's trail").isZero();
+            for (String action : List.of("ROLE_CREATE", OrgAuditService.SHARE_SCOPE_CHANGED)) {
+                assertThat(audit.countByOrgIdAndAction(B, action)).as("counts B's own " + action + " rows only, never A's").isEqualTo(audit.findByOrgIdAndAction(B, action, PageRequest.of(0, 1000)).getTotalElements());
+            }
             assertThat(audit.countByOrgId(B)).isLessThan(audit.countByOrgId(A) + audit.countByOrgId(B));
         }));
         checks.put("DataShareRepository", new RepoCheck(Set.of("findByOrgIdAndMemberId", "findByOrgIdAndFullToMemberId", "countByOrgIdAndScope", "deleteByOrgIdAndMemberId"), () -> {
