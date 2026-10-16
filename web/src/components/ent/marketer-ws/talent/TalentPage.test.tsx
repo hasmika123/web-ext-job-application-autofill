@@ -60,7 +60,7 @@ let fetchMock: ReturnType<typeof vi.fn>;
 const OVERVIEW = {
   id: 1, name: "Alex Morgan", title: "Senior Java Developer", headline: "Backend engineer", yearsExperience: 8, workMode: "HYBRID",
   availability: { code: "AVAILABLE_NOW", label: "Available Now", tone: "green" }, resume: { state: "UP_TO_DATE", label: "Up to date" }, profileCompleteness: 80,
-  contact: { workEmail: "alex.morgan@acme.example", location: "New York, NY", workAuthorization: "Citizen" }, skills: ["Java", "Spring"],
+  contact: { workEmail: "alex.morgan@acme.example", location: "New York, NY", workAuthorization: "Citizen", phone: "(555) 010-0142", timeZone: "America/Chicago", preferredContact: "PHONE" }, skills: ["Java", "Spring"],
   placement: { placementId: 3, roleTitle: "Platform Engineer", client: "TechCorp", startDate: "2026-03-02", status: "ACTIVE" },
   resumes: [{ id: 10, name: "Alex - Senior Java Developer", version: 3, primary: true, approval: "APPROVED", updatedAt: "2026-10-01T00:00:00Z" }],
   applications: {
@@ -223,7 +223,7 @@ describe("TalentPage: filters, views, drawer", () => {
     expect(drawer.textContent).toContain("Summary");
     expect(drawer.textContent).toContain("Senior Java Developer");
     expect(drawer.textContent).toContain("Data Analyst");
-    expect(drawer.textContent).not.toMatch(/phone/i);
+    expect(drawer.textContent).not.toMatch(/ssn|passport|date of birth/i);
   });
 
   it("View Profile shows the assigned consultant's contact, placement, resumes and applications with who updated them", async () => {
@@ -238,6 +238,9 @@ describe("TalentPage: filters, views, drawer", () => {
     expect(fetchMock.mock.calls.some((c) => String(c[0]) === "/api/orgs/2/mkt/talent/1/overview")).toBe(true);
     expect(drawer.textContent).toContain("alex.morgan@acme.example");
     expect(drawer.textContent).toContain("Citizen");
+    expect(drawer.textContent).toContain("(555) 010-0142");
+    expect(drawer.textContent).toContain("Central (Chicago)");
+    expect(drawer.querySelector('a[href="tel:5550100142"]')).toBeTruthy();
     expect(drawer.textContent).toContain("Platform Engineer");
     expect(drawer.textContent).toContain("TechCorp");
     expect(drawer.textContent).toContain("Applied 2");

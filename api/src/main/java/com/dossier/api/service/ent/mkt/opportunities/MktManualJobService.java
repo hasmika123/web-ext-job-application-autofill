@@ -98,11 +98,14 @@ public class MktManualJobService {
             keyText = k.key();
             keyHash = k.hash();
         } else {
-            keyText = cap("manual:" + ApplicationKeys.company(c.company()) + "|" + ApplicationKeys.title(c.title()) + "|" + c.location().toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", ""), 1000);
+            keyText = manualKey(c.company(), c.title(), c.location());
             keyHash = UrlKeys.hash(keyText);
         }
         Found<ClientRequirement> existing = identity.findRequirement(view, keyHash, null, null).map(f -> new Found<>(f, true)).orElse(null);
-        if (existing != null) return new Response(existing.value().getId(), true, existing.value().getSource());
+        if (existing != null) {
+            audit.record(me, AUDIT_ACTION, AUDIT_TARGET, null, String.valueOf(existing.value().getId()), "{\"created\":false,\"source\":\"" + SOURCE + "\"}");
+            return new Response(existing.value().getId(), true, existing.value().getSource());
+        }
 
         Found<ClientAccount> client = identity.findOrCreateClient(view, c.company(), () -> newClient(me, now));
         final String key = keyText;
@@ -118,6 +121,11 @@ public class MktManualJobService {
         );
         audit.record(me, AUDIT_ACTION, AUDIT_TARGET, null, String.valueOf(job.value().getId()), "{\"created\":" + !job.existing() + ",\"source\":\"" + SOURCE + "\"}");
         return new Response(job.value().getId(), job.existing(), SOURCE);
+    }
+
+    /** The identity of a job typed in without a link: company + title + place, the same words as the board's duplicate rule. */
+    public static String manualKey(String company, String title, String location) {
+        return cap("manual:" + ApplicationKeys.company(company) + "|" + ApplicationKeys.title(title) + "|" + location.toLowerCase(Locale.ROOT).replaceAll("[^\\p{L}\\p{N}]+", ""), 1000);
     }
 
     private static ClientAccount newClient(OrgMembership me, Instant now) {

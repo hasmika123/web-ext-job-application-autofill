@@ -532,7 +532,7 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mkt/followups/{id}/call", Case.mkt(200, "MARKETER_FOLLOWUP_CALL", w -> "{\"note\":\"Called the recruiter\"}", null)),
         Map.entry("POST /api/orgs/{orgId}/mkt/followups/{id}/reminder", Case.mkt(200, "MARKETER_FOLLOWUP_REMINDER", w -> "{\"note\":\"Nudge\"}", null)),
         // The browser extension's "save for consultant": needs an Idempotency-Key (request()). The world's job is already known by its ATS identity, so the call assigns the consultant to it.
-        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/job", Case.mkt(201, "MARKETER_JOB_CREATE", w -> "{\"title\":\"Hijack hand job\",\"company\":\"Hijack Co\",\"location\":\"Austin, TX\",\"workMode\":\"REMOTE\",\"description\":\"Entered by hand.\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/job", Case.mkt(201, "MARKETER_JOB_CREATE", w -> "{\"title\":\"Hijack hand job\",\"company\":\"Hijack Co\",\"location\":\"Austin, TX\",\"workMode\":\"REMOTE\",\"description\":\"Entered by hand.\"}", World::mktHandJobStored)),
         Map.entry("POST /api/orgs/{orgId}/mkt/opportunities/from-extension",Case.mkt(200, "MARKETER_JOB_CAPTURE", w -> "{\"jobUrl\":\"https://boards.example.com/jobs/" + w.p + "-1\",\"title\":\"Hijack capture\",\"company\":\"Hijack Co\",\"atsPlatform\":\"greenhouse\",\"externalJobId\":\"" + w.p + "1\",\"consultantIds\":[" + w.consultantProfileId + "],\"keyInfo\":\"Lead with the integration work.\",\"extensionVersion\":\"1.0.0\"}", World::approveResume)),
         Map.entry("GET /api/orgs/{orgId}/mkt/interviews", Case.mktRead()),
         Map.entry("GET /api/orgs/{orgId}/mkt/interviews/{interviewId}/prep", Case.mktRead()),
@@ -1314,6 +1314,21 @@ class OrgIsolationIT {
             o2.setOwnerMemberId(owner.getId());
             mktOpportunities.save(o2);
             em.createQuery("update MktOpportunity o set o.state = 'DECLINED' where o.orgId = :o and o.matchId = :m").setParameter("o", org.getId()).setParameter("m", mktMatchId).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        /** The hand-typed job is already stored (the employer and job inserts of a new one run in transactions of their own, which would wait for this test's uncommitted rows). */
+        void mktHandJobStored() {
+            seedMkt();
+            com.dossier.api.domain.ent.talent.ClientRequirement jr = new com.dossier.api.domain.ent.talent.ClientRequirement();
+            jr.setOrgId(org.getId());
+            jr.setClientId(jobClientId);
+            jr.setTitle("Hijack hand job");
+            String key = com.dossier.api.service.ent.mkt.opportunities.MktManualJobService.manualKey("Hijack Co", "Hijack hand job", "Austin, TX");
+            jr.setUrlKey(key);
+            jr.setUrlKeyHash(com.dossier.api.service.ent.jobs.UrlKeys.hash(key));
+            clientRequirements.saveAndFlush(jr);
             em.flush();
             em.clear();
         }

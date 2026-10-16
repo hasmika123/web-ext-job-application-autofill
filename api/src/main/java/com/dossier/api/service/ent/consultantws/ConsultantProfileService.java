@@ -128,9 +128,12 @@ public class ConsultantProfileService {
     public Response setContact(OrgMembership me, ConsultantProfileDTO.ContactBody body) {
         ConsultantProfile c = home.requireSelf(me);
         if (body == null) throw OrgException.invalid("body", "send the contact details");
-        c.setPhone(com.dossier.api.service.ent.consultants.ConsultantContact.phone(body.phone()));
-        c.setTimeZone(com.dossier.api.service.ent.consultants.ConsultantContact.timeZone(body.timeZone()));
-        c.setPreferredContact(com.dossier.api.service.ent.consultants.ConsultantContact.preferred(body.preferredContact()));
+        String phone = com.dossier.api.service.ent.consultants.ConsultantContact.phone(body.phone()); // validate all three before touching the row
+        String zone = com.dossier.api.service.ent.consultants.ConsultantContact.timeZone(body.timeZone());
+        String preferred = com.dossier.api.service.ent.consultants.ConsultantContact.preferred(body.preferredContact());
+        c.setPhone(phone);
+        c.setTimeZone(zone);
+        c.setPreferredContact(preferred);
         c.setUpdatedAt(Instant.now(clock));
         consultants.save(c);
         return view(c, true);

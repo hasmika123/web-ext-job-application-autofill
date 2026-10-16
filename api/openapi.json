@@ -102,6 +102,9 @@
     "name" : "mkt-applications",
     "description" : "Marketing workspace: the Applications board (KPIs, tracker, funnel, overdue actions, recent updates) and the marketer's records."
   }, {
+    "name" : "tracker-act-for",
+    "description" : "A marketer saves a job for an assigned consultant (save only, never submit)."
+  }, {
     "name" : "notifications",
     "description" : "In-app notifications."
   }, {
@@ -173,6 +176,9 @@
   }, {
     "name" : "field-cache-sync",
     "description" : "User-scoped field-cache sync: the authenticated user's learned field answers."
+  }, {
+    "name" : "mkt-opportunities",
+    "description" : "Marketing: opportunities, including adding a job by hand."
   }, {
     "name" : "resume-match",
     "description" : "Score the user's resumes against a job description (Pro)."
@@ -1508,6 +1514,36 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/TypesBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/profile/contact" : {
+      "put" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Set my contact details",
+        "description" : "phone (digits, +, spaces, dashes, parentheses; 7 to 15 digits), timeZone (an IANA id such as America/Chicago) and preferredContact (EMAIL, PHONE or TEXT); a blank clears one. Contact data only, PII-scanned. Visible read-only to the assigned marketer.",
+        "operationId" : "contact",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ContactBody"
               }
             }
           },
@@ -7005,6 +7041,44 @@
         }
       }
     },
+    "/api/orgs/{orgId}/mkt/opportunities/{id}/withdraw" : {
+      "post" : {
+        "tags" : [ "mkt-opportunities" ],
+        "summary" : "Withdraw an assignment (state CLOSED, reason WITHDRAWN). Body {reason} is required (1 to 200 characters, PII-scanned); the consultant is notified. 409 NOT_ASSIGNED / ILLEGAL_TRANSITION.",
+        "operationId" : "withdraw",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WithdrawRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/mkt/opportunities/{id}/review" : {
       "post" : {
         "tags" : [ "mkt-opportunities" ],
@@ -7052,6 +7126,44 @@
             "application/json" : {
               "schema" : {
                 "$ref" : "#/components/schemas/RequestKind"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ActionResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/mkt/opportunities/{id}/reassign" : {
+      "post" : {
+        "tags" : [ "mkt-opportunities" ],
+        "summary" : "Offer a declined or withdrawn opportunity to another consultant of the caller's scope. Body {consultantId}. Answers the new row. 409 NOT_REASSIGNABLE / JOB_NOT_OPEN / RESUME_NOT_APPROVED.",
+        "operationId" : "reassign_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReassignRequest"
               }
             }
           },
@@ -7149,6 +7261,43 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/mkt/opportunities/job" : {
+      "post" : {
+        "tags" : [ "mkt-opportunities" ],
+        "summary" : "Add a job by hand",
+        "description" : "Requires the Idempotency-Key header (a UUID). Body: title, company, location, workMode (ONSITE, HYBRID or REMOTE), description and optionally jobUrl (https) and skills (8). The job is org-owned with source MANUAL; the same job (the link, else company + title + place) answers the stored one with existingJob true. Answers 201 {jobId, existingJob, source}. 400 VALIDATION, 422 SENSITIVE_CONTENT. Needs opportunities.manage, not requirements.manage.",
+        "operationId" : "create_10",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Request"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Response"
                 }
               }
             }
@@ -7552,7 +7701,7 @@
         "tags" : [ "mkt-followups" ],
         "summary" : "Add a follow-up for one of your consultants",
         "description" : "Record only. 404 when the consultant, application or client is not yours to see.",
-        "operationId" : "create_10",
+        "operationId" : "create_11",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -7901,7 +8050,7 @@
         "tags" : [ "mkt-activity" ],
         "summary" : "Log an activity for one of your consultants",
         "description" : "Record only (followups.manage). 404 when the consultant or client is not yours to see; 400 for a type that only the system records.",
-        "operationId" : "create_11",
+        "operationId" : "create_12",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -8460,7 +8609,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Create a task",
         "description" : "Title 3 to 200 characters (scanned for sensitive data), optional due date, priority, type and one of the caller's own jobs.",
-        "operationId" : "create_12",
+        "operationId" : "create_13",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -9523,7 +9672,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Record a self-scored practice session",
         "description" : "The consultant scores catalog questions 0-100 themselves; there is no AI scoring. Notes are scanned for sensitive data.",
-        "operationId" : "create_13",
+        "operationId" : "create_14",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -9993,7 +10142,7 @@
         "tags" : [ "jobs" ],
         "summary" : "Create a job",
         "description" : "requirements.manage. Body: title (required), clientId (required, a client of this organization), contactId, description, location, workMode, employment, durationLabel, experienceLevel, rateMin, rateMax (whole currency units), rateUnit (HOUR or YEAR), positions, status (OPEN, IN_REVIEW or ON_HOLD; default OPEN), skills[] (at most 15). An Idempotency-Key is required: the same key and body returns the first answer. Free text goes through the sensitive-data scanner (422). Audit JOB_CREATE.",
-        "operationId" : "create_14",
+        "operationId" : "create_15",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -10444,7 +10593,7 @@
         "tags" : [ "interviews" ],
         "summary" : "Schedule an interview (a record)",
         "description" : "interviews.coordinate. Body: consultantId and scheduledAt (required), applicationId (the consultant's application) or clientId, round, durationMinutes, mode (VIDEO, ONSITE, PHONE), meetingLink, location, notes, interviewers[{name, title, primary}]. 409 SLOT_OVERLAP when the consultant already has an open interview then. Unknown properties are 422. Idempotency-Key honoured. One INTERVIEW_CREATE audit row. Nothing is sent to anyone.",
-        "operationId" : "create_15",
+        "operationId" : "create_16",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -10686,7 +10835,7 @@
         "tags" : [ "org-groups" ],
         "summary" : "Create a department, team or cohort",
         "description" : "groups.manage. parentGroupId puts a TEAM under a DEPARTMENT (422 GROUP_PARENT_INVALID for anything else); leadMemberId must be an ACTIVE member (422 LEAD_NOT_ACTIVE). 409 GROUP_NAME_TAKEN, 422 ORG_LIMIT_REACHED.",
-        "operationId" : "create_16",
+        "operationId" : "create_17",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -10882,7 +11031,7 @@
         "tags" : [ "consultants" ],
         "summary" : "Add a consultant",
         "description" : "consultants.edit. Body: displayName, email (unique per organization: 409 CONSULTANT_EXISTS), jobTitle, yearsExperience, locationLabel, workMode, skills[] (the first two are the primary chips), departmentGroupId. Free text goes through the sensitive-data scanner (422). Idempotency-Key required. One CONSULTANT_CREATE audit row. Answers 201 with the detail.",
-        "operationId" : "create_17",
+        "operationId" : "create_18",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -10908,6 +11057,45 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/consultants/{memberId}/applications/save" : {
+      "post" : {
+        "tags" : [ "tracker-act-for" ],
+        "summary" : "Save a job for an assigned consultant",
+        "description" : "Body: {company, roleTitle, jobUrl?, location?, externalJobId?, atsPlatform?, postingId?}. Creates the application on the CONSULTANT's tracker with status SAVED, source org, history 'Updated by <marketer> on behalf of <consultant>'; a job the consultant already has keeps its status (alreadySaved = true). Needs member.act_for and an active assignment; 404 for anything else; 429 over 30 saves a minute. Never submits.",
+        "operationId" : "save_3",
+        "parameters" : [ {
+          "name" : "memberId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Request"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Saved"
                 }
               }
             }
@@ -11640,7 +11828,7 @@
         "tags" : [ "clients" ],
         "summary" : "Add a client",
         "description" : "clients.manage. Body: name (required, unique per organization, 409 DUPLICATE_CLIENT), industry, website, location, sizeBand (1-50, 51-200, 201-1000, 1000-5000, 5000+), clientSince (a date), about, status (ACTIVE or PROSPECT, default ACTIVE), ownerMemberId (an active member; default the caller). An Idempotency-Key is required: the same key and body returns the first answer. Free text goes through the sensitive-data scanner (422). Audit CLIENT_CREATE.",
-        "operationId" : "create_18",
+        "operationId" : "create_19",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -11997,7 +12185,7 @@
         "tags" : [ "applications" ],
         "summary" : "Add an application (a record)",
         "description" : "Body: requirementId, consultantId, optional marketerMemberId (default: the consultant's assigned marketer), source, nextAction, nextActionDue, appliedOn, stage (ASSIGNED, or SUBMITTED when the consultant already submitted it). 409 DUPLICATE_APPLICATION for a second application of the same consultant to the same job. Idempotency-Key honoured. One APPLICATION_CREATE audit row.",
-        "operationId" : "create_19",
+        "operationId" : "create_20",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -12345,7 +12533,7 @@
         "tags" : [ "job-search" ],
         "summary" : "Save a job to the board",
         "description" : "Creates (or updates, by the board's dedup) a SAVED application from the stored posting. Returns {applicationId}.",
-        "operationId" : "save_3",
+        "operationId" : "save_4",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -14351,7 +14539,7 @@
       },
       "post" : {
         "tags" : [ "admin-org-resource" ],
-        "operationId" : "create_20",
+        "operationId" : "create_21",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -18352,6 +18540,35 @@
         }
       }
     },
+    "/api/orgs/{orgId}/mkt/talent/{consultantId}/overview" : {
+      "get" : {
+        "tags" : [ "mkt-talent" ],
+        "summary" : "The selected consultant, in full, for their assigned marketer",
+        "description" : "{id, name, title, headline, workMode, availability, resume, contact{workEmail, location, workAuthorization (a stored status label or null)}, skills, placement{role, client, startDate, status} (no money), resumes, applications{total, open, byStage, recent[5] with updatedBy}, interviews}. No identity numbers, no date of birth, no bank details, no amounts. consultants.view; 404 for a consultant that is not the caller's, another organization's id, or anyone else.",
+        "operationId" : "overview_2",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Overview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/mkt/submissions/{id}" : {
       "get" : {
         "tags" : [ "mkt-submissions" ],
@@ -18384,7 +18601,7 @@
         "tags" : [ "mkt-submissions" ],
         "summary" : "Withdraw a draft",
         "description" : "submissions.record. The record leaves the board; its history is kept. 409 unless it is still a draft.",
-        "operationId" : "withdraw",
+        "operationId" : "withdraw_1",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -19121,7 +19338,7 @@
         "tags" : [ "mkt-interviews" ],
         "summary" : "The Interviews board (one call)",
         "description" : "{generatedAt, kpis[4], schedule{items,total,page,size,from,to}, upcoming[<=5], pendingFeedback[<=5], checklist, reminders[<=5], clients[]}. from/to (yyyy-MM-dd) default to the viewer's current week (Sunday start; tzOffsetMinutes = local minus UTC); status = CONFIRMED|SCHEDULED|PENDING_FEEDBACK|RESCHEDULED|AWAITING_CONFIRMATION|COMPLETED; sort = date|consultant|client|role|status|round; size is capped at 100.",
-        "operationId" : "overview_2",
+        "operationId" : "overview_3",
         "parameters" : [ {
           "name" : "from",
           "in" : "query",
@@ -20525,7 +20742,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Filter options, recommended filters, trending skills, saved and recent searches",
         "description" : "Everything the page's right rail and filter bar need, computed from the organization's OPEN jobs and the caller's own rows.",
-        "operationId" : "overview_3",
+        "operationId" : "overview_4",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -24263,7 +24480,7 @@
     "/api/admin/analytics" : {
       "get" : {
         "tags" : [ "admin-analytics-resource" ],
-        "operationId" : "overview_4",
+        "operationId" : "overview_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -26271,6 +26488,15 @@
           },
           "workMode" : {
             "type" : "string"
+          },
+          "phone" : {
+            "type" : "string"
+          },
+          "timeZone" : {
+            "type" : "string"
+          },
+          "preferredContact" : {
+            "type" : "string"
           }
         }
       },
@@ -26316,6 +26542,20 @@
             "items" : {
               "type" : "string"
             }
+          }
+        }
+      },
+      "ContactBody" : {
+        "type" : "object",
+        "properties" : {
+          "phone" : {
+            "type" : "string"
+          },
+          "timeZone" : {
+            "type" : "string"
+          },
+          "preferredContact" : {
+            "type" : "string"
           }
         }
       },
@@ -28559,6 +28799,17 @@
           },
           "reason" : {
             "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          }
+        }
+      },
+      "WithdrawRequest" : {
+        "type" : "object",
+        "properties" : {
+          "reason" : {
+            "type" : "string"
           }
         }
       },
@@ -28575,6 +28826,35 @@
         "properties" : {
           "answer" : {
             "type" : "string"
+          }
+        }
+      },
+      "Request" : {
+        "type" : "object",
+        "properties" : {
+          "title" : {
+            "type" : "string"
+          },
+          "company" : {
+            "type" : "string"
+          },
+          "location" : {
+            "type" : "string"
+          },
+          "workMode" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "jobUrl" : {
+            "type" : "string"
+          },
+          "skills" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -29994,6 +30274,27 @@
             "type" : "boolean"
           },
           "preferences" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Saved" : {
+        "type" : "object",
+        "properties" : {
+          "applicationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "company" : {
+            "type" : "string"
+          },
+          "roleTitle" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "alreadySaved" : {
             "type" : "boolean"
           }
         }
@@ -33548,6 +33849,10 @@
           },
           "pausedReason" : {
             "type" : "string"
+          },
+          "memberId" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
