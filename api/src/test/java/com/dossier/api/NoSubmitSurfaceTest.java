@@ -83,6 +83,11 @@ class NoSubmitSurfaceTest {
         noClasses()
             .that()
             .resideInAnyPackage(ORG_SERVICES)
+            // X9.15: the ONE sanctioned exception. A marketer SAVES a job (status SAVED, never applied) on an assigned consultant's tracker through
+            // ApplicationSyncService inside TrackerActAs, after TrackerActForGate proved the access; the history names the marketer. It is a bookmark,
+            // not a submission (E1 holds: Kiwiply never submits). Needs the user's explicit sign-off (docs/HANDOFF-CHANGE-AUDIT-REPORT.md, decision D8).
+            .and()
+            .doNotHaveSimpleName("SaveForConsultantService")
             .should()
             .dependOnClassesThat()
             .belongToAnyOf(ApplicationSyncService.class, ApplicationEventService.class, ApplicationPatchService.class, ApplicationService.class)
