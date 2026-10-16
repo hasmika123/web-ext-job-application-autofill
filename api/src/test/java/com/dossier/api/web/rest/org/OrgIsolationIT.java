@@ -302,6 +302,7 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/profile/prefs", Case.consultantWrite("{\"kind\":\"ROLE\",\"value\":\"Hijack role\"}", 200)),
         Map.entry("DELETE /api/orgs/{orgId}/me-workspace/profile/prefs/{prefId}", Case.consultantWrite(null, 200)),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/resumes", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/resumes/sources", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/preview", Case.consultantRead()),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/resumes/{resumeId}/primary", Case.consultantWrite(null, 200)),
         Map.entry("PATCH /api/orgs/{orgId}/me-workspace/resumes/{resumeId}", Case.consultantWrite("{\"name\":\"Hijacked resume\"}", 200)),
