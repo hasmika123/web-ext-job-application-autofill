@@ -70,6 +70,15 @@ public class AccountDeletionService {
     private final TrackerDataService trackerDataService;
     private final com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService;
     private final com.dossier.api.repository.ExtConnectCodeRepository extConnectCodeRepository;
+    private com.dossier.api.repository.sub.InvoiceRepository invoiceRepository;
+    private com.dossier.api.repository.sub.InvoiceLineRepository invoiceLineRepository;
+
+    /** Optional (K8.3): the invoice mirror's repositories, to pseudonymise a deleted account's invoices. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setInvoiceRepositories(com.dossier.api.repository.sub.InvoiceRepository invoices, com.dossier.api.repository.sub.InvoiceLineRepository lines) {
+        this.invoiceRepository = invoices;
+        this.invoiceLineRepository = lines;
+    }
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -147,6 +156,9 @@ public class AccountDeletionService {
         // Admin notes and the billing timeline (9.C1): notes go with the account; webhook events
         // stay as a record of what Stripe sent but stop pointing at the person.
         customerNoteRepository.deleteAllByUserId(userId);
+        // K8.3: invoices are a financial record (kept 7 years): the link to the person is cut (user id becomes 0), the lines and amounts stay
+        if (invoiceRepository != null) invoiceRepository.pseudonymise(userId);
+        if (invoiceLineRepository != null) invoiceLineRepository.pseudonymise(userId);
         String customerId = subscriptionRepository.findOneByUserId(userId).map(Subscription::getStripeCustomerId).orElse(null);
         stripeEventRepository.forget(userId, customerId);
         subscriptionRepository
