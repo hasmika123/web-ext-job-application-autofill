@@ -60,6 +60,7 @@ class MktResumesIT {
     private Organization beta;
 
     @BeforeEach
+    @org.junit.jupiter.api.Timeout(120) // the demo seed on a cold context outlasts the suite-wide 15 s default
     void seed() {
         assertThat(seeder.seed().ran()).isTrue();
         talent.seed();
@@ -86,12 +87,16 @@ class MktResumesIT {
         return om.readTree(r.getResponse().getContentAsString());
     }
 
+    /** Every id the caller can see: the API caps a page at 100 and the demo organization has more resumes than that, so read all pages. */
     private Set<Long> ids(String login, Organization org) throws Exception {
-        MvcResult r = getAs(login, base(org) + "?size=100");
-        assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200);
         Set<Long> out = new HashSet<>();
-        for (JsonNode i : json(r).path("items")) out.add(i.path("id").asLong());
-        return out;
+        for (int page = 0; ; page++) {
+            MvcResult r = getAs(login, base(org) + "?size=100&page=" + page);
+            assertThat(r.getResponse().getStatus()).as(r.getResponse().getContentAsString()).isEqualTo(200);
+            JsonNode body = json(r);
+            for (JsonNode i : body.path("items")) out.add(i.path("id").asLong());
+            if (out.size() >= body.path("total").asLong() || body.path("items").isEmpty()) return out;
+        }
     }
 
     @Test
