@@ -254,4 +254,28 @@ public interface StripeGateway {
 
     /** Test mode only (same guard as {@link #createTestClock}). */
     void advanceTestClock(String clockId, java.time.Instant to, IdempotencyKey key);
+
+    /**
+     * One Stripe Price as the catalog reconciler needs it (story K1.5). {@code interval} is mapped back from {@code recurring.interval_count}
+     * (1 and 12-month year rows alike: month x 1, 3 and 12), ONE_TIME for a price without a recurrence.
+     */
+    record StripePriceInfo(
+        String id,
+        String productId,
+        String currency,
+        long unitAmountMinor,
+        boolean active,
+        PriceInterval interval,
+        java.util.Map<String, String> metadata
+    ) {
+        public StripePriceInfo {
+            metadata = metadata == null ? java.util.Map.of() : java.util.Map.copyOf(metadata);
+        }
+    }
+
+    /**
+     * Read-only: the Stripe Prices Kiwiply created ({@code metadata.app=kiwiply}), active and inactive, newest first, at most {@code max} (paged internally).
+     * The catalog reconciler compares them with {@code product_price}; it never writes.
+     */
+    java.util.List<StripePriceInfo> listPrices(int max);
 }

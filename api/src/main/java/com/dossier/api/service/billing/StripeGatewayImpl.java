@@ -731,6 +731,40 @@ public class StripeGatewayImpl implements StripeGateway {
         });
     }
 
+    @Override
+    public java.util.List<StripePriceInfo> listPrices(int max) {
+        int cap = Math.max(1, Math.min(max, 5000));
+        return read("list prices", (c, o) -> {
+            java.util.List<StripePriceInfo> out = new java.util.ArrayList<>();
+            String after = null;
+            while (out.size() < cap) {
+                var b = com.stripe.param.PriceListParams.builder().setLimit(100L);
+                if (after != null) b.setStartingAfter(after);
+                com.stripe.model.StripeCollection<com.stripe.model.Price> page = c.prices().list(b.build(), o);
+                java.util.List<com.stripe.model.Price> data = page.getData();
+                if (data == null || data.isEmpty()) break;
+                for (com.stripe.model.Price p : data) {
+                    after = p.getId();
+                    java.util.Map<String, String> md = p.getMetadata();
+                    if (md == null || !"kiwiply".equals(md.get("app"))) continue;
+                    out.add(new StripePriceInfo(p.getId(), p.getProduct(), p.getCurrency() == null ? null : p.getCurrency().toUpperCase(), nz(p.getUnitAmount()), Boolean.TRUE.equals(p.getActive()), intervalOf(p), md));
+                    if (out.size() >= cap) break;
+                }
+                if (!Boolean.TRUE.equals(page.getHasMore())) break;
+            }
+            return out;
+        });
+    }
+
+    private static PriceInterval intervalOf(com.stripe.model.Price p) {
+        com.stripe.model.Price.Recurring r = p.getRecurring();
+        if (r == null) return PriceInterval.ONE_TIME;
+        long months = "year".equals(r.getInterval()) ? 12L * nz(r.getIntervalCount() == null ? 1L : r.getIntervalCount()) : nz(r.getIntervalCount() == null ? 1L : r.getIntervalCount());
+        if (months == 12) return PriceInterval.YEAR;
+        if (months == 3) return PriceInterval.QUARTER;
+        return PriceInterval.MONTH;
+    }
+
     private void requireTestMode() {
         String k = props.getSecretKey();
         if (k != null && k.trim().contains("_live_")) {
