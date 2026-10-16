@@ -295,7 +295,9 @@ class MktJobsIT {
         assertThat(d.get(0).path("score").asInt()).isEqualTo(95);
     }
 
+    // Like assignWrites, the last step assigns through REQUIRES_NEW helpers that cannot see the class transaction's uncommitted rows, so this test commits its own (nanoTime-named) organizations.
     @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void aConsultantOnAProjectIsListedDisabledWithTheReasonAndAssigningThemIsAClear409() throws Exception {
         mine.setMarketingStatus("PAUSED"); // on a project
         consultants.saveAndFlush(mine);
@@ -320,6 +322,7 @@ class MktJobsIT {
         mine.setMarketingStatus("ACTIVE");
         consultants.saveAndFlush(mine);
         MvcResult again = call("mkt-jobs-marketer", post(base(a) + "/" + jobA.getId() + "/assign").content("{\"consultantId\":" + mine.getId() + "}"));
+        assertThat(again.getResponse().getStatus()).as("assignable again: " + again.getResponse().getContentAsString()).isEqualTo(200);
         assertThat(again.getResponse().getContentAsString()).as("no longer refused as paused").doesNotContain("CONSULTANT_PAUSED");
     }
 
