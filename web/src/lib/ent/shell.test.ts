@@ -1,7 +1,9 @@
+import { readdirSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { meTenantFor as untyped } from "../../../scripts/mock-me-tenant.mjs";
 import { parseMeTenant } from "@/lib/ent/tenant-session-core";
-import { activeKey, bannersFor, catchAllPage, defaultTitle, labelFor, navSections, primaryRoleName, searchPages, shellWorkspace, switcherRows } from "@/lib/ent/shell";
+import { ADMIN_NOT_BUILT, activeKey, bannersFor, catchAllPage, defaultTitle, labelFor, navSections, primaryRoleName, searchPages, shellWorkspace, switcherRows } from "@/lib/ent/shell";
 import type { MeTenant } from "@/lib/ent/workspaces";
 
 const meTenantFor = untyped as (host: string, login: string) => { body: unknown } | null;
@@ -50,15 +52,26 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     expect(navSections(ws(beta, "admin")).flatMap((s) => s.items).find((i) => i.key === "consultants")?.soon).toBe(true);
   });
 
-  it("HR and Finance are the expandable rows, only when the member holds the page (hrFinance module on)", () => {
+  it("HR and Finance read 'Soon' with no sub-menu, even when the API lists the page (D9: their pages are placeholders)", () => {
     const owner = me("acme.localhost", "owner@acme.com");
     const withHr = { ...owner, workspaces: owner.workspaces.map((w) => (w.key === "admin" ? { ...w, nav: [...w.nav, { key: "hr", label: "HR", icon: "Heart", href: "/w/admin/hr" }] } : w)) };
-    const hr = navSections(ws(withHr, "admin")).flatMap((s) => s.items).find((i) => i.key === "hr")!;
-    expect(hr.children?.map((c) => c.text)).toEqual(["Overview", "Onboarding", "Documents", "Compliance"]);
-    // without the page it is still listed, as a soon row with no children
-    const soonHr = navSections(ws(owner, "admin")).flatMap((s) => s.items).find((i) => i.key === "hr");
-    expect(soonHr?.soon).toBe(true);
-    expect(soonHr?.children).toBeUndefined();
+    for (const m of [owner, withHr]) {
+      const hr = navSections(ws(m, "admin")).flatMap((s) => s.items).find((i) => i.key === "hr")!;
+      expect(hr.soon).toBe(true);
+      expect(hr.children).toBeUndefined();
+    }
+  });
+
+  it("every Administration page that is not built reads Soon, and no built page is on that list", () => {
+    const owner = me("acme.localhost", "owner@acme.com");
+    const items = navSections(ws(owner, "admin")).flatMap((s) => s.items);
+    for (const key of ADMIN_NOT_BUILT) {
+      const item = items.find((i) => i.key === key);
+      if (item) expect(item.soon, key).toBe(true);
+    }
+    const dir = resolve(__dirname, "../../app/(tenant)/%5Ft/w/[workspace]");
+    const folders = new Set(readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name));
+    for (const key of ADMIN_NOT_BUILT) expect(folders.has(key), `${key} has a page folder: take it off ADMIN_NOT_BUILT`).toBe(false);
   });
 
   it("the organization's terminology renames the entries it covers and nothing else", () => {

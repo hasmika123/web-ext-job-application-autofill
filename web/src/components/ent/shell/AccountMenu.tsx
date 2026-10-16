@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDownIcon, MemberAvatar, Menu, SignOutIcon, SwapIcon, UserIcon, BellIcon, ShieldIcon, LinkIcon, useToast, type MenuEntry } from "@kiwiply/ui";
+import { ChevronDownIcon, MemberAvatar, Menu, SignOutIcon, SwapIcon, UserIcon, BellIcon, ShieldIcon, LinkIcon, type MenuEntry } from "@kiwiply/ui";
 import { Button } from "@/components/ui";
-import { requestExtensionConnectLink } from "@/lib/ent/connect-extension";
+import ConnectExtensionDialog from "@/components/ent/shell/ConnectExtensionDialog";
 import { primaryRoleShortName } from "@/lib/ent/shell";
 import { showSwitcher, type MeTenant } from "@/lib/ent/workspaces";
 
@@ -42,49 +42,43 @@ export function SignOutButton({ className }: { className?: string }) {
  */
 export default function AccountMenu({ me, onSwitchWorkspace, compact = false }: { me: MeTenant; onSwitchWorkspace: () => void; compact?: boolean }) {
   const router = useRouter();
-  const toast = useToast();
   const role = primaryRoleShortName(me);
-  /** Decision O4: opens the platform /connect page with a one-time code so the browser extension can sign in as this enterprise account. */
-  async function connectExtension() {
-    const link = await requestExtensionConnectLink();
-    if (!link.ok) {
-      toast({ title: "Extension not connected", description: link.message, variant: "error" });
-      return;
-    }
-    window.open(link.url, "_blank", "noopener,noreferrer");
-  }
+  const [connectOpen, setConnectOpen] = useState(false);
   const entries: MenuEntry[] = [
     { heading: `${me.org.displayName} · ${role}` },
     { label: "My profile", icon: <UserIcon size={16} />, onSelect: () => router.push("/me") },
     { label: "Notifications", icon: <BellIcon size={16} />, onSelect: () => router.push("/me#notifications") },
     { label: "Security", icon: <ShieldIcon size={16} />, onSelect: () => router.push("/me#security") },
     ...(showSwitcher(me) ? [{ label: "Switch workspace", icon: <SwapIcon size={16} />, onSelect: onSwitchWorkspace }] : []),
-    { label: "Connect extension", icon: <LinkIcon size={16} />, onSelect: () => void connectExtension() },
+    { label: "Connect extension", icon: <LinkIcon size={16} />, onSelect: () => setConnectOpen(true) },
     { separator: true },
     { label: "Sign out", icon: <SignOutIcon size={16} />, onSelect: () => void signOut(), danger: true },
   ];
   return (
-    <Menu
-      align="end"
-      menuClassName="min-w-[240px]"
-      items={entries}
-      trigger={
-        <button
-          type="button"
-          aria-label={`Account menu for ${me.person.name}`}
-          data-account-menu
-          className="ent-profile flex items-center gap-3 text-left transition-colors hover:bg-paper-2"
-        >
-          <MemberAvatar name={me.person.name} src={me.person.imageUrl} size={44} />
-          {compact ? null : (
-            <span className="hidden min-w-0 leading-tight lg:block">
-              <span className="block max-w-[150px] truncate text-[15px] font-semibold text-[color:var(--ent-title)]">{me.person.name}</span>
-              <span className="block max-w-[150px] truncate text-[13px] text-[color:var(--ent-soft)]">{role}</span>
-            </span>
-          )}
-          <ChevronDownIcon size={16} className="hidden flex-none text-[color:var(--ent-title)] lg:block" />
-        </button>
-      }
-    />
+    <>
+      <ConnectExtensionDialog open={connectOpen} onClose={() => setConnectOpen(false)} />
+      <Menu
+        align="end"
+        menuClassName="min-w-[240px]"
+        items={entries}
+        trigger={
+          <button
+            type="button"
+            aria-label={`Account menu for ${me.person.name}`}
+            data-account-menu
+            className="ent-profile flex items-center gap-3 text-left transition-colors hover:bg-paper-2"
+          >
+            <MemberAvatar name={me.person.name} src={me.person.imageUrl} size={44} />
+            {compact ? null : (
+              <span className="hidden min-w-0 leading-tight lg:block">
+                <span className="block max-w-[150px] truncate text-[15px] font-semibold text-[color:var(--ent-title)]">{me.person.name}</span>
+                <span className="block max-w-[150px] truncate text-[13px] text-[color:var(--ent-soft)]">{role}</span>
+              </span>
+            )}
+            <ChevronDownIcon size={16} className="hidden flex-none text-[color:var(--ent-title)] lg:block" />
+          </button>
+        }
+      />
+    </>
   );
 }

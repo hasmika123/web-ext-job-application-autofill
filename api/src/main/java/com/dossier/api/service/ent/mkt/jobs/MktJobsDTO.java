@@ -77,7 +77,8 @@ public final class MktJobsDTO {
     public record Detail(Job job, String description, String employment, String duration, String experienceLevel, List<MatchRow> matches, String summaryNote) {}
 
     /** A consultant the caller may assign; {@code score}/{@code matchStatus} are null when there is no match row yet. */
-    public record Candidate(Long consultantId, String name, String title, String availability, Integer score, String matchStatus) {}
+    /** {@code pausedReason} is non-null for a consultant who cannot be assigned right now (the picker shows them disabled with these words). */
+    public record Candidate(Long consultantId, String name, String title, String availability, Integer score, String matchStatus, String pausedReason) {}
 
     public record AssignRequest(Long consultantId) {}
 

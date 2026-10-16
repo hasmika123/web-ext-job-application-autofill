@@ -3615,3 +3615,4 @@ focus to 0.2, add a Log line. Do NOT start 0.2.
 ```
 ```
 ```
+- 2026-10-16 · **ent-audit-fix: enterprise role audit fixes (branch `ent-p0-fixes`)** · D1 builder crash (plain-data env spec), D2/D3 consultant to member linking + Gamma seed + act-for journey, D5 marketer Job Discovery, D10 new-resume chooser reads org records, D6 /me profile + Connect extension dialog, D8 demo refusal copy, D9 Soon chips + Audit Logs page/API, D12 no sample marketer content, D13/D14/D15 and P2 quick fixes. Tests: web vitest 3910, ITs (OrgResumeBuilderIT, SeparateDemoSeederIT, OrgConsultantResourceIT, OrgAuditEventsIT, OrgIsolationIT), real-stack Playwright tenant-audit-fixes 11/11. Open: D4 Marketing Manager workspace, Reports/Domains/HR/Finance/Billing/Integrations pages. See docs/enterprise-v2/qa/ENTERPRISE-ROLE-AUDIT-2026-10-16.md.

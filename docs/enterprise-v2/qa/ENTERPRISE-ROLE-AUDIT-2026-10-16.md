@@ -34,3 +34,24 @@ domains (live flag, no page/API), roles (built), marketing (built; marketing-mgm
 
 ## Test residue
 Acme: Anika resume "QA Audit Resume" (1504), 1 submission approved, interest sent on 1 opportunity, "Project Manager" declined; Omar logged "QA audit activity". Gamma: team "QA Audit Team", dept "QA Audit Dept", invite qa.invitee@gamma.example.com, consultant Cora Lindahl (profile 200), marketer Marco Bellini with 1 assignment, share links switched on.
+
+## Fix status (branch `ent-p0-fixes`, 2026-10-16; commits named `ent-audit-fix: D#`)
+| Defect | Status | Notes |
+|---|---|---|
+| D1 builder crash | FIXED | Server routes pass a plain-data `BuilderEnvSpec`; `BuilderEnvFromSpec` builds the env (with `editorHref`) on the client. Unit test walks each route's props for non-serialisable values; real-stack Playwright opens the editor from Create and from Open in builder. Seeded directory records have no builder document, so Open in builder makes an editable copy from the record. |
+| D2 act-for dead | FIXED (Gamma) / BY DESIGN (Acme) | Add consultant takes `memberId` or links the single free member with the same e-mail; `linkable-members` + `POST .../member` (drawer: Link a sign-in). Gamma seed links Cora and Dana and assigns Marco; Gamma journey create, pending, approve is an IT and a Playwright test. Acme stays refused by the strict rule; its message now reads "Needs an organization account". |
+| D3 Gamma consultant 404 | FIXED | Same link; Dana and Cora land on a working consultant workspace. |
+| D4 Marketing Manager workspace | OPEN | Out of scope (needs design). |
+| D5 marketer Job Discovery | FIXED | `[workspace]/jobs` hands marketing its own page through `marketingPageFor`; test renders every Marketing menu item through its owning route. The other static `[workspace]/*` folders serve marketing correctly. |
+| D6 /me 404, Connect extension | FIXED | `/me` basic profile for every member (photo shown, not changeable yet). Connect extension is an install-first dialog. |
+| D7 branding preview | FIXED (earlier) | |
+| D8 demo write copy | FIXED | One shell-wide notice for every `DEMO_READ_ONLY` refusal; share-links switch no longer says Not saved. Demo writes stay off by default. |
+| D9 sidebar and placeholders | PARTLY | Not-built admin pages all read Soon; Audit Logs is now a real read-only page and API. Reports, Domains, HR, Finance, Billing, Integrations remain placeholders (features). |
+| D10 new-resume dialog | FIXED | Chooser reads the career profile and every approved resume (records copied via a directory source); first approved resume becomes the org primary. |
+| D12 consultant workspace | PARTLY | My Marketer and Home no longer return sample messages/plan/notes/badge; messaging buttons disabled with a reason; stale banners reworded. Rows the demo seeders flag Sample (offers, submissions, availability, placements, features) keep their Sample mark in Acme; replacing them needs the employer and marketer approval sides. Inbox unchanged. |
+| D13 mobile and tables | PARTLY | Grid overflow, Talent rail (1680px) and Interviews docked column (1680px) fixed. Interviews auto-open sheet at 390 not reproducible (auto-open is dock-only). |
+| D14 global search | FIXED (honest) | No search API: the box says Search pages. |
+| D15 Kiwiply leaks | FIXED | Tenant 404 with the org's frame, tab title and words; one icon link; system actor reads "automatically". |
+| P2 | PARTLY | Fixed: donut legend, Active Staff label, role description text, (on_site), Profile Strength vs All set, New vs Interest sent, 943 KB vs No file, invitations sparkline, interviews clipping, missing-resume 404 copy, /settings prefetch 404. Not changed: scheduled marketing activities are future by design; Employees drawer clipping and Pending Approval stale drawer were not reproduced. |
+
+Real-stack check: `web/e2e/journeys/tenant-audit-fixes.spec.ts` (11 tests) against a stack seeded by the fixed seeder.

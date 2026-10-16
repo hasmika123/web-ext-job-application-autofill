@@ -224,8 +224,8 @@ public class ConsultantHomeService {
         List<CwsTask> openTasks = tasks.findByOrgIdAndConsultantIdAndStatusNotOrderByDueOnAsc(org, c.getId(), "DONE");
         List<TaskRow> taskRows = openTasks.stream().limit(5).map(t -> new TaskRow(t.getId(), t.getTitle(), t.getDueOn(), t.getPriority(), t.getStatus())).toList();
 
-        // SAMPLE until the marketer module exists: this is one half of a two-role conversation
-        Messages messages = new Messages(true, List.of());
+        // No message store exists between a consultant and a marketer, so this is an honest empty list (D12), never sample content
+        Messages messages = new Messages(false, List.of());
 
         return new Response(
             org, now, new Me(c.getId(), c.getDisplayName(), c.getJobTitle()), tiles, recommended, opps, appRows, interviewRows,

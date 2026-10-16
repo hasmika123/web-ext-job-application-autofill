@@ -1,5 +1,6 @@
 "use client";
 
+import { WORK_MODE_LABEL } from "@/lib/ent/jobs";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { ConsentChip, ErrorState, MemberAvatar, ReadinessRing, SideSheet, Skeleton, useNarrow } from "@kiwiply/ui";
@@ -102,7 +103,7 @@ export default function ProfileDrawer({
             </div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 py-3 text-[13px]">
               <div><dt className="text-muted">Experience</dt><dd className="font-semibold text-ink">{yearsText(d.yearsExperience) || "-"}</dd></div>
-              <div><dt className="text-muted">Location</dt><dd className="font-semibold text-ink">{d.location || "-"}{d.workMode ? ` (${d.workMode.toLowerCase()})` : ""}</dd></div>
+              <div><dt className="text-muted">Location</dt><dd className="font-semibold text-ink">{d.location || "-"}{d.workMode ? ` (${WORK_MODE_LABEL[d.workMode] ?? d.workMode.toLowerCase().replace(/_/g, " ")})` : ""}</dd></div>
             </dl>
             <Section title="Skills" empty="No skills on file." count={d.skills.length > 0 ? 1 : 0}>
               <li className="flex flex-wrap gap-1.5">

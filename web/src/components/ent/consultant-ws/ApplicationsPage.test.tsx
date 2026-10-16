@@ -139,7 +139,7 @@ describe("My Applications from real data", () => {
     expect(within(line).getByText("MARKETER")).toBeTruthy();
     expect(sheet.querySelector("[data-created-by]")!.textContent).toContain("Priya Raman");
     const lines = [...sheet.querySelectorAll("[data-actor-line]")].map((n) => n.textContent);
-    expect(lines).toEqual(["by Priya Raman" + "ADMIN", "by you", "by Sarah Chen" + "MARKETER", "by Kiwiply", "by a former member" + "MEMBER"]);
+    expect(lines).toEqual(["by Priya Raman" + "ADMIN", "by you", "by Sarah Chen" + "MARKETER", "automatically", "by a former member" + "MEMBER"]);
     expect(sheet.textContent).not.toContain("ent#");
   });
 

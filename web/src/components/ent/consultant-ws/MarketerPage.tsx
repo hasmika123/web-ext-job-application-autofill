@@ -63,55 +63,21 @@ import {
 /**
  * My Marketer (design/enterprise-consultant/marketer.webp): one call to `GET /api/orgs/{orgId}/me-workspace/marketer` (through the BFF)
  * draws the page for the signed-in consultant's OWN data. The marketer card, focus opportunities, follow-ups and the focus summary are
- * real. Messages, the shared action plan, collaboration notes and the "Responsive" badge are the marketer's half of the relationship:
- * they carry a "Sample" marker, and the Send Message / Schedule Call / View Calendar buttons open an honest dialog (nothing is sent).
+ * real. Messages, the shared action plan and collaboration notes do not exist as data yet, so they show an honest empty state (never sample
+ * content), and the Send Message / Schedule Call / View Calendar buttons are disabled with the reason as their tooltip (nothing is sent).
  */
 
-/* ── the "arrives later" dialog behind every messaging button ───────────────────────── */
+/* ── messaging your marketer is not built: the buttons are honest about it ─────────── */
 
-type Ask = { action: string } | null;
-
-function SoonDialog({ ask, onClose }: { ask: Ask; onClose: () => void }) {
-  return (
-    <Dialog
-      open={ask !== null}
-      onClose={onClose}
-      title="Messaging arrives with the marketing workspace"
-      description={
-        ask
-          ? `${ask.action} is not connected yet. Nothing was sent or scheduled.`
-          : undefined
-      }
-      footer={
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex min-h-10 items-center rounded-xl bg-accent px-4 text-[14px] font-semibold text-paper hover:bg-accent-deep"
-        >
-          Got it
-        </button>
-      }
-    >
-      <p className="text-[13.5px] leading-snug text-muted">
-        Until then, your marketer reaches you by the email on your profile, and
-        anything they prepare for you shows up in Assigned Opportunities.
-      </p>
-    </Dialog>
-  );
-}
+/** There is no message, call or request channel between a consultant and a marketer yet (D12, 2026-10-16 audit): nothing here pretends to send anything. */
+export const NOT_AVAILABLE = "Messaging your marketer isn't available yet. They reach you by the email on your profile, and what they prepare for you shows up in Assigned Opportunities.";
 
 const ACTION_BTN =
   "flex min-h-12 w-full items-center gap-3 rounded-xl border border-line bg-paper px-3.5 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft";
 
 /* ── the cards ──────────────────────────────────────────────────────────────────────── */
 
-function YourMarketer({
-  view,
-  onAsk,
-}: {
-  view: MarketerView;
-  onAsk: (action: string) => void;
-}) {
+function YourMarketer({ view }: { view: MarketerView }) {
   const m = view.marketer;
   const actions: { label: string; icon: ComponentType<IconProps> }[] = [
     { label: "Send Message", icon: MailIcon },
@@ -155,6 +121,7 @@ function YourMarketer({
                 </p>
               </div>
             </div>
+            {view.responseBadge.label ? (
             <p
               data-response-badge
               className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1.5"
@@ -171,6 +138,7 @@ function YourMarketer({
               </span>
               {view.responseBadge.sample ? <SampleMark /> : null}
             </p>
+            ) : null}
           </div>
           <ul
             className="grid min-w-0 content-start gap-2.5"
@@ -182,10 +150,10 @@ function YourMarketer({
                 <li key={a.label}>
                   <button
                     type="button"
-                    aria-haspopup="dialog"
+                    disabled
+                    title={NOT_AVAILABLE}
                     data-marketer-action={a.label}
-                    onClick={() => onAsk(a.label)}
-                    className={ACTION_BTN}
+                    className={cn(ACTION_BTN, "cursor-not-allowed opacity-60 hover:bg-paper")}
                   >
                     <Icon size={18} className="flex-none" />
                     {a.label}
@@ -559,13 +527,7 @@ function CollaborationNotes({ view }: { view: MarketerView }) {
 
 /* ── the right rail ─────────────────────────────────────────────────────────────────── */
 
-function QuickActions({
-  onAsk,
-  enabled,
-}: {
-  onAsk: (action: string) => void;
-  enabled: boolean;
-}) {
+function QuickActions() {
   const items: { label: string; icon: ComponentType<IconProps> }[] = [
     { label: "Message Marketer", icon: MailIcon },
     { label: "Request Resume Update", icon: FileTextIcon },
@@ -581,17 +543,10 @@ function QuickActions({
             <li key={q.label}>
               <button
                 type="button"
-                aria-haspopup="dialog"
                 data-marketer-quick={q.label}
-                disabled={!enabled}
-                title={
-                  enabled ? undefined : "Available once a marketer is assigned"
-                }
-                onClick={() => onAsk(q.label)}
-                className={cn(
-                  ACTION_BTN,
-                  "justify-between disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-paper",
-                )}
+                disabled
+                title={NOT_AVAILABLE}
+                className={cn(ACTION_BTN, "justify-between disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-paper")}
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <Icon size={18} className="flex-none" />
@@ -681,8 +636,6 @@ export default function MarketerPage({
   const { view, status, reload } = useWorkspaceData(
     useCallback(() => fetchMarketer(orgId), [orgId]),
   );
-  const [ask, setAsk] = useState<Ask>(null);
-  const open = useCallback((action: string) => setAsk({ action }), []);
 
   if (status === "denied")
     return (
@@ -718,7 +671,7 @@ export default function MarketerPage({
       ) : view ? (
         <div className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,0.62fr)]">
           <div className="grid min-w-0 content-start gap-4 sm:gap-5 xl:col-span-2 2xl:grid-cols-2">
-            <YourMarketer view={view} onAsk={open} />
+            <YourMarketer view={view} />
             <ActionPlan view={view} />
             <FocusOpportunities view={view} />
             <RecentMessages view={view} />
@@ -730,7 +683,7 @@ export default function MarketerPage({
               name={firstName(first)}
               body="Get personalized collaboration tips, draft questions for your marketer, and stay aligned on your goals. I'm here whenever you need support on your journey."
             />
-            <QuickActions onAsk={open} enabled={view.marketer !== null} />
+            <QuickActions />
             <MarketerFocus view={view} />
           </div>
         </div>
@@ -742,7 +695,6 @@ export default function MarketerPage({
         </div>
       )}
 
-      <SoonDialog ask={ask} onClose={() => setAsk(null)} />
     </div>
   );
 }

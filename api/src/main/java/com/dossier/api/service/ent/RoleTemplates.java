@@ -142,7 +142,7 @@ public final class RoleTemplates {
         out.add(orgAdmin);
 
         out.add(new Template(
-            STAFF, "Staff", "Looks after a group of members in a school or bootcamp (existing flow).", null,
+            STAFF, "Staff", "Looks after a group of members.", null,
             new B()
                 .addWith(ORG, OrgRolePermission.CEILING_MEMBER, null, "members.invite")
                 .addWith(ORG, OrgRolePermission.CEILING_MEMBER, null, "members.import")
@@ -150,7 +150,7 @@ public final class RoleTemplates {
                 .self()
                 .build()
         ));
-        out.add(new Template(MEMBER, "Member", "An ordinary member of a school or bootcamp (existing flow).", null, new B().add(OWN, "ops.own_hours").self().build()));
+        out.add(new Template(MEMBER, "Member", "An ordinary member of the organization.", null, new B().add(OWN, "ops.own_hours").self().build()));
 
         out.add(new Template(
             CONSULTANT, "Consultant", "A consultant: their own opportunities, applications, interviews and resumes. Submits for themselves.", "CONSULTANT",

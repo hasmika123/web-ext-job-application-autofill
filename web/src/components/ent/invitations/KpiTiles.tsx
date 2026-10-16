@@ -72,7 +72,7 @@ export default function KpiTiles({ counts, failed, onRetry }: { counts: Invitati
               )}
             </div>
             {row && prev !== row.count && (
-              <span aria-hidden className="absolute bottom-4 right-4 hidden w-24 sm:block">
+              <span aria-hidden className="absolute right-4 top-4 hidden w-24 sm:block">
                 <Sparkline values={trend(prev, row.count)} smooth color={line} className="h-9" />
               </span>
             )}
