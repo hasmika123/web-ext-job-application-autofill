@@ -67,8 +67,8 @@
 | K7.5 | Personal usage ledger | Not Started | API | | | |
 | K7.6 | PLAN_REQUIRED upgrade object + UpgradeSheet | Not Started | API, Web | | | |
 | K7.7 | Regression gate | Not Started | API | | | |
-| K8.1 | Webhook scope router | Not Started | API | | | |
-| K8.2 | StripeGateway growth | Not Started | API | | | shared with X6.6 |
+| K8.1 | Webhook scope router | Completed | API | 5840f3f6 | BillingScopeRouterTest (5), BillingWebhookIT unchanged (17) | account-kind guards + webhook routing; UserBillingHandler moved unchanged; OrgBillingWebhookHandler no-op seam; stripe_event.scope/org_id (replayed_* deferred to K8.5) |
+| K8.2 | StripeGateway growth | Completed | API | ea3e4762 | StripeGatewayImplTest (12), StripeWebhookEventParseTest (4) | shared with X6.6: org-only methods (createOrgCustomer, coupons, createInvoiceForPrices, refunds) still X6.6 |
 | K8.3 | Personal invoice mirror | Not Started | API | | | |
 | K8.4 | No-data migration + runbook (S-03) | Not Started | API | | | |
 | K8.5 | Personal reconciler + replay | Not Started | API | | | |
