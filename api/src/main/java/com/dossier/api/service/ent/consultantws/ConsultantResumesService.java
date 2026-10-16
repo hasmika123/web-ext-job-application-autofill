@@ -34,6 +34,7 @@ import com.dossier.api.service.dto.BuiltResumeDTO;
 import com.dossier.api.service.ent.resumes.ConsultantCareerSeed;
 import com.dossier.api.service.ent.resumes.OrgResumeAuthors;
 import com.dossier.api.service.ent.resumes.OrgResumeCap;
+import com.dossier.api.service.ent.resumes.OrgResumeApproval;
 import com.dossier.api.service.ent.resumes.OrgResumeLinkService;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
@@ -354,6 +355,7 @@ public class ConsultantResumesService {
         r.setApprovalStatus("APPROVED");
         r.setApprovedAt(now);
         r.setApprovedByMemberId(me.memberId());
+        OrgResumeApproval.pin(r, hashOf(r)); // X7.4: the approved text is the version they reviewed (requireReviewedVersion matched its hash)
         // D10: a consultant with no primary resume yet gets this one as their primary (the first approved resume)
         boolean firstPrimary = resumes.findByOrgIdAndConsultantId(c.getOrgId(), c.getId()).stream().noneMatch(OrgResume::isPrimaryForOrg);
         if (firstPrimary) r.setPrimaryForOrg(true);
