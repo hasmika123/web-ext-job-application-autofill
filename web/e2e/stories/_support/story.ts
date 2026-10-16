@@ -1,7 +1,7 @@
 import { test as base, expect, type BrowserContext, type Page } from "@playwright/test";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { statePath } from "./global-setup";
+import { freshSignIn, statePath } from "./global-setup";
 import { PERSONAS, hostOf, type PersonaKey } from "./personas";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const tts = require("../../../scripts/story-video/tts.cjs") as { spokenMs: (text: string) => number };
@@ -76,6 +76,7 @@ export const test = base.extend<{ as: (who: PersonaKey) => Promise<Session>; flo
     await use(async (who) => {
       const persona = PERSONAS[who];
       const file = statePath(who);
+      await freshSignIn(browser, who); // a cached sign-in older than a few minutes is renewed first (see global-setup)
       const t0 = Date.now();
       const context = await browser.newContext({
         storageState: existsSync(file) ? file : undefined,
@@ -132,6 +133,7 @@ export class Flow {
   async signInAs(who: PersonaKey) {
     const file = statePath(who);
     if (!existsSync(file)) throw new Error(`no cached sign-in for ${who} (set STORY_PERSONAS, and GAMMA_DEMO_PASSWORD for a Gamma person)`);
+    await freshSignIn(this.context.browser()!, who);
     const state = JSON.parse(readFileSync(file, "utf8")) as { cookies: Parameters<BrowserContext["addCookies"]>[0] };
     await this.context.clearCookies();
     await this.context.addCookies(state.cookies);
