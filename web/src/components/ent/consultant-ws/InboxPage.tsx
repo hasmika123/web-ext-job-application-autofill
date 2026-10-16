@@ -5,7 +5,8 @@ import { ErrorState, LockIcon, MailIcon, ShieldIcon, Skeleton, cn } from "@kiwip
 import InboxConnect from "@/components/settings/InboxConnect";
 import PageHeader from "@/components/ent/shell/ShellContext";
 import LocalDate from "@/components/LocalDate";
-import { Card, Empty, Pill, useWorkspaceData } from "./parts";
+import { SITE_URL } from "@/lib/site";
+import { BASE, Card, Empty, Pill, useWorkspaceData } from "./parts";
 import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, stageTone, type ConsultantInboxView, type InboxSuggestion, type InboxUpdate } from "@/lib/ent/consultant-ws/inbox";
 
 /**
@@ -142,6 +143,7 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
             view={v.inbox}
             endpoints={inboxEndpoints(orgId)}
             locked={<Locked />}
+            links={{ privacy: `${SITE_URL}/privacy`, profile: `${BASE}/profile` }}
             onChanged={() => void reload()}
           />
           {v.inbox.connected && v.entitled && v.inbox.status !== "NEEDS_RECONNECT" ? (
