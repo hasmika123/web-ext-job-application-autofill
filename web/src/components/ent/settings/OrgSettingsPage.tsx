@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, CheckIcon, Dialog, ErrorState, FileTextIcon, Skeleton, Switch, useToast } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
+import GeneralSecuritySettings from "./GeneralSecuritySettings";
 import { fetchResumePolicy, saveConsultantShareLinks, type ResumePolicy } from "@/lib/ent/resume-policy";
 
 /**
@@ -93,6 +94,8 @@ export default function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
   if (status === "failed" || !policy) return <ErrorState what="the organization settings" description="Please refresh in a moment." onRetry={() => void load()} />;
 
   return (
+    <div className="flex flex-col gap-4">
+    <GeneralSecuritySettings orgId={orgId} />
     <section aria-labelledby="org-set-resumes" className={`${CARD} p-5`} data-org-settings>
       <div className="flex items-center gap-2">
         <FileTextIcon size={18} className="text-muted" />
@@ -152,5 +155,6 @@ export default function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         </p>
       </Dialog>
     </section>
+    </div>
   );
 }

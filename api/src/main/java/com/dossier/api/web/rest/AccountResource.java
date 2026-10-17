@@ -51,6 +51,10 @@ public class AccountResource {
 
     private final TenantUrls tenantUrls;
 
+    // X2.9: an organization's own password minimum. Field-injected and optional so the constructor stays as it is.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.settings.OrgSecurityPolicy orgSecurity;
+
     public AccountResource(
         UserRepository userRepository,
         UserService userService,
@@ -156,7 +160,7 @@ public class AccountResource {
     @PostMapping(path = "/account/change-password")
     public void changePassword(@RequestBody PasswordChangeDTO passwordChangeDto) {
         demoGuard.assertNotDemo();
-        if (isPasswordLengthInvalid(passwordChangeDto.getNewPassword())) {
+        if (isPasswordLengthInvalid(passwordChangeDto.getNewPassword()) || belowOrganizationMinimum(passwordChangeDto.getNewPassword())) {
             throw new InvalidPasswordException();
         }
         userService.changePassword(passwordChangeDto.getCurrentPassword(), passwordChangeDto.getNewPassword());
@@ -195,7 +199,7 @@ public class AccountResource {
      */
     @PostMapping(path = "/account/reset-password/finish")
     public void finishPasswordReset(@RequestBody KeyAndPasswordVM keyAndPassword) {
-        if (isPasswordLengthInvalid(keyAndPassword.getNewPassword())) {
+        if (isPasswordLengthInvalid(keyAndPassword.getNewPassword()) || belowOrganizationMinimum(keyAndPassword.getNewPassword())) {
             throw new InvalidPasswordException();
         }
         Optional<User> user = userService.completePasswordReset(keyAndPassword.getNewPassword(), keyAndPassword.getKey(), accountScopes.loginWorld());
@@ -203,6 +207,13 @@ public class AccountResource {
         if (!user.isPresent()) {
             throw new AccountResourceException("No user was found for this reset key");
         }
+    }
+
+    /** X2.9: on an organization's own host the organization's password minimum applies on top of the platform's. Personal hosts: never. */
+    private boolean belowOrganizationMinimum(String password) {
+        if (orgSecurity == null || password == null) return false;
+        LoginWorld world = accountScopes.loginWorld();
+        return world.enterprise() && password.length() < orgSecurity.passwordMinLength(world.orgId());
     }
 
     private static boolean isPasswordLengthInvalid(String password) {

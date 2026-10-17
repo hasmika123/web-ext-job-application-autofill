@@ -244,6 +244,9 @@ class OrgIsolationIT {
         Map.entry("DELETE /api/orgs/{orgId}/members/offboarding/{offboardingId}", Case.people(204, "MEMBER_OFFBOARD_CANCELLED", 1, w -> null, null, null)),
         // Enterprise V2 X2.5: branding. Draft edits, discards and removing an absent asset write no audit row (by design).
         // Resume Builder policy (consultant share links, default off): the owner turns it on, one ORG_SETTINGS audit row.
+        Map.entry("GET /api/orgs/{orgId}/org-settings", Case.read()),
+        Map.entry("PUT /api/orgs/{orgId}/org-settings/general", Case.write("{\"timeZone\":\"America/Chicago\"}", 200, OrgAuditService.ORG_SETTINGS)),
+        Map.entry("PUT /api/orgs/{orgId}/org-settings/security", Case.write("{\"passwordMinLength\":10,\"reason\":\"Isolation check\"}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("GET /api/orgs/{orgId}/resume-policy", Case.read()),
         Map.entry("PUT /api/orgs/{orgId}/resume-policy", Case.write("{\"consultantShareLinks\":true}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("GET /api/orgs/{orgId}/branding", Case.read()),
@@ -523,6 +526,8 @@ class OrgIsolationIT {
         // Enterprise V2 job data audit (docs/enterprise-v2/60 section 11): read only, needs audit.view at ORG scope (the owner has it, every role without it gets the generic 404).
         Map.entry("GET /api/orgs/{orgId}/audit/job-data", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/audit", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/audit/export", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/reports/export", Case.read()),
         // Enterprise V2 Marketing workspace (mkt/**, ent-marketer). The legitimate caller is the owner (every marketing permission at ORG scope) in a world whose marketing module is on and whose
         // marketing rows were made through the real API (World.seedMkt). Reads write no audit row; every write records its own MARKETER_* row; the writes below that are documented as audit-free
         // are personal working state of the caller (a saved view, a saved search's "seen" marker, a prep checklist tick), like the dashboard alert dismissal above.
