@@ -424,3 +424,82 @@ describe("Applications: adding", () => {
     expect(url.get().get("app")).toBe("1");
   });
 });
+
+describe("Applications: the duplicate and cap guards (Sprint 2 / B1)", () => {
+  const finding = { rule: "SAME_JOB", message: "This consultant already has the same role: Data Analyst at Global Media." };
+  /** Picks a consultant and a job in the Add Application dialog and returns its submit button. */
+  async function fillDialog() {
+    overrides.push((c) => (c.path === "/pickers" ? { status: 200, body: { kind: c.params.get("kind"), items: [{ id: 41, label: c.params.get("kind") === "job" ? "Data Analyst" : "Sky Spare", sub: "x" }] } } : undefined));
+    await mount();
+    fireEvent.click(document.querySelector("[data-add-application]")!);
+    await settle();
+    const dialog = screen.getByRole("dialog", { name: "Add Application" });
+    fireEvent.focus(screen.getByLabelText("Consultant"));
+    await settle(400);
+    fireEvent.click(within(dialog).getByRole("button", { name: /Sky Spare/ }));
+    fireEvent.focus(screen.getByLabelText("Job"));
+    await settle(400);
+    fireEvent.click(within(dialog).getByRole("button", { name: /Data Analyst/ }));
+    await settle();
+    return { dialog, submit: dialog.querySelector<HTMLButtonElement>("[data-add-submit]")! };
+  }
+  const creates = () => calls.filter((c) => c.method === "POST" && c.path === "/");
+
+  it("a duplicate warning shows what was found, asks for a reason, then sends the same call with the confirmation and a new idempotency key", async () => {
+    overrides.push((c) =>
+      c.method === "POST" && c.path === "/"
+        ? c.body?.confirmDuplicate
+          ? { status: 201, body: { ...detailOf(rowsDb[0]), id: 1 } }
+          : { status: 409, body: { error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [finding] } }
+        : undefined,
+    );
+    const { dialog, submit } = await fillDialog();
+    fireEvent.click(submit);
+    await settle();
+    expect(within(dialog).getByText(/already has the same role: Data Analyst at Global Media/)).toBeTruthy();
+    expect(within(dialog).queryByText("Duplicate. Confirm with a reason to go ahead.")).toBeNull();
+    expect(submit.textContent).toContain("Add anyway");
+    expect(submit.disabled).toBe(true); // a reason is needed first
+    fireEvent.change(within(dialog).getByLabelText("Why is it fine to go ahead?"), { target: { value: "The client asked for both vendors" } });
+    expect(submit.disabled).toBe(false);
+    fireEvent.click(submit);
+    await settle();
+    expect(creates().map((c) => c.body)).toEqual([
+      expect.not.objectContaining({ confirmDuplicate: expect.anything() }),
+      expect.objectContaining({ requirementId: 41, consultantId: 41, confirmDuplicate: true, duplicateReason: "The client asked for both vendors" }),
+    ]);
+    const keys = vi.mocked(fetch).mock.calls.filter(([, init]) => init?.method === "POST").map(([, init]) => (init?.headers as Record<string, string>)["idempotency-key"]);
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).not.toBe(keys[1]);
+    expect(screen.getByText(/Nothing was submitted/)).toBeTruthy();
+  });
+
+  it("a block is a plain message with no reason box", async () => {
+    overrides.push((c) => (c.method === "POST" && c.path === "/" ? { status: 409, body: { error: "This consultant already has the same role. Your organization does not allow this.", code: "DUPLICATE_BLOCKED", findings: [finding] } } : undefined));
+    const { dialog, submit } = await fillDialog();
+    fireEvent.click(submit);
+    await settle();
+    expect(within(dialog).getByText("This consultant already has the same role. Your organization does not allow this.")).toBeTruthy();
+    expect(within(dialog).queryByLabelText("Why is it fine to go ahead?")).toBeNull();
+    expect(submit.textContent).toContain("Add application");
+    expect(creates()).toHaveLength(1);
+  });
+
+  it("the open-opportunity limit is a plain message too", async () => {
+    overrides.push((c) => (c.method === "POST" && c.path === "/" ? { status: 409, body: { error: "This consultant already has 5 open opportunities, the most your organization allows (5).", code: "ASSIGNMENT_CAP" } } : undefined));
+    const { dialog, submit } = await fillDialog();
+    fireEvent.click(submit);
+    await settle();
+    expect(within(dialog).getByText(/already has 5 open opportunities, the most your organization allows/)).toBeTruthy();
+    expect(within(dialog).queryByLabelText("Why is it fine to go ahead?")).toBeNull();
+  });
+
+  it("the existing DUPLICATE_APPLICATION answer keeps its own sentence", async () => {
+    overrides.push((c) => (c.method === "POST" && c.path === "/" ? { status: 409, body: { error: "x", code: "DUPLICATE_APPLICATION" } } : undefined));
+    const { dialog, submit } = await fillDialog();
+    fireEvent.click(submit);
+    await settle();
+    expect(within(dialog).getByText("This consultant already has an application for this job.")).toBeTruthy();
+    expect(within(dialog).queryByLabelText("Why is it fine to go ahead?")).toBeNull();
+  });
+});

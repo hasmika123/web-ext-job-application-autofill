@@ -11,6 +11,8 @@ import {
   EMPTY_QUERY, MATCHES_BANNER, MATCH_KPI_KEYS, MATCH_KPI_TITLES, actOnMatch, fetchMatchDetail, fetchMatches, matchPhoto,
   type MatchDetail, type MatchKpiKey, type MatchQuery, type MatchRow, type MatchesView,
 } from "@/lib/ent/marketer-ws/matches";
+import type { DuplicateConfirm, DuplicateFinding } from "@/lib/ent/marketer-ws/duplicate";
+import { DuplicateConfirmDialog } from "../DuplicateConfirm";
 import { AvailabilityDot, CompareDrawer, ExplanationCard, InsightsCard, Person, ResumeCell, ReviewDrawer, ScoreChip } from "./MatchParts";
 
 /**
@@ -50,6 +52,7 @@ export default function JobMatchesPage({ orgId }: MktPageProps) {
   const [compareId, setCompareId] = useState<number | null>(null);
   const [busy, setBusy] = useState<Set<number>>(new Set());
   const [notice, setNotice] = useState<string | null>(null);
+  const [dupAsk, setDupAsk] = useState<{ row: MatchRow; message: string; findings: DuplicateFinding[] } | null>(null);
   const selectedRef = useRef<number | null>(null);
   const queryRef = useRef(query);
   useEffect(() => {
@@ -90,10 +93,14 @@ export default function JobMatchesPage({ orgId }: MktPageProps) {
     }
   };
 
-  const act = async (row: MatchRow, action: "assign" | "dismiss") => {
-    setNotice(null);
+  /**
+   * Assign or dismiss one match. A duplicate warning on an assign asks for a reason (the dialog) and sends it again with the confirmation; a block or the
+   * open-opportunity limit is a plain sentence. In a batch the flagged rows are skipped and named afterwards, never confirmed for the marketer.
+   */
+  const act = async (row: MatchRow, action: "assign" | "dismiss", confirm?: DuplicateConfirm, batch = false): Promise<"OK" | "DUPLICATE" | "REFUSED"> => {
+    if (!batch) setNotice(null);
     setBusy((b) => new Set(b).add(row.id));
-    const r = await actOnMatch(orgId, row.id, action);
+    const r = await actOnMatch(orgId, row.id, action, confirm);
     setBusy((b) => {
       const n = new Set(b);
       n.delete(row.id);
@@ -101,14 +108,28 @@ export default function JobMatchesPage({ orgId }: MktPageProps) {
     });
     if (r.kind === "OK") {
       setReviewId(null);
+      setDupAsk(null);
       await load(queryRef.current);
-    } else if (r.kind === "CONFLICT") setNotice(r.message);
-    else if (r.kind === "DENIED") setNotice("You can't do that on this match.");
-    else setNotice("That didn't go through. Nothing has changed.");
+      return "OK";
+    }
+    if (r.kind === "DUPLICATE") {
+      if (!batch) {
+        setReviewId(null);
+        setDupAsk({ row, message: r.message, findings: r.findings });
+      }
+      return "DUPLICATE";
+    }
+    if (!batch) setDupAsk(null);
+    const text = r.kind === "CONFLICT" ? r.message : r.kind === "DENIED" ? "You can't do that on this match." : "That didn't go through. Nothing has changed.";
+    setNotice((n) => (batch && n ? `${n} ${text}` : text));
+    return "REFUSED";
   };
 
   const assignPicked = async () => {
-    for (const row of (view?.items ?? []).filter((r) => picked.has(r.id) && r.status === "SUGGESTED")) await act(row, "assign");
+    setNotice(null);
+    let flagged = 0;
+    for (const row of (view?.items ?? []).filter((r) => picked.has(r.id) && r.status === "SUGGESTED")) if ((await act(row, "assign", undefined, true)) === "DUPLICATE") flagged += 1;
+    if (flagged > 0) setNotice((n) => `${n ? `${n} ` : ""}Left out: ${flagged} looked like a duplicate (assign those one by one to confirm).`);
   };
 
   if (status === "denied") return <ErrorState what="Job Matches" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
@@ -304,6 +325,12 @@ export default function JobMatchesPage({ orgId }: MktPageProps) {
 
       <ReviewDrawer orgId={orgId} matchId={reviewId} onClose={() => setReviewId(null)} onAssign={(row) => void act(row, "assign")} busy={reviewId !== null && busy.has(reviewId)} />
       <CompareDrawer orgId={orgId} aId={compareId} candidates={items} onClose={() => setCompareId(null)} />
+      <DuplicateConfirmDialog
+        open={dupAsk !== null} id="match-duplicate" bodyAttrs={{ "data-match-dialog": "duplicate" }}
+        intro={dupAsk ? `Assigning this to ${dupAsk.row.consultantName} would put them in front of the same role twice.` : ""} confirmLabel="Assign anyway"
+        message={dupAsk?.message ?? ""} findings={dupAsk?.findings ?? []} busy={dupAsk !== null && busy.has(dupAsk.row.id)}
+        onClose={() => setDupAsk(null)} onConfirm={(reason) => dupAsk && void act(dupAsk.row, "assign", { reason })}
+      />
     </div>
   );
 }

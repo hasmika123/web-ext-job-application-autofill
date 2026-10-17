@@ -7,9 +7,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ orgI
   return forward(`${p}${new URL(request.url).search}`, { headers: { accept: "application/json" } });
 }
 
-/** POST /api/orgs/{orgId}/mkt/submissions: prepare a package for a job (creates a DRAFT record; nothing is sent to anyone). */
+/** POST /api/orgs/{orgId}/mkt/submissions: prepare a package for a job (creates a DRAFT record; nothing is sent to anyone). `confirmDuplicate` + `duplicateReason` answer a 409 DUPLICATE_WARNING. */
 export async function POST(request: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const p = basePath((await params).orgId);
   if (!p) return notFound();
-  return forwardBody(request, p, "POST", ["consultantId", "requirementId", "resumeId", "note"]);
+  return forwardBody(request, p, "POST", ["consultantId", "requirementId", "resumeId", "note", "confirmDuplicate", "duplicateReason"]);
 }

@@ -125,3 +125,24 @@ describe("calls", () => {
     if (!r.ok) expect(r.status).toBe(404);
   });
 });
+
+describe("assign and the duplicate guard (Sprint 2 / B1)", () => {
+  const reply = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
+  const sentBody = (f: ReturnType<typeof reply>, n = 0) => JSON.parse(((f.mock.calls[n] as unknown) as [string, RequestInit])[1].body as string);
+
+  it("a confirmed assign sends the two extra fields; a plain one does not", async () => {
+    const f = reply(200, { matchId: 1, requirementId: 3, consultantId: 5, status: "ASSIGNED", score: 80, created: true });
+    vi.stubGlobal("fetch", f);
+    await assignJob(2, 3, 5);
+    await assignJob(2, 3, 5, { reason: "Both vendors asked" });
+    expect(sentBody(f, 0)).toEqual({ consultantId: 5 });
+    expect(sentBody(f, 1)).toEqual({ consultantId: 5, confirmDuplicate: true, duplicateReason: "Both vendors asked" });
+  });
+
+  it("a refusal keeps its code and findings so the page can ask for a reason", async () => {
+    vi.stubGlobal("fetch", reply(409, { error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [{ rule: "SAME_JOB", message: "Same role." }, "junk"] }));
+    expect(await assignJob(2, 3, 5)).toEqual({ ok: false, status: 409, error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [{ rule: "SAME_JOB", message: "Same role." }] });
+    vi.stubGlobal("fetch", reply(409, { error: "This consultant already has 5 open opportunities, the most your organization allows (5).", code: "ASSIGNMENT_CAP" }));
+    expect(await assignJob(2, 3, 5)).toEqual({ ok: false, status: 409, error: "This consultant already has 5 open opportunities, the most your organization allows (5).", code: "ASSIGNMENT_CAP" });
+  });
+});

@@ -9,6 +9,8 @@ import {
   PRIORITY_LABELS, WORK_TYPE_LABELS, assignJob, fetchCandidates, fetchJobDetail, saveJobForConsultant, sourceLogo,
   type AssignResult, type Candidate, type JobDetail, type JobRow, type Priority, type SavedForConsultant,
 } from "@/lib/ent/marketer-ws/jobs";
+import { DUPLICATE_WARNING, plainRefusal } from "@/lib/ent/marketer-ws/duplicate";
+import { DuplicateNotice, useDuplicateAsk } from "../DuplicateConfirm";
 import { TINTS } from "../parts";
 
 /** Small building blocks of the Job Discovery board: the square client logo chip, priority chip, delta text, filter boxes, and the View / Assign drawers. */
@@ -150,6 +152,7 @@ export function AssignSheet({
   const [error, setError] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const dup = useDuplicateAsk();
   const seq = useRef(0);
 
   const load = useCallback(
@@ -185,10 +188,15 @@ export function AssignSheet({
       return;
     }
     setBusy(true);
-    const r = await assignJob(orgId, job.id, picked);
+    setError(null);
+    const r = await assignJob(orgId, job.id, picked, dup.confirm);
     setBusy(false);
     if (r.ok) onDone(r.value, rows?.find((c) => c.consultantId === picked)?.name ?? "the consultant");
-    else setError(r.status === 409 ? r.error : r.status === 404 ? "That consultant isn't available to you." : r.error);
+    else if (r.status === 409 && r.code === DUPLICATE_WARNING) dup.ask({ code: r.code, error: plainRefusal({ code: r.code, error: r.error }), findings: r.findings }); // ask for a reason, then assign anyway
+    else {
+      dup.reset();
+      setError(r.status === 404 ? "That consultant isn't available to you." : plainRefusal({ code: r.code ?? null, error: r.error })); // a block or the open limit: a plain sentence, nothing to confirm
+    }
   };
 
   return (
@@ -197,7 +205,7 @@ export function AssignSheet({
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button variant="accent" onClick={() => void submit()} disabled={picked === null || busy}>{mode === "save" ? (busy ? "Saving..." : "Save job") : busy ? "Assigning..." : "Assign"}</Button>
+          <Button variant="accent" onClick={() => void submit()} disabled={picked === null || busy || (mode === "assign" && dup.needsReason)}>{mode === "save" ? (busy ? "Saving..." : "Save job") : busy ? "Assigning..." : dup.dup ? "Assign anyway" : "Assign"}</Button>
         </div>
       }
     >
@@ -213,6 +221,7 @@ export function AssignSheet({
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your consultants" className={cn(field, "pl-9")} />
         </label>
         {error ? <p role="alert" className="text-[13px] text-v2-pink-ink">{error}</p> : null}
+        {mode === "assign" && dup.dup ? <DuplicateNotice message={dup.dup.message} findings={dup.dup.findings} reason={dup.reason} onReason={dup.setReason} idBase="job-duplicate" /> : null}
         {rows === null && !error ? (
           <p aria-busy="true" className="flex items-center gap-2 py-4 text-[13px] text-muted"><Spinner /> Loading consultants...</p>
         ) : rows && rows.length === 0 && !error ? (
@@ -227,7 +236,10 @@ export function AssignSheet({
                   title={c.pausedReason ?? undefined}
                   className={cn("flex items-center gap-3 rounded-lg border px-3 py-2", c.pausedReason ? "cursor-not-allowed border-line opacity-60" : "cursor-pointer", picked === c.consultantId ? "border-accent bg-accent-soft" : !c.pausedReason && "border-line hover:border-accent")}
                 >
-                  <input type="radio" name={`assign-${id}`} checked={picked === c.consultantId} disabled={!!c.pausedReason} onChange={() => setPicked(c.consultantId)} className="sr-only" />
+                  <input type="radio" name={`assign-${id}`} checked={picked === c.consultantId} disabled={!!c.pausedReason} onChange={() => {
+                    setPicked(c.consultantId);
+                    dup.reset(); // a warning belongs to one consultant
+                  }} className="sr-only" />
                   <MemberAvatar name={c.name} size={34} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13.5px] font-semibold text-ink">{c.name}</span>

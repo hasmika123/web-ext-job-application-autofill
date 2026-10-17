@@ -9,6 +9,7 @@ import {
 } from "@/lib/ent/marketer-ws/opportunities";
 
 const EMPTY_HAND: HandJobInput = { title: "", company: "", location: "", workMode: "", description: "", jobUrl: "" };
+import { DuplicateConfirmDialog, DuplicateNotice } from "../DuplicateConfirm";
 import { INTEREST_TONE, ResumeBadge } from "./bits";
 
 /**
@@ -130,7 +131,7 @@ function FollowUpBox({ orgId, o, onChanged }: { orgId: number; o: Opportunity; o
           ) : (
             <Select aria-label="Offer to" value={target} onChange={setTarget} placeholder="Choose a consultant" options={others} />
           )}
-          {dup ? <DuplicateNotice message={dup.message} findings={dup.findings} reason={dupReason} onReason={setDupReason} /> : null}
+          {dup ? <DuplicateNotice message={dup.message} findings={dup.findings} reason={dupReason} onReason={setDupReason} idBase="opp-duplicate" /> : null}
           {error ? <p role="alert" className="mt-1 text-[12.5px] text-danger-text">{error}</p> : null}
           <div className="mt-2 flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
@@ -142,49 +143,13 @@ function FollowUpBox({ orgId, o, onChanged }: { orgId: number; o: Opportunity; o
   );
 }
 
-/**
- * The duplicate warning (409 DUPLICATE_WARNING): what the API found, in its own words, and a reason the marketer must give to go ahead. The reason is kept in
- * the audit trail. A block (the organization's policy) or the open-opportunity limit never gets this far: they are plain messages with nothing to confirm.
- */
-function DuplicateNotice({ message, findings, reason, onReason }: { message: string; findings: DuplicateFinding[]; reason: string; onReason: (v: string) => void }) {
-  return (
-    <div data-opp-duplicate role="alert" className="mt-2 rounded-lg border border-line bg-v2-amber-soft p-3 text-[13px] text-v2-amber-ink">
-      <p className="font-semibold">This looks like a duplicate</p>
-      {findings.length > 0 ? (
-        <ul className="mt-1 list-disc pl-5">
-          {findings.map((f, i) => <li key={`${f.rule}-${i}`}>{f.message}</li>)}
-        </ul>
-      ) : (
-        <p className="mt-1">{message}</p>
-      )}
-      <label className="mt-2 block text-[12.5px] font-semibold" htmlFor="opp-duplicate-reason">Why is it fine to go ahead?</label>
-      <Textarea id="opp-duplicate-reason" rows={2} maxLength={200} value={reason} placeholder="For example: the client asked for both vendors" onChange={(e) => onReason(e.target.value)} />
-      <p className="mt-1 text-[12px]">Your reason is kept in the audit trail. Please don&apos;t include ID numbers or dates of birth.</p>
-    </div>
-  );
-}
-
 /** Assign one opportunity that the guard flagged: shows the findings and asks for the reason before assigning anyway. Nothing is answered or submitted for the consultant. */
 export function DuplicateDialog({ open, who, message, findings, busy, onClose, onConfirm }: { open: boolean; who: string; message: string; findings: DuplicateFinding[]; busy: boolean; onClose: () => void; onConfirm: (reason: string) => void }) {
   return (
-    <SheetFrame id="opp-duplicate" open={open} onClose={onClose} title="Possible duplicate">
-      {open ? <DuplicateBody who={who} message={message} findings={findings} busy={busy} onClose={onClose} onConfirm={onConfirm} /> : null}
-    </SheetFrame>
-  );
-}
-
-/** Mounted only while the dialog is open, so the reason starts empty every time. */
-function DuplicateBody({ who, message, findings, busy, onClose, onConfirm }: { who: string; message: string; findings: DuplicateFinding[]; busy: boolean; onClose: () => void; onConfirm: (reason: string) => void }) {
-  const [reason, setReason] = useState("");
-  return (
-    <div data-opp-dialog="duplicate" className="min-w-0">
-      <p className="text-[13.5px] text-ink-soft">Assigning this to {who} would put them in front of the same role twice.</p>
-      <DuplicateNotice message={message} findings={findings} reason={reason} onReason={setReason} />
-      <div className="mt-5 flex justify-end gap-2">
-        <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-        <Button size="sm" disabled={busy || !reason.trim()} onClick={() => onConfirm(reason.trim())}>Assign anyway</Button>
-      </div>
-    </div>
+    <DuplicateConfirmDialog
+      open={open} id="opp-duplicate" idBase="opp-duplicate" intro={`Assigning this to ${who} would put them in front of the same role twice.`} confirmLabel="Assign anyway"
+      message={message} findings={findings} busy={busy} onClose={onClose} onConfirm={onConfirm} bodyAttrs={{ "data-opp-dialog": "duplicate" }}
+    />
   );
 }
 

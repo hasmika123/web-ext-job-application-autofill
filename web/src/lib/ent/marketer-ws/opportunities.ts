@@ -4,6 +4,8 @@
  * for one: "Assign", "Follow Up" and the quick actions only prepare or REQUEST (the consultant answers on their own workspace).
  */
 
+import { confirmFields, findingsOf, ASSIGNMENT_CAP, DUPLICATE_BLOCKED, DUPLICATE_WARNING, type DuplicateConfirm, type DuplicateFinding } from "./duplicate";
+
 export type KpiKey = "open" | "ready" | "awaiting" | "stale";
 export const KPI_KEYS: KpiKey[] = ["open", "ready", "awaiting", "stale"];
 export const KPI_TITLES: Record<KpiKey, string> = {
@@ -228,26 +230,14 @@ export async function fetchOptions(orgId: number | string, q = ""): Promise<Opti
   }
 }
 
-/** One reason the API gives for calling an assignment a duplicate (rule SAME_POSTING, SAME_JOB, VENDOR_CHAIN or TOO_MANY_CONSULTANTS). */
-export interface DuplicateFinding { rule: string; message: string }
-
-/** Codes of an assignment the guards refused: a warning can be confirmed with a reason, the others cannot. */
-export const DUPLICATE_WARNING = "DUPLICATE_WARNING";
-export const DUPLICATE_BLOCKED = "DUPLICATE_BLOCKED";
-export const ASSIGNMENT_CAP = "ASSIGNMENT_CAP";
-
-/** The answer to a duplicate warning: the marketer confirms and says why (1 to 200 characters). */
-export interface DuplicateConfirm { reason: string }
+/* The guard codes, findings and the wire shape of a confirmation live in `duplicate.ts` (shared by every marketing flow); re-exported so this board's imports stay as they were. */
+export { ASSIGNMENT_CAP, DUPLICATE_BLOCKED, DUPLICATE_WARNING };
+export type { DuplicateConfirm, DuplicateFinding };
 
 /** The result of a write: a short sentence for the toast, or the API's error message and code. `skippedCodes` names why rows of a batch were left out; `findings` is set for a duplicate warning or block. */
 export type ActionOutcome =
   | { ok: true; message: string; changed: boolean; skipped: number; skippedCodes?: string[] }
   | { ok: false; error: string; code: string | null; status: number; findings?: DuplicateFinding[] };
-
-function findingsOf(x: unknown): DuplicateFinding[] {
-  if (!Array.isArray(x)) return [];
-  return x.filter(isObj).map((f) => ({ rule: str(f.rule), message: str(f.message) })).filter((f) => f.message);
-}
 
 /** A batch's leftovers in words: the rows the guards refused are named, so the marketer knows to assign them one by one. */
 export function skippedNote(codes: string[] | undefined): string {
@@ -286,7 +276,7 @@ async function send(orgId: number | string, path: string, method: "POST" | "PATC
 
 /** E1: every one of these prepares or requests. There is no call that sets a consultant's interest, submits, or acts as them. */
 export const assignOpportunity = (orgId: number | string, id: number, confirm?: DuplicateConfirm) =>
-  send(orgId, `/${id}/assign`, "POST", confirm ? { confirmDuplicate: true, duplicateReason: confirm.reason } : undefined);
+  send(orgId, `/${id}/assign`, "POST", confirm ? confirmFields(confirm) : undefined);
 export const bulkAssign = (orgId: number | string, ids: number[]) => send(orgId, "/bulk-assign", "POST", { ids });
 export const requestFromConsultant = (orgId: number | string, id: number, kind: "INTEREST" | "RESUME") => send(orgId, `/${id}/request`, "POST", { kind });
 export const notifyAwaiting = (orgId: number | string) => send(orgId, "/notify", "POST");
@@ -296,7 +286,7 @@ export const answerInfo = (orgId: number | string, id: number, answer: string) =
 export const withdrawOpportunity = (orgId: number | string, id: number, reason: string) => send(orgId, `/${id}/withdraw`, "POST", { reason });
 /** MKT-44: offer a declined or withdrawn opportunity to another consultant of the caller's scope. */
 export const reassignOpportunity = (orgId: number | string, id: number, consultantId: number, confirm?: DuplicateConfirm) =>
-  send(orgId, `/${id}/reassign`, "POST", confirm ? { consultantId, confirmDuplicate: true, duplicateReason: confirm.reason } : { consultantId });
+  send(orgId, `/${id}/reassign`, "POST", { consultantId, ...confirmFields(confirm) });
 /** Which of the two follow-ups a row offers: a live assignment can be withdrawn, a declined or withdrawn one can be offered to someone else. */
 export function followUpOf(o: Pick<Opportunity, "status" | "state">): "WITHDRAW" | "REASSIGN" | null {
   if (o.status !== "ASSIGNED") return null;
