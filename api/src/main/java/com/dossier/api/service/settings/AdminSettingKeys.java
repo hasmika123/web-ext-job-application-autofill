@@ -44,7 +44,7 @@ public final class AdminSettingKeys {
     public static final String PRIVACY_RETENTION_BATCH_SIZE = "privacy.retention.batch_size";
     public static final String PRIVACY_RETENTION_MAX_BATCHES = "privacy.retention.max_batches";
     public static final String PRIVACY_RETENTION_ADMIN_AUDIT_MONTHS = "privacy.retention.admin_audit_months";
-    public static final String PRIVACY_RETENTION_REFRESH_TOKEN_GRACE_DAYS = "privacy.retention.refresh_token_grace_days";
+    public static final String PRIVACY_RETENTION_SESSIONS_GRACE_DAYS = "privacy.retention.sessions_grace_days";
     public static final String PRIVACY_RETENTION_AI_CALL_MONTHS = "privacy.retention.ai_call_months";
     public static final String PRIVACY_RETENTION_BUG_REPORT_MONTHS = "privacy.retention.bug_report_months";
     public static final String PRIVACY_RETENTION_DELETION_REPORT_MONTHS = "privacy.retention.deletion_report_months";
@@ -108,7 +108,7 @@ public final class AdminSettingKeys {
         integer(k, PRIVACY_RETENTION_BATCH_SIZE, 500, 50, 2000, Risk.LOW, "Rows deleted per batch by the retention sweep; each batch commits on its own.");
         integer(k, PRIVACY_RETENTION_MAX_BATCHES, 40, 1, 500, Risk.LOW, "Most batches one sweep runs per job; a larger backlog is worked off over several nights.");
         integer(k, PRIVACY_RETENTION_ADMIN_AUDIT_MONTHS, 24, 0, 120, Risk.MEDIUM, "Months the admin audit trail is kept; 0 keeps it for ever.");
-        integer(k, PRIVACY_RETENTION_REFRESH_TOKEN_GRACE_DAYS, 7, 1, 365, Risk.LOW, "Refresh-token rows are deleted this many days after they expired (live tokens are never touched).");
+        integer(k, PRIVACY_RETENTION_SESSIONS_GRACE_DAYS, 7, 1, 365, Risk.LOW, "Refresh-token rows are deleted this many days after they expired (live tokens are never touched).");
         integer(k, PRIVACY_RETENTION_AI_CALL_MONTHS, 13, 0, 120, Risk.MEDIUM, "Months the AI call ledger (tokens, cost, latency; no prompts) is kept; 0 keeps it for ever.");
         integer(k, PRIVACY_RETENTION_BUG_REPORT_MONTHS, 24, 0, 120, Risk.MEDIUM, "Months a resolved or won't-fix bug report is kept (counted from when it was sent); open reports are never purged; 0 keeps them all.");
         integer(k, PRIVACY_RETENTION_DELETION_REPORT_MONTHS, 36, 0, 120, Risk.MEDIUM, "Months an account-deletion purge report (counts only, no identity) is kept; 0 keeps it for ever.");

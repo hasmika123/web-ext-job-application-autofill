@@ -48,7 +48,7 @@ public final class RetentionTargets {
 
         @Override public String job() { return "REFRESH_TOKEN"; }
         @Override public String table() { return "refresh_token"; }
-        @Override public String settingKey() { return AdminSettingKeys.PRIVACY_RETENTION_REFRESH_TOKEN_GRACE_DAYS; }
+        @Override public String settingKey() { return AdminSettingKeys.PRIVACY_RETENTION_SESSIONS_GRACE_DAYS; }
         @Override public String unit() { return "days"; }
         @Override public String description() { return "Refresh-token rows that expired more than the window ago are deleted; rows that can still be presented are kept for replay detection."; }
         @Override public long count(Instant cutoff) { return rows.countPurgeable(cutoff); }

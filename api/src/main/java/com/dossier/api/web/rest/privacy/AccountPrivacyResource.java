@@ -14,6 +14,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -26,7 +27,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 /**
  * The signed-in person's own privacy controls (sprint 2, B2): the undo window for account deletion, the asynchronous data export, and the record of
@@ -70,7 +70,7 @@ public class AccountPrivacyResource {
     @PostMapping("/deletion-request")
     public ResponseEntity<Map<String, Object>> requestDeletion() {
         demoGuard.assertNotDemo();
-        User me = current.current();
+        User me = personal();
         if (deletionRequests.graceHours() == 0) {
             deletion.deleteCurrentUserAccount();
             return ResponseEntity.ok(Map.of("status", "DELETED", "graceHours", 0, "canUndo", false));
@@ -81,14 +81,24 @@ public class AccountPrivacyResource {
     @Operation(summary = "Is a deletion of my account pending?")
     @GetMapping("/deletion-request")
     public Map<String, Object> deletionStatus() {
-        return asMap(deletionRequests.status(current.current().getId()));
+        return asMap(deletionRequests.status(personal().getId()));
     }
 
     @Operation(summary = "Withdraw my pending deletion request (undo)")
     @DeleteMapping("/deletion-request")
     public Map<String, Object> cancelDeletion() {
         demoGuard.assertNotDemo();
-        return asMap(deletionRequests.cancel(current.current().getId(), Instant.now()));
+        return asMap(deletionRequests.cancel(personal().getId(), Instant.now()));
+    }
+
+    /**
+     * The signed-in PERSONAL account. An enterprise account is employer-managed (decision O4, phase S8): it is erased by the organization's offboarding
+     * retention, never by a self-service call, so these routes are the generic 404 for it, exactly like {@code DELETE /api/account}.
+     */
+    private User personal() {
+        User me = current.current();
+        if (me.getOrgId() != null) throw new org.springframework.web.server.ResponseStatusException(HttpStatus.NOT_FOUND, "Not found");
+        return me;
     }
 
     private static Map<String, Object> asMap(AccountDeletionRequestService.View v) {
@@ -124,18 +134,14 @@ public class AccountPrivacyResource {
 
     @Operation(summary = "Download a finished data export (signed link)")
     @GetMapping("/exports/{id}/file")
-    public ResponseEntity<StreamingResponseBody> downloadExport(
+    public ResponseEntity<InputStreamResource> downloadExport(
         @PathVariable("id") Long id,
         @RequestParam(name = "exp", defaultValue = "0") long exp,
         @RequestParam(name = "sig", required = false) String sig
     ) {
         demoGuard.assertNotDemo();
         DataExportService.Download d = exports.download(current.current().getId(), id, exp, sig, Instant.now());
-        StreamingResponseBody body = out -> {
-            try (var in = d.stream()) {
-                in.transferTo(out);
-            }
-        };
+        InputStreamResource body = new InputStreamResource(d.stream()); // the message converter streams it and closes it
         ResponseEntity.BodyBuilder b = ResponseEntity
             .ok()
             .contentType(MediaType.parseMediaType("application/zip"))
