@@ -2,9 +2,12 @@ package com.dossier.api.web.filter;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
+import java.io.PrintWriter;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
@@ -28,9 +31,66 @@ public class SecurityHeadersFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
-        for (String[] h : HEADERS) {
-            if (!response.containsHeader(h[0])) response.setHeader(h[0], h[1]);
+        DefaultingResponse wrapped = new DefaultingResponse(response);
+        chain.doFilter(request, wrapped);
+        wrapped.applyDefaults(); // a response with no body never touched the stream: still gets the defaults
+    }
+
+    /**
+     * Applies the defaults when the response commits, only for headers still absent then. Setting them up front would beat a resource that
+     * sets its own (the resume download's {@code sandbox} CSP): Spring's {@code ResponseEntity} writer skips a header the servlet response already has.
+     */
+    private static final class DefaultingResponse extends HttpServletResponseWrapper {
+        private boolean applied;
+
+        DefaultingResponse(HttpServletResponse response) {
+            super(response);
         }
-        chain.doFilter(request, response);
+
+        void applyDefaults() {
+            if (applied) return;
+            applied = true;
+            HttpServletResponse r = (HttpServletResponse) getResponse();
+            if (r.isCommitted()) return;
+            for (String[] h : HEADERS) {
+                if (!r.containsHeader(h[0])) r.setHeader(h[0], h[1]);
+            }
+        }
+
+        @Override
+        public ServletOutputStream getOutputStream() throws IOException {
+            applyDefaults();
+            return super.getOutputStream();
+        }
+
+        @Override
+        public PrintWriter getWriter() throws IOException {
+            applyDefaults();
+            return super.getWriter();
+        }
+
+        @Override
+        public void flushBuffer() throws IOException {
+            applyDefaults();
+            super.flushBuffer();
+        }
+
+        @Override
+        public void sendError(int sc) throws IOException {
+            applyDefaults();
+            super.sendError(sc);
+        }
+
+        @Override
+        public void sendError(int sc, String msg) throws IOException {
+            applyDefaults();
+            super.sendError(sc, msg);
+        }
+
+        @Override
+        public void sendRedirect(String location) throws IOException {
+            applyDefaults();
+            super.sendRedirect(location);
+        }
     }
 }

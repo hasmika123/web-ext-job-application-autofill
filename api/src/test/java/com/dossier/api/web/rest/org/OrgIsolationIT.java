@@ -129,6 +129,11 @@ class OrgIsolationIT {
             return new Case(null, 200, null, false, null, null, 1, null);
         }
 
+        /** A read that is deliberately audited (an export): it answers 200 and writes exactly one audit row, whose action is {@code action}. */
+        static Case auditedRead(String action) {
+            return new Case(null, 200, action, false, null, null, 1, null);
+        }
+
         /** A consultant-workspace read: the owner is made a consultant first, and no audit row is written. */
         static Case consultantRead() {
             return new Case(null, 200, null, false, null, null, 1, World::makeOwnerAConsultant);
@@ -545,8 +550,8 @@ class OrgIsolationIT {
         // Enterprise V2 job data audit (docs/enterprise-v2/60 section 11): read only, needs audit.view at ORG scope (the owner has it, every role without it gets the generic 404).
         Map.entry("GET /api/orgs/{orgId}/audit/job-data", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/audit", Case.read()),
-        Map.entry("GET /api/orgs/{orgId}/audit/export", Case.read()),
-        Map.entry("GET /api/orgs/{orgId}/reports/export", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/audit/export", Case.auditedRead(OrgAuditService.EXPORT)),
+        Map.entry("GET /api/orgs/{orgId}/reports/export", Case.auditedRead(OrgAuditService.EXPORT)),
         // Enterprise V2 Marketing workspace (mkt/**, ent-marketer). The legitimate caller is the owner (every marketing permission at ORG scope) in a world whose marketing module is on and whose
         // marketing rows were made through the real API (World.seedMkt). Reads write no audit row; every write records its own MARKETER_* row; the writes below that are documented as audit-free
         // are personal working state of the caller (a saved view, a saved search's "seen" marker, a prep checklist tick), like the dashboard alert dismissal above.

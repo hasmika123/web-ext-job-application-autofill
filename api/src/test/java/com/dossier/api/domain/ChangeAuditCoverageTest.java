@@ -57,6 +57,8 @@ class ChangeAuditCoverageTest {
         // HR / finance / reports (record-only; their own audit rows).
         "FinanceForecastInput", "FinancePlacementPeriod", "FinancePlacementTerms", "HrDocumentRequirement", "HrEmployee", "ReportDefinition",
         // Talent directory.
+        // Prepare sessions (prepare-batch): a progress row per opening, written by the consultant's own session (consultant_id is the only actor); PrepareEvent keeps the trail.
+        "PrepareItem",
         "ClientAccount", "ClientRequirement", "ConsultantProfile", "MarketerAssignment", "MarketerCapacity", "OrgResume", "TalentPlacement"
     );
 

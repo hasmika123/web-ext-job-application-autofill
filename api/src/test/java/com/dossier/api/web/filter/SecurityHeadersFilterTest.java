@@ -41,4 +41,17 @@ class SecurityHeadersFilterTest {
         MockHttpServletResponse r = run(seeded);
         assertThat(r.getHeaders("X-Frame-Options")).containsExactly("SAMEORIGIN");
     }
+
+    @Test
+    void aHeaderTheResourceSetsAfterTheFilterHasRunStillWins() throws Exception {
+        MockHttpServletResponse r = new MockHttpServletResponse();
+        jakarta.servlet.FilterChain chain = (req, res) -> {
+            jakarta.servlet.http.HttpServletResponse http = (jakarta.servlet.http.HttpServletResponse) res;
+            http.setHeader("Content-Security-Policy", "sandbox; frame-ancestors 'none'");
+            http.getOutputStream().write(1); // the body: defaults apply here, after the resource set its own
+        };
+        new SecurityHeadersFilter().doFilter(new MockHttpServletRequest("GET", "/api/x"), r, chain);
+        assertThat(r.getHeaders("Content-Security-Policy")).containsExactly("sandbox; frame-ancestors 'none'");
+        assertThat(r.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+    }
 }
