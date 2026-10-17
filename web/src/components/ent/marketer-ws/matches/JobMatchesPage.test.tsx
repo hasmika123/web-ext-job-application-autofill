@@ -202,3 +202,105 @@ describe("JobMatchesPage", () => {
     await screen.findByText("This page isn't part of your role");
   });
 });
+
+describe("the duplicate and cap guards (Sprint 2 / B1)", () => {
+  const finding = { rule: "SAME_JOB", message: "This consultant already has the same role: Senior Java Developer at TechCorp." };
+  type Sent = { url: string; method: string; body: string };
+  /** Serves the board and answers every assign with `answer(matchId, body)`. */
+  function stubAssign(answer: (id: number, body: string) => Response) {
+    const sent: Sent[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const call = { url, method: init?.method ?? "GET", body: typeof init?.body === "string" ? init.body : "" };
+        sent.push(call);
+        const m = /\/mkt\/matches\/(\d+)\/assign$/.exec(url);
+        if (m && call.method === "POST") return answer(Number(m[1]), call.body);
+        if (/\/mkt\/matches\/\d+$/.test(url)) return json(200, detail(Number(url.split("/").pop()) - 1));
+        return json(200, fixture());
+      }),
+    );
+    return sent;
+  }
+  const rowButton = (id: number) => within(document.querySelector(`[data-match-row="${id}"]`) as HTMLElement).getByRole("button", { name: "Assign" });
+  const dialogNow = () => document.querySelector("[data-match-dialog=duplicate]") as HTMLElement | null;
+
+  it("a duplicate warning opens a dialog with the findings, and Assign anyway needs a reason that is then sent with the confirmation", async () => {
+    const sent = stubAssign((_, body) => (body ? json(200, row(0, "ASSIGNED")) : json(409, { error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [finding] })));
+    mount();
+    await screen.findByText("Showing 1–10 of 142 matches");
+    fireEvent.click(rowButton(1));
+    const dialog = await waitFor(() => {
+      const d = dialogNow();
+      expect(d).toBeTruthy();
+      return d as HTMLElement;
+    });
+    expect(within(dialog).getByText(/already has the same role: Senior Java Developer at TechCorp/)).toBeTruthy();
+    expect(within(dialog).getByText(/Alex Morgan/)).toBeTruthy();
+    expect(screen.queryByText("Duplicate. Confirm with a reason to go ahead.")).toBeNull(); // the dialog is the answer, not a notice
+    const go = within(dialog).getByRole("button", { name: "Assign anyway" }) as HTMLButtonElement;
+    expect(go.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "The client asked for both vendors" } });
+    expect(go.disabled).toBe(false);
+    fireEvent.click(go);
+    await waitFor(() => expect(sent.some((c) => c.url.endsWith("/mkt/matches/1/assign") && c.body === JSON.stringify({ confirmDuplicate: true, duplicateReason: "The client asked for both vendors" }))).toBe(true));
+    await waitFor(() => expect(dialogNow()).toBeNull());
+    expect(sent.filter((c) => c.method === "POST").every((c) => !/submit|apply|send/.test(c.url))).toBe(true); // E1: a record only
+  });
+
+  it("the first assign is sent without a body, so a plain assign stays exactly as it was", async () => {
+    const sent = stubAssign(() => json(200, row(0, "ASSIGNED")));
+    mount();
+    await screen.findByText("Showing 1–10 of 142 matches");
+    fireEvent.click(rowButton(1));
+    await waitFor(() => expect(sent.some((c) => c.method === "POST")).toBe(true));
+    expect(sent.find((c) => c.method === "POST")?.body).toBe("");
+    expect(dialogNow()).toBeNull();
+  });
+
+  it("Cancel closes the dialog without a second call", async () => {
+    const sent = stubAssign(() => json(409, { error: "Duplicate.", code: "DUPLICATE_WARNING", findings: [finding] }));
+    mount();
+    await screen.findByText("Showing 1–10 of 142 matches");
+    fireEvent.click(rowButton(1));
+    const dialog = await waitFor(() => {
+      const d = dialogNow();
+      expect(d).toBeTruthy();
+      return d as HTMLElement;
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(dialogNow()).toBeNull());
+    expect(sent.filter((c) => c.method === "POST")).toHaveLength(1);
+  });
+
+  it("a block is a plain message with nothing to confirm", async () => {
+    stubAssign(() => json(409, { error: "This consultant already has the same role. Your organization does not allow this.", code: "DUPLICATE_BLOCKED", findings: [finding] }));
+    mount();
+    await screen.findByText("Showing 1–10 of 142 matches");
+    fireEvent.click(rowButton(1));
+    expect(await screen.findByText("This consultant already has the same role. Your organization does not allow this.")).toBeTruthy();
+    expect(dialogNow()).toBeNull();
+  });
+
+  it("the open-opportunity limit is a plain message too", async () => {
+    stubAssign(() => json(409, { error: "This consultant already has 5 open opportunities, the most your organization allows (5).", code: "ASSIGNMENT_CAP" }));
+    mount();
+    await screen.findByText("Showing 1–10 of 142 matches");
+    fireEvent.click(rowButton(1));
+    expect(await screen.findByText(/already has 5 open opportunities, the most your organization allows/)).toBeTruthy();
+    expect(dialogNow()).toBeNull();
+  });
+
+  it("Assign selected leaves out the flagged rows and names them, never confirming for the marketer", async () => {
+    const sent = stubAssign((id) => (id === 2 ? json(409, { error: "Duplicate.", code: "DUPLICATE_WARNING", findings: [finding] }) : json(200, row(0, "ASSIGNED"))));
+    mount();
+    await screen.findByText("Showing 1–10 of 142 matches");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Alex Morgan" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select Priya Sharma" }));
+    fireEvent.click(screen.getByRole("button", { name: "Assign selected" }));
+    expect(await screen.findByText(/Left out: 1 looked like a duplicate \(assign those one by one to confirm\)\./)).toBeTruthy();
+    expect(dialogNow()).toBeNull();
+    expect(sent.filter((c) => c.method === "POST" && c.body !== "")).toHaveLength(0); // nothing was confirmed
+  });
+});

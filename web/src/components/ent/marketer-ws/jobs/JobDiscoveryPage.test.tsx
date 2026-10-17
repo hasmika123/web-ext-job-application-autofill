@@ -388,6 +388,74 @@ describe("JobDiscoveryPage", () => {
     await screen.findByText(/on a project and their marketing is paused/);
   });
 
+  describe("the duplicate and cap guards (Sprint 2 / B1)", () => {
+    const finding = { rule: "VENDOR_CHAIN", message: "This consultant already has the same role through another vendor: TekVendor (Senior Java Developer)." };
+    const candidates = [
+      { consultantId: 5, name: "Alex Morgan", title: "Java Developer", availability: "AVAILABLE", score: 92, matchStatus: null },
+      { consultantId: 6, name: "Priya Sharma", title: "Business Analyst", availability: "NOTICE", score: null, matchStatus: null },
+    ];
+    /** Serves the candidates, and answers every assign with what the test says. */
+    const stubAssign = (answer: (body: Record<string, unknown>) => Response) =>
+      serve((url, method, body) => {
+        if (url.endsWith("/jobs/1/candidates")) return json(200, candidates);
+        if (method === "POST" && url.endsWith("/jobs/1/assign")) return answer(body as Record<string, unknown>);
+        return undefined;
+      });
+    const openAssign = async (name: string) => {
+      await board();
+      fireEvent.click(screen.getByRole("button", { name: "Assign Senior Java Developer" }));
+      fireEvent.click(await screen.findByText(name));
+    };
+
+    it("a duplicate warning shows what was found, Assign anyway needs a reason, and the same call is sent again with the confirmation", async () => {
+      stubAssign((body) =>
+        body.confirmDuplicate
+          ? json(200, { matchId: 77, requirementId: 1, consultantId: 5, status: "ASSIGNED", score: 92, created: true })
+          : json(409, { error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [finding] }),
+      );
+      await openAssign("Alex Morgan");
+      fireEvent.click(screen.getByRole("button", { name: "Assign" }));
+      expect(await screen.findByText(/through another vendor: TekVendor/)).toBeTruthy();
+      expect(screen.queryByText("Duplicate. Confirm with a reason to go ahead.")).toBeNull(); // the findings replace the sentence
+      const go = screen.getByRole("button", { name: "Assign anyway" }) as HTMLButtonElement;
+      expect(go.disabled).toBe(true);
+      fireEvent.change(screen.getByLabelText("Why is it fine to go ahead?"), { target: { value: "The client asked for both vendors" } });
+      expect(go.disabled).toBe(false);
+      fireEvent.click(go);
+      await screen.findByText(/Assigned Alex Morgan - Senior Java Developer/);
+      const posts = calls.filter((c) => c.method === "POST");
+      expect(posts.map((c) => JSON.parse(c.body!))).toEqual([{ consultantId: 5 }, { consultantId: 5, confirmDuplicate: true, duplicateReason: "The client asked for both vendors" }]);
+      expect(calls.every((c) => !/submi/i.test(c.url))).toBe(true); // E1
+    });
+
+    it("choosing another consultant drops the warning, because it belonged to one pair", async () => {
+      stubAssign(() => json(409, { error: "Duplicate.", code: "DUPLICATE_WARNING", findings: [finding] }));
+      await openAssign("Alex Morgan");
+      fireEvent.click(screen.getByRole("button", { name: "Assign" }));
+      await screen.findByText(/through another vendor/);
+      fireEvent.click(screen.getByText("Priya Sharma"));
+      await waitFor(() => expect(screen.queryByText(/through another vendor/)).toBeNull());
+      expect(screen.getByRole("button", { name: "Assign" })).toBeTruthy();
+    });
+
+    it("a block is a plain message with no reason box", async () => {
+      stubAssign(() => json(409, { error: "This consultant already has the same role. Your organization does not allow this.", code: "DUPLICATE_BLOCKED", findings: [finding] }));
+      await openAssign("Alex Morgan");
+      fireEvent.click(screen.getByRole("button", { name: "Assign" }));
+      await screen.findByText("This consultant already has the same role. Your organization does not allow this.");
+      expect(screen.queryByLabelText("Why is it fine to go ahead?")).toBeNull();
+      expect(screen.queryByRole("button", { name: "Assign anyway" })).toBeNull();
+    });
+
+    it("the open-opportunity limit is a plain message too", async () => {
+      stubAssign(() => json(409, { error: "This consultant already has 5 open opportunities, the most your organization allows (5).", code: "ASSIGNMENT_CAP" }));
+      await openAssign("Alex Morgan");
+      fireEvent.click(screen.getByRole("button", { name: "Assign" }));
+      await screen.findByText(/already has 5 open opportunities, the most your organization allows/);
+      expect(screen.queryByLabelText("Why is it fine to go ahead?")).toBeNull();
+    });
+  });
+
   it("explains a refused assignment and keeps the drawer open", async () => {
     serve((url, method) => {
       if (url.endsWith("/jobs/1/candidates")) return json(200, [{ consultantId: 5, name: "Alex Morgan", title: null, availability: null, score: null, matchStatus: null }]);

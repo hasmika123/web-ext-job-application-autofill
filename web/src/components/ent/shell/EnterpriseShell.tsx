@@ -22,7 +22,7 @@ import {
   useToast,
 } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
-import { ENT_MASCOT_BASE } from "@/lib/ent/mascot";
+import { ENT_MASCOT_BASE } from "@/lib/ent/mascot-base";
 import { heroLook } from "@/lib/ent/hero-look";
 import { undoToast } from "@/lib/undo-toast";
 import { activeKey, bannersFor, defaultTitle, navSections, primaryRoleName, switcherRows, type SwitcherRow } from "@/lib/ent/shell";

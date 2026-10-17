@@ -7,10 +7,22 @@
 #
 name: dossier
 
+# Log rotation (REAL-GAPS-C P1.5): every container logs through Docker's json-file driver, capped at
+# 5 files x 10 MB (compressed once rotated), so a chatty container can never fill the disk of a box
+# we share with BeeCompete. The cap applies to a container when it is (re)created, which the next
+# deploy does. Host-wide default for everything else on the box: scripts/ops/docker-daemon.json.example.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+    compress: "true"
+
 services:
   mysql:
     image: mysql:9.2.0
     restart: unless-stopped
+    logging: *default-logging
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
       - MYSQL_DATABASE=dossierApi
@@ -29,10 +41,13 @@ services:
   api:
     # CI builds + pushes this image to GHCR; the VPS pulls it (`docker compose pull`). The
     # `build:` block still works for a local/manual `up -d --build` (it tags the same name).
-    image: ghcr.io/hasmika123/dossier-api:latest
+    # The tag is explicit in deploys: scripts/ops/deploy.sh exports DOSSIER_API_TAG / DOSSIER_WEB_TAG (a git sha
+    # CI pushed) and can roll back to the previous one. Unset = `latest`, which is what deploy.yml pulls.
+    image: ghcr.io/hasmika123/dossier-api:${DOSSIER_API_TAG:-latest}
     build:
       context: ./api
     restart: unless-stopped
+    logging: *default-logging
     volumes:
       # User files (resumes, attachments, built-resume PDFs). This is user data: it is NOT in the
       # MySQL dump, so back this volume up separately and never `docker compose down -v`.
@@ -161,12 +176,13 @@ services:
     networks: [internal]
 
   web:
-    image: ghcr.io/hasmika123/dossier-web:latest
+    image: ghcr.io/hasmika123/dossier-web:${DOSSIER_WEB_TAG:-latest}
     build:
       # Root context: the web build syncs the shared parser-core from job-autofill/.
       context: .
       dockerfile: web/Dockerfile
     restart: unless-stopped
+    logging: *default-logging
     environment:
       # Server-side only: the web's Next route handlers call the API over the internal
       # network. The browser never hits this URL directly.
@@ -209,6 +225,7 @@ services:
   chromium:
     image: ghcr.io/browserless/chromium:v2.57.0@sha256:6bac628b3d8293f8fb251d3a6b63030dfc5a1cb0c7e5c39abe5efd8f4b25360b
     restart: unless-stopped
+    logging: *default-logging
     init: true
     # Shared box (BeeCompete lives here too): cap it. ~260 MB idle-after-print in testing; a
     # print of a long resume peaks well under 1 GB. /dev/shm must be larger than Docker's 64 MB
@@ -232,6 +249,7 @@ services:
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "80:80"
       - "443:443"

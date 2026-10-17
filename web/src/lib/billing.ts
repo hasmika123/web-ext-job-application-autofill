@@ -19,6 +19,16 @@ export type Plan = {
   billingEnabled: boolean;
   /** A Stripe customer exists, so the billing portal can be opened. */
   hasCustomer: boolean;
+  /** v3 (subscription module): present once the subscription is linked to a plan version; absent for Free (see lib/subscription/types PlanV3). */
+  planKey?: string;
+  planVersion?: number;
+  planName?: string;
+  interval?: "MONTH" | "QUARTER" | "YEAR";
+  currency?: string;
+  recurringMinor?: number;
+  /** K10.10: the plan is being retired / services are read-only after a fallback (lib/subscription/types PlanV3). */
+  retirement?: { planName: string; effectiveAt: string; decided: boolean; lastDay?: boolean } | null;
+  lock?: { since: string; services: number } | null;
 };
 
 /** What we assume when the API can't be reached: Free, and billing not offered. */

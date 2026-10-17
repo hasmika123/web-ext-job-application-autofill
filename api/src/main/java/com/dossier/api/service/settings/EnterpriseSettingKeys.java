@@ -64,6 +64,16 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_MARKETING_OVERLOAD_PCT = "org.marketing.overload_pct";
     public static final String ORG_MARKETING_BULK_MAX = "org.marketing.bulk_max";
     public static final String ORG_MARKETING_CAPACITY_MAX = "org.marketing.capacity_max";
+    /**
+     * Sprint 2 / B1 (pipeline guards): what happens when a consultant would be put in front of the same posting twice (WARN asks for a confirmation and a reason, BLOCK refuses),
+     * the days within which the same job through another vendor still counts, the most consultants that may hold one posting at once (0 = off), the most open opportunities one
+     * consultant may hold (0 = off), and whether open work follows a consultant to a new marketer. An organization may override each in org_setting.
+     */
+    public static final String ORG_PIPELINE_DUPLICATE_POLICY = "org.pipeline.duplicate_policy";
+    public static final String ORG_PIPELINE_SAME_CLIENT_WINDOW_DAYS = "org.pipeline.same_client_window_days";
+    public static final String ORG_PIPELINE_MAX_PER_REQUIREMENT = "org.pipeline.max_submissions_per_requirement";
+    public static final String ORG_PIPELINE_OPEN_MATCHES_MAX = "org.pipeline.open_matches_max";
+    public static final String ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK = "org.assignments.handover_open_work";
     /** Interviews page: how long a status change may be undone (minutes), the most interviewers one interview may list, and the minutes before a reminder may be requested again. An organization may override each in org_setting. */
     public static final String ORG_INTERVIEWS_UNDO_MINUTES = "org.interviews.undo_minutes";
     public static final String ORG_INTERVIEWS_MAX_DURATION_MINUTES = "org.interviews.max_duration_minutes";
@@ -214,6 +224,13 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_MARKETING_OVERLOAD_PCT, 90, 50, 100, Risk.LOW, "Marketing Assignments: a marketer counts as overloaded once assigned consultants reach this percent of their capacity. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_BULK_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: most consultants one assign, update, unassign or undo call may name. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_CAPACITY_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: the highest capacity (consultants at once) a marketer may be given. An organization can override it in org_setting.");
+        k.add(new Key(ORG_PIPELINE_DUPLICATE_POLICY, Type.ENUM, "WARN", null, null, List.of("WARN", "BLOCK"),
+            "Duplicate-submission guard: when assigning or recording would put a consultant in front of the same posting twice (the same link or job, the same role through another vendor, or a posting too many consultants already hold), WARN answers 409 DUPLICATE_WARNING until the marketer confirms with a reason (audited), BLOCK refuses with 409 DUPLICATE_BLOCKED. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        integer(k, ORG_PIPELINE_SAME_CLIENT_WINDOW_DAYS, 90, 1, 730, Risk.LOW, "Duplicate-submission guard: the same role for the same consultant through another vendor counts as a duplicate when the earlier assignment or application is at most this many days old. An organization can override it in org_setting.");
+        integer(k, ORG_PIPELINE_MAX_PER_REQUIREMENT, 0, 0, 50, Risk.LOW, "Duplicate-submission guard: the most consultants that may hold one posting at the same time; the next assignment is a duplicate warning (or a block, per the policy). 0 = off. An organization can override it in org_setting.");
+        integer(k, ORG_PIPELINE_OPEN_MATCHES_MAX, 0, 0, 1000, Risk.LOW, "Assignments: the most open opportunities one consultant may hold; the next assignment answers 409 ASSIGNMENT_CAP. 0 = off. An organization can override it in org_setting.");
+        k.add(new Key(ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK, Type.BOOL, "true", null, null, null,
+            "Marketing Assignments: when a consultant moves to a new marketer, the open opportunities, tasks and follow-ups the previous marketer owned for that consultant move with them (audited, with a note on each). Off: only the assignment moves and the open work stays with the previous owner. An organization can override it in org_setting.", null, Risk.MEDIUM));
         integer(k, ORG_INTERVIEWS_UNDO_MINUTES, 10, 1, 120, Risk.LOW, "Interviews: how many minutes a recorded status change may be undone. An organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_MAX_DURATION_MINUTES, 480, 15, 1440, Risk.LOW, "Interviews: the longest interview (minutes) that may be scheduled. An organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_MAX_INTERVIEWERS, 6, 1, 20, Risk.LOW, "Interviews: the most interviewers one interview may list. An organization can override it in org_setting.");

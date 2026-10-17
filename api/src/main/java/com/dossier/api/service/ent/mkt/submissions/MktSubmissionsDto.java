@@ -62,7 +62,11 @@ public final class MktSubmissionsDto {
     /** The board's list query. All fields are optional except paging, which is already clamped. */
     public record Query(String q, String status, String approval, Long clientId, String jobTitle, String period, String donutPeriod, String sort, String dir, int page, int size) {}
 
-    public record CreateRequest(Long consultantId, Long requirementId, Long resumeId, String note) {}
+    public record CreateRequest(Long consultantId, Long requirementId, Long resumeId, String note, Boolean confirmDuplicate, String duplicateReason) {
+        public CreateRequest(Long consultantId, Long requirementId, Long resumeId, String note) {
+            this(consultantId, requirementId, resumeId, note, null, null);
+        }
+    }
 
     /** {@code status}: SUBMITTED, CLIENT_REVIEW, INTERVIEW_REQUESTED or REJECTED; a recorded fact, never an action on the client. */
     public record StatusRequest(String status, String note) {}

@@ -73,12 +73,12 @@ public final class MarketingAssignmentsDTO {
     // ---- writes ----
 
     /** Assign or reassign. {@code allowOverCapacity} must be true to push the marketer above capacity. priority/status/backup are optional extras applied to every row. */
-    public record AssignRequest(List<Long> consultantIds, Long marketerMemberId, Long backupMemberId, String priority, String status, Boolean allowOverCapacity) {}
+    public record AssignRequest(List<Long> consultantIds, Long marketerMemberId, Long backupMemberId, String priority, String status, Boolean allowOverCapacity, String reason) {}
 
     /** Set a field on many assignments. Exactly one of priority, status, backupMemberId or clearBackup is applied. */
-    public record UpdateRequest(List<Long> consultantIds, String priority, String status, Long backupMemberId, Boolean clearBackup) {}
+    public record UpdateRequest(List<Long> consultantIds, String priority, String status, Long backupMemberId, Boolean clearBackup, String reason) {}
 
-    public record UnassignRequest(List<Long> consultantIds) {}
+    public record UnassignRequest(List<Long> consultantIds, String reason) {}
 
     /** One assignment as it was (marketerMemberId null = there was none): what Undo sends back. */
     public record RestoreRow(Long consultantId, Long marketerMemberId, Long backupMemberId, String priority, String status) {}
@@ -95,4 +95,13 @@ public final class MarketingAssignmentsDTO {
     public record RowResult(Long consultantId, boolean ok, String reason, Map<String, Object> previous) {}
 
     public record BulkResult(String action, int requested, int ok, List<Skipped> skipped, List<RowResult> results) {}
+
+    // ---- history (Sprint 2 / B1) ----
+
+    /** One line of a consultant assignment history: who changed what, when and why, and what open work moved with it. */
+    public record HistoryItem(
+        Long id, String action, Person fromMarketer, Person toMarketer, Person fromBackup, Person toBackup, String reason, Person actor, String handover, Instant at
+    ) {}
+
+    public record History(Long consultantId, String consultantName, Person currentMarketer, Person currentBackup, List<HistoryItem> items) {}
 }

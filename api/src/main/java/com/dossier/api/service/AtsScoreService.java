@@ -64,7 +64,7 @@ public class AtsScoreService {
     /** Structure only — the Resumes page. */
     public Report forResume(Long resumeId) {
         User user = currentUser();
-        entitlementService.requirePro(user.getLogin());
+        entitlementService.require(user.getLogin(), com.dossier.api.service.entitlement.FeatureKeys.RESUME_OPTIMIZATION);
         Resume r = ownedResume(user, resumeId);
         List<AtsChecks.Check> checks = AtsChecks.run(parsed(r), hasFile(r));
         int ratio = AtsChecks.passedWeight(checks);
@@ -79,7 +79,7 @@ public class AtsScoreService {
     @Transactional
     public Report forApplication(Long applicationId, Long resumeId, boolean consent) {
         User user = currentUser();
-        entitlementService.requirePro(user.getLogin());
+        entitlementService.require(user.getLogin(), com.dossier.api.service.entitlement.FeatureKeys.RESUME_OPTIMIZATION);
         Resume r = ownedResume(user, resumeId);
         List<AtsChecks.Check> checks = AtsChecks.run(parsed(r), hasFile(r));
         int structure = AtsChecks.passedWeight(checks);

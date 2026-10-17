@@ -1,3 +1,4 @@
+import { upgradeFrom, type UpgradeHint } from "@/lib/subscription/upgrade";
 /**
  * Client-side fetchers for the Resume Builder BFF (`/api/resumes/built`, `/api/resumes/[id]/doc`,
  * `…/doc/template`). Browser code only ever calls these Next routes; the Spring API is never
@@ -230,7 +231,7 @@ export interface CreateBuiltBody {
 export type CreateBuiltResult =
   | { kind: "ok"; id: number; orgResumeId?: number }
   /** 402 RESUME_LIMIT: the plan's resume cap. `plan` says which copy to show. */
-  | { kind: "limit"; plan?: string; limit?: number; message: string }
+  | { kind: "limit"; plan?: string; limit?: number; message: string; upgrade?: UpgradeHint | null }
   /** 422 SENSITIVE_CONTENT: a value the product never collects, and where (`structured.experience[1].bullets[0]`). */
   | { kind: "sensitive"; path: string; message: string }
   /** 422 DOC_INVALID / unknown template: the first thing the validator refused. */
@@ -252,6 +253,7 @@ export async function createBuilt(body: CreateBuiltBody = {}, url = "/api/resume
         plan: data?.plan,
         limit: data?.limit,
         message: data?.detail ?? data?.error ?? "You've reached your resume limit.",
+        ...(upgradeFrom(data) ? { upgrade: upgradeFrom(data) } : {}),
       };
     }
     if (res.status === 401) return { kind: "error", message: "Your session expired — please sign in again." };

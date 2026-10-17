@@ -537,4 +537,65 @@ class OpportunityAssignmentServiceTest {
         assertThatThrownBy(() -> service.assign(all, me, (com.dossier.api.domain.ent.talent.ClientRequirement) null, CON, null))
             .isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("VALIDATION"));
     }
+
+    // ---- the duplicate and cap guards (Sprint 2 / B1) ------------------------------------------------------------------------------
+
+    private com.dossier.api.service.ent.pipeline.DuplicateGuard guarded() {
+        com.dossier.api.service.ent.pipeline.DuplicateGuard guard = org.mockito.Mockito.mock(com.dossier.api.service.ent.pipeline.DuplicateGuard.class);
+        service.setGuard(guard);
+        return guard;
+    }
+
+    @Test
+    void aNewAssignmentAsksTheGuardsBeforeAnythingIsWritten() {
+        var guard = guarded();
+        org.mockito.Mockito.doThrow(OrgException.coded(409, "DUPLICATE_WARNING", "Same role through another vendor.", java.util.Map.of()))
+            .when(guard).enforce(any(OrgMembership.class), eq(CON), any(), any());
+        assertThatThrownBy(() -> assign(null)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("DUPLICATE_WARNING"));
+        verify(guard).assertOpenCap(ORG, CON);
+        assertThat(world.matchStore).isEmpty();
+        assertThat(world.oppStore).isEmpty();
+        verify(world.audit, never()).record(any(OrgMembership.class), anyString(), anyString(), any(), any(), any());
+    }
+
+    @Test
+    void theCapIsAskedFirstAndStopsTheAssignment() {
+        var guard = guarded();
+        org.mockito.Mockito.doThrow(OrgException.coded(409, "ASSIGNMENT_CAP", "Too many open.", java.util.Map.of())).when(guard).assertOpenCap(ORG, CON);
+        assertThatThrownBy(() -> assign(null)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("ASSIGNMENT_CAP"));
+        verify(guard, never()).enforce(any(OrgMembership.class), any(), any(), any());
+        assertThat(world.matchStore).isEmpty();
+    }
+
+    @Test
+    void theAnswerToAWarningReachesTheGuardAndTheAssignmentGoesAhead() {
+        var guard = guarded();
+        var confirm = new com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm(true, "The client asked for both");
+        assertThat(assign(Options.none().confirmingDuplicate(confirm)).created()).isTrue();
+        verify(guard).enforce(eq(me), eq(CON), any(), eq(confirm));
+        assertThat(world.matchStore).hasSize(1);
+    }
+
+    @Test
+    void aPairThatIsAlreadyLiveIsNeverAskedAgain() {
+        var guard = guarded();
+        assertThat(assign(null).created()).isTrue();
+        assertThat(assign(null).existing()).isTrue();
+        verify(guard, org.mockito.Mockito.times(1)).enforce(any(OrgMembership.class), any(), any(), any());
+        verify(guard, org.mockito.Mockito.times(1)).assertOpenCap(any(), any());
+    }
+
+    @Test
+    void reopeningADeclinedPairIsAnAssignmentAgainSoTheGuardsAskAgain() {
+        var guard = guarded();
+        assign(null);
+        world.oppStore.values().iterator().next().setState("DECLINED");
+        assertThat(assign(null).reopened()).isTrue();
+        verify(guard, org.mockito.Mockito.times(2)).enforce(any(OrgMembership.class), any(), any(), any());
+    }
+
+    @Test
+    void withoutGuardsWiredNothingIsAsked() {
+        assertThat(assign(null).created()).isTrue(); // the unit-test construction: no guard bean, no question
+    }
 }

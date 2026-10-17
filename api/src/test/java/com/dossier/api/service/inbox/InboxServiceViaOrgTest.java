@@ -77,7 +77,7 @@ class InboxServiceViaOrgTest {
         verify(connections).save(saved.capture());
         assertThat(saved.getValue().getConnectedViaOrgId()).isEqualTo(ORG);
         assertThat(saved.getValue().getPasswordEnc()).startsWith("v1:").doesNotContain(CODE);
-        verify(personal, never()).requirePro(anyString()); // the personal plan was not asked
+        verify(personal, never()).require(anyString(), anyString()); // the personal plan was not asked (K7.3: require names its service)
     }
 
     @Test
@@ -93,7 +93,7 @@ class InboxServiceViaOrgTest {
     @Test
     void thePersonalRouteStillNeedsPro() {
         service.connect(ADDRESS, CODE);
-        verify(personal).requirePro("anika");
+        verify(personal).require("anika", "inbox.monitoring"); // K7.3: same personal-plan check, now keyed by service
         verify(orgEntitlement, never()).orgGrants(any(), any());
     }
 

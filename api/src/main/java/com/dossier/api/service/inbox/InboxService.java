@@ -130,7 +130,7 @@ public class InboxService {
     public ConnectResult connect(String rawAddress, String rawPassword, Long viaOrgId) {
         User user = currentUser();
         if (viaOrgId == null) {
-            entitlement.requirePro(user.getLogin());
+            entitlement.require(user.getLogin(), com.dossier.api.service.entitlement.FeatureKeys.INBOX_MONITORING);
         } else if (!orgEntitlement.orgGrants(viaOrgId, user.getId())) {
             return refuse("FEATURE_NOT_LICENSED", "Your organization's license doesn't include inbox tracking. Ask your administrator to add it.", HttpStatus.PAYMENT_REQUIRED);
         }

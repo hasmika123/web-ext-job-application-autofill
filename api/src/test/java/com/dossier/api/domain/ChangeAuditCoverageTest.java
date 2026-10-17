@@ -59,7 +59,10 @@ class ChangeAuditCoverageTest {
         // Talent directory.
         // Prepare sessions (prepare-batch): a progress row per opening, written by the consultant's own session (consultant_id is the only actor); PrepareEvent keeps the trail.
         "PrepareItem",
-        "ClientAccount", "ClientRequirement", "ConsultantProfile", "MarketerAssignment", "MarketerCapacity", "OrgResume", "TalentPlacement"
+        "ClientAccount", "ClientRequirement", "ConsultantProfile", "MarketerAssignment", "MarketerCapacity", "OrgResume", "TalentPlacement",
+        // Subscription module: a published plan version is changed only through the catalog builder, which writes catalog_change / catalog_publish (actor, before/after, reason);
+        // the add-on rows are a mirror written by the Stripe webhook and the confirmed-change service; the usage counter is a system ledger.
+        "PlanVersion", "SubscriptionAddon", "PersonalUsageCounter"
     );
 
     @Test

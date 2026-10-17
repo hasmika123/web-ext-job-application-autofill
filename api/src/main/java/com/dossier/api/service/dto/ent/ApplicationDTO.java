@@ -149,8 +149,14 @@ public final class ApplicationDTO {
         String nextAction,
         LocalDate nextActionDue,
         LocalDate appliedOn,
-        String stage
-    ) {}
+        String stage,
+        Boolean confirmDuplicate,
+        String duplicateReason
+    ) {
+        public CreateRequest(Long requirementId, Long consultantId, Long marketerMemberId, String source, String nextAction, LocalDate nextActionDue, LocalDate appliedOn, String stage) {
+            this(requirementId, consultantId, marketerMemberId, source, nextAction, nextActionDue, appliedOn, stage, null, null);
+        }
+    }
 
     /** Body of {@code POST /applications/{id}/stage}. {@code undoEventId} reverts the caller's own latest move. */
     public record StageRequest(String stage, String closedReason, Long undoEventId) {}

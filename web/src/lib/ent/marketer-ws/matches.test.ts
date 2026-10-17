@@ -82,3 +82,45 @@ describe("network helpers", () => {
     expect(await actOnMatch(2, 7, "assign")).toEqual({ kind: "CONFLICT", message: "This job is no longer open" });
   });
 });
+
+describe("assign and the duplicate guard (Sprint 2 / B1)", () => {
+  const reply = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }));
+
+  it("a plain assign sends no body; a confirmed one sends the two fields", async () => {
+    const f = reply(200, row({ status: "ASSIGNED" }));
+    vi.stubGlobal("fetch", f);
+    await actOnMatch(2, 7, "assign");
+    const plain = (f.mock.calls[0] as unknown as [string, RequestInit])[1];
+    expect(plain.body).toBeUndefined();
+    await actOnMatch(2, 7, "assign", { reason: "Both vendors asked" });
+    const confirmed = (f.mock.calls[1] as unknown as [string, RequestInit])[1];
+    expect(JSON.parse(confirmed.body as string)).toEqual({ confirmDuplicate: true, duplicateReason: "Both vendors asked" });
+    expect((confirmed.headers as Record<string, string>)["content-type"]).toBe("application/json");
+  });
+
+  it("dismiss never carries a confirmation", async () => {
+    const f = reply(200, row({ status: "DISMISSED" }));
+    vi.stubGlobal("fetch", f);
+    await actOnMatch(2, 7, "dismiss", { reason: "ignored" });
+    expect((f.mock.calls[0] as unknown as [string, RequestInit])[1].body).toBeUndefined();
+  });
+
+  it("a warning comes back as DUPLICATE with its findings", async () => {
+    vi.stubGlobal("fetch", reply(409, { error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [{ rule: "SAME_JOB", message: "Same role." }, "junk"] }));
+    expect(await actOnMatch(2, 7, "assign")).toEqual({ kind: "DUPLICATE", message: "Duplicate. Confirm with a reason to go ahead.", findings: [{ rule: "SAME_JOB", message: "Same role." }] });
+  });
+
+  it("a block and the open limit are plain conflicts with the API's sentence", async () => {
+    vi.stubGlobal("fetch", reply(409, { error: "Same role. Your organization does not allow this.", code: "DUPLICATE_BLOCKED", findings: [{ rule: "SAME_JOB", message: "Same role." }] }));
+    expect(await actOnMatch(2, 7, "assign")).toEqual({ kind: "CONFLICT", message: "Same role. Your organization does not allow this." });
+    vi.stubGlobal("fetch", reply(409, { error: "This consultant already has 5 open opportunities, the most your organization allows (5).", code: "ASSIGNMENT_CAP" }));
+    expect(await actOnMatch(2, 7, "assign")).toEqual({ kind: "CONFLICT", message: "This consultant already has 5 open opportunities, the most your organization allows (5)." });
+  });
+
+  it("reads the BFF's error field, and still the older message field", async () => {
+    vi.stubGlobal("fetch", reply(409, { error: "This job is no longer open", code: "REQUIREMENT_CLOSED" }));
+    expect(await actOnMatch(2, 7, "assign")).toEqual({ kind: "CONFLICT", message: "This job is no longer open" });
+    vi.stubGlobal("fetch", reply(409, {}));
+    expect(await actOnMatch(2, 7, "assign")).toEqual({ kind: "CONFLICT", message: "That match changed. Refresh and try again." });
+  });
+});

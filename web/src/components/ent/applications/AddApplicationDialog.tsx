@@ -5,6 +5,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Dialog, Field, Input, Select, XIcon } from "@kiwiply/ui";
 import { applicationsApi, errorSentence, newKey, type ApplicationDetail, type PickerItem } from "@/lib/ent/applications";
+import { DUPLICATE_WARNING, confirmFields, findingsOf, plainRefusal } from "@/lib/ent/marketer-ws/duplicate";
+import { DuplicateNotice, useDuplicateAsk } from "@/components/ent/marketer-ws/DuplicateConfirm";
 
 const SEARCH_DELAY_MS = 250; // config-literal-ok: how long typing rests before the picker asks the server (UI timing)
 
@@ -127,6 +129,8 @@ export default function AddApplicationDialog({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const key = useRef(newKey());
+  const dup = useDuplicateAsk();
+  const resetDup = dup.reset;
 
   useEffect(() => {
     if (!open) return;
@@ -139,8 +143,9 @@ export default function AddApplicationDialog({
     setDue("");
     setSubmitted(false);
     setErr(null);
+    resetDup();
     void applicationsApi.pickers(orgId, "marketer", "").then((r) => setMarketers(r.ok ? r.data.items : []));
-  }, [open, orgId]);
+  }, [open, orgId, resetDup]);
 
   async function submit() {
     if (!consultant || !job || busy) return;
@@ -156,12 +161,20 @@ export default function AddApplicationDialog({
         nextAction: nextAction.trim() || null,
         nextActionDue: due || null,
         stage: submitted ? "SUBMITTED" : "ASSIGNED",
+        ...confirmFields(dup.confirm),
       },
       key.current,
     );
     setBusy(false);
     if (!r.ok) {
-      setErr(errorSentence(r));
+      if (r.code === DUPLICATE_WARNING) {
+        // Ask for a reason; the confirmed call is a different request, so it gets its own idempotency key.
+        dup.ask({ code: r.code, error: r.message, findings: findingsOf(r.extra.findings) });
+        key.current = newKey();
+      } else {
+        dup.reset();
+        setErr(r.code === "DUPLICATE_BLOCKED" || r.code === "ASSIGNMENT_CAP" ? plainRefusal({ code: r.code, error: r.message }) : errorSentence(r)); // a block or the open limit: a plain sentence, nothing to confirm
+      }
       return;
     }
     onCreated(r.data);
@@ -179,18 +192,28 @@ export default function AddApplicationDialog({
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => void submit()} disabled={!consultant || !job || busy} data-add-submit>
-            Add application
+          <Button type="button" onClick={() => void submit()} disabled={!consultant || !job || busy || dup.needsReason} data-add-submit>
+            {dup.dup ? "Add anyway" : "Add application"}
           </Button>
         </>
       }
     >
       <div className="space-y-3.5" data-add-dialog>
         <Field label="Consultant" required>
-          <SearchPicker orgId={orgId} kind="consultant" label="Consultant" placeholder="Search consultants" value={consultant} onChange={setConsultant} />
+          <SearchPicker orgId={orgId} kind="consultant" label="Consultant" placeholder="Search consultants" value={consultant}
+            onChange={(v) => {
+              setConsultant(v);
+              dup.reset(); // a warning belongs to one consultant and job
+            }}
+          />
         </Field>
         <Field label="Job" required>
-          <SearchPicker orgId={orgId} kind="job" label="Job" placeholder="Search open jobs or clients" value={job} onChange={setJob} />
+          <SearchPicker orgId={orgId} kind="job" label="Job" placeholder="Search open jobs or clients" value={job}
+            onChange={(v) => {
+              setJob(v);
+              dup.reset();
+            }}
+          />
         </Field>
         <Field label="Marketer" hint="Leave as is to use the consultant's assigned marketer.">
           <Select
@@ -218,6 +241,7 @@ export default function AddApplicationDialog({
             <span className="block text-[12px] text-muted">Records it as Submitted. Kiwiply never submits for anyone.</span>
           </span>
         </label>
+        {dup.dup && <DuplicateNotice message={dup.dup.message} findings={dup.dup.findings} reason={dup.reason} onReason={dup.setReason} idBase="app-duplicate" />}
         {err && <p role="alert" className="text-[13px] text-danger">{err}</p>}
       </div>
     </Dialog>

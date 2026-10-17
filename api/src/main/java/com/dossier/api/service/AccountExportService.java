@@ -2,6 +2,9 @@ package com.dossier.api.service;
 
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.AiAnswerRepository;
+import com.dossier.api.repository.BugReportRepository;
+import com.dossier.api.repository.SalesInquiryRepository;
+import com.dossier.api.service.privacy.TermsAcceptanceService;
 import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.service.org.OrgMembershipPrivacyService;
 import com.dossier.api.service.mapper.AiAnswerMapper;
@@ -38,6 +41,9 @@ public class AccountExportService {
     private final TrackerDataService trackerDataService;
     private final com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService;
     private final com.fasterxml.jackson.databind.ObjectMapper mapper;
+    private final BugReportRepository bugReportRepository;
+    private final SalesInquiryRepository salesInquiryRepository;
+    private final TermsAcceptanceService termsAcceptanceService;
 
     public AccountExportService(
         UserService userService,
@@ -54,7 +60,10 @@ public class AccountExportService {
         OrgMembershipPrivacyService orgMembershipPrivacyService,
         TrackerDataService trackerDataService,
         com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService,
-        com.fasterxml.jackson.databind.ObjectMapper mapper
+        com.fasterxml.jackson.databind.ObjectMapper mapper,
+        BugReportRepository bugReportRepository,
+        SalesInquiryRepository salesInquiryRepository,
+        TermsAcceptanceService termsAcceptanceService
     ) {
         this.userService = userService;
         this.profileService = profileService;
@@ -71,6 +80,9 @@ public class AccountExportService {
         this.trackerDataService = trackerDataService;
         this.jobSearchDataService = jobSearchDataService;
         this.mapper = mapper;
+        this.bugReportRepository = bugReportRepository;
+        this.salesInquiryRepository = salesInquiryRepository;
+        this.termsAcceptanceService = termsAcceptanceService;
     }
 
     /**
@@ -132,6 +144,30 @@ public class AccountExportService {
         // Org tenant model (O1.3): the organizations the user belongs to / belonged to, with role, state, dates and what they share (O6.1).
         out.put("organizations", orgMembershipPrivacyService.exportFor(u.getId(), u.getLogin()));
         out.put("aiAnswers", aiAnswerRepository.findByUserIsCurrentUser().stream().map(aiAnswerMapper::toDto).toList());
+        // B2 (data map, T1.2): what the person wrote to us (bug reports, contact-us messages; staff notes on them are not included) and which terms they accepted.
+        out.put("bugReports", bugReportRepository.findByUserLoginOrderByIdAsc(u.getLogin()).stream().map(b -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("source", b.getSource());
+            m.put("category", b.getCategory());
+            m.put("severity", b.getSeverity());
+            m.put("status", b.getStatus());
+            m.put("message", b.getMessage());
+            m.put("url", b.getUrl());
+            m.put("appVersion", b.getAppVersion());
+            m.put("createdDate", b.getCreatedDate());
+            return m;
+        }).toList());
+        out.put("salesInquiries", salesInquiryRepository.findByUserLoginOrderByIdAsc(u.getLogin()).stream().map(i -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("topic", i.getTopic());
+            m.put("name", i.getName());
+            m.put("email", i.getEmail());
+            m.put("company", i.getCompany());
+            m.put("message", i.getMessage());
+            m.put("createdDate", i.getCreatedDate());
+            return m;
+        }).toList());
+        out.put("termsAcceptance", termsAcceptanceService.exportFor(u.getId()));
         return com.dossier.api.config.Constants.isEnterpriseLogin(u.getLogin()) ? withoutSyntheticLogin(out, u.getLogin()) : out;
     }
 

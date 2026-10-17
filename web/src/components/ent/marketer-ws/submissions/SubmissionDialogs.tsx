@@ -6,6 +6,8 @@ import {
   createSubmission, dateText, fetchOptions, fetchSubmission, shortDate,
   type SubmissionDetail, type SubmissionOptions, type SubmissionRow,
 } from "@/lib/ent/marketer-ws/submissions";
+import { DUPLICATE_WARNING, plainRefusal } from "@/lib/ent/marketer-ws/duplicate";
+import { DuplicateNotice, useDuplicateAsk } from "../DuplicateConfirm";
 import { ApprovalChip, StatusChip } from "./SubmissionParts";
 
 /**
@@ -22,6 +24,8 @@ export function NewSubmissionDialog({ orgId, open, onClose, onCreated }: { orgId
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dup = useDuplicateAsk();
+  const resetDup = dup.reset;
 
   useEffect(() => {
     if (!open) return;
@@ -33,6 +37,7 @@ export function NewSubmissionDialog({ orgId, open, onClose, onCreated }: { orgId
       setConsultantId("");
       setJobId("");
       setNote("");
+      resetDup();
       void fetchOptions(orgId, ctl.signal).then((o) => {
         if (ctl.signal.aborted) return;
         setOptions(o);
@@ -44,16 +49,20 @@ export function NewSubmissionDialog({ orgId, open, onClose, onCreated }: { orgId
       clearTimeout(t);
       ctl.abort();
     };
-  }, [open, orgId]);
+  }, [open, orgId, resetDup]);
 
   const submit = async () => {
     if (!consultantId || !jobId || saving) return;
     setSaving(true);
     setError(null);
-    const r = await createSubmission(orgId, { consultantId: Number(consultantId), requirementId: Number(jobId), ...(note.trim() ? { note: note.trim() } : {}) });
+    const r = await createSubmission(orgId, { consultantId: Number(consultantId), requirementId: Number(jobId), ...(note.trim() ? { note: note.trim() } : {}) }, dup.confirm);
     setSaving(false);
     if (r.ok) onCreated(r.data);
-    else setError(r.error);
+    else if (r.code === DUPLICATE_WARNING) dup.ask({ code: r.code, error: plainRefusal(r), findings: r.findings }); // ask for a reason, then create the draft anyway
+    else {
+      dup.reset();
+      setError(plainRefusal(r)); // a block or the open limit: a plain sentence, nothing to confirm
+    }
   };
 
   return (
@@ -67,8 +76,8 @@ export function NewSubmissionDialog({ orgId, open, onClose, onCreated }: { orgId
           <Button variant="ghost" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="accent" size="sm" disabled={!consultantId || !jobId || saving} onClick={() => void submit()}>
-            {saving ? "Creating…" : "Create draft"}
+          <Button variant="accent" size="sm" disabled={!consultantId || !jobId || saving || dup.needsReason} onClick={() => void submit()}>
+            {saving ? "Creating…" : dup.dup ? "Create draft anyway" : "Create draft"}
           </Button>
         </>
       }
@@ -90,7 +99,10 @@ export function NewSubmissionDialog({ orgId, open, onClose, onCreated }: { orgId
               aria-label="Consultant"
               placeholder="Choose a consultant"
               value={consultantId}
-              onChange={setConsultantId}
+              onChange={(v) => {
+                setConsultantId(v);
+                dup.reset(); // a warning belongs to one consultant and job
+              }}
               options={options.consultants.map((c) => ({ value: String(c.id), label: c.role ? `${c.name} - ${c.role}` : c.name }))}
             />
           </label>
@@ -100,7 +112,10 @@ export function NewSubmissionDialog({ orgId, open, onClose, onCreated }: { orgId
               aria-label="Job"
               placeholder={options.jobs.length ? "Choose an open job" : "No open jobs"}
               value={jobId}
-              onChange={setJobId}
+              onChange={(v) => {
+                setJobId(v);
+                dup.reset();
+              }}
               options={options.jobs.map((j) => ({ value: String(j.id), label: `${j.title} - ${j.client} (${j.code})` }))}
             />
           </label>
@@ -110,6 +125,7 @@ export function NewSubmissionDialog({ orgId, open, onClose, onCreated }: { orgId
           </label>
         </div>
       )}
+      {dup.dup ? <DuplicateNotice message={dup.dup.message} findings={dup.dup.findings} reason={dup.reason} onReason={dup.setReason} idBase="sub-duplicate" /> : null}
       {error ? (
         <p role="alert" data-form-error className="mt-3 text-[13px] font-semibold text-v2-danger-text">
           {error}

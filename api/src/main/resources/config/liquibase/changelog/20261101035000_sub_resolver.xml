@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The resolver stream of the subscription module (docs/subscriptions/08-data-model.md sections 4.4 to 4.6; stories K7.1, K7.2, K7.5, K8.3).
+        It sits in its own file so it never collides with 20261101030000_sub_personal.xml, which the add-on stream (K5.2) extends:
+          - entitlement_grant (K7.1): the narrowed grants (ADMIN_COMP, REFERRAL, SERVICE_ORDER), each pointing at a plan version;
+          - personal_usage_event / personal_usage_counter (K7.5): the personal usage ledger, the doc-25 shape keyed by user_id (decision S-14);
+          - ai_call widening (K7.2): feature_key, usage_event_id, usage_scope, org_id, beneficiary_login (all nullable);
+          - invoice / invoice_line (K8.3): the personal invoice mirror, written only by the Stripe webhook.
+        Additive only; every changeSet is guarded (tableExists / columnExists, MARK_RAN); rollbacks are empty on purpose.
+    -->
+
+    <changeSet id="sub-resolver-entitlement-grant" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="entitlement_grant"/></not></preConditions>
+        <createTable tableName="entitlement_grant">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="plan_version_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="source" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="source_ref" type="varchar(255)"/>
+            <column name="starts_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="ends_at" type="${datetimeType}"/>
+            <column name="granted_by" type="varchar(50)"/>
+            <column name="reason" type="varchar(500)"/>
+            <column name="revoked_at" type="${datetimeType}"/>
+            <column name="revoked_by" type="varchar(50)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="entitlement_grant" baseColumnNames="user_id" constraintName="fk_grant_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="entitlement_grant" baseColumnNames="plan_version_id" constraintName="fk_grant_version"
+                                 referencedTableName="plan_version" referencedColumnNames="id"/>
+        <createIndex tableName="entitlement_grant" indexName="ix_grant_user_active"><column name="user_id"/><column name="ends_at"/></createIndex>
+        <createIndex tableName="entitlement_grant" indexName="ix_grant_source"><column name="source"/><column name="source_ref"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-resolver-personal-usage-event" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="personal_usage_event"/></not></preConditions>
+        <createTable tableName="personal_usage_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="login" type="varchar(50)"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="limit_key" type="varchar(40)" defaultValue="default"><constraints nullable="false"/></column>
+            <column name="quantity" type="bigint"><constraints nullable="false"/></column>
+            <column name="reserved_quantity" type="bigint"><constraints nullable="false"/></column>
+            <column name="unit" type="varchar(24)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="release_reason" type="varchar(16)"/>
+            <column name="allowance_snapshot" type="bigint"><constraints nullable="false"/></column>
+            <column name="period_key" type="varchar(32)"><constraints nullable="false"/></column>
+            <column name="period_start_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="period_end_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="idempotency_key" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="reference_type" type="varchar(30)"/>
+            <column name="reference_id" type="bigint"/>
+            <column name="ai_call_id" type="bigint"/>
+            <column name="expires_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="committed_at" type="${datetimeType}"/>
+            <column name="released_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="personal_usage_event" baseColumnNames="user_id" constraintName="fk_pue_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <addForeignKeyConstraint baseTableName="personal_usage_event" baseColumnNames="feature_key" constraintName="fk_pue_feature"
+                                 referencedTableName="feature_definition" referencedColumnNames="feature_key"/>
+        <addUniqueConstraint tableName="personal_usage_event" columnNames="idempotency_key" constraintName="ux_pue_idem"/>
+        <createIndex tableName="personal_usage_event" indexName="ix_pue_user_period">
+            <column name="user_id"/><column name="feature_key"/><column name="limit_key"/><column name="period_key"/><column name="status"/>
+        </createIndex>
+        <createIndex tableName="personal_usage_event" indexName="ix_pue_sweep"><column name="status"/><column name="expires_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-resolver-personal-usage-counter" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="personal_usage_counter"/></not></preConditions>
+        <createTable tableName="personal_usage_counter">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="limit_key" type="varchar(40)" defaultValue="default"><constraints nullable="false"/></column>
+            <column name="period_key" type="varchar(32)"><constraints nullable="false"/></column>
+            <column name="used" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="allowance" type="bigint"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="personal_usage_counter" columnNames="user_id, feature_key, limit_key, period_key" constraintName="ux_puc"/>
+        <addForeignKeyConstraint baseTableName="personal_usage_counter" baseColumnNames="user_id" constraintName="fk_puc_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-resolver-ai-call-columns" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="ai_call" columnName="feature_key"/></not></preConditions>
+        <addColumn tableName="ai_call">
+            <column name="org_id" type="bigint"/>
+            <column name="beneficiary_login" type="varchar(50)"/>
+            <column name="feature_key" type="varchar(60)"/>
+            <column name="usage_event_id" type="bigint"/>
+            <column name="usage_scope" type="varchar(8)"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-resolver-invoice" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="invoice"/></not></preConditions>
+        <createTable tableName="invoice">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="subscription_id" type="bigint"/>
+            <column name="stripe_invoice_id" type="varchar(255)"><constraints nullable="false"/></column>
+            <column name="stripe_subscription_id" type="varchar(255)"/>
+            <column name="number" type="varchar(64)"/>
+            <column name="status" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="billing_reason" type="varchar(40)"/>
+            <column name="currency" type="char(3)"><constraints nullable="false"/></column>
+            <column name="amount_due_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="amount_paid_minor" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="tax_minor" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="discount_minor" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="amount_refunded_minor" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="period_start" type="${datetimeType}"/>
+            <column name="period_end" type="${datetimeType}"/>
+            <column name="paid_at" type="${datetimeType}"/>
+            <column name="attempt_count" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="next_payment_attempt" type="${datetimeType}"/>
+            <column name="hosted_invoice_url" type="varchar(1024)"/>
+            <column name="invoice_pdf_url" type="varchar(1024)"/>
+            <column name="disputed" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="last_event_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="invoice" columnNames="stripe_invoice_id" constraintName="ux_invoice_stripe"/>
+        <createIndex tableName="invoice" indexName="ix_invoice_user"><column name="user_id"/><column name="created_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-resolver-invoice-line" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="invoice_line"/></not></preConditions>
+        <createTable tableName="invoice_line">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="invoice_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="stripe_line_id" type="varchar(255)"/>
+            <column name="line_kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="price_id" type="bigint"/>
+            <column name="stripe_price_id" type="varchar(255)"/>
+            <column name="plan_version_id" type="bigint"/>
+            <column name="feature_key" type="varchar(60)"/>
+            <column name="description" type="varchar(500)"/>
+            <column name="quantity" type="int" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="unit_amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="amount_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="period_start" type="${datetimeType}"/>
+            <column name="period_end" type="${datetimeType}"/>
+            <column name="proration" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="sort_order" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="invoice_line" baseColumnNames="invoice_id" constraintName="fk_invoice_line_invoice"
+                                 referencedTableName="invoice" referencedColumnNames="id" onDelete="CASCADE"/>
+        <createIndex tableName="invoice_line" indexName="ix_invoice_line_invoice"><column name="invoice_id"/><column name="sort_order"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

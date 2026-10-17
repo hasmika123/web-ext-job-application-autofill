@@ -87,5 +87,18 @@ public interface MktOpportunityRepository extends Repository<MktOpportunity, Lon
         @Param("states") java.util.Collection<String> states
     );
 
+    /** Handover (B1): the locked opportunities of one consultant, owned by one marketer, still open (in the given states). */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query(
+        "select o from MktOpportunity o join RequirementMatch m on m.orgId = o.orgId and m.id = o.matchId "
+            + "where o.orgId = :orgId and m.consultantId = :consultantId and o.ownerMemberId = :ownerMemberId and o.state in :states order by o.id"
+    )
+    List<MktOpportunity> lockOpenOwnedByForConsultant(
+        @Param("orgId") Long orgId,
+        @Param("consultantId") Long consultantId,
+        @Param("ownerMemberId") Long ownerMemberId,
+        @Param("states") java.util.Collection<String> states
+    );
+
     <S extends MktOpportunity> S save(S entity);
 }

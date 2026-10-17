@@ -415,6 +415,42 @@ Temporary passwords are read from the shown-once dialog at run time and never pr
 - **Pages / APIs:** Policy reviews, `POST /api/admin/org-policies/{id}/request-changes`.
 - **Status: STORY-ONLY (covered by `OrgPolicyResourceIT`)**
 
+### APP-10 A person deletes their account and can still change their mind for 24 hours
+- **Persona:** an account holder on kiwiply.com. **Steps:** 1. Ask for the account to be deleted (`POST /api/account/deletion-request`). 2. Keep using the account; ask again. 3. Withdraw the request (`DELETE /api/account/deletion-request`) and ask again. 4. Let the window pass.
+- **Expected:** step 1 answers PENDING with the moment the erasure becomes final (the `privacy.deletion.grace_hours` setting, default 24) and `canUndo`; the account works as usual meanwhile and nothing is erased early even when the sweep runs; asking twice is the same request; withdrawing answers CANCELLED and the status goes back to NONE (a second withdraw is a 404); after the window the sweep erases the account, its files and its rows, and writes a purge report that holds counts only (no login, e-mail or name); with the grace set to 0 the account is erased at once and the answer says DELETED; another account's status call says NONE and its withdraw call is a 404; signed out is 401.
+- **Pages / APIs:** `POST/GET/DELETE /api/account/deletion-request`, `DELETE /api/account` (immediate). The Settings page still offers the immediate route; wiring the undo flow into the page is a follow-up (not built, not verified in a browser).
+- **Status: STORY-ONLY (covered by `AccountPrivacyResourceIT`, `AccountErasureReportIT`)**
+
+### APP-11 A person asks for a copy of everything and downloads it later
+- **Persona:** an account holder. **Steps:** 1. Start an export (`POST /api/account/exports`); start it again. 2. Poll the job until READY. 3. Download from the signed path it carries. 4. Try the path as another account, with a changed signature, and after the expiry.
+- **Expected:** one active export at a time (the second call returns the same job), at most `privacy.export.max_per_day` (default 3) per 24 hours (429 beyond); the job is built in the background into a ZIP with `export.json`, the stored files under `files/` and a `manifest.json`; the ZIP is capped at `privacy.export.max_mb` (default 200): a file that would cross the cap is left out and listed under `skipped` with the reason; the path carries an expiry and an HMAC signature; another account gets the generic 404 for the job and the file, a bent signature is a 404, an expired export says EXPIRED, gives no path and its file is deleted; earlier exports are never part of the next one; the export also carries bug reports, contact-us messages and the terms acceptances.
+- **Pages / APIs:** `POST/GET /api/account/exports`, `GET /api/account/exports/{id}`, `GET /api/account/exports/{id}/file`. The synchronous `GET /api/account/export` is unchanged.
+- **Status: STORY-ONLY (covered by `AccountPrivacyResourceIT`, `DataExportServiceTest`)**
+
+### APP-12 The terms a person accepted are on record with the version and the time
+- **Persona:** an account holder. **Steps:** 1. Read the status (`GET /api/account/terms-acceptance`). 2. Accept TERMS and PRIVACY at the version in force. 3. Try an old version. 4. The app admin publishes a new version in Settings (`legal.terms_version`).
+- **Expected:** the status lists both documents with the version in force and `upToDate`; an acceptance is stored once per account, document and version with its timestamp (repeating it keeps the first timestamp); an old or unknown version is a 400; after a new version is published the old acceptance no longer counts and `upToDate` is false; another account has its own record; the rows are part of the data export and are erased with the account. Recording the acceptance at sign-up is not wired (the sign-up flow is identity code this task did not touch): an open question.
+- **Pages / APIs:** `GET/POST /api/account/terms-acceptance`, Settings (`legal.*`).
+- **Status: STORY-ONLY (covered by `TermsAcceptanceServiceTest`, `AccountPrivacyResourceIT`)**
+
+### PLT-63 The app admin sets how long audit, token, AI-call and bug-report data is kept
+- **Persona:** the app admin. **Steps:** 1. In Settings (area `privacy`) read the windows: admin audit 24 months, expired sign-in sessions (refresh-token rows) 7 days after expiry, AI call ledger 13 months, resolved bug reports 24 months, deletion reports 36 months. 2. Change one; set one to 0.
+- **Expected:** each window is a registry setting with a safe default and bounds (nothing is hard-coded); 0 keeps that data for ever; the nightly sweep (03:50 UTC) honours the new value; a master switch (`privacy.retention.enabled`) stops every purge; open bug reports and tokens that can still be presented are never purged.
+- **Pages / APIs:** Settings, `GET /api/admin/privacy/retention`.
+- **Status: STORY-ONLY (covered by `RetentionServiceIT`, `PrivacySettingKeysTest`)**
+
+### PLT-64 The app admin previews a purge before it happens and every run is on record
+- **Persona:** the app admin. **Steps:** 1. Run `POST /api/admin/privacy/retention/run?job=ADMIN_AUDIT` (no other parameter). 2. Run it again with `dryRun=false`. 3. Read `GET /api/admin/privacy/retention/runs` and the admin audit trail. 4. Start the same job from a second API instance while the first runs.
+- **Expected:** a manual run is a dry run by default (counts only, nothing deleted); a real purge must be asked for; each run leaves a run record (window, cutoff, candidates, deleted, who) and an audit event (`RETENTION_DRY_RUN` / `RETENTION_PURGE`, counts only); work is batch-limited per run and a bigger backlog continues the next night; the second instance finds the job's lease held, does nothing and records nothing; a crashed instance's lease expires on its own; an ordinary account gets 403 on every route.
+- **Pages / APIs:** `/api/admin/privacy/retention[/run|/runs]`.
+- **Status: STORY-ONLY (covered by `RetentionServiceTest`, `RetentionServiceIT`, `AdminPrivacyResourceIT`)**
+
+### PLT-65 The app admin can show that an erasure ran and what it removed, and that the data map is complete
+- **Persona:** the app admin (and a privacy auditor). **Steps:** 1. Open `GET /api/admin/privacy/deletion-reports` after an account was erased. 2. Open `GET /api/admin/privacy/data-map`. 3. A developer adds a table with a `user_id` or `org_id` column without classifying it.
+- **Expected:** a report holds the former numeric account id, the account kind, the source (SELF, ADMIN, IMMEDIATE, RETENTION), the status (COMPLETE, or COMPLETE_WITH_RESIDUE with the leftovers listed) and counts per table and for stored files, never a login, e-mail or name; the data map lists every table with a user or organization reference, how it is erased, which export section carries it (or why none) and its retention job; the build fails (`DataMapIT`) for the unclassified table, for a stale entry, and for an export section that the real export does not produce.
+- **Pages / APIs:** `/api/admin/privacy/deletion-reports`, `/api/admin/privacy/deletion-requests`, `/api/admin/privacy/data-map`.
+- **Status: STORY-ONLY (covered by `DataMapIT`, `DataMapTest`, `AccountErasureReportIT`, `AdminPrivacyResourceIT`)**
+
 ### PLT-60 A visitor of an organization's address reads its policies, never Kiwiply's
 - **Persona:** a signed-out visitor at `acme.localhost`. **Steps:** 1. Open `/privacy`, `/terms`, `/acceptable-use`, `/support` (no sign-in is asked). 2. Open the footer links of the sign-in page, the forgot-password page and an invitation page. 3. Open `/policies/not-a-kind`.
 - **Expected:** every page shows Acme's logo, colours and name, the neutral template until Acme publishes (no Kiwiply name, logo or link anywhere), and a row of Acme's other policy links on the same host; `/policies/not-a-kind` is Acme's own "page doesn't exist" page; `kiwiply.com/privacy` still shows the Kiwiply policy; a draft or an in-review text is never visible.

@@ -126,3 +126,26 @@ describe("fetchSubmissions and the writes", () => {
     expect(down.ok).toBe(false);
   });
 });
+
+describe("create and the duplicate guard (Sprint 2 / B1)", () => {
+  const reply = (status: number, body: unknown) => vi.fn(async () => new Response(JSON.stringify(body), { status }));
+
+  it("a confirmed create carries the two extra fields; a plain one is exactly as before", async () => {
+    const f = reply(201, { id: 9 });
+    vi.stubGlobal("fetch", f);
+    await createSubmission(2, { consultantId: 1, requirementId: 11 });
+    await createSubmission(2, { consultantId: 1, requirementId: 11, note: "Fits" }, { reason: "Both vendors asked" });
+    const body = (n: number) => JSON.parse(((f.mock.calls[n] as unknown) as [string, RequestInit])[1].body as string);
+    expect(body(0)).toEqual({ consultantId: 1, requirementId: 11 });
+    expect(body(1)).toEqual({ consultantId: 1, requirementId: 11, note: "Fits", confirmDuplicate: true, duplicateReason: "Both vendors asked" });
+  });
+
+  it("a refusal keeps its code and findings", async () => {
+    vi.stubGlobal("fetch", reply(409, { error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [{ rule: "SAME_POSTING", message: "Same posting." }, { rule: "x" }] }));
+    expect(await createSubmission(2, { consultantId: 1, requirementId: 11 })).toEqual({
+      ok: false, status: 409, error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [{ rule: "SAME_POSTING", message: "Same posting." }],
+    });
+    vi.stubGlobal("fetch", reply(409, { error: "Blocked.", code: "DUPLICATE_BLOCKED" }));
+    expect(await createSubmission(2, { consultantId: 1, requirementId: 11 })).toEqual({ ok: false, status: 409, error: "Blocked.", code: "DUPLICATE_BLOCKED" });
+  });
+});

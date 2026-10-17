@@ -3,6 +3,7 @@ package com.dossier.api.service.ent.marketing;
 import com.dossier.api.domain.ent.talent.ClientAccount;
 import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.ent.talent.MarketerAssignment;
+import com.dossier.api.domain.ent.talent.MarketerAssignmentEvent;
 import com.dossier.api.domain.ent.talent.MarketerCapacity;
 import com.dossier.api.domain.enumeration.PermissionScope;
 import com.dossier.api.repository.ent.MarketingBoardRepository;
@@ -106,6 +107,7 @@ public class MarketingAssignmentsService {
     private final ObjectMapper json;
     private final Clock clock;
     private final MarketingSettings limits;
+    private final AssignmentLifecycleService lifecycle;
 
     @Autowired
     public MarketingAssignmentsService(
@@ -118,9 +120,10 @@ public class MarketingAssignmentsService {
         OrgRoleService roles,
         OrgAuditService audit,
         ObjectMapper json,
-        MarketingSettings limits
+        MarketingSettings limits,
+        AssignmentLifecycleService lifecycle
     ) {
-        this(assignments, capacities, consultants, clients, board, access, roles, audit, json, limits, Clock.systemUTC());
+        this(assignments, capacities, consultants, clients, board, access, roles, audit, json, limits, lifecycle, Clock.systemUTC());
     }
 
     MarketingAssignmentsService(
@@ -134,9 +137,11 @@ public class MarketingAssignmentsService {
         OrgAuditService audit,
         ObjectMapper json,
         MarketingSettings limits,
+        AssignmentLifecycleService lifecycle,
         Clock clock
     ) {
         this.limits = limits;
+        this.lifecycle = lifecycle;
         this.assignments = assignments;
         this.capacities = capacities;
         this.consultants = consultants;
@@ -395,6 +400,7 @@ public class MarketingAssignmentsService {
         String priority = req.priority() == null ? null : oneOf("priority", req.priority(), PRIORITIES);
         String status = req.status() == null ? null : oneOf("status", req.status(), ASSIGNMENT_STATUSES);
         Long orgId = me.orgId();
+        String reason = reason(req.reason());
         MarketerCapacity target = capacities.findByOrgIdAndMemberId(orgId, req.marketerMemberId()).orElse(null);
         if (target == null || !access.canAct(me, KEY_MANAGE, target.getMemberId())) throw new OrgNotFoundException();
         if (!"ACTIVE".equals(target.getStatus())) throw OrgException.coded(422, CODE_MARKETER_INVALID, "This marketer is paused and takes no new consultants", Map.of("marketerMemberId", target.getMemberId()));
@@ -437,6 +443,7 @@ public class MarketingAssignmentsService {
                 continue;
             }
             Map<String, Object> previous = a == null ? null : snapshot(a);
+            AssignmentLifecycleService.Snap beforeSnap = AssignmentLifecycleService.snap(a);
             boolean marketerChanges = a == null || !target.getMemberId().equals(a.getMarketerMemberId());
             MarketerAssignment row = a == null ? new MarketerAssignment() : a;
             boolean changed = a == null;
@@ -474,6 +481,7 @@ public class MarketingAssignmentsService {
             details.put("to", target.getMemberId());
             if (previous != null) details.put("from", previous.get("marketerMemberId"));
             if (over) details.put("overCapacity", true);
+            track(me, id, beforeSnap, row, reason, null, details);
             audit(me, marketerChanges ? (a == null ? AUDIT_ASSIGN : AUDIT_REASSIGN) : AUDIT_UPDATE, id, details, over ? "MEDIUM" : "LOW");
             results.add(new RowResult(id, true, null, previous == null ? Map.of() : previous));
         }
@@ -491,6 +499,7 @@ public class MarketingAssignmentsService {
         String priority = req.priority() == null ? null : oneOf("priority", req.priority(), PRIORITIES);
         String status = req.status() == null ? null : oneOf("status", req.status(), ASSIGNMENT_STATUSES);
         Long orgId = me.orgId();
+        String reason = reason(req.reason());
         if (req.backupMemberId() != null && capacities.findByOrgIdAndMemberId(orgId, req.backupMemberId()).isEmpty()) {
             throw OrgException.coded(422, CODE_MARKETER_INVALID, "The backup is not a marketer", Map.of());
         }
@@ -512,6 +521,7 @@ public class MarketingAssignmentsService {
                 continue;
             }
             Map<String, Object> previous = snapshot(a);
+            AssignmentLifecycleService.Snap beforeSnap = AssignmentLifecycleService.snap(a);
             boolean changed = false;
             if (priority != null && !priority.equals(a.getPriority())) {
                 a.setPriority(priority);
@@ -540,6 +550,7 @@ public class MarketingAssignmentsService {
             if (status != null) details.put("status", status);
             if (req.backupMemberId() != null) details.put("backup", req.backupMemberId());
             if (clear) details.put("backup", null);
+            track(me, id, beforeSnap, a, reason, null, details);
             audit(me, AUDIT_UPDATE, id, details, "LOW");
             results.add(new RowResult(id, true, null, previous));
         }
@@ -551,6 +562,7 @@ public class MarketingAssignmentsService {
         gateWrite(me);
         if (req == null) throw OrgException.invalid("body", "is required");
         List<Long> ids = cleanIds(me.orgId(), req.consultantIds());
+        String reason = reason(req.reason());
         State s = load(me.orgId(), null);
         List<RowResult> results = new ArrayList<>();
         for (Long id : ids) {
@@ -564,9 +576,12 @@ public class MarketingAssignmentsService {
                 continue;
             }
             Map<String, Object> previous = snapshot(a);
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("from", a.getMarketerMemberId());
+            track(me, id, AssignmentLifecycleService.snap(a), null, reason, null, details);
             assignments.delete(a);
             s.assignmentByConsultant.remove(id);
-            audit(me, AUDIT_UNASSIGN, id, Map.of("from", a.getMarketerMemberId()), "LOW");
+            audit(me, AUDIT_UNASSIGN, id, details, "LOW");
             results.add(new RowResult(id, true, null, previous));
         }
         return finish(me, ACTION_UNASSIGN, ids, results, false);
@@ -600,9 +615,12 @@ public class MarketingAssignmentsService {
                     continue;
                 }
                 Map<String, Object> previous = snapshot(a);
+                Map<String, Object> details = new LinkedHashMap<>();
+                details.put("to", "NONE");
+                track(me, id, AssignmentLifecycleService.snap(a), null, "Undo", MarketerAssignmentEvent.RESTORE, details);
                 assignments.delete(a);
                 s.assignmentByConsultant.remove(id);
-                audit(me, AUDIT_RESTORE, id, Map.of("to", "NONE"), "LOW");
+                audit(me, AUDIT_RESTORE, id, details, "LOW");
                 results.add(new RowResult(id, true, null, previous));
                 continue;
             }
@@ -617,6 +635,7 @@ public class MarketingAssignmentsService {
             String priority = oneOf("priority", r.priority() == null ? "MEDIUM" : r.priority(), PRIORITIES);
             String status = oneOf("status", r.status() == null ? "ACTIVE" : r.status(), ASSIGNMENT_STATUSES);
             Map<String, Object> previous = a == null ? Map.of() : snapshot(a);
+            AssignmentLifecycleService.Snap beforeSnap = AssignmentLifecycleService.snap(a);
             MarketerAssignment row = a == null ? new MarketerAssignment() : a;
             if (a == null) {
                 row.setOrgId(orgId);
@@ -635,7 +654,10 @@ public class MarketingAssignmentsService {
             row.setLastActivityAt(now);
             assignments.save(row);
             s.assignmentByConsultant.put(id, row);
-            audit(me, AUDIT_RESTORE, id, Map.of("to", r.marketerMemberId()), "LOW");
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("to", r.marketerMemberId());
+            track(me, id, beforeSnap, row, "Undo", MarketerAssignmentEvent.RESTORE, details);
+            audit(me, AUDIT_RESTORE, id, details, "LOW");
             results.add(new RowResult(id, true, null, previous));
         }
         return finish(me, ACTION_RESTORE, ids, results, false);
@@ -894,19 +916,63 @@ public class MarketingAssignmentsService {
     public void validate(Long orgId, Object body) {
         if (body == null) throw OrgException.invalid("body", "is required");
         if (body instanceof AssignRequest r) {
+            reason(r.reason());
             cleanIds(orgId, r.consultantIds());
             if (r.marketerMemberId() == null) throw OrgException.invalid("marketerMemberId", "is required");
             if (r.priority() != null) oneOf("priority", r.priority(), PRIORITIES);
             if (r.status() != null) oneOf("status", r.status(), ASSIGNMENT_STATUSES);
         } else if (body instanceof UpdateRequest r) {
+            reason(r.reason());
             cleanIds(orgId, r.consultantIds());
             if (r.priority() != null) oneOf("priority", r.priority(), PRIORITIES);
             if (r.status() != null) oneOf("status", r.status(), ASSIGNMENT_STATUSES);
         } else if (body instanceof UnassignRequest r) {
+            reason(r.reason());
             cleanIds(orgId, r.consultantIds());
         } else if (body instanceof RestoreRequest r) {
             if (r.rows() == null || r.rows().isEmpty()) throw OrgException.invalid("rows", "name at least one assignment");
         }
+    }
+
+    /** The why of a change: optional, at most 200 characters, scanned for sensitive data. */
+    static String reason(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        String t = raw.strip();
+        if (t.length() > 200) throw OrgException.invalid("reason", "at most 200 characters");
+        SensitiveContent.check("reason", "reason", t);
+        return t;
+    }
+
+    /** Writes the history line, moves the open work and keeps the org_assignment projection true (see AssignmentLifecycleService); notes what moved in the audit details. */
+    private void track(OrgMembership me, Long consultantId, AssignmentLifecycleService.Snap before, MarketerAssignment after, String reason, String via, Map<String, Object> details) {
+        AssignmentLifecycleService.Handover moved = lifecycle.record(me, consultantId, before, AssignmentLifecycleService.snap(after), reason, via);
+        if (moved.total() > 0) details.put("handover", moved.summary());
+        if (reason != null) details.put("reason", reason);
+    }
+
+    /** One consultant assignment history for the board (scope rules as the other reads of the board). */
+    @Transactional(readOnly = true)
+    public History history(OrgMembership me, Long consultantId) {
+        PermissionScope scope = viewScope(me);
+        Long orgId = me.orgId();
+        ConsultantProfile c = consultants.findByOrgIdAndId(orgId, consultantId).orElseThrow(OrgNotFoundException::new);
+        MarketerAssignment a = assignments.findByOrgIdAndConsultantId(orgId, consultantId).orElse(null);
+        Set<Long> visible = access.visibleIds(me, scope);
+        // inside the caller scope: the current marketer is one the caller sees; with nobody assigned only an organization-wide caller may look
+        boolean inScope = a == null ? visible == null : visible(visible, a.getMarketerMemberId());
+        if (!inScope) throw new OrgNotFoundException();
+        List<HistoryItem> items = new ArrayList<>();
+        for (AssignmentLifecycleService.HistoryLine h : lifecycle.history(orgId, consultantId)) {
+            items.add(new HistoryItem(h.id(), h.action(), person(h.fromMarketer()), person(h.toMarketer()), person(h.fromBackup()), person(h.toBackup()), h.reason(), person(h.actor()), h.handover(), h.at()));
+        }
+        Map<Long, String> names = names(orgId, a == null ? List.of() : java.util.stream.Stream.of(a.getMarketerMemberId(), a.getBackupMemberId()).filter(java.util.Objects::nonNull).toList());
+        Person now = a == null ? null : new Person(a.getMarketerMemberId(), names.getOrDefault(a.getMarketerMemberId(), "Member"));
+        Person backup = a == null || a.getBackupMemberId() == null ? null : new Person(a.getBackupMemberId(), names.getOrDefault(a.getBackupMemberId(), "Member"));
+        return new History(c.getId(), c.getDisplayName(), now, backup, items);
+    }
+
+    private static Person person(AssignmentLifecycleService.Person p) {
+        return p == null ? null : new Person(p.memberId(), p.name());
     }
 
     private static String oneOf(String field, String raw, List<String> allowed) {

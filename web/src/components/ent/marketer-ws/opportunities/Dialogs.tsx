@@ -4,11 +4,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button, Input, MemberAvatar, Select, SheetFrame, Skeleton, Textarea, cn } from "@kiwiply/ui";
 import { relativeTime } from "@/lib/ent/dashboard";
 import {
-  INTEREST_LABELS, answerInfo, checkHandJob, createJobByHand, fetchDetail, fetchOptions, fetchReady, followUpOf, matchTone, nextActionText, reassignOpportunity, withdrawOpportunity,
-  type Detail, type HandJobInput, type InfoThread, type JobOption, type Opportunity, type Option,
+  DUPLICATE_WARNING, INTEREST_LABELS, answerInfo, checkHandJob, createJobByHand, fetchDetail, fetchOptions, fetchReady, followUpOf, matchTone, nextActionText, reassignOpportunity, withdrawOpportunity,
+  type Detail, type DuplicateFinding, type HandJobInput, type InfoThread, type JobOption, type Opportunity, type Option,
 } from "@/lib/ent/marketer-ws/opportunities";
 
 const EMPTY_HAND: HandJobInput = { title: "", company: "", location: "", workMode: "", description: "", jobUrl: "" };
+import { DuplicateConfirmDialog, DuplicateNotice } from "../DuplicateConfirm";
 import { INTEREST_TONE, ResumeBadge } from "./bits";
 
 /**
@@ -82,6 +83,8 @@ function FollowUpBox({ orgId, o, onChanged }: { orgId: number; o: Opportunity; o
   const [target, setTarget] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [dup, setDup] = useState<{ message: string; findings: DuplicateFinding[] } | null>(null);
+  const [dupReason, setDupReason] = useState("");
   useEffect(() => {
     if (kind !== "REASSIGN" || !open) return;
     let live = true;
@@ -96,9 +99,11 @@ function FollowUpBox({ orgId, o, onChanged }: { orgId: number; o: Opportunity; o
   const submit = async () => {
     setBusy(true);
     setError("");
-    const r = kind === "WITHDRAW" ? await withdrawOpportunity(orgId, o.id, reason.trim()) : await reassignOpportunity(orgId, o.id, Number(target));
+    const confirm = dup && dupReason.trim() ? { reason: dupReason.trim() } : undefined;
+    const r = kind === "WITHDRAW" ? await withdrawOpportunity(orgId, o.id, reason.trim()) : await reassignOpportunity(orgId, o.id, Number(target), confirm);
     setBusy(false);
     if (r.ok) onChanged(r.message);
+    else if (kind === "REASSIGN" && r.code === DUPLICATE_WARNING) setDup({ message: r.error, findings: r.findings ?? [] }); // ask for a reason, then offer anyway
     else setError(r.error);
   };
   return (
@@ -126,14 +131,25 @@ function FollowUpBox({ orgId, o, onChanged }: { orgId: number; o: Opportunity; o
           ) : (
             <Select aria-label="Offer to" value={target} onChange={setTarget} placeholder="Choose a consultant" options={others} />
           )}
+          {dup ? <DuplicateNotice message={dup.message} findings={dup.findings} reason={dupReason} onReason={setDupReason} idBase="opp-duplicate" /> : null}
           {error ? <p role="alert" className="mt-1 text-[12.5px] text-danger-text">{error}</p> : null}
           <div className="mt-2 flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button size="sm" disabled={busy || !target} onClick={() => void submit()}>Offer the job</Button>
+            <Button size="sm" disabled={busy || !target || (dup !== null && !dupReason.trim())} onClick={() => void submit()}>{dup ? "Offer anyway" : "Offer the job"}</Button>
           </div>
         </div>
       )}
     </Section>
+  );
+}
+
+/** Assign one opportunity that the guard flagged: shows the findings and asks for the reason before assigning anyway. Nothing is answered or submitted for the consultant. */
+export function DuplicateDialog({ open, who, message, findings, busy, onClose, onConfirm }: { open: boolean; who: string; message: string; findings: DuplicateFinding[]; busy: boolean; onClose: () => void; onConfirm: (reason: string) => void }) {
+  return (
+    <DuplicateConfirmDialog
+      open={open} id="opp-duplicate" idBase="opp-duplicate" intro={`Assigning this to ${who} would put them in front of the same role twice.`} confirmLabel="Assign anyway"
+      message={message} findings={findings} busy={busy} onClose={onClose} onConfirm={onConfirm} bodyAttrs={{ "data-opp-dialog": "duplicate" }}
+    />
   );
 }
 

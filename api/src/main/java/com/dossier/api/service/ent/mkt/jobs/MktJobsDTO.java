@@ -80,7 +80,7 @@ public final class MktJobsDTO {
     /** {@code pausedReason} is non-null for a consultant who cannot be assigned right now (the picker shows them disabled with these words). {@code memberId} is the organization seat (what "Save for a consultant" names). */
     public record Candidate(Long consultantId, String name, String title, String availability, Integer score, String matchStatus, String pausedReason, Long memberId) {}
 
-    public record AssignRequest(Long consultantId) {}
+    public record AssignRequest(Long consultantId, Boolean confirmDuplicate, String duplicateReason) {}
 
     /** The record the assignment created or updated (a match row in ASSIGNED). Never a submission (E1). */
     public record AssignResult(Long matchId, Long requirementId, Long consultantId, String status, int score, boolean created) {}

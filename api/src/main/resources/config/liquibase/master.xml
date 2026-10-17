@@ -132,5 +132,19 @@
     <include file="config/liquibase/changelog/20261117010000_ent_offers_placements.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261117010000_prepare_batch.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261117010000_ent_accounts_ws.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261117010000_privacy_retention.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261117010000_ent_assignment_lifecycle.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261101010000_sub_catalog.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261101011000_sub_catalog_doc21.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261101020000_sub_plans.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261101030000_sub_personal.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261101040000_sub_backfill.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261120010000_sub_stripe_event_scope.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261101035000_sub_resolver.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121010000_sub_personal_quote.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121020000_sub_personal_addons.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261121010000_sub_plans_k2.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261122010000_sub_fin_stripe.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261101060000_sub_retirement.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

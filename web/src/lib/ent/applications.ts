@@ -501,6 +501,9 @@ export interface CreateBody {
   nextActionDue?: string | null;
   appliedOn?: string | null;
   stage?: "ASSIGNED" | "SUBMITTED";
+  /** The answer to a 409 DUPLICATE_WARNING: send the same call again with `confirmDuplicate: true` and a reason (1 to 200 characters). */
+  confirmDuplicate?: boolean;
+  duplicateReason?: string;
 }
 
 export interface PatchBody {

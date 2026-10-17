@@ -210,6 +210,8 @@ export interface CapNotice {
   plan: "FREE" | "PRO" | "AUTOPILOT" | "ORGANIZATION";
   /** The cap as the server reported it, when it did. */
   limit?: number;
+  /** K7.6: the plan the server says unlocks more room (from the 402 body). */
+  upgrade?: import("@/lib/subscription/upgrade").UpgradeHint | null;
 }
 
 export function capNotice(resumes: { count: number; max: number }, plan: "FREE" | "PRO" | "AUTOPILOT" | "ORGANIZATION"): CapNotice | null {

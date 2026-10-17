@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastProvider } from "@kiwiply/ui";
 import { DATA_MAP, NEVER_COLLECTED } from "@/lib/data-map";
 
 vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => <a href={href} {...rest}>{children}</a> }));
@@ -10,11 +11,32 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 import PrivacyPanel from "./PrivacyPanel";
 import HelpPanel, { KEYBOARD_SHORTCUTS, OPEN_BUG_REPORT_EVENT } from "./HelpPanel";
 
-afterEach(cleanup);
+const jsonRes = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+
+beforeEach(() => {
+  // The panel's client parts load their state on mount: no deletion pending, no exports yet.
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) =>
+      url.endsWith("/deletion-request") ? jsonRes({ status: "NONE", requestedAt: null, purgeAfter: null, graceHours: 24, canUndo: false }) : jsonRes([]),
+    ),
+  );
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+const renderPanel = (demo: boolean) =>
+  render(
+    <ToastProvider>
+      <PrivacyPanel demo={demo} />
+    </ToastProvider>,
+  );
 
 describe("PrivacyPanel (E2E-U14.0)", () => {
   it("renders every entry of the data map with what, why, who sees it and how long", () => {
-    render(<PrivacyPanel demo={false} />);
+    renderPanel(false);
     for (const d of DATA_MAP) {
       const item = document.querySelector(`[data-data-map="${d.id}"]`) as HTMLElement;
       expect(item, d.id).not.toBeNull();
@@ -35,23 +57,26 @@ describe("PrivacyPanel (E2E-U14.0)", () => {
   });
 
   it("states what is never collected", () => {
-    render(<PrivacyPanel demo={false} />);
+    renderPanel(false);
     expect(screen.getByRole("heading", { name: "What we never collect" })).toBeTruthy();
     for (const n of NEVER_COLLECTED) expect(screen.getByText(n)).toBeTruthy();
   });
 
-  it("offers the export and the delete, and the policy", () => {
-    render(<PrivacyPanel demo={false} />);
+  it("offers the quick export, the prepared export and the scheduled delete, and the policy", async () => {
+    renderPanel(false);
     expect(screen.getByRole("link", { name: /Download my data/ }).getAttribute("href")).toBe("/api/account/export");
-    expect(screen.getByRole("button", { name: "Delete account" })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Delete account" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Prepare my data export" })).toBeTruthy();
     expect(screen.getByRole("link", { name: "Privacy Policy" }).getAttribute("href")).toBe("/privacy");
   });
 
   it("a demo account gets the note instead of the export and delete", () => {
-    render(<PrivacyPanel demo />);
+    renderPanel(true);
     expect(screen.getByText(/Demo account/)).toBeTruthy();
     expect(screen.queryByRole("link", { name: /Download my data/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete account" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Prepare my data export" })).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

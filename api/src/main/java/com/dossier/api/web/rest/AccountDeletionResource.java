@@ -39,7 +39,7 @@ public class AccountDeletionResource {
 
     @Operation(
         summary = "Delete my account and all my data",
-        description = "Permanently erases the current user's resumes (files + rows), bio, applications, AI answers, field cache, and the user account."
+        description = "Permanently and immediately erases the current user's resumes (files + rows), bio, applications, AI answers, field cache, and the user account, and writes a purge report. For the undo window use POST /api/account/deletion-request."
     )
     @DeleteMapping("")
     public ResponseEntity<Void> deleteMyAccount() {

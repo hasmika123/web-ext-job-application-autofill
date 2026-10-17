@@ -126,6 +126,21 @@ public class OrgMarketingAssignmentsResource {
         return ResponseEntity.ok().header("X-Total-Count", String.valueOf(result.total())).body(result);
     }
 
+    @Operation(
+        summary = "One consultant's assignment history",
+        description = "workload.view or assignments.manage, for a consultant whose current marketer is inside the caller's scope (an unassigned consultant: organization scope). Newest first: " +
+            "action (ASSIGN, REASSIGN, UNASSIGN, BACKUP, PAUSE, RESUME, PRIORITY, RESTORE), who changed it (actor), the marketer and backup before and after, the reason, " +
+            "what open work moved with the change (handover) and when. Append-only: nothing in it is ever edited or removed. A consultant outside the scope or another organization: the generic 404."
+    )
+    @GetMapping("/consultants/{consultantId}/history")
+    @OrgPermissionRequired
+    public MarketingAssignmentsDTO.History history(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long consultantId
+    ) {
+        return service.history(me, consultantId);
+    }
+
     @Operation(summary = "Filter options of the table", description = "Statuses, priorities, availabilities, and the clients when the caller holds clients.view.")
     @GetMapping("/filters")
     @OrgPermissionRequired
@@ -152,7 +167,7 @@ public class OrgMarketingAssignmentsResource {
 
     @Operation(
         summary = "Assign or reassign consultants to a marketer",
-        description = "assignments.manage at a scope covering the marketer (and the current marketer of any consultant that moves). Body: consultantIds (1 to 200), marketerMemberId, backupMemberId, priority, status, allowOverCapacity. " +
+        description = "assignments.manage at a scope covering the marketer (and the current marketer of any consultant that moves). Body: consultantIds (1 to 200), marketerMemberId, backupMemberId, priority, status, allowOverCapacity, reason (optional, 200 characters, kept in the consultant history). When the marketer changes, the open opportunities, tasks and follow-ups the previous marketer owned for that consultant move to the new one (admin switch org.assignments.handover_open_work). " +
             "409 OVER_CAPACITY (with capacity, current, adding, projected) unless allowOverCapacity is true; an override is audited at MEDIUM. Per-consultant result with previous (what Undo sends to /restore); " +
             "a consultant that cannot be reached is skipped NOT_FOUND. One audit row per changed consultant plus one MARKETING_BULK. Idempotency-Key required."
     )

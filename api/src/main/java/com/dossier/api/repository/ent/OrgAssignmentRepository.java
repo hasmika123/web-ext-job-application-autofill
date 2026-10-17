@@ -33,4 +33,16 @@ public interface OrgAssignmentRepository extends Repository<OrgAssignment, Long>
     );
 
     long countByOrgId(Long orgId);
+
+    /** The open rows (no end date) of one kind for one consultant seat: what the marketer assignment lifecycle ends or keeps. */
+    @Query("select a from OrgAssignment a where a.orgId = :orgId and a.consultantMemberId = :consultantMemberId and a.kind = :kind and a.endsAt is null order by a.id")
+    java.util.List<OrgAssignment> findOpenByConsultantAndKind(
+        @Param("orgId") Long orgId,
+        @Param("consultantMemberId") Long consultantMemberId,
+        @Param("kind") AssignmentKind kind
+    );
+
+    /** The whole chain of one consultant seat, newest first (history). */
+    @Query("select a from OrgAssignment a where a.orgId = :orgId and a.consultantMemberId = :consultantMemberId order by a.id desc")
+    java.util.List<OrgAssignment> findByConsultant(@Param("orgId") Long orgId, @Param("consultantMemberId") Long consultantMemberId);
 }

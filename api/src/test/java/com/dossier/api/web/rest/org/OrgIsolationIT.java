@@ -492,6 +492,7 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/filters", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/kpis", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/workload", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/consultants/{consultantId}/history", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/marketers", Case.people(201, "MARKETER_ADD", 1, w -> "{\"memberId\":" + w.mktFreshMarketer() + ",\"capacity\":9}", null, null)),
         Map.entry("PATCH /api/orgs/{orgId}/marketing-assignments/marketers/{memberId}", Case.people(200, "MARKETER_UPDATE", 1, w -> "{\"capacity\":7}", null, w -> w.mktCapacity())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),

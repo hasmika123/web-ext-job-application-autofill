@@ -34,6 +34,10 @@ public interface MktTaskRepository extends Repository<MktTask, Long> {
         @Param("orgId") Long orgId, @Param("wide") boolean wide, @Param("ids") Collection<Long> ids, @Param("me") Long me, @Param("from") Instant from, @Param("to") Instant to
     );
 
+    /** Handover (B1): the not-completed tasks about one consultant that one marketer owns. */
+    @Query("select t from MktTask t where t.orgId = :orgId and t.consultantId = :consultantId and t.ownerMemberId = :ownerMemberId and t.status <> 'COMPLETED' order by t.id")
+    List<MktTask> findOpenOwnedByForConsultant(@Param("orgId") Long orgId, @Param("consultantId") Long consultantId, @Param("ownerMemberId") Long ownerMemberId);
+
     <S extends MktTask> S save(S entity);
 
     void deleteByOrgIdAndId(Long orgId, Long id);
