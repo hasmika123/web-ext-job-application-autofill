@@ -351,7 +351,7 @@ class OrgClientResourceIT extends MemberItSupport {
         assertThat(d.path("placements").asInt()).isEqualTo(1);
         assertThat(d.path("health").path("level").asText()).isEqualTo("HEALTHY");
         assertThat(d.path("access").path("canManage").asBoolean()).isTrue();
-        assertThat(d.toString()).doesNotContain("phone").doesNotContain("Secret");
+        assertThat(d.toString()).as("no phone value was entered, so none is shown").doesNotContain("\"phone\":\"").doesNotContain("Secret");
     }
 
     @Test

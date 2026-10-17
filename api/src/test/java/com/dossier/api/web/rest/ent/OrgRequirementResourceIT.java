@@ -42,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 @IntegrationTest
 @AutoConfigureMockMvc
 @Transactional
+@org.springframework.test.context.TestPropertySource(properties = "spring.datasource.hikari.maximum-pool-size=4") // an assignment writes through REQUIRES_NEW helpers: a second connection beside the test's transaction
 class OrgRequirementResourceIT extends MemberItSupport {
 
     @Autowired private ClientAccountRepository clients;
