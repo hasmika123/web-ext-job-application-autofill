@@ -66,7 +66,10 @@ class MktOpportunitiesIT {
     private Long acme;
     private Long beta;
 
+    // The class-level @Timeout(240) does not reach lifecycle methods, so the 15 s default (junit-platform.properties) cut off this seeding. The three demo seeders
+    // insert a few hundred rows one statement at a time, a fresh set per test (the test rolls back): about 20 s on a loaded machine, almost all of it waiting on MySQL.
     @BeforeEach
+    @org.junit.jupiter.api.Timeout(240)
     void seed() {
         assertThat(baseSeeder.seed().ran()).isTrue();
         assertThat(talentSeeder.seed().ran()).isTrue();
