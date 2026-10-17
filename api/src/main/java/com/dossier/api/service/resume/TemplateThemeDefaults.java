@@ -35,7 +35,8 @@ public class TemplateThemeDefaults {
      * template story adds its entry here and to {@code template-defaults.json}.
      */
     static final Map<String, Map<String, Object>> BUILT_IN = Map.ofEntries(
-        Map.entry("modern", Map.of())
+        Map.entry("modern", Map.of()),
+        Map.entry("consultant", Map.of("fontPair", "garamond", "spacing", "compact"))
     );
 
     /** The defaults the template declares, as a JSON object (empty when it declares none or is unknown). */

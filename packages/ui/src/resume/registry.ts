@@ -5,12 +5,13 @@
  * `template_id` is stored as a free string; unknown ids fall back to `modern` on read.
  */
 import { tightenCapabilities } from "./capabilities";
+import { consultant } from "./templates/consultant";
 import { modern } from "./templates/modern";
 import type { TemplateCapabilities, TemplateDefinition, TemplateMeta } from "./types";
 
 export const DEFAULT_TEMPLATE_ID = "modern";
 
-export const TEMPLATES: Record<string, TemplateDefinition> = { modern };
+export const TEMPLATES: Record<string, TemplateDefinition> = { modern, consultant };
 
 export const TEMPLATE_IDS: string[] = Object.keys(TEMPLATES);
 

@@ -180,8 +180,9 @@
   break-after: avoid;
 }
 
+/* Templates retune the gap between entries with `--rz-entry-gap` (one-line sections keep their own). */
 .rz-entry {
-  margin: 0 0 calc(0.7em * var(--rz-density));
+  margin: 0 0 var(--rz-entry-gap, calc(0.7em * var(--rz-density)));
   break-inside: avoid;
 }
 
@@ -337,6 +338,90 @@
 /* == tpl:modern == */
 /* Modern is the base stylesheet above: it adds no rules of its own. */
 /* == /tpl:modern == */
+
+/* == tpl:consultant == */
+.rz-page.rz-tpl-consultant {
+  line-height: 1.25;
+}
+
+.rz-tpl-consultant .rz-header {
+  margin-bottom: calc(0.6em * var(--rz-density));
+  text-align: center;
+}
+
+.rz-tpl-consultant .rz-name {
+  font-size: 1.5em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rz-tpl-consultant .rz-headline {
+  margin-top: 0.1em;
+  font-size: 0.9em;
+  font-variant-caps: small-caps;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-consultant .rz-contact {
+  margin-top: calc(0.2em * var(--rz-density));
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-consultant .rz-section {
+  margin-bottom: calc(0.65em * var(--rz-density));
+}
+
+.rz-tpl-consultant .rz-section-title {
+  margin-bottom: calc(0.35em * var(--rz-density));
+  padding-bottom: 0.08em;
+  font-size: 0.9em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rz-ink);
+  border-bottom: 1px solid #111827;
+}
+
+/* Entry gap for the two-line entries; one-line sections keep their own. */
+.rz-tpl-consultant .rz-section-experience,
+.rz-tpl-consultant .rz-section-education,
+.rz-tpl-consultant .rz-section-projects,
+.rz-tpl-consultant .rz-section-custom {
+  --rz-entry-gap: calc(0.4em * var(--rz-density));
+}
+
+/* Firm and school in bold, titles and degrees in italics; location and dates in ink at the body size. */
+.rz-tpl-consultant .rz-section-experience .rz-item-org,
+.rz-tpl-consultant .rz-section-education .rz-item-org,
+.rz-tpl-consultant .rz-section-custom .rz-item-org {
+  font-weight: 700;
+}
+
+.rz-tpl-consultant .rz-section-experience .rz-item-title,
+.rz-tpl-consultant .rz-section-education .rz-item-title,
+.rz-tpl-consultant .rz-section-custom .rz-item-title {
+  font-style: italic;
+  font-weight: 400;
+}
+
+.rz-tpl-consultant .rz-item-loc,
+.rz-tpl-consultant .rz-item-dates,
+.rz-tpl-consultant .rz-item-sub {
+  font-size: 1em;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-consultant .rz-bullets {
+  margin-top: calc(0.08em * var(--rz-density));
+  padding-left: 1em;
+}
+
+.rz-tpl-consultant .rz-bullet {
+  margin-bottom: calc(0.05em * var(--rz-density));
+}
+/* == /tpl:consultant == */
 
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 

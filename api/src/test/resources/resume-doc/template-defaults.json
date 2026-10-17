@@ -1,3 +1,4 @@
 {
-  "modern": {}
+  "modern": {},
+  "consultant": { "fontPair": "garamond", "spacing": "compact" }
 }

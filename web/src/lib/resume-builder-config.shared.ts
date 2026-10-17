@@ -188,7 +188,7 @@ export function delightOf(config: { onboarding?: { delight?: Partial<OnboardingD
 
 /** The API's declared defaults (`ResumeBuilderSettingKeys`), for when the API is unreachable. */
 export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
-  templates: { enabled: ["modern"], default: "modern", overrides: {}, popular: ["modern"] },
+  templates: { enabled: ["modern", "consultant"], default: "modern", overrides: {}, popular: ["modern"] },
   limits: { sections: 20, items: 40, bullets: 12, bulletChars: 600, summaryChars: 2000, marks: 64, docBytes: 262144 },
   score: {
     rulesetVersion: "v1",

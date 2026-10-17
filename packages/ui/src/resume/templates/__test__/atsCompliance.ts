@@ -6,7 +6,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
-import { DEFAULT_SECTION_TITLES, SECTION_KINDS } from "../../types";
+import { DEFAULT_SECTION_TITLES, type SectionKind } from "../../types";
 
 const cssPath = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "styles", "resume.css");
 
@@ -37,14 +37,16 @@ export function expectAtsCompliant(html: string, css: string): void {
   // user marks beyond bold are not drawn
   expect(html).not.toMatch(/<em>|<u>/);
 
-  // standard headings, in document order (a title is exactly the default of a kind the document has)
-  const titles = [...html.matchAll(/<h2 class="rz-section-title">([^<]*)<\/h2>/g)].map((m) => m[1].replace(/&amp;/g, "&").replace(/&#x27;/g, "'"));
-  const standard = new Set<string>(SECTION_KINDS.map((k) => DEFAULT_SECTION_TITLES[k]));
-  for (const t of titles) {
-    // one custom section keeps its own plain title (custom: "limited"); everything else must be a standard heading
-    if (!standard.has(t)) expect(t, `non-standard heading "${t}"`).toMatch(/^[A-Za-z][A-Za-z ]{1,29}$/);
+  // standard headings: every section other than CUSTOM carries exactly the default title of its kind, in document order
+  const heads = [...html.matchAll(/<section class="rz-section rz-section-([a-z]+)"><h2 class="rz-section-title">([^<]*)<\/h2>/g)].map((m) => ({
+    kind: m[1].toUpperCase(),
+    title: m[2].replace(/&amp;/g, "&").replace(/&#x27;/g, "'"),
+  }));
+  expect(heads.length).toBeGreaterThan(0);
+  for (const h of heads) {
+    if (h.kind === "CUSTOM") continue; // a custom section keeps its own title (the editor limits it to a plain one)
+    expect(h.title, `heading of ${h.kind}`).toBe(DEFAULT_SECTION_TITLES[h.kind as SectionKind]);
   }
-  expect(titles.filter((t) => standard.has(t)).length).toBeGreaterThan(0);
 
   // the template's CSS: no columns, floats, absolute positioning, url() or generated text
   for (const bad of ["grid-template-columns", "column-count", "columns:", "position: absolute", "float:", "url(", 'content: "']) {
