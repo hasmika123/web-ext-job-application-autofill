@@ -7,8 +7,8 @@ describe("popularTemplates", () => {
   });
 
   it("ignores ids the registry does not have, and ids that are not enabled", () => {
-    expect(popularTemplates(["modern", "classic"], ["classic", "modern"], "modern").map((t) => t.id)).toEqual(["modern"]);
-    expect(popularTemplates(["classic"], ["modern"], "modern").map((t) => t.id)).toEqual(["modern"]);
+    expect(popularTemplates(["modern", "ghost"], ["ghost", "modern"], "modern").map((t) => t.id)).toEqual(["modern"]);
+    expect(popularTemplates(["ghost"], ["modern"], "modern").map((t) => t.id)).toEqual(["modern"]);
   });
 
   it("never comes back empty: the default template stands in", () => {

@@ -4,6 +4,8 @@
  * URL for the bundler. Adding a template = one more line here (next to its registry entry).
  */
 import modern from "@kiwiply/ui/resume/thumbs/modern.png";
+import classic from "@kiwiply/ui/resume/thumbs/classic.png";
+import compact from "@kiwiply/ui/resume/thumbs/compact.png";
 import statement from "@kiwiply/ui/resume/thumbs/statement.png";
 import { getTemplate } from "@kiwiply/ui";
 
@@ -21,6 +23,8 @@ const asSrc = (img: Imported): ThumbSrc =>
 
 const THUMBS: Record<string, ThumbSrc> = {
   "modern.png": asSrc(modern as Imported),
+  "compact.png": asSrc(compact as Imported),
+  "classic.png": asSrc(classic as Imported),
   "statement.png": asSrc(statement as Imported),
 };
 

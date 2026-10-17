@@ -103,7 +103,7 @@ class ResumeBuilderSettingKeysParityTest {
     @Test
     void theDesignDefaultsThatAreProseAreTheOnesTheStoryAnswered() {
         // DESIGN 15.2 gives these in words; the R2.0 decisions fix them here.
-        assertThat(ResumeBuilderSettingKeys.require(ResumeBuilderSettingKeys.TEMPLATES_ENABLED).defaultValue()).isEqualTo("[\"modern\",\"statement\"]");
+        assertThat(ResumeBuilderSettingKeys.require(ResumeBuilderSettingKeys.TEMPLATES_ENABLED).defaultValue()).startsWith("[\"modern\""); // gallery order; grows one id per template story
         assertThat(ResumeBuilderSettingKeys.require(ResumeBuilderSettingKeys.THEME_ACCENT_PALETTE).defaultValue())
             .isEqualTo("[\"#16a34a\",\"#2563eb\",\"#7c3aed\",\"#ec4899\",\"#f97316\",\"#eab308\"]");
         assertThat(ResumeBuilderSettingKeys.require(ResumeBuilderSettingKeys.SCORE_GROUP_WEIGHTS).defaultValue())

@@ -66,8 +66,12 @@ vi.mock("playwright-core", () => ({ chromium: { connectOverCDP: pw.connect, laun
 const fixture = (name: string): ResumeDocument =>
   JSON.parse(readFileSync(path.resolve(__dirname, "../../../packages/ui/src/resume/__fixtures__", `${name}.json`), "utf8")) as ResumeDocument;
 
-/** The fonts are ~230 KB of base64; keep snapshots readable. */
-const withoutFontBytes = (html: string) => html.replace(/base64,[A-Za-z0-9+/=]+/g, "base64,…");
+/**
+ * The fonts are ~230 KB of base64; keep snapshots readable. The per-template CSS blocks (`/* == tpl:<id> == *\/`) are elided too,
+ * so adding or tuning a template never churns this snapshot (each template has its own snapshots and compliance test).
+ */
+const withoutFontBytes = (html: string) =>
+  html.replace(/base64,[A-Za-z0-9+/=]+/g, "base64,…").replace(/\/\* == tpl:([a-z-]+) == \*\/[\s\S]*?\/\* == \/tpl:\1 == \*\//g, "/* == tpl:$1 … == */");
 
 const ENV_KEYS = ["PDF_BROWSER_URL", "PDF_LOCAL_CHANNEL", "RESUME_PDF_TIMEOUT_MS", "RESUME_PDF_MAX_CONCURRENT", "RESUME_PDF_QUEUE_MAX", "RESUME_PDF_MAX_FIT_STEPS", "RESUME_PDF_CONNECT_TIMEOUT_MS", "RESUME_PDF_CONNECT_ATTEMPTS", "RESUME_PDF_CONNECT_BACKOFF_MS", "RESUME_PDF_CONNECT_BUDGET_MS", "RESUME_PDF_WARMUP"];
 beforeEach(() => {
