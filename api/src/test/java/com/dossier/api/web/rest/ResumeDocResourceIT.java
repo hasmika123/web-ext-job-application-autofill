@@ -190,6 +190,21 @@ class ResumeDocResourceIT {
     // ---- create -------------------------------------------------------------
 
     @Test
+    void createBuiltFromTheProfileCopiesTheProfileSummary() throws Exception {
+        Bio bio = new Bio().payload("{\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"summary\":\"Backend engineer who ships reliable systems.\"}");
+        bio.setUpdatedAt(Instant.now());
+        bio.setUser(user());
+        bioRepository.saveAndFlush(bio);
+
+        mockMvc
+            .perform(post("/api/profile/resumes/built").contentType(MediaType.APPLICATION_JSON).content("{\"label\":\"From profile\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.doc.doc.sections.length()").value(1))
+            .andExpect(jsonPath("$.doc.doc.sections[0].kind").value("SUMMARY"))
+            .andExpect(jsonPath("$.doc.doc.sections[0].items[0].text").value("Backend engineer who ships reliable systems."));
+    }
+
+    @Test
     void createBuiltFromTheBioAloneWhenThereAreNoProfileItems() throws Exception {
         Bio bio = new Bio().payload("{\"firstName\":\"Ada\",\"lastName\":\"Lovelace\",\"email\":\"ada@example.com\",\"city\":\"London\",\"state\":\"UK\",\"linkedin\":\"linkedin.com/in/ada\"}");
         bio.setUpdatedAt(Instant.now());

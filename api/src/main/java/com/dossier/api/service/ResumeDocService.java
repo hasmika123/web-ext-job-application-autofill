@@ -222,7 +222,7 @@ public class ResumeDocService {
             case SCRATCH -> doc = ResumeDocumentSeeder.seed(title, cleanTarget, bio, List.of(), now);
             default -> {
                 var items = profileItemRepository.findByUserIdAndDeletedAtIsNullOrderBySectionAscPositionAsc(user.getId());
-                doc = ResumeDocumentSeeder.seed(title, cleanTarget, bio, items, now);
+                doc = ResumeDocumentSeeder.seedFromProfile(title, cleanTarget, bio, items, now);
                 // The seeder only emits valid documents; if a future change breaks that, a bare header beats a 500.
                 if (ResumeDocumentValidator.validate(doc, limits).isPresent()) {
                     LOG.warn("Seeded document for user {} failed validation ({}); falling back to the bio header", user.getId(), ResumeDocumentValidator.validate(doc, limits).get());
