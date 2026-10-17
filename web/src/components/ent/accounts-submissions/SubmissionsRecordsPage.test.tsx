@@ -120,7 +120,8 @@ describe("the Accounts Submissions page (records only)", () => {
 
   it("has no submit, approve, edit or delete control and only ever reads", async () => {
     await mount();
-    const buttons = screen.getAllByRole("button").map((b) => b.textContent ?? "");
+    // The status filters are tabs now (role "tab", not "button"), so a records-only page may render no button at all.
+    const buttons = screen.queryAllByRole("button").map((b) => b.textContent ?? "");
     expect(buttons.join("|")).not.toMatch(/submit|approve|edit|delete|send|apply/i);
     expect(document.querySelector("form")).toBeNull();
     expect(calls.every((c) => c.method === "GET")).toBe(true);
