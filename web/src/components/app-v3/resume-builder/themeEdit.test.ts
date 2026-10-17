@@ -74,8 +74,15 @@ describe("themeAfterSwitch", () => {
     expect(themeAfterSwitch({ accent: "#2563eb", _touched: ["accent"] }, meta({ accent: "#000000" }))).toBeNull();
   });
 
-  it("Modern declares no theme defaults today", () => {
-    expect(listTemplates().find((t) => t.id === "modern")?.defaults).toBeUndefined();
+  it("Modern declares Inter / Normal, so switching back to it from another template restores them (QA: Modern > Consulting & Finance > Modern kept Garamond / Compact)", () => {
+    const modern = listTemplates().find((t) => t.id === "modern")!;
+    const consultant = listTemplates().find((t) => t.id === "consultant")!;
+    expect(modern.defaults).toEqual({ fontPair: "inter", spacing: "normal" });
+    const onConsultant = themeAfterSwitch({}, consultant);
+    expect(onConsultant).toMatchObject({ fontPair: "garamond", spacing: "compact" });
+    expect(themeAfterSwitch(onConsultant, modern)).toMatchObject({ fontPair: "inter", spacing: "normal" });
+    // a font the user chose by hand survives the switch back
+    expect(themeAfterSwitch({ ...onConsultant, fontPair: "plex", _touched: ["fontPair"] }, modern)).toMatchObject({ fontPair: "plex", spacing: "normal" });
   });
 });
 

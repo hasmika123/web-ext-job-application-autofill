@@ -33,6 +33,8 @@ export const modern: TemplateDefinition = {
     atsNote: "One column, real text, standard headings. Safe for every parser we know of.",
     capabilities: ATS_STRICT,
     thumb: "modern.png",
+    // Declared (not left to the user's current theme) so switching back to Modern from e.g. Consulting & Finance restores Inter / Normal.
+    defaults: { fontPair: "inter", spacing: "normal" },
   },
   Render,
 };

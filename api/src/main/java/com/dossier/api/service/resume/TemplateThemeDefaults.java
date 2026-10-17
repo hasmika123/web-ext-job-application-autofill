@@ -31,11 +31,11 @@ public class TemplateThemeDefaults {
 
     /**
      * Per-template defaults, by template id: the twin of each web template's {@code meta.defaults}, in gallery order
-     * (docs/resume-builder/templates/TEMPLATES-DESIGN.md section 0). Modern leaves the user's theme alone. Each
+     * (docs/resume-builder/templates/TEMPLATES-DESIGN.md section 0). Modern declares Inter / Normal, so a switch back to it undoes another template's font and spacing.Each
      * template story adds its entry here and to {@code template-defaults.json}.
      */
     static final Map<String, Map<String, Object>> BUILT_IN = Map.ofEntries(
-        Map.entry("modern", Map.of()),
+        Map.entry("modern", Map.of("fontPair", "inter", "spacing", "normal")),
         Map.entry("classic", Map.of("fontPair", "source-serif", "spacing", "normal")),
         Map.entry("compact", Map.of("fontPair", "inter", "spacing", "compact")),
         Map.entry("simple", Map.of("fontPair", "georgia-arial", "spacing", "normal")),
