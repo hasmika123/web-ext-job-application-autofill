@@ -5,6 +5,9 @@ import com.dossier.api.repository.ResumeRepository;
 import com.dossier.api.service.ResumeService;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.mapper.ResumeMapper;
+import com.dossier.api.service.privacy.SensitiveContent;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.service.storage.StoredFileEraser;
 import java.util.Optional;
@@ -44,9 +47,32 @@ public class ResumeServiceImpl implements ResumeService {
         this.resumeMapper = resumeMapper;
     }
 
+    private static final ObjectMapper JSON = new ObjectMapper();
+
+    /**
+     * X11.7: what an uploaded or edited resume stores (its label and the structure parsed from the file) never holds a value the product does not
+     * collect (SSN / tax id, bank, passport / visa / document number, date of birth): refused with the shared 422 SENSITIVE_CONTENT. The raw file
+     * bytes are never read here (the extracted text is scrubbed in the browser before it is parsed, and again as parsedJson on the way in).
+     */
+    static void refuseSensitive(ResumeDTO dto) {
+        if (dto == null) return;
+        if (dto.getLabel() != null) SensitiveContent.check("label", "label", dto.getLabel());
+        String raw = dto.getParsedJson();
+        if (raw == null || raw.isBlank()) return;
+        JsonNode node;
+        try {
+            node = JSON.readTree(raw);
+        } catch (Exception notJson) {
+            SensitiveContent.check("parsedJson", "parsedJson", raw);
+            return;
+        }
+        SensitiveContent.check("parsedJson", node);
+    }
+
     @Override
     public ResumeDTO save(ResumeDTO resumeDTO) {
         LOG.debug("Request to save Resume : {}", resumeDTO);
+        refuseSensitive(resumeDTO);
         Resume resume = resumeMapper.toEntity(resumeDTO);
         resume = resumeRepository.save(resume);
         return resumeMapper.toDto(resume);
@@ -55,6 +81,7 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     public ResumeDTO update(ResumeDTO resumeDTO) {
         LOG.debug("Request to update Resume : {}", resumeDTO);
+        refuseSensitive(resumeDTO);
         Resume resume = resumeMapper.toEntity(resumeDTO);
         // The metadata a DTO round trip does not carry (R3.9) keeps its stored value instead of resetting.
         Resume existing = resumeRepository.findById(resumeDTO.getId()).orElse(null);
@@ -71,6 +98,7 @@ public class ResumeServiceImpl implements ResumeService {
     @Override
     public Optional<ResumeDTO> partialUpdate(ResumeDTO resumeDTO) {
         LOG.debug("Request to partially update Resume : {}", resumeDTO);
+        refuseSensitive(resumeDTO);
 
         return resumeRepository
             .findById(resumeDTO.getId())

@@ -1,5 +1,6 @@
 package com.dossier.api.service.inbox;
 
+import com.dossier.api.service.privacy.SensitiveContent;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.InboxMessage;
 import com.dossier.api.domain.User;
@@ -84,6 +85,9 @@ public class InboxMailService {
     public Long accept(Long messageId, String company, String role) {
         User u = currentUser();
         InboxMessage m = suggestion(u, messageId);
+        // X11.7: what the person typed over the mail's guess is refused (422) if it holds a never-collected value
+        if (!blank(company)) SensitiveContent.check("company", "company", company);
+        if (!blank(role)) SensitiveContent.check("roleTitle", "roleTitle", role);
         String c = blank(company) ? m.getCompanyGuess() : company.trim();
         String r = blank(role) ? m.getRoleGuess() : role.trim();
         if (blank(c)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Give the company's name");

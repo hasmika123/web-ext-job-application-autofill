@@ -20,6 +20,7 @@ import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Page;
 import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Query;
 import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Row;
 import com.dossier.api.service.ent.mkt.resumes.MktResumesDto.Skill;
+import com.dossier.api.service.ent.resumes.OrgResumeApproval;
 import com.dossier.api.service.ent.resumes.OrgResumeLinkService;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
@@ -81,6 +82,10 @@ public class MktResumesService {
     private final OrgAuditService audit;
     private final AuthorizationService authorization;
     private final Clock clock;
+
+    /** Fingerprint lookup for the approval pin (X7.4); absent in hand-wired unit tests. */
+    @Autowired(required = false)
+    private OrgResumeApproval approvals;
 
     @Autowired
     public MktResumesService(MktScope scope, MktResumeRepository resumes, MktResumeEventRepository events, OrgAuditService audit, AuthorizationService authorization) {
@@ -227,6 +232,7 @@ public class MktResumesService {
         r.setApprovalStatus("APPROVED");
         r.setApprovedAt(now);
         r.setApprovedByMemberId(me.memberId());
+        if (approvals != null) approvals.pin(r); else OrgResumeApproval.pin(r, null); // X7.4
         resumes.saveAndFlush(r);
         MktResumeEvent e = event(me, r, MktResumeEvent.APPROVED, null, now);
         audit.record(me, "RESUME_APPROVE", OrgAuditService.TARGET_RESUME, null, String.valueOf(r.getId()), "version=" + r.getVersionNo());

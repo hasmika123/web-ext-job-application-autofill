@@ -58,6 +58,13 @@ public class OrgResume implements Serializable {
     @Column(name = "approved_by_member_id")
     private Long approvedByMemberId;
 
+    /** X7.4: fingerprint (resume_doc.content_hash) and version of the text that was approved; null when approved before pinning or with no builder document. */
+    @Column(name = "approved_content_hash", length = 64)
+    private String approvedContentHash;
+
+    @Column(name = "approved_version_no")
+    private Integer approvedVersionNo;
+
     @Column(name = "owner_member_id")
     private Long ownerMemberId;
 
@@ -111,6 +118,10 @@ public class OrgResume implements Serializable {
     public void setApprovedAt(Instant approvedAt) { this.approvedAt = approvedAt; }
     public Long getApprovedByMemberId() { return approvedByMemberId; }
     public void setApprovedByMemberId(Long approvedByMemberId) { this.approvedByMemberId = approvedByMemberId; }
+    public String getApprovedContentHash() { return approvedContentHash; }
+    public void setApprovedContentHash(String approvedContentHash) { this.approvedContentHash = approvedContentHash; }
+    public Integer getApprovedVersionNo() { return approvedVersionNo; }
+    public void setApprovedVersionNo(Integer approvedVersionNo) { this.approvedVersionNo = approvedVersionNo; }
     public Long getOwnerMemberId() { return ownerMemberId; }
     public void setOwnerMemberId(Long ownerMemberId) { this.ownerMemberId = ownerMemberId; }
     public Integer getFileSizeKb() { return fileSizeKb; }

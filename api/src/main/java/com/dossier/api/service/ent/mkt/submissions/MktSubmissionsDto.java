@@ -23,8 +23,8 @@ public final class MktSubmissionsDto {
 
     public record ClientRef(Long id, String name) {}
 
-    /** {@code version} is "v3.2"; {@code updatedOn} the resume's last change when the package was prepared. */
-    public record ResumeRef(Long id, String version, Instant updatedOn) {}
+    /** {@code version} is "v3.2"; {@code updatedOn} the resume's last change when the package was prepared. {@code usingApprovedVersion} (X7.4): true when the resume is still approved, not stale, and this package was prepared with the approved version; false when it was edited since or is awaiting approval again; null when it cannot be told. */
+    public record ResumeRef(Long id, String version, Instant updatedOn, Boolean usingApprovedVersion) {}
 
     /**
      * One table row. {@code bucket} is the Submissions-by-Status slice the row belongs to (AWAITING_APPROVAL while the approval is open, else its status).

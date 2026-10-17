@@ -333,6 +333,10 @@ class OrgResumeBuilderIT {
         assertThat(saved.getResponse().getStatus()).as(saved.getResponse().getContentAsString()).isEqualTo(200);
         assertThat(orgResumes.findByOrgIdAndId(a.getId(), orgResumeId).orElseThrow().getHeadline()).isEqualTo("Staff backend engineer");
         assertThat(orgResumes.findByOrgIdAndId(a.getId(), orgResumeId).orElseThrow().getApprovalStatus()).as("the consultant's own edits never change approval").isEqualTo("APPROVED");
+        // X7.4: ... and the pin moves with the consultant's own words, so the approved version is never reported stale
+        OrgResume pinned = orgResumes.findByOrgIdAndId(a.getId(), orgResumeId).orElseThrow();
+        assertThat(pinned.getApprovedContentHash()).isNotNull().isEqualTo(resumeDocs.findContentHashByResumeId(resumeId).orElseThrow());
+        assertThat(pinned.getApprovedVersionNo()).isEqualTo(pinned.getVersionNo());
         long updates = events.forResumes(a.getId(), List.of(orgResumeId)).stream().filter(e -> MktResumeEvent.UPDATED.equals(e.getKind())).count();
         assertThat(updates).isLessThanOrEqualTo(1);
     }
@@ -602,6 +606,8 @@ class OrgResumeBuilderIT {
         assertThat(caps.path("approvalNotice").asText()).isEqualTo("Pending consultant approval");
         for (String off : List.of("shareLinks", "deleteResume", "archiveResume", "setPrimary", "rename", "duplicate", "versionRestore", "downloadOriginal", "ai", "tailor")) assertThat(caps.path(off).asBoolean()).as(off).isFalse();
 
+        String approvedHash = orgResumes.findByOrgIdAndId(a.getId(), orgResumeId).orElseThrow().getApprovedContentHash();
+        assertThat(approvedHash).as("X7.4: approving pins the fingerprint of the approved text").isNotNull().isEqualTo(resumeDocs.findContentHashByResumeId(resumeId).orElseThrow());
         // read and save the document: the consultant's document, the marketer as author, back to PENDING with a log line
         MvcResult doc = actFor("orb-a-marketer", orgResumeId, get(base + "/doc"));
         JsonNode body = ok(doc, 200);
@@ -615,6 +621,8 @@ class OrgResumeBuilderIT {
         OrgResume row = orgResumes.findByOrgIdAndId(a.getId(), orgResumeId).orElseThrow();
         assertThat(row.getApprovalStatus()).as("what a marketer wrote waits for the consultant").isEqualTo("PENDING");
         assertThat(row.getKind()).isEqualTo("ORG_MANAGED");
+        assertThat(row.getApprovedContentHash()).as("X7.4: the pin keeps naming what the consultant approved, not what the marketer wrote").isEqualTo(approvedHash);
+        assertThat(resumeDocs.findContentHashByResumeId(resumeId).orElseThrow()).isNotEqualTo(approvedHash);
         assertThat(row.getHeadline()).isEqualTo("Written by the marketer");
         assertThat(resumes.findById(resumeId).orElseThrow().getUpdatedByLogin()).isEqualTo("orb-a-marketer");
         assertThat(versions.findFirstByResumeIdAndUserIdOrderByVersionNoDesc(resumeId, userOf("orb-a-c1").getId()).orElseThrow().getCreatedByLogin()).isEqualTo("orb-a-marketer");

@@ -15,7 +15,10 @@ import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.OrgResumeExperienceRepository;
 import com.dossier.api.repository.ent.talent.OrgResumeRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
+import com.dossier.api.domain.enumeration.NotificationKind;
+import com.dossier.api.service.NotificationService;
 import com.dossier.api.service.ResumeDocVersionService;
+import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.resume.ResumeActAs;
 import com.dossier.api.service.resume.ResumeDocEvent;
 import com.dossier.api.service.resume.ResumeDocument;
@@ -78,6 +81,15 @@ public class OrgResumeLinkService {
     private final ResumeDocRepository docRepository;
     private final ResumeDocVersionService versions;
     private final Clock clock;
+
+    /** The change audit and the consultant's notice for a reopened approval; absent in hand-wired unit tests (then neither is written). */
+    @Autowired(required = false)
+    private OrgAuditService audit;
+
+    @Autowired(required = false)
+    private NotificationService notifications;
+
+    public static final String AUDIT_STALE = "RESUME_STALE";
 
     @Autowired
     public OrgResumeLinkService(
@@ -164,7 +176,10 @@ public class OrgResumeLinkService {
         row.setPrimaryForOrg(!madeForThem && resumes.findByOrgIdAndConsultantId(orgId, consultant.get().getId()).stream().noneMatch(OrgResume::isPrimaryForOrg));
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
-        project(row, resume, docOf(resume));
+        ResumeDoc firstDoc = docOf(resume);
+        project(row, resume, firstDoc);
+        // X7.4: the consultant's own resume is approved by definition, so what is there now is the approved text
+        if ("APPROVED".equals(row.getApprovalStatus())) OrgResumeApproval.pin(row, firstDoc == null ? null : firstDoc.getContentHash());
         row = resumes.saveAndFlush(row);
         replaceExperience(orgId, row.getId(), resume);
 
@@ -196,19 +211,44 @@ public class OrgResumeLinkService {
                 // the first edit by a marketer makes it an organization-managed resume (doc 30 section 3): from then on only the consultant approves it
                 if (byMarketer && !"ORG_MANAGED".equals(row.getKind())) row.setKind("ORG_MANAGED");
                 if (byMarketer && !"PENDING".equals(row.getApprovalStatus())) {
+                    // X7.4: the approved pin (hash and version) stays as the "what was approved" reference for the consultant's review
                     row.setApprovalStatus("PENDING"); // the new version waits for the consultant; a marketer's words never count until then
                     row.setApprovedAt(null);
                     row.setApprovedByMemberId(null);
                     reopened = true;
+                } else if (!byMarketer && "APPROVED".equals(row.getApprovalStatus())) {
+                    // the consultant's own edit keeps it approved: the pin moves with their words
+                    ResumeDoc current = docOf(resume);
+                    OrgResumeApproval.pin(row, current == null ? null : current.getContentHash());
                 }
                 resumes.saveAndFlush(row);
                 replaceExperience(orgId, row.getId(), resume);
                 if (reopened || shouldLogUpdate(orgId, row, now)) {
                     log(row, MktResumeEvent.UPDATED, actorMemberId, reopened ? "Edited for the consultant; waiting for their approval" : null, now);
                 }
+                if (reopened) announceStale(orgId, row, e, acting.map(ResumeActAs.Scope::actorLogin).orElse(e.actorLogin()));
             } else {
                 resumes.saveAndFlush(row);
             }
+        }
+    }
+
+    /** X7.4: the approval was reopened by a change that was not the consultant's: one change-audit row and one in-app notice to the consultant. Never fails the save. */
+    private void announceStale(Long orgId, OrgResume row, ResumeDocEvent e, String actorLogin) {
+        try {
+            if (audit != null) {
+                audit.record(orgId, actorLogin, null, AUDIT_STALE, OrgAuditService.TARGET_RESUME, null, String.valueOf(row.getId()), "approved text changed by someone else; approval reopened version=" + row.getVersionNo(), null, null, null, "MEDIUM");
+            }
+            if (notifications != null && e.ownerUserId() != null) {
+                // existing kind SYSTEM, in-app only: the consultant reviews it on My Resumes
+                notifications.publish(
+                    NotificationKind.SYSTEM,
+                    e.ownerUserId(),
+                    new NotificationService.Payload("A resume of yours changed and needs your approval", "\"" + clip(blankTo(row.getName(), "Your resume"), 80) + "\" was edited for you. Review the new version before it is used.", "/", null, null, null, null, false, null)
+                );
+            }
+        } catch (RuntimeException ex) {
+            LOG.warn("Could not record the reopened approval of resume {}: {}", row.getId(), ex.toString());
         }
     }
 
