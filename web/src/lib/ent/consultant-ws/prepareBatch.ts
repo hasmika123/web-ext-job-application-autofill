@@ -164,9 +164,9 @@ export function capsText(s: Pick<PrepareStatus, "remainingToday" | "remainingMon
 
 /* ── the page-to-extension message ────────────────────────────────────────────────────── */
 
-/** The API origin the extension talks to; a hint only, the extension trusts its own configured base. */
+/** The API origin the extension talks to; a hint only, the extension trusts its own configured base (empty means "use yours"). Tenant code never hard-codes a platform address. */
 export function prepareApiBase(): string {
-  return process.env.NEXT_PUBLIC_KIWIPLY_API_URL || "https://api.kiwiply.com";
+  return process.env.NEXT_PUBLIC_KIWIPLY_API_URL || "";
 }
 
 export interface PrepareMessage {
