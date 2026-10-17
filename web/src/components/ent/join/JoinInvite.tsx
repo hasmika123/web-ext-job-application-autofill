@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertIcon, ArrowRightIcon, CheckIcon, EyeIcon, EyeOffIcon, LockIcon, cn } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import { AUTH_CARD_COLUMN, LoginBackdrop } from "@/components/ent/login/AuthBackdrop";
 import PolicyLinks from "@/components/ent/policy/PolicyLinks";
 import { SCOPE_COPY, newPasswordProblem, type JoinPreview, type ShareScope } from "@/lib/ent/join";
 
@@ -83,8 +84,9 @@ export default function JoinInvite({ token, name, logoUrl, preview, signedIn }: 
 
   return (
     <main className="tenant-sky relative isolate min-h-dvh overflow-x-hidden text-[var(--brand-900)]" data-tenant-join>
-      <div className="mx-auto flex min-h-dvh w-full max-w-[560px] flex-col justify-center px-4 py-10">
-        <section aria-label="Join" className="tenant-glass rounded-[28px] px-5 py-7 sm:px-9 sm:py-9">
+      <LoginBackdrop />
+      <div className={`mx-auto flex min-h-dvh w-full max-w-[1600px] flex-col items-center justify-center px-4 py-10 ${AUTH_CARD_COLUMN}`}>
+        <section aria-label="Join" className="tenant-glass w-full max-w-[560px] rounded-[28px] px-5 py-7 sm:px-9 sm:py-9">
           <div className="mb-6 flex items-center gap-4">
             <div className="min-w-0 flex-1">
               <h1 className="font-body text-[30px] font-extrabold leading-tight tracking-tight sm:text-[34px]">
@@ -197,7 +199,7 @@ export default function JoinInvite({ token, name, logoUrl, preview, signedIn }: 
             </form>
           )}
         </section>
-        <PolicyLinks tone="plain" className="mt-5 text-[var(--brand-800)]" />
+        <PolicyLinks tone="plain" className="mt-5 w-full max-w-[560px] text-[var(--brand-800)]" />
       </div>
     </main>
   );
