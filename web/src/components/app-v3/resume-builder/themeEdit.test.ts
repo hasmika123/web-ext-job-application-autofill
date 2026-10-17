@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { ATS_STRICT, DESIGN_FREE, listTemplates, sanitizeTheme } from "@kiwiply/ui";
+import { ATS_STRICT, DESIGN_FREE, FONT_STACKS, listTemplates, sanitizeTheme } from "@kiwiply/ui";
 import type { TemplateMeta } from "@kiwiply/ui";
-import { canvasThemeStyle, colorName, editTheme, storedTheme, themeAfterSwitch } from "./themeEdit";
+import { FONT_LABELS, canvasThemeStyle, colorName, editTheme, storedTheme, themeAfterSwitch } from "./themeEdit";
+
+describe("FONT_LABELS", () => {
+  it("covers every FontPair (FONT_STACKS keys)", () => {
+    expect(Object.keys(FONT_LABELS).sort()).toEqual(Object.keys(FONT_STACKS).sort());
+    expect(FONT_LABELS.plex).toBe("IBM Plex Sans");
+    expect(FONT_LABELS.garamond).toBe("EB Garamond");
+  });
+});
 
 describe("editTheme", () => {
   it("accent: sets it and marks it touched; unrelated keys survive", () => {

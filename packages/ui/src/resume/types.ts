@@ -234,9 +234,9 @@ export type ResumeDocumentAnySchema = ResumeDocumentV1 | ResumeDocument;
 
 /* ── Theme ────────────────────────────────────────────────────────────────────────────────── */
 
-/** Font Family options (DESIGN 4). IBM Plex is not offered until it is bundled. */
-export type FontPair = "inter" | "source-serif" | "georgia-arial";
-export const FONT_PAIRS: readonly FontPair[] = ["inter", "source-serif", "georgia-arial"];
+/** Font Family options (DESIGN 4): every font is self-hosted in `packages/ui/fonts` (SIL OFL). */
+export type FontPair = "inter" | "source-serif" | "georgia-arial" | "plex" | "garamond";
+export const FONT_PAIRS: readonly FontPair[] = ["inter", "source-serif", "georgia-arial", "plex", "garamond"];
 export type PageSize = "letter" | "a4";
 export type DateStyle = "range" | "year";
 /** The Spacing segmented control (DESIGN 4): a preset of size / density / margin. */

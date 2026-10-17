@@ -47,8 +47,8 @@ describe("theme v2: sanitizeTheme", () => {
     expect(sanitizeTheme({ ...DEFAULT_THEME, showPhoto: "yes" as never }).showPhoto).toBeNull();
   });
 
-  it("ibm-plex is gone: a stored ibm-plex theme falls back to the default font; no prototype keys sneak in", () => {
-    expect(Object.keys(FONT_STACKS).sort()).toEqual(["georgia-arial", "inter", "source-serif"]);
+  it("an unknown font (the old ibm-plex id) falls back to the default font; no prototype keys sneak in", () => {
+    expect(Object.keys(FONT_STACKS).sort()).toEqual(["garamond", "georgia-arial", "inter", "plex", "source-serif"]);
     expect(sanitizeTheme({ ...DEFAULT_THEME, fontPair: "ibm-plex" as never }).fontPair).toBe("inter");
     expect(sanitizeTheme({ ...DEFAULT_THEME, fontPair: "toString" as never }).fontPair).toBe("inter");
   });
@@ -56,6 +56,18 @@ describe("theme v2: sanitizeTheme", () => {
   it("clamps fit: step to the ladder, target to 1 or 2, mode to auto / manual", () => {
     const t = sanitizeTheme({ ...DEFAULT_THEME, fit: { mode: "weird" as never, target: 7 as never, step: 99 } });
     expect(t.fit).toEqual({ mode: "auto", target: 1, step: 6 });
+  });
+});
+
+describe("theme v2: bundled fonts", () => {
+  it("sanitizeTheme accepts plex and garamond; themeCss emits their stacks", () => {
+    expect(sanitizeTheme({ ...DEFAULT_THEME, fontPair: "plex" }).fontPair).toBe("plex");
+    expect(sanitizeTheme({ ...DEFAULT_THEME, fontPair: "garamond" }).fontPair).toBe("garamond");
+    expect(sanitizeTheme({ ...DEFAULT_THEME, fontPair: "plex-mono" as never }).fontPair).toBe("inter");
+    expect(themeCss({ ...DEFAULT_THEME, fontPair: "plex" })).toContain(`--rz-font-body:${FONT_STACKS.plex.body}`);
+    expect(themeCss({ ...DEFAULT_THEME, fontPair: "garamond" })).toContain("EB Garamond");
+    expect(FONT_STACKS.plex.body).toContain("IBM Plex Sans");
+    expect(FONT_STACKS.garamond.display).toContain("EB Garamond");
   });
 });
 

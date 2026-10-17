@@ -35,6 +35,14 @@ export const FONT_STACKS: Record<FontPair, { body: string; display: string }> = 
     body: 'Arial, "Helvetica Neue", Helvetica, sans-serif',
     display: 'Georgia, "Times New Roman", serif',
   },
+  plex: {
+    body: '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif',
+    display: '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif',
+  },
+  garamond: {
+    body: '"EB Garamond", Garamond, Georgia, "Times New Roman", serif',
+    display: '"EB Garamond", Garamond, Georgia, "Times New Roman", serif',
+  },
 };
 
 const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;

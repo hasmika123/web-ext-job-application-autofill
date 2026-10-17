@@ -36,6 +36,19 @@ class ResumeThemeValidatorTest {
             );
     }
 
+    @ParameterizedTest
+    @CsvSource({"inter", "source-serif", "georgia-arial", "plex", "garamond"})
+    void acceptsTheFiveFontPairs(String pair) {
+        JsonNode out = ResumeThemeValidator.sanitize(json("{\"fontPair\":\"" + pair + "\"}"));
+        assertThat(out.get("fontPair").asText()).isEqualTo(pair);
+    }
+
+    @Test
+    void rejectsAnUnknownFontPair() {
+        assertThatThrownBy(() -> ResumeThemeValidator.sanitize(json("{\"fontPair\":\"plex-mono\"}")))
+            .isInstanceOfSatisfying(ResumeDocException.class, e -> assertThat(e.getExtra()).containsEntry("path", "$.theme.fontPair"));
+    }
+
     @Test
     void anEmptyObjectIsAValidTheme() {
         assertThat(ResumeThemeValidator.sanitize(json("{}")).isEmpty()).isTrue();
@@ -83,7 +96,7 @@ class ResumeThemeValidatorTest {
     @Test
     void theAllowedValuesMatchTheTypeScriptContract() {
         // packages/ui/src/resume/types.ts (FONT_PAIRS, spacings) and fit.ts (MAX_FIT_STEP = FIT_LADDER.length - 1)
-        assertThat(ResumeThemeValidator.FONT_PAIRS).containsExactly("inter", "source-serif", "georgia-arial");
+        assertThat(ResumeThemeValidator.FONT_PAIRS).containsExactly("inter", "source-serif", "georgia-arial", "plex", "garamond");
         assertThat(ResumeThemeValidator.SPACINGS).containsExactly("compact", "normal", "spacious");
         assertThat(ResumeThemeValidator.MAX_FIT_STEP).isEqualTo(6);
     }
