@@ -30,7 +30,7 @@ public final class ResumeThemeValidator {
     /** The whole theme object, as sent, in bytes (DESIGN 4: at most 8 KB). */
     public static final int MAX_THEME_BYTES = 8 * 1024;
 
-    static final List<String> FONT_PAIRS = List.of("inter", "source-serif", "georgia-arial");
+    static final List<String> FONT_PAIRS = List.of("inter", "source-serif", "georgia-arial", "plex", "garamond");
     static final List<String> SPACINGS = List.of("compact", "normal", "spacious");
     static final List<String> PAGE_SIZES = List.of("letter", "a4");
     static final List<String> DATE_STYLES = List.of("range", "year");

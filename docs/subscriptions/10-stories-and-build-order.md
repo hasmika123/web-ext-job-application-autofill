@@ -95,7 +95,7 @@
 | K10.8 | M | API | Stripe mechanics for retirements: schedules, D-1 cancel, coupons carried, drift kind RETIREMENT |
 | K10.9 | M | Web | Admin retirement wizard + progress page (1440/390) |
 | K10.10 | M | Web, Ext | Customer UX: banner, "your plan is changing" page, one-click switch, lock states, extension line |
-| K10.11 | S | API, Web | Retirement regression gate (NoEarlyLossIT, DowngradeNeverDeletesIT, NoSilentRepriceTest, E15, journeys) |
+| K10.11 | S | API, Web | Retirement regression gate (NoEarlyLossIT, DowngradeNeverDeletesIT, NoSilentRepriceIT, E15, journeys) |
 
 ## 3. Build order and phases (each phase ends with its exit gate; one story = one commit = one PR into `develop`)
 

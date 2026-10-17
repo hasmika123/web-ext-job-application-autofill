@@ -34,6 +34,8 @@ export const designFree: TemplateDefinition = {
     id: "design-free-test",
     name: "Design Free (test)",
     description: "Test-only template declaring the DESIGN_FREE profile.",
+    category: "styled",
+    atsNote: "Test only.",
     capabilities: DESIGN_FREE,
     thumb: "modern.png",
   },

@@ -444,14 +444,14 @@ export const ATS_STRICT: TemplateCapabilities = {   // the profile an ATS-friend
   ats: true, columns: 1, sidebarSections: [], photo: false, photoDefault: false,
   marks: ["b"],                                     // bold survives every parser; i/u/links are dropped by some
   lists: false, graphics: false,
-  theme: { accent: false, fontPairs: ["inter", "georgia-arial"], spacing: true, pageLength: true },
+  theme: { accent: false, fontPairs: ["inter","source-serif","georgia-arial","plex","garamond"], spacing: true, pageLength: true },  // every bundled font: fonts are embedded real text
   maxPages: 2, sections: ["SUMMARY","EXPERIENCE","EDUCATION","SKILLS","PROJECTS","CERTIFICATIONS","LANGUAGES","ACHIEVEMENTS"],
   custom: "limited", customLimit: 1, headings: "standard", dateStyles: ["range"], maxSkillGroups: 6,
 };
 export const DESIGN_FREE: TemplateCapabilities = {  // the loosest profile a non-ATS template may declare
   ats: false, columns: 2, sidebarSections: ["SKILLS","LANGUAGES","CERTIFICATIONS","INTERESTS"], photo: true, photoDefault: false,
   marks: ["b","i","u","a"], lists: true, graphics: true,
-  theme: { accent: true, fontPairs: ["inter","source-serif","georgia-arial"], spacing: true, pageLength: true },
+  theme: { accent: true, fontPairs: ["inter","source-serif","georgia-arial","plex","garamond"], spacing: true, pageLength: true },
   maxPages: 2, sections: [/* all ten */], custom: "any", customLimit: 99, headings: "free", dateStyles: ["range","year"], maxSkillGroups: 0,
 };
 ```
@@ -534,17 +534,17 @@ fontPair `source-serif`, fit.target 2.
 
 | Expectation | `ATS_STRICT` | `DESIGN_FREE` |
 |---|---|---|
-| `hiddenContent()` | `[photo, marks(italic 1, link 1), lists(2), section(Interests), custom(1 over limit: "Awards"), headingOverride(1), accent, font]` (8 items) | `[]` |
+| `hiddenContent()` | `[photo, marks(italic 1, link 1), lists(2), section(Interests), custom(1 over limit: "Awards"), headingOverride(1), accent]` (7 items; `font` no longer fires, every bundled font is allowed) | `[]` |
 | Render: `<strong>` count / `<em>` / `<a>` in body | 1 / 0 / 0 | 1 / 1 / 1 |
 | Render: summary `<ul>` | absent (plain `<p>` with `\n` → `<br>`-free `pre-line`) | present |
 | Render: section titles | "Experience" (standard) | "Where I've worked" |
 | Render: skill groups drawn | 6 (last absorbs the rest) | 8 |
 | Render: `.rz-photo` | absent | present (when `showPhoto === true`) |
 | Render: `--rz-accent` in theme block | `#111827` (ink) | `#ec4899` |
-| Render: font-family | Inter (first allowed; stored source-serif not allowed) | Source Serif 4 |
+| Render: font-family | Source Serif 4 (allowed under ATS_STRICT since the font menu widened) | Source Serif 4 |
 | Editor: toolbar buttons rendered | `[B]` | `[B, I, U, •, 1., 🔗]` |
 | Editor: Accent swatches | all `aria-disabled="true"` | enabled |
-| Editor: Font Family options | 2 | 3 |
+| Editor: Font Family options | 5 | 5 |
 | Editor: Add Section "Interests" row | disabled "Not in this ATS template" | "Add to resume" / "Already added" |
 | Editor: Custom Section row | "Limit reached (ATS)" (2 custom present > 1) | "Add to resume" |
 | Editor: section title rename | not editable (tooltip) | editable |
@@ -1749,6 +1749,8 @@ amazing resume with AI / + New Resume" uses the existing promo slot with the mas
   step-2 line reads "Template: <name> — you can change it in the editor"); **View All →**
   `/resume-builder/templates`: a gallery grid of every enabled template (thumbnail, name, description,
   capability chips: ATS Friendly · Photo · 2 columns · Bold only / Rich text; **Use this template** → chooser).
+  The ten templates are grouped by category (ATS-safe, Employer formats, Styled) with filter chips and a derived ATS rating line
+  per card; see `docs/resume-builder/templates/TEMPLATES-DESIGN.md` §9.
 - **Quick Tips** card: copy from setting `resume.list.quickTips` (JSON string[], default the four board
   lines: "Create different resumes for different roles" · "Tailor your resume for each job application" ·
   "Use AI suggestions to improve your content" · "Keep one primary resume for quick applications").
@@ -2319,7 +2321,7 @@ B1.2's `has(login, "builder.ai")`.
 | `resume.share.maxGrants` / `.maxLinks` / `.linkDefaultDays` / `.allowDownloadDefault` | INT / INT / INT / BOOL | 20 / 3 / 30 / false | 1–100 / 1–10 / 0–365 | §8.7 |
 | `resume.views.retentionDays` | INT | 180 | 30–730 | §8.7 |
 | `resume.thumb.width` | INT | 240 | 120–480 | §8.10 |
-| `resume.templates.popular` | JSON string[] | ["modern"] (= enabled order) | registered ids | §10.17 |
+| `resume.templates.popular` | JSON string[] | ["modern","engineer","classic","sidebar","compact"] | registered ids | §10.17 |
 | `resume.list.quickTips` | JSON string[] | the four board lines | 1–6 × ≤ 90 chars | §10.17 |
 | `resume.list.virtualizeAbove` | INT | 60 | 20–500 | §10.17 |
 | `org.resumes.newDays` / `org.resumes.pageSize` / `org.resumes.maxSavedViews` | INT | 30 / 24 / 10 | 7–90 / 12–96 / 1–30 | §10.18 |

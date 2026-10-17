@@ -260,8 +260,11 @@ export function Photo({ doc, theme, caps, src }: { doc: Json; theme: Pick<Theme,
   return <img className="rz-photo" src={src} alt="" />;
 }
 
-/** The header's contact entries, in text.ts order: email, phone, location, links. */
-export function ContactLine({ basics }: { basics: Json }): ReactNode {
+/**
+ * The header's contact entries, in text.ts order: email, phone, location, links. `sep` is the visible separator
+ * (`" | "`, `" • "`, `" · "`); `stacked` draws one entry per line as a list (the sidebar), without separators.
+ */
+export function ContactLine({ basics, sep = " | ", stacked = false }: { basics: Json; sep?: string; stacked?: boolean }): ReactNode {
   const parts: ReactNode[] = [];
   const email = one(basics, "email");
   if (email) {
@@ -280,17 +283,26 @@ export function ContactLine({ basics }: { basics: Json }): ReactNode {
     if (url) parts.push(<Link url={url} label={one(l, "label")} />);
   }
   if (parts.length === 0) return null;
-  return <Parts className="rz-contact" parts={parts} sep=" | " />;
+  if (stacked) {
+    return (
+      <ul className="rz-contact-list">
+        {parts.map((p, i) => (
+          <li key={i}>{p}</li>
+        ))}
+      </ul>
+    );
+  }
+  return <Parts className="rz-contact" parts={parts} sep={sep} />;
 }
 
-export function Header({ basics }: { basics: Json }): ReactNode {
+export function Header({ basics, sep, stacked }: { basics: Json; sep?: string; stacked?: boolean }): ReactNode {
   const name = one(basics, "name");
   const headline = one(basics, "headline");
   return (
     <header className="rz-header">
       {name ? <h1 className="rz-name">{name}</h1> : null}
       {headline ? <p className="rz-headline">{headline}</p> : null}
-      <ContactLine basics={basics} />
+      <ContactLine basics={basics} sep={sep} stacked={stacked} />
     </header>
   );
 }
@@ -309,7 +321,35 @@ function ItemHead({ left, dates, sub }: { left: ReactNode; dates?: string; sub?:
   );
 }
 
-function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, caps: TemplateCapabilities): ReactNode {
+/** How an experience / education entry lays out its head (TEMPLATES-DESIGN 5.1). `inline` is the original single line. */
+export type HeadStyle = "inline" | "title-org" | "org-title";
+
+export interface ItemLayout {
+  /** Experience and CUSTOM entries. */
+  experience?: HeadStyle;
+  education?: HeadStyle;
+}
+
+export interface RenderOptions {
+  /** Narrows to the sections a column draws (a template placing a sidebar). */
+  only?: (kind: SectionKind | null) => boolean;
+  layout?: ItemLayout;
+  /** `list` draws each skill group as a tag list (`ul.rz-skill-tags`); `inline` is "Group: a, b, c". */
+  skills?: "inline" | "list";
+}
+
+/** One row of a two-line head; an empty half emits no element and a row with no half at all is dropped. */
+function HeadRow({ left, right, rightClass, second }: { left: ReactNode; right?: string | null; rightClass: string; second?: boolean }): ReactNode {
+  if (!left && !right) return null;
+  return (
+    <div className={second ? "rz-item-head rz-item-head-2" : "rz-item-head"}>
+      {left ? <div className="rz-item-main">{left}</div> : null}
+      {right ? <div className={rightClass}>{right}</div> : null}
+    </div>
+  );
+}
+
+function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, caps: TemplateCapabilities, opts: RenderOptions = {}): ReactNode {
   const allowed = caps.marks;
   const ordered = caps.lists && item.listStyle === "number";
   switch (kind) {
@@ -330,18 +370,24 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, c
       const dates = dateRange(item, dateStyle);
       const bullets = list(item, "bullets").some((b) => isObject(b) && one(b, "text"));
       if (!title && !org && !location && !dates && !bullets) return null;
+      const style = opts.layout?.experience ?? "inline";
+      const titleNode = title ? <span className="rz-item-title">{title}</span> : null;
+      const orgNode = org ? <span className="rz-item-org">{org}</span> : null;
       return (
         <div className="rz-item">
-          <ItemHead
-            left={
-              <Parts
-                parts={[title && <span className="rz-item-title">{title}</span>, org && <span className="rz-item-org">{org}</span>]}
-                sep={` ${EM_DASH} `}
-              />
-            }
-            dates={dates}
-            sub={location}
-          />
+          {style === "inline" ? (
+            <ItemHead left={<Parts parts={[titleNode, orgNode]} sep={` ${EM_DASH} `} />} dates={dates} sub={location} />
+          ) : style === "title-org" ? (
+            <>
+              <HeadRow left={titleNode} right={dates} rightClass="rz-item-dates" />
+              <HeadRow left={orgNode} right={location} rightClass="rz-item-loc" second />
+            </>
+          ) : (
+            <>
+              <HeadRow left={orgNode} right={location} rightClass="rz-item-loc" />
+              <HeadRow left={titleNode} right={dates} rightClass="rz-item-dates" second />
+            </>
+          )}
           <Bullets item={item} allowed={allowed} ordered={ordered} />
         </div>
       );
@@ -354,18 +400,29 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, c
       const dates = dateRange(item, dateStyle);
       const bullets = list(item, "bullets").some((b) => isObject(b) && one(b, "text"));
       if (!degree && !school && !location && !dates && !gpa && !bullets) return null;
+      const style = opts.layout?.education ?? "inline";
+      const degreeNode = degree ? <span className="rz-item-title">{degree}</span> : null;
+      const schoolNode = school ? <span className="rz-item-org">{school}</span> : null;
+      const gpaText = gpa ? `GPA: ${gpa}` : "";
       return (
         <div className="rz-item">
-          <ItemHead
-            left={
-              <Parts
-                parts={[degree && <span className="rz-item-title">{degree}</span>, school && <span className="rz-item-org">{school}</span>]}
-                sep={` ${EM_DASH} `}
-              />
-            }
-            dates={dates}
-            sub={[location, gpa && `GPA: ${gpa}`].filter(Boolean).join(` ${MIDDOT} `)}
-          />
+          {style === "inline" ? (
+            <ItemHead
+              left={<Parts parts={[degreeNode, schoolNode]} sep={` ${EM_DASH} `} />}
+              dates={dates}
+              sub={[location, gpaText].filter(Boolean).join(` ${MIDDOT} `)}
+            />
+          ) : style === "title-org" ? (
+            <>
+              <HeadRow left={degreeNode} right={dates} rightClass="rz-item-dates" />
+              <HeadRow left={<Parts parts={[schoolNode, gpaText]} sep={` ${MIDDOT} `} />} right={location} rightClass="rz-item-loc" second />
+            </>
+          ) : (
+            <>
+              <HeadRow left={schoolNode} right={location} rightClass="rz-item-loc" />
+              <HeadRow left={<Parts parts={[degreeNode, gpaText]} sep={` ${MIDDOT} `} />} right={dates} rightClass="rz-item-dates" second />
+            </>
+          )}
           <Bullets item={item} allowed={allowed} ordered={ordered} />
         </div>
       );
@@ -374,6 +431,22 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, c
       const skills = list(item, "skills").map((s) => (typeof s === "string" ? s.replace(/[\t-\r ]+/g, " ").trim() : "")).filter(Boolean);
       if (skills.length === 0) return null;
       const group = one(item, "group");
+      if (opts.skills === "list") {
+        return (
+          <>
+            {group ? (
+              <p className="rz-skill-row">
+                <span className="rz-skill-group">{group}</span>
+              </p>
+            ) : null}
+            <ul className="rz-skill-tags">
+              {skills.map((s, i) => (
+                <li key={i}>{s}</li>
+              ))}
+            </ul>
+          </>
+        );
+      }
       return (
         <p className="rz-skill-row">
           {group ? <span className="rz-skill-group">{group}: </span> : null}
@@ -395,6 +468,7 @@ function renderItem(item: JsonObject, kind: SectionKind, dateStyle: DateStyle, c
                 sep={` ${MIDDOT} `}
               />
             }
+            dates={dateRange(item, dateStyle)}
           />
           <Bullets item={item} allowed={allowed} ordered={ordered} />
         </div>
@@ -486,14 +560,18 @@ function collapseSkillGroups(items: JsonObject[], max: number): JsonObject[] {
  * templates never have to repeat the rule; so is every capability rule (DESIGN 6.4): sections the template
  * does not carry (kind outside `caps.sections`, custom sections over the limit), standard headings,
  * marks filtered by `caps.marks`, lists only with `caps.lists`, skill groups collapsed at
- * `caps.maxSkillGroups`. `only` narrows to a column (a template placing a sidebar).
+ * `caps.maxSkillGroups`. `opts.only` narrows to a column (a template placing a sidebar), `opts.layout` picks the
+ * head layout of experience / education entries and `opts.skills` the skills style. A bare function as the
+ * fourth argument is `{ only }` (the original signature).
  */
 export function renderSections(
   doc: Json,
   theme: Pick<Theme, "dateStyle">,
   caps: TemplateCapabilities,
-  only?: (kind: SectionKind | null) => boolean,
+  options?: RenderOptions | ((kind: SectionKind | null) => boolean),
 ): RenderedSection[] {
+  const opts: RenderOptions = typeof options === "function" ? { only: options } : (options ?? {});
+  const only = opts.only;
   const dateStyle = caps.dateStyles.includes(theme.dateStyle) || caps.dateStyles.length === 0 ? theme.dateStyle : caps.dateStyles[0];
   const out: RenderedSection[] = [];
   planSections(doc, caps).forEach(({ section: s, kind, verdict }, si) => {
@@ -510,7 +588,7 @@ export function renderSections(
     } else {
       const source = kind === "SKILLS" ? collapseSkillGroups(visibleItems(s), caps.maxSkillGroups) : visibleItems(s);
       for (const item of source) {
-        const node = kind ? renderItem(item, kind, dateStyle, caps) : renderUnknownItem(item);
+        const node = kind ? renderItem(item, kind, dateStyle, caps, opts) : renderUnknownItem(item);
         if (node) items.push(node);
       }
     }

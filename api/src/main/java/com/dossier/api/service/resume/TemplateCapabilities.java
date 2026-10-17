@@ -7,7 +7,7 @@ import java.util.List;
  * {@code TemplateCapabilities} in {@code packages/ui/src/resume/types.ts}. The renderer and the editor
  * live in the web; the API only needs the two reference profiles and the strictness order (the
  * {@code resume.templates.overrides} setting is shaped by them, and a template cannot enable more than
- * {@link #DESIGN_FREE}). Both profiles are compared with {@code capabilities.json}, a fixture shared
+ * {@link #DESIGN_FREE}). The three profiles are compared with {@code capabilities.json}, a fixture shared
  * byte-for-byte with the TypeScript tests, so the two languages cannot drift.
  *
  * <p>Property names match the TypeScript field names, so the record serialises to the same JSON.
@@ -43,7 +43,7 @@ public record TemplateCapabilities(
         List.of("b"),
         false,
         false,
-        new Theme(false, List.of("inter", "georgia-arial"), true, true),
+        new Theme(false, List.of("inter", "source-serif", "georgia-arial", "plex", "garamond"), true, true),
         2,
         List.of("SUMMARY", "EXPERIENCE", "EDUCATION", "SKILLS", "PROJECTS", "CERTIFICATIONS", "LANGUAGES", "ACHIEVEMENTS"),
         "limited",
@@ -63,7 +63,30 @@ public record TemplateCapabilities(
         List.of("b", "i", "u", "a"),
         true,
         true,
-        new Theme(true, List.of("inter", "source-serif", "georgia-arial"), true, true),
+        new Theme(true, List.of("inter", "source-serif", "georgia-arial", "plex", "garamond"), true, true),
+        2,
+        List.of("SUMMARY", "EXPERIENCE", "EDUCATION", "SKILLS", "PROJECTS", "CERTIFICATIONS", "LANGUAGES", "ACHIEVEMENTS", "INTERESTS", "CUSTOM"),
+        "any",
+        99,
+        "free",
+        List.of("range", "year"),
+        0
+    );
+
+    /**
+     * The middle profile for a single-column coloured template: {@link #DESIGN_FREE} without the second
+     * column, the photo and graphics. A convenience constant (the registry rule is unchanged).
+     */
+    public static final TemplateCapabilities HYBRID = new TemplateCapabilities(
+        false,
+        1,
+        List.of(),
+        false,
+        false,
+        List.of("b", "i", "u", "a"),
+        true,
+        false,
+        new Theme(true, List.of("inter", "source-serif", "georgia-arial", "plex", "garamond"), true, true),
         2,
         List.of("SUMMARY", "EXPERIENCE", "EDUCATION", "SKILLS", "PROJECTS", "CERTIFICATIONS", "LANGUAGES", "ACHIEVEMENTS", "INTERESTS", "CUSTOM"),
         "any",

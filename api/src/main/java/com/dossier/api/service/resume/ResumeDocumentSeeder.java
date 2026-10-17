@@ -62,6 +62,31 @@ public final class ResumeDocumentSeeder {
     }
 
     /**
+     * The document of a resume made "from my profile": {@link #seed} plus a leading Summary section holding the
+     * profile's own summary ({@code bio.summary}), when it has one. A scratch resume stays a bare header; the
+     * upload path ({@link #fromStructured}) takes the summary from the parsed file instead.
+     */
+    public static ObjectNode seedFromProfile(String title, String target, JsonNode bio, List<ProfileItem> items, Instant now) {
+        ObjectNode doc = seed(title, target, bio, items, now);
+        String summary = clip(ResumeDocument.trimWs(ResumeDocument.str(bio, "summary")), ResumeDocumentValidator.MAX_SUMMARY);
+        if (!summary.isEmpty()) {
+            ArrayNode sections = (ArrayNode) doc.get("sections");
+            Set<String> used = new HashSet<>();
+            ObjectNode s = F.objectNode();
+            s.put("id", ResumeDocumentIds.newId('s', used));
+            s.put("kind", Kind.SUMMARY.name());
+            s.put("title", Kind.SUMMARY.defaultTitle());
+            s.put("hidden", false);
+            ObjectNode it = s.putArray("items").addObject();
+            it.put("id", ResumeDocumentIds.newId('i', used));
+            it.put("text", summary);
+            it.put("src", "user");
+            sections.insert(0, s);
+        }
+        return doc;
+    }
+
+    /**
      * What the user left ticked in the upload review (R2.6, DESIGN 9.10 {@code KeepMask}): indexes into the
      * structured arrays, plus whether the skills and the summary are kept. A {@code null} list keeps every
      * entry of that section; {@code skills} / {@code summary} default to kept.

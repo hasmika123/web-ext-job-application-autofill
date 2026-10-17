@@ -21,7 +21,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * K10.4 / K10.11 {@code NoSilentRepriceTest} (docs/subscriptions/11 principle 2 and section 7): nobody is moved to a higher price without their say-so. MIGRATE_AT_RENEWAL is
+ * K10.4 / K10.11 {@code NoSilentRepriceIT} (docs/subscriptions/11 principle 2 and section 7): nobody is moved to a higher price without their say-so. MIGRATE_AT_RENEWAL is
  * refused when any subscriber would pay more; the default (Free) and every system path create no charge; a price that rose after the schedule is never scheduled. The only
  * way to a higher price is the subscriber's own SWITCH_NOW or SWITCH_AT_RENEWAL on a quote that shows it (RetirementChoiceIT).
  */
@@ -30,7 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @WithMockUser(username = "boss", authorities = AuthoritiesConstants.ADMIN)
 @Import({ SubFixtures.CatalogPortConfig.class, RecordingStripeGateway.Config.class })
-class NoSilentRepriceTest extends RetirementItSupport {
+class NoSilentRepriceIT extends RetirementItSupport {
 
     private RetirementDTO migrateDraft(String... successors) {
         List<SuccessorRequest> succ = new java.util.ArrayList<>();

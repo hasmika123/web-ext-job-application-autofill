@@ -99,7 +99,7 @@ class ResumeBuilderSettingsTest {
         assertThat(settings.getDecimal(ResumeBuilderSettingKeys.SCORE_PASS_THRESHOLD)).isEqualTo(0.7);
         assertThat(settings.getString(ResumeBuilderSettingKeys.TEMPLATES_DEFAULT)).isEqualTo("modern");
         assertThat(settings.getString(ResumeBuilderSettingKeys.SCORE_RULESET_VERSION)).isEqualTo("v1");
-        assertThat(settings.getJson(ResumeBuilderSettingKeys.TEMPLATES_ENABLED, String[].class)).containsExactly("modern");
+        assertThat(settings.getJson(ResumeBuilderSettingKeys.TEMPLATES_ENABLED, String[].class)).startsWith("modern"); // grows one id per template story
         assertThat(settings.getJson(ResumeBuilderSettingKeys.SCORE_GROUP_WEIGHTS, JsonNode.class).path("G2").asInt()).isEqualTo(25);
         assertThat(warnings()).isZero();
     }
@@ -148,7 +148,7 @@ class ResumeBuilderSettingsTest {
         assertThat(settings.getJson(ResumeBuilderSettingKeys.THEME_ACCENT_PALETTE, String[].class)).hasSize(6);
         assertThat(settings.getJson(ResumeBuilderSettingKeys.SCORE_GROUP_WEIGHTS, JsonNode.class).path("G1").asInt()).isEqualTo(15);
         assertThat(settings.getJson(ResumeBuilderSettingKeys.MATCH_WEIGHTS, JsonNode.class).path("education").asInt()).isEqualTo(10);
-        assertThat(settings.getJson(ResumeBuilderSettingKeys.TEMPLATES_ENABLED, String[].class)).containsExactly("modern");
+        assertThat(settings.getJson(ResumeBuilderSettingKeys.TEMPLATES_ENABLED, String[].class)).startsWith("modern"); // the default list
         assertThat(warnings()).isEqualTo(4);
     }
 

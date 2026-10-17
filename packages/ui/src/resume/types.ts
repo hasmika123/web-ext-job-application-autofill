@@ -234,9 +234,9 @@ export type ResumeDocumentAnySchema = ResumeDocumentV1 | ResumeDocument;
 
 /* ── Theme ────────────────────────────────────────────────────────────────────────────────── */
 
-/** Font Family options (DESIGN 4). IBM Plex is not offered until it is bundled. */
-export type FontPair = "inter" | "source-serif" | "georgia-arial";
-export const FONT_PAIRS: readonly FontPair[] = ["inter", "source-serif", "georgia-arial"];
+/** Font Family options (DESIGN 4): every font is self-hosted in `packages/ui/fonts` (SIL OFL). */
+export type FontPair = "inter" | "source-serif" | "georgia-arial" | "plex" | "garamond";
+export const FONT_PAIRS: readonly FontPair[] = ["inter", "source-serif", "georgia-arial", "plex", "garamond"];
 export type PageSize = "letter" | "a4";
 export type DateStyle = "range" | "year";
 /** The Spacing segmented control (DESIGN 4): a preset of size / density / margin. */
@@ -322,11 +322,18 @@ export interface TemplateCapabilities {
   maxSkillGroups: number;
 }
 
+/** The gallery group and filter chip a template sits in (TypeScript only: the API never reads it). */
+export type TemplateCategory = "ats" | "employer" | "styled";
+
 export interface TemplateMeta {
   /** Registry key and the value stored in `resume_doc.template_id`. */
   id: string;
   name: string;
   description: string;
+  /** Gallery group and filter chip. */
+  category: TemplateCategory;
+  /** One honest sentence about parsing risk, shown under the rating on the gallery card. */
+  atsNote: string;
   capabilities: TemplateCapabilities;
   /** File name under `packages/ui/src/resume/thumbs/` (240x340 PNG). */
   thumb: string;
