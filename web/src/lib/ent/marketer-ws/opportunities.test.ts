@@ -164,3 +164,34 @@ describe("MKT-40 / MKT-44 helpers", () => {
     expect(await reassignOpportunity(4, 5, 11)).toMatchObject({ ok: true });
   });
 });
+
+describe("the guard answers (Sprint 2 / B1)", () => {
+  it("assign sends the confirmation and its reason only when the marketer gave one", async () => {
+    const bodies: (string | undefined)[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      bodies.push(init.body as string | undefined);
+      return new Response(JSON.stringify({ message: "Done.", changed: true }), { status: 200 });
+    }));
+    const { assignOpportunity: assign, reassignOpportunity: reassign } = await import("./opportunities");
+    await assign(2, 5);
+    await assign(2, 5, { reason: "Both vendors asked" });
+    await reassign(2, 5, 11, { reason: "Different team" });
+    expect(bodies).toEqual([undefined, JSON.stringify({ confirmDuplicate: true, duplicateReason: "Both vendors asked" }), JSON.stringify({ consultantId: 11, confirmDuplicate: true, duplicateReason: "Different team" })]);
+  });
+
+  it("a duplicate warning keeps its code and its findings", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "Duplicate.", code: "DUPLICATE_WARNING", findings: [{ rule: "SAME_JOB", message: "Same role." }, { rule: "x" }, "junk"] }), { status: 409 })));
+    const { assignOpportunity: assign } = await import("./opportunities");
+    expect(await assign(2, 5)).toEqual({ ok: false, error: "Duplicate.", code: "DUPLICATE_WARNING", status: 409, findings: [{ rule: "SAME_JOB", message: "Same role." }] });
+  });
+
+  it("a batch keeps the codes of the rows it left out, and says them in words", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ done: 1, skipped: [{ id: 1, code: "DUPLICATE_WARNING" }, { id: 2, code: "DUPLICATE_BLOCKED" }, { id: 3, code: "ASSIGNMENT_CAP" }, { id: 4, code: "RESUME_NOT_APPROVED" }], message: "Assigned 1 opportunity." }), { status: 200 })));
+    const { bulkAssign: bulk, skippedNote } = await import("./opportunities");
+    const r = await bulk(2, [1, 2, 3, 4]);
+    expect(r).toMatchObject({ ok: true, skipped: 4, skippedCodes: ["DUPLICATE_WARNING", "DUPLICATE_BLOCKED", "ASSIGNMENT_CAP", "RESUME_NOT_APPROVED"] });
+    expect(skippedNote(r.ok ? r.skippedCodes : undefined)).toBe(" Left out: 1 looked like a duplicate (assign those one by one to confirm); 1 blocked as a duplicate by your organization; 1 over the open-opportunity limit; 1 could not be assigned.");
+    expect(skippedNote(undefined)).toBe("");
+    expect(skippedNote([])).toBe("");
+  });
+});

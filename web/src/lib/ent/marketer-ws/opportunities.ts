@@ -228,8 +228,41 @@ export async function fetchOptions(orgId: number | string, q = ""): Promise<Opti
   }
 }
 
-/** The result of a write: a short sentence for the toast, or the API's error message and code. */
-export type ActionOutcome = { ok: true; message: string; changed: boolean; skipped: number } | { ok: false; error: string; code: string | null; status: number };
+/** One reason the API gives for calling an assignment a duplicate (rule SAME_POSTING, SAME_JOB, VENDOR_CHAIN or TOO_MANY_CONSULTANTS). */
+export interface DuplicateFinding { rule: string; message: string }
+
+/** Codes of an assignment the guards refused: a warning can be confirmed with a reason, the others cannot. */
+export const DUPLICATE_WARNING = "DUPLICATE_WARNING";
+export const DUPLICATE_BLOCKED = "DUPLICATE_BLOCKED";
+export const ASSIGNMENT_CAP = "ASSIGNMENT_CAP";
+
+/** The answer to a duplicate warning: the marketer confirms and says why (1 to 200 characters). */
+export interface DuplicateConfirm { reason: string }
+
+/** The result of a write: a short sentence for the toast, or the API's error message and code. `skippedCodes` names why rows of a batch were left out; `findings` is set for a duplicate warning or block. */
+export type ActionOutcome =
+  | { ok: true; message: string; changed: boolean; skipped: number; skippedCodes?: string[] }
+  | { ok: false; error: string; code: string | null; status: number; findings?: DuplicateFinding[] };
+
+function findingsOf(x: unknown): DuplicateFinding[] {
+  if (!Array.isArray(x)) return [];
+  return x.filter(isObj).map((f) => ({ rule: str(f.rule), message: str(f.message) })).filter((f) => f.message);
+}
+
+/** A batch's leftovers in words: the rows the guards refused are named, so the marketer knows to assign them one by one. */
+export function skippedNote(codes: string[] | undefined): string {
+  if (!codes || codes.length === 0) return "";
+  const dup = codes.filter((c) => c === DUPLICATE_WARNING).length;
+  const blocked = codes.filter((c) => c === DUPLICATE_BLOCKED).length;
+  const cap = codes.filter((c) => c === ASSIGNMENT_CAP).length;
+  const other = codes.length - dup - blocked - cap;
+  const parts: string[] = [];
+  if (dup) parts.push(`${dup} looked like a duplicate (assign those one by one to confirm)`);
+  if (blocked) parts.push(`${blocked} blocked as a duplicate by your organization`);
+  if (cap) parts.push(`${cap} over the open-opportunity limit`);
+  if (other) parts.push(`${other} could not be assigned`);
+  return ` Left out: ${parts.join("; ")}.`;
+}
 
 async function send(orgId: number | string, path: string, method: "POST" | "PATCH", body?: unknown): Promise<ActionOutcome> {
   try {
@@ -240,15 +273,20 @@ async function send(orgId: number | string, path: string, method: "POST" | "PATC
     });
     const data: unknown = await res.json().catch(() => null);
     const d = isObj(data) ? data : {};
-    if (!res.ok) return { ok: false, error: str(d.error, "That didn't work. Nothing was changed."), code: orNull(d.code), status: res.status };
-    return { ok: true, message: str(d.message, "Done."), changed: d.changed !== false, skipped: Array.isArray(d.skipped) ? d.skipped.length : 0 };
+    if (!res.ok) {
+      const findings = findingsOf(d.findings);
+      return { ok: false, error: str(d.error, "That didn't work. Nothing was changed."), code: orNull(d.code), status: res.status, ...(findings.length ? { findings } : {}) };
+    }
+    const skippedCodes = Array.isArray(d.skipped) ? d.skipped.filter(isObj).map((s) => str(s.code)).filter(Boolean) : [];
+    return { ok: true, message: str(d.message, "Done."), changed: d.changed !== false, skipped: Array.isArray(d.skipped) ? d.skipped.length : 0, ...(skippedCodes.length ? { skippedCodes } : {}) };
   } catch {
     return { ok: false, error: "Couldn't reach the server. Nothing was changed.", code: null, status: 0 };
   }
 }
 
 /** E1: every one of these prepares or requests. There is no call that sets a consultant's interest, submits, or acts as them. */
-export const assignOpportunity = (orgId: number | string, id: number) => send(orgId, `/${id}/assign`, "POST");
+export const assignOpportunity = (orgId: number | string, id: number, confirm?: DuplicateConfirm) =>
+  send(orgId, `/${id}/assign`, "POST", confirm ? { confirmDuplicate: true, duplicateReason: confirm.reason } : undefined);
 export const bulkAssign = (orgId: number | string, ids: number[]) => send(orgId, "/bulk-assign", "POST", { ids });
 export const requestFromConsultant = (orgId: number | string, id: number, kind: "INTEREST" | "RESUME") => send(orgId, `/${id}/request`, "POST", { kind });
 export const notifyAwaiting = (orgId: number | string) => send(orgId, "/notify", "POST");
@@ -257,7 +295,8 @@ export const answerInfo = (orgId: number | string, id: number, answer: string) =
 /** MKT-44: take an assignment back. The reason is required (1 to 200 characters); the consultant is told. */
 export const withdrawOpportunity = (orgId: number | string, id: number, reason: string) => send(orgId, `/${id}/withdraw`, "POST", { reason });
 /** MKT-44: offer a declined or withdrawn opportunity to another consultant of the caller's scope. */
-export const reassignOpportunity = (orgId: number | string, id: number, consultantId: number) => send(orgId, `/${id}/reassign`, "POST", { consultantId });
+export const reassignOpportunity = (orgId: number | string, id: number, consultantId: number, confirm?: DuplicateConfirm) =>
+  send(orgId, `/${id}/reassign`, "POST", confirm ? { consultantId, confirmDuplicate: true, duplicateReason: confirm.reason } : { consultantId });
 /** Which of the two follow-ups a row offers: a live assignment can be withdrawn, a declined or withdrawn one can be offered to someone else. */
 export function followUpOf(o: Pick<Opportunity, "status" | "state">): "WITHDRAW" | "REASSIGN" | null {
   if (o.status !== "ASSIGNED") return null;

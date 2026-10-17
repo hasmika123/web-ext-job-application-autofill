@@ -377,4 +377,71 @@ describe("OpportunitiesPage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Assign 1" }));
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/bulk-assign") && c.body === '{"ids":[2]}')).toBe(true));
   });
+
+  describe("the duplicate and cap guards (Sprint 2 / B1)", () => {
+    const finding = { rule: "VENDOR_CHAIN", message: "This consultant already has the same role through another vendor: TekVendor (Data Analyst)." };
+    /** Like stub(), but a single assign answers with what the test says. */
+    function stubAssign(answer: (body: string) => Response) {
+      const calls: Call[] = [];
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url: string, init?: RequestInit) => {
+          const call = { url, method: init?.method ?? "GET", body: typeof init?.body === "string" ? init.body : "" };
+          calls.push(call);
+          if (call.method === "POST" && /\/assign$/.test(url)) return answer(call.body);
+          if (call.method === "POST" && /\/bulk-assign$/.test(url)) return json(200, { done: 1, skipped: [{ id: 5, code: "DUPLICATE_WARNING" }, { id: 8, code: "ASSIGNMENT_CAP" }], message: "Assigned 1 opportunity." });
+          if (/\/options/.test(url)) return json(200, { consultants: [], jobs: [] });
+          return json(200, fixture({ items: [{ ...ROWS[1], ready: true }, ROWS[4], ROWS[7]] }));
+        }),
+      );
+      return calls;
+    }
+
+    it("a duplicate warning opens a dialog with what was found, and Assign anyway needs a reason", async () => {
+      const calls = stubAssign((body) => (body ? json(200, { message: "Assigned. Priya Sharma was asked for their interest.", changed: true }) : json(409, { error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [finding] })));
+      mount();
+      fireEvent.click(within(await row(2)).getByRole("button", { name: "Assign" }));
+      const dialog = await waitFor(() => {
+        const d = document.querySelector("[data-opp-dialog=duplicate]") as HTMLElement;
+        expect(d).toBeTruthy();
+        return d;
+      });
+      expect(within(dialog).getByText(/through another vendor: TekVendor/)).toBeTruthy();
+      expect(screen.queryByText("Duplicate. Confirm with a reason to go ahead.")).toBeNull(); // no error toast: the dialog is the answer
+      const go = within(dialog).getByRole("button", { name: "Assign anyway" }) as HTMLButtonElement;
+      expect(go.disabled).toBe(true);
+      fireEvent.change(within(dialog).getByRole("textbox"), { target: { value: "The client asked for both vendors" } });
+      expect(go.disabled).toBe(false);
+      fireEvent.click(go);
+      await waitFor(() => expect(calls.some((c) => /\/2\/assign$/.test(c.url) && c.body === JSON.stringify({ confirmDuplicate: true, duplicateReason: "The client asked for both vendors" }))).toBe(true));
+      expect(await screen.findByText("Assigned. Priya Sharma was asked for their interest.")).toBeTruthy();
+      await waitFor(() => expect(document.querySelector("[data-opp-dialog=duplicate]")).toBeNull());
+    });
+
+    it("a block is a plain message with nothing to confirm", async () => {
+      stubAssign(() => json(409, { error: "This consultant already has the same role. Your organization does not allow this.", code: "DUPLICATE_BLOCKED", findings: [finding] }));
+      mount();
+      fireEvent.click(within(await row(2)).getByRole("button", { name: "Assign" }));
+      expect(await screen.findByText("This consultant already has the same role. Your organization does not allow this.")).toBeTruthy();
+      expect(document.querySelector("[data-opp-dialog=duplicate]")).toBeNull();
+    });
+
+    it("the open-opportunity limit is a plain message too", async () => {
+      stubAssign(() => json(409, { error: "This consultant already has 5 open opportunities, the most your organization allows (5).", code: "ASSIGNMENT_CAP", open: 5, cap: 5 }));
+      mount();
+      fireEvent.click(within(await row(2)).getByRole("button", { name: "Assign" }));
+      expect(await screen.findByText(/already has 5 open opportunities, the most your organization allows/)).toBeTruthy();
+      expect(document.querySelector("[data-opp-dialog=duplicate]")).toBeNull();
+    });
+
+    it("a bulk assign names why rows were left out", async () => {
+      const calls = stubAssign(() => json(200, {}));
+      mount();
+      await row(2);
+      fireEvent.click(screen.getByRole("button", { name: /Bulk Assign Opportunities/ }));
+      fireEvent.click(await screen.findByRole("button", { name: /^Assign \d/ }));
+      await waitFor(() => expect(calls.some((c) => c.url.endsWith("/bulk-assign"))).toBe(true));
+      expect(await screen.findByText(/Left out: 1 looked like a duplicate \(assign those one by one to confirm\); 1 over the open-opportunity limit\./)).toBeTruthy();
+    });
+  });
 });

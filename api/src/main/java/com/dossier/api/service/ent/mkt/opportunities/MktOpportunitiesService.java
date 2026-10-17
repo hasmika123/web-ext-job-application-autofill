@@ -471,7 +471,7 @@ public class MktOpportunitiesService {
         return assigned.existing() ? "ALREADY_ASSIGNED" : null;
     }
 
-    private static final Set<String> GUARD_CODES = Set.of(DuplicateGuard.CODE_WARNING, DuplicateGuard.CODE_BLOCKED, DuplicateGuard.CODE_CAP);
+    private static final Set<String> GUARD_CODES = Set.of(DuplicateGuard.CODE_WARNING, DuplicateGuard.CODE_BLOCKED, DuplicateGuard.CODE_CAP, "VALIDATION");
 
     private static OrgException assignError(String code) {
         return switch (code) {
