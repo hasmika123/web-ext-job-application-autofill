@@ -11,13 +11,15 @@ import { executive } from "./templates/executive";
 import { scholar } from "./templates/scholar";
 import { sidebar } from "./templates/sidebar";
 import { compact } from "./templates/compact";
+import { simple } from "./templates/simple";
+import { engineer } from "./templates/engineer";
 import { classic } from "./templates/classic";
 import { statement } from "./templates/statement";
 import type { TemplateCapabilities, TemplateDefinition, TemplateMeta } from "./types";
 
 export const DEFAULT_TEMPLATE_ID = "modern";
 
-export const TEMPLATES: Record<string, TemplateDefinition> = { modern, classic, compact, consultant, scholar, executive, statement, sidebar };
+export const TEMPLATES: Record<string, TemplateDefinition> = { modern, classic, compact, simple, engineer, consultant, scholar, executive, statement, sidebar };
 
 export const TEMPLATE_IDS: string[] = Object.keys(TEMPLATES);
 
