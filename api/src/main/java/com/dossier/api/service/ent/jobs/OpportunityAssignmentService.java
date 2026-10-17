@@ -11,6 +11,7 @@ import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.OrgResumeRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
+import com.dossier.api.service.ent.pipeline.DuplicateGuard;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
@@ -86,30 +87,36 @@ public class OpportunityAssignmentService {
         boolean askInterest,
         String marketerNote,
         String priority,
-        LocalDate dueOn
+        LocalDate dueOn,
+        DuplicateGuard.Confirm duplicate
     ) {
         public static Options none() {
-            return new Options(null, null, null, null, null, false, null, null, null);
+            return new Options(null, null, null, null, null, false, null, null, null, DuplicateGuard.Confirm.NONE);
         }
 
         public Options withAudit(Audit a) {
-            return new Options(a, score, reason, source, ownerMemberId, askInterest, marketerNote, priority, dueOn);
+            return new Options(a, score, reason, source, ownerMemberId, askInterest, marketerNote, priority, dueOn, duplicate);
         }
 
         public Options withNewMatch(Supplier<Integer> s, String why, String src) {
-            return new Options(audit, s, why, src, ownerMemberId, askInterest, marketerNote, priority, dueOn);
+            return new Options(audit, s, why, src, ownerMemberId, askInterest, marketerNote, priority, dueOn, duplicate);
         }
 
         public Options withOwner(Long member) {
-            return new Options(audit, score, reason, source, member, askInterest, marketerNote, priority, dueOn);
+            return new Options(audit, score, reason, source, member, askInterest, marketerNote, priority, dueOn, duplicate);
         }
 
         public Options askingInterest() {
-            return new Options(audit, score, reason, source, ownerMemberId, true, marketerNote, priority, dueOn);
+            return new Options(audit, score, reason, source, ownerMemberId, true, marketerNote, priority, dueOn, duplicate);
         }
 
         public Options withOpportunity(String note, String prio, LocalDate due) {
-            return new Options(audit, score, reason, source, ownerMemberId, askInterest, note, prio, due);
+            return new Options(audit, score, reason, source, ownerMemberId, askInterest, note, prio, due, duplicate);
+        }
+
+        /** The answer to a duplicate warning (Sprint 2 / B1): confirmed, and the reason. */
+        public Options confirmingDuplicate(DuplicateGuard.Confirm confirm) {
+            return new Options(audit, score, reason, source, ownerMemberId, askInterest, marketerNote, priority, dueOn, confirm == null ? DuplicateGuard.Confirm.NONE : confirm);
         }
     }
 
@@ -149,6 +156,13 @@ public class OpportunityAssignmentService {
     private final Clock clock;
     /** The job data ledger (doc 61): every assign path writes its {@code ASSIGNED} row here. Null only in unit tests built with the constructor that has no ledger. */
     private final JobDataLedger ledger;
+    /** The duplicate and cap guards (Sprint 2 / B1). Null in unit tests built by hand: then nothing is guarded. */
+    private DuplicateGuard guard;
+
+    @Autowired(required = false)
+    public void setGuard(DuplicateGuard guard) {
+        this.guard = guard;
+    }
 
     @Autowired
     public OpportunityAssignmentService(
@@ -257,6 +271,7 @@ public class OpportunityAssignmentService {
         }
         Instant now = clock.instant();
         Long owner = o.ownerMemberId() != null ? o.ownerMemberId() : me.memberId();
+        guardNewAssignment(me, orgId, job, consultantId, o);
 
         // ---- the match
         boolean matchInserted = false;
@@ -355,6 +370,23 @@ public class OpportunityAssignmentService {
         }
         writeAudit(me, o.audit(), result);
         return result;
+    }
+
+    /**
+     * The duplicate and open-cap guards (Sprint 2 / B1), asked only when this call would really put the job in front of the consultant: a pair that is
+     * already live (assigned and not declined or closed) changes nothing and is never refused. Throws 409 ASSIGNMENT_CAP, DUPLICATE_WARNING or
+     * DUPLICATE_BLOCKED before anything is written.
+     */
+    private void guardNewAssignment(OrgMembership me, Long orgId, ClientRequirement job, Long consultantId, Options o) {
+        if (guard == null) return;
+        RequirementMatch pair = matches.findByOrgIdAndRequirementIdAndConsultantId(orgId, job.getId(), consultantId).orElse(null);
+        if (pair != null && "ASSIGNED".equals(pair.getStatus())) {
+            MktOpportunity overlay = opportunities.findByOrgIdAndMatchId(orgId, pair.getId()).orElse(null);
+            boolean reopening = overlay != null && ("DECLINED".equals(overlay.getState()) || "CLOSED".equals(overlay.getState()));
+            if (!reopening) return;
+        }
+        guard.assertOpenCap(orgId, consultantId);
+        guard.enforce(me, consultantId, job, o.duplicate());
     }
 
     /**

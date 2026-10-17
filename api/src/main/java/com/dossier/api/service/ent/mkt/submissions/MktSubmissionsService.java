@@ -163,6 +163,14 @@ public class MktSubmissionsService {
 
     // ---- writes (each: scope + WRITE authorization, no external effect) -------------------------------------------------------
 
+    /** The duplicate guard (Sprint 2 / B1); null in unit tests built by hand. */
+    private com.dossier.api.service.ent.pipeline.DuplicateGuard guard;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setGuard(com.dossier.api.service.ent.pipeline.DuplicateGuard guard) {
+        this.guard = guard;
+    }
+
     /** Prepare a package for a job: creates a DRAFT record. It does not send anything. */
     @Transactional
     public Row create(OrgMembership me, CreateRequest req) {
@@ -183,6 +191,7 @@ public class MktSubmissionsService {
         if (submissions.existsByOrgIdAndConsultantIdAndRequirementIdAndArchivedAtIsNull(orgId, consultant.getId(), job.getId())) {
             throw state("SUBMISSION_EXISTS", "A submission for this consultant and job already exists.");
         }
+        if (guard != null) guard.enforce(me, consultant.getId(), job, com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm.of(req.confirmDuplicate(), req.duplicateReason())); // record time (Sprint 2 / B1)
         Instant now = clock.instant();
         MktSubmission s = new MktSubmission();
         s.setOrgId(orgId);

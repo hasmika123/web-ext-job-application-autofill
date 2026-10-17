@@ -98,7 +98,10 @@ public final class MktOpportunitiesDTO {
     public record WithdrawRequest(String reason) {}
 
     /** The other consultant (inside the caller's scope) a declined or withdrawn opportunity is offered to. */
-    public record ReassignRequest(Long consultantId) {}
+    public record ReassignRequest(Long consultantId, Boolean confirmDuplicate, String duplicateReason) {}
+
+    /** Optional body of an assign: the answer to a duplicate warning (409 DUPLICATE_WARNING asks for it; BLOCK cannot be answered). */
+    public record AssignRequest(Boolean confirmDuplicate, String duplicateReason) {}
 
     public record NextActionRequest(Instant nextActionAt) {}
 

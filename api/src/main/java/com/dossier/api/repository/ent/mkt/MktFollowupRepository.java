@@ -53,5 +53,9 @@ public interface MktFollowupRepository extends Repository<MktFollowup, Long> {
     @Query("select count(f) from MktFollowup f where f.orgId = :orgId and (:all = true or f.consultantId in :ids) and f.status = 'WAITING' and f.updatedAt >= :from and f.updatedAt < :to")
     long countWaitingChangedBetween(@Param("orgId") Long orgId, @Param("all") boolean all, @Param("ids") Collection<Long> ids, @Param("from") Instant from, @Param("to") Instant to);
 
+    /** Handover (B1): the not-completed follow-ups about one consultant that one marketer owns. */
+    @Query("select f from MktFollowup f where f.orgId = :orgId and f.consultantId = :consultantId and f.ownerMemberId = :ownerMemberId and f.status <> 'COMPLETED' order by f.id")
+    List<MktFollowup> findOpenOwnedByForConsultant(@Param("orgId") Long orgId, @Param("consultantId") Long consultantId, @Param("ownerMemberId") Long ownerMemberId);
+
     <S extends MktFollowup> S save(S entity);
 }

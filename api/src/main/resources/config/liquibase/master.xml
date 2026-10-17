@@ -128,5 +128,6 @@
     <include file="config/liquibase/changelog/20261111010000_cws_opportunity_one_answer.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261116010000_consultant_contact_fields.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261112010000_org_policies.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261117010000_ent_assignment_lifecycle.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

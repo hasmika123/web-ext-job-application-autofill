@@ -125,6 +125,14 @@ public class ApplicationCommandService {
 
     // ---- create ----------------------------------------------------------------------------------------------------------------
 
+    /** The duplicate guard (Sprint 2 / B1); null in unit tests built by hand. */
+    private com.dossier.api.service.ent.pipeline.DuplicateGuard guard;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setGuard(com.dossier.api.service.ent.pipeline.DuplicateGuard guard) {
+        this.guard = guard;
+    }
+
     @Transactional
     public ApplicationDTO.Detail create(OrgMembership me, ApplicationDTO.CreateRequest req) {
         PermissionScope scope = access.widest(me, ApplicationAccess.CREATE_KEYS).orElseThrow(OrgNotFoundException::new);
@@ -154,6 +162,7 @@ public class ApplicationCommandService {
         Long dup = ((Number) em.createQuery("select count(a) from TalentApplication a where a.orgId = :o and a.requirementId = :r and a.consultantId = :c")
             .setParameter("o", orgId).setParameter("r", job.getId()).setParameter("c", consultant.getId()).getSingleResult()).longValue();
         if (dup > 0) throw OrgException.coded(409, "DUPLICATE_APPLICATION", "This consultant already has an application for this job", Map.of());
+        if (guard != null) guard.enforce(me, consultant.getId(), job, com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm.of(req.confirmDuplicate(), req.duplicateReason())); // record time (Sprint 2 / B1)
 
         Instant now = Instant.now(clock);
         TalentApplication a = new TalentApplication();
