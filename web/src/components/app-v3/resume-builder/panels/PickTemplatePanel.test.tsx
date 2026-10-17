@@ -47,6 +47,14 @@ function setup(props: { templateId?: string; theme?: Partial<ResumeTheme> | null
 const card = (id: string) => document.querySelector<HTMLButtonElement>(`[data-template="${id}"]`)!;
 
 describe("PickTemplatePanel: cards", () => {
+  it("draws ten cards in enabled order, each with its category word", () => {
+    const ten = ["modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement", "sidebar"];
+    setup({ config: cfg({ enabled: ten }) });
+    expect(Array.from(document.querySelectorAll("[data-template]")).map((c) => c.getAttribute("data-template"))).toEqual(ten);
+    const word = (id: string) => card(id).querySelector("[data-category-word]")?.textContent;
+    expect([word("modern"), word("engineer"), word("sidebar")]).toEqual(["ATS", "Employer format", "Styled"]);
+  });
+
   it("draws one card per enabled template, the live document in each, with Selected / ATS Friendly chips", () => {
     setup();
     expect(card("modern")).toBeTruthy();

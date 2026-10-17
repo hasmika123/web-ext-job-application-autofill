@@ -249,6 +249,7 @@ export type {
   PageSize,
   DateStyle,
   TemplateMeta,
+  TemplateCategory,
   TemplateProps,
   TemplateDefinition,
   TemplateCapabilities,

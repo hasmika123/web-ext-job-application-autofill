@@ -55,5 +55,8 @@ class KnownTemplateIdsTest {
         List<String> enabledIds = new ArrayList<>();
         enabled.forEach(n -> enabledIds.add(n.asText()));
         assertThat(enabledIds).as("the default template is enabled by default").contains(def);
+        // TEMPLATES-DESIGN 9.1: all ten, gallery order; the Popular strip shows five
+        assertThat(enabledIds).containsExactly("modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement", "sidebar");
+        assertThat(ResumeBuilderSettingKeys.find(ResumeBuilderSettingKeys.TEMPLATES_POPULAR).defaultValue()).isEqualTo("[\"modern\",\"engineer\",\"classic\",\"sidebar\",\"compact\"]");
     }
 }

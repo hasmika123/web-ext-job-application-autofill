@@ -5,6 +5,7 @@ import { memo } from "react";
 import { CheckIcon, PAGE_DIMENSIONS, PageFrame, ResumePreview, cn, sanitizeTheme } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme, TemplateCapabilities, TemplateMeta } from "@kiwiply/ui";
 import { previewSwitch } from "../themeEdit";
+import { CATEGORY_WORD } from "../templates/model";
 
 /** The live thumbnail scale (DESIGN 7.4: the user's own document through the template at `PageFrame` scale 0.22). */
 const THUMB_SCALE = 0.22;
@@ -66,6 +67,10 @@ function TemplateCard({ meta, caps, selected, doc, theme, disabled, onPick }: Te
           <span className="flex-none rounded-md bg-paper-2 px-2 py-0.5 text-[11.5px] font-semibold text-ink-soft">ATS Friendly</span>
         ) : null}
       </div>
+
+      <span data-category-word className="mt-0.5 text-[11.5px] leading-snug text-ink-soft">
+        {CATEGORY_WORD[meta.category]}
+      </span>
 
       {hides.length > 0 && (
         <p id={hidesId} className="mt-1 text-[11.5px] leading-snug text-ink-soft">
