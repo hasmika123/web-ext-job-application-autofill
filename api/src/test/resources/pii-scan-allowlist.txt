@@ -8,9 +8,6 @@ ConsultantResumesResource#approveMyResume | contentHash is the document fingerpr
 MktFollowupsResource#status | status is validated against MktFollowup.STATUSES
 ConsultantTasksResource#status | status is validated against the closed task STATUSES set
 MktApplicationsResource#recordStage | stage is a closed stage vocabulary and reason must be one of REJECTED, NO_RESPONSE, WITHDRAWN (NOT_SELECTED_REASONS)
-OrgMarketingAssignmentsResource#update | priority and status are validated by oneOf against PRIORITIES and ASSIGNMENT_STATUSES
-OrgMarketingAssignmentsResource#assign | priority and status are validated by oneOf against PRIORITIES and ASSIGNMENT_STATUSES
-OrgMarketingAssignmentsResource#restore | rows carry priority and status validated by oneOf against the same closed sets (undo of a bulk change)
 OrgApplicationResource#stage | stage is a closed vocabulary and closedReason must be in ApplicationStages.CLOSE_REASONS
 ConsultantSettingsResource#privacy | profileVisibility is one of ORG_ONLY, APPROVED_EMPLOYERS, PRIVATE
 ConsultantSettingsResource#appearance | theme and language are closed sets and timezone must be an IANA zone id
@@ -35,4 +32,3 @@ OrgInterviewResource#reminder | the body must be empty (anything else is refused
 ConsultantProfileResource#workAuthorization | value must be one of AUTHORIZED_NO_SPONSORSHIP, AUTHORIZED_NEEDS_SPONSORSHIP, NOT_AUTHORIZED
 ConsultantProfileResource#availability | status is one of the closed AVAILABILITY set
 ConsultantProfileResource#employmentTypes | values must be a subset of CONTRACT, CONTRACT_TO_HIRE, FULL_TIME, PART_TIME
-OrgRequirementResource#assign | the body is one consultant id (RequirementDTO.AssignRequest(Long consultantId)); no free text

@@ -202,8 +202,8 @@ public final class EnterpriseSettingKeys {
         k.add(new Key(PREPARE_ENABLED, Type.BOOL, "false", null, null, null,
             "Prepare selected openings: a consultant ticks assigned openings and the browser extension opens each job in a new tab and fills it from the consultant's own profile, then stops. "
                 + "The consultant reviews, completes anything missing and presses the final button on the real site; Kiwiply never does it for them and never ticks an attestation box. Off = the feature does not exist. An organization can switch it off in org_setting.", null, Risk.HIGH));
-        integer(k, PREPARE_DAILY_CAP, 30, 1, 1000, Risk.MEDIUM, "Prepare selected openings: the most openings one consultant may prepare per UTC day. An organization can override it in org_setting.");
-        integer(k, PREPARE_MONTHLY_CAP, 300, 1, 10000, Risk.MEDIUM, "Prepare selected openings: the most openings one consultant may prepare per UTC calendar month. An organization can override it in org_setting.");
+        integer(k, PREPARE_DAILY_CAP, 30, 1, 1000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC day. An organization can override it in org_setting.");
+        integer(k, PREPARE_MONTHLY_CAP, 300, 1, 10000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC calendar month. An organization can override it in org_setting.");
         integer(k, PREPARE_MAX_BATCH, 10, 1, 50, Risk.LOW, "Prepare selected openings: the most openings in one request. An organization can override it in org_setting.");
         integer(k, PREPARE_SESSION_MINUTES, 240, 15, 1440, Risk.LOW, "Prepare selected openings: minutes a prepared batch keeps accepting progress events from the extension. An organization can override it in org_setting.");
         integer(k, HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW,
