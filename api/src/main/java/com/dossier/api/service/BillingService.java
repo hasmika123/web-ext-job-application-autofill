@@ -40,14 +40,17 @@ public class BillingService {
     private final EntitlementService entitlementService;
     private final StripeGateway stripeGateway;
     private final StripeProperties props;
+    private final com.dossier.api.service.billing.personal.QuoteCheckoutService quoteCheckout;
 
     public BillingService(
         SubscriptionRepository subscriptionRepository,
         UserRepository userRepository,
         EntitlementService entitlementService,
         StripeGateway stripeGateway,
-        StripeProperties props
+        StripeProperties props,
+        com.dossier.api.service.billing.personal.QuoteCheckoutService quoteCheckout
     ) {
+        this.quoteCheckout = quoteCheckout;
         this.subscriptionRepository = subscriptionRepository;
         this.userRepository = userRepository;
         this.entitlementService = entitlementService;
@@ -72,13 +75,18 @@ public class BillingService {
 
         // Already paying: sending them through checkout again would create a second
         // subscription and charge them twice. The portal is where they belong.
-        if (entitlementService.isPro(user.getLogin())) {
+        if (entitlementService.hasPaidPlan(user.getLogin())) {
             throw new BillingException(
                 HttpStatus.CONFLICT.value(),
                 BillingException.CODE_ALREADY_SUBSCRIBED,
                 "You're already on Kiwiply Pro"
             );
         }
+
+        // K5.3: when the catalog can sell PRO at this interval, this is a checkout from a CHECKOUT quote (line items = the quote). Until an administrator
+        // publishes PRO prices the catalog cannot, and the environment price ids below keep working exactly as before.
+        java.util.Optional<String> fromCatalog = quoteCheckout.tryCatalogCheckout(user.getLogin(), plan);
+        if (fromCatalog.isPresent()) return fromCatalog.get();
 
         String priceId = priceFor(plan);
         Subscription sub = findOrCreateRow(user);
@@ -141,12 +149,26 @@ public class BillingService {
         if (!stripeGateway.isEnabled()) throw BillingException.disabled();
     }
 
+    private com.dossier.api.service.catalog.CatalogDefaults catalogDefaults;
+
+    /** Optional (K1.6): the published catalog answers when the legacy price id property is blank. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setCatalogDefaults(com.dossier.api.service.catalog.CatalogDefaults catalogDefaults) {
+        this.catalogDefaults = catalogDefaults;
+    }
+
     private String priceFor(String plan) {
-        String priceId = switch (plan == null ? "" : plan.trim().toLowerCase()) {
+        String key = plan == null ? "" : plan.trim().toLowerCase();
+        String priceId = switch (key) {
             case PLAN_MONTHLY -> props.getPriceMonthly();
             case PLAN_3MO -> props.getPrice3mo();
             default -> null;
         };
+        if ((priceId == null || priceId.isBlank()) && catalogDefaults != null) {
+            // K1.6: STRIPE_PRICE_MONTHLY / STRIPE_PRICE_3MO are deprecated; the published Pro base price answers when they are not set
+            String interval = PLAN_MONTHLY.equals(key) ? "MONTH" : PLAN_3MO.equals(key) ? "QUARTER" : null;
+            if (interval != null) priceId = catalogDefaults.basePriceId("PRO", interval).orElse(null);
+        }
         if (priceId == null || priceId.isBlank()) {
             throw new BillingException(HttpStatus.BAD_REQUEST.value(), BillingException.CODE_UNKNOWN_PRICE, "Unknown plan: " + plan);
         }

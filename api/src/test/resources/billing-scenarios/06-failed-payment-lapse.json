@@ -1,0 +1,29 @@
+{
+  "name": "failed-payment-lapse",
+  "description": "The card declines at renewal: past_due, the customer is emailed once and keeps access, the retry window passes unpaid and Stripe cancels. The entitlement rule ends access at the end of the invoiced period and the user is Free afterwards.",
+  "steps": [
+    { "do": "quote", "as": "q1", "kind": "CHECKOUT", "interval": "MONTH", "addons": [ { "featureKey": "ai.credits_extra", "quantity": 1 } ] },
+    { "do": "checkout", "quote": "q1" },
+    { "do": "stripe.completeCheckout" },
+    { "do": "stripe.card", "state": "DECLINED" },
+    { "do": "advance", "toPeriodEnd": true, "plusHours": 1 },
+    { "do": "expect",
+      "subscription": { "status": "past_due" },
+      "pro": true,
+      "invoices": 2,
+      "paidTotalMinor": 2498,
+      "lastInvoice": { "status": "open", "amountPaidMinor": 0, "amountDueMinor": 2498 },
+      "paymentFailedEmails": 1,
+      "reconcileDrift": 0 },
+    { "do": "advance", "days": 15 },
+    { "do": "expect",
+      "note": "Access is kept to the end of the period the failed invoice covered (the existing grace rule); see decisions-for-user K8-F1.",
+      "subscription": { "status": "canceled" },
+      "lastInvoice": { "status": "void" },
+      "pro": true,
+      "paymentFailedEmails": 1,
+      "reconcileDrift": 0 },
+    { "do": "advance", "days": 20 },
+    { "do": "expect", "pro": false, "subscription": { "status": "canceled" } }
+  ]
+}

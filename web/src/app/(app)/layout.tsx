@@ -6,6 +6,7 @@ import AppShell, { type AppAccount } from "@/components/app-shell/AppShell";
 import { getPlan } from "@/lib/billing";
 import { SamplesProvider } from "@/components/app-v3/SamplesProvider";
 import { getPublicConfig } from "@/lib/public-config";
+import RetirementBanner from "@/components/billing/RetirementBanner";
 
 // App v2 display + handwriting faces (same as the marketing group). The CSS variables go on the
 // `.theme-v2` wrapper below so they are scoped to the signed-in app.
@@ -62,6 +63,11 @@ export default async function AppGroupLayout({ children }: { children: React.Rea
     <div className={`theme-v2 ${jakarta.variable} ${caveat.variable} flex flex-1 flex-col`}>
       <SamplesProvider login={account?.login}>
         <AppShell account={account} isPro={plan.plan === "PRO"} orgsEnabled={orgs}>
+          {plan.retirement || plan.lock ? (
+            <div className="mb-4">
+              <RetirementBanner retirement={plan.retirement} lock={plan.lock} />
+            </div>
+          ) : null}
           {children}
         </AppShell>
       </SamplesProvider>

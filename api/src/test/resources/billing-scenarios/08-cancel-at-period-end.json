@@ -1,0 +1,13 @@
+{
+  "name": "cancel-at-period-end",
+  "description": "The customer cancels in the portal: access continues to the end of the paid period, then Stripe ends the subscription and the user is Free. Nothing further is charged.",
+  "steps": [
+    { "do": "quote", "as": "q1", "kind": "CHECKOUT", "interval": "MONTH", "addons": [] },
+    { "do": "checkout", "quote": "q1" },
+    { "do": "stripe.completeCheckout" },
+    { "do": "stripe.portalCancel" },
+    { "do": "expect", "subscription": { "status": "active", "cancelAtPeriodEnd": true }, "pro": true, "reconcileDrift": 0 },
+    { "do": "advance", "toPeriodEnd": true, "plusHours": 1 },
+    { "do": "expect", "subscription": { "status": "canceled" }, "pro": false, "invoices": 1, "paidTotalMinor": 1999, "reconcileDrift": 0 }
+  ]
+}

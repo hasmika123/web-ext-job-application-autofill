@@ -151,7 +151,7 @@ class InboxServiceTest {
 
     @Test
     void itIsPro() {
-        doThrow(new ProRequiredException(ProRequiredException.CODE_PRO_REQUIRED, "Pro")).when(entitlement).requirePro("user");
+        doThrow(new ProRequiredException(ProRequiredException.CODE_PRO_REQUIRED, "Pro")).when(entitlement).require("user", "inbox.monitoring"); // K7.3: the gate now names its service; same refusal
         assertThatThrownBy(() -> service.connect("jobs.hunt@gmail.com", "abcdefghijklmnop")).isInstanceOf(ProRequiredException.class);
         verify(imap, never()).probe(anyString(), anyString());
     }

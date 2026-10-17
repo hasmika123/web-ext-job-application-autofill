@@ -130,7 +130,23 @@ public class AiBudgetService {
             return Optional.of(new Window(centsToMicros(override.get().getMonthlyBudgetCents()), monthStart(now), resetsAt(now)));
         }
         if (!entitlementService.isPro(login)) return Optional.empty();
-        return Optional.of(proWindow(subscriptions.findOneByUserLogin(login).orElse(null), now));
+        Window legacy = proWindow(subscriptions.findOneByUserLogin(login).orElse(null), now);
+        if (shadow == null) return Optional.of(legacy);
+        // K7.2: the budget follows the resolved plan version, interval and add-ons. While shadowed the legacy window decides and the two are compared.
+        Optional<com.dossier.api.service.entitlement.EntitlementSet.AiBudgetWindow> resolved = shadow.resolve(login).map(com.dossier.api.service.entitlement.EntitlementSet::aiWindow);
+        if (shadow.shadowOn()) {
+            shadow.compareAiBudgetCents(login, legacy.budgetMicros() / 10_000L, resolved.map(com.dossier.api.service.entitlement.EntitlementSet.AiBudgetWindow::budgetCents).orElse(null));
+            return Optional.of(legacy);
+        }
+        return Optional.of(resolved.map(w -> new Window(centsToMicros((int) w.budgetCents()), w.start(), w.resetsAt())).orElse(legacy));
+    }
+
+    private com.dossier.api.service.entitlement.ShadowComparator shadow;
+
+    /** Optional (K7.2): the catalog resolver's comparator. Without it the budget is exactly the legacy one, as in every plain unit test. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setShadowComparator(com.dossier.api.service.entitlement.ShadowComparator shadow) {
+        this.shadow = shadow;
     }
 
     /**
@@ -143,6 +159,11 @@ public class AiBudgetService {
     Window proWindow(Subscription sub, Instant now) {
         boolean threeMonth = sub != null && isThreeMonthPrice(sub.getPriceId());
         long budget = threeMonth ? policy.pro3moBudgetMicros() : policy.proBudgetMicros();
+        // K1.6: the live Pro plan version decides when it is published; the policy values are the fallback for one release
+        if (catalogDefaults != null) {
+            java.util.OptionalInt cents = catalogDefaults.aiBudgetCents("PRO", threeMonth ? "QUARTER" : "MONTH");
+            if (cents.isPresent()) budget = centsToMicros(cents.getAsInt());
+        }
         Instant end = sub == null ? null : sub.getCurrentPeriodEnd();
         if (end == null || !end.isAfter(now)) {
             return new Window(budget, monthStart(now), resetsAt(now));
@@ -151,9 +172,18 @@ public class AiBudgetService {
         return new Window(budget, start.isAfter(now) ? now : start, end);
     }
 
+    private com.dossier.api.service.catalog.CatalogDefaults catalogDefaults;
+
+    /** Optional (K1.6): the published catalog's AI budget and price intervals. Without it the budget is exactly the legacy one. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setCatalogDefaults(com.dossier.api.service.catalog.CatalogDefaults catalogDefaults) {
+        this.catalogDefaults = catalogDefaults;
+    }
+
     private boolean isThreeMonthPrice(String priceId) {
         String threeMonth = stripe.getPrice3mo();
-        return priceId != null && threeMonth != null && !threeMonth.isBlank() && threeMonth.trim().equals(priceId.trim());
+        if (priceId != null && threeMonth != null && !threeMonth.isBlank() && threeMonth.trim().equals(priceId.trim())) return true;
+        return catalogDefaults != null && catalogDefaults.intervalOfStripePrice(priceId).map("QUARTER"::equals).orElse(false);
     }
 
     public Decision decide(String login, AiTask task) {

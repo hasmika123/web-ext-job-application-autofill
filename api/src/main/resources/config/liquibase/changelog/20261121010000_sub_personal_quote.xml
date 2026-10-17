@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Personal quotes (docs/subscriptions/08-data-model.md section 4.3; story K3.3): a quote is the priced basket a person is shown, kept so that checkout
+        and confirm apply EXACTLY those numbers (or refuse as stale). user_id is NULL for an anonymous pricing-page quote, which can never be checked out.
+        Additive; guarded; empty rollback.
+    -->
+    <changeSet id="sub-personal-quote-table" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="subscription_quote"/></not></preConditions>
+        <createTable tableName="subscription_quote">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="user_id" type="bigint"/>
+            <column name="subscription_id" type="bigint"/>
+            <column name="kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="plan_version_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="billing_interval" type="varchar(10)"><constraints nullable="false"/></column>
+            <column name="currency" type="char(3)"><constraints nullable="false"/></column>
+            <column name="catalog_version" type="int"><constraints nullable="false"/></column>
+            <column name="promo_code" type="varchar(40)"/>
+            <column name="inputs_hash" type="char(64)"><constraints nullable="false"/></column>
+            <column name="lines_json" type="json"><constraints nullable="false"/></column>
+            <column name="current_recurring_minor" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="proposed_recurring_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="delta_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="monthly_equivalent_minor" type="bigint"><constraints nullable="false"/></column>
+            <column name="savings_minor" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="proration_estimate_minor" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="next_invoice_estimate_minor" type="bigint"/>
+            <column name="tax_estimate_minor" type="bigint"/>
+            <column name="tax_source" type="varchar(16)" defaultValue="NONE"><constraints nullable="false"/></column>
+            <column name="effective_at" type="${datetimeType}"/>
+            <column name="period_end_at" type="${datetimeType}"/>
+            <column name="expires_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="OPEN"><constraints nullable="false"/></column>
+            <column name="applied_batch_id" type="char(36)"/>
+            <column name="stripe_session_id" type="varchar(255)"/>
+            <column name="warnings_json" type="json"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="subscription_quote" baseColumnNames="plan_version_id" constraintName="fk_sub_quote_version"
+                                 referencedTableName="plan_version" referencedColumnNames="id"/>
+        <createIndex tableName="subscription_quote" indexName="ix_sub_quote_user">
+            <column name="user_id"/>
+            <column name="status"/>
+            <column name="expires_at"/>
+        </createIndex>
+        <createIndex tableName="subscription_quote" indexName="ix_sub_quote_expires">
+            <column name="status"/>
+            <column name="expires_at"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

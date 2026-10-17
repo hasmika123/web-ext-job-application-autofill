@@ -30,11 +30,23 @@ public class BillingException extends RuntimeException {
 
     private final int status;
     private final String code;
+    private final java.util.Map<String, Object> extra;
 
     public BillingException(int status, String code, String message) {
+        this(status, code, message, null);
+    }
+
+    /** With machine-readable details the client can act on ({@code QUOTE_STALE {reason}}, {@code QUANTITY_LIMIT {max}}, {@code PLAN_SUNSET {successor}}); additive. */
+    public BillingException(int status, String code, String message, java.util.Map<String, Object> extra) {
         super(message);
         this.status = status;
         this.code = code;
+        this.extra = extra == null ? java.util.Map.of() : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(extra));
+    }
+
+    /** Details emitted as extra problem properties; empty for the original codes. */
+    public java.util.Map<String, Object> getExtra() {
+        return extra;
     }
 
     public static BillingException disabled() {

@@ -44,6 +44,24 @@ public class Product implements Serializable {
     @Column(name = "demo_data", nullable = false)
     private Boolean demoData = false;
 
+    @Column(name = "sold_to", length = 12, nullable = false)
+    private String soldTo = "ORG";
+
+    @Column(name = "stripe_product_id", length = 255)
+    private String stripeProductId;
+
+    @Column(name = "quantity_basis", length = 10)
+    private String quantityBasis;
+
+    @Column(name = "role_key", length = 40)
+    private String roleKey;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @Column(name = "updated_by", length = 50)
+    private String updatedBy;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -69,4 +87,16 @@ public class Product implements Serializable {
     public void setDemoData(Boolean demoData) { this.demoData = demoData; }
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getSoldTo() { return soldTo; }
+    public void setSoldTo(String soldTo) { this.soldTo = soldTo; }
+    public String getStripeProductId() { return stripeProductId; }
+    public void setStripeProductId(String stripeProductId) { this.stripeProductId = stripeProductId; }
+    public String getQuantityBasis() { return quantityBasis; }
+    public void setQuantityBasis(String quantityBasis) { this.quantityBasis = quantityBasis; }
+    public String getRoleKey() { return roleKey; }
+    public void setRoleKey(String roleKey) { this.roleKey = roleKey; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public String getUpdatedBy() { return updatedBy; }
+    public void setUpdatedBy(String updatedBy) { this.updatedBy = updatedBy; }
 }

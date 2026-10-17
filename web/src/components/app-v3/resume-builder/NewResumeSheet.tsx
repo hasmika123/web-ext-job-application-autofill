@@ -217,7 +217,7 @@ function Chooser({
     if (res.kind === "limit") {
       const plan = res.plan === "PRO" || res.plan === "AUTOPILOT" || res.plan === "ORGANIZATION" ? res.plan : "FREE";
       onClose();
-      onLimit?.({ message: res.message, plan, limit: res.limit });
+      onLimit?.({ message: res.message, plan, limit: res.limit, upgrade: res.upgrade });
       return;
     }
     if (res.kind === "sensitive") {

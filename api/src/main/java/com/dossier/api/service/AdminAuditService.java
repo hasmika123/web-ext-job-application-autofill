@@ -74,6 +74,19 @@ public class AdminAuditService {
     public static final String ORG_ACCOUNT_MIGRATE = "ORG_ACCOUNT_MIGRATE";
     public static final String TARGET_AI_PROVIDER = "AI_PROVIDER";
     public static final String AI_PROVIDER_TEST = "AI_PROVIDER_TEST";
+    // Subscription module catalog writes (docs/subscriptions, K1.x). HIGH actions carry "risk=HIGH" in the details and a reason.
+    public static final String TARGET_CATALOG = "CATALOG";
+    public static final String CATALOG_SERVICE_CREATE = "CATALOG_SERVICE_CREATE";
+    public static final String CATALOG_SERVICE_UPDATE = "CATALOG_SERVICE_UPDATE";
+    public static final String CATALOG_SERVICE_RETIRE = "CATALOG_SERVICE_RETIRE";
+    public static final String CATALOG_DEPENDENCIES_SET = "CATALOG_DEPENDENCIES_SET";
+    public static final String CATALOG_PRICE_CREATE = "CATALOG_PRICE_CREATE";
+    public static final String CATALOG_PRICE_PUBLISH = "CATALOG_PRICE_PUBLISH";
+    public static final String CATALOG_PRICE_RETIRE = "CATALOG_PRICE_RETIRE";
+    // Billing operations (K8.5): replaying a Stripe event and resolving a reconciler drift row are HIGH and carry a reason.
+    public static final String TARGET_BILLING = "BILLING";
+    public static final String BILLING_EVENT_REPLAY = "BILLING_EVENT_REPLAY";
+    public static final String BILLING_DRIFT_RESOLVE = "BILLING_DRIFT_RESOLVE";
 
     private static final Logger LOG = LoggerFactory.getLogger(AdminAuditService.class);
 

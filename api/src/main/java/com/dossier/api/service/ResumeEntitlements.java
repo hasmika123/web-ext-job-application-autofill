@@ -29,7 +29,7 @@ public class ResumeEntitlements {
     public boolean builderAiAllowed(String login) {
         // inside an organization workspace the plan is not what grants AI (no license grants it yet): off, as the API refuses it (OrgResumePolicy.requireAiLicensed)
         if (orgResumeCap != null && orgResumeCap.forThisRequest().isPresent()) return false;
-        return entitlementService.isPro(login);
+        return entitlementService.has(login, com.dossier.api.service.entitlement.FeatureKeys.BUILDER_AI);
     }
 
     /** {@code FREE}, {@code PRO} or {@code AUTOPILOT}, as {@link EntitlementService#plan} reports it. */
@@ -43,7 +43,8 @@ public class ResumeEntitlements {
             var org = orgResumeCap.forThisRequest();
             if (org.isPresent()) return org.get().max();
         }
-        return ProfileService.resumeLimit(entitlementService.isPro(login));
+        int legacy = ProfileService.resumeLimit(entitlementService.has(login, com.dossier.api.service.entitlement.FeatureKeys.Capability.AI_SERVER));
+        return entitlementService.limitFor(login, com.dossier.api.service.entitlement.FeatureKeys.Limit.RESUMES_MAX, legacy).map(Long::intValue).orElse(legacy);
     }
 
     /** How many live (non-archived) resumes the signed-in user holds - what the cap counts. */

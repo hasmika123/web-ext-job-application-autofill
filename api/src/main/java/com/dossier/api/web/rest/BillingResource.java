@@ -3,7 +3,7 @@ package com.dossier.api.web.rest;
 import com.dossier.api.config.OpenApiConfiguration;
 import com.dossier.api.service.BillingService;
 import com.dossier.api.service.DemoGuard;
-import com.dossier.api.service.EntitlementService;
+import com.dossier.api.service.billing.personal.PlanViewService;
 import com.dossier.api.service.dto.PlanDTO;
 import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,13 +33,13 @@ public class BillingResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(BillingResource.class);
 
-    private final EntitlementService entitlementService;
+    private final PlanViewService planView;
     private final BillingService billingService;
 
     private final DemoGuard demoGuard;
 
-    public BillingResource(EntitlementService entitlementService, BillingService billingService, DemoGuard demoGuard) {
-        this.entitlementService = entitlementService;
+    public BillingResource(PlanViewService planView, BillingService billingService, DemoGuard demoGuard) {
+        this.planView = planView;
         this.billingService = billingService;
         this.demoGuard = demoGuard;
     }
@@ -55,7 +55,7 @@ public class BillingResource {
     @GetMapping("/me")
     public ResponseEntity<PlanDTO> myPlan() {
         LOG.debug("REST request to get the current user's plan");
-        return ResponseEntity.ok(entitlementService.currentUserPlan());
+        return ResponseEntity.ok(planView.currentUserPlan());
     }
 
     /**

@@ -102,7 +102,7 @@ class InboxEntitlementTest {
 
     @Test
     void thePersonalPlanStillWinsAndIsUnchanged() {
-        when(personal.isPro("anika")).thenReturn(true);
+        when(personal.has("anika", "inbox.monitoring")).thenReturn(true);
         assertThat(entitlement.decide(USER, "anika").ground()).isEqualTo(InboxEntitlement.Ground.PERSONAL);
         feature.setLive(false);
         assertThat(entitlement.decide(USER, "anika").ground()).as("pro alone is enough").isEqualTo(InboxEntitlement.Ground.PERSONAL);
@@ -178,7 +178,7 @@ class InboxEntitlementTest {
 
     @Test
     void anEnterpriseAccountIsGrantedByTheOrganizationLicenseOnlyAndThePersonalPlanIsNeverAsked() {
-        when(personal.isPro(ENTERPRISE_LOGIN)).thenReturn(true); // even a stray plan row could not matter
+        when(personal.has(ENTERPRISE_LOGIN, "inbox.monitoring")).thenReturn(true); // even a stray plan row could not matter
         var d = entitlement.decide(USER, ENTERPRISE_LOGIN);
         assertThat(d.ground()).isEqualTo(InboxEntitlement.Ground.ORGANIZATION);
         verify(personal, never()).isPro(ENTERPRISE_LOGIN);
@@ -186,7 +186,7 @@ class InboxEntitlementTest {
 
     @Test
     void anEnterpriseAccountWithoutTheAddOnHasNoInboxEvenWithAPersonalPlanRow() {
-        when(personal.isPro(ENTERPRISE_LOGIN)).thenReturn(true);
+        when(personal.has(ENTERPRISE_LOGIN, "inbox.monitoring")).thenReturn(true);
         feature.setLive(false);
         assertThat(entitlement.decide(USER, ENTERPRISE_LOGIN).allowed()).isFalse();
         assertThat(entitlement.decide(USER, ENTERPRISE_LOGIN).ground()).isEqualTo(InboxEntitlement.Ground.NONE);
@@ -194,9 +194,9 @@ class InboxEntitlementTest {
 
     @Test
     void aPersonalAccountKeepsBothGroundsExactlyAsBefore() {
-        when(personal.isPro("anika")).thenReturn(true);
+        when(personal.has("anika", "inbox.monitoring")).thenReturn(true);
         assertThat(entitlement.decide(USER, "anika").ground()).isEqualTo(InboxEntitlement.Ground.PERSONAL);
-        when(personal.isPro("anika")).thenReturn(false);
+        when(personal.has("anika", "inbox.monitoring")).thenReturn(false);
         assertThat(entitlement.decide(USER, "anika").ground()).isEqualTo(InboxEntitlement.Ground.ORGANIZATION);
         assertThat(InboxEntitlement.isEnterpriseAccount("anika")).isFalse();
         assertThat(InboxEntitlement.isEnterpriseAccount(ENTERPRISE_LOGIN)).isTrue();

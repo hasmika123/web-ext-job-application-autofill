@@ -307,7 +307,7 @@ public class JobSearchService {
         List<Long> ids = cards.stream().map(JobPostingCard::id).toList();
         Set<Long> saved = new LinkedHashSet<>(applications.trackedPostingIds(user.getId(), ids));
         Map<Long, JobCardMatch> match = new HashMap<>();
-        if (entitlement.isPro(user.getLogin())) {
+        if (entitlement.has(user.getLogin(), com.dossier.api.service.entitlement.FeatureKeys.AI_JOB_MATCHING)) {
             for (Object[] row : matches.scoresFor(user.getId(), ids, JobMatchService.SHOW_SCORE)) {
                 match.put(((Number) row[0]).longValue(), new JobCardMatch(((Number) row[1]).intValue(), (String) row[2]));
             }
@@ -428,8 +428,8 @@ public class JobSearchService {
         JobPostingCard c = new JobPostingCard(p.getId(), p.getTitle(), p.getCompany(), p.getLocation(), p.getWorkplaceType(), p.getRemote(), p.getEmploymentType(), p.getPublishedAt(), p.getSource().getAts());
         boolean saved = !applications.trackedPostingIds(user.getId(), List.of(id)).isEmpty();
         JobCardMatch match = null;
-        if (entitlement.isPro(user.getLogin())) {
-            match = matches.scoresFor(user.getId(), List.of(id), JobMatchService.SHOW_SCORE).stream().findFirst().map(row -> new JobCardMatch(((Number) row[1]).intValue(), (String) row[2])).orElse(null);
+        if (entitlement.has(user.getLogin(), com.dossier.api.service.entitlement.FeatureKeys.AI_JOB_MATCHING)) {
+            match =matches.scoresFor(user.getId(), List.of(id), JobMatchService.SHOW_SCORE).stream().findFirst().map(row -> new JobCardMatch(((Number) row[1]).intValue(), (String) row[2])).orElse(null);
         }
         int maxChars = settings.getInt(ResumeBuilderSettingKeys.JOBS_DETAIL_DESCRIPTION_MAX_CHARS);
         long more = Math.max(0, postings.countByCompanyIgnoreCase(p.getCompany()) - 1);

@@ -26,6 +26,10 @@
       // branch without digging through the body: PRO_REQUIRED / RESUME_LIMIT (402),
       // BILLING_DISABLED (503), ALREADY_SUBSCRIBED (409). Null when the error carries none.
       this.code = (body && typeof body === "object" && typeof body.code === "string") ? body.code : null;
+      // K7.6: on a 402 the server names the plan that unlocks the feature: { planKey, planName, interval, amountMinor, currency, path }.
+      // Only a same-site path is kept, so the panel can send the person straight to that plan.
+      const up = body && typeof body === "object" ? body.upgrade : null;
+      this.upgrade = up && typeof up === "object" && typeof up.path === "string" && up.path.charAt(0) === "/" ? up : null;
     }
   }
   class NotSupportedError extends Error {

@@ -818,8 +818,8 @@ Four secrets, all env-only (they never reach a client bundle):
 |---|---|
 | `STRIPE_SECRET_KEY` | `sk_test_…` / `sk_live_…`. **Blank ⇒ billing off.** |
 | `STRIPE_WEBHOOK_SECRET` | `whsec_…` — verifies deliveries really came from Stripe. Without it the webhook rejects everything. |
-| `STRIPE_PRICE_MONTHLY` | Price id for $19.99/month |
-| `STRIPE_PRICE_3MO` | Price id for $49.99/3 months (15.5; the old $44.99 Price is archived in Stripe, not reused) |
+| `STRIPE_PRICE_MONTHLY` | Price id for $19.99/month. Deprecated (K1.6): once PRO v1 is published from the plan builder the catalog answers; run `POST /api/admin/plans/PRO/versions/1/import-stripe-prices` once at cut-over (docs/subscriptions/README.md), then remove after one release |
+| `STRIPE_PRICE_3MO` | Price id for $49.99/3 months (15.5; the old $44.99 Price is archived in Stripe, not reused). Deprecated like `STRIPE_PRICE_MONTHLY` (K1.6) |
 
 Add them to the box's `.env` (same file as the `DOSSIER_AI_*` block), then `$COMPOSE up -d api`.
 **Paste them with no trailing space or newline.** The app trims them now, but Stripe rejects a

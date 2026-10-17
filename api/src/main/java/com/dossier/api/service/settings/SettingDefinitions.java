@@ -38,6 +38,7 @@ public final class SettingDefinitions {
         }
         all.addAll(AdminSettingKeys.all());
         all.addAll(EnterpriseSettingKeys.all());
+        all.addAll(BillingSettingKeys.all());
         Map<String, Key> by = new LinkedHashMap<>();
         for (Key k : all) {
             if (by.put(k.key(), k) != null) throw new IllegalStateException("duplicate setting key " + k.key());
