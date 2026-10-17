@@ -75,7 +75,7 @@ import {
 
 function Tile({ title, icon: Icon, tone, value, sub, loading }: { title: string; icon: ComponentType<IconProps>; tone: IconTone; value: ReactNode; sub: ReactNode; loading: boolean }) {
   return (
-    <section aria-label={title} data-stat-tile={title} data-state={loading ? "loading" : "ok"} className="flex min-h-[104px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
+    <section aria-label={title} data-stat-tile={title} data-tone={tone} data-state={loading ? "loading" : "ok"} className="flex min-h-[104px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
       <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-[14px]", TONES[tone])}>
         <Icon size={26} />
       </span>

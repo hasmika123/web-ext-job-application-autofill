@@ -12,7 +12,7 @@
  */
 
 const ORGS = {
-  2: { name: "Acme", members: new Set(["owner@acme.com", "sarah@acme.com"]) },
+  2: { name: "Acme", members: new Set(["owner@acme.com", "sarah@acme.com", "demo-ent-acme-sarah"]) },
   3: { name: "Beta Talent", members: new Set(["owner@beta.com"]) },
 };
 

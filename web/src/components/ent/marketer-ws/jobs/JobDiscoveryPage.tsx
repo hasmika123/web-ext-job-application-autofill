@@ -192,7 +192,7 @@ export default function JobDiscoveryPage({ orgId, hrefs }: MktPageProps) {
             {tileKpi("newToday", "New Openings Today", BriefcaseIcon, "green", "vs yesterday", 3)}
             {tileKpi("highMatch", "High-Match Openings", UsersIcon, "blue", "vs last week", 4)}
             {tileKpi("assigned", "Jobs Assigned", SendIcon, "violet", "vs last week", 4)}
-            <section aria-label="Saved searches count" data-stat-tile="savedSearchCount" className={tileBox}>
+            <section aria-label="Saved searches count" data-stat-tile="savedSearchCount" data-tone="pink" className={tileBox}>
               <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-[11px]", TINTS.pink)}><BookmarkIcon size={20} /></span>
               <div aria-hidden className="mt-2.5 h-[21px]" />
               {loading ? (
@@ -216,7 +216,7 @@ export default function JobDiscoveryPage({ orgId, hrefs }: MktPageProps) {
                 </>
               )}
             </section>
-            <section aria-label="Saved Searches" data-stat-tile="savedSearches" className={tileBox}>
+            <section aria-label="Saved Searches" data-stat-tile="savedSearches" data-tone="violet" className={tileBox}>
               <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-[11px]", TINTS.amber)}><BookmarkIcon size={20} /></span>
               <h3 className="mt-2.5 truncate text-[14px] font-semibold text-ink-soft">Saved Searches</h3>
               <div className="mt-2 flex items-end justify-between gap-2">

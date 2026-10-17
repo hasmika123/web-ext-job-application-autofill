@@ -108,7 +108,7 @@ function Tile({ spec, view, index }: { spec: TileSpec; view: PrepView | null; in
   const d = tile ? tileDelta(tile) : null;
   const good = d ? deltaIsGood(d.dir, spec.lowerIsBetter === true) : null;
   return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
+    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
       <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-[12px]", TONES[spec.tone])}>
         <Icon size={22} />
       </span>

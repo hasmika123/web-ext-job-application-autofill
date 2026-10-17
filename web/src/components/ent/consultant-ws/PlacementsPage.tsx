@@ -69,7 +69,7 @@ const BTN_LINE = "inline-flex min-h-8 items-center justify-center whitespace-now
 
 function Tile({ title, icon: Icon, tone, value, sub, subTone }: { title: string; icon: ComponentType<IconProps>; tone: IconTone; value: ReactNode; sub: ReactNode; subTone?: "green" | "muted" }) {
   return (
-    <section aria-label={title} data-stat-tile={title} className="flex min-h-[100px] min-w-0 items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
+    <section aria-label={title} data-stat-tile={title} data-tone={tone} className="flex min-h-[100px] min-w-0 items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
       <span aria-hidden className={cn("grid h-12 w-12 flex-none place-items-center rounded-[14px]", TONES[tone])}>
         <Icon size={24} />
       </span>

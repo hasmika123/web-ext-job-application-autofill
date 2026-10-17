@@ -1258,3 +1258,428 @@
 .theme-tenant .ent-help[data-layout="drawer"] .ent-help-scene { height: 88px; padding-left: 4px; }
 .theme-tenant .ent-help[data-layout="drawer"] .ent-help-bee { height: 80px !important; }
 .theme-tenant .ent-help-foot { grid-column: 1 / -1; }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+ * KIWIPLY LOOK (ent-ui-styling): the enterprise shell speaks the same visual language as the personal Kiwiply app: a white sidebar with
+ * pill nav, a 64 px top bar (search left, bell + profile right), a gradient page-title band with the bee, pastel-tinted cards.
+ * Accents stay on the organization's `--brand-*` variables; the pastels below are the fixed Kiwiply tints for cards and KPI tiles.
+ * Later in the file than the board rules above on purpose: same specificity, this block wins.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════ */
+.theme-tenant {
+  --ent-page-bg: #f6f9ff;
+  --ent-sidebar-bg: #ffffff;
+  --ent-card-radius: 18px;
+  --ent-card-border: #e6ecf7;
+  --ent-card-shadow: 0 1px 2px rgba(27, 31, 94, 0.04), 0 8px 24px rgba(27, 31, 94, 0.06);
+  --ent-tint-blue: #e8f0ff;
+  --ent-tint-green: #e4f7e8;
+  --ent-tint-violet: #eeeaff;
+  --ent-tint-amber: #fff4e0;
+  --ent-tint-pink: #ffe8f4;
+}
+
+/* sidebar: white, hairline edge, 14 px rows, rounded pill for the active page */
+.theme-tenant .ent-sidebar {
+  border-radius: 0;
+  border-right: 1px solid #e6ecf7;
+  box-shadow: none;
+}
+.theme-tenant .ent-nav {
+  --ent-fs: 14px;
+}
+.theme-tenant .ent-nav-row {
+  min-height: 38px;
+  border-radius: 12px;
+  font-weight: 500;
+  padding-left: 12px;
+}
+.theme-tenant .ent-nav-row[aria-current="page"] {
+  min-height: 38px;
+  font-weight: 700;
+}
+
+/* top bar: white, 64 px, hairline under it; search is the soft blue pill */
+.theme-tenant .ent-header {
+  min-height: 64px;
+  padding-top: 0;
+  padding-bottom: 0;
+  background: rgb(255 255 255 / 0.92);
+  border-bottom: 1px solid #e6ecf7;
+}
+.theme-tenant .ent-search-wrap {
+  width: auto;
+  max-width: 560px;
+}
+.theme-tenant .ent-search {
+  height: 44px;
+  border-radius: 12px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-accent-soft) 70%, #ffffff);
+}
+.theme-tenant .ent-profile {
+  height: 48px;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+/* the page-title band */
+.theme-tenant .ent-hero {
+  position: relative;
+  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 124px;
+  padding: 20px clamp(20px, 2vw, 32px);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 20px;
+  background: linear-gradient(105deg, color-mix(in srgb, var(--color-accent-soft) 85%, #ffffff) 0%, #eef6ff 55%, color-mix(in srgb, var(--color-v2-blue-soft, #e3f4f6) 80%, #ffffff) 100%);
+}
+.theme-tenant .ent-hero::before {
+  content: "";
+  position: absolute;
+  left: -40px;
+  top: -56px;
+  width: 190px;
+  height: 190px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  filter: blur(40px);
+  pointer-events: none;
+}
+.theme-tenant .ent-hero > * {
+  position: relative;
+}
+.theme-tenant .ent-hero-title {
+  font-size: clamp(26px, 2.2vw, 34px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--ent-title);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.theme-tenant .ent-hero-subtitle {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #46527e;
+}
+.theme-tenant .ent-hero-art {
+  flex: none;
+  height: 108px;
+  width: auto;
+  margin: -8px 0 -20px;
+  filter: drop-shadow(0 4px 6px rgba(20, 33, 79, 0.15));
+}
+@media (max-width: 1023px) {
+  .theme-tenant .ent-hero-art { height: 84px; }
+}
+
+/* cards: white surface, soft border; section titles bolder */
+.theme-tenant .ent-card h2,
+.theme-tenant .ent-card h3 {
+  font-weight: 800;
+  color: var(--ent-title);
+}
+
+/* KPI tiles: pastel background per tone (the personal dashboard's stat tiles) */
+.theme-tenant .ent-card[data-kpi-tone="violet"] { background: var(--ent-tint-violet); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="indigo"] { background: var(--ent-tint-violet); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="green"] { background: var(--ent-tint-green); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="blue"] { background: var(--ent-tint-blue); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="orange"] { background: var(--ent-tint-amber); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="pink"] { background: var(--ent-tint-pink); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone] .ent-kpi-chip { background: #ffffff; }
+
+/* the dashboard's stat tiles (and any card led by a KPI chip) take the chip's tone as a pastel background */
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="violet"]),
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="indigo"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="violet"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="indigo"]) { background: var(--ent-tint-violet); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="green"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="green"]) { background: var(--ent-tint-green); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="blue"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="blue"]) { background: var(--ent-tint-blue); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="orange"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="orange"]) { background: var(--ent-tint-amber); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="pink"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="pink"]) { background: var(--ent-tint-pink); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile] .ent-kpi-chip { background: #ffffff; }
+
+/* sidebar, Kiwiply proportions: a roomy logo block, 40 px rounded rows with 18 px icons and 12 px gaps, hairline section rules */
+.theme-tenant {
+  --ent-sidebar-w: clamp(232px, 16vw, 252px);
+}
+.theme-tenant .ent-sidebar-head {
+  height: 72px;
+  padding-left: 20px;
+  padding-right: 14px;
+}
+.theme-tenant .ent-sidebar[data-rail="true"] .ent-sidebar-head {
+  padding-left: 0;
+  padding-right: 0;
+}
+.theme-tenant .ent-wordmark {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.theme-tenant .ent-nav {
+  padding: 4px 14px 16px;
+}
+.theme-tenant .ent-nav ul {
+  gap: 2px;
+}
+.theme-tenant .ent-nav-sep {
+  margin: 10px 6px;
+  border-top-color: #edf1f8;
+}
+.theme-tenant .ent-nav-row,
+.theme-tenant .ent-nav-row[aria-current="page"] {
+  min-height: 40px;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.theme-tenant .ent-nav-row {
+  color: #4a4f78;
+}
+.theme-tenant .ent-nav-row > svg {
+  width: 18px;
+  height: 18px;
+  color: #4a4f78;
+}
+.theme-tenant .ent-nav-row:hover {
+  background: #f1f5fb;
+  color: var(--ent-title);
+}
+.theme-tenant .ent-nav-row[aria-current="page"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-deep);
+}
+.theme-tenant .ent-nav-row[aria-current="page"] > svg {
+  color: var(--color-accent-deep);
+}
+.theme-tenant .ent-nav-row[data-rail="true"] {
+  justify-content: center;
+  padding: 0;
+}
+
+/* welcome band on a workspace home: the page's title is a small label above the greeting */
+.theme-tenant .ent-hero-eyebrow {
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-deep);
+}
+.theme-tenant .ent-hero[data-home="true"] {
+  min-height: 140px;
+}
+.theme-tenant .ent-hero[data-home="true"] .ent-hero-title {
+  font-size: clamp(30px, 2.6vw, 40px);
+}
+
+/* page footer: org name left, the pages every member can reach on this host right */
+.theme-tenant .ent-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  margin-top: 32px;
+  padding: 16px 4px 4px;
+  border-top: 1px solid #e6ecf7;
+  font-size: 13px;
+  color: var(--ent-soft);
+}
+.theme-tenant .ent-footer a {
+  color: var(--ent-soft);
+}
+.theme-tenant .ent-footer a:hover {
+  color: var(--color-accent-deep);
+  text-decoration: underline;
+}
+
+/* the footer sits at the bottom of a short page: the main column is a flex column and the footer takes the free space above it */
+.theme-tenant main[data-shell-main] {
+  display: flex;
+  flex-direction: column;
+}
+.theme-tenant main[data-shell-main] > .ent-footer {
+  margin-top: auto;
+}
+.theme-tenant main[data-shell-main] > :nth-last-child(2):not(.ent-footer) {
+  margin-bottom: 32px;
+}
+
+/* ── the rich page band (the personal app's hero): colour wash, layered hills in the brand colours, handwritten note, big bee ── */
+.theme-tenant .ent-hero {
+  min-height: 150px;
+  padding-bottom: 24px;
+  background: linear-gradient(105deg, #dfeaff 0%, color-mix(in srgb, var(--color-accent-soft) 80%, #ffffff) 52%, color-mix(in srgb, var(--color-v2-blue-soft, #e3f4f6) 75%, #e6f6ee) 100%);
+}
+.theme-tenant .ent-hero::before {
+  /* a back hill on the right and a front hill on the left, both in the brand colours */
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 100%;
+  top: auto;
+  left: 0;
+  width: auto;
+  border-radius: 0;
+  filter: none;
+  background:
+    radial-gradient(ellipse 34% 62% at 86% 118%, color-mix(in srgb, var(--color-accent) 42%, transparent) 0 98%, transparent 100%),
+    radial-gradient(ellipse 30% 46% at 62% 124%, color-mix(in srgb, var(--color-v2-blue, #0b7a8a) 30%, transparent) 0 98%, transparent 100%),
+    radial-gradient(ellipse 22% 38% at 6% 126%, color-mix(in srgb, var(--color-accent) 24%, transparent) 0 98%, transparent 100%);
+  pointer-events: none;
+}
+.theme-tenant .ent-hero[data-home="true"] {
+  min-height: 176px;
+}
+.theme-tenant .ent-hero-title {
+  font-size: clamp(30px, 2.5vw, 40px);
+}
+.theme-tenant .ent-hero[data-home="true"] .ent-hero-title {
+  font-size: clamp(34px, 2.9vw, 46px);
+}
+.theme-tenant .ent-hero-subtitle {
+  max-width: 34rem;
+  color: #2f3a6b;
+}
+.theme-tenant .ent-hero-art {
+  height: 138px;
+  margin: -10px 4px -26px 0;
+  z-index: 1;
+}
+.theme-tenant .ent-hero[data-home="true"] .ent-hero-art {
+  height: 168px;
+  margin-top: -14px;
+}
+.theme-tenant .ent-hero-note {
+  position: absolute;
+  right: clamp(150px, 13vw, 210px);
+  top: 18px;
+  width: 190px;
+  transform: rotate(-6deg);
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-size: 26px;
+  line-height: 1.05;
+  color: var(--ent-title);
+  z-index: 2;
+}
+@media (max-width: 1100px) {
+  .theme-tenant .ent-hero-note { display: none; }
+}
+
+/* the same band on a tablet and a phone: it shrinks (padding, title, bee) and the title may wrap */
+@media (max-width: 767px) {
+  .theme-tenant .ent-hero,
+  .theme-tenant .ent-hero[data-home="true"] {
+    min-height: 112px;
+    padding: 16px 16px 18px;
+    border-radius: 18px;
+  }
+  .theme-tenant .ent-hero-title,
+  .theme-tenant .ent-hero[data-home="true"] .ent-hero-title {
+    font-size: 24px;
+    white-space: normal;
+  }
+  .theme-tenant .ent-hero-subtitle {
+    font-size: 13.5px;
+  }
+  .theme-tenant .ent-hero-art,
+  .theme-tenant .ent-hero[data-home="true"] .ent-hero-art {
+    height: 84px;
+    margin: 0 -4px -18px 0;
+  }
+}
+
+/* ── six band designs (data-variant 0..5, picked per page by lib/ent/hero-look.ts): different wash, shapes and decoration ──
+ * 0 hills on the right · 1 hills on the left + a sun · 2 concentric rings · 3 dot grid + low hill · 4 two soft blobs · 5 sunrise */
+.theme-tenant .ent-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: none;
+}
+.theme-tenant .ent-hero[data-variant="0"] {
+  background: linear-gradient(105deg, #dfeaff 0%, color-mix(in srgb, var(--color-accent-soft) 80%, #ffffff) 52%, color-mix(in srgb, var(--color-v2-blue-soft, #e3f4f6) 75%, #e6f6ee) 100%);
+}
+.theme-tenant .ent-hero[data-variant="1"] {
+  background: linear-gradient(80deg, #fff3e2 0%, color-mix(in srgb, var(--color-accent-soft) 70%, #ffffff) 60%, #eaf3ff 100%);
+}
+.theme-tenant .ent-hero[data-variant="1"]::before {
+  background:
+    radial-gradient(ellipse 36% 70% at 10% 130%, color-mix(in srgb, var(--color-accent) 36%, transparent) 0 98%, transparent 100%),
+    radial-gradient(ellipse 24% 48% at 34% 130%, color-mix(in srgb, var(--color-v2-blue, #0b7a8a) 26%, transparent) 0 98%, transparent 100%);
+}
+.theme-tenant .ent-hero[data-variant="1"]::after {
+  background: radial-gradient(circle 70px at 80% 28%, rgb(255 214 120 / 0.55) 0 96%, transparent 100%);
+}
+.theme-tenant .ent-hero[data-variant="2"] {
+  background: linear-gradient(120deg, #e9f0ff 0%, #f4f0ff 55%, color-mix(in srgb, var(--color-accent-soft) 85%, #ffffff) 100%);
+}
+.theme-tenant .ent-hero[data-variant="2"]::before {
+  background: none;
+}
+.theme-tenant .ent-hero[data-variant="2"]::after {
+  background: repeating-radial-gradient(circle at 92% 48%, color-mix(in srgb, var(--color-accent) 20%, transparent) 0 2px, transparent 2px 26px);
+  mask-image: radial-gradient(circle at 92% 48%, #000 0 60%, transparent 85%);
+}
+.theme-tenant .ent-hero[data-variant="3"] {
+  background: linear-gradient(95deg, #e8f7f1 0%, #eef6ff 60%, #f3f0ff 100%);
+}
+.theme-tenant .ent-hero[data-variant="3"]::before {
+  background: radial-gradient(ellipse 60% 40% at 50% 128%, color-mix(in srgb, var(--color-accent) 26%, transparent) 0 98%, transparent 100%);
+}
+.theme-tenant .ent-hero[data-variant="3"]::after {
+  background: radial-gradient(color-mix(in srgb, var(--color-accent) 38%, transparent) 1.6px, transparent 1.8px) 0 0 / 18px 18px;
+  mask-image: linear-gradient(100deg, transparent 40%, #000 100%);
+}
+.theme-tenant .ent-hero[data-variant="4"] {
+  background: linear-gradient(110deg, #fdeef6 0%, #eef3ff 55%, color-mix(in srgb, var(--color-accent-soft) 80%, #ffffff) 100%);
+}
+.theme-tenant .ent-hero[data-variant="4"]::before {
+  background:
+    radial-gradient(circle 120px at 70% 0%, color-mix(in srgb, var(--color-accent) 22%, transparent) 0 98%, transparent 100%),
+    radial-gradient(circle 90px at 96% 100%, rgb(240 120 180 / 0.2) 0 98%, transparent 100%);
+}
+.theme-tenant .ent-hero[data-variant="5"] {
+  background: linear-gradient(180deg, #e6f0ff 0%, #fff4e6 100%);
+}
+.theme-tenant .ent-hero[data-variant="5"]::before {
+  background: radial-gradient(ellipse 34% 90% at 78% 135%, rgb(255 196 120 / 0.55) 0 98%, transparent 100%),
+    radial-gradient(ellipse 52% 56% at 40% 128%, color-mix(in srgb, var(--color-accent) 24%, transparent) 0 98%, transparent 100%);
+}
+
+/* consultant + marketing stat tiles carry `data-tone`: the same pastel backgrounds as the admin tiles */
+.theme-tenant {
+  --ent-tint-teal: #e3f6f4;
+  --ent-tint-coral: #ffecec;
+}
+.theme-tenant [data-stat-tile][data-tone] { border-color: transparent; }
+.theme-tenant [data-stat-tile][data-tone="accent"],
+.theme-tenant [data-stat-tile][data-tone="blue"] { background: var(--ent-tint-blue); }
+.theme-tenant [data-stat-tile][data-tone="violet"] { background: var(--ent-tint-violet); }
+.theme-tenant [data-stat-tile][data-tone="green"] { background: var(--ent-tint-green); }
+.theme-tenant [data-stat-tile][data-tone="amber"] { background: var(--ent-tint-amber); }
+.theme-tenant [data-stat-tile][data-tone="pink"] { background: var(--ent-tint-pink); }
+.theme-tenant [data-stat-tile][data-tone="teal"] { background: var(--ent-tint-teal); }
+.theme-tenant [data-stat-tile][data-tone="coral"] { background: var(--ent-tint-coral); }
+.theme-tenant [data-stat-tile][data-tone] > span[aria-hidden]:first-child,
+.theme-tenant [data-stat-tile][data-tone] > div > span[aria-hidden]:first-child { background: #ffffff; }
+
+/* the band's shapes never run under the title and subtitle: they fade out toward the left */
+.theme-tenant .ent-hero::before,
+.theme-tenant .ent-hero::after {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, transparent 34%, #000 66%);
+  mask-image: linear-gradient(90deg, transparent 0, transparent 34%, #000 66%);
+}

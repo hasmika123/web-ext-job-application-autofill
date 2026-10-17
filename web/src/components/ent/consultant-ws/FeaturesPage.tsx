@@ -127,7 +127,7 @@ function Tile({ tile }: { tile: TileView | null }) {
     );
   const Icon = tile.icon;
   return (
-    <section aria-label={tile.title} data-stat-tile={tile.key} data-state="ok" className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
+    <section aria-label={tile.title} data-stat-tile={tile.key} data-tone={tile.tone} data-state="ok" className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
       <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-[14px]", TONES[tile.tone])}>
         <Icon size={26} />
       </span>
