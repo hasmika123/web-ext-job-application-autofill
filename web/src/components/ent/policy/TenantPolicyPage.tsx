@@ -6,6 +6,7 @@ import PolicyLinks from "@/components/ent/policy/PolicyLinks";
 import PolicyMarkdown from "@/components/ent/policy/PolicyMarkdown";
 import TenantTemporarilyUnavailable from "@/components/tenant/TenantTemporarilyUnavailable";
 import { getTenant } from "@/lib/tenant";
+import { ENT_MASCOT_BASE } from "@/lib/ent/mascot-base";
 import { getTenantPolicy, getTenantPolicyLinks } from "@/lib/tenant-policies";
 
 /**
@@ -32,7 +33,7 @@ export default async function TenantPolicyPage({ kind }: { kind: string }) {
   const links = await getTenantPolicyLinks();
   const updated = policy.publishedAt ? new Date(policy.publishedAt).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }) : null;
   return (
-    <div className="min-h-dvh bg-paper-2 text-ink" data-tenant-policy-page data-policy-kind={policy.kind}>
+    <div className="ent-state-page min-h-dvh text-ink" data-tenant-policy-page data-policy-kind={policy.kind}>
       <header className="border-b border-line bg-paper">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <Link href="/" aria-label={`${policy.orgName} home`} className="inline-flex min-h-11 items-center">
@@ -44,6 +45,15 @@ export default async function TenantPolicyPage({ kind }: { kind: string }) {
         </div>
       </header>
       <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-12">
+        {/* the organization's branded band (decorative: the article below carries the page's own h1) */}
+        <div aria-hidden data-variant="4" className="ent-hero mb-6 flex">
+          <div className="min-w-0 flex-1">
+            <p className="ent-hero-eyebrow">Policies and support</p>
+            <p className="ent-hero-title">{policy.orgName}</p>
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`${ENT_MASCOT_BASE}/${policy.kind === "SUPPORT" ? "help-guidance" : "secure"}.png`} alt="" draggable={false} className="ent-hero-art" />
+        </div>
         <article className="rounded-2xl border border-line bg-paper px-5 py-7 shadow-[var(--shadow)] sm:px-9 sm:py-10">
           <PolicyMarkdown markdown={policy.body} />
           {updated ? <p className="mt-8 border-t border-line pt-4 text-[13px] text-muted">Last updated {updated}.</p> : null}
