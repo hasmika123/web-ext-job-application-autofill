@@ -88,6 +88,7 @@ public class ConsultantWsOffersDemoSeeder {
                     o.setOfferDeadline(today.plusDays(d.deadlineInDays()));
                     o.setStatus(d.status());
                     o.setSampleData(true);
+                    o.setUpdatedByKind(CwsOfferEvent.BY_SYSTEM); // the seeder writes through the same table the org side records into; stand-ins are marked sample_data and SYSTEM
                     Instant created = d.createdDaysAgo() == 0 ? now.minus(Duration.ofHours(2)) : now.minus(Duration.ofDays(d.createdDaysAgo()));
                     o.setCreatedAt(created);
                     o.setUpdatedAt(created);

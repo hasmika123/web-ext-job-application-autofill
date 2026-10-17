@@ -52,6 +52,8 @@ public class PlacementCommandService {
     public static final String AUDIT_REDEPLOY_CANCEL = "PLACEMENT_REDEPLOY_CANCEL";
     public static final String AUDIT_NOTE = "PLACEMENT_NOTE";
     public static final String AUDIT_UNDO = "PLACEMENT_UNDO";
+    public static final String AUDIT_TERMINATE = "PLACEMENT_TERMINATE";
+    public static final String AUDIT_NOTICE = "PLACEMENT_NOTICE";
 
     /** The events a person may take back within ten minutes. */
     public static final Set<String> UNDOABLE = Set.of("EXTENDED", "EXTENSION_REQUESTED", "EXTENSION_APPROVED", "EXTENSION_DECLINED", "COMPLETED", "REDEPLOY_STARTED");
@@ -59,6 +61,7 @@ public class PlacementCommandService {
     static final int ROLE_MAX = 120;
     static final int NOTE_MAX = 1000;
     static final int EXT_NOTE_MAX = 500;
+    static final int END_REASON_MAX = 300;
     static final long RATE_MAX_MINOR = 100_000_000L;
     static final int MAX_YEARS = 10;
 
@@ -74,6 +77,7 @@ public class PlacementCommandService {
     private final ConsultantProfileRepository consultants;
     private final ClientContactRepository contacts;
     private final MarketerAssignmentRepository assignments;
+    private final PlacementAvailabilitySync availability;
     private final Clock clock;
 
     @Autowired
@@ -89,9 +93,10 @@ public class PlacementCommandService {
         PlacementEventRepository events,
         ConsultantProfileRepository consultants,
         ClientContactRepository contacts,
-        MarketerAssignmentRepository assignments
+        MarketerAssignmentRepository assignments,
+        PlacementAvailabilitySync availability
     ) {
-        this(em, access, names, query, audit, placements, extensions, notes, events, consultants, contacts, assignments, Clock.systemUTC());
+        this(em, access, names, query, audit, placements, extensions, notes, events, consultants, contacts, assignments, availability, Clock.systemUTC());
     }
 
     PlacementCommandService(
@@ -107,6 +112,7 @@ public class PlacementCommandService {
         ConsultantProfileRepository consultants,
         ClientContactRepository contacts,
         MarketerAssignmentRepository assignments,
+        PlacementAvailabilitySync availability,
         Clock clock
     ) {
         this.em = em;
@@ -121,6 +127,7 @@ public class PlacementCommandService {
         this.consultants = consultants;
         this.contacts = contacts;
         this.assignments = assignments;
+        this.availability = availability;
         this.clock = clock;
     }
 
@@ -283,6 +290,57 @@ public class PlacementCommandService {
         return query.detailOf(me, p);
     }
 
+    // ---- terminate / notice ------------------------------------------------------------------------------------------------------
+
+    /** End a placement before its term, with a required reason: ENDED, kind TERMINATED, shown as Terminated. The consultant goes back to Available. */
+    @Transactional
+    public PlacementDTO.Detail terminate(OrgMembership me, Long id, PlacementDTO.TerminateRequest req) {
+        TalentPlacement p = writable(me, id);
+        requireOpen(p);
+        if (req == null) throw OrgException.invalid("body", "is required");
+        String reason = text("reason", req.reason(), END_REASON_MAX);
+        if (reason == null || reason.length() < 3) throw OrgException.invalid("reason", "is required (at least 3 characters)");
+        LocalDate today = today();
+        LocalDate end = req.endDate() == null ? today : req.endDate();
+        if (end.isBefore(p.getStartDate())) throw OrgException.invalid("endDate", "cannot be before the start date");
+        if (end.isAfter(today)) throw OrgException.invalid("endDate", "cannot be in the future; give notice instead");
+        Instant now = Instant.now(clock);
+        PlacementEvent snap = snapshot(p);
+        p.setStatus(PlacementRules.STORED_ENDED);
+        p.setEndKind(TalentPlacement.END_TERMINATED);
+        p.setEndReason(reason);
+        p.setEndDate(end);
+        p.setCompletedAt(now);
+        placements.saveAndFlush(p);
+        availability.onEnded(p.getOrgId(), p.getConsultantId(), today);
+        record(p, "TERMINATED", me, "Terminated: " + reason, null, snap, now);
+        audit.record(me, AUDIT_TERMINATE, TARGET, null, String.valueOf(p.getId()), json(Map.of("endDate", end.toString())));
+        return query.detailOf(me, p);
+    }
+
+    /** Record that notice was given: the placement is Ending until the end date, and the consultant reads On notice. */
+    @Transactional
+    public PlacementDTO.Detail giveNotice(OrgMembership me, Long id, PlacementDTO.NoticeRequest req) {
+        TalentPlacement p = writable(me, id);
+        requireOpen(p);
+        if (req == null || req.endDate() == null) throw OrgException.invalid("endDate", "is required");
+        LocalDate today = today();
+        if (p.getStartDate().isAfter(today)) throw OrgException.coded(422, "PLACEMENT_NOT_STARTED", "A placement that has not started cannot be on notice", Map.of());
+        if (p.getNoticeOn() != null) throw OrgException.coded(409, "ALREADY_ON_NOTICE", "Notice was already recorded for this placement", Map.of());
+        if (req.endDate().isBefore(today)) throw OrgException.invalid("endDate", "cannot be in the past");
+        if (req.endDate().isBefore(p.getStartDate())) throw OrgException.invalid("endDate", "cannot be before the start date");
+        String note = text("note", req.note(), EXT_NOTE_MAX);
+        Instant now = Instant.now(clock);
+        PlacementEvent snap = snapshot(p);
+        p.setNoticeOn(today);
+        p.setEndDate(req.endDate());
+        placements.saveAndFlush(p);
+        availability.onNotice(p.getOrgId(), p.getConsultantId(), req.endDate(), today);
+        record(p, "NOTICE_GIVEN", me, "Notice given, ends " + req.endDate() + (note == null ? "" : ": " + note), null, snap, now);
+        audit.record(me, AUDIT_NOTICE, TARGET, null, String.valueOf(p.getId()), json(Map.of("endDate", req.endDate().toString())));
+        return query.detailOf(me, p);
+    }
+
     // ---- complete / redeploy ---------------------------------------------------------------------------------------------------
 
     @Transactional
@@ -296,8 +354,10 @@ public class PlacementCommandService {
         PlacementEvent snap = snapshot(p);
         p.setStatus(PlacementRules.STORED_ENDED);
         p.setCompletedAt(now);
+        p.setEndKind(TalentPlacement.END_COMPLETED);
         if (p.getEndDate() == null || p.getEndDate().isAfter(today)) p.setEndDate(today);
         placements.saveAndFlush(p);
+        availability.onEnded(p.getOrgId(), p.getConsultantId(), today);
         record(p, "COMPLETED", me, "Marked complete" + (note == null ? "" : ": " + note), null, snap, now);
         audit.record(me, AUDIT_COMPLETE, TARGET, null, String.valueOf(p.getId()), json(Map.of("endDate", p.getEndDate().toString())));
         return query.detailOf(me, p);
@@ -393,6 +453,8 @@ public class PlacementCommandService {
                 p.setStatus(last.getPrevStatus() == null ? PlacementRules.STORED_ACTIVE : last.getPrevStatus());
                 p.setEndDate(last.getPrevEndDate());
                 p.setCompletedAt(null);
+                p.setEndKind(null);
+                if (PlacementRules.STORED_ACTIVE.equals(p.getStatus())) availability.onStarted(p.getOrgId(), p.getConsultantId(), today());
             }
             case "REDEPLOY_STARTED" -> {
                 p.setRedeploymentPool(Boolean.TRUE.equals(last.getPrevPool()));

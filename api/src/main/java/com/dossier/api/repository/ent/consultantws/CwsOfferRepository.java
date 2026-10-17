@@ -25,9 +25,12 @@ public interface CwsOfferRepository extends Repository<CwsOffer, Long> {
 
     void delete(CwsOffer entity);
 
-    List<CwsOffer> findByOrgIdAndConsultantId(Long orgId, Long consultantId);
+    /** The consultant's view: an org-side DRAFT is not theirs to see until the org records it as extended. */
+    @Query("select o from CwsOffer o where o.orgId = :orgId and o.consultantId = :consultantId and o.status <> 'DRAFT'")
+    List<CwsOffer> findByOrgIdAndConsultantId(@Param("orgId") Long orgId, @Param("consultantId") Long consultantId);
 
-    Optional<CwsOffer> findByOrgIdAndConsultantIdAndId(Long orgId, Long consultantId, Long id);
+    @Query("select o from CwsOffer o where o.orgId = :orgId and o.consultantId = :consultantId and o.id = :id and o.status <> 'DRAFT'")
+    Optional<CwsOffer> findByOrgIdAndConsultantIdAndId(@Param("orgId") Long orgId, @Param("consultantId") Long consultantId, @Param("id") Long id);
 
     long countByOrgIdAndConsultantId(Long orgId, Long consultantId);
 
@@ -36,7 +39,7 @@ public interface CwsOfferRepository extends Repository<CwsOffer, Long> {
      * {@code today} counts as EXPIRED, so the status filter uses that effective status.
      */
     @Query(
-        "select o from CwsOffer o where o.orgId = :orgId and o.consultantId = :consultantId " +
+        "select o from CwsOffer o where o.orgId = :orgId and o.consultantId = :consultantId and o.status <> 'DRAFT' " +
         "and (:status = '' or (:status = 'EXPIRED' and (o.status = 'EXPIRED' or (o.status in ('PENDING_REVIEW','NEGOTIATION') and o.offerDeadline is not null and o.offerDeadline < :today))) " +
         "  or (:status <> 'EXPIRED' and o.status = :status and not (o.status in ('PENDING_REVIEW','NEGOTIATION') and o.offerDeadline is not null and o.offerDeadline < :today))) " +
         "and (:company = '' or o.clientName = :company) " +
@@ -51,7 +54,7 @@ public interface CwsOfferRepository extends Repository<CwsOffer, Long> {
     /** The atomic response: only a row still in one of {@code from} (and not past its deadline) moves; 0 rows = somebody got there first. */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(
-        "update CwsOffer o set o.status = :to, o.respondedAt = :at, o.updatedAt = :at, o.responseNote = :note " +
+        "update CwsOffer o set o.status = :to, o.respondedAt = :at, o.updatedAt = :at, o.responseNote = :note, o.updatedByKind = 'CONSULTANT', o.updatedByMemberId = null " +
         "where o.orgId = :orgId and o.consultantId = :consultantId and o.id = :id and o.status in :from " +
         "and (o.offerDeadline is null or o.offerDeadline >= :today)"
     )

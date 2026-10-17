@@ -30,7 +30,9 @@ class ChangeAuditCoverageTest {
     static final Set<String> REQUIRED = Set.of(
         "Application", "ApplicationNote", "Interview", "Resume",
         // Enterprise application records (X9.13): created_by_member_id / updated_by_member_id
-        "TalentApplication", "TalentInterview", "TalentApplicationNote", "MktSubmission", "CwsSubmission"
+        "TalentApplication", "TalentInterview", "TalentApplicationNote", "MktSubmission", "CwsSubmission",
+        // Offers (X9.8): the org records them, the consultant answers; created_by_member_id / updated_by_member_id / updated_by_kind
+        "CwsOffer"
     );
 
     /**
@@ -46,7 +48,7 @@ class ChangeAuditCoverageTest {
         "DataShare", "Organization", "OrgMember", "OrgAssignment", "OrgHostname", "OrgRoleDefinition", "ConsultantLicense", "OrgBillingAccount",
         "OrgContract", "OrgSubscriptionItem", "UsageCounter",
         // Consultant workspace working data: the consultant's own rows.
-        "CwsAvailabilityBlock", "CwsInterviewDetail", "CwsInterviewFeedback", "CwsJobSource", "CwsNotificationPref", "CwsOffer", "CwsOpportunityResponse",
+        "CwsAvailabilityBlock", "CwsInterviewDetail", "CwsInterviewFeedback", "CwsJobSource", "CwsNotificationPref", "CwsOpportunityResponse",
         "CwsPlacementChecklist", "CwsPlacementDetail", "CwsPlacementMeeting", "CwsPlacementMilestone", "CwsProfileDetail", "CwsSetting", "CwsTask",
         "CwsTaskDetail", "CwsWorkPreference",
         // Marketer workspace working data and views.

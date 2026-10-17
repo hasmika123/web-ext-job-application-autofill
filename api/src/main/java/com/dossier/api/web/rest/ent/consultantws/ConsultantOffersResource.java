@@ -72,7 +72,7 @@ public class ConsultantOffersResource {
 
     @Operation(
         summary = "Accept an offer",
-        description = "Needs offers.respond. Records the consultant's answer only: nothing is signed or sent to a client and no placement is created. 409 OFFER_NOT_OPEN when it is not open, OFFER_EXPIRED after the deadline."
+        description = "Needs offers.respond. Records the consultant's answer only: nothing is signed or sent to a client; accepting creates the placement record (PENDING_START or ACTIVE). 409 OFFER_NOT_OPEN when it is not open, OFFER_EXPIRED after the deadline."
     )
     @PostMapping("/{id}/accept")
     @OrgPermissionRequired

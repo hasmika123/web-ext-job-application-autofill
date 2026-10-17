@@ -519,6 +519,20 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/redeploy", Case.versioned(200, "PLACEMENT_REDEPLOY", w -> "{}", w -> null)),
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/redeploy/cancel", Case.people(200, "PLACEMENT_REDEPLOY_CANCEL", 1, w -> null, w -> null, World::putPlacementInPool)),
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/notes", Case.versioned(201, "PLACEMENT_NOTE", w -> "{\"body\":\"Hijacked note\"}", w -> null)),
+        // Offers to placement (X9.8, X10.4): the Accounts Offers page and the end of a placement. The CONSULTANT answers an offer; there is no accept or decline route here.
+        Map.entry("GET /api/orgs/{orgId}/offers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/offers/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/offers/pickers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/offers/{offerId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/offers", Case.versioned(201, "OFFER_CREATE", w -> "{\"consultantId\":" + w.plTalent.spareConsultantId() + ",\"clientId\":" + w.plTalent.clientId() + ",\"roleTitle\":\"Hijack\",\"startDate\":\"" + java.time.LocalDate.now().plusDays(20) + "\"}", w -> null)),
+        Map.entry("PUT /api/orgs/{orgId}/offers/{offerId}", Case.versioned(200, "OFFER_UPDATE", w -> "{\"rateMinor\":10500,\"ratePeriod\":\"HOUR\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/offers/{offerId}/extend", Case.people(200, "OFFER_EXTEND", 1, w -> null, w -> null, World::draftTheOffer)),
+        Map.entry("POST /api/orgs/{orgId}/offers/{offerId}/withdraw", Case.versioned(200, "OFFER_WITHDRAW", w -> "{}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/offers/{offerId}/placement", Case.people(200, "OFFER_PLACEMENT", 2, w -> null, w -> null, World::acceptTheOffer)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/terminate", Case.versioned(200, "PLACEMENT_TERMINATE", w -> "{\"reason\":\"Hijacked\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/notice", Case.versioned(200, "PLACEMENT_NOTICE", w -> "{\"endDate\":\"" + java.time.LocalDate.now().plusDays(10) + "\"}", w -> null)),
+        Map.entry("GET /api/orgs/{orgId}/submissions", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/submissions/counts", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/undo", Case.people(200, "PLACEMENT_UNDO", 1, w -> "{\"eventId\":" + w.plUndoEventId + "}", w -> null, World::preparePlacementUndo)),
         // Enterprise V2 job data audit (docs/enterprise-v2/60 section 11): read only, needs audit.view at ORG scope (the owner has it, every role without it gets the generic 404).
         Map.entry("GET /api/orgs/{orgId}/audit/job-data", Case.read()),
@@ -788,8 +802,24 @@ class OrgIsolationIT {
         Long cwsMatchId, cwsResumeId, cwsRequirementId, cwsApplicationId, cwsConsultantId;
 
         /** The Undo route needs the callers own latest, still undoable change. */
+        Long offerRowId;
+
         void preparePlacementUndo() {
             plUndoEventId = com.dossier.api.web.rest.ent.PlacementItSupport.undoableEvent(em, org.getId(), plTalent.placementId(), owner.getId());
+        }
+
+        /** The extend route needs a draft offer. */
+        void draftTheOffer() {
+            em.createQuery("update CwsOffer o set o.status = 'DRAFT' where o.orgId = :o").setParameter("o", org.getId()).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        /** The create-placement route needs an accepted offer of a consultant with no placement and a linked client. */
+        void acceptTheOffer() {
+            em.createQuery("update CwsOffer o set o.status = 'ACCEPTED', o.respondedAt = :now where o.orgId = :o").setParameter("o", org.getId()).setParameter("now", java.time.Instant.now()).executeUpdate();
+            em.flush();
+            em.clear();
         }
 
         /** The request an extension route needs a placement with no extension waiting. */
@@ -1115,6 +1145,20 @@ class OrgIsolationIT {
             jobVersion = com.dossier.api.service.ent.jobs.JobBoardService.versionOf(jr);
             appTalent = com.dossier.api.web.rest.ent.ApplicationItSupport.seed(em, org.getId(), owner.getId());
             plTalent = com.dossier.api.web.rest.ent.PlacementItSupport.seed(em, org.getId(), owner.getId()); // (a merge had moved this line into interviewState)
+            com.dossier.api.domain.ent.consultantws.CwsOffer offerRow = new com.dossier.api.domain.ent.consultantws.CwsOffer();
+            offerRow.setOrgId(org.getId());
+            offerRow.setConsultantId(plTalent.spareConsultantId());
+            offerRow.setClientId(plTalent.clientId());
+            offerRow.setClientName(prefix + " offer client");
+            offerRow.setRoleTitle("Offer Fixture Engineer");
+            offerRow.setStatus(com.dossier.api.domain.ent.consultantws.CwsOffer.PENDING_REVIEW);
+            offerRow.setStartDate(java.time.LocalDate.now().plusDays(30));
+            offerRow.setOfferDeadline(java.time.LocalDate.now().plusDays(30));
+            offerRow.setCreatedByMemberId(owner.getId());
+            offerRow.setUpdatedByMemberId(owner.getId());
+            em.persist(offerRow);
+            em.flush();
+            offerRowId = offerRow.getId();
             com.dossier.api.domain.ent.talent.TalentInterview iv = new com.dossier.api.domain.ent.talent.TalentInterview();
             iv.setOrgId(org.getId());
             iv.setApplicationId(appTalent.applicationId());
@@ -1478,6 +1522,7 @@ class OrgIsolationIT {
             ids.put("applicationId", String.valueOf(appTalent.applicationId()));
             ids.put("interviewId", String.valueOf(interviewId));
             ids.put("placementId", String.valueOf(plTalent.placementId()));
+            ids.put("offerId", String.valueOf(offerRowId)); // {offerId} of the Accounts Offers routes
             ids.put("extensionId", String.valueOf(plTalent.extensionId()));
             // ent-marketer: the Marketing workspace names its rows by variables that mean other rows on other pages, so uri() renames them by route prefix.
             ids.put("mktTaskId", String.valueOf(mktTaskId));
