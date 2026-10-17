@@ -501,6 +501,33 @@ class OrgClientResourceIT extends MemberItSupport {
     }
 
     @Test
+    void aContactKeepsAWorkPhoneAndAShortNoteAndTheyCanBeEditedAndCleared() throws Exception {
+        String u = url(a, alpha) + "/contacts";
+        MvcResult r = call(login("am"), post(u), "{\"name\":\"Robert Chen\",\"phone\":\"+1 (512) 555-0100\",\"notes\":\"Prefers a call in the morning.\"}", null, key());
+        assertStatus(r, 201);
+        JsonNode added = null;
+        for (JsonNode c : json(r).path("contacts")) if ("Robert Chen".equals(c.path("name").asText())) added = c;
+        assertThat(added).isNotNull();
+        assertThat(added.path("phone").asText()).isEqualTo("+1 (512) 555-0100");
+        assertThat(added.path("notes").asText()).isEqualTo("Prefers a call in the morning.");
+        String cu = url(a, alpha) + "/contacts/" + added.path("id").asLong();
+        MvcResult edited = call(login("am"), patch(cu), "{\"phone\":\"5125550199\"}");
+        assertStatus(edited, 200);
+        assertThat(contacts.findByOrgIdAndId(a.getId(), added.path("id").asLong()).orElseThrow().getPhone()).isEqualTo("5125550199");
+        assertStatus(call(login("am"), patch(cu), "{\"phone\":\"nope\"}"), 422);
+        assertStatus(call(login("am"), patch(cu), "{\"notes\":\"SSN 123-45-6789\"}"), 422);
+        assertStatus(call(login("am"), patch(cu), "{\"phone\":null,\"notes\":null}"), 200);
+        em.clear();
+        assertThat(contacts.findByOrgIdAndId(a.getId(), added.path("id").asLong()).orElseThrow().getPhone()).isNull();
+        assertThat(contacts.findByOrgIdAndId(a.getId(), added.path("id").asLong()).orElseThrow().getNotes()).isNull();
+        // the Contacts tab (and the Account Manager's Contacts page) lists them too
+        JsonNode tab = json(call(login("am"), get(url(a) + "/contacts?q=robert")));
+        assertThat(tab.path("items").get(0).has("phone")).isTrue();
+        // another organization's contact is the same generic not found
+        assertGeneric404(call(login("bowner"), patch(url(a, alpha) + "/contacts/" + added.path("id").asLong()), "{\"phone\":\"5125550100\"}"), "B's owner");
+    }
+
+    @Test
     void aPrivateMailboxADuplicateAndABadContactAreRefused() throws Exception {
         String u = url(a, alpha) + "/contacts";
         assertCode(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"email\":\"jo.doe@gmail.com\"}", null, key()), 422, "WORK_EMAIL_REQUIRED");
@@ -508,7 +535,9 @@ class OrgClientResourceIT extends MemberItSupport {
         assertStatus(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"email\":\"not-an-email\"}", null, key()), 422);
         assertStatus(call(login("am"), post(u), "{\"name\":\"J\"}", null, key()), 422);
         assertStatus(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"role\":\"BOSS\"}", null, key()), 422);
-        assertThat(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"phone\":\"555-0100\"}", null, key()).getResponse().getStatus()).as("a phone number is not a field").isGreaterThanOrEqualTo(400);
+        assertStatus(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"phone\":\"call me maybe\"}", null, key()), 422);
+        assertStatus(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"phone\":\"123\"}", null, key()), 422);
+        assertStatus(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"notes\":\"SSN 123-45-6789\"}", null, key()), 422);
         assertStatus(call(login("am"), post(u), "{\"name\":\"Jo Doe\",\"title\":\"SSN 123-45-6789\"}", null, key()), 422);
         assertGeneric404(call(login("spec"), post(u), "{\"name\":\"Jo Doe\"}", null, key()), "a specialist cannot add contacts");
         assertThat(contacts.findByOrgIdAndClientId(a.getId(), alpha.getId())).hasSize(2);

@@ -287,7 +287,7 @@ public class ClientBoardService {
     }
 
     static ClientDTO.Contact contactOf(ClientContact x) {
-        return new ClientDTO.Contact(x.getId(), x.getName(), x.getTitle(), x.getWorkEmail(), x.getRoleLabel(), x.getStatus(), x.getCreatedAt());
+        return new ClientDTO.Contact(x.getId(), x.getName(), x.getTitle(), x.getWorkEmail(), x.getPhone(), x.getNotes(), x.getRoleLabel(), x.getStatus(), x.getCreatedAt());
     }
 
     @SuppressWarnings("unchecked")
@@ -348,7 +348,7 @@ public class ClientBoardService {
         int to = (int) Math.min((long) from + sz, total);
         List<ClientDTO.ContactRow> items = new ArrayList<>();
         for (ClientContact x : found.subList(from, to)) {
-            items.add(new ClientDTO.ContactRow(x.getId(), x.getName(), x.getTitle(), x.getWorkEmail(), x.getRoleLabel(), x.getStatus(), new ClientDTO.ClientRef(x.getClientId(), byId.get(x.getClientId()).getName()), x.getCreatedAt()));
+            items.add(new ClientDTO.ContactRow(x.getId(), x.getName(), x.getTitle(), x.getWorkEmail(), x.getPhone(), x.getNotes(), x.getRoleLabel(), x.getStatus(), new ClientDTO.ClientRef(x.getClientId(), byId.get(x.getClientId()).getName()), x.getCreatedAt()));
         }
         return new ClientDTO.ContactPage(items, pg, sz, total, to < total);
     }

@@ -49,7 +49,7 @@ public final class ClientDTO {
 
     public record Summary(Tile totalClients, Tile activeRequirements, Tile newThisMonth, Tile placementsViaClients, Instant asOf, Facets facets, Rule healthRule, List<Person> managerOptions, Access access) {}
 
-    public record Contact(Long id, String name, String title, String email, String role, String status, Instant addedAt) {}
+    public record Contact(Long id, String name, String title, String email, String phone, String notes, String role, String status, Instant addedAt) {}
 
     public record RequirementItem(Long id, String title, String status, int positions, int filled, String location, Instant postedAt, int submissions) {}
 
@@ -88,7 +88,7 @@ public final class ClientDTO {
     public record CreateRequest(String name, String industry, String website, String location, String sizeBand, LocalDate clientSince, String about, String status, Long ownerMemberId) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
-    public record ContactRequest(String name, String title, String email, String role) {}
+    public record ContactRequest(String name, String title, String email, String phone, String notes, String role) {}
 
     @JsonIgnoreProperties(ignoreUnknown = false)
     public record NoteRequest(String body) {}
@@ -97,7 +97,7 @@ public final class ClientDTO {
 
     public record ClientRef(Long id, String name) {}
 
-    public record ContactRow(Long id, String name, String title, String email, String role, String status, ClientRef client, Instant addedAt) {}
+    public record ContactRow(Long id, String name, String title, String email, String phone, String notes, String role, String status, ClientRef client, Instant addedAt) {}
 
     public record ContactPage(List<ContactRow> items, int page, int size, long total, boolean hasNext) {}
 
