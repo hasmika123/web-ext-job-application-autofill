@@ -461,7 +461,7 @@ class OrgRequirementResourceIT extends MemberItSupport {
         assertStatus(r, 200);
         JsonNode result = json(r);
         assertThat(result.path("created").asBoolean()).isTrue();
-        assertThat(result.path("requirement").path("consultantCount").asInt()).isEqualTo(1);
+        assertThat(result.path("requirement").path("requirement").path("consultantCount").asInt()).isEqualTo(1);
         assertThat(result.path("requirement").path("assignees").get(0).path("name").asText()).isEqualTo("Jessica Davis");
         assertThat(auditCount(a, "REQUIREMENT_ASSIGN") - before).isEqualTo(1);
         assertThat(((Number) em.createNativeQuery("select count(*) from talent_application where org_id = ?1 and requirement_id = ?2").setParameter(1, a.getId()).setParameter(2, r2.getId()).getSingleResult()).longValue())
