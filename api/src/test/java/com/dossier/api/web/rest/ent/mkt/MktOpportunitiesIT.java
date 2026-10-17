@@ -60,6 +60,7 @@ class MktOpportunitiesIT {
     @Autowired private MktOpportunityRepository opps;
     @Autowired private MktOpportunityEventRepository events;
     @Autowired private JdbcTemplate jdbc;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager em;
     @Autowired private ResumeBuilderSettings settings;
     @Autowired private TenantResolver resolver;
 
@@ -148,6 +149,8 @@ class MktOpportunitiesIT {
         long consultantId = item.path("consultant").path("id").asLong();
         jdbc.update("update client_requirement set status = 'OPEN' where org_id = ? and id = (select requirement_id from requirement_match where id = ?)", acme, oppId);
         jdbc.update("update consultant_profile set marketing_status = 'PAUSED' where org_id = ? and id = ?", acme, consultantId);
+        em.flush();
+        em.clear(); // the native updates bypass the persistence context (shared with the request in this transaction): forget the seeded copies so the picker reads the row
 
         JsonNode options = json(mockMvc.perform(get("/api/orgs/" + acme + "/mkt/opportunities/options").with(user(MARKETER))).andReturn(), 200);
         JsonNode paused = null;
