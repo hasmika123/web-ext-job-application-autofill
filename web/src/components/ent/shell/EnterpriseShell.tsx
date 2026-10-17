@@ -358,6 +358,11 @@ export default function EnterpriseShell({
                   <p className="ent-hero-subtitle" title={subtitle}>{subtitle}</p>
                 ) : null}
               </div>
+              {isHome ? (
+                <p aria-hidden className="ent-hero-note">
+                  Let&apos;s make today count!
+                </p>
+              ) : null}
               {/* decoration only */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`${ENT_MASCOT_BASE}/${isHome ? "welcome" : "happy"}.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />

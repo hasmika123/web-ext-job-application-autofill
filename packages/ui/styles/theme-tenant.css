@@ -1516,3 +1516,64 @@
 .theme-tenant main[data-shell-main] > :nth-last-child(2):not(.ent-footer) {
   margin-bottom: 32px;
 }
+
+/* ── the rich page band (the personal app's hero): colour wash, layered hills in the brand colours, handwritten note, big bee ── */
+.theme-tenant .ent-hero {
+  min-height: 150px;
+  padding-bottom: 24px;
+  background: linear-gradient(105deg, #dfeaff 0%, color-mix(in srgb, var(--color-accent-soft) 80%, #ffffff) 52%, color-mix(in srgb, var(--color-v2-blue-soft, #e3f4f6) 75%, #e6f6ee) 100%);
+}
+.theme-tenant .ent-hero::before {
+  /* a back hill on the right and a front hill on the left, both in the brand colours */
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 100%;
+  top: auto;
+  left: 0;
+  width: auto;
+  border-radius: 0;
+  filter: none;
+  background:
+    radial-gradient(ellipse 34% 62% at 86% 118%, color-mix(in srgb, var(--color-accent) 42%, transparent) 0 98%, transparent 100%),
+    radial-gradient(ellipse 30% 46% at 62% 124%, color-mix(in srgb, var(--color-v2-blue, #0b7a8a) 30%, transparent) 0 98%, transparent 100%),
+    radial-gradient(ellipse 22% 38% at 6% 126%, color-mix(in srgb, var(--color-accent) 24%, transparent) 0 98%, transparent 100%);
+  pointer-events: none;
+}
+.theme-tenant .ent-hero[data-home="true"] {
+  min-height: 176px;
+}
+.theme-tenant .ent-hero-title {
+  font-size: clamp(30px, 2.5vw, 40px);
+}
+.theme-tenant .ent-hero[data-home="true"] .ent-hero-title {
+  font-size: clamp(34px, 2.9vw, 46px);
+}
+.theme-tenant .ent-hero-subtitle {
+  max-width: 34rem;
+  color: #2f3a6b;
+}
+.theme-tenant .ent-hero-art {
+  height: 138px;
+  margin: -10px 4px -26px 0;
+  z-index: 1;
+}
+.theme-tenant .ent-hero[data-home="true"] .ent-hero-art {
+  height: 168px;
+  margin-top: -14px;
+}
+.theme-tenant .ent-hero-note {
+  position: absolute;
+  right: clamp(150px, 13vw, 210px);
+  top: 18px;
+  width: 190px;
+  transform: rotate(-6deg);
+  font-family: var(--font-caveat), "Caveat", cursive;
+  font-size: 26px;
+  line-height: 1.05;
+  color: var(--ent-title);
+  z-index: 2;
+}
+@media (max-width: 1100px) {
+  .theme-tenant .ent-hero-note { display: none; }
+}
