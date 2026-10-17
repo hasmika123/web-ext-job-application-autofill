@@ -26,7 +26,8 @@ function ok(n, c, e) { if (c) pass++; else { fail++; fails.push(n + (e ? "  ->  
 
 // Boots service-worker.js against a mock `chrome` whose getManifest() reports `matches`.
 // Returns the captured onMessageExternal listener + the token store it writes through.
-function boot(matches) {
+function boot(matches, opts) {
+  opts = opts || {};
   const store = {};                 // chrome.storage.local backing map
   const saved = [];                 // token-store writes
   const external = [];              // captured onMessageExternal listeners
@@ -69,6 +70,9 @@ function boot(matches) {
   sandbox.self = sandbox;
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
+  // "Prepare selected openings" needs the workspace + batch modules next to the worker (the real
+  // extension imports them in entrypoints/background.ts).
+  if (opts.batch) for (const f of ["src/lib/workspace.js", "src/lib/prepare-batch.js"]) vm.runInContext(fs.readFileSync(path.join(ROOT, f), "utf8"), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, "src/background/service-worker.js"), "utf8"), sandbox);
 
   ok("boot: registered an onMessageExternal listener", external.length === 1, `got ${external.length}`);
@@ -152,12 +156,48 @@ const PROD_MATCHES = ["https://kiwiply.com/*", "https://www.kiwiply.com/*", "htt
     ok("dev manifest still rejects a different port", other === null, JSON.stringify(other));
   }
 
-  /* ---- a wildcard match covers subdomains and the bare host, nothing else ---- */
+  /* ---- a wildcard match (the tenant hosts) is for "Prepare selected" ONLY: it never lets a page connect ---- */
   {
-    const { listener } = boot(["https://*.kiwiply.com/*"]);
-    ok("wildcard accepts the bare host", (await connect(listener, "https://kiwiply.com"))?.ok === true);
-    ok("wildcard accepts a subdomain", (await connect(listener, "https://app.kiwiply.com"))?.ok === true);
-    ok("wildcard rejects suffix-confusion", (await connect(listener, "https://kiwiply.com.evil.com")) === null);
+    const { listener } = boot(PROD_MATCHES.concat(["https://*.kiwiply.com/*"]));
+    ok("wildcard manifest: the exact origins still connect", (await connect(listener, "https://kiwiply.com"))?.ok === true);
+    ok("wildcard manifest: a tenant host cannot hand over a session", (await connect(listener, "https://acme.kiwiply.com")) === null);
+    ok("wildcard manifest: nor can a deeper subdomain", (await connect(listener, "https://a.b.kiwiply.com")) === null);
+    ok("wildcard manifest: nor suffix-confusion", (await connect(listener, "https://kiwiply.com.evil.com")) === null);
+    const only = boot(["https://*.kiwiply.com/*"]);
+    ok("a wildcard-only manifest connects nobody (the connect gate wants an exact origin)", (await connect(only.listener, "https://kiwiply.com")) === null && (await connect(only.listener, "https://app.kiwiply.com")) === null);
+    const sync = await connect2(listener, "https://acme.kiwiply.com", { type: "KIWIPLY_SYNC", event: "signedOut" });
+    ok("wildcard manifest: a tenant host cannot send a sync signal either", sync === null, JSON.stringify(sync));
+  }
+
+  /* ---- "Prepare selected openings": its own gate, tenant hosts allowed, ACK always an object ---- */
+  {
+    const WILD = PROD_MATCHES.concat(["https://*.kiwiply.com/*"]);
+    const { listener, internal } = boot(WILD, { batch: true });
+    const prep = (extra) => Object.assign({ type: "KIWIPLY_PREPARE_BATCH", version: 1, sessionId: "sess_abc123", orgId: 7, jobs: [{ matchId: 1, url: "https://jobs.lever.co/acme/1", title: "t", company: "c" }] }, extra || {});
+    const tenant = await connect2(listener, "https://acme.kiwiply.com", prep());
+    ok("prepare: a tenant host is heard and answered (here: not connected yet)", tenant && tenant.type === "KIWIPLY_PREPARE_ACK" && tenant.accepted === false && tenant.reason === "not-connected" && tenant.sessionId === "sess_abc123", JSON.stringify(tenant));
+    const exact = await connect2(listener, "https://kiwiply.com", prep());
+    ok("prepare: an exact web origin is heard too", exact && exact.reason === "not-connected", JSON.stringify(exact));
+    const evil = await connect2(listener, "https://evil.test", prep());
+    ok("prepare: any other origin is refused with an ACK", evil && evil.accepted === false && evil.reason === "untrusted-origin", JSON.stringify(evil));
+    const lookalike = await connect2(listener, "https://acme.kiwiply.com.evil.test", prep());
+    ok("prepare: a look-alike host is refused", lookalike && lookalike.reason === "untrusted-origin", JSON.stringify(lookalike));
+    const http = await connect2(listener, "http://acme.kiwiply.com", prep());
+    ok("prepare: http is refused", http && http.reason === "untrusted-origin", JSON.stringify(http));
+    const bad = await connect2(listener, "https://acme.kiwiply.com", prep({ jobs: [] }));
+    ok("prepare: a bad batch is refused with its reason", bad && bad.accepted === false && bad.reason === "no-jobs", JSON.stringify(bad));
+    // Firefox relay path: a content script on a tenant page forwards it; an ATS page's script may not
+    const viaRelay = await relay(internal, { tab: { id: 7 }, url: "https://acme.kiwiply.com/w/consultant/openings" }, prep());
+    ok("prepare (relay): a tenant page's content script is answered", viaRelay && viaRelay.type === "KIWIPLY_PREPARE_ACK" && viaRelay.reason === "not-connected", JSON.stringify(viaRelay));
+    const atsRelay = await relay(internal, { tab: { id: 9 }, url: "https://boards.greenhouse.io/acme/jobs/1" }, prep());
+    ok("prepare (relay): a content script on an ATS page is refused", atsRelay && atsRelay.reason === "untrusted-origin", JSON.stringify(atsRelay));
+    const noTab = await relay(internal, { url: "https://acme.kiwiply.com/x" }, prep());
+    ok("prepare (relay): an extension page (no tab) is not heard", noTab === null, JSON.stringify(noTab));
+    // the batch commands from the drawer are not reachable by a page
+    const cmd = await relay(internal, { tab: { id: 7 }, url: "https://acme.kiwiply.com/x" }, { type: "JAF_BATCH_STOP" });
+    ok("batch commands: a web page's content script cannot stop or drive a batch", cmd === null, JSON.stringify(cmd));
+    const prog = await relay(internal, {}, { type: "JAF_BATCH_PROGRESS", batch: { sessionId: "sess_abc123", matchId: 1 }, phase: "filled", gaps: 0 });
+    ok("batch progress: needs a tab sender", prog === null, JSON.stringify(prog));
   }
 
   /* ---- a malformed payload from a GOOD origin is refused, not stored ---- */

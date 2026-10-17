@@ -81,6 +81,39 @@ ok("the link runs AFTER the user's own confirmSubmission and is wrapped in try/c
 const wsl = code(read("src/lib/workspace.js")) + code(read("entrypoints/panel/workspace-actions.ts"));
 ok("workspace modules never write an application status", !/updateApplication|pushApplication|confirmSubmission|status\s*:\s*["']APPLIED/.test(wsl));
 
+/* ---- 4. "Prepare selected openings" (X12.9): opens tabs and reports; never clicks, submits or ticks ---- */
+// (cases only ADDED; BLOCK_RE and sections 1-3 above are untouched.) The page-level proof — nothing
+// clicked, no form submitted, attestation boxes untouched — runs in prepare_batch_page.test.js.
+const PREPARE_FILES = [
+  "src/lib/prepare-batch.js",
+  "src/content/batch-prepare.js",
+  "entrypoints/panel/prepare-actions.ts",
+  "entrypoints/panel/PrepareBatch.tsx",
+];
+for (const f of PREPARE_FILES) {
+  const src = code(read(f));
+  for (const [re, label] of FORBIDDEN) ok(f + " has no " + label, !re.test(src));
+  ok(f + " never ticks or checks a box", !/\.checked\s*=[^=]|\.checked\s*=\s*true|setAttribute\(\s*["']checked/.test(src));
+  ok(f + " never writes into a page field", !/\.value\s*=[^=]/.test(src));
+}
+// The batch page module only ever scrolls and focuses (the banner's Go buttons).
+const bp = code(read("src/content/batch-prepare.js"));
+ok("batch-prepare.js: a page element is only scrolled to and focused", /scrollIntoView/.test(bp) && /\.focus\(/.test(bp) && !/\.(blur|select|reset)\s*\(/.test(bp));
+ok("batch-prepare.js forces auto-advance off for batch tabs", /autoAdvance:\s*false/.test(bp));
+// The controller can open tabs; it has no way to close one, press anything or run page code of its own.
+const pb = code(read("src/lib/prepare-batch.js"));
+ok("prepare-batch.js: opens tabs only (chrome.tabs.create / get), never removes or navigates one", !/tabs\.(remove|update|executeScript)|scripting|chrome\./.test(pb));
+ok("prepare-batch.js: the fill it asks for is the review overlay (JAF_BATCH_FILL), autoAdvance forced off", /JAF_BATCH_FILL/.test(pb) && /autoAdvance:\s*false/.test(pb));
+// The service-worker glue: its only page-facing calls are the check and the fill, and the injection of OUR content script.
+const swRaw = read("src/background/service-worker.js");
+const swp = code(swRaw.slice(swRaw.indexOf("--- Prepare selected openings"), swRaw.indexOf("--- Scheduled + focus-driven version checks")));
+ok("service worker batch glue found", swp.length > 500);
+ok("service worker batch glue: no click / submit / dispatch code", !/\.click\s*\(|\.(submit|requestSubmit)\s*\(|dispatchEvent\s*\(|findNextButton|type\s*=\s*["']submit["']/.test(swp));
+ok("service worker batch glue: injects only OUR content bundle (content-scripts/content.js)", /files: CONTENT_FILES/.test(swp) && !/\bfunc\s*:/.test(swp));
+ok("service worker batch glue: never closes a tab", !/tabs\.remove/.test(swp));
+// The web may start a batch only through the gated receiver; tenant wildcard never reaches connect/sync.
+ok("connect handoff and sync signals use the exact-origin gate (no wildcard)", /connectOriginAllowed\(senderOrigin\(sender\)\)\) return;/.test(sw));
+
 console.log(`${tag} ${pass} passed, ${fail} failed`);
 if (fails.length) { console.log(`${tag} Failures:`); fails.forEach((f) => console.log("  x " + f)); process.exit(1); }
 console.log(`${tag} All green.`);
