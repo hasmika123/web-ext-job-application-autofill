@@ -615,7 +615,7 @@ export default function DashboardPage({ orgId, orgName, firstName, auditHref = n
     <div data-dashboard data-status={status} className="ent-page relative flex flex-col gap-4 sm:gap-[17px]">
       <PageHeader title="Organization Dashboard" subtitle={`Welcome back! Here's what's happening at ${orgName} today.`} />
 
-      <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1 xl:absolute xl:-top-[34px] xl:right-0 xl:min-h-0 xl:justify-end">
+      <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-4 gap-y-1 xl:justify-end">
         <ul aria-label="Needs a look" className="flex min-w-0 flex-wrap gap-2">
           {chips.map((c) => {
             const cls = cn("inline-flex min-h-8 items-center rounded-full px-3 text-[12.5px] font-semibold xl:min-h-6", c.tone === "warn" ? "bg-v2-amber-soft text-v2-amber-ink" : "bg-accent-soft text-accent-deep");

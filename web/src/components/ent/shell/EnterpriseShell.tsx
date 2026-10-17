@@ -23,6 +23,7 @@ import {
 } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
 import { ENT_MASCOT_BASE } from "@/lib/ent/mascot";
+import { heroLook } from "@/lib/ent/hero-look";
 import { undoToast } from "@/lib/undo-toast";
 import { activeKey, bannersFor, defaultTitle, navSections, primaryRoleName, switcherRows, type SwitcherRow } from "@/lib/ent/shell";
 import { readCollapsed, readDismissed, readLandingPref, writeCollapsed, writeDismissed, writeLandingPref } from "@/lib/ent/shell-prefs";
@@ -181,7 +182,8 @@ export default function EnterpriseShell({
   const { tabs } = bottomBar(workspace);
   // a workspace's home page opens with a welcome message; the page's own title becomes the small label above it
   const isHome = pathname.replace(/\/+$/, "") === workspace.home.replace(/\/+$/, "");
-  const homeSubtitle = subtitle ?? `Here's what's happening at ${tenant.displayName} today.`;
+  const look = heroLook(pathname, isHome);
+  const homeSubtitle =subtitle ?? `Here's what's happening at ${tenant.displayName} today.`;
 
   const choose = (row: SwitcherRow) => {
     setSwitcherOpen(false);
@@ -346,7 +348,7 @@ export default function EnterpriseShell({
             )}
           >
             {/* the page title band every Kiwiply page opens with: brand-tinted wash, bold title, one-line subtitle, the bee on the right (every size; it shrinks on a phone) */}
-            <section className={cn("ent-hero mb-4 flex", focus && "!hidden")} data-page-header data-home={isHome ? "true" : undefined}>
+            <section className={cn("ent-hero mb-4 flex", focus && "!hidden")} data-page-header data-home={isHome ? "true" : undefined} data-variant={look.variant}>
               <div className="min-w-0 flex-1">
                 {isHome ? <p className="ent-hero-eyebrow">{title}</p> : null}
                 <h1 className="ent-hero-title" title={isHome ? undefined : title}>
@@ -365,7 +367,7 @@ export default function EnterpriseShell({
               ) : null}
               {/* decoration only */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`${ENT_MASCOT_BASE}/${isHome ? "welcome" : "happy"}.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />
+              <img src={`${ENT_MASCOT_BASE}/${look.pose}.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />
             </section>
             {children}
             {focus ? null : <ShellFooter orgName={tenant.displayName} supportEmail={tenant.supportEmail} />}

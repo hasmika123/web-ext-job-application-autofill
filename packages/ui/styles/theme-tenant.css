@@ -1600,3 +1600,62 @@
     margin: 0 -4px -18px 0;
   }
 }
+
+/* ── six band designs (data-variant 0..5, picked per page by lib/ent/hero-look.ts): different wash, shapes and decoration ──
+ * 0 hills on the right · 1 hills on the left + a sun · 2 concentric rings · 3 dot grid + low hill · 4 two soft blobs · 5 sunrise */
+.theme-tenant .ent-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: none;
+}
+.theme-tenant .ent-hero[data-variant="0"] {
+  background: linear-gradient(105deg, #dfeaff 0%, color-mix(in srgb, var(--color-accent-soft) 80%, #ffffff) 52%, color-mix(in srgb, var(--color-v2-blue-soft, #e3f4f6) 75%, #e6f6ee) 100%);
+}
+.theme-tenant .ent-hero[data-variant="1"] {
+  background: linear-gradient(80deg, #fff3e2 0%, color-mix(in srgb, var(--color-accent-soft) 70%, #ffffff) 60%, #eaf3ff 100%);
+}
+.theme-tenant .ent-hero[data-variant="1"]::before {
+  background:
+    radial-gradient(ellipse 36% 70% at 10% 130%, color-mix(in srgb, var(--color-accent) 36%, transparent) 0 98%, transparent 100%),
+    radial-gradient(ellipse 24% 48% at 34% 130%, color-mix(in srgb, var(--color-v2-blue, #0b7a8a) 26%, transparent) 0 98%, transparent 100%);
+}
+.theme-tenant .ent-hero[data-variant="1"]::after {
+  background: radial-gradient(circle 70px at 80% 28%, rgb(255 214 120 / 0.55) 0 96%, transparent 100%);
+}
+.theme-tenant .ent-hero[data-variant="2"] {
+  background: linear-gradient(120deg, #e9f0ff 0%, #f4f0ff 55%, color-mix(in srgb, var(--color-accent-soft) 85%, #ffffff) 100%);
+}
+.theme-tenant .ent-hero[data-variant="2"]::before {
+  background: none;
+}
+.theme-tenant .ent-hero[data-variant="2"]::after {
+  background: repeating-radial-gradient(circle at 92% 48%, color-mix(in srgb, var(--color-accent) 20%, transparent) 0 2px, transparent 2px 26px);
+  mask-image: radial-gradient(circle at 92% 48%, #000 0 60%, transparent 85%);
+}
+.theme-tenant .ent-hero[data-variant="3"] {
+  background: linear-gradient(95deg, #e8f7f1 0%, #eef6ff 60%, #f3f0ff 100%);
+}
+.theme-tenant .ent-hero[data-variant="3"]::before {
+  background: radial-gradient(ellipse 60% 40% at 50% 128%, color-mix(in srgb, var(--color-accent) 26%, transparent) 0 98%, transparent 100%);
+}
+.theme-tenant .ent-hero[data-variant="3"]::after {
+  background: radial-gradient(color-mix(in srgb, var(--color-accent) 38%, transparent) 1.6px, transparent 1.8px) 0 0 / 18px 18px;
+  mask-image: linear-gradient(100deg, transparent 40%, #000 100%);
+}
+.theme-tenant .ent-hero[data-variant="4"] {
+  background: linear-gradient(110deg, #fdeef6 0%, #eef3ff 55%, color-mix(in srgb, var(--color-accent-soft) 80%, #ffffff) 100%);
+}
+.theme-tenant .ent-hero[data-variant="4"]::before {
+  background:
+    radial-gradient(circle 120px at 70% 0%, color-mix(in srgb, var(--color-accent) 22%, transparent) 0 98%, transparent 100%),
+    radial-gradient(circle 90px at 96% 100%, rgb(240 120 180 / 0.2) 0 98%, transparent 100%);
+}
+.theme-tenant .ent-hero[data-variant="5"] {
+  background: linear-gradient(180deg, #e6f0ff 0%, #fff4e6 100%);
+}
+.theme-tenant .ent-hero[data-variant="5"]::before {
+  background: radial-gradient(ellipse 34% 90% at 78% 135%, rgb(255 196 120 / 0.55) 0 98%, transparent 100%),
+    radial-gradient(ellipse 52% 56% at 40% 128%, color-mix(in srgb, var(--color-accent) 24%, transparent) 0 98%, transparent 100%);
+}
