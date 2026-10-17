@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { DownloadIcon, LockIcon } from "@kiwiply/ui";
-import DeleteAccountButton from "@/components/DeleteAccountButton";
 import { DATA_MAP, NEVER_COLLECTED } from "@/lib/data-map";
 import { DemoNote, SettingsCard } from "./panels";
+import AccountDeletion from "./AccountDeletion";
+import DataExports from "./DataExports";
 
 /**
  * Settings > Privacy (E2E-U14.0): what we store, who sees it and for how long (from `lib/data-map.ts`), what we never
- * collect, and the two things you can do about it: download everything, or delete it. The Privacy Policy stays the legal
- * text; this is the same story in plain words. Server-safe (no hooks); the delete button is its own client component.
+ * collect, and the things you can do about it: download everything, prepare a full export, or schedule the account's deletion (with an undo
+ * window). The Privacy Policy stays the legal text; this is the same story in plain words. Server-safe (no hooks); the export list and
+ * the deletion card are their own client components.
  */
 export default function PrivacyPanel({ demo }: { demo: boolean }) {
   return (
@@ -63,8 +65,11 @@ export default function PrivacyPanel({ demo }: { demo: boolean }) {
               </a>
               <p className="mt-1.5 text-xs text-ink-soft">A JSON copy of your profile, resumes, applications, settings and activity.</p>
             </div>
+            <div className="mt-5 border-t border-v2-line/60 pt-5">
+              <DataExports />
+            </div>
             <div className="mt-5">
-              <DeleteAccountButton />
+              <AccountDeletion />
             </div>
           </>
         )}

@@ -25,16 +25,16 @@ Importance: BLOCKER = do not take a first paying customer without it; IMPORTANT;
 | id | title | verdict | evidence | missing | size | importance |
 |---|---|---|---|---|---|---|
 | T0.1 | Lawyer-review register + counsel brief | PARTIAL | `docs/design/trust/legal-review-register.md` | brief not sent; needs counsel | M | IMPORTANT - paid terms/privacy need review (ROADMAP 15.2) |
-| T0.2 | Record terms acceptance | NOT BUILT | no acceptance table/column in Liquibase (JSON says partial) | accepted_version + timestamp | M | IMPORTANT - proof of consent |
+| T0.2 | Record terms acceptance | FIXED (34f66fe0 + 110e4632: `terms_acceptance` table, `GET/POST /api/account/terms-acceptance`, versions in settings `legal.*`, in export and erasure; the sign-up screen does not call it yet, see HANDOFF) | no acceptance table/column in Liquibase (JSON says partial) | accepted_version + timestamp | M | IMPORTANT - proof of consent |
 | T0.3 | Versioned policy content + changelog | PARTIAL | terms/privacy pages have a `Last updated` const | versions in repo, changelog page | S | LATER |
 | T0.4 | Material-change notice + re-accept | NOT BUILT | none | email + sheet | M | LATER |
 | T0.5 | Post-review copy landing | NOT BUILT | blocked on T0.1 | - | S | LATER |
 | T0.6 | Org terms/DPA hooks | NOT BUILT | none | versioned org terms at org create | M | IMPORTANT - first org will ask for a DPA |
 | T1.0 | Privacy baseline | DONE | export + erasure + inbox rules | - | - | - |
-| T1.1 | Data map as code | NOT BUILT | no DataClass/DataMapTest | enum, test, RoPA | L | IMPORTANT - proves export/erasure completeness |
-| T1.2 | DSAR export v2 | PARTIAL | `AccountExportService` sync JSON | async ZIP with files, signed link | M | IMPORTANT |
-| T1.3 | Deletion completeness | PARTIAL | `AccountDeletionService` | enumerated check, 24 h undo, downstream purge | M | IMPORTANT |
-| T1.4 | Retention catalogue + jobs | PARTIAL | 8 purge jobs | audit, refresh-token, ai_call, bug-report retention | M | IMPORTANT |
+| T1.1 | Data map as code | FIXED (34f66fe0 + 110e4632: `DataMap`/`DataClass`, `DataMapIT` reads the live schema; RoPA text not written) | no DataClass/DataMapTest | enum, test, RoPA | L | IMPORTANT - proves export/erasure completeness |
+| T1.2 | DSAR export v2 | FIXED (34f66fe0 + 110e4632: async job, ZIP with files, size cap, signed expiring link; bug reports, inquiries and terms added to the JSON export) | `AccountExportService` sync JSON | async ZIP with files, signed link | M | IMPORTANT |
+| T1.3 | Deletion completeness | FIXED (34f66fe0 + 110e4632: undo window, purge report with census before/after, bug reports, contact messages, AI quota and admin challenges now erased; backup purge-on-restore is T1.9 and not built) | `AccountDeletionService` | enumerated check, 24 h undo, downstream purge | M | IMPORTANT |
+| T1.4 | Retention catalogue + jobs | FIXED (34f66fe0 + 110e4632: admin audit, refresh-token, AI call, bug report and deletion-report sweeps with lease, dry run, audit) | 8 purge jobs | audit, refresh-token, ai_call, bug-report retention | M | IMPORTANT |
 | T1.5 | Subprocessor register + DPA tracker | NOT BUILT | none | page + tracker | S | IMPORTANT - customers ask |
 | T1.6 | AI provider no-training tier + DPA | NOT BUILT | unverified | contract/tier decision | S | IMPORTANT - user action |
 | T1.7 | GPC + consent mirrored | PARTIAL | `CookieConsent.tsx` (equal accept/decline, GA after accept) | GPC, server mirror | S | LATER |
