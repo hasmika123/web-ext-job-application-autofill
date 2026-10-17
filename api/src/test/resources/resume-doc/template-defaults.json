@@ -2,6 +2,9 @@
   "modern": {},
   "classic": { "fontPair": "source-serif", "spacing": "normal" },
   "compact": { "fontPair": "inter", "spacing": "compact" },
+  "consultant": { "fontPair": "garamond", "spacing": "compact" },
+  "scholar": { "fontPair": "source-serif", "spacing": "normal" },
+  "executive": { "fontPair": "georgia-arial", "spacing": "spacious" },
   "statement": { "fontPair": "inter", "spacing": "normal" },
   "sidebar": { "fontPair": "inter", "spacing": "normal" }
 }

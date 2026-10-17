@@ -9,7 +9,7 @@ import { designFree } from "./templates/__test__/designFree";
 const thumbs = join(dirname(fileURLToPath(import.meta.url)), "thumbs");
 
 /** The gallery order (TEMPLATES-DESIGN section 0). */
-const PRODUCTION_IDS = ["modern", "classic", "compact", "statement", "sidebar"];
+const PRODUCTION_IDS = ["modern", "classic", "compact", "consultant", "scholar", "executive", "statement", "sidebar"];
 
 describe("registry rule (DESIGN 6.2): every template declares capabilities", () => {
   it("no template still declares atsSafe or supports", () => {

@@ -5,7 +5,10 @@
  * `template_id` is stored as a free string; unknown ids fall back to `modern` on read.
  */
 import { tightenCapabilities } from "./capabilities";
+import { consultant } from "./templates/consultant";
 import { modern } from "./templates/modern";
+import { executive } from "./templates/executive";
+import { scholar } from "./templates/scholar";
 import { sidebar } from "./templates/sidebar";
 import { compact } from "./templates/compact";
 import { classic } from "./templates/classic";
@@ -14,7 +17,7 @@ import type { TemplateCapabilities, TemplateDefinition, TemplateMeta } from "./t
 
 export const DEFAULT_TEMPLATE_ID = "modern";
 
-export const TEMPLATES: Record<string, TemplateDefinition> = { modern, classic, compact, statement, sidebar };
+export const TEMPLATES: Record<string, TemplateDefinition> = { modern, classic, compact, consultant, scholar, executive, statement, sidebar };
 
 export const TEMPLATE_IDS: string[] = Object.keys(TEMPLATES);
 

@@ -413,7 +413,7 @@ public final class ResumeBuilderSettingKeys {
         k.add(
             json(
                 TEMPLATES_ENABLED,
-                "[\"modern\",\"classic\",\"compact\",\"statement\",\"sidebar\"]",
+                "[\"modern\",\"classic\",\"compact\",\"consultant\",\"scholar\",\"executive\",\"statement\",\"sidebar\"]",
                 "Template ids offered in the picker (non-empty, each a registered id).",
                 n -> idList(n, 1, Integer.MAX_VALUE, ResumeBuilderSettingKeys::isKnownTemplate)
             )

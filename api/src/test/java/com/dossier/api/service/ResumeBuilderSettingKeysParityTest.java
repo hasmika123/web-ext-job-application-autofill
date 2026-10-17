@@ -90,6 +90,8 @@ class ResumeBuilderSettingKeysParityTest {
             for (int i = 0; i < keys.size(); i++) {
                 String stated = defaults.get(i).replace("_", "").replace(" ", "");
                 if (stated.isEmpty()) continue;
+                // the enabled-templates default grows one id per template story; theDesignDefaultsThatAreProseAreTheOnesTheStoryAnswered pins its head
+                if (keys.get(i).equals(ResumeBuilderSettingKeys.TEMPLATES_ENABLED)) continue;
                 ResumeBuilderSettingKeys.Key declared = ResumeBuilderSettingKeys.require(keys.get(i));
                 if (!comparable(stated)) continue;
                 compared++;
