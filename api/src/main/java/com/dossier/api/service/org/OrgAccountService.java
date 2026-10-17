@@ -1,5 +1,6 @@
 package com.dossier.api.service.org;
 
+import com.dossier.api.service.privacy.SensitiveContent;
 import com.dossier.api.domain.User;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgRole;
