@@ -36,6 +36,8 @@ public class TemplateThemeDefaults {
      */
     static final Map<String, Map<String, Object>> BUILT_IN = Map.ofEntries(
         Map.entry("modern", Map.of()),
+        Map.entry("classic", Map.of("fontPair", "source-serif", "spacing", "normal")),
+        Map.entry("compact", Map.of("fontPair", "inter", "spacing", "compact")),
         Map.entry("consultant", Map.of("fontPair", "garamond", "spacing", "compact"))
     );
 
