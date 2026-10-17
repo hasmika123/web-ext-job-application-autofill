@@ -351,7 +351,7 @@
 .rz-tpl-classic .rz-name {
   font-size: 1.7em;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
@@ -376,7 +376,7 @@
   padding-bottom: 0.15em;
   font-size: 0.9em;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--rz-ink);
   border-bottom: 1px solid var(--rz-ink);
@@ -494,7 +494,7 @@
   padding: 0 0 0 0.5em;
   font-size: 0.95em;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--rz-accent);
   border-bottom: 0;
@@ -566,7 +566,7 @@
 .rz-tpl-sidebar .rz-main .rz-section-title {
   margin-bottom: calc(0.45em * var(--rz-density));
   font-size: 0.95em;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   border-bottom: 1.5px solid var(--rz-accent);
 }
 
@@ -579,7 +579,7 @@
   margin-bottom: calc(0.4em * var(--rz-density));
   padding: 0;
   font-size: 0.85em;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   border-bottom: 0;
 }
 
@@ -993,7 +993,7 @@
   padding-bottom: 0.15em;
   font-size: 0.95em;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--rz-ink);
   border-bottom: 1px solid #d1d5db;

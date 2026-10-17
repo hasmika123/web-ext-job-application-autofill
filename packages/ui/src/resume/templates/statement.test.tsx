@@ -105,7 +105,7 @@ describe("statement specifics", () => {
       expect(css).toMatch(/border-left:\s*3px solid var\(--rz-accent\)/);
       expect(css).toMatch(/border-bottom:\s*0/);
       expect(css).toMatch(/text-transform:\s*uppercase/);
-      expect(css).toMatch(/letter-spacing:\s*0\.1em/);
+      expect(css).toMatch(/letter-spacing:\s*0\.06em/);
     });
 
     it("has no columns, no url() and no generated text; vertical gaps scale with the density", () => {
