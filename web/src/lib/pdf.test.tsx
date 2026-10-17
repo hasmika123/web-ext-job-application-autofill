@@ -16,6 +16,7 @@ import {
   printPdf,
   printPdfWithThumb,
   readPdfConfig,
+  renderThumbPng,
   warmPdfBrowser,
   renderResumeHtml,
   resetPdfLimiter,
@@ -421,6 +422,26 @@ describe("card thumbnail (R3.13)", () => {
     // a print that answers the bare PDF (the existing seam) means no thumbnail
     const plain = await exportResumePdf({ doc: fixture("sparse") }, { print: async () => Buffer.from("pdf"), countPages: () => 1, log: vi.fn() });
     expect(plain.thumb).toBeNull();
+  });
+});
+
+describe("renderThumbPng (template gallery thumbnails)", () => {
+  it("computes the viewport and clip for 240x340 Letter: the top 1156 CSS px of the sheet at 240/816", async () => {
+    const png = await renderThumbPng("<html></html>", { pageSize: "letter", width: 240, height: 340 });
+    expect(png.toString("latin1")).toBe("\x89PNG");
+    const ctx = pw.contextOpts[0] as { viewport: { width: number; height: number }; deviceScaleFactor: number; javaScriptEnabled: boolean };
+    expect(ctx.viewport).toEqual({ width: 816, height: 1156 });
+    expect(ctx.deviceScaleFactor).toBeCloseTo(240 / 816, 5);
+    expect(ctx.javaScriptEnabled).toBe(false);
+    expect(pw.shots).toEqual([{ type: "png", clip: { x: 0, y: 0, width: 816, height: 1156 } }]);
+    expect(pw.media).toEqual(["screen"]); // no print emulation, no PDF
+    expect(pw.closed).toBe(1);
+  });
+
+  it("uses the A4 page width", async () => {
+    await renderThumbPng("<html></html>", { pageSize: "a4", width: 240, height: 340 });
+    const ctx = pw.contextOpts[0] as { viewport: { width: number } };
+    expect(ctx.viewport.width).toBe(794);
   });
 });
 

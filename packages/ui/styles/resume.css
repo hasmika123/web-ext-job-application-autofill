@@ -291,6 +291,10 @@
   border-radius: 50%;
 }
 
+/* == tpl:modern == */
+/* Modern is the base stylesheet above: it adds no rules of its own. */
+/* == /tpl:modern == */
+
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
 @media print {
