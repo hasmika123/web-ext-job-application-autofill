@@ -528,6 +528,131 @@
 }
 /* == /tpl:simple == */
 
+/* == tpl:engineer == */
+/* Engineer: centred small-caps header, ruled small-cap headings, two-line roles (title-org / org-title). */
+.rz-page.rz-tpl-engineer {
+  --rz-entry-gap: calc(0.5em * var(--rz-density));
+  line-height: 1.3;
+}
+
+.rz-tpl-engineer .rz-header {
+  margin: 0 0 calc(0.8em * var(--rz-density));
+  text-align: center;
+}
+
+.rz-tpl-engineer .rz-name {
+  font-size: 2.1em;
+  font-weight: 700;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.02em;
+}
+
+.rz-tpl-engineer .rz-headline {
+  font-size: 1em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-engineer .rz-contact {
+  font-size: 0.85em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-engineer .rz-link {
+  text-decoration: underline;
+  border-bottom: 0;
+}
+
+.rz-tpl-engineer .rz-section {
+  margin-bottom: calc(0.8em * var(--rz-density));
+}
+
+.rz-tpl-engineer .rz-section-title {
+  margin-bottom: calc(0.4em * var(--rz-density));
+  padding-bottom: 0.1em;
+  font-size: 1.05em;
+  font-weight: 600;
+  font-variant-caps: small-caps;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rz-ink);
+  border-bottom: 1px solid #111827;
+}
+
+.rz-tpl-engineer .rz-item-head-2 {
+  font-size: 0.92em;
+}
+
+.rz-tpl-engineer .rz-item-dates,
+.rz-tpl-engineer .rz-item-loc {
+  font-size: 0.9em;
+  color: var(--rz-ink);
+}
+
+/* Experience (and custom) entries: role bold, employer italic. */
+.rz-tpl-engineer .rz-section-experience .rz-item-title,
+.rz-tpl-engineer .rz-section-custom .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-engineer .rz-section-experience .rz-item-org,
+.rz-tpl-engineer .rz-section-custom .rz-item-org {
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Education entries: school bold, degree italic. */
+.rz-tpl-engineer .rz-section-education .rz-item-org {
+  font-weight: 700;
+}
+
+.rz-tpl-engineer .rz-section-education .rz-item-title {
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Projects: title bold, link (shortened url) italic. */
+.rz-tpl-engineer .rz-section-projects .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-engineer .rz-section-projects .rz-link {
+  font-style: italic;
+}
+
+.rz-tpl-engineer .rz-skill-group {
+  font-weight: 700;
+}
+
+.rz-tpl-engineer .rz-section-skills .rz-skill-row {
+  font-size: 0.95em;
+}
+
+.rz-tpl-engineer .rz-section-skills .rz-entry {
+  margin-bottom: calc(0.1em * var(--rz-density));
+}
+
+.rz-tpl-engineer .rz-section-skills .rz-entry:last-child {
+  margin-bottom: 0;
+}
+
+.rz-tpl-engineer .rz-bullets {
+  margin-top: calc(0.15em * var(--rz-density));
+  padding-left: 1.1em;
+}
+
+.rz-tpl-engineer .rz-section-achievements .rz-bullets {
+  margin-top: 0;
+}
+
+.rz-tpl-engineer .rz-bullet {
+  margin-bottom: calc(0.1em * var(--rz-density));
+}
+
+.rz-tpl-engineer .rz-bullet::marker {
+  color: var(--rz-ink);
+}
+/* == /tpl:engineer == */
+
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
 @media print {

@@ -9,11 +9,12 @@ import { modern } from "./templates/modern";
 import { compact } from "./templates/compact";
 import { classic } from "./templates/classic";
 import { simple } from "./templates/simple";
+import { engineer } from "./templates/engineer";
 import type { TemplateCapabilities, TemplateDefinition, TemplateMeta } from "./types";
 
 export const DEFAULT_TEMPLATE_ID = "modern";
 
-export const TEMPLATES: Record<string, TemplateDefinition> = { modern, classic, compact, simple };
+export const TEMPLATES: Record<string, TemplateDefinition> = { modern, classic, compact, simple, engineer };
 
 export const TEMPLATE_IDS: string[] = Object.keys(TEMPLATES);
 

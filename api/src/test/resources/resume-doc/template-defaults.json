@@ -2,5 +2,6 @@
   "modern": {},
   "classic": { "fontPair": "source-serif", "spacing": "normal" },
   "compact": { "fontPair": "inter", "spacing": "compact" },
-  "simple": { "fontPair": "georgia-arial", "spacing": "normal" }
+  "simple": { "fontPair": "georgia-arial", "spacing": "normal" },
+  "engineer": { "fontPair": "plex", "spacing": "compact" }
 }
