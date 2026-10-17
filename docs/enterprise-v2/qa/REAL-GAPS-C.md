@@ -55,7 +55,7 @@ Importance: BLOCKER = do not take a first paying customer without it; IMPORTANT;
 | T5.2 | HTTP security headers + CSP | FIXED (061da2d7: API headers, main site headers with report-only CSP; Caddy extras in 62b-edge-rules.md) | tenant hosts only | CSP report-only, HSTS, frame, Permissions-Policy on main site + API | M | BLOCKER - cheap, any buyer scan flags it |
 | T5.3 | Supply-chain scanning | NOT BUILT | no dependabot.yml, gitleaks, audit, Trivy in workflows | all | M | IMPORTANT |
 | T5.4 | Public /security page | NOT BUILT | none | page | S | IMPORTANT |
-| T5.5 | Incident + breach runbook | NOT BUILT | no `docs/runbooks` | runbook (72 h GDPR, orgs 48 h) | S | BLOCKER - real data needs a written process |
+| T5.5 | Incident + breach runbook | FIXED (404cd911: `docs/ops/incident-runbook.md` severities, first 15 minutes, containment by scenario, secret rotation, evidence, 72 h GDPR / 48 h org clocks, templates, breach register); counsel review (L12) still open | no `docs/runbooks` | runbook (72 h GDPR, orgs 48 h) | S | BLOCKER - real data needs a written process |
 | T5.6 | External pen test | NOT BUILT | none | vendor | L | LATER (before org sales) |
 | T5.7 | Secrets custody + rotation | NOT BUILT | single JWT secret, no dual key | calendar, runbook | M | IMPORTANT |
 | T5.8 | SOC 2 readiness | NOT BUILT | none | - | L | LATER |
@@ -72,30 +72,30 @@ Importance: BLOCKER = do not take a first paying customer without it; IMPORTANT;
 | id | title | verdict | evidence | missing | size | importance |
 |---|---|---|---|---|---|---|
 | P0.0 | Backup + restore-drill scripts | DONE | `scripts/ops/*`, CI job `ops` | - | - | - |
-| P0.1 | Backup go-live | NOT BUILT | PROGRESS 15.1c unchecked | bucket, IAM user, Healthchecks, cron install, first dump + drill | S (user) | BLOCKER - the 2026-09-17 loss repeats without it |
+| P0.1 | Backup go-live | PARTIAL (repo side done in 404cd911 + 132417e0: scripts, cron file, DEPLOY 5.1-5.7 steps, HANDOFF corrected; the bucket, IAM, Healthchecks, cron install, first dump and drill are still the user's) | PROGRESS 15.1c unchecked | bucket, IAM user, Healthchecks, cron install, first dump + drill | S (user) | BLOCKER - the 2026-09-17 loss repeats without it |
 | P0.2 | Binlog shipping (RPO 15 min) | NOT BUILT | none | shipper + cron | M | IMPORTANT - nightly = up to 24 h loss |
-| P0.3 | age-encrypted dumps | NOT BUILT | none | key custody + script | S | IMPORTANT - dumps hold all PII in S3 |
+| P0.3 | age-encrypted dumps | FIXED (404cd911: `BACKUP_AGE_RECIPIENT` / `BACKUP_GPG_RECIPIENT` encrypt the dump, the pre-deploy snapshot and the uploads archive, fail closed if the tool is missing; `verify-restore.sh --identity` decrypts; 132417e0: key custody in DEPLOY 5.7). Off until the user sets a recipient | none | key custody + script | S | IMPORTANT - dumps hold all PII in S3 |
 | P0.4 | Monthly PITR drill | NOT BUILT | needs P0.2 | - | M | LATER |
-| P0.5 | Uploads volume backup | NOT BUILT | DEPLOY says "back it up too", no script | script + manifest | S | BLOCKER if prod driver is `local`, else IMPORTANT (driver unverified) |
+| P0.5 | Uploads volume backup | FIXED (404cd911: `scripts/ops/backup-uploads.sh`, nightly, archive + sha256 manifest, optional encryption, 30-day lifecycle rule, HC_UPLOADS_URL; 132417e0: DEPLOY 5.7 incl. restore). Cron install is the user's | DEPLOY says "back it up too", no script | script + manifest | S | BLOCKER if prod driver is `local`, else IMPORTANT (driver unverified) |
 | P0.6 | Fresh-box rebuild drill | NOT BUILT | none | quarterly drill, S3 versioning | M | IMPORTANT |
 | P1.0 | Server-error email digest | DONE | `service/ops/ErrorDigest*` | - | - | - |
 | P1.1 | External uptime monitors | NOT BUILT | manual accounts in DEPLOY 5.2 only | monitors | S (user) | BLOCKER - HANDOFF: "you find out by visiting it" |
 | P1.2 | Public status page | NOT BUILT | no /status | page or hosted | M | IMPORTANT |
 | P1.3 | Alert routing | NOT BUILT | email only | push, severities | S | IMPORTANT |
 | P1.4 | SLOs | NOT BUILT | none | - | S | LATER |
-| P1.5 | Log rotation + JSON logs | NOT BUILT | no `logging:` block in prod compose | max-size/max-file | S | IMPORTANT - disk fill hurts shared box |
-| P1.6 | host-guard.sh | NOT BUILT | none | disk/mem/cert pings | S | IMPORTANT |
+| P1.5 | Log rotation + JSON logs | FIXED (404cd911: `logging:` json-file 5 x 10 MB compressed on every service in `docker-compose.prod.yml`, `kiwiply-logrotate.conf` for the ops logs; 132417e0: DEPLOY 5.6) | no `logging:` block in prod compose | max-size/max-file | S | IMPORTANT - disk fill hurts shared box |
+| P1.6 | host-guard.sh | FIXED (404cd911: `scripts/ops/host-guard.sh` disk, memory/swap with strikes, container restarts, certificate days, /fail ping with reasons, cron every 5 min; DEPLOY 5.6 in 132417e0). Healthchecks check + cron install are the user's | none | disk/mem/cert pings | S | IMPORTANT |
 | P1.7 | Synthetic canary | NOT BUILT | none | - | M | LATER |
 | P2.0 | CI + GHCR + SSH deploy | DONE | `ci.yml`, `deploy.yml` (sha + latest tags) | - | - | - |
-| P2.1 | SHA-pinned deploys + rollback | NOT BUILT | pulls `:latest`; sha tag is pushed | deploy.env, rollback | M | IMPORTANT |
-| P2.2 | Post-deploy verification | NOT BUILT | `04-verify.sh` manual | in pipeline | S | IMPORTANT |
-| P2.3 | Pre-deploy snapshot + migration lint | NOT BUILT | manual dump (DEPLOY 13.3) | automate | S | IMPORTANT |
+| P2.1 | SHA-pinned deploys + rollback | FIXED (404cd911: `deploy.sh --tag <sha>` never `latest`, `--rollback`, state in `~/kiwiply-deploy`, compose reads `DOSSIER_API_TAG`/`DOSSIER_WEB_TAG`; 132417e0: DEPLOY 5.4). `deploy.yml` itself is unchanged and still pulls `latest`; the one-line switch is documented, to be made after a manual run on the box | pulls `:latest`; sha tag is pushed | deploy.env, rollback | M | IMPORTANT |
+| P2.2 | Post-deploy verification | PARTIAL (404cd911: `deploy.sh` waits for API health UP and web, runs public smoke URLs, rolls back on failure; `04-verify.sh` is not wired in and the GitHub pipeline is unchanged) | `04-verify.sh` manual | in pipeline | S | IMPORTANT |
+| P2.3 | Pre-deploy snapshot + migration lint | FIXED (404cd911: `snapshot-db.sh` as the pre-deploy hook, aborts the deploy if the dump is cut short; `migration_lint` flags destructive Liquibase statements and refuses without `--allow-destructive-migrations`; it is a regex heuristic, not the CI lint of the design) | manual dump (DEPLOY 13.3) | automate | S | IMPORTANT |
 | P2.4 | Zero-downtime rolling deploy | NOT BUILT | single API container | - | L | LATER |
 | P2.5 | Drop root deploy user | NOT BUILT | scripts use `/root/...` | deploy user | M | IMPORTANT |
 | P2.6 | CI hardening | NOT BUILT | actions on tags, no dependabot | perms, SHA pins | S | IMPORTANT |
 | P2.7 | Extension release pipeline | PARTIAL | `publish-extension.yml` (CWS only) | AMO, Edge, GitHub Release | M | LATER |
 | P3.1 | One local compose | NOT BUILT | three JHipster docker files | - | S | LATER |
-| P3.2 | Staging stack | NOT BUILT | none | - | L | IMPORTANT - customer deploys hit prod |
+| P3.2 | Staging stack | FIXED, repo side (404cd911: `docker-compose.staging.yml` own project/aliases/memory caps, `.env.staging.example` placeholders only, `deploy.sh --staging --build`; 132417e0: DEPLOY 5.5 with the edge blocks). DNS, the edge Caddy route and `.env.staging` are the user's | none | - | L | IMPORTANT - customer deploys hit prod |
 | P3.3-P3.5 | Staging seed, env schema fail-fast, env header + maintenance mode | NOT BUILT | only JWT secret fails fast | - | M | LATER |
 | P4.1 | Security headers + CSP | FIXED (061da2d7, same work as T5.2) | same as T5.2 | same work | M | BLOCKER (same item) |
 | P4.2 | Actuator diet | NOT BUILT | exposure list still has env/configprops/threaddump/logfile | trim, `/info` admin-only | S | IMPORTANT |

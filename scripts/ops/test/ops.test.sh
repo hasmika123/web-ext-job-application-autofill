@@ -169,6 +169,14 @@ SQL
   no "a cut-short backup fails the drill" test "$?" = 0
 fi
 
+# The deploy, host-guard, encryption and uploads-backup tests (sprint 2 B3) run as part of this
+# one so the CI job needs no change. Each prints its own tally.
+for extra in deploy guard; do
+  echo
+  echo "$extra.test.sh"
+  if ! "$OPS/test/$extra.test.sh"; then FAIL=$((FAIL + 1)); fi
+done
+
 echo
 echo "$PASS passed, $FAIL failed"
 [ "$FAIL" = 0 ]

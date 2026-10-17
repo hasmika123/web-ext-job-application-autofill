@@ -15,6 +15,13 @@
       "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
     },
     {
+      "ID": "uploads-30-days",
+      "Filter": { "Prefix": "uploads/" },
+      "Status": "Enabled",
+      "Expiration": { "Days": 30 },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
+    },
+    {
       "ID": "tidy-delete-markers",
       "Filter": {},
       "Status": "Enabled",

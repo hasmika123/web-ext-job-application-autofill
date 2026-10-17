@@ -225,7 +225,8 @@ ssh-copy-id -i dossier_deploy.pub <newuser>@<newip>
       ever set up?" turned out to be **no**, which is why this migration lost all user data.
       It is *still* not set up on the new box: both crontabs are empty, there is no timer, and
       no dump exists anywhere. See DEPLOY.md §5. Needs a schedule, an off-box copy, and a
-      restore you have actually tested.
+      restore you have actually tested. (2026-10-16: the scripts, the cron file, encryption and the
+      uploads backup are in the repo; what remains is the box-side install, DEPLOY.md §5.1-5.7.)
 - [ ] **Set up uptime monitoring — still OWED.** There is none, so a dead box is silent. That is
       how the old VPS's death went unnoticed. See DEPLOY.md §5.
 - [ ] Leave the old VPS **powered off but intact** for about a week as the rollback of last
