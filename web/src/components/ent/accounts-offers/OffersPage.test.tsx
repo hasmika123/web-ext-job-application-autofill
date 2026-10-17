@@ -189,6 +189,22 @@ afterEach(() => {
 
 const tableRows = () => Array.from(document.querySelectorAll<HTMLElement>("tr[data-row-id]"));
 
+/**
+ * Pick a consultant and a client in the dialog. The tests run on vitest fake timers, where testing-library's findBy* queries never advance the clock
+ * (they wait on real timers and hang until the test timeout), so the clock is advanced with settle() and the options are read with getByRole.
+ */
+async function pickConsultantAndClient() {
+  const dialog = (document.querySelector('[role="dialog"]') ?? document.body) as HTMLElement;
+  fireEvent.click(within(dialog).getByRole("button", { name: "Consultant" }));
+  await settle(0);
+  fireEvent.click(screen.getByRole("option", { name: "Casey One" }));
+  await settle(0);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Client" }));
+  await settle(0);
+  fireEvent.click(screen.getByRole("option", { name: "Acme Corp" }));
+  await settle(0);
+}
+
 describe("the Accounts Offers page", () => {
   it("draws the four tiles from the counts and the open offers with their state", async () => {
     await mount();
@@ -251,10 +267,7 @@ describe("the Accounts Offers page", () => {
     await settle();
     const submit = document.querySelector("[data-offer-submit]") as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: "Consultant" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Casey One" }));
-    fireEvent.click(screen.getByRole("button", { name: "Client" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Acme Corp" }));
+    await pickConsultantAndClient();
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: "Cloud Architect" } });
     fireEvent.change(screen.getByLabelText("Rate"), { target: { value: "95.50" } });
     expect(submit.disabled).toBe(false);
@@ -272,10 +285,7 @@ describe("the Accounts Offers page", () => {
     await mount();
     fireEvent.click(document.querySelector("[data-record-offer]") as HTMLElement);
     await settle();
-    fireEvent.click(screen.getByRole("button", { name: "Consultant" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Casey One" }));
-    fireEvent.click(screen.getByRole("button", { name: "Client" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Acme Corp" }));
+    await pickConsultantAndClient();
     fireEvent.change(screen.getByLabelText("Role"), { target: { value: "Cloud Architect" } });
     fireEvent.click(document.querySelector("[data-offer-extend]") as HTMLElement);
     expect((document.querySelector("[data-offer-submit]") as HTMLButtonElement).disabled).toBe(true);
