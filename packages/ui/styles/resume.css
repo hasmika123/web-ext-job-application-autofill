@@ -617,6 +617,94 @@
 }
 /* == /tpl:scholar == */
 
+/* == tpl:executive == */
+.rz-page.rz-tpl-executive {
+  line-height: 1.35;
+}
+
+.rz-tpl-executive .rz-header {
+  margin-bottom: calc(0.9em * var(--rz-density));
+  padding-bottom: calc(0.45em * var(--rz-density));
+  border-bottom: 2px solid #111827;
+}
+
+.rz-tpl-executive .rz-name {
+  font-size: 2em;
+  font-weight: 700;
+}
+
+.rz-tpl-executive .rz-headline {
+  margin-top: 0.2em;
+  font-size: 1.05em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-executive .rz-contact {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-executive .rz-section {
+  margin-bottom: calc(1.0em * var(--rz-density));
+}
+
+.rz-tpl-executive .rz-section-title {
+  margin-bottom: calc(0.45em * var(--rz-density));
+  padding-bottom: 0.15em;
+  font-size: 0.95em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rz-ink);
+  border-bottom: 1px solid #d1d5db;
+}
+
+.rz-tpl-executive .rz-section-summary .rz-text {
+  font-size: 1.02em;
+}
+
+/* Entry gap for the two-line entries; one-line sections keep their own. */
+.rz-tpl-executive .rz-section-experience,
+.rz-tpl-executive .rz-section-education,
+.rz-tpl-executive .rz-section-projects,
+.rz-tpl-executive .rz-section-custom {
+  --rz-entry-gap: calc(0.65em * var(--rz-density));
+}
+
+.rz-tpl-executive .rz-item-title {
+  font-size: 1.02em;
+  font-weight: 700;
+}
+
+.rz-tpl-executive .rz-item-org {
+  font-style: normal;
+  font-weight: 400;
+}
+
+.rz-tpl-executive .rz-item-dates {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-executive .rz-skill-row {
+  font-size: 1em;
+}
+
+.rz-tpl-executive .rz-skill-group {
+  font-weight: 700;
+}
+
+.rz-tpl-executive .rz-bullets {
+  padding-left: 1.2em;
+}
+
+.rz-tpl-executive .rz-bullet {
+  margin-bottom: calc(0.15em * var(--rz-density));
+}
+/* == /tpl:executive == */
+
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
 @media print {

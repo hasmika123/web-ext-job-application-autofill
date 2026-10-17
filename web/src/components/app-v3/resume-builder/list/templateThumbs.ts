@@ -8,6 +8,7 @@ import classic from "@kiwiply/ui/resume/thumbs/classic.png";
 import compact from "@kiwiply/ui/resume/thumbs/compact.png";
 import consultant from "@kiwiply/ui/resume/thumbs/consultant.png";
 import scholar from "@kiwiply/ui/resume/thumbs/scholar.png";
+import executive from "@kiwiply/ui/resume/thumbs/executive.png";
 import { getTemplate } from "@kiwiply/ui";
 
 export interface ThumbSrc {
@@ -28,6 +29,7 @@ const THUMBS: Record<string, ThumbSrc> = {
   "classic.png": asSrc(classic as Imported),
   "consultant.png": asSrc(consultant as Imported),
   "scholar.png": asSrc(scholar as Imported),
+  "executive.png": asSrc(executive as Imported),
 };
 
 /** The thumbnail for a template id; an unknown id gets the default template's (the registry's own fallback). */
