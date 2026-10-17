@@ -95,4 +95,16 @@ public interface AiCallRepository extends JpaRepository<AiCall, Long> {
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("update AiCall c set c.login = null where c.login = :login")
     int anonymize(@Param("login") String login);
+
+    // ---- retention (T1.4): read by the retention sweep only; nothing else deletes these rows in bulk ----
+
+    @Query("select count(c) from AiCall c where c.createdAt < :cutoff")
+    long countPurgeable(@Param("cutoff") Instant cutoff);
+
+    @Query("select c.id from AiCall c where c.createdAt < :cutoff order by c.id")
+    List<Long> purgeableIds(@Param("cutoff") Instant cutoff, Pageable page);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("delete from AiCall c where c.id in :ids")
+    int deleteByIdIn(@Param("ids") List<Long> ids);
 }

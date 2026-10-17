@@ -38,6 +38,23 @@ public final class AdminSettingKeys {
     public static final String INBOX_RETENTION_DAYS = "inbox.retention_days";
     /** Change audit (docs/change-audit/README.md section 4.4): months of {@code application_event} history kept; 0 = for the life of the application. */
     public static final String TRACKER_HISTORY_RETENTION_MONTHS = "tracker.history.retention_months";
+    /** Privacy and retention (T1.3, T1.4, T0.2): the windows the retention sweep honours, the undo window for account deletion, the data-export limits and the current legal versions. */
+    public static final String PRIVACY_RETENTION_ENABLED = "privacy.retention.enabled";
+    public static final String PRIVACY_RETENTION_DRY_RUN = "privacy.retention.dry_run";
+    public static final String PRIVACY_RETENTION_BATCH_SIZE = "privacy.retention.batch_size";
+    public static final String PRIVACY_RETENTION_MAX_BATCHES = "privacy.retention.max_batches";
+    public static final String PRIVACY_RETENTION_ADMIN_AUDIT_MONTHS = "privacy.retention.admin_audit_months";
+    public static final String PRIVACY_RETENTION_REFRESH_TOKEN_GRACE_DAYS = "privacy.retention.refresh_token_grace_days";
+    public static final String PRIVACY_RETENTION_AI_CALL_MONTHS = "privacy.retention.ai_call_months";
+    public static final String PRIVACY_RETENTION_BUG_REPORT_MONTHS = "privacy.retention.bug_report_months";
+    public static final String PRIVACY_RETENTION_DELETION_REPORT_MONTHS = "privacy.retention.deletion_report_months";
+    public static final String PRIVACY_DELETION_GRACE_HOURS = "privacy.deletion.grace_hours";
+    public static final String PRIVACY_EXPORT_MAX_MB = "privacy.export.max_mb";
+    public static final String PRIVACY_EXPORT_EXPIRY_HOURS = "privacy.export.expiry_hours";
+    public static final String PRIVACY_EXPORT_MAX_PER_DAY = "privacy.export.max_per_day";
+    public static final String PRIVACY_EXPORT_INCLUDE_FILES = "privacy.export.include_files";
+    public static final String LEGAL_TERMS_VERSION = "legal.terms_version";
+    public static final String LEGAL_PRIVACY_VERSION = "legal.privacy_version";
     public static final String OPS_ERROR_DIGEST_TO = "ops.error_digest.to";
     public static final String OPS_ERROR_DIGEST_INTERVAL_MIN = "ops.error_digest.interval_min";
     public static final String OPS_MAINTENANCE = "ops.maintenance";
@@ -61,6 +78,7 @@ public final class AdminSettingKeys {
 
     private static final Pattern SEMVER = Pattern.compile("\\d{1,4}\\.\\d{1,4}\\.\\d{1,4}");
     private static final Pattern EMAIL = Pattern.compile("[^\\s@]{1,64}@[^\\s@]{1,190}\\.[^\\s@]{2,24}");
+    private static final Pattern LEGAL_VERSION = Pattern.compile("[A-Za-z0-9._-]{1,30}");
     private static final Pattern LOGIN = Pattern.compile("[A-Za-z0-9._@-]{1,50}");
     private static final String NOT_ENFORCED = " Not enforced yet: it takes effect once the feature that reads it ships.";
 
@@ -83,6 +101,24 @@ public final class AdminSettingKeys {
 
         // Tracker history (change audit, U6.15): read by TrackerHistoryRetentionJob. 0 = for the life of the application (decision D5).
         integer(k, TRACKER_HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW, "Months of application history kept; 0 keeps it as long as the application exists.");
+
+        // Privacy and retention (B2). 0 months = keep for the life of the record (the same convention as the history windows above).
+        k.add(new Key(PRIVACY_RETENTION_ENABLED, Type.BOOL, "true", null, null, null, "Master switch of the nightly retention sweep (admin audit, expired refresh tokens, AI call log, closed bug reports, deletion reports). Off = nothing is purged.", null, Risk.HIGH));
+        k.add(new Key(PRIVACY_RETENTION_DRY_RUN, Type.BOOL, "false", null, null, null, "When on, the nightly retention sweep only counts what it would delete and records that; it deletes nothing.", null, Risk.MEDIUM));
+        integer(k, PRIVACY_RETENTION_BATCH_SIZE, 500, 50, 2000, Risk.LOW, "Rows deleted per batch by the retention sweep; each batch commits on its own.");
+        integer(k, PRIVACY_RETENTION_MAX_BATCHES, 40, 1, 500, Risk.LOW, "Most batches one sweep runs per job; a larger backlog is worked off over several nights.");
+        integer(k, PRIVACY_RETENTION_ADMIN_AUDIT_MONTHS, 24, 0, 120, Risk.MEDIUM, "Months the admin audit trail is kept; 0 keeps it for ever.");
+        integer(k, PRIVACY_RETENTION_REFRESH_TOKEN_GRACE_DAYS, 7, 1, 365, Risk.LOW, "Refresh-token rows are deleted this many days after they expired (live tokens are never touched).");
+        integer(k, PRIVACY_RETENTION_AI_CALL_MONTHS, 13, 0, 120, Risk.MEDIUM, "Months the AI call ledger (tokens, cost, latency; no prompts) is kept; 0 keeps it for ever.");
+        integer(k, PRIVACY_RETENTION_BUG_REPORT_MONTHS, 24, 0, 120, Risk.MEDIUM, "Months a resolved or won't-fix bug report is kept (counted from when it was sent); open reports are never purged; 0 keeps them all.");
+        integer(k, PRIVACY_RETENTION_DELETION_REPORT_MONTHS, 36, 0, 120, Risk.MEDIUM, "Months an account-deletion purge report (counts only, no identity) is kept; 0 keeps it for ever.");
+        integer(k, PRIVACY_DELETION_GRACE_HOURS, 24, 0, 720, Risk.MEDIUM, "Undo window for a requested account deletion, in hours; 0 erases at once with no undo.");
+        integer(k, PRIVACY_EXPORT_MAX_MB, 200, 5, 2000, Risk.MEDIUM, "Largest data-export ZIP, in MB; files past the cap are left out and listed in the export manifest.");
+        integer(k, PRIVACY_EXPORT_EXPIRY_HOURS, 72, 1, 720, Risk.LOW, "How long a finished data export can be downloaded, in hours; then the file is deleted.");
+        integer(k, PRIVACY_EXPORT_MAX_PER_DAY, 3, 1, 20, Risk.LOW, "Data exports one account may request per 24 hours.");
+        k.add(new Key(PRIVACY_EXPORT_INCLUDE_FILES, Type.BOOL, "true", null, null, null, "Whether a data-export ZIP carries the stored resume files as well as the JSON data.", null, Risk.LOW));
+        k.add(new Key(LEGAL_TERMS_VERSION, Type.STRING, "2026-10", null, null, null, "The version label of the terms of service currently in force (what an acceptance records).", null, Risk.MEDIUM));
+        k.add(new Key(LEGAL_PRIVACY_VERSION, Type.STRING, "2026-10", null, null, null, "The version label of the privacy notice currently in force (what an acceptance records).", null, Risk.MEDIUM));
 
         // Ops.
         k.add(new Key(OPS_ERROR_DIGEST_TO, Type.STRING, "", null, null, null, "Where the server-error digest is emailed. Blank = the deployment's recipient." + NOT_ENFORCED, null, Risk.LOW));
@@ -157,7 +193,7 @@ public final class AdminSettingKeys {
 
     /** True when a blank stored value is meaningful for {@code k} (an empty recipient or version hint). */
     public static boolean allowsBlank(Key k) {
-        return BY_KEY.containsKey(k.key()) && k.type() == Type.STRING && !EXT_MIN_VERSION.equals(k.key());
+        return BY_KEY.containsKey(k.key()) && k.type() == Type.STRING && !EXT_MIN_VERSION.equals(k.key()) && !LEGAL_TERMS_VERSION.equals(k.key()) && !LEGAL_PRIVACY_VERSION.equals(k.key());
     }
 
     /** {@code "INVALID"} when {@code raw} breaks a rule beyond type and bounds (semver, email shape); null when fine. */
@@ -168,6 +204,7 @@ public final class AdminSettingKeys {
             case EXT_MIN_VERSION -> SEMVER.matcher(v).matches() ? null : "INVALID";
             case OPS_ERROR_DIGEST_TO -> EMAIL.matcher(v).matches() ? null : "INVALID";
             case EXT_RULES_VERSION_HINT -> SEMVER.matcher(v).matches() ? null : "INVALID";
+            case LEGAL_TERMS_VERSION, LEGAL_PRIVACY_VERSION -> LEGAL_VERSION.matcher(v).matches() ? null : "INVALID";
             default -> null;
         };
     }

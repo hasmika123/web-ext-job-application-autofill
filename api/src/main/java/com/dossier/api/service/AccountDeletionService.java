@@ -1,5 +1,8 @@
 package com.dossier.api.service;
 
+import com.dossier.api.domain.privacy.AccountDeletionReport;
+import com.dossier.api.repository.privacy.AccountDeletionReportRepository;
+import com.dossier.api.service.privacy.ErasureCensus;
 import com.dossier.api.service.storage.FileStorage;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.Resume;
@@ -9,7 +12,11 @@ import com.dossier.api.repository.AiAnswerRepository;
 import com.dossier.api.repository.AiCallRepository;
 import com.dossier.api.repository.AiUsageRepository;
 import com.dossier.api.repository.ApplicationRepository;
+import com.dossier.api.repository.AdminMfaChallengeRepository;
+import com.dossier.api.repository.AiQuotaOverrideRepository;
 import com.dossier.api.repository.BioRepository;
+import com.dossier.api.repository.BugReportRepository;
+import com.dossier.api.repository.SalesInquiryRepository;
 import com.dossier.api.repository.CustomerNoteRepository;
 import com.dossier.api.repository.FieldCacheRepository;
 import com.dossier.api.repository.ResumeRepository;
@@ -20,7 +27,13 @@ import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.billing.StripeGateway;
 import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.service.org.OrgMembershipPrivacyService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -70,6 +83,16 @@ public class AccountDeletionService {
     private final TrackerDataService trackerDataService;
     private final com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService;
     private final com.dossier.api.repository.ExtConnectCodeRepository extConnectCodeRepository;
+    private final BugReportRepository bugReportRepository;
+    private final SalesInquiryRepository salesInquiryRepository;
+    private final AiQuotaOverrideRepository aiQuotaOverrideRepository;
+    private final AdminMfaChallengeRepository adminMfaChallengeRepository;
+    private final ErasureCensus census;
+    private final AccountDeletionReportRepository reports;
+    private final ObjectMapper json;
+
+    @PersistenceContext
+    private EntityManager em;
 
     public AccountDeletionService(
         BioRepository bioRepository,
@@ -98,7 +121,14 @@ public class AccountDeletionService {
         OrgMembershipPrivacyService orgMembershipPrivacyService,
         TrackerDataService trackerDataService,
         com.dossier.api.service.jobs.JobSearchDataService jobSearchDataService,
-        com.dossier.api.repository.ExtConnectCodeRepository extConnectCodeRepository
+        com.dossier.api.repository.ExtConnectCodeRepository extConnectCodeRepository,
+        BugReportRepository bugReportRepository,
+        SalesInquiryRepository salesInquiryRepository,
+        AiQuotaOverrideRepository aiQuotaOverrideRepository,
+        AdminMfaChallengeRepository adminMfaChallengeRepository,
+        ErasureCensus census,
+        AccountDeletionReportRepository reports,
+        ObjectMapper json
     ) {
         this.bioRepository = bioRepository;
         this.resumeRepository = resumeRepository;
@@ -127,6 +157,13 @@ public class AccountDeletionService {
         this.trackerDataService = trackerDataService;
         this.jobSearchDataService = jobSearchDataService;
         this.extConnectCodeRepository = extConnectCodeRepository;
+        this.bugReportRepository = bugReportRepository;
+        this.salesInquiryRepository = salesInquiryRepository;
+        this.aiQuotaOverrideRepository = aiQuotaOverrideRepository;
+        this.adminMfaChallengeRepository = adminMfaChallengeRepository;
+        this.census = census;
+        this.reports = reports;
+        this.json = json;
     }
 
     /**
@@ -163,16 +200,30 @@ public class AccountDeletionService {
 
     /**
      * AI usage is keyed by login, not user id (13.1a). The monthly counts go — a new account on the
-     * same login must not inherit them — and the call ledger keeps its spend but loses the login.
+     * same login must not inherit them — and the call ledger keeps its spend but loses the login. The other login-keyed rows go here too (see below).
      */
-    private void forgetAiUsage(String login) {
+    private void forgetAiUsage(Long userId, String login) {
         aiUsageRepository.deleteByLoginValue(login);
         aiCallRepository.anonymize(login);
+        // B2 (T1.3, data map): the rows keyed by login or id with no foreign key, which the map found nobody erased. Bug reports and contact-us
+        // messages are the person's own free text; an admin-set AI quota must not be inherited by a new account on the same login; a pending admin
+        // sign-in challenge names the account.
+        bugReportRepository.deleteByUserLogin(login);
+        salesInquiryRepository.deleteByUserLogin(login);
+        aiQuotaOverrideRepository.deleteByLoginValue(login);
+        if (userId != null) adminMfaChallengeRepository.deleteByUserIdValue(userId);
     }
 
     /** Erase the current user's data and account. Idempotent per session: a second call
-     *  401s because the principal no longer resolves. */
+     *  401s because the principal no longer resolves. Immediate, with no undo window; writes a purge report. */
     public void deleteCurrentUserAccount() {
+        String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
+            new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
+        );
+        withReport(login, "IMMEDIATE", null, this::eraseCurrentUserNow);
+    }
+
+    private void eraseCurrentUserNow() {
         String login = SecurityUtils.getCurrentUserLogin().orElseThrow(() ->
             new ResponseStatusException(HttpStatus.UNAUTHORIZED, "No authenticated user")
         );
@@ -222,7 +273,7 @@ public class AccountDeletionService {
                 inboxService.deleteAllForUser(id);
                 notificationService.deleteAllForUser(id);
                 orgMembershipPrivacyService.eraseFor(id, login); // org seats are anonymised before the user row goes (tenant-model.md section 6)
-                forgetAiUsage(login);
+                forgetAiUsage(id, login);
                 endBilling(id);
             });
         userService.deleteUser(login);
@@ -236,6 +287,18 @@ public class AccountDeletionService {
      * the target user's id rather than the security principal. 404 if the login is unknown.
      */
     public void deleteUserAccountByLogin(String login) {
+        deleteUserAccountByLogin(login, "ADMIN", null);
+    }
+
+    /**
+     * The same erasure with its provenance for the purge report: {@code source} is SELF or ADMIN (an erasure that waited out its undo window),
+     * ADMIN (an administrator's immediate erase) or RETENTION (an enterprise account past its retention); {@code requestedAt} is when it was asked for, or null.
+     */
+    public void deleteUserAccountByLogin(String login, String source, Instant requestedAt) {
+        withReport(login, source, requestedAt, () -> eraseByLoginNow(login));
+    }
+
+    private void eraseByLoginNow(String login) {
         User user = userRepository
             .findOneByLogin(login)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No such user"));
@@ -271,7 +334,7 @@ public class AccountDeletionService {
         inboxService.deleteAllForUser(userId);
         notificationService.deleteAllForUser(userId);
         orgMembershipPrivacyService.eraseFor(userId, login);
-        forgetAiUsage(login);
+        forgetAiUsage(userId, login);
         endBilling(userId);
         userService.deleteUser(login);
 
@@ -290,7 +353,53 @@ public class AccountDeletionService {
         if (user == null || !orgId.equals(user.getOrgId())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No such user");
         }
-        deleteUserAccountByLogin(user.getLogin());
+        deleteUserAccountByLogin(user.getLogin(), "RETENTION", null);
+    }
+
+    /**
+     * Runs one erasure and writes its purge report in the same transaction (so the report exists exactly when the erasure committed). Before the erasure it
+     * counts what the account holds, per table of the data map and per file prefix; after it (rows flushed) it counts again. The difference is what was
+     * removed; anything still counted is residue, and the report is marked so an administrator looks at it. The report holds counts only, never the
+     * login, e-mail or name, and refers to the account by its former numeric id.
+     */
+    private void withReport(String login, String source, Instant requestedAt, Runnable erase) {
+        User user = userRepository.findOneByLogin(login).orElse(null);
+        if (user == null) {
+            erase.run(); // unknown account: the erasure itself answers (404 / 401) exactly as before
+            return;
+        }
+        Long id = user.getId();
+        Long orgId = user.getOrgId();
+        Map<String, Long> before = census.take(id, login);
+        erase.run();
+        em.flush();
+        Map<String, Long> after = census.take(id, login);
+        Map<String, Long> removed = new LinkedHashMap<>();
+        before.forEach((table, n) -> removed.put(table, n - after.getOrDefault(table, 0L)));
+        removed.values().removeIf(n -> n <= 0);
+        int residue = (int) after.values().stream().mapToLong(Long::longValue).sum();
+
+        Map<String, Object> steps = new LinkedHashMap<>();
+        steps.put("removed", removed);
+        if (!after.isEmpty()) steps.put("residue", after);
+        String text;
+        try {
+            text = json.writeValueAsString(steps);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            text = "{}";
+        }
+        AccountDeletionReport report = new AccountDeletionReport();
+        report.setSubjectRef(id);
+        report.setAccountKind(orgId == null ? "PERSONAL" : "ENTERPRISE");
+        report.setOrgId(orgId);
+        report.setSource(source);
+        report.setStatus(residue == 0 ? AccountDeletionReport.COMPLETE : AccountDeletionReport.RESIDUE);
+        report.setRequestedAt(requestedAt);
+        report.setExecutedAt(Instant.now());
+        report.setResidueCount(residue);
+        report.setSteps(text.length() > 4000 ? text.substring(0, 4000) : text);
+        reports.save(report);
+        if (residue > 0) LOG.warn("Erasure of account {} left {} row(s) behind: {}", id, residue, after);
     }
 
     /** Application attachments are files too: remove their bytes via the storage seam before the rows go. */

@@ -26,6 +26,9 @@ public final class StorageKeys {
     /** Application attachments; the entity id is the application id, so they are per-user, not per-resume. */
     public static final String APPLICATION_ATTACHMENTS = "application-attachments";
 
+    /** Finished data-export ZIPs ({@code data_export_job.storage_key}); the entity id is the export job id. Erased with the account like every other prefix. */
+    public static final String DATA_EXPORTS = "data-exports";
+
     private StorageKeys() {}
 
     /** Every prefix under which one user's files can exist, e.g. {@code resumes/42/}. Ends with a slash. */
@@ -33,7 +36,14 @@ public final class StorageKeys {
         List<String> all = new java.util.ArrayList<>();
         for (String p : RESUME_SCOPED) all.add(p + "/" + userId + "/");
         all.add(APPLICATION_ATTACHMENTS + "/" + userId + "/");
+        all.add(DATA_EXPORTS + "/" + userId + "/");
         return List.copyOf(all);
+    }
+
+    /** The prefixes whose files are the person's own content and go into a data export: every user prefix except the exports themselves. */
+    public static List<String> exportablePrefixes(Long userId) {
+        String exports = DATA_EXPORTS + "/" + userId + "/";
+        return userPrefixes(userId).stream().filter(p -> !p.equals(exports)).toList();
     }
 
     /**
