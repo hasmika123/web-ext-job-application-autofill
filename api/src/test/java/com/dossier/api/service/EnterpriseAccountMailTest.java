@@ -127,8 +127,10 @@ class EnterpriseAccountMailTest {
         when(context.forUser(any())).thenReturn(Optional.empty());
         mail.sendPasswordResetMail(user(null), "https://kiwiply.com");
         String html = lastHtml();
-        assertThat(hrefs(html)).contains("https://kiwiply.com/privacy", "https://kiwiply.com/terms");
-        assertThat(html).contains("Kiwiply").doesNotContain("Acme Staffing");
+        // The personal reset mail is the legacy green template: its only link is the reset link (it never had a Help/Privacy/Terms footer).
+        // "Unchanged" means exactly that: no organization theme, no tenant policy links, and the Kiwiply reset link.
+        assertThat(hrefs(html)).containsExactly("https://kiwiply.com/reset-password?key=RESETKEY123");
+        assertThat(html).contains("Kiwiply").doesNotContain("Acme Staffing").doesNotContain("this workspace");
     }
 
     @Test

@@ -201,8 +201,14 @@
     "name" : "org-resume-policy",
     "description" : "Organization Resume Builder policy: consultant share links (default off)."
   }, {
+    "name" : "org-settings",
+    "description" : "Organization Settings: general (display name, time zone, language, contact e-mail) and security (idle session timeout, password minimum)."
+  }, {
     "name" : "mkt-jobs",
     "description" : "Marketing workspace: Job Discovery."
+  }, {
+    "name" : "offers",
+    "description" : "Offers: record, extend, revise and withdraw an offer for a consultant; the consultant answers it in their own workspace."
   }, {
     "name" : "resume-builder",
     "description" : "Resume Builder documents, config and settings."
@@ -212,6 +218,9 @@
   }, {
     "name" : "placements",
     "description" : "Placements: the table, KPI tiles, tab counts and the detail drawer; recorded extensions, completion, redeployment and notes."
+  }, {
+    "name" : "consultant-prepare",
+    "description" : "Consultant: prepare selected assigned openings in my own browser (the extension fills, I review and finish)."
   }, {
     "name" : "audit",
     "description" : "Organization audit: job data provenance and ledger (read only)."
@@ -233,6 +242,9 @@
   }, {
     "name" : "interviews",
     "description" : "The user's interviews: log, change, outcome, date range, calendar export."
+  }, {
+    "name" : "submissions",
+    "description" : "Submissions as records for the Accounts workspace: who, which requirement and client, status. Read only."
   }, {
     "name" : "profile-items",
     "description" : "Common Profile items: CRUD, reorder, import (merge by title + organisation), completeness."
@@ -1275,6 +1287,139 @@
         }
       }
     },
+    "/api/orgs/{orgId}/org-settings/security" : {
+      "put" : {
+        "tags" : [ "org-settings" ],
+        "summary" : "Change the security settings (a reason is required)",
+        "description" : "Partial body {sessionTimeoutMinutes?, passwordMinLength?, reason}: null clears a value back to the platform behaviour. Values must sit inside the bounds from GET (422 ORG_INVALID otherwise). 400 REASON_REQUIRED without a reason of at least reasonMinChars when anything changes. One ORG_SETTINGS audit row with old value, new value and the reason.",
+        "operationId" : "putSecurity",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgSettingsDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/org-settings/general" : {
+      "put" : {
+        "tags" : [ "org-settings" ],
+        "summary" : "Change the general settings",
+        "description" : "Partial body {displayName?, timeZone?, locale?, contactEmail?}: an absent field is left alone, null or empty clears it. 422 ORG_INVALID names a bad field (time zone must be IANA, locale from the allowed list). One ORG_SETTINGS audit row naming the fields.",
+        "operationId" : "putGeneral",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgSettingsDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/offers/{offerId}" : {
+      "get" : {
+        "tags" : [ "offers" ],
+        "summary" : "One offer",
+        "description" : "The offer with its timeline (who did what: MEMBER, CONSULTANT or SYSTEM), the placement it created and the actions the caller may take.",
+        "operationId" : "one",
+        "parameters" : [ {
+          "name" : "offerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "offers" ],
+        "summary" : "Revise an offer",
+        "description" : "Same body as recording (a field left out keeps its value). Allowed while a draft or waiting on the consultant; revising a negotiated offer sends the new terms back to the consultant to answer. 409 OFFER_NOT_EDITABLE. OFFER_UPDATE audit row.",
+        "operationId" : "update_3",
+        "parameters" : [ {
+          "name" : "offerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/mkt/performance/goals" : {
       "put" : {
         "tags" : [ "mkt-performance" ],
@@ -1349,7 +1494,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Edit a task",
         "description" : "Replaces the title, due date, priority, type and linked job of one of the caller's own tasks.",
-        "operationId" : "update_3",
+        "operationId" : "update_4",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -3060,7 +3205,7 @@
     "/api/admin/inquiries/{id}" : {
       "put" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "update_4",
+        "operationId" : "update_5",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -3122,7 +3267,7 @@
       },
       "put" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "update_5",
+        "operationId" : "update_6",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -5913,6 +6058,52 @@
         }
       }
     },
+    "/api/orgs/{orgId}/placements/{placementId}/terminate" : {
+      "post" : {
+        "tags" : [ "placements" ],
+        "summary" : "Terminate a placement",
+        "description" : "Body: reason (required, 3 to 300 characters, scanned for sensitive data), endDate (default today, never in the future). Status becomes ENDED and the row reads Terminated; the consultant goes back to Available. 422 PLACEMENT_ENDED when already ended. PLACEMENT_TERMINATE audit row. Records the fact only: nothing is sent to the client or the consultant.",
+        "operationId" : "terminate",
+        "parameters" : [ {
+          "name" : "placementId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/placements/{placementId}/redeploy" : {
       "post" : {
         "tags" : [ "placements" ],
@@ -5981,6 +6172,52 @@
             "type" : "string"
           }
         } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/placements/{placementId}/notice" : {
+      "post" : {
+        "tags" : [ "placements" ],
+        "summary" : "Record that notice was given",
+        "description" : "Body: endDate (today or later, required), note. The placement reads Ending until then and the consultant reads On notice. 409 ALREADY_ON_NOTICE, 422 PLACEMENT_NOT_STARTED. PLACEMENT_NOTICE audit row.",
+        "operationId" : "notice",
+        "parameters" : [ {
+          "name" : "placementId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -6233,6 +6470,234 @@
         }
       }
     },
+    "/api/orgs/{orgId}/offers" : {
+      "get" : {
+        "tags" : [ "offers" ],
+        "summary" : "List offers",
+        "description" : "Paged. Query: tab (all, draft, open, accepted, closed; default open), q (2 to 80 characters: consultant, client or role), clientId, consultantId, sort (recent, deadline, start, consultant, client; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 10). An open offer past its deadline reads Expired. The state is DRAFT, EXTENDED, NEGOTIATING, ACCEPTED, DECLINED, EXPIRED or WITHDRAWN.",
+        "operationId" : "list_5",
+        "parameters" : [ {
+          "name" : "tab",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "clientId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "consultantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "sort",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "offers" ],
+        "summary" : "Record an offer",
+        "description" : "Body: consultantId and clientId (required), roleTitle (required), optional submissionId / applicationId, placementType (CONTRACT, FTE, C2C), workMode, startDate, endDate or termMonths, rateMinor + ratePeriod (HOUR, DAY, MONTH, YEAR), baseSalaryMinor, totalCompMinor, currency (three letters), deadline, benefits, notes, extend (true records it as extended at once; needs startDate). Free text is scanned for sensitive data. OFFER_CREATE audit row. 201.",
+        "operationId" : "create_6",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/offers/{offerId}/withdraw" : {
+      "post" : {
+        "tags" : [ "offers" ],
+        "summary" : "Withdraw an offer",
+        "description" : "Body: reason (optional, 300 characters, scanned). A draft or an offer still waiting on the consultant; the consultant is told. 409 OFFER_NOT_OPEN. OFFER_WITHDRAW audit row.",
+        "operationId" : "withdraw_1",
+        "parameters" : [ {
+          "name" : "offerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/offers/{offerId}/placement" : {
+      "post" : {
+        "tags" : [ "offers" ],
+        "summary" : "Create the placement for an accepted offer",
+        "description" : "An accepted offer creates its placement by itself; this is the retry when it could not (no client linked, or the consultant still had a placement that had not ended). PENDING_START when the start date is ahead, ACTIVE otherwise. 409 OFFER_NOT_ACCEPTED / PLACEMENT_EXISTS, 422 PLACEMENT_NOT_CREATED. OFFER_PLACEMENT audit row.",
+        "operationId" : "placement",
+        "parameters" : [ {
+          "name" : "offerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/offers/{offerId}/extend" : {
+      "post" : {
+        "tags" : [ "offers" ],
+        "summary" : "Record a draft as extended",
+        "description" : "Records that the client extended the offer: the consultant now sees it, is told in their notifications and may accept, decline or negotiate. Needs a start date; the deadline defaults to today plus the admin setting org.offers.expiry_days. 409 OFFER_NOT_DRAFT. OFFER_EXTEND audit row. Kiwiply signs and sends nothing.",
+        "operationId" : "extend_1",
+        "parameters" : [ {
+          "name" : "offerId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Detail"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/mkt/tasks" : {
       "get" : {
         "tags" : [ "mkt-tasks" ],
@@ -6333,7 +6798,7 @@
         "tags" : [ "mkt-tasks" ],
         "summary" : "Add a task",
         "description" : "Record only. 404 when the consultant, client or the chosen owner is not yours to use.",
-        "operationId" : "create_6",
+        "operationId" : "create_7",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -6589,7 +7054,7 @@
         "tags" : [ "mkt-submissions" ],
         "summary" : "Prepare a package for a job (creates a DRAFT record)",
         "description" : "submissions.record. Body {consultantId, requirementId, resumeId?, note?}. Nothing is sent to anyone. 409 when the pair already has a live record.",
-        "operationId" : "create_7",
+        "operationId" : "create_8",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -6806,7 +7271,7 @@
         "tags" : [ "mkt-streams" ],
         "summary" : "Add a job stream",
         "description" : "Records the configuration (source name, schedule, keywords, client scope). It does not connect to or scrape any site. matches.run.",
-        "operationId" : "create_8",
+        "operationId" : "create_9",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -7029,7 +7494,7 @@
         "tags" : [ "mkt-opportunities" ],
         "summary" : "The Opportunities board (one call)",
         "description" : "{kpis, items, total, page, size, topMatches, responses, activity, filters}. Filters: q (consultant or job title), consultantId, clientId, interest, minScore, days (0 = any time, default 30), stale, ready, sort (recent|score|consultant|client|next), dir (asc|desc), page, size (max 100), responseDays.",
-        "operationId" : "list_5",
+        "operationId" : "list_6",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -7153,7 +7618,7 @@
       "post" : {
         "tags" : [ "mkt-opportunities" ],
         "summary" : "Add an opportunity: a SUGGESTED match for a consultant in scope and an open job. 409 OPPORTUNITY_EXISTS when it already exists.",
-        "operationId" : "create_9",
+        "operationId" : "create_10",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -7182,7 +7647,7 @@
       "post" : {
         "tags" : [ "mkt-opportunities" ],
         "summary" : "Withdraw an assignment (state CLOSED, reason WITHDRAWN). Body {reason} is required (1 to 200 characters, PII-scanned); the consultant is notified. 409 NOT_ASSIGNED / ILLEGAL_TRANSITION.",
-        "operationId" : "withdraw_1",
+        "operationId" : "withdraw_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -7410,7 +7875,7 @@
         "tags" : [ "mkt-opportunities" ],
         "summary" : "Add a job by hand",
         "description" : "Requires the Idempotency-Key header (a UUID). Body: title, company, location, workMode (ONSITE, HYBRID or REMOTE), description and optionally jobUrl (https) and skills (8). The job is org-owned with source MANUAL; the same job (the link, else company + title + place) answers the stored one with existingJob true. Answers 201 {jobId, existingJob, source}. 400 VALIDATION, 422 SENSITIVE_CONTENT. Needs opportunities.manage, not requirements.manage.",
-        "operationId" : "create_10",
+        "operationId" : "create_11",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -7838,7 +8303,7 @@
         "tags" : [ "mkt-followups" ],
         "summary" : "Add a follow-up for one of your consultants",
         "description" : "Record only. 404 when the consultant, application or client is not yours to see.",
-        "operationId" : "create_11",
+        "operationId" : "create_12",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -8187,7 +8652,7 @@
         "tags" : [ "mkt-activity" ],
         "summary" : "Log an activity for one of your consultants",
         "description" : "Record only (followups.manage). 404 when the consultant or client is not yours to see; 400 for a type that only the system records.",
-        "operationId" : "create_12",
+        "operationId" : "create_13",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -8746,7 +9211,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Create a task",
         "description" : "Title 3 to 200 characters (scanned for sensitive data), optional due date, priority, type and one of the caller's own jobs.",
-        "operationId" : "create_13",
+        "operationId" : "create_14",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -9440,7 +9905,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Accept an offer",
-        "description" : "Needs offers.respond. Records the consultant's answer only: nothing is signed or sent to a client and no placement is created. 409 OFFER_NOT_OPEN when it is not open, OFFER_EXPIRED after the deadline.",
+        "description" : "Needs offers.respond. Records the consultant's answer only: nothing is signed or sent to a client; accepting creates the placement record (PENDING_START or ACTIVE). 409 OFFER_NOT_OPEN when it is not open, OFFER_EXPIRED after the deadline.",
         "operationId" : "accept_2",
         "parameters" : [ {
           "name" : "id",
@@ -9838,7 +10303,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Record a self-scored practice session",
         "description" : "The consultant scores catalog questions 0-100 themselves; there is no AI scoring. Notes are scanned for sensitive data.",
-        "operationId" : "create_14",
+        "operationId" : "create_15",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -10029,7 +10494,7 @@
         "tags" : [ "marketing-assignments" ],
         "summary" : "Set priority, status or backup on many assignments",
         "description" : "assignments.manage at a scope covering each consultant's marketer. Body: consultantIds and exactly one of priority (HIGH, MEDIUM, LOW), status (ACTIVE, PAUSED), backupMemberId, clearBackup. Idempotency-Key required.",
-        "operationId" : "update_6",
+        "operationId" : "update_7",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -10244,7 +10709,7 @@
         "tags" : [ "jobs" ],
         "summary" : "List jobs",
         "description" : "Server-driven table of the Jobs board. Query: q (title, client, skill or location; 2 to 80 characters), and these repeatable filters (repeat the parameter; a comma is never a separator): status (OPEN, IN_REVIEW, ON_HOLD, FILLED, CLOSED), clientId, location, workMode (REMOTE, HYBRID, ON_SITE), skill, employment (CONTRACT, FTE, C2C), experience (JUNIOR, MID, SENIOR, LEAD); minMatch (0 to 100: jobs with a live match at least that good); sort (posted, title, client, status, submissions, match; 400 SORT_INVALID otherwise) and dir (asc or desc, default newest or best first); page (from 0), size (1 to 100, default 10). Answers a page and X-Total-Count.",
-        "operationId" : "list_6",
+        "operationId" : "list_7",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -10308,7 +10773,7 @@
         "tags" : [ "jobs" ],
         "summary" : "Create a job",
         "description" : "requirements.manage. Body: title (required), clientId (required, a client of this organization), contactId, description, location, workMode, employment, durationLabel, experienceLevel, rateMin, rateMax (whole currency units), rateUnit (HOUR or YEAR), positions, status (OPEN, IN_REVIEW or ON_HOLD; default OPEN), skills[] (at most 15). An Idempotency-Key is required: the same key and body returns the first answer. Free text goes through the sensitive-data scanner (422). Audit JOB_CREATE.",
-        "operationId" : "create_15",
+        "operationId" : "create_16",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -10428,7 +10893,7 @@
         "tags" : [ "org-invitations" ],
         "summary" : "List invitations",
         "description" : "Newest first. Filters: status (PENDING, ACCEPTED, EXPIRED, REVOKED), roleId, departmentGroupId, an invited-on range (from inclusive, to exclusive, ISO instants) and q (email or name contains). A caller whose invite right is limited to members sees only the invitations they sent.",
-        "operationId" : "list_7",
+        "operationId" : "list_8",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -10661,7 +11126,7 @@
         "tags" : [ "interviews" ],
         "summary" : "List interviews",
         "description" : "Paged, server-driven table. Query: q (2 to 80 characters: role, consultant, client, round, interviewer, JOB-code or INT-code), status (repeatable or comma separated: SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED), clientId, consultantId, round, mode (VIDEO, ONSITE, PHONE), from and to (scheduled date, yyyy-mm-dd), sort=field,dir (scheduled, role, consultant, client, round, status, mode; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 10). Answers a Page and X-Total-Count.",
-        "operationId" : "list_8",
+        "operationId" : "list_9",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -10759,7 +11224,7 @@
         "tags" : [ "interviews" ],
         "summary" : "Schedule an interview (a record)",
         "description" : "interviews.coordinate. Body: consultantId and scheduledAt (required), applicationId (the consultant's application) or clientId, round, durationMinutes, mode (VIDEO, ONSITE, PHONE), meetingLink, location, notes, interviewers[{name, title, primary}]. 409 SLOT_OVERLAP when the consultant already has an open interview then. Unknown properties are 422. Idempotency-Key honoured. One INTERVIEW_CREATE audit row. Nothing is sent to anyone.",
-        "operationId" : "create_16",
+        "operationId" : "create_17",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -10980,7 +11445,7 @@
         "tags" : [ "org-groups" ],
         "summary" : "Every group the caller may see",
         "description" : "Flat list with lead, parent, counts and version. 404 for someone who may not read the organization's structure.",
-        "operationId" : "list_9",
+        "operationId" : "list_10",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -11001,7 +11466,7 @@
         "tags" : [ "org-groups" ],
         "summary" : "Create a department, team or cohort",
         "description" : "groups.manage. parentGroupId puts a TEAM under a DEPARTMENT (422 GROUP_PARENT_INVALID for anything else); leadMemberId must be an ACTIVE member (422 LEAD_NOT_ACTIVE). 409 GROUP_NAME_TAKEN, 422 ORG_LIMIT_REACHED.",
-        "operationId" : "create_17",
+        "operationId" : "create_18",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -11105,7 +11570,7 @@
         "tags" : [ "consultants" ],
         "summary" : "List consultants",
         "description" : "Paged, server-driven directory. Needs consultants.view. Query: q (name, email, title, location or skill; 2 to 80 characters), availability (AVAILABLE, ON_PROJECT, NOTICE, UNAVAILABLE), skill (exact), license (ACTIVE, EXPIRING, PENDING, NEEDS_REVIEW), marketerId (a seat id, or none for unassigned), workMode (REMOTE, HYBRID, ONSITE), status (ACTIVE default, INACTIVE), departmentId, sort=field,dir (repeatable; name, experience, availability, license, profile, joined; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 10).",
-        "operationId" : "list_10",
+        "operationId" : "list_11",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -11197,7 +11662,7 @@
         "tags" : [ "consultants" ],
         "summary" : "Add a consultant",
         "description" : "consultants.edit. Body: displayName, email (unique per organization: 409 CONSULTANT_EXISTS), jobTitle, yearsExperience, locationLabel, workMode, skills[] (the first two are the primary chips), departmentGroupId. Free text goes through the sensitive-data scanner (422). Idempotency-Key required. One CONSULTANT_CREATE audit row. Answers 201 with the detail.",
-        "operationId" : "create_18",
+        "operationId" : "create_19",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -11617,6 +12082,66 @@
         }
       }
     },
+    "/api/orgs/{orgId}/con/prepare" : {
+      "post" : {
+        "tags" : [ "consultant-prepare" ],
+        "summary" : "Prepare the selected assigned openings in my own browser",
+        "description" : "Body {matchIds}. Returns the session and the links for the extension to open ({sessionId, expiresAt, jobs, skipped, remainingToday, remainingMonth}). Every match must be one of my own assigned openings (404 otherwise). Over the admin-set daily or monthly limit: 409 PREPARE_CAP_REACHED. The same request again while its session is live is the same session and costs nothing. This plans a batch only: nothing is filled or sent from the server, and the extension never presses the final button.",
+        "operationId" : "prepare",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Request"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Created"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/con/prepare/{sessionId}/events" : {
+      "post" : {
+        "tags" : [ "consultant-prepare" ],
+        "summary" : "The extension reports progress on one opening",
+        "description" : "Body {matchId, event, detail?}: event is OPENED, PREFILLED, NEEDS_INPUT, SUBMIT_DETECTED, CLOSED or FAILED; detail is at most 200 characters and is scanned for sensitive data. 204. SUBMIT_DETECTED only records what the consultant did on the site; the opportunity becomes APPLIED only through the existing linker.",
+        "operationId" : "event",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EventRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/con/opportunities/{id}/viewed" : {
       "post" : {
         "tags" : [ "consultant-opportunities" ],
@@ -11938,7 +12463,7 @@
         "tags" : [ "clients" ],
         "summary" : "List clients",
         "description" : "Server-driven directory. Query: q (name, industry or account manager; 2 to 80 characters), and these repeatable filters (repeat the parameter; a comma is never a separator): industry, health (HEALTHY, AT_RISK, NEUTRAL: computed from rows by the organization's thresholds), status (ACTIVE, PROSPECT, INACTIVE), sizeBand, managerId; sort (name, industry, requirements, consultants, manager, health, activity; 400 SORT_INVALID otherwise) and dir (asc or desc, default newest first); page (from 0), size (1 to 100, default 10). Answers a page and X-Total-Count.",
-        "operationId" : "list_11",
+        "operationId" : "list_12",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -11994,7 +12519,7 @@
         "tags" : [ "clients" ],
         "summary" : "Add a client",
         "description" : "clients.manage. Body: name (required, unique per organization, 409 DUPLICATE_CLIENT), industry, website, location, sizeBand (1-50, 51-200, 201-1000, 1000-5000, 5000+), clientSince (a date), about, status (ACTIVE or PROSPECT, default ACTIVE), ownerMemberId (an active member; default the caller). An Idempotency-Key is required: the same key and body returns the first answer. Free text goes through the sensitive-data scanner (422). Audit CLIENT_CREATE.",
-        "operationId" : "create_19",
+        "operationId" : "create_20",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -12260,7 +12785,7 @@
         "tags" : [ "applications" ],
         "summary" : "List applications",
         "description" : "Paged, server-driven table. Query: q (2 to 80 characters: job title, consultant, client, application code, stage or next action), stage (repeatable or comma separated: ASSIGNED, SUBMITTED, UNDER_REVIEW, INTERVIEWING, OFFER, CLOSED), jobTitle, clientId, marketerId, from and to (applied date, yyyy-mm-dd), sort=field,dir (applied, job, consultant, client, stage, nextAction, moved; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 10). Answers a Page and X-Total-Count.",
-        "operationId" : "list_12",
+        "operationId" : "list_13",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -12351,7 +12876,7 @@
         "tags" : [ "applications" ],
         "summary" : "Add an application (a record)",
         "description" : "Body: requirementId, consultantId, optional marketerMemberId (default: the consultant's assigned marketer), source, nextAction, nextActionDue, appliedOn, stage (ASSIGNED, or SUBMITTED when the consultant already submitted it). 409 DUPLICATE_APPLICATION for a second application of the same consultant to the same job. Idempotency-Key honoured. One APPLICATION_CREATE audit row.",
-        "operationId" : "create_20",
+        "operationId" : "create_21",
         "parameters" : [ {
           "name" : "Idempotency-Key",
           "in" : "header",
@@ -14626,7 +15151,7 @@
     "/api/admin/orgs" : {
       "get" : {
         "tags" : [ "admin-org-resource" ],
-        "operationId" : "list_13",
+        "operationId" : "list_14",
         "parameters" : [ {
           "name" : "search",
           "in" : "query",
@@ -14705,7 +15230,7 @@
       },
       "post" : {
         "tags" : [ "admin-org-resource" ],
-        "operationId" : "create_21",
+        "operationId" : "create_22",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -15081,7 +15606,7 @@
     "/api/admin/job-sources" : {
       "get" : {
         "tags" : [ "admin-job-source-resource" ],
-        "operationId" : "list_14",
+        "operationId" : "list_15",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -15748,7 +16273,7 @@
         "tags" : [ "roles" ],
         "summary" : "Rename a role or replace its permission set",
         "description" : "roles.manage at ORG scope. If-Match: the version (ETag) the editor last saw: 428 PRECONDITION_REQUIRED without it, 412 PRECONDITION_FAILED {currentVersion} when stale. A system template is 409 ROLE_SYSTEM (clone it first). Everything in the role, before and after, must be within the caller's own permissions (422 ROLE_CEILING {key, scope}).",
-        "operationId" : "update_7",
+        "operationId" : "update_8",
         "parameters" : [ {
           "name" : "roleId",
           "in" : "path",
@@ -15821,7 +16346,7 @@
         "tags" : [ "mkt-tasks" ],
         "summary" : "Edit a task",
         "description" : "Only the fields sent change. status COMPLETED stamps completed_at; moving a completed task to another status reopens it.",
-        "operationId" : "update_8",
+        "operationId" : "update_9",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -15899,7 +16424,7 @@
         "tags" : [ "mkt-streams" ],
         "summary" : "Configure a stream",
         "description" : "Partial update of name, description, schedule, keywords, client scope. Unknown or other-tenant id: 404. matches.run.",
-        "operationId" : "update_9",
+        "operationId" : "update_10",
         "parameters" : [ {
           "name" : "streamId",
           "in" : "path",
@@ -16637,7 +17162,7 @@
         "tags" : [ "org-groups" ],
         "summary" : "Rename, retype, re-parent, change the lead, status, icon or colour of a group",
         "description" : "groups.manage. If-Match is required inside the Enterprise flag (428 without, 412 {currentVersion} when stale). Moving a team under another department re-points its members' department in the same transaction. clearParent / clearLead remove them.",
-        "operationId" : "update_10",
+        "operationId" : "update_11",
         "parameters" : [ {
           "name" : "groupId",
           "in" : "path",
@@ -17925,7 +18450,7 @@
       "get" : {
         "tags" : [ "job-matches" ],
         "summary" : "Today's matches and the switch",
-        "operationId" : "list_15",
+        "operationId" : "list_16",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -18053,7 +18578,7 @@
         "tags" : [ "field-cache-sync" ],
         "summary" : "List my field cache",
         "description" : "All learned field answers owned by the current user.",
-        "operationId" : "list_16",
+        "operationId" : "list_17",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -18258,6 +18783,85 @@
         "security" : [ {
           "bearer-jwt" : [ ]
         } ]
+      }
+    },
+    "/api/orgs/{orgId}/submissions" : {
+      "get" : {
+        "tags" : [ "submissions" ],
+        "summary" : "List the organization's submissions",
+        "description" : "Paged, newest first. Query: status (DRAFT, SUBMITTED, CLIENT_REVIEW, INTERVIEW_REQUESTED, REJECTED), q (2 to 80 characters: consultant, client, requirement or code), clientId, page (from 0), size (1 to 100, default 10). Withdrawn drafts are left out.",
+        "operationId" : "list_18",
+        "parameters" : [ {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "clientId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "page",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }, {
+          "name" : "size",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Page"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/submissions/counts" : {
+      "get" : {
+        "tags" : [ "submissions" ],
+        "summary" : "Counts for the tiles and the status filter",
+        "description" : "The total, the count per recorded status and how many wait on the consultant's approval.",
+        "operationId" : "counts",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Counts"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/orgs/{orgId}/roles/{roleId}/history" : {
@@ -18474,7 +19078,7 @@
         "tags" : [ "resumes" ],
         "summary" : "The four KPI tiles",
         "description" : "Total, Primary, Needs Approval and Updated This Week, each with its value, the figure one month (week for updates) ago when it can be rebuilt from the rows, and eight weekly points. previous and the deltas are null when no history exists (the primary flag is not versioned): never estimated.",
-        "operationId" : "counts",
+        "operationId" : "counts_1",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -18548,11 +19152,40 @@
         }
       }
     },
+    "/api/orgs/{orgId}/reports/export" : {
+      "get" : {
+        "tags" : [ "org-reports" ],
+        "summary" : "The reports overview as a CSV download",
+        "description" : "Same range and gate as the overview (reports.view at ORG scope; 404 otherwise). One section per block (tiles, roster, funnel, interviews, placements, top clients, marketer workload), cells neutralised against spreadsheet formulas, and the export itself audited (EXPORT).",
+        "operationId" : "export_1",
+        "parameters" : [ {
+          "name" : "range",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/policies" : {
       "get" : {
         "tags" : [ "org-policies" ],
         "summary" : "Every configured policy kind with its state and what is live",
-        "operationId" : "list_17",
+        "operationId" : "list_19",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -18692,7 +19325,7 @@
         "tags" : [ "placements" ],
         "summary" : "The KPI tiles and tab counts",
         "description" : "Active Placements, Starting Soon, Ending Soon and Redeployment Pool, each with its figure thirty days ago and a weekly series (previous and the deltas are null when the history does not reach back: never estimated), the counts behind the four tabs, and the windows (days) the organization uses for ending soon, urgent and starting soon.",
-        "operationId" : "counts_1",
+        "operationId" : "counts_2",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -18720,6 +19353,90 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Catalog"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/org-settings" : {
+      "get" : {
+        "tags" : [ "org-settings" ],
+        "summary" : "The General and Security settings with the bounds the platform allows",
+        "description" : "{general:{legalName (read only), displayName, timeZone, locale, contactEmail}, security:{sessionTimeoutMinutes, passwordMinLength (null = platform behaviour), bounds, reasonMinChars}, locales:[...]}.",
+        "operationId" : "get_20",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgSettingsDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/offers/pickers" : {
+      "get" : {
+        "tags" : [ "offers" ],
+        "summary" : "Candidates for the Record an offer dialog",
+        "description" : "kind = consultant, client or submission (needs consultantId); q narrows by name; up to 20 results.",
+        "operationId" : "pickers_1",
+        "parameters" : [ {
+          "name" : "kind",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "consultant"
+          }
+        }, {
+          "name" : "q",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "consultantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Pickers"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/offers/counts" : {
+      "get" : {
+        "tags" : [ "offers" ],
+        "summary" : "The tiles and tab counts",
+        "description" : "Counts for the tabs (all, draft, open, accepted, closed) and the tiles (closing soon, placed from an offer), straight from the offer table.",
+        "operationId" : "counts_3",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Counts"
                 }
               }
             }
@@ -18792,7 +19509,7 @@
         "tags" : [ "mkt-talent" ],
         "summary" : "The My Assigned Talent board",
         "description" : "{kpis, counts, facets, items, total, page, size, cards, views, canAddConsultant} in one call. Filters: q, status (AVAILABLE_NOW|IN_INTERVIEW|NEEDS_UPDATE|PENDING_APPROVAL), skill, location, experience (0-2|3-5|6-8|9+), availability (AVAILABLE_NOW|IN_INTERVIEW|SOON|LATER|ON_PROJECT|UNAVAILABLE), sort (name|experience|location|apps|jobs|availability, '-' = descending), page, size (cap 100). consultants.view required; 404 for everyone else.",
-        "operationId" : "list_18",
+        "operationId" : "list_20",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -18965,7 +19682,7 @@
         "tags" : [ "mkt-submissions" ],
         "summary" : "Withdraw a draft",
         "description" : "submissions.record. The record leaves the board; its history is kept. 409 unless it is still a draft.",
-        "operationId" : "withdraw_2",
+        "operationId" : "withdraw_3",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -19007,7 +19724,7 @@
         "tags" : [ "mkt-resumes" ],
         "summary" : "The Resumes board (one call)",
         "description" : "{kpis (total, profilesReady, needUpdates, approvalsPending), items, total, page, size, skills, activity, canApprove}. resumes.view_for (ASSIGNED for a marketer). Query: q (consultant, resume title or target role), skill, status (APPROVED|PENDING|NEEDS_UPDATE), updated (7d|30d|3m|6m|all), availability, sort (modified|consultant|title|version|completeness|approval[,asc|desc]), page (from 0), size (1-100).",
-        "operationId" : "list_19",
+        "operationId" : "list_21",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -19162,7 +19879,7 @@
         "tags" : [ "mkt-performance" ],
         "summary" : "The Performance board (one call)",
         "description" : "{generatedAt, kpis[6], weekly, trend, funnel, readiness, streams, top[5], benchmarks, goals, actions}. weeks = 4w|8w|12w; trend, funnel, streams = 1m|3m|6m; benchmarks, goals = month|lastMonth. A section with no rows is empty or null. 404 without reports.view.",
-        "operationId" : "get_20",
+        "operationId" : "get_21",
         "parameters" : [ {
           "name" : "weeks",
           "in" : "query",
@@ -19279,7 +19996,7 @@
       "get" : {
         "tags" : [ "mkt-opportunities" ],
         "summary" : "The visible rows under the same filters as a CSV download (names and job facts only; audited)",
-        "operationId" : "export_1",
+        "operationId" : "export_2",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -19372,7 +20089,7 @@
         "tags" : [ "mkt-matches" ],
         "summary" : "The Job Matches board (one call)",
         "description" : "{kpis, filters, items, total, page, size, topToday, explanation}. Filters: consultantId, skill (primary skill), clientId, score (high|mid|low), q; sort: score|consultant|job|client|created, '-' = descending (default -score); page (0-based), size (max 100); selected = the match whose explanation to return.",
-        "operationId" : "list_20",
+        "operationId" : "list_22",
         "parameters" : [ {
           "name" : "page",
           "in" : "query",
@@ -19462,7 +20179,7 @@
       "get" : {
         "tags" : [ "mkt-matches" ],
         "summary" : "One match with its explanation and insights (Review drawer)",
-        "operationId" : "get_21",
+        "operationId" : "get_22",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -19527,7 +20244,7 @@
         "tags" : [ "mkt-jobs" ],
         "summary" : "The Job Discovery board",
         "description" : "{kpis, items, total, page, size, canAssign, facets, trendingSkills, topClients, alerts, savedSearches, streams}. matches.run required. Filters: q, skills (comma separated, any), location, workType (ON_SITE|HYBRID|REMOTE), visa, source, rateMin/rateMax (dollars per hour; a yearly rate is /2080), sort (posted_desc|posted_asc|rate_desc|title_asc|client_asc), page (0-based), size (max 100). 404 for everyone without the permission.",
-        "operationId" : "list_21",
+        "operationId" : "list_23",
         "parameters" : [ {
           "name" : "page",
           "in" : "query",
@@ -19830,7 +20547,7 @@
         "tags" : [ "mkt-home" ],
         "summary" : "The Marketing Home board (one call)",
         "description" : "{kpis[6], talent[5], streams[5], openings[5], pipeline, tasks[5], interviews[4], activity[5]}. Each section is empty (or null) when its source has no rows or the caller may not read its page. 404 without consultants.view.",
-        "operationId" : "get_22",
+        "operationId" : "get_23",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -19850,7 +20567,7 @@
         "tags" : [ "mkt-followups" ],
         "summary" : "One bucket as a page (today, overdue, upcoming, completed, waiting)",
         "description" : "page (0-based), size (cap 100), q (title, detail, client or consultant), sort = dueAt|priority|consultant[,desc].",
-        "operationId" : "list_22",
+        "operationId" : "list_24",
         "parameters" : [ {
           "name" : "bucket",
           "in" : "query",
@@ -19912,7 +20629,7 @@
         "tags" : [ "mkt-applications" ],
         "summary" : "The Applications board",
         "description" : "{kpis, tracker{items,total,page,size,tabs,filters,notShared}, funnel, overdue, overdueTotal, updates, perms}. Query: q, consultantId, clientId, stage (applied|awaiting|interviewing|offer|hired|not_selected|all), period and funnelPeriod (1m|3m|6m|12m|all), sort (appliedOn,desc|asc), page (0-based), size (max 100). A consultant who shares less than FULL shows the stage only; one who shares nothing is counted in tracker.notShared and listed nowhere.",
-        "operationId" : "get_23",
+        "operationId" : "get_24",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -20002,7 +20719,7 @@
         "tags" : [ "members" ],
         "summary" : "List employees",
         "description" : "Paged, server-driven table of the Employees board. Needs a people permission (member.view_summary, hr.view or one of the members.* keys); the rows are only the seats inside the widest scope the caller holds it at. Query: q (name, email, title, role or department/team name; 2 to 80 characters), status (repeatable or comma separated: INVITED, ACTIVE, SUSPENDED, LEFT, REMOVED; default INVITED, ACTIVE, SUSPENDED), roleId, departmentId, teamId, managerId, sort=field,dir (repeatable; name, joined, status, lastActive; 400 SORT_INVALID otherwise), page (from 0), size (1 to 100, default 25). Answers a PageDTO and X-Total-Count. A row seen only through a summary scope carries no work email, manager or consent (summaryOnly = true).",
-        "operationId" : "list_23",
+        "operationId" : "list_25",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -20239,7 +20956,7 @@
         "tags" : [ "members" ],
         "summary" : "The KPI tiles of the Employees board",
         "description" : "Total, active, invited, suspended, departments and teams, each with the figure one month ago and the delta rebuilt from real history (seat timestamps and the audit trail). previous and the deltas are null when that history does not exist (an organization younger than a month, a seat that ended with no time recorded, a suspension nobody audited): never estimated.",
-        "operationId" : "counts_2",
+        "operationId" : "counts_4",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -20259,7 +20976,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "The task table",
         "description" : "One filtered, sorted page of the caller's tasks (page size 1 to 50) with the tab counts.",
-        "operationId" : "list_24",
+        "operationId" : "list_26",
         "parameters" : [ {
           "name" : "tab",
           "in" : "query",
@@ -20558,7 +21275,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "My career profile",
         "description" : "Identity, strength with the missing details, summary, skills, certifications, experience highlights, preferences, work-authorization choice and career goals, all for the caller's own consultant record. 404 for everyone else.",
-        "operationId" : "get_24",
+        "operationId" : "get_25",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -20772,7 +21489,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Offers table",
         "description" : "One filtered, sorted page of the caller's offers (size 1 to 50).",
-        "operationId" : "list_25",
+        "operationId" : "list_27",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -21695,7 +22412,7 @@
         "tags" : [ "org-invitations" ],
         "summary" : "Invitation counters",
         "description" : "Pending, accepted, expired and revoked, each with the change against the month before (invitations sent in the last 30 days minus the 30 days before).",
-        "operationId" : "counts_3",
+        "operationId" : "counts_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -21822,7 +22539,7 @@
         "tags" : [ "interviews" ],
         "summary" : "Candidates for the Schedule dialog",
         "description" : "kind = consultant, application (needs consultantId) or client; q narrows by name. Needs interviews.coordinate; up to 20 results.",
-        "operationId" : "pickers_1",
+        "operationId" : "pickers_2",
         "parameters" : [ {
           "name" : "kind",
           "in" : "query",
@@ -21886,7 +22603,7 @@
         "tags" : [ "interviews" ],
         "summary" : "The KPI tiles of the Interviews board",
         "description" : "Total, Scheduled This Week (against last week), In Progress and Completed (against thirty days ago), each with a weekly series. The comparison is rebuilt from the interview history; previous and the deltas are null when the history does not reach back that far: never estimated.",
-        "operationId" : "counts_4",
+        "operationId" : "counts_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -21946,7 +22663,7 @@
         "tags" : [ "org-groups" ],
         "summary" : "The icons and colours a group can use",
         "description" : "A closed list; anything else is a 422.",
-        "operationId" : "pickers_2",
+        "operationId" : "pickers_3",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22096,7 +22813,7 @@
         "tags" : [ "org-dashboard" ],
         "summary" : "The Org Admin dashboard",
         "description" : "{orgId, generatedAt, widgets: [{key, state: ok|empty|unavailable|error, reason?, module?, data?}]} in board order. dashboard.view_org required; each widget additionally needs its own permission (otherwise it is absent) and its module on (otherwise state unavailable, reason NOT_ENABLED, no data). data is present only when state is ok. 404 for everyone else, and whenever the enterprise or roles flag is off for the organization.",
-        "operationId" : "get_25",
+        "operationId" : "get_26",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22256,7 +22973,7 @@
         "tags" : [ "consultants" ],
         "summary" : "The four KPI tiles",
         "description" : "Total, Available, On Project and Needs Review among ACTIVE consultants the caller reaches. Each tile has the figure, the same figure counting only consultants created more than 30 days ago (previous), the delta, and eight weekly sparkline points. previous and the deltas are null when nobody joined more than 30 days ago (no baseline): never estimated.",
-        "operationId" : "counts_5",
+        "operationId" : "counts_7",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22271,12 +22988,60 @@
         }
       }
     },
+    "/api/orgs/{orgId}/con/prepare/{sessionId}" : {
+      "get" : {
+        "tags" : [ "consultant-prepare" ],
+        "summary" : "State of each opening of one of my prepared batches (404 for anyone else's)",
+        "operationId" : "session_1",
+        "parameters" : [ {
+          "name" : "sessionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Session"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/con/prepare/status" : {
+      "get" : {
+        "tags" : [ "consultant-prepare" ],
+        "summary" : "Is Prepare selected on, and what is left of my limits",
+        "description" : "{enabled, maxBatch, remainingToday, remainingMonth, dailyCap, monthlyCap}. Used by the page only.",
+        "operationId" : "status_7",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/con/opportunities" : {
       "get" : {
         "tags" : [ "consultant-opportunities" ],
         "summary" : "My assigned opportunities",
         "description" : "{items, total}. Filters: state (comma list of ASSIGNED, VIEWED, INTERESTED, NEEDS_INFO, DECLINED, APPLIED, CLOSED), page (from 0), size (default 20, max 100). match=<job page url> or atsPlatform + externalJobId return the opportunities of that posting instead (for the browser extension).",
-        "operationId" : "list_26",
+        "operationId" : "list_28",
         "parameters" : [ {
           "name" : "state",
           "in" : "query",
@@ -22340,7 +23105,7 @@
       "get" : {
         "tags" : [ "consultant-opportunities" ],
         "summary" : "One of my assigned opportunities (404 for anyone else's)",
-        "operationId" : "get_26",
+        "operationId" : "get_27",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -22528,7 +23293,7 @@
       "get" : {
         "tags" : [ "org-branding" ],
         "summary" : "Published values, the draft, its version and the publish history",
-        "operationId" : "get_27",
+        "operationId" : "get_28",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22593,7 +23358,7 @@
         "tags" : [ "audit" ],
         "summary" : "The organization audit log",
         "description" : "{items:[{id, at, action, label, actorName, targetType, targetName}], total, page, size, actions:[{action,label}]}, newest first. Filters: action (an action key), from and to (ISO instants, from inclusive, to exclusive). page from 0, size 1 to 100 (default 25). Free text, logins and IP hashes are never sent. audit.view at ORG scope and not row-filtered; 404 otherwise.",
-        "operationId" : "list_27",
+        "operationId" : "list_29",
         "parameters" : [ {
           "name" : "action",
           "in" : "query",
@@ -22709,6 +23474,51 @@
         }
       }
     },
+    "/api/orgs/{orgId}/audit/export" : {
+      "get" : {
+        "tags" : [ "audit" ],
+        "summary" : "The same filtered log as a CSV download",
+        "description" : "Same filters as the list (action, from, to). Newest first, at most the admin setting org.audit.export_max_rows rows (a final line says when cut). Cells that a spreadsheet would read as a formula are neutralised. The export itself is audited (EXPORT). audit.view at ORG scope and not row-filtered; 404 otherwise.",
+        "operationId" : "export_3",
+        "parameters" : [ {
+          "name" : "action",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/applications/pipeline" : {
       "get" : {
         "tags" : [ "applications" ],
@@ -22781,7 +23591,7 @@
         "tags" : [ "applications" ],
         "summary" : "Candidates for the Add Application dialog",
         "description" : "kind = consultant, job or marketer; q narrows by name. Needs a key that may add applications (submissions.prepare or opportunities.manage); up to 20 results.",
-        "operationId" : "pickers_3",
+        "operationId" : "pickers_4",
         "parameters" : [ {
           "name" : "kind",
           "in" : "query",
@@ -22837,7 +23647,7 @@
         "tags" : [ "applications" ],
         "summary" : "The KPI tiles of the Applications board",
         "description" : "Total, In Review (submitted + under review), Interviewing and Offers, each with its figure thirty days ago rebuilt from the application history and a weekly series for the sparkline. previous and the deltas are null when the history does not reach back that far: never estimated.",
-        "operationId" : "counts_6",
+        "operationId" : "counts_8",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22946,7 +23756,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_28",
+        "operationId" : "get_29",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -24125,7 +24935,7 @@
     "/api/admin/users/{login}/sessions" : {
       "get" : {
         "tags" : [ "admin-session-resource" ],
-        "operationId" : "list_28",
+        "operationId" : "list_30",
         "parameters" : [ {
           "name" : "login",
           "in" : "path",
@@ -24155,7 +24965,7 @@
     "/api/admin/subscribers" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "list_29",
+        "operationId" : "list_31",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -24215,7 +25025,7 @@
     "/api/admin/subscribers/export" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "export_2",
+        "operationId" : "export_4",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -24241,7 +25051,7 @@
     "/api/admin/subscribers/counts" : {
       "get" : {
         "tags" : [ "admin-subscriber-resource" ],
-        "operationId" : "counts_7",
+        "operationId" : "counts_9",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -24263,7 +25073,7 @@
     "/api/admin/settings" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "list_30",
+        "operationId" : "list_32",
         "parameters" : [ {
           "name" : "area",
           "in" : "query",
@@ -24333,7 +25143,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_29",
+        "operationId" : "get_30",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -24550,7 +25360,7 @@
     "/api/admin/inquiries" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "list_31",
+        "operationId" : "list_33",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -24610,7 +25420,7 @@
     "/api/admin/inquiries/counts" : {
       "get" : {
         "tags" : [ "admin-sales-inquiry-resource" ],
-        "operationId" : "counts_8",
+        "operationId" : "counts_10",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -24650,7 +25460,7 @@
     "/api/admin/customers" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "list_32",
+        "operationId" : "list_34",
         "parameters" : [ {
           "name" : "filter",
           "in" : "query",
@@ -24736,7 +25546,7 @@
     "/api/admin/customers/counts" : {
       "get" : {
         "tags" : [ "admin-customer-resource" ],
-        "operationId" : "counts_9",
+        "operationId" : "counts_11",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -24758,7 +25568,7 @@
     "/api/admin/bug-reports" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "list_33",
+        "operationId" : "list_35",
         "parameters" : [ {
           "name" : "status",
           "in" : "query",
@@ -24818,7 +25628,7 @@
     "/api/admin/bug-reports/counts" : {
       "get" : {
         "tags" : [ "admin-bug-report-resource" ],
-        "operationId" : "counts_10",
+        "operationId" : "counts_12",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -25083,7 +25893,7 @@
     "/api/account/export" : {
       "get" : {
         "tags" : [ "account-export-resource" ],
-        "operationId" : "export_3",
+        "operationId" : "export_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -26461,6 +27271,99 @@
           "activeConsultantLinks" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "Bounds" : {
+        "type" : "object",
+        "properties" : {
+          "sessionTimeoutMin" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sessionTimeoutMax" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "passwordMinFloor" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "passwordMinCeiling" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "General" : {
+        "type" : "object",
+        "properties" : {
+          "legalName" : {
+            "type" : "string"
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "timeZone" : {
+            "type" : "string"
+          },
+          "locale" : {
+            "type" : "string"
+          },
+          "contactEmail" : {
+            "type" : "string"
+          }
+        }
+      },
+      "OrgSettingsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "general" : {
+            "$ref" : "#/components/schemas/General"
+          },
+          "security" : {
+            "$ref" : "#/components/schemas/Security"
+          },
+          "locales" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "Security" : {
+        "type" : "object",
+        "properties" : {
+          "sessionTimeoutMinutes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "passwordMinLength" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "bounds" : {
+            "$ref" : "#/components/schemas/Bounds"
+          },
+          "reasonMinChars" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Person" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "initials" : {
+            "type" : "string"
           }
         }
       },
@@ -28987,24 +29890,6 @@
           }
         }
       },
-      "Person" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "role" : {
-            "type" : "string"
-          },
-          "avatarUrl" : {
-            "type" : "string"
-          }
-        }
-      },
       "ApprovalRequest" : {
         "type" : "object",
         "properties" : {
@@ -29245,6 +30130,18 @@
         "type" : "object",
         "properties" : {
           "answer" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Skipped" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "code" : {
             "type" : "string"
           }
         }
@@ -30734,6 +31631,54 @@
           }
         }
       },
+      "Created" : {
+        "type" : "object",
+        "properties" : {
+          "sessionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "jobs" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Job"
+            }
+          },
+          "skipped" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Skipped"
+            }
+          },
+          "remainingToday" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "remainingMonth" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "EventRequest" : {
+        "type" : "object",
+        "properties" : {
+          "matchId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "event" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "string"
+          }
+        }
+      },
       "ConOpportunityDTO" : {
         "type" : "object",
         "properties" : {
@@ -31199,34 +32144,6 @@
           },
           "reason" : {
             "type" : "string"
-          }
-        }
-      },
-      "Created" : {
-        "type" : "object",
-        "properties" : {
-          "id" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "slug" : {
-            "type" : "string"
-          },
-          "host" : {
-            "type" : "string"
-          },
-          "ownerEmail" : {
-            "type" : "string"
-          },
-          "ownerAccount" : {
-            "type" : "string"
-          },
-          "tempPassword" : {
-            "type" : "string"
-          },
-          "tempPasswordExpiresAt" : {
-            "type" : "string",
-            "format" : "date-time"
           }
         }
       },
@@ -33473,6 +34390,52 @@
           }
         }
       },
+      "Page" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Row"
+            }
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Counts" : {
+        "type" : "object",
+        "properties" : {
+          "total" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "byStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int64"
+            }
+          },
+          "awaitingApproval" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "RoleDTO" : {
         "type" : "object",
         "properties" : {
@@ -33732,32 +34695,6 @@
           }
         }
       },
-      "Page" : {
-        "type" : "object",
-        "properties" : {
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/Row"
-            }
-          },
-          "page" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "size" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "total" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "hasNext" : {
-            "type" : "boolean"
-          }
-        }
-      },
       "FilterOptions" : {
         "type" : "object",
         "properties" : {
@@ -33783,58 +34720,6 @@
           },
           "label" : {
             "type" : "string"
-          }
-        }
-      },
-      "Counts" : {
-        "type" : "object",
-        "properties" : {
-          "asOf" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "scope" : {
-            "type" : "string"
-          },
-          "total" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "primary" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "needsApproval" : {
-            "$ref" : "#/components/schemas/Tile"
-          },
-          "updatedThisWeek" : {
-            "$ref" : "#/components/schemas/Tile"
-          }
-        }
-      },
-      "Tile" : {
-        "type" : "object",
-        "properties" : {
-          "value" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "previous" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "delta" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "deltaPercent" : {
-            "type" : "number",
-            "format" : "double"
-          },
-          "series" : {
-            "type" : "array",
-            "items" : {
-              "type" : "integer",
-              "format" : "int64"
-            }
           }
         }
       },
@@ -35314,6 +36199,53 @@
           },
           "status" : {
             "type" : "string"
+          }
+        }
+      },
+      "Session" : {
+        "type" : "object",
+        "properties" : {
+          "sessionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Item"
+            }
+          }
+        }
+      },
+      "Status" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "maxBatch" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "remainingToday" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "remainingMonth" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "dailyCap" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "monthlyCap" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
