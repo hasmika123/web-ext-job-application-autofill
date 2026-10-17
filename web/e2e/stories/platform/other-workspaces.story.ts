@@ -95,12 +95,12 @@ test("PLT-35 Felix can open the Placements board by address (placements.view) an
 
 // ---- Accounts (Amara Silva) ---------------------------------------------------------------------------------------------------
 
-test("PLT-36 Amara (Account Manager) lands on Clients; the home is not built, Clients is", async ({ as }) => {
+test("PLT-36 Amara (Account Manager) lands on the Accounts home; Clients is real too", async ({ as }) => {
   const { page, go } = await as("amara");
   await go("/");
   await page.waitForURL("**/w/accounts");
-  await narrate(page, "Amara lands on the Clients workspace");
-  await expectOnTheWay(page); // AccountsHome (X10.x) is not built
+  await narrate(page, "Amara lands on the Accounts home");
+  await expect(page.locator("[data-accounts-home]")).toBeVisible(); // X10.5: real tiles from the requirements API
   await page.locator("[data-shell-sidebar] [data-nav-item=clients]").click();
   await page.waitForURL("**/w/accounts/clients");
   await narrate(page, "The Clients board is real");
@@ -108,19 +108,21 @@ test("PLT-36 Amara (Account Manager) lands on Clients; the home is not built, Cl
   await expect(page.locator("[data-add-client]")).toBeVisible(); // clients.manage
 });
 
-test("PLT-37 Amara's Placements and Interviews boards open; Contacts, Requirements, Submissions and Offers are on the way", async ({ as }) => {
+test("PLT-37 Amara's Placements, Interviews, Contacts and Requirements boards open; Submissions and Offers are on the way", async ({ as }) => {
   const { page, go } = await as("amara");
   await go("/w/accounts");
   for (const [key, marker] of [
     ["placements", "[data-placements-page]"],
     ["interviews", "[data-interviews-page]"],
+    ["contacts", "[data-contacts-page]"],
+    ["requirements", "[data-requirements-page]"],
   ] as const) {
     await page.locator(`[data-shell-sidebar] [data-nav-item=${key}]`).click();
     await page.waitForURL(`**/w/accounts/${key}`);
     await narrate(page, `${key}: a real board`, 600);
     await expect(page.locator(marker)).toBeVisible();
   }
-  for (const key of ["contacts", "requirements", "submissions", "offers"]) {
+  for (const key of ["submissions", "offers"]) {
     await page.locator(`[data-shell-sidebar] [data-nav-item=${key}]`).click();
     await page.waitForURL(`**/w/accounts/${key}`);
     await narrate(page, `${key}: on the way`, 600);
