@@ -150,7 +150,7 @@ public class JobIdentityTx {
     /** A match by id in a fresh snapshot: the one a nested transaction inserted a moment ago (the caller's own snapshot does not see it). */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Optional<RequirementMatch> readMatch(Long orgId, Long matchId) {
-        return matches.findById(matchId).filter(m -> orgId.equals(m.getOrgId()));
+        return matches.findByOrgIdAndId(orgId, matchId);
     }
 
     /** A board row in a fresh snapshot: a match another transaction committed after the caller's snapshot began (the one just inserted here) is visible. */
