@@ -345,8 +345,8 @@ export default function EnterpriseShell({
               focus && "flex min-h-0 flex-col overflow-hidden !p-0",
             )}
           >
-            {/* the page title band every Kiwiply page opens with: brand-tinted wash, bold title, one-line subtitle, the bee on the right (md and up) */}
-            <section className={cn("ent-hero mb-4 hidden md:flex", focus && "!hidden")} data-page-header data-home={isHome ? "true" : undefined}>
+            {/* the page title band every Kiwiply page opens with: brand-tinted wash, bold title, one-line subtitle, the bee on the right (every size; it shrinks on a phone) */}
+            <section className={cn("ent-hero mb-4 flex", focus && "!hidden")} data-page-header data-home={isHome ? "true" : undefined}>
               <div className="min-w-0 flex-1">
                 {isHome ? <p className="ent-hero-eyebrow">{title}</p> : null}
                 <h1 className="ent-hero-title" title={isHome ? undefined : title}>
@@ -367,10 +367,6 @@ export default function EnterpriseShell({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`${ENT_MASCOT_BASE}/${isHome ? "welcome" : "happy"}.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />
             </section>
-            <div className={cn("mb-4 md:hidden", focus && "hidden")} data-page-header-phone>
-              <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-ink">{title}</h1>
-              {subtitle ? <p className="mt-0.5 text-[13.5px] text-muted">{subtitle}</p> : null}
-            </div>
             {children}
             {focus ? null : <ShellFooter orgName={tenant.displayName} supportEmail={tenant.supportEmail} />}
           </main>

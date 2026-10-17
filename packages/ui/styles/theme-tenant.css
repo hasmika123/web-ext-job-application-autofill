@@ -1577,3 +1577,26 @@
 @media (max-width: 1100px) {
   .theme-tenant .ent-hero-note { display: none; }
 }
+
+/* the same band on a tablet and a phone: it shrinks (padding, title, bee) and the title may wrap */
+@media (max-width: 767px) {
+  .theme-tenant .ent-hero,
+  .theme-tenant .ent-hero[data-home="true"] {
+    min-height: 112px;
+    padding: 16px 16px 18px;
+    border-radius: 18px;
+  }
+  .theme-tenant .ent-hero-title,
+  .theme-tenant .ent-hero[data-home="true"] .ent-hero-title {
+    font-size: 24px;
+    white-space: normal;
+  }
+  .theme-tenant .ent-hero-subtitle {
+    font-size: 13.5px;
+  }
+  .theme-tenant .ent-hero-art,
+  .theme-tenant .ent-hero[data-home="true"] .ent-hero-art {
+    height: 84px;
+    margin: 0 -4px -18px 0;
+  }
+}

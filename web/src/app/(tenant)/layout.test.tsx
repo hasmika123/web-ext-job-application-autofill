@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({ value: { kind: "UNKNOWN" } as unknown }));
+vi.mock("next/font/google", () => ({ Caveat: () => ({ variable: "caveat-var" }) }));
 vi.mock("@/lib/tenant", () => ({ getTenant: async () => state.value }));
 vi.mock("next/navigation", () => ({
   notFound: () => {
