@@ -52,7 +52,7 @@ describe("DEFAULT_BUILDER_CONFIG", () => {
     expect(DEFAULT_BUILDER_CONFIG.limits).toEqual({
       sections: 20, items: 40, bullets: 12, bulletChars: 600, summaryChars: 2000, marks: 64, docBytes: 262144,
     });
-    expect(DEFAULT_BUILDER_CONFIG.templates.enabled).toEqual(["modern"]);
+    expect(DEFAULT_BUILDER_CONFIG.templates.enabled).toEqual(["modern", "statement"]);
     expect(DEFAULT_BUILDER_CONFIG.profile).toEqual({
       itemMaxBytes: 16384,
       maxItemsPerUser: 500,

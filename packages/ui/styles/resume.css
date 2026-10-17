@@ -338,6 +338,53 @@
 /* Modern is the base stylesheet above: it adds no rules of its own. */
 /* == /tpl:modern == */
 
+/* == tpl:statement == */
+.rz-tpl-statement .rz-header {
+  margin: 0 0 calc(1.2em * var(--rz-density));
+  padding: 1.1em 1.2em;
+  border-radius: 4px;
+  background: var(--rz-accent);
+  color: #fff;
+}
+
+.rz-tpl-statement .rz-name {
+  font-size: 2em;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rz-tpl-statement .rz-headline {
+  margin-top: 0.15em;
+  font-size: 1.05em;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.rz-tpl-statement .rz-contact {
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.rz-tpl-statement .rz-contact .rz-link {
+  color: #fff;
+}
+
+.rz-tpl-statement .rz-section-title {
+  margin-bottom: calc(0.5em * var(--rz-density));
+  padding: 0 0 0 0.5em;
+  font-size: 0.95em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rz-accent);
+  border-bottom: 0;
+  border-left: 3px solid var(--rz-accent);
+}
+
+.rz-tpl-statement .rz-item-title {
+  font-weight: 700;
+}
+/* == /tpl:statement == */
+
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
 @media print {

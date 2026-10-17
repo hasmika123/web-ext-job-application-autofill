@@ -6,11 +6,12 @@
  */
 import { tightenCapabilities } from "./capabilities";
 import { modern } from "./templates/modern";
+import { statement } from "./templates/statement";
 import type { TemplateCapabilities, TemplateDefinition, TemplateMeta } from "./types";
 
 export const DEFAULT_TEMPLATE_ID = "modern";
 
-export const TEMPLATES: Record<string, TemplateDefinition> = { modern };
+export const TEMPLATES: Record<string, TemplateDefinition> = { modern, statement };
 
 export const TEMPLATE_IDS: string[] = Object.keys(TEMPLATES);
 
