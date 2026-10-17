@@ -46,9 +46,9 @@ function withExtraBullets(n: number): ResumeDocument {
 
 /**
  * Templates that must keep room for two extra bullets inside two pages at step 0 (headroom, so editing a little never
- * jumps to a third page). Sidebar is left out: its main column is narrower and has no headroom yet.
+ * jumps to a third page).
  */
-const EXTRA_BULLET_HEADROOM = ["modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement"];
+const EXTRA_BULLET_HEADROOM = ["modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement", "sidebar"];
 
 /** A template's own starting theme (what a new resume in it, or a switch to it, applies). */
 const defaultsOf = (id: string): Partial<ResumeTheme> => ({ ...(getTemplate(id).meta.defaults ?? {}) });

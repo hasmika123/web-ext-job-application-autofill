@@ -153,6 +153,11 @@ describe("sidebar specifics", () => {
       expect(css).toMatch(/break-inside:\s*auto/);
       expect(css).toMatch(/border-radius:\s*4px/);
     });
+    it("main-column entries may split across pages, with the head kept with its first bullet", () => {
+      expect(css).toMatch(/\.rz-main \.rz-entry\s*\{[^}]*break-inside:\s*auto/);
+      expect(css).toMatch(/\.rz-main \.rz-item-head\s*\{[^}]*break-after:\s*avoid/);
+      expect(css).toMatch(/\.rz-main \.rz-bullet\s*\{[^}]*break-inside:\s*avoid/);
+    });
     it("no icons or generated content, no absolute positioning, no url()", () => {
       for (const bad of ["url(", "position:", "float:", "column-count"]) expect(css).not.toContain(bad);
       expect(css).not.toMatch(/(?:^|[\s;{])content:/); // generated text (align-content is layout, not content)

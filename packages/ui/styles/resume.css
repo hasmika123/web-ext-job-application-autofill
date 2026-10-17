@@ -626,7 +626,7 @@
   grid-template-areas: "header header" "side main";
   column-gap: 1.4em;
   align-content: start;
-  line-height: 1.35;
+  line-height: 1.32;
 }
 
 .rz-page.rz-tpl-sidebar.rz-no-side {
@@ -685,6 +685,26 @@
 
 .rz-tpl-sidebar .rz-item-title {
   font-weight: 700;
+}
+
+/* Page fit: the main column is narrow, so a long role may split across pages (whole entries left a ~140pt hole at the foot of
+   page 1). The head stays with the first bullet, a bullet never splits, and nothing is left as a lone line. */
+.rz-tpl-sidebar .rz-main .rz-entry {
+  break-inside: auto;
+  orphans: 2;
+  widows: 2;
+}
+
+.rz-tpl-sidebar .rz-main .rz-item-head {
+  break-after: avoid;
+}
+
+.rz-tpl-sidebar .rz-main .rz-bullet {
+  break-inside: avoid;
+}
+
+.rz-tpl-sidebar .rz-main .rz-bullet:last-child {
+  break-before: avoid;
 }
 
 /* Sidebar: titles in accent without a rule, body at 0.9em. */

@@ -601,7 +601,8 @@ allows). Rendering of the item kinds not mentioned in a spec is the shared defau
   && photoSrc`; `photoDefault: false` (region note in DESIGN §5 applies); square crop, circle mask.
 - **Defaults:** `{ fontPair: "inter", spacing: "normal" }`.
 - **Pagination:** the grid row "side main" breaks across pages; both columns continue on page 2 at
-  the top of their column; entries carry `break-inside: avoid` (shared).
+  the top of their column; in the main column an entry may split (`break-inside: auto`, `orphans/widows: 2`) but its head keeps with the first bullet
+  (`break-after: avoid`) and a bullet never splits; the aside's entries carry `break-inside: avoid` (shared).
 - **Thumbnail:** tinted left column with Contact and skill chips, blue headings right; no photo (none
   in the fixture's render — the thumbnail generator passes no `photoSrc`).
 
@@ -784,9 +785,9 @@ exactly as today.
 | consultant | compact (target capped at 1) | ≤ 2 (reported "Still 2 pages") | ≤ 3 |
 
 **Headroom (added 2026-10-17):** at step 0 the sample plus **two extra two-line bullets** on the last role must still print in
-two pages for every template except `sidebar` (two columns, no headroom yet): an edit must not tip a document onto a third
-page. `template-fit.browser.test.tsx` asserts it. `modern`, `executive` and `statement` met it by tightening their own CSS block
-(line height, section gap, entry gap), not the ladder; measured extra bullets before page 3 are in the QA report.
+two pages for every template: an edit must not tip a document onto a third
+page. `template-fit.browser.test.tsx` asserts it. `modern`, `executive`, `statement` and `sidebar` met it by tightening their own CSS block
+(line height, section gap, entry gap; sidebar also lets a long role split across pages in its main column, head kept with its first bullet), not the ladder; measured extra bullets before page 3 are in the QA report.
 
 These are the §12.4 assertions. If a template misses its budget the template's rhythm is too loose —
 fix the CSS, do not change the ladder.
