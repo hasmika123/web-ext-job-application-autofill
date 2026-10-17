@@ -1,3 +1,4 @@
 {
-  "modern": {}
+  "modern": {},
+  "simple": { "fontPair": "georgia-arial", "spacing": "normal" }
 }

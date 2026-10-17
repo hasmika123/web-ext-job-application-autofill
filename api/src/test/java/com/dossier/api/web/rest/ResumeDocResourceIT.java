@@ -892,7 +892,8 @@ class ResumeDocResourceIT {
 
     @Test
     void aKnownButDisabledTemplateIsRejectedOnSwitchAndOnCreate() throws Exception {
-        // Default setting: only Modern is enabled, so "classic" exists but cannot be picked.
+        // Only Modern is enabled (pinned here: the shipped default grows with every template), so "classic" exists but cannot be picked.
+        enableTemplates("modern");
         Long id = createBuilt("{}").at("/resume/id").asLong();
         long before = resumeRepository.count();
 

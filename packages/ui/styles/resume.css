@@ -180,8 +180,9 @@
   break-after: avoid;
 }
 
+/* Templates retune the gap between entries with `--rz-entry-gap` (one-line sections keep their own). */
 .rz-entry {
-  margin: 0 0 calc(0.7em * var(--rz-density));
+  margin: 0 0 var(--rz-entry-gap, calc(0.7em * var(--rz-density)));
   break-inside: avoid;
 }
 
@@ -337,6 +338,74 @@
 /* == tpl:modern == */
 /* Modern is the base stylesheet above: it adds no rules of its own. */
 /* == /tpl:modern == */
+
+/* == tpl:simple == */
+/* Simple: plain Word-style. Name left, sentence-case bold headings with no rule, no colour, dates in ink. */
+.rz-tpl-simple .rz-header {
+  margin: 0 0 calc(0.9em * var(--rz-density));
+}
+
+.rz-tpl-simple .rz-name {
+  font-size: 1.5em;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.rz-tpl-simple .rz-headline {
+  font-size: 1em;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-simple .rz-contact {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-simple .rz-section {
+  margin: 0 0 calc(0.9em * var(--rz-density));
+}
+
+.rz-tpl-simple .rz-section-title {
+  margin: 0 0 calc(0.3em * var(--rz-density));
+  padding: 0;
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rz-ink);
+  border-bottom: 0;
+}
+
+.rz-tpl-simple .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-simple .rz-item-org {
+  font-weight: 400;
+}
+
+.rz-tpl-simple .rz-item-dates {
+  font-size: 0.9em;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-simple .rz-item-sub {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-simple .rz-bullets {
+  padding-left: 1.2em;
+}
+
+.rz-tpl-simple .rz-bullet {
+  margin-bottom: calc(0.18em * var(--rz-density));
+}
+
+.rz-tpl-simple .rz-bullet::marker {
+  color: var(--rz-ink);
+}
+/* == /tpl:simple == */
 
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
