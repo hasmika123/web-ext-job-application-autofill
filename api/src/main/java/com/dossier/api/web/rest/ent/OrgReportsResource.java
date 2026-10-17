@@ -1,11 +1,17 @@
 package com.dossier.api.web.rest.ent;
 
 import com.dossier.api.service.dto.ent.ReportsDTO;
+import com.dossier.api.service.ent.reports.OrgReportsExportService;
 import com.dossier.api.service.ent.reports.OrgReportsService;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.nio.charset.StandardCharsets;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,9 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrgReportsResource {
 
     private final OrgReportsService service;
+    private final OrgReportsExportService exports;
 
-    public OrgReportsResource(OrgReportsService service) {
+    public OrgReportsResource(OrgReportsService service, OrgReportsExportService exports) {
         this.service = service;
+        this.exports = exports;
     }
 
     @Operation(
@@ -40,5 +48,24 @@ public class OrgReportsResource {
         @RequestParam(name = "range", required = false) String range
     ) {
         return service.overview(me, range);
+    }
+
+    @Operation(
+        summary = "The reports overview as a CSV download",
+        description = "Same range and gate as the overview (reports.view at ORG scope; 404 otherwise). One section per block (tiles, roster, funnel, interviews, placements, top clients, marketer workload), " +
+            "cells neutralised against spreadsheet formulas, and the export itself audited (EXPORT)."
+    )
+    @GetMapping("/export")
+    @OrgPermissionRequired
+    public ResponseEntity<byte[]> export(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestParam(name = "range", required = false) String range
+    ) {
+        String csv = exports.exportCsv(me, range);
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"reports.csv\"")
+            .cacheControl(CacheControl.noStore())
+            .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
+            .body(csv.getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -118,6 +118,10 @@ public class AuthenticateController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private com.dossier.api.repository.org.OrganizationRepository organizations;
 
+    // X2.9: the organization's own idle-session timeout. Optional for the same reason (the pinned slice): absent = the platform lifetime.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.settings.OrgSecurityPolicy orgSecurity;
+
     public AuthenticateController(
         JwtEncoder jwtEncoder,
         @Qualifier("refreshTokenDecoder") JwtDecoder refreshTokenDecoder,
@@ -211,13 +215,14 @@ public class AuthenticateController {
     /** Build the access + refresh token pair (new rotation family) and the bearer header. */
     private ResponseEntity<TokenResponse> issueTokens(String subject, String authorities, Long userId, boolean pcr) {
         TenantBinding binding = bindingFor(userId, subject, false).orElse(null);
+        long refreshSecs = refreshSecondsFor(binding, false);
         String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding, pcr);
         // New login starts a new rotation family. The refresh token carries a jti recorded
         // server-side so it can be rotated and revoked.
         String family = UUID.randomUUID().toString();
         String refreshJti = UUID.randomUUID().toString();
-        refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti, binding, pcr);
+        refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshSecs));
+        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshSecs, refreshJti, binding, pcr);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
@@ -328,10 +333,11 @@ public class AuthenticateController {
                 pcr = true;
             }
         }
+        long refreshSecs = refreshSecondsFor(binding, ext);
         String accessToken = buildToken(jwt.getSubject(), authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding, pcr, ext);
         String newRefreshJti = UUID.randomUUID().toString();
-        refreshTokenService.record(newRefreshJti, family.get(), userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(jwt.getSubject(), authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, newRefreshJti, binding, pcr, ext);
+        refreshTokenService.record(newRefreshJti, family.get(), userId, Instant.now().plusSeconds(refreshSecs));
+        String refreshToken = buildToken(jwt.getSubject(), authorities, userId, REFRESH_TOKEN_TYPE, refreshSecs, newRefreshJti, binding, pcr, ext);
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setBearerAuth(accessToken);
@@ -489,6 +495,12 @@ public class AuthenticateController {
         // The synthetic ent# login is never sent: the extension identifies an enterprise account by user id and shows email + organization.
         TokenResponse out = new TokenResponse(accessToken, refreshToken).account("ENTERPRISE", account.getId(), account.getEmail(), null, orgId, orgName);
         return new ResponseEntity<>(out, httpHeaders, HttpStatus.OK);
+    }
+
+    /** X2.9: a session on an organization's host lives no longer than that organization's idle timeout (a refresh renews it). Extension tokens and personal sessions keep the platform lifetime. */
+    private long refreshSecondsFor(TenantBinding binding, boolean ext) {
+        if (ext || binding == null || binding.orgId() == null || orgSecurity == null) return refreshTokenValidityInSeconds;
+        return orgSecurity.refreshSeconds(binding.orgId(), refreshTokenValidityInSeconds);
     }
 
     private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti, TenantBinding binding) {

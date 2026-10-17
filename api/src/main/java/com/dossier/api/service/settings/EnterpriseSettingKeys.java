@@ -78,6 +78,24 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_PLACEMENTS_ENDING_URGENT_DAYS = "org.placements.ending_urgent_days";
     public static final String ORG_PLACEMENTS_STARTING_SOON_DAYS = "org.placements.starting_soon_days";
     public static final String ORG_CONSENT_REQUEST_COOLDOWN_DAYS = "org.consent.request_cooldown_days";
+    /**
+     * Organization Settings page (X2.9). An organization sets its own idle-session timeout and password minimum (org_setting keys
+     * {@link #ORG_SECURITY_SESSION_TIMEOUT_MINUTES} and {@link #ORG_SECURITY_PASSWORD_MIN_LENGTH}, never in the global registry) only inside the
+     * bounds below; the locale only from the allowed list; every Security change needs a reason of at least the configured length.
+     */
+    public static final String ORG_SECURITY_SESSION_TIMEOUT_MINUTES = "org.security.session_timeout_minutes";
+    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH = "org.security.password_min_length";
+    public static final String ORG_SECURITY_SESSION_TIMEOUT_MIN_MINUTES = "org.security.session_timeout_min_minutes";
+    public static final String ORG_SECURITY_SESSION_TIMEOUT_MAX_MINUTES = "org.security.session_timeout_max_minutes";
+    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR = "org.security.password_min_length_floor";
+    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING = "org.security.password_min_length_ceiling";
+    public static final String ORG_SETTINGS_REASON_MIN_CHARS = "org.settings.reason_min_chars";
+    public static final String ORG_SETTINGS_LOCALES = "org.settings.locales";
+    /** Audit viewer CSV export (X4.9): the most rows one export carries (newest first); an export of a longer log says it was cut. */
+    public static final String ORG_AUDIT_EXPORT_MAX_ROWS = "org.audit.export_max_rows";
+    /** org_setting keys of the General section (an organization's own values; not registry keys). */
+    public static final String ORG_LOCALE = "org.locale";
+    public static final String ORG_CONTACT_SUPPORT_EMAIL = "org.contact.support_email";
     /** Resume Builder inside an organization workspace: how many live (non-archived) resumes one consultant of the organization may keep. The organization license sets the cap; an organization may override it in org_setting. */
     public static final String ORG_LICENSE_RESUMES_MAX = "org.license.resumes_max";
     /** Resume Builder inside an organization workspace: whether a consultant may create share links (recruiter link, named people) for their organization resumes. Off unless the organization turns it on; a marketer acting for a consultant never can. */
@@ -117,6 +135,8 @@ public final class EnterpriseSettingKeys {
     public static final String DEFAULT_CONSUMER_DOMAINS = "[\"gmail.com\",\"googlemail.com\",\"yahoo.com\",\"hotmail.com\",\"outlook.com\",\"live.com\",\"icloud.com\",\"me.com\",\"aol.com\",\"proton.me\",\"protonmail.com\",\"gmx.com\",\"mail.com\"]";
 
     private static final Pattern HOSTNAME = Pattern.compile("(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*");
+    private static final String DEFAULT_LOCALES = "[\"en\",\"en-GB\",\"es\",\"fr\",\"de\"]";
+    private static final Pattern LOCALE_TAG = Pattern.compile("[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}");
     private static final Pattern POLICY_KIND = Pattern.compile("[A-Z][A-Z_]{1,39}");
     private static final Pattern ORG_ID_TEXT = Pattern.compile("[1-9][0-9]{0,18}");
     private static final String NOT_ENFORCED = " Not enforced yet: it takes effect once the feature that reads it ships.";
@@ -188,6 +208,15 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_LICENSE_RESUMES_MAX, 25, 1, 200, Risk.LOW, "Resume Builder in an organization workspace: the most live (non-archived) resumes one consultant of the organization may keep (counted per account, personal plans never apply there). The consultant license grants it; an organization can override it in org_setting. Creating a resume past it answers 402 RESUME_LIMIT; nothing already created is removed.");
         k.add(new Key(ORG_RESUMES_CONSULTANT_SHARE_LINKS, Type.BOOL, "false", null, null, null,
             "Resume Builder in an organization workspace: let a consultant create share links (a recruiter link or named people) for their organization resumes. Off by default; the organization admin can turn it on, and an organization can override it in org_setting. A marketer acting for a consultant can never create share links, whatever this says. Personal accounts are unaffected.", null, Risk.MEDIUM));
+        integer(k, ORG_SECURITY_SESSION_TIMEOUT_MIN_MINUTES, 15, 5, 1440, Risk.MEDIUM, "Organization Settings: the shortest idle-session timeout (minutes) an Org Admin may set for their organization.");
+        integer(k, ORG_SECURITY_SESSION_TIMEOUT_MAX_MINUTES, 43200, 60, 525600, Risk.MEDIUM, "Organization Settings: the longest idle-session timeout (minutes) an Org Admin may set; 43200 is 30 days.");
+        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR, 4, 4, 32, Risk.HIGH, "Organization Settings: the lowest password minimum length an Org Admin may set (never below the platform's own 4).");
+        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING, 32, 8, 100, Risk.MEDIUM, "Organization Settings: the highest password minimum length an Org Admin may set.");
+        integer(k, ORG_SETTINGS_REASON_MIN_CHARS, 10, 3, 200, Risk.LOW, "Organization Settings: the fewest characters of the reason an Org Admin must give for a Security change.");
+        integer(k, ORG_AUDIT_EXPORT_MAX_ROWS, 5000, 100, 50000, Risk.LOW, "Audit log CSV export: the most rows (newest first) one export carries.");
+        k.add(new Key(ORG_SETTINGS_LOCALES, Type.JSON, DEFAULT_LOCALES, null, null, null,
+            "Organization Settings: the default languages an Org Admin can choose for their organization, as a JSON list of language tags (1 to 20, e.g. en, en-GB, es).",
+            EnterpriseSettingKeys::localeList, Risk.LOW));
         integer(d, ORG_CONSENT_REQUEST_COOLDOWN_DAYS, 7, 1, 90, Risk.LOW, "Days before an organization may ask a member for the same consent again." + NOT_ENFORCED);
         d.add(new Key(BILLING_MODE_DEFAULT, Type.ENUM, "SUBSCRIPTION_ITEMS", null, null, List.of("SUBSCRIPTION_ITEMS", "COMPUTED_INVOICE"),
             "How an organization's licenses are billed by default: one Stripe subscription item per line, or one computed invoice." + NOT_ENFORCED, null, Risk.HIGH));
@@ -252,6 +281,16 @@ public final class EnterpriseSettingKeys {
         Set<String> seen = new java.util.HashSet<>();
         for (JsonNode e : n) {
             if (!e.isTextual() || !POLICY_KIND.matcher(e.textValue()).matches() || !seen.add(e.textValue())) return false;
+        }
+        return true;
+    }
+
+    /** A JSON list of 1 to 20 distinct language tags such as {@code en} or {@code en-GB}. */
+    public static boolean localeList(JsonNode n) {
+        if (n == null || !n.isArray() || n.isEmpty() || n.size() > 20) return false;
+        Set<String> seen = new java.util.HashSet<>();
+        for (JsonNode e : n) {
+            if (!e.isTextual() || e.textValue().length() > 20 || !LOCALE_TAG.matcher(e.textValue()).matches() || !seen.add(e.textValue())) return false;
         }
         return true;
     }

@@ -15,6 +15,7 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string, init: RequestInit = {}) => {
+      if (String(url).includes("/org-settings")) return new Response("{}", { status: 404 }); // the General / Security sections have their own test file
       const method = init.method ?? "GET";
       const body = init.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ method, url, body });

@@ -109,6 +109,10 @@ public class NotificationService {
     private final MailService mail;
     private final String baseUrl;
 
+    // X2.10: optional (field-injected; the unit test builds this class by hand): absent = every link starts at the platform base.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.EnterpriseMailContext enterpriseMail;
+
     public NotificationService(
         NotificationRepository notifications,
         NotificationPreferenceService preferences,
@@ -188,10 +192,12 @@ public class NotificationService {
         }
 
         if (decision.email() && payload.emailWorthy()) {
-            String link = payload.link() == null ? baseUrl : payload.link().startsWith("/") ? baseUrl + payload.link() : payload.link();
             users
                 .findById(userId)
                 .ifPresent(u -> {
+                    // X2.10: an enterprise account's links lead to its organization's own host, never to kiwiply.com
+                    String base = enterpriseMail == null ? baseUrl : enterpriseMail.forUser(u).map(c -> c.origin()).orElse(baseUrl);
+                    String link = payload.link() == null ? base : payload.link().startsWith("/") ? base + payload.link() : payload.link();
                     if (payload.email() != null) payload.email().send(u, link);
                     else mail.sendNotificationEmail(u, kind.title(), payload.title(), payload.body(), link);
                 });

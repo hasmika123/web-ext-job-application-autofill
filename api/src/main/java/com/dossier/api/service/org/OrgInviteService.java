@@ -611,10 +611,15 @@ public class OrgInviteService {
 
     // ---- email ------------------------------------------------------------------------------------------------------
 
+    /** The "pays for" lines of an invite. A SEPARATE-account organization never has any: its members have enterprise accounts and an enterprise account never has a personal plan (decision O4, docs/enterprise-v2/19). */
+    static List<String> paysFor(Organization org, List<String> pays) {
+        return org == null || org.isSeparateAccounts() || pays == null ? List.of() : pays;
+    }
+
     private void sendInvite(Organization org, String to, String name, String inviter, String roleWord, String token, Instant expires, String message) {
         try {
             // The logo is a placeholder until the branding publish exposes a signed asset URL for mail (X2.13 serves /tenant-assets/logo on the tenant host).
-            mail.sendOrgInviteEmail(to, name, org.getName(), inviter, roleWord, List.of(), links.joinLink(org.getId(), token), EXPIRES.format(expires), message, null);
+            mail.sendOrgInviteEmail(to, name, org.getName(), inviter, roleWord, paysFor(org, List.of()), links.joinLink(org.getId(), token), EXPIRES.format(expires), message, null);
         } catch (RuntimeException e) {
             LOG.warn("Invite email could not be queued for org {}", org.getId(), e); // never log the address or the link
         }
