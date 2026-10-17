@@ -17,7 +17,7 @@
 5. **Pre-existing failures on version2 a5094029, not caused by machine B:** `AccountDeletionSeparateIT` fails 2 of 11 and `EnterpriseOffboardingIT` fails 5 of 6 (they get 404 `error.org` on `/api/orgs/{id}/members/...`). Reproduced on a detached a5094029. Probably from ent-hardening-a (X4.10); not confirmed.
 6. **B3 deploy:** the first deploy after merge recreates the mysql container (the `logging:` block changes its config, about 20 s of database restart, volume untouched). `deploy.yml` still pulls `latest`; the switch is documented in DEPLOY.md section 5.4. B3 touched `docker-compose.prod.yml` (image tag interpolation + `logging:`), `.gitignore` (`!.env.staging.example`), `.env.example`, `DEPLOY.md`, `MIGRATION.md`, `docs/HANDOFF.md` and `REAL-GAPS-C.md`; no Caddy file and nothing machine A owns.
 
-## B1 `sprint2-b-assignments` (tip a150d326)
+## B1 `sprint2-b-assignments` (tip a150d326; follow-ups to b174800b below)
 
 **Decision:** `marketer_assignment` is authoritative. The evidence:
 - 35 readers plus the working board, keyed by consultant profile, and some consultants have no seat;
@@ -78,6 +78,45 @@ They were not rerun cleanly; machine A should rerun them after merging.
 **Stories:** MKT-60..64, ADM-130.
 
 **Other:** happy-path assign ITs aren't possible under `@Transactional` with a pool of 1, so they're covered by unit tests.
+
+### Follow-ups (B1)
+
+Added 2026-10-17 on `sprint2-b-assignments`, tip b174800b (commits c11b7026, 772a32ea, 1f3b689e, b174800b on top of a150d326). Squash-merge note 1 still applies.
+
+**1. Clean rerun of the three marketing ITs** (one class per gradle run, behind the shared lock). The machine was heavily loaded (other projects' gradle runs, Docker, the demo), and the failures are all in `seed()`.
+
+| Class | At a150d326 | `origin/version2` a5094029, detached |
+|---|---|---|
+| `MktJobsIT` | 7 tests, 0 failed | not needed |
+| `MktOpportunitiesIT` | first run: BUILD SUCCESSFUL (8 tests, 0 failed). Reruns later under heavier load, at 772a32ea: 6 of 8 failed, then 3 of 8 failed | 3 of 8 failed |
+| `MktMatchesIT` | 3 tests, 2 failed | 3 tests, 2 failed |
+
+- Every failure is the `seed() timed out after 15 seconds` guard, except `MktMatchesIT.assignRecordsTheMatchOnly` at a150d326, which failed on a `Lock wait timeout` when inserting into `mkt_opportunity`.
+  - That is the known pool-size-1 `REQUIRES_NEW` failure from `docs/V2-TEST-PASS-REPORT.md`.
+  - On version2 the same test fails one step earlier, on the `seed()` timeout.
+- The 15 s seed guard only fails under load, and it fails the same way on version2. No failure was caused by this branch, so nothing was fixed. They need a quiet machine (or a larger guard) to go green.
+- The exact test count of the first `MktOpportunitiesIT` run was not saved (the next class's run replaced the XML); 8 is from the later XMLs.
+
+**2. Duplicate confirmation in the other marketer flows.** The "Possible duplicate" answer from the Opportunities board (409 `DUPLICATE_WARNING`, findings, a 1-200 character reason, retry with `confirmDuplicate` + `duplicateReason`) now also covers every other flow that calls a guarded route.
+- Shared piece, extracted from the Opportunities dialogs (which now use it): `web/src/components/ent/marketer-ws/DuplicateConfirm.tsx` (the notice with the reason box, a sheet, and a `useDuplicateAsk` hook) and `web/src/lib/ent/marketer-ws/duplicate.ts` (codes, wire fields, plain sentences).
+- Job Matches: a dialog for Assign. Assign selected skips the flagged rows and says so ("Left out: N looked like a duplicate"), as Bulk Assign does.
+- Jobs (Assign sheet), Submissions (New Submission) and Applications (Add Application): an inline notice, a primary button that becomes "... anyway" and stays off until there is a reason. The warning is dropped when another consultant or job is picked. Add Application sends the confirmed call under a new idempotency key.
+- `DUPLICATE_BLOCKED` and `ASSIGNMENT_CAP` stay plain messages with nothing to confirm in every flow.
+- BFF: the matches assign, jobs assign and submissions create routes forward the two optional fields and nothing else.
+
+**Deviations (read these):**
+- **API change.** `POST mkt/matches/{id}/assign` took no body, so a warning raised from the Job Matches page could never be confirmed. It now takes the optional `{confirmDuplicate, duplicateReason}` (the two-argument service method stays and passes `Confirm.NONE`). The openapi snapshot was regenerated: 573 paths, none missing, one request body added.
+- **Applications lives outside `marketer-ws`.** The Applications flow that calls the guarded route (`POST /applications`) is `web/src/components/ent/applications/AddApplicationDialog.tsx`, plus `CreateBody` in `web/src/lib/ent/applications.ts`. The marketer-ws Applications board itself has no create call. Both files are outside machine A's areas.
+- **Jobs sheet.** The Jobs Assign sheet was added as well: it calls the guarded `POST mkt/jobs/{jobId}/assign`, so it would otherwise have been stuck on a warning.
+
+**Tests:**
+- vitest, `src/components/ent/marketer-ws` + `src/lib/ent/marketer-ws`: 28 files, 406 tests (was 27 files, 378).
+- New: `JobMatchesPage` 6, `JobDiscoveryPage` 4, `SubmissionsPage` 4, `ApplicationsPage` 4, `duplicate.test.ts` 5, `matches.test.ts` 5, `jobs.test.ts` 2, `submissions.test.ts` 2, and the BFF routes `duplicate.routes.test.ts` 9.
+- Folders re-run together: `src/components/ent/applications` 32 and `src/app/api/orgs/[orgId]/mkt` 9.
+- Java unit: `MktMatchesServiceTest` 17 (3 new), `MktMatchesResourceTest` 4 (1 new), 0 failed. `OpenApiContractIT` 1 passed.
+- `npx tsc --noEmit` clean. `npx eslint` on every changed file: 0 errors, 1 warning that already existed (`matches.test.ts:58`).
+- Not verified in a browser.
+- Story MKT-62 lists the new routes and tests; one log line was added to `progress-tracker.md`.
 
 ## B2 `sprint2-b-privacy` (tip acab4eed)
 
