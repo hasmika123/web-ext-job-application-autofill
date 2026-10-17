@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import {
   ATS_STRICT,
   DESIGN_FREE,
+  HYBRID,
   LIMITED_CUSTOM_TITLE,
   allowedMarks,
   controlStates,
@@ -35,6 +36,8 @@ describe("the two profiles", () => {
   it("match the shared golden (Java twin reads the same file)", () => {
     expect(JSON.parse(JSON.stringify(ATS_STRICT))).toEqual(golden.ATS_STRICT);
     expect(JSON.parse(JSON.stringify(DESIGN_FREE))).toEqual(golden.DESIGN_FREE);
+    expect(JSON.parse(JSON.stringify(HYBRID))).toEqual(golden.HYBRID);
+    expect(Object.keys(golden)).toEqual(["ATS_STRICT", "DESIGN_FREE", "HYBRID"]);
   });
 
   it("ATS_STRICT is DESIGN 6.2: bold only, no photo / lists / graphics / accent, standard headings, one custom section", () => {
@@ -53,7 +56,9 @@ describe("the two profiles", () => {
       dateStyles: ["range"],
       maxSkillGroups: 6,
     });
-    expect(ATS_STRICT.theme).toEqual({ accent: false, fontPairs: ["inter", "georgia-arial"], spacing: true, pageLength: true });
+    // Fonts are embedded as real text in the PDF: every bundled font is offered (TEMPLATES-DESIGN 3.1).
+    expect(ATS_STRICT.theme).toEqual({ accent: false, fontPairs: ["inter", "source-serif", "georgia-arial", "plex", "garamond"], spacing: true, pageLength: true });
+    expect(DESIGN_FREE.theme.fontPairs).toEqual(ATS_STRICT.theme.fontPairs);
     expect(ATS_STRICT.sections).not.toContain("INTERESTS");
     expect(ATS_STRICT.sections).not.toContain("CUSTOM");
   });
@@ -62,6 +67,23 @@ describe("the two profiles", () => {
     expect(Object.isFrozen(ATS_STRICT)).toBe(true);
     expect(Object.isFrozen(ATS_STRICT.marks)).toBe(true);
     expect(Object.isFrozen(DESIGN_FREE.theme)).toBe(true);
+  });
+});
+
+describe("HYBRID", () => {
+  it("sits between the profiles", () => {
+    expect(isAtLeastAsStrictAs(HYBRID, DESIGN_FREE)).toBe(true);
+    expect(isAtLeastAsStrictAs({ ...ATS_STRICT, ats: false }, HYBRID)).toBe(true); // ATS_STRICT is inside HYBRID in every field but `ats`
+    expect(isAtLeastAsStrictAs(ATS_STRICT, HYBRID)).toBe(true); // ... and ats: true counts as stricter than false
+    expect(isAtLeastAsStrictAs(HYBRID, ATS_STRICT)).toBe(false);
+    expect(isAtLeastAsStrictAs(DESIGN_FREE, HYBRID)).toBe(false);
+  });
+
+  it("is single column with colour, rich text and lists but no photo or graphics, and is frozen", () => {
+    expect(HYBRID).toMatchObject({ ats: false, columns: 1, photo: false, graphics: false, lists: true, headings: "free", custom: "any", maxSkillGroups: 0 });
+    expect(HYBRID.marks).toEqual(["b", "i", "u", "a"]);
+    expect(Object.isFrozen(HYBRID)).toBe(true);
+    expect(Object.isFrozen(HYBRID.theme.fontPairs)).toBe(true);
   });
 });
 
@@ -89,7 +111,7 @@ describe("isAtLeastAsStrictAs", () => {
     ["unlimited skill groups", { maxSkillGroups: 0 }],
     ["more skill groups", { maxSkillGroups: 7 }],
     ["an accent control", { theme: { ...ATS_STRICT.theme, accent: true } }],
-    ["another font", { theme: { ...ATS_STRICT.theme, fontPairs: ["inter", "source-serif"] } }],
+    ["a font outside the bundled five", { theme: { ...ATS_STRICT.theme, fontPairs: [...ATS_STRICT.theme.fontPairs, "comic-sans" as never] } }],
   ])("a profile with %s is looser than ATS_STRICT", (_name, over) => {
     expect(isAtLeastAsStrictAs(caps(over), ATS_STRICT)).toBe(false);
   });
@@ -182,7 +204,7 @@ describe("tightenCapabilities (admin overrides may only tighten)", () => {
       maxPages: 2,
       dateStyles: ["range", "year"],
       maxSkillGroups: 0,
-      theme: { accent: true, fontPairs: ["inter", "source-serif", "georgia-arial"] },
+      theme: { accent: true, fontPairs: ["inter", "source-serif", "georgia-arial", "comic-sans"] },
     });
     expect(out).toEqual(ATS_STRICT);
     const fields = warn.mock.calls.map((c) => String(c[0]));
@@ -198,13 +220,14 @@ describe("tightenCapabilities (admin overrides may only tighten)", () => {
   });
 
   it("a mixed list keeps the tightening part and drops the loosening part", () => {
-    const out = tightenCapabilities("t", ATS_STRICT, { theme: { fontPairs: ["inter", "source-serif"] } });
+    const narrow = caps({ theme: { ...ATS_STRICT.theme, fontPairs: ["inter", "georgia-arial"] } });
+    const out = tightenCapabilities("t", narrow, { theme: { fontPairs: ["inter", "source-serif"] } });
     expect(out.theme.fontPairs).toEqual(["inter"]);
     expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it("will not leave a template without a font or a date style", () => {
-    expect(tightenCapabilities("t", ATS_STRICT, { theme: { fontPairs: [] } }).theme.fontPairs).toEqual(["inter", "georgia-arial"]);
+    expect(tightenCapabilities("t", ATS_STRICT, { theme: { fontPairs: [] } }).theme.fontPairs).toEqual(ATS_STRICT.theme.fontPairs);
     expect(tightenCapabilities("t", DESIGN_FREE, { dateStyles: [] }).dateStyles).toEqual(["range", "year"]);
     expect(warn).toHaveBeenCalledTimes(2);
   });
@@ -232,9 +255,9 @@ describe("DESIGN 6.6 vectors: caps-doc under ATS_STRICT and DESIGN_FREE", () => 
   const doc = fixtureDoc("caps-doc");
   const before = JSON.stringify(doc);
 
-  it("hiddenContent: ATS_STRICT hides eight things", () => {
+  it("hiddenContent: ATS_STRICT hides seven things (the font is no longer one: every bundled font is allowed)", () => {
     const hidden = hiddenContent(doc, VECTOR_THEME, ATS_STRICT);
-    expect(hidden.map((h) => h.kind)).toEqual(["photo", "marks", "lists", "section", "custom", "headingOverride", "accent", "font"]);
+    expect(hidden.map((h) => h.kind)).toEqual(["photo", "marks", "lists", "section", "custom", "headingOverride", "accent"]);
     expect(hidden).toEqual([
       { kind: "photo", label: "photo" },
       { kind: "marks", label: "italic, links", count: 2 },
@@ -243,9 +266,8 @@ describe("DESIGN 6.6 vectors: caps-doc under ATS_STRICT and DESIGN_FREE", () => 
       { kind: "custom", label: "Awards", count: 1 },
       { kind: "headingOverride", label: "custom headings", count: 1 },
       { kind: "accent", label: "accent colour" },
-      { kind: "font", label: "font" },
     ]);
-    expect(hidden).toHaveLength(8);
+    expect(hidden).toHaveLength(7);
   });
 
   it("hiddenContent: DESIGN_FREE hides nothing", () => {
@@ -342,9 +364,9 @@ describe("DESIGN 6.4 / 6.6 vectors: editor control states", () => {
     expect(free.accent).toEqual({ enabled: true });
   });
 
-  it("font family options: 2 vs 3", () => {
-    expect(ats.fontPairs).toHaveLength(2);
-    expect(free.fontPairs).toHaveLength(3);
+  it("font family options: 5 vs 5", () => {
+    expect(ats.fontPairs).toHaveLength(5);
+    expect(free.fontPairs).toHaveLength(5);
   });
 
   it("add section: Interests row", () => {

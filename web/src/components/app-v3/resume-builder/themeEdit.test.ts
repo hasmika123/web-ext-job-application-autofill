@@ -94,9 +94,13 @@ describe("canvasThemeStyle", () => {
   });
 
   it("uses the ink colour and the first allowed font under an ATS template", () => {
-    const s = canvasThemeStyle({ accent: "#16a34a", fontPair: "source-serif" }, ATS_STRICT) as Record<string, string>;
+    const narrow = { ...ATS_STRICT, theme: { ...ATS_STRICT.theme, fontPairs: ["inter" as const, "georgia-arial" as const] } };
+    const s = canvasThemeStyle({ accent: "#16a34a", fontPair: "source-serif" }, narrow) as Record<string, string>;
     expect(s["--rb-doc-accent"]).toBe("#111827");
     expect(s["--rb-doc-font-body"]).toContain("Inter");
+    // the stock ATS profile now offers every bundled font, so the stored one is kept
+    const stock = canvasThemeStyle({ accent: "#16a34a", fontPair: "source-serif" }, ATS_STRICT) as Record<string, string>;
+    expect(stock["--rb-doc-font-body"]).toContain("Source Serif 4");
   });
 });
 

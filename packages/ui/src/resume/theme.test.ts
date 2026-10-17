@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ATS_STRICT, DESIGN_FREE } from "./capabilities";
 import { DEFAULT_THEME, FONT_STACKS, INK, applyCapabilities, sanitizeTheme, themeCss, themeScope } from "./theme";
-import type { Theme } from "./types";
+import type { FontPair, Theme } from "./types";
 
 /** A stored v1 theme: free size / density / margin sliders, no spacing / showPhoto. */
 const v1 = (over: Record<string, unknown>) => ({ accent: "#2563eb", fontPair: "inter", size: 11, density: 1, margin: 0.75, pageSize: "letter", dateStyle: "range", fit: { mode: "auto", target: 1, step: 0 }, ...over }) as unknown as Partial<Theme>;
@@ -74,9 +74,13 @@ describe("theme v2: bundled fonts", () => {
 describe("theme v2: capabilities", () => {
   const touched: Theme = { ...DEFAULT_THEME, accent: "#ec4899", fontPair: "source-serif", fit: { mode: "auto", target: 2, step: 0 } };
 
+  /** An admin override narrowed the font menu: the pre-widening ATS profile. */
+  const NARROW_FONTS = { ...ATS_STRICT, theme: { ...ATS_STRICT.theme, fontPairs: ["inter", "georgia-arial"] as FontPair[] } };
+
   it("applyCapabilities: ink for the accent, first allowed font, first allowed date style, target capped; the stored theme is untouched", () => {
-    const t = applyCapabilities({ ...touched, dateStyle: "year" }, ATS_STRICT);
+    const t = applyCapabilities({ ...touched, dateStyle: "year" }, NARROW_FONTS);
     expect(t).toMatchObject({ accent: INK, fontPair: "inter", dateStyle: "range" });
+    expect(applyCapabilities(touched, ATS_STRICT).fontPair).toBe("source-serif"); // allowed since the menu widened
     expect(t.fit.target).toBe(2);
     expect(applyCapabilities(touched, { ...ATS_STRICT, maxPages: 1 }).fit.target).toBe(1);
     expect(touched.accent).toBe("#ec4899");
@@ -84,10 +88,11 @@ describe("theme v2: capabilities", () => {
   });
 
   it("themeCss(theme, caps): --rz-accent is the ink colour and the font the first allowed pair under ATS_STRICT", () => {
-    const ats = themeCss(touched, ATS_STRICT);
+    const ats = themeCss(touched, NARROW_FONTS);
     expect(ats).toContain(`--rz-accent:${INK}`);
     expect(ats).not.toContain("#ec4899");
     expect(ats).toContain("Inter");
+    expect(themeCss(touched, ATS_STRICT)).toContain("Source Serif 4");
     const free = themeCss(touched, DESIGN_FREE);
     expect(free).toContain("--rz-accent:#ec4899");
     expect(free).toContain("Source Serif 4");

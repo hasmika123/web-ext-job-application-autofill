@@ -273,6 +273,7 @@ export { TEMPLATES, TEMPLATE_IDS, DEFAULT_TEMPLATE_ID, getTemplate, hasTemplate,
 export {
   ATS_STRICT,
   DESIGN_FREE,
+  HYBRID,
   isAtLeastAsStrictAs,
   tightenCapabilities,
   allowedMarks,

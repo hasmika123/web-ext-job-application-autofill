@@ -322,11 +322,18 @@ export interface TemplateCapabilities {
   maxSkillGroups: number;
 }
 
+/** The gallery group and filter chip a template sits in (TypeScript only: the API never reads it). */
+export type TemplateCategory = "ats" | "employer" | "styled";
+
 export interface TemplateMeta {
   /** Registry key and the value stored in `resume_doc.template_id`. */
   id: string;
   name: string;
   description: string;
+  /** Gallery group and filter chip. */
+  category: TemplateCategory;
+  /** One honest sentence about parsing risk, shown under the rating on the gallery card. */
+  atsNote: string;
   capabilities: TemplateCapabilities;
   /** File name under `packages/ui/src/resume/thumbs/` (240x340 PNG). */
   thumb: string;

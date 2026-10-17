@@ -29,6 +29,8 @@ export const modern: TemplateDefinition = {
     id: "modern",
     name: "Modern",
     description: "Clean single column with a rule under each heading. Safe for every ATS.",
+    category: "ats",
+    atsNote: "One column, real text, standard headings. Safe for every parser we know of.",
     capabilities: ATS_STRICT,
     thumb: "modern.png",
   },

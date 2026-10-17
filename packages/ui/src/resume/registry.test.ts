@@ -8,6 +8,9 @@ import { designFree } from "./templates/__test__/designFree";
 
 const thumbs = join(dirname(fileURLToPath(import.meta.url)), "thumbs");
 
+/** The gallery order (TEMPLATES-DESIGN section 0). */
+const PRODUCTION_IDS = ["modern"];
+
 describe("registry rule (DESIGN 6.2): every template declares capabilities", () => {
   it("no template still declares atsSafe or supports", () => {
     for (const meta of listTemplates()) {
@@ -46,8 +49,15 @@ describe("registry rule (DESIGN 6.2): every template declares capabilities", () 
     }
   });
 
-  it("Modern is the only production template, declared as ATS_STRICT", () => {
-    expect(TEMPLATE_IDS).toEqual(["modern"]);
+  it("every template declares a category and a non-empty atsNote", () => {
+    for (const meta of listTemplates()) {
+      expect(["ats", "employer", "styled"], meta.id).toContain(meta.category);
+      expect(meta.atsNote.trim(), meta.id).not.toBe("");
+    }
+  });
+
+  it("the production templates, in gallery order (each template story adds its id here)", () => {
+    expect(TEMPLATE_IDS).toEqual(PRODUCTION_IDS);
     expect(DEFAULT_TEMPLATE_ID).toBe("modern");
     expect(getTemplate("modern").meta.capabilities).toEqual(ATS_STRICT);
     expect(getTemplate("modern").meta.capabilities.photo).toBe(false);
@@ -61,7 +71,7 @@ describe("registry rule (DESIGN 6.2): every template declares capabilities", () 
     expect(listTemplates().map((m) => m.id)).toContain(designFree.meta.id);
     unregister();
     expect(hasTemplate(designFree.meta.id)).toBe(false);
-    expect(TEMPLATE_IDS).toEqual(["modern"]);
+    expect(TEMPLATE_IDS).toEqual(PRODUCTION_IDS);
   });
 });
 
