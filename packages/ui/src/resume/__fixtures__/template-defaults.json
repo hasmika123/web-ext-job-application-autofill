@@ -3,5 +3,8 @@
   "classic": { "fontPair": "source-serif", "spacing": "normal" },
   "compact": { "fontPair": "inter", "spacing": "compact" },
   "simple": { "fontPair": "georgia-arial", "spacing": "normal" },
-  "engineer": { "fontPair": "plex", "spacing": "compact" }
+  "engineer": { "fontPair": "plex", "spacing": "compact" },
+  "consultant": { "fontPair": "garamond", "spacing": "compact" },
+  "scholar": { "fontPair": "source-serif", "spacing": "normal" },
+  "executive": { "fontPair": "georgia-arial", "spacing": "spacious" }
 }

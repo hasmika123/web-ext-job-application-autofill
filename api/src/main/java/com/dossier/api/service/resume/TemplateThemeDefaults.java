@@ -39,7 +39,10 @@ public class TemplateThemeDefaults {
         Map.entry("classic", Map.of("fontPair", "source-serif", "spacing", "normal")),
         Map.entry("compact", Map.of("fontPair", "inter", "spacing", "compact")),
         Map.entry("simple", Map.of("fontPair", "georgia-arial", "spacing", "normal")),
-        Map.entry("engineer", Map.of("fontPair", "plex", "spacing", "compact"))
+        Map.entry("engineer", Map.of("fontPair", "plex", "spacing", "compact")),
+        Map.entry("consultant", Map.of("fontPair", "garamond", "spacing", "compact")),
+        Map.entry("scholar", Map.of("fontPair", "source-serif", "spacing", "normal")),
+        Map.entry("executive", Map.of("fontPair", "georgia-arial", "spacing", "spacious"))
     );
 
     /** The defaults the template declares, as a JSON object (empty when it declares none or is unknown). */
