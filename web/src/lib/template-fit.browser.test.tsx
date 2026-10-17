@@ -31,6 +31,25 @@ function onePage(): ResumeDocument {
   return doc;
 }
 
+/** The sample with `n` more two-line bullets on its last role (what a user adds before the next page break). */
+function withExtraBullets(n: number): ResumeDocument {
+  const doc = sample();
+  const exp = doc.sections.find((s) => s.kind === "EXPERIENCE");
+  if (exp && "items" in exp) {
+    const last = (exp.items as Array<{ bullets: Array<{ id: string; text: string; src: string }> }>)[2];
+    for (let i = 0; i < n; i++) {
+      last.bullets.push({ id: `b_extra${i}xxxxx`, text: "Reduced cloud spend by 31% ($410k a year) by right-sizing 140 Kubernetes workloads and moving batch jobs to spot capacity.", src: "user" });
+    }
+  }
+  return doc;
+}
+
+/**
+ * Templates that must keep room for two extra bullets inside two pages at step 0 (headroom, so editing a little never
+ * jumps to a third page). Sidebar is left out: its main column is narrower and has no headroom yet.
+ */
+const EXTRA_BULLET_HEADROOM = ["modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement"];
+
 /** A template's own starting theme (what a new resume in it, or a switch to it, applies). */
 const defaultsOf = (id: string): Partial<ResumeTheme> => ({ ...(getTemplate(id).meta.defaults ?? {}) });
 
@@ -41,6 +60,13 @@ describe.skipIf(!process.env.PDF_SMOKE)("template page fit in a real Chromium", 
   for (const { id } of listTemplates()) {
     it(`${id}: the sample prints in at most two pages at step 0`, async () => {
       const pdf = await printPdf(renderResumeHtml({ doc: sample(), theme: defaultsOf(id), templateId: id }, { step: 0 }));
+      expect(countPdfPages(pdf)).toBeLessThanOrEqual(2);
+    }, 60_000);
+  }
+
+  for (const id of EXTRA_BULLET_HEADROOM) {
+    it(`${id}: the sample plus two extra bullets still prints in at most two pages at step 0`, async () => {
+      const pdf = await printPdf(renderResumeHtml({ doc: withExtraBullets(2), theme: defaultsOf(id), templateId: id }, { step: 0 }));
       expect(countPdfPages(pdf)).toBeLessThanOrEqual(2);
     }, 60_000);
   }

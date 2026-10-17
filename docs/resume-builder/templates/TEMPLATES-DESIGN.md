@@ -783,6 +783,11 @@ exactly as today.
 | engineer | compact | ≤ 2 | ≤ 4 |
 | consultant | compact (target capped at 1) | ≤ 2 (reported "Still 2 pages") | ≤ 3 |
 
+**Headroom (added 2026-10-17):** at step 0 the sample plus **two extra two-line bullets** on the last role must still print in
+two pages for every template except `sidebar` (two columns, no headroom yet): an edit must not tip a document onto a third
+page. `template-fit.browser.test.tsx` asserts it. `modern`, `executive` and `statement` met it by tightening their own CSS block
+(line height, section gap, entry gap), not the ladder; measured extra bullets before page 3 are in the QA report.
+
 These are the §12.4 assertions. If a template misses its budget the template's rhythm is too loose —
 fix the CSS, do not change the ladder.
 
