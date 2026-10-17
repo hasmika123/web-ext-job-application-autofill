@@ -4,6 +4,29 @@
 > `sprint2-b-privacy` (B2, tip acab4eed), `sprint2-b-ops` (B3, tip 44460397), this report on `sprint2-b-report`.
 > The B1 and B2 sections are the coordinator's summary of those two sessions; B3 is from the session that wrote it.
 
+## ALREADY MERGED INTO VERSION2 (2026-10-17, by machine B at the user's request)
+
+**Do not merge `sprint2-b-ops`, `sprint2-b-privacy` or `sprint2-b-assignments` again.** They are in `version2` at **d3e55021**, on top of 250b96e9 (PR #127):
+- 4222c3eb merges `sprint2-b-ops` (44460397).
+- 49000010 merges `sprint2-b-privacy` (f09c3f09).
+- d3e55021 squash-merges `sprint2-b-assignments` (b174800b). The accidental bundle/log blobs are NOT in `version2`.
+
+Merge notes 1 to 4 below were applied in those commits:
+- `master.xml` keeps both `20261117010000` includes.
+- `DataMap` lists `marketer_assignment_event`.
+- `openapi.json` has 584 paths (572 + 1 + 11), none missing.
+
+Checks on d3e55021 before the push:
+- compile;
+- full API unit suite: 2966 tests, 0 failures;
+- `OrgIsolationIT` 10/10 and `OpenApiContractIT` 1/1;
+- privacy ITs: 39/39 (DataMapIT, RetentionServiceIT, AccountPrivacyResourceIT, AccountErasureReportIT, AdminPrivacyResourceIT, AccountDeletionResourceIT, AccountDeletionServiceIT, AccountExportResourceIT);
+- assignment ITs: 69/69 (OrgAssignmentLifecycleIT, PipelineGuardIT, PipelineGuardApplicationsIT, OrgMarketingAssignmentsIT, MktSubmissionsIT, OrgApplicationResourceIT);
+- ops script tests green;
+- web: tsc 0 errors, eslint 0 errors, vitest 4073 passed. The 18 that failed are explained by the corrected note 7.
+
+Pull `version2` before merging machine A's own branches.
+
 ## MERGE NOTES FOR MACHINE A
 
 1. **`sprint2-b-assignments`: SQUASH-merge it, do not merge its history.**
@@ -16,7 +39,7 @@
 4. **Both branches regenerated `api/openapi.json`** (B1: 573 paths, +1; B2: 583, +11; base 572). After merging, regenerate with `OpenApiContractIT` and diff the path sets.
 5. **Pre-existing failures on version2 a5094029, not caused by machine B:** `AccountDeletionSeparateIT` fails 2 of 11 and `EnterpriseOffboardingIT` fails 5 of 6 (they get 404 `error.org` on `/api/orgs/{id}/members/...`). Reproduced on a detached a5094029. Probably from ent-hardening-a (X4.10); not confirmed.
 6. **B3 deploy:** the first deploy after merge recreates the mysql container (the `logging:` block changes its config, about 20 s of database restart, volume untouched). `deploy.yml` still pulls `latest`; the switch is documented in DEPLOY.md section 5.4. B3 touched `docker-compose.prod.yml` (image tag interpolation + `logging:`), `.gitignore` (`!.env.staging.example`), `.env.example`, `DEPLOY.md`, `MIGRATION.md`, `docs/HANDOFF.md` and `REAL-GAPS-C.md`; no Caddy file and nothing machine A owns.
-7. **Pre-existing web vitest failures on version2 a5094029, not caused by machine B:** 18 tests in `src/components/app-v3/resume-builder` fail (`ResumeEditor.templateSwitch.test.tsx`, `PickTemplatePanel.test.tsx`, `TemplateGallery.test.tsx`; the assertions mention a `design-free-test` template id). Reproduced by the coordinator in a worktree whose branch has no `web/` diff against a5094029.
+7. **CORRECTED: the 18 resume-builder vitest "failures" are not real.** `ResumeEditor.templateSwitch.test.tsx`, `PickTemplatePanel.test.tsx` and `TemplateGallery.test.tsx` fail only in git worktrees whose `node_modules` is a junction to the main checkout. `@kiwiply/ui` then resolves to the main checkout's `packages/ui` while the tests import the worktree's copy by relative path, so there are two template registries. In the main checkout (own `node_modules`) all 30 tests in those three files pass on version2. Run web vitest from a checkout with its own `node_modules`.
 8. **B1 follow-ups changed one API body:** `POST mkt/matches/{id}/assign` now accepts the optional `{confirmDuplicate, duplicateReason}` (the old call without a body still works), and B1 also edited `web/src/components/ent/applications/AddApplicationDialog.tsx` and `web/src/lib/ent/applications.ts` (the guarded `POST /applications` caller; not a machine A area).
 9. **Marketing ITs under load:** `MktOpportunitiesIT` and `MktMatchesIT` hit the 15 s `seed()` guard on this busy machine, failing the same way on a5094029 (3 of 8 and 2 of 3). Rerun them on a quiet machine after the merge.
 
