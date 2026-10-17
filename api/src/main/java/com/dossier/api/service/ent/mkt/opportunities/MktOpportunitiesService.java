@@ -28,6 +28,7 @@ import com.dossier.api.service.ent.consultantws.ConsultantNotificationGenerator;
 import com.dossier.api.service.ent.jobs.OpportunityAssignmentService;
 import com.dossier.api.service.ent.mkt.MktScope;
 import com.dossier.api.service.ent.mkt.opportunities.MktOpportunitiesDTO.*;
+import com.dossier.api.service.ent.pipeline.DuplicateGuard;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
@@ -265,11 +266,17 @@ public class MktOpportunitiesService {
     /** SUGGESTED to ASSIGNED, then ask the consultant for their interest. Needs an approved resume (the approval gate of 31 section 4). */
     @Transactional
     public ActionResult assign(OrgMembership me, Long id) {
+        return assign(me, id, DuplicateGuard.Confirm.NONE);
+    }
+
+    /** {@link #assign(OrgMembership, Long)} with the answer to a duplicate warning (Sprint 2 / B1). */
+    @Transactional
+    public ActionResult assign(OrgMembership me, Long id, DuplicateGuard.Confirm confirm) {
         MktScope.View view = scope.resolve(me, PERMISSION);
         Instant now = clock.instant();
         Row row = require(view, id, now);
         OpportunityAssignmentService.Audit auditRow = new OpportunityAssignmentService.Audit("MARKETER_OPPORTUNITY_ASSIGN", "OPPORTUNITY", String.valueOf(id), r -> "consultant " + row.r().consultantId());
-        String why = assignOne(view, me, row, auditRow);
+        String why = assignOne(view, me, row, auditRow, confirm, true);
         if (why != null) throw assignError(why);
         return result(view, id, "Assigned. " + row.r().consultantName() + " was asked for their interest.", true, now);
     }
@@ -291,7 +298,7 @@ public class MktOpportunitiesService {
                 skipped.add(new Skipped(id, "NOT_FOUND"));
                 continue;
             }
-            String why = assignOne(view, me, row, null); // one audit row for the whole batch, below
+            String why = assignOne(view, me, row, null, DuplicateGuard.Confirm.NONE, false); // one audit row for the whole batch, below
             if (why == null) done++;
             else skipped.add(new Skipped(id, why));
         }
@@ -414,6 +421,12 @@ public class MktOpportunitiesService {
      */
     @Transactional
     public ActionResult reassign(OrgMembership me, Long id, Long toConsultantId) {
+        return reassign(me, id, toConsultantId, DuplicateGuard.Confirm.NONE);
+    }
+
+    /** {@link #reassign(OrgMembership, Long, Long)} with the answer to a duplicate warning (Sprint 2 / B1). */
+    @Transactional
+    public ActionResult reassign(OrgMembership me, Long id, Long toConsultantId, DuplicateGuard.Confirm confirm) {
         MktScope.View view = scope.resolve(me, PERMISSION);
         if (toConsultantId == null) throw OrgException.coded(400, "VALIDATION", "Choose a consultant.", Map.of("field", "consultantId"));
         Instant now = clock.instant();
@@ -429,7 +442,7 @@ public class MktOpportunitiesService {
         String toName = consultants.findByOrgIdAndId(view.orgId(), toConsultantId).map(c -> c.getDisplayName()).orElseThrow(OrgNotFoundException::new);
         OpportunityAssignmentService.Audit auditRow = new OpportunityAssignmentService.Audit("MARKETER_OPPORTUNITY_REASSIGN", "OPPORTUNITY", String.valueOf(id), r -> "from consultant " + raw.consultantId() + " to consultant " + toConsultantId);
         OpportunityAssignmentService.Result assigned =
-            assignment.assign(view, me, raw.requirementId(), toConsultantId, OpportunityAssignmentService.Options.none().withOwner(me.memberId()).askingInterest().withAudit(auditRow));
+            assignment.assign(view, me, raw.requirementId(), toConsultantId, OpportunityAssignmentService.Options.none().withOwner(me.memberId()).askingInterest().confirmingDuplicate(confirm).withAudit(auditRow));
         if (assigned.refused()) throw assignError(assigned.reason());
         if (assigned.existing()) throw assignError("ALREADY_ASSIGNED");
         record(opp, "OFFERED_ELSEWHERE", me.memberId(), "was offered to " + toName + " instead", now);
@@ -444,18 +457,21 @@ public class MktOpportunitiesService {
     // ---- internals --------------------------------------------------------------------------------------------------------------
 
     /** Null when assigned; otherwise the reason code. The pair rules and every gate live in {@link OpportunityAssignmentService}. */
-    private String assignOne(MktScope.View view, OrgMembership me, Row row, OpportunityAssignmentService.Audit auditRow) {
+    private String assignOne(MktScope.View view, OrgMembership me, Row row, OpportunityAssignmentService.Audit auditRow, DuplicateGuard.Confirm confirm, boolean single) {
         if (!row.open()) return "JOB_NOT_OPEN";
         Long owner = row.r().assignedMarketerId() != null ? row.r().assignedMarketerId() : me.memberId();
         OpportunityAssignmentService.Result assigned;
         try {
-            assigned = assignment.assign(view, me, row.r().requirementId(), row.r().consultantId(), OpportunityAssignmentService.Options.none().withOwner(owner).askingInterest().withAudit(auditRow));
+            assigned = assignment.assign(view, me, row.r().requirementId(), row.r().consultantId(), OpportunityAssignmentService.Options.none().withOwner(owner).askingInterest().confirmingDuplicate(confirm).withAudit(auditRow));
         } catch (OrgException refused) {
+            if (single && GUARD_CODES.contains(refused.getCode())) throw refused; // the duplicate and cap answers carry their findings: the single call raises them as they are
             return refused.getCode(); // JOB_NOT_OPEN, RESUME_NOT_APPROVED, NOT_FOUND: the batch reports it, the single call raises it
         }
         if (assigned.refused()) return assigned.reason();
         return assigned.existing() ? "ALREADY_ASSIGNED" : null;
     }
+
+    private static final Set<String> GUARD_CODES = Set.of(DuplicateGuard.CODE_WARNING, DuplicateGuard.CODE_BLOCKED, DuplicateGuard.CODE_CAP, "VALIDATION");
 
     private static OrgException assignError(String code) {
         return switch (code) {

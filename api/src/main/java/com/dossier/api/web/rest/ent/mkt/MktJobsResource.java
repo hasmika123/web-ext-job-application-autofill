@@ -2,6 +2,7 @@ package com.dossier.api.web.rest.ent.mkt;
 
 import com.dossier.api.service.ent.mkt.jobs.MktJobsDTO;
 import com.dossier.api.service.ent.mkt.jobs.MktJobsService;
+import com.dossier.api.service.ent.pipeline.DuplicateGuard;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
 import io.swagger.v3.oas.annotations.Operation;
@@ -90,7 +91,7 @@ public class MktJobsResource {
         @PathVariable Long jobId,
         @RequestBody MktJobsDTO.AssignRequest body
     ) {
-        return service.assign(me, jobId, body == null ? null : body.consultantId());
+        return service.assign(me, jobId, body == null ? null : body.consultantId(), body == null ? DuplicateGuard.Confirm.NONE : DuplicateGuard.Confirm.of(body.confirmDuplicate(), body.duplicateReason()));
     }
 
     @Operation(summary = "Save the current filters as one of the caller's saved searches", description = "matches.run required. {name, criteria}. 422 ORG_INVALID with the field; at most 50 per person.")

@@ -85,6 +85,7 @@ class MktMatchesServiceTest {
 
     private final OrgMembership me = new OrgMembership(1L, 7L, 70L, "sarah", OrgRole.MEMBER, OrgMemberStatus.ACTIVE, OrgStatus.ACTIVE);
     private MktMatchesService service;
+    private com.dossier.api.service.ent.jobs.OpportunityAssignmentService pairRules;
     private final List<RequirementMatch> live = new ArrayList<>();
 
     private static RequirementMatch match(long id, long consultant, long req, int score, String status, int daysOld) {
@@ -159,7 +160,8 @@ class MktMatchesServiceTest {
         }
         world.job(100, "OPEN", "MANUAL");
         world.job(101, "CLOSED", "MANUAL");
-        service = new MktMatchesService(scope, world.service(audit), matches, consultants, requirements, clients, resumes, applications, consultantSkills, requirementSkills, audit, Clock.fixed(NOW, ZoneOffset.UTC));
+        pairRules = world.service(audit);
+        service = new MktMatchesService(scope, pairRules, matches, consultants, requirements, clients, resumes, applications, consultantSkills, requirementSkills, audit, Clock.fixed(NOW, ZoneOffset.UTC));
         // 10 Alex: available, Java; 11 Priya: on notice for 3 weeks, Business Analysis; 12 Zed: NOT assigned to the caller
         live.add(match(1, 10, 100, 96, "SUGGESTED", 2));
         live.add(match(2, 11, 101, 78, "SUGGESTED", 10));
@@ -363,6 +365,46 @@ class MktMatchesServiceTest {
         service.assign(me, 3L);
         assertThat(declined.getState()).isEqualTo("ASSIGNED");
         assertThat(world.eventKinds()).containsExactly("REASSIGNED");
+    }
+
+    // ---- the duplicate and cap guards (Sprint 2 / B1) ----------------------------------------------------------------------------
+
+    @Test
+    void aWarningWithoutAnAnswerStopsTheAssignAndWritesNothing() {
+        var guard = mock(com.dossier.api.service.ent.pipeline.DuplicateGuard.class);
+        pairRules.setGuard(guard);
+        org.mockito.Mockito.doThrow(OrgException.coded(409, "DUPLICATE_WARNING", "Same role through another vendor.", java.util.Map.of()))
+            .when(guard).enforce(any(OrgMembership.class), eq(10L), any(), any());
+        assertThatThrownBy(() -> service.assign(me, 1L)).isInstanceOfSatisfying(OrgException.class, e -> {
+            assertThat(e.getStatus()).isEqualTo(409);
+            assertThat(e.getCode()).isEqualTo("DUPLICATE_WARNING");
+        });
+        verify(guard).enforce(any(OrgMembership.class), eq(10L), any(), eq(com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm.NONE));
+        assertThat(live.get(0).getStatus()).isEqualTo("SUGGESTED");
+        verify(matches, never()).save(any());
+        verify(audit, never()).record(any(OrgMembership.class), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void theAnswerToAWarningReachesTheGuardAndTheMatchIsAssigned() {
+        var guard = mock(com.dossier.api.service.ent.pipeline.DuplicateGuard.class);
+        pairRules.setGuard(guard);
+        var confirm = new com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm(true, "The client asked for both");
+        assertThat(service.assign(me, 1L, confirm).status()).isEqualTo("ASSIGNED");
+        verify(guard).enforce(any(OrgMembership.class), eq(10L), any(), eq(confirm));
+        assertThat(live.get(0).getStatus()).isEqualTo("ASSIGNED");
+        assertThat(world.eventKinds()).containsExactly("ASSIGNED"); // still a record only
+    }
+
+    @Test
+    void theOpenLimitIsNotAnsweredByAConfirmation() {
+        var guard = mock(com.dossier.api.service.ent.pipeline.DuplicateGuard.class);
+        pairRules.setGuard(guard);
+        org.mockito.Mockito.doThrow(OrgException.coded(409, "ASSIGNMENT_CAP", "Too many open.", java.util.Map.of())).when(guard).assertOpenCap(any(), eq(10L));
+        var confirm = new com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm(true, "Please");
+        assertThatThrownBy(() -> service.assign(me, 1L, confirm)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("ASSIGNMENT_CAP"));
+        verify(guard, never()).enforce(any(OrgMembership.class), any(), any(), any());
+        assertThat(live.get(0).getStatus()).isEqualTo("SUGGESTED");
     }
 
     @Test

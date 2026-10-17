@@ -10,13 +10,13 @@ import type { IconProps, MenuEntry } from "@kiwiply/ui";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { relativeTime } from "@/lib/ent/dashboard";
 import {
-  ACTION_LABELS, DEFAULT_FILTERS, INTEREST_LABELS, INTERESTS, KPI_KEYS, KPI_TITLES, assignOpportunity, bulkAssign, createOpportunity, exportUrl, fetchOpportunities,
-  nextActionText, notifyAwaiting, requestFromConsultant, reviewOpportunity, setNextAction, sharePct,
-  type ActionOutcome, type Filters, type KpiKey, type Opportunity, type OpportunitiesView,
+  ACTION_LABELS, DEFAULT_FILTERS, DUPLICATE_WARNING, INTEREST_LABELS, INTERESTS, KPI_KEYS, KPI_TITLES, assignOpportunity, bulkAssign, createOpportunity, exportUrl, fetchOpportunities,
+  nextActionText, notifyAwaiting, requestFromConsultant, reviewOpportunity, setNextAction, sharePct, skippedNote,
+  type ActionOutcome, type DuplicateFinding, type Filters, type KpiKey, type Opportunity, type OpportunitiesView,
 } from "@/lib/ent/marketer-ws/opportunities";
 import { CARD, CardSkeleton, Empty, HEAD_ROW, Head, HelpBannerCard, KpiTile, TH, TINTS, type MktPageProps, type TintName } from "../parts";
 import { INTEREST_TONE, ResumeBadge } from "./bits";
-import { AddDialog, BulkDialog, DetailDialog, MatchChip, NotifyDialog } from "./Dialogs";
+import { AddDialog, BulkDialog, DetailDialog, DuplicateDialog, MatchChip, NotifyDialog } from "./Dialogs";
 
 /**
  * Opportunities (Marketing workspace; design: Opportunities). One call draws the board; every card has its own empty state, never a made-up row.
@@ -61,7 +61,13 @@ const SCORE_OPTIONS = [
   { value: "70", label: "70% and up" },
 ];
 
-type Dialog = { kind: "detail"; id: number; mode: "REVIEW" | "COMPARE" } | { kind: "add" } | { kind: "bulk" } | { kind: "notify" } | null;
+type Dialog =
+  | { kind: "detail"; id: number; mode: "REVIEW" | "COMPARE" }
+  | { kind: "add" }
+  | { kind: "bulk" }
+  | { kind: "notify" }
+  | { kind: "duplicate"; opp: Opportunity; message: string; findings: DuplicateFinding[] }
+  | null;
 
 export default function OpportunitiesPage({ orgId, firstName, hrefs }: MktPageProps) {
   const toast = useToast();
@@ -100,12 +106,13 @@ export default function OpportunitiesPage({ orgId, firstName, hrefs }: MktPagePr
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, page: 0, ...patch }));
   const reload = () => setVersion((n) => n + 1);
 
-  /** Run one write, tell the marketer what happened, and redraw. */
-  const run = async (id: number | null, call: () => Promise<ActionOutcome>) => {
+  /** Run one write, tell the marketer what happened, and redraw. `quiet` codes are answered by a dialog instead of a toast. */
+  const run = async (id: number | null, call: () => Promise<ActionOutcome>, quiet: string[] = []) => {
     if (id !== null) setBusy((b) => new Set(b).add(id));
     else setWorking(true);
     const r = await call();
-    toast(r.ok ? { title: r.message, variant: "success" } : { title: r.error, variant: "error" });
+    if (r.ok) toast({ title: r.message + skippedNote(r.skippedCodes), variant: "success" });
+    else if (!(r.code && quiet.includes(r.code))) toast({ title: r.error, variant: "error" });
     if (id !== null)
       setBusy((b) => {
         const n = new Set(b);
@@ -117,8 +124,15 @@ export default function OpportunitiesPage({ orgId, firstName, hrefs }: MktPagePr
     return r;
   };
 
+  /** Assign one row. A duplicate warning opens the dialog that asks for a reason; a block or the limit is a plain message (nothing to confirm). */
+  const assignOne = async (o: Opportunity, reason?: string) => {
+    const r = await run(o.id, () => assignOpportunity(orgId, o.id, reason ? { reason } : undefined), [DUPLICATE_WARNING]);
+    if (!r.ok && r.code === DUPLICATE_WARNING) setDialog({ kind: "duplicate", opp: o, message: r.error, findings: r.findings ?? [] });
+    else if (r.ok || reason) setDialog(null);
+  };
+
   const primary = (o: Opportunity) => {
-    if (o.action === "ASSIGN") void run(o.id, () => assignOpportunity(orgId, o.id));
+    if (o.action === "ASSIGN") void assignOne(o);
     else if (o.action === "FOLLOW_UP") void run(o.id, () => requestFromConsultant(orgId, o.id, o.resumeStatus === "NEEDS_UPDATE" ? "RESUME" : "INTEREST"));
     else setDialog({ kind: "detail", id: o.id, mode: o.action });
   };
@@ -432,6 +446,15 @@ export default function OpportunitiesPage({ orgId, firstName, hrefs }: MktPagePr
         busy={working}
         onClose={() => setDialog(null)}
         onAssign={(ids) => void run(null, () => bulkAssign(orgId, ids)).then((r) => r.ok && setDialog(null))}
+      />
+      <DuplicateDialog
+        open={dialog?.kind === "duplicate"}
+        who={dialog?.kind === "duplicate" ? dialog.opp.consultant.name : ""}
+        message={dialog?.kind === "duplicate" ? dialog.message : ""}
+        findings={dialog?.kind === "duplicate" ? dialog.findings : []}
+        busy={dialog?.kind === "duplicate" ? busy.has(dialog.opp.id) : false}
+        onClose={() => setDialog(null)}
+        onConfirm={(reason) => dialog?.kind === "duplicate" && void assignOne(dialog.opp, reason)}
       />
       <NotifyDialog
         open={dialog?.kind === "notify"}

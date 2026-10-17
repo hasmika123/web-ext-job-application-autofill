@@ -5,6 +5,8 @@
  * E1: "Assign" writes a match RECORD for a consultant in the caller's scope; nothing here submits an application for anyone.
  */
 
+import { confirmFields, findingsOf, type DuplicateConfirm, type DuplicateFinding } from "./duplicate";
+
 export type Priority = "HIGH" | "MEDIUM" | "LOW";
 export interface JobClient { id: number; name: string; logoUrl: string | null }
 export interface JobRow {
@@ -201,13 +203,19 @@ export async function fetchJobs(orgId: number | string, query: string, signal?: 
   }
 }
 
-export type Outcome<T> = { ok: true; value: T } | { ok: false; status: number; error: string };
+/** A refused write: the API's sentence and status; `code` and `findings` are set only when the API sent them (a duplicate warning, a block or the open limit). */
+export type Outcome<T> = { ok: true; value: T } | { ok: false; status: number; error: string; code?: string; findings?: DuplicateFinding[] };
 
 async function call<T>(url: string, init: RequestInit, parse: (raw: unknown) => T | null): Promise<Outcome<T>> {
   try {
     const res = await fetch(url, { ...init, headers: { accept: "application/json", ...(init.body ? { "content-type": "application/json" } : {}) }, cache: "no-store" });
     const body: unknown = res.status === 204 ? null : await res.json().catch(() => null);
-    if (!res.ok) return { ok: false, status: res.status, error: isObj(body) && typeof body.error === "string" ? body.error : res.status === 404 ? "This isn't available to you." : "That didn't work. Nothing was changed." };
+    if (!res.ok) {
+      const error = isObj(body) && typeof body.error === "string" ? body.error : res.status === 404 ? "This isn't available to you." : "That didn't work. Nothing was changed.";
+      const code = isObj(body) && typeof body.code === "string" ? body.code : undefined;
+      const findings = isObj(body) ? findingsOf(body.findings) : [];
+      return { ok: false, status: res.status, error, ...(code ? { code } : {}), ...(findings.length ? { findings } : {}) };
+    }
     const value = parse(body);
     return value === null ? { ok: false, status: 502, error: "That didn't work. Nothing was changed." } : { ok: true, value };
   } catch {
@@ -219,8 +227,9 @@ const base = (orgId: number | string) => `/api/orgs/${orgId}/mkt/jobs`;
 export const fetchJobDetail = (orgId: number | string, jobId: number) => call(`${base(orgId)}/${jobId}`, {}, parseDetail);
 export const fetchCandidates = (orgId: number | string, jobId: number, q: string) => call(`${base(orgId)}/${jobId}/candidates${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ""}`, {}, parseCandidates);
 /** Creates or updates a match RECORD in ASSIGNED for a consultant in the caller's scope. It never submits an application (E1). */
-export const assignJob = (orgId: number | string, jobId: number, consultantId: number) =>
-  call(`${base(orgId)}/${jobId}/assign`, { method: "POST", body: JSON.stringify({ consultantId }) }, (raw): AssignResult | null =>
+/** A duplicate warning (409 DUPLICATE_WARNING) is answered by sending the same call again with `confirm` (a reason). */
+export const assignJob = (orgId: number | string, jobId: number, consultantId: number, confirm?: DuplicateConfirm) =>
+  call(`${base(orgId)}/${jobId}/assign`, { method: "POST", body: JSON.stringify({ consultantId, ...confirmFields(confirm) }) }, (raw): AssignResult | null =>
     isObj(raw) ? { matchId: num(raw.matchId), requirementId: num(raw.requirementId), consultantId: num(raw.consultantId), status: str(raw.status), score: num(raw.score), created: raw.created === true } : null,
   );
 /**

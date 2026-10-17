@@ -5,6 +5,8 @@
  * E1: Assign records that the marketer put a match forward; nothing here submits anything for a consultant.
  */
 
+import { ASSIGNMENT_CAP, DUPLICATE_BLOCKED, DUPLICATE_WARNING, confirmFields, findingsOf, plainRefusal, type DuplicateConfirm, type DuplicateFinding } from "./duplicate";
+
 export type MatchKpiKey = "matched" | "highConfidence" | "ready" | "stale";
 export const MATCH_KPI_KEYS: MatchKpiKey[] = ["matched", "highConfidence", "ready", "stale"];
 export const MATCH_KPI_TITLES: Record<MatchKpiKey, string> = {
@@ -206,16 +208,35 @@ export async function fetchCompare(orgId: number | string, a: number, b: number,
 }
 
 export type MatchAction = "assign" | "dismiss";
-export type ActionResult = { kind: "OK"; row: MatchRow } | { kind: "DENIED" } | { kind: "CONFLICT"; message: string } | { kind: "FAILED" };
+/** DUPLICATE: the guard found the same role already in front of this consultant; the marketer may go ahead with a reason (CONFLICT covers a block, the open limit and every other 409). */
+export type ActionResult =
+  | { kind: "OK"; row: MatchRow }
+  | { kind: "DENIED" }
+  | { kind: "CONFLICT"; message: string }
+  | { kind: "DUPLICATE"; message: string; findings: DuplicateFinding[] }
+  | { kind: "FAILED" };
 
-/** Assign / Dismiss record the marketer's decision on a match. Neither submits anything for a consultant (E1). */
-export async function actOnMatch(orgId: number | string, id: number, action: MatchAction): Promise<ActionResult> {
+/**
+ * Assign / Dismiss record the marketer's decision on a match. Neither submits anything for a consultant (E1). An assign the duplicate guard flagged answers
+ * DUPLICATE; send it again with `confirm` (a reason) to go ahead. A block and the open-opportunity limit come back as a plain CONFLICT sentence.
+ */
+export async function actOnMatch(orgId: number | string, id: number, action: MatchAction, confirm?: DuplicateConfirm): Promise<ActionResult> {
   try {
-    const res = await fetch(`/api/orgs/${orgId}/mkt/matches/${id}/${action}`, { method: "POST", headers: { accept: "application/json" }, cache: "no-store" });
+    const withBody = action === "assign" && confirm;
+    const res = await fetch(`/api/orgs/${orgId}/mkt/matches/${id}/${action}`, {
+      method: "POST",
+      headers: { accept: "application/json", ...(withBody ? { "content-type": "application/json" } : {}) },
+      ...(withBody ? { body: JSON.stringify(confirmFields(confirm)) } : {}),
+      cache: "no-store",
+    });
     if (res.status === 403 || res.status === 404) return { kind: "DENIED" };
     if (res.status === 409) {
       const body: unknown = await res.json().catch(() => null);
-      return { kind: "CONFLICT", message: isObj(body) && typeof body.message === "string" ? body.message : "That match changed. Refresh and try again." };
+      const o = isObj(body) ? body : {};
+      const code = typeof o.code === "string" ? o.code : null;
+      const error = str(o.error) || str(o.message); // the BFF sends `error`; an older answer sent `message`
+      if (code === DUPLICATE_WARNING) return { kind: "DUPLICATE", message: plainRefusal({ code, error }), findings: findingsOf(o.findings) };
+      return { kind: "CONFLICT", message: code === DUPLICATE_BLOCKED || code === ASSIGNMENT_CAP ? plainRefusal({ code, error }) : error || "That match changed. Refresh and try again." };
     }
     if (!res.ok) return { kind: "FAILED" };
     const row = parseRow(await res.json().catch(() => null));

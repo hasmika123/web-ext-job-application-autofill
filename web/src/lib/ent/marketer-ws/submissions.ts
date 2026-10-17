@@ -8,6 +8,8 @@
  * consultant or sends anything to a client.
  */
 
+import { confirmFields, findingsOf, type DuplicateConfirm, type DuplicateFinding } from "./duplicate";
+
 export type ApprovalState = "DRAFT" | "AWAITING_APPROVAL" | "APPROVED" | "REJECTED";
 export type SubStatus = "DRAFT" | "SUBMITTED" | "CLIENT_REVIEW" | "INTERVIEW_REQUESTED" | "REJECTED";
 /** A Submissions-by-Status slice: an open approval counts as AWAITING_APPROVAL, otherwise the record's status. */
@@ -228,7 +230,7 @@ export async function fetchOptions(orgId: number | string, signal?: AbortSignal)
 }
 
 /** A write's answer: `error` is the API's human message (409/422), shown inline by the page. */
-export type WriteResult<T = unknown> = { ok: true; data: T } | { ok: false; status: number; error: string; code: string | null };
+export type WriteResult<T = unknown> = { ok: true; data: T } | { ok: false; status: number; error: string; code: string | null; findings?: DuplicateFinding[] };
 
 async function write<T>(url: string, method: "POST" | "PATCH" | "DELETE", body?: unknown, map?: (raw: unknown) => T): Promise<WriteResult<T>> {
   try {
@@ -244,7 +246,8 @@ async function write<T>(url: string, method: "POST" | "PATCH" | "DELETE", body?:
     }
     const j: unknown = await res.json().catch(() => null);
     const o = isObj(j) ? j : {};
-    return { ok: false, status: res.status, error: str(o.error, "That didn't work. Nothing has changed."), code: strOrNull(o.code) };
+    const findings = findingsOf(o.findings);
+    return { ok: false, status: res.status, error: str(o.error, "That didn't work. Nothing has changed."), code: strOrNull(o.code), ...(findings.length ? { findings } : {}) };
   } catch {
     return { ok: false, status: 0, error: "Couldn't reach the server. Nothing has changed.", code: null };
   }
@@ -253,9 +256,12 @@ async function write<T>(url: string, method: "POST" | "PATCH" | "DELETE", body?:
 const base = (orgId: number | string) => `/api/orgs/${orgId}/mkt/submissions`;
 const rowOf = (raw: unknown): SubmissionRow => parseRow(isObj(raw) ? raw : {});
 
-/** Prepare a package for a job: creates a DRAFT record. Nothing is sent to anyone. */
-export const createSubmission = (orgId: number | string, body: { consultantId: number; requirementId: number; resumeId?: number | null; note?: string }) =>
-  write(base(orgId), "POST", body, rowOf);
+/**
+ * Prepare a package for a job: creates a DRAFT record. Nothing is sent to anyone. The duplicate guard runs at record time: a 409 DUPLICATE_WARNING is answered
+ * by sending the same call again with `confirm` (a reason); a block or the open limit has nothing to confirm.
+ */
+export const createSubmission = (orgId: number | string, body: { consultantId: number; requirementId: number; resumeId?: number | null; note?: string }, confirm?: DuplicateConfirm) =>
+  write(base(orgId), "POST", { ...body, ...confirmFields(confirm) }, rowOf);
 /** Ask the consultant/approver to approve a draft. */
 export const requestApproval = (orgId: number | string, id: number) => write(`${base(orgId)}/${id}/request-approval`, "POST", undefined, rowOf);
 /** Record the approver's decision as the consultant/approver told the marketer. */

@@ -4,6 +4,7 @@ import com.dossier.api.service.ent.mkt.opportunities.MktOpportunitiesDTO;
 import com.dossier.api.service.ent.mkt.opportunities.MktOpportunitiesDTO.*;
 import com.dossier.api.service.ent.mkt.opportunities.MktOpportunitiesService;
 import com.dossier.api.service.ent.mkt.opportunities.MktOpportunitiesService.Query;
+import com.dossier.api.service.ent.pipeline.DuplicateGuard;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
 import io.swagger.v3.oas.annotations.Operation;
@@ -107,11 +108,11 @@ public class MktOpportunitiesResource {
         return service.create(me, body == null ? null : body.consultantId(), body == null ? null : body.requirementId());
     }
 
-    @Operation(summary = "Assign a suggested opportunity and ask the consultant for their interest (needs an approved resume: 409 RESUME_NOT_APPROVED). Never answers for the consultant.")
+    @Operation(summary = "Assign a suggested opportunity and ask the consultant for their interest (needs an approved resume: 409 RESUME_NOT_APPROVED). Never answers for the consultant. Optional body {confirmDuplicate, duplicateReason}: 409 DUPLICATE_WARNING when the consultant already has the same posting or role (confirm with a reason to go ahead), 409 DUPLICATE_BLOCKED when the organization's policy is BLOCK, 409 ASSIGNMENT_CAP when the consultant holds the most open opportunities allowed.")
     @PostMapping("/{id}/assign")
     @OrgPermissionRequired
-    public ActionResult assign(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long id) {
-        return service.assign(me, id);
+    public ActionResult assign(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long id, @RequestBody(required = false) AssignRequest body) {
+        return service.assign(me, id, body == null ? DuplicateGuard.Confirm.NONE : DuplicateGuard.Confirm.of(body.confirmDuplicate(), body.duplicateReason()));
     }
 
     @Operation(summary = "Assign several ready opportunities (max 50); the ones that cannot be assigned come back in `skipped` with a code.")
@@ -153,7 +154,7 @@ public class MktOpportunitiesResource {
     @PostMapping("/{id}/reassign")
     @OrgPermissionRequired
     public ActionResult reassign(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @PathVariable Long id, @RequestBody ReassignRequest body) {
-        return service.reassign(me, id, body == null ? null : body.consultantId());
+        return service.reassign(me, id, body == null ? null : body.consultantId(), body == null ? DuplicateGuard.Confirm.NONE : DuplicateGuard.Confirm.of(body.confirmDuplicate(), body.duplicateReason()));
     }
 
     @Operation(summary = "Record that the marketer reviewed the opportunity.")

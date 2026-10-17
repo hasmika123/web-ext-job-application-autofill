@@ -17,10 +17,13 @@ export async function proxyGet(req: Request, orgId: string, sub = "", id?: strin
   return forward(`${base(orgId)}${id ? `/${id}` : ""}${sub}${search}`, { headers: { accept: "application/json" } });
 }
 
-export async function proxyPost(orgId: string, sub = "", id?: string, req?: Request, allowed?: readonly string[]): Promise<Response> {
+export async function proxyPost(orgId: string, sub = "", id?: string, req?: Request, allowed?: readonly string[], optionalBody = false): Promise<Response> {
   if (!ID.test(orgId) || (id !== undefined && !ID.test(id))) return notFound();
   let body: string | undefined;
   if (req) {
+    // An optional body may be missing altogether (a plain call); when it is there it must still be a JSON object.
+    const text = optionalBody ? await req.clone().text() : "x";
+    if (optionalBody && !text.trim()) return forward(`${base(orgId)}${id ? `/${id}` : ""}${sub}`, { method: "POST" });
     const obj = await readObject(req);
     if (!obj) return badBody("Send a JSON object.");
     if (allowed) {

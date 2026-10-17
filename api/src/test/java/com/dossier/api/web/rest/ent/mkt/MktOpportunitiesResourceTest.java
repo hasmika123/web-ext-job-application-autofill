@@ -93,7 +93,7 @@ class MktOpportunitiesResourceTest {
 
     @Test
     void writesDelegateToTheServiceAsRequests() throws Exception {
-        when(service.assign(any(), eq(5L))).thenReturn(new ActionResult(null, "Assigned.", true));
+        when(service.assign(any(), eq(5L), any())).thenReturn(new ActionResult(null, "Assigned.", true));
         when(service.requestFromConsultant(any(), eq(5L), eq("RESUME"))).thenReturn(new ActionResult(null, "Asked.", true));
         when(service.bulkAssign(any(), any())).thenReturn(new BulkResult(2, List.of(), "Assigned 2 opportunities."));
         when(service.notifyAwaiting(any())).thenReturn(new BulkResult(3, List.of(), "Asked 3 consultants for their interest."));

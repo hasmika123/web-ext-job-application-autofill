@@ -259,6 +259,74 @@ describe("SubmissionsPage", () => {
     expect(JSON.parse(post?.body ?? "{}")).toEqual({ consultantId: 1, requirementId: 11 });
   });
 
+  describe("the duplicate and cap guards (Sprint 2 / B1)", () => {
+    const finding = { rule: "SAME_POSTING", message: "This consultant already has a submission for this job: Senior Java Developer at TechCorp." };
+    /** Opens New Submission, picks the consultant and job, and returns the dialog. */
+    async function fill() {
+      mount();
+      await screen.findByText("Alex Morgan");
+      fireEvent.click(screen.getByRole("button", { name: /New Submission/ }));
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(await within(dialog).findByRole("button", { name: "Consultant" }));
+      fireEvent.click(await screen.findByRole("option", { name: /Alex Morgan/ }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Job" }));
+      fireEvent.click(await screen.findByRole("option", { name: /Senior Java Developer/ }));
+      return dialog;
+    }
+
+    it("a duplicate warning shows what was found, asks for a reason, and sends the same draft again with the confirmation", async () => {
+      const { calls } = stubFetch({
+        "POST /api/orgs/2/mkt/submissions": (init) =>
+          typeof init?.body === "string" && JSON.parse(init.body).confirmDuplicate
+            ? json(201, row(SPECS[5]))
+            : json(409, { error: "Duplicate. Confirm with a reason to go ahead.", code: "DUPLICATE_WARNING", findings: [finding] }),
+      });
+      const dialog = await fill();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Create draft" }));
+      expect(await within(dialog).findByText(/already has a submission for this job: Senior Java Developer at TechCorp/)).toBeTruthy();
+      expect(within(dialog).queryByText("Duplicate. Confirm with a reason to go ahead.")).toBeNull();
+      const go = within(dialog).getByRole("button", { name: "Create draft anyway" }) as HTMLButtonElement;
+      expect(go.disabled).toBe(true);
+      fireEvent.change(within(dialog).getByLabelText("Why is it fine to go ahead?"), { target: { value: "The client asked for both vendors" } });
+      expect(go.disabled).toBe(false);
+      fireEvent.click(go);
+      await screen.findByText(/Draft prepared for Sophia Patel/);
+      const posts = calls.filter((c) => c.method === "POST").map((c) => JSON.parse(c.body ?? "{}"));
+      expect(posts).toEqual([{ consultantId: 1, requirementId: 11 }, { consultantId: 1, requirementId: 11, confirmDuplicate: true, duplicateReason: "The client asked for both vendors" }]);
+    });
+
+    it("choosing another job drops the warning, because it belonged to one pair", async () => {
+      stubFetch({
+        "GET /api/orgs/2/mkt/submissions/options": () => json(200, { consultants: [{ id: 1, name: "Alex Morgan", role: "Java Developer" }], jobs: [{ id: 11, title: "Senior Java Developer", code: "JOB-1011", client: "TechCorp" }, { id: 12, title: "Data Analyst", code: "JOB-1012", client: "Global Bank" }] }),
+        "POST /api/orgs/2/mkt/submissions": () => json(409, { error: "Duplicate.", code: "DUPLICATE_WARNING", findings: [finding] }),
+      });
+      const dialog = await fill();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Create draft" }));
+      await within(dialog).findByText(/already has a submission for this job/);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Job" }));
+      fireEvent.click(await screen.findByRole("option", { name: /Data Analyst/ }));
+      await waitFor(() => expect(within(dialog).queryByText(/already has a submission for this job/)).toBeNull());
+      expect(within(dialog).getByRole("button", { name: "Create draft" })).toBeTruthy();
+    });
+
+    it("a block is a plain message with no reason box", async () => {
+      stubFetch({ "POST /api/orgs/2/mkt/submissions": () => json(409, { error: "This consultant already has the same role. Your organization does not allow this.", code: "DUPLICATE_BLOCKED", findings: [finding] }) });
+      const dialog = await fill();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Create draft" }));
+      expect(await within(dialog).findByText("This consultant already has the same role. Your organization does not allow this.")).toBeTruthy();
+      expect(within(dialog).queryByLabelText("Why is it fine to go ahead?")).toBeNull();
+      expect(within(dialog).queryByRole("button", { name: "Create draft anyway" })).toBeNull();
+    });
+
+    it("the open-opportunity limit is a plain message too", async () => {
+      stubFetch({ "POST /api/orgs/2/mkt/submissions": () => json(409, { error: "This consultant already has 5 open opportunities, the most your organization allows (5).", code: "ASSIGNMENT_CAP" }) });
+      const dialog = await fill();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Create draft" }));
+      expect(await within(dialog).findByText(/already has 5 open opportunities, the most your organization allows/)).toBeTruthy();
+      expect(within(dialog).queryByLabelText("Why is it fine to go ahead?")).toBeNull();
+    });
+  });
+
   it("Save View stores the current filters under a name", async () => {
     const { calls } = stubFetch({ "POST /api/orgs/2/mkt/submissions/views": () => json(201, { id: 1, name: "Java reviews", q: null, status: null, approval: null, clientId: null, jobTitle: null, period: "30d" }) });
     mount();

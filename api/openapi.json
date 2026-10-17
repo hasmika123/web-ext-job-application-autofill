@@ -7326,7 +7326,7 @@
     "/api/orgs/{orgId}/mkt/opportunities/{id}/assign" : {
       "post" : {
         "tags" : [ "mkt-opportunities" ],
-        "summary" : "Assign a suggested opportunity and ask the consultant for their interest (needs an approved resume: 409 RESUME_NOT_APPROVED). Never answers for the consultant.",
+        "summary" : "Assign a suggested opportunity and ask the consultant for their interest (needs an approved resume: 409 RESUME_NOT_APPROVED). Never answers for the consultant. Optional body {confirmDuplicate, duplicateReason}: 409 DUPLICATE_WARNING when the consultant already has the same posting or role (confirm with a reason to go ahead), 409 DUPLICATE_BLOCKED when the organization's policy is BLOCK, 409 ASSIGNMENT_CAP when the consultant holds the most open opportunities allowed.",
         "operationId" : "assign",
         "parameters" : [ {
           "name" : "id",
@@ -7337,6 +7337,15 @@
             "format" : "int64"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignRequest"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -7544,7 +7553,7 @@
       "post" : {
         "tags" : [ "mkt-matches" ],
         "summary" : "Assign: record that the marketer puts this match forward (SUGGESTED to ASSIGNED)",
-        "description" : "Needs matches.run and opportunities.manage. Record only (E1): it never submits anything for the consultant. Idempotent for an assigned match; 409 for a dismissed match or a closed job.",
+        "description" : "Needs matches.run and opportunities.manage. Record only (E1): it never submits anything for the consultant. Idempotent for an assigned match; 409 for a dismissed match or a closed job. Optional body {confirmDuplicate, duplicateReason}: 409 DUPLICATE_WARNING when the consultant already has the same posting or role (confirm with a reason to go ahead), 409 DUPLICATE_BLOCKED when the organization's policy is BLOCK, 409 ASSIGNMENT_CAP when the consultant holds the most open opportunities allowed.",
         "operationId" : "assign_1",
         "parameters" : [ {
           "name" : "id",
@@ -7555,6 +7564,15 @@
             "format" : "int64"
           }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AssignRequest"
+              }
+            }
+          }
+        },
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -10208,7 +10226,7 @@
       "post" : {
         "tags" : [ "marketing-assignments" ],
         "summary" : "Assign or reassign consultants to a marketer",
-        "description" : "assignments.manage at a scope covering the marketer (and the current marketer of any consultant that moves). Body: consultantIds (1 to 200), marketerMemberId, backupMemberId, priority, status, allowOverCapacity. 409 OVER_CAPACITY (with capacity, current, adding, projected) unless allowOverCapacity is true; an override is audited at MEDIUM. Per-consultant result with previous (what Undo sends to /restore); a consultant that cannot be reached is skipped NOT_FOUND. One audit row per changed consultant plus one MARKETING_BULK. Idempotency-Key required.",
+        "description" : "assignments.manage at a scope covering the marketer (and the current marketer of any consultant that moves). Body: consultantIds (1 to 200), marketerMemberId, backupMemberId, priority, status, allowOverCapacity, reason (optional, 200 characters, kept in the consultant history). When the marketer changes, the open opportunities, tasks and follow-ups the previous marketer owned for that consultant move to the new one (admin switch org.assignments.handover_open_work). 409 OVER_CAPACITY (with capacity, current, adding, projected) unless allowOverCapacity is true; an override is audited at MEDIUM. Per-consultant result with previous (what Undo sends to /restore); a consultant that cannot be reached is skipped NOT_FOUND. One audit row per changed consultant plus one MARKETING_BULK. Idempotency-Key required.",
         "operationId" : "assign_3",
         "parameters" : [ {
           "name" : "Idempotency-Key",
@@ -21877,6 +21895,35 @@
         }
       }
     },
+    "/api/orgs/{orgId}/marketing-assignments/consultants/{consultantId}/history" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "One consultant's assignment history",
+        "description" : "workload.view or assignments.manage, for a consultant whose current marketer is inside the caller's scope (an unassigned consultant: organization scope). Newest first: action (ASSIGN, REASSIGN, UNASSIGN, BACKUP, PAUSE, RESUME, PRIORITY, RESTORE), who changed it (actor), the marketer and backup before and after, the reason, what open work moved with the change (handover) and when. Append-only: nothing in it is ever edited or removed. A consultant outside the scope or another organization: the generic 404.",
+        "operationId" : "history_1",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/History"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/jobs/summary" : {
       "get" : {
         "tags" : [ "jobs" ],
@@ -24503,7 +24550,7 @@
     "/api/admin/settings/{key}/history" : {
       "get" : {
         "tags" : [ "admin-settings-resource" ],
-        "operationId" : "history_1",
+        "operationId" : "history_2",
         "parameters" : [ {
           "name" : "key",
           "in" : "path",
@@ -25287,7 +25334,7 @@
     "/api/admin/ai/config/history" : {
       "get" : {
         "tags" : [ "admin-ai-config-resource" ],
-        "operationId" : "history_2",
+        "operationId" : "history_3",
         "parameters" : [ {
           "name" : "key",
           "in" : "query",
@@ -29671,6 +29718,17 @@
           }
         }
       },
+      "AssignRequest" : {
+        "type" : "object",
+        "properties" : {
+          "confirmDuplicate" : {
+            "type" : "boolean"
+          },
+          "duplicateReason" : {
+            "type" : "string"
+          }
+        }
+      },
       "AnswerInfoRequest" : {
         "type" : "object",
         "properties" : {
@@ -29705,15 +29763,6 @@
             "items" : {
               "type" : "string"
             }
-          }
-        }
-      },
-      "AssignRequest" : {
-        "type" : "object",
-        "properties" : {
-          "consultantId" : {
-            "type" : "integer",
-            "format" : "int64"
           }
         }
       },
@@ -30758,6 +30807,9 @@
               "type" : "integer",
               "format" : "int64"
             }
+          },
+          "reason" : {
+            "type" : "string"
           }
         }
       },
@@ -35346,6 +35398,67 @@
             "items" : {
               "$ref" : "#/components/schemas/Option"
             }
+          }
+        }
+      },
+      "History" : {
+        "type" : "object",
+        "properties" : {
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consultantName" : {
+            "type" : "string"
+          },
+          "currentMarketer" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "currentBackup" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/HistoryItem"
+            }
+          }
+        }
+      },
+      "HistoryItem" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "fromMarketer" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "toMarketer" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "fromBackup" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "toBackup" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "actor" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "handover" : {
+            "type" : "string"
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },

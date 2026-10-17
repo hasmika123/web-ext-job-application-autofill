@@ -251,6 +251,12 @@ public class MktJobsService {
      */
     @Transactional
     public AssignResult assign(OrgMembership me, Long jobId, Long consultantId) {
+        return assign(me, jobId, consultantId, com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm.NONE);
+    }
+
+    /** {@link #assign(OrgMembership, Long, Long)} with the answer to a duplicate warning (Sprint 2 / B1). */
+    @Transactional
+    public AssignResult assign(OrgMembership me, Long jobId, Long consultantId, com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm confirm) {
         MktScope.View view = scope.resolve(me, KEY_ASSIGN);
         Long orgId = me.orgId();
         if (consultantId == null) throw invalid("consultantId", "Choose a consultant.");
@@ -258,6 +264,7 @@ public class MktJobsService {
         // The gates and the pair rules (open job, active consultant, approved resume, reopening, the opportunity overlay) live in one place.
         OpportunityAssignmentService.Result assigned = assignment.assign(view, me, jobId, consultantId,
             OpportunityAssignmentService.Options.none()
+                .confirmingDuplicate(confirm)
                 .withNewMatch(() -> overlapScore(orgId, jobId, consultantId), "Assigned by a marketer", "MANUAL")
                 .withAudit(new OpportunityAssignmentService.Audit(AUDIT_ASSIGN, TARGET, String.valueOf(jobId),
                     r -> "{\"consultantId\":" + consultantId + ",\"created\":" + r.created() + "}")));

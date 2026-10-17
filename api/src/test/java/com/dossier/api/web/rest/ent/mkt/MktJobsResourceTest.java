@@ -77,14 +77,14 @@ class MktJobsResourceTest {
 
     @Test
     void assignPassesOnlyTheConsultantAndReturnsTheRecord() throws Exception {
-        when(service.assign(me, 10L, 100L)).thenReturn(new MktJobsDTO.AssignResult(77L, 10L, 100L, "ASSIGNED", 90, true));
+        when(service.assign(eq(me), eq(10L), eq(100L), any())).thenReturn(new MktJobsDTO.AssignResult(77L, 10L, 100L, "ASSIGNED", 90, true));
         mvc
             .perform(post("/api/orgs/1/mkt/jobs/10/assign").requestAttr(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE, me).contentType(MediaType.APPLICATION_JSON).content("{\"consultantId\":100}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("ASSIGNED"))
             .andExpect(jsonPath("$.matchId").value(77))
             .andExpect(jsonPath("$.created").value(true));
-        verify(service).assign(me, 10L, 100L);
+        verify(service).assign(eq(me), eq(10L), eq(100L), eq(com.dossier.api.service.ent.pipeline.DuplicateGuard.Confirm.NONE));
     }
 
     @Test

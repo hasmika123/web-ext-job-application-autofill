@@ -9,6 +9,9 @@ public final class MktMatchesDto {
     private MktMatchesDto() {}
 
     /** One KPI tile: value, percent change against last month (null = nothing to compare) and the last 8 weekly buckets. */
+    /** Optional body of {@code POST .../assign}: the answer to a 409 DUPLICATE_WARNING (confirm with a reason of 1 to 200 characters). */
+    public record AssignRequest(Boolean confirmDuplicate, String duplicateReason) {}
+
     public record Kpi(String key, long value, Double deltaPct, List<Long> sparkline) {}
 
     public record Option(String key, String label) {}
