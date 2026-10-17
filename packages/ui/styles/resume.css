@@ -399,6 +399,67 @@
 }
 /* == /tpl:classic == */
 
+/* == tpl:compact == */
+.rz-page.rz-tpl-compact {
+  line-height: 1.3;
+}
+
+.rz-tpl-compact {
+  --rz-entry-gap: calc(0.45em * var(--rz-density));
+}
+
+.rz-tpl-compact .rz-header {
+  margin-bottom: calc(0.7em * var(--rz-density));
+}
+
+.rz-tpl-compact .rz-name {
+  font-size: 1.6em;
+  font-weight: 700;
+}
+
+.rz-tpl-compact .rz-headline {
+  margin-top: calc(0.1em * var(--rz-density));
+  font-size: 1em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-compact .rz-contact {
+  margin-top: calc(0.3em * var(--rz-density));
+  font-size: 0.85em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-compact .rz-section {
+  margin-bottom: calc(0.7em * var(--rz-density));
+}
+
+.rz-tpl-compact .rz-section-title {
+  margin-bottom: calc(0.35em * var(--rz-density));
+  padding-bottom: 0.1em;
+  font-size: 0.85em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rz-ink);
+  border-bottom: 1px solid #d1d5db;
+}
+
+.rz-tpl-compact .rz-item-dates,
+.rz-tpl-compact .rz-item-loc,
+.rz-tpl-compact .rz-item-sub {
+  font-size: 0.85em;
+}
+
+.rz-tpl-compact .rz-bullets {
+  margin-top: calc(0.15em * var(--rz-density));
+  padding-left: 1.1em;
+}
+
+.rz-tpl-compact .rz-bullet {
+  margin-bottom: calc(0.1em * var(--rz-density));
+}
+/* == /tpl:compact == */
+
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
 @media print {
