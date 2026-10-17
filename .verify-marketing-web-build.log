@@ -1,0 +1,285 @@
+npm warn config ignoring workspace config at C:\work_bench\2026_april\claude_code_work_bench\web-ext-job-application-autofill\.claude\worktrees\ent-marketing\web/.npmrc
+
+> web@0.1.0 prebuild
+> node scripts/sync-parser-core.mjs
+
+[sync-parser-core] C:\work_bench\2026_april\claude_code_work_bench\web-ext-job-application-autofill\.claude\worktrees\ent-marketing\job-autofill\src\lib\parser-core.js -> C:\work_bench\2026_april\claude_code_work_bench\web-ext-job-application-autofill\.claude\worktrees\ent-marketing\web\src\lib\generated\parser-core.cjs
+
+> web@0.1.0 build
+> next build
+
+▲ Next.js 16.2.9 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 2.2min
+  Running TypeScript ...
+  Finished TypeScript in 3.9min ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/138) ...
+  Generating static pages using 7 workers (34/138) 
+  Generating static pages using 7 workers (68/138) 
+  Generating static pages using 7 workers (103/138) 
+✓ Generating static pages using 7 workers (138/138) in 7.9s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /_t
+├ ƒ /_t/forgot-password
+├ ƒ /_t/login
+├ ƒ /_t/preview/login
+├ ƒ /_t/w/[workspace]/[[...slug]]
+├ ƒ /_t/w/[workspace]/branding
+├ ƒ /_t/w/[workspace]/departments
+├ ƒ /_t/w/[workspace]/employees
+├ ƒ /_t/w/[workspace]/invitations
+├ ƒ /_t/w/[workspace]/marketing-assignments
+├ ƒ /_t/w/[workspace]/roles
+├ ƒ /_t/w/[workspace]/teams
+├ ƒ /about
+├ ƒ /account/activate
+├ ƒ /admin
+├ ƒ /admin/ai
+├ ƒ /admin/ai/providers
+├ ƒ /admin/analytics
+├ ƒ /admin/audit
+├ ƒ /admin/bug-reports
+├ ƒ /admin/bug-reports/[id]
+├ ƒ /admin/customers
+├ ƒ /admin/inquiries
+├ ƒ /admin/job-sources
+├ ƒ /admin/kit
+├ ƒ /admin/security
+├ ƒ /admin/subscribers
+├ ƒ /admin/system
+├ ƒ /admin/users
+├ ƒ /admin/users/[login]
+├ ƒ /ai-apply
+├ ƒ /ai-tools
+├ ƒ /alerts
+├ ƒ /analytics
+├ ƒ /api/account
+├ ƒ /api/account/export
+├ ƒ /api/admin/ai/calls
+├ ƒ /api/admin/ai/config
+├ ƒ /api/admin/ai/config/global
+├ ƒ /api/admin/ai/config/history
+├ ƒ /api/admin/ai/prices/[model]
+├ ƒ /api/admin/ai/providers/[id]
+├ ƒ /api/admin/ai/providers/[id]/test
+├ ƒ /api/admin/ai/routes/[task]
+├ ƒ /api/admin/bug-reports/[id]
+├ ƒ /api/admin/customers/[login]/notes
+├ ƒ /api/admin/inquiries/[id]
+├ ƒ /api/admin/job-sources
+├ ƒ /api/admin/job-sources/[id]
+├ ƒ /api/admin/job-sources/match
+├ ƒ /api/admin/job-sources/run
+├ ƒ /api/admin/settings/demo
+├ ƒ /api/admin/settings/demo/reset
+├ ƒ /api/admin/subscribers/export
+├ ƒ /api/admin/users/[login]
+├ ƒ /api/admin/users/[login]/ai-quota
+├ ƒ /api/admin/users/[login]/sessions/[familyId]
+├ ƒ /api/ai/parse-resume
+├ ƒ /api/ai/proposals/[pid]/apply
+├ ƒ /api/ai/proposals/[pid]/dismiss
+├ ƒ /api/analytics
+├ ƒ /api/applications
+├ ƒ /api/applications/[id]
+├ ƒ /api/applications/[id]/ats-score
+├ ƒ /api/applications/[id]/attachment
+├ ƒ /api/applications/[id]/interviews
+├ ƒ /api/applications/[id]/interviews/[iid]
+├ ƒ /api/applications/[id]/interviews/[iid]/outcome
+├ ƒ /api/applications/[id]/job-fit
+├ ƒ /api/applications/[id]/mail
+├ ƒ /api/applications/[id]/notes
+├ ƒ /api/applications/[id]/notes/[nid]
+├ ƒ /api/applications/[id]/resume-fit
+├ ƒ /api/applications/[id]/tailor
+├ ƒ /api/applications/activity
+├ ƒ /api/applications/bulk
+├ ƒ /api/auth/demo
+├ ƒ /api/auth/forgot-password
+├ ƒ /api/auth/google
+├ ƒ /api/auth/login
+├ ƒ /api/auth/login/mfa
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/refresh
+├ ƒ /api/auth/reset-password
+├ ƒ /api/auth/signup
+├ ƒ /api/auth/tenant-demo
+├ ƒ /api/billing/checkout
+├ ƒ /api/billing/me
+├ ƒ /api/billing/portal
+├ ƒ /api/bug-reports
+├ ƒ /api/demo
+├ ƒ /api/ent/demo
+├ ƒ /api/extension/token
+├ ƒ /api/inbox
+├ ƒ /api/inbox/notify
+├ ƒ /api/inbox/suggestions/[id]/[action]
+├ ƒ /api/inquiries
+├ ƒ /api/interviews
+├ ƒ /api/interviews/[id]/ics
+├ ƒ /api/job-matches/[id]/[action]
+├ ƒ /api/job-matches/settings
+├ ƒ /api/me/tenant
+├ ƒ /api/newsletter
+├ ƒ /api/newsletter/confirm
+├ ƒ /api/newsletter/unsubscribe
+├ ƒ /api/notification-preferences
+├ ƒ /api/notifications
+├ ƒ /api/notifications/read-all
+├ ƒ /api/orgs/[orgId]/branding
+├ ƒ /api/orgs/[orgId]/branding/assets/[kind]
+├ ƒ /api/orgs/[orgId]/branding/discard
+├ ƒ /api/orgs/[orgId]/branding/draft
+├ ƒ /api/orgs/[orgId]/branding/preview-theme
+├ ƒ /api/orgs/[orgId]/branding/publish
+├ ƒ /api/orgs/[orgId]/branding/versions/[n]/restore
+├ ƒ /api/orgs/[orgId]/dashboard
+├ ƒ /api/orgs/[orgId]/dashboard/alerts/[alertKey]/dismiss
+├ ƒ /api/orgs/[orgId]/groups
+├ ƒ /api/orgs/[orgId]/groups/[groupId]
+├ ƒ /api/orgs/[orgId]/groups/[groupId]/members
+├ ƒ /api/orgs/[orgId]/groups/[groupId]/members/[memberId]
+├ ƒ /api/orgs/[orgId]/groups/directory
+├ ƒ /api/orgs/[orgId]/groups/people
+├ ƒ /api/orgs/[orgId]/groups/pickers
+├ ƒ /api/orgs/[orgId]/groups/structure
+├ ƒ /api/orgs/[orgId]/invitations
+├ ƒ /api/orgs/[orgId]/invitations/[id]/resend
+├ ƒ /api/orgs/[orgId]/invitations/[id]/revoke
+├ ƒ /api/orgs/[orgId]/invitations/activity
+├ ƒ /api/orgs/[orgId]/invitations/bulk/resend
+├ ƒ /api/orgs/[orgId]/invitations/bulk/revoke
+├ ƒ /api/orgs/[orgId]/invitations/counts
+├ ƒ /api/orgs/[orgId]/invitations/form-options
+├ ƒ /api/orgs/[orgId]/marketing-assignments/[[...path]]
+├ ƒ /api/orgs/[orgId]/members/[[...path]]
+├ ƒ /api/orgs/[orgId]/members/[id]/roles
+├ ƒ /api/orgs/[orgId]/permissions
+├ ƒ /api/orgs/[orgId]/roles
+├ ƒ /api/orgs/[orgId]/roles/[roleId]
+├ ƒ /api/orgs/[orgId]/roles/[roleId]/diff
+├ ƒ /api/orgs/[orgId]/roles/[roleId]/history
+├ ƒ /api/orgs/[orgId]/roles/[roleId]/resync
+├ ƒ /api/orgs/[orgId]/roles/history
+├ ƒ /api/orgs/[orgId]/roles/overview
+├ ƒ /api/profile
+├ ƒ /api/profile/completeness
+├ ƒ /api/profile/items
+├ ƒ /api/profile/items/[id]
+├ ƒ /api/profile/items/import
+├ ƒ /api/profile/items/reorder
+├ ƒ /api/profile/onboarding
+├ ƒ /api/profile/onboarding/draft
+├ ƒ /api/profile/onboarding/finish
+├ ƒ /api/resumes/[id]
+├ ƒ /api/resumes/[id]/access
+├ ƒ /api/resumes/[id]/access/[accessId]
+├ ƒ /api/resumes/[id]/access/link
+├ ƒ /api/resumes/[id]/ai/proposals
+├ ƒ /api/resumes/[id]/ai/rewrite
+├ ƒ /api/resumes/[id]/ai/suggestions
+├ ƒ /api/resumes/[id]/ai/summary
+├ ƒ /api/resumes/[id]/ats-score
+├ ƒ /api/resumes/[id]/detach
+├ ƒ /api/resumes/[id]/doc
+├ ƒ /api/resumes/[id]/doc/checkpoint
+├ ƒ /api/resumes/[id]/doc/duplicate
+├ ƒ /api/resumes/[id]/doc/import
+├ ƒ /api/resumes/[id]/doc/pdf-now
+├ ƒ /api/resumes/[id]/doc/pdf-status
+├ ƒ /api/resumes/[id]/doc/sync-master
+├ ƒ /api/resumes/[id]/doc/sync-master/apply
+├ ƒ /api/resumes/[id]/doc/template
+├ ƒ /api/resumes/[id]/doc/theme
+├ ƒ /api/resumes/[id]/doc/versions
+├ ƒ /api/resumes/[id]/doc/versions/[n]/restore
+├ ƒ /api/resumes/[id]/doc/versions/[n]/text
+├ ƒ /api/resumes/[id]/export
+├ ƒ /api/resumes/[id]/file
+├ ƒ /api/resumes/[id]/lineage
+├ ƒ /api/resumes/[id]/meta
+├ ƒ /api/resumes/[id]/original
+├ ƒ /api/resumes/[id]/thumbnail
+├ ƒ /api/resumes/[id]/views
+├ ƒ /api/resumes/builder-config
+├ ƒ /api/resumes/built
+├ ƒ /api/resumes/shared-with-me
+├ ƒ /api/resumes/shared/[id]/doc
+├ ƒ /api/resumes/shared/[id]/export
+├ ƒ /api/resumes/upload
+├ ƒ /api/suggestions/[id]/[action]
+├ ƒ /api/tailor/[proposalId]/apply
+├ ○ /apple-icon.png
+├ ƒ /applications
+├ ƒ /assistant
+├ ƒ /billing/success
+├ ƒ /board
+├ ƒ /companies
+├ ƒ /connect
+├ ƒ /contact
+├ ƒ /dashboard
+├ ƒ /explore
+├ ƒ /forgot-password
+├ ○ /icon.png
+├ ƒ /insights
+├ ƒ /interview-prep
+├ ƒ /interviews
+├ ƒ /jobs
+├ ƒ /jobs/[id]
+├ ƒ /learning
+├ ƒ /login
+├ ƒ /matches
+├ ƒ /messages
+├ ƒ /networking
+├ ƒ /newsletter/confirm
+├ ƒ /newsletter/unsubscribe
+├ ○ /opengraph-image
+├ ƒ /org
+├ ƒ /org/analytics
+├ ƒ /org/applications
+├ ƒ /org/billing
+├ ƒ /org/integrations
+├ ƒ /org/interviews
+├ ƒ /org/opportunities
+├ ƒ /org/resumes
+├ ƒ /org/settings
+├ ƒ /org/team
+├ ƒ /organizations
+├ ƒ /pricing
+├ ƒ /privacy
+├ ƒ /profile
+├ ƒ /profiles
+├ ƒ /profiles/setup
+├ ƒ /r/[token]
+├ ƒ /r/[token]/pdf
+├ ƒ /reset-password
+├ ƒ /resume
+├ ƒ /resume-builder
+├ ƒ /resume-builder/[id]
+├ ƒ /resume-builder/shared/[id]
+├ ƒ /resume-builder/templates
+├ ƒ /resumes
+├ ○ /robots.txt
+├ ƒ /saved
+├ ƒ /settings
+├ ƒ /settings/inbox
+├ ƒ /signup
+├ ○ /sitemap.xml
+├ ƒ /tenant-assets/[kind]
+├ ƒ /terms
+├ ƒ /v3
+└ ƒ /welcome
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

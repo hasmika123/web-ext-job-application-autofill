@@ -379,3 +379,9 @@ The invitation / Create account now form now also has optional **Team** and **Ma
 - **Expected:** the button reads "Publish" instead of "Submit for review"; the public page shows Oscar's text at once, with "Last updated"; History of the organization shows `POLICY_SUBMIT` and `POLICY_APPROVE` by Oscar's login; turning the setting back on restores the review step for the next change (the live text stays).
 - **Pages / APIs:** Policies, Settings (platform admin), `GET /api/public/tenant/policies/TERMS`.
 - **Status: STORY-ONLY (covered by `OrgPolicyResourceIT`)**
+
+### ADM-130 The admin sets the duplicate policy, the open-opportunity limit and the handover switch (Sprint 2 / B1)
+- **Personas:** platform admin (Settings page), Org Admin (per-organization override stored in `org_setting`). **Goal:** every switch and limit of the assignment guards is configuration, never code.
+- **Steps:** 1. Open the platform Settings page and find `org.pipeline.duplicate_policy` (WARN or BLOCK, default WARN), `org.pipeline.same_client_window_days` (default 90), `org.pipeline.max_submissions_per_requirement` (default 0 = off), `org.pipeline.open_matches_max` (default 0 = off) and `org.assignments.handover_open_work` (default on). 2. Change one; repeat the matching story (MKT-61, MKT-62, MKT-63).
+- **Expected:** the new value applies on the next request without a restart; an organization value in `org_setting` wins when valid and is ignored when malformed or out of range; the defaults ask (WARN) and never refuse, and the limits are off.
+- **Pages / APIs:** platform Settings. **Automation:** none yet (Java `PipelineGuardSettingsTest`, `PipelineGuardIT`). **Status: STORY-ONLY**
