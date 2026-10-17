@@ -138,6 +138,13 @@ public class ClientRequirement implements Serializable {
     @Column(name = "detail_level_changed_by")
     private Long detailLevelChangedBy;
 
+    /** Account Manager intake (ent-accounts): LOW | NORMAL | HIGH | URGENT, and the day the client needs it filled by. */
+    @Column(name = "priority", length = 10, nullable = false)
+    private String priority = "NORMAL";
+
+    @Column(name = "due_on")
+    private LocalDate dueOn;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -228,6 +235,10 @@ public class ClientRequirement implements Serializable {
     public void setDetailLevelChangedAt(Instant detailLevelChangedAt) { this.detailLevelChangedAt = detailLevelChangedAt; }
     public Long getDetailLevelChangedBy() { return detailLevelChangedBy; }
     public void setDetailLevelChangedBy(Long detailLevelChangedBy) { this.detailLevelChangedBy = detailLevelChangedBy; }
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
+    public LocalDate getDueOn() { return dueOn; }
+    public void setDueOn(LocalDate dueOn) { this.dueOn = dueOn; }
     public long getVersion() { return version; }
     public void setVersion(long version) { this.version = version; }
 }

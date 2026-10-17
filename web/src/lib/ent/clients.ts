@@ -92,6 +92,8 @@ export interface Contact {
   name: string;
   title: string | null;
   email: string | null;
+  phone?: string | null;
+  notes?: string | null;
   role: string | null;
   status: "ACTIVE" | "LEFT";
   addedAt: string;
@@ -163,6 +165,8 @@ export interface ContactRow {
   name: string;
   title: string | null;
   email: string | null;
+  phone?: string | null;
+  notes?: string | null;
   role: string | null;
   status: string;
   client: ClientRef;
@@ -225,6 +229,10 @@ export interface ContactBody {
   name: string;
   title?: string | null;
   email?: string | null;
+  /** A work phone (digits, +, spaces, dashes, brackets). Optional. */
+  phone?: string | null;
+  /** A short note about the person (at most 500 characters). No identity or bank values: the API scans it. */
+  notes?: string | null;
   role?: string | null;
 }
 
@@ -474,6 +482,15 @@ export const clientsApi = {
   summary: (orgId: number | string) => call<Summary>(`${base(orgId)}/summary`, { cache: "no-store" }),
   detail: (orgId: number | string, id: number) => call<ClientDetail>(`${base(orgId)}/${id}`, { cache: "no-store" }),
   contacts: (orgId: number | string, q: ClientQuery) => call<Paged<ContactRow>>(`${base(orgId)}/contacts?${tabParams(q)}`, { cache: "no-store" }),
+  /** The Account Manager's Contacts page: every contact, optionally of one client. */
+  contactList: (orgId: number | string, f: { q: string; clientId: string; page: number; size: number }) => {
+    const p = new URLSearchParams();
+    if (searchOk(f.q)) p.set("q", f.q.trim());
+    if (f.clientId) p.set("clientId", f.clientId);
+    p.set("page", String(f.page));
+    p.set("size", String(f.size));
+    return call<Paged<ContactRow>>(`${base(orgId)}/contacts?${p}`, { cache: "no-store" });
+  },
   requirements: (orgId: number | string, q: ClientQuery) => call<Paged<RequirementRow>>(`${base(orgId)}/requirements?${tabParams(q)}`, { cache: "no-store" }),
   activity: (orgId: number | string, limit: number) => call<{ items: ActivityItem[] }>(`${base(orgId)}/activity?limit=${limit}`, { cache: "no-store" }),
   create: (orgId: number | string, body: CreateBody, key: string = newKey()) => call<ClientDetail>(base(orgId), json("POST", body, { "idempotency-key": key })),

@@ -134,6 +134,7 @@ Every use-case story has a stable ID: `<AREA>-<NN>` with a two-digit running num
 |---|---|---|---|
 | `ADM-` | Organization administration workspace (`/w/admin/**`): dashboard, employees, invitations, teams, departments, roles, consultants, resumes, marketing assignments, jobs, applications, interviews, clients, placements, branding | Sarah, Bea | `stories/admin.md` |
 | `MKT-` | Talent marketing workspace (`/w/marketing/**`) including the browser-extension capture and assignment of jobs | Omar (and Sarah as manager) | `stories/marketing.md` |
+| `ACC-` | Account Manager workspace (`/w/accounts/**`): home, contacts, requirements intake and assignment | Amara | `stories/accounts.md` |
 | `CON-` | Consultant workspace (`/w/consultant/**`) including applying with the extension and tracking | Anika, Ben | `stories/consultant.md` |
 | `PLT-` | Platform and cross-cutting: tenant resolution and isolation, branded sign-in and demo accounts, multi-role switcher and shell, permissions (404 rule), the Kiwiply platform admin (`/admin/**`), audit and data lineage, and workspaces for roles whose pages are not built (HR, Finance, Accounts, Executive) | all, Bea for isolation | `stories/platform.md` |
 

@@ -307,16 +307,16 @@ Admin Subscription/Licenses/Billing/Usage: Session C (docs 24, 28). Audit Logs v
 ### PLT-48 Finance product stories (Finance Home tiles, consultant subscriptions, billing, invoices, timesheet approvals, payment records, finance reports)
 - **Status: NOT-BUILT:** X6.1 to X6.4 (billing, Session C), X11.4 to X11.6 (ops/timesheets). Rule: finance *records* money, never moves it; no bank numbers.
 
-### PLT-36 Amara (Account Manager): lands on Clients; the home is not built, Clients is
+### PLT-36 Amara (Account Manager): lands on the Accounts home; Clients is real too
 - **Expected:** `/w/accounts` "on the way"; Clients board (`[data-clients-page]`) with "Add client" (`[data-add-client]`, `clients.manage`).
-- **Automation:** `other-workspaces.story.ts` → "PLT-36 ...". **Status: AUTOMATED** (Accounts Home: **NOT-BUILT:X10.x**)
+- **Automation:** `other-workspaces.story.ts` → "PLT-36 ...". **Status: AUTOMATED** (spec updated for the real Accounts home, `[data-accounts-home]`; NOT RE-RUN in a browser, Playwright is paused)
 
-### PLT-37 Amara's Placements and Interviews boards open; Contacts, Requirements, Submissions, Offers are on the way
-- **Expected:** `/w/accounts/placements` and `/interviews` render their boards; the other four show the placeholder.
-- **Automation:** `other-workspaces.story.ts` → "PLT-37 ...". **Status: AUTOMATED**
+### PLT-37 Amara's Placements, Interviews, Contacts and Requirements boards open; Submissions and Offers are on the way
+- **Expected:** `/w/accounts/placements`, `/interviews`, `/contacts` and `/requirements` render their boards; Submissions and Offers show the placeholder.
+- **Automation:** `other-workspaces.story.ts` → "PLT-37 ...". **Status: AUTOMATED** (spec updated; NOT RE-RUN in a browser, Playwright is paused)
 
 ### PLT-49 Account Manager product stories (client accounts with contacts/relationships/requirements, requirement intake, offers, submissions record)
-- **Status: NOT-BUILT:** doc 34 s4, doc 38 s5, X10.1 to X10.5.
+- **Status: PARTIAL.** Requirement intake, the Requirements and Contacts pages and the Accounts home are described in `stories/accounts.md` (ACC-1 to ACC-8). Still NOT-BUILT: offers, the submissions record (X10.3 link to a requirement), vendor relationships (X10.1).
 
 ### PLT-38 Eve (Executive Viewer): lands on Overview; the executive pages are not built
 - **Expected:** `/w/exec` and `/w/exec/reports` show "This page is on the way". (Doc 16 5.8 intended counts-only tiles in Phase 2; today only the Administration home renders the dashboard, and Eve cannot open it.)

@@ -462,6 +462,14 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/jobs/{jobId}", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/jobs", Case.versioned(201, "JOB_CREATE", w -> "{\"title\":\"Hijack job\",\"clientId\":" + w.jobClientId + "}", w -> null)),
         Map.entry("PATCH /api/orgs/{orgId}/jobs/{jobId}", Case.versioned(200, "JOB_UPDATE", w -> "{\"title\":\"Hijacked job\"}", w -> w.jobVersion)),
+        // Enterprise V2 (ent-accounts-ws): the Account Manager's Requirements page. {requirementId} here means the world's job (see uri()).
+        Map.entry("GET /api/orgs/{orgId}/requirements", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/requirements/summary", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/requirements/{requirementId}", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/requirements/{requirementId}/candidates", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/requirements", Case.people(201, "REQUIREMENT_INTAKE", 2, w -> "{\"title\":\"Hijack requirement\",\"clientId\":" + w.jobClientId + ",\"source\":\"MANUAL\"}", null, null)),
+        Map.entry("PATCH /api/orgs/{orgId}/requirements/{requirementId}", Case.versioned(200, "JOB_UPDATE", w -> "{\"priority\":\"URGENT\"}", w -> w.jobVersion)),
+        Map.entry("POST /api/orgs/{orgId}/requirements/{requirementId}/assignments", Case.mkt(200, "REQUIREMENT_ASSIGN", w -> "{\"consultantId\":" + w.consultantProfileId + "}", World::approveResume)),
         Map.entry("POST /api/orgs/{orgId}/jobs/bulk/status", Case.people(200, "JOB_BULK", 2, w -> "{\"ids\":[" + w.jobId + "],\"status\":\"ON_HOLD\"}", null, null)),
         Map.entry("POST /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}/assign", Case.people(200, "JOB_ASSIGN", 1, null, null, null)),
         Map.entry("PATCH /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}", Case.versioned(200, "JOB_MATCH_DISMISS", w -> "{\"status\":\"DISMISSED\"}", w -> null)),
@@ -1593,6 +1601,7 @@ class OrgIsolationIT {
     private static String uri(Route route, Map<String, String> ids) {
         // The same variable name names different rows on different pages: the route prefix decides which fixture row a route means.
         String pattern = route.pattern()
+            .replace("/orgs/{orgId}/requirements/{requirementId}", "/orgs/{orgId}/requirements/{jobId}") // the Account Manager page's requirement is the world's job
             .replace("/mkt/interviews/{interviewId}", "/mkt/interviews/{mktInterviewId}") // before the generic interviews rename below
             .replace("/prep/{itemId}", "/prep/{mktPrepItemId}")
             .replace("/mkt/activity/{id}", "/mkt/activity/{mktActivityId}")
@@ -1638,7 +1647,7 @@ class OrgIsolationIT {
         if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members") || route.key().equals("POST /api/orgs/{orgId}/resumes") || route.key().equals("POST /api/orgs/{orgId}/resumes/bulk")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension") || route.pattern().endsWith("/opportunities/job"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/orgs/{orgId}/requirements") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension") || route.pattern().endsWith("/opportunities/job"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {

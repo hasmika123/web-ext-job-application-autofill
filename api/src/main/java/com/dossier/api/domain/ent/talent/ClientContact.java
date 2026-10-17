@@ -31,6 +31,12 @@ public class ClientContact implements Serializable {
     @Column(name = "work_email", length = 254)
     private String workEmail;
 
+    @Column(name = "phone", length = 40)
+    private String phone;
+
+    @Column(name = "notes", length = 500)
+    private String notes;
+
     @Column(name = "role_label", length = 40)
     private String roleLabel;
 
@@ -52,6 +58,10 @@ public class ClientContact implements Serializable {
     public void setTitle(String title) { this.title = title; }
     public String getWorkEmail() { return workEmail; }
     public void setWorkEmail(String workEmail) { this.workEmail = workEmail; }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
     public String getRoleLabel() { return roleLabel; }
     public void setRoleLabel(String roleLabel) { this.roleLabel = roleLabel; }
     public String getStatus() { return status; }
