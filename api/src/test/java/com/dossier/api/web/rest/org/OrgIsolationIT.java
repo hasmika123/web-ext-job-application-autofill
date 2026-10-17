@@ -296,6 +296,11 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/applied", Case.denied("{\"applicationId\":1}")),
         Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/link", Case.denied("{\"applicationId\":1}")),
         Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/unlink", Case.denied("{}")),
+        // Prepare selected openings (doc 63): the feature switch is off in this world (and the caller is no consultant), so a legitimate call is the same generic 404. The real gate is in ConPrepareIT.
+        Map.entry("GET /api/orgs/{orgId}/con/prepare/status", Case.denied(null)),
+        Map.entry("POST /api/orgs/{orgId}/con/prepare", Case.denied("{\"matchIds\":[1]}")),
+        Map.entry("POST /api/orgs/{orgId}/con/prepare/{sessionId}/events", Case.denied("{\"matchId\":1,\"event\":\"OPENED\"}")),
+        Map.entry("GET /api/orgs/{orgId}/con/prepare/{sessionId}", Case.denied(null)),
         // Consultant workspace Home: own-scoped. Only a consultant (opportunities.respond + a consultant_profile) may read it, so the legitimate call makes the owner one.
         Map.entry("GET /api/orgs/{orgId}/me-workspace/home", Case.consultantRead()),
         // The other consultant-workspace pages: own-scoped too, same legitimate caller (the owner made a consultant), no org audit row.

@@ -130,5 +130,6 @@
     <include file="config/liquibase/changelog/20261112010000_org_policies.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261117010000_org_resume_approved_pin.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261117010000_ent_offers_placements.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261117010000_prepare_batch.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>
