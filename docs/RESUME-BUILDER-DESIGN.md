@@ -1749,6 +1749,8 @@ amazing resume with AI / + New Resume" uses the existing promo slot with the mas
   step-2 line reads "Template: <name> — you can change it in the editor"); **View All →**
   `/resume-builder/templates`: a gallery grid of every enabled template (thumbnail, name, description,
   capability chips: ATS Friendly · Photo · 2 columns · Bold only / Rich text; **Use this template** → chooser).
+  The ten templates are grouped by category (ATS-safe, Employer formats, Styled) with filter chips and a derived ATS rating line
+  per card; see `docs/resume-builder/templates/TEMPLATES-DESIGN.md` §9.
 - **Quick Tips** card: copy from setting `resume.list.quickTips` (JSON string[], default the four board
   lines: "Create different resumes for different roles" · "Tailor your resume for each job application" ·
   "Use AI suggestions to improve your content" · "Keep one primary resume for quick applications").
@@ -2319,7 +2321,7 @@ B1.2's `has(login, "builder.ai")`.
 | `resume.share.maxGrants` / `.maxLinks` / `.linkDefaultDays` / `.allowDownloadDefault` | INT / INT / INT / BOOL | 20 / 3 / 30 / false | 1–100 / 1–10 / 0–365 | §8.7 |
 | `resume.views.retentionDays` | INT | 180 | 30–730 | §8.7 |
 | `resume.thumb.width` | INT | 240 | 120–480 | §8.10 |
-| `resume.templates.popular` | JSON string[] | ["modern"] (= enabled order) | registered ids | §10.17 |
+| `resume.templates.popular` | JSON string[] | ["modern","engineer","classic","sidebar","compact"] | registered ids | §10.17 |
 | `resume.list.quickTips` | JSON string[] | the four board lines | 1–6 × ≤ 90 chars | §10.17 |
 | `resume.list.virtualizeAbove` | INT | 60 | 20–500 | §10.17 |
 | `org.resumes.newDays` / `org.resumes.pageSize` / `org.resumes.maxSavedViews` | INT | 30 / 24 / 10 | 7–90 / 12–96 / 1–30 | §10.18 |
