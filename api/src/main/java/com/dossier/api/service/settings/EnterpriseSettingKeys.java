@@ -73,6 +73,8 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_CLIENTS_HEALTHY_DAYS = "org.clients.healthy_days";
     public static final String ORG_CLIENTS_AT_RISK_DAYS = "org.clients.at_risk_days";
     public static final String ORG_CLIENTS_CONSUMER_DOMAINS = "org.clients.consumer_email_domains";
+    /** Account Manager workspace: the days after which an open requirement counts as aging on the Home tile and the Requirements page. An organization may override it in org_setting. */
+    public static final String ORG_ACCOUNTS_REQUIREMENT_AGING_DAYS = "org.accounts.requirement_aging_days";
     /** Placements board: how many days ahead a placement counts as ending soon / starting soon, and how close an end date turns red. An organization may override each in org_setting. */
     public static final String ORG_PLACEMENTS_ENDING_SOON_DAYS = "org.placements.ending_soon_days";
     public static final String ORG_PLACEMENTS_ENDING_URGENT_DAYS = "org.placements.ending_urgent_days";
@@ -182,6 +184,7 @@ public final class EnterpriseSettingKeys {
         k.add(new Key(ORG_CLIENTS_CONSUMER_DOMAINS, Type.JSON, DEFAULT_CONSUMER_DOMAINS, null, null, null,
             "Clients page: e-mail domains that are private mailboxes, as a JSON list of lower-case hostnames. A client contact must have a work e-mail, so these are refused (422 WORK_EMAIL_REQUIRED): we keep business contacts, not people's private addresses.",
             EnterpriseSettingKeys::hostList, Risk.LOW));
+        integer(k, ORG_ACCOUNTS_REQUIREMENT_AGING_DAYS, 14, 1, 365, Risk.LOW, "Account Manager workspace: an open requirement posted this many days ago or more counts as aging (the Aging tile and the Aging filter). An organization can override it in org_setting.");
         integer(k, ORG_PLACEMENTS_ENDING_SOON_DAYS, 45, 1, 365, Risk.LOW, "Placements: a placement whose end date is within this many days counts as ending soon (the Ending Soon tile and the Ends in N days pill). An organization can override it in org_setting.");
         integer(k, ORG_PLACEMENTS_ENDING_URGENT_DAYS, 14, 1, 90, Risk.LOW, "Placements: an end date this close (or closer) turns the Ends in N days pill red. An organization can override it in org_setting.");
         integer(k, ORG_PLACEMENTS_STARTING_SOON_DAYS, 30, 1, 180, Risk.LOW, "Placements: a placement starting within this many days counts as starting soon (the Starting Soon tile). An organization can override it in org_setting.");
