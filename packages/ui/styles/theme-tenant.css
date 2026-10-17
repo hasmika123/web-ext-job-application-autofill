@@ -1258,3 +1258,212 @@
 .theme-tenant .ent-help[data-layout="drawer"] .ent-help-scene { height: 88px; padding-left: 4px; }
 .theme-tenant .ent-help[data-layout="drawer"] .ent-help-bee { height: 80px !important; }
 .theme-tenant .ent-help-foot { grid-column: 1 / -1; }
+
+/* ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+ * KIWIPLY LOOK (ent-ui-styling): the enterprise shell speaks the same visual language as the personal Kiwiply app: a white sidebar with
+ * pill nav, a 64 px top bar (search left, bell + profile right), a gradient page-title band with the bee, pastel-tinted cards.
+ * Accents stay on the organization's `--brand-*` variables; the pastels below are the fixed Kiwiply tints for cards and KPI tiles.
+ * Later in the file than the board rules above on purpose: same specificity, this block wins.
+ * ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════ */
+.theme-tenant {
+  --ent-page-bg: #f6f9ff;
+  --ent-sidebar-bg: #ffffff;
+  --ent-card-radius: 18px;
+  --ent-card-border: #e6ecf7;
+  --ent-card-shadow: 0 1px 2px rgba(27, 31, 94, 0.04), 0 8px 24px rgba(27, 31, 94, 0.06);
+  --ent-tint-blue: #e8f0ff;
+  --ent-tint-green: #e4f7e8;
+  --ent-tint-violet: #eeeaff;
+  --ent-tint-amber: #fff4e0;
+  --ent-tint-pink: #ffe8f4;
+}
+
+/* sidebar: white, hairline edge, 14 px rows, rounded pill for the active page */
+.theme-tenant .ent-sidebar {
+  border-radius: 0;
+  border-right: 1px solid #e6ecf7;
+  box-shadow: none;
+}
+.theme-tenant .ent-nav {
+  --ent-fs: 14px;
+}
+.theme-tenant .ent-nav-row {
+  min-height: 38px;
+  border-radius: 12px;
+  font-weight: 500;
+  padding-left: 12px;
+}
+.theme-tenant .ent-nav-row[aria-current="page"] {
+  min-height: 38px;
+  font-weight: 700;
+}
+
+/* top bar: white, 64 px, hairline under it; search is the soft blue pill */
+.theme-tenant .ent-header {
+  min-height: 64px;
+  padding-top: 0;
+  padding-bottom: 0;
+  background: rgb(255 255 255 / 0.92);
+  border-bottom: 1px solid #e6ecf7;
+}
+.theme-tenant .ent-search-wrap {
+  width: auto;
+  max-width: 560px;
+}
+.theme-tenant .ent-search {
+  height: 44px;
+  border-radius: 12px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-accent-soft) 70%, #ffffff);
+}
+.theme-tenant .ent-profile {
+  height: 48px;
+  border-radius: 999px;
+  background: #ffffff;
+}
+
+/* the page-title band */
+.theme-tenant .ent-hero {
+  position: relative;
+  overflow: hidden;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 124px;
+  padding: 20px clamp(20px, 2vw, 32px);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  border-radius: 20px;
+  background: linear-gradient(105deg, color-mix(in srgb, var(--color-accent-soft) 85%, #ffffff) 0%, #eef6ff 55%, color-mix(in srgb, var(--color-v2-blue-soft, #e3f4f6) 80%, #ffffff) 100%);
+}
+.theme-tenant .ent-hero::before {
+  content: "";
+  position: absolute;
+  left: -40px;
+  top: -56px;
+  width: 190px;
+  height: 190px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  filter: blur(40px);
+  pointer-events: none;
+}
+.theme-tenant .ent-hero > * {
+  position: relative;
+}
+.theme-tenant .ent-hero-title {
+  font-size: clamp(26px, 2.2vw, 34px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+  color: var(--ent-title);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.theme-tenant .ent-hero-subtitle {
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 1.4;
+  color: #46527e;
+}
+.theme-tenant .ent-hero-art {
+  flex: none;
+  height: 108px;
+  width: auto;
+  margin: -8px 0 -20px;
+  filter: drop-shadow(0 4px 6px rgba(20, 33, 79, 0.15));
+}
+@media (max-width: 1023px) {
+  .theme-tenant .ent-hero-art { height: 84px; }
+}
+
+/* cards: white surface, soft border; section titles bolder */
+.theme-tenant .ent-card h2,
+.theme-tenant .ent-card h3 {
+  font-weight: 800;
+  color: var(--ent-title);
+}
+
+/* KPI tiles: pastel background per tone (the personal dashboard's stat tiles) */
+.theme-tenant .ent-card[data-kpi-tone="violet"] { background: var(--ent-tint-violet); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="indigo"] { background: var(--ent-tint-violet); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="green"] { background: var(--ent-tint-green); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="blue"] { background: var(--ent-tint-blue); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="orange"] { background: var(--ent-tint-amber); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone="pink"] { background: var(--ent-tint-pink); border-color: transparent; }
+.theme-tenant .ent-card[data-kpi-tone] .ent-kpi-chip { background: #ffffff; }
+
+/* the dashboard's stat tiles (and any card led by a KPI chip) take the chip's tone as a pastel background */
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="violet"]),
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="indigo"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="violet"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="indigo"]) { background: var(--ent-tint-violet); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="green"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="green"]) { background: var(--ent-tint-green); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="blue"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="blue"]) { background: var(--ent-tint-blue); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="orange"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="orange"]) { background: var(--ent-tint-amber); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile]:has(.ent-kpi-chip[data-tone="pink"]),
+.theme-tenant .ent-card:has(> .ent-kpi-chip[data-tone="pink"]) { background: var(--ent-tint-pink); border-color: transparent; }
+.theme-tenant .ent-card[data-stat-tile] .ent-kpi-chip { background: #ffffff; }
+
+/* sidebar, Kiwiply proportions: a roomy logo block, 40 px rounded rows with 18 px icons and 12 px gaps, hairline section rules */
+.theme-tenant {
+  --ent-sidebar-w: clamp(232px, 16vw, 252px);
+}
+.theme-tenant .ent-sidebar-head {
+  height: 72px;
+  padding-left: 20px;
+  padding-right: 14px;
+}
+.theme-tenant .ent-sidebar[data-rail="true"] .ent-sidebar-head {
+  padding-left: 0;
+  padding-right: 0;
+}
+.theme-tenant .ent-wordmark {
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+.theme-tenant .ent-nav {
+  padding: 4px 14px 16px;
+}
+.theme-tenant .ent-nav ul {
+  gap: 2px;
+}
+.theme-tenant .ent-nav-sep {
+  margin: 10px 6px;
+  border-top-color: #edf1f8;
+}
+.theme-tenant .ent-nav-row,
+.theme-tenant .ent-nav-row[aria-current="page"] {
+  min-height: 40px;
+  gap: 12px;
+  padding: 0 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.2;
+}
+.theme-tenant .ent-nav-row {
+  color: #4a4f78;
+}
+.theme-tenant .ent-nav-row > svg {
+  width: 18px;
+  height: 18px;
+  color: #4a4f78;
+}
+.theme-tenant .ent-nav-row:hover {
+  background: #f1f5fb;
+  color: var(--ent-title);
+}
+.theme-tenant .ent-nav-row[aria-current="page"] {
+  background: var(--color-accent-soft);
+  color: var(--color-accent-deep);
+}
+.theme-tenant .ent-nav-row[aria-current="page"] > svg {
+  color: var(--color-accent-deep);
+}
+.theme-tenant .ent-nav-row[data-rail="true"] {
+  justify-content: center;
+  padding: 0;
+}

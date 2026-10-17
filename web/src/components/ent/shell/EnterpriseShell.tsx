@@ -22,6 +22,7 @@ import {
   useToast,
 } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import { ENT_MASCOT_BASE } from "@/lib/ent/mascot";
 import { undoToast } from "@/lib/undo-toast";
 import { activeKey, bannersFor, defaultTitle, navSections, primaryRoleName, switcherRows, type SwitcherRow } from "@/lib/ent/shell";
 import { readCollapsed, readDismissed, readLandingPref, writeCollapsed, writeDismissed, writeLandingPref } from "@/lib/ent/shell-prefs";
@@ -270,13 +271,10 @@ export default function EnterpriseShell({
         <div className={cn("flex min-w-0 flex-1 flex-col", focus && "min-h-0")}>
           {/* ── top bar, md and up ───────────────────────────────────────────────────────────── */}
           <header data-shell-topbar className="ent-header sticky top-0 z-30 hidden items-center bg-app-bg/95 py-3 backdrop-blur md:flex">
-            <div className="min-w-0 flex-1" data-page-header>
-              <h1 className="ent-title" title={title}>{title}</h1>
-              {subtitle ? <p className="ent-subtitle" title={subtitle}>{subtitle}</p> : null}
-            </div>
-            <div className="ent-search-wrap hidden flex-none min-[1360px]:block">
+            <div className="ent-search-wrap hidden min-w-0 flex-1 min-[1360px]:block">
               <ShellSearch me={me} inputId={SEARCH_INPUT_ID} />
             </div>
+            <div className="min-w-0 flex-1 min-[1360px]:hidden" />
             <Tooltip content="Search" side="bottom" className="min-[1360px]:hidden">
               <IconButton aria-label="Search" onClick={() => setSearchOpen(true)} className="h-11 w-11 rounded-xl text-ink/80 min-[1360px]:hidden">
                 <SearchIcon size={20} />
@@ -342,6 +340,16 @@ export default function EnterpriseShell({
               focus && "flex min-h-0 flex-col overflow-hidden !p-0",
             )}
           >
+            {/* the page title band every Kiwiply page opens with: brand-tinted wash, bold title, one-line subtitle, the bee on the right (md and up) */}
+            <section className={cn("ent-hero mb-4 hidden md:flex", focus && "!hidden")} data-page-header>
+              <div className="min-w-0 flex-1">
+                <h1 className="ent-hero-title" title={title}>{title}</h1>
+                {subtitle ? <p className="ent-hero-subtitle" title={subtitle}>{subtitle}</p> : null}
+              </div>
+              {/* decoration only */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`${ENT_MASCOT_BASE}/welcome.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />
+            </section>
             <div className={cn("mb-4 md:hidden", focus && "hidden")} data-page-header-phone>
               <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-ink">{title}</h1>
               {subtitle ? <p className="mt-0.5 text-[13.5px] text-muted">{subtitle}</p> : null}
