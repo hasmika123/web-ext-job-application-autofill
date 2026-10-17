@@ -138,6 +138,16 @@ They were not rerun cleanly; machine A should rerun them after merging.
 **Open:**
 - T1.5 subprocessor register not built (needs the user's DPA decisions).
 - Terms aren't recorded at sign-up (that would touch registration identity code; decide).
+
+**Follow-ups (B2), `sprint2-b-privacy` tip f09c3f09:**
+- Full unit suite (`./gradlew test`, never run before): 2913 tests in 315 classes, 0 failures, 0 errors, 0 skipped, BUILD SUCCESSFUL. Nothing on the branch needed fixing.
+- Web wiring for the PERSONAL Settings > Privacy panel (the enterprise `ent/settings` page is untouched). BFF routes under `web/src/app/api/account/`: `deletion-request` (GET, POST, DELETE), `exports` (GET, POST), `exports/[id]` (GET), `exports/[id]/file` (GET, streams the ZIP; only `exp` and `sig` are forwarded), `terms-acceptance` (GET, POST). A zero-hour deletion window answers `DELETED`, and the POST route then clears the session cookies.
+- UI: `AccountDeletion.tsx` replaces the immediate delete (`DeleteAccountButton.tsx` removed). It uses an inline confirm, a countdown with a Cancel button, and an undo toast. `DataExports.tsx` adds "Prepare my data export", a list of jobs with status, size and a Download link, and polling while a job runs. Both read their state from the API on mount.
+- Enterprise or other 404: the deletion card shows a one-line "managed by your organization" note and the export list renders nothing. The (app) Settings page is already personal-only on kiwiply.com.
+- Terms acceptance has BFF routes only; nothing calls them from sign-up (still the open decision above).
+- Web checks: vitest on the touched folders: 62 passed in 6 files (39 new: 18 route, 10 deletion card, 7 export list, 4 lib; plus the 9 updated panels tests and the 14 NotificationsPanel tests); `tsc --noEmit` clean; eslint clean on the changed files. The full web vitest run shows 18 failures in 3 resume-builder template files (`ResumeEditor.templateSwitch`, `PickTemplatePanel`, `TemplateGallery`; "design-free-test" template id). They are in code this branch does not touch.
+- Not verified in a browser; `next build` was not run (junctioned node_modules).
+- Left alone: the old BFF `DELETE /api/account` (immediate erase) is no longer used by the UI but still exists, as does the API endpoint. Consider removing both once nothing else needs them.
 - The Settings UI still calls the immediate `DELETE /api/account`; the undo-window and export UI and BFF are a follow-up.
 - No deletion e-mail (mail templates are machine A's).
 - No org-close purge.
