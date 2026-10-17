@@ -6,6 +6,7 @@
  */
 import { tightenCapabilities } from "./capabilities";
 import { modern } from "./templates/modern";
+import { sidebar } from "./templates/sidebar";
 import { compact } from "./templates/compact";
 import { classic } from "./templates/classic";
 import { statement } from "./templates/statement";
@@ -13,7 +14,7 @@ import type { TemplateCapabilities, TemplateDefinition, TemplateMeta } from "./t
 
 export const DEFAULT_TEMPLATE_ID = "modern";
 
-export const TEMPLATES: Record<string, TemplateDefinition> = { modern, classic, compact, statement };
+export const TEMPLATES: Record<string, TemplateDefinition> = { modern, classic, compact, statement, sidebar };
 
 export const TEMPLATE_IDS: string[] = Object.keys(TEMPLATES);
 

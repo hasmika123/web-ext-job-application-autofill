@@ -506,6 +506,105 @@
 }
 /* == /tpl:statement == */
 
+/* == tpl:sidebar == */
+.rz-page.rz-tpl-sidebar {
+  display: grid;
+  grid-template-columns: 32% minmax(0, 1fr);
+  grid-template-areas: "header header" "side main";
+  column-gap: 1.4em;
+  align-content: start;
+  line-height: 1.35;
+}
+
+.rz-page.rz-tpl-sidebar.rz-no-side {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "header" "main";
+}
+
+.rz-tpl-sidebar .rz-header {
+  grid-area: header;
+  margin-bottom: calc(1em * var(--rz-density));
+}
+
+.rz-tpl-sidebar .rz-name {
+  font-size: 2em;
+  font-weight: 700;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-sidebar .rz-headline {
+  font-size: 1.05em;
+  color: var(--rz-accent);
+}
+
+.rz-tpl-sidebar .rz-main {
+  grid-area: main;
+  min-width: 0;
+}
+
+.rz-tpl-sidebar .rz-side {
+  grid-area: side;
+  align-self: start;
+  padding: 0.9em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--rz-accent) 8%, #fff);
+  break-inside: auto;
+}
+
+/* Photo slot: a centred 6em circle at the top of the sidebar (or above the name when the sidebar is off). */
+.rz-tpl-sidebar .rz-photo {
+  width: 6em;
+  height: 6em;
+  margin: 0 auto calc(0.8em * var(--rz-density));
+}
+
+.rz-tpl-sidebar .rz-header .rz-photo {
+  margin: 0 0 calc(0.6em * var(--rz-density));
+}
+
+/* Main column. */
+.rz-tpl-sidebar .rz-main .rz-section-title {
+  margin-bottom: calc(0.45em * var(--rz-density));
+  font-size: 0.95em;
+  letter-spacing: 0.1em;
+  border-bottom: 1.5px solid var(--rz-accent);
+}
+
+.rz-tpl-sidebar .rz-item-title {
+  font-weight: 700;
+}
+
+/* Sidebar: titles in accent without a rule, body at 0.9em. */
+.rz-tpl-sidebar .rz-side .rz-section-title {
+  margin-bottom: calc(0.4em * var(--rz-density));
+  padding: 0;
+  font-size: 0.85em;
+  letter-spacing: 0.1em;
+  border-bottom: 0;
+}
+
+.rz-tpl-sidebar .rz-side .rz-section-body {
+  font-size: 0.9em;
+}
+
+.rz-tpl-sidebar .rz-side .rz-contact-list {
+  font-size: 1em;
+}
+
+.rz-tpl-sidebar .rz-side .rz-item-head {
+  flex-wrap: wrap;
+  gap: 0 0.5em;
+}
+
+.rz-tpl-sidebar .rz-side .rz-section-skills .rz-entry {
+  margin-bottom: calc(0.5em * var(--rz-density));
+}
+
+.rz-tpl-sidebar .rz-side .rz-section-skills .rz-entry:last-child {
+  margin-bottom: 0;
+}
+/* == /tpl:sidebar == */
+
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
 @media print {

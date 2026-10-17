@@ -38,7 +38,8 @@ public class TemplateThemeDefaults {
         Map.entry("modern", Map.of()),
         Map.entry("classic", Map.of("fontPair", "source-serif", "spacing", "normal")),
         Map.entry("compact", Map.of("fontPair", "inter", "spacing", "compact")),
-        Map.entry("statement", Map.of("fontPair", "inter", "spacing", "normal"))
+        Map.entry("statement", Map.of("fontPair", "inter", "spacing", "normal")),
+        Map.entry("sidebar", Map.of("fontPair", "inter", "spacing", "normal"))
     );
 
     /** The defaults the template declares, as a JSON object (empty when it declares none or is unknown). */
