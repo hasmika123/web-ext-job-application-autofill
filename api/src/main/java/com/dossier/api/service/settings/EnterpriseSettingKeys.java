@@ -101,6 +101,16 @@ public final class EnterpriseSettingKeys {
      * An organization may override it in {@code org_setting}.
      */
     public static final String JOBS_DETAIL_CAP = "enterprise.jobs.detail_cap";
+    /**
+     * Prepare selected openings (docs/enterprise-v2/63, X12.2): the platform switch (default off), the most openings one consultant may prepare per UTC day and
+     * per UTC month, the most in one request, and how long a session accepts events. The extension opens and fills the jobs in the consultant's own browser and
+     * stops; nothing is ever submitted for anyone. An organization may override each in {@code org_setting} ({@code enabled} only downwards).
+     */
+    public static final String PREPARE_ENABLED = "enterprise.autopilot.prepare.enabled";
+    public static final String PREPARE_DAILY_CAP = "enterprise.autopilot.prepare.daily_cap";
+    public static final String PREPARE_MONTHLY_CAP = "enterprise.autopilot.prepare.monthly_cap";
+    public static final String PREPARE_MAX_BATCH = "enterprise.autopilot.prepare.max_batch";
+    public static final String PREPARE_SESSION_MINUTES = "enterprise.autopilot.prepare.session_minutes";
 
     /** The default of {@link #HOSTS_PLATFORM} (06-phase-plan.md section 3). */
     public static final String DEFAULT_PLATFORM_HOSTS = "[\"kiwiply.com\",\"www.kiwiply.com\",\"app.kiwiply.com\",\"api.kiwiply.com\"]";
@@ -155,6 +165,13 @@ public final class EnterpriseSettingKeys {
             "The most job detail the organization's pages show: MINIMAL (title, employer, location, work mode, employment type, pay, link, skills) or FULL. "
                 + "The level shown is the lower of this and what the job itself holds, so FULL shows nothing more for a job captured with the extension. An organization can override it in org_setting.",
             null, Risk.HIGH));
+        k.add(new Key(PREPARE_ENABLED, Type.BOOL, "false", null, null, null,
+            "Prepare selected openings: a consultant ticks assigned openings and the browser extension opens each job in a new tab and fills it from the consultant's own profile, then stops. "
+                + "The consultant reviews, completes anything missing and presses the final button on the real site; Kiwiply never does it for them and never ticks an attestation box. Off = the feature does not exist. An organization can switch it off in org_setting.", null, Risk.MEDIUM));
+        integer(k, PREPARE_DAILY_CAP, 30, 1, 1000, Risk.MEDIUM, "Prepare selected openings: the most openings one consultant may prepare per UTC day. An organization can override it in org_setting.");
+        integer(k, PREPARE_MONTHLY_CAP, 300, 1, 10000, Risk.MEDIUM, "Prepare selected openings: the most openings one consultant may prepare per UTC calendar month. An organization can override it in org_setting.");
+        integer(k, PREPARE_MAX_BATCH, 10, 1, 50, Risk.LOW, "Prepare selected openings: the most openings in one request. An organization can override it in org_setting.");
+        integer(k, PREPARE_SESSION_MINUTES, 240, 15, 1440, Risk.LOW, "Prepare selected openings: minutes a prepared batch keeps accepting progress events from the extension. An organization can override it in org_setting.");
         integer(k, HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW,
             "Months of organization application, interview and submission history kept; 0 keeps it as long as the record exists. Older rows are deleted nightly, but the newest row of every record is always kept. An organization can override it in org_setting.");
         integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
