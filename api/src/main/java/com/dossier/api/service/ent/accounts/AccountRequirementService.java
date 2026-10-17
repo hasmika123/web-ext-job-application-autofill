@@ -394,7 +394,9 @@ public class AccountRequirementService {
         if (result.refused()) throw new OrgNotFoundException();
         em.flush();
         em.clear();
-        return new RequirementDTO.AssignResult(detailOf(me, requirements.findByOrgIdAndId(orgId, id).orElseThrow()), consultantId, result.created(), result.existing());
+        // the match was inserted in a transaction of its own, committed after this one's snapshot (REPEATABLE READ): a plain read does not list it
+        RequirementMatch fresh = result.matchId() == null ? null : assignment.readMatchFresh(orgId, result.matchId()).orElse(null);
+        return new RequirementDTO.AssignResult(detailOf(me, requirements.findByOrgIdAndId(orgId, id).orElseThrow(), fresh), consultantId, result.created(), result.existing());
     }
 
     private int overlapScore(Long orgId, Long jobId, Long consultantId) {
@@ -446,8 +448,17 @@ public class AccountRequirementService {
     }
 
     private RequirementDTO.Detail detailOf(OrgMembership me, ClientRequirement r) {
+        return detailOf(me, r, null);
+    }
+
+    /** {@code justAssigned}: a match committed by a nested transaction after this snapshot began; it is counted and listed even though a plain read misses it. */
+    private RequirementDTO.Detail detailOf(OrgMembership me, ClientRequirement r, RequirementMatch justAssigned) {
         Long orgId = me.orgId();
         Context ctx = context(orgId);
+        if (justAssigned != null && "ASSIGNED".equals(justAssigned.getStatus()) && r.getId().equals(justAssigned.getRequirementId())) {
+            List<RequirementMatch> seen = ctx.assigned.computeIfAbsent(r.getId(), k -> new ArrayList<>());
+            if (seen.stream().noneMatch(m -> justAssigned.getConsultantId().equals(m.getConsultantId()))) seen.add(justAssigned);
+        }
         List<RequirementDTO.Assignee> assignees = new ArrayList<>();
         Map<Long, ConsultantProfile> people = consultantRepo.findByOrgId(orgId).stream().collect(Collectors.toMap(ConsultantProfile::getId, c -> c, (a, b) -> a));
         Map<Long, String> stages = new HashMap<>();
