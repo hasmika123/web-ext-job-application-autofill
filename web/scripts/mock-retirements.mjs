@@ -55,7 +55,8 @@ export function createRetirementsState({ plansOf, setStatus, subscribersOf, now 
   const subs = (key) => subscribersOf(key);
 
   function impactFor(key) {
-    const total = subs(key);
+    // the PRO fixture is the 212 people still on v1 (the plan builder fixture also holds 1,038 on v2, who are not being retired)
+    const total = key === "PRO" ? 212 : subs(key);
     // the PRO fixture is exact; any other plan splits 85 / 15 monthly / quarterly at $19.99 for a plausible MRR
     const monthly = key === "PRO" ? 180 : Math.round(total * 0.85);
     const quarterly = total - monthly;
@@ -163,8 +164,8 @@ export function createRetirementsState({ plansOf, setStatus, subscribersOf, now 
   function start(body) {
     const p = planOf(body.planKey);
     if (!p) return fail(404, "NOT_FOUND", `No plan ${body.planKey}.`);
-    if (p.status !== "PUBLISHED") return fail(409, "PLAN_NOT_PUBLISHED", `Plan ${body.planKey} is not published, so it cannot be retired.`);
     if (retirements.some((r) => r.planKey === body.planKey && ["NOTICING", "COMPLETING"].includes(r.status))) return fail(409, "RETIREMENT_EXISTS", "This plan is already being retired.");
+    if (p.status !== "PUBLISHED") return fail(409, "PLAN_NOT_PUBLISHED", `Plan ${body.planKey} is not published, so it cannot be retired.`);
     if (!body.reason || body.reason.trim().length < REASON_MIN) return fail(422, "REASON_REQUIRED", `A reason of at least ${REASON_MIN} characters is required.`);
     if (body.confirmPlanKey !== body.planKey) return fail(422, "CONFIRM_MISMATCH", "Type the plan key to confirm.");
     const successors = body.successors ?? [];

@@ -29,7 +29,7 @@ export default function UpgradeSheet({ upgrade, subject, open, onClose }: { upgr
         </>
       }
     >
-      <p className="text-[13px] text-ink-soft">The price shown is the plan's current price for your billing interval.</p>
+      <p className="text-[13px] text-ink-soft">The price shown is the plan&apos;s current price for your billing interval.</p>
     </ResponsiveSheet>
   );
 }

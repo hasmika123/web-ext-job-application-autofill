@@ -87,6 +87,7 @@ export default function RetirementWizard({ plan, candidates }: { plan: WizardPla
     } else setCovError(res.error);
   }, [plan.planKey, successorKey]);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the coverage preview is fetched from the server when the plan or the successors change
     void loadCoverage();
   }, [loadCoverage]);
 
