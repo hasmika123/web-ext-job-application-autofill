@@ -90,6 +90,9 @@
     async saveForConsultant(/* orgId, body, idempotencyKey */) { throw new NotSupportedError("saveForConsultant"); }
     async linkOpportunity(/* orgId, opportunityId, { applicationId } */) { throw new NotSupportedError("linkOpportunity"); }
     async respondOpportunity(/* orgId, opportunityId, action, body */) { throw new NotSupportedError("respondOpportunity"); }
+    // E7 / X12.9 "Prepare selected openings": one status event per job tab (OPENED, PREFILLED, NEEDS_INPUT,
+    // SUBMIT_DETECTED, CLOSED, FAILED). Consultant tokens only; never page content or answers.
+    async reportPrepareEvent(/* orgId, sessionId, { matchId, event, detail } */) { throw new NotSupportedError("reportPrepareEvent"); }
   }
 
   // ---- canonical DTO mapping (extension shapes <-> server wire format) ----
@@ -550,6 +553,19 @@
         if (!seg) throw new ApiError(400, "Unknown opportunity action: " + action, { code: "VALIDATION" });
         const r = await request("POST", "/api/orgs/" + idPath(orgId) + "/con/opportunities/" + idPath(opportunityId) + "/" + seg, { body: body || {} });
         return r ? dtoToAssignedJob(r) : null;
+      },
+
+      // Consultant: one status event of a "Prepare selected" batch. POST
+      // /api/orgs/{orgId}/con/prepare/{sessionId}/events {matchId, event, detail?}. The caller has
+      // already validated the shapes (JAF.prepareBatch); the session id is still encoded as a path
+      // segment, and detail is cut to 200 characters here as the last line of defence.
+      async reportPrepareEvent(orgId, sessionId, { matchId, event, detail } = {}) {
+        const sid = String(sessionId == null ? "" : sessionId);
+        if (!/^[A-Za-z0-9_-]{1,80}$/.test(sid)) throw new ApiError(400, "Invalid session id", { code: "VALIDATION" });
+        const body = { matchId, event };
+        if (detail) body.detail = String(detail).slice(0, 200);
+        await request("POST", "/api/orgs/" + idPath(orgId) + "/con/prepare/" + encodeURIComponent(sid) + "/events", { body });
+        return true;
       },
 
       async listResumes() {

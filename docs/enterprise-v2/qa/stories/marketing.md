@@ -252,7 +252,7 @@ The 19 stories that failed after the marketing pages became the shared organizat
 | AUTOMATED | 33 (MKT-01..06, 10..16, 20..26 incl. 21b, 22b, 23b, 24b, 30..36) |
 | BLOCKED | 6 (MKT-42, 43, 45, 46, 47, 48: the last two not yet run in a browser) |
 | NOT-BUILT | 0 (MKT-40 and MKT-44 were built on `demo-marketer-gaps2`, story-only until their browser specs exist) |
-| STORY-ONLY | MKT-40, 44, 50..53 (described, built, not yet automated) |
+| STORY-ONLY | MKT-40, 44, 50..54 (described, built, not yet automated) |
 | AUTOMATED | 27 (MKT-01..06, 10..16, 20..26, 30..36) |
 | BLOCKED | 6 (MKT-42, 43, 45, 46, 47, 48: the last two need Gamma + `GAMMA_DEMO_PASSWORD` and cannot run on Acme) |
 | NOT-BUILT | 2 (MKT-40, 44) |
@@ -292,3 +292,10 @@ The 19 stories that failed after the marketing pages became the shared organizat
 - **Steps:** 1. Ben opens `/w/consultant/profile`, **Contact Details**, **Edit**: phone, time zone, best way to reach him, **Save** (a demo phone looks like (555) 010-0142). 2. An Org Admin opens Consultants, Ben's drawer, the **Contact** card, **Edit contact details**. 3. Omar opens My Assigned Talent, **View Profile** on Ben.
 - **Expected:** the saved phone, time zone and preferred contact show in Ben's profile, the Org Admin drawer and Omar's drawer (read-only, phone is a `tel:` link); a marketer who is not assigned to Ben still gets the generic 404. Letters in a phone, a phone with fewer than 7 or more than 15 digits, a time zone that is not an IANA id and an unknown preference are refused (422/400), and a Social Security shaped value is refused by the sensitive-data scanner (422, nothing saved). No date of birth, identity or bank number can be stored here. The Acme demo consultants carry believable fictional contacts (555-01xx numbers).
 - **Pages / APIs:** `PUT me-workspace/profile/contact` (BFF added), `PATCH consultants/{id}` (phone, timeZone, preferredContact), `GET mkt/talent/{id}/overview` (contact). **Automation:** none yet (Java `ConsultantContactTest`, `ConsultantProfileResourceIT`, `OrgIsolationIT` coverage row; web `contact-fields.test.ts`). **Status: STORY-ONLY**
+
+
+### MKT-54 A marketer session never starts a prepare batch
+- **Persona:** omar (marketer, extension connected to his Acme enterprise account). **Goal:** marketers prepare and record, they never fill or submit; the batch feature must not give them a way to.
+- **Steps:** 1. Omar's extension is connected (marketer-only session). 2. A `KIWIPLY_PREPARE_BATCH` message for Acme reaches the extension (for example from a page Omar controls on a tenant host). 3. He opens the drawer.
+- **Expected:** the extension answers `accepted:false, reason: marketer-session`; no tab opens; no profile, resume or answer is read; the drawer still shows only **Save for consultant**. The same refusal applies to a personal session (`wrong-account-kind`), an enterprise session of another organization (`wrong-org`), more than 10 jobs, and any non-https URL.
+- **Pages / APIs:** extension message `KIWIPLY_PREPARE_BATCH` / `KIWIPLY_PREPARE_ACK`. **Automation:** extension unit test `prepare_batch.test.js` (ACK paths). **Status: STORY-ONLY** (the server also refuses the events route for a marketer token; that is the web/API branch)

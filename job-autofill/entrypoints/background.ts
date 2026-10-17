@@ -16,6 +16,8 @@ import "../src/lib/app-tracking.js";
 import "../src/lib/analytics.js";
 import "../src/lib/field-map.js";
 import "../src/lib/job-enrich.js";
+import "../src/lib/workspace.js";
+import "../src/lib/prepare-batch.js";
 // Registers onInstalled / onMessage / onMessageExternal / webNavigation / tabs listeners.
 import "../src/background/service-worker.js";
 

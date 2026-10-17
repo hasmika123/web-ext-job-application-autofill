@@ -34,6 +34,11 @@ const PING = "KIWIPLY_CONNECT_PING";
 /** Relay → page. */
 const PONG = "KIWIPLY_CONNECT_PONG";
 const RESPONSE = "KIWIPLY_CONNECT_RESULT";
+/**
+ * Page -> relay -> background: "Prepare selected openings" (X12.9). The background answers with a
+ * KIWIPLY_PREPARE_ACK object, which is posted straight back to the page (that type is its own reply).
+ */
+const PREPARE = "KIWIPLY_PREPARE_BATCH";
 
 export default defineContentScript({
   // Exactly the origins in `externally_connectable.matches` — this is the Firefox equivalent of
@@ -45,6 +50,9 @@ export default defineContentScript({
     "https://kiwiply.com/*",
     "https://www.kiwiply.com/*",
     "https://app.kiwiply.com/*",
+    // Tenant hosts, for the prepare batch only (the background applies the exact-origin gate to
+    // everything else). Same list as externally_connectable in wxt.config.ts.
+    "https://*.kiwiply.com/*",
     ...(import.meta.env.MODE === "production" ? [] : ["http://localhost:3000/*"]),
   ],
   include: ["firefox"],
@@ -75,6 +83,19 @@ export default defineContentScript({
           });
         } catch {
           /* dead background — the extension's own version check is the safety net */
+        }
+        return;
+      }
+      if (data.type === PREPARE) {
+        const sessionId = (data as { sessionId?: unknown }).sessionId;
+        const unavailable = { type: "KIWIPLY_PREPARE_ACK", sessionId, accepted: false, reason: "extension-unavailable" };
+        const ackBack = (ack: unknown) => window.postMessage(ack, window.location.origin);
+        try {
+          chrome.runtime.sendMessage(data, (ack) => {
+            ackBack(chrome.runtime.lastError || !ack ? unavailable : ack);
+          });
+        } catch {
+          ackBack(unavailable);
         }
         return;
       }
