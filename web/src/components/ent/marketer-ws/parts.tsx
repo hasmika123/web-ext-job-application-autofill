@@ -120,7 +120,7 @@ export function KpiTile({
     </>
   );
   return (
-    <section aria-label={title} data-stat-tile={id} className="flex min-h-[148px] min-w-0 flex-col rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-4">
+    <section aria-label={title} data-stat-tile={id} data-tone={tint} className="flex min-h-[148px] min-w-0 flex-col rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-4">
       {layout === "inline" ? (
         <div className="flex items-start gap-3">
           {iconBox}

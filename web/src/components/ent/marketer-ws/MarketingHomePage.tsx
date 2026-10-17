@@ -126,7 +126,7 @@ export default function MarketingHomePage({ orgId, firstName, hrefs }: Marketing
           const { icon: Icon, tint } = KPI_ICONS[key];
           const delta = k ? deltaFromPct(k.deltaPct) : null;
           return (
-            <section key={key} aria-label={KPI_TITLES[key]} data-stat-tile={key} className="flex min-h-[148px] min-w-0 flex-col rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-4">
+            <section key={key} aria-label={KPI_TITLES[key]} data-stat-tile={key} data-tone={/v2-([a-z]+)-soft/.exec(tint)?.[1]} className="flex min-h-[148px] min-w-0 flex-col rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:p-4">
               <span aria-hidden className={cn("grid h-10 w-10 flex-none place-items-center rounded-[11px]", tint)}><Icon size={20} /></span>
               <h3 className="mt-2.5 truncate text-[14px] font-semibold text-ink-soft">{KPI_TITLES[key]}</h3>
               {loading ? (

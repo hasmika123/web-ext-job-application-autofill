@@ -1659,3 +1659,27 @@
   background: radial-gradient(ellipse 34% 90% at 78% 135%, rgb(255 196 120 / 0.55) 0 98%, transparent 100%),
     radial-gradient(ellipse 52% 56% at 40% 128%, color-mix(in srgb, var(--color-accent) 24%, transparent) 0 98%, transparent 100%);
 }
+
+/* consultant + marketing stat tiles carry `data-tone`: the same pastel backgrounds as the admin tiles */
+.theme-tenant {
+  --ent-tint-teal: #e3f6f4;
+  --ent-tint-coral: #ffecec;
+}
+.theme-tenant [data-stat-tile][data-tone] { border-color: transparent; }
+.theme-tenant [data-stat-tile][data-tone="accent"],
+.theme-tenant [data-stat-tile][data-tone="blue"] { background: var(--ent-tint-blue); }
+.theme-tenant [data-stat-tile][data-tone="violet"] { background: var(--ent-tint-violet); }
+.theme-tenant [data-stat-tile][data-tone="green"] { background: var(--ent-tint-green); }
+.theme-tenant [data-stat-tile][data-tone="amber"] { background: var(--ent-tint-amber); }
+.theme-tenant [data-stat-tile][data-tone="pink"] { background: var(--ent-tint-pink); }
+.theme-tenant [data-stat-tile][data-tone="teal"] { background: var(--ent-tint-teal); }
+.theme-tenant [data-stat-tile][data-tone="coral"] { background: var(--ent-tint-coral); }
+.theme-tenant [data-stat-tile][data-tone] > span[aria-hidden]:first-child,
+.theme-tenant [data-stat-tile][data-tone] > div > span[aria-hidden]:first-child { background: #ffffff; }
+
+/* the band's shapes never run under the title and subtitle: they fade out toward the left */
+.theme-tenant .ent-hero::before,
+.theme-tenant .ent-hero::after {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, transparent 34%, #000 66%);
+  mask-image: linear-gradient(90deg, transparent 0, transparent 34%, #000 66%);
+}

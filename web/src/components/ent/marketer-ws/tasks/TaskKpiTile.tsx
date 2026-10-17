@@ -23,7 +23,7 @@ export default function TaskKpiTile({
 }: { id: string; title: string; icon: ComponentType<IconProps>; tint: TintName; value: number | null; deltaPct: number | null; bars?: number[]; loading?: boolean; lowerIsBetter?: boolean }) {
   const delta = deltaFromPct(deltaPct);
   return (
-    <section aria-label={title} data-stat-tile={id} className="flex min-h-[112px] min-w-0 items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:gap-3.5 sm:p-4">
+    <section aria-label={title} data-stat-tile={id} data-tone={tint} className="flex min-h-[112px] min-w-0 items-center gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5 sm:gap-3.5 sm:p-4">
       <span aria-hidden className={cn("grid h-[58px] w-[58px] flex-none place-items-center rounded-2xl", TINTS[tint])}>
         <Icon size={28} />
       </span>
