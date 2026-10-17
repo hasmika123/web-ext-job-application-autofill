@@ -1,19 +1,17 @@
-import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ATS_STRICT, DESIGN_FREE, HYBRID, hiddenContent, isAtLeastAsStrictAs } from "../capabilities";
 import ResumePreview from "../ResumePreview";
-import { getTemplate, listTemplates } from "../registry";
+import { getTemplate } from "../registry";
 import { fixtureDoc, type FixtureName } from "../test-fixtures";
 import { DEFAULT_THEME } from "../theme";
 import type { Theme } from "../types";
 import { templateCssBlock } from "./__test__/atsCompliance";
+import { describeTemplate, renderTemplate } from "./__test__/suite";
 
 const ID = "statement";
-const FIXTURE_NAMES: FixtureName[] = ["full-v2", "sparse", "caps-doc", "sample"];
-const thumbs = join(dirname(fileURLToPath(import.meta.url)), "..", "thumbs");
+
+describeTemplate({ id: ID, capabilities: HYBRID, category: "styled", ats: false });
 
 /** The template at its own defaults over the default theme (what the gallery thumbnail and a fresh resume show). */
 const theme = (over?: Partial<Theme>): Theme => ({ ...DEFAULT_THEME, ...(getTemplate(ID).meta.defaults ?? {}), ...over });
@@ -21,42 +19,17 @@ const html = (name: FixtureName, over?: Partial<Theme>, photoSrc?: string) =>
   renderToStaticMarkup(<ResumePreview doc={fixtureDoc(name)} theme={theme(over)} templateId={ID} photoSrc={photoSrc} />);
 const count = (s: string, re: RegExp) => (s.match(re) ?? []).length;
 
-describe("Statement template", () => {
-  for (const name of FIXTURE_NAMES) {
-    it(`${ID}: HTML snapshot (${name})`, () => {
-      expect(html(name)).toMatchSnapshot();
-    });
-  }
-
-  it("is deterministic", () => {
-    for (const name of FIXTURE_NAMES) expect(html(name)).toBe(html(name));
-  });
-
-  it("uses only .rz-* classes, no inline styles, no tables, no images", () => {
-    for (const name of FIXTURE_NAMES) {
+describe("statement specifics", () => {
+  it("uses no images, asides or photo markup, even with a photo URL and showPhoto", () => {
+    for (const name of ["full-v2", "sparse", "caps-doc", "sample"] as FixtureName[]) {
       const out = html(name, { showPhoto: true }, "data:image/jpeg;base64,AAAA");
-      const classes = [...out.matchAll(/class="([^"]*)"/g)].flatMap((m) => m[1].split(/\s+/)).filter(Boolean);
-      expect(classes.length).toBeGreaterThan(5);
-      expect(classes.filter((c) => !c.startsWith("rz-"))).toEqual([]);
-      expect(out).not.toMatch(/\sstyle="/);
-      expect(out).not.toMatch(/<table|<svg|<img|<aside/);
-      expect(out).not.toContain("rz-photo");
-      expect(out).toContain(`rz-tpl-${ID}`);
+      expect(out).not.toMatch(/<img|<aside|rz-photo|data:image/);
     }
   });
 
-  it("declares HYBRID, the styled category, an honest note and a thumbnail on disk", () => {
-    const meta = listTemplates().find((m) => m.id === ID)!;
-    expect(meta).toBeTruthy();
-    expect(meta.capabilities).toBe(HYBRID);
-    expect(meta.capabilities.ats).toBe(false);
-    expect(meta.category).toBe("styled");
-    expect(meta.atsNote.trim()).not.toBe("");
-    expect(meta.name).toBe("Statement");
-    expect(meta.description.trim()).not.toBe("");
-    expect(meta.thumb).toBe("statement.png");
-    expect(existsSync(join(thumbs, meta.thumb))).toBe(true);
-    expect(meta.defaults).toEqual({ fontPair: "inter", spacing: "normal" });
+  it("defaults: Inter at normal spacing", () => {
+    expect(getTemplate(ID).meta.defaults).toEqual({ fontPair: "inter", spacing: "normal" });
+    expect(renderTemplate(ID, "sample")).toContain("--rz-size:11pt");
   });
 
   it("sits between the profiles: inside DESIGN_FREE, outside ATS_STRICT", () => {
