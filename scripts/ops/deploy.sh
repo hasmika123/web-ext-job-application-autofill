@@ -26,7 +26,7 @@
 #   Healthchecks.io: start / success / fail to HC_DEPLOY_URL (from the env file or the environment;
 #   unset = no-op).
 #
-# Settings (environment, or the env file for the first three):
+# Settings (environment; HC_DEPLOY_URL and DEPLOY_SMOKE_URLS may also be set in the env file):
 #   HC_DEPLOY_URL          Healthchecks.io ping URL for deploys (optional)
 #   DEPLOY_SMOKE_URLS      space-separated public URLs to check after the deploy, `url` or
 #                          `url|substring-the-body-must-contain` (default on prod: https://$SSLIP_HOST/
@@ -94,6 +94,7 @@ fi
 [ -f "$ENV_FILE" ] || die "no env file at $ENV_FILE"
 STATE_FILE="$STATE_DIR/current.env"
 HC_DEPLOY_URL="$(env_or_file HC_DEPLOY_URL "$ENV_FILE")"
+DEPLOY_SMOKE_URLS="$(env_or_file DEPLOY_SMOKE_URLS "$ENV_FILE")"
 HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-300}"
 HEALTH_INTERVAL="${DEPLOY_HEALTH_INTERVAL:-5}"
 SNAPSHOT_HOOK="${DEPLOY_SNAPSHOT_HOOK:-$HERE/snapshot-db.sh}"
@@ -185,7 +186,7 @@ wait_healthy() {
 }
 
 smoke_urls() {
-  if [ -n "${DEPLOY_SMOKE_URLS:-}" ]; then
+  if [ -n "$DEPLOY_SMOKE_URLS" ]; then
     printf '%s' "$DEPLOY_SMOKE_URLS"
   elif [ "$PUBLIC_SMOKE" = 1 ]; then
     local h

@@ -44,10 +44,18 @@ ports takes BeeCompete down. Read `MIGRATION.md` §10 before touching the proxy.
 ⚠️ **The DB was rebuilt empty on 2026-09-17** after the original VPS was lost with no off-box
 dump. Don't expect historical accounts or applications. See the `live-deployment` memory.
 
-⚠️ **Two operational gaps are still OPEN** (verified 2026-09-21) — production has the same single
-point of failure the lost box did:
-- **No database backup.** Both crontabs empty, no timer, no dump anywhere. DEPLOY.md §5.
-- **No uptime monitoring.** Nothing reports a dead box; you find out by visiting it.
+⚠️ **Backups and monitoring: the scripts are in the repo; the setup on the box is still the user's**
+(updated 2026-10-16, sprint 2 B3). `scripts/ops/` has the nightly dump (optional age/gpg encryption), the
+uploads-volume backup, the weekly restore drill, the host guard (disk, memory, restarts, certificates), the
+tag-pinned `deploy.sh` with a pre-deploy snapshot and automatic rollback, `kiwiply-ops.cron`,
+`kiwiply-logrotate.conf` and a staging overlay (`docker-compose.staging.yml`); `docs/ops/incident-runbook.md`
+is the incident and breach-notification process. **None of it runs until the user does the server side**
+(it needs the box and the AWS / Healthchecks / UptimeRobot accounts): the backup bucket and IAM user,
+the Healthchecks checks, installing `/etc/cron.d/kiwiply-ops` and the logrotate file, the first dump and
+the first drill, the UptimeRobot monitors, and the staging edge route. Steps: DEPLOY.md §5.1–5.7.
+When last checked (2026-09-21) both crontabs were empty and no dump existed, so **treat production as
+having no backup and no uptime monitor until `ls /etc/cron.d/kiwiply-ops` shows the file and
+Healthchecks shows a night's ping.**
 
 CI/CD is live and hands-off (merge to `main` deploys). Live values in DEPLOY.md §7.1; the deploy
 traps worth knowing before you touch it are in §7.3.

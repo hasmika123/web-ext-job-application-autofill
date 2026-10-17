@@ -154,7 +154,8 @@ Reload the unpacked extension. (At Chrome Web Store launch, also pin
   ```bash
   git pull && $COMPOSE up -d --build
   ```
-  Liquibase applies new DB migrations automatically on API start.
+  Liquibase applies new DB migrations automatically on API start. For a deploy with a pre-deploy database
+  snapshot, health checks and an automatic rollback, use `scripts/ops/deploy.sh` instead (§5.4).
 - **Logs:** `$COMPOSE logs -f <service>`
 - **Database backup — nightly, off the box (Phase 15.1).** `scripts/ops/backup-db.sh` dumps
   MySQL at 03:15 UTC into the separate **`kiwiply-db-backups`** bucket, and
@@ -196,6 +197,10 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    BACKUP_AWS_SECRET_ACCESS_KEY=...
    HC_BACKUP_URL=https://hc-ping.com/<uuid>     # §5.2
    HC_RESTORE_URL=https://hc-ping.com/<uuid>    # §5.2
+   HC_UPLOADS_URL=https://hc-ping.com/<uuid>    # §5.7 (uploads-volume backup)
+   HC_HOST_URL=https://hc-ping.com/<uuid>       # §5.6 (host guard)
+   HC_DEPLOY_URL=https://hc-ping.com/<uuid>     # §5.4 (optional)
+   BACKUP_AGE_RECIPIENT=                        # §5.7 (optional: age public key, encrypts dumps)
    ```
    These are read by the ops scripts only; the API never sees them.
 5. **Schedule** — a cron.d file of its own, so BeeCompete's crontabs are never touched:
@@ -206,7 +211,12 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    ```
    Nightly backup at 03:15 UTC → `/var/log/kiwiply-backup.log`; Sunday 04:45 UTC restore drill →
    `/var/log/kiwiply-restore-drill.log` (and one line per drill in
-   `/root/kiwiply-backups/restore-drills.log`). The last 3 dumps also stay in `/root/kiwiply-backups/`.
+   `/root/kiwiply-backups/restore-drills.log`); nightly uploads-volume archive at 03:40 UTC →
+   `/var/log/kiwiply-backup-uploads.log` (§5.7); host guard every 5 minutes →
+   `/var/log/kiwiply-host-guard.log` (§5.6). The last 3 dumps also stay in `/root/kiwiply-backups/`.
+   Rotate those logs: `install -m 644 scripts/ops/kiwiply-logrotate.conf /etc/logrotate.d/kiwiply` (§5.6).
+   **Until someone has done this step, no backup is running**: the scripts exist, the cron file is not
+   installed by a deploy. Check with `ls -l /etc/cron.d/kiwiply-ops` and Healthchecks.
 6. **First run, by hand** — once the scripts are on the box, i.e. after `develop` is promoted to
    `main` (the deploy's `git pull` brings them) — and check it landed:
    ```bash
@@ -216,8 +226,12 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    `verify-restore.sh` should end with `restore drill OK — dossier-<date>.sql.gz: N tables, …`.
 
 **Tested in CI** (the "Ops scripts" job): shellcheck, the helpers, `backup-db.sh` against a fake
-docker (upload names, the sha256, the monthly copy, the pings, refusing a cut-short dump), and a
-real `mysqldump` of a real MySQL of the production version restored by `verify-restore.sh`.
+docker (upload names, the sha256, the monthly copy, the pings, refusing a cut-short dump, encryption with
+fake `age`/`gpg`), `deploy.sh` and `snapshot-db.sh` against a fake docker (dry run, good deploy, health and
+smoke failures and the rollback, first deploy, locking, migration lint), `host-guard.sh` with fake
+`df`/`/proc/meminfo`/`openssl`, `backup-uploads.sh`, the compose files through `docker compose config`
+(production keeps the overlay aliases, staging has its own, every service rotates logs), and a real
+`mysqldump` of a real MySQL of the production version restored by `verify-restore.sh`.
 
 ### 5.2 Alarms — UptimeRobot + Healthchecks.io (once), and the error digest
 
@@ -229,6 +243,10 @@ Both are free; you create the accounts. Alerts go to your email.
   The scripts ping `/start` when they begin, the plain URL on success, and `/fail` on any failure,
   so a crash, a cut-short dump, a missing bucket key or a restore that doesn't check out all
   alert, and so does a night when cron didn't run at all.
+  Three more checks use the same scripts' pings (all optional; blank URL = that script stays silent):
+  `kiwiply-uploads` (period **1 day**, grace 2 hours → `HC_UPLOADS_URL`, §5.7), `kiwiply-host` (period
+  **10 minutes**, grace 10 minutes → `HC_HOST_URL`, §5.6: the host guard sends `/fail` with the reason) and
+  `kiwiply-deploy` (no period, alert on `/fail` only → `HC_DEPLOY_URL`, §5.4).
 - **UptimeRobot** — two HTTP(S) monitors, 5-minute interval:
   - `https://kiwiply.com/` — expects 200.
   - `https://api.kiwiply.com/management/health` — keyword monitor, expects `"status":"UP"`.
@@ -263,7 +281,172 @@ database**, so only do it when production data is lost or corrupt.
    $COMPOSE up -d api          # Liquibase applies any migration newer than the dump
    ```
 3. Check: `scripts/migrate/04-verify.sh kiwiply.com`, and sign in.
-Everything written after the dump was taken (up to a day) is gone. Tell affected users.
+Everything written after the dump was taken (up to a day) is gone. Tell affected users. If you restore
+from a backup older than an account deletion, **delete that account again** afterwards (the restore brings
+it back); `docs/ops/incident-runbook.md` §8.
+
+If the dump is encrypted (`.age`/`.gpg`, §5.7), decrypt it first on the machine that holds the private key:
+`age -d -i kiwiply-backup.key -o dossier-<date>.sql.gz dossier-<date>.sql.gz.age`.
+
+### 5.4 Deploying by tag, with a snapshot and an automatic rollback (`deploy.sh`)
+
+`deploy.yml` (§7) pulls `:latest` and restarts; if the new build is bad there is no snapshot to go back
+to and no quick way to name "the version before". `scripts/ops/deploy.sh` is the careful way, for a
+deploy you run by hand on the box (REAL-GAPS-C P2.1-P2.3). It always uses the production file **and** the
+shared-edge overlay (it refuses to run otherwise) and never deploys `latest`.
+
+```bash
+cd /root/web-ext-job-application-autofill && git pull --ff-only
+scripts/ops/deploy.sh --dry-run                 # prints every step, runs nothing; do this first
+scripts/ops/deploy.sh                           # deploys this checkout's HEAD sha (the tag CI pushed)
+scripts/ops/deploy.sh --tag <40-hex git sha>    # or any build CI pushed: that is how you roll forward/back to a known one
+scripts/ops/deploy.sh --rollback                # back to the previous tag, no rebuild
+```
+
+What it does, in order (a failure before step 6 changes nothing):
+
+1. checks the tags (never `latest`), the compose files and the `.env`;
+2. works out what to roll back to: the tags it recorded last time, or, the first time (and after a CI
+   deploy of `latest`), the **running images themselves**, tagged `pre-<time>` so they cannot be pruned;
+3. lints the Liquibase changesets that arrived since the previous sha for destructive statements
+   (`dropColumn`, `dropTable`, rename, `modifyDataType`, `delete`, `DROP`/`TRUNCATE`): it stops and lists
+   them unless you pass `--allow-destructive-migrations` after reading them (the rule is additive-only);
+4. takes a **database snapshot** (`scripts/ops/snapshot-db.sh`, kept in `~/kiwiply-backups/pre-deploy-*`,
+   newest 5; `--no-snapshot` skips it; `DEPLOY_SNAPSHOT_HOOK=/path/to/executable` replaces it);
+5. pulls `api` and `web` at the tag (a tag that is not in GHCR stops here, nothing touched);
+6. `compose up -d` with `DOSSIER_API_TAG` / `DOSSIER_WEB_TAG` set (the compose file reads them; unset
+   means `latest`, which is what `deploy.yml` still pulls);
+7. waits (up to 5 minutes) until the API's `/management/health` says `UP` and the web answers, both
+   probed from inside the web container over the compose network, then fetches the public URLs
+   (`https://$SSLIP_HOST/` and `https://api.$SSLIP_HOST/management/health`; override with
+   `DEPLOY_SMOKE_URLS`, skip with `--no-public-smoke`).
+
+If anything fails after step 6 it **rolls back by itself** to the previous tags (`up -d --no-deps api web`),
+waits for health again and exits `1`; exit `2` means the rollback failed too and the stack needs hands.
+It does **not** restore the database on its own (that would discard every write since the snapshot): the
+message names the newest snapshot, and §5.3 shows the restore. Liquibase is additive-only, so the
+previous image runs on the newer schema.
+
+State is in `~/kiwiply-deploy/` (`current.env` = current and previous tags, `history.log`, a lock so two
+deploys cannot overlap). Monitoring: set `HC_DEPLOY_URL` (a Healthchecks.io check; no period, alert on
+`/fail` only) and it pings start / success / fail with the tag in the body; unset = silent.
+
+**The first deploy after this lands also recreates `mysql`:** the compose file gained a `logging:` cap on
+every service (§5.6), and a changed container config means Compose recreates it (about 20 seconds of
+database restart; the volume is untouched). Do it at a quiet time.
+
+**Pipeline:** `deploy.yml` is unchanged on purpose. When you have run `deploy.sh` by hand a few times, the
+one-line switch is to replace its `$COMPOSE pull` / `$COMPOSE up -d` lines with
+`scripts/ops/deploy.sh --tag ${{ github.sha }}` (the images are pushed with that tag in the same run). Until
+then both paths work side by side, and `deploy.sh` copes with a CI deploy having moved the box to `latest`.
+
+### 5.5 A staging stack (`docker-compose.staging.yml`)
+
+A second copy of the stack on the same box, to check a release before production gets it (REAL-GAPS-C
+P3.2; design: `docs/design/plat/environments-staging-capacity.md`). Its own Compose project
+(`dossier-staging`: own containers, MySQL volume, uploads volume, JWT secret, demo data), capped memory
+(it is the first thing to stop when the box is short: `docker compose -p dossier-staging stop`, which
+`host-guard.sh` prints), and it uses its **own** overlay instead of the shared-edge one, because that
+overlay carries the production aliases and two containers with one alias would split production
+traffic. Setup (yours; nothing here touches the shared edge):
+
+1. A **separate checkout**: `git clone <repo> ~/dossier-staging`, on the branch you want to test.
+2. `cp .env.staging.example .env.staging && chmod 600 .env.staging`, then fill it with **new** values
+   (never a production secret or a production data copy). Placeholders only are in the example.
+3. DNS: `staging.kiwiply.com` and `api-staging.kiwiply.com` to the box. Edge Caddy blocks, added by you to
+   `~/beecompete-edge/Caddyfile` (the same way as MIGRATION.md §10.2; `basic_auth` + `noindex` so it is
+   not public; reload with `caddy reload`):
+   ```
+   staging.kiwiply.com {
+   	import common
+   	basic_auth {
+   		<user> <bcrypt hash from `caddy hash-password`>
+   	}
+   	header X-Robots-Tag "noindex, nofollow"
+   	reverse_proxy dossier-staging-web:3000
+   }
+   api-staging.kiwiply.com {
+   	import common
+   	reverse_proxy dossier-staging-api:8080
+   }
+   ```
+4. Deploy: `scripts/ops/deploy.sh --staging --build --dry-run`, then without `--dry-run`. `--staging` uses
+   `.env.staging`, the staging overlay, `~/kiwiply-deploy-staging/` and `~/kiwiply-backups-staging/`;
+   `--build` builds the images from that checkout (CI only pushes `main` builds); its snapshot, health
+   checks and rollback work as in §5.4. On a 3.7 GB box a build is heavy: do it when the box is quiet.
+5. Staging is **off by default for everything external**: no job-board reads, no inbox poller, no AI, no
+   Stripe (test keys only if you add them), mail blank. Sign in with the demo accounts
+   (`DEMO_ENABLED=true`).
+
+### 5.6 Log rotation and the host guard
+
+- **Container logs** are capped by the `logging:` block in `docker-compose.prod.yml`: 5 files x 10 MB
+  per container, compressed. It applies when a container is created, so the next deploy picks it up.
+  (Host-wide, for everything else on the box, `scripts/ops/docker-daemon.json.example` shows the same
+  setting for `/etc/docker/daemon.json`. **Do not apply it casually:** it needs a Docker restart, which
+  restarts BeeCompete's containers too. The compose block is enough for ours.)
+- **The ops scripts' own logs** in `/var/log/kiwiply-*.log`:
+  `sudo install -m 644 scripts/ops/kiwiply-logrotate.conf /etc/logrotate.d/kiwiply` (its own file; it does not
+  touch BeeCompete's rotation).
+- **`scripts/ops/host-guard.sh`**, every 5 minutes from the cron file (§5.1 step 5): disk (`/`, `/var/lib/docker`:
+  fails at 85 %, "CRITICAL" at 90 %), memory over 90 % or more than 2 GB of swap for two checks in a row
+  (about 10 minutes), a container of ours that restarted since the last check, and TLS certificates with
+  under 14 days left (`$SSLIP_HOST` and `api.$SSLIP_HOST`). It only reads; it never stops or deletes anything.
+  On a problem it pings your Healthchecks.io "host" check's `/fail` with the reasons in the body, so the
+  alert email says what is wrong. Create that check (period 10 minutes, grace 10 minutes), put its URL in
+  `.env` as `HC_HOST_URL`. `scripts/ops/host-guard.sh --dry-run` shows what it sees and sends nothing.
+  Thresholds are environment variables at the top of the script.
+
+### 5.7 Encrypted dumps and the uploads-volume backup
+
+**Encrypting the dumps (REAL-GAPS-C P0.3).** A dump holds every user's data, so it can be encrypted before
+it leaves the box. Off until you set a recipient; then `backup-db.sh` (and the pre-deploy snapshot, and the
+uploads archive below) write `…sql.gz.age` instead of `…sql.gz`. Only the **public** key goes on the box.
+
+1. On **your own machine**: `age-keygen -o kiwiply-backup.key` (or `apt install age` first). The file holds the
+   private key. Put it in the **password manager now**, and keep a second copy somewhere that is not the
+   box and not the cloud account that holds the backups. **Losing it means every encrypted backup is
+   unreadable.** The `age1…` line it prints is the public key.
+2. On the box: `apt install age`, and in `.env`: `BACKUP_AGE_RECIPIENT=age1…` (comma-separate to add a
+   second key, which is a good idea). (gpg works too: `BACKUP_GPG_RECIPIENT=<key id>` with the public key
+   imported on the box. Set only one.) With a recipient set and the tool missing, the backup **fails and
+   alerts** rather than uploading plaintext.
+3. Run `scripts/ops/backup-db.sh --dry-run` (says "would encrypt it to …"), then a real run, and open
+   Healthchecks.
+4. **The weekly drill can no longer restore on the box**, because the box has no private key (by design).
+   It still checks the newest backup is fresh and matches its sha256 and says `INTEGRITY ONLY`. A full
+   restore test then needs the key, on a machine that has it, **at least quarterly**:
+   `aws s3 cp s3://kiwiply-db-backups/daily/<newest>.sql.gz.age .` then
+   `scripts/ops/verify-restore.sh --file <newest>.sql.gz.age --identity kiwiply-backup.key --no-live`
+   (needs Docker; it restores into a throwaway container and prints the row counts).
+
+**The uploads volume (REAL-GAPS-C P0.5).** With `DOSSIER_STORAGE_DRIVER=local` (the compose default) the
+users' files (resumes, attachments, built PDFs) live in the Docker volume `dossier_uploads`, which is
+**not** in the MySQL dump. `scripts/ops/backup-uploads.sh` archives it read-only through a throwaway
+`alpine` container every night (03:40 UTC, cron file), writes a `sha256sum`-format manifest, encrypts like the
+dumps when a recipient is set, uploads `uploads/uploads-<date>.tar.gz[.age]` and `uploads/manifest-<date>.txt`
+to the same backup bucket, and pings `HC_UPLOADS_URL` (a check with period 1 day, grace 2 hours). Setup, yours:
+
+1. Apply the updated lifecycle file (it adds `uploads/`, 30 days): the `put-bucket-lifecycle-configuration`
+   command in §5.1 step 2. The IAM policy needs no change.
+2. Add `HC_UPLOADS_URL=…` to `.env` (and `HC_HOST_URL`, `HC_DEPLOY_URL` if you use them); reinstall the cron
+   file (`install -m 644 scripts/ops/kiwiply-ops.cron /etc/cron.d/kiwiply-ops`).
+3. Run `scripts/ops/backup-uploads.sh --dry-run`, then once for real. If the volume is empty (the driver is
+   `s3`, so the files are in the resume bucket) it says so and counts as success. In that case turn
+   **Bucket Versioning on** for the resume bucket instead: that is its backup.
+
+Restoring uploads (the API stopped, the volume empty or new): download the archive (decrypt it if needed),
+then
+`docker run --rm -v dossier_uploads:/data -v "$PWD":/in alpine sh -c 'cd /data && tar -xzf /in/uploads-<date>.tar.gz'`
+and check with `cd /data && sha256sum -c manifest-<date>.txt` (run it in the same kind of container). The
+deleted-user-file rule: an archive is kept 30 days, so a file a user deleted is gone from backups within a month.
+
+### 5.8 If something goes wrong
+
+`docs/ops/incident-runbook.md`: severities, the first fifteen minutes, containment by scenario, secret
+rotation, evidence to keep, and the breach-notification clocks (GDPR 72 hours to the authority, 48 hours
+planned for organization customers). Read it once now, before you need it.
+
 
 ## 6. When you get a real domain
 Point `app.` and `api.` A-records at the IP, then in `Caddyfile` replace the two
@@ -344,7 +527,8 @@ not yet done.
   `fail2ban-client set sshd unbanip <your-ip>` — or wait it out (10 min default).
 
 After that, every merge to `main` auto-builds and deploys. Trigger manually anytime via the
-Actions tab → **Deploy** → *Run workflow*. The compose pulls `…:latest` from GHCR; a manual
+Actions tab → **Deploy** → *Run workflow*. The compose pulls `…:latest` from GHCR (unless
+`DOSSIER_API_TAG`/`DOSSIER_WEB_TAG` are exported, which `scripts/ops/deploy.sh` does, §5.4); a manual
 `$COMPOSE up -d --build` still works for an off-pipeline deploy (**with the overlay** — see §5).
 
 ## 8. Publishing the browser extension (Chrome Web Store)
