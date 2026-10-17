@@ -1,6 +1,0 @@
-npm warn config ignoring workspace config at C:\work_bench\2026_april\claude_code_work_bench\web-ext-job-application-autofill\.claude\worktrees\ent-exact-c\web/.npmrc
-▲ Next.js 16.2.9
-- Local:         http://localhost:3218
-- Network:       http://10.0.0.96:3218
-✓ Ready in 1180ms
-⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
