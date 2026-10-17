@@ -28,7 +28,7 @@ describe("sample-resume.json (the shared template fixture)", () => {
     expect(new Set(all).size).toBe(all.length);
     for (const id of all) expect(id, id).toMatch(ID);
     for (const s of doc.sections) {
-      for (const it of s.items as Array<Record<string, unknown>>) {
+      for (const it of s.items as unknown as Array<Record<string, unknown>>) {
         for (const k of ["start", "end", "date"]) {
           const v = it[k];
           if (typeof v === "string" && v) expect(v, `${k} ${v}`).toMatch(DATE);
