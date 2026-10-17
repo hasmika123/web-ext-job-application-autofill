@@ -94,6 +94,14 @@ public class AccountDeletionService {
     private com.dossier.api.repository.sub.InvoiceRepository invoiceRepository;
     private com.dossier.api.repository.sub.InvoiceLineRepository invoiceLineRepository;
 
+    private com.dossier.api.service.billing.personal.PersonalBillingErasure personalBillingErasure;
+
+    /** Optional: removes the add-on rows, change records and quotes that hold non-cascading keys to the subscription row (subscription-merge). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setPersonalBillingErasure(com.dossier.api.service.billing.personal.PersonalBillingErasure erasure) {
+        this.personalBillingErasure = erasure;
+    }
+
     /** Optional (K8.3): the invoice mirror's repositories, to pseudonymise a deleted account's invoices. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     public void setInvoiceRepositories(com.dossier.api.repository.sub.InvoiceRepository invoices, com.dossier.api.repository.sub.InvoiceLineRepository lines) {
@@ -197,6 +205,9 @@ public class AccountDeletionService {
         // K8.3: invoices are a financial record (kept 7 years): the link to the person is cut (user id becomes 0), the lines and amounts stay
         if (invoiceRepository != null) invoiceRepository.pseudonymise(userId);
         if (invoiceLineRepository != null) invoiceLineRepository.pseudonymise(userId);
+        // subscription-merge: add-on rows, change records and quotes hold non-cascading keys to the subscription row, so they go before it; the rest of the
+        // personal billing tables (grants, usage ledger, locks, notices, retirement items) cascade from the user row
+        if (personalBillingErasure != null) personalBillingErasure.eraseFor(userId);
         String customerId = subscriptionRepository.findOneByUserId(userId).map(Subscription::getStripeCustomerId).orElse(null);
         stripeEventRepository.forget(userId, customerId);
         subscriptionRepository

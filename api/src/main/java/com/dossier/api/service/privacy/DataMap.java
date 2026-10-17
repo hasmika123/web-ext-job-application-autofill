@@ -69,6 +69,15 @@ public final class DataMap {
         owned(e, "resume_doc", "user_id", "ResumeBuilderDataService.deleteAllForUser (files first)", "resumeDocs");
         owned(e, "resume_doc_version", "user_id", "ResumeBuilderDataService.deleteAllForUser", null, "version history of resumeDocs, the current version is exported");
         owned(e, "subscription", "user_id", "AccountDeletionService.endBilling (Stripe subscription cancelled first)", null, "billing record; Stripe holds the payment history and the person asks Stripe for that copy");
+        // personal subscription module (subscription-merge): what the person bought, the plan grants and usage ledger behind their entitlements, and the notices sent to them
+        owned(e, "subscription_addon", "user_id", "PersonalBillingErasure (before the subscription row; the Stripe subscription is cancelled first)", null, "mirror of the Stripe subscription items the person bought; Stripe holds the payment history and the person asks Stripe for that copy");
+        owned(e, "personal_subscription_change", "user_id", "PersonalBillingErasure (before the subscription row)", null, "audit of the person's own plan and add-on changes, mirrored from Stripe");
+        owned(e, "subscription_quote", "user_id", "PersonalBillingErasure (anonymous pricing-page quotes have no user and expire on their own)", null, "short-lived priced baskets, recomputed on demand");
+        owned(e, "entitlement_grant", "user_id", "FK cascade with the user row", null, "plan grants (promotions, support) that decide what the person may use; the grantor is an administrator login");
+        owned(e, "personal_usage_counter", "user_id", "FK cascade with the user row", null, "metered-usage counters per period; regenerated, no content");
+        owned(e, "service_lock", "user_id", "FK cascade with the user row", null, "read-only locks left by a retired plan; a new account on the same login must not inherit them");
+        owned(e, "billing_notice", "user_id", "FK cascade with the user row", null, "log of plan-retirement notices sent to the person, kept only to avoid sending one twice");
+        owned(e, "plan_retirement_item", "user_id", "FK cascade with the user row (organization-scope rows carry an org_id and no user, they follow the organization)", null, "the person's pending choice in a plan retirement, shown on the billing page");
         owned(e, "terms_acceptance", "user_id", "AccountDeletionService (FK cascade with the user row)", "termsAcceptance");
         owned(e, "data_export_job", "user_id", "AccountDeletionService (FK cascade; the ZIP files go with the user's file prefixes)", null, "the export job itself");
         owned(e, "account_deletion_request", "user_id", "FK cascade with the user row", null, "the pending erasure itself");
@@ -86,15 +95,20 @@ public final class DataMap {
         add(e, new Entry("resume_view_event", DataClass.USER_OWNED, List.of(new Col("owner_user_id", Key.USER_ID), new Col("viewer_login", Key.LOGIN)), "ResumeBuilderDataService.deleteAllForUser / deleteSharingAsViewer", null, "view analytics of the person's shared resumes (who looked and when)", null));
         add(e, new Entry("resume_access", DataClass.USER_OWNED, List.of(new Col("owner_user_id", Key.USER_ID), new Col("subject_login", Key.LOGIN)), "ResumeBuilderDataService.deleteAllForUser / deleteSharingAsViewer", "resumeShares", null, null));
 
+        add(e, new Entry("personal_usage_event", DataClass.USER_OWNED, List.of(new Col("user_id", Key.USER_ID), new Col("login", Key.LOGIN)), "FK cascade with the user row", null, "metered-usage reservations; the ai_call ledger keeps the spend without the login", null));
+
         // ---- kept after the account goes, without the link to the person -------------------------------------------------------------------------
         add(e, new Entry("ai_call", DataClass.USER_ANONYMISED, List.of(new Col("login", Key.LOGIN)), "AccountDeletionService.forgetAiUsage (login nulled, spend kept for accounting); also the retention sweep", null, "token and cost ledger, never prompts or answers", "AI_CALL"));
         add(e, new Entry("stripe_event", DataClass.USER_ANONYMISED, List.of(new Col("user_id", Key.USER_ID)), "StripeEventRepository.forget (the link to the person is removed, the event record stays)", null, "Stripe webhook log", null));
+        add(e, new Entry("invoice", DataClass.USER_ANONYMISED, List.of(new Col("user_id", Key.USER_ID)), "AccountDeletionService.endBilling (InvoiceRepository.pseudonymise: the user id becomes 0, the money record stays for accounting)", null, "mirror of the Stripe invoice; Stripe holds the original and the person asks Stripe for that copy", null));
+        add(e, new Entry("invoice_line", DataClass.USER_ANONYMISED, List.of(new Col("user_id", Key.USER_ID)), "AccountDeletionService.endBilling (InvoiceLineRepository.pseudonymise: the user id becomes 0, amounts and descriptions stay)", null, "lines of the mirrored Stripe invoice", null));
 
         // ---- short-lived security rows ----------------------------------------------------------------------------------------------------------
         add(e, new Entry("admin_mfa_challenge", DataClass.EPHEMERAL, List.of(new Col("user_id", Key.USER_ID), new Col("login", Key.LOGIN)), "AccountDeletionService (adminMfaChallengeRepository.deleteByUserId); expires in minutes anyway", null, "a pending sign-in code check, expires in minutes", null));
 
         // ---- accountability trails keyed by an administrator's login ---------------------------------------------------------------------------
         add(e, new Entry("admin_audit_event", DataClass.AUDIT_RETAINED, List.of(), "not deleted with a person: the trail of what administrators did; purged by the retention sweep", null, "accountability record of administrator actions", "ADMIN_AUDIT"));
+        add(e, new Entry("catalog_change", DataClass.AUDIT_RETAINED, List.of(), "not deleted with a person: the catalog and plan-builder change trail, keyed by the administrator's login", null, "platform pricing configuration history", null));
         add(e, new Entry("app_setting", DataClass.AUDIT_RETAINED, List.of(), "not deleted with a person: names the administrator who last changed a setting", null, "platform configuration", null));
         add(e, new Entry("app_setting_history", DataClass.AUDIT_RETAINED, List.of(), "not deleted with a person: the settings change trail", null, "platform configuration history", null));
         add(e, new Entry("retention_run", DataClass.AUDIT_RETAINED, List.of(), "not deleted with a person: counts of what a retention sweep removed, and which administrator ran it", null, "retention run log", null));
@@ -122,7 +136,7 @@ public final class DataMap {
 
         // ---- organization-owned records (reference seats and organizations, never accounts) -----------------------------------------------------
         for (String t : List.of(
-            "client_account", "client_note", "client_requirement", "consultant_license", "consultant_skill",
+            "billing_drift", "client_account", "client_note", "client_requirement", "consultant_license", "consultant_skill",
             "cws_availability_block", "cws_availability_history", "cws_certification", "cws_interview_detail", "cws_interview_feedback",
             "cws_job_source", "cws_match_interest", "cws_match_view", "cws_notification", "cws_offer", "cws_offer_event", "cws_opportunity_response",
             "cws_placement_activity", "cws_placement_checklist", "cws_placement_detail", "cws_placement_meeting", "cws_placement_milestone",

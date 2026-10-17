@@ -16,7 +16,7 @@ import com.tngtech.archunit.lang.ArchRule;
  * The personal mirror has exactly two writers (docs/subscriptions/07-stripe-mapping.md sections 2.2 and 5): the webhook ({@link PersonalAddonMirror}, called by
  * {@code UserBillingHandler}) and the confirmed-change service ({@link SubscriptionChangeService}, which writes the rows the customer has just bought, before the
  * webhook confirms them). No resource, job or other service may write {@code subscription_addon}; the change records are written by the change service and the
- * applier that finishes them.
+ * applier that finishes them, and (subscription-merge) by the webhook path that closes a switch Stripe has just landed ({@code UserBillingHandler} and the mirror).
  */
 @AnalyzeClasses(packagesOf = DossierApiApp.class, importOptions = DoNotIncludeTests.class)
 class PersonalAddonWritersTest {
@@ -46,6 +46,10 @@ class PersonalAddonWritersTest {
         .doNotHaveFullyQualifiedName(SubscriptionChangeService.class.getName())
         .and()
         .doNotHaveFullyQualifiedName(SubscriptionChangeApplier.class.getName())
+        .and()
+        .doNotHaveFullyQualifiedName(PersonalAddonMirror.class.getName())
+        .and()
+        .doNotHaveFullyQualifiedName("com.dossier.api.service.billing.UserBillingHandler")
         .should()
         .callMethodWhere(writesTo(PersonalSubscriptionChangeRepository.class));
 }
