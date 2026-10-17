@@ -1084,9 +1084,16 @@ public class ResumeDocService {
 
     /** The template a new resume starts with: {@code resume.templates.default} when it is enabled, else the first enabled one. */
     private String defaultTemplateId() {
-        List<String> enabled = enabledTemplateIds();
-        String configured = settings.getString(ResumeBuilderSettingKeys.TEMPLATES_DEFAULT);
-        return enabled.contains(configured) ? configured : enabled.get(0);
+        return effectiveDefaultTemplate(enabledTemplateIds(), settings.getString(ResumeBuilderSettingKeys.TEMPLATES_DEFAULT));
+    }
+
+    /**
+     * The template a new resume actually starts with: the configured default when the picker offers it, else the first
+     * enabled template. The builder config reports this same value, so "Template: X" in the New Resume sheet is what is created.
+     */
+    public static String effectiveDefaultTemplate(List<String> enabled, String configured) {
+        if (enabled == null || enabled.isEmpty() || enabled.contains(configured)) return configured;
+        return enabled.get(0);
     }
 
     /** 422 {@code $.templateId} unless the id is a known template that the {@code resume.templates.enabled} setting offers. */
