@@ -12,7 +12,7 @@ export const ROUTES: { method: string; pattern: RegExp; body: boolean }[] = [
   { method: "POST", pattern: /^$/, body: true },
   { method: "GET", pattern: /^(counts|filters|pickers)$/, body: false },
   { method: "GET", pattern: new RegExp(`^${ID}$`), body: false },
-  { method: "POST", pattern: new RegExp(`^${ID}/(extend|extension-requests|complete|redeploy|notes|undo)$`), body: true },
+  { method: "POST", pattern: new RegExp(`^${ID}/(extend|extension-requests|complete|terminate|notice|redeploy|notes|undo)$`), body: true },
   { method: "POST", pattern: new RegExp(`^${ID}/extensions/${ID}/decision$`), body: true },
   { method: "POST", pattern: new RegExp(`^${ID}/redeploy/cancel$`), body: false },
 ];

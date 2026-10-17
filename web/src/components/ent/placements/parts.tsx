@@ -63,7 +63,7 @@ const PILL = "!rounded-md !px-2.5 !py-[3px] !text-[10.5px] !font-medium";
 
 /** The row's status chip: Active is green, Upcoming blue, Completed grey. */
 export function StatusPill({ status }: { status: PlacementStatus }) {
-  const tone = status === "ACTIVE" ? "green" : status === "UPCOMING" ? "blue" : "grey";
+  const tone = status === "ACTIVE" ? "green" : status === "UPCOMING" ? "blue" : status === "ENDING" ? "amber" : status === "TERMINATED" ? "red" : "grey";
   return (
     <span className={`ent-pill ${PILL}`} data-tone={tone} data-status-pill={status}>
       {STATUS_LABEL[status]}
