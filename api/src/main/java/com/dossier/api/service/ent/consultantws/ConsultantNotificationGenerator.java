@@ -62,7 +62,7 @@ public class ConsultantNotificationGenerator {
     static final String PATH_OPPORTUNITIES = "/w/consultant/opportunities";
     static final String PATH_SUBMISSIONS = "/w/consultant/submissions";
     static final String PATH_INTERVIEWS = "/w/consultant/interviews";
-    static final String PATH_OFFERS = "/w/consultant/offers";
+    public static final String PATH_OFFERS = "/w/consultant/offers";
     static final String PATH_TASKS = "/w/consultant/tasks";
     static final String PATH_PROFILE = "/w/consultant/profile";
     /** Source key prefixes whose notification closes itself when the source no longer applies (matches age out and stay). */

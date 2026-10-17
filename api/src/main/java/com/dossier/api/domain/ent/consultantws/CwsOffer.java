@@ -129,4 +129,67 @@ public class CwsOffer implements Serializable {
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    // ---- the org side (X9.8): a RECORD of the offer, never a signed document ----------------------------------------
+
+    /** Recorded by the org, not yet shown to the consultant. */
+    public static final String DRAFT = "DRAFT";
+    /** The org recorded that the client extended the offer ("EXTENDED" on the org side); the stored value predates the org side and is kept. */
+    public static final String EXTENDED = PENDING_REVIEW;
+    public static final String WITHDRAWN = "WITHDRAWN";
+
+    @Column(name = "client_id")
+    private Long clientId;
+    @Column(name = "submission_id")
+    private Long submissionId;
+    @Column(name = "placement_id")
+    private Long placementId;
+    @Column(name = "placement_type", length = 20)
+    private String placementType;
+    @Column(name = "rate_minor")
+    private Long rateMinor;
+    @Column(name = "rate_period", length = 10)
+    private String ratePeriod;
+    @Column(name = "end_date")
+    private LocalDate endDate;
+    @Column(name = "term_months")
+    private Integer termMonths;
+    @Column(name = "notes", length = 500)
+    private String notes;
+    @Column(name = "extended_at")
+    private Instant extendedAt;
+    @Column(name = "created_by_member_id")
+    private Long createdByMemberId;
+    @Column(name = "updated_by_member_id")
+    private Long updatedByMemberId;
+    /** Who made the last change: MEMBER (an org user), CONSULTANT (the person's own answer) or SYSTEM (a job). */
+    @Column(name = "updated_by_kind", length = 12, nullable = false)
+    private String updatedByKind = "MEMBER";
+
+    public Long getClientId() { return clientId; }
+    public void setClientId(Long clientId) { this.clientId = clientId; }
+    public Long getSubmissionId() { return submissionId; }
+    public void setSubmissionId(Long submissionId) { this.submissionId = submissionId; }
+    public Long getPlacementId() { return placementId; }
+    public void setPlacementId(Long placementId) { this.placementId = placementId; }
+    public String getPlacementType() { return placementType; }
+    public void setPlacementType(String placementType) { this.placementType = placementType; }
+    public Long getRateMinor() { return rateMinor; }
+    public void setRateMinor(Long rateMinor) { this.rateMinor = rateMinor; }
+    public String getRatePeriod() { return ratePeriod; }
+    public void setRatePeriod(String ratePeriod) { this.ratePeriod = ratePeriod; }
+    public LocalDate getEndDate() { return endDate; }
+    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+    public Integer getTermMonths() { return termMonths; }
+    public void setTermMonths(Integer termMonths) { this.termMonths = termMonths; }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
+    public Instant getExtendedAt() { return extendedAt; }
+    public void setExtendedAt(Instant extendedAt) { this.extendedAt = extendedAt; }
+    public Long getCreatedByMemberId() { return createdByMemberId; }
+    public void setCreatedByMemberId(Long createdByMemberId) { this.createdByMemberId = createdByMemberId; }
+    public Long getUpdatedByMemberId() { return updatedByMemberId; }
+    public void setUpdatedByMemberId(Long updatedByMemberId) { this.updatedByMemberId = updatedByMemberId; }
+    public String getUpdatedByKind() { return updatedByKind; }
+    public void setUpdatedByKind(String updatedByKind) { this.updatedByKind = updatedByKind; }
 }

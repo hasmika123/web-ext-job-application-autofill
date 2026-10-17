@@ -77,6 +77,8 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_PLACEMENTS_ENDING_SOON_DAYS = "org.placements.ending_soon_days";
     public static final String ORG_PLACEMENTS_ENDING_URGENT_DAYS = "org.placements.ending_urgent_days";
     public static final String ORG_PLACEMENTS_STARTING_SOON_DAYS = "org.placements.starting_soon_days";
+    /** Offers (X9.8): days an extended offer stays open for the consultant's answer when the org gave no deadline. An organization may override it in org_setting. */
+    public static final String ORG_OFFERS_EXPIRY_DAYS = "org.offers.expiry_days";
     public static final String ORG_CONSENT_REQUEST_COOLDOWN_DAYS = "org.consent.request_cooldown_days";
     /**
      * Organization Settings page (X2.9). An organization sets its own idle-session timeout and password minimum (org_setting keys
@@ -205,6 +207,7 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_PLACEMENTS_ENDING_SOON_DAYS, 45, 1, 365, Risk.LOW, "Placements: a placement whose end date is within this many days counts as ending soon (the Ending Soon tile and the Ends in N days pill). An organization can override it in org_setting.");
         integer(k, ORG_PLACEMENTS_ENDING_URGENT_DAYS, 14, 1, 90, Risk.LOW, "Placements: an end date this close (or closer) turns the Ends in N days pill red. An organization can override it in org_setting.");
         integer(k, ORG_PLACEMENTS_STARTING_SOON_DAYS, 30, 1, 180, Risk.LOW, "Placements: a placement starting within this many days counts as starting soon (the Starting Soon tile). An organization can override it in org_setting.");
+        integer(k, ORG_OFFERS_EXPIRY_DAYS, 14, 1, 90, Risk.LOW, "Offers: how many days an offer recorded as extended stays open for the consultant's answer when no deadline was entered; after that it is marked Expired by the nightly job. An organization can override it in org_setting.");
         integer(k, ORG_LICENSE_RESUMES_MAX, 25, 1, 200, Risk.LOW, "Resume Builder in an organization workspace: the most live (non-archived) resumes one consultant of the organization may keep (counted per account, personal plans never apply there). The consultant license grants it; an organization can override it in org_setting. Creating a resume past it answers 402 RESUME_LIMIT; nothing already created is removed.");
         k.add(new Key(ORG_RESUMES_CONSULTANT_SHARE_LINKS, Type.BOOL, "false", null, null, null,
             "Resume Builder in an organization workspace: let a consultant create share links (a recruiter link or named people) for their organization resumes. Off by default; the organization admin can turn it on, and an organization can override it in org_setting. A marketer acting for a consultant can never create share links, whatever this says. Personal accounts are unaffected.", null, Risk.MEDIUM));

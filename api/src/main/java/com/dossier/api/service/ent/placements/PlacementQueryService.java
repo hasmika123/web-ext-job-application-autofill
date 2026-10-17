@@ -311,7 +311,7 @@ public class PlacementQueryService {
         boolean ext = pending.contains(p.getId());
         PlacementDTO.NextAction next = PlacementRules.nextAction(eff, p.getStartDate(), p.getEndDate(), p.isRedeploymentPool(), ext, today, settings.endingSoonDays(orgId), settings.endingUrgentDays(orgId), settings.startingSoonDays(orgId));
         return new PlacementDTO.Row(
-            p.getId(), consultantRef(c), clientRef(cl), p.getRoleTitle(), p.getPlacementType(), p.getStartDate(), p.getEndDate(), member(p.getAccountManagerMemberId(), who), eff,
+            p.getId(), consultantRef(c), clientRef(cl), p.getRoleTitle(), p.getPlacementType(), p.getStartDate(), p.getEndDate(), member(p.getAccountManagerMemberId(), who), PlacementRules.displayStatus(eff, p.getEndKind(), p.getNoticeOn()),
             rates ? p.getBillRateMinor() : null, rates ? p.getRateUnit() : null, rates ? p.getCurrency() : null, next, p.isRedeploymentPool(), ext
         );
     }
@@ -568,18 +568,18 @@ public class PlacementQueryService {
         boolean canWrite = access.canWrite(me, p);
         PlacementDTO.Actions actions = new PlacementDTO.Actions(
             canWrite && open, canWrite && open && !pending, canWrite && open, canWrite && !p.isRedeploymentPool(),
-            canWrite, canWrite && open && pending
+            canWrite, canWrite && open && pending, canWrite && open, canWrite && open && p.getNoticeOn() == null && !p.getStartDate().isAfter(today)
         );
         Integer endsIn = p.getEndDate() == null ? null : (int) ChronoUnit.DAYS.between(today, p.getEndDate());
         Integer startsIn = p.getStartDate().isAfter(today) ? (int) ChronoUnit.DAYS.between(today, p.getStartDate()) : null;
         return new PlacementDTO.Detail(
-            p.getId(), consultantRef(c), clientRef(cl), p.getRoleTitle(), p.getPlacementType(), p.getStartDate(), p.getEndDate(), endsIn, startsIn, member(p.getAccountManagerMemberId(), who), contact, eff,
+            p.getId(), consultantRef(c), clientRef(cl), p.getRoleTitle(), p.getPlacementType(), p.getStartDate(), p.getEndDate(), endsIn, startsIn, member(p.getAccountManagerMemberId(), who), contact, PlacementRules.displayStatus(eff, p.getEndKind(), p.getNoticeOn()),
             rates ? p.getBillRateMinor() : null, rates ? p.getRateUnit() : null, rates ? p.getCurrency() : null, next, PlacementRules.engagement(p.getStartDate(), p.getEndDate(), today), pending,
             exts.stream().map(x -> new PlacementDTO.ExtensionItem(x.getId(), x.getStatus(), x.getFromEndDate(), x.getRequestedEndDate(), x.getNote(), member(x.getRequestedByMemberId(), who), member(x.getDecidedByMemberId(), who), x.getCreatedAt(), x.getDecidedAt())).toList(),
             availability,
             evs.stream().map(e -> new PlacementDTO.EventItem(e.getId(), e.getEventType(), member(e.getActorMemberId(), who), e.getDetail(), e.getOccurredAt())).toList(),
             nts.stream().map(n -> new PlacementDTO.NoteItem(n.getId(), member(n.getAuthorMemberId(), who), n.getBody(), n.getCreatedAt())).toList(),
-            nts.size(), actions, undoToken(me, p, evs)
+            nts.size(), actions, undoToken(me, p, evs), p.getEndKind(), p.getEndReason(), p.getNoticeOn(), p.getOfferId()
         );
     }
 

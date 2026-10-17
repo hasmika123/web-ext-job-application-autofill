@@ -85,7 +85,7 @@ public final class PlacementDTO {
     public record Availability(boolean inPool, LocalDate availableFrom, Integer inDays, boolean onBench) {}
 
     /** What the caller may do with this placement (the page draws a control only when true; the API is the real gate). */
-    public record Actions(boolean extend, boolean requestExtension, boolean complete, boolean redeploy, boolean addNote, boolean decideExtension) {}
+    public record Actions(boolean extend, boolean requestExtension, boolean complete, boolean redeploy, boolean addNote, boolean decideExtension, boolean terminate, boolean giveNotice) {}
 
     /** Present for a few minutes after the caller's own latest change: the id to send back to undo it. */
     public record UndoToken(Long eventId, Instant expiresAt, String kind) {}
@@ -115,7 +115,11 @@ public final class PlacementDTO {
         List<NoteItem> notes,
         long notesCount,
         Actions actions,
-        UndoToken undo
+        UndoToken undo,
+        String endKind,
+        String endReason,
+        LocalDate noticeOn,
+        Long offerId
     ) {}
 
     /* ── request bodies: each one is bound strictly by the resource (an unknown property is refused) ─────────────────────── */
@@ -143,6 +147,14 @@ public final class PlacementDTO {
     public record DecideRequest(String decision) {}
 
     public record CompleteRequest(String note) {}
+
+    /** End a placement before its term (client ended it, performance, consultant left): a reason is required. endDate defaults to today. */
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record TerminateRequest(String reason, LocalDate endDate) {}
+
+    /** Record that notice was given: the placement is ENDING until endDate (which must be today or later). */
+    @JsonIgnoreProperties(ignoreUnknown = false)
+    public record NoticeRequest(LocalDate endDate, String note) {}
 
     /** {@code availableFrom} defaults to the day after the end date (or today when it has passed / is open-ended). */
     public record RedeployRequest(LocalDate availableFrom) {}

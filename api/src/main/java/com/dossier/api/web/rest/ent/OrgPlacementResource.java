@@ -207,6 +207,43 @@ public class OrgPlacementResource {
         return run(me, key, request, body, 200, () -> commands.complete(me, placementId, body));
     }
 
+    @Operation(
+        summary = "Terminate a placement",
+        description = "Body: reason (required, 3 to 300 characters, scanned for sensitive data), endDate (default today, never in the future). Status becomes ENDED and the row reads Terminated; the consultant goes back to Available. " +
+            "422 PLACEMENT_ENDED when already ended. PLACEMENT_TERMINATE audit row. Records the fact only: nothing is sent to the client or the consultant."
+    )
+    @PostMapping("/{placementId}/terminate")
+    @OrgPermissionRequired
+    public ResponseEntity<PlacementDTO.Detail> terminate(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long placementId,
+        @RequestHeader(value = "Idempotency-Key", required = false) String key,
+        @RequestBody JsonNode raw,
+        HttpServletRequest request
+    ) {
+        demoGuard.assertNotDemo();
+        PlacementDTO.TerminateRequest body = strict(raw, PlacementDTO.TerminateRequest.class);
+        return run(me, key, request, body, 200, () -> commands.terminate(me, placementId, body));
+    }
+
+    @Operation(
+        summary = "Record that notice was given",
+        description = "Body: endDate (today or later, required), note. The placement reads Ending until then and the consultant reads On notice. 409 ALREADY_ON_NOTICE, 422 PLACEMENT_NOT_STARTED. PLACEMENT_NOTICE audit row."
+    )
+    @PostMapping("/{placementId}/notice")
+    @OrgPermissionRequired
+    public ResponseEntity<PlacementDTO.Detail> notice(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long placementId,
+        @RequestHeader(value = "Idempotency-Key", required = false) String key,
+        @RequestBody JsonNode raw,
+        HttpServletRequest request
+    ) {
+        demoGuard.assertNotDemo();
+        PlacementDTO.NoticeRequest body = strict(raw, PlacementDTO.NoticeRequest.class);
+        return run(me, key, request, body, 200, () -> commands.giveNotice(me, placementId, body));
+    }
+
     @Operation(summary = "Start redeployment", description = "Body: availableFrom (default: the day after the end date, or today). Puts the consultant in the redeployment pool. 409 ALREADY_IN_POOL. PLACEMENT_REDEPLOY audit row.")
     @PostMapping("/{placementId}/redeploy")
     @OrgPermissionRequired

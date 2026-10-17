@@ -432,3 +432,27 @@ Temporary passwords are read from the shown-once dialog at run time and never pr
 - **Expected:** a Cookie Policy appears in every organization's Policies list (state Draft) and its public page shows a neutral template until published; removing the key hides it again (published text is kept); an invalid list (lower case, duplicates, empty) is refused by the Settings page.
 - **Pages / APIs:** Settings, Policies, `/policies/{slug}`.
 - **Status: STORY-ONLY (covered by `PolicyPagesUnitTest`)**
+
+### PLT-71 Amara records an offer for a consultant (Accounts Offers)
+- **Persona:** amara, Account Manager. **Preconditions:** a client and a consultant exist. **Steps:** 1. Open `/w/accounts/offers`. 2. Choose Record an offer, pick the consultant and the client, enter the role, start date, a rate with its period and a currency, leave "Record it as extended now" off, save. 3. Open the new row (state Draft) and press Record as extended.
+- **Expected:** the dialog says only the consultant can accept or decline and that nothing is signed or sent by Kiwiply; a draft is visible only on the org side; after Record as extended the state is Extended, the answer-by date is today plus the admin setting `org.offers.expiry_days` unless one was entered, the timeline shows Offer drafted and Offer extended by Amara; free text with an ID or bank number is refused; on a 390 px phone the list is cards.
+- **Pages / APIs:** `/w/accounts/offers`, `/api/orgs/{orgId}/offers`.
+- **Status: STORY-ONLY (covered by `OfferLifecycleIT`, `OffersPage.test.tsx`)**
+
+### PLT-72 Only the consultant accepts; the accept creates the placement
+- **Persona:** anika (consultant), then amara. **Steps:** 1. Anika opens `/w/consultant/offers`: the extended offer is there, no draft is. 2. She accepts it. 3. Amara reopens the offer and then Placements.
+- **Expected:** the offer is Accepted with the timeline Offer accepted (by Anika) and Placement created (System); a placement exists, Upcoming (PENDING_START) when the start is in the future or Active when it is today; no accept or decline control exists on the Accounts page; an offer past its deadline cannot be answered (the nightly job marks it Expired, event by System).
+- **Pages / APIs:** `/w/consultant/offers`, `POST /me-workspace/offers/{id}/accept`, `/w/accounts/placements`.
+- **Status: STORY-ONLY (covered by `OfferLifecycleIT`)**
+
+### PLT-73 A placement starts on its date, gives notice and ends with a reason
+- **Persona:** amara. **Steps:** 1. On the start date the daily job runs. 2. Open the placement: Record Notice with a last day. 3. Open it again and Terminate with a reason.
+- **Expected:** PENDING_START becomes Active on the start date (placement timeline Started); after notice the row reads Ending and the consultant's availability reads On notice; after Terminate it reads Terminated with the reason and the consultant is Available again; terminating needs a reason; an ended placement cannot be ended again; a consultant who set themselves Not available is left that way.
+- **Pages / APIs:** `/w/accounts/placements`, `POST /api/orgs/{orgId}/placements/{id}/notice`, `/terminate`.
+- **Status: STORY-ONLY (covered by `OfferLifecycleIT`)**
+
+### PLT-74 Amara reads the submissions as records
+- **Persona:** amara. **Steps:** 1. Open `/w/accounts/submissions`. 2. Filter by status and search by consultant or requirement.
+- **Expected:** the organization's submissions with consultant, requirement, client, status and the consultant's approval state; tiles from real counts; there is no submit, approve or edit control anywhere on the page and the API has no write route; another organization's submissions never appear.
+- **Pages / APIs:** `/w/accounts/submissions`, `GET /api/orgs/{orgId}/submissions[/counts]`.
+- **Status: STORY-ONLY (covered by `OfferLifecycleIT`, `SubmissionsRecordsPage.test.tsx`)**
