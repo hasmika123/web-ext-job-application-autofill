@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Caveat } from "next/font/google";
 import TenantThemeProvider from "@/components/ent/TenantThemeProvider";
 import TenantTemporarilyUnavailable from "@/components/tenant/TenantTemporarilyUnavailable";
 import { getTenant } from "@/lib/tenant";
@@ -13,6 +14,9 @@ import { tenantMetadata } from "@/lib/tenant-metadata";
  *   UNAVAILABLE -> the API was slow, down or throttling us: a "try again" page, never the "doesn't exist" 404
  *   PLATFORM -> notFound(): the tenant tree is not served on a platform host
  */
+// the handwritten face of the welcome band's note (the same one the personal app's hero uses)
+const caveat = Caveat({ weight: "600", subsets: ["latin"], variable: "--font-caveat", display: "swap" });
+
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTenant();
   if (t.kind === "UNAVAILABLE") return { title: { absolute: "Please try again" }, robots: { index: false, follow: false } };
@@ -26,7 +30,7 @@ export default async function TenantTreeLayout({ children }: { children: React.R
   if (t.kind !== "TENANT") notFound();
   return (
     <TenantThemeProvider primary={t.tenant.branding?.primary} secondary={t.tenant.branding?.secondary}>
-      {children}
+      <div className={`${caveat.variable} contents`}>{children}</div>
     </TenantThemeProvider>
   );
 }

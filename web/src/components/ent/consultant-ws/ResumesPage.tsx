@@ -103,7 +103,7 @@ const TILE_SPECS: TileSpec[] = [
 function Tile({ spec, view, index }: { spec: TileSpec; view: ResumesView | null; index: number }) {
   const Icon = spec.icon;
   const frame = (body: ReactNode, state: string) => (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-state={state} className={cn("flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border p-3.5 sm:p-4", spec.key === "primary" ? "border-line bg-v2-amber-soft/40" : "border-line bg-paper")}>
+    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={state} className={cn("flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border p-3.5 sm:p-4", spec.key === "primary" ? "border-line bg-v2-amber-soft/40" : "border-line bg-paper")}>
       <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-[12px]", TONES[spec.tone])}>
         <Icon size={22} />
       </span>

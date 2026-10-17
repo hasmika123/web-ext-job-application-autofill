@@ -22,6 +22,8 @@ import {
   useToast,
 } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import { ENT_MASCOT_BASE } from "@/lib/ent/mascot";
+import { heroLook } from "@/lib/ent/hero-look";
 import { undoToast } from "@/lib/undo-toast";
 import { activeKey, bannersFor, defaultTitle, navSections, primaryRoleName, switcherRows, type SwitcherRow } from "@/lib/ent/shell";
 import { readCollapsed, readDismissed, readLandingPref, writeCollapsed, writeDismissed, writeLandingPref } from "@/lib/ent/shell-prefs";
@@ -33,7 +35,9 @@ import { ShellSlotContext, type PageHeaderValue } from "./ShellContext";
 import ShellBell from "./ShellBell";
 import DemoRefusalNotice from "@/components/ent/shell/DemoRefusalNotice";
 import ShellNav from "./ShellNav";
+import ShellFooter from "./ShellFooter";
 import ShellSearch from "./ShellSearch";
+import Welcome from "./Welcome";
 import { useAccessChanged } from "./useAccessChanged";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
@@ -176,6 +180,10 @@ export default function EnterpriseShell({
   };
   const firstName = me.person.name.trim().split(/\s+/)[0] ?? me.person.name;
   const { tabs } = bottomBar(workspace);
+  // a workspace's home page opens with a welcome message; the page's own title becomes the small label above it
+  const isHome = pathname.replace(/\/+$/, "") === workspace.home.replace(/\/+$/, "");
+  const look = heroLook(pathname, isHome);
+  const homeSubtitle =subtitle ?? `Here's what's happening at ${tenant.displayName} today.`;
 
   const choose = (row: SwitcherRow) => {
     setSwitcherOpen(false);
@@ -270,13 +278,10 @@ export default function EnterpriseShell({
         <div className={cn("flex min-w-0 flex-1 flex-col", focus && "min-h-0")}>
           {/* ── top bar, md and up ───────────────────────────────────────────────────────────── */}
           <header data-shell-topbar className="ent-header sticky top-0 z-30 hidden items-center bg-app-bg/95 py-3 backdrop-blur md:flex">
-            <div className="min-w-0 flex-1" data-page-header>
-              <h1 className="ent-title" title={title}>{title}</h1>
-              {subtitle ? <p className="ent-subtitle" title={subtitle}>{subtitle}</p> : null}
-            </div>
-            <div className="ent-search-wrap hidden flex-none min-[1360px]:block">
+            <div className="ent-search-wrap hidden min-w-0 flex-1 min-[1360px]:block">
               <ShellSearch me={me} inputId={SEARCH_INPUT_ID} />
             </div>
+            <div className="min-w-0 flex-1 min-[1360px]:hidden" />
             <Tooltip content="Search" side="bottom" className="min-[1360px]:hidden">
               <IconButton aria-label="Search" onClick={() => setSearchOpen(true)} className="h-11 w-11 rounded-xl text-ink/80 min-[1360px]:hidden">
                 <SearchIcon size={20} />
@@ -342,11 +347,30 @@ export default function EnterpriseShell({
               focus && "flex min-h-0 flex-col overflow-hidden !p-0",
             )}
           >
-            <div className={cn("mb-4 md:hidden", focus && "hidden")} data-page-header-phone>
-              <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-ink">{title}</h1>
-              {subtitle ? <p className="mt-0.5 text-[13.5px] text-muted">{subtitle}</p> : null}
-            </div>
+            {/* the page title band every Kiwiply page opens with: brand-tinted wash, bold title, one-line subtitle, the bee on the right (every size; it shrinks on a phone) */}
+            <section className={cn("ent-hero mb-4 flex", focus && "!hidden")} data-page-header data-home={isHome ? "true" : undefined} data-variant={look.variant}>
+              <div className="min-w-0 flex-1">
+                {isHome ? <p className="ent-hero-eyebrow">{title}</p> : null}
+                <h1 className="ent-hero-title" title={isHome ? undefined : title}>
+                  {isHome ? <Welcome name={firstName} /> : title}
+                </h1>
+                {isHome ? (
+                  <p className="ent-hero-subtitle" title={homeSubtitle}>{homeSubtitle}</p>
+                ) : subtitle ? (
+                  <p className="ent-hero-subtitle" title={subtitle}>{subtitle}</p>
+                ) : null}
+              </div>
+              {isHome ? (
+                <p aria-hidden className="ent-hero-note">
+                  Let&apos;s make today count!
+                </p>
+              ) : null}
+              {/* decoration only */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={`${ENT_MASCOT_BASE}/${look.pose}.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />
+            </section>
             {children}
+            {focus ? null : <ShellFooter orgName={tenant.displayName} supportEmail={tenant.supportEmail} />}
           </main>
           <DemoRefusalNotice />
         </div>
