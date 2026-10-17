@@ -105,7 +105,7 @@ public final class RetirementFixtures {
     /** {@code n} saved resumes (counts only; no content). */
     public static void resumes(JdbcTemplate jdbc, Long userId, int n) {
         for (int i = 0; i < n; i++) {
-            jdbc.update("INSERT INTO resume (label, r_2_object_key, status, created_at, user_id) VALUES (?, ?, 'CONFIRMED', ?, ?)", "Resume " + i, "test/" + UUID.randomUUID(), Timestamp.from(Instant.now()), userId);
+            jdbc.update("INSERT INTO resume (label, r_2_object_key, status, created_at, user_id, share_with_org) VALUES (?, ?, 'CONFIRMED', ?, ?, 1)", "Resume " + i, "test/" + UUID.randomUUID(), Timestamp.from(Instant.now()), userId);
         }
     }
 

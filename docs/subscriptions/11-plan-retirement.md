@@ -359,7 +359,7 @@ Enterprise: Licenses page banner + bulk action (§8); the consultant Features pa
 |---|---|
 | `RetirementEffectiveDateTest` | §3 table: monthly/quarterly/yearly/cancel-pending/past_due/contract dates; the date only moves later |
 | `NoEarlyLossIT` | for every fixture subscriber, entitlements and prices are byte-identical from notice start to `retire_effective_at − 1 s` (clock-driven) |
-| `NoSilentRepriceTest` | default MIGRATE refused when any successor price is higher; FREE/opt-in paths never create a charge |
+| `NoSilentRepriceIT` | default MIGRATE refused when any successor price is higher; FREE/opt-in paths never create a charge |
 | `SuccessorAdvisorTest` | §5.2 scoring on fixtures (fully covered, gaps, tie → rank), quote reuse, nightly recompute |
 | `RetirementNoticeScheduleTest` | 60/30/7/1 sends with dedupe; stop on decision; enterprise recipients; copy keys present |
 | `FallbackFreeJobTest` | locks computed = held services \ FREE; add-ons ended; change rows; idempotent rerun; Stripe cancel at D-1 only for undecided |

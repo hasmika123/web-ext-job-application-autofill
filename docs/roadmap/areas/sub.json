@@ -3684,14 +3684,14 @@
       "supersedes": [],
       "ac": [
         "SWITCH_AT_RENEWAL for an equal-price successor → PENDING change at retire_effective_at, no charge today, item SWITCH_SCHEDULED.",
-        "SWITCH_NOW for a higher-priced successor → confirm with proration; item SWITCHED_NOW; NoSilentRepriceTest proves no other path charges more.",
+        "SWITCH_NOW for a higher-priced successor → confirm with proration; item SWITCHED_NOW; NoSilentRepriceIT proves no other path charges more.",
         "CANCEL after a scheduled switch → schedule released, item CANCELLED, plan kept to period end.",
         "Replay with the same key → same result."
       ],
       "tests": [
         "RetirementChoiceServiceTest",
         "BillingRetirementResourceIT",
-        "NoSilentRepriceTest"
+        "NoSilentRepriceIT"
       ],
       "tech": "No new Stripe calls beyond K8.2's set.",
       "dod": "AC met, tests green, committed as one task. Billing DoD."
@@ -4086,7 +4086,7 @@
       ],
       "critical": true,
       "evidence": [],
-      "title": "Retirement regression gate: NoEarlyLossIT (entitlements and prices byte-identical until the effective date), DowngradeNeverDeletesIT, NoSilentRepriceTest, PersonalSubscriptionUnchangedIT E15 (retirements never cross worlds), Playwright journeys in the personal-billing-regression job",
+      "title": "Retirement regression gate: NoEarlyLossIT (entitlements and prices byte-identical until the effective date), DowngradeNeverDeletesIT, NoSilentRepriceIT, PersonalSubscriptionUnchangedIT E15 (retirements never cross worlds), Playwright journeys in the personal-billing-regression job",
       "persona": "Developer",
       "design": "docs/subscriptions/11-plan-retirement.md",
       "objective": "CI proves that no subscriber ever loses paid time, features or data because of a retirement.",
@@ -4099,7 +4099,7 @@
         "None."
       ],
       "backend": [
-        "api/src/test/… NoEarlyLossIT, DowngradeNeverDeletesIT, NoSilentRepriceTest, PersonalSubscriptionUnchangedIT (E15)",
+        "api/src/test/… NoEarlyLossIT, DowngradeNeverDeletesIT, NoSilentRepriceIT, PersonalSubscriptionUnchangedIT (E15)",
         ".github/workflows (test-list guard extended)"
       ],
       "db": [
@@ -4126,7 +4126,7 @@
       "tests": [
         "NoEarlyLossIT",
         "DowngradeNeverDeletesIT",
-        "NoSilentRepriceTest",
+        "NoSilentRepriceIT",
         "PersonalSubscriptionUnchangedIT",
         "Playwright plan-changing.spec.ts, admin-retirement.spec.ts"
       ],
