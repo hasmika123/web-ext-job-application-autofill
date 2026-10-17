@@ -1532,7 +1532,7 @@ class OrgIsolationIT {
             ids.put("opportunityMatchId", String.valueOf(assignedMatchId)); // {matchId} of the opportunities routes (see uri())
             ids.put("taskId", String.valueOf(taskId)); // {id} of the tasks routes (see uri())
             ids.put("availabilityBlockId", String.valueOf(availabilityBlockId)); // {id} of the availability/blocks routes (see uri())
-            ids.put("offerId", String.valueOf(offerId)); // {id} of the offers routes (see uri())
+            ids.put("cwsOfferId", String.valueOf(offerId)); // {id} of the /me-workspace/offers routes (see uri()); {offerId} below is the Accounts page's row
             ids.put("itemId", String.valueOf(placementChecklistId)); // placements/checklist/{itemId}
             ids.put("notificationId", String.valueOf(notificationId)); // {id} of DELETE notifications/{id} (see uri())
             ids.put("category", "JOB_MATCH"); // a fixed notification category, not a row
@@ -1619,6 +1619,7 @@ class OrgIsolationIT {
             .replace("/submissions/{id}", "/submissions/{submissionId}")
             .replace("/tasks/{id}", "/tasks/{taskId}")
             .replace("/blocks/{id}", "/blocks/{availabilityBlockId}")
+            .replace("/me-workspace/offers/{id}", "/me-workspace/offers/{cwsOfferId}") // the consultant's own offer, not the Accounts page's offer row (same name, different row)
             .replace("/offers/{id}", "/offers/{offerId}")
             .replace("/notifications/{id}", "/notifications/{notificationId}")
             .replace("/interviews/{interviewId}/feedback", "/interviews/{completedInterviewId}/feedback");

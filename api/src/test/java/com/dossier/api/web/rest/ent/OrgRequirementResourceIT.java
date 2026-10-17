@@ -87,7 +87,7 @@ class OrgRequirementResourceIT extends MemberItSupport {
         m.setStatus("ASSIGNED");
         m.setAssignedAt(Instant.now());
         matches.saveAndFlush(m);
-        em.flush();
+        flushIfInTransaction();
     }
 
     // ---- fixtures ----------------------------------------------------------------------------------------------------
@@ -422,7 +422,11 @@ class OrgRequirementResourceIT extends MemberItSupport {
         assertThat(titles(list("am", "?status=OPEN"))).doesNotContain("ML Engineer");
     }
 
+    // Assigning writes through REQUIRES_NEW helpers (the match insert and its ledger row). A new transaction cannot see, and its foreign keys lock-wait on, rows the
+    // class transaction has not committed (the organization, the requirement, the consultant): the call timed out in a 50 s lock wait. Like MktJobsIT, this test
+    // runs without the class transaction; its world is named by nanoTime, so what it commits touches no other test.
     @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void closingARequirementClosesTheAssignmentsStillOpenOnIt() throws Exception {
         MvcResult put = call(login("am"), post(url(a, r2) + "/assignments"), "{\"consultantId\":" + jessica.getId() + "}");
         assertStatus(put, 200);
@@ -446,7 +450,11 @@ class OrgRequirementResourceIT extends MemberItSupport {
         assertThat(json(call(login("am"), get(url(a, r2) + "/candidates?q=jess"))).get(0).path("name").asText()).isEqualTo("Jessica Davis");
     }
 
+    // Assigning writes through REQUIRES_NEW helpers (the match insert and its ledger row). A new transaction cannot see, and its foreign keys lock-wait on, rows the
+    // class transaction has not committed (the organization, the requirement, the consultant): the call timed out in a 50 s lock wait. Like MktJobsIT, this test
+    // runs without the class transaction; its world is named by nanoTime, so what it commits touches no other test.
     @Test
+    @Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void puttingARequirementInFrontOfAConsultantRecordsItOnceAndTheConsultantStillDecides() throws Exception {
         long before = auditCount(a, "REQUIREMENT_ASSIGN");
         MvcResult r = call(login("am"), post(url(a, r2) + "/assignments"), "{\"consultantId\":" + jessica.getId() + "}");

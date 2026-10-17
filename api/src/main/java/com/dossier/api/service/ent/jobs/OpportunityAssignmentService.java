@@ -227,6 +227,11 @@ public class OpportunityAssignmentService {
         return tx.readOpportunityRow(orgId, matchId);
     }
 
+    /** The match in a fresh snapshot (same reason as {@link #readRowFresh}): the match this very call inserted in its own transaction. */
+    public java.util.Optional<RequirementMatch> readMatchFresh(Long orgId, Long matchId) {
+        return tx.readMatch(orgId, matchId);
+    }
+
     @Transactional(noRollbackFor = OrgException.class)
     public Result assign(AssignmentScope scope, OrgMembership me, Long jobId, Long consultantId, Options options) {
         Long orgId = orgOf(scope, me);

@@ -82,7 +82,10 @@ test {
     testLogging {
         events 'FAILED', 'SKIPPED'
     }
-    jvmArgs += '-Djava.security.egd=file:/dev/./urandom -Xmx512m'
+    jvmArgs += '-Djava.security.egd=file:/dev/./urandom'
+    // The ArchUnit tests (TechnicalStructureTest, NoSubmitSurfaceTest, SensitiveTextCoverageTest) import every main class graph into this JVM and
+    // ArchUnit caches the imports; 512m ran out of heap once the application grew (OutOfMemoryError in SensitiveTextCoverageTest, worker died).
+    maxHeapSize = '1g'
     // uncomment if the tests reports are not generated
     // see https://github.com/jhipster/generator-jhipster/pull/2771 and https://github.com/jhipster/generator-jhipster/pull/4484
     // ignoreFailures true
