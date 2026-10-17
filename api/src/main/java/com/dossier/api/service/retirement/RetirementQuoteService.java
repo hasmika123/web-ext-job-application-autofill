@@ -116,7 +116,7 @@ public class RetirementQuoteService {
         );
         if (!same.isEmpty()) return same.get(0);
         PersonalQuoteService.Meta meta = new PersonalQuoteService.Meta(
-            scored.plan().getPlanKey(), dto.interval(), new LinkedHashMap<>(scored.addons()), List.of(), stateHash, sha256(price.toString()), currentQty(sub, now)
+            scored.plan().getPlanKey(), dto.interval(), new LinkedHashMap<>(scored.addons()), List.of(), stateHash, sha256(price.toString()), currentQty(sub, now), null, null, null, null
         );
         SubscriptionQuote q = new SubscriptionQuote();
         q.setUserId(userId);
