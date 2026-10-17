@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+!.env.staging.example
 
 # Workspace root install (npm workspaces). The root package-lock.json IS committed.
 node_modules/
