@@ -8,7 +8,7 @@ import { DEFAULT_THEME } from "../theme";
 import type { Theme } from "../types";
 import { designFree } from "./__test__/designFree";
 
-const html = (name: (typeof FIXTURES)[number], theme?: Partial<Theme>, templateId = "modern") =>
+const html = (name: (typeof FIXTURES)[number] | "sample", theme?: Partial<Theme>, templateId = "modern") =>
   renderToStaticMarkup(<ResumePreview doc={fixtureDoc(name)} theme={{ ...DEFAULT_THEME, ...theme }} templateId={templateId} />);
 
 describe("Modern template", () => {
@@ -17,6 +17,10 @@ describe("Modern template", () => {
       expect(html(name)).toMatchSnapshot();
     });
   }
+
+  it("sample: HTML snapshot", () => {
+    expect(html("sample")).toMatchSnapshot();
+  });
 
   it("renderToStaticMarkup(ResumePreview) is deterministic", () => {
     for (const name of FIXTURES) {

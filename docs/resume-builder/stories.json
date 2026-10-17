@@ -2340,7 +2340,7 @@
       "id": "R7.1",
       "epic": "R7",
       "title": "Second template proving the contract (design-free profile, two columns, photo slot) — when the user supplies template designs",
-      "status": "not_started",
+      "status": "done",
       "size": "M",
       "owners": [
         "ui"
@@ -2362,7 +2362,8 @@
       "supersedes": [],
       "benchmark": "Teal 10 templates, Kickresume 40+; each of ours ships with a capability declaration and a parse-check result",
       "design": "docs/RESUME-BUILDER-DESIGN.md",
-      "settings": []
+      "settings": [],
+      "note": "Superseded by docs/resume-builder/templates/stories.md (ten templates, T1–T16)"
     },
     {
       "id": "R7.2",

@@ -72,10 +72,10 @@ export function usePresentation({ resumeId, autosave, templateId, theme, doc, co
         dispatch({ type: "presentation/set", theme: serverTheme });
         latest.current = { ...latest.current, theme: serverTheme };
       },
-      onTemplateFailed: (confirmed, message, failed) => {
+      onTemplateFailed: (confirmed, message, failed, confirmedTheme) => {
         requested.current = confirmed;
         dispatch({ type: "template/forget", templateId: failed });
-        dispatch({ type: "presentation/set", templateId: confirmed });
+        dispatch({ type: "presentation/set", templateId: confirmed, theme: confirmedTheme });
         toast.current({ title: "Couldn't switch the template", description: message, variant: "error" });
       },
       onThemeFailed: (confirmed, message) => {

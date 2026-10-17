@@ -91,7 +91,7 @@ describe("presentation sync: template", () => {
     p.setTemplate("x");
     await tick(0);
     await tick(0);
-    expect(events.onTemplateFailed).toHaveBeenCalledWith("classic", "template 'x' is not enabled", "x");
+    expect(events.onTemplateFailed).toHaveBeenCalledWith("classic", "template 'x' is not enabled", "x", { accent: "#2563eb" });
   });
 
   it("dispose drops what is waiting and never holds the autosave again", async () => {

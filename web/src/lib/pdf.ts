@@ -405,6 +405,48 @@ async function printOn(browser: PwBrowser, html: string, pageSize: PageSize, cfg
 }
 
 /**
+ * PNG of the top of the first page: `width` px wide and `height` px tall, i.e. the page scaled down to `width` and cut at
+ * `height` (the template gallery's 240x340 thumbnails, TEMPLATES-DESIGN 8). Same safety as a print: a limiter slot, JavaScript
+ * off, every request aborted, the editor's (screen) look. Used by the thumbnail generator, not by a request path.
+ */
+export async function renderThumbPng(html: string, opts: { pageSize: PageSize; width: number; height: number }): Promise<Buffer> {
+  const cfg = readPdfConfig();
+  return limiter().run(async () => {
+    const browser = await openBrowser(cfg);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const ceiling = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new PdfTimeoutError(cfg.timeoutMs)), cfg.timeoutMs + 2_000); // config-literal-ok: grace over the per-step timeouts
+    });
+    try {
+      return await Promise.race([thumbOn(browser, html, opts, cfg), ceiling]);
+    } finally {
+      clearTimeout(timer);
+      await browser.close().catch(() => undefined);
+    }
+  });
+}
+
+async function thumbOn(browser: PwBrowser, html: string, opts: { pageSize: PageSize; width: number; height: number }, cfg: PdfConfig): Promise<Buffer> {
+  const px = pagePixels(opts.pageSize);
+  const clipHeight = (opts.height * px.width) / opts.width;
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width: px.width, height: Math.ceil(clipHeight) },
+    deviceScaleFactor: opts.width / px.width,
+  });
+  try {
+    const page = await context.newPage();
+    page.setDefaultTimeout(cfg.timeoutMs);
+    await page.route("**/*", (route) => route.abort());
+    await page.setContent(html, { waitUntil: "load", timeout: cfg.timeoutMs });
+    await page.emulateMedia({ media: "screen" });
+    return await page.screenshot({ type: "png", clip: { x: 0, y: 0, width: px.width, height: clipHeight } });
+  } finally {
+    await context.close().catch(() => undefined);
+  }
+}
+
+/**
  * HTML -> PDF bytes. Takes a print slot (waits in the bounded queue, or `PdfBusyError`), then
  * prints with a hard `timeoutMs` ceiling (`PdfTimeoutError`). The page size comes from the
  * stylesheet's `@page` rule (`preferCSSPageSize`), which the theme sets; `pageSize` is the fallback.

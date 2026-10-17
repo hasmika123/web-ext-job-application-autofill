@@ -70,12 +70,11 @@ describe("DESIGN 6.6 render vectors: caps-doc x { ATS_STRICT, DESIGN_FREE }", ()
         expect(get()).not.toContain("rz-photo");
         expect(get()).not.toContain(PHOTO);
       });
-      it("accent variable is the ink colour; the font is the first allowed pair", () => {
+      it("accent variable is the ink colour; the stored font is kept (every bundled font is allowed)", () => {
         const out = get();
         expect(out).toContain("--rz-accent:#111827");
         expect(out).not.toContain("#ec4899");
-        expect(out).toContain('--rz-font-body:"Inter"');
-        expect(out).not.toContain("Source Serif");
+        expect(out).toContain('--rz-font-body:"Source Serif 4"');
       });
       it("hidden content is not drawn: Interests, the second custom section; the first custom section stays", () => {
         const out = get();

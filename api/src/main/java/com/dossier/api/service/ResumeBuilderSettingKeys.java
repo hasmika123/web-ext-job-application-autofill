@@ -407,12 +407,12 @@ public final class ResumeBuilderSettingKeys {
         bool(k, FEATURE_TAILOR, true, "Tailor to Job (DESIGN 12).");
         bool(k, AI_FEATURE_RESUME, true, "Kill switch for the SUGGEST / REWRITE / SUMMARY builder AI tasks (DESIGN 13).");
 
-        // Templates and theme. Only Modern is registered in the web today; the API accepts the three ids in
-        // ResumeDocService.KNOWN_TEMPLATE_IDS.
+        // Templates and theme. The API accepts the ten gallery ids in ResumeDocService.KNOWN_TEMPLATE_IDS. Enabled = all ten in
+        // gallery order, popular = the five of docs/resume-builder/templates/TEMPLATES-DESIGN.md section 9.1.
         k.add(
             json(
                 TEMPLATES_ENABLED,
-                "[\"modern\"]",
+                "[\"modern\",\"classic\",\"compact\",\"simple\",\"engineer\",\"consultant\",\"scholar\",\"executive\",\"statement\",\"sidebar\"]",
                 "Template ids offered in the picker (non-empty, each a registered id).",
                 n -> idList(n, 1, Integer.MAX_VALUE, ResumeBuilderSettingKeys::isKnownTemplate)
             )
@@ -447,7 +447,7 @@ public final class ResumeBuilderSettingKeys {
         k.add(
             json(
                 TEMPLATES_POPULAR,
-                "[\"modern\"]",
+                "[\"modern\",\"engineer\",\"classic\",\"sidebar\",\"compact\"]",
                 "Order of the Popular Templates strip on the list page (default = enabled order).",
                 n -> idList(n, 0, Integer.MAX_VALUE, ResumeBuilderSettingKeys::isKnownTemplate)
             )

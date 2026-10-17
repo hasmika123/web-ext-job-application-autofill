@@ -11,7 +11,8 @@
  * `@page` supplies the margins and Chromium breaks the flow; items never split (`break-inside`).
  * `fit.ts#pageCount` converts a measured content height into a page count the same way.
  *
- * Fonts: self-hosted Latin variable subsets in ../fonts (SIL OFL, see the OFL-*.txt files there).
+ * Fonts: self-hosted Latin STATIC subsets in ../fonts (one file per weight/style, so Chromium embeds them as
+ * TrueType in a PDF; variable fonts come out as Type 3) (SIL OFL, see the OFL-*.txt files there).
  * `font-display: block` so print never captures a fallback face. The PDF route swaps these URLs for
  * base64 data URIs.
  */
@@ -19,17 +20,129 @@
 @font-face {
   font-family: "Inter";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400;
   font-display: block;
-  src: url("../fonts/inter-latin-var.woff2") format("woff2");
+  src: url("../fonts/inter-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url("../fonts/inter-latin-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("../fonts/inter-latin-700.woff2") format("woff2");
 }
 
 @font-face {
   font-family: "Source Serif 4";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400;
   font-display: block;
-  src: url("../fonts/source-serif-4-latin-var.woff2") format("woff2");
+  src: url("../fonts/source-serif-4-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url("../fonts/source-serif-4-latin-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("../fonts/source-serif-4-latin-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../fonts/ibm-plex-sans-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url("../fonts/ibm-plex-sans-latin-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("../fonts/ibm-plex-sans-latin-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: italic;
+  font-weight: 400;
+  font-display: block;
+  src: url("../fonts/ibm-plex-sans-italic-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: italic;
+  font-weight: 700;
+  font-display: block;
+  src: url("../fonts/ibm-plex-sans-italic-latin-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "EB Garamond";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../fonts/eb-garamond-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "EB Garamond";
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url("../fonts/eb-garamond-latin-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "EB Garamond";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("../fonts/eb-garamond-latin-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "EB Garamond";
+  font-style: italic;
+  font-weight: 400;
+  font-display: block;
+  src: url("../fonts/eb-garamond-italic-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "EB Garamond";
+  font-style: italic;
+  font-weight: 700;
+  font-display: block;
+  src: url("../fonts/eb-garamond-italic-latin-700.woff2") format("woff2");
 }
 
 @page {
@@ -148,8 +261,9 @@
   break-after: avoid;
 }
 
+/* Templates retune the gap between entries with `--rz-entry-gap` (one-line sections keep their own). */
 .rz-entry {
-  margin: 0 0 calc(0.7em * var(--rz-density));
+  margin: 0 0 var(--rz-entry-gap, calc(0.7em * var(--rz-density)));
   break-inside: avoid;
 }
 
@@ -208,6 +322,19 @@
   white-space: nowrap;
 }
 
+/* Location on the right of a two-line head: same look as the dates. */
+.rz-item-loc {
+  flex: none;
+  font-size: 0.9em;
+  color: var(--rz-muted);
+  white-space: nowrap;
+}
+
+/* The second row of a two-line head (title-org / org-title). Templates size and style it. */
+.rz-item-head-2 {
+  margin-top: calc(0.05em * var(--rz-density));
+}
+
 .rz-item-sub {
   font-size: 0.9em;
   color: var(--rz-muted);
@@ -228,6 +355,36 @@
 
 .rz-skill-group {
   font-weight: 600;
+}
+
+/* Skills as a tag list (renderSections `skills: "list"`): real text in a wrapping list. */
+.rz-skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em;
+  margin: calc(0.2em * var(--rz-density)) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rz-skill-tags li {
+  padding: 0.1em 0.5em;
+  border: 1px solid color-mix(in srgb, var(--rz-accent) 35%, transparent);
+  border-radius: 3px;
+}
+
+/* Contact entries one per line (ContactLine `stacked`). */
+.rz-contact-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-contact-list li {
+  margin: 0 0 calc(0.15em * var(--rz-density));
+  overflow-wrap: anywhere;
 }
 
 .rz-bullets {
@@ -258,6 +415,766 @@
   object-fit: cover;
   border-radius: 50%;
 }
+
+/* == tpl:modern == */
+/* Modern is the base stylesheet above plus a slightly tighter rhythm: line height 1.34 (base 1.4), section gap .9em (1em)
+   and entry gap .6em (.7em), so the shared sample keeps room for extra bullets inside two pages (TEMPLATES-DESIGN 11). */
+.rz-page.rz-tpl-modern {
+  line-height: 1.34;
+}
+
+.rz-tpl-modern .rz-section {
+  margin-bottom: calc(0.9em * var(--rz-density));
+}
+
+.rz-tpl-modern .rz-section-experience,
+.rz-tpl-modern .rz-section-education,
+.rz-tpl-modern .rz-section-projects,
+.rz-tpl-modern .rz-section-custom {
+  --rz-entry-gap: calc(0.6em * var(--rz-density));
+}
+/* == /tpl:modern == */
+
+/* == tpl:classic == */
+.rz-tpl-classic {
+  --rz-entry-gap: calc(0.65em * var(--rz-density));
+}
+
+.rz-tpl-classic .rz-header {
+  text-align: center;
+}
+
+.rz-tpl-classic .rz-name {
+  font-size: 1.7em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rz-tpl-classic .rz-headline {
+  margin-top: 0.15em;
+  font-size: 1em;
+  font-style: italic;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-classic .rz-contact {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-classic .rz-section {
+  margin-bottom: calc(1em * var(--rz-density));
+}
+
+.rz-tpl-classic .rz-section-title {
+  margin-bottom: calc(0.5em * var(--rz-density));
+  padding-bottom: 0.15em;
+  font-size: 0.9em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rz-ink);
+  border-bottom: 1px solid var(--rz-ink);
+}
+
+.rz-tpl-classic .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-classic .rz-item-org {
+  font-weight: 400;
+}
+
+.rz-tpl-classic .rz-bullet::marker {
+  color: var(--rz-ink);
+}
+
+.rz-tpl-classic .rz-skill-group {
+  font-weight: 700;
+}
+/* == /tpl:classic == */
+
+/* == tpl:compact == */
+.rz-page.rz-tpl-compact {
+  line-height: 1.3;
+}
+
+.rz-tpl-compact {
+  --rz-entry-gap: calc(0.45em * var(--rz-density));
+}
+
+.rz-tpl-compact .rz-header {
+  margin-bottom: calc(0.7em * var(--rz-density));
+}
+
+.rz-tpl-compact .rz-name {
+  font-size: 1.6em;
+  font-weight: 700;
+}
+
+.rz-tpl-compact .rz-headline {
+  margin-top: calc(0.1em * var(--rz-density));
+  font-size: 1em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-compact .rz-contact {
+  margin-top: calc(0.3em * var(--rz-density));
+  font-size: 0.85em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-compact .rz-section {
+  margin-bottom: calc(0.7em * var(--rz-density));
+}
+
+.rz-tpl-compact .rz-section-title {
+  margin-bottom: calc(0.35em * var(--rz-density));
+  padding-bottom: 0.1em;
+  font-size: 0.85em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rz-ink);
+  border-bottom: 1px solid #d1d5db;
+}
+
+.rz-tpl-compact .rz-item-dates,
+.rz-tpl-compact .rz-item-loc,
+.rz-tpl-compact .rz-item-sub {
+  font-size: 0.85em;
+}
+
+.rz-tpl-compact .rz-bullets {
+  margin-top: calc(0.15em * var(--rz-density));
+  padding-left: 1.1em;
+}
+
+.rz-tpl-compact .rz-bullet {
+  margin-bottom: calc(0.1em * var(--rz-density));
+}
+/* == /tpl:compact == */
+/* == tpl:statement == */
+/* Rhythm: line height 1.31 (base 1.4), section gap .85em, heading gap .4em and entry gap .55em keep the shared sample, and a
+   browser Print of it, inside two pages with room for extra bullets (TEMPLATES-DESIGN 11). */
+.rz-page.rz-tpl-statement {
+  line-height: 1.31;
+}
+
+.rz-tpl-statement .rz-section {
+  margin-bottom: calc(0.85em * var(--rz-density));
+}
+
+.rz-tpl-statement .rz-section-experience,
+.rz-tpl-statement .rz-section-education,
+.rz-tpl-statement .rz-section-projects,
+.rz-tpl-statement .rz-section-custom {
+  --rz-entry-gap: calc(0.55em * var(--rz-density));
+}
+
+.rz-tpl-statement .rz-header {
+  margin: 0 0 calc(1.2em * var(--rz-density));
+  padding: 1.1em 1.2em;
+  border-radius: 4px;
+  background: var(--rz-accent);
+  color: #fff;
+}
+
+.rz-tpl-statement .rz-name {
+  font-size: 2em;
+  font-weight: 700;
+  color: #fff;
+}
+
+.rz-tpl-statement .rz-headline {
+  margin-top: 0.15em;
+  font-size: 1.05em;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.rz-tpl-statement .rz-contact {
+  font-size: 0.9em;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.rz-tpl-statement .rz-contact .rz-link {
+  color: #fff;
+}
+
+.rz-tpl-statement .rz-section-title {
+  margin-bottom: calc(0.4em * var(--rz-density));
+  padding: 0 0 0 0.5em;
+  font-size: 0.95em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rz-accent);
+  border-bottom: 0;
+  border-left: 3px solid var(--rz-accent);
+}
+
+.rz-tpl-statement .rz-item-title {
+  font-weight: 700;
+}
+/* == /tpl:statement == */
+
+/* == tpl:sidebar == */
+.rz-page.rz-tpl-sidebar {
+  display: grid;
+  grid-template-columns: 32% minmax(0, 1fr);
+  grid-template-areas: "header header" "side main";
+  column-gap: 1.4em;
+  align-content: start;
+  line-height: 1.32;
+}
+
+.rz-page.rz-tpl-sidebar.rz-no-side {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "header" "main";
+}
+
+.rz-tpl-sidebar .rz-header {
+  grid-area: header;
+  margin-bottom: calc(1em * var(--rz-density));
+}
+
+.rz-tpl-sidebar .rz-name {
+  font-size: 2em;
+  font-weight: 700;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-sidebar .rz-headline {
+  font-size: 1.05em;
+  color: var(--rz-accent);
+}
+
+.rz-tpl-sidebar .rz-main {
+  grid-area: main;
+  min-width: 0;
+}
+
+.rz-tpl-sidebar .rz-side {
+  grid-area: side;
+  align-self: start;
+  padding: 0.9em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--rz-accent) 8%, #fff);
+  break-inside: auto;
+}
+
+/* Photo slot: a centred 6em circle at the top of the sidebar (or above the name when the sidebar is off). */
+.rz-tpl-sidebar .rz-photo {
+  width: 6em;
+  height: 6em;
+  margin: 0 auto calc(0.8em * var(--rz-density));
+}
+
+.rz-tpl-sidebar .rz-header .rz-photo {
+  margin: 0 0 calc(0.6em * var(--rz-density));
+}
+
+/* Main column. */
+.rz-tpl-sidebar .rz-main .rz-section-title {
+  margin-bottom: calc(0.45em * var(--rz-density));
+  font-size: 0.95em;
+  letter-spacing: 0.06em;
+  border-bottom: 1.5px solid var(--rz-accent);
+}
+
+.rz-tpl-sidebar .rz-item-title {
+  font-weight: 700;
+}
+
+/* Page fit: the main column is narrow, so a long role may split across pages (whole entries left a ~140pt hole at the foot of
+   page 1). The head stays with the first bullet, a bullet never splits, and nothing is left as a lone line. */
+.rz-tpl-sidebar .rz-main .rz-entry {
+  break-inside: auto;
+  orphans: 2;
+  widows: 2;
+}
+
+.rz-tpl-sidebar .rz-main .rz-item-head {
+  break-after: avoid;
+}
+
+.rz-tpl-sidebar .rz-main .rz-bullet {
+  break-inside: avoid;
+}
+
+.rz-tpl-sidebar .rz-main .rz-bullet:last-child {
+  break-before: avoid;
+}
+
+/* Sidebar: titles in accent without a rule, body at 0.9em. */
+.rz-tpl-sidebar .rz-side .rz-section-title {
+  margin-bottom: calc(0.4em * var(--rz-density));
+  padding: 0;
+  font-size: 0.85em;
+  letter-spacing: 0.06em;
+  border-bottom: 0;
+}
+
+.rz-tpl-sidebar .rz-side .rz-section-body {
+  font-size: 0.9em;
+}
+
+.rz-tpl-sidebar .rz-side .rz-contact-list {
+  font-size: 1em;
+}
+
+.rz-tpl-sidebar .rz-side .rz-item-head {
+  flex-wrap: wrap;
+  gap: 0 0.5em;
+}
+
+.rz-tpl-sidebar .rz-side .rz-section-skills .rz-entry {
+  margin-bottom: calc(0.5em * var(--rz-density));
+}
+
+.rz-tpl-sidebar .rz-side .rz-section-skills .rz-entry:last-child {
+  margin-bottom: 0;
+}
+/* == /tpl:sidebar == */
+
+/* == tpl:simple == */
+/* Simple: plain Word-style. Name left, sentence-case bold headings with no rule, no colour, dates in ink. */
+.rz-tpl-simple .rz-header {
+  margin: 0 0 calc(0.9em * var(--rz-density));
+}
+
+.rz-tpl-simple .rz-name {
+  font-size: 1.5em;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.rz-tpl-simple .rz-headline {
+  font-size: 1em;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-simple .rz-contact {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-simple .rz-section {
+  margin: 0 0 calc(0.9em * var(--rz-density));
+}
+
+.rz-tpl-simple .rz-section-title {
+  margin: 0 0 calc(0.3em * var(--rz-density));
+  padding: 0;
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rz-ink);
+  border-bottom: 0;
+}
+
+.rz-tpl-simple .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-simple .rz-item-org {
+  font-weight: 400;
+}
+
+.rz-tpl-simple .rz-item-dates {
+  font-size: 0.9em;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-simple .rz-item-sub {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-simple .rz-bullets {
+  padding-left: 1.2em;
+}
+
+.rz-tpl-simple .rz-bullet {
+  margin-bottom: calc(0.18em * var(--rz-density));
+}
+
+.rz-tpl-simple .rz-bullet::marker {
+  color: var(--rz-ink);
+}
+/* == /tpl:simple == */
+
+/* == tpl:engineer == */
+/* Engineer: centred small-caps header, ruled small-cap headings, two-line roles (title-org / org-title). */
+.rz-page.rz-tpl-engineer {
+  --rz-entry-gap: calc(0.5em * var(--rz-density));
+  line-height: 1.3;
+}
+
+.rz-tpl-engineer .rz-header {
+  margin: 0 0 calc(0.8em * var(--rz-density));
+  text-align: center;
+}
+
+.rz-tpl-engineer .rz-name {
+  font-size: 2.1em;
+  font-weight: 700;
+  font-variant-caps: small-caps;
+  letter-spacing: 0.02em;
+}
+
+.rz-tpl-engineer .rz-headline {
+  font-size: 1em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-engineer .rz-contact {
+  font-size: 0.85em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-engineer .rz-link {
+  text-decoration: underline;
+  border-bottom: 0;
+}
+
+.rz-tpl-engineer .rz-section {
+  margin-bottom: calc(0.8em * var(--rz-density));
+}
+
+.rz-tpl-engineer .rz-section-title {
+  margin-bottom: calc(0.4em * var(--rz-density));
+  padding-bottom: 0.1em;
+  font-size: 1.05em;
+  font-weight: 600;
+  font-variant-caps: small-caps;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--rz-ink);
+  border-bottom: 1px solid #111827;
+}
+
+.rz-tpl-engineer .rz-item-head-2 {
+  font-size: 0.92em;
+}
+
+.rz-tpl-engineer .rz-item-dates,
+.rz-tpl-engineer .rz-item-loc {
+  font-size: 0.9em;
+  color: var(--rz-ink);
+}
+
+/* Experience (and custom) entries: role bold, employer italic. */
+.rz-tpl-engineer .rz-section-experience .rz-item-title,
+.rz-tpl-engineer .rz-section-custom .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-engineer .rz-section-experience .rz-item-org,
+.rz-tpl-engineer .rz-section-custom .rz-item-org {
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Education entries: school bold, degree italic. */
+.rz-tpl-engineer .rz-section-education .rz-item-org {
+  font-weight: 700;
+}
+
+.rz-tpl-engineer .rz-section-education .rz-item-title {
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* Projects: title bold, link (shortened url) italic. */
+.rz-tpl-engineer .rz-section-projects .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-engineer .rz-section-projects .rz-link {
+  font-style: italic;
+}
+
+.rz-tpl-engineer .rz-skill-group {
+  font-weight: 700;
+}
+
+.rz-tpl-engineer .rz-section-skills .rz-skill-row {
+  font-size: 0.95em;
+}
+
+.rz-tpl-engineer .rz-section-skills .rz-entry {
+  margin-bottom: calc(0.1em * var(--rz-density));
+}
+
+.rz-tpl-engineer .rz-section-skills .rz-entry:last-child {
+  margin-bottom: 0;
+}
+
+.rz-tpl-engineer .rz-bullets {
+  margin-top: calc(0.15em * var(--rz-density));
+  padding-left: 1.1em;
+}
+
+.rz-tpl-engineer .rz-section-achievements .rz-bullets {
+  margin-top: 0;
+}
+
+.rz-tpl-engineer .rz-bullet {
+  margin-bottom: calc(0.1em * var(--rz-density));
+}
+
+.rz-tpl-engineer .rz-bullet::marker {
+  color: var(--rz-ink);
+}
+/* == /tpl:engineer == */
+
+/* == tpl:consultant == */
+.rz-page.rz-tpl-consultant {
+  line-height: 1.25;
+}
+
+.rz-tpl-consultant .rz-header {
+  margin-bottom: calc(0.6em * var(--rz-density));
+  text-align: center;
+}
+
+.rz-tpl-consultant .rz-name {
+  font-size: 1.5em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rz-tpl-consultant .rz-headline {
+  margin-top: 0.1em;
+  font-size: 0.9em;
+  font-variant-caps: small-caps;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-consultant .rz-contact {
+  margin-top: calc(0.2em * var(--rz-density));
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-consultant .rz-section {
+  margin-bottom: calc(0.65em * var(--rz-density));
+}
+
+.rz-tpl-consultant .rz-section-title {
+  margin-bottom: calc(0.35em * var(--rz-density));
+  padding-bottom: 0.08em;
+  font-size: 0.9em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rz-ink);
+  border-bottom: 1px solid #111827;
+}
+
+/* Entry gap for the two-line entries; one-line sections keep their own. */
+.rz-tpl-consultant .rz-section-experience,
+.rz-tpl-consultant .rz-section-education,
+.rz-tpl-consultant .rz-section-projects,
+.rz-tpl-consultant .rz-section-custom {
+  --rz-entry-gap: calc(0.4em * var(--rz-density));
+}
+
+/* Firm and school in bold, titles and degrees in italics; location and dates in ink at the body size. */
+.rz-tpl-consultant .rz-section-experience .rz-item-org,
+.rz-tpl-consultant .rz-section-education .rz-item-org,
+.rz-tpl-consultant .rz-section-custom .rz-item-org {
+  font-weight: 700;
+}
+
+.rz-tpl-consultant .rz-section-experience .rz-item-title,
+.rz-tpl-consultant .rz-section-education .rz-item-title,
+.rz-tpl-consultant .rz-section-custom .rz-item-title {
+  font-style: italic;
+  font-weight: 400;
+}
+
+.rz-tpl-consultant .rz-item-loc,
+.rz-tpl-consultant .rz-item-dates,
+.rz-tpl-consultant .rz-item-sub {
+  font-size: 1em;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-consultant .rz-bullets {
+  margin-top: calc(0.08em * var(--rz-density));
+  padding-left: 1em;
+}
+
+.rz-tpl-consultant .rz-bullet {
+  margin-bottom: calc(0.05em * var(--rz-density));
+}
+/* == /tpl:consultant == */
+
+/* == tpl:scholar == */
+.rz-page.rz-tpl-scholar {
+  line-height: 1.35;
+}
+
+.rz-tpl-scholar .rz-header {
+  margin-bottom: calc(0.7em * var(--rz-density));
+  text-align: center;
+}
+
+.rz-tpl-scholar .rz-name {
+  font-size: 1.4em;
+  font-weight: 700;
+}
+
+.rz-tpl-scholar .rz-headline {
+  margin-top: 0.1em;
+  font-size: 1em;
+  font-weight: 400;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-scholar .rz-contact {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-scholar .rz-section {
+  margin-bottom: calc(0.85em * var(--rz-density));
+}
+
+.rz-tpl-scholar .rz-section-title {
+  margin-bottom: calc(0.3em * var(--rz-density));
+  padding-bottom: 0;
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+  color: var(--rz-ink);
+  border-bottom: 0;
+}
+
+/* Entry gap for the two-line entries; one-line sections keep their own. */
+.rz-tpl-scholar .rz-section-experience,
+.rz-tpl-scholar .rz-section-education,
+.rz-tpl-scholar .rz-section-projects,
+.rz-tpl-scholar .rz-section-custom {
+  --rz-entry-gap: calc(0.5em * var(--rz-density));
+}
+
+/* Organisation and title are both bold; location and dates in ink at the body size. */
+.rz-tpl-scholar .rz-item-org,
+.rz-tpl-scholar .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-scholar .rz-item-loc,
+.rz-tpl-scholar .rz-item-dates,
+.rz-tpl-scholar .rz-item-sub {
+  font-size: 1em;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-scholar .rz-bullets {
+  padding-left: 1.2em;
+}
+
+.rz-tpl-scholar .rz-bullet {
+  margin-bottom: calc(0.15em * var(--rz-density));
+}
+/* == /tpl:scholar == */
+
+/* == tpl:executive == */
+.rz-page.rz-tpl-executive {
+  line-height: 1.32;
+}
+
+.rz-tpl-executive .rz-header {
+  margin-bottom: calc(0.9em * var(--rz-density));
+  padding-bottom: calc(0.45em * var(--rz-density));
+  border-bottom: 2px solid #111827;
+}
+
+.rz-tpl-executive .rz-name {
+  font-size: 2em;
+  font-weight: 700;
+}
+
+.rz-tpl-executive .rz-headline {
+  margin-top: 0.2em;
+  font-size: 1.05em;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-executive .rz-contact {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-executive .rz-section {
+  margin-bottom: calc(0.9em * var(--rz-density));
+}
+
+.rz-tpl-executive .rz-section-title {
+  margin-bottom: calc(0.45em * var(--rz-density));
+  padding-bottom: 0.15em;
+  font-size: 0.95em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rz-ink);
+  border-bottom: 1px solid #d1d5db;
+}
+
+.rz-tpl-executive .rz-section-summary .rz-text {
+  font-size: 1.02em;
+}
+
+/* Entry gap for the two-line entries; one-line sections keep their own. */
+.rz-tpl-executive .rz-section-experience,
+.rz-tpl-executive .rz-section-education,
+.rz-tpl-executive .rz-section-projects,
+.rz-tpl-executive .rz-section-custom {
+  --rz-entry-gap: calc(0.6em * var(--rz-density));
+}
+
+.rz-tpl-executive .rz-item-title {
+  font-size: 1.02em;
+  font-weight: 700;
+}
+
+.rz-tpl-executive .rz-item-org {
+  font-style: normal;
+  font-weight: 400;
+}
+
+.rz-tpl-executive .rz-item-dates {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-executive .rz-skill-row {
+  font-size: 1em;
+}
+
+.rz-tpl-executive .rz-skill-group {
+  font-weight: 700;
+}
+
+.rz-tpl-executive .rz-bullets {
+  padding-left: 1.2em;
+}
+
+.rz-tpl-executive .rz-bullet {
+  margin-bottom: calc(0.15em * var(--rz-density));
+}
+/* == /tpl:executive == */
 
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 

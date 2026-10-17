@@ -38,8 +38,11 @@ export interface PresentationOptions {
    * so a late answer never overwrites a newer choice.
    */
   onThemeAdopted?(theme: Theme): void;
-  /** `failed` = the template id whose PATCH was refused (its undo entry, if any, is dropped). */
-  onTemplateFailed?(confirmed: string, message: string, failed: string): void;
+  /**
+   * `failed` = the template id whose PATCH was refused (its undo entry, if any, is dropped). `confirmedTheme` is the last
+   * server-confirmed theme: the optimistic switch applied the new template's defaults to it, and going back must undo that too.
+   */
+  onTemplateFailed?(confirmed: string, message: string, failed: string, confirmedTheme: Theme | null): void;
   onThemeFailed?(confirmed: Theme | null, message: string): void;
   delayMs?: number;
 }
@@ -126,7 +129,7 @@ export function createPresentationSync(opts: PresentationOptions): PresentationS
           if (r.theme && queued === 1 && pendingTheme === null) opts.onThemeAdopted?.(r.theme);
           return r.version;
         }
-        opts.onTemplateFailed?.(confirmedTemplate, r.message, templateId);
+        opts.onTemplateFailed?.(confirmedTemplate, r.message, templateId, confirmedTheme);
         return undefined;
       });
     },
