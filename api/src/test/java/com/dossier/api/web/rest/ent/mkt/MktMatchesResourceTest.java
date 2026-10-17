@@ -11,6 +11,7 @@ import com.dossier.api.domain.enumeration.OrgRole;
 import com.dossier.api.domain.enumeration.OrgStatus;
 import com.dossier.api.service.ent.mkt.matches.MktMatchesDto;
 import com.dossier.api.service.ent.mkt.matches.MktMatchesService;
+import com.dossier.api.service.ent.pipeline.DuplicateGuard;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
 import java.lang.reflect.Method;
@@ -35,14 +36,22 @@ class MktMatchesResourceTest {
 
     @Test
     void assignDismissCompareAndDetailDelegate() {
-        resource.assign(me, 4L);
+        resource.assign(me, 4L, null);
         resource.dismiss(me, 5L);
         resource.compare(me, 1L, 2L);
         resource.get(me, 6L);
-        verify(service).assign(me, 4L);
+        verify(service).assign(me, 4L, DuplicateGuard.Confirm.NONE);
         verify(service).dismiss(me, 5L);
         verify(service).compare(me, 1L, 2L);
         verify(service).detail(me, 6L);
+    }
+
+    @Test
+    void assignPassesTheAnswerToADuplicateWarning() {
+        resource.assign(me, 4L, new MktMatchesDto.AssignRequest(true, "The client asked for both"));
+        verify(service).assign(me, 4L, DuplicateGuard.Confirm.of(true, "The client asked for both"));
+        resource.assign(me, 5L, new MktMatchesDto.AssignRequest(null, "ignored without the flag"));
+        verify(service).assign(me, 5L, DuplicateGuard.Confirm.of(null, "ignored without the flag"));
     }
 
     @Test

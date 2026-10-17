@@ -36,6 +36,7 @@ import com.dossier.api.service.ent.mkt.matches.MktMatchesDto.Response;
 import com.dossier.api.service.ent.mkt.matches.MktMatchesDto.ResumeUpdate;
 import com.dossier.api.service.ent.mkt.matches.MktMatchesDto.Row;
 import com.dossier.api.service.ent.mkt.matches.MktMatchesDto.Tick;
+import com.dossier.api.service.ent.pipeline.DuplicateGuard;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
@@ -202,6 +203,15 @@ public class MktMatchesService {
     /** SUGGESTED to ASSIGNED: the marketer puts this consultant forward for the job. Idempotent for an already ASSIGNED match. */
     @Transactional
     public Row assign(OrgMembership me, Long matchId) {
+        return assign(me, matchId, DuplicateGuard.Confirm.NONE);
+    }
+
+    /**
+     * {@link #assign(OrgMembership, Long)} answering a duplicate warning (Sprint 2 / B1): without a confirmation a pair the guard flags is 409 DUPLICATE_WARNING,
+     * with {@code confirm} (a reason) it goes through and the override is audited; BLOCK and the open-opportunity limit are 409 and nothing overrides them.
+     */
+    @Transactional
+    public Row assign(OrgMembership me, Long matchId, DuplicateGuard.Confirm confirm) {
         View page = scope.resolve(me, PAGE_KEY);
         View write = scope.resolve(me, ASSIGN_KEY);
         RequirementMatch m = matches.findByOrgIdAndId(me.orgId(), matchId).orElseThrow(OrgNotFoundException::new);
@@ -215,7 +225,7 @@ public class MktMatchesService {
         // The pair rules (resume gate, active consultant, reopening a declined or closed pair, the opportunity overlay, audit) live in one place.
         // An already ASSIGNED match comes back existing=true and answers as before; a declined or closed one is reopened.
         OpportunityAssignmentService.Result assigned = assignment.assign(write, me, m.getRequirementId(), m.getConsultantId(),
-            OpportunityAssignmentService.Options.none().withAudit(new OpportunityAssignmentService.Audit("MKT_MATCH_ASSIGN", "MATCH", String.valueOf(m.getId()),
+            OpportunityAssignmentService.Options.none().confirmingDuplicate(confirm).withAudit(new OpportunityAssignmentService.Audit("MKT_MATCH_ASSIGN", "MATCH", String.valueOf(m.getId()),
                 r -> "consultantId=" + r.consultantId() + ";requirementId=" + r.jobId() + ";score=" + r.score())));
         if (assigned.refused()) throw conflict(assigned.reason(), OpportunityAssignmentService.CONSULTANT_PAUSED.equals(assigned.reason()) ? "This consultant is on a project and their marketing is paused, so nothing can be assigned" : "This consultant is not active, so nothing can be assigned", null);
         return rowOf(me.orgId(), matches.findByOrgIdAndId(me.orgId(), matchId).orElseThrow(OrgNotFoundException::new));
