@@ -156,6 +156,9 @@
     "name" : "mkt-opportunities",
     "description" : "Marketing: opportunities (assigned and suggested matches), consultant interest requests and the activity feed."
   }, {
+    "name" : "account-privacy",
+    "description" : "Account deletion with an undo window, asynchronous data export, and terms acceptance."
+  }, {
     "name" : "resumes",
     "description" : "Resumes board: table, KPI tiles, detail with preview, primary / visibility / approval, upload (metadata) and exports."
   }, {
@@ -14623,6 +14626,43 @@
         }
       }
     },
+    "/api/admin/privacy/retention/run" : {
+      "post" : {
+        "tags" : [ "admin-privacy-resource" ],
+        "operationId" : "run",
+        "parameters" : [ {
+          "name" : "job",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "dryRun",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : true
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Result"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/orgs" : {
       "get" : {
         "tags" : [ "admin-org-resource" ],
@@ -15126,7 +15166,7 @@
     "/api/admin/job-sources/run" : {
       "post" : {
         "tags" : [ "admin-job-source-resource" ],
-        "operationId" : "run",
+        "operationId" : "run_1",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -15275,11 +15315,66 @@
       "delete" : {
         "tags" : [ "account-deletion" ],
         "summary" : "Delete my account and all my data",
-        "description" : "Permanently erases the current user's resumes (files + rows), bio, applications, AI answers, field cache, and the user account.",
+        "description" : "Permanently and immediately erases the current user's resumes (files + rows), bio, applications, AI answers, field cache, and the user account, and writes a purge report. For the undo window use POST /api/account/deletion-request.",
         "operationId" : "deleteMyAccount",
         "responses" : {
           "200" : {
             "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/account/terms-acceptance" : {
+      "get" : {
+        "tags" : [ "account-privacy" ],
+        "summary" : "Which terms and privacy-notice versions are in force, and which I accepted",
+        "operationId" : "termsStatus",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "account-privacy" ],
+        "summary" : "Record that I accepted the terms or the privacy notice at the version in force",
+        "description" : "document is TERMS or PRIVACY; version must be the one currently in force (legal.terms_version / legal.privacy_version). Repeating it is a no-op that returns the first timestamp.",
+        "operationId" : "acceptTerms",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TermsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
           }
         },
         "security" : [ {
@@ -15327,6 +15422,118 @@
             "description" : "OK"
           }
         }
+      }
+    },
+    "/api/account/exports" : {
+      "get" : {
+        "tags" : [ "account-privacy" ],
+        "summary" : "My recent data exports",
+        "operationId" : "listExports",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/View"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "account-privacy" ],
+        "summary" : "Start an asynchronous export of all my data",
+        "description" : "Queues a job that builds a ZIP (the JSON export plus my stored files, size-capped). Poll the job; when READY it carries a signed, expiring download path. One active job at a time; a daily limit applies.",
+        "operationId" : "requestExport",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/View"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/account/deletion-request" : {
+      "get" : {
+        "tags" : [ "account-privacy" ],
+        "summary" : "Is a deletion of my account pending?",
+        "operationId" : "deletionStatus",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "account-privacy" ],
+        "summary" : "Ask for my account to be deleted after the undo window",
+        "description" : "Schedules the erasure for privacy.deletion.grace_hours from now (default 24). Until then the account works as usual and the request can be withdrawn. With a grace of 0 the account is erased at once and the answer is status DELETED.",
+        "operationId" : "requestDeletion",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "delete" : {
+        "tags" : [ "account-privacy" ],
+        "summary" : "Withdraw my pending deletion request (undo)",
+        "operationId" : "cancelDeletion",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
       }
     },
     "/api/account/change-password" : {
@@ -24367,6 +24574,150 @@
         }
       }
     },
+    "/api/admin/privacy/retention" : {
+      "get" : {
+        "tags" : [ "admin-privacy-resource" ],
+        "operationId" : "retention",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/privacy/retention/runs" : {
+      "get" : {
+        "tags" : [ "admin-privacy-resource" ],
+        "operationId" : "runs",
+        "parameters" : [ {
+          "name" : "job",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "object",
+                    "additionalProperties" : { }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/privacy/deletion-requests" : {
+      "get" : {
+        "tags" : [ "admin-privacy-resource" ],
+        "operationId" : "pendingDeletions",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "object",
+                    "additionalProperties" : { }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/privacy/deletion-reports" : {
+      "get" : {
+        "tags" : [ "admin-privacy-resource" ],
+        "operationId" : "deletionReports",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "object",
+                    "additionalProperties" : { }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/privacy/data-map" : {
+      "get" : {
+        "tags" : [ "admin-privacy-resource" ],
+        "operationId" : "dataMap",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "object",
+                    "additionalProperties" : { }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/orgs/{id}" : {
       "get" : {
         "tags" : [ "admin-org-resource" ],
@@ -25078,6 +25429,85 @@
             "description" : "OK"
           }
         }
+      }
+    },
+    "/api/account/exports/{id}" : {
+      "get" : {
+        "tags" : [ "account-privacy" ],
+        "summary" : "One of my data exports",
+        "operationId" : "getExport",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/View"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/account/exports/{id}/file" : {
+      "get" : {
+        "tags" : [ "account-privacy" ],
+        "summary" : "Download a finished data export (signed link)",
+        "operationId" : "downloadExport",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "exp",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64",
+            "default" : 0
+          }
+        }, {
+          "name" : "sig",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "binary"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
       }
     },
     "/api/account/export" : {
@@ -31202,6 +31632,42 @@
           }
         }
       },
+      "Result" : {
+        "type" : "object",
+        "properties" : {
+          "job" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "dryRun" : {
+            "type" : "boolean"
+          },
+          "window" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unit" : {
+            "type" : "string"
+          },
+          "cutoff" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "candidates" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deleted" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "note" : {
+            "type" : "string"
+          }
+        }
+      },
       "Created" : {
         "type" : "object",
         "properties" : {
@@ -31453,6 +31919,20 @@
           },
           "error" : {
             "$ref" : "#/components/schemas/TestError"
+          }
+        }
+      },
+      "TermsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "document" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
           }
         }
       },
