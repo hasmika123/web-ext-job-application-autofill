@@ -283,6 +283,14 @@ Garamond files (no instancer step: they have only `wght`). Expected sizes 30–7
 inlines all six faces as data URIs (≈ 350 KB of CSS per print — within the 2.5 MB parse limits by
 a wide margin, and the PDF itself embeds only the used subsets).
 
+**Update 2026-10-17 (static instances).** Chromium embeds a variable font in a PDF as a Type 3 font, which
+is unusual for ATS pipelines. The six `*-latin-var.woff2` files above were therefore replaced by static
+instances, one file per weight and style (`inter-latin-{400,600,700}`, `source-serif-4-latin-{400,600,700}`,
+`ibm-plex-sans-latin-{400,600,700}` + `ibm-plex-sans-italic-latin-{400,700}`, `eb-garamond-latin-{400,600,700}` +
+`eb-garamond-italic-latin-{400,700}`), each with its own `@font-face` weight; the exported PDF now embeds normal
+subsetted TrueType (Type 0) fonts. The file list and recipe above are the history; the current ones are in
+`packages/ui/fonts/README.md`.
+
 ### 4.3 Code touch points (story T1)
 
 - `packages/ui/styles/resume.css`: four `@font-face` rules (family "IBM Plex Sans" weights

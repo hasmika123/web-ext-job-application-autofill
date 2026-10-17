@@ -67,7 +67,7 @@ const fixture = (name: string): ResumeDocument =>
   JSON.parse(readFileSync(path.resolve(__dirname, "../../../packages/ui/src/resume/__fixtures__", `${name}.json`), "utf8")) as ResumeDocument;
 
 /**
- * The fonts are ~230 KB of base64; keep snapshots readable. The per-template CSS blocks (`/* == tpl:<id> == *\/`) are elided too,
+ * The fonts are ~850 KB of base64; keep snapshots readable. The per-template CSS blocks (`/* == tpl:<id> == *\/`) are elided too,
  * so adding or tuning a template never churns this snapshot (each template has its own snapshots and compliance test).
  */
 const withoutFontBytes = (html: string) =>

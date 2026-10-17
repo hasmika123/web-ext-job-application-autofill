@@ -11,7 +11,8 @@
  * `@page` supplies the margins and Chromium breaks the flow; items never split (`break-inside`).
  * `fit.ts#pageCount` converts a measured content height into a page count the same way.
  *
- * Fonts: self-hosted Latin variable subsets in ../fonts (SIL OFL, see the OFL-*.txt files there).
+ * Fonts: self-hosted Latin STATIC subsets in ../fonts (one file per weight/style, so Chromium embeds them as
+ * TrueType in a PDF; variable fonts come out as Type 3) (SIL OFL, see the OFL-*.txt files there).
  * `font-display: block` so print never captures a fallback face. The PDF route swaps these URLs for
  * base64 data URIs.
  */
@@ -19,7 +20,23 @@
 @font-face {
   font-family: "Inter";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
   font-display: block;
   src: url(data:font/woff2;base64,…) format("woff2");
 }
@@ -27,7 +44,23 @@
 @font-face {
   font-family: "Source Serif 4";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 700;
   font-display: block;
   src: url(data:font/woff2;base64,…) format("woff2");
 }
@@ -35,7 +68,23 @@
 @font-face {
   font-family: "IBM Plex Sans";
   font-style: normal;
-  font-weight: 100 700;
+  font-weight: 400;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 700;
   font-display: block;
   src: url(data:font/woff2;base64,…) format("woff2");
 }
@@ -43,7 +92,15 @@
 @font-face {
   font-family: "IBM Plex Sans";
   font-style: italic;
-  font-weight: 100 700;
+  font-weight: 400;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: italic;
+  font-weight: 700;
   font-display: block;
   src: url(data:font/woff2;base64,…) format("woff2");
 }
@@ -51,7 +108,23 @@
 @font-face {
   font-family: "EB Garamond";
   font-style: normal;
-  font-weight: 400 800;
+  font-weight: 400;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "EB Garamond";
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "EB Garamond";
+  font-style: normal;
+  font-weight: 700;
   font-display: block;
   src: url(data:font/woff2;base64,…) format("woff2");
 }
@@ -59,7 +132,15 @@
 @font-face {
   font-family: "EB Garamond";
   font-style: italic;
-  font-weight: 400 800;
+  font-weight: 400;
+  font-display: block;
+  src: url(data:font/woff2;base64,…) format("woff2");
+}
+
+@font-face {
+  font-family: "EB Garamond";
+  font-style: italic;
+  font-weight: 700;
   font-display: block;
   src: url(data:font/woff2;base64,…) format("woff2");
 }

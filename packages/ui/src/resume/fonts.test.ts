@@ -20,6 +20,16 @@ describe("bundled fonts", () => {
     for (const f of onDisk) expect(referenced, `${f} is not referenced by any @font-face`).toContain(f);
   });
 
+  it("every bundled face is a static instance (one weight per @font-face, no variable file), so a PDF embeds real TrueType, not Type 3", () => {
+    const faces = [...css.matchAll(/@font-face\s*{([^}]*)}/g)].map((m) => m[1]);
+    expect(faces.length).toBeGreaterThan(0);
+    for (const f of faces) {
+      const weight = /font-weight:\s*([^;]+);/.exec(f)?.[1].trim() ?? "";
+      expect(weight, `font-weight of ${f}`).toMatch(/^\d{3}$/);
+    }
+    for (const f of referenced) expect(f, f).not.toMatch(/-var\./);
+  });
+
   it("every FontPair has a stack and every family it names first is declared by an @font-face (or is a system font)", () => {
     const declared = new Set([...css.matchAll(/@font-face\s*{[^}]*font-family:\s*"([^"]+)"/g)].map((m) => m[1]));
     expect(declared).toEqual(new Set(["Inter", "Source Serif 4", "IBM Plex Sans", "EB Garamond"]));
