@@ -30,10 +30,13 @@ public class TemplateThemeDefaults {
     static final Set<String> DEFAULTABLE = Set.of("accent", "fontPair", "spacing", "pageSize", "dateStyle", "showPhoto");
 
     /**
-     * Per-template defaults, by template id. No shipped template declares any yet (Modern leaves the user's
-     * theme alone), so a switch today changes nothing in the theme.
+     * Per-template defaults, by template id: the twin of each web template's {@code meta.defaults}, in gallery order
+     * (docs/resume-builder/templates/TEMPLATES-DESIGN.md section 0). Modern leaves the user's theme alone. Each
+     * template story adds its entry here and to {@code template-defaults.json}.
      */
-    static final Map<String, Map<String, Object>> BUILT_IN = Map.of();
+    static final Map<String, Map<String, Object>> BUILT_IN = Map.ofEntries(
+        Map.entry("modern", Map.of())
+    );
 
     /** The defaults the template declares, as a JSON object (empty when it declares none or is unknown). */
     public ObjectNode defaultsFor(String templateId) {

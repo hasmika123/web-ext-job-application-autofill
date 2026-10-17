@@ -407,8 +407,9 @@ public final class ResumeBuilderSettingKeys {
         bool(k, FEATURE_TAILOR, true, "Tailor to Job (DESIGN 12).");
         bool(k, AI_FEATURE_RESUME, true, "Kill switch for the SUGGEST / REWRITE / SUMMARY builder AI tasks (DESIGN 13).");
 
-        // Templates and theme. Only Modern is registered in the web today; the API accepts the three ids in
-        // ResumeDocService.KNOWN_TEMPLATE_IDS.
+        // Templates and theme. The API accepts the ten gallery ids in ResumeDocService.KNOWN_TEMPLATE_IDS. The enabled /
+        // popular defaults grow one id per template story (docs/resume-builder/templates/stories.md) so "enabled is a
+        // subset of what the web registers" holds at every commit; the full lists land in T15.
         k.add(
             json(
                 TEMPLATES_ENABLED,

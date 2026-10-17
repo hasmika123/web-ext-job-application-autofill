@@ -42,6 +42,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -75,7 +77,9 @@ public class ResumeDocService {
      * validated against. Which of them a user may pick is the {@code resume.templates.enabled} setting
      * (DESIGN 6.3), read through {@link #enabledTemplateIds()}.
      */
-    public static final Set<String> KNOWN_TEMPLATE_IDS = Set.of("modern", "classic", "compact");
+    public static final Set<String> KNOWN_TEMPLATE_IDS = Collections.unmodifiableSet(
+        new LinkedHashSet<>(List.of("modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement", "sidebar"))
+    );
 
     public static final String DEFAULT_TEMPLATE_ID = "modern";
     /** Photo keys are {@code resume-photos/<userId>/...} (DESIGN 5.3); a save may only echo a key under its owner's prefix. */

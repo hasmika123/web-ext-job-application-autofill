@@ -22,6 +22,7 @@ class SampleResumeFixtureTest {
     void theSampleResumePassesTheDocumentValidator() throws IOException {
         assumeTrue(Files.exists(SAMPLE), "docs folder not found next to the api module");
         JsonNode doc = ResumeDocument.parse(Files.readString(SAMPLE));
-        assertThat(ResumeDocumentValidator.validate(doc)).isEmpty();
+        // the photo key must sit under its owner's prefix; the sample's owner is "sample"
+        assertThat(ResumeDocumentValidator.validate(doc, ResumeDocumentValidator.Options.DEFAULTS.withPhotoKeyPrefix("resume-photos/sample/"))).isEmpty();
     }
 }
