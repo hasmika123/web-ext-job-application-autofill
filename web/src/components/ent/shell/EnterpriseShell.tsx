@@ -34,7 +34,9 @@ import { ShellSlotContext, type PageHeaderValue } from "./ShellContext";
 import ShellBell from "./ShellBell";
 import DemoRefusalNotice from "@/components/ent/shell/DemoRefusalNotice";
 import ShellNav from "./ShellNav";
+import ShellFooter from "./ShellFooter";
 import ShellSearch from "./ShellSearch";
+import Welcome from "./Welcome";
 import { useAccessChanged } from "./useAccessChanged";
 import WorkspaceSwitcher from "./WorkspaceSwitcher";
 
@@ -177,6 +179,9 @@ export default function EnterpriseShell({
   };
   const firstName = me.person.name.trim().split(/\s+/)[0] ?? me.person.name;
   const { tabs } = bottomBar(workspace);
+  // a workspace's home page opens with a welcome message; the page's own title becomes the small label above it
+  const isHome = pathname.replace(/\/+$/, "") === workspace.home.replace(/\/+$/, "");
+  const homeSubtitle = subtitle ?? `Here's what's happening at ${tenant.displayName} today.`;
 
   const choose = (row: SwitcherRow) => {
     setSwitcherOpen(false);
@@ -341,20 +346,28 @@ export default function EnterpriseShell({
             )}
           >
             {/* the page title band every Kiwiply page opens with: brand-tinted wash, bold title, one-line subtitle, the bee on the right (md and up) */}
-            <section className={cn("ent-hero mb-4 hidden md:flex", focus && "!hidden")} data-page-header>
+            <section className={cn("ent-hero mb-4 hidden md:flex", focus && "!hidden")} data-page-header data-home={isHome ? "true" : undefined}>
               <div className="min-w-0 flex-1">
-                <h1 className="ent-hero-title" title={title}>{title}</h1>
-                {subtitle ? <p className="ent-hero-subtitle" title={subtitle}>{subtitle}</p> : null}
+                {isHome ? <p className="ent-hero-eyebrow">{title}</p> : null}
+                <h1 className="ent-hero-title" title={isHome ? undefined : title}>
+                  {isHome ? <Welcome name={firstName} /> : title}
+                </h1>
+                {isHome ? (
+                  <p className="ent-hero-subtitle" title={homeSubtitle}>{homeSubtitle}</p>
+                ) : subtitle ? (
+                  <p className="ent-hero-subtitle" title={subtitle}>{subtitle}</p>
+                ) : null}
               </div>
               {/* decoration only */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`${ENT_MASCOT_BASE}/welcome.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />
+              <img src={`${ENT_MASCOT_BASE}/${isHome ? "welcome" : "happy"}.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />
             </section>
             <div className={cn("mb-4 md:hidden", focus && "hidden")} data-page-header-phone>
               <h1 className="text-[22px] font-extrabold leading-tight tracking-tight text-ink">{title}</h1>
               {subtitle ? <p className="mt-0.5 text-[13.5px] text-muted">{subtitle}</p> : null}
             </div>
             {children}
+            {focus ? null : <ShellFooter orgName={tenant.displayName} supportEmail={tenant.supportEmail} />}
           </main>
           <DemoRefusalNotice />
         </div>

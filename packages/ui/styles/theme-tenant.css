@@ -1467,3 +1467,52 @@
   justify-content: center;
   padding: 0;
 }
+
+/* welcome band on a workspace home: the page's title is a small label above the greeting */
+.theme-tenant .ent-hero-eyebrow {
+  margin-bottom: 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-deep);
+}
+.theme-tenant .ent-hero[data-home="true"] {
+  min-height: 140px;
+}
+.theme-tenant .ent-hero[data-home="true"] .ent-hero-title {
+  font-size: clamp(30px, 2.6vw, 40px);
+}
+
+/* page footer: org name left, the pages every member can reach on this host right */
+.theme-tenant .ent-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 24px;
+  margin-top: 32px;
+  padding: 16px 4px 4px;
+  border-top: 1px solid #e6ecf7;
+  font-size: 13px;
+  color: var(--ent-soft);
+}
+.theme-tenant .ent-footer a {
+  color: var(--ent-soft);
+}
+.theme-tenant .ent-footer a:hover {
+  color: var(--color-accent-deep);
+  text-decoration: underline;
+}
+
+/* the footer sits at the bottom of a short page: the main column is a flex column and the footer takes the free space above it */
+.theme-tenant main[data-shell-main] {
+  display: flex;
+  flex-direction: column;
+}
+.theme-tenant main[data-shell-main] > .ent-footer {
+  margin-top: auto;
+}
+.theme-tenant main[data-shell-main] > :nth-last-child(2):not(.ent-footer) {
+  margin-bottom: 32px;
+}
