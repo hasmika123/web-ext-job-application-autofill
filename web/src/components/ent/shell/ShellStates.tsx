@@ -13,10 +13,12 @@ import PageHeader from "./ShellContext";
 
 function Centered({ pose, children, ...rest }: { pose: EnterprisePose; children: React.ReactNode } & React.HTMLAttributes<HTMLElement> & Record<`data-${string}`, boolean | string>) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center justify-center px-4 py-16 text-center" {...rest}>
-      <EnterpriseMascot pose={pose} size="md" className="mb-4" />
-      {children}
-    </main>
+    <div className="ent-state-page flex min-h-dvh items-center justify-center px-4 py-12">
+      <main className="ent-card ent-state-card flex w-full max-w-xl flex-col items-center px-6 py-10 text-center sm:px-10" {...rest}>
+        <EnterpriseMascot pose={pose} size="lg" className="mb-4 drop-shadow-md" />
+        {children}
+      </main>
+    </div>
   );
 }
 
