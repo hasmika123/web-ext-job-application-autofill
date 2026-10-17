@@ -544,6 +544,79 @@
 }
 /* == /tpl:consultant == */
 
+/* == tpl:scholar == */
+.rz-page.rz-tpl-scholar {
+  line-height: 1.35;
+}
+
+.rz-tpl-scholar .rz-header {
+  margin-bottom: calc(0.7em * var(--rz-density));
+  text-align: center;
+}
+
+.rz-tpl-scholar .rz-name {
+  font-size: 1.4em;
+  font-weight: 700;
+}
+
+.rz-tpl-scholar .rz-headline {
+  margin-top: 0.1em;
+  font-size: 1em;
+  font-weight: 400;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-scholar .rz-contact {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-scholar .rz-section {
+  margin-bottom: calc(0.85em * var(--rz-density));
+}
+
+.rz-tpl-scholar .rz-section-title {
+  margin-bottom: calc(0.3em * var(--rz-density));
+  padding-bottom: 0;
+  font-size: 1em;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+  color: var(--rz-ink);
+  border-bottom: 0;
+}
+
+/* Entry gap for the two-line entries; one-line sections keep their own. */
+.rz-tpl-scholar .rz-section-experience,
+.rz-tpl-scholar .rz-section-education,
+.rz-tpl-scholar .rz-section-projects,
+.rz-tpl-scholar .rz-section-custom {
+  --rz-entry-gap: calc(0.5em * var(--rz-density));
+}
+
+/* Organisation and title are both bold; location and dates in ink at the body size. */
+.rz-tpl-scholar .rz-item-org,
+.rz-tpl-scholar .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-scholar .rz-item-loc,
+.rz-tpl-scholar .rz-item-dates,
+.rz-tpl-scholar .rz-item-sub {
+  font-size: 1em;
+  color: var(--rz-ink);
+}
+
+.rz-tpl-scholar .rz-bullets {
+  padding-left: 1.2em;
+}
+
+.rz-tpl-scholar .rz-bullet {
+  margin-bottom: calc(0.15em * var(--rz-density));
+}
+/* == /tpl:scholar == */
+
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
 @media print {
