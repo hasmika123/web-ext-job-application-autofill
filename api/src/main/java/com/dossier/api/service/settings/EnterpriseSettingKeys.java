@@ -88,11 +88,11 @@ public final class EnterpriseSettingKeys {
      * bounds below; the locale only from the allowed list; every Security change needs a reason of at least the configured length.
      */
     public static final String ORG_SECURITY_SESSION_TIMEOUT_MINUTES = "org.security.session_timeout_minutes";
-    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH = "org.security.password_min_length";
+    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH = "org.security.sign_in_min_length";
     public static final String ORG_SECURITY_SESSION_TIMEOUT_MIN_MINUTES = "org.security.session_timeout_min_minutes";
     public static final String ORG_SECURITY_SESSION_TIMEOUT_MAX_MINUTES = "org.security.session_timeout_max_minutes";
-    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR = "org.security.password_min_length_floor";
-    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING = "org.security.password_min_length_ceiling";
+    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR = "org.security.sign_in_min_length_floor";
+    public static final String ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING = "org.security.sign_in_min_length_ceiling";
     public static final String ORG_SETTINGS_REASON_MIN_CHARS = "org.settings.reason_min_chars";
     public static final String ORG_SETTINGS_LOCALES = "org.settings.locales";
     /** Audit viewer CSV export (X4.9): the most rows one export carries (newest first); an export of a longer log says it was cut. */
@@ -191,7 +191,7 @@ public final class EnterpriseSettingKeys {
             null, Risk.HIGH));
         k.add(new Key(PREPARE_ENABLED, Type.BOOL, "false", null, null, null,
             "Prepare selected openings: a consultant ticks assigned openings and the browser extension opens each job in a new tab and fills it from the consultant's own profile, then stops. "
-                + "The consultant reviews, completes anything missing and presses the final button on the real site; Kiwiply never does it for them and never ticks an attestation box. Off = the feature does not exist. An organization can switch it off in org_setting.", null, Risk.MEDIUM));
+                + "The consultant reviews, completes anything missing and presses the final button on the real site; Kiwiply never does it for them and never ticks an attestation box. Off = the feature does not exist. An organization can switch it off in org_setting.", null, Risk.HIGH));
         integer(k, PREPARE_DAILY_CAP, 30, 1, 1000, Risk.MEDIUM, "Prepare selected openings: the most openings one consultant may prepare per UTC day. An organization can override it in org_setting.");
         integer(k, PREPARE_MONTHLY_CAP, 300, 1, 10000, Risk.MEDIUM, "Prepare selected openings: the most openings one consultant may prepare per UTC calendar month. An organization can override it in org_setting.");
         integer(k, PREPARE_MAX_BATCH, 10, 1, 50, Risk.LOW, "Prepare selected openings: the most openings in one request. An organization can override it in org_setting.");
