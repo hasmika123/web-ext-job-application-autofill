@@ -1,3 +1,4 @@
 {
-  "modern": {}
+  "modern": {},
+  "classic": { "fontPair": "source-serif", "spacing": "normal" }
 }

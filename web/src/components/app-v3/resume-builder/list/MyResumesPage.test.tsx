@@ -443,8 +443,8 @@ describe("My Resumes: Popular Templates and Quick Tips", () => {
   });
 
   it("a template that is not enabled is not offered", () => {
-    renderPage(resumes(), cfg({ templates: { ...DEFAULT_BUILDER_CONFIG.templates, enabled: ["classic"], popular: ["classic"] } }));
-    // 'classic' is not in the UI registry; the strip falls back to the default template rather than being empty
+    renderPage(resumes(), cfg({ templates: { ...DEFAULT_BUILDER_CONFIG.templates, enabled: ["ghost"], popular: ["ghost"] } }));
+    // 'ghost' is not in the UI registry; the strip falls back to the default template rather than being empty
     expect(screen.getByAltText("Modern template")).toBeTruthy();
   });
 

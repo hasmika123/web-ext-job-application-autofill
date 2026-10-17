@@ -180,8 +180,9 @@
   break-after: avoid;
 }
 
+/* Templates retune the gap between entries with `--rz-entry-gap` (one-line sections keep their own). */
 .rz-entry {
-  margin: 0 0 calc(0.7em * var(--rz-density));
+  margin: 0 0 var(--rz-entry-gap, calc(0.7em * var(--rz-density)));
   break-inside: avoid;
 }
 
@@ -240,6 +241,19 @@
   white-space: nowrap;
 }
 
+/* Location on the right of a two-line head: same look as the dates. */
+.rz-item-loc {
+  flex: none;
+  font-size: 0.9em;
+  color: var(--rz-muted);
+  white-space: nowrap;
+}
+
+/* The second row of a two-line head (title-org / org-title). Templates size and style it. */
+.rz-item-head-2 {
+  margin-top: calc(0.05em * var(--rz-density));
+}
+
 .rz-item-sub {
   font-size: 0.9em;
   color: var(--rz-muted);
@@ -260,6 +274,36 @@
 
 .rz-skill-group {
   font-weight: 600;
+}
+
+/* Skills as a tag list (renderSections `skills: "list"`): real text in a wrapping list. */
+.rz-skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3em;
+  margin: calc(0.2em * var(--rz-density)) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rz-skill-tags li {
+  padding: 0.1em 0.5em;
+  border: 1px solid color-mix(in srgb, var(--rz-accent) 35%, transparent);
+  border-radius: 3px;
+}
+
+/* Contact entries one per line (ContactLine `stacked`). */
+.rz-contact-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-contact-list li {
+  margin: 0 0 calc(0.15em * var(--rz-density));
+  overflow-wrap: anywhere;
 }
 
 .rz-bullets {
@@ -294,6 +338,66 @@
 /* == tpl:modern == */
 /* Modern is the base stylesheet above: it adds no rules of its own. */
 /* == /tpl:modern == */
+
+/* == tpl:classic == */
+.rz-tpl-classic {
+  --rz-entry-gap: calc(0.65em * var(--rz-density));
+}
+
+.rz-tpl-classic .rz-header {
+  text-align: center;
+}
+
+.rz-tpl-classic .rz-name {
+  font-size: 1.7em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rz-tpl-classic .rz-headline {
+  margin-top: 0.15em;
+  font-size: 1em;
+  font-style: italic;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-classic .rz-contact {
+  font-size: 0.9em;
+  color: var(--rz-muted);
+}
+
+.rz-tpl-classic .rz-section {
+  margin-bottom: calc(1em * var(--rz-density));
+}
+
+.rz-tpl-classic .rz-section-title {
+  margin-bottom: calc(0.5em * var(--rz-density));
+  padding-bottom: 0.15em;
+  font-size: 0.9em;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--rz-ink);
+  border-bottom: 1px solid var(--rz-ink);
+}
+
+.rz-tpl-classic .rz-item-title {
+  font-weight: 700;
+}
+
+.rz-tpl-classic .rz-item-org {
+  font-weight: 400;
+}
+
+.rz-tpl-classic .rz-bullet::marker {
+  color: var(--rz-ink);
+}
+
+.rz-tpl-classic .rz-skill-group {
+  font-weight: 700;
+}
+/* == /tpl:classic == */
 
 /* ── Print ──────────────────────────────────────────────────────────────────────────────── */
 
