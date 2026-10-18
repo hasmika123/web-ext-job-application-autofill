@@ -29,8 +29,12 @@ export const modern: TemplateDefinition = {
     id: "modern",
     name: "Modern",
     description: "Clean single column with a rule under each heading. Safe for every ATS.",
+    category: "ats",
+    atsNote: "One column, real text, standard headings. Safe for every parser we know of.",
     capabilities: ATS_STRICT,
     thumb: "modern.png",
+    // Declared (not left to the user's current theme) so switching back to Modern from e.g. Consulting & Finance restores Inter / Normal.
+    defaults: { fontPair: "inter", spacing: "normal" },
   },
   Render,
 };

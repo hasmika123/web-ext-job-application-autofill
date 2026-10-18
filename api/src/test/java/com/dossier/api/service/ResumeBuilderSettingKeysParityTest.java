@@ -90,6 +90,8 @@ class ResumeBuilderSettingKeysParityTest {
             for (int i = 0; i < keys.size(); i++) {
                 String stated = defaults.get(i).replace("_", "").replace(" ", "");
                 if (stated.isEmpty()) continue;
+                // the enabled-templates default grows one id per template story; theDesignDefaultsThatAreProseAreTheOnesTheStoryAnswered pins its head
+                if (keys.get(i).equals(ResumeBuilderSettingKeys.TEMPLATES_ENABLED)) continue;
                 ResumeBuilderSettingKeys.Key declared = ResumeBuilderSettingKeys.require(keys.get(i));
                 if (!comparable(stated)) continue;
                 compared++;
@@ -103,7 +105,7 @@ class ResumeBuilderSettingKeysParityTest {
     @Test
     void theDesignDefaultsThatAreProseAreTheOnesTheStoryAnswered() {
         // DESIGN 15.2 gives these in words; the R2.0 decisions fix them here.
-        assertThat(ResumeBuilderSettingKeys.require(ResumeBuilderSettingKeys.TEMPLATES_ENABLED).defaultValue()).isEqualTo("[\"modern\"]");
+        assertThat(ResumeBuilderSettingKeys.require(ResumeBuilderSettingKeys.TEMPLATES_ENABLED).defaultValue()).startsWith("[\"modern\""); // gallery order; grows one id per template story
         assertThat(ResumeBuilderSettingKeys.require(ResumeBuilderSettingKeys.THEME_ACCENT_PALETTE).defaultValue())
             .isEqualTo("[\"#16a34a\",\"#2563eb\",\"#7c3aed\",\"#ec4899\",\"#f97316\",\"#eab308\"]");
         assertThat(ResumeBuilderSettingKeys.require(ResumeBuilderSettingKeys.SCORE_GROUP_WEIGHTS).defaultValue())

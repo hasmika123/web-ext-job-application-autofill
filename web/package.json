@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "sync:parser": "node scripts/sync-parser-core.mjs",
+    "thumbs:templates": "node scripts/render-template-thumbs.mjs",
     "predev": "node scripts/sync-parser-core.mjs",
     "prebuild": "node scripts/sync-parser-core.mjs",
     "dev": "next dev",

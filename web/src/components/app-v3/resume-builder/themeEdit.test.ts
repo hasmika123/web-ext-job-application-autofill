@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { ATS_STRICT, DESIGN_FREE, listTemplates, sanitizeTheme } from "@kiwiply/ui";
+import { ATS_STRICT, DESIGN_FREE, FONT_STACKS, listTemplates, sanitizeTheme } from "@kiwiply/ui";
 import type { TemplateMeta } from "@kiwiply/ui";
-import { canvasThemeStyle, colorName, editTheme, storedTheme, themeAfterSwitch } from "./themeEdit";
+import { FONT_LABELS, canvasThemeStyle, colorName, editTheme, storedTheme, themeAfterSwitch } from "./themeEdit";
+
+describe("FONT_LABELS", () => {
+  it("covers every FontPair (FONT_STACKS keys)", () => {
+    expect(Object.keys(FONT_LABELS).sort()).toEqual(Object.keys(FONT_STACKS).sort());
+    expect(FONT_LABELS.plex).toBe("IBM Plex Sans");
+    expect(FONT_LABELS.garamond).toBe("EB Garamond");
+  });
+});
 
 describe("editTheme", () => {
   it("accent: sets it and marks it touched; unrelated keys survive", () => {
@@ -66,8 +74,15 @@ describe("themeAfterSwitch", () => {
     expect(themeAfterSwitch({ accent: "#2563eb", _touched: ["accent"] }, meta({ accent: "#000000" }))).toBeNull();
   });
 
-  it("Modern declares no theme defaults today", () => {
-    expect(listTemplates().find((t) => t.id === "modern")?.defaults).toBeUndefined();
+  it("Modern declares Inter / Normal, so switching back to it from another template restores them (QA: Modern > Consulting & Finance > Modern kept Garamond / Compact)", () => {
+    const modern = listTemplates().find((t) => t.id === "modern")!;
+    const consultant = listTemplates().find((t) => t.id === "consultant")!;
+    expect(modern.defaults).toEqual({ fontPair: "inter", spacing: "normal" });
+    const onConsultant = themeAfterSwitch({}, consultant);
+    expect(onConsultant).toMatchObject({ fontPair: "garamond", spacing: "compact" });
+    expect(themeAfterSwitch(onConsultant, modern)).toMatchObject({ fontPair: "inter", spacing: "normal" });
+    // a font the user chose by hand survives the switch back
+    expect(themeAfterSwitch({ ...onConsultant, fontPair: "plex", _touched: ["fontPair"] }, modern)).toMatchObject({ fontPair: "plex", spacing: "normal" });
   });
 });
 
@@ -86,9 +101,13 @@ describe("canvasThemeStyle", () => {
   });
 
   it("uses the ink colour and the first allowed font under an ATS template", () => {
-    const s = canvasThemeStyle({ accent: "#16a34a", fontPair: "source-serif" }, ATS_STRICT) as Record<string, string>;
+    const narrow = { ...ATS_STRICT, theme: { ...ATS_STRICT.theme, fontPairs: ["inter" as const, "georgia-arial" as const] } };
+    const s = canvasThemeStyle({ accent: "#16a34a", fontPair: "source-serif" }, narrow) as Record<string, string>;
     expect(s["--rb-doc-accent"]).toBe("#111827");
     expect(s["--rb-doc-font-body"]).toContain("Inter");
+    // the stock ATS profile now offers every bundled font, so the stored one is kept
+    const stock = canvasThemeStyle({ accent: "#16a34a", fontPair: "source-serif" }, ATS_STRICT) as Record<string, string>;
+    expect(stock["--rb-doc-font-body"]).toContain("Source Serif 4");
   });
 });
 

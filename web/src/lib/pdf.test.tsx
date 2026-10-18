@@ -16,6 +16,7 @@ import {
   printPdf,
   printPdfWithThumb,
   readPdfConfig,
+  renderThumbPng,
   warmPdfBrowser,
   renderResumeHtml,
   resetPdfLimiter,
@@ -65,8 +66,12 @@ vi.mock("playwright-core", () => ({ chromium: { connectOverCDP: pw.connect, laun
 const fixture = (name: string): ResumeDocument =>
   JSON.parse(readFileSync(path.resolve(__dirname, "../../../packages/ui/src/resume/__fixtures__", `${name}.json`), "utf8")) as ResumeDocument;
 
-/** The fonts are ~230 KB of base64; keep snapshots readable. */
-const withoutFontBytes = (html: string) => html.replace(/base64,[A-Za-z0-9+/=]+/g, "base64,…");
+/**
+ * The fonts are ~850 KB of base64; keep snapshots readable. The per-template CSS blocks (`/* == tpl:<id> == *\/`) are elided too,
+ * so adding or tuning a template never churns this snapshot (each template has its own snapshots and compliance test).
+ */
+const withoutFontBytes = (html: string) =>
+  html.replace(/base64,[A-Za-z0-9+/=]+/g, "base64,…").replace(/\/\* == tpl:([a-z-]+) == \*\/[\s\S]*?\/\* == \/tpl:\1 == \*\//g, "/* == tpl:$1 … == */");
 
 const ENV_KEYS = ["PDF_BROWSER_URL", "PDF_LOCAL_CHANNEL", "RESUME_PDF_TIMEOUT_MS", "RESUME_PDF_MAX_CONCURRENT", "RESUME_PDF_QUEUE_MAX", "RESUME_PDF_MAX_FIT_STEPS", "RESUME_PDF_CONNECT_TIMEOUT_MS", "RESUME_PDF_CONNECT_ATTEMPTS", "RESUME_PDF_CONNECT_BACKOFF_MS", "RESUME_PDF_CONNECT_BUDGET_MS", "RESUME_PDF_WARMUP"];
 beforeEach(() => {
@@ -421,6 +426,26 @@ describe("card thumbnail (R3.13)", () => {
     // a print that answers the bare PDF (the existing seam) means no thumbnail
     const plain = await exportResumePdf({ doc: fixture("sparse") }, { print: async () => Buffer.from("pdf"), countPages: () => 1, log: vi.fn() });
     expect(plain.thumb).toBeNull();
+  });
+});
+
+describe("renderThumbPng (template gallery thumbnails)", () => {
+  it("computes the viewport and clip for 240x340 Letter: the top 1156 CSS px of the sheet at 240/816", async () => {
+    const png = await renderThumbPng("<html></html>", { pageSize: "letter", width: 240, height: 340 });
+    expect(png.toString("latin1")).toBe("\x89PNG");
+    const ctx = pw.contextOpts[0] as { viewport: { width: number; height: number }; deviceScaleFactor: number; javaScriptEnabled: boolean };
+    expect(ctx.viewport).toEqual({ width: 816, height: 1156 });
+    expect(ctx.deviceScaleFactor).toBeCloseTo(240 / 816, 5);
+    expect(ctx.javaScriptEnabled).toBe(false);
+    expect(pw.shots).toEqual([{ type: "png", clip: { x: 0, y: 0, width: 816, height: 1156 } }]);
+    expect(pw.media).toEqual(["screen"]); // no print emulation, no PDF
+    expect(pw.closed).toBe(1);
+  });
+
+  it("uses the A4 page width", async () => {
+    await renderThumbPng("<html></html>", { pageSize: "a4", width: 240, height: 340 });
+    const ctx = pw.contextOpts[0] as { viewport: { width: number } };
+    expect(ctx.viewport.width).toBe(794);
   });
 });
 

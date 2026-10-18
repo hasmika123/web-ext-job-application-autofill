@@ -12,7 +12,8 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...p }: { href: string
 vi.mock("@/lib/analytics", () => ({ track: (...a: unknown[]) => track(...a) }));
 
 import TemplateGallery from "./TemplateGallery";
-import { capabilityChips, galleryTemplates, templateHref } from "./model";
+import { ATS_RATING_LABEL, atsRating, capabilityChips, galleryTemplates, groupByCategory, templateHref } from "./model";
+import { listTemplates } from "@kiwiply/ui";
 
 const FREE = designFree.meta.id;
 let unregister: () => void;
@@ -71,7 +72,84 @@ describe("TemplateGallery (R3.13)", () => {
   });
 });
 
+const TEN = ["modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement", "sidebar"];
+const ratingOf = (id: string) => card(id).querySelector("[data-rating]")?.textContent;
+
+describe("TemplateGallery: categories, filter chips and the rating line", () => {
+  it("groups enabled templates by category in ATS, Employer, Styled order (admin order inside a group)", () => {
+    render(<TemplateGallery config={cfg({ enabled: [...TEN].reverse() })} />);
+    const groups = Array.from(document.querySelectorAll("[data-category]")).map((g) => ({
+      cat: g.getAttribute("data-category"),
+      ids: Array.from(g.querySelectorAll("[data-template-id]")).map((c) => c.getAttribute("data-template-id")),
+    }));
+    expect(groups.map((g) => g.cat)).toEqual(["ats", "employer", "styled"]);
+    expect(groups[0].ids).toEqual(["simple", "compact", "classic", "modern"]);
+    expect(groups[1].ids).toEqual(["executive", "scholar", "consultant", "engineer"]);
+    expect(groups[2].ids).toEqual(["sidebar", "statement"]);
+    expect(screen.getByRole("heading", { name: "Employer formats" })).toBeTruthy();
+    expect(screen.getByText("The layouts recruiters in tech, consulting, finance and academia expect.")).toBeTruthy();
+  });
+
+  it("filter chips narrow the grid and keep their counts; All restores it; each pick is counted", () => {
+    render(<TemplateGallery config={cfg({ enabled: TEN })} />);
+    const chip = (k: string) => document.querySelector<HTMLButtonElement>(`[data-filter="${k}"]`)!;
+    expect(["all", "ats", "employer", "styled"].map((k) => chip(k).textContent)).toEqual(["All (10)", "ATS-safe (4)", "Employer formats (4)", "Styled (2)"]);
+    expect(chip("all").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(chip("styled"));
+    expect(track).toHaveBeenCalledWith("resume_template_gallery_filter", { category: "styled" });
+    expect(chip("styled").getAttribute("aria-pressed")).toBe("true");
+    expect(document.querySelectorAll("[data-template-id]")).toHaveLength(2);
+    expect(card("sidebar")).toBeTruthy();
+    expect(card("modern")).toBeNull();
+    expect(chip("ats").textContent).toBe("ATS-safe (4)"); // counts stay
+    fireEvent.click(chip("all"));
+    expect(document.querySelectorAll("[data-template-id]")).toHaveLength(10);
+  });
+
+  it("a category with no enabled template has no chip and no group", () => {
+    render(<TemplateGallery config={cfg({ enabled: ["modern", "classic"] })} />);
+    expect(document.querySelector('[data-filter="styled"]')).toBeNull();
+    expect(document.querySelector('[data-category="styled"]')).toBeNull();
+    expect(document.querySelector('[data-filter="all"]')?.textContent).toBe("All (2)");
+  });
+
+  it("each card shows its rating line and its own ATS note", () => {
+    render(<TemplateGallery config={cfg({ enabled: TEN })} />);
+    expect(ratingOf("modern")).toBe("ATS-safe");
+    expect(ratingOf("statement")).toBe("Mostly ATS-safe");
+    expect(ratingOf("sidebar")).toBe("Design first — less ATS-safe");
+    for (const t of listTemplates().filter((m) => TEN.includes(m.id))) {
+      expect(card(t.id).querySelector("[data-ats-note]")?.textContent).toBe(t.atsNote);
+    }
+  });
+
+  it("the rating follows the RESOLVED capabilities (admin overrides)", () => {
+    render(<TemplateGallery config={cfg({ enabled: TEN, overrides: { sidebar: { photo: false, columns: 1 }, modern: { ats: false } } })} />);
+    expect(ratingOf("sidebar")).toBe("Mostly ATS-safe");
+    expect(ratingOf("modern")).toBe("Mostly ATS-safe");
+  });
+});
+
 describe("gallery model", () => {
+  it("atsRating: strict when ats, mostly when one plain column, else design", () => {
+    expect(atsRating(ATS_STRICT)).toBe("strict");
+    expect(atsRating({ ...ATS_STRICT, ats: false })).toBe("mostly");
+    expect(atsRating({ ...DESIGN_FREE, photo: false, graphics: false, columns: 1 })).toBe("mostly");
+    expect(atsRating(DESIGN_FREE)).toBe("design");
+    expect(ATS_RATING_LABEL.design).toBe("Design first — less ATS-safe");
+  });
+
+  it("groupByCategory orders the groups and omits an empty one", () => {
+    const metas = listTemplates().filter((m) => ["sidebar", "modern", "scholar"].includes(m.id));
+    expect(groupByCategory(metas).map((g) => [g.category, g.templates.map((t) => t.id)])).toEqual([
+      ["ats", ["modern"]],
+      ["employer", ["scholar"]],
+      ["styled", ["sidebar"]],
+    ]);
+    expect(groupByCategory(metas.filter((m) => m.category !== "employer")).map((g) => g.category)).toEqual(["ats", "styled"]);
+    expect(groupByCategory([])).toEqual([]);
+  });
+
   it("keeps the admin's enabled order, drops unknown ids and never shows an empty gallery", () => {
     expect(galleryTemplates([FREE, "modern", "nope", FREE], "modern").map((t) => t.id)).toEqual([FREE, "modern"]);
     expect(galleryTemplates(["nope"], "modern").map((t) => t.id)).toEqual(["modern"]);

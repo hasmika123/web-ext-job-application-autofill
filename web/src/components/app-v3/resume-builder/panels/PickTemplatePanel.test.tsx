@@ -47,6 +47,14 @@ function setup(props: { templateId?: string; theme?: Partial<ResumeTheme> | null
 const card = (id: string) => document.querySelector<HTMLButtonElement>(`[data-template="${id}"]`)!;
 
 describe("PickTemplatePanel: cards", () => {
+  it("draws ten cards in enabled order, each with its category word", () => {
+    const ten = ["modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement", "sidebar"];
+    setup({ config: cfg({ enabled: ten }) });
+    expect(Array.from(document.querySelectorAll("[data-template]")).map((c) => c.getAttribute("data-template"))).toEqual(ten);
+    const word = (id: string) => card(id).querySelector("[data-category-word]")?.textContent;
+    expect([word("modern"), word("engineer"), word("sidebar")]).toEqual(["ATS", "Employer format", "Styled"]);
+  });
+
   it("draws one card per enabled template, the live document in each, with Selected / ATS Friendly chips", () => {
     setup();
     expect(card("modern")).toBeTruthy();
@@ -108,13 +116,21 @@ describe("PickTemplatePanel: Customize Template under an ATS template (modern = 
     setup();
     fireEvent.click(screen.getByRole("button", { name: "Font Family" }));
     const options = screen.getAllByRole("option").map((o) => o.textContent);
-    expect(options).toEqual(["Inter (Recommended)", "Georgia / Arial"]);
+    expect(options).toEqual(["Inter (Recommended)", "Source Serif 4", "Georgia / Arial", "IBM Plex Sans", "EB Garamond"]);
   });
 
-  it("a stored font outside the list shows the first allowed one, marked as changed", () => {
-    setup({ theme: { fontPair: "source-serif" } });
+  it("a stored font outside the list shows the first allowed one, marked as changed (an admin override narrowed the menu)", () => {
+    setup({ theme: { fontPair: "plex" }, config: cfg({ overrides: { modern: { theme: { fontPairs: ["inter", "georgia-arial"] } } } }) });
     fireEvent.click(screen.getByRole("button", { name: "Font Family" }));
     expect(screen.getAllByRole("option").map((o) => o.textContent)).toContain("Inter (Recommended) (changed for ATS)");
+  });
+
+  it("a stored bundled font stays as it is under the stock ATS profile (no 'changed' mark)", () => {
+    setup({ theme: { fontPair: "garamond" } });
+    fireEvent.click(screen.getByRole("button", { name: "Font Family" }));
+    const labels = screen.getAllByRole("option").map((o) => o.textContent ?? "");
+    expect(labels).toContain("EB Garamond");
+    expect(labels.some((l) => l.includes("changed for"))).toBe(false);
   });
 
   it("Spacing and Page Length work; a font choice is reported", () => {
@@ -176,7 +192,7 @@ describe("PickTemplatePanel: Customize Template under a design template (DESIGN_
   it("every font pair is offered, and the Date style control appears (both styles allowed)", () => {
     const c = setup({ templateId: FREE });
     fireEvent.click(screen.getByRole("button", { name: "Font Family" }));
-    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Inter (Recommended)", "Source Serif 4", "Georgia / Arial"]);
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Inter (Recommended)", "Source Serif 4", "Georgia / Arial", "IBM Plex Sans", "EB Garamond"]);
     fireEvent.click(screen.getByRole("option", { name: "Source Serif 4" }));
     expect(c.changeTheme).toHaveBeenLastCalledWith({ control: "font", value: "source-serif" });
 

@@ -44,7 +44,8 @@ export const ATS_STRICT: TemplateCapabilities = freeze({
   marks: ["b"], // bold survives every parser; italic / underline / links are dropped by some
   lists: false,
   graphics: false,
-  theme: { accent: false, fontPairs: ["inter", "georgia-arial"], spacing: true, pageLength: true },
+  // Every bundled font is embedded as real text in the PDF, so the font never changes what a parser reads.
+  theme: { accent: false, fontPairs: ["inter", "source-serif", "georgia-arial", "plex", "garamond"], spacing: true, pageLength: true },
   maxPages: 2,
   sections: ["SUMMARY", "EXPERIENCE", "EDUCATION", "SKILLS", "PROJECTS", "CERTIFICATIONS", "LANGUAGES", "ACHIEVEMENTS"],
   custom: "limited",
@@ -64,7 +65,31 @@ export const DESIGN_FREE: TemplateCapabilities = freeze({
   marks: ["b", "i", "u", "a"],
   lists: true,
   graphics: true,
-  theme: { accent: true, fontPairs: ["inter", "source-serif", "georgia-arial"], spacing: true, pageLength: true },
+  theme: { accent: true, fontPairs: ["inter", "source-serif", "georgia-arial", "plex", "garamond"], spacing: true, pageLength: true },
+  maxPages: 2,
+  sections: [...SECTION_KINDS],
+  custom: "any",
+  customLimit: 99,
+  headings: "free",
+  dateStyles: ["range", "year"],
+  maxSkillGroups: 0,
+});
+
+/**
+ * The middle profile for a single-column coloured template: DESIGN_FREE without the second column, the
+ * photo and graphics. A convenience constant, not a new rule: the registry still checks `ats: true`
+ * against `ATS_STRICT` and everything else against `DESIGN_FREE`.
+ */
+export const HYBRID: TemplateCapabilities = freeze({
+  ats: false,
+  columns: 1,
+  sidebarSections: [],
+  photo: false,
+  photoDefault: false,
+  marks: ["b", "i", "u", "a"],
+  lists: true,
+  graphics: false,
+  theme: { accent: true, fontPairs: ["inter", "source-serif", "georgia-arial", "plex", "garamond"], spacing: true, pageLength: true },
   maxPages: 2,
   sections: [...SECTION_KINDS],
   custom: "any",

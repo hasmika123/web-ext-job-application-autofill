@@ -43,7 +43,7 @@ public class ResumeBuilderConfigService {
         return new ResumeBuilderConfigDTO(
             new ResumeBuilderConfigDTO.Templates(
                 strings(TEMPLATES_ENABLED),
-                s.getString(TEMPLATES_DEFAULT),
+                ResumeDocService.effectiveDefaultTemplate(strings(TEMPLATES_ENABLED), s.getString(TEMPLATES_DEFAULT)),
                 s.getJson(TEMPLATES_OVERRIDES, JsonNode.class),
                 strings(TEMPLATES_POPULAR)
             ),

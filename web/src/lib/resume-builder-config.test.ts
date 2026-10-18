@@ -52,7 +52,9 @@ describe("DEFAULT_BUILDER_CONFIG", () => {
     expect(DEFAULT_BUILDER_CONFIG.limits).toEqual({
       sections: 20, items: 40, bullets: 12, bulletChars: 600, summaryChars: 2000, marks: 64, docBytes: 262144,
     });
-    expect(DEFAULT_BUILDER_CONFIG.templates.enabled).toEqual(["modern"]);
+    // TEMPLATES-DESIGN 9.1: all ten in gallery order, five popular
+    expect(DEFAULT_BUILDER_CONFIG.templates.enabled).toEqual(["modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement", "sidebar"]);
+    expect(DEFAULT_BUILDER_CONFIG.templates.popular).toEqual(["modern", "engineer", "classic", "sidebar", "compact"]);
     expect(DEFAULT_BUILDER_CONFIG.profile).toEqual({
       itemMaxBytes: 16384,
       maxItemsPerUser: 500,

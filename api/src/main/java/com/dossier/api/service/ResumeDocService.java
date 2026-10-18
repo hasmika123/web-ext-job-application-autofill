@@ -42,6 +42,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -75,7 +77,9 @@ public class ResumeDocService {
      * validated against. Which of them a user may pick is the {@code resume.templates.enabled} setting
      * (DESIGN 6.3), read through {@link #enabledTemplateIds()}.
      */
-    public static final Set<String> KNOWN_TEMPLATE_IDS = Set.of("modern", "classic", "compact");
+    public static final Set<String> KNOWN_TEMPLATE_IDS = Collections.unmodifiableSet(
+        new LinkedHashSet<>(List.of("modern", "classic", "compact", "simple", "engineer", "consultant", "scholar", "executive", "statement", "sidebar"))
+    );
 
     public static final String DEFAULT_TEMPLATE_ID = "modern";
     /** Photo keys are {@code resume-photos/<userId>/...} (DESIGN 5.3); a save may only echo a key under its owner's prefix. */
@@ -218,7 +222,7 @@ public class ResumeDocService {
             case SCRATCH -> doc = ResumeDocumentSeeder.seed(title, cleanTarget, bio, List.of(), now);
             default -> {
                 var items = profileItemRepository.findByUserIdAndDeletedAtIsNullOrderBySectionAscPositionAsc(user.getId());
-                doc = ResumeDocumentSeeder.seed(title, cleanTarget, bio, items, now);
+                doc = ResumeDocumentSeeder.seedFromProfile(title, cleanTarget, bio, items, now);
                 // The seeder only emits valid documents; if a future change breaks that, a bare header beats a 500.
                 if (ResumeDocumentValidator.validate(doc, limits).isPresent()) {
                     LOG.warn("Seeded document for user {} failed validation ({}); falling back to the bio header", user.getId(), ResumeDocumentValidator.validate(doc, limits).get());
@@ -1080,9 +1084,16 @@ public class ResumeDocService {
 
     /** The template a new resume starts with: {@code resume.templates.default} when it is enabled, else the first enabled one. */
     private String defaultTemplateId() {
-        List<String> enabled = enabledTemplateIds();
-        String configured = settings.getString(ResumeBuilderSettingKeys.TEMPLATES_DEFAULT);
-        return enabled.contains(configured) ? configured : enabled.get(0);
+        return effectiveDefaultTemplate(enabledTemplateIds(), settings.getString(ResumeBuilderSettingKeys.TEMPLATES_DEFAULT));
+    }
+
+    /**
+     * The template a new resume actually starts with: the configured default when the picker offers it, else the first
+     * enabled template. The builder config reports this same value, so "Template: X" in the New Resume sheet is what is created.
+     */
+    public static String effectiveDefaultTemplate(List<String> enabled, String configured) {
+        if (enabled == null || enabled.isEmpty() || enabled.contains(configured)) return configured;
+        return enabled.get(0);
     }
 
     /** 422 {@code $.templateId} unless the id is a known template that the {@code resume.templates.enabled} setting offers. */

@@ -30,10 +30,22 @@ public class TemplateThemeDefaults {
     static final Set<String> DEFAULTABLE = Set.of("accent", "fontPair", "spacing", "pageSize", "dateStyle", "showPhoto");
 
     /**
-     * Per-template defaults, by template id. No shipped template declares any yet (Modern leaves the user's
-     * theme alone), so a switch today changes nothing in the theme.
+     * Per-template defaults, by template id: the twin of each web template's {@code meta.defaults}, in gallery order
+     * (docs/resume-builder/templates/TEMPLATES-DESIGN.md section 0). Modern declares Inter / Normal, so a switch back to it undoes another template's font and spacing.Each
+     * template story adds its entry here and to {@code template-defaults.json}.
      */
-    static final Map<String, Map<String, Object>> BUILT_IN = Map.of();
+    static final Map<String, Map<String, Object>> BUILT_IN = Map.ofEntries(
+        Map.entry("modern", Map.of("fontPair", "inter", "spacing", "normal")),
+        Map.entry("classic", Map.of("fontPair", "source-serif", "spacing", "normal")),
+        Map.entry("compact", Map.of("fontPair", "inter", "spacing", "compact")),
+        Map.entry("simple", Map.of("fontPair", "georgia-arial", "spacing", "normal")),
+        Map.entry("engineer", Map.of("fontPair", "plex", "spacing", "compact")),
+        Map.entry("consultant", Map.of("fontPair", "garamond", "spacing", "compact")),
+        Map.entry("scholar", Map.of("fontPair", "source-serif", "spacing", "normal")),
+        Map.entry("executive", Map.of("fontPair", "georgia-arial", "spacing", "spacious")),
+        Map.entry("statement", Map.of("fontPair", "inter", "spacing", "normal")),
+        Map.entry("sidebar", Map.of("fontPair", "inter", "spacing", "normal"))
+    );
 
     /** The defaults the template declares, as a JSON object (empty when it declares none or is unknown). */
     public ObjectNode defaultsFor(String templateId) {

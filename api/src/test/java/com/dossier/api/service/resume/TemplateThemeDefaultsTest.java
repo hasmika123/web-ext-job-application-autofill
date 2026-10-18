@@ -57,6 +57,18 @@ class TemplateThemeDefaultsTest {
     }
 
     @Test
+    void switchingBackToModernRestoresInterAndNormal() throws Exception {
+        TemplateThemeDefaults defaults = new TemplateThemeDefaults();
+        ObjectNode onConsultant = TemplateThemeDefaults.apply(json("{}"), defaults.defaultsFor("consultant"));
+        assertThat(onConsultant).isNotNull();
+        assertThat(onConsultant.get("fontPair").asText()).isEqualTo("garamond");
+        ObjectNode backOnModern = TemplateThemeDefaults.apply(onConsultant, defaults.defaultsFor("modern"));
+        assertThat(backOnModern).as("Modern used to declare nothing and kept Garamond / Compact").isNotNull();
+        assertThat(backOnModern.get("fontPair").asText()).isEqualTo("inter");
+        assertThat(backOnModern.get("spacing").asText()).isEqualTo("normal");
+    }
+
+    @Test
     void builtInDefaultsMatchTheFixtureSharedWithTheTypeScriptRegistry() throws Exception {
         JsonNode golden = OM.readTree(Fixtures.text("template-defaults.json"));
         TemplateThemeDefaults defaults = new TemplateThemeDefaults();

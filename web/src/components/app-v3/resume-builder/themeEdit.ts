@@ -25,6 +25,8 @@ export const FONT_LABELS: Record<FontPair, string> = {
   inter: "Inter (Recommended)",
   "source-serif": "Source Serif 4",
   "georgia-arial": "Georgia / Arial",
+  plex: "IBM Plex Sans",
+  garamond: "EB Garamond",
 };
 
 export const SPACING_LABELS: Record<ResumeSpacing, string> = { compact: "Compact", normal: "Normal", spacious: "Spacious" };
