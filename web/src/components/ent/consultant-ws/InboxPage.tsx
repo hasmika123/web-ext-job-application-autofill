@@ -6,7 +6,9 @@ import InboxConnect, { type InboxLinks } from "@/components/settings/InboxConnec
 import PageHeader from "@/components/ent/shell/ShellContext";
 import LocalDate from "@/components/LocalDate";
 import { BASE, Card, Empty, Pill, useWorkspaceData } from "./parts";
-import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, stageTone, type ConsultantInboxView, type InboxSuggestion, type InboxUpdate } from "@/lib/ent/consultant-ws/inbox";
+import NeedsReviewCard from "@/components/inbox/NeedsReviewCard";
+import RejectionToggle from "@/components/inbox/RejectionToggle";
+import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, reviewEndpoints, stageTone, type ConsultantInboxView, type InboxSuggestion, type InboxUpdate } from "@/lib/ent/consultant-ws/inbox";
 
 /**
  * Inbox (docs/enterprise-v2/18-consultant-inbox.md): the consultant's OWN Gmail, connected the same guided way as on kiwiply.com (a Gmail just for
@@ -155,6 +157,8 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
                   {note}
                 </p>
               ) : null}
+              <NeedsReviewCard endpoints={reviewEndpoints(orgId)} workspace onChanged={() => void reload()} />
+              <RejectionToggle endpoints={reviewEndpoints(orgId)} workspace />
               <Card id="inbox-suggestions" title="Found in your mail" icon={MailIcon} tone="accent">
                 {v.suggestions.length === 0 ? (
                   <Empty>Nothing new. Jobs your mail shows that your board doesn&apos;t track yet will appear here.</Empty>

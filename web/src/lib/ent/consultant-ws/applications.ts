@@ -82,6 +82,10 @@ export interface TimelineEntry {
   by: Actor;
   actor: ChangeActor | null;
   at: string;
+  /** Set on a change the consultant's Gmail inbox applied: the id the undo route takes. */
+  inboxEventId?: string | null;
+  /** True while that change can still be undone. */
+  undoable?: boolean;
 }
 
 export interface AppDetail {
@@ -184,7 +188,7 @@ export function parseDetail(body: unknown): AppDetail | null {
     stageChangedAt: strOrNull(body.stageChangedAt),
     timeline: rows(body.timeline, (o) =>
       typeof o.id === "number" && typeof o.toStage === "string" && typeof o.at === "string"
-        ? { id: o.id, type: o.type === "CREATED" ? "CREATED" : "STAGE_CHANGE", fromStage: strOrNull(o.fromStage), toStage: o.toStage, by: actorOf(o.by), actor: changeActorOf(o.actor), at: o.at }
+        ? { id: o.id, type: o.type === "CREATED" ? "CREATED" : "STAGE_CHANGE", fromStage: strOrNull(o.fromStage), toStage: o.toStage, by: actorOf(o.by), actor: changeActorOf(o.actor), at: o.at, inboxEventId: o.inboxEventId == null ? null : String(o.inboxEventId), undoable: o.undoable === true }
         : null,
     ),
     updatedAt: strOrNull(body.updatedAt),
