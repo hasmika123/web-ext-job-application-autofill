@@ -109,6 +109,9 @@ Fixed in the specs, none weakened: **CON-01 and CON-30** (D12: Home and My Marke
 | CON-90 | An interview invitation in her Gmail sets the interview (time, zone, link) and the application stands at Interview | Anika | none | BUILT, NOT RUN IN A BROWSER (`InterviewScheduleCorpusTest` 37 mails, `InboxInterviewApplierTest`, `ConsultantInboxDemoIT`) |
 | CON-91 | A reschedule moves the interview, a cancellation cancels it, neither moves the status backwards; the organization sees a time and a kind only | Anika, Sarah | none | BUILT, NOT RUN IN A BROWSER (`InboxInterviewApplierTest`, `LinkedInterviewMirrorWorkTest`) |
 | CON-92 | A mail with no readable time still moves the application to Interview and leaves a note to enter the time | Anika | none | BUILT, NOT RUN IN A BROWSER (`InboxInterviewApplierTest`, corpus `none-*` cases) |
+| CON-93 | A mail the inbox is not sure about waits under "Needs your review" (rejection, stage change, or two applications that could match); Accept or "Not this one" | Anika | none | BUILT, NOT RUN IN A BROWSER (vitest: `inbox-review.components.test.tsx`, `review.routes.test.ts`; needs the API half) |
+| CON-94 | A change the inbox applied has an Undo on its timeline row, with a confirm; after the window "Too late to undo" | Anika | none | BUILT, NOT RUN IN A BROWSER (vitest; needs the API half) |
+| CON-95 | "Apply rejections automatically" is off by default, explained in plain words, and can be turned on or off | Anika | none | BUILT, NOT RUN IN A BROWSER (vitest; needs the API half) |
 | CON-60 | Apply on the source site with the extension; application appears in My Applications | Anika | none | BLOCKED: needs the extension loaded on a live ATS page, and tracked-application-to-job matching is not built (`pipeline_application_link`, doc 59 section 5) |
 | CON-61 | Marketer enters the job source link and quick info | Omar | none | NOT-BUILT: no marketer write for `cws_job_source` (Marketing workspace; `consultant-job-source-flow.md` "What the marketer role must later write") |
 | CON-62 | Marketer captures a job with the extension and assigns it | Omar, Anika | none | NOT-BUILT: doc 59/60, stories X9.x |
@@ -451,6 +454,21 @@ Fixed in the specs, none weakened: **CON-01 and CON-30** (D12: Home and My Marke
 - **Steps:** the sample mailbox's first Orbit Freight invitation asks for her availability "next week"; an availability request or a list of options arrives for another job.
 - **Expected:** the application moves to Interview (forward only) but **no interview is made and no time is invented**: the timeline says "Interview invitation read, but the time could not be read from the email. Add the interview yourself." The same happens when the reading is below the admin setting `inbox.interview_min_confidence` (default 60; for example a date like 03/04/2026, or a weekday that does not match the date).
 - **Pages / APIs:** application detail Timeline; Settings registry key `inbox.interview_min_confidence`. **Automation:** none (Java: `InboxInterviewApplierTest`, corpus `none-*` and `weak-*` cases). **Status: BUILT, NOT RUN IN A BROWSER.**
+
+### CON-93 Mail the inbox is not sure about waits for her review
+- **Persona:** Anika (Inbox connected, inbox tracking in her license). **Steps:** open Inbox in the workspace. Under "Needs your review" read the rows: a rejection ("Acme says: not selected for Data Engineer. Mark as Rejected?"), a stage change, and a mail that could belong to two applications ("Two applications could match this email from Orbit Freight: choose one" with a list to choose from). Press Accept on the first, choose one application and Accept on the second, "Not this one" on the third. Open the page on a phone (390 px).
+- **Expected:** nothing on an application changes until she presses Accept; a row whose confidence is under 80 carries a small "Not sure" label; Accept on the ambiguous row stays off until she has chosen; the count and the list update after each action; with nothing waiting the card says "Nothing needs your review"; a failed load shows a retry, never a blank. The words say "this workspace", never the product name, and the card has no links. On a phone the rows stack and the buttons fill the width. The organization sees only the stage an application reaches, as before.
+- **Pages / APIs:** `/w/consultant/inbox`; `GET /api/orgs/{orgId}/me-workspace/inbox/review`, `POST .../review/{id}/accept` (`{ applicationId }` when the mail has candidates), `POST .../review/{id}/dismiss`. **Automation:** none (vitest only). **Status: BUILT, NOT RUN IN A BROWSER** (the API half is built separately).
+
+### CON-94 Undo what the inbox did
+- **Persona:** Anika. **Steps:** open an application whose stage the inbox moved (timeline row "Updated by Inbox from mail on <date>"). Press Undo, read "Put it back the way it was?", choose "Keep it", then Undo again and "Yes, undo". Try an old change.
+- **Expected:** the confirm comes first, "Keep it" changes nothing; "Yes, undo" puts the stage back and the timeline reloads; past the window the server answers 409 `UNDO_EXPIRED` and the row says "Too late to undo". Only rows with `undoable` true show the control.
+- **Pages / APIs:** the Applications page detail sheet; `POST /api/orgs/{orgId}/me-workspace/applications/{applicationId}/inbox-undo/{eventId}`. **Automation:** none. **Status: BUILT, NOT RUN IN A BROWSER.**
+
+### CON-95 Apply rejections automatically (off by default)
+- **Persona:** Anika. **Steps:** on the Inbox page read the "Apply rejections automatically" switch and its explanation; turn it on, reload, turn it off.
+- **Expected:** it starts off; the sentence says that off means the workspace asks first and on means the application is marked Rejected as soon as the email is read, with a short time to undo; the choice is kept; a failed save puts the switch back and says so.
+- **Pages / APIs:** `GET/PUT /api/orgs/{orgId}/me-workspace/inbox/settings` (`{ applyRejectionsAutomatically }`). **Automation:** none. **Status: BUILT, NOT RUN IN A BROWSER.**
 
 ## 6. Running the specs
 

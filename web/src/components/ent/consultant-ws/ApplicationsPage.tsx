@@ -31,6 +31,8 @@ import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
 import { deltaText, firstName } from "@/lib/ent/consultant-ws/home";
+import InboxUndo from "@/components/inbox/InboxUndo";
+import { reviewEndpoints } from "@/lib/ent/consultant-ws/inbox";
 import { actorLine, type Viewer } from "@/lib/actors";
 import { RelationTag } from "@/components/app-v3/applications/UpdatedBy";
 import { UpdatedMeta, seatViewer } from "@/components/ent/applications/changeAudit";
@@ -422,7 +424,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function DetailSheet({ row, state, onClose, onRetry, go, me }: { row: AppRow | null; state: Fetched<AppDetail> | null; onClose: () => void; onRetry: () => void; go: (href: string) => void; me: Viewer }) {
+function DetailSheet({ orgId, row, state, onClose, onRetry, go, me }: { orgId: number; row: AppRow | null; state: Fetched<AppDetail> | null; onClose: () => void; onRetry: () => void; go: (href: string) => void; me: Viewer }) {
   const d = state?.kind === "OK" ? (state.view ?? null) : null;
   const [now] = useState(() => Date.now());
   const r = d?.row ?? row;
@@ -504,6 +506,7 @@ function DetailSheet({ row, state, onClose, onRetry, go, me }: { row: AppRow | n
                         {e.actor ? actorLine(e.actor, e.actor.kind, null, me) : `By ${ACTOR_LABELS[e.by].toLowerCase()}`}
                         <RelationTag actor={e.actor} me={me} />
                       </span>
+                      {e.undoable && e.inboxEventId ? (<InboxUndo endpoints={reviewEndpoints(orgId)} applicationId={r.applicationId} eventId={e.inboxEventId} at={e.at} onUndone={onRetry} />) : null}
                     </li>
                   );
                 })}
@@ -592,7 +595,7 @@ export default function ConsultantApplicationsPage({ orgId, firstName: first, se
         </div>
       )}
 
-      <DetailSheet row={open} state={detail} onClose={() => setOpen(null)} onRetry={() => setAttempt((n) => n + 1)} go={go} me={seatViewer(selfMemberId)} />
+      <DetailSheet orgId={orgId} row={open} state={detail} onClose={() => setOpen(null)} onRetry={() => setAttempt((n) => n + 1)} go={go} me={seatViewer(selfMemberId)} />
     </div>
   );
 }

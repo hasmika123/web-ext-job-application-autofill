@@ -433,6 +433,21 @@ Temporary passwords are read from the shown-once dialog at run time and never pr
 - **Pages / APIs:** `GET/POST /api/account/terms-acceptance`, Settings (`legal.*`).
 - **Status: STORY-ONLY (covered by `TermsAcceptanceServiceTest`, `AccountPrivacyResourceIT`)**
 
+### APP-13 A mail the inbox is not sure about waits for the person's review
+- **Persona:** a Pro user with Gmail connected. **Steps:** open Settings, Inbox. Under "Needs your review" read a rejection row, a stage-change row and an "which application" row; Accept one, choose and Accept another, press "Not this one" on the third.
+- **Expected:** nothing on the board changes until Accept; "Not sure" shows under 80 confidence; the ambiguous row cannot be accepted before a choice; empty state "Nothing needs your review"; load failure shows a retry; rows stack on a phone.
+- **Pages / APIs:** `/settings/inbox`; `GET /api/inbox/review`, `POST /api/inbox/review/{id}/accept|dismiss`. **Status: BUILT, NOT RUN IN A BROWSER (vitest; needs the API half)**
+
+### APP-14 Undo a change the inbox made
+- **Persona:** the same user. **Steps:** open an application moved by a mail; on its Timeline press Undo, confirm; repeat after the window.
+- **Expected:** "Updated by Inbox from mail on <date>" with an Undo that asks first; on success the status is back and the sheet reloads; after the window "Too late to undo" (409 `UNDO_EXPIRED`).
+- **Pages / APIs:** application detail Timeline; `POST /api/applications/{id}/inbox-undo/{eventId}`. **Status: BUILT, NOT RUN IN A BROWSER (vitest; needs the API half)**
+
+### APP-15 Apply rejections automatically, off by default
+- **Persona:** the same user. **Steps:** on Settings, Inbox turn "Apply rejections automatically" on and off.
+- **Expected:** off at first, with a plain explanation; the choice is kept; a failed save restores the switch and says so.
+- **Pages / APIs:** `GET/PUT /api/inbox/settings`. **Status: BUILT, NOT RUN IN A BROWSER (vitest; needs the API half)**
+
 ### PLT-63 The app admin sets how long audit, token, AI-call and bug-report data is kept
 - **Persona:** the app admin. **Steps:** 1. In Settings (area `privacy`) read the windows: admin audit 24 months, expired sign-in sessions (refresh-token rows) 7 days after expiry, AI call ledger 13 months, resolved bug reports 24 months, deletion reports 36 months. 2. Change one; set one to 0.
 - **Expected:** each window is a registry setting with a safe default and bounds (nothing is hard-coded); 0 keeps that data for ever; the nightly sweep (03:50 UTC) honours the new value; a master switch (`privacy.retention.enabled`) stops every purge; open bug reports and tokens that can still be presented are never purged.
