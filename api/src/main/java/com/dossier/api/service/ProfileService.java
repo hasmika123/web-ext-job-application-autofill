@@ -240,6 +240,12 @@ public class ProfileService {
         return ProfileVersion.compute(getProfile(), rawResumes());
     }
 
+    /** As {@link #profileVersion()} for a pull that serves {@code bio} instead of the account's own (an organization consultant's extension session). */
+    @Transactional(readOnly = true)
+    public String profileVersion(Optional<BioDTO> bio) {
+        return ProfileVersion.compute(bio, rawResumes());
+    }
+
     /**
      * Create a resume for the current user.
      *

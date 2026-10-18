@@ -98,8 +98,12 @@ public class ProfileWorkspaces {
     @Transactional(readOnly = true)
     public Account accountOfCurrentUser() {
         Optional<User> user = SecurityUtils.getCurrentUserLogin().flatMap(users::findOneByLogin);
-        if (user.isEmpty() || user.get().getOrgId() == null) return Account.PERSONAL;
+        if (user.isEmpty()) return Account.PERSONAL;
         Long orgId = user.get().getOrgId();
+        // A member of a SHARED-accounts organization has an ordinary account (no org_id); what makes its extension session an enterprise one is the ext=1 token
+        // bound to the organization (connect code), valid while the seat is.
+        if (orgId == null) orgId = SecurityUtils.currentExtensionTenant().filter(t -> access.resolve(t).isPresent()).orElse(null);
+        if (orgId == null) return Account.PERSONAL;
         Optional<Organization> org = organizations.findByOrgId(orgId);
         if (org.isEmpty()) return Account.PERSONAL;
         boolean consultant = false;

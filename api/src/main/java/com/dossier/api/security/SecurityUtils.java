@@ -103,6 +103,17 @@ public final class SecurityUtils {
     }
 
     /**
+     * The organization ({@code tid}) of the current request's EXTENSION token ({@code ext=1}), or empty for every other token (a personal extension
+     * session, a web session, no JWT). Only a session minted by the connect-code exchange carries both claims.
+     */
+    public static Optional<Long> currentExtensionTenant() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof ClaimAccessor claims)) return Optional.empty();
+        if (!isExtension(claims.getClaim(EXTENSION_CLAIM))) return Optional.empty();
+        return claims.getClaim(TENANT_CLAIM) instanceof Number n ? Optional.of(n.longValue()) : Optional.empty();
+    }
+
+    /**
      * Check if a user is authenticated.
      *
      * @return true if the user is authenticated, false otherwise.

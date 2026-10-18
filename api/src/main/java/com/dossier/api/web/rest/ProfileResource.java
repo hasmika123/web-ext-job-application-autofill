@@ -1,11 +1,13 @@
 package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
+import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.EntitlementService;
 import com.dossier.api.service.ProfileService;
 import com.dossier.api.service.dto.BioDTO;
 import com.dossier.api.service.dto.ResumeDTO;
 import com.dossier.api.service.ent.consultant.ProfileWorkspaces;
+import com.dossier.api.service.ent.consultantws.ConsultantExtensionProfile;
 import com.dossier.api.web.rest.vm.ProfileVM;
 import com.dossier.api.web.rest.vm.ProfileVersionVM;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,6 +15,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import java.util.List;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -43,14 +46,39 @@ public class ProfileResource {
         this.workspaces = workspaces;
     }
 
+    private ConsultantExtensionProfile consultantProfile;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setConsultantExtensionProfile(ConsultantExtensionProfile consultantProfile) {
+        this.consultantProfile = consultantProfile;
+    }
+
+    /**
+     * The bio an ORGANIZATION CONSULTANT's extension session ({@code ext=1} + {@code tid}) pulls: their workspace "My Career Profile" laid over the account's
+     * own bio, in the bio shape. Empty for every other request, which then gets the account's own bio exactly as before.
+     */
+    private Optional<BioDTO> consultantBio() {
+        if (consultantProfile == null || SecurityUtils.currentExtensionTenant().isEmpty()) return Optional.empty();
+        try {
+            return consultantProfile.overlay(profileService.getProfile());
+        } catch (RuntimeException e) {
+            LOG.warn("Could not build the consultant profile for the extension: {}", e.toString());
+            return Optional.empty();
+        }
+    }
+
     /** {@code GET /api/profile} : the current user's bio, or 404 if none yet. */
-    @Operation(summary = "Get my bio", description = "The current user's bio payload, or 404 if none saved yet.")
+    @Operation(
+        summary = "Get my bio",
+        description = "The current user's bio payload, or 404 if none saved yet. For an organization consultant's browser-extension session (ext token bound to the organization) " +
+        "the payload is their workspace career profile (name, phone, location, work mode, work-authorization choice, account email) laid over their own bio."
+    )
     @GetMapping("")
     public ResponseEntity<BioDTO> getProfile() {
         LOG.debug("REST request to get the current user's profile");
-        return profileService.getProfile()
-            .map(ResponseEntity::ok)
-            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No profile yet"));
+        Optional<BioDTO> bio = consultantBio();
+        if (bio.isEmpty()) bio = profileService.getProfile();
+        return bio.map(ResponseEntity::ok).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No profile yet"));
     }
 
     /**
@@ -84,7 +112,9 @@ public class ProfileResource {
             LOG.warn("Could not list the workspaces of the current user: {}", e.toString());
             mine = List.of();
         }
-        ProfileVersionVM vm = new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan(), mine, account);
+        Optional<BioDTO> consultantBio = consultantBio();
+        String version = consultantBio.isPresent() ? profileService.profileVersion(consultantBio) : profileService.profileVersion();
+        ProfileVersionVM vm = new ProfileVersionVM(version, entitlementService.currentUserPlan().plan(), mine, account);
         try {
             addEntitlements(vm);
         } catch (RuntimeException e) {

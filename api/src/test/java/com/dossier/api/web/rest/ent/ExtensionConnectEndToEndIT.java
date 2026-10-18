@@ -8,6 +8,8 @@ import com.dossier.api.IntegrationTest;
 import com.dossier.api.domain.AppSetting;
 import com.dossier.api.domain.Authority;
 import com.dossier.api.domain.User;
+import com.dossier.api.domain.ent.OrgMemberRole;
+import com.dossier.api.domain.ent.talent.ConsultantProfile;
 import com.dossier.api.domain.enumeration.OrgAccountMode;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.domain.enumeration.OrgRole;
@@ -17,11 +19,16 @@ import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.AppSettingRepository;
 import com.dossier.api.repository.AuthorityRepository;
 import com.dossier.api.repository.UserRepository;
+import com.dossier.api.repository.ent.OrgMemberRoleRepository;
+import com.dossier.api.repository.ent.OrgRoleRepository;
+import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.security.AuthoritiesConstants;
 import com.dossier.api.service.ExtensionConnectCodeService;
 import com.dossier.api.service.MailService;
+import com.dossier.api.service.ent.LegacyRoleMirror;
+import com.dossier.api.service.ent.RoleTemplates;
 import com.dossier.api.service.ResumeBuilderSettings;
 import com.dossier.api.service.ent.TenantResolver;
 import com.dossier.api.service.settings.EnterpriseSettingKeys;
@@ -77,6 +84,9 @@ class ExtensionConnectEndToEndIT {
     @Autowired private PasswordEncoder encoder;
     @Autowired private ConnectCodeThrottle throttle;
     @Autowired private ExtensionConnectCodeService codes;
+    @Autowired private OrgRoleRepository roleRows;
+    @Autowired private OrgMemberRoleRepository memberRoles;
+    @Autowired private ConsultantProfileRepository consultantProfiles;
     @MockitoBean private MailService mail;
 
     private OrgFixtures fx;
@@ -225,6 +235,81 @@ class ExtensionConnectEndToEndIT {
         // even with a (legacy-looking) seat row, a personal account has no business in a SEPARATE organization's extension session
         fx.seat(org, personal.getLogin(), OrgRole.MEMBER, OrgMemberStatus.ACTIVE);
         assertThat(exchange(codes.mint(personal.getId(), org.getId())).getResponse().getStatus()).isEqualTo(401);
+    }
+
+    // ---- Bug B: the extension fills from the consultant's own workspace profile ---------------------------------------------
+
+    @Test
+    void aSharedConsultantsExtensionPullsTheirWorkspaceProfileAsTheBio() throws Exception {
+        setting(EnterpriseSettingKeys.FLAG_ROLES, "{\"on\":true}");
+        Organization org = org("cws", OrgAccountMode.SHARED);
+        String email = "cws" + sfx + "@e2e.test";
+        User member = account("cws" + sfx, email, null);
+        ConsultantProfile profile = consultant(org, member, "Anika Rao", "Austin, TX", "+1 512 555 0100");
+
+        JsonNode session = connect(host(org), member.getLogin());
+        String access = session.get("accessToken").asText();
+
+        // the account is an ENTERPRISE one for the organization (not "personal"), although the row has no org_id
+        JsonNode before = mapper.readTree(call("GET", PLATFORM_HOST, access, "/api/profile/version").getResponse().getContentAsString());
+        assertThat(before.path("account").path("kind").asText()).isEqualTo("ENTERPRISE");
+        assertThat(before.path("account").path("orgId").asLong()).isEqualTo(org.getId());
+
+        MvcResult pull = call("GET", PLATFORM_HOST, access, "/api/profile");
+        assertThat(pull.getResponse().getStatus()).as(pull.getResponse().getContentAsString()).isEqualTo(200);
+        JsonNode bio = mapper.readTree(mapper.readTree(pull.getResponse().getContentAsString()).get("payload").asText());
+        assertThat(bio.path("firstName").asText()).isEqualTo("Anika");
+        assertThat(bio.path("lastName").asText()).isEqualTo("Rao");
+        assertThat(bio.path("email").asText()).isEqualTo(email);
+        assertThat(bio.path("phone").asText()).isEqualTo("+1 512 555 0100");
+        assertThat(bio.path("city").asText()).isEqualTo("Austin");
+        assertThat(bio.path("state").asText()).isEqualTo("TX");
+
+        // the mirror re-pulls when the workspace profile changes: the version covers what the pull returns
+        profile.setPhone("+1 512 555 0111");
+        consultantProfiles.saveAndFlush(profile);
+        JsonNode after = mapper.readTree(call("GET", PLATFORM_HOST, access, "/api/profile/version").getResponse().getContentAsString());
+        assertThat(after.path("version").asText()).isNotEqualTo(before.path("version").asText());
+
+        // the same account's ordinary (personal) extension session and web session are unchanged: no personal bio, so 404
+        String personalAccess = mapper.readTree(login(PLATFORM_HOST, member.getLogin()).getResponse().getContentAsString()).get("accessToken").asText();
+        String personalExt = mapper.readTree(call("POST", PLATFORM_HOST, personalAccess, "/api/extension/session").getResponse().getContentAsString()).get("accessToken").asText();
+        assertThat(call("GET", PLATFORM_HOST, personalExt, "/api/profile").getResponse().getStatus()).isEqualTo(404);
+        assertThat(call("GET", PLATFORM_HOST, personalAccess, "/api/profile").getResponse().getStatus()).isEqualTo(404);
+    }
+
+    @Test
+    void aMemberWhoIsNotAConsultantKeepsTheirOwnBio() throws Exception {
+        setting(EnterpriseSettingKeys.FLAG_ROLES, "{\"on\":true}");
+        Organization org = org("ncs", OrgAccountMode.SHARED);
+        User member = account("ncs" + sfx, "ncs" + sfx + "@e2e.test", null);
+        fx.seat(org, member.getLogin(), OrgRole.MEMBER, OrgMemberStatus.ACTIVE);
+        String access = connect(host(org), member.getLogin()).get("accessToken").asText();
+        assertThat(call("GET", PLATFORM_HOST, access, "/api/profile").getResponse().getStatus()).as("no consultant record and no bio of their own").isEqualTo(404);
+    }
+
+    private ConsultantProfile consultant(Organization org, User user, String name, String location, String phone) {
+        OrgMember m = fx.seat(org, user.getLogin(), LegacyRoleMirror.toEnum(RoleTemplates.CONSULTANT).orElse(OrgRole.MEMBER), OrgMemberStatus.ACTIVE);
+        OrgMemberRole row = new OrgMemberRole();
+        row.setOrgId(org.getId());
+        row.setMemberId(m.getId());
+        row.setRoleId(roleRows.findSystemByRoleKey(RoleTemplates.CONSULTANT).orElseThrow().getId());
+        row.setPrimary(true);
+        row.setGrantedAt(Instant.now());
+        memberRoles.saveAndFlush(row);
+        m.setPrimaryRoleId(row.getRoleId());
+        members.saveAndFlush(m);
+        ConsultantProfile p = new ConsultantProfile();
+        p.setOrgId(org.getId());
+        p.setMemberId(m.getId());
+        p.setDisplayName(name);
+        p.setEmail(user.getEmail());
+        p.setJobTitle("Senior Engineer");
+        p.setYearsExperience(8);
+        p.setLocationLabel(location);
+        p.setPhone(phone);
+        p.setProfileCompleteness(78);
+        return consultantProfiles.saveAndFlush(p);
     }
 
     // ---- helpers -------------------------------------------------------------------------------------------------------------
