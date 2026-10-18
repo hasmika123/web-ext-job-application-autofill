@@ -30,7 +30,7 @@ function useDebounced<T>(value: T, ms: number = DEBOUNCE_MS): T {
   return v;
 }
 
-function OverCapacityNotice({ name, over, onForce, busy }: { name: string; over: OverCapacity; onForce: () => void; busy: boolean }) {
+export function OverCapacityNotice({ name, over, onForce, busy }: { name: string; over: OverCapacity; onForce: () => void; busy: boolean }) {
   return (
     <div role="alert" data-over-capacity className="rounded-xl border border-[var(--color-v2-amber)] bg-v2-amber-soft p-3 text-[13px] text-ink">
       <p className="font-semibold">That is over capacity.</p>

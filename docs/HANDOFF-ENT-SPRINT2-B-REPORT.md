@@ -97,7 +97,7 @@ The `MarketerAccess` seam is untouched, and no per-assignment visibility was bui
 
 They were not rerun cleanly; machine A should rerun them after merging.
 
-**Not built:** from X4.13, the DELEGATE kind, scheduled handovers, the consent re-point prompt, the nightly role re-check and the Reassign sheet UI. X4.8's `consultants.max` entitlement. X8.4's BoardPolicy, manager-approval hold, metering and pinned resume version. The "same employer, different role" rule. Confirmation boxes on the Matches, Submissions and Applications pages and in the extension flow. Offboarding doesn't apply `reassignments` yet.
+**Not built:** from X4.13, ~~the DELEGATE kind, scheduled handovers and the Reassign sheet UI~~ (built later on `h-assign`, see `docs/HANDOFF-ENT-H-ASSIGN.md`), the consent re-point prompt and the nightly role re-check. ~~X4.8's `consultants.max` entitlement~~ (also `h-assign`). X8.4's BoardPolicy, manager-approval hold, metering and pinned resume version. The "same employer, different role" rule. Confirmation boxes on the Matches, Submissions and Applications pages and in the extension flow. ~~Offboarding doesn't apply `reassignments` yet.~~ (built on `h-assign`)
 
 **Open question:** cross-consultant limit default 0 vs the spec's 3.
 

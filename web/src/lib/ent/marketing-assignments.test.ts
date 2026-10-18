@@ -3,21 +3,29 @@ import {
   bulkSummary,
   changedCount,
   consultantParams,
+  dayInput,
+  dayStartIso,
   DEFAULT_QUERY,
   errorSentence,
   filtersApplied,
+  formatLocalDay,
+  licenceLimitOf,
   marketingApi,
   nextSort,
   overCapacityOf,
   overText,
   pageCount,
   parseQuery,
+  planNote,
+  previewLine,
   showingText,
   tileView,
   toSearch,
   undoRows,
   type BulkResult,
+  type HandoverPreview,
   type KpiTile,
+  type Schedule,
 } from "./marketing-assignments";
 
 const tile = (key: KpiTile["key"], current: number, previous: number | null, good: KpiTile["good"] = "UP"): KpiTile => ({
@@ -191,5 +199,86 @@ describe("the client", () => {
     await marketingApi.marketers(2, { q: "je", status: "PAUSED" });
     expect((fetchMock.mock.calls[0] as unknown[])[0]).toBe("/api/orgs/2/marketing-assignments/marketers");
     expect((fetchMock.mock.calls[1] as unknown[])[0]).toBe("/api/orgs/2/marketing-assignments/marketers?q=je&status=PAUSED");
+  });
+});
+
+describe("planned changes (reassign later, temporary cover)", () => {
+  const preview = (over: Partial<HandoverPreview> = {}): HandoverPreview => ({
+    consultantId: 1, consultantName: "Anika Khan", from: { memberId: 5, name: "Sam Lee" }, to: { memberId: 6, name: "Priya Rao" },
+    opportunities: 3, tasks: 2, followups: 1, total: 6, handoverEnabled: true, toAssigned: 4, toCapacity: 10, licenceMax: null, overCapacity: false, overLicence: false, pending: [], ...over,
+  });
+
+  it("says in plain words how much open work moves, with counts only", () => {
+    expect(previewLine(preview(), "Priya Rao")).toBe("3 open opportunities, 2 tasks and 1 follow-up move to Priya Rao.");
+    expect(previewLine(preview({ opportunities: 1, tasks: 0, followups: 0, total: 1 }), "Priya Rao")).toBe("1 open opportunity moves to Priya Rao.");
+    expect(previewLine(preview({ opportunities: 0, tasks: 2, followups: 0, total: 2 }), null)).toBe("2 tasks move with the consultant.");
+  });
+
+  it("says why nothing moves: no marketer, switch off, no open work", () => {
+    expect(previewLine(preview({ from: null }), "Priya Rao")).toContain("no marketer yet");
+    expect(previewLine(preview({ handoverEnabled: false }), "Priya Rao")).toContain("switch is off");
+    expect(previewLine(preview({ total: 0, opportunities: 0, tasks: 0, followups: 0 }), "Priya Rao")).toBe("Sam Lee has no open work for Anika Khan, so nothing needs to move.");
+  });
+
+  it("turns a picked day into the start of that day in the browser's own zone, and refuses anything else", () => {
+    const iso = dayStartIso("2026-11-03");
+    expect(iso).not.toBeNull();
+    const d = new Date(iso as string);
+    expect([d.getFullYear(), d.getMonth(), d.getDate(), d.getHours()]).toEqual([2026, 10, 3, 0]);
+    for (const bad of ["", "2026-13-01", "2026-02-30", "03/11/2026", "2026-11-3", "tomorrow"]) expect(dayStartIso(bad), bad).toBeNull();
+  });
+
+  it("names the earliest day a plan can use as a date-box value", () => {
+    expect(dayInput(1, new Date(2026, 10, 30))).toBe("2026-12-01");
+    expect(dayInput(0, new Date(2026, 0, 5))).toBe("2026-01-05");
+  });
+
+  it("writes a plan as a short note under the consultant", () => {
+    const base: Schedule = {
+      id: 1, consultantId: 1, consultantName: "Anika Khan", kind: "REASSIGN", status: "SCHEDULED", newMarketer: { memberId: 6, name: "Priya Rao" }, returnMarketer: null, currentMarketer: { memberId: 5, name: "Sam Lee" },
+      startsAt: new Date(2026, 10, 3, 9).toISOString(), endsAt: null, reason: null, outcome: null, createdBy: null, createdAt: "2026-10-01T00:00:00Z", appliedAt: null, finishedAt: null,
+    };
+    expect(planNote(base)).toBe("Moves to Priya Rao on Nov 3, 2026");
+    const cover: Schedule = { ...base, kind: "DELEGATE", endsAt: new Date(2026, 10, 10, 9).toISOString() };
+    expect(planNote(cover)).toBe("Priya Rao covers from Nov 3, 2026 to Nov 10, 2026");
+    expect(planNote({ ...cover, status: "ACTIVE" })).toBe("Covered by Priya Rao until Nov 10, 2026");
+    expect(formatLocalDay(null)).toBe("");
+    expect(formatLocalDay("nonsense")).toBe("");
+  });
+
+  it("reads the licence cap refusal, and only that one", () => {
+    const refusal = { ok: false as const, status: 409, code: "CONSULTANTS_LIMIT", extra: { marketerMemberId: 6, max: 10, current: 10, adding: 1, projected: 11 } };
+    expect(licenceLimitOf(refusal)).toEqual({ marketerMemberId: 6, max: 10, current: 10, adding: 1, projected: 11 });
+    expect(licenceLimitOf({ ...refusal, code: "OVER_CAPACITY" })).toBeNull();
+    expect(licenceLimitOf({ ...refusal, status: 400 })).toBeNull();
+    expect(licenceLimitOf({ ...refusal, extra: { max: 10 } })).toBeNull();
+    expect(errorSentence({ status: 409, code: "CONSULTANTS_LIMIT", message: "x" })).toContain("licence");
+    expect(errorSentence({ status: 409, code: "SCHEDULE_EXISTS", message: "x" })).toContain("Cancel it first");
+  });
+
+  it("sends the new calls through the BFF with an Idempotency-Key where they change something", async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, status: 200, json: async () => ({}) }) as unknown as Response);
+    vi.stubGlobal("fetch", fetchMock);
+    await marketingApi.preview(2, 7, 9);
+    await marketingApi.preview(2, 7);
+    await marketingApi.schedules(2);
+    await marketingApi.schedules(2, 7);
+    await marketingApi.reassign(2, { consultantId: 7, newMarketerMemberId: 9 }, "key-a");
+    await marketingApi.delegate(2, { consultantId: 7, coverMarketerMemberId: 9, endsAt: "2026-12-01T00:00:00.000Z", reason: "Leave" }, "key-b");
+    await marketingApi.cancelSchedule(2, 33, "key-c");
+    const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
+    expect(calls.map((c) => c[0])).toEqual([
+      "/api/orgs/2/marketing-assignments/handover-preview?consultantId=7&toMemberId=9",
+      "/api/orgs/2/marketing-assignments/handover-preview?consultantId=7",
+      "/api/orgs/2/marketing-assignments/schedules",
+      "/api/orgs/2/marketing-assignments/schedules?consultantId=7",
+      "/api/orgs/2/marketing-assignments/reassign",
+      "/api/orgs/2/marketing-assignments/delegate",
+      "/api/orgs/2/marketing-assignments/schedules/33/cancel",
+    ]);
+    expect((calls[4][1].headers as Record<string, string>)["idempotency-key"]).toBe("key-a");
+    expect((calls[5][1].headers as Record<string, string>)["idempotency-key"]).toBe("key-b");
+    expect((calls[6][1].headers as Record<string, string>)["idempotency-key"]).toBe("key-c");
+    expect(JSON.parse(calls[4][1].body as string)).toEqual({ consultantId: 7, newMarketerMemberId: 9 });
   });
 });

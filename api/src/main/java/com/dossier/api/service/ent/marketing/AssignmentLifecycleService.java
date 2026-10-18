@@ -289,6 +289,24 @@ public class AssignmentLifecycleService {
         return h;
     }
 
+    /** Whether open work follows a consultant to a new marketer in this organization (the admin switch). */
+    public boolean handoverEnabled(Long orgId) {
+        return settings.handoverOpenWork(orgId);
+    }
+
+    /**
+     * What WOULD move if {@code consultantId} changed marketer away from {@code from} (the Reassign sheet's preview): the counts of the same three kinds of
+     * work {@link #record} hands over, read without touching anything. All zero when the handover switch is off, because then nothing moves.
+     */
+    @Transactional(readOnly = true)
+    public Handover previewHandover(Long orgId, Long consultantId, Long from, Long to) {
+        if (from == null || !settings.handoverOpenWork(orgId)) return new Handover(0, 0, 0, from, to);
+        int opps = (int) opportunities.countOpenOwnedByForConsultant(orgId, consultantId, from, OPEN_OPPORTUNITY_STATES);
+        int taskCount = tasks.findOpenOwnedByForConsultant(orgId, consultantId, from).size();
+        int followupCount = followups.findOpenOwnedByForConsultant(orgId, consultantId, from).size();
+        return new Handover(opps, taskCount, followupCount, from, to);
+    }
+
     // ---- the org_assignment projection -----------------------------------------------------------------------------------------
 
     /** Makes the open PRIMARY and BACKUP rows of the consultant's seat say what {@code after} says. A consultant without a seat has nothing to project. */

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Sprint 2 / H-assign: planned changes of a consultant's marketer. Purely additive.
+
+        marketer_assignment_schedule holds two kinds of plan that the assignment lifecycle service applies later, from a scheduled job:
+          REASSIGN  a handover to a new marketer that takes effect on a future date;
+          DELEGATE  temporary cover: the cover marketer takes the consultant from starts_at and the original marketer (return_marketer_member_id)
+                    gets them back automatically at ends_at.
+        marketer_assignment stays the one authoritative model; this table only says what will happen to it and what already did.
+    -->
+    <changeSet id="20261123010000-1" author="dossier" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="marketer_assignment_schedule"/></not></preConditions>
+        <createTable tableName="marketer_assignment_schedule">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="new_marketer_member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="return_marketer_member_id" type="bigint"/>
+            <column name="starts_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="ends_at" type="${datetimeType}"/>
+            <column name="reason" type="varchar(200)"/>
+            <column name="outcome" type="varchar(40)"/>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="applied_at" type="${datetimeType}"/>
+            <column name="finished_at" type="${datetimeType}"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="marketer_assignment_schedule" baseColumnNames="org_id" constraintName="fk_mkt_asg_sched_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <createIndex tableName="marketer_assignment_schedule" indexName="ix_mkt_asg_sched_consultant"><column name="org_id"/><column name="consultant_id"/><column name="status"/></createIndex>
+        <createIndex tableName="marketer_assignment_schedule" indexName="ix_mkt_asg_sched_due_start"><column name="status"/><column name="starts_at"/></createIndex>
+        <createIndex tableName="marketer_assignment_schedule" indexName="ix_mkt_asg_sched_due_end"><column name="status"/><column name="ends_at"/></createIndex>
+        <rollback><dropTable tableName="marketer_assignment_schedule"/></rollback>
+    </changeSet>
+</databaseChangeLog>

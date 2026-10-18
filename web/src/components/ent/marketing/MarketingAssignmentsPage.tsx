@@ -9,6 +9,7 @@ import PageHeader from "@/components/ent/shell/ShellContext";
 import ConsultantsPanel, { type ConsultantsState } from "./ConsultantsPanel";
 import { AddMarketerDialog, AssignDialog, CapacityDialog, MarketerPickerDialog, WorkloadDialog, type SubmitOutcome } from "./dialogs";
 import KpiRow from "./KpiRow";
+import ReassignSheet, { type SheetMode, type SheetOutcome } from "./ReassignSheet";
 import MarketersPanel, { type MarketersState } from "./MarketersPanel";
 import {
   bulkSummary,
@@ -18,6 +19,7 @@ import {
   marketingApi,
   overCapacityOf,
   parseQuery,
+  planNote,
   toSearch,
   undoRows,
   type ApiResult,
@@ -27,6 +29,7 @@ import {
   type Kpis,
   type Marketer,
   type Row,
+  type Schedule,
   type UpdateBody,
   type UpdateField,
 } from "@/lib/ent/marketing-assignments";
@@ -58,7 +61,8 @@ type Dialogs =
   | { kind: "report" }
   | { kind: "capacity"; marketer: Marketer }
   | { kind: "reassign"; ids: number[]; fromIds: number[] }
-  | { kind: "backup"; ids: number[]; marketerId: number | null };
+  | { kind: "backup"; ids: number[]; marketerId: number | null }
+  | { kind: "sheet"; consultant: Row; mode: SheetMode };
 
 /**
  * The Marketing Assignments board (design/enterprise-talent/marketing-assignments.png): four KPI tiles, the marketers with their
@@ -77,6 +81,7 @@ export default function MarketingAssignmentsPage({ orgId, orgName, workspace, pe
   const [filters, setFilters] = useState<Filters | null>(null);
   const [list, setList] = useState<ConsultantsState>({ status: "idle" });
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [plans, setPlans] = useState<Schedule[]>([]);
   const [dialog, setDialog] = useState<Dialogs>({ kind: "none" });
   const [moreOpen, setMoreOpen] = useState(() => !!(query.availability || query.noBackup));
   const rootSeq = useRef(0);
@@ -143,11 +148,27 @@ export default function MarketingAssignmentsPage({ orgId, orgName, workspace, pe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey, marketer?.memberId, marketers.status, loadList]);
 
+  const loadPlans = useCallback(async () => {
+    const r = await marketingApi.schedules(orgId);
+    if (r.ok) setPlans(r.data.items);
+  }, [orgId]);
+
+  useEffect(() => {
+    void loadPlans();
+  }, [loadPlans]);
+
+  const plansByConsultant = useMemo(() => {
+    const m = new Map<number, Schedule[]>();
+    for (const s of plans) m.set(s.consultantId, [...(m.get(s.consultantId) ?? []), s]);
+    return m;
+  }, [plans]);
+
   const refresh = useCallback(() => {
     void loadMarketers(true);
     void loadKpis();
+    void loadPlans();
     if (queryRef.current.marketerId != null) void loadList(queryRef.current, true);
-  }, [loadMarketers, loadKpis, loadList]);
+  }, [loadMarketers, loadKpis, loadList, loadPlans]);
 
   /* ── the URL carries the view ─────────────────────────────────────────────────── */
 
@@ -249,6 +270,35 @@ export default function MarketingAssignmentsPage({ orgId, orgName, workspace, pe
     [orgId, announce, toast],
   );
 
+  /** What the Reassign sheet did: a toast, with an Undo that sends the reverse (a restore for a change made now, a cancel for a plan). */
+  const sheetDone = useCallback(
+    (o: SheetOutcome) => {
+      if (o.kind === "reassigned") {
+        if (o.result.applied) announce(o.result.applied, "reassigned");
+        return;
+      }
+      if (o.kind === "cancelled") {
+        toast({ title: o.schedule.kind === "DELEGATE" && o.schedule.status === "ENDED" ? "Cover ended" : "Plan cancelled", variant: "success" });
+        refresh();
+        return;
+      }
+      const undoPlan = () =>
+        void marketingApi.cancelSchedule(orgId, o.schedule.id).then((u) => {
+          toast(u.ok ? { title: "Undone", variant: "success" } : { title: "Couldn't undo", description: errorSentence(u), variant: "error" });
+          refresh();
+        });
+      toast({
+        title: o.kind === "scheduled" ? "Handover scheduled" : o.schedule.status === "ACTIVE" ? `${o.schedule.newMarketer.name} is covering ${o.name}` : "Cover scheduled",
+        description: planNote(o.schedule),
+        variant: "success",
+        duration: UNDO_MS,
+        action: { label: "Undo", onClick: undoPlan },
+      });
+      refresh();
+    },
+    [announce, toast, orgId, refresh],
+  );
+
   const setCapacity = useCallback(
     async (m: Marketer, capacity: number): Promise<SubmitOutcome> => {
       const r = await marketingApi.updateMarketer(orgId, m.memberId, { capacity });
@@ -304,7 +354,12 @@ export default function MarketingAssignmentsPage({ orgId, orgName, workspace, pe
   const actionsFor = (ids: number[], from: Row[]): MenuEntry[] => {
     const fromIds = [...new Set(from.map((r) => r.marketer?.memberId).filter((x): x is number => typeof x === "number"))];
     return [
-      { label: "Reassign to another marketer...", onSelect: () => setDialog({ kind: "reassign", ids, fromIds }) },
+      ...(ids.length === 1 && from.length === 1
+        ? [
+            { label: "Reassign or schedule...", onSelect: () => setDialog({ kind: "sheet", consultant: from[0], mode: "reassign" as SheetMode }) },
+            { label: "Temporary cover...", onSelect: () => setDialog({ kind: "sheet", consultant: from[0], mode: "cover" as SheetMode }) },
+          ]
+        : [{ label: "Reassign to another marketer...", onSelect: () => setDialog({ kind: "reassign", ids, fromIds }) }]),
       { label: "Set backup marketer...", onSelect: () => setDialog({ kind: "backup", ids, marketerId: fromIds.length === 1 ? fromIds[0] : null }) },
       { label: "Remove backup marketer", onSelect: () => void patch(ids, { clearBackup: true }, "removed the backup of") },
       { separator: true },
@@ -374,9 +429,19 @@ export default function MarketingAssignmentsPage({ orgId, orgName, workspace, pe
           onRetry={() => void loadList(query, false)}
           moreOpen={moreOpen}
           onMore={() => setMoreOpen((o) => !o)}
+          plans={plansByConsultant}
         />
       </div>
 
+      <ReassignSheet
+        open={dialog.kind === "sheet"}
+        onClose={() => setDialog({ kind: "none" })}
+        orgId={orgId}
+        consultant={dialog.kind === "sheet" ? dialog.consultant : null}
+        marketers={marketerList}
+        initialMode={dialog.kind === "sheet" ? dialog.mode : "reassign"}
+        onDone={sheetDone}
+      />
       <AssignDialog open={dialog.kind === "assign"} onClose={() => setDialog({ kind: "none" })} orgId={orgId} marketer={marketer} onSubmit={(ids, force) => (marketer ? assignTo(ids, marketer.memberId, force) : Promise.resolve({ ok: false, error: "Pick a marketer first." }))} />
       <MarketerPickerDialog
         open={!!reassign}

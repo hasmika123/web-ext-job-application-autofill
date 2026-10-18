@@ -38,6 +38,26 @@ public class MarketingSettings {
         return resolve(orgId, EnterpriseSettingKeys.ORG_MARKETING_CAPACITY_MAX);
     }
 
+    /** The longest temporary cover, in days (default 90). */
+    public int delegateMaxDays(Long orgId) {
+        return resolve(orgId, EnterpriseSettingKeys.ORG_ASSIGNMENTS_DELEGATE_MAX_DAYS);
+    }
+
+    /** How far ahead a handover may be scheduled, in days (default 180). */
+    public int scheduleMaxDays(Long orgId) {
+        return resolve(orgId, EnterpriseSettingKeys.ORG_ASSIGNMENTS_SCHEDULE_MAX_DAYS);
+    }
+
+    /**
+     * The entitlement {@code consultants.max}: the most consultants one marketer may carry under the organization's licence; 0 (the default) = the licence sets
+     * no cap. Resolved like the other {@code org.license.*} allowances (the organization's own row, the platform value, the registry default). There is no
+     * organization-level EntitlementService in the code yet (the catalog resolver answers personal accounts only), so this is where the marketing workspace reads
+     * its licence allowance, the same pattern as {@code OrgResumeCap}.
+     */
+    public int consultantsMax(Long orgId) {
+        return resolve(orgId, EnterpriseSettingKeys.ORG_LICENSE_CONSULTANTS_MAX);
+    }
+
     private int resolve(Long orgId, String key) {
         int global = settings.getInt(key);
         if (orgId == null) return global;

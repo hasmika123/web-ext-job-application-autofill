@@ -144,7 +144,7 @@ public final class DataMap {
             "cws_saved_search", "cws_setting", "cws_setting_event", "cws_submission", "cws_task", "cws_task_detail", "cws_work_preference", "data_share",
             "feature_credit", "finance_forecast_input", "finance_invoice", "finance_payment", "finance_placement_period", "finance_placement_terms",
             "finance_timesheet", "hr_document_requirement", "hr_employee_note", "hr_lifecycle_event", "hr_offboarding_task", "hr_onboarding_item",
-            "hr_training", "hr_training_record", "job_data_event", "license_change", "license_feature", "marketer_assignment", "marketer_assignment_event", "marketer_capacity",
+            "hr_training", "hr_training_record", "job_data_event", "license_change", "license_feature", "marketer_assignment", "marketer_assignment_event", "marketer_assignment_schedule", "marketer_capacity",
             "mkt_activity", "mkt_benchmark", "mkt_followup", "mkt_followup_event", "mkt_goal", "mkt_interview_event", "mkt_interview_feedback",
             "mkt_interview_meta", "mkt_interview_prep_item", "mkt_job_meta", "mkt_job_stream", "mkt_opportunity", "mkt_opportunity_event",
             "mkt_resume_event", "mkt_saved_search", "mkt_saved_view", "mkt_stream_alert", "mkt_stream_rule", "mkt_stream_sync_log", "mkt_submission",

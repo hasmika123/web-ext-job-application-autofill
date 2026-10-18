@@ -11124,6 +11124,42 @@
         }
       }
     },
+    "/api/orgs/{orgId}/marketing-assignments/schedules/{scheduleId}/cancel" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Cancel a planned change, or end a cover now",
+        "description" : "assignments.manage at a scope covering the marketer. A plan that has not started is cancelled; a running cover ends now and the consultant goes back to the marketer they were taken from. 409 NOT_PENDING for a plan that is over. One audit row. Idempotency-Key required.",
+        "operationId" : "cancelSchedule",
+        "parameters" : [ {
+          "name" : "scheduleId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Schedule"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/marketing-assignments/restore" : {
       "post" : {
         "tags" : [ "marketing-assignments" ],
@@ -11155,6 +11191,44 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/BulkResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/reassign" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Reassign one consultant now or on a future date",
+        "description" : "assignments.manage at a scope covering the current and the new marketer. Body: consultantId, newMarketerMemberId, effectiveAt (optional; none or within a minute of now = now, a later date schedules it, at most org.assignments.schedule_max_days ahead), reason (optional, 200 characters), allowOverCapacity. Now: the same change as /assign (answer status DONE with the per-consultant result). Later: a plan the scheduled job applies that day (status SCHEDULED with the plan; history, handover and audit written then). 409 OVER_CAPACITY (waivable), 409 CONSULTANTS_LIMIT (the licence cap, never waivable), 409 SCHEDULE_EXISTS, 409 ALREADY_MARKETER. Idempotency-Key required.",
+        "operationId" : "reassign_2",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReassignRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReassignResult"
                 }
               }
             }
@@ -11218,6 +11292,44 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Marketer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/delegate" : {
+      "post" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Temporary cover for one consultant",
+        "description" : "assignments.manage at a scope covering the current marketer and the cover. Body: consultantId, coverMarketerMemberId, startsAt (optional, default now), endsAt (required, after the start, at most org.assignments.delegate_max_days later), reason (required, 3 to 200 characters), allowOverCapacity. From the start the cover is the consultant's marketer and the open work moves to them; on the end date the scheduled job gives the consultant back to the marketer they were taken from, with the open work. One cover per consultant at a time (409 SCHEDULE_EXISTS). Idempotency-Key required.",
+        "operationId" : "delegate",
+        "parameters" : [ {
+          "name" : "Idempotency-Key",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DelegateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Schedule"
                 }
               }
             }
@@ -24321,6 +24433,35 @@
         }
       }
     },
+    "/api/orgs/{orgId}/marketing-assignments/schedules" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "Planned handovers and running cover",
+        "description" : "workload.view or assignments.manage. Query: consultantId (optional; one consultant, who must be inside the caller's scope). The plans still waiting (SCHEDULED) or running (ACTIVE), soonest first, limited to marketers inside the caller's scope.",
+        "operationId" : "schedules",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ScheduleList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/marketing-assignments/marketers/candidates" : {
       "get" : {
         "tags" : [ "marketing-assignments" ],
@@ -24354,6 +24495,43 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Kpis"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/marketing-assignments/handover-preview" : {
+      "get" : {
+        "tags" : [ "marketing-assignments" ],
+        "summary" : "What a handover would move",
+        "description" : "workload.view or assignments.manage, for a consultant whose current marketer is inside the caller's scope. Query: consultantId, toMemberId (optional). Counts only (open opportunities, tasks and follow-ups the current marketer owns for that consultant), whether the handover switch is on, the new marketer's load against the board capacity and the licence cap consultants.max, and the plans already pending. Reads only.",
+        "operationId" : "handoverPreview",
+        "parameters" : [ {
+          "name" : "consultantId",
+          "in" : "query",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "toMemberId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/HandoverPreview"
                 }
               }
             }
@@ -35342,6 +35520,66 @@
           }
         }
       },
+      "Schedule" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consultantName" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "newMarketer" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "returnMarketer" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "currentMarketer" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "startsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "createdBy" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "appliedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "RestoreRequest" : {
         "type" : "object",
         "properties" : {
@@ -35373,6 +35611,20 @@
           },
           "status" : {
             "type" : "string"
+          }
+        }
+      },
+      "ReassignResult" : {
+        "type" : "object",
+        "properties" : {
+          "status" : {
+            "type" : "string"
+          },
+          "applied" : {
+            "$ref" : "#/components/schemas/BulkResult"
+          },
+          "schedule" : {
+            "$ref" : "#/components/schemas/Schedule"
           }
         }
       },
@@ -35424,6 +35676,33 @@
             "type" : "boolean"
           },
           "canManage" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DelegateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "coverMarketerMemberId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "startsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "endsAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "allowOverCapacity" : {
             "type" : "boolean"
           }
         }
@@ -40735,6 +41014,17 @@
           }
         }
       },
+      "ScheduleList" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Schedule"
+            }
+          }
+        }
+      },
       "MarketerList" : {
         "type" : "object",
         "properties" : {
@@ -40759,6 +41049,67 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Option"
+            }
+          }
+        }
+      },
+      "HandoverPreview" : {
+        "type" : "object",
+        "properties" : {
+          "consultantId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "consultantName" : {
+            "type" : "string"
+          },
+          "from" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "to" : {
+            "$ref" : "#/components/schemas/Person"
+          },
+          "opportunities" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "tasks" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "followups" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "handoverEnabled" : {
+            "type" : "boolean"
+          },
+          "toAssigned" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "toCapacity" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "licenceMax" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "overCapacity" : {
+            "type" : "boolean"
+          },
+          "overLicence" : {
+            "type" : "boolean"
+          },
+          "pending" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Schedule"
             }
           }
         }

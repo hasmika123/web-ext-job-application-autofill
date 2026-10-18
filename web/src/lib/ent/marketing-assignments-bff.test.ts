@@ -30,12 +30,13 @@ describe("marketing assignments BFF", () => {
     const ok: [string, string[]][] = [
       ["GET", ["marketers"]], ["GET", ["marketers", "candidates"]], ["GET", ["consultants"]], ["GET", ["filters"]], ["GET", ["kpis"]], ["GET", ["workload"]],
       ["POST", ["marketers"]], ["PATCH", ["marketers", "7"]], ["POST", ["assign"]], ["POST", ["update"]], ["POST", ["unassign"]], ["POST", ["restore"]],
+      ["GET", ["handover-preview"]], ["GET", ["schedules"]], ["GET", ["consultants", "7", "history"]], ["POST", ["reassign"]], ["POST", ["delegate"]], ["POST", ["schedules", "9", "cancel"]],
     ];
     for (const [method, path] of ok) {
       const res = await handle(req(method, `/api/orgs/2/marketing-assignments/${path.join("/")}`, method === "GET" ? undefined : {}), ctx("2", path));
       expect(res.status, `${method} ${path.join("/")}`).toBe(200);
     }
-    const bad: [string, string[]][] = [["DELETE", ["marketers", "7"]], ["POST", []], ["GET", []], ["GET", ["assign"]], ["PATCH", ["marketers"]], ["PATCH", ["marketers", "x"]], ["POST", ["everything"]], ["GET", ["marketers", "7"]], ["GET", ["consultants", "..", "x"]]];
+    const bad: [string, string[]][] = [["DELETE", ["marketers", "7"]], ["POST", []], ["GET", []], ["GET", ["assign"]], ["PATCH", ["marketers"]], ["PATCH", ["marketers", "x"]], ["POST", ["everything"]], ["GET", ["marketers", "7"]], ["GET", ["consultants", "..", "x"]], ["POST", ["handover-preview"]], ["GET", ["reassign"]], ["DELETE", ["schedules", "9"]], ["POST", ["schedules", "x", "cancel"]], ["POST", ["schedules", "9"]], ["GET", ["consultants", "7", "history", "x"]], ["POST", ["consultants", "7", "history"]]];
     for (const [method, path] of bad) {
       const res = await handle(req(method, `/api/orgs/2/marketing-assignments/${path.join("/")}`, method === "GET" ? undefined : {}), ctx("2", path));
       expect(res.status, `${method} ${path.join("/")}`).toBe(404);
