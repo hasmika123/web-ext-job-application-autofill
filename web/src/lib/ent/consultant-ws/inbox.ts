@@ -1,4 +1,5 @@
 import type { InboxView } from "@/components/settings/InboxConnect";
+import type { ReviewEndpoints } from "@/lib/inbox-review";
 
 /**
  * Consultant workspace "Inbox" client logic (docs/enterprise-v2/18-consultant-inbox.md): the wire types of
@@ -119,6 +120,15 @@ const base = (orgId: number | string) => `/api/orgs/${orgId}/me-workspace/inbox`
 
 /** The tenant-bound routes `InboxConnect` and the suggestion buttons talk to. */
 export const inboxEndpoints = (orgId: number | string) => ({ connect: base(orgId), notify: `${base(orgId)}/notify` });
+
+/** The routes of "Needs your review", the undo and the rejection setting for this organization's consultant workspace (tenant BFF, the consultant only). */
+export const reviewEndpoints = (orgId: number | string): ReviewEndpoints => ({
+  list: `${base(orgId)}/review`,
+  accept: (id) => `${base(orgId)}/review/${id}/accept`,
+  dismiss: (id) => `${base(orgId)}/review/${id}/dismiss`,
+  settings: `${base(orgId)}/settings`,
+  undo: (applicationId, eventId) => `/api/orgs/${orgId}/me-workspace/applications/${applicationId}/inbox-undo/${eventId}`,
+});
 
 export async function fetchConsultantInbox(orgId: number | string, signal?: AbortSignal): Promise<InboxFetch> {
   try {

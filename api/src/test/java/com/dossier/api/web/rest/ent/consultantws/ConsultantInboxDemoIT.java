@@ -27,6 +27,7 @@ import com.dossier.api.service.inbox.ImapGateway;
 import com.dossier.api.service.inbox.ExtractedSchedule;
 import com.dossier.api.service.inbox.InboxInterviewApplier;
 import com.dossier.api.service.inbox.InboxMailService;
+import com.dossier.api.service.inbox.InboxReviewService;
 import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.service.inbox.InboxSyncService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -85,6 +86,7 @@ class ConsultantInboxDemoIT {
     @Autowired private InboxMessageRepository messages;
     @Autowired private InterviewRepository interviews;
     @Autowired private InboxMailService mail;
+    @Autowired private InboxReviewService review;
     @Autowired private InboxInterviewApplier applier;
     @Autowired private ResumeBuilderSettings settings;
 
@@ -164,7 +166,13 @@ class ConsultantInboxDemoIT {
 
         List<Application> apps = applications.findByUserId(id(ANIKA));
         assertThat(apps).filteredOn(a -> a.getCompany().equals("Orbit Freight")).first().satisfies(a -> assertThat(a.getStatus()).as("the interview invite").isEqualTo(ApplicationStatus.INTERVIEW));
-        assertThat(apps).filteredOn(a -> a.getCompany().equals("Cedar Analytics")).first().satisfies(a -> assertThat(a.getStatus()).as("the rejection").isEqualTo(ApplicationStatus.REJECTED));
+        // A rejection is never applied on its own (inbox-safety): it waits for Anika, who confirms it.
+        assertThat(apps).filteredOn(a -> a.getCompany().equals("Cedar Analytics")).first().satisfies(a -> assertThat(a.getStatus()).as("the rejection is held").isNotEqualTo(ApplicationStatus.REJECTED));
+        InboxReviewService.Item held = review.list(id(ANIKA)).items().stream().filter(i -> "Cedar Analytics".equals(i.company())).findFirst().orElseThrow();
+        assertThat(held.kind()).isEqualTo("REJECTION");
+        assertThat(review.accept(id(ANIKA), held.id(), null).application().status()).isEqualTo("REJECTED");
+        apps = applications.findByUserId(id(ANIKA));
+        assertThat(apps).filteredOn(a -> a.getCompany().equals("Cedar Analytics")).first().satisfies(a -> assertThat(a.getStatus()).as("the rejection, confirmed").isEqualTo(ApplicationStatus.REJECTED));
 
         List<InboxMessage> all = messages.findByUserIdOrderBySentAtDesc(id(ANIKA));
         assertThat(all).as("the original seven mails plus three interview mails (a phone screen, its reschedule and a calendar invitation)").hasSize(10);

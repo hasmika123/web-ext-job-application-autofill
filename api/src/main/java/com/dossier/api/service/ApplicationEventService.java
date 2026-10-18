@@ -13,6 +13,7 @@ import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.service.dto.TrackerDTOs.ActivityDay;
 import com.dossier.api.service.dto.TrackerDTOs.EventDTO;
 import com.dossier.api.service.inbox.InboxParser;
+import com.dossier.api.service.settings.AdminSettingKeys;
 import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.Instant;
@@ -288,7 +289,30 @@ public class ApplicationEventService {
     @Transactional(readOnly = true)
     public List<EventDTO> recent(Long applicationId) {
         int max = settings.getInt(ResumeBuilderSettingKeys.TRACKER_DETAIL_EVENTS_MAX);
-        return actors.events(events.findByApplicationIdOrderByCreatedAtDescIdDesc(applicationId, PageRequest.of(0, max)));
+        return markUndoable(actors.events(events.findByApplicationIdOrderByCreatedAtDescIdDesc(applicationId, PageRequest.of(0, max))));
+    }
+
+    /** The summary of the row an undo writes: also how {@link #markUndoable} recognises that an inbox change was undone already. */
+    public static final String UNDONE = "Undone by you";
+
+    /**
+     * Inbox status changes still inside the undo window ({@code inbox.undo_window_days}) and not undone yet carry {@code undoable} so the page can show
+     * Undo. An undone change is recognised by the row the undo wrote (kind STATUS, ref = the changed row's id, summary {@link #UNDONE}); newest-first
+     * pages hold that row ahead of the one it undid.
+     */
+    private List<EventDTO> markUndoable(List<EventDTO> rows) {
+        if (rows.stream().noneMatch(r -> r.inboxEventId() != null)) return rows;
+        int days = settings.getInt(AdminSettingKeys.INBOX_UNDO_WINDOW_DAYS);
+        if (days <= 0) return rows;
+        Instant cutoff = Instant.now(clock).minusSeconds(days * 86400L);
+        java.util.Set<Long> undone = new java.util.HashSet<>();
+        for (EventDTO r : rows) if (UNDONE.equals(r.summary()) && r.refId() != null) undone.add(r.refId());
+        List<EventDTO> out = new ArrayList<>(rows.size());
+        for (EventDTO r : rows) {
+            boolean ok = r.inboxEventId() != null && !undone.contains(r.inboxEventId()) && r.createdAt() != null && !r.createdAt().isBefore(cutoff);
+            out.add(ok ? r.withUndoable(true) : r);
+        }
+        return out;
     }
 
     /**
@@ -303,7 +327,7 @@ public class ApplicationEventService {
         int def = Math.min(settings.getInt(ResumeBuilderSettingKeys.TRACKER_HISTORY_PAGE_DEFAULT_SIZE), max);
         int n = size == null || size < 1 ? def : Math.min(size, max);
         int p = page == null || page < 0 ? 0 : page;
-        List<EventDTO> items = actors.events(events.findByApplicationIdOrderByCreatedAtDescIdDesc(applicationId, PageRequest.of(p, n)));
+        List<EventDTO> items = markUndoable(actors.events(events.findByApplicationIdOrderByCreatedAtDescIdDesc(applicationId, PageRequest.of(p, n))));
         return new ListPage<>(items, events.countByApplicationId(applicationId), p, n, null);
     }
 

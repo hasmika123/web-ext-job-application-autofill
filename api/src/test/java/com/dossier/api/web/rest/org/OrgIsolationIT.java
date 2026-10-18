@@ -387,6 +387,12 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/accept", Case.consultantWrite("{\"company\":\"Hijack Co\",\"roleTitle\":\"Hijacked\"}", 404)),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/suggestions/{suggestionId}/dismiss", Case.consultantWrite(null, 404)),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/updates", Case.consultantRead()),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/review", Case.consultantRead()),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/review/{holdId}/accept", Case.consultantWrite("{\"applicationId\":1}", 404)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/inbox/review/{holdId}/dismiss", Case.consultantWrite(null, 404)),
+        Map.entry("POST /api/orgs/{orgId}/me-workspace/applications/{applicationId}/inbox-undo/{eventId}", Case.consultantWrite(null, 404)),
+        Map.entry("GET /api/orgs/{orgId}/me-workspace/inbox/settings", Case.consultantRead()),
+        Map.entry("PUT /api/orgs/{orgId}/me-workspace/inbox/settings", Case.consultantWrite("{\"applyRejectionsAutomatically\":false}", 409)),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/tasks", Case.consultantRead()),
         Map.entry("GET /api/orgs/{orgId}/me-workspace/tasks/list", Case.consultantRead()),
         Map.entry("POST /api/orgs/{orgId}/me-workspace/tasks", Case.consultantWrite("{\"title\":\"A valid title\"}", 201)),
@@ -1548,6 +1554,8 @@ class OrgIsolationIT {
             ids.put("alertKey", "MEMBERS_SUSPENDED");
             ids.put("id", "999999999"); // the consultant routes' opportunity id: nobody's, and the routes answer 404 before looking (the flag is off in this world)
             ids.put("suggestionId", "999999999"); // an inbox suggestion nobody owns: the routes answer 404 for the legitimate caller too
+            ids.put("holdId", "999999999"); // an inbox review item nobody owns: the review routes answer 404 for the legitimate caller too
+            ids.put("eventId", "999999999"); // an application event nobody owns: the undo route answers 404 for the legitimate caller too
             ids.put("skillId", String.valueOf(skillId));
             ids.put("certId", String.valueOf(certId));
             ids.put("prefId", String.valueOf(prefId));

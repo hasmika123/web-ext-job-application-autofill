@@ -20,6 +20,7 @@ import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.View;
 import com.dossier.api.service.inbox.ImapGateway;
 import com.dossier.api.service.inbox.InboxEntitlement;
 import com.dossier.api.service.inbox.InboxMailService;
+import com.dossier.api.service.inbox.InboxReviewService;
 import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.service.inbox.MailClassifier;
 import com.dossier.api.service.org.OrgMembership;
@@ -64,6 +65,7 @@ public class ConsultantInboxService {
     private final ApplicationRepository applications;
     private final ImapGateway imap;
     private final DemoGuard demoGuard;
+    private final InboxReviewService review;
 
     public ConsultantInboxService(
         ConsultantHomeService gate,
@@ -74,8 +76,10 @@ public class ConsultantInboxService {
         InboxMessageRepository messages,
         ApplicationRepository applications,
         ImapGateway imap,
-        DemoGuard demoGuard
+        DemoGuard demoGuard,
+        InboxReviewService review
     ) {
+        this.review = review;
         this.gate = gate;
         this.authorization = authorization;
         this.inbox = inbox;
@@ -179,6 +183,40 @@ public class ConsultantInboxService {
     public void dismiss(OrgMembership me, Long id) {
         requireSelf(me);
         mail.dismiss(id);
+    }
+
+    // ---- inbox safety (what the inbox held, undo, the rejection switch): the consultant's own, answered by the same service as the personal app ----
+
+    @Transactional(readOnly = true)
+    public InboxReviewService.ReviewList review(OrgMembership me) {
+        requireSelf(me);
+        return review.list(me.userId());
+    }
+
+    public InboxReviewService.Applied acceptHold(OrgMembership me, Long holdId, Long applicationId) {
+        requireSelf(me);
+        return review.accept(me.userId(), holdId, applicationId);
+    }
+
+    public void dismissHold(OrgMembership me, Long holdId) {
+        requireSelf(me);
+        review.dismiss(me.userId(), holdId);
+    }
+
+    public InboxReviewService.Applied undoChange(OrgMembership me, Long applicationId, Long eventId) {
+        requireSelf(me);
+        return review.undo(me.userId(), applicationId, eventId);
+    }
+
+    @Transactional(readOnly = true)
+    public InboxReviewService.Settings reviewSettings(OrgMembership me) {
+        requireSelf(me);
+        return review.settings(me.userId());
+    }
+
+    public InboxReviewService.Settings setReviewSettings(OrgMembership me, boolean applyRejectionsAutomatically) {
+        requireSelf(me);
+        return review.setSettings(me.userId(), applyRejectionsAutomatically);
     }
 
     @Transactional(readOnly = true)
