@@ -138,6 +138,16 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_RESUMES_MANAGER_REVIEW = "org.resumes.manager_review";
     public static final String ORG_PIPELINE_APPROVAL_EXPIRY_DAYS = "org.pipeline.approval_expiry_days";
     /**
+     * Marketing Manager escalations (deferred/marketing-manager.md section 4.2, MM-04): the days without activity after which an assigned opportunity counts as stalled, the days a
+     * follow-up may be overdue before it is escalated, the hours a consultant's question may wait for an answer, the hours an approval request may wait for a decision, and whether a
+     * manager gets one digest notice per run. The overload level is the existing {@code org.marketing.overload_pct}. An organization may override each in {@code org_setting}.
+     */
+    public static final String ORG_PIPELINE_STALLED_DAYS = "org.pipeline.stalled_days";
+    public static final String ORG_PIPELINE_FOLLOWUP_OVERDUE_DAYS = "org.pipeline.followup_overdue_days";
+    public static final String ORG_PIPELINE_QUESTION_SLA_HOURS = "org.pipeline.question_sla_hours";
+    public static final String ORG_PIPELINE_APPROVAL_SLA_HOURS = "org.pipeline.approval_sla_hours";
+    public static final String ORG_MGMT_ESCALATION_DIGEST = "org.mgmt.escalation_digest";
+    /**
      * Release 1, WP2 (docs/enterprise-v2/60 section 10): the most job detail an organization's pages may show, MINIMAL (facts and the link) or FULL.
      * The level actually shown is the lower of this and the job's stored {@code detail_level}; read by {@code JobDetailMapper} / {@code JobDetailCap}.
      * An organization may override it in {@code org_setting}.
@@ -226,6 +236,12 @@ public final class EnterpriseSettingKeys {
         k.add(new Key(ORG_RESUMES_MANAGER_REVIEW, Type.BOOL, "false", null, null, null,
             "Manager review of marketer-made resumes: on = a resume a marketer made for a consultant is reviewed by a Marketing Manager before the consultant is asked to approve it (the consultant's own approval is never replaced). Off (default) = the marketer sends it to the consultant directly. An organization can override it in org_setting.", null, Risk.MEDIUM));
         integer(k, ORG_PIPELINE_APPROVAL_EXPIRY_DAYS, 7, 1, 30, Risk.LOW, "Manager approvals: days a request waits for a decision before it expires (nothing happens to the held action; the marketer can ask again). An organization can override it in org_setting.");
+        integer(k, ORG_PIPELINE_STALLED_DAYS, 7, 1, 60, Risk.LOW, "Escalations: an assigned opportunity with no activity for this many days is escalated to the marketing manager as stalled (high after twice as many). An organization can override it in org_setting.");
+        integer(k, ORG_PIPELINE_FOLLOWUP_OVERDUE_DAYS, 3, 0, 30, Risk.LOW, "Escalations: a follow-up overdue by this many days is escalated to the marketing manager (medium once it is 7 days overdue). 0 = as soon as it is overdue. An organization can override it in org_setting.");
+        integer(k, ORG_PIPELINE_QUESTION_SLA_HOURS, 48, 1, 168, Risk.LOW, "Escalations: a consultant's question about an opportunity that has waited this many hours for the marketer's answer is escalated as high. An organization can override it in org_setting.");
+        integer(k, ORG_PIPELINE_APPROVAL_SLA_HOURS, 24, 1, 168, Risk.LOW, "Escalations: a manager approval request that has waited this many hours for a decision is escalated to the managers. An organization can override it in org_setting.");
+        k.add(new Key(ORG_MGMT_ESCALATION_DIGEST, Type.BOOL, "true", null, null, null,
+            "Escalations: on = a manager gets ONE in-app notice per run that summarises the new high-severity escalations of their team (no e-mail); off = one notice per escalation. An organization can override it in org_setting.", null, Risk.LOW));
         integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
         integer(d, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
         integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);

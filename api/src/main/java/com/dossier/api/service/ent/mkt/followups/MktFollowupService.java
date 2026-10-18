@@ -158,6 +158,15 @@ public class MktFollowupService {
         return rows(rows, consultantsOf(v.orgId(), rows), now);
     }
 
+    /**
+     * Every not-completed follow-up of the organization that is overdue by at least {@code olderThanDays} days (MM-04, the escalation rule). Entities, for the rules
+     * of {@code EscalationRules}; 0 means every overdue follow-up. The caller has already decided that the organization is theirs (a job, per organization).
+     */
+    @Transactional(readOnly = true)
+    public List<MktFollowup> overdue(Long orgId, int olderThanDays) {
+        return followups.findOverdue(orgId, true, NO_IDS, clock.instant().minus(java.time.Duration.ofDays(Math.max(0, olderThanDays))));
+    }
+
     /** Not completed and due before now (derived), oldest first. */
     @Transactional(readOnly = true)
     public List<Row> overdue(MktScope.View v) {
