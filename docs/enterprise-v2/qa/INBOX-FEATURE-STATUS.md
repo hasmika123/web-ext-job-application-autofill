@@ -127,13 +127,13 @@ Vitest: `InboxPage.test.tsx` (10), `inbox.test.ts` (7). Playwright story `web/e2
 | Scale / second instance | PARTIAL | `AtomicBoolean` only, sequential loop | No ShedLock/DB lock, no parallelism, no metrics | Medium (latent) |
 | Store headers + job-mail body, no attachments, 12-month retention | DONE | `MailText`, `JobMailRules`, `InboxRetention` | Headers of non-job mail kept 12 months | Medium (privacy) |
 | PII scan of stored text | PARTIAL | the interview location read from a mail is checked with `SensitivePatterns` and dropped on a hit (e1ab45c7); body text is still stored as received | Scan/redact body before save or before AI | Medium |
-| Rules classification | PARTIAL | `MailClassifier` | English only, regex, no confidence, no real-mail corpus | High (accuracy) |
+| Rules classification | PARTIAL | `MailClassifier` | English only, regex, no real-mail corpus. Confidence FIXED (branch `inbox-conf`): `MailConfidence` scores every classified mail 0..100 (sender, subject, body, model-or-rules), stored in `inbox_message.confidence`; 27 synthetic mails pinned in `MailPrecisionTest` | High (accuracy) |
 | AI fallback for unsure mail | DONE | `InboxParser` (`AiTask.INBOX`, 20 per batch) | No AI for consultants without Pro; no prompt-injection note on mail body | Medium |
 | Event types: received, in-review, interview invite, assessment, rejection, offer | DONE | `Category` | | Medium |
 | Event types: interview reschedule, interview cancel | FIXED (9c3ca94f) | `InterviewScheduleExtractor`, `InboxInterviewApplier`, classifier wording (`MailClassifier` change pattern) | | Low |
 | Event types: recruiter outreach, withdrawal | NOT BUILT | none | New categories | Low |
-| Company/role extraction | PARTIAL | `companyFrom/roleFrom` | Heuristic; no requisition id, no ATS parsers | High |
-| Matching (thread, company, role) | PARTIAL | `MailMatcher`, `InboxParser.thread` | No job-link/ATS-id; no "link this mail" suggestion or review queue; no `LINK_SUGGESTED` | Medium |
+| Company/role extraction | PARTIAL | `companyFrom/roleFrom` | Heuristic extraction unchanged; the requisition / application id is now matched (FIXED, `inbox-conf`, `MailMatcher.rank`); no per-ATS parsers | High |
+| Matching (thread, company, role) | PARTIAL | `MailMatcher`, `InboxParser.thread` | FIXED (`inbox-conf`): ATS id, job link, thread, company+role, ranked candidates, `ambiguous` when the best two jobs are within 10 points (never guessed), `inbox_message.match_kind`; the apply/hold/ignore thresholds are `inbox.apply_min_confidence` / `inbox.suggest_min_confidence`. Still open: the review queue / "link this mail" screen (holds are owned by the safety work), `References` header (only `In-Reply-To` is stored) | Medium |
 | Automatic status update, forward-only, audit "by Inbox", notifications | DONE | `MailMatcher.next`, `ApplicationEventService`, `NotificationService` | No confirm/undo for a wrong REJECTED | High (safety) |
 | New-job suggestions: API accept/dismiss | DONE | `InboxMailService`, `InboxMailResourceIT` | | Low |
 | New-job suggestions: personal UI | PARTIAL | only POST BFF | List + accept UI missing in v3 | Medium |
