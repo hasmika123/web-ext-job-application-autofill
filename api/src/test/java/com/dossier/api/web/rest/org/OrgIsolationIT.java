@@ -534,6 +534,11 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mgmt/assignments/restore", Case.people(200, "MARKETING_BULK", 2, w -> "{\"rows\":[{\"consultantId\":" + w.mktConsultantId + ",\"marketerMemberId\":null}]}", null, w -> w.mktAssigned())),
         Map.entry("GET /api/orgs/{orgId}/mgmt/workload", Case.mktRead()),
         Map.entry("POST /api/orgs/{orgId}/mgmt/workload/rebalance", Case.people(200, "MARKETING_BULK", 2, w -> "{\"moves\":[{\"consultantId\":" + w.mktConsultantId + ",\"toMarketerMemberId\":" + w.mktFreshMarketer() + "}]}", null, World::mgmtRebalanceReady)),
+        // MM-08: the Marketing Manager's Pipeline board and the reports projected to the team (reads; the export writes its one audited EXPORT row).
+        Map.entry("GET /api/orgs/{orgId}/mgmt/pipeline", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/pipeline/summary", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/reports/overview", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/reports/export", Case.auditedRead(OrgAuditService.EXPORT)),
         // Enterprise V2 Applications page (docs/enterprise-v2/page-applications.md): reads write no audit row; every mutation writes one APPLICATION_* row.
         Map.entry("GET /api/orgs/{orgId}/applications", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/applications/counts", Case.read()),
