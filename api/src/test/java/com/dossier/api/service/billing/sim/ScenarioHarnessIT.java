@@ -18,6 +18,8 @@ import java.util.Arrays;
 import java.util.stream.Stream;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import java.time.Instant;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -26,8 +28,10 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -41,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @WithMockUser(username = "user")
 @Import({ SubFixtures.CatalogPortConfig.class, StatefulFakeStripeGateway.Config.class })
+@TestPropertySource(properties = "spring.datasource.hikari.maximum-pool-size=4") // the webhook service records each event in a REQUIRES_NEW transaction: a second connection beside the test's
 class ScenarioHarnessIT {
 
     @Autowired private MockMvc mockMvc;
@@ -54,10 +59,20 @@ class ScenarioHarnessIT {
     @Autowired private BillingWebhookService webhook;
     @Autowired private PersonalBillingReconciler reconciler;
     @Autowired private StatefulFakeStripeGateway stripe;
+    @Autowired private PlatformTransactionManager txm;
     @MockitoBean private MailService mail;
+
+    private Instant startedAt;
+
+    @AfterEach
+    void purgeCommittedEvents() {
+        // the webhook service's REQUIRES_NEW event rows outlive the rolled-back test transaction
+        SubFixtures.purgeStripeEventsSince(txm, jdbc, startedAt);
+    }
 
     @BeforeEach
     void world() {
+        startedAt = Instant.now();
         stripe.reset();
         SubFixtures.publishedPlan(jdbc);
         SubFixtures.standardPrices(jdbc);
@@ -77,6 +92,7 @@ class ScenarioHarnessIT {
         return Arrays.stream(found).map(Resource::getFilename).sorted();
     }
 
+    @org.junit.jupiter.api.Timeout(120) // a scenario is a dozen routes, webhooks and reconciler laps: on a loaded machine it needs more than the 15 s default
     @ParameterizedTest(name = "{0}")
     @MethodSource("scenarios")
     void scenario(String file) throws Exception {

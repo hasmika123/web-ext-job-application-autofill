@@ -13,6 +13,9 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Test data for the personal quote, change and checkout tests (K3.3 to K5.7). It builds a published, public individual plan {@code TQ} whose version copies
@@ -89,6 +92,19 @@ public final class SubFixtures {
             versionId
         );
         return new Plan(planId, versionId, base);
+    }
+
+    /**
+     * Removes the {@code stripe_event} rows written since {@code since}. {@code BillingWebhookService} records every event in a REQUIRES_NEW transaction, so
+     * those rows commit even though the test's own transaction rolls back; left behind, they would make the next test's events "already handled". The delete
+     * runs in a transaction of its own for the same reason (inside the test's transaction it would roll back with it). Tests that reach the webhook service
+     * need {@code spring.datasource.hikari.maximum-pool-size=4}: the test pool of ONE connection is held by the test transaction, so the REQUIRES_NEW one
+     * would wait for it forever.
+     */
+    public static void purgeStripeEventsSince(PlatformTransactionManager txm, JdbcTemplate jdbc, Instant since) {
+        TransactionTemplate own = new TransactionTemplate(txm);
+        own.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        own.executeWithoutResult(s -> jdbc.update("DELETE FROM stripe_event WHERE received_at >= ?", Timestamp.from(since.minusSeconds(5))));
     }
 
     /** An active USD INDIVIDUAL price row for a product; returns its id. */

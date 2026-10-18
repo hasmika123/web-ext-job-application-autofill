@@ -60,6 +60,18 @@ public class StatefulFakeStripeGateway extends FakeStripeGateway {
         StatefulFakeStripeGateway statefulFakeStripeGateway() {
             return new StatefulFakeStripeGateway();
         }
+
+        /** The gates that decide "is this person still on a paid plan" read the simulated time, not the wall clock, so a lapse replayed in milliseconds is a lapse to them too. */
+        @org.springframework.context.annotation.Bean
+        @org.springframework.context.annotation.Primary
+        com.dossier.api.service.billing.BillingClock simulatedBillingClock(StatefulFakeStripeGateway stripe) {
+            return new com.dossier.api.service.billing.BillingClock() {
+                @Override
+                public java.time.Instant now() {
+                    return stripe.now();
+                }
+            };
+        }
     }
 
     /** Days a declined renewal stays {@code past_due} before Stripe gives up and cancels (Stripe's default dunning is longer; the number is only a fixture). */

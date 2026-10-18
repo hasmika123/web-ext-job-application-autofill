@@ -60,6 +60,7 @@ class NoEarlyLossIT extends RetirementItSupport {
     }
 
     @Test
+    @org.junit.jupiter.api.Timeout(300) // the clock walks every notice day and last second of six subscribers (about 100 resolutions and 2 job runs each): well past the 15 s default
     void nobodyLosesAnythingBeforeTheirOwnDateForSixKindsOfSubscriber() {
         RetirementFixtures.successorPlan(jdbc, "TS", "PRO");
         Subscription monthlyUndecided = RetirementFixtures.subscriber(users, subscriptions, plan.versionId(), "MONTH", "active", 40, false, true);
@@ -112,6 +113,7 @@ class NoEarlyLossIT extends RetirementItSupport {
                 Shape expected = baseline.get(s.getId());
                 Shape actual = shape(s, t);
                 assertThat(actual).as("%s at %s, before their date %s", s.getUser().getLogin(), t, dates.get(s.getId())).isEqualTo(expected);
+                assertThat(db().queryForObject("select count(*) from service_lock where user_id = ?", Integer.class, s.getUser().getId())).as("%s is locked out of nothing at %s, before their date", s.getUser().getLogin(), t).isZero();
                 checked++;
             }
         }
@@ -119,7 +121,9 @@ class NoEarlyLossIT extends RetirementItSupport {
         assertThat(stripe.itemCalls).as("no item update, no proration, no invoice, before any date").isEmpty();
         assertThat(stripe.invoiceItemCalls).isEmpty();
         assertThat(stripe.refundLikeCalls).isEmpty();
-        assertThat(db().queryForObject("select count(*) from service_lock", Integer.class)).as("nothing is locked before a date").isZero();
+        // The loop above walked past the dates of the earlier subscribers, whose fallback to Free legitimately locks what Free does not include: the promise is per person and
+        // is checked for each of them at every step of the loop. Here the one subscriber whose date was never reached (the yearly one) has no lock either.
+        assertThat(db().queryForObject("select count(*) from service_lock where user_id = ?", Integer.class, yearly.getUser().getId())).as("nothing is locked before a date").isZero();
         assertThat(mail.subjects()).anyMatch(t -> t.contains("is changing on"));
 
         // after the dates: the outcome is exactly the retirement's

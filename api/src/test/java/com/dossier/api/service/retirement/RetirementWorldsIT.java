@@ -75,6 +75,9 @@ class RetirementWorldsIT extends RetirementItSupport {
     void anEnterpriseAccountGetsTheGeneric404OnEveryRetirementRoute() {
         User ent = enterpriseAccount();
         RetirementFixtures.subscriberFor(ent, subscriptions, plan.versionId(), "MONTH", "active", 40, false, true);
+        // A personal subscriber keeps the retirement live. With the stray row as the only holder the retirement would have nothing to do and try to retire the plan at once,
+        // which the retire guard refuses (the plan is still referenced): that refusal is the K2.4 invariant, not what this test is about.
+        monthly(40);
         startRetirement("FREE");
         assertThatThrownBy(() -> choices.me(ent.getLogin())).isInstanceOfSatisfying(BillingException.class, e -> assertThat(e.getStatus()).isEqualTo(404));
         assertThatThrownBy(() -> choices.choose(ent.getLogin(), UUID.randomUUID().toString(), new com.dossier.api.service.retirement.dto.CustomerRetirementDTOs.ChoiceRequest("LATER", null, null, null, null)))

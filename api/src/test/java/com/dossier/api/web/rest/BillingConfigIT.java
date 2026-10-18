@@ -71,10 +71,12 @@ class BillingConfigIT {
     @Autowired private PublicCatalogService publicCatalog;
     @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager em;
 
+    private SubFixtures.Plan plan;
+
     @BeforeEach
     void data() {
         publicCatalog.clearCache();
-        SubFixtures.publishedPlan(jdbc);
+        plan = SubFixtures.publishedPlan(jdbc);
         SubFixtures.standardPrices(jdbc);
         User user = users.findOneByLogin("user").orElseThrow();
         subscriptions.findOneByUserId(user.getId()).ifPresent(s -> {
@@ -144,6 +146,7 @@ class BillingConfigIT {
         sub.setStatus("active");
         sub.setPlan("PRO");
         sub.setPriceId(SubFixtures.BASE_MONTH);
+        sub.setPlanVersionId(plan.versionId()); // a change quote starts from the plan version the subscriber holds
         sub.setStripeCustomerId("cus_cfg_1");
         sub.setStripeSubscriptionId("sub_cfg_1");
         sub.setCurrentPeriodEnd(Instant.now().plus(20, ChronoUnit.DAYS));

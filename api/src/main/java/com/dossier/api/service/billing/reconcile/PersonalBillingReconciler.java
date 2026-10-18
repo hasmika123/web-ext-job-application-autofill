@@ -233,7 +233,10 @@ public class PersonalBillingReconciler {
         List<String> ids = snap.items().stream().map(StripeWebhookEvent.Item::priceId).filter(java.util.Objects::nonNull).toList();
         if (!ids.isEmpty()) for (ProductPrice p : prices.findByStripePriceIdIn(ids)) byStripe.put(p.getStripePriceId(), p);
         Map<String, Long> stripeQty = new LinkedHashMap<>();
-        for (StripeWebhookEvent.Item item : snap.items()) {
+        // A cancelled subscription keeps its items on Stripe's object but bills none of them: the mirror closes the add-on lines at the cancellation (the customer keeps them
+        // to the period end), so counting the dead items would flag every cancelled subscriber.
+        boolean billing = !"canceled".equals(lower(snap.status())) && !"incomplete_expired".equals(lower(snap.status()));
+        for (StripeWebhookEvent.Item item : billing ? snap.items() : List.<StripeWebhookEvent.Item>of()) {
             ProductPrice price = byStripe.get(item.priceId());
             if (price == null) continue; // not a catalog price (the legacy env prices): nothing to compare
             Optional<Product> product = products.findById(price.getProductId());
