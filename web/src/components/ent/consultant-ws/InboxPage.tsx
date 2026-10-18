@@ -99,7 +99,7 @@ function UpdateRow({ u, endpoints, onUndone }: { u: InboxUpdate; endpoints: Revi
         <span className="text-[14px] font-bold text-ink">{u.company}</span>
         {u.role ? <span className="ml-2 text-[13px] text-ink-soft">{u.role}</span> : null}
         <p className="mt-0.5 text-[12.5px] text-muted">
-          {u.reading ? `${u.reading} · ` : ""}
+          {u.reading ? `${u.reading} Â· ` : ""}
           {u.at ? <LocalDate iso={u.at} options={WHEN} /> : null}
         </p>
       </div>
@@ -113,7 +113,7 @@ function UpdateRow({ u, endpoints, onUndone }: { u: InboxUpdate; endpoints: Revi
         <p data-update-interview={iv.id ?? ""} className="m-0 flex min-w-0 basis-full flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-soft">
           <span className={cn("min-w-0 break-words", iv.cancelled && "text-muted line-through")}>
             {interviewLine(iv)}
-            {iv.location ? ` · ${iv.location}` : ""}
+            {iv.location ? ` Â· ${iv.location}` : ""}
           </span>
           {iv.cancelled ? <Pill tone="red">Cancelled</Pill> : null}
           {iv.link && !iv.cancelled ? (

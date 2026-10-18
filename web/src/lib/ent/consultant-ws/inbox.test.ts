@@ -96,8 +96,8 @@ describe("update interview and undo", () => {
   });
 
   it("writes the time in the interview's own zone with the short zone name", () => {
-    expect(interviewLine({ startsAt: "2026-10-27T21:00:00Z", tz: "America/Los_Angeles", kind: "PHONE" })).toBe("Interview Tue Oct 27, 2:00 PM PDT · Phone");
-    expect(interviewLine({ startsAt: "2026-10-27T21:00:00Z", tz: "America/New_York", kind: "VIDEO" })).toBe("Interview Tue Oct 27, 5:00 PM EDT · Video");
-    expect(interviewLine({ startsAt: "2026-10-27T21:00:00Z", tz: "Not/AZone", kind: "ONSITE" })).toMatch(/^Interview \w{3} Oct 2[78], .* · On-site$/);
+    expect(interviewLine({ startsAt: "2026-10-27T21:00:00Z", tz: "America/Los_Angeles", kind: "PHONE" })).toBe("Interview Tue Oct 27, 2:00 PM PDT Â· Phone");
+    expect(interviewLine({ startsAt: "2026-10-27T21:00:00Z", tz: "America/New_York", kind: "VIDEO" })).toBe("Interview Tue Oct 27, 5:00 PM EDT Â· Video");
+    expect(interviewLine({ startsAt: "2026-10-27T21:00:00Z", tz: "Not/AZone", kind: "ONSITE" })).toMatch(/^Interview \w{3} Oct 2[78], .* Â· On-site$/);
   });
 });
