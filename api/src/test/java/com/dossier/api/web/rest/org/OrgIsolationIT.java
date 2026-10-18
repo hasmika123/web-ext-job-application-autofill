@@ -499,6 +499,14 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/update", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"priority\":\"HIGH\"}", null, w -> w.mktAssigned())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/unassign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "]}", null, w -> w.mktAssigned())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/restore", Case.people(200, "MARKETING_BULK", 2, w -> "{\"rows\":[{\"consultantId\":" + w.mktConsultantId + ",\"marketerMemberId\":null}]}", null, w -> w.mktAssigned())),
+        // MM-03: the Marketing Manager's approvals (the world holds one PENDING resume-release request made by the owner) and the marketer's side of them.
+        Map.entry("GET /api/orgs/{orgId}/mgmt/approvals", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/approvals/{id}", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/approvals/{id}/approve", Case.mkt(200, OrgAuditService.MKT_APPROVAL_APPROVE, w -> "{\"note\":\"Looks right\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/approvals/{id}/reject", Case.mkt(200, OrgAuditService.MKT_APPROVAL_REJECT, w -> "{\"note\":\"Not this one\"}", null)),
+        Map.entry("GET /api/orgs/{orgId}/mkt/approvals", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mkt/approvals", Case.mkt(200, OrgAuditService.MKT_APPROVAL_OPEN, w -> "{\"kind\":\"OPPORTUNITY_ASSIGN\",\"subjectId\":" + w.mktMatchId + "}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/approvals/{id}/withdraw", Case.mkt(200, OrgAuditService.MKT_APPROVAL_WITHDRAW, w -> null, null)),
         // Enterprise V2 Applications page (docs/enterprise-v2/page-applications.md): reads write no audit row; every mutation writes one APPLICATION_* row.
         Map.entry("GET /api/orgs/{orgId}/applications", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/applications/counts", Case.read()),
@@ -736,6 +744,7 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.talent.MarketerCapacityRepository mktCapacities;
     @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentRepository mktAssignments;
     @Autowired private com.dossier.api.repository.ent.mkt.MktOpportunityRepository mktOpportunities;
+    @Autowired private com.dossier.api.repository.ent.mgmt.MktApprovalRequestRepository mgmtApprovals;
 
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantSkillRepository consultantSkills;
     @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes;
@@ -1255,6 +1264,8 @@ class OrgIsolationIT {
         boolean mktSeeded;
         Long mktReqId = 1L, mktTaskId = 1L, mktFollowupId = 1L, mktActivityId = 1L, mktMatchId = 1L, mktSubmissionId = 1L, mktStreamId = 1L, mktSearchId = 1L;
         Long mktSubmissionViewId = 1L, mktTalentViewId = 1L, mktPrepItemId = 1L;
+        /** MM-03: the world's pending manager approval (a resume release asked by the owner). */
+        Long mgmtApprovalId = 1L;
 
         /** One call of the real API as this world's owner; any 2xx is the fixture working. */
         JsonNode mktApi(HttpMethod method, String path, String body) {
@@ -1319,6 +1330,24 @@ class OrgIsolationIT {
             mktSubmissionViewId = mktApi(HttpMethod.POST, "/mkt/submissions/views", "{\"name\":\"Isolation view\",\"q\":\"java\"}").path("id").asLong();
             mktTalentViewId = mktApi(HttpMethod.POST, "/mkt/talent/views", "{\"name\":\"Isolation view\",\"q\":\"java\"}").path("id").asLong();
             mktPrepItemId = mktApi(HttpMethod.GET, "/mkt/interviews/" + interviewId + "/prep", null).path("items").path(0).path("id").asLong();
+            em.flush();
+            seedMgmt();
+        }
+
+        /** MM-03: one PENDING manager approval, asked by the owner for the world's org resume (written straight to the table: it is the row the manager routes name by id). */
+        void seedMgmt() {
+            com.dossier.api.domain.ent.mgmt.MktApprovalRequest r = new com.dossier.api.domain.ent.mgmt.MktApprovalRequest();
+            r.setOrgId(org.getId());
+            r.setKind("RESUME_RELEASE");
+            r.setSubjectType("ORG_RESUME");
+            r.setSubjectId(resumeId);
+            r.setConsultantId(consultantProfileId);
+            r.setRequestedByMemberId(owner.getId());
+            r.setRequestedAt(Instant.now());
+            r.setTitle(p + " consultant, resume " + p + " resume");
+            r.setPayloadJson("{\"resumeId\":" + resumeId + ",\"consultantId\":" + consultantProfileId + "}");
+            r.setExpiresAt(Instant.now().plusSeconds(7 * 86400L));
+            mgmtApprovalId = mgmtApprovals.saveAndFlush(r).getId();
             em.flush();
         }
 
@@ -1563,6 +1592,7 @@ class OrgIsolationIT {
             ids.put("streamId", String.valueOf(mktStreamId));
             ids.put("searchId", String.valueOf(mktSearchId));
             ids.put("ruleKey", "DEFAULT_KEYWORDS"); // a fixed word of the stream rules, not a row
+            ids.put("mgmtApprovalId", String.valueOf(mgmtApprovalId)); // {id} of mgmt/approvals and mkt/approvals (see uri())
             return ids;
         }
 
@@ -1615,6 +1645,8 @@ class OrgIsolationIT {
             .replace("/mkt/submissions/{id}", "/mkt/submissions/{mktSubmissionId}")
             .replace("/mkt/talent/views/{viewId}", "/mkt/talent/views/{mktTalentViewId}")
             .replace("/mkt/tasks/{id}", "/mkt/tasks/{mktTaskId}")
+            .replace("/mgmt/approvals/{id}", "/mgmt/approvals/{mgmtApprovalId}")
+            .replace("/mkt/approvals/{id}", "/mkt/approvals/{mgmtApprovalId}")
             .replace("/members/{memberId}/resend", "/members/{pendingMemberId}/resend")
             .replace("/opportunities/{matchId}", "/opportunities/{opportunityMatchId}")
             .replace("/submissions/{id}", "/submissions/{submissionId}")
@@ -1651,6 +1683,9 @@ class OrgIsolationIT {
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
         if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/orgs/{orgId}/requirements") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension") || route.pattern().endsWith("/opportunities/job"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
+        }
+        if (!route.method().equals("GET") && (route.pattern().contains("/mgmt/") || route.pattern().contains("/mkt/approvals") || route.pattern().contains("/mkt/escalations"))) {
+            req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the manager writes require one (MM design section 5)
         }
         if (c.ifMatchFor() != null) {
             String version = c.ifMatchFor().apply(world);

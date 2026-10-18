@@ -262,6 +262,31 @@ public class ApprovalService {
         return dtos(me.orgId(), List.of(r)).get(0);
     }
 
+    /** The manager's Approvals page: the gate ({@code approvals.decide} at TEAM or wider; the generic 404 otherwise) and one page of the list. */
+    @Transactional(readOnly = true)
+    public ApprovalRequestDTO.Page list(OrgMembership me, Filter f, int page, int size) {
+        if (page < 0) throw OrgException.invalid("page", "must be 0 or more");
+        if (size < 1 || size > 100) throw OrgException.invalid("size", "must be between 1 and 100");
+        TeamScope.View team = teamScope.resolve(me, AuthzOperation.READ, ApprovalKinds.KEY_DECIDE);
+        return toPage(pending(team, f, PageRequest.of(page, size)));
+    }
+
+    /** One request for the manager's Approvals page. */
+    @Transactional(readOnly = true)
+    public ApprovalRequestDTO detail(OrgMembership me, Long id) {
+        return get(teamScope.resolve(me, AuthzOperation.READ, ApprovalKinds.KEY_DECIDE), id);
+    }
+
+    /** The permission wall of a decision: callable on its own so the route can refuse before it looks at the Idempotency-Key header. */
+    public void gateDecide(OrgMembership me) {
+        teamScope.resolve(me, AuthzOperation.WRITE, ApprovalKinds.KEY_DECIDE);
+    }
+
+    /** A Spring page as the answer shape of the approval routes. */
+    public static ApprovalRequestDTO.Page toPage(Page<ApprovalRequestDTO> p) {
+        return new ApprovalRequestDTO.Page(p.getContent(), p.getNumber(), p.getSize(), p.getTotalElements(), p.hasNext());
+    }
+
     /** PENDING requests of the team (the Home page's badge and "needs you" list). */
     @Transactional(readOnly = true)
     public long countPending(TeamScope.View team) {
