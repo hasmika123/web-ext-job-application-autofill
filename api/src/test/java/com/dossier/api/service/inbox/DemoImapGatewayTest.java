@@ -42,6 +42,13 @@ class DemoImapGatewayTest {
     }
 
     @Test
+    void aDemoStackCanTurnTheSampleMailboxOffToReadARealGmail() {
+        // dossier.demo.inbox-sandbox=false removes the sample mailbox (the real gateway then serves); absent means ON, so nothing changes by default.
+        String cond = DemoImapGateway.class.getAnnotation(org.springframework.boot.autoconfigure.condition.ConditionalOnExpression.class).value();
+        assertThat(cond).contains("dossier.demo.inbox-sandbox:true");
+    }
+
+    @Test
     void theRealGatewayIsNeverASandbox() {
         assertThat(new JakartaImapGateway(new InboxProperties()).isDemoSandbox()).isFalse();
         assertThat(gateway().isDemoSandbox()).isTrue();
