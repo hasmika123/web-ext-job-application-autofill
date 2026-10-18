@@ -56,6 +56,10 @@ public class InboxConnection implements Serializable {
     @Column(name = "notify_email", nullable = false)
     private boolean notifyEmail = true;
 
+    /** "Apply rejections automatically" (inbox-safety): off by default, a rejection read from mail waits for the person's confirmation. */
+    @Column(name = "auto_apply_rejections", nullable = false)
+    private boolean autoApplyRejections = false;
+
     /** The organization whose license allowed this connection (ent-inbox); null = made on the personal plan. Never shown to the organization. */
     @Column(name = "connected_via_org_id")
     private Long connectedViaOrgId;
@@ -131,6 +135,14 @@ public class InboxConnection implements Serializable {
 
     public void setConsecutiveFailures(int consecutiveFailures) {
         this.consecutiveFailures = consecutiveFailures;
+    }
+
+    public boolean isAutoApplyRejections() {
+        return autoApplyRejections;
+    }
+
+    public void setAutoApplyRejections(boolean autoApplyRejections) {
+        this.autoApplyRejections = autoApplyRejections;
     }
 
     public boolean isNotifyEmail() {

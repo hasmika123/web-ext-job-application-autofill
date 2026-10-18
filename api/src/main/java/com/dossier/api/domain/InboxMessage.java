@@ -101,6 +101,18 @@ public class InboxMessage implements Serializable {
     @Column(name = "parsed_at")
     private Instant parsedAt;
 
+    /** Set when the person undid the status change this mail made (inbox-safety): the mail is then dismissed for that application. */
+    @Column(name = "undone_at")
+    private Instant undoneAt;
+
+    public Instant getUndoneAt() {
+        return undoneAt;
+    }
+
+    public void setUndoneAt(Instant undoneAt) {
+        this.undoneAt = undoneAt;
+    }
+
     public Long getId() {
         return id;
     }
