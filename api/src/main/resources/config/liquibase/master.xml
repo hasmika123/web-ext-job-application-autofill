@@ -148,5 +148,6 @@
     <include file="config/liquibase/changelog/20261101060000_sub_retirement.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261123010000_inbox_interview_schedule.xml" relativeToChangelogFile="false"/>
     <include file="config/liquibase/changelog/20261125010000_inbox_safety.xml" relativeToChangelogFile="false"/>
+    <include file="config/liquibase/changelog/20261126010000_inbox_confidence.xml" relativeToChangelogFile="false"/>
     <!-- jhipster-needle-liquibase-add-incremental-changelog - JHipster will add incremental liquibase changelogs here -->
 </databaseChangeLog>

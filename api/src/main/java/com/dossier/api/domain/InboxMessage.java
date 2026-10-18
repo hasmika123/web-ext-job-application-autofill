@@ -314,6 +314,30 @@ public class InboxMessage implements Serializable {
         this.suggestion = suggestion;
     }
 
+    /** 0..100, how sure the reading and the match together were (null until read). */
+    @Column(name = "confidence")
+    private Integer confidence;
+
+    /** ATS_ID, JOB_LINK, THREAD, COMPANY_ROLE, COMPANY, AMBIGUOUS or NONE; null until read. */
+    @Column(name = "match_kind", length = 20)
+    private String matchKind;
+
+    public Integer getConfidence() {
+        return confidence;
+    }
+
+    public void setConfidence(Integer confidence) {
+        this.confidence = confidence;
+    }
+
+    public String getMatchKind() {
+        return matchKind;
+    }
+
+    public void setMatchKind(String matchKind) {
+        this.matchKind = matchKind;
+    }
+
     public Instant getParsedAt() {
         return parsedAt;
     }

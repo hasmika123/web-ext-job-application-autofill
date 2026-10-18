@@ -79,7 +79,7 @@ class InboxParserTest {
         ApplicationEventPublisher publisher = mock(ApplicationEventPublisher.class);
         org.mockito.Mockito.doAnswer(inv -> events.add(inv.getArgument(0))).when(publisher).publishEvent(any(Object.class));
 
-        parser = new InboxParser(messages, applications, users, provider, budget, metering, publisher, mock(InboxInterviewApplier.class), true);
+        parser = new InboxParser(messages, applications, users, provider, budget, metering, publisher, mock(InboxInterviewApplier.class), true, e -> DefaultInboxDecisionPolicy.decide(e, 80, 50));
 
         acme = new Application().company("Acme, Inc.").roleTitle("Backend Engineer").status(ApplicationStatus.DRAFT).createdAt(T0);
         acme.setId(1L);

@@ -95,6 +95,7 @@ public class InboxParser {
     private final ApplicationEventPublisher events;
     private final InboxInterviewApplier interviewApplier;
     private final boolean aiEnabled;
+    private final InboxDecisionPolicy policy;
     private final ObjectMapper om = new ObjectMapper();
 
     /** The safety gate (inbox-safety): optional, so the parser still builds by hand in unit tests; absent = every forward change is applied as before. */
@@ -110,8 +111,10 @@ public class InboxParser {
         AiMeteringService metering,
         ApplicationEventPublisher events,
         InboxInterviewApplier interviewApplier,
-        @Value("${dossier.ai.enabled:false}") boolean aiEnabled
+        @Value("${dossier.ai.enabled:false}") boolean aiEnabled,
+        InboxDecisionPolicy policy
     ) {
+        this.policy = policy;
         this.messages = messages;
         this.applications = applications;
         this.users = users;
@@ -208,20 +211,39 @@ public class InboxParser {
                 messages.save(m);
                 continue;
             }
-            Optional<Application> threaded = thread(userId, m, apps);
-            Optional<Application> app = threaded.or(() ->
-                MailMatcher.match(apps, m.getCompanyGuess(), m.getRoleGuess(), m.getSubject(), m.getFromAddress(), m.getFromName(), inboxAddress)
+            Long threadApp = thread(userId, m, apps).map(Application::getId).orElse(null);
+            MailMatcher.Ranking rk = MailMatcher.rank(
+                apps,
+                new MailMatcher.Facts(m.getCompanyGuess(), m.getRoleGuess(), m.getSubject(), m.getBodyText(), m.getFromAddress(), m.getFromName(), inboxAddress, threadApp)
             );
+            MailEvent event = event(m, c, rk);
+            m.setConfidence(event.confidence());
+            m.setMatchKind(event.matchKind().name());
+            InboxDecisionPolicy.Decision decision = policy.decide(event);
+            boolean hold = decision.outcome() == InboxDecisionPolicy.Outcome.HOLD;
+            if (event.ambiguous()) {
+                // Two jobs too close: the person picks (InboxSafetyService keeps the candidates for the review list); nothing changes now.
+                if (safety != null) safety.holdAmbiguous(userId, m, event);
+                messages.save(m);
+                continue;
+            }
+            if (hold && (safety == null || rk.best() == null)) {
+                // Plausible but not sure, with nothing the review list could show: kept with its confidence, nothing changes.
+                messages.save(m);
+                continue;
+            }
+            // Mail that changes nothing (alerts, other) still follows its application, so a reply can find the thread.
+            if (rk.best() != null && (c == MailClassifier.Category.OTHER || c == MailClassifier.Category.ALERT)) m.setApplicationId(rk.best().getId());
+            // A held reading on a matched application still goes through act(): its safety gate stores the hold (with the proposed status) for review.
+            Optional<Application> app = decision.outcome() == InboxDecisionPolicy.Outcome.IGNORE ? Optional.empty() : Optional.ofNullable(rk.best());
             if (app.isPresent()) {
                 Application a = app.get();
                 m.setApplicationId(a.getId());
                 // An interview mail also says when: read it first (a cancellation never moves the status), then set the status, then the interview.
                 ExtractedSchedule schedule = c == MailClassifier.Category.INTERVIEW ? interviewApplier.read(m) : null;
-                if (act(userId, a, c, m, schedule, threaded.isPresent())) changed++;
+                if (act(userId, a, c, m, schedule, event)) changed++;
                 if (schedule != null) interviewApplier.apply(userId, a.getId(), m, schedule);
-            } else if (safety != null && holdIfAmbiguous(userId, m, c, apps)) {
-                // two applications fit equally: the person picks (see InboxSafetyService), nothing was changed
-            } else if (SUGGESTS.contains(c) && m.getCompanyGuess() != null && !companyTracked(apps, m.getCompanyGuess())) {
+            } else if (rk.best() == null && !rk.ambiguous() && SUGGESTS.contains(c) && m.getCompanyGuess() != null && !companyTracked(apps, m.getCompanyGuess())) {
                 m.setSuggestion("NEW");
                 suggested++;
             }
@@ -231,15 +253,47 @@ public class InboxParser {
         return new Result(batch.size(), changed, suggested, asked);
     }
 
+    /** The one {@link MailEvent} every classified mail produces: reading confidence, match, candidates, a short evidence line (no mail text, no address). */
+    static MailEvent event(InboxMessage m, MailClassifier.Category c, MailMatcher.Ranking rk) {
+        String domain = JobMailRules.domainOf(m.getFromAddress());
+        boolean hiring = JobMailRules.isHiringDomain(domain);
+        String companyKey = rk.best() == null ? "" : ApplicationKeys.company(rk.best().getCompany());
+        boolean companyDomain = !hiring && companyKey.length() >= 3 && domain.replaceAll("[^\\p{L}\\p{N}]+", "").contains(companyKey);
+        boolean byAi = "AI".equals(m.getClassifiedBy());
+        MailClassifier.Reading subjectOnly = MailClassifier.read(m.getSubject(), "", m.getFromName());
+        MailClassifier.Reading bodyOnly = MailClassifier.read("", m.getBodyText(), m.getFromName());
+        boolean subjectStrong = subjectOnly.category() == c && !subjectOnly.ambiguous();
+        boolean bodyStrong = bodyOnly.category() == c && !bodyOnly.ambiguous();
+        int reading = MailConfidence.reading(new MailConfidence.ReadingSignals(byAi, false, hiring || companyDomain || rk.kind() == MailEvent.MatchKind.THREAD, subjectStrong, bodyStrong));
+        boolean matched = rk.best() != null;
+        int confidence = MailConfidence.combine(reading, rk.score(), matched);
+        String evidence =
+            "read=" + (byAi ? "ai" : "rules") + (hiring ? "+ats-sender" : companyDomain ? "+company-sender" : "") +
+            (subjectStrong ? "+subject" : "") + (bodyStrong ? "+body" : "") + "; match=" + rk.kind().name().toLowerCase(Locale.ROOT) +
+            (rk.ambiguous() ? " (" + rk.candidates().size() + " close)" : "");
+        return new MailEvent(
+            m.getId(),
+            c,
+            confidence,
+            reading,
+            matched ? rk.score() : 0,
+            rk.kind(),
+            matched ? rk.best().getId() : null,
+            rk.candidates(),
+            null,
+            evidence
+        );
+    }
+
     /** Apply what the email says to the application. True when the status moved. */
-    private boolean act(Long userId, Application a, MailClassifier.Category c, InboxMessage m, ExtractedSchedule schedule, boolean viaThread) {
+    private boolean act(Long userId, Application a, MailClassifier.Category c, InboxMessage m, ExtractedSchedule schedule, MailEvent event) {
         ApplicationStatus from = a.getStatus();
         // The category table decides first: only a STATUS category may move an application (a closed role, a reminder, a recruiter's note never does).
         ApplicationStatus to = !c.mayChangeStatus()
             ? null
             : c == MailClassifier.Category.INTERVIEW ? InboxInterviewApplier.statusAfter(from, schedule) : MailMatcher.next(from, c);
         // The gate: a rejection, a weak reading, an ambiguous or backwards change is held for the person instead of applied.
-        if (to != null && safety != null && !safety.screen(userId, m, a, eventOf(m, c, a.getId(), viaThread ? MailEvent.MatchKind.THREAD : MailEvent.MatchKind.COMPANY_ROLE, List.of()), to)) return false;
+        if (to != null && safety != null && !safety.screen(userId, m, a, event, to)) return false;
         boolean touched = false;
         if ((c == MailClassifier.Category.APPLIED || c == MailClassifier.Category.IN_REVIEW) && !Boolean.TRUE.equals(a.getSubmissionConfirmed())) {
             a.setSubmissionConfirmed(true);
@@ -259,28 +313,6 @@ public class InboxParser {
             new StatusChanged(userId, a.getId(), a.getCompany(), a.getRoleTitle(), from, to, m.getId(), m.getSentAt())
         );
         return to != null;
-    }
-
-    /** What the parser knows of one mail, as the decision seam reads it: AI readings are less sure than rule readings, a thread is surer than a name. */
-    private static MailEvent eventOf(InboxMessage m, MailClassifier.Category c, Long applicationId, MailEvent.MatchKind kind, List<MailEvent.Candidate> candidates) {
-        int reading = "AI".equals(m.getClassifiedBy()) ? 80 : 90;
-        int match = kind == MailEvent.MatchKind.THREAD ? 95 : kind == MailEvent.MatchKind.AMBIGUOUS ? 40 : 85;
-        return new MailEvent(m.getId(), c, Math.min(reading, match), reading, match, kind, applicationId, candidates, null, m.getSubject());
-    }
-
-    /** No single application matched, but two or more at the named company did: hold the mail with those candidates. True when held. */
-    private boolean holdIfAmbiguous(Long userId, InboxMessage m, MailClassifier.Category c, List<Application> apps) {
-        if (c == MailClassifier.Category.ALERT || c == MailClassifier.Category.OTHER) return false;
-        String key = ApplicationKeys.company(m.getCompanyGuess());
-        if (key.isEmpty()) return false;
-        List<MailEvent.Candidate> candidates = apps
-            .stream()
-            .filter(a -> !Boolean.TRUE.equals(a.getArchived()) && key.equals(ApplicationKeys.company(a.getCompany())))
-            .map(a -> new MailEvent.Candidate(a.getId(), 50, MailEvent.MatchKind.COMPANY, "Same company"))
-            .toList();
-        if (candidates.size() < 2) return false;
-        safety.holdAmbiguous(userId, m, eventOf(m, c, null, MailEvent.MatchKind.AMBIGUOUS, candidates));
-        return true;
     }
 
     /** A reply goes where the mail it answers went. */

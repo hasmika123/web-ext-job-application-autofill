@@ -55,9 +55,13 @@ public record MailEvent(
     }
 
     /** One application the mail could be about, with why (a fixed reason code and a plain sentence). */
-    public record Candidate(Long applicationId, int score, MatchKind kind, String reason) {
+    public record Candidate(Long applicationId, int score, MatchKind kind, String reason, String company, String role) {
         public Candidate {
             score = clamp(score);
+        }
+
+        public Candidate(Long applicationId, int score, MatchKind kind, String reason) {
+            this(applicationId, score, kind, reason, null, null);
         }
     }
 
@@ -81,6 +85,11 @@ public record MailEvent(
         candidates = candidates == null ? List.of() : List.copyOf(candidates.size() > MAX_CANDIDATES ? candidates.subList(0, MAX_CANDIDATES) : candidates);
         evidence = evidence == null ? "" : (evidence.length() > MAX_EVIDENCE ? evidence.substring(0, MAX_EVIDENCE) : evidence);
         if (matchKind == null) matchKind = MatchKind.NONE;
+    }
+
+    /** True when two or more applications were too close to choose between (nothing was chosen). */
+    public boolean ambiguous() {
+        return matchKind == MatchKind.AMBIGUOUS || (matchedApplicationId == null && candidates.size() > 1);
     }
 
     private static int clamp(int v) {
