@@ -41,7 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 @org.junit.jupiter.api.Timeout(120)
 class OrgPlacementResourceIT extends MemberItSupport {
 
-    private final LocalDate today = LocalDate.now();
+    private final LocalDate today = LocalDate.now(java.time.ZoneOffset.UTC); // the service reads the clock in UTC; so does the test, whatever zone the machine is in
     private ClientAccount initech;
     private ClientAccount globex;
     private ClientContact cora;
