@@ -63,6 +63,7 @@ abstract class AbstractEnterpriseWorldIT {
     @Autowired OrgMemberRepository members;
     @Autowired PasswordEncoder encoder;
     @Autowired ConnectCodeThrottle throttle;
+    @Autowired com.dossier.api.service.ent.OrgRoleService roleService;
     @MockitoBean MailService mailService;
 
     Organization acme;
@@ -78,7 +79,7 @@ abstract class AbstractEnterpriseWorldIT {
         throttle.reset();
         String n = Long.toString(System.nanoTime(), 36);
         email = "lee" + n + "@extw.test";
-        fx = new OrgFixtures(users, orgs, members);
+        fx = new OrgFixtures(users, orgs, members).withRoles(roleService);
         acme = separateOrg("acme-w-" + n, "acme-extw");
         other = separateOrg("other-w-" + n, "other-extw");
         setting(EnterpriseSettingKeys.FLAG_ENTERPRISE, "{\"on\":true}");

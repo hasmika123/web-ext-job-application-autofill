@@ -205,6 +205,8 @@ export function createMembersMock({ json, subOf = () => null }) {
       if (rest === "") return json(res, 200, ROLES.map((r) => ({ ...r, templateKey: r.key, system: true, editable: false, workspaceKey: null, permissions: [] }))), true;
       return notFound(res), true;
     }
+    // only the bare list: /groups/structure, /directory, /{id} ... belong to mock-groups.mjs (handleGroups runs after this handler)
+    if (area === "groups" && rest !== "") return false;
     if (area === "groups") return json(res, 200, GROUPS.map((g) => ({ ...g, memberCount: seats.filter((s) => s.departmentId === g.id || s.teamId === g.id).length, sortOrder: 0 }))), true;
 
     // /members ...

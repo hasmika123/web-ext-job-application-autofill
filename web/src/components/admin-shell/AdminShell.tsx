@@ -233,7 +233,6 @@ export default function AdminShell({ account, children }: { account?: AdminAccou
                 className={cn(
                   "flex items-center gap-3 rounded-xl px-3 py-[9px] text-[14px] transition-colors",
                   active ? "bg-v2-nav-active-bg font-bold text-v2-nav-active-text" : "font-medium text-ink-soft hover:bg-paper-2 hover:text-ink",
-                  item.soon && !active && "text-ink-soft/70",
                 )}
               >
                 <span className="flex-none">{item.icon}</span>

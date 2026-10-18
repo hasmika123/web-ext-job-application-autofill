@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { STATE } from "../fixtures/accounts";
-import { auditScreen, expectNoHorizontalScroll, expectNoWordPerLineHeadings, expectNotOverlapped } from "../fixtures/audit";
+import { auditScreen, expectNoHorizontalScroll, expectNoWordPerLineHeadings, expectNotOverlapped, settleAnimations } from "../fixtures/audit";
 
 /**
  * Onboarding v2 (R1.12): the whole first run against the mock API, as a brand-new account, at a phone (390) and a desktop
@@ -470,6 +470,7 @@ for (const vp of [
 
     test("review: the dock sits right of the column with no sideways scroll; on a phone the head is in the heading row and the sticky bar is untouched", async ({ page }) => {
       await toReview(page);
+      await settleAnimations(page); // the screen slides in 16 px over 180 ms: measure the boxes where they come to rest
       const dock = page.getByTestId("companion-dock");
       const head = page.getByTestId("companion-head");
       const midCompanion = page.getByTestId("companion-mid");

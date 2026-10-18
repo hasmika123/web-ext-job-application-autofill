@@ -64,7 +64,7 @@ test.describe("at 1440px", () => {
     await priceCredits(page, "5.50");
     await expect(page.getByRole("textbox", { name: "Extra AI credits monthly price" })).toHaveValue("5.50");
     await page.getByRole("textbox", { name: "Extra AI credits monthly price" }).blur();
-    await expect(page.getByText("Saved").first()).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "Saved" }).first()).toBeVisible();
     await page.getByRole("button", { name: "Run all checks" }).click();
     await expect(page.getByText("All checks pass")).toBeVisible();
     await expectAccessible(page, "plan editor 1440");

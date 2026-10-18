@@ -99,6 +99,13 @@ async function mount() {
   await screen.findByRole("heading", { name: /^Showing/ });
 }
 
+/** A right-rail card loads after the list (its own request): wait for it rather than reading it the moment the list heading shows. */
+const rail = (name: string) => waitFor(() => {
+  const el = document.querySelector(`[data-home-card='${name}']`) as HTMLElement | null;
+  if (!el) throw new Error(`rail card ${name} is not there yet`);
+  return el;
+});
+
 beforeEach(() => {
   jobs = [
     job(1, { title: "Data Engineer", featured: true, rateMinMinor: 9500, rateMaxMinor: 12000 }),
@@ -233,14 +240,14 @@ describe("Job Discovery", () => {
 
   it("right rail: saved searches with new counts, trending skills with real demand text, recent searches", async () => {
     await mount();
-    const saved = document.querySelector("[data-home-card='jd-saved']") as HTMLElement;
+    const saved = await rail("jd-saved");
     expect(within(saved).getByText("Data Engineer - Remote")).toBeTruthy();
     expect(within(saved).getByText("4 new results")).toBeTruthy();
-    const trending = document.querySelector("[data-home-card='jd-trending']") as HTMLElement;
+    const trending = await rail("jd-trending");
     expect(within(trending).getByText("↗ +40% demand")).toBeTruthy();
     expect(within(trending).getByText("30 open jobs")).toBeTruthy(); // no comparison when the earlier window was too small
     expect(within(trending).getByText("steady demand")).toBeTruthy();
-    const recent = document.querySelector("[data-home-card='jd-recent']") as HTMLElement;
+    const recent = await rail("jd-recent");
     expect(within(recent).getByText("AWS, Contract")).toBeTruthy();
     expect(within(recent).getByText("2 hours ago")).toBeTruthy();
     fireEvent.click(within(recent).getByRole("button", { name: "Search again: AWS, Contract" }));
@@ -249,7 +256,7 @@ describe("Job Discovery", () => {
 
   it("running a saved search sends its filters and restarts its counter", async () => {
     await mount();
-    const saved = document.querySelector("[data-home-card='jd-saved']") as HTMLElement;
+    const saved = await rail("jd-saved");
     fireEvent.click(within(saved).getByRole("button", { name: "Run saved search Data Engineer - Remote" }));
     await waitFor(() => expect(searches().some((p) => p.get("q") === "data engineer" && p.get("workMode") === "REMOTE")).toBe(true));
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/saved-searches/11/viewed"))).toBe(true));

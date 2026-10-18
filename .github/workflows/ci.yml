@@ -172,10 +172,17 @@ jobs:
           scripts/ops/deploy.sh --dry-run --staging --tag "staging-${GITHUB_SHA:0:12}" --env-file "$RUNNER_TEMP/ci.env"
       - run: REAL_DOCKER=1 scripts/ops/test/ops.test.sh
 
-  api:
-    name: API tests (unit + integration)
+  # The API suite is ~3,300 unit tests plus ~270 integration classes (Spring + a real MySQL in Testcontainers). Run as one Gradle
+  # invocation it ran out of heap around the 11 minute mark and then hit the job timeout (run 39039550528). So it is three things:
+  #   api-unit          the unit tests, one JVM, about a minute of test time
+  #   api-integration   the integration classes split over 6 parallel jobs (a class's shard is a hash of its name: see the
+  #                     `integrationTest` block in api/build.gradle; the 6 shards together run exactly what an unsharded run runs)
+  #   api               a gate that keeps the old job name, "API tests (unit + integration)", so a branch-protection rule that
+  #                     requires it keeps working: it passes only when the unit job and all six shards passed.
+  api-unit:
+    name: API unit tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
@@ -183,6 +190,55 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
-      # Integration tests use Testcontainers; ubuntu-latest ships Docker, so they run as-is.
-      - run: chmod +x gradlew && ./gradlew test integrationTest --no-daemon
+      - run: chmod +x gradlew && ./gradlew test --no-daemon
         working-directory: api
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: failure()
+        with:
+          name: api-unit-test-results
+          path: api/build/test-results/test/
+          retention-days: 7
+
+  api-integration:
+    name: API integration tests (shard ${{ matrix.shard }} of 6)
+    runs-on: ubuntu-latest
+    # ~45 classes per shard; the compile alone is ~4 minutes. 40 is a ceiling that leaves room for a slow runner, not an expectation.
+    timeout-minutes: 40
+    strategy:
+      # One red shard must not hide the verdict of the others (and a re-run of a failed shard is cheap).
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      # Integration tests use Testcontainers; ubuntu-latest ships Docker, so they run as-is. `-x test`: the unit tests have their own job.
+      # -PitHeap: the IT JVM keeps every Spring context it builds, so it gets 3 GB (the hosted runner has 16).
+      - run: chmod +x gradlew && ./gradlew integrationTest -x test -PitShard=${{ matrix.shard }}/6 -PitHeap=3g --no-daemon
+        working-directory: api
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: failure()
+        with:
+          name: api-it-results-shard-${{ matrix.shard }}
+          path: |
+            api/build/test-results/integrationTest/
+            api/build/heapdumps/
+          retention-days: 7
+
+  api:
+    name: API tests (unit + integration)
+    needs: [api-unit, api-integration]
+    # always(): when a shard fails this job must still report (as failed), not sit "skipped", or a required check would hang.
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require the unit job and every integration shard
+        run: |
+          echo "api-unit: ${{ needs.api-unit.result }}"
+          echo "api-integration (all shards): ${{ needs.api-integration.result }}"
+          [ "${{ needs.api-unit.result }}" = "success" ] && [ "${{ needs.api-integration.result }}" = "success" ]
