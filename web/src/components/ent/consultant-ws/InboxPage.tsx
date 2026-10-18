@@ -8,7 +8,9 @@ import LocalDate from "@/components/LocalDate";
 import { BASE, Card, Empty, Pill, useWorkspaceData } from "./parts";
 import NeedsReviewCard from "@/components/inbox/NeedsReviewCard";
 import RejectionToggle from "@/components/inbox/RejectionToggle";
-import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, reviewEndpoints, stageTone, type ConsultantInboxView, type InboxSuggestion, type InboxUpdate } from "@/lib/ent/consultant-ws/inbox";
+import InboxUndo from "@/components/inbox/InboxUndo";
+import type { ReviewEndpoints } from "@/lib/inbox-review";
+import { acceptLabel, actOnSuggestion, fetchConsultantInbox, inboxEndpoints, interviewLine, reviewEndpoints, stageTone, type ConsultantInboxView, type InboxSuggestion, type InboxUpdate } from "@/lib/ent/consultant-ws/inbox";
 
 /**
  * Inbox (docs/enterprise-v2/18-consultant-inbox.md): the consultant's OWN Gmail, connected the same guided way as on kiwiply.com (a Gmail just for
@@ -89,14 +91,15 @@ function SuggestionRow({ s, busy, onAct }: { s: InboxSuggestion; busy: boolean; 
   );
 }
 
-function UpdateRow({ u }: { u: InboxUpdate }) {
+function UpdateRow({ u, endpoints, onUndone }: { u: InboxUpdate; endpoints: ReviewEndpoints; onUndone: () => void }) {
+  const iv = u.interview;
   return (
-    <li data-update={u.applicationId} data-stage={u.stage} className="flex flex-wrap items-center justify-between gap-2 border-t border-line py-3 first:border-t-0">
+    <li data-update={u.applicationId} data-stage={u.stage} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-line py-3 first:border-t-0">
       <div className="min-w-0">
         <span className="text-[14px] font-bold text-ink">{u.company}</span>
         {u.role ? <span className="ml-2 text-[13px] text-ink-soft">{u.role}</span> : null}
         <p className="mt-0.5 text-[12.5px] text-muted">
-          {u.reading ? `${u.reading} Â· ` : ""}
+          {u.reading ? `${u.reading} · ` : ""}
           {u.at ? <LocalDate iso={u.at} options={WHEN} /> : null}
         </p>
       </div>
@@ -106,6 +109,25 @@ function UpdateRow({ u }: { u: InboxUpdate }) {
           from your inbox
         </span>
       </div>
+      {iv ? (
+        <p data-update-interview={iv.id ?? ""} className="m-0 flex min-w-0 basis-full flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-soft">
+          <span className={cn("min-w-0 break-words", iv.cancelled && "text-muted line-through")}>
+            {interviewLine(iv)}
+            {iv.location ? ` · ${iv.location}` : ""}
+          </span>
+          {iv.cancelled ? <Pill tone="red">Cancelled</Pill> : null}
+          {iv.link && !iv.cancelled ? (
+            <a href={iv.link} target="_blank" rel="noopener noreferrer" data-interview-join className="font-semibold text-accent-deep underline underline-offset-2">
+              Join
+            </a>
+          ) : null}
+        </p>
+      ) : null}
+      {u.undo?.undoable && u.at ? (
+        <div data-update-undo={u.undo.eventId} className="basis-full">
+          <InboxUndo endpoints={endpoints} applicationId={u.applicationId} eventId={u.undo.eventId} at={u.at} onUndone={onUndone} />
+        </div>
+      ) : null}
     </li>
   );
 }
@@ -180,7 +202,7 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
               ) : (
                 <ul data-updates>
                   {v.updates.map((u) => (
-                    <UpdateRow key={u.applicationId} u={u} />
+                    <UpdateRow key={u.applicationId} u={u} endpoints={review} onUndone={() => void reload()} />
                   ))}
                 </ul>
               )}

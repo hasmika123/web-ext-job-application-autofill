@@ -295,6 +295,29 @@ public class ApplicationEventService {
     /** The summary of the row an undo writes: also how {@link #markUndoable} recognises that an inbox change was undone already. */
     public static final String UNDONE = "Undone by you";
 
+    /** The latest inbox status change of an application that was not undone: its event id and whether it is still inside the undo window. */
+    public record InboxUndoState(Long eventId, boolean undoable) {}
+
+    /**
+     * The same rule {@link #markUndoable} applies to timeline rows, for one application: the newest INBOX status-change row that no "Undone by you"
+     * row refers to, with {@code undoable} true while it is inside {@code inbox.undo_window_days}. Null when the inbox never moved the application
+     * (or every move was undone). The caller proved the application is theirs. Reads raw rows, no actor lookup.
+     */
+    @Transactional(readOnly = true)
+    public InboxUndoState inboxUndo(Long applicationId) {
+        int max = settings.getInt(ResumeBuilderSettingKeys.TRACKER_DETAIL_EVENTS_MAX);
+        List<ApplicationEvent> rows = events.findByApplicationIdOrderByCreatedAtDescIdDesc(applicationId, PageRequest.of(0, max));
+        java.util.Set<Long> undone = new java.util.HashSet<>();
+        for (ApplicationEvent r : rows) if (UNDONE.equals(r.getSummary()) && r.getRefId() != null) undone.add(r.getRefId());
+        int days = settings.getInt(AdminSettingKeys.INBOX_UNDO_WINDOW_DAYS);
+        Instant cutoff = Instant.now(clock).minusSeconds(Math.max(days, 0) * 86400L);
+        for (ApplicationEvent r : rows) {
+            if (!EventDTO.isInboxStatus(r) || undone.contains(r.getId())) continue;
+            return new InboxUndoState(r.getId(), days > 0 && r.getCreatedAt() != null && !r.getCreatedAt().isBefore(cutoff));
+        }
+        return null;
+    }
+
     /**
      * Inbox status changes still inside the undo window ({@code inbox.undo_window_days}) and not undone yet carry {@code undoable} so the page can show
      * Undo. An undone change is recognised by the row the undo wrote (kind STATUS, ref = the changed row's id, summary {@link #UNDONE}); newest-first

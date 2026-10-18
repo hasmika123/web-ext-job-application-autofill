@@ -3,9 +3,12 @@ package com.dossier.api.service.ent.consultantws;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.InboxConnection;
 import com.dossier.api.domain.InboxMessage;
+import com.dossier.api.domain.Interview;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.InboxMessageRepository;
+import com.dossier.api.repository.InterviewRepository;
+import com.dossier.api.service.ApplicationEventService;
 import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ent.authz.AuthorizationService;
 import com.dossier.api.service.ent.authz.AuthzOperation;
@@ -16,6 +19,8 @@ import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.ConnectReques
 import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.Page;
 import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.Suggestion;
 import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.Update;
+import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.UpdateInterview;
+import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.UpdateUndo;
 import com.dossier.api.service.ent.consultantws.ConsultantInboxDTO.View;
 import com.dossier.api.service.inbox.ImapGateway;
 import com.dossier.api.service.inbox.InboxEntitlement;
@@ -24,6 +29,7 @@ import com.dossier.api.service.inbox.InboxReviewService;
 import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.service.inbox.MailClassifier;
 import com.dossier.api.service.org.OrgMembership;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -66,6 +72,8 @@ public class ConsultantInboxService {
     private final ImapGateway imap;
     private final DemoGuard demoGuard;
     private final InboxReviewService review;
+    private final InterviewRepository interviewRows;
+    private final ApplicationEventService eventService;
 
     public ConsultantInboxService(
         ConsultantHomeService gate,
@@ -77,8 +85,12 @@ public class ConsultantInboxService {
         ApplicationRepository applications,
         ImapGateway imap,
         DemoGuard demoGuard,
-        InboxReviewService review
+        InboxReviewService review,
+        InterviewRepository interviewRows,
+        ApplicationEventService eventService
     ) {
+        this.interviewRows = interviewRows;
+        this.eventService = eventService;
         this.review = review;
         this.gate = gate;
         this.authorization = authorization;
@@ -238,16 +250,52 @@ public class ConsultantInboxService {
             .toList();
         if (matched.isEmpty()) return List.of();
         Map<Long, Application> byId = applications.findByUserId(userId).stream().collect(Collectors.toMap(Application::getId, a -> a, (a, b) -> a));
+        Map<Long, List<Interview>> inboxInterviews = interviewRows
+            .findByUserIdOrderByStartsAtAscIdAsc(userId)
+            .stream()
+            .filter(i -> Interview.SRC_INBOX.equals(i.getSource()))
+            .collect(Collectors.groupingBy(Interview::getApplicationId));
+        Instant now = Instant.now();
         List<Update> out = new ArrayList<>();
         Set<Long> seen = new HashSet<>();
         for (InboxMessage m : matched) {
             Application a = byId.get(m.getApplicationId());
             if (a == null || Boolean.TRUE.equals(a.getArchived()) || a.getStatus() == null || !seen.add(a.getId())) continue; // the newest mail speaks for the application
             String stage = a.getStatus().name();
-            out.add(new Update(a.getId(), a.getCompany(), a.getRoleTitle(), stage, label(stage), reading(m.getCategory()), m.getSentAt(), "INBOX"));
+            out.add(new Update(a.getId(), a.getCompany(), a.getRoleTitle(), stage, label(stage), reading(m.getCategory()), m.getSentAt(), "INBOX", interviewOf(inboxInterviews.get(a.getId()), now), undoOf(a.getId())));
             if (out.size() >= 40) break;
         }
         return out;
+    }
+
+    private UpdateUndo undoOf(Long applicationId) {
+        ApplicationEventService.InboxUndoState u = eventService.inboxUndo(applicationId);
+        return u == null ? null : new UpdateUndo(String.valueOf(u.eventId()), u.undoable());
+    }
+
+    /** The soonest upcoming interview that is not cancelled, else the most recent one; {@code rows} are the application's inbox interviews, soonest first. */
+    static UpdateInterview interviewOf(List<Interview> rows, Instant now) {
+        if (rows == null || rows.isEmpty()) return null;
+        Interview pick = rows
+            .stream()
+            .filter(i -> !Interview.CANCELLED.equals(i.getOutcome()) && !i.getStartsAt().isBefore(now))
+            .findFirst()
+            .orElse(rows.get(rows.size() - 1));
+        String loc = pick.getLocation() == null || pick.getLocation().isBlank() ? null : pick.getLocation().trim();
+        return new UpdateInterview(pick.getId(), pick.getStartsAt(), pick.getTz(), pick.getKind(), linkOf(pick.getNotes()), loc, Interview.CANCELLED.equals(pick.getOutcome()));
+    }
+
+    /** The "Meeting link: ..." line of the notes, only when it is an https URL; anything else is null. */
+    static String linkOf(String notes) {
+        if (notes == null) return null;
+        for (String line : notes.split("\\R")) {
+            String t = line.trim();
+            if (t.regionMatches(true, 0, "Meeting link:", 0, 13)) {
+                String url = t.substring(13).trim();
+                return url.regionMatches(true, 0, "https://", 0, 8) && url.length() > 8 && url.indexOf(' ') < 0 ? url : null;
+            }
+        }
+        return null;
     }
 
     static ApplicationStatus stageOf(String category) {

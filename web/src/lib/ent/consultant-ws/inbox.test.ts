@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptLabel, inboxEndpoints, parseConsultantInbox, parseInbox, stageTone } from "./inbox";
+import { acceptLabel, inboxEndpoints, interviewLine, parseConsultantInbox, parseInbox, safeMeetingLink, stageTone } from "./inbox";
 
 const inbox = (o: Record<string, unknown> = {}) => ({
   entitled: true,
@@ -73,5 +73,31 @@ describe("helpers", () => {
     expect(stageTone("OFFER")).toBe("green");
     expect(stageTone("REJECTED")).toBe("red");
     expect(stageTone("???")).toBe("slate");
+  });
+});
+
+describe("update interview and undo", () => {
+  const row = (o: Record<string, unknown>) => ({ applicationId: 9, company: "Orbit Freight", role: "Platform Engineer", stage: "INTERVIEW", stageLabel: "Interview", reading: null, at: "2026-10-13T10:00:00Z", source: "INBOX", ...o });
+  const read = (o: Record<string, unknown>) => parseConsultantInbox({ inbox: inbox(), suggestions: [], updates: [row(o)] })!.updates[0];
+
+  it("reads the interview and the undo, and is null for both when the server sends none", () => {
+    const u = read({ interview: { id: 3, startsAt: "2026-10-27T21:00:00Z", tz: "America/Los_Angeles", kind: "PHONE", link: "https://meet.example.com/x", location: "Room 4", cancelled: false }, undo: { eventId: "55", undoable: true } });
+    expect(u.interview).toMatchObject({ id: 3, kind: "PHONE", link: "https://meet.example.com/x", location: "Room 4", cancelled: false });
+    expect(u.undo).toEqual({ eventId: "55", undoable: true });
+    const none = read({});
+    expect(none.interview).toBeNull();
+    expect(none.undo).toBeNull();
+    expect(read({ interview: { startsAt: "not a date" }, undo: { undoable: true } })).toMatchObject({ interview: null, undo: null });
+  });
+
+  it("keeps only an https meeting link that is not a Kiwiply address", () => {
+    expect(safeMeetingLink("https://zoom.example.com/j/1")).toBe("https://zoom.example.com/j/1");
+    for (const bad of ["http://zoom.example.com/j/1", "javascript:alert(1)", "/relative", "https://kiwiply.com/x", "https://app.kiwiply.com/x", null, 5]) expect(safeMeetingLink(bad)).toBeNull();
+  });
+
+  it("writes the time in the interview's own zone with the short zone name", () => {
+    expect(interviewLine({ startsAt: "2026-10-27T21:00:00Z", tz: "America/Los_Angeles", kind: "PHONE" })).toBe("Interview Tue Oct 27, 2:00 PM PDT · Phone");
+    expect(interviewLine({ startsAt: "2026-10-27T21:00:00Z", tz: "America/New_York", kind: "VIDEO" })).toBe("Interview Tue Oct 27, 5:00 PM EDT · Video");
+    expect(interviewLine({ startsAt: "2026-10-27T21:00:00Z", tz: "Not/AZone", kind: "ONSITE" })).toMatch(/^Interview \w{3} Oct 2[78], .* · On-site$/);
   });
 });

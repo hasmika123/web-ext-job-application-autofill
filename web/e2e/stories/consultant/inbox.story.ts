@@ -160,10 +160,20 @@ test("CON-72 Mail moves her applications and offers new ones, all marked 'from y
   await expect(orbit.locator("[data-from-inbox]")).toHaveText("from your inbox");
   await expect(orbit).toContainText("Interview invite");
 
-  await narrate(page, "Cedar Analytics sent a rejection: it stands at Rejected");
+  await narrate(page, "Orbit Freight's invitation named a time: the interview the inbox read is on her row");
+  await expect(orbit.locator("[data-update-interview]")).toContainText("Interview");
+
+  await narrate(page, "Cedar Analytics sent a rejection: the inbox HOLDS it for her review instead of marking it Rejected by itself");
+  const review = page.locator("[data-needs-review]");
+  const cedarHeld = review.locator("[data-review-item][data-kind='REJECTION']").filter({ hasText: "Cedar Analytics" });
+  await expect(cedarHeld).toBeVisible({ timeout: 20_000 });
+
+  await narrate(page, "She accepts it: only now does Cedar Analytics read Rejected, 'from your inbox'");
+  await cedarHeld.locator("[data-action='accept']").click();
   const cedar = page.locator("[data-update]").filter({ hasText: "Cedar Analytics" });
-  await expect(cedar).toHaveAttribute("data-stage", "REJECTED");
+  await expect(cedar).toHaveAttribute("data-stage", "REJECTED", { timeout: 20_000 });
   await expect(cedar.locator("[data-from-inbox]")).toBeVisible();
+  await expect(cedarHeld).toHaveCount(0);
 
   await narrate(page, "Lumen Health confirmed an application she never tracked: it is offered, not added behind her back");
   const suggestions = page.locator("[data-suggestions]");

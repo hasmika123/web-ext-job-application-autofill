@@ -35,6 +35,27 @@ export interface InboxUpdate {
   reading: string | null;
   at: string | null;
   source: string;
+  /** The interview the mail announced (soonest upcoming, else the latest), or null. */
+  interview: UpdateInterview | null;
+  /** The change the inbox applied to this application, for Undo, or null. */
+  undo: UpdateUndo | null;
+}
+
+export interface UpdateInterview {
+  id: number | null;
+  /** ISO-8601 UTC. */
+  startsAt: string;
+  tz: string | null;
+  kind: string;
+  /** https only, else null. */
+  link: string | null;
+  location: string | null;
+  cancelled: boolean;
+}
+
+export interface UpdateUndo {
+  eventId: string;
+  undoable: boolean;
 }
 
 export interface ConsultantInboxView {
@@ -67,6 +88,55 @@ function parseSuggestion(o: unknown): InboxSuggestion | null {
   };
 }
 
+/** Only an https URL is ever a link; anything else (http, javascript:, relative, a kiwiply.com address) is dropped. */
+export function safeMeetingLink(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  try {
+    const u = new URL(v.trim());
+    if (u.protocol !== "https:" || /(^|\.)kiwiply\.com$/i.test(u.hostname)) return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function parseInterview(o: unknown): UpdateInterview | null {
+  if (!isObj(o) || typeof o.startsAt !== "string" || Number.isNaN(Date.parse(o.startsAt))) return null;
+  return {
+    id: typeof o.id === "number" ? o.id : null,
+    startsAt: o.startsAt,
+    tz: strOrNull(o.tz),
+    kind: str(o.kind, "OTHER"),
+    link: safeMeetingLink(o.link),
+    location: strOrNull(o.location),
+    cancelled: o.cancelled === true,
+  };
+}
+
+function parseUndo(o: unknown): UpdateUndo | null {
+  if (!isObj(o)) return null;
+  const id = typeof o.eventId === "string" && o.eventId !== "" ? o.eventId : typeof o.eventId === "number" ? String(o.eventId) : null;
+  return id === null ? null : { eventId: id, undoable: o.undoable === true };
+}
+
+const KIND_WORDS: Record<string, string> = { PHONE: "Phone", VIDEO: "Video", ONSITE: "On-site", TECHNICAL: "Technical", BEHAVIORAL: "Behavioral", PANEL: "Panel", OTHER: "Interview" };
+
+/** "Interview Tue Oct 27, 2:00 PM PDT · Phone", in the interview's own time zone (the browser's when it names none or an unknown one). */
+export function interviewLine(i: Pick<UpdateInterview, "startsAt" | "tz" | "kind">): string {
+  const d = new Date(i.startsAt);
+  const fmt = (tz?: string) =>
+    new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short", ...(tz ? { timeZone: tz } : {}) }).format(d);
+  let when: string;
+  try {
+    when = fmt(i.tz ?? undefined);
+  } catch {
+    when = fmt();
+  }
+  // "Tue, Oct 27, 2:00 PM PDT" -> "Tue Oct 27, 2:00 PM PDT"
+  when = when.replace(/^(\w{3}), /, "$1 ");
+  return `Interview ${when} · ${KIND_WORDS[i.kind] ?? "Interview"}`;
+}
+
 function parseUpdate(o: unknown): InboxUpdate | null {
   if (!isObj(o) || typeof o.applicationId !== "number") return null;
   return {
@@ -78,6 +148,8 @@ function parseUpdate(o: unknown): InboxUpdate | null {
     reading: strOrNull(o.reading),
     at: strOrNull(o.at),
     source: str(o.source, "INBOX"),
+    interview: parseInterview(o.interview),
+    undo: parseUndo(o.undo),
   };
 }
 

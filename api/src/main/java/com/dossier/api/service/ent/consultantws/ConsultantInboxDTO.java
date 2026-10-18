@@ -40,7 +40,27 @@ public final class ConsultantInboxDTO {
     public record Suggestion(Long id, String company, String role, String category, String stage, String subject, String fromName, String fromAddress, Instant sentAt) {}
 
     /** One application the mail is tracking, as the consultant sees it: its current stage and how the newest matched mail was read, always "from your inbox"; the organization sees only the resulting stage elsewhere. */
-    public record Update(Long applicationId, String company, String role, String stage, String stageLabel, String reading, Instant at, String source) {}
+    public record Update(
+        Long applicationId,
+        String company,
+        String role,
+        String stage,
+        String stageLabel,
+        String reading,
+        Instant at,
+        String source,
+        UpdateInterview interview,
+        UpdateUndo undo
+    ) {}
+
+    /**
+     * The interview the inbox read from the mail for that application (the soonest upcoming one that is not cancelled, else the most recent one).
+     * {@code link} is an https meeting link or null; {@code location} the place or null. No subject, sender or body text.
+     */
+    public record UpdateInterview(Long id, Instant startsAt, String tz, String kind, String link, String location, boolean cancelled) {}
+
+    /** The change the inbox applied to that application, as the timeline's undo sees it: the event to hand to the undo route and whether it is still inside the window. */
+    public record UpdateUndo(String eventId, boolean undoable) {}
 
     public record Page(View inbox, List<Suggestion> suggestions, List<Update> updates) {}
 

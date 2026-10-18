@@ -121,6 +121,8 @@ class ConsultantInboxResourceIT {
     @Autowired private InboxConnectionRepository connections;
     @Autowired private InboxMessageRepository messages;
     @Autowired private ApplicationRepository applications;
+    @Autowired private com.dossier.api.repository.InterviewRepository interviewRows;
+    @Autowired private com.dossier.api.repository.ApplicationEventRepository eventRows;
     @Autowired private SubscriptionRepository subscriptions;
     @Autowired private InboxPoller poller;
     @Autowired private ConsultantInboxOffboardingHook offboarding;
@@ -543,6 +545,87 @@ class ConsultantInboxResourceIT {
         assertThat(json(call(get(base(a) + "/suggestions"), "cws-ib-a-c1"), 200)).isEmpty();
     }
 
+    private com.dossier.api.domain.Interview interview(Long userId, Long applicationId, Instant startsAt, String outcome, String notes, String location) {
+        com.dossier.api.domain.Interview i = new com.dossier.api.domain.Interview();
+        i.setUserId(userId);
+        i.setApplicationId(applicationId);
+        i.setKind("PHONE");
+        i.setStartsAt(startsAt);
+        i.setTz("America/Los_Angeles");
+        i.setOutcome(outcome);
+        i.setNotes(notes);
+        i.setLocation(location);
+        i.setSource(com.dossier.api.domain.Interview.SRC_INBOX);
+        return interviewRows.saveAndFlush(i);
+    }
+
+    private com.dossier.api.domain.ApplicationEvent statusEvent(Long applicationId, ApplicationStatus from, ApplicationStatus to, String source, String summary, Long refId, Instant at) {
+        com.dossier.api.domain.ApplicationEvent e = new com.dossier.api.domain.ApplicationEvent();
+        e.setApplicationId(applicationId);
+        e.setKind(com.dossier.api.domain.ApplicationEvent.STATUS);
+        e.setFromStatus(from);
+        e.setToStatus(to);
+        e.setSource(source);
+        e.setSummary(summary);
+        e.setRefId(refId);
+        e.setCreatedAt(at);
+        return eventRows.saveAndFlush(e);
+    }
+
+    @Test
+    void anUpdateRowCarriesTheInterviewTheMailAnnouncedAndTheUndoOfTheChangeTheInboxMade() throws Exception {
+        json(call(post(base(a)).content(CONNECT), "cws-ib-a-c1"), 200);
+        Long uid = userId("cws-ib-a-c1");
+        Application orbit = application("cws-ib-a-c1", "Orbit Freight", ApplicationStatus.INTERVIEW);
+        mail(uid, "NONE", orbit.getId(), "INTERVIEW");
+        interview(uid, orbit.getId(), now.minus(Duration.ofDays(3)), "PASSED", null, null);
+        com.dossier.api.domain.Interview next = interview(uid, orbit.getId(), now.plus(Duration.ofDays(5)), "PENDING", "Meeting link: https://meet.example.com/orbit", "Room 4");
+        interview(uid, orbit.getId(), now.plus(Duration.ofDays(2)), com.dossier.api.domain.Interview.CANCELLED, null, null);
+        com.dossier.api.domain.ApplicationEvent change = statusEvent(orbit.getId(), ApplicationStatus.APPLIED, ApplicationStatus.INTERVIEW, "INBOX", "Moved to Interview - from an email", 1L, now.minus(Duration.ofHours(2)));
+        Application cedar = application("cws-ib-a-c1", "Cedar Analytics", ApplicationStatus.REJECTED);
+        mail(uid, "NONE", cedar.getId(), "REJECTED");
+        statusEvent(cedar.getId(), ApplicationStatus.APPLIED, ApplicationStatus.REJECTED, "INBOX", "Moved to Rejected - from an email", 2L, now.minus(Duration.ofMinutes(90)));
+        com.dossier.api.domain.ApplicationEvent cedarOld = statusEvent(cedar.getId(), ApplicationStatus.APPLIED, ApplicationStatus.REJECTED, "INBOX", "Moved to Rejected - from an email", 3L, now.minus(Duration.ofMinutes(80)));
+        statusEvent(cedar.getId(), ApplicationStatus.REJECTED, ApplicationStatus.APPLIED, "WEB", com.dossier.api.service.ApplicationEventService.UNDONE, cedarOld.getId(), now.minus(Duration.ofMinutes(70)));
+        Application stale = application("cws-ib-a-c1", "Harbor Cloud", ApplicationStatus.INTERVIEW);
+        mail(uid, "NONE", stale.getId(), "INTERVIEW");
+        statusEvent(stale.getId(), ApplicationStatus.APPLIED, ApplicationStatus.INTERVIEW, "INBOX", "Moved to Interview - from an email", 4L, now.minus(Duration.ofDays(30)));
+        Application plain = application("cws-ib-a-c1", "Plain Co", ApplicationStatus.APPLIED);
+        mail(uid, "NONE", plain.getId(), "APPLIED");
+
+        JsonNode page = json(call(get(base(a)), "cws-ib-a-c1"), 200);
+        JsonNode orbitRow = row(page, "Orbit Freight");
+        assertThat(orbitRow.path("interview").path("id").asLong()).isEqualTo(next.getId());
+        assertThat(orbitRow.path("interview").path("kind").asText()).isEqualTo("PHONE");
+        assertThat(orbitRow.path("interview").path("tz").asText()).isEqualTo("America/Los_Angeles");
+        assertThat(orbitRow.path("interview").path("link").asText()).isEqualTo("https://meet.example.com/orbit");
+        assertThat(orbitRow.path("interview").path("location").asText()).isEqualTo("Room 4");
+        assertThat(orbitRow.path("interview").path("cancelled").asBoolean()).isFalse();
+        assertThat(Instant.parse(orbitRow.path("interview").path("startsAt").asText())).isEqualTo(next.getStartsAt());
+        assertThat(orbitRow.path("undo").path("eventId").asText()).isEqualTo(String.valueOf(change.getId()));
+        assertThat(orbitRow.path("undo").path("undoable").asBoolean()).isTrue();
+
+        // the newer Cedar move is undoable; the older one was undone and is not offered again
+        JsonNode cedarRow = row(page, "Cedar Analytics");
+        assertThat(cedarRow.path("undo").path("undoable").asBoolean()).isTrue();
+        assertThat(cedarRow.path("undo").path("eventId").asText()).isNotEqualTo(String.valueOf(cedarOld.getId()));
+        // a change outside the undo window is still reported, but not undoable
+        assertThat(row(page, "Harbor Cloud").path("undo").path("undoable").asBoolean()).isFalse();
+        assertThat(row(page, "Harbor Cloud").path("undo").path("eventId").asText()).isNotEmpty();
+        // an application the inbox only confirmed, with no interview and no status change, has neither
+        JsonNode plainRow = row(page, "Plain Co");
+        assertThat(plainRow.path("interview").isNull()).isTrue();
+        assertThat(plainRow.path("undo").isNull()).isTrue();
+
+        // a second consultant sees none of it
+        assertThat(json(call(get(base(a)), "cws-ib-a-c2"), 200).path("updates")).isEmpty();
+    }
+
+    private static JsonNode row(JsonNode page, String company) {
+        for (JsonNode u : page.path("updates")) if (company.equals(u.path("company").asText())) return u;
+        throw new AssertionError("no update row for " + company);
+    }
+
     @Test
     void notifyNeedsAConnectionAndTheSwitchSticks() throws Exception {
         json(call(put(base(a) + "/notify").content("{\"email\":false}"), "cws-ib-a-c1"), 409);
@@ -591,10 +674,12 @@ class ConsultantInboxResourceIT {
         Application app = application("cws-ib-a-c1", "Orbit Freight", ApplicationStatus.INTERVIEW);
         mail(uid, "NEW", null, null);
         mail(uid, "NONE", app.getId(), "INTERVIEW");
+        // the interview the mail announced and the inbox's own status change are the consultant's alone: no organization route may carry them
+        interview(uid, app.getId(), now.plus(Duration.ofDays(4)), "PENDING", "Meeting link: https://meet.example.com/ZZSECRETLINK", "ZZSECRETROOM");
         em.flush();
         em.clear();
 
-        List<String> markers = List.of(ADDRESS, "ZZSECRET", SECRET_SENDER, CODE);
+        List<String> markers = List.of(ADDRESS, "ZZSECRET", SECRET_SENDER, CODE, "ZZSECRETLINK", "ZZSECRETROOM");
         int swept = 0;
         List<String> paths = new ArrayList<>();
         for (var e : handlerMapping.getHandlerMethods().entrySet()) {
