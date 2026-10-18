@@ -111,18 +111,20 @@ export default function InboxConnect({
   const [checking, setChecking] = useState<{ since: string | null; started: number } | null>(null);
   const [checkNote, setCheckNote] = useState<string | null>(null);
   const lastCheckedAt = view?.lastCheckedAt ?? null;
+  // Still reading while "Last checked" has not moved since the click (derived, so the effect never sets state on its own).
+  const checkingNow = checking && checking.since === lastCheckedAt ? checking : null;
   useEffect(() => {
-    if (!checking) return;
-    if (lastCheckedAt !== checking.since || Date.now() - checking.started > 90_000) {
-      setChecking(null);
-      return;
-    }
-    const t = setTimeout(() => (onChanged ? onChanged() : router.refresh()), 4000);
+    if (!checkingNow) return;
+    const t = setTimeout(() => {
+      if (Date.now() - checkingNow.started > 90_000) setChecking(null);
+      else if (onChanged) onChanged();
+      else router.refresh();
+    }, 4000);
     return () => clearTimeout(t);
-  }, [checking, lastCheckedAt, onChanged, router]);
+  }, [checkingNow, onChanged, router]);
 
   async function checkNow() {
-    if (!endpoints.checkNow || checking) return;
+    if (!endpoints.checkNow || checkingNow) return;
     setCheckNote(null);
     const res = await fetch(endpoints.checkNow, { method: "POST", headers: { accept: "application/json" } });
     if (res.ok) {
@@ -256,14 +258,14 @@ export default function InboxConnect({
               {endpoints.checkNow ? (
                 <>
                   {" "}
-                  <button type="button" onClick={() => void checkNow()} disabled={!!checking} data-inbox-check-now className={cn("font-semibold text-accent-deep underline-offset-2 hover:underline", checking && "opacity-60")}>
-                    {checking ? "Checking now…" : "Check now"}
+                  <button type="button" onClick={() => void checkNow()} disabled={!!checkingNow} data-inbox-check-now className={cn("font-semibold text-accent-deep underline-offset-2 hover:underline", checkingNow && "opacity-60")}>
+                    {checkingNow ? "Checking now…" : "Check now"}
                   </button>
                 </>
               ) : null}
             </p>
           )}
-          {checking ? (
+          {checkingNow ? (
             <p role="status" data-inbox-checking className="mt-2 text-[13px] text-ink-soft">
               Reading your mailbox now. New mail shows below in under a minute.
             </p>
