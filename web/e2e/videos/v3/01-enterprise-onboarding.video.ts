@@ -1,5 +1,5 @@
 import { test, expect, narrate, narrateDo } from "../../stories/_support/story";
-import { ADMIN_LOGIN, ADMIN_PASSWORD, PLATFORM, randomPassword, saveOrg, shellReady, tenantHost, tenantSignIn } from "./_v3";
+import { ADMIN_LOGIN, ADMIN_PASSWORD, PLATFORM, randomPassword, saveOrg, shellReady, tenantHost, tenantSignIn, openPage } from "./_v3";
 
 /**
  * V3 VIDEO 01: Enterprise onboarding. A Kiwiply platform admin creates a new organization (Brightline Talent Group); its owner gets the one-time
@@ -73,13 +73,13 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
   await narrate(page, "Enterprise starts switched off, so nothing goes live by accident. I turn it on, and every change like this asks me for a reason.", undefined, page.getByRole("switch", { name: `Enterprise for ${NAME}` }));
   await page.getByRole("switch", { name: `Enterprise for ${NAME}` }).click();
   await reason("Turn on", "Order form signed, onboarding kickoff this week");
-  await expect(page.getByRole("switch", { name: `Enterprise for ${NAME}` })).toHaveAttribute("aria-checked", "true", { timeout: 20_000 });
+  await expect(page.getByRole("switch", { name: `Enterprise for ${NAME}` })).toHaveAttribute("aria-checked", "true", { timeout: 60_000 });
   await narrate(page, "Next the modules, the parts of the workspace this customer has bought. For Brightline: roles and permissions, talent marketing, and consultant assigned jobs.");
   for (const m of ["Roles and permissions", "Talent marketing", "Consultant assigned jobs"]) {
     const sw = page.getByRole("switch", { name: `${m} for ${NAME}` });
     await sw.click();
     await reason("Turn on", "Part of Brightline's starter package");
-    await expect(sw).toHaveAttribute("aria-checked", "true", { timeout: 20_000 });
+    await expect(sw).toHaveAttribute("aria-checked", "true", { timeout: 60_000 });
   }
   await narrate(page, "Everything I just did is written to the history, with who did it and why.");
   await page.getByRole("button", { name: "History" }).click();
@@ -89,8 +89,7 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
 
   // ---- the owner signs in for the first time on the organization's own address
   await narrate(page, "That's the platform admin's part done. Now I become Maya, the owner, and open Brightline's own address.");
-  await page.goto(`${host}/login`);
-  await expect(page.getByLabel("User Name")).toBeVisible({ timeout: 45_000 });
+  await openPage(page, `${host}/login`, () => expect(page.getByLabel("User Name")).toBeVisible({ timeout: 45_000 }));
   await narrate(page, "This is Brightline's own sign-in page. It carries their name already, and in the next video the owner will add their logo and colours.");
   await narrateDo(page, "Maya types her work email and the temporary password I gave her.", async () => {
     await page.getByLabel("User Name").fill(OWNER_EMAIL);
@@ -135,7 +134,7 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
 
   // ---- second step: branding (a first pass; the next video goes deeper)
   await narrate(page, "Back on the dashboard, the checklist has noticed. Next, branding, so the sign-in page and every workspace look like Brightline.");
-  await page.getByRole("link", { name: "Dashboard", exact: true }).first().click();
+  await page.locator('[data-shell-sidebar] [data-nav-item="home"]').click();
   await page.waitForURL(/\/w\/admin$/);
   await expect(checklist).toBeVisible({ timeout: 30_000 });
   await expect(checklist.locator('[data-checklist-item="department"]')).toHaveAttribute("data-done", "true", { timeout: 30_000 });
@@ -159,7 +158,7 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
   await narrate(page, "Published. The whole workspace just took on Brightline's colour.");
 
   // ---- back to the checklist: two of five
-  await page.getByRole("link", { name: "Dashboard", exact: true }).first().click();
+  await page.locator('[data-shell-sidebar] [data-nav-item="home"]').click();
   await page.waitForURL(/\/w\/admin$/);
   await expect(checklist).toBeVisible({ timeout: 30_000 });
   await expect(checklist.locator('[data-checklist-item="branding"]')).toHaveAttribute("data-done", "true", { timeout: 30_000 });

@@ -1,5 +1,5 @@
 import { test, expect, narrate, narrateDo } from "../../stories/_support/story";
-import { ADMIN_LOGIN, ADMIN_PASSWORD, PLATFORM, loadOrg, makeBrandImages, shellReady, tenantHost, tenantSignIn } from "./_v3";
+import { ADMIN_LOGIN, ADMIN_PASSWORD, PLATFORM, loadOrg, makeBrandImages, shellReady, tenantHost, tenantSignIn, openPage } from "./_v3";
 
 /**
  * V3 VIDEO 02: Enterprise setup. The owner of Brightline Talent Group (made in video 01) sets the organization up: settings (general and security),
@@ -42,8 +42,7 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
   });
 
   // ---- sign in as the owner
-  await page.goto(`${host}/login`);
-  await expect(page.getByLabel("User Name")).toBeVisible({ timeout: 45_000 });
+  await openPage(page, `${host}/login`, () => expect(page.getByLabel("User Name")).toBeVisible({ timeout: 45_000 }));
   await narrate(page, "We're back at Brightline's own address. Maya, the owner, signs in with the password she chose in the last video.");
   await tenantSignIn(page, host, org.ownerEmail, org.ownerPassword);
   await shellReady(page);

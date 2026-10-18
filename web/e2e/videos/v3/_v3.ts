@@ -76,3 +76,19 @@ export function makeBrandImages(): { logo: string; favicon: string } {
   }
   return { logo, favicon };
 }
+
+/**
+ * Open a page and, if the shell answers "Please try again in a moment" (a cold or busy API on the first request to a host), press Try again the way a
+ * person would (at most three times). Logged, so a real regression is not hidden.
+ */
+export async function openPage(page: Page, url: string, ready: () => Promise<unknown>) {
+  await page.goto(url);
+  for (let i = 0; i < 3; i++) {
+    const retry = page.getByRole("link", { name: "Try again" }).or(page.getByRole("button", { name: "Try again" }));
+    if (!(await retry.first().isVisible().catch(() => false))) break;
+    console.log(`[v3] ${url}: pressing Try again`);
+    await retry.first().click();
+    await page.waitForTimeout(2000);
+  }
+  await ready();
+}
