@@ -34,6 +34,7 @@ import com.dossier.api.repository.org.OrgJoinCodeRepository;
 import com.dossier.api.repository.org.OrgMemberRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.ResumeBuilderSettings;
+import com.dossier.api.service.ent.mkt.escalations.EscalationService;
 import com.dossier.api.service.org.DataShareService;
 import com.dossier.api.service.org.DataShareService.ShareContext;
 import com.dossier.api.service.org.OrgAuditService;
@@ -507,6 +508,18 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/mkt/approvals", Case.mktRead()),
         Map.entry("POST /api/orgs/{orgId}/mkt/approvals", Case.mkt(200, OrgAuditService.MKT_APPROVAL_OPEN, w -> "{\"kind\":\"OPPORTUNITY_ASSIGN\",\"subjectId\":" + w.mktMatchId + "}", null)),
         Map.entry("POST /api/orgs/{orgId}/mkt/approvals/{id}/withdraw", Case.mkt(200, OrgAuditService.MKT_APPROVAL_WITHDRAW, w -> null, null)),
+        // MM-05: the Marketing Manager's escalations (the world holds one OPEN manual escalation about its consultant) and the marketer's manual raise.
+        Map.entry("GET /api/orgs/{orgId}/mgmt/escalations", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/escalations/counts", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/escalations/{id}", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/escalations/{id}/acknowledge", Case.mkt(200, EscalationService.AUDIT_ACKNOWLEDGE, w -> null, null)),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/escalations/{id}/assign", Case.mkt(200, EscalationService.AUDIT_ASSIGN, w -> "{\"memberId\":" + w.owner.getId() + "}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/escalations/{id}/snooze", Case.mkt(200, EscalationService.AUDIT_SNOOZE, w -> "{\"until\":\"" + Instant.now().plusSeconds(86400L) + "\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/escalations/{id}/resolve", Case.mkt(200, EscalationService.AUDIT_RESOLVE, w -> "{\"resolution\":\"Handled with the consultant\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/escalations/{id}/dismiss", Case.mkt(200, EscalationService.AUDIT_DISMISS, w -> "{\"note\":\"Not needed\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/escalations/{id}/reopen", Case.mkt(200, EscalationService.AUDIT_REOPEN, w -> null, World::mgmtCloseEscalation)),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/escalations/{id}/comment", Case.mkt(200, EscalationService.AUDIT_COMMENT, w -> "{\"note\":\"Called the consultant\"}", null)),
+        Map.entry("POST /api/orgs/{orgId}/mkt/escalations", Case.mkt(200, EscalationService.AUDIT_RAISE, w -> "{\"kind\":\"MANUAL\",\"severity\":\"HIGH\",\"subjectType\":\"CONSULTANT\",\"subjectId\":" + w.consultantProfileId + ",\"title\":\"Please look at this consultant\",\"detail\":\"They asked for a call.\"}", null)),
         // Enterprise V2 Applications page (docs/enterprise-v2/page-applications.md): reads write no audit row; every mutation writes one APPLICATION_* row.
         Map.entry("GET /api/orgs/{orgId}/applications", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/applications/counts", Case.read()),
@@ -745,6 +758,7 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentRepository mktAssignments;
     @Autowired private com.dossier.api.repository.ent.mkt.MktOpportunityRepository mktOpportunities;
     @Autowired private com.dossier.api.repository.ent.mgmt.MktApprovalRequestRepository mgmtApprovals;
+    @Autowired private com.dossier.api.repository.ent.mgmt.MktEscalationRepository mgmtEscalations;
 
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantSkillRepository consultantSkills;
     @Autowired private com.dossier.api.repository.ent.talent.OrgResumeRepository orgResumes;
@@ -1266,6 +1280,8 @@ class OrgIsolationIT {
         Long mktSubmissionViewId = 1L, mktTalentViewId = 1L, mktPrepItemId = 1L;
         /** MM-03: the world's pending manager approval (a resume release asked by the owner). */
         Long mgmtApprovalId = 1L;
+        /** MM-05: the world's OPEN manual escalation about its consultant. */
+        Long mgmtEscalationId = 1L;
 
         /** One call of the real API as this world's owner; any 2xx is the fixture working. */
         JsonNode mktApi(HttpMethod method, String path, String body) {
@@ -1348,7 +1364,25 @@ class OrgIsolationIT {
             r.setPayloadJson("{\"resumeId\":" + resumeId + ",\"consultantId\":" + consultantProfileId + "}");
             r.setExpiresAt(Instant.now().plusSeconds(7 * 86400L));
             mgmtApprovalId = mgmtApprovals.saveAndFlush(r).getId();
+            com.dossier.api.domain.ent.mgmt.MktEscalation e = new com.dossier.api.domain.ent.mgmt.MktEscalation();
+            e.setOrgId(org.getId());
+            e.setKind("MANUAL");
+            e.setSeverity("MEDIUM");
+            e.setSubjectType("CONSULTANT");
+            e.setSubjectId(consultantProfileId);
+            e.setConsultantId(consultantProfileId);
+            e.setTitle(p + " consultant needs a look");
+            e.setRaisedByMemberId(owner.getId());
+            mgmtEscalationId = mgmtEscalations.saveAndFlush(e).getId();
             em.flush();
+        }
+
+        /** MM-05: the world's escalation is closed (what a reopen finds). */
+        void mgmtCloseEscalation() {
+            em.createQuery("update MktEscalation e set e.status = 'RESOLVED', e.resolvedAt = :now, e.resolution = 'Done' where e.orgId = :o and e.id = :id")
+                .setParameter("now", Instant.now()).setParameter("o", org.getId()).setParameter("id", mgmtEscalationId).executeUpdate();
+            em.flush();
+            em.clear();
         }
 
         /** The world's org resume is approved (what assigning its consultant to a job, making it primary and re-opening a decision all require; a new resume starts PENDING). */
@@ -1593,6 +1627,7 @@ class OrgIsolationIT {
             ids.put("searchId", String.valueOf(mktSearchId));
             ids.put("ruleKey", "DEFAULT_KEYWORDS"); // a fixed word of the stream rules, not a row
             ids.put("mgmtApprovalId", String.valueOf(mgmtApprovalId)); // {id} of mgmt/approvals and mkt/approvals (see uri())
+            ids.put("mgmtEscalationId", String.valueOf(mgmtEscalationId)); // {id} of mgmt/escalations (see uri())
             return ids;
         }
 
@@ -1647,6 +1682,7 @@ class OrgIsolationIT {
             .replace("/mkt/tasks/{id}", "/mkt/tasks/{mktTaskId}")
             .replace("/mgmt/approvals/{id}", "/mgmt/approvals/{mgmtApprovalId}")
             .replace("/mkt/approvals/{id}", "/mkt/approvals/{mgmtApprovalId}")
+            .replace("/mgmt/escalations/{id}", "/mgmt/escalations/{mgmtEscalationId}")
             .replace("/members/{memberId}/resend", "/members/{pendingMemberId}/resend")
             .replace("/opportunities/{matchId}", "/opportunities/{opportunityMatchId}")
             .replace("/submissions/{id}", "/submissions/{submissionId}")
