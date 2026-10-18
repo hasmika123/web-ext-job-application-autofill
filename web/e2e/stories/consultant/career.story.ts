@@ -34,7 +34,7 @@ test("CON-40 Anika reviews her Offers: tiles, status, deadlines, side-by-side co
   await expect(detail).toBeVisible();
   await expect(detail.getByRole("heading", { name: "Benefits" })).toBeVisible();
   await expect(detail.getByRole("heading", { name: "Timeline" })).toBeVisible();
-  await expect(detail.getByText("accepting does not start a placement")).toBeVisible();
+  await expect(detail.getByText("Accepting starts your placement when the offer is linked to a client")).toBeVisible();
 });
 
 test("CON-41 Anika opens 'Accept offer', reads what accepting means, and cancels: no answer is recorded", async ({ as }) => {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACCEPT_COPY,
   MAX_COMPARE,
   comparedRows,
   compareLabel,
@@ -143,5 +144,13 @@ describe("note rules", () => {
     expect(noteProblem("x".repeat(301), true)).toMatch(/300/);
     expect(noteProblem("   ", false)).toBeNull();
     expect(noteProblem("a", false)).toMatch(/at least 3/);
+  });
+});
+
+describe("ACCEPT_COPY", () => {
+  it("says that accepting starts the placement (the accept creates it) and that nothing is signed or paid", () => {
+    expect(ACCEPT_COPY).toMatch(/starts your placement/);
+    expect(ACCEPT_COPY).not.toMatch(/no placement is started/i);
+    expect(ACCEPT_COPY).toMatch(/Nothing is signed/);
   });
 });

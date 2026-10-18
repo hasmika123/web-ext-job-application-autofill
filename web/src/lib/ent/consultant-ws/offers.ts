@@ -350,7 +350,7 @@ export const compareLabel = (n: number): string => `Compare Selected (${n})`;
 
 /* ── copy (should become admin config) ────────────────────────────────────────────────── */
 
-export const ACCEPT_COPY = "Accepting records your answer in Kiwiply. Nothing is signed or sent to the client by Kiwiply, and no placement is started from here: your marketer and the employer take the next steps.";
+export const ACCEPT_COPY = "Accepting records your answer in Kiwiply and, when the offer is linked to a client, starts your placement. Nothing is signed or sent to the client by Kiwiply, and no money moves.";
 export const MIN_NOTE = 3;
 export const MAX_NOTE = 300;
 
