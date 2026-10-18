@@ -145,6 +145,50 @@
   src: url("../fonts/eb-garamond-italic-latin-700.woff2") format("woff2");
 }
 
+/* Metric-compatible stand-ins for the "Georgia / Arial" pair. Georgia and Arial are system fonts: present on Windows and macOS, missing
+   from the Linux Chromium that prints production PDFs (Georgia fell back to Liberation Serif, which is Times-width: about 9% narrower).
+   Gelasio has Georgia's advance widths and Arimo has Arial's, so the stack "Georgia, Gelasio" / "Arial, Arimo" lays out the same page
+   everywhere: the real font where it exists, the bundled twin where it does not. */
+@font-face {
+  font-family: "Gelasio";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../fonts/gelasio-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Gelasio";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("../fonts/gelasio-latin-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Arimo";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../fonts/arimo-latin-400.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Arimo";
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url("../fonts/arimo-latin-700.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Arimo";
+  font-style: italic;
+  font-weight: 400;
+  font-display: block;
+  src: url("../fonts/arimo-italic-latin-400.woff2") format("woff2");
+}
+
 @page {
   size: 8.5in 11in;
   margin: 0.75in;
