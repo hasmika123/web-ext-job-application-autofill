@@ -72,7 +72,7 @@ public class AccountPrivacyResource {
         demoGuard.assertNotDemo();
         User me = personal();
         if (deletionRequests.graceHours() == 0) {
-            deletion.deleteCurrentUserAccount();
+            deletionRequests.eraseNow(me.getId());
             return ResponseEntity.ok(Map.of("status", "DELETED", "graceHours", 0, "canUndo", false));
         }
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(asMap(deletionRequests.request(me.getId(), "SELF", Instant.now())));

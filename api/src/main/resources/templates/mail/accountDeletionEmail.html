@@ -1,0 +1,28 @@
+<!doctype html>
+<!--
+  Account deletion e-mail (personal Kiwiply, green theme): the three moments of a self-service deletion with an undo window - SCHEDULED (asked for), CANCELLED (undone) and
+  COMPLETED (erased). It carries NO name and no account data, only the date the erasure becomes final; it goes to the account's own address (for COMPLETED, the address read
+  just before the erasure).
+  Model: stage (SCHEDULED | CANCELLED | COMPLETED), when (text, the date and time the erasure becomes final; SCHEDULED only), link (button target), subject.
+  Optional: assetBase (art folder, default https://kiwiply.com/email). Words: the email.deletion.<stage>.* keys.
+-->
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}" lang="en">
+  <head>
+    <title th:text="${subject}">Account deletion</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+  </head>
+  <body style="margin: 0; padding: 0">
+    <div th:replace="~{mail/fragments :: preheader(${pre})}"></div>
+    <th:block th:with="art=${assetBase} ?: 'https://kiwiply.com/email', accent='#5cc21f', btnText='#0b2a12', accentText='#2f7d12', heroBg='#eaf6e3', stripBg='#eaf6e3'">
+      <th:block th:replace="~{mail/fragments :: shell('kiwiply', null, null, null, ${art}, ~{::section})}">
+        <section>
+          <table th:replace="~{mail/fragments :: hero(${heroBg}, ${art} + '/kiwi-hero-active.png', 230, ${kicker}, ${line1}, ${line2}, ${accentText}, ${intro}, ${link}, ${button}, ${accent}, ${btnText})}"></table>
+          <table th:replace="~{mail/fragments :: strip(${stripBg}, ${stripTitle}, ${stripText})}"></table>
+          <p style="margin: 0; padding: 16px 28px 18px 28px; font-size: 12px; line-height: 1.5; color: #6b726e" th:text="${footer}">Footer</p>
+        </section>
+      </th:block>
+    </th:block>
+  </body>
+</html>
