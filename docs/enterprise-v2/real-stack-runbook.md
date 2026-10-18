@@ -78,3 +78,9 @@ in your own `.claude/launch.json` (never commit them).
 ## Stopping and resetting
 
 Kill only the processes you started (by PID). To start from nothing: stop the API, `DROP DATABASE dossier_ent_demo`, recreate it, boot again.
+
+## Real Gmail, and a data-reset gotcha (added 2026-10-18)
+- The demo API serves a built-in SAMPLE mailbox by default. To read a real dedicated Gmail instead, start the API with `DOSSIER_DEMO_INBOX_SANDBOX=false`
+  (demo mode and the demo logins stay on). Steps, the six test mails and the honest limits: `docs/enterprise-v2/qa/REAL-GMAIL-DEMO.md`.
+- Never change application rows with direct SQL while the API is running: `Application` is in Hibernate's second-level cache, so the API keeps seeing the old status
+  (for example "Accept" on a held rejection looks like a no-op). Reset rows BEFORE (re)starting the API, or through the app.
