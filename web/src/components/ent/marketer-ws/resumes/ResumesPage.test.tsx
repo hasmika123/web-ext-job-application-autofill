@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/marketing/resumes" }));
 
+import { ToastProvider } from "@kiwiply/ui";
 import ResumesPage from "./ResumesPage";
 
 const NOW = Date.now();
@@ -48,7 +49,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
 });
 
 const HREFS = { talent: "/w/marketing/talent", activity: "/w/marketing/activity" };
-const mount = () => render(<ResumesPage orgId={2} orgName="Acme" firstName="Sarah" hrefs={HREFS} />);
+const mount = () => render(<ToastProvider><ResumesPage orgId={2} orgName="Acme" firstName="Sarah" hrefs={HREFS} /></ToastProvider>);
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 let calls: { url: string; method: string; body?: string }[] = [];
@@ -79,6 +80,13 @@ describe("ResumesPage (board)", () => {
       expect(t.textContent).toContain("vs last month");
     }
     expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(4);
+  });
+
+  it("offers 'New resume for...' (the act-for entry point /w/marketing/resumes lost when h-assign mounted this page)", async () => {
+    mount();
+    await screen.findByText("Alex Morgan - Consulting Resume");
+    expect(document.querySelector("[data-new-resume-for]")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /New resume for/ })).toBeTruthy();
   });
 
   it("draws the filter row, the column headers and every board row", async () => {

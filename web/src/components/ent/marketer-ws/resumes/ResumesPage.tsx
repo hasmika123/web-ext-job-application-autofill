@@ -14,6 +14,7 @@ import {
   type Approval, type ResumeActivity, type ResumeFilters, type ResumeKpiKey, type ResumeRow, type ResumesView, type WriteResult,
 } from "@/lib/ent/marketer-ws/resumes";
 import ResumeDrawer, { type DrawerMode } from "./ResumeDrawer";
+import NewResumeForConsultant from "@/components/ent/resumes/NewResumeForConsultant";
 
 /**
  * Resumes (Marketing workspace; design: Resumes). One call draws the tiles, the page of rows and "Recent Resume Activity". Resumes are
@@ -167,6 +168,12 @@ export default function ResumesPage({ orgId, hrefs }: MktPageProps) {
           return <KpiTile key={key} id={key} title={RESUME_KPI_TITLES[key]} icon={icon} tint={tint} value={loading ? null : (k?.value ?? null)} loading={loading} deltaPct={k?.deltaPct} sparkline={k?.sparkline} sparkIndex={spark} />;
         })}
       </section>
+
+      {/* "New resume for <consultant>" (act-for in the one Resume Builder): the shared Resumes page had it, and since h-assign mounted THIS page at
+          /w/marketing/resumes the marketer lost the entry point. The API (resumes.edit_for, the marketer's assigned consultants with an account) is the gate. */}
+      <div className="flex flex-wrap justify-end">
+        <NewResumeForConsultant orgId={orgId} onCreated={retry} />
+      </div>
 
       {note ? (
         <p role={note.tone === "error" ? "alert" : "status"} className={cn("rounded-lg px-3 py-2 text-[13px] font-semibold", note.tone === "error" ? "bg-v2-pink-soft text-v2-pink-ink" : "bg-v2-green-soft text-v2-green-ink")}>

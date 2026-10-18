@@ -175,7 +175,7 @@ class ConsultantInboxDemoIT {
         assertThat(apps).filteredOn(a -> a.getCompany().equals("Cedar Analytics")).first().satisfies(a -> assertThat(a.getStatus()).as("the rejection, confirmed").isEqualTo(ApplicationStatus.REJECTED));
 
         List<InboxMessage> all = messages.findByUserIdOrderBySentAtDesc(id(ANIKA));
-        assertThat(all).as("the original seven mails plus three interview mails (a phone screen, its reschedule and a calendar invitation)").hasSize(10);
+        assertThat(all).as("the original seven mails plus three interview mails (a phone screen, its reschedule and a calendar invitation) plus four Northwind Labs mails").hasSize(14);
         assertThat(all).filteredOn(m -> "Ten long articles for the weekend".equals(m.getSubject())).first().satisfies(m -> assertThat(m.getBodyText()).as("not job mail: headers only").isNull());
         assertThat(all).filteredOn(m -> "NEW".equals(m.getSuggestion())).extracting(InboxMessage::getCompanyGuess).as("Harbor Cloud has two mails now: the availability request and the confirmed invitation").containsExactlyInAnyOrder("Lumen Health", "Harbor Cloud", "Harbor Cloud");
 

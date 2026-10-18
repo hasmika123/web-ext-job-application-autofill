@@ -129,7 +129,7 @@ class DemoImapGatewayTest {
         Store store = g.open(g.demoAddress(), CODE);
         Folder inbox = store.getFolder("INBOX");
         inbox.open(Folder.READ_ONLY);
-        assertThat(inbox.getMessageCount()).as("the original seven mails plus the three interview mails (six in the inbox before, nine now)").isEqualTo(9);
+        assertThat(inbox.getMessageCount()).as("the original seven mails plus the three interview mails plus the four Northwind Labs mails (nine in the inbox before, thirteen now)").isEqualTo(13);
 
         Instant now = Instant.now();
         jakarta.mail.Message phone = null, moved = null, ics = null;
