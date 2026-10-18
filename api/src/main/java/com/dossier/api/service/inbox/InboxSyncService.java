@@ -253,6 +253,11 @@ public class InboxSyncService {
         if (job) {
             String text = MailText.of(m);
             row.setBodyText(text.isBlank() ? null : text);
+            if (InboxMessage.IN.equals(direction)) {
+                // For interview invitations: the zone the sender was in, and the few fields of a calendar part (the calendar file itself is not kept).
+                row.setSentZone(MailCalendar.offsetOf(header(m, "Date")));
+                row.setCalendarEvent(MailCalendar.eventJson(m));
+            }
         }
         messages.save(row);
     }

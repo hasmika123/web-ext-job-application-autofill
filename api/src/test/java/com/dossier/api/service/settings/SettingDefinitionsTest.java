@@ -61,6 +61,7 @@ class SettingDefinitionsTest {
         assertKey("jobs.disable_after_failures", "5", 2, 20, Risk.LOW);
         assertKey("inbox.poll_minutes", "15", 5, 120, Risk.MEDIUM);
         assertKey("inbox.retention_days", "365", 30, 730, Risk.HIGH);
+        assertKey("inbox.interview_min_confidence", "60", 0, 100, Risk.MEDIUM);
         assertKey("tracker.history.retention_months", "0", 0, 120, Risk.LOW); // U6.15: 0 = for the life of the application
         assertKey("enterprise.history.retention_months", "0", 0, 120, Risk.LOW); // X9.15: 0 = for the life of the record
         assertKey("ops.error_digest.interval_min", "15", 5, 120, Risk.LOW);

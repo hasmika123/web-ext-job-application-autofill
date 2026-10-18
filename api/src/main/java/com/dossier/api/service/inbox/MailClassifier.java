@@ -60,6 +60,8 @@ public final class MailClassifier {
         "book a time|next round|move (you )?(forward|on) to (the )?(next|an?)|(like|love) to (speak|chat|talk|connect) (with you|about)|" +
         "calendly\\.com|goodtime\\.io|interview (with|for)|onsite interview|virtual interview"
     );
+    // An interview that is called off or moved: still an interview mail (the schedule reader tells the two apart), and "unfortunately" in it is not a rejection.
+    private static final Pattern INTERVIEW_WORD = p("interview|call|meeting|chat|conversation|phone screen|screening|session");
     private static final Pattern ASSESSMENT = p(
         "assessment|coding (challenge|exercise|test)|take[- ]home|hackerrank|codesignal|codility|online test|skills test"
     );
@@ -109,6 +111,9 @@ public final class MailClassifier {
         if (OFFER.matcher(text).find()) strong.add(Category.OFFER);
         if (REJECTED_STRONG.matcher(text).find()) strong.add(Category.REJECTED);
         if (INTERVIEW.matcher(text).find()) strong.add(Category.INTERVIEW);
+        boolean change =
+            (InterviewScheduleExtractor.CANCEL.matcher(text).find() || InterviewScheduleExtractor.RESCHEDULE.matcher(text).find()) && INTERVIEW_WORD.matcher(text).find();
+        if (change) strong.add(Category.INTERVIEW);
         if (ASSESSMENT.matcher(text).find()) strong.add(Category.ASSESSMENT);
         boolean applied = APPLIED.matcher(text).find();
         boolean weakReject = REJECTED_WEAK.matcher(text).find();
@@ -123,7 +128,7 @@ public final class MailClassifier {
             boolean conflict = strong.contains(Category.INTERVIEW) || strong.contains(Category.ASSESSMENT);
             return new Reading(Category.REJECTED, conflict, company, role);
         }
-        if (strong.contains(Category.INTERVIEW)) return new Reading(Category.INTERVIEW, weakReject, company, role);
+        if (strong.contains(Category.INTERVIEW)) return new Reading(Category.INTERVIEW, weakReject && !change, company, role);
         if (strong.contains(Category.ASSESSMENT)) return new Reading(Category.ASSESSMENT, weakReject, company, role);
         // "Under review" is its own stage, unless the mail is the receipt itself (which says it as boilerplate).
         if (IN_REVIEW.matcher(text).find() && !RECEIPT.matcher(text).find()) return new Reading(Category.IN_REVIEW, weakReject, company, role);
