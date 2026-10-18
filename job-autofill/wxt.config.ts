@@ -19,6 +19,10 @@ import tailwindcss from "@tailwindcss/vite";
 const MANIFEST_KEY =
   "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3HE6lDTraXYRpYr+QKqb/QLbtCh0CjFRH/CQbZPOM221cYqh3cDRHmSsbkq1MwCN0M9eWYJgtysjIRHLGIjsuIP3B4hOop0Hq7wHlmlie8/W7llDB7jDfZeJ9N9dpXQNKouXNFtiXwE694eLaP4ioMxMuAnUpW8PaZOUeBPwODh8G7EHvSZtn5SirkpiLZ+fakzfXGDze+6w24tQ4hfnk3bCFQYTrceS8i+4REBKxTbpUjad32m1AVlCeh+qPcPv24zsyDukVcAOVcr1JY+hWUwb+GxX44h7vbTrWV84cD9RBZQhotHf39H83ZwseHa+LJgVVO5WQflLAX2iru5F7QIDAQAB";
 
+/** Comma-separated origins from a dev-only env var (or the defaults), as manifest match patterns. */
+const devOrigins = (value: string | undefined, defaults: string[]): string[] =>
+  (value ? value.split(",") : defaults).map((o) => o.trim().replace(/\/+$/, "")).filter(Boolean).map((o) => o + "/*");
+
 export default defineConfig({
   // React for the drawer + options (W3/W4) — adds @vitejs/plugin-react (JSX + Fast Refresh) + the
   // react auto-import preset. The background and content entrypoints stay framework-free (they are
@@ -42,16 +46,18 @@ export default defineConfig({
     // Dev builds only: a local API (`wxt`, or `wxt build --mode development`). The store zip
     // comes from `wxt build` (mode=production), which drops these.
     const dev = mode !== "production";
-    const devApiHosts = ["http://localhost:8080/*", "http://127.0.0.1:8080/*"];
+    // Both lists can be pointed at another local stack (e.g. the enterprise demo on 3200/18183) with
+    // WXT_DEV_WEB_ORIGINS / WXT_DEV_API_ORIGINS (comma-separated origins). Dev builds only; never shipped.
+    const devApiHosts = devOrigins(process.env.WXT_DEV_API_ORIGINS, ["http://localhost:8080", "http://127.0.0.1:8080"]);
     // The local web app, for testing the /connect session handoff against a dev Next server.
     // NOTE: any page served on this origin can hand the extension a session, so it must never
     // ship — the service worker derives its accept-list from these matches, not from a
     // hardcoded origin, so dropping it here is enough (see service-worker.js).
-    const devConnectOrigins = ["http://localhost:3000/*"];
+    const devConnectOrigins = devOrigins(process.env.WXT_DEV_WEB_ORIGINS, ["http://localhost:3000"]);
 
     return {
       name: "Kiwiply — Job Application Autofill",
-      version: "0.68.0",
+      version: "0.69.0",
       // ⚠️ Chrome Web Store hard limit: 132 characters. The upload is rejected outright above it,
       // so `.github/scripts/check-manifest-limits.mjs` enforces it at build time. This is the same
       // sentence as the listing's short description in STORE-LISTING.md — keep the two in step.

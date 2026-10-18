@@ -53,7 +53,9 @@ export default defineContentScript({
     // Tenant hosts, for the prepare batch only (the background applies the exact-origin gate to
     // everything else). Same list as externally_connectable in wxt.config.ts.
     "https://*.kiwiply.com/*",
-    ...(import.meta.env.MODE === "production" ? [] : ["http://localhost:3000/*"]),
+    ...(import.meta.env.MODE === "production"
+      ? []
+      : (import.meta.env.WXT_DEV_WEB_ORIGINS || "http://localhost:3000").split(",").map((o: string) => o.trim().replace(/\/+$/, "") + "/*")),
   ],
   include: ["firefox"],
   runAt: "document_start",
