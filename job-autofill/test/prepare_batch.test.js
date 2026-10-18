@@ -78,6 +78,32 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
   eq("role: nothing known", PB.checkRole(7, null), "unknown");
   ok("tenant origin: https acme.kiwiply.com", PB.tenantOriginAllowed(TENANT));
   ok("tenant origin: not http, not a port, not a look-alike", !PB.tenantOriginAllowed("http://acme.kiwiply.com") && !PB.tenantOriginAllowed("https://acme.kiwiply.com:8443") && !PB.tenantOriginAllowed("https://kiwiply.com.evil.test") && !PB.tenantOriginAllowed("https://evilkiwiply.com") && !PB.tenantOriginAllowed("nope"));
+  ok("session id: a positive integer is taken as its decimal string", PB.validate(msg({ sessionId: 42 })).batch.sessionId === "42");
+  eq("session id: zero, a float and a negative number are refused", [0, 1.5, -3].map((v) => PB.validate(msg({ sessionId: v })).reason), ["bad-session", "bad-session", "bad-session"]);
+
+  /* ---------------------------------------------------------- 2b. dev-build allowances come from the manifest only */
+  {
+    ok("no manifest: no http origin is allowed anywhere", !PB.devAtsOriginAllowed("http://jobs.localhost:3399") && !PB.devTenantOriginAllowed("http://acme.localhost:3200"));
+    const hadChrome = Object.prototype.hasOwnProperty.call(globalThis, "chrome");
+    const before = globalThis.chrome;
+    globalThis.chrome = { runtime: { getManifest: () => ({
+      host_permissions: ["https://*.greenhouse.io/*", "http://jobs.localhost:3399/*", "http://localhost:18183/*"],
+      externally_connectable: { matches: ["https://kiwiply.com/*", "https://*.kiwiply.com/*", "http://localhost:3200/*", "http://*.localhost:3200/*"] },
+    }) } };
+    try {
+      ok("dev ATS origin: exact host and port from host_permissions", PB.devAtsOriginAllowed("http://jobs.localhost:3399"));
+      ok("dev ATS origin: another port, https, a non-localhost host and a look-alike are refused", !PB.devAtsOriginAllowed("http://jobs.localhost:3400") && !PB.devAtsOriginAllowed("https://jobs.localhost:3399") && !PB.devAtsOriginAllowed("http://jobs.example.com:3399") && !PB.devAtsOriginAllowed("http://evil-jobs.localhost:3399"));
+      ok("dev ATS origin: the plain-localhost API host is not an ATS origin", !PB.devAtsOriginAllowed("http://localhost:18183"));
+      eq("cleanUrl: a dev ATS http link passes", PB.cleanUrl("http://jobs.localhost:3399/greenhouse/acme/12?t=Platform%20Engineer").url, "http://jobs.localhost:3399/greenhouse/acme/12?t=Platform%20Engineer");
+      eq("cleanUrl: other http links still fail", PB.cleanUrl("http://jobs.lever.co/a/1").error, "http-url");
+      eq("cleanUrl: credentials on a dev link still fail", PB.cleanUrl("http://u:p@jobs.localhost:3399/a").error, "http-url");
+      ok("dev tenant origin: a *.localhost:3200 page may send a batch", PB.tenantOriginAllowed("http://acme.localhost:3200") && PB.tenantOriginAllowed("http://gamma.localhost:3200"));
+      ok("dev tenant origin: not another port, not https, not the bare platform host via the wildcard rule's http check", !PB.tenantOriginAllowed("http://acme.localhost:3000") && !PB.tenantOriginAllowed("https://acme.localhost:3200") && !PB.tenantOriginAllowed("http://acme.kiwiply.com"));
+      ok("production tenant rule is unchanged", PB.tenantOriginAllowed(TENANT) && !PB.tenantOriginAllowed("https://acme.kiwiply.com:8443"));
+    } finally {
+      if (hadChrome) globalThis.chrome = before; else delete globalThis.chrome;
+    }
+  }
 
   /* ---------------------------------------------------------- fakes */
   function memStorage() {

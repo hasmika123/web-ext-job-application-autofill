@@ -54,6 +54,13 @@ export default defineConfig({
     // ship — the service worker derives its accept-list from these matches, not from a
     // hardcoded origin, so dropping it here is enough (see service-worker.js).
     const devConnectOrigins = devOrigins(process.env.WXT_DEV_WEB_ORIGINS, ["http://localhost:3000"]);
+    // Dev-only too (both default to none): local tenant hosts that may send "Prepare selected openings"
+    // (e.g. http://*.localhost:3200, the enterprise demo), and local stand-in ATS pages the content script
+    // and the batch may run on (e.g. http://jobs.localhost:3399, web/scripts/demo-ats-server.mjs).
+    // src/lib/prepare-batch.js derives its http allowances from these manifest entries, so a store build,
+    // which has none, keeps its https-only rules.
+    const devTenantOrigins = devOrigins(process.env.WXT_DEV_TENANT_ORIGINS, []);
+    const devAtsOrigins = devOrigins(process.env.WXT_DEV_ATS_ORIGINS, []);
 
     return {
       name: "Kiwiply — Job Application Autofill",
@@ -141,7 +148,7 @@ export default defineConfig({
         // GA4 Measurement Protocol (anonymous counts, off unless CI injected credentials).
         "https://www.google-analytics.com/*",
         "https://api.kiwiply.com/*",
-        ...(dev ? devApiHosts : []),
+        ...(dev ? [...devApiHosts, ...devAtsOrigins] : []),
       ],
       externally_connectable: {
         matches: [
@@ -153,7 +160,7 @@ export default defineConfig({
           // (connect handoff and sync signals still need the exact origins above). Custom tenant domains
           // cannot be listed in a manifest; see ARCHITECTURE.md "Prepare batch".
           "https://*.kiwiply.com/*",
-          ...(dev ? devConnectOrigins : []),
+          ...(dev ? [...devConnectOrigins, ...devTenantOrigins] : []),
         ],
       },
       action: {

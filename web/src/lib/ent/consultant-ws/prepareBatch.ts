@@ -183,7 +183,8 @@ export function prepareApiBase(): string {
 export interface PrepareMessage {
   type: typeof PREPARE_BATCH_MESSAGE;
   version: typeof PREPARE_VERSION;
-  sessionId: number;
+  /** The API's session id as a decimal string: the extension's contract (ARCHITECTURE.md "Prepare batch") takes a string. */
+  sessionId: string;
   apiBase: string;
   orgId: number;
   jobs: PrepareJob[];
@@ -193,7 +194,7 @@ export function buildPrepareMessage(sessionId: number, orgId: number, jobs: Prep
   return {
     type: PREPARE_BATCH_MESSAGE,
     version: PREPARE_VERSION,
-    sessionId,
+    sessionId: String(sessionId),
     apiBase,
     orgId,
     jobs: jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company })),
@@ -203,8 +204,8 @@ export function buildPrepareMessage(sessionId: number, orgId: number, jobs: Prep
 /**
  * Hands the batch to the extension and waits for its acknowledgement. An enterprise account lives on its tenant host, which the extension cannot list in
  * `externally_connectable` (that path serves the platform hosts only), so the page posts to ITSELF and the extension's tenant-host content bridge, which only
- * accepts a message from this exact document, replies in kind (doc 63 section 3). Resolves true on an acknowledgement for this session (a missing `ok` counts
- * as yes, `ok:false` as no) and false after `timeoutMs`. Never throws.
+ * accepts a message from this exact document, replies in kind (doc 63 section 3). Resolves true on an acknowledgement for this session: the extension answers
+ * `{type, sessionId, accepted, reason?}`, so `accepted:false` (or the older `ok:false`) is a no and anything else a yes. False after `timeoutMs`. Never throws.
  */
 export function sendPrepareBatch(msg: PrepareMessage, timeoutMs: number = ACK_TIMEOUT_MS): Promise<boolean> {
   if (typeof window === "undefined") return Promise.resolve(false);
@@ -219,10 +220,10 @@ export function sendPrepareBatch(msg: PrepareMessage, timeoutMs: number = ACK_TI
     };
     const onMessage = (e: MessageEvent) => {
       if (e.source !== window || e.origin !== window.location.origin) return;
-      const d = e.data as { type?: unknown; sessionId?: unknown; ok?: unknown } | null;
+      const d = e.data as { type?: unknown; sessionId?: unknown; ok?: unknown; accepted?: unknown } | null;
       if (!d || d.type !== PREPARE_ACK_MESSAGE) return;
-      if (d.sessionId !== undefined && d.sessionId !== msg.sessionId) return;
-      finish(d.ok !== false);
+      if (d.sessionId !== undefined && d.sessionId !== null && String(d.sessionId) !== msg.sessionId) return;
+      finish(d.accepted !== false && d.ok !== false);
     };
     const timer = setTimeout(() => finish(false), timeoutMs);
     try {
