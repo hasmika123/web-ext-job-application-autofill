@@ -6,7 +6,7 @@ Locked model (CLAUDE.md): the user's own dedicated consumer Gmail, IMAP plus App
 
 ## 0. Headline
 
-The module is real and fairly complete for its core promise: connect a Gmail, read it every 15 minutes, classify job mail by rules (AI only for the leftovers), move the matching application forward, suggest untracked jobs, notify, and purge on disconnect, offboarding or after 12 months. Three things the brief asks about are **not built**: interview schedule parsing (no date, time, zone, link or ICS handling anywhere), marketer inbox attribution (D4, deferred by decision), and a PII scan over stored mail. Two things are weaker than they look: the personal web app has no screen that lists or accepts suggestions (only BFF accept/dismiss routes exist), and multi-instance safety relies on a JVM-local flag.
+The module is real and fairly complete for its core promise: connect a Gmail, read it every 15 minutes, classify job mail by rules (AI only for the leftovers), move the matching application forward, suggest untracked jobs, notify, and purge on disconnect, offboarding or after 12 months. Two things the brief asks about are **not built**: marketer inbox attribution (D4, deferred by decision) and a PII scan over stored mail body text. **Interview schedule parsing was FIXED on branch `inbox-interviews` (e1ab45c7, 9c3ca94f, be7685d0)**: see section 4 and the verdict table. Two things are weaker than they look: the personal web app has no screen that lists or accepts suggestions (only BFF accept/dismiss routes exist), and multi-instance safety relies on a JVM-local flag.
 
 ## 1. Architecture
 
@@ -72,8 +72,12 @@ APPLIED (receipt), IN_REVIEW, INTERVIEW, ASSESSMENT, REJECTED, OFFER, ALERT (job
 
 ## 4. Interview schedules
 
-**Not built.** Evidence: no code under `service/inbox` references dates, time zones, ICS or `text/calendar` (`MailText` keeps only plain or HTML text). The classifier only labels a mail INTERVIEW and moves the status. Nothing parses a date, time, zone, link (Zoom, Meet, Calendly) or location from a mail, no `Interview` row is ever created from mail, no reminder or reschedule or cancel is handled, and a cancel or reschedule mail would be read as INTERVIEW again (no state change).
-- The pieces that exist elsewhere: `Interview` entity and `InterviewService` (CRUD, outcome, date-range feed, `.ics` export; PROGRESS "e2e-u6.4") already accept `source=INBOX` (`Interview.SRC_INBOX`, mapped to `ChangeActor.mail()` in `InterviewService`), so the target exists but nothing writes to it. Calendar views over interviews are fed only by what the user or the assistant enters. Time-zone correctness: n/a for mail; **unverified** for the manual path.
+**FIXED (branch `inbox-interviews`, commits e1ab45c7 extraction, 9c3ca94f apply + schema + consultant mirror, be7685d0 sample mailbox + corpus).** The original audit finding (nothing read a date, time, zone, link or ICS, no `Interview` row was ever made from mail) no longer holds:
+- **Extraction:** `InterviewScheduleExtractor` reads a mail's `text/calendar` part (`IcsReader`: unfolding, TZID incl. Outlook's Windows names, UTC `Z`, floating times, DTEND/DURATION, METHOD, SEQUENCE, UID, STATUS, links in URL/LOCATION/DESCRIPTION; no new dependency; the part is read for parsing only and only a few fields are stored in `inbox_message.calendar_event`, never the file) and the text of the mail ("Tuesday, October 27 at 2:00 PM PT", "10/27/2026 2pm", "between 2:00 and 3:00 PM Eastern", "Oct 21st, 14:00 UTC+1", 12 or 24 hour clocks, ranges, durations stated as such, Zoom/Meet/Teams/Webex/Calendly links, kind, location line). Zone: an explicit zone wins; else the zone of the mail's Date header (`inbox_message.sent_zone`); else UTC with lower confidence (the profile has no zone field yet). Abbreviations map to regions and the date decides daylight saving (PST in October is Pacific daylight time); **IST is read as India Standard Time**. Never invents a time: "next week", a date with no time, availability requests, a list of options and a reschedule with no new time all give no schedule.
+- **Apply:** `InboxInterviewApplier` (called from `InboxParser` for INTERVIEW mail matched to an application): creates one `Interview` (source INBOX, by UID or by start), moves it on a reschedule (higher SEQUENCE, or "rescheduled to ..." with one open interview; earlier time kept in `schedule_history`, reminder markers cleared, length kept), marks it `CANCELLED` on a cancellation (METHOD:CANCEL or "we need to cancel ..."), and **never touches the status on a cancellation**. The status moves to Interview forward only, by the existing `ApplicationEventService` "by Inbox" path. Timeline line in plain words ("Interview Tue Oct 27, 2:00 PM PDT, phone, link: zoom.us"), no mail text. Below `inbox.interview_min_confidence` (admin, default 60) or with no time: no interview row, only the status change and the note "Interview invitation read, but the time could not be read from the email. Add the interview yourself."
+- **Where it shows:** the personal Interviews feed, the application's next-interview column (cancelled ones excluded), the `.ics` export and the application timeline (all read the same `interview` table). Accepting a suggested application also reads the interview among its folded mails.
+- **Organization:** `InboxInterviewChanged` (a time and a kind, nothing from the mail) -> `LinkedInterviewMirror` -> `LinkedInterviewMirrorWork` writes/updates a `talent_interview` row (`personal_interview_id`) for a consultant who shares in FULL and whose application is linked to a job; no link, location, interviewer, note, sender or subject ever leaves the person's account.
+- **Not done:** reminders still come from the existing U7 job (nothing new sends); the web shows the link only as the interview's notes ("Meeting link: ..."); the person's own zone is not on the profile, so UTC is the last resort; non-English invitations are not read.
 
 ## 5. Where it surfaces
 
@@ -105,7 +109,7 @@ Vitest: `InboxPage.test.tsx` (10), `inbox.test.ts` (7). Playwright story `web/e2
 ### 6.4 Untested or thinly tested paths
 - Classification against **real** emails (no corpus, no fixtures from real ATS mails; CLAUDE.md's own rule "capture real DOM before writing selectors" has no inbox equivalent).
 - Multi-instance poller, long rounds, many accounts; IMAP failure modes beyond auth/unreachable (quota, throttling, UIDVALIDITY change in a live Gmail).
-- Interview anything (nothing built), reschedule/cancel, recruiter outreach.
+- Interview schedules against **real** mail (the corpus is synthetic); recruiter outreach.
 - Personal accept/dismiss UI (nothing to test), and BFF personal routes.
 - Backwards-transition edge cases: OFFER after REJECTED, REJECTED then interview, WITHDRAWN (partly in `MailMatcherTest`; confirm by reading).
 - Non-English mail, HTML-only mail with quoted history, forwarded mail, mailing-list mail.
@@ -122,17 +126,18 @@ Vitest: `InboxPage.test.tsx` (10), `inbox.test.ts` (7). Playwright story `web/e2
 | Backoff, NEEDS_RECONNECT, entitlement stop | DONE | `InboxPoller.due/reconcile` | Alerting on stuck accounts | Low |
 | Scale / second instance | PARTIAL | `AtomicBoolean` only, sequential loop | No ShedLock/DB lock, no parallelism, no metrics | Medium (latent) |
 | Store headers + job-mail body, no attachments, 12-month retention | DONE | `MailText`, `JobMailRules`, `InboxRetention` | Headers of non-job mail kept 12 months | Medium (privacy) |
-| PII scan of stored text | NOT BUILT | no `SensitiveContent` use in `service/inbox` | Scan/redact body before save or before AI | Medium |
+| PII scan of stored text | PARTIAL | the interview location read from a mail is checked with `SensitivePatterns` and dropped on a hit (e1ab45c7); body text is still stored as received | Scan/redact body before save or before AI | Medium |
 | Rules classification | PARTIAL | `MailClassifier` | English only, regex, no confidence, no real-mail corpus | High (accuracy) |
 | AI fallback for unsure mail | DONE | `InboxParser` (`AiTask.INBOX`, 20 per batch) | No AI for consultants without Pro; no prompt-injection note on mail body | Medium |
 | Event types: received, in-review, interview invite, assessment, rejection, offer | DONE | `Category` | | Medium |
-| Event types: reschedule, cancel, recruiter outreach, withdrawal | NOT BUILT | none | New categories | Low |
+| Event types: interview reschedule, interview cancel | FIXED (9c3ca94f) | `InterviewScheduleExtractor`, `InboxInterviewApplier`, classifier wording (`MailClassifier` change pattern) | | Low |
+| Event types: recruiter outreach, withdrawal | NOT BUILT | none | New categories | Low |
 | Company/role extraction | PARTIAL | `companyFrom/roleFrom` | Heuristic; no requisition id, no ATS parsers | High |
 | Matching (thread, company, role) | PARTIAL | `MailMatcher`, `InboxParser.thread` | No job-link/ATS-id; no "link this mail" suggestion or review queue; no `LINK_SUGGESTED` | Medium |
 | Automatic status update, forward-only, audit "by Inbox", notifications | DONE | `MailMatcher.next`, `ApplicationEventService`, `NotificationService` | No confirm/undo for a wrong REJECTED | High (safety) |
 | New-job suggestions: API accept/dismiss | DONE | `InboxMailService`, `InboxMailResourceIT` | | Low |
 | New-job suggestions: personal UI | PARTIAL | only POST BFF | List + accept UI missing in v3 | Medium |
-| Interview date/time/zone/link/location parsing | NOT BUILT | n/a | ICS and text parsing, `Interview` rows from mail (SRC_INBOX exists), reminders | High (promised value) |
+| Interview date/time/zone/link/location parsing | FIXED (e1ab45c7, 9c3ca94f, be7685d0) | `InterviewScheduleExtractor`, `IcsReader`, `MailCalendar`, `InboxInterviewApplier`, `LinkedInterviewMirror*`; 37-mail corpus `InterviewScheduleCorpusTest` | Real-mail accuracy still unmeasured (the corpus is synthetic); no new reminder logic | Medium |
 | Consultant workspace Inbox (CON-70..77) | DONE | `InboxPage.tsx`, `ConsultantInboxService`, story | | Low |
 | Org privacy wall (stage only) | DONE | `ConsultantInboxService`, CON-74/77 | | Low |
 | Marketer attribution (D4 / 22.5) | NOT BUILT (deferred) | doc 18 s10 | Entire feature, needs user decision | n/a |
@@ -143,7 +148,7 @@ Vitest: `InboxPage.test.tsx` (10), `inbox.test.ts` (7). Playwright story `web/e2
 ### Build next, in priority order
 1. **Real-email accuracy.** Collect a consented corpus (own test Gmail receiving real Greenhouse, Lever, Ashby, Workday, iCIMS, LinkedIn mails), write fixtures, measure precision of REJECTED/INTERVIEW per category, add a stored confidence and a route for medium-confidence mail into a confirm queue instead of auto-moving.
 2. **Status-update safety.** Confirm-before-apply for REJECTED (and optionally OFFER), a one-click "undo, this was not about this job" on the timeline row, and a "needs review" list for unmatched or ambiguous-company mail (the missing `LINK_SUGGESTED` equivalent).
-3. **Interview parsing.** Parse `text/calendar` parts and common text patterns into an `Interview` row (`source=INBOX`, time zone from the ICS `TZID`/offset, link, location), handle reschedule and cancel by UID of the event, and expose in the existing interviews calendar and `.ics` export. This is the biggest functional hole against the product promise.
+3. ~~**Interview parsing.**~~ **DONE on `inbox-interviews`** (e1ab45c7, 9c3ca94f, be7685d0). Original text: parse `text/calendar` parts and common text patterns into an `Interview` row (`source=INBOX`, time zone from the ICS `TZID`/offset, link, location), handle reschedule and cancel by UID of the event, and expose in the existing interviews calendar and `.ics` export. This is the biggest functional hole against the product promise.
 4. **IMAP at scale.** DB-level lock or ShedLock per poll and per account, bounded worker pool, jitter across the 15 minutes, per-round duration metric, load test with GreenMail at N accounts; alert on NEEDS_RECONNECT and ERROR counts.
 5. **Privacy and GDPR for stored mail.** Run `SensitiveContent` over body before save and before the AI excerpt, consider dropping headers of non-job mail after a short window, treat mail body as untrusted in the AI prompt (injection), document the retention in the privacy page (already stated per 14.7).
 6. **Personal suggestions UI** (list + accept/dismiss), then marketer attribution only after the user answers D4.

@@ -91,6 +91,7 @@ public class InboxParser {
     private final AiBudgetService budget;
     private final AiMeteringService metering;
     private final ApplicationEventPublisher events;
+    private final InboxInterviewApplier interviewApplier;
     private final boolean aiEnabled;
     private final ObjectMapper om = new ObjectMapper();
 
@@ -102,6 +103,7 @@ public class InboxParser {
         AiBudgetService budget,
         AiMeteringService metering,
         ApplicationEventPublisher events,
+        InboxInterviewApplier interviewApplier,
         @Value("${dossier.ai.enabled:false}") boolean aiEnabled
     ) {
         this.messages = messages;
@@ -111,6 +113,7 @@ public class InboxParser {
         this.budget = budget;
         this.metering = metering;
         this.events = events;
+        this.interviewApplier = interviewApplier;
         this.aiEnabled = aiEnabled;
     }
 
@@ -196,7 +199,10 @@ public class InboxParser {
             if (app.isPresent()) {
                 Application a = app.get();
                 m.setApplicationId(a.getId());
-                if (act(userId, a, c, m)) changed++;
+                // An interview mail also says when: read it first (a cancellation never moves the status), then set the status, then the interview.
+                ExtractedSchedule schedule = c == MailClassifier.Category.INTERVIEW ? interviewApplier.read(m) : null;
+                if (act(userId, a, c, m, schedule)) changed++;
+                if (schedule != null) interviewApplier.apply(userId, a.getId(), m, schedule);
             } else if (SUGGESTS.contains(c) && m.getCompanyGuess() != null && !companyTracked(apps, m.getCompanyGuess())) {
                 m.setSuggestion("NEW");
                 suggested++;
@@ -208,9 +214,9 @@ public class InboxParser {
     }
 
     /** Apply what the email says to the application. True when the status moved. */
-    private boolean act(Long userId, Application a, MailClassifier.Category c, InboxMessage m) {
+    private boolean act(Long userId, Application a, MailClassifier.Category c, InboxMessage m, ExtractedSchedule schedule) {
         ApplicationStatus from = a.getStatus();
-        ApplicationStatus to = MailMatcher.next(from, c);
+        ApplicationStatus to = c == MailClassifier.Category.INTERVIEW ? InboxInterviewApplier.statusAfter(from, schedule) : MailMatcher.next(from, c);
         boolean touched = false;
         if ((c == MailClassifier.Category.APPLIED || c == MailClassifier.Category.IN_REVIEW) && !Boolean.TRUE.equals(a.getSubmissionConfirmed())) {
             a.setSubmissionConfirmed(true);
