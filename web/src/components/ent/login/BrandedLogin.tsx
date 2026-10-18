@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
-import { getImageProps } from "next/image";
 import { useRouter } from "next/navigation";
 import {
   AlertIcon,
@@ -19,6 +18,7 @@ import {
   cn,
 } from "@kiwiply/ui";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import { LoginBackdrop } from "@/components/ent/login/AuthBackdrop";
 import PolicyLinks, { type PolicyLinkItem } from "@/components/ent/policy/PolicyLinks";
 import { safeReturnTo } from "@/lib/tenant-urls";
 
@@ -73,24 +73,6 @@ const DEFAULT_CHIPS = ["Secure Access", "Connect & Collaborate", "Tools for What
 /** @deprecated The chips are not part of the v2 login; kept as a stable export. */
 export function chipLabels(custom?: string[] | null): string[] {
   return DEFAULT_CHIPS.map((d, i) => custom?.[i]?.trim() || d);
-}
-
-/** The scene (design/enterprise-login: bee, cat, desk and a sunlit window, sharp, no text and no card). The glass card blurs it live. */
-const SCENE = { src: "/ent/login/bg-scene.webp", width: 1672, height: 941 };
-
-/** One decorative image: a tall crop around the bee that fades into the sky on a phone, full-bleed cover on a desktop. */
-function LoginBackdrop() {
-  const img = getImageProps({ ...SCENE, alt: "", sizes: "(min-width: 768px) 100vw, 160vw", quality: 85 });
-  return (
-    <img
-      {...img.props}
-      alt=""
-      data-tenant-plate
-      loading="eager"
-      fetchPriority="high"
-      className="pointer-events-none absolute inset-x-0 top-0 -z-10 block h-[150vw] w-full select-none object-cover [object-position:24%_40%] [mask-image:linear-gradient(to_bottom,black_72%,transparent)] sm:h-[min(150vw,900px)] md:inset-0 md:h-full md:[mask-image:none] md:[object-position:30%_14%] lg:[object-position:42%_14%]"
-    />
-  );
 }
 
 /** Three rounded ticks beside the heading (the board's sparkle), tinted by the secondary colour. */
