@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
 import { dirname, resolve } from "node:path";
@@ -53,4 +54,25 @@ export async function tenantSignIn(page: Page, host: string, email: string, pass
 /** Wait until the tenant shell (sidebar + page) is drawn. */
 export async function shellReady(page: Page) {
   await expect(page.locator("[data-enterprise-shell]")).toBeVisible({ timeout: 60_000 });
+}
+
+/**
+ * Two small, invented brand images for the branding video (a transparent "Brightline" wordmark and a square favicon), made with ffmpeg so no binary
+ * is committed. Files land next to the cached sign-ins (git-ignored).
+ */
+export function makeBrandImages(): { logo: string; favicon: string } {
+  const dir = resolve(AUTH_DIR, "v3-assets");
+  mkdirSync(dir, { recursive: true });
+  const logo = resolve(dir, "brightline-logo.png");
+  const favicon = resolve(dir, "brightline-favicon.png");
+  const ffmpeg = process.env.FFMPEG || "C:/Users/j_kes/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe/ffmpeg-9.0.2-full_build/bin/ffmpeg.exe";
+  const font = "drawtext=fontfile=arialbd.ttf"; // resolved from the working directory (a Windows drive colon cannot be written in a filter)
+  const inFonts = { cwd: "C:/Windows/Fonts" };
+  if (!existsSync(logo)) {
+    execFileSync(ffmpeg, ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=0x0f766e@0.0:s=520x140,format=rgba", "-vf", `${font}:text='Brightline':fontcolor=0x0f766e:fontsize=96:x=(w-text_w)/2:y=(h-text_h)/2`, "-frames:v", "1", logo], inFonts);
+  }
+  if (!existsSync(favicon)) {
+    execFileSync(ffmpeg, ["-y", "-v", "error", "-f", "lavfi", "-i", "color=c=0x0f766e:s=128x128,format=rgba", "-vf", `${font}:text='B':fontcolor=white:fontsize=96:x=(w-text_w)/2:y=(h-text_h)/2-4`, "-frames:v", "1", favicon], inFonts);
+  }
+  return { logo, favicon };
 }
