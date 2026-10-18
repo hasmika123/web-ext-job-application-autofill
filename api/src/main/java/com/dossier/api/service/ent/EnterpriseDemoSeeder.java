@@ -379,7 +379,9 @@ public class EnterpriseDemoSeeder {
             seedAuditTrail(org, t, now);
         }
 
-        assign(seatsByOrg.get("acme"), "sarah", "anika", AssignmentKind.PRIMARY, now, counts);
+        // Omar (the Marketing Specialist) looks after both demo consultants: the marketer flows of the demo run as him, and Sarah's second
+        // workspace (Marketing Management) is not built yet, so a consultant assigned to Sarah had no marketer anyone could act as.
+        assign(seatsByOrg.get("acme"), "omar", "anika", AssignmentKind.PRIMARY, now, counts);
         assign(seatsByOrg.get("acme"), "omar", "ben", AssignmentKind.PRIMARY, now, counts);
         if (orgByKey.containsKey("acme") && seatsByOrg.containsKey("acme")) seedStructure(orgByKey.get("acme"), seatsByOrg.get("acme"));
 
