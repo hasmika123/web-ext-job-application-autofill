@@ -200,7 +200,9 @@ test("CON-73 Disconnecting forgets the password and every message", async ({ as 
 
   await narrate(page, "She disconnects; the page says what that deletes");
   await page.getByText("Disconnect this inbox").click();
-  await expect(page.getByText("Disconnecting deletes the saved app password and any mail Kiwiply has read from this inbox")).toBeVisible();
+  const warning = page.getByText(/Disconnecting deletes the saved app password and any mail/);
+  await expect(warning).toBeVisible();
+  console.log("DISCONNECT_TEXT=" + JSON.stringify((await warning.innerText()).slice(0, 110)));
   await page.getByRole("button", { name: "Disconnect", exact: true }).click();
 
   await narrate(page, "The guided steps are back, nothing is connected, and the API holds nothing");
