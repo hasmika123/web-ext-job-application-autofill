@@ -76,7 +76,7 @@ public final class MailTextGuard {
     public static String neutralise(String text) {
         if (text == null) return "";
         String t = INVISIBLE.matcher(text).replaceAll("");
-        t = CONTROL.matcher(t).replaceAll(" ");
+        t = CONTROL.matcher(t).replaceAll("");
         t = ROLE_LINE.matcher(t).replaceAll("quoted:");
         t = DELIMITER.matcher(t).replaceAll(FILTERED);
         t = MD_LINK.matcher(t).replaceAll("$1");
@@ -129,7 +129,8 @@ public final class MailTextGuard {
         Long appId = null;
         JsonNode id = n.get("applicationId");
         if (id != null && !id.isNull()) {
-            if (!id.canConvertToLong() || id.isTextual() && !id.asText().matches("\\d{1,18}")) return Optional.empty();
+            boolean ok = id.isTextual() ? id.asText().matches("\\d{1,18}") : id.isIntegralNumber() && id.canConvertToLong();
+            if (!ok) return Optional.empty();
             long v = id.isTextual() ? Long.parseLong(id.asText()) : id.asLong();
             if (candidateIds == null || !candidateIds.contains(v)) return Optional.empty();
             appId = v;
