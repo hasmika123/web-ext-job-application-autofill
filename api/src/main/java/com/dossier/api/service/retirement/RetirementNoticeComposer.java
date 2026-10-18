@@ -76,7 +76,8 @@ public class RetirementNoticeComposer {
         String hello = in.firstName() == null || in.firstName().isBlank() ? "Hi," : "Hi " + in.firstName().trim() + ",";
         if (in.applied()) return applied(in, locale, featureName, date, name, hello);
 
-        String subject = msg("subject", locale, name, date);
+        String planName = withoutTrailingPlan(name);
+        String subject = msg("subject", locale, planName, date);
         String intro = hello + " " + msg(in.addon() ? "intro.addon" : "intro", locale, name, date);
         String suggest = suggest(in, locale, featureName);
         String outcome = outcomeLine(in, locale, date);
@@ -91,7 +92,7 @@ public class RetirementNoticeComposer {
             subject,
             msg("pre", locale, date),
             msg("kicker", locale),
-            msg("l1", locale, name),
+            msg("l1", locale, planName),
             msg("l2", locale),
             intro,
             msg("strip.title", locale, date),
@@ -111,7 +112,7 @@ public class RetirementNoticeComposer {
 
     private Notice applied(Input in, Locale locale, Function<String, String> featureName, String date, String name, String hello) {
         String subject = msg("applied.subject", locale);
-        String intro = hello + " " + msg("applied.intro", locale, name, date);
+        String intro = hello + " " + msg("applied.intro", locale, withoutTrailingPlan(name), date);
         List<String> paragraphs = new ArrayList<>();
         if (in.lockedNames() != null && !in.lockedNames().isEmpty()) paragraphs.add(msg("applied.locked", locale, String.join(", ", in.lockedNames())));
         paragraphs.add(msg("applied.unlock", locale));
@@ -167,6 +168,17 @@ public class RetirementNoticeComposer {
         }
         if (PlanRetirement.OUTCOME_CANCEL.equals(outcome)) return msg("default.cancel", locale, date);
         return msg("default.free", locale, date);
+    }
+
+    /**
+     * The name for the sentences that already say "plan" after it ("Your {0} plan is changing"): a plan named "Starter plan" would read "Your Starter plan plan",
+     * so the closing word is dropped here and only here. A name that is nothing but "plan" stays as it is.
+     */
+    static String withoutTrailingPlan(String name) {
+        if (name == null) return "";
+        String t = name.trim();
+        if (t.length() > 5 && t.regionMatches(true, t.length() - 5, " plan", 0, 5)) return t.substring(0, t.length() - 5).trim();
+        return t;
     }
 
     /** "$19.99": the symbol of the currency when it has one, else the code; minor units are hundredths (every currency the catalog sells in today). */
