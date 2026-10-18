@@ -114,12 +114,13 @@ public class BillingWebhookService {
      * stored as {@code failed} is settled to {@code ok} by a successful replay. It never calls Stripe: the event was already read.
      */
     public ReplayResult replay(StripeWebhookEvent event, String actor) {
-        long n = stripeEventRepository.countByReplayedFrom(event.id()) + 1;
-        String rowId = "replay:" + event.id() + ":" + n;
         String by = actor == null ? "system" : actor.substring(0, Math.min(actor.length(), 50));
-        newTx.executeWithoutResult(s -> {
+        // The number is allocated in the transaction that writes the row, so it counts what is committed now (a caller that is itself inside a transaction would
+        // otherwise count from an older snapshot and collide with the previous replay's row).
+        String rowId = newTx.execute(s -> {
+            String id = "replay:" + event.id() + ":" + (stripeEventRepository.countByReplayedFrom(event.id()) + 1);
             StripeEvent row = new StripeEvent();
-            row.setId(rowId);
+            row.setId(id);
             row.setType(event.type());
             row.setReceivedAt(Instant.now());
             row.setStatus(StripeEvent.STATUS_OK);
@@ -129,6 +130,7 @@ public class BillingWebhookService {
             row.setReplayedFrom(event.id());
             row.setReplayedBy(by);
             stripeEventRepository.saveAndFlush(row);
+            return id;
         });
         try {
             apply(event);
