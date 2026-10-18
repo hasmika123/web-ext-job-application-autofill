@@ -4227,6 +4227,122 @@
         } ]
       }
     },
+    "/api/profile/resumes/{id}/photo" : {
+      "get" : {
+        "tags" : [ "resume-builder" ],
+        "summary" : "A resume's photo",
+        "description" : "The stored picture. ETag = its storage key (a new upload is a new key); Cache-Control: private, max-age=300; 304 on a matching If-None-Match. 404 when the resume is not yours or has no photo.",
+        "operationId" : "get_5",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "If-None-Match",
+          "in" : "header",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string",
+                  "format" : "byte"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "post" : {
+        "tags" : [ "resume-builder" ],
+        "summary" : "Add or replace a resume's photo",
+        "description" : "multipart field 'file': a JPEG, PNG or WebP (magic bytes decide). Metadata (EXIF, GPS, ICC, XMP) is removed server-side; JPEG/PNG are cropped to a centred square, scaled to at most 512 px and stored as JPEG. Answers the saved document (new ETag). 404 if the resume is not yours, 403 FEATURE_DISABLED (feature.resume_photo.enabled), 413 PHOTO_TOO_LARGE (resume.photo.maxBytes), 415 PHOTO_FORMAT, 422 PHOTO_INVALID.",
+        "operationId" : "upload_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "file" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeDocDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "delete" : {
+        "tags" : [ "resume-builder" ],
+        "summary" : "Remove a resume's photo",
+        "description" : "Deletes the file and sets basics.photo to null; answers the saved document (new ETag). Idempotent. 404 if not owned.",
+        "operationId" : "remove",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ResumeDocDTO"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/resumes/{id}/export-recorded" : {
       "post" : {
         "tags" : [ "resume-builder" ],
@@ -5632,7 +5748,7 @@
       },
       "post" : {
         "tags" : [ "application-attachment-resource" ],
-        "operationId" : "upload_1",
+        "operationId" : "upload_2",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -7244,7 +7360,7 @@
         "tags" : [ "mkt-tasks" ],
         "summary" : "The Tasks board (one call)",
         "description" : "{generatedAt, wide, kpis[total, overdue, dueThisWeek, completedThisWeek], tabs{all,my,team,overdue,dueThisWeek,completed}, tasks{items,total,page,size}, upcoming[4], options}. tab = ALL|MY|TEAM|OVERDUE|DUE_WEEK|COMPLETED; filters category, priority, status, owner (member id or me), due (yyyy-MM-dd), q; sort = dueAt|priority|title|status|owner|related[,desc]; size cap 100. 404 without followups.manage.",
-        "operationId" : "get_5",
+        "operationId" : "get_6",
         "parameters" : [ {
           "name" : "tab",
           "in" : "query",
@@ -7723,7 +7839,7 @@
         "tags" : [ "mkt-streams" ],
         "summary" : "The Job Streams board (one call)",
         "description" : "{kpis, streams:{items,total,page,size}, filters, activity, chart, alerts, rules}. Query: q, source, status (ACTIVE|PAUSED|ERROR), client, showInactive (default false: paused streams are hidden), page, size (cap 100), sort (created|source|status|lastSync|openings, '-' prefix = descending), days (7|14, chart). matches.run required; 404 otherwise.",
-        "operationId" : "get_6",
+        "operationId" : "get_7",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -8818,7 +8934,7 @@
         "tags" : [ "mkt-followups" ],
         "summary" : "The Follow-ups board (one call)",
         "description" : "{generatedAt, kpis[dueToday, overdue, completedToday, waiting], today, overdue, upcoming: {items,total,page,size}, insights}. window = THIS_WEEK (last 7 days), LAST_WEEK or THIS_MONTH (last 30 days) drives only the insights. 404 without followups.manage.",
-        "operationId" : "get_7",
+        "operationId" : "get_8",
         "parameters" : [ {
           "name" : "window",
           "in" : "query",
@@ -9101,7 +9217,7 @@
         "tags" : [ "mkt-activity" ],
         "summary" : "The Activities board (one call)",
         "description" : "{generatedAt, from, to, canLog, kpis[total,resume,submission,followup,interview], activities:{items,total,page,size}, summary, upcoming, upcomingTotal, options}. from/to are yyyy-MM-dd (UTC, inclusive; default the current month); type = RESUME|OPPORTUNITY|SUBMISSION|FOLLOWUP|INTERVIEW|FEEDBACK|APPLICATION|OFFER|PLACEMENT; status = COMPLETED|SCHEDULED|CANCELLED; ownerId = the member who did it; sort = recent (default) | oldest; summaryRange = THIS_MONTH|LAST_MONTH|LAST_7_DAYS|LAST_30_DAYS; size cap 100. 404 without pipeline.view.",
-        "operationId" : "get_8",
+        "operationId" : "get_9",
         "parameters" : [ {
           "name" : "from",
           "in" : "query",
@@ -13387,7 +13503,7 @@
         "tags" : [ "org-branding" ],
         "summary" : "Upload a logo, favicon or banner into the draft",
         "description" : "multipart field 'file'. PNG, JPEG or WebP only (magic bytes decide); SVG and anything else -> 415 BRANDING_ASSET_UNSUPPORTED_TYPE; over the size cap -> 413 BRANDING_ASSET_TOO_LARGE; too small -> 422 BRANDING_ASSET_TOO_SMALL; not an image or not square (favicon) -> 422. PNG/JPEG are re-encoded (metadata stripped).",
-        "operationId" : "upload_2",
+        "operationId" : "upload_3",
         "parameters" : [ {
           "name" : "kind",
           "in" : "path",
@@ -18103,7 +18219,7 @@
     "/api/orgs/{orgId}" : {
       "get" : {
         "tags" : [ "org-resource" ],
-        "operationId" : "get_9",
+        "operationId" : "get_10",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -18149,7 +18265,7 @@
         "tags" : [ "roles" ],
         "summary" : "One role with its permission rows and its version (ETag)",
         "description" : "The ETag is what edit and delete expect as If-Match.",
-        "operationId" : "get_10",
+        "operationId" : "get_11",
         "parameters" : [ {
           "name" : "roleId",
           "in" : "path",
@@ -18249,7 +18365,7 @@
         "tags" : [ "requirements" ],
         "summary" : "One requirement: the detail drawer",
         "description" : "Facts, the client text, the consultants it was put in front of, and an ETag (the version PATCH expects as If-Match). 404 for another tenant's id.",
-        "operationId" : "get_11",
+        "operationId" : "get_12",
         "parameters" : [ {
           "name" : "requirementId",
           "in" : "path",
@@ -18505,7 +18621,7 @@
         "tags" : [ "mkt-resumes" ],
         "summary" : "Read-only preview of one resume",
         "description" : "Headline, summary, skills (primary first), experience and the change history. 404 for a consultant outside the caller's scope.",
-        "operationId" : "get_12",
+        "operationId" : "get_13",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -18772,7 +18888,7 @@
         "tags" : [ "members" ],
         "summary" : "One employee: the detail sheet",
         "description" : "Seat, roles, department, team, manager, direct reports, consent scope, what the caller may do with this seat (actions), and recent audit rows about the person (with audit.view or hr.view). phone, location and timezone are null: the platform stores none of them for a member. Never exposes a resume or an application. ETag = the version PATCH expects as If-Match. 404 outside the caller's scope.",
-        "operationId" : "get_13",
+        "operationId" : "get_14",
         "parameters" : [ {
           "name" : "memberId",
           "in" : "path",
@@ -18924,7 +19040,7 @@
         "tags" : [ "jobs" ],
         "summary" : "One job: the detail drawer",
         "description" : "Facts, description, skills, client contact, every match with its score and status (Top Matches), the submissions (applications) and the activity (application events and audit rows). ETag = the version PATCH expects as If-Match. 404 for another tenant's id.",
-        "operationId" : "get_14",
+        "operationId" : "get_15",
         "parameters" : [ {
           "name" : "jobId",
           "in" : "path",
@@ -19045,7 +19161,7 @@
         "tags" : [ "interviews" ],
         "summary" : "One interview: the detail drawer",
         "description" : "Stepper of rounds, timeline, feedback, documents, interviewers, meeting details, what the caller may do (actions) and, for a few minutes after the caller's own latest status change, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_15",
+        "operationId" : "get_16",
         "parameters" : [ {
           "name" : "interviewId",
           "in" : "path",
@@ -19212,7 +19328,7 @@
         "tags" : [ "consultants" ],
         "summary" : "One consultant: the drawer",
         "description" : "Overview data, checklist, marketer, what the caller may do (actions). ETag = the version PATCH expects as If-Match. 404 outside the caller's reach.",
-        "operationId" : "get_16",
+        "operationId" : "get_17",
         "parameters" : [ {
           "name" : "consultantId",
           "in" : "path",
@@ -19286,7 +19402,7 @@
         "tags" : [ "clients" ],
         "summary" : "One client: the detail drawer",
         "description" : "Facts, about, health with the rule's sentence, contacts, requirements, recent submissions and relationship notes. ETag = the version PATCH expects as If-Match. 404 for another tenant's id.",
-        "operationId" : "get_17",
+        "operationId" : "get_18",
         "parameters" : [ {
           "name" : "clientId",
           "in" : "path",
@@ -19447,7 +19563,7 @@
         "tags" : [ "applications" ],
         "summary" : "One application: the detail drawer",
         "description" : "Stepper with the date each stage was recorded, the timeline, notes, activity, the fields of Application Details, what the caller may do (actions) and, for a few minutes after the caller's own latest stage move, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_18",
+        "operationId" : "get_19",
         "parameters" : [ {
           "name" : "applicationId",
           "in" : "path",
@@ -19514,7 +19630,7 @@
         "tags" : [ "Admin retirements" ],
         "summary" : "One retirement",
         "description" : "With its ranked successors, item counts per status and the impact snapshot taken at start.",
-        "operationId" : "get_19",
+        "operationId" : "get_20",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -21160,7 +21276,7 @@
         "tags" : [ "resumes" ],
         "summary" : "One resume: the drawer",
         "description" : "The row, the preview data (headline, summary, skills, experience) and what the caller may do with it (actions). 404 outside the caller's scope.",
-        "operationId" : "get_20",
+        "operationId" : "get_21",
         "parameters" : [ {
           "name" : "resumeId",
           "in" : "path",
@@ -21431,7 +21547,7 @@
       "get" : {
         "tags" : [ "org-policies" ],
         "summary" : "One policy: the draft, the live text and the history",
-        "operationId" : "get_21",
+        "operationId" : "get_22",
         "parameters" : [ {
           "name" : "policyKind",
           "in" : "path",
@@ -21459,7 +21575,7 @@
         "tags" : [ "placements" ],
         "summary" : "One placement: the detail drawer",
         "description" : "Placement details, the engagement timeline (start, midpoint, end and how far today is), extension status with every request, post-placement availability, the timeline events and notes, what the caller may do (actions) and, for a few minutes after the caller's own latest change, an undo token. 404 outside the caller's scope.",
-        "operationId" : "get_22",
+        "operationId" : "get_23",
         "parameters" : [ {
           "name" : "placementId",
           "in" : "path",
@@ -21592,7 +21708,7 @@
         "tags" : [ "org-settings" ],
         "summary" : "The General and Security settings with the bounds the platform allows",
         "description" : "{general:{legalName (read only), displayName, timeZone, locale, contactEmail}, security:{sessionTimeoutMinutes, passwordMinLength (null = platform behaviour), bounds, reasonMinChars}, locales:[...]}.",
-        "operationId" : "get_23",
+        "operationId" : "get_24",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22106,7 +22222,7 @@
         "tags" : [ "mkt-performance" ],
         "summary" : "The Performance board (one call)",
         "description" : "{generatedAt, kpis[6], weekly, trend, funnel, readiness, streams, top[5], benchmarks, goals, actions}. weeks = 4w|8w|12w; trend, funnel, streams = 1m|3m|6m; benchmarks, goals = month|lastMonth. A section with no rows is empty or null. 404 without reports.view.",
-        "operationId" : "get_24",
+        "operationId" : "get_25",
         "parameters" : [ {
           "name" : "weeks",
           "in" : "query",
@@ -22406,7 +22522,7 @@
       "get" : {
         "tags" : [ "mkt-matches" ],
         "summary" : "One match with its explanation and insights (Review drawer)",
-        "operationId" : "get_25",
+        "operationId" : "get_26",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -22774,7 +22890,7 @@
         "tags" : [ "mkt-home" ],
         "summary" : "The Marketing Home board (one call)",
         "description" : "{kpis[6], talent[5], streams[5], openings[5], pipeline, tasks[5], interviews[4], activity[5]}. Each section is empty (or null) when its source has no rows or the caller may not read its page. 404 without consultants.view.",
-        "operationId" : "get_26",
+        "operationId" : "get_27",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -22856,7 +22972,7 @@
         "tags" : [ "mkt-applications" ],
         "summary" : "The Applications board",
         "description" : "{kpis, tracker{items,total,page,size,tabs,filters,notShared}, funnel, overdue, overdueTotal, updates, perms}. Query: q, consultantId, clientId, stage (applied|awaiting|interviewing|offer|hired|not_selected|all), period and funnelPeriod (1m|3m|6m|12m|all), sort (appliedOn,desc|asc), page (0-based), size (max 100). A consultant who shares less than FULL shows the stage only; one who shares nothing is counted in tracker.notShared and listed nowhere.",
-        "operationId" : "get_27",
+        "operationId" : "get_28",
         "parameters" : [ {
           "name" : "q",
           "in" : "query",
@@ -23502,7 +23618,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "My career profile",
         "description" : "Identity, strength with the missing details, summary, skills, certifications, experience highlights, preferences, work-authorization choice and career goals, all for the caller's own consultant record. 404 for everyone else.",
-        "operationId" : "get_28",
+        "operationId" : "get_29",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -25135,7 +25251,7 @@
         "tags" : [ "org-dashboard" ],
         "summary" : "The Org Admin dashboard",
         "description" : "{orgId, generatedAt, widgets: [{key, state: ok|empty|unavailable|error, reason?, module?, data?}]} in board order. dashboard.view_org required; each widget additionally needs its own permission (otherwise it is absent) and its module on (otherwise state unavailable, reason NOT_ENABLED, no data). data is present only when state is ok. 404 for everyone else, and whenever the enterprise or roles flag is off for the organization.",
-        "operationId" : "get_29",
+        "operationId" : "get_30",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -25427,7 +25543,7 @@
       "get" : {
         "tags" : [ "consultant-opportunities" ],
         "summary" : "One of my assigned opportunities (404 for anyone else's)",
-        "operationId" : "get_30",
+        "operationId" : "get_31",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -25615,7 +25731,7 @@
       "get" : {
         "tags" : [ "org-branding" ],
         "summary" : "Published values, the draft, its version and the publish history",
-        "operationId" : "get_31",
+        "operationId" : "get_32",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -26078,7 +26194,7 @@
         "tags" : [ "job-search" ],
         "summary" : "One job",
         "description" : "The card plus the description (plain text), links, how many other postings that company has and similar jobs. 404 unknown; 410 when it was tracked and has been purged.",
-        "operationId" : "get_32",
+        "operationId" : "get_33",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -26415,7 +26531,7 @@
         "tags" : [ "catalog-public" ],
         "summary" : "The public catalog",
         "description" : "PUBLISHED, public, effective individual plans only; drafts and SUNSET plans never appear. Prices per interval (MONTH, QUARTER, YEAR when annual is on), included services, optional add-ons that have a price, and totals for one add-on at quantity 1-2 and every pair at quantity 1. `country` filters plans limited to countries.",
-        "operationId" : "get_33",
+        "operationId" : "get_34",
         "parameters" : [ {
           "name" : "audience",
           "in" : "query",
@@ -26508,7 +26624,7 @@
         "tags" : [ "billing" ],
         "summary" : "Read a quote",
         "description" : "The caller's own quote as a PlanQuoteDTO. 404 when it isn't theirs, 410 QUOTE_EXPIRED once past its time.",
-        "operationId" : "get_34",
+        "operationId" : "get_35",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -27670,7 +27786,7 @@
     "/api/admin/settings/demo" : {
       "get" : {
         "tags" : [ "admin-demo-resource" ],
-        "operationId" : "get_35",
+        "operationId" : "get_36",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -38916,6 +39032,21 @@
           }
         }
       },
+      "Photo" : {
+        "type" : "object",
+        "properties" : {
+          "maxBytes" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "discouragedRegions" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "Profile" : {
         "type" : "object",
         "properties" : {
@@ -39004,6 +39135,10 @@
           "capabilities" : {
             "$ref" : "#/components/schemas/BuilderCapabilities",
             "description" : "What this builder session may do (personal, consultant inside an organization, or a marketer acting for a consultant). The web hides controls from it; the API refuses the same actions."
+          },
+          "photo" : {
+            "$ref" : "#/components/schemas/Photo",
+            "description" : "Profile photo tunables (R7.4): the upload cap and the countries where the photo prompt defaults to 'Keep photo off'."
           }
         }
       },
