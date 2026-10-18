@@ -520,6 +520,11 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/mgmt/escalations/{id}/reopen", Case.mkt(200, EscalationService.AUDIT_REOPEN, w -> null, World::mgmtCloseEscalation)),
         Map.entry("POST /api/orgs/{orgId}/mgmt/escalations/{id}/comment", Case.mkt(200, EscalationService.AUDIT_COMMENT, w -> "{\"note\":\"Called the consultant\"}", null)),
         Map.entry("POST /api/orgs/{orgId}/mkt/escalations", Case.mkt(200, EscalationService.AUDIT_RAISE, w -> "{\"kind\":\"MANUAL\",\"severity\":\"HIGH\",\"subjectType\":\"CONSULTANT\",\"subjectId\":" + w.consultantProfileId + ",\"title\":\"Please look at this consultant\",\"detail\":\"They asked for a call.\"}", null)),
+        // MM-06: the Marketing Manager's Home and Team. The world's member is made a marketer (a marketing role and a capacity row) for the routes that name one.
+        Map.entry("GET /api/orgs/{orgId}/mgmt/home", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/team", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/team/{memberId}", Case.mkt(200, null, w -> null, World::mktCapacity)),
+        Map.entry("PATCH /api/orgs/{orgId}/mgmt/team/{memberId}", Case.mkt(200, "MARKETER_UPDATE", w -> "{\"capacity\":7}", World::mktCapacity)),
         // Enterprise V2 Applications page (docs/enterprise-v2/page-applications.md): reads write no audit row; every mutation writes one APPLICATION_* row.
         Map.entry("GET /api/orgs/{orgId}/applications", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/applications/counts", Case.read()),

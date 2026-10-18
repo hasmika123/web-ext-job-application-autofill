@@ -223,6 +223,16 @@ public class EscalationService {
         );
     }
 
+    /** The live escalations (open and acknowledged) of one marketer of the team, most severe first (the Team page's side sheet). The marketer must be in the team. */
+    @Transactional(readOnly = true)
+    public List<EscalationDTO> openOf(TeamScope.View team, Long marketerMemberId, int limit) {
+        if (!team.all()) teamScope.require(team, marketerMemberId);
+        Page<MktEscalation> rows = escalations.searchLive(
+            team.orgId(), team.all(), ids(team.marketerMemberIds()), ids(team.consultantIds()), statuses("OPEN"), null, null, marketerMemberId, null, null, PageRequest.of(0, Math.max(1, limit))
+        );
+        return dtos(team.orgId(), rows.getContent(), false);
+    }
+
     // ---- the manager's actions ---------------------------------------------------------------------------------------------------
 
     /** The permission wall of the actions: callable on its own so a route can refuse before it looks at the Idempotency-Key header. */
