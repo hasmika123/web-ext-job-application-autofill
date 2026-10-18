@@ -75,7 +75,7 @@ test.describe("at 1440px", () => {
     await expect(sheet.getByText("Changes since v2")).toBeVisible();
     const go = sheet.getByRole("button", { name: "Publish v3" });
     await expect(go).toBeDisabled();
-    await sheet.getByLabel("Reason").fill("Launch the new credits add-on");
+    await sheet.getByLabel("Reason", { exact: true }).fill("Launch the new credits add-on");
     await sheet.getByLabel("Type the version number").fill("2");
     await expect(go).toBeDisabled();
     await sheet.getByLabel("Type the version number").fill("3");
@@ -97,7 +97,7 @@ test.describe("at 1440px", () => {
     await page.getByRole("button", { name: /^Publish… \(\d failing\)/ }).click();
     const sheet = page.getByRole("dialog", { name: "Publish Pro v3?" });
     await expect(sheet.getByText(/an override reason is required/)).toBeVisible();
-    await sheet.getByLabel("Reason").fill("Launch the new credits add-on");
+    await sheet.getByLabel("Reason", { exact: true }).fill("Launch the new credits add-on");
     await sheet.getByLabel("Type the version number").fill("3");
     await expect(sheet.getByRole("button", { name: "Publish v3" })).toBeDisabled();
     await sheet.getByLabel("Override reason").fill("Launch price, review in a week");
@@ -137,9 +137,9 @@ test.describe("at 390px", () => {
   test("the editor is a five-step stepper with the worst case in the bottom bar and the preview in a sheet", async ({ page }) => {
     await page.goto("/admin/pricing/plans/PRO/v/3");
     await expect(page.getByRole("navigation", { name: "Plan editor steps" })).toBeVisible();
-    for (let i = 0; i < 2; i += 1) await page.getByRole("button", { name: "Next" }).click();
+    for (let i = 0; i < 2; i += 1) await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(page.getByRole("heading", { name: /Included services/ })).toBeVisible();
-    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(page.getByRole("heading", { name: /Optional add-ons/ })).toBeVisible();
     await expect(page.getByText(/Worst case \d+\.\d %/)).toBeVisible();
     await noOverflow(page);
@@ -156,7 +156,7 @@ test.describe("at 390px", () => {
     const sheet = page.getByRole("dialog", { name: "Publish Pro v3?" });
     await expect(sheet.getByRole("button", { name: "Publish v3" })).toBeDisabled();
     await sheet.getByLabel("Type the version number").fill("3");
-    await sheet.getByLabel("Reason").fill("Launch the new credits add-on");
+    await sheet.getByLabel("Reason", { exact: true }).fill("Launch the new credits add-on");
     await expect(sheet.getByRole("button", { name: "Publish v3" })).toBeEnabled();
     await expectAccessible(page, "publish sheet 390", '[role="dialog"]');
   });

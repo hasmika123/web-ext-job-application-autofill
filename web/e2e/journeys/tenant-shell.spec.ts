@@ -50,7 +50,7 @@ test.describe("desktop 1440", () => {
     for (const href of new Set(hrefs.map((h) => h.split("#")[0]))) {
       const res = await page.goto(`${base}${href}`);
       expect(res?.status(), href).toBe(200);
-      await expect(page.locator("[data-coming-soon], [data-ent-page], [data-branding-page], [data-invitations-page], [data-dashboard], [data-employees-page], [data-roles-page], [data-consultants-page], [data-resumes-page], [data-marketing-assignments-page], [data-jobs-page], [data-applications-page], [data-interviews-page], [data-clients-page], [data-placements-page], [data-org-settings], [data-audit-page]").or(page.locator("[data-page-header]").filter({ hasText: /Settings|Audit Logs/ })).first(), href).toBeVisible(); // Settings and Audit Logs are real-API only: on the mock they frame their own "couldn't load" state under the page header
+      await expect(page.locator("[data-coming-soon], [data-ent-page], [data-branding-page], [data-invitations-page], [data-dashboard], [data-employees-page], [data-roles-page], [data-consultants-page], [data-resumes-page], [data-marketing-assignments-page], [data-jobs-page], [data-applications-page], [data-interviews-page], [data-clients-page], [data-placements-page], [data-org-settings], [data-audit-page]").or(page.locator("[data-page-header]").filter({ hasText: /Settings|Audit Logs|Reports/ })).first(), href).toBeVisible(); // Settings, Audit Logs and Reports are real-API only: on the mock they frame their own "couldn't load" state under the page header
     }
   });
 
