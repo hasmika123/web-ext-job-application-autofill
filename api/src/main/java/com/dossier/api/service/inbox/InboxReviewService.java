@@ -87,6 +87,7 @@ public class InboxReviewService {
     private final InboxCounters counters;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public InboxReviewService(
         InboxHoldRepository holds,
         InboxMessageRepository messages,

@@ -19,6 +19,7 @@ public class InboxStuckService {
     private final InboxConnectionRepository connections;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public InboxStuckService(InboxConnectionRepository connections) {
         this(connections, Clock.systemUTC());
     }

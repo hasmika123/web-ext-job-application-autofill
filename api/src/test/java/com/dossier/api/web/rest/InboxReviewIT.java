@@ -194,8 +194,7 @@ class InboxReviewIT {
 
     @Test
     void anAutomaticRejectionCanBeUndoneInsideTheWindowAndNotAfter() throws Exception {
-        InboxConnection c = new InboxConnection();
-        c.setUserId(me.getId());
+        InboxConnection c = new InboxConnection(me.getId());
         c.setAddress("me@gmail.com");
         c.setPasswordEnc("x");
         connections.saveAndFlush(c);

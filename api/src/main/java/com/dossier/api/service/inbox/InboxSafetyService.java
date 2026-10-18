@@ -38,6 +38,7 @@ public class InboxSafetyService {
     private final InboxCounters counters;
     private final Clock clock;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public InboxSafetyService(
         InboxDecisionPolicy policy,
         InboxHoldRepository holds,
