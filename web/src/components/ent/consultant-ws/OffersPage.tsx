@@ -78,7 +78,7 @@ import {
  * Consultant Offers (design/enterprise-consultant/offers.webp): one call to `GET /api/orgs/{orgId}/me-workspace/offers` draws the page for the
  * signed-in consultant's OWN offers; the table filters, searches, sorts and pages on the API. Accept, Decline and Negotiate only record the
  * consultant's answer (the API says "already answered" or "deadline passed" with a 409 and the page reloads): nothing is signed or sent to a
- * client from here, money is a record in minor units, and accepting does not start a placement. Rows flagged `sample` are demo stand-ins for the
+ * client from here, money is a record in minor units, and accepting starts the placement when the offer is linked to a client. Rows flagged `sample` are demo stand-ins for the
  * employer side that makes offers.
  */
 
@@ -725,7 +725,7 @@ function DetailSheet({ row, detail, busy, onClose, onRespond, now }: { row: Offe
             )}
           </section>
           {!live.canRespond && r.status === "EXPIRED" ? <p className="text-[13px] text-v2-coral-ink">The deadline has passed, so this offer can no longer be answered here. Ask your marketer.</p> : null}
-          <p className="text-[12px] text-muted">Your answer is recorded in Kiwiply only. Nothing is signed, sent to the client or paid from here, and accepting does not start a placement.</p>
+          <p className="text-[12px] text-muted">Your answer is recorded in Kiwiply only. Nothing is signed, sent to the client or paid from here. Accepting starts your placement when the offer is linked to a client.</p>
         </div>
       )}
     </SideSheet>

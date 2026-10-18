@@ -42,18 +42,14 @@ export default function Dialog({
   const panelRef = useRef<HTMLDivElement>(null);
   const restoreRef = useRef<HTMLElement | null>(null);
 
+  // The latest close handler, read through a ref: a caller that passes an inline `onClose` (a new function every render) must not
+  // re-run the open/focus effect below on each keystroke, which used to restore focus to the page behind and then re-focus the dialog's
+  // first control, so the next key (a space, say) landed on a button.
+  const closeRef = useRef({ dismissable, onClose });
+  closeRef.current = { dismissable, onClose };
   const requestClose = useCallback(() => {
-    if (dismissable) onClose();
-  }, [dismissable, onClose]);
-
-  // The effect below must run when the dialog opens or closes, and ONLY then: it moves focus into the panel and, when it cleans up, back to the
-  // trigger. Callers usually pass a fresh `onClose` on every render (an inline arrow, or a function declared in the component body), so the effect
-  // reads the latest one through a ref instead of listing it as a dependency. Otherwise every keystroke that re-renders the caller re-runs the
-  // effect and the focus jumps from the field being typed in to the close button.
-  const closeRef = useRef(requestClose);
-  useEffect(() => {
-    closeRef.current = requestClose;
-  }, [requestClose]);
+    if (closeRef.current.dismissable) closeRef.current.onClose();
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -70,7 +66,7 @@ export default function Dialog({
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        closeRef.current();
+        requestClose();
         return;
       }
       if (e.key !== "Tab" || !panel) return;
@@ -100,7 +96,7 @@ export default function Dialog({
       document.body.style.overflow = prevOverflow;
       restoreRef.current?.focus?.();
     };
-  }, [open]);
+  }, [open, requestClose]);
 
   if (!open) return null;
 
