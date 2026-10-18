@@ -11,7 +11,21 @@ import type { Locator, Page } from "@playwright/test";
 /** The Next dev tools badge is not part of the product. */
 const NOT_OURS = ["nextjs-portal"];
 
+/**
+ * Let every finite CSS animation and transition on the page run out before it is measured. A screen change fades in (180 ms) and a
+ * text button eases its colour on hover: axe reads the colour mid-fade, blends it with the page behind, and reports a contrast
+ * failure that is gone a frame later. On a loaded machine the audit starts inside that window, so wait instead of guessing.
+ * Infinite animations (spinners) are left alone: they never finish.
+ */
+export async function settleAnimations(page: Page) {
+  await page.evaluate(async () => {
+    const finite = () => document.getAnimations().filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+    for (let i = 0; i < 5 && finite().length > 0; i++) await Promise.allSettled(finite().map((a) => a.finished));
+  });
+}
+
 export async function expectNoSeriousAxe(page: Page, label: string, scope?: string) {
+  await settleAnimations(page);
   let builder = new AxeBuilder({ page });
   if (scope) builder = builder.include(scope);
   for (const sel of NOT_OURS) builder = builder.exclude(sel);

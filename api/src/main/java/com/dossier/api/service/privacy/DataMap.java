@@ -156,7 +156,9 @@ public final class DataMap {
             "report_definition", "report_export", "report_metric", "report_recipient", "report_run", "requirement_match", "requirement_skill",
             "subscription_change", "talent_application", "talent_application_event", "talent_application_note", "talent_interview",
             "talent_interview_event", "talent_interview_feedback", "talent_interview_interviewer", "talent_placement", "usage_alert", "usage_counter",
-            "usage_event"
+            "usage_event",
+            // Sprint 2 "prepare": a consultant's prepared-application batches. They carry the organization and seat/match ids, never an account
+            "prepare_event", "prepare_item", "prepare_session"
         )) {
             add(e, new Entry(t, DataClass.ORG_TENANT, List.of(), "organization-owned: follows the organization; the person is a seat (org_member), which erasure anonymises", null, "organization data, reachable through the organization's own exports, not a personal account export", null));
         }

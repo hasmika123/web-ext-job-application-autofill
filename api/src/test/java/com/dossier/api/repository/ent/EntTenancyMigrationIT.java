@@ -50,7 +50,7 @@ class EntTenancyMigrationIT {
     }
 
     @Test
-    @Timeout(120) // applies the whole changelog twice to a scratch database
+    @Timeout(360) // applies the whole changelog three times to a scratch database; 2 minutes was not enough on a loaded machine or a small CI runner
     void theTenancyChangelogUpgradesADatabaseAtThePreviousChangelogAndRunsCleanOnAnEmptyOne() throws Exception {
         String scratch = "ent_mig_" + Long.toString(System.nanoTime(), 36);
         try (Connection root = connect("")) {

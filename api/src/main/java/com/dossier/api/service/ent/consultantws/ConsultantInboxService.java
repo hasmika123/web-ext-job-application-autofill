@@ -155,9 +155,16 @@ public class ConsultantInboxService {
     }
 
     private List<Suggestion> suggestions() {
+        // One row per company, the newest mail (the list is newest first): accepting it folds in the company's older mails, so a second mail from
+        // the same company (an availability request, then the confirmed invitation) is one suggestion, not two.
+        Set<String> seen = new HashSet<>();
         return mail
             .suggestions()
             .stream()
+            .filter(s -> {
+                String key = com.dossier.api.service.ApplicationKeys.company(s.company());
+                return key.isEmpty() || seen.add(key);
+            })
             .map(s -> new Suggestion(s.id(), s.company(), s.role(), s.category(), stageOf(s.category()).name(), s.subject(), s.fromName(), s.fromAddress(), s.sentAt()))
             .toList();
     }

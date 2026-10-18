@@ -310,7 +310,7 @@ cur_web="$(state_get WEB_TAG)"
 if [ "$ROLLBACK_ONLY" = 1 ]; then
   PREV_API="$(state_get PREV_API_TAG)"
   PREV_WEB="$(state_get PREV_WEB_TAG)"
-  [ -n "$PREV_API" ] && [ -n "$PREV_WEB" ] || die "no previous tags are recorded in $STATE_FILE"
+  if [ -z "$PREV_API" ] || [ -z "$PREV_WEB" ]; then die "no previous tags are recorded in $STATE_FILE"; fi
   say "Manual rollback to api:$PREV_API web:$PREV_WEB (from api:${cur_api:-?} web:${cur_web:-?})"
   if [ "$DRY" = 1 ]; then
     printf '[dry-run] docker compose up -d --no-deps api web with DOSSIER_API_TAG=%s DOSSIER_WEB_TAG=%s\n' "$PREV_API" "$PREV_WEB"

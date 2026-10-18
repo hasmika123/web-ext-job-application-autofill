@@ -42,6 +42,13 @@ class DemoImapGatewayTest {
     }
 
     @Test
+    void aDemoStackCanTurnTheSampleMailboxOffToReadARealGmail() {
+        // dossier.demo.inbox-sandbox=false removes the sample mailbox (the real gateway then serves); absent means ON, so nothing changes by default.
+        String cond = DemoImapGateway.class.getAnnotation(org.springframework.boot.autoconfigure.condition.ConditionalOnExpression.class).value();
+        assertThat(cond).contains("dossier.demo.inbox-sandbox:true");
+    }
+
+    @Test
     void theRealGatewayIsNeverASandbox() {
         assertThat(new JakartaImapGateway(new InboxProperties()).isDemoSandbox()).isFalse();
         assertThat(gateway().isDemoSandbox()).isTrue();
@@ -114,5 +121,63 @@ class DemoImapGatewayTest {
             String from = ((jakarta.mail.internet.InternetAddress) inbox.getMessage(i).getFrom()[0]).getAddress();
             assertThat(from).endsWith(".example");
         }
+    }
+
+    @Test
+    void theSampleHasThreeInterviewMailsWithRealSchedulesAndOneCarriesACalendarPart() throws Exception {
+        DemoImapGateway g = gateway();
+        Store store = g.open(g.demoAddress(), CODE);
+        Folder inbox = store.getFolder("INBOX");
+        inbox.open(Folder.READ_ONLY);
+        assertThat(inbox.getMessageCount()).as("the original seven mails plus the three interview mails (six in the inbox before, nine now)").isEqualTo(9);
+
+        Instant now = Instant.now();
+        jakarta.mail.Message phone = null, moved = null, ics = null;
+        for (int i = 1; i <= inbox.getMessageCount(); i++) {
+            jakarta.mail.Message m = inbox.getMessage(i);
+            if (m.getSubject().startsWith("Phone screen confirmed")) phone = m;
+            if (m.getSubject().startsWith("Rescheduled:")) moved = m;
+            if (m.getSubject().startsWith("Interview confirmed")) ics = m;
+        }
+        assertThat(phone).isNotNull();
+        assertThat(moved).isNotNull();
+        assertThat(ics).isNotNull();
+
+        // the plain-text invitation: a concrete weekday, date, time and zone (the placeholders are filled)
+        String phoneText = MailText.of(phone);
+        assertThat(phoneText).doesNotContain("{date").contains("2:00 PM PST");
+        ExtractedSchedule p = InterviewScheduleExtractor.extract(phone.getSubject(), phoneText, null, now, null, null);
+        assertThat(p.scheduled()).isTrue();
+        assertThat(p.zoneId()).isEqualTo("America/Los_Angeles");
+        assertThat(p.kind()).isEqualTo("PHONE");
+        assertThat(p.startUtc()).isAfter(now);
+
+        // the reschedule names the new time
+        ExtractedSchedule r = InterviewScheduleExtractor.extract(moved.getSubject(), MailText.of(moved), null, now, null, null);
+        assertThat(r.scheduled()).isTrue();
+        assertThat(r.rescheduled()).isTrue();
+        assertThat(r.startUtc()).isAfter(p.startUtc());
+
+        // the invitation with a calendar part: text for the person, text/calendar for the reader, never stored
+        assertThat(MailText.of(ics)).contains("https://harborcloud.zoom.us/j/84217650931").doesNotContain("BEGIN:VCALENDAR");
+        IcsEvent event = MailCalendar.parse(MailCalendar.eventJson(ics));
+        assertThat(event).isNotNull();
+        assertThat(event.uid()).isEqualTo("harbor-sre-0001@harborcloud.example");
+        assertThat(event.tz()).isEqualTo("America/Los_Angeles");
+        ExtractedSchedule c = InterviewScheduleExtractor.extract(ics.getSubject(), MailText.of(ics), event, now, null, null);
+        assertThat(c.source()).isEqualTo(ExtractedSchedule.Source.ICS);
+        assertThat(c.startUtc()).isAfter(now);
+        assertThat(c.endUtc()).isEqualTo(c.startUtc().plusSeconds(45 * 60));
+        assertThat(c.link()).isEqualTo("https://harborcloud.zoom.us/j/84217650931");
+        inbox.close(false);
+        JakartaImapGateway.closeQuietly(store);
+    }
+
+    @Test
+    void datePlaceholdersBecomeTheWeekdayAndDateThatManyDaysAhead() {
+        Instant at = Instant.parse("2026-10-17T12:00:00Z"); // a Saturday
+        assertThat(DemoImapGateway.dates("on {date+10} or {date+0}", at)).isEqualTo("on Tuesday, October 27 or Saturday, October 17");
+        assertThat(DemoImapGateway.dates("DTSTART:{ymd+3}T100000", at)).isEqualTo("DTSTART:20261020T100000");
+        assertThat(DemoImapGateway.dates("no placeholders", at)).isEqualTo("no placeholders");
     }
 }

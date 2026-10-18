@@ -48,7 +48,7 @@ Do not discuss the incident in public channels or with customers before the lead
 
 A SEV2 that might have exposed data is a SEV1. Disk-full and memory alarms come from
 `scripts/ops/host-guard.sh` (Healthchecks "host" check); a missed backup or drill from Healthchecks; a
-dead site from UptimeRobot.
+dead site from UptimeRobot (the exact monitors and who is told for each severity: `docs/ops/monitors.md`).
 
 ## 3. The first fifteen minutes
 
@@ -237,7 +237,9 @@ Organization customer notice skeleton:
 
 1. Fix the cause first (patch, rotate, remove the account or key). Recovering onto an unfixed system
    repeats the incident.
-2. Restore data only if it was lost or corrupted: DEPLOY.md 5.3. After a restore, **re-apply every account
+2. Restore data only if it was lost or corrupted: DEPLOY.md 5.3. When the binary logs are being shipped (DEPLOY.md 5.9),
+   prefer **point-in-time recovery**: dump plus the logs up to just before the damage, which loses minutes instead of up to
+   a day and keeps account deletions made after the dump. After a plain dump restore, **re-apply every account
    deletion and erasure request received after the backup was taken** (the restore resurrects them);
    keep a list of erasures during the incident for exactly this.
 3. Bring features back one at a time (`ORGS_ENABLED`, `DEMO_ENABLED`), watch the error digest, run
@@ -275,4 +277,40 @@ Detected: <UTC>   Aware (clock starts): <UTC>   Deadlines: authority <UTC>, org 
 
 Twice a year, spend an hour walking one scenario (a leaked `.env`; org A seeing org B) on paper: who is
 called, which switch is thrown, what is written in the first notice. Record gaps as stories. The restore
-drill (`verify-restore.sh`, weekly) and the quarterly rebuild (`MIGRATION.md`) cover the technical half.
+drills below (weekly dump check, monthly full drill with binlogs, quarterly rebuild) cover the technical half.
+
+### 12.1 The restore drills (REAL-GAPS-C P0.4, P0.6)
+
+A backup that has never been restored is a hope. Three drills, each with an alarm, so a quiet failure becomes an email:
+
+| Drill | Command (on the box unless noted) | Cadence | Alarm (Healthchecks) |
+|---|---|---|---|
+| Dump | `scripts/ops/verify-restore.sh` | Sundays 04:45 UTC, cron | `kiwiply-restore-drill-weekly` (7 d / 6 h) |
+| Full: dump + binlogs | `scripts/ops/restore-drill.sh` | the 1st of the month 05:30 UTC, cron | `kiwiply-restore-drill-monthly` (31 d / 2 d) |
+| Rebuild on a new machine | the checklist in DEPLOY.md 5.10, **never on the production box** | quarterly, by hand | none: you write the result in the drill log |
+
+Running the full drill by hand (it never touches the live database; it uses a throwaway `mysql` container with no network):
+
+```bash
+cd /root/web-ext-job-application-autofill           # or the deploy user's checkout
+scripts/ops/restore-drill.sh --dry-run               # what it would do
+scripts/ops/restore-drill.sh                         # newest dump + the binlogs after it, from the backup bucket
+scripts/ops/restore-drill.sh --stop-datetime '2026-10-17 14:05:00'    # rehearse a point in time
+tail -n 5 ~/kiwiply-backups/restore-drills.log       # one line per drill: when, which dump, tables, users, changesets
+```
+
+A pass ends with `restore drill OK - dossier-<date>.sql.gz + N binlog file(s) replayed (...): T tables, U users, C changesets`, and
+prints every table's exact row count. **What a failure means and what to do:**
+
+| It says | Meaning | Do |
+|---|---|---|
+| `the newest backup (...) is N days old` | the nightly backup stopped | SEV2: run `scripts/ops/backup-db.sh` by hand, read `/var/log/kiwiply-backup.log`, fix, rerun the drill |
+| `doesn't match the sha256 it was uploaded with` | the dump in S3 is damaged | SEV2: the previous night's copy is the one to trust; investigate before the next lifecycle expiry |
+| `is incomplete (no trailer or no tables)` | a cut-short dump got uploaded | SEV2: same as above; `backup-db.sh` should have refused it, so also find out why it did not |
+| `the binlogs have a gap between number N and M` | files missing from `binlog/` | SEV2: point-in-time recovery stops at N until fixed; check `kiwiply-binlog` and `/var/log/kiwiply-binlog.log` |
+| `the binlog the dump starts at (...) is missing` | the file open at dump time is not shipped yet | usually right after a nightly dump: run `scripts/ops/ship-binlogs.sh`, rerun |
+| `INTEGRITY ONLY` | the dump is age/gpg encrypted and this machine has no key (by design) | fine for the cron run; do the full restore quarterly where the key is: `--identity KEY` |
+| `user table ... expected at least` / `Liquibase ...` / `exectype` | the restored data is wrong | SEV1 if no other good backup exists: do not trust this backup; treat as a failed backup chain |
+
+Record every manual drill in the incident folder (date, who, result, minutes taken) even when it passes: the minutes are
+the number to quote when someone asks how long a restore takes.

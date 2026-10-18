@@ -250,8 +250,8 @@ public final class EnterpriseSettingKeys {
             "Resume Builder in an organization workspace: let a consultant create share links (a recruiter link or named people) for their organization resumes. Off by default; the organization admin can turn it on, and an organization can override it in org_setting. A marketer acting for a consultant can never create share links, whatever this says. Personal accounts are unaffected.", null, Risk.MEDIUM));
         integer(k, ORG_SECURITY_SESSION_TIMEOUT_MIN_MINUTES, 15, 5, 1440, Risk.MEDIUM, "Organization Settings: the shortest idle-session timeout (minutes) an Org Admin may set for their organization.");
         integer(k, ORG_SECURITY_SESSION_TIMEOUT_MAX_MINUTES, 43200, 60, 525600, Risk.MEDIUM, "Organization Settings: the longest idle-session timeout (minutes) an Org Admin may set; 43200 is 30 days.");
-        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR, 4, 4, 32, Risk.HIGH, "Organization Settings: the lowest password minimum length an Org Admin may set (never below the platform's own 4).");
-        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING, 32, 8, 100, Risk.MEDIUM, "Organization Settings: the highest password minimum length an Org Admin may set.");
+        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_FLOOR, 4, 4, 32, Risk.HIGH, "Organization Settings: the lowest sign-in minimum length an Org Admin may set (never below the platform's own 4).");
+        integer(k, ORG_SECURITY_PASSWORD_MIN_LENGTH_CEILING, 32, 8, 100, Risk.MEDIUM, "Organization Settings: the highest sign-in minimum length an Org Admin may set.");
         integer(k, ORG_SETTINGS_REASON_MIN_CHARS, 10, 3, 200, Risk.LOW, "Organization Settings: the fewest characters of the reason an Org Admin must give for a Security change.");
         integer(k, ORG_AUDIT_EXPORT_MAX_ROWS, 5000, 100, 50000, Risk.LOW, "Audit log CSV export: the most rows (newest first) one export carries.");
         k.add(new Key(ORG_SETTINGS_LOCALES, Type.JSON, DEFAULT_LOCALES, null, null, null,

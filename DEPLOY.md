@@ -183,8 +183,8 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    default encryption SSE-S3.
 2. **Lifecycle** (bucket → Management → Lifecycle rules), or in one command:
    `aws s3api put-bucket-lifecycle-configuration --bucket kiwiply-db-backups --lifecycle-configuration file://scripts/ops/aws/lifecycle.json`.
-   It expires `daily/` after 30 days, `monthly/` after 365 days, and old versions 30 days after
-   they're replaced.
+   It expires `daily/` after 30 days, `monthly/` after 365 days, `binlog/` (the MySQL binary logs,
+   §5.9) after 32 days, `uploads/` after 30, and old versions 30 days after they're replaced.
 3. **IAM user** `kiwiply-backup` with programmatic access only and exactly the inline policy in
    `scripts/ops/aws/backup-user-policy.json` (List + Put + Get; **no** Delete). Create an access key.
    Put it in the **password manager** first, then in the box's `.env`. Never in chat, the repo or
@@ -200,6 +200,9 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    HC_UPLOADS_URL=https://hc-ping.com/<uuid>    # §5.7 (uploads-volume backup)
    HC_HOST_URL=https://hc-ping.com/<uuid>       # §5.6 (host guard)
    HC_DEPLOY_URL=https://hc-ping.com/<uuid>     # §5.4 (optional)
+   HC_BINLOG_URL=https://hc-ping.com/<uuid>     # §5.9 (binlog shipping, every 15 minutes)
+   HC_DRILL_URL=https://hc-ping.com/<uuid>      # §5.10 (monthly restore drill)
+   BINLOG_LOCAL_KEEP_DAYS=                      # §5.9 (optional: purge shipped binlogs from the box after N days)
    BACKUP_AGE_RECIPIENT=                        # §5.7 (optional: age public key, encrypts dumps)
    ```
    These are read by the ops scripts only; the API never sees them.
@@ -209,12 +212,16 @@ backups. Old copies are removed only by the bucket's lifecycle rules. Keep **30 
    timedatectl | grep 'Time zone'      # the schedule assumes UTC
    install -m 644 scripts/ops/kiwiply-ops.cron /etc/cron.d/kiwiply-ops
    ```
+   Binary logs to S3 every 15 minutes → `/var/log/kiwiply-binlog.log` (§5.9); the full restore drill
+   (dump + binlogs) on the 1st of the month at 05:30 UTC → `/var/log/kiwiply-restore-drill-monthly.log` (§5.10).
    Nightly backup at 03:15 UTC → `/var/log/kiwiply-backup.log`; Sunday 04:45 UTC restore drill →
    `/var/log/kiwiply-restore-drill.log` (and one line per drill in
    `/root/kiwiply-backups/restore-drills.log`); nightly uploads-volume archive at 03:40 UTC →
    `/var/log/kiwiply-backup-uploads.log` (§5.7); host guard every 5 minutes →
    `/var/log/kiwiply-host-guard.log` (§5.6). The last 3 dumps also stay in `/root/kiwiply-backups/`.
    Rotate those logs: `install -m 644 scripts/ops/kiwiply-logrotate.conf /etc/logrotate.d/kiwiply` (§5.6).
+   `scripts/ops/install-cron.sh` does both of these in one go and fills in the user and checkout path
+   (`--dry-run` shows the result first); it is also how the jobs move to a non-root deploy user (§5.11).
    **Until someone has done this step, no backup is running**: the scripts exist, the cron file is not
    installed by a deploy. Check with `ls -l /etc/cron.d/kiwiply-ops` and Healthchecks.
 6. **First run, by hand** — once the scripts are on the box, i.e. after `develop` is promoted to
@@ -237,12 +244,18 @@ smoke failures and the rollback, first deploy, locking, migration lint), `host-g
 
 Both are free; you create the accounts. Alerts go to your email.
 
+- **The full, exact definitions** of every check and monitor below, with the alert routes (who is told for a
+  down site versus a late backup), are in **`docs/ops/monitors.md`**, and machine-readable in
+  `docs/ops/monitors.json` (REAL-GAPS-C P1.1). Create the accounts, then follow that file.
 - **Healthchecks.io** — two checks. Each one expects a ping and emails you when it doesn't arrive:
   - `kiwiply-backup`: period **1 day**, grace **2 hours**. Its ping URL → `HC_BACKUP_URL`.
   - `kiwiply-restore-drill`: period **7 days**, grace **6 hours**. Its URL → `HC_RESTORE_URL`.
   The scripts ping `/start` when they begin, the plain URL on success, and `/fail` on any failure,
   so a crash, a cut-short dump, a missing bucket key or a restore that doesn't check out all
   alert, and so does a night when cron didn't run at all.
+  Two more are for the binary logs and the full drill: `kiwiply-binlog` (period **15 minutes**, grace 15
+  minutes → `HC_BINLOG_URL`, §5.9) and `kiwiply-restore-drill-monthly` (period **31 days**, grace 2 days →
+  `HC_DRILL_URL`, §5.10).
   Three more checks use the same scripts' pings (all optional; blank URL = that script stays silent):
   `kiwiply-uploads` (period **1 day**, grace 2 hours → `HC_UPLOADS_URL`, §5.7), `kiwiply-host` (period
   **10 minutes**, grace 10 minutes → `HC_HOST_URL`, §5.6: the host guard sends `/fail` with the reason) and
@@ -290,10 +303,10 @@ If the dump is encrypted (`.age`/`.gpg`, §5.7), decrypt it first on the machine
 
 ### 5.4 Deploying by tag, with a snapshot and an automatic rollback (`deploy.sh`)
 
-`deploy.yml` (§7) pulls `:latest` and restarts; if the new build is bad there is no snapshot to go back
-to and no quick way to name "the version before". `scripts/ops/deploy.sh` is the careful way, for a
-deploy you run by hand on the box (REAL-GAPS-C P2.1-P2.3). It always uses the production file **and** the
-shared-edge overlay (it refuses to run otherwise) and never deploys `latest`.
+`deploy.yml` (§7) runs this script on every merge to `main` (since REAL-GAPS-C P2.1, see the Pipeline
+paragraph below); you can run it by hand on the box too (P2.1-P2.3). It always uses the production file **and** the
+shared-edge overlay (it refuses to run otherwise) and never deploys `latest`, so a bad build has a snapshot
+to go back to and a name for "the version before".
 
 ```bash
 cd /root/web-ext-job-application-autofill && git pull --ff-only
@@ -335,10 +348,35 @@ deploys cannot overlap). Monitoring: set `HC_DEPLOY_URL` (a Healthchecks.io chec
 every service (§5.6), and a changed container config means Compose recreates it (about 20 seconds of
 database restart; the volume is untouched). Do it at a quiet time.
 
-**Pipeline:** `deploy.yml` is unchanged on purpose. When you have run `deploy.sh` by hand a few times, the
-one-line switch is to replace its `$COMPOSE pull` / `$COMPOSE up -d` lines with
-`scripts/ops/deploy.sh --tag ${{ github.sha }}` (the images are pushed with that tag in the same run). Until
-then both paths work side by side, and `deploy.sh` copes with a CI deploy having moved the box to `latest`.
+**Pipeline (P2.1, switched over in `h-ops`):** `deploy.yml` now does exactly this, in order, on a merge to `main`:
+
+1. the runner builds the `api` and `web` images and pushes each as `ghcr.io/hasmika123/dossier-<svc>:<full commit sha>`
+   **and** `:latest` (nothing deploys `latest`; it is kept for anything that still pulls it);
+2. if the repo variable `DEPLOY_ENABLED` is `true`, it SSHes to the box with the same secrets as before
+   (`VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`) and runs, in `DEPLOY_PATH`:
+   `git pull --ff-only` (so the box runs the repo's own `deploy.sh` and compose files),
+   `bash scripts/ops/deploy.sh --dry-run --tag <sha>` (prints the plan, changes nothing), then
+   `bash scripts/ops/deploy.sh --tag <sha>`: the snapshot, the destructive-migration lint, `pull`, `up -d`, the
+   health wait, the public smoke checks, and the **automatic rollback** if any of that fails after the `up`.
+   A failed or rolled-back deploy makes the workflow run red (exit 1 rolled back, 2 rollback failed);
+3. `docker image prune -f` (dangling images only; the sha-tagged and `pre-<time>` images are kept so a rollback
+   never has to pull).
+
+Runs are serialised (`concurrency: deploy-main`, never cancelled midway) and `deploy.sh` takes its own lock on
+the box. The workflow never edits the shared edge Caddyfile (`~/beecompete-edge/`, outside this repo).
+
+**Rolling back from GitHub (no SSH needed):** Actions -> **Deploy** -> *Run workflow* -> fill **`rollback_tag`**:
+`previous` goes back to the tags the box recorded before the current deploy (`deploy.sh --rollback`, no
+registry call), or paste a full commit sha CI pushed earlier (`deploy.sh --tag <sha> --allow-destructive-migrations`:
+going back adds no migration, and the lint would only misfire). The image build is skipped, and a tag that is not in
+GHCR stops the run before anything is touched. A rollback does not restore the database (§5.3, §5.9); the
+Liquibase rule is additive-only, so the older image runs on the newer schema.
+
+**First time after this lands:** the first run goes through `deploy.sh`'s first-run path (no recorded tags yet), so it tags
+the images that are running as `pre-<time>` and rolls back to those if the new build fails. Watch that run in the Actions tab.
+Disk: every deploy leaves two more sha-tagged images on the box; `host-guard.sh` warns at 85 % disk, and the old
+ones can be removed by hand with `docker image rm` once a release is a few deploys old (never `docker image prune -a`
+on this shared box: that would also take BeeCompete's unused images).
 
 ### 5.5 A staging stack (`docker-compose.staging.yml`)
 
@@ -448,6 +486,141 @@ rotation, evidence to keep, and the breach-notification clocks (GDPR 72 hours to
 planned for organization customers). Read it once now, before you need it.
 
 
+### 5.9 Binary-log shipping and point-in-time recovery (REAL-GAPS-C P0.2)
+
+A nightly dump alone loses up to a day of every user's work. MySQL's **binary log** records every committed change,
+so a dump plus the logs written after it can be replayed to **any moment**, e.g. "14:05 UTC, just before the bad
+migration". `scripts/ops/ship-binlogs.sh` copies the logs off the box every 15 minutes, which makes the recovery
+point objective **about 15 minutes**. (The newest, still-open file is closed and shipped by the next run.)
+
+What it does, every 15 minutes from `/etc/cron.d/kiwiply-ops`:
+
+1. `FLUSH BINARY LOGS`: closes the current file, so every commit up to now is in a closed one;
+2. uploads each closed file that is not yet in S3 as `binlog/<server uuid>/binlog.NNNNNN.gz` (encrypted to `.gz.age` /
+   `.gz.gpg` when a recipient is set, like the dumps, §5.7), with its sha256 as metadata. Safe to re-run: nothing is
+   uploaded twice; a failed upload is retried next run;
+3. pings Healthchecks `kiwiply-binlog` (`HC_BINLOG_URL`); a missed or failed run alerts.
+
+It is a **no-op until `BACKUP_S3_BUCKET` and the backup keys are in `.env`**, so the cron line is safe to install early.
+It can't delete anything in S3 (the backup key has no delete permission); the lifecycle rule expires `binlog/` after
+**32 days**, one more than the 30 days of daily dumps, so any dump you could restore has its logs. On the box MySQL
+keeps its own copies for 30 days (`binlog_expire_logs_seconds`); to free disk sooner set `BINLOG_LOCAL_KEEP_DAYS=7` in
+`.env` (it purges only after a run has shipped everything). Since this change the nightly dump (and the pre-deploy
+snapshot) also records **which binlog file and position it is consistent with** (`mysqldump --source-data=2`, a comment
+at the top of the dump; it costs a global read lock for a moment at the start of the dump). That is the starting point for
+the replay. A dump taken without binary logging on records none, and the drill reports it as "dump only".
+
+**Your setup, once:**
+
+1. Confirm binary logging is on (it is MySQL 9's default; we never turned it off) and the format:
+   ```bash
+   cd /root/web-ext-job-application-autofill && COMPOSE="docker compose -f docker-compose.prod.yml -f docker-compose.shared-edge.yml"
+   $COMPOSE exec mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -e "SELECT @@log_bin, @@binlog_format, @@binlog_expire_logs_seconds, @@time_zone, @@server_uuid"'
+   ```
+   Expect `1  ROW  2592000  SYSTEM  <uuid>`. If `@@log_bin` is `0`, stop and tell the engineer: the compose file would need a change.
+2. Apply the updated lifecycle file (it adds `binlog/`): the `put-bucket-lifecycle-configuration` command in §5.1 step 2.
+   The IAM policy needs no change (the `binlog/` objects are List + Put + Get like everything else).
+3. Healthchecks: a check `kiwiply-binlog`, period 15 minutes, grace 15 minutes; its URL into `.env` as `HC_BINLOG_URL`
+   (`docs/ops/monitors.md`). Optionally `BINLOG_LOCAL_KEEP_DAYS=7`.
+4. Install the cron file again (§5.1 step 5, or `scripts/ops/install-cron.sh`).
+5. Run it once by hand and look:
+   ```bash
+   scripts/ops/ship-binlogs.sh --dry-run
+   scripts/ops/ship-binlogs.sh
+   docker run --rm -e AWS_ACCESS_KEY_ID="$(grep ^BACKUP_AWS_ACCESS_KEY_ID .env | cut -d= -f2-)" \
+     -e AWS_SECRET_ACCESS_KEY="$(grep ^BACKUP_AWS_SECRET_ACCESS_KEY .env | cut -d= -f2-)" -e AWS_DEFAULT_REGION=us-east-1 \
+     amazon/aws-cli s3 ls s3://kiwiply-db-backups/binlog/ --recursive
+   ```
+   (or look in the AWS console). The next nightly dump should show its position:
+   `gunzip -c ~/kiwiply-backups/dossier-<date>.sql.gz | head -n 40 | grep SOURCE_LOG_FILE`.
+
+**Point-in-time recovery (the real thing).** It replaces the live database, like §5.3, so only for a real loss. It
+beats §5.3 because it keeps what happened after the dump, **including account deletions and erasures**, as long as
+the target time is after them. Rehearse it first (§5.10): the drill does exactly these steps in a scratch container.
+
+1. Decide the target `T` (UTC): just before the damage, or "as late as possible" for plain data loss (omit `--stop-datetime`).
+2. Take the newest dump **before** `T` (`~/kiwiply-backups/` or S3 `daily/`; decrypt it first if it is `.age`, §5.3) and read where it
+   starts: `gunzip -c dossier-<date>.sql.gz | head -n 60 | grep SOURCE_LOG_FILE` gives
+   `SOURCE_LOG_FILE='binlog.000012', SOURCE_LOG_POS=157`.
+3. Download the logs from that file on, into an empty directory (the console works; the prefix is the server uuid, and a
+   database that was rebuilt has a **new** uuid, so use the newest prefix), decrypt if needed, `gunzip *.gz`, and delete
+   every file numbered below the start file. Check the numbers are **consecutive**: a gap means the replay can only go as far as the gap.
+4. Restore the dump (§5.3 step 2, API stopped).
+5. Replay. The official `mysql` image has **no `mysqlbinlog`**, so use the matching tool image the drill builds on first
+   use (`kiwiply-mysqlbinlog:9.2.0`; run `scripts/ops/restore-drill.sh` once to create it, a few minutes), reading the files
+   from the current directory:
+   ```bash
+   FILES="binlog.000012 binlog.000013 binlog.000014"      # in order, from the start file on
+   tar -cf - $FILES | docker run --rm -i --network none kiwiply-mysqlbinlog:9.2.0 \
+     sh -c 'mkdir /b && tar -xf - -C /b && cd /b && exec mysqlbinlog "$@"' mysqlbinlog \
+     --start-position=157 --stop-datetime="2026-10-17 14:05:00" $FILES > replay.sql
+   less replay.sql        # read what is about to be applied; the last statement must be the one BEFORE the damage
+   $COMPOSE exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot' < replay.sql
+   ```
+   `--start-position` applies to the first file only; `--stop-datetime` is in the server's time zone (UTC on the box:
+   check `@@time_zone` and `date -u`), and `--stop-position=N` is exact when you know it.
+6. `$COMPOSE up -d api` (Liquibase applies any newer migration), then `scripts/migrate/04-verify.sh kiwiply.com`
+   and sign in. Tell affected users the window that was lost (T to the last shipped log).
+
+The binlog files hold row data (PII), so they are encrypted with the dumps when a recipient is set (§5.7) and live only in the
+private backup bucket. If `ship-binlogs.sh` is not running, you are back to "up to 24 hours lost"; that is what the
+`kiwiply-binlog` alarm is for.
+
+### 5.10 Restore drills: weekly, monthly, quarterly (REAL-GAPS-C P0.4, P0.6)
+
+| Drill | Script | When | Proves |
+|---|---|---|---|
+| dump | `scripts/ops/verify-restore.sh` | Sundays 04:45 UTC (cron) | the newest dump is at most 2 days old, matches its sha256, restores |
+| **full** | **`scripts/ops/restore-drill.sh`** | **the 1st of the month, 05:30 UTC (cron)** | **the newest dump AND the binlogs after it restore into a scratch MySQL; checks pass; every binlog number is present (no hole in point-in-time recovery)** |
+| rebuild | the checklist below | quarterly, by hand, **never on the production box** | a person with only the password manager and GitHub can bring Kiwiply back on a new machine, and how long it takes |
+
+`restore-drill.sh` never touches the live database: it needs no `compose` access to it at all. It starts a throwaway
+`mysql:9.2.0` (the version in `docker-compose.prod.yml`; a test asserts they match) with **no network and 1 GB**, loads the
+dump, replays the logs with `mysqlbinlog` from the same dump position, then checks: every table is there, the user table
+is not empty, the Liquibase changelog exists, is not empty and has no changeset in a bad state; prints **each table's exact
+row count**, writes one line to `~/kiwiply-backups/restore-drills.log`, removes the container and pings `HC_DRILL_URL`.
+Any failure is a non-zero exit and a `/fail` ping.
+
+```bash
+scripts/ops/restore-drill.sh --dry-run                                   # what it would do
+scripts/ops/restore-drill.sh                                             # newest dump + binlogs from the bucket
+scripts/ops/restore-drill.sh --stop-datetime '2026-10-17 14:05:00'       # point in time, to rehearse §5.9
+scripts/ops/restore-drill.sh --file dossier-<date>.sql.gz --binlog-dir ./binlogs     # local files, no AWS
+scripts/ops/restore-drill.sh --file dossier-<date>.sql.gz.age --identity kiwiply-backup.key --binlog-dir ./binlogs
+```
+
+- **The first run builds a small tool image** (`kiwiply-mysqlbinlog:9.2.0`: MySQL's own `mysql-community-client`, same version
+  as the server, signature-checked) because the official `mysql` image has no `mysqlbinlog`. It needs network access to
+  `repo.mysql.com`, takes a few minutes and a few hundred MB, and is kept. `--binlog-tool-image` / `BINLOG_TOOL_IMAGE` names
+  an image you already have.
+- **Encrypted dumps (§5.7):** the box holds no private key, so the cron run reports `INTEGRITY ONLY` for them (fresh and sha256-ok,
+  not restored). Run the full drill on the machine that holds the key, with `--identity`, **at least quarterly**.
+- **A failing drill:** `a gap between number N and M` means binlog files are missing from S3 (check `kiwiply-binlog`, the
+  cron log, the bucket); `the binlog the dump starts at is missing` right after a nightly dump just means the next 15-minute
+  run has not shipped the then-active file yet, so run it again; `this dump records no binlog position` is a dump from before
+  this change or with binary logging off (the drill still restores it as "dump only"); the rest are data problems: treat as SEV2
+  and do not trust the backup until it passes (`docs/ops/incident-runbook.md` section 12).
+- The tool image and scratch container are the only things it leaves on the box (the container is removed even on failure).
+
+**Quarterly fresh-box rebuild drill (P0.6)**, on a throwaway VM or your own machine with Docker, written down with the time it took:
+
+1. From the password manager only: the `.env`, the age private key, the AWS backup key. From GitHub: this repo (`main`).
+2. `docker compose -f docker-compose.prod.yml up -d mysql` (no `caddy`, no overlay: this is not the shared box).
+3. Fetch the newest `daily/` dump and the `binlog/<uuid>/` files (decrypt with the key). Restore the dump, replay the logs
+   (§5.9 steps 4 and 5), or just run `restore-drill.sh --file ... --binlog-dir ...` to prove the data and then repeat on the real MySQL.
+4. `docker compose -f docker-compose.prod.yml up -d api web`; check from inside the web container
+   (`docker compose exec web node -e "fetch('http://api:8080/management/health').then(r=>r.text()).then(console.log)"`).
+5. Restore the uploads archive (§5.7) and confirm `sha256sum -c manifest-<date>.txt`.
+6. Check the S3 resume bucket has **versioning on**. Record: date, who, minutes from "start" to "API healthy", what was missing
+   from the notes. Fix the notes. Delete the VM.
+
+### 5.11 Running the deploy as a non-root user (REAL-GAPS-C P2.5)
+
+CI and every ops cron job run as `root` with the checkout under `/root` (§7.1: "a known compromise"). The exact, reversible
+commands to move all of it to a dedicated `kiwiply-deploy` user (docker group, its own SSH key, its own checkout, cron under
+that user, the CI secrets switched) are in **`docs/ops/deploy-user.md`**, with the order that keeps production up the whole time.
+It is yours to run on the box: nothing in a deploy does it for you.
+
 ## 6. When you get a real domain
 Point `app.` and `api.` A-records at the IP, then in `Caddyfile` replace the two
 `*.{$SSLIP_HOST}` site labels with `app.yourdomain.com` / `api.yourdomain.com`, update the
@@ -457,8 +630,16 @@ extension's host permission, and restart Caddy. Nothing else changes.
 Two workflows live in `.github/workflows/`:
 - **`ci.yml`** — runs the extension, web, and API test suites on every PR and push. No setup needed.
 - **`deploy.yml`** — on merge to `main`, builds the api + web images on GitHub's runners,
-  pushes them to **GHCR**, then SSHes into the VPS to `pull` + restart. Building off-box keeps
-  the heavy Gradle/npm builds from hammering the VPS.
+  pushes them to **GHCR** tagged with the commit sha (and `latest`), then SSHes into the VPS and runs
+  `scripts/ops/deploy.sh --tag <sha>` (snapshot, health, smoke checks, automatic rollback; §5.4). Building off-box
+  keeps the heavy Gradle/npm builds from hammering the VPS. A manual run with `rollback_tag` rolls back (§5.4).
+
+Hardening (REAL-GAPS-C P2.6): every workflow has a least-privilege top-level `permissions: contents: read` (only the image
+build job also has `packages: write`); every third-party action is pinned by its **full commit sha** with the version in a
+comment (`uses: actions/checkout@<sha> # v7`), and `.github/dependabot.yml` opens a weekly PR to move the pins; deploys
+share one `concurrency` group and are never cancelled midway. `scripts/ops/test/workflows.test.sh` (in the CI "Ops scripts" job)
+fails the build if a pin, a permission or the `deploy.sh` call is lost, and CI also runs `bash -n` on every ops script and a
+`deploy.sh --dry-run`.
 
 ### 7.1 Current configuration (live since 2026-09-17 — nothing to do)
 
@@ -476,8 +657,9 @@ rebuilding it if it ever breaks:
 `DEPLOY_PATH` exists because the checkout lives under `/root`, so a bare `~` would resolve
 differently for any other user. `VPS_USER=root` is a **known compromise**: BeeCompete's `deploy`
 user is in the `docker` group but has no passwordless sudo, so it cannot drive a stack under
-`/root`. Moving the checkout somewhere `deploy` can read would let CI drop root — worth doing,
-not yet done.
+`/root`, and it is BeeCompete's identity besides. The fix is a dedicated `kiwiply-deploy` user with its own
+checkout, key and cron, switching `VPS_USER`, `VPS_SSH_KEY` and `DEPLOY_PATH`: **`docs/ops/deploy-user.md`**
+(§5.11) has every command. Not done yet.
 
 ### 7.2 Setting this up again from scratch
 
@@ -526,10 +708,11 @@ not yet done.
   Recover through the hosting panel's **KVM/web console**, which bypasses SSH:
   `fail2ban-client set sshd unbanip <your-ip>` — or wait it out (10 min default).
 
-After that, every merge to `main` auto-builds and deploys. Trigger manually anytime via the
-Actions tab → **Deploy** → *Run workflow*. The compose pulls `…:latest` from GHCR (unless
-`DOSSIER_API_TAG`/`DOSSIER_WEB_TAG` are exported, which `scripts/ops/deploy.sh` does, §5.4); a manual
-`$COMPOSE up -d --build` still works for an off-pipeline deploy (**with the overlay** — see §5).
+After that, every merge to `main` auto-builds and deploys by sha through `scripts/ops/deploy.sh` (§5.4). Trigger manually
+anytime via the Actions tab → **Deploy** → *Run workflow* (leave `rollback_tag` empty for a normal deploy, fill it to roll back).
+The compose file still falls back to `…:latest` when `DOSSIER_API_TAG`/`DOSSIER_WEB_TAG` are not exported, which only a
+hand-run `$COMPOSE up -d` does; `deploy.sh` always exports an explicit tag. A manual `$COMPOSE up -d --build` still works for an
+off-pipeline deploy (**with the overlay** — see §5).
 
 ## 8. Publishing the browser extension (Chrome Web Store)
 The **`publish-extension.yml`** workflow packages the extension into a CWS-ready zip (always,
