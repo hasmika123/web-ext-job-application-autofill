@@ -1517,6 +1517,8 @@ class OrgIsolationIT {
             ids.put("alertKey", "MEMBERS_SUSPENDED");
             ids.put("id", "999999999"); // the consultant routes' opportunity id: nobody's, and the routes answer 404 before looking (the flag is off in this world)
             ids.put("suggestionId", "999999999"); // an inbox suggestion nobody owns: the routes answer 404 for the legitimate caller too
+            ids.put("holdId", "999999999"); // an inbox review item nobody owns: the review routes answer 404 for the legitimate caller too
+            ids.put("eventId", "999999999"); // an application event nobody owns: the undo route answers 404 for the legitimate caller too
             ids.put("skillId", String.valueOf(skillId));
             ids.put("certId", String.valueOf(certId));
             ids.put("prefId", String.valueOf(prefId));

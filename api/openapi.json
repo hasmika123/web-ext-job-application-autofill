@@ -207,6 +207,9 @@
     "name" : "resume-match",
     "description" : "Score the user's resumes against a job description (Pro)."
   }, {
+    "name" : "inbox-review",
+    "description" : "What the inbox held for review, and undo for what it applied."
+  }, {
     "name" : "authentication",
     "description" : "Obtain and refresh the JWT access token. These endpoints are public (no bearer token required)."
   }, {
@@ -797,6 +800,58 @@
         "responses" : {
           "200" : {
             "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/inbox/settings" : {
+      "get" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "The inbox safety settings",
+        "operationId" : "settings_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      },
+      "put" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Apply rejections automatically, on or off",
+        "operationId" : "setSettings",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SettingsVM"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
+                }
+              }
+            }
           }
         },
         "security" : [ {
@@ -2143,6 +2198,52 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/CheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/inbox/settings" : {
+      "get" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "The inbox safety settings",
+        "operationId" : "settings_2",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Apply rejections automatically, on or off",
+        "operationId" : "setSettings_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SettingsRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Settings"
                 }
               }
             }
@@ -5187,6 +5288,70 @@
         } ]
       }
     },
+    "/api/profile/inbox/review/{id}/dismiss" : {
+      "post" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Dismiss a held change; the same email never asks again",
+        "operationId" : "dismiss_3",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
+    "/api/profile/inbox/review/{id}/accept" : {
+      "post" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Apply a held change",
+        "operationId" : "accept_2",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AcceptVM"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Applied"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/field-caches/sync" : {
       "post" : {
         "tags" : [ "field-cache-sync" ],
@@ -5725,6 +5890,46 @@
         } ]
       }
     },
+    "/api/profile/applications/{applicationId}/inbox-undo/{eventId}" : {
+      "post" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Undo a status change the inbox made",
+        "description" : "409 UNDO_EXPIRED after inbox.undo_window_days; 409 CHANGED_SINCE when the status was changed meanwhile.",
+        "operationId" : "undo",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "eventId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Applied"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/applications/bulk" : {
       "post" : {
         "tags" : [ "applications-sync" ],
@@ -5762,7 +5967,7 @@
       "post" : {
         "tags" : [ "resume-ai" ],
         "summary" : "Dismiss an AI proposal",
-        "operationId" : "dismiss_3",
+        "operationId" : "dismiss_4",
         "parameters" : [ {
           "name" : "pid",
           "in" : "path",
@@ -6558,7 +6763,7 @@
         "tags" : [ "placements" ],
         "summary" : "Undo your latest change",
         "description" : "Body: eventId (from the detail's undo token). Takes back the caller's own latest change within ten minutes. 422 UNDO_NOT_AVAILABLE otherwise. PLACEMENT_UNDO audit row.",
-        "operationId" : "undo",
+        "operationId" : "undo_1",
         "parameters" : [ {
           "name" : "placementId",
           "in" : "path",
@@ -8528,7 +8733,7 @@
       "post" : {
         "tags" : [ "mkt-matches" ],
         "summary" : "Dismiss a suggested match (SUGGESTED to DISMISSED)",
-        "operationId" : "dismiss_4",
+        "operationId" : "dismiss_5",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -10465,7 +10670,7 @@
         "tags" : [ "consultant-workspace" ],
         "summary" : "Accept an offer",
         "description" : "Needs offers.respond. Records the consultant's answer only: nothing is signed or sent to a client; accepting creates the placement record (PENDING_START or ACTIVE). 409 OFFER_NOT_OPEN when it is not open, OFFER_EXPIRED after the deadline.",
-        "operationId" : "accept_2",
+        "operationId" : "accept_3",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -10956,7 +11161,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Hide a suggested job",
-        "operationId" : "dismiss_5",
+        "operationId" : "dismiss_6",
         "parameters" : [ {
           "name" : "suggestionId",
           "in" : "path",
@@ -10985,7 +11190,7 @@
       "post" : {
         "tags" : [ "consultant-workspace" ],
         "summary" : "Add a suggested job to the board",
-        "operationId" : "accept_3",
+        "operationId" : "accept_4",
         "parameters" : [ {
           "name" : "suggestionId",
           "in" : "path",
@@ -11019,6 +11224,64 @@
         }
       }
     },
+    "/api/orgs/{orgId}/me-workspace/inbox/review/{holdId}/dismiss" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Dismiss a held change; the same email never asks again",
+        "operationId" : "dismiss_7",
+        "parameters" : [ {
+          "name" : "holdId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/inbox/review/{holdId}/accept" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Apply a held change",
+        "operationId" : "accept_5",
+        "parameters" : [ {
+          "name" : "holdId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AcceptRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Applied"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/me-workspace/availability/blocks" : {
       "post" : {
         "tags" : [ "consultant-workspace" ],
@@ -11041,6 +11304,43 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Response"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/applications/{applicationId}/inbox-undo/{eventId}" : {
+      "post" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "Undo a status change the inbox made",
+        "description" : "409 UNDO_EXPIRED after the undo window.",
+        "operationId" : "undo_2",
+        "parameters" : [ {
+          "name" : "applicationId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "name" : "eventId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Applied"
                 }
               }
             }
@@ -12101,7 +12401,7 @@
         "tags" : [ "org-dashboard" ],
         "summary" : "Hide an alert for 7 days (for the caller only)",
         "description" : "alertKey is one of the alert keys of the dashboard (ORG_PAST_DUE, DOMAIN_FAILING, DOMAIN_SUSPENDED, INVITES_EXPIRING, MEMBERS_SUSPENDED, SINGLE_ADMIN, BRANDING_DRAFT, APPLICATIONS_OVERDUE, LICENSES_ATTENTION, MARKETERS_OVERLOADED, APPLICATIONS_NEW, INTERVIEWS_WEEK, PLACEMENT_NEW, RESUMES_PENDING, CONSULTANTS_UNASSIGNED) or CHECKLIST (the activation checklist card). Other administrators still see it. Unknown key, or no dashboard.view_org: 404.",
-        "operationId" : "dismiss_6",
+        "operationId" : "dismiss_8",
         "parameters" : [ {
           "name" : "alertKey",
           "in" : "path",
@@ -20610,6 +20910,28 @@
         } ]
       }
     },
+    "/api/profile/inbox/review" : {
+      "get" : {
+        "tags" : [ "inbox-review" ],
+        "summary" : "Changes the inbox held for the person's review",
+        "operationId" : "review_1",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReviewList"
+                }
+              }
+            }
+          }
+        },
+        "security" : [ {
+          "bearer-jwt" : [ ]
+        } ]
+      }
+    },
     "/api/profile/field-caches" : {
       "get" : {
         "tags" : [ "field-cache-sync" ],
@@ -24099,6 +24421,25 @@
                   "items" : {
                     "$ref" : "#/components/schemas/Suggestion"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/orgs/{orgId}/me-workspace/inbox/review" : {
+      "get" : {
+        "tags" : [ "consultant-workspace" ],
+        "summary" : "What the inbox held for the consultant's review",
+        "operationId" : "review_2",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ReviewList"
                 }
               }
             }
@@ -28271,6 +28612,25 @@
         }
       }
     },
+    "/api/admin/inbox/stuck" : {
+      "get" : {
+        "tags" : [ "admin-inbox-resource" ],
+        "operationId" : "stuck",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/enterprise-accounts/health" : {
       "get" : {
         "tags" : [ "admin-account-mode-resource" ],
@@ -29343,7 +29703,7 @@
         "tags" : [ "billing" ],
         "summary" : "Undo a scheduled change",
         "description" : "Cancels a PENDING scheduled removal or decrease (Stripe first, then Kiwiply). 409 NOT_PENDING, 404 when it isn't theirs, 502 when Stripe refuses.",
-        "operationId" : "undo_1",
+        "operationId" : "undo_3",
         "parameters" : [ {
           "name" : "id",
           "in" : "path",
@@ -29903,6 +30263,22 @@
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "SettingsVM" : {
+        "type" : "object",
+        "properties" : {
+          "applyRejectionsAutomatically" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Settings" : {
+        "type" : "object",
+        "properties" : {
+          "applyRejectionsAutomatically" : {
+            "type" : "boolean"
           }
         }
       },
@@ -30880,39 +31256,6 @@
           }
         }
       },
-      "Settings" : {
-        "type" : "object",
-        "properties" : {
-          "profileVisibility" : {
-            "type" : "string"
-          },
-          "shareProfileWithEmployers" : {
-            "type" : "boolean"
-          },
-          "showContactInformation" : {
-            "type" : "boolean"
-          },
-          "allowAnalytics" : {
-            "type" : "boolean"
-          },
-          "theme" : {
-            "type" : "string"
-          },
-          "language" : {
-            "type" : "string"
-          },
-          "timezone" : {
-            "type" : "string"
-          },
-          "isDefault" : {
-            "type" : "boolean"
-          },
-          "updatedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          }
-        }
-      },
       "Tiles" : {
         "type" : "object",
         "properties" : {
@@ -31220,6 +31563,14 @@
           "checkedAt" : {
             "type" : "string",
             "format" : "date-time"
+          }
+        }
+      },
+      "SettingsRequest" : {
+        "type" : "object",
+        "properties" : {
+          "applyRejectionsAutomatically" : {
+            "type" : "boolean"
           }
         }
       },
@@ -33468,6 +33819,26 @@
           },
           "appPassword" : {
             "type" : "string"
+          }
+        }
+      },
+      "AppState" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Applied" : {
+        "type" : "object",
+        "properties" : {
+          "application" : {
+            "$ref" : "#/components/schemas/AppState"
           }
         }
       },
@@ -38896,6 +39267,36 @@
           }
         }
       },
+      "Candidate" : {
+        "type" : "object",
+        "properties" : {
+          "applicationId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "company" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ReviewList" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Item"
+            }
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "ApplicationListPage" : {
         "type" : "object",
         "properties" : {
@@ -39146,6 +39547,13 @@
             "items" : {
               "$ref" : "#/components/schemas/ChangeDTO"
             }
+          },
+          "inboxEventId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "undoable" : {
+            "type" : "boolean"
           }
         }
       },
@@ -39712,34 +40120,6 @@
             "type" : "string"
           },
           "email" : {
-            "type" : "string"
-          }
-        }
-      },
-      "Candidate" : {
-        "type" : "object",
-        "properties" : {
-          "consultantId" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "name" : {
-            "type" : "string"
-          },
-          "title" : {
-            "type" : "string"
-          },
-          "availability" : {
-            "type" : "string"
-          },
-          "score" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "matchStatus" : {
-            "type" : "string"
-          },
-          "pausedReason" : {
             "type" : "string"
           }
         }
