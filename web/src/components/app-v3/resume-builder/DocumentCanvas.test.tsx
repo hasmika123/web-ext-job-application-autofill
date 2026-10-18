@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DESIGN_FREE, RESUME_DEFAULT_SECTION_TITLES } from "@kiwiply/ui";
 import type { ResumeDocument } from "@kiwiply/ui";
+import { NO_PHOTO } from "./canvasContext";
 import { CanvasHarness, liveDoc } from "./test-canvas";
 import { fieldIdForPath } from "./state/paths";
 
@@ -70,14 +71,18 @@ describe("DocumentCanvas", () => {
     // config-literal-ok: test timeout — six full-canvas re-renders exceed vitest's 5 s default under parallel CPU load
   }, 20_000);
 
-  it("draws the photo slot only when the template allows a photo; the upload is 'Coming soon'", () => {
-    const { unmount } = render(<CanvasHarness doc={everyKind()} />);
+  it("draws the photo slot only when the template allows a photo, and offers 'Add photo' only when the session may change it", () => {
+    const on = { ...NO_PHOTO, enabled: true };
+    const { unmount } = render(<CanvasHarness doc={everyKind()} photo={on} />);
     expect(screen.queryByRole("button", { name: /Add photo/ })).toBeNull(); // ATS_STRICT: no photo
+    expect(screen.queryByTestId("photo-slot")).toBeNull();
     unmount();
-    render(<CanvasHarness doc={everyKind()} caps={DESIGN_FREE} />);
-    const slot = screen.getByRole("button", { name: /Add photo/ }) as HTMLButtonElement;
-    expect(slot.disabled).toBe(true);
-    expect(slot.title).toBe("Coming soon");
+    const { unmount: u2 } = render(<CanvasHarness doc={everyKind()} caps={DESIGN_FREE} photo={on} />);
+    expect((screen.getByRole("button", { name: "Add photo" }) as HTMLButtonElement).disabled).toBe(false);
+    u2();
+    render(<CanvasHarness doc={everyKind()} caps={DESIGN_FREE} />); // no photo support given (the admin switch is off): the slot shows, offers nothing
+    expect(screen.getByTestId("photo-slot")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /photo/i })).toBeNull();
   });
 
   it("an empty section shows a placeholder that adds an item on focus, not on render", () => {

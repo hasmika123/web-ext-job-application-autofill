@@ -237,7 +237,7 @@ function maxFor(field: ItemTextField, kind: ResumeSectionKind, limits: DocLimits
   return MAX_SHORT_CHARS;
 }
 
-type EditAction = Exclude<EditorAction, { type: `save/${string}` | `conflict/${string}` | `history/${string}` | `presentation/${string}` | `server/${string}` | `template/${string}` }>;
+type EditAction = Exclude<EditorAction, { type: `save/${string}` | `conflict/${string}` | `history/${string}` | `presentation/${string}` | `server/${string}` | `template/${string}` | `photo/${string}` }>;
 
 /** The next document for an edit action, or the same `doc` when it is a no-op. */
 function applyEdit(doc: ResumeDocument, a: EditAction, limits: DocLimits): ResumeDocument {
@@ -704,6 +704,16 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
         conflict: null,
         phase: "idle",
         error: null,
+      };
+    }
+
+    case "photo/set": {
+      const withPhoto = (d: ResumeDocument): ResumeDocument => ({ ...d, basics: { ...d.basics, photo: action.photo } });
+      const h = state.history;
+      return {
+        ...state,
+        docVersion: action.version,
+        history: { ...h, past: h.past.map(withPhoto), present: withPhoto(h.present), future: h.future.map(withPhoto) },
       };
     }
 

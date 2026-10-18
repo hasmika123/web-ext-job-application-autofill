@@ -14,6 +14,37 @@ export interface FocusRequest {
 }
 
 /**
+ * The photo slot's behaviour (R7.4), handed to the header block: where the stored photo is served from, whether the template draws
+ * it, and the three things a person can do - add or replace it (the dialog uploads the cropped picture), remove it (with an undo
+ * toast) and show or hide it on this resume. `enabled` is false when the admin switch is off or the session may not change the
+ * photo (acting for someone); the slot then only shows what is there.
+ */
+export interface CanvasPhoto {
+  enabled: boolean;
+  /** Where the stored photo is drawn from, or null when the resume has none. */
+  src: string | null;
+  /** The theme (or the template default) draws the photo. */
+  shown: boolean;
+  /** The person's country is one where photos on resumes are discouraged (admin list). */
+  discouraged: boolean;
+  /** Upload the cropped picture; also turns the photo on for this resume. */
+  upload: (png: Blob) => Promise<{ ok: true } | { ok: false; message: string }>;
+  remove: () => void;
+  setShown: (on: boolean) => void;
+}
+
+/** No photo support: the slot shows what the document holds and offers nothing (isolated canvas tests, a session that may not change it). */
+export const NO_PHOTO: CanvasPhoto = {
+  enabled: false,
+  src: null,
+  shown: false,
+  discouraged: false,
+  upload: async () => ({ ok: false, message: "Photos are not available here." }),
+  remove: () => {},
+  setShown: () => {},
+};
+
+/**
  * What every block of the canvas needs and would otherwise be handed through four levels of props:
  * the dispatcher, the capabilities of the template (never `caps.ats`: the editor reads
  * `controls`, DESIGN 6.4), the limits, the field to ring after a 422 and the queue for "focus this
@@ -37,6 +68,8 @@ export interface CanvasContextValue {
   ai: CanvasAi;
   /** The Swap Section panel is open: item rows show a drag grip and can be dragged (same `item/move`). */
   reorder: boolean;
+  /** The photo slot of the header block (R7.4). */
+  photo: CanvasPhoto;
 }
 
 const Ctx = createContext<CanvasContextValue | null>(null);
