@@ -88,6 +88,10 @@ public class MktOpportunity implements Serializable {
     @Column(name = "closed_reason", length = 30)
     private String closedReason;
 
+    /** The pending manager approval holding this opportunity's assignment (docs/enterprise-v2/deferred/marketing-manager.md section 4.1.1); null when nothing is held. */
+    @Column(name = "approval_request_id")
+    private Long approvalRequestId;
+
     @Version
     @Column(name = "version", nullable = false)
     private long version;
@@ -144,6 +148,8 @@ public class MktOpportunity implements Serializable {
     public void setInfoAnswer(String infoAnswer) { this.infoAnswer = infoAnswer; }
     public String getClosedReason() { return closedReason; }
     public void setClosedReason(String closedReason) { this.closedReason = closedReason; }
+    public Long getApprovalRequestId() { return approvalRequestId; }
+    public void setApprovalRequestId(Long approvalRequestId) { this.approvalRequestId = approvalRequestId; }
     public long getVersion() { return version; }
     public void setVersion(long version) { this.version = version; }
 }

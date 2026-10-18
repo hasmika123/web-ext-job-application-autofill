@@ -1,5 +1,7 @@
 package com.dossier.api.service.ent.history;
 
+import com.dossier.api.repository.ent.mgmt.MktApprovalRequestRepository;
+import com.dossier.api.repository.ent.mgmt.MktEscalationRepository;
 import com.dossier.api.repository.ent.mkt.MktSubmissionEventRepository;
 import com.dossier.api.repository.ent.talent.TalentApplicationEventRepository;
 import com.dossier.api.repository.ent.talent.TalentInterviewEventRepository;
@@ -63,12 +65,65 @@ public class EnterpriseHistoryRetentionJob {
     @Scheduled(cron = "${dossier.enterprise.history-retention-cron:0 20 3 * * *}", zone = "UTC")
     public void scheduled() {
         try {
-            List<OrgResult> done = runOnce(Instant.now());
+            Instant now = Instant.now();
+            List<OrgResult> done = runOnce(now);
             int total = done.stream().mapToInt(OrgResult::total).sum();
+            List<MgmtResult> mgmt = runMktMgmt(now);
+            int mgmtTotal = mgmt.stream().mapToInt(MgmtResult::total).sum();
+            if (mgmtTotal > 0) LOG.info("Purged {} Marketing Manager record(s) past their retention window in {} organization(s)", mgmtTotal, mgmt.size());
             if (total > 0) LOG.info("Purged {} organization history row(s) past their retention window in {} organization(s)", total, done.size());
         } catch (RuntimeException e) {
             LOG.warn("Organization history retention run failed", e); // the next night retries; nothing here is time critical
         }
+    }
+
+    /** What one run did for one organization's Marketing Manager records (MM-01): decided approval requests and closed escalations past their window. */
+    public record MgmtResult(Long orgId, int months, int approvals, int escalations) {
+        public int total() {
+            return approvals + escalations;
+        }
+    }
+
+    /**
+     * One pass over the Marketing Manager records (docs/enterprise-v2/deferred/marketing-manager.md section 3): for every organization whose
+     * {@code enterprise.history.mkt_mgmt_months} (its own {@code org_setting} row first, then the registry value, default 36) is above 0, approval requests that are no
+     * longer PENDING and escalations that are RESOLVED or DISMISSED, untouched for longer than that, are deleted (an escalation's trail goes with it). An open
+     * record is never touched. Returns the organizations that lost rows; each gets one SYSTEM audit row with counts only.
+     */
+    public List<MgmtResult> runMktMgmt(Instant now) {
+        List<Long> orgIds = new ArrayList<>();
+        TenantScoped.unscoped(() -> orgIds.addAll(organizations.findAllOrgIds()));
+        List<MgmtResult> out = new ArrayList<>();
+        for (Long orgId : orgIds) {
+            try {
+                int months = settings.mktMgmtMonths(orgId);
+                if (months <= 0) continue;
+                Instant cutoff = now.atZone(ZoneOffset.UTC).minusMonths(months).toInstant();
+                MgmtResult r = TenantScoped.get(orgId, () -> purgeMgmt(orgId, months, cutoff));
+                if (r.total() > 0) out.add(r);
+            } catch (RuntimeException e) {
+                LOG.warn("Marketing Manager records retention failed for org {}", orgId, e);
+            }
+        }
+        return out;
+    }
+
+    private MgmtResult purgeMgmt(Long orgId, int months, Instant cutoff) {
+        int approvals = 0;
+        int escalations = 0;
+        for (int i = 0; i < MAX_BATCHES_PER_TABLE; i++) {
+            int n = work.purgeApprovalBatch(orgId, cutoff);
+            approvals += n;
+            if (n < BATCH) break;
+        }
+        for (int i = 0; i < MAX_BATCHES_PER_TABLE; i++) {
+            int n = work.purgeEscalationBatch(orgId, cutoff);
+            escalations += n;
+            if (n < BATCH) break;
+        }
+        MgmtResult r = new MgmtResult(orgId, months, approvals, escalations);
+        if (r.total() > 0) work.recordMgmtPurge(r);
+        return r;
     }
 
     /** One pass over every organization with a retention window; returns the organizations that lost rows. */
@@ -117,18 +172,54 @@ public class EnterpriseHistoryRetentionJob {
         private final TalentApplicationEventRepository applications;
         private final TalentInterviewEventRepository interviews;
         private final MktSubmissionEventRepository submissions;
+        private final MktApprovalRequestRepository approvalRequests;
+        private final MktEscalationRepository escalationRows;
         private final OrgAuditService audit;
 
         public EnterpriseHistoryRetentionWork(
             TalentApplicationEventRepository applications,
             TalentInterviewEventRepository interviews,
             MktSubmissionEventRepository submissions,
+            MktApprovalRequestRepository approvalRequests,
+            MktEscalationRepository escalationRows,
             OrgAuditService audit
         ) {
             this.applications = applications;
             this.interviews = interviews;
             this.submissions = submissions;
+            this.approvalRequests = approvalRequests;
+            this.escalationRows = escalationRows;
             this.audit = audit;
+        }
+
+        /** Deletes up to one page of this organization's decided or closed approval requests untouched since {@code cutoff}; returns how many went. */
+        @Transactional
+        public int purgeApprovalBatch(Long orgId, Instant cutoff) {
+            List<Long> ids = approvalRequests.purgeableIds(orgId, cutoff, PageRequest.of(0, BATCH));
+            return ids.isEmpty() ? 0 : approvalRequests.deleteByOrgIdAndIdIn(orgId, ids);
+        }
+
+        /** Deletes up to one page of this organization's resolved or dismissed escalations untouched since {@code cutoff} (their trail goes with them); returns how many went. */
+        @Transactional
+        public int purgeEscalationBatch(Long orgId, Instant cutoff) {
+            List<Long> ids = escalationRows.purgeableIds(orgId, cutoff, PageRequest.of(0, BATCH));
+            return ids.isEmpty() ? 0 : escalationRows.deleteByOrgIdAndIdIn(orgId, ids);
+        }
+
+        /** The one SYSTEM audit row of this run for this organization's Marketing Manager records: counts and the window, never content. */
+        @Transactional
+        public void recordMgmtPurge(MgmtResult r) {
+            audit.record(
+                r.orgId(),
+                OrgAuditService.SYSTEM_ACTOR,
+                null,
+                OrgAuditService.HISTORY_PURGED,
+                OrgAuditService.TARGET_ORG,
+                null,
+                String.valueOf(r.orgId()),
+                "months=" + r.months() + " mktApprovals=" + r.approvals() + " mktEscalations=" + r.escalations(),
+                null
+            );
         }
 
         /** Deletes up to one page of this organization's purgeable rows of {@code table} (never the newest of a record); returns how many went. */

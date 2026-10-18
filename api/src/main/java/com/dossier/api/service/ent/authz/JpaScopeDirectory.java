@@ -3,6 +3,9 @@ package com.dossier.api.service.ent.authz;
 import com.dossier.api.domain.enumeration.OrgGroupKind;
 import com.dossier.api.domain.enumeration.OrgMemberStatus;
 import com.dossier.api.repository.ent.OrgScopeRepository;
+import com.dossier.api.domain.enumeration.PermissionScope;
+import com.dossier.api.service.org.OrgMembership;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -74,6 +77,47 @@ public class JpaScopeDirectory implements ScopeDirectory {
         if (orgId == null || teamGroupIds == null || teamGroupIds.isEmpty()) return Set.of();
         Set<Long> out = new HashSet<>(repository.findLiveMemberIdsInGroups(orgId, teamGroupIds));
         out.addAll(repository.findLeadsOf(orgId, teamGroupIds)); // a lead counts as a member of the team they lead
+        return out;
+    }
+
+    /**
+     * The member ids {@code me} reaches with {@code permissionKey} at the scope they hold it (MM-01, "my team" of the Marketing Manager workspace): the caller,
+     * the live members linked to the teams and departments the scope covers, the leads of those groups and the consultants that have an effective assignment
+     * to any of them. Narrowed in SQL from the same queries {@code MemberAccess.visibleIds} uses; callers that need a guarantee (TeamScope does) confirm each id
+     * with {@link ScopeEvaluator#inScope}, so this can never show a row the single-row check refuses. Empty when the caller does not hold the key. An ORG scope
+     * answers every live member of the organization.
+     */
+    @Transactional(readOnly = true)
+    public Set<Long> membersInScope(OrgMembership me, String permissionKey) {
+        if (me == null || me.orgId() == null || me.memberId() == null) return Set.of();
+        PermissionScope scope = me.scopeFor(permissionKey).orElse(null);
+        if (scope == null) return Set.of();
+        Long orgId = me.orgId();
+        Set<Long> out = new HashSet<>();
+        if (scope == PermissionScope.ORG) {
+            out.addAll(repository.findLiveMemberIds(orgId));
+            return out;
+        }
+        out.add(me.memberId());
+        if (scope == PermissionScope.OWN) return out;
+        out.addAll(repository.findConsultantIdsWithEffectiveAssignments(orgId, Instant.now()));
+        if (scope == PermissionScope.TEAM || scope == PermissionScope.DEPARTMENT) {
+            Set<Long> groups = new HashSet<>(teamsLedBy(orgId, me.memberId()));
+            Optional<MemberFacts> mine = member(orgId, me.memberId());
+            mine.map(MemberFacts::teamGroupId).ifPresent(groups::add);
+            if (scope == PermissionScope.DEPARTMENT) {
+                Set<Long> departments = new HashSet<>(departmentsLedBy(orgId, me.memberId()));
+                mine.map(MemberFacts::departmentGroupId).ifPresent(departments::add);
+                groups.addAll(departments);
+                groups.addAll(teamsUnder(orgId, departments));
+            }
+            groups.remove(null);
+            if (!groups.isEmpty()) {
+                out.addAll(repository.findLiveMemberIdsLinkedToGroups(orgId, groups));
+                out.addAll(repository.findLeadsOf(orgId, groups));
+            }
+        }
+        out.remove(null);
         return out;
     }
 }

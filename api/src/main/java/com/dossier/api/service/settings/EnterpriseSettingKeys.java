@@ -127,6 +127,8 @@ public final class EnterpriseSettingKeys {
      * 0 = for the life of the record (decision D5). Read by {@code EnterpriseHistoryRetentionJob}; an organization may override it in {@code org_setting}.
      */
     public static final String HISTORY_RETENTION_MONTHS = "enterprise.history.retention_months";
+    /** Marketing Manager workspace (deferred/marketing-manager.md section 3, MM-01): months approval requests and escalations are kept. Read by {@code EnterpriseHistoryRetentionJob}; an organization may override it in {@code org_setting}. */
+    public static final String HISTORY_MKT_MGMT_MONTHS = "enterprise.history.mkt_mgmt_months";
     /**
      * Release 1, WP2 (docs/enterprise-v2/60 section 10): the most job detail an organization's pages may show, MINIMAL (facts and the link) or FULL.
      * The level actually shown is the lower of this and the job's stored {@code detail_level}; read by {@code JobDetailMapper} / {@code JobDetailCap}.
@@ -208,6 +210,8 @@ public final class EnterpriseSettingKeys {
         integer(k, PREPARE_SESSION_MINUTES, 240, 15, 1440, Risk.LOW, "Prepare selected openings: minutes a prepared batch keeps accepting progress events from the extension. An organization can override it in org_setting.");
         integer(k, HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW,
             "Months of organization application, interview and submission history kept; 0 keeps it as long as the record exists. Older rows are deleted nightly, but the newest row of every record is always kept. An organization can override it in org_setting.");
+        integer(k, HISTORY_MKT_MGMT_MONTHS, 36, 0, 120, Risk.LOW,
+            "Months a Marketing Manager approval request or escalation is kept after it was decided or closed; 0 keeps it as long as the organization exists. Older closed rows are deleted nightly (an open one never is). An organization can override it in org_setting.");
         integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
         integer(d, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
         integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
