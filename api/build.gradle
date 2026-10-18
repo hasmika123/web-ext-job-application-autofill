@@ -187,5 +187,42 @@ tasks.withType(Test).configureEach {
     systemProperty('dossier.test.uploads-root', layout.buildDirectory.dir('test-uploads').get().asFile.absolutePath)
 }
 
+// ---- integrationTest: memory + CI sharding ---------------------------------------------------------
+// The whole IT suite (~270 classes, each Spring context cached for the life of the JVM) does not fit in one
+// 1G JVM - it died with OutOfMemoryError on CI and, once the GC was thrashing, hit the job timeout. So:
+//   -PitHeap=3g          heap for the IT JVM (default 3g; a hosted runner has 16 GB)
+//   -PitForkEvery=N      fork a fresh JVM every N test classes (default 0 = never; each fork starts its own MySQL
+//                        container, so only use it if a shard still creeps up on its heap)
+//   -PitShard=i/N        run only shard i (1-based) of N. A class's shard is hashCode(outer class path) mod N, so
+//                        the split is deterministic, needs no list to maintain, and every class lands in exactly
+//                        one shard - the N shards together run exactly the tests a plain `integrationTest` does.
+// CI runs `integrationTest -x test -PitShard=i/5` as five parallel jobs (.github/workflows/ci.yml).
+tasks.named('integrationTest') {
+    maxHeapSize = (project.findProperty('itHeap') ?: '3g') as String
+    forkEvery = ((project.findProperty('itForkEvery') ?: '0') as String).toLong()
+    jvmArgs '-XX:+HeapDumpOnOutOfMemoryError', "-XX:HeapDumpPath=${layout.buildDirectory.dir('heapdumps').get().asFile.absolutePath}"
+    doFirst { layout.buildDirectory.dir('heapdumps').get().asFile.mkdirs() }
+
+    def shard = project.findProperty('itShard') as String
+    if (shard != null) {
+        def m = shard =~ /^(\d+)\/(\d+)$/
+        if (!m.matches()) throw new GradleException("-PitShard must look like 3/5, got '${shard}'")
+        int idx = m.group(1) as int
+        int total = m.group(2) as int
+        if (total < 1 || idx < 1 || idx > total) throw new GradleException("-PitShard ${shard}: need 1 <= i <= N")
+        // Same name rule as the unscoped include in the profile script ("**/*IT*", "**/*IntTest*"), plus the shard test.
+        // Inner classes (Foo$Bar.class) follow their outer class.
+        setIncludes([])
+        include { FileTreeElement e ->
+            if (e.directory) return true
+            def path = e.relativePath.pathString
+            if (!(e.name.contains('IT') || e.name.contains('IntTest'))) return false
+            def outer = path.contains('$') ? path.substring(0, path.indexOf('$')) : path.replaceFirst(/\.class$/, '')
+            return Math.floorMod(outer.hashCode(), total) == idx - 1
+        }
+        logger.lifecycle("integrationTest shard ${idx}/${total}")
+    }
+}
+
 compileJava.dependsOn processResources
 processResources.dependsOn bootBuildInfo
