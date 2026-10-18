@@ -146,7 +146,8 @@ class RetirementNoticeScheduleIT {
     @Test
     void theNoticeNamesTheClosestMatchWhenASuccessorIsRanked() throws Exception {
         RetirementFixtures.successorPlan(jdbc, "TS", "PRO");
-        Subscription s = yearly();
+        // a quarterly subscriber: TS is sold monthly and quarterly, and the advisor only suggests a plan that is sold at the subscriber's own interval (a yearly one gets no match)
+        Subscription s = RetirementFixtures.subscriber(users, subscriptions, plan.versionId(), "QUARTER", "active", 200, false, false);
         RetirementDTO d = retirements.create(new CreateRequest("PLAN", "TQ", null, null, null, null, null, null, null, null, RetirementFixtures.REASON, List.of(new SuccessorRequest("TS", null, 1, null))));
         RetirementDTO r = retirements.start(d.id(), new StartRequest(RetirementFixtures.REASON, "TQ"));
         Instant effective = item(r, s).getRetireEffectiveAt();
