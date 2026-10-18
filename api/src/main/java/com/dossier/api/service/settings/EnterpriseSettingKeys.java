@@ -144,7 +144,8 @@ public final class EnterpriseSettingKeys {
     /**
      * Prepare selected openings (docs/enterprise-v2/63, X12.2): the platform switch (default off), the most openings one consultant may prepare per UTC day and
      * per UTC month, the most in one request, and how long a session accepts events. The extension opens and fills the jobs in the consultant's own browser and
-     * stops; nothing is ever submitted for anyone. An organization may override each in {@code org_setting} ({@code enabled} only downwards).
+     * stops; nothing is ever submitted for anyone. The {@code enabled} switch is the MASTER switch: it only makes the feature available. Each organization then opts in itself
+     * (its own {@code org_setting} row of the same key, OFF until its Org Admin turns it on) and may set its own caps and batch size, never above the platform values.
      */
     public static final String PREPARE_ENABLED = "enterprise.autopilot.prepare.enabled";
     public static final String PREPARE_DAILY_CAP = "enterprise.autopilot.prepare.daily_cap";
@@ -209,10 +210,10 @@ public final class EnterpriseSettingKeys {
             null, Risk.HIGH));
         k.add(new Key(PREPARE_ENABLED, Type.BOOL, "false", null, null, null,
             "Prepare selected openings: a consultant ticks assigned openings and the browser extension opens each job in a new tab and fills it from the consultant's own profile, then stops. "
-                + "The consultant reviews, completes anything missing and presses the final button on the real site; Kiwiply never does it for them and never ticks an attestation box. Off = the feature does not exist. An organization can switch it off in org_setting.", null, Risk.HIGH));
-        integer(k, PREPARE_DAILY_CAP, 30, 1, 1000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC day. An organization can override it in org_setting.");
-        integer(k, PREPARE_MONTHLY_CAP, 300, 1, 10000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC calendar month. An organization can override it in org_setting.");
-        integer(k, PREPARE_MAX_BATCH, 10, 1, 50, Risk.LOW, "Prepare selected openings: the most openings in one request. An organization can override it in org_setting.");
+                + "The consultant reviews, completes anything missing and presses the final button on the real site; Kiwiply never does it for them and never ticks an attestation box. Off = the feature does not exist for anyone. On = available: each organization opts in itself (default off) on its Organization Settings page, and only consultants whose license includes the Autopilot prepare add-on can use it.", null, Risk.HIGH));
+        integer(k, PREPARE_DAILY_CAP, 30, 1, 1000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC day. This is the maximum: an organization can set its own lower number in org_setting.");
+        integer(k, PREPARE_MONTHLY_CAP, 300, 1, 10000, Risk.HIGH, "Prepare selected openings: the most openings one consultant may prepare per UTC calendar month. This is the maximum: an organization can set its own lower number in org_setting.");
+        integer(k, PREPARE_MAX_BATCH, 10, 1, 50, Risk.LOW, "Prepare selected openings: the most openings in one request. This is the maximum: an organization can set its own lower number in org_setting.");
         integer(k, PREPARE_SESSION_MINUTES, 240, 15, 1440, Risk.LOW, "Prepare selected openings: minutes a prepared batch keeps accepting progress events from the extension. An organization can override it in org_setting.");
         integer(k, HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW,
             "Months of organization application, interview and submission history kept; 0 keeps it as long as the record exists. Older rows are deleted nightly, but the newest row of every record is always kept. An organization can override it in org_setting.");

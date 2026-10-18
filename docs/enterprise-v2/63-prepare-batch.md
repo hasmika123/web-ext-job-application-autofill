@@ -16,9 +16,9 @@ Roadmap X12.2 (server and web) and X12.9 (extension). Two agents build against t
 | `enterprise.autopilot.prepare.max_batch` | INT | 10 | 1-50 | Most openings in one request. |
 | `enterprise.autopilot.prepare.session_minutes` | INT | 240 | 15-1440 | How long a session accepts events (added by this contract; nothing hard-coded). |
 
-An organization may override each in `org_setting` (same pattern as `org.license.resumes_max`); for `enabled` an organization can only switch OFF what the platform allows. The caps count prepared items, per consultant.
+**Org Admin control (decision 2026-10-18, supersedes the line that used to stand here).** The platform `enabled` value is the MASTER switch (Kiwiply admin): it only makes the feature available. Each organization then opts in itself with its own `org_setting` row of the same key, and that row is absent (= OFF) until its Org Admin turns it on on Organization Settings, "Prepare selected openings" (`GET`/`PUT /api/orgs/{orgId}/org-settings/prepare`, needs `org.settings.manage`, audited as `ORG_SETTINGS` with old and new values). The feature is on for an organization only when platform ON and organization ON. The organization may also set its own `daily_cap`, `monthly_cap` and `max_batch`; the platform value is the maximum (a higher number is kept at the maximum on save and clamped again on every read, so lowering the platform value lowers every organization). `session_minutes` stays a platform number. `PrepareBatchSettings` is the single reader. The caps count prepared items, per consultant.
 
-**Entitlement seam.** `PrepareBatchEntitlement.check(orgId, memberId)` is the single gate; today it answers allowed unless the flag is off. A later subscription add-on plugs in here. Subscription code is not touched.
+**Entitlement seam.** `PrepareBatchEntitlement.check(orgId, memberId)` is the single gate. It answers allowed only when (1) the platform master switch is on (`PLATFORM_OFF` otherwise), (2) the organization has opted in (`ORG_OFF`) and (3) the consultant's own live license carries the catalog add-on `automation.approved_apply` ("Autopilot prepare", a per-consultant feature of the E3 pricing; same pattern as `InboxEntitlement` for `inbox.monitoring`), else `NO_LICENSE`. The status route returns `enabled:false` with that `reason`; the Assigned Openings page shows no checkboxes and no bar, and one calm line for `ORG_OFF` and `NO_LICENSE` (nothing for `PLATFORM_OFF`). Subscription and billing code is not touched; only licenses are read.
 
 ## 2. API (consultant only; org from the host/token; generic 404 for everyone else)
 
@@ -65,4 +65,4 @@ Assigned Openings: a checkbox per eligible row and **Prepare selected (n)** (onl
 
 ## 5. Out of scope
 
-Subscription gating (the seam is left), cloud auto-apply (never), the extension implementation (X12.9), org-admin UI for the org overrides.
+Cloud auto-apply (never) and the extension implementation (X12.9). (Subscription gating and the Org Admin settings section are built: see sections 1 and 2.)

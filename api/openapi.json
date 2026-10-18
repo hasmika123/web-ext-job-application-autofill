@@ -1390,6 +1390,54 @@
         }
       }
     },
+    "/api/orgs/{orgId}/org-settings/prepare" : {
+      "get" : {
+        "tags" : [ "org-settings" ],
+        "summary" : "Prepare selected openings: this organization's switch and limits",
+        "description" : "{platformEnabled (the Kiwiply master switch), enabled (this organization has opted in; off by default), dailyCap, monthlyCap, maxBatch: {value, platformMax, min, custom}, licensed:{consultants, total, featureName}}. Needs org.settings.manage.",
+        "operationId" : "getPrepare",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgPrepareSettingsDTO"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "org-settings" ],
+        "summary" : "Change the Prepare selected openings settings",
+        "description" : "Partial body {enabled?, dailyCap?, monthlyCap?, maxBatch?}: an absent field is left alone, a null number goes back to the platform value. A number above the platform maximum is kept at the maximum (the reply shows it); below the minimum or not a whole number is 422 ORG_INVALID. 409 PREPARE_PLATFORM_OFF while Kiwiply has the feature off. One ORG_SETTINGS audit row with old and new values. Kiwiply never submits an application: the consultant always reviews and submits.",
+        "operationId" : "putPrepare",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/JsonNode"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/OrgPrepareSettingsDTO"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/orgs/{orgId}/org-settings/general" : {
       "put" : {
         "tags" : [ "org-settings" ],
@@ -25799,7 +25847,7 @@
       "get" : {
         "tags" : [ "consultant-prepare" ],
         "summary" : "Is Prepare selected on, and what is left of my limits",
-        "description" : "{enabled, maxBatch, remainingToday, remainingMonth, dailyCap, monthlyCap}. Used by the page only.",
+        "description" : "{enabled, maxBatch, remainingToday, remainingMonth, dailyCap, monthlyCap, reason}. enabled needs the platform switch, the organization's own opt-in and an Autopilot prepare add-on on my license; reason (PLATFORM_OFF, ORG_OFF, NO_LICENSE) says which is missing. Used by the page only.",
         "operationId" : "status_7",
         "responses" : {
           "200" : {
@@ -31231,6 +31279,65 @@
           "reasonMinChars" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "Licensed" : {
+        "type" : "object",
+        "properties" : {
+          "consultants" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "featureName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Limit" : {
+        "type" : "object",
+        "properties" : {
+          "value" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "platformMax" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "min" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "custom" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "OrgPrepareSettingsDTO" : {
+        "type" : "object",
+        "properties" : {
+          "platformEnabled" : {
+            "type" : "boolean"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "dailyCap" : {
+            "$ref" : "#/components/schemas/Limit"
+          },
+          "monthlyCap" : {
+            "$ref" : "#/components/schemas/Limit"
+          },
+          "maxBatch" : {
+            "$ref" : "#/components/schemas/Limit"
+          },
+          "licensed" : {
+            "$ref" : "#/components/schemas/Licensed"
           }
         }
       },
@@ -42220,6 +42327,9 @@
           "monthlyCap" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "reason" : {
+            "type" : "string"
           }
         }
       },

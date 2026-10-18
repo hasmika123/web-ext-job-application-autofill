@@ -16,6 +16,7 @@ import {
   fetchPrepareStatus,
   prepareBlock,
   prepareLabel,
+  reasonNote,
   sendPrepareBatch,
   skippedText,
   type PrepareCreated,
@@ -40,6 +41,8 @@ export interface PrepareUi {
   active: boolean;
   /** The feature is on but this screen is a phone / touch tablet: show the note instead. */
   phoneOnly: boolean;
+  /** One calm line when the feature is off for this consultant because the organization has not turned it on or the licence lacks it; null otherwise. */
+  note: string | null;
   status: PrepareStatus | null;
   selected: ReadonlySet<number>;
   /** Why this row cannot be ticked, or null. */
@@ -161,6 +164,7 @@ export function usePrepareBatch(orgId: number, rows: readonly OppRow[], loaded: 
   return {
     active,
     phoneOnly: enabled && compact,
+    note: status && !status.enabled ? reasonNote(status.reason) : null,
     status,
     selected: live,
     blockOf: prepareBlock,
@@ -185,6 +189,13 @@ export function usePrepareBatch(orgId: number, rows: readonly OppRow[], loaded: 
 /* ── the bar above the table ──────────────────────────────────────────────────────────── */
 
 export function PrepareBar({ p }: { p: PrepareUi }) {
+  if (p.note) {
+    return (
+      <p data-prepare-off-note className="mb-2 rounded-lg bg-paper-2 px-3 py-2 text-[12.5px] text-muted">
+        {p.note}
+      </p>
+    );
+  }
   if (p.phoneOnly) {
     return (
       <p data-prepare-phone-note className="mb-2 rounded-lg bg-paper-2 px-3 py-2 text-[12.5px] text-muted">

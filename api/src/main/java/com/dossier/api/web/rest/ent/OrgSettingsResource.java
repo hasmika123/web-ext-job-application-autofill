@@ -2,7 +2,9 @@ package com.dossier.api.web.rest.ent;
 
 import com.dossier.api.domain.enumeration.OrgPermission;
 import com.dossier.api.service.DemoGuard;
+import com.dossier.api.service.dto.ent.OrgPrepareSettingsDTO;
 import com.dossier.api.service.dto.ent.OrgSettingsDTO;
+import com.dossier.api.service.ent.settings.OrgPrepareSettingsService;
 import com.dossier.api.service.ent.settings.OrgSettingsService;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
@@ -28,10 +30,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrgSettingsResource {
 
     private final OrgSettingsService service;
+    private final OrgPrepareSettingsService prepare;
     private final DemoGuard demoGuard;
 
-    public OrgSettingsResource(OrgSettingsService service, DemoGuard demoGuard) {
+    public OrgSettingsResource(OrgSettingsService service, OrgPrepareSettingsService prepare, DemoGuard demoGuard) {
         this.service = service;
+        this.prepare = prepare;
         this.demoGuard = demoGuard;
     }
 
@@ -66,5 +70,27 @@ public class OrgSettingsResource {
     public ResponseEntity<OrgSettingsDTO> putSecurity(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @RequestBody JsonNode body) {
         demoGuard.assertNotDemo();
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(service.saveSecurity(me, body));
+    }
+
+    @Operation(
+        summary = "Prepare selected openings: this organization's switch and limits",
+        description = "{platformEnabled (the Kiwiply master switch), enabled (this organization has opted in; off by default), dailyCap, monthlyCap, maxBatch: {value, platformMax, min, custom}, licensed:{consultants, total, featureName}}. Needs org.settings.manage."
+    )
+    @GetMapping("/prepare")
+    @OrgPermissionRequired(OrgPermission.ORG_SETTINGS_MANAGE)
+    public ResponseEntity<OrgPrepareSettingsDTO> getPrepare(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(prepare.get(me));
+    }
+
+    @Operation(
+        summary = "Change the Prepare selected openings settings",
+        description = "Partial body {enabled?, dailyCap?, monthlyCap?, maxBatch?}: an absent field is left alone, a null number goes back to the platform value. A number above the platform maximum is kept at the maximum (the reply shows it); " +
+            "below the minimum or not a whole number is 422 ORG_INVALID. 409 PREPARE_PLATFORM_OFF while Kiwiply has the feature off. One ORG_SETTINGS audit row with old and new values. Kiwiply never submits an application: the consultant always reviews and submits."
+    )
+    @PutMapping("/prepare")
+    @OrgPermissionRequired(OrgPermission.ORG_SETTINGS_MANAGE)
+    public ResponseEntity<OrgPrepareSettingsDTO> putPrepare(@RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me, @RequestBody JsonNode body) {
+        demoGuard.assertNotDemo();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(prepare.save(me, body));
     }
 }

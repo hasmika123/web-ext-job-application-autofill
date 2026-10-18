@@ -252,6 +252,8 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/org-settings", Case.read()),
         Map.entry("PUT /api/orgs/{orgId}/org-settings/general", Case.write("{\"timeZone\":\"America/Chicago\"}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("PUT /api/orgs/{orgId}/org-settings/security", Case.write("{\"passwordMinLength\":10,\"reason\":\"Isolation check\"}", 200, OrgAuditService.ORG_SETTINGS)),
+        Map.entry("GET /api/orgs/{orgId}/org-settings/prepare", Case.read()),
+        Map.entry("PUT /api/orgs/{orgId}/org-settings/prepare", Case.write("{\"enabled\":true,\"dailyCap\":5}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("GET /api/orgs/{orgId}/resume-policy", Case.read()),
         Map.entry("PUT /api/orgs/{orgId}/resume-policy", Case.write("{\"consultantShareLinks\":true}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("GET /api/orgs/{orgId}/branding", Case.read()),
@@ -720,6 +722,8 @@ class OrgIsolationIT {
         // The Marketing workspace (mkt/**) answers the generic 404 to EVERYONE, the owner included, while the marketing module is off for the org: switched on here so that the
         // hostile callers below are refused by the tenant and permission checks themselves, and the legitimate calls really run the services.
         settingRows.save(new AppSetting(EnterpriseSettingKeys.FLAG_MARKETING, "{\"on\":true}", FLAG_WRITER, Instant.now()));
+        // Prepare selected openings: the Kiwiply master switch is on so the Org Admin's settings route can be changed by its owner (the organization itself starts opted out)
+        settingRows.save(new AppSetting(EnterpriseSettingKeys.PREPARE_ENABLED, "true", FLAG_WRITER, Instant.now()));
         settingsCache.invalidate();
     }
 
