@@ -74,6 +74,14 @@ public final class EnterpriseSettingKeys {
     public static final String ORG_PIPELINE_MAX_PER_REQUIREMENT = "org.pipeline.max_submissions_per_requirement";
     public static final String ORG_PIPELINE_OPEN_MATCHES_MAX = "org.pipeline.open_matches_max";
     public static final String ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK = "org.assignments.handover_open_work";
+    /**
+     * Sprint 2 / H-assign: the longest temporary cover (days) and how far ahead a handover may be scheduled (days); and the licence allowance
+     * {@code consultants.max}, the most consultants one marketer may carry whatever the capacity on the board says (0 = the licence sets no cap).
+     * An organization may override each in org_setting.
+     */
+    public static final String ORG_ASSIGNMENTS_DELEGATE_MAX_DAYS = "org.assignments.delegate_max_days";
+    public static final String ORG_ASSIGNMENTS_SCHEDULE_MAX_DAYS = "org.assignments.schedule_max_days";
+    public static final String ORG_LICENSE_CONSULTANTS_MAX = "org.license.consultants_max";
     /** Interviews page: how long a status change may be undone (minutes), the most interviewers one interview may list, and the minutes before a reminder may be requested again. An organization may override each in org_setting. */
     public static final String ORG_INTERVIEWS_UNDO_MINUTES = "org.interviews.undo_minutes";
     public static final String ORG_INTERVIEWS_MAX_DURATION_MINUTES = "org.interviews.max_duration_minutes";
@@ -231,6 +239,9 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_PIPELINE_OPEN_MATCHES_MAX, 0, 0, 1000, Risk.LOW, "Assignments: the most open opportunities one consultant may hold; the next assignment answers 409 ASSIGNMENT_CAP. 0 = off. An organization can override it in org_setting.");
         k.add(new Key(ORG_ASSIGNMENTS_HANDOVER_OPEN_WORK, Type.BOOL, "true", null, null, null,
             "Marketing Assignments: when a consultant moves to a new marketer, the open opportunities, tasks and follow-ups the previous marketer owned for that consultant move with them (audited, with a note on each). Off: only the assignment moves and the open work stays with the previous owner. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        integer(k, ORG_ASSIGNMENTS_DELEGATE_MAX_DAYS, 90, 1, 365, Risk.LOW, "Marketing Assignments: the longest temporary cover (days) that can be set when a marketer is away. The cover ends by itself on its end date and the consultant goes back. An organization can override it in org_setting.");
+        integer(k, ORG_ASSIGNMENTS_SCHEDULE_MAX_DAYS, 180, 1, 730, Risk.LOW, "Marketing Assignments: how far ahead (days) a handover to a new marketer may be scheduled. An organization can override it in org_setting.");
+        integer(k, ORG_LICENSE_CONSULTANTS_MAX, 0, 0, 500, Risk.MEDIUM, "Marketing Assignments, entitlement consultants.max: the most consultants one marketer may carry, whatever the capacity on the board says; assigning past it answers 409 CONSULTANTS_LIMIT and cannot be overridden. 0 = the licence sets no cap. The marketer license grants it; an organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_UNDO_MINUTES, 10, 1, 120, Risk.LOW, "Interviews: how many minutes a recorded status change may be undone. An organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_MAX_DURATION_MINUTES, 480, 15, 1440, Risk.LOW, "Interviews: the longest interview (minutes) that may be scheduled. An organization can override it in org_setting.");
         integer(k, ORG_INTERVIEWS_MAX_INTERVIEWERS, 6, 1, 20, Risk.LOW, "Interviews: the most interviewers one interview may list. An organization can override it in org_setting.");

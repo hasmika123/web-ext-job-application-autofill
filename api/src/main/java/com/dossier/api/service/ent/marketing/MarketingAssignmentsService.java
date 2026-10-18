@@ -108,6 +108,7 @@ public class MarketingAssignmentsService {
     private final Clock clock;
     private final MarketingSettings limits;
     private final AssignmentLifecycleService lifecycle;
+    private final AssignmentScheduleService schedules;
 
     @Autowired
     public MarketingAssignmentsService(
@@ -121,9 +122,10 @@ public class MarketingAssignmentsService {
         OrgAuditService audit,
         ObjectMapper json,
         MarketingSettings limits,
-        AssignmentLifecycleService lifecycle
+        AssignmentLifecycleService lifecycle,
+        AssignmentScheduleService schedules
     ) {
-        this(assignments, capacities, consultants, clients, board, access, roles, audit, json, limits, lifecycle, Clock.systemUTC());
+        this(assignments, capacities, consultants, clients, board, access, roles, audit, json, limits, lifecycle, schedules, Clock.systemUTC());
     }
 
     MarketingAssignmentsService(
@@ -138,10 +140,12 @@ public class MarketingAssignmentsService {
         ObjectMapper json,
         MarketingSettings limits,
         AssignmentLifecycleService lifecycle,
+        AssignmentScheduleService schedules,
         Clock clock
     ) {
         this.limits = limits;
         this.lifecycle = lifecycle;
+        this.schedules = schedules;
         this.assignments = assignments;
         this.capacities = capacities;
         this.consultants = consultants;
@@ -419,6 +423,7 @@ public class MarketingAssignmentsService {
         }
         long current = s.countFor(target.getMemberId());
         long projected = current + adds;
+        if (adds > 0) schedules.refuseOverLicence(orgId, target.getMemberId(), current, adds); // consultants.max: the licence cap is never waived by allowOverCapacity
         boolean over = projected > target.getCapacity();
         if (over && !Boolean.TRUE.equals(req.allowOverCapacity())) {
             Map<String, Object> extra = new LinkedHashMap<>();
@@ -661,6 +666,37 @@ public class MarketingAssignmentsService {
             results.add(new RowResult(id, true, null, previous));
         }
         return finish(me, ACTION_RESTORE, ids, results, false);
+    }
+
+    // ---- writes: reassign now or later, temporary cover (Sprint 2 / H-assign) ----------------------------------------------------------
+
+    /**
+     * Hands ONE consultant to another marketer. With no date (or one within a minute of now) it is the same change as {@link #assign}: history line, handover of the
+     * open work, capacity rules, projection, notices. A later date makes it a plan the scheduled job applies on that day (the same change, made by the job).
+     * A consultant the caller cannot reach is the generic 404.
+     */
+    @Transactional
+    public ReassignResult reassign(OrgMembership me, ReassignRequest req) {
+        gateWrite(me);
+        if (req == null) throw OrgException.invalid("body", "is required");
+        if (req.consultantId() == null || req.consultantId() <= 0) throw OrgException.invalid("consultantId", "is required");
+        if (req.newMarketerMemberId() == null) throw OrgException.invalid("newMarketerMemberId", "is required");
+        boolean allow = Boolean.TRUE.equals(req.allowOverCapacity());
+        Instant at = req.effectiveAt();
+        if (at == null || !at.isAfter(Instant.now(clock).plus(AssignmentScheduleService.NOW_GRACE))) {
+            BulkResult applied = assign(me, new AssignRequest(List.of(req.consultantId()), req.newMarketerMemberId(), null, null, null, allow, req.reason()));
+            if (applied.ok() == 0) throw new OrgNotFoundException();
+            return new ReassignResult("DONE", applied, null);
+        }
+        return new ReassignResult("SCHEDULED", null, schedules.scheduleReassign(me, req.consultantId(), req.newMarketerMemberId(), at, req.reason(), allow));
+    }
+
+    /** Temporary cover for one consultant: see {@link AssignmentScheduleService#delegate}. */
+    @Transactional
+    public Schedule delegate(OrgMembership me, DelegateRequest req) {
+        gateWrite(me);
+        if (req == null) throw OrgException.invalid("body", "is required");
+        return schedules.delegate(me, req.consultantId(), req.coverMarketerMemberId(), req.startsAt(), req.endsAt(), req.reason(), Boolean.TRUE.equals(req.allowOverCapacity()));
     }
 
     // ---- writes: marketers ---------------------------------------------------------------------------------------------------------
@@ -929,6 +965,15 @@ public class MarketingAssignmentsService {
         } else if (body instanceof UnassignRequest r) {
             reason(r.reason());
             cleanIds(orgId, r.consultantIds());
+        } else if (body instanceof ReassignRequest r) {
+            reason(r.reason());
+            if (r.consultantId() == null || r.consultantId() <= 0) throw OrgException.invalid("consultantId", "is required");
+            if (r.newMarketerMemberId() == null) throw OrgException.invalid("newMarketerMemberId", "is required");
+        } else if (body instanceof DelegateRequest r) {
+            reason(r.reason());
+            if (r.consultantId() == null || r.consultantId() <= 0) throw OrgException.invalid("consultantId", "is required");
+            if (r.coverMarketerMemberId() == null) throw OrgException.invalid("coverMarketerMemberId", "is required");
+            if (r.endsAt() == null) throw OrgException.invalid("endsAt", "is required for temporary cover");
         } else if (body instanceof RestoreRequest r) {
             if (r.rows() == null || r.rows().isEmpty()) throw OrgException.invalid("rows", "name at least one assignment");
         }
@@ -946,6 +991,9 @@ public class MarketingAssignmentsService {
     /** Writes the history line, moves the open work and keeps the org_assignment projection true (see AssignmentLifecycleService); notes what moved in the audit details. */
     private void track(OrgMembership me, Long consultantId, AssignmentLifecycleService.Snap before, MarketerAssignment after, String reason, String via, Map<String, Object> details) {
         AssignmentLifecycleService.Handover moved = lifecycle.record(me, consultantId, before, AssignmentLifecycleService.snap(after), reason, via);
+        if (before != null && (after == null || !java.util.Objects.equals(before.marketerMemberId(), after.getMarketerMemberId()))) {
+            schedules.onMarketerChanged(me.orgId(), consultantId, after == null ? null : after.getMarketerMemberId()); // a decision by hand ends a running cover and cancels what waited for a consultant who now has nobody
+        }
         if (moved.total() > 0) details.put("handover", moved.summary());
         if (reason != null) details.put("reason", reason);
     }

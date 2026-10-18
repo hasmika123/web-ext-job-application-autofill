@@ -23,6 +23,9 @@ public class MarketerAssignmentEvent implements Serializable {
     public static final String RESUME = "RESUME";
     public static final String PRIORITY = "PRIORITY";
     public static final String RESTORE = "RESTORE";
+    /** Temporary cover started and ended (Sprint 2 / H-assign). */
+    public static final String DELEGATE = "DELEGATE";
+    public static final String DELEGATE_END = "DELEGATE_END";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

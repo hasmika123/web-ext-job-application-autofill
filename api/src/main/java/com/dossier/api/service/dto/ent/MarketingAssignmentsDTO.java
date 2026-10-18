@@ -104,4 +104,38 @@ public final class MarketingAssignmentsDTO {
     ) {}
 
     public record History(Long consultantId, String consultantName, Person currentMarketer, Person currentBackup, List<HistoryItem> items) {}
+
+    // ---- planned changes: reassign now or later, temporary cover (Sprint 2 / H-assign) ----
+
+    /**
+     * Hand one consultant to another marketer. {@code effectiveAt} null, or not more than a minute ahead, applies it now (the same change as {@code /assign}, with its
+     * history, handover and capacity rules); a later date schedules it for the job to apply. {@code allowOverCapacity} only waives the board capacity, never the licence cap.
+     */
+    public record ReassignRequest(Long consultantId, Long newMarketerMemberId, Instant effectiveAt, String reason, Boolean allowOverCapacity) {}
+
+    /**
+     * Temporary cover: {@code coverMarketerMemberId} carries the consultant from {@code startsAt} (null = now) until {@code endsAt}, when the marketer they were taken from
+     * gets them back by itself. {@code endsAt} and a {@code reason} are required.
+     */
+    public record DelegateRequest(Long consultantId, Long coverMarketerMemberId, Instant startsAt, Instant endsAt, String reason, Boolean allowOverCapacity) {}
+
+    /** One plan: kind REASSIGN or DELEGATE, status SCHEDULED, ACTIVE, DONE, ENDED, CANCELLED or FAILED (the outcome says why a plan failed). */
+    public record Schedule(
+        Long id, Long consultantId, String consultantName, String kind, String status, Person newMarketer, Person returnMarketer, Person currentMarketer,
+        Instant startsAt, Instant endsAt, String reason, String outcome, Person createdBy, Instant createdAt, Instant appliedAt, Instant finishedAt
+    ) {}
+
+    public record ScheduleList(List<Schedule> items) {}
+
+    /** The answer of {@code /reassign}: status DONE with the per-consultant result, or SCHEDULED with the plan. */
+    public record ReassignResult(String status, BulkResult applied, Schedule schedule) {}
+
+    /**
+     * What the Reassign sheet shows before anything happens: how much open work would move (counts only), the new marketer's load against the board capacity and the
+     * licence cap, and the plans already pending for the consultant.
+     */
+    public record HandoverPreview(
+        Long consultantId, String consultantName, Person from, Person to, int opportunities, int tasks, int followups, int total, boolean handoverEnabled,
+        Integer toAssigned, Integer toCapacity, Integer licenceMax, boolean overCapacity, boolean overLicence, List<Schedule> pending
+    ) {}
 }

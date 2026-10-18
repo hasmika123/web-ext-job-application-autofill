@@ -493,6 +493,12 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/kpis", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/workload", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/marketing-assignments/consultants/{consultantId}/history", Case.read()),
+        // Sprint 2 / H-assign: reassign now or on a date, temporary cover, the plans, and the preview of what a handover moves.
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/handover-preview", Case.people(200, null, 1, null, null, w -> w.mktAssigned())),
+        Map.entry("GET /api/orgs/{orgId}/marketing-assignments/schedules", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/reassign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantId\":" + w.mktConsultantId + ",\"newMarketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/delegate", Case.people(200, "MARKETING_DELEGATE_START", 2, w -> "{\"consultantId\":" + w.mktConsultantId + ",\"coverMarketerMemberId\":" + w.mktCoverId + ",\"endsAt\":\"" + java.time.Instant.now().plus(java.time.Duration.ofDays(5)) + "\",\"reason\":\"Isolation check\"}", null, w -> w.mktCover())),
+        Map.entry("POST /api/orgs/{orgId}/marketing-assignments/schedules/{scheduleId}/cancel", Case.people(200, "MARKETING_SCHEDULE_CANCEL", 1, w -> null, null, w -> w.mktPlan())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/marketers", Case.people(201, "MARKETER_ADD", 1, w -> "{\"memberId\":" + w.mktFreshMarketer() + ",\"capacity\":9}", null, null)),
         Map.entry("PATCH /api/orgs/{orgId}/marketing-assignments/marketers/{memberId}", Case.people(200, "MARKETER_UPDATE", 1, w -> "{\"capacity\":7}", null, w -> w.mktCapacity())),
         Map.entry("POST /api/orgs/{orgId}/marketing-assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),
@@ -735,6 +741,7 @@ class OrgIsolationIT {
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantProfileRepository mktConsultants;
     @Autowired private com.dossier.api.repository.ent.talent.MarketerCapacityRepository mktCapacities;
     @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentRepository mktAssignments;
+    @Autowired private com.dossier.api.repository.ent.talent.MarketerAssignmentScheduleRepository mktSchedules;
     @Autowired private com.dossier.api.repository.ent.mkt.MktOpportunityRepository mktOpportunities;
 
     @Autowired private com.dossier.api.repository.ent.talent.ConsultantSkillRepository consultantSkills;
@@ -1241,6 +1248,36 @@ class OrgIsolationIT {
             mktConsultantId = mktConsultants.saveAndFlush(k).getId();
         }
 
+        /** H-assign: a second active marketer (a capacity row), who can cover. */
+        Long mktCoverId = 1L;
+
+        void mktCover() {
+            mktAssigned();
+            OrgMember seat = fx.active(org, p + "-mkt-cover", OrgRole.MARKETER);
+            roleService.syncFromLegacy(seat);
+            com.dossier.api.domain.ent.talent.MarketerCapacity c = new com.dossier.api.domain.ent.talent.MarketerCapacity();
+            c.setOrgId(org.getId());
+            c.setMemberId(seat.getId());
+            c.setCapacity(5);
+            mktCapacities.saveAndFlush(c);
+            mktCoverId = seat.getId();
+        }
+
+        /** H-assign: a handover planned for next month, which the cancel route removes. */
+        Long mktScheduleId = 1L;
+
+        void mktPlan() {
+            mktCover();
+            com.dossier.api.domain.ent.talent.MarketerAssignmentSchedule s = new com.dossier.api.domain.ent.talent.MarketerAssignmentSchedule();
+            s.setOrgId(org.getId());
+            s.setConsultantId(mktConsultantId);
+            s.setKind(com.dossier.api.domain.ent.talent.MarketerAssignmentSchedule.REASSIGN);
+            s.setStatus(com.dossier.api.domain.ent.talent.MarketerAssignmentSchedule.SCHEDULED);
+            s.setNewMarketerMemberId(mktCoverId);
+            s.setStartsAt(java.time.Instant.now().plus(java.time.Duration.ofDays(30)));
+            mktScheduleId = mktSchedules.saveAndFlush(s).getId();
+        }
+
         void mktAssigned() {
             mktCapacity();
             com.dossier.api.domain.ent.talent.MarketerAssignment a = new com.dossier.api.domain.ent.talent.MarketerAssignment();
@@ -1560,6 +1597,8 @@ class OrgIsolationIT {
             ids.put("mktPrepItemId", String.valueOf(mktPrepItemId));
             ids.put("mktResumeId", String.valueOf(resumeId)); // {id} of mkt/resumes
             ids.put("mktBuilderConsultantId", String.valueOf(cwsConsultantId)); // {consultantId} of mkt/resumes/consultants/...: the owner's own consultant profile, which has a seat and an account (act-for needs one)
+            ids.put("mktConsultantIdValue", String.valueOf(mktConsultantId));
+            ids.put("scheduleId", String.valueOf(mktScheduleId)); // H-assign: a planned handover
             ids.put("streamId", String.valueOf(mktStreamId));
             ids.put("searchId", String.valueOf(mktSearchId));
             ids.put("ruleKey", "DEFAULT_KEYWORDS"); // a fixed word of the stream rules, not a row
@@ -1627,6 +1666,7 @@ class OrgIsolationIT {
         if (pattern.contains("/me-workspace/")) {
             pattern = pattern.replace("{matchId}", "{cwsMatchId}").replace("{resumeId}", "{cwsResumeId}").replace("{requirementId}", "{cwsRequirementId}").replace("{applicationId}", "{cwsApplicationId}").replace("{interviewId}", "{cwsInterviewId}");
         }
+        if (route.pattern().endsWith("/marketing-assignments/handover-preview")) pattern += "?consultantId={mktConsultantIdValue}"; // the required parameter: a made-up id answers the same generic 404
         if (route.pattern().endsWith("/mkt/matches/compare")) pattern += "?a={mktMatchId}&b={matchId}"; // two different matches (the second is the jobs page's), both required query parameters
         Matcher m = VAR.matcher(pattern);
         StringBuilder out = new StringBuilder();

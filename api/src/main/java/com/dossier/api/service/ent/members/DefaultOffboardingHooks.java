@@ -1,6 +1,7 @@
 package com.dossier.api.service.ent.members;
 
 import com.dossier.api.domain.org.DataShareEvent;
+import com.dossier.api.service.ent.marketing.MarketerOffboardingService;
 import com.dossier.api.service.dto.ent.MemberActionDTO;
 import com.dossier.api.service.org.DataShareService;
 import jakarta.persistence.EntityManager;
@@ -11,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -51,9 +53,9 @@ public final class DefaultOffboardingHooks {
     }
 
     /**
-     * Step 200, the assignments extension point (X4.7). The preview already reads the real open assignments so the wizard can warn; the apply
-     * does not touch them yet (the assignment lifecycle with its reassignment history chain belongs to X4.7, which replaces this bean). The
-     * reassignments the request carried are recorded in the offboarding audit row.
+     * Step 200, the assignments step. The preview reads the real open assignments so the wizard can warn. The apply hands the leaving marketer's consultants
+     * over through the same lifecycle as the Marketing Assignments board ({@link MarketerOffboardingService}): the reassignments of the request first, then
+     * the backup (or nobody) for everyone else, then plans that involve the person are cancelled or ended. Without that service (a bare unit test) it only logs.
      */
     @Component
     public static class Assignments implements OffboardingHook {
@@ -62,6 +64,13 @@ public final class DefaultOffboardingHooks {
 
         @PersistenceContext
         private EntityManager em;
+
+        private MarketerOffboardingService marketers;
+
+        @Autowired(required = false)
+        void setMarketers(MarketerOffboardingService marketers) {
+            this.marketers = marketers;
+        }
 
         @Override
         public int getOrder() {
@@ -79,21 +88,42 @@ public final class DefaultOffboardingHooks {
             long asConsultant = count(orgId, "a.consultantMemberId = :id", memberId, now);
             long asAssignee = count(orgId, "a.assigneeMemberId = :id", memberId, now);
             long primary = count(orgId, "a.assigneeMemberId = :id and a.kind = com.dossier.api.domain.enumeration.AssignmentKind.PRIMARY", memberId, now);
-            if (asConsultant == 0 && asAssignee == 0) return List.of();
-            Map<String, Object> data = new LinkedHashMap<>();
-            data.put("asConsultant", asConsultant);
-            data.put("asAssignee", asAssignee);
-            data.put("primaryAsAssignee", primary);
-            String text = asAssignee > 0
-                ? asAssignee + " consultant assignment(s) will need a new marketer"
-                : asConsultant + " marketer assignment(s) to them will end";
-            return List.of(new MemberActionDTO.HookLine(key(), "ASSIGNMENTS", text, data));
+            List<MemberActionDTO.HookLine> lines = new java.util.ArrayList<>();
+            if (asConsultant > 0 || asAssignee > 0) {
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("asConsultant", asConsultant);
+                data.put("asAssignee", asAssignee);
+                data.put("primaryAsAssignee", primary);
+                String text = asAssignee > 0
+                    ? asAssignee + " consultant assignment(s) will need a new marketer"
+                    : asConsultant + " marketer assignment(s) to them will end";
+                lines.add(new MemberActionDTO.HookLine(key(), "ASSIGNMENTS", text, data));
+            }
+            if (marketers != null) {
+                MarketerOffboardingService.Result r = marketers.preview(orgId, memberId);
+                if (r.unassigned() > 0 || r.backupCleared() > 0) {
+                    Map<String, Object> data = new LinkedHashMap<>();
+                    data.put("asMarketer", r.unassigned());
+                    data.put("asBackup", r.backupCleared());
+                    String text = r.unassigned() + " consultant(s) lose this marketer: those named below get the new marketer, the rest go to their backup, or to nobody when they have none"
+                        + (r.backupCleared() > 0 ? "; " + r.backupCleared() + " lose this person as their backup" : "");
+                    lines.add(new MemberActionDTO.HookLine(key(), "MARKETER_CONSULTANTS", text, data));
+                }
+            }
+            return lines;
         }
 
         @Override
         public void apply(Context context) {
-            if (context.reassignments() != null && !context.reassignments().isEmpty()) {
-                LOG.info("Offboarding org={} member={}: {} reassignment(s) recorded; applied by the assignments module (X4.7)", context.orgId(), context.memberId(), context.reassignments().size());
+            if (marketers == null) {
+                if (context.reassignments() != null && !context.reassignments().isEmpty()) {
+                    LOG.info("Offboarding org={} member={}: {} reassignment(s) not applied (no assignment lifecycle in this context)", context.orgId(), context.memberId(), context.reassignments().size());
+                }
+                return;
+            }
+            MarketerOffboardingService.Result r = marketers.apply(context.orgId(), context.memberId(), context.actorLogin(), context.reason(), context.reassignments());
+            if (r.total() > 0 || r.skipped() > 0) {
+                LOG.info("Offboarding org={} member={}: {} reassigned, {} to backup, {} unassigned, {} backup cleared, {} plan(s), {} skipped", context.orgId(), context.memberId(), r.reassigned(), r.promotedBackup(), r.unassigned(), r.backupCleared(), r.plans(), r.skipped());
             }
         }
 

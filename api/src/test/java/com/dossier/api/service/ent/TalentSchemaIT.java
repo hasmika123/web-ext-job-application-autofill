@@ -249,6 +249,6 @@ class TalentSchemaIT {
             }
         }
         assertThat(checked).isGreaterThan(40);
-        assertThat(scanner.findCandidateComponents("com.dossier.api.repository.ent.talent")).hasSize(25);
+        assertThat(scanner.findCandidateComponents("com.dossier.api.repository.ent.talent")).hasSize(27);
     }
 }

@@ -3,6 +3,7 @@ package com.dossier.api.web.rest.ent;
 import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.dto.ent.MarketingAssignmentsDTO;
 import com.dossier.api.service.ent.IdempotencyService;
+import com.dossier.api.service.ent.marketing.AssignmentScheduleService;
 import com.dossier.api.service.ent.marketing.MarketingAssignmentsService;
 import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
@@ -34,10 +35,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrgMarketingAssignmentsResource {
 
     private final MarketingAssignmentsService service;
+    private final AssignmentScheduleService plans;
     private final IdempotencyService idempotency;
     private final DemoGuard demoGuard;
 
-    public OrgMarketingAssignmentsResource(MarketingAssignmentsService service, IdempotencyService idempotency, DemoGuard demoGuard) {
+    public OrgMarketingAssignmentsResource(MarketingAssignmentsService service, AssignmentScheduleService schedules, IdempotencyService idempotency, DemoGuard demoGuard) {
+        this.plans = schedules;
         this.service = service;
         this.idempotency = idempotency;
         this.demoGuard = demoGuard;
@@ -224,6 +227,83 @@ public class OrgMarketingAssignmentsResource {
         return run(me, key, request, body, () -> service.restore(me, body));
     }
 
+    @Operation(
+        summary = "What a handover would move",
+        description = "workload.view or assignments.manage, for a consultant whose current marketer is inside the caller's scope. Query: consultantId, toMemberId (optional). Counts only (open opportunities, tasks and follow-ups " +
+            "the current marketer owns for that consultant), whether the handover switch is on, the new marketer's load against the board capacity and the licence cap consultants.max, and the plans already pending. Reads only."
+    )
+    @GetMapping("/handover-preview")
+    @OrgPermissionRequired
+    public MarketingAssignmentsDTO.HandoverPreview handoverPreview(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestParam(name = "consultantId") Long consultantId,
+        @RequestParam(name = "toMemberId", required = false) Long toMemberId
+    ) {
+        return plans.preview(me, consultantId, toMemberId);
+    }
+
+    @Operation(
+        summary = "Reassign one consultant now or on a future date",
+        description = "assignments.manage at a scope covering the current and the new marketer. Body: consultantId, newMarketerMemberId, effectiveAt (optional; none or within a minute of now = now, a later date schedules it, at most org.assignments.schedule_max_days ahead), " +
+            "reason (optional, 200 characters), allowOverCapacity. Now: the same change as /assign (answer status DONE with the per-consultant result). Later: a plan the scheduled job applies that day (status SCHEDULED with the plan; history, handover and audit written then). " +
+            "409 OVER_CAPACITY (waivable), 409 CONSULTANTS_LIMIT (the licence cap, never waivable), 409 SCHEDULE_EXISTS, 409 ALREADY_MARKETER. Idempotency-Key required."
+    )
+    @PostMapping("/reassign")
+    @OrgPermissionRequired
+    public ResponseEntity<MarketingAssignmentsDTO.ReassignResult> reassign(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestHeader(value = "Idempotency-Key", required = false) String key,
+        @RequestBody MarketingAssignmentsDTO.ReassignRequest body,
+        HttpServletRequest request
+    ) {
+        return runAs(me, key, request, body, MarketingAssignmentsDTO.ReassignResult.class, () -> service.reassign(me, body));
+    }
+
+    @Operation(
+        summary = "Temporary cover for one consultant",
+        description = "assignments.manage at a scope covering the current marketer and the cover. Body: consultantId, coverMarketerMemberId, startsAt (optional, default now), endsAt (required, after the start, at most org.assignments.delegate_max_days later), " +
+            "reason (required, 3 to 200 characters), allowOverCapacity. From the start the cover is the consultant's marketer and the open work moves to them; on the end date the scheduled job gives the consultant back to the marketer they were taken from, with the open work. " +
+            "One cover per consultant at a time (409 SCHEDULE_EXISTS). Idempotency-Key required."
+    )
+    @PostMapping("/delegate")
+    @OrgPermissionRequired
+    public ResponseEntity<MarketingAssignmentsDTO.Schedule> delegate(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestHeader(value = "Idempotency-Key", required = false) String key,
+        @RequestBody MarketingAssignmentsDTO.DelegateRequest body,
+        HttpServletRequest request
+    ) {
+        return runAs(me, key, request, body, MarketingAssignmentsDTO.Schedule.class, () -> service.delegate(me, body));
+    }
+
+    @Operation(
+        summary = "Planned handovers and running cover",
+        description = "workload.view or assignments.manage. Query: consultantId (optional; one consultant, who must be inside the caller's scope). The plans still waiting (SCHEDULED) or running (ACTIVE), soonest first, limited to marketers inside the caller's scope."
+    )
+    @GetMapping("/schedules")
+    @OrgPermissionRequired
+    public MarketingAssignmentsDTO.ScheduleList schedules(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestParam(name = "consultantId", required = false) Long consultantId
+    ) {
+        return plans.list(me, consultantId);
+    }
+
+    @Operation(
+        summary = "Cancel a planned change, or end a cover now",
+        description = "assignments.manage at a scope covering the marketer. A plan that has not started is cancelled; a running cover ends now and the consultant goes back to the marketer they were taken from. 409 NOT_PENDING for a plan that is over. One audit row. Idempotency-Key required."
+    )
+    @PostMapping("/schedules/{scheduleId}/cancel")
+    @OrgPermissionRequired
+    public ResponseEntity<MarketingAssignmentsDTO.Schedule> cancelSchedule(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @PathVariable Long scheduleId,
+        @RequestHeader(value = "Idempotency-Key", required = false) String key,
+        HttpServletRequest request
+    ) {
+        return runAs(me, key, request, java.util.Map.of("scheduleId", scheduleId), MarketingAssignmentsDTO.Schedule.class, () -> plans.cancel(me, scheduleId));
+    }
+
     private ResponseEntity<MarketingAssignmentsDTO.BulkResult> run(
         OrgMembership me,
         String key,
@@ -231,12 +311,14 @@ public class OrgMarketingAssignmentsResource {
         Object body,
         Supplier<MarketingAssignmentsDTO.BulkResult> work
     ) {
+        return runAs(me, key, request, body, MarketingAssignmentsDTO.BulkResult.class, work);
+    }
+
+    private <T> ResponseEntity<T> runAs(OrgMembership me, String key, HttpServletRequest request, Object body, Class<T> type, Supplier<T> work) {
         demoGuard.assertNotDemo();
         service.gateWrite(me); // the permission wall first: an unauthorised caller never learns about the header
         service.validate(me.orgId(), body); // then the shape of the body, outside any transaction
-        IdempotencyService.Outcome<MarketingAssignmentsDTO.BulkResult> out = idempotency.execute(
-            me, key, true, "POST", request.getRequestURI(), body, 200, MarketingAssignmentsDTO.BulkResult.class, work
-        );
+        IdempotencyService.Outcome<T> out = idempotency.execute(me, key, true, "POST", request.getRequestURI(), body, 200, type, work);
         ResponseEntity.BodyBuilder ok = ResponseEntity.status(out.status());
         if (out.replayed()) ok.header("Idempotent-Replayed", "true");
         return ok.body(out.body());
