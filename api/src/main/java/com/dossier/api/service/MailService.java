@@ -227,6 +227,40 @@ public class MailService {
     }
 
     /**
+     * Privacy (T1.3): the three moments of a self-service account deletion. {@code stage} is SCHEDULED, CANCELLED or COMPLETED; {@code when} is the readable date and time the
+     * erasure becomes final (SCHEDULED only, null otherwise). It goes to {@code to}, the account's own address (for COMPLETED, the address read just before the erasure), carries no
+     * name and no account data, and a failure is logged without the address and never fails the caller.
+     */
+    @Async
+    public void sendAccountDeletionEmail(String to, String stage, String when) {
+        if (to == null || to.isBlank()) return;
+        try {
+            String key = "email.deletion." + stage.toLowerCase(Locale.ROOT) + ".";
+            Locale locale = Locale.ENGLISH;
+            boolean scheduled = "SCHEDULED".equals(stage);
+            Object[] args = scheduled ? new Object[] { when } : null;
+            String base = jHipsterProperties.getMail().getBaseUrl();
+            Context context = new Context(locale);
+            String subject = messageSource.getMessage(key + "title", args, locale);
+            context.setVariable("subject", subject);
+            context.setVariable("pre", messageSource.getMessage(key + "pre", args, locale));
+            context.setVariable("kicker", messageSource.getMessage(key + "kicker", null, locale));
+            context.setVariable("line1", messageSource.getMessage(key + "l1", null, locale));
+            context.setVariable("line2", messageSource.getMessage(key + "l2", null, locale));
+            context.setVariable("intro", messageSource.getMessage(key + "intro", args, locale));
+            context.setVariable("button", messageSource.getMessage(key + "button", null, locale));
+            context.setVariable("stripTitle", messageSource.getMessage(key + "strip.title", null, locale));
+            context.setVariable("stripText", messageSource.getMessage(key + "strip.text", args, locale));
+            context.setVariable("footer", messageSource.getMessage(key + "notyou", null, locale));
+            context.setVariable("link", scheduled ? base + "/settings" : base);
+            context.setVariable("assetBase", base + "/email"); // the art lives in web/public/email
+            sendEmailSync(to, subject, templateEngine.process("mail/accountDeletionEmail", context), false, true);
+        } catch (RuntimeException e) {
+            LOG.warn("Account-deletion e-mail could not be sent ({})", e.getClass().getSimpleName());
+        }
+    }
+
+    /**
      * O2.2: an organization invited someone by email. Goes to the invited ADDRESS (they may not have an account yet), so it
      * does not take a {@link User}. Says who invited them, what role, what the org pays for, when the link stops working and
      * the "Not you?" line (onboarding-invites.md section 3.2). The link carries the one-time token; it is never logged.

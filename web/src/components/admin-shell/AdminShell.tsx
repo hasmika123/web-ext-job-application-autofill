@@ -28,6 +28,7 @@ import {
   MessageIcon,
   MonitorIcon,
   SearchIcon,
+  ShieldCheckIcon,
   ShieldIcon,
   SignOutIcon,
   UsersIcon,
@@ -65,6 +66,7 @@ const NAV: NavItem[] = [
   { href: "/admin/subscribers", label: "Email", icon: <MailIcon className={ICON} /> },
   { href: "/admin/bug-reports", label: "Bug reports", icon: <BugIcon className={ICON} /> },
   { href: "/admin/inquiries", label: "Inquiries", icon: <MessageIcon className={ICON} /> },
+  { href: "/admin/subprocessors", label: "Subprocessors", icon: <ShieldCheckIcon className={ICON} /> },
   { href: "/admin/system", label: "System", icon: <MonitorIcon className={ICON} /> },
   { href: "/admin/audit", label: "Audit log", icon: <FileTextIcon className={ICON} /> },
 ];
