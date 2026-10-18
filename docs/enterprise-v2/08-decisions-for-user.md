@@ -126,3 +126,28 @@ Story-level notes from Task 5: **D2** keeps X12.2/X12.9 (Autopilot feed for assi
 | # | Question | Answer | Notes |
 |---|---|---|---|
 | **A1** | **Who may a marketer act for?** (security review of the org Resume Builder's act-for mechanism) | **STRICT (user, answered 2026-10-15):** act-for editing and marketer-create work only when the consultant's sign-in is a real ENTERPRISE account of the host organization (`user.org_id` = host org, decision O4's separate-accounts model). A personal account behind a legacy SHARED seat is never acted for or prepared for. | Act-for on any other account is the generic 404; marketer-create answers 409 `CONSULTANT_HAS_NO_ACCOUNT`, and the picker shows the consultant as having no account. The gate also needs an ACTIVE consultant profile, an ACTIVE seat, an activated account and a token whose `tid` equals the host organization. Code: `ActForBuilderGate`, `MktResumeBuilderService.accountOf`. |
+
+## Deferred-areas decisions (Fable, 2026-10-17, branch `ent-deferred-design`) — "Decided (recommended), revisit if you disagree"
+
+> The user asked to complete every pending enterprise area without waiting. Each row below was decided on the recommended
+> option and is applied in `docs/enterprise-v2/deferred/*`. Change the Decision cell and the owning doc follows.
+
+| # | Question | Decision (recommended) | Where |
+|---|---|---|---|
+| **DD-1** | How do Marketing Manager approvals work? | One generic `mkt_approval_request` (OPPORTUNITY_ASSIGN, DUPLICATE_OVERRIDE, RESUME_RELEASE) decided by `approvals.decide` at TEAM; holds sit behind org settings whose defaults change nothing today (`org.pipeline.manager_approval` NEVER; `org.pipeline.duplicate_policy` gains REQUIRE_APPROVAL, default WARN; `org.resumes.manager_review` false). A manager never replaces the consultant's own resume approval and never authorizes a submission (E1). | `deferred/marketing-manager.md` §4.1 |
+| **DD-2** | What is an escalation? | `mkt_escalation` rows raised by a 15-min rules job (stalled opportunity, overdue follow-up, unanswered consultant question, overloaded marketer, approval aging) and by manual "Escalate" from marketers/consultants; auto-resolved when the condition clears; thresholds are org settings. | §4.2 |
+| **DD-3** | Who is in a manager's team? | The existing TEAM/DEPARTMENT scope rule (`ScopeDirectory`/`ScopeEvaluator`), admins at ORG see everything; no new permission keys. | §1 |
+| **DD-4** | Doc 36 tables vs the built ops data foundation (`hr_*`, `finance_*`, `report_*`). | **The foundation wins**; doc 36's rules (E2, verbs, scanner, retention) stay. `employment_record`, `hr_task`, `hr_checklist_template` (36 §2) are not created; `hr_checklist_template` is added in a reduced form. | `deferred/org-admin-pages.md` §0, §1 |
+| **DD-5** | `hr_document_requirement.doc_type` labels (ID_VERIFICATION, TAX_FORM, DIRECT_DEPOSIT…) under E2. | Keep as **status-only** labels of things tracked elsewhere; the UI says so; never a number, file or date. `HrNeverCollectedTest` guards the columns. | §1.1 |
+| **DD-6** | Finance workspace Timesheets/Approvals = product H week view or the monthly `finance_timesheet` records? | The monthly records (approve/reject with reason). Product-H embedding (X11.9) stays out of scope. | §2.2 |
+| **DD-7** | Reports library "manage" permission and formats. | `reports.export` doubles as manage (no new key); CSV only in v1; scheduled runs notify in-app, never e-mail files. | §3 |
+| **DD-8** | Integrations v1 scope. | Outbound webhooks (40 §9.2) + two-phase CSV import/export of consultants and requirements. No OAuth, no Google API, no inbound API keys, no third-party "sync". | §4 |
+| **DD-9** | Executive dashboard. | The org dashboard projected to counts with a k-anonymity floor (`org.analytics.k_min` 5) through the existing widget registry; Reports = shared page, family `exec`. | §5 |
+| **DD-10** | Ask-token transport (B1). | (a) query `t`, dedicated `DOSSIER_ASK_TOKEN`, masked in logs. | `deferred/custom-domains.md` §1 |
+| **DD-11** | dnsjava (B7). | (a) add it, API only. | §1 |
+| **DD-12** | Sell custom domains at launch? Apex? Google per host? | Yes, behind `flag.enterprise.domains` per org (platform admin allows after the setup fee); apex supported with a subdomain recommendation (B4 a); Google sign-in per host out of scope (E14 a). | §1 |
+| **DD-13** | Org billing pages before X6.12/K6. | Read the mirror tables now; no Stripe call on a page read. | `deferred/org-billing-pages.md` §1 |
+| **DD-14** | Licence changes before the Stripe applier. | Quote → confirm through `OrgLicenseChangeService` + `LocalBillingApplier` (`source = LOCAL`); the Stripe applier plugs into the same `LicenseChangeApplier` seam (X6.6/X6.7); seat TRANSFER / interval / plan-version stay K6. | §1 |
+| **DD-15** | Invoices and portal. | `org_invoice` mirror list; the customer portal is the only Stripe call and is disabled (409 `BILLING_NOT_CONNECTED`) until X6.12 sets the Stripe customer. E17 (monthly only) stays until K9.5. | §1 |
+
+**CLAUDE.md conflicts found:** none. The design keeps no-submit, no sensitive PII, record-only money, no OAuth/Google, no scraping, admin-configured limits and the `@kiwiply/ui` rule. Doc-level conflicts (36 vs the ops foundation; X12.7's `report_schedule` vs the built `report_definition` schedule columns; X12.3's `webhook_delivery` vs 41's `org_webhook_delivery` — we use `org_webhook_delivery`) are resolved above.
