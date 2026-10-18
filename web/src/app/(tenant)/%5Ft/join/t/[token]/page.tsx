@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import JoinInvite from "@/components/ent/join/JoinInvite";
 import TenantLogo from "@/components/ent/login/TenantLogo";
+import { LoginBackdrop } from "@/components/ent/login/AuthBackdrop";
 import { serverApiFetch } from "@/lib/api";
 import { getTenantSession } from "@/lib/ent/tenant-session";
 import { parsePreview } from "@/lib/ent/join";
@@ -44,8 +45,9 @@ export default async function TenantJoinPage({ params }: { params: Promise<{ tok
 
   if (!preview) {
     return (
-      <main className="tenant-sky grid min-h-dvh place-items-center px-4 py-10 text-[var(--brand-900)]" data-tenant-join-unavailable>
-        <div className="tenant-card w-full max-w-[520px] rounded-[24px] bg-white px-6 py-9 text-center sm:px-10">
+      <main className="tenant-sky relative isolate grid min-h-dvh place-items-center px-4 pb-10 pt-[min(70vw,273px)] text-[var(--brand-900)] md:justify-items-end md:py-10 md:pr-[clamp(12px,5vw,96px)]" data-tenant-join-unavailable>
+        <LoginBackdrop />
+        <div className="tenant-glass w-full max-w-[520px] rounded-[28px] px-6 py-9 text-center sm:px-10">
           <div className="mb-6 flex justify-center">
             <TenantLogo name={name} logoUrl={logoUrl} />
           </div>
