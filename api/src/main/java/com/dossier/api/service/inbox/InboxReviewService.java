@@ -71,6 +71,19 @@ public class InboxReviewService {
 
     public record Settings(boolean applyRejectionsAutomatically) {}
 
+    /** The newest inbox change on an application and whether it can still be undone (read-only). */
+    public record UndoState(Long eventId, boolean undoable) {}
+
+    /**
+     * Read-only: the undo state of an application's newest inbox change. The consultant's Inbox page asks here instead of holding
+     * {@code ApplicationEventService} itself, because the organization side (service.ent / service.org) must never depend on a service that
+     * writes an application ({@code NoSubmitSurfaceTest}).
+     */
+    public UndoState undoStateOf(Long applicationId) {
+        ApplicationEventService.InboxUndoState u = events.inboxUndo(applicationId);
+        return u == null ? null : new UndoState(u.eventId(), u.undoable());
+    }
+
     public static final String CODE_UNDO_EXPIRED = "UNDO_EXPIRED";
     public static final String CODE_CHANGED_SINCE = "CHANGED_SINCE";
     public static final String CODE_HOLD_CLOSED = "HOLD_CLOSED";

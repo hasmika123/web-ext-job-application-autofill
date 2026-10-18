@@ -8,7 +8,6 @@ import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.InboxMessageRepository;
 import com.dossier.api.repository.InterviewRepository;
-import com.dossier.api.service.ApplicationEventService;
 import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ent.authz.AuthorizationService;
 import com.dossier.api.service.ent.authz.AuthzOperation;
@@ -73,8 +72,6 @@ public class ConsultantInboxService {
     private final DemoGuard demoGuard;
     private final InboxReviewService review;
     private final InterviewRepository interviewRows;
-    private final ApplicationEventService eventService;
-
     public ConsultantInboxService(
         ConsultantHomeService gate,
         AuthorizationService authorization,
@@ -86,11 +83,9 @@ public class ConsultantInboxService {
         ImapGateway imap,
         DemoGuard demoGuard,
         InboxReviewService review,
-        InterviewRepository interviewRows,
-        ApplicationEventService eventService
+        InterviewRepository interviewRows
     ) {
         this.interviewRows = interviewRows;
-        this.eventService = eventService;
         this.review = review;
         this.gate = gate;
         this.authorization = authorization;
@@ -269,7 +264,7 @@ public class ConsultantInboxService {
     }
 
     private UpdateUndo undoOf(Long applicationId) {
-        ApplicationEventService.InboxUndoState u = eventService.inboxUndo(applicationId);
+        InboxReviewService.UndoState u = review.undoStateOf(applicationId);
         return u == null ? null : new UpdateUndo(String.valueOf(u.eventId()), u.undoable());
     }
 
