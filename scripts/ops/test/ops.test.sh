@@ -173,7 +173,7 @@ fi
 # The deploy, host-guard, encryption and uploads-backup tests (sprint 2 B3), the binlog shipping +
 # restore-drill tests (P0.2/P0.4) and the workflow/monitor/cron-installer checks (P2.1/P2.5/P2.6) run
 # as part of this one so the CI job needs no change. Each prints its own tally.
-for extra in deploy guard binlog; do
+for extra in deploy guard binlog workflows; do
   echo
   echo "$extra.test.sh"
   if ! "$OPS/test/$extra.test.sh"; then FAIL=$((FAIL + 1)); fi
