@@ -14,7 +14,9 @@ import {
   type BoardQuery,
   type Filters,
   type Marketer,
+  planNote,
   type Row,
+  type Schedule,
   type SortKey,
 } from "@/lib/ent/marketing-assignments";
 
@@ -53,6 +55,7 @@ export default function ConsultantsPanel({
   onRetry,
   moreOpen,
   onMore,
+  plans,
 }: {
   marketer: Marketer | null;
   state: ConsultantsState;
@@ -69,6 +72,8 @@ export default function ConsultantsPanel({
   onRetry: () => void;
   moreOpen: boolean;
   onMore: () => void;
+  /** The pending plans (a handover on a date, running or waiting cover) by consultant. */
+  plans?: Map<number, Schedule[]>;
 }) {
   const narrow = useNarrow();
   const rows = state.status === "ok" ? state.items : [];
@@ -104,7 +109,20 @@ export default function ConsultantsPanel({
         </span>
       ),
     },
-    { key: "marketer", header: "Assigned Marketer", render: (r) => <PersonChip person={r.marketer} /> },
+    {
+      key: "marketer",
+      header: "Assigned Marketer",
+      render: (r) => (
+        <span className="block min-w-0">
+          <PersonChip person={r.marketer} />
+          {(plans?.get(r.consultantId) ?? []).map((s) => (
+            <span key={s.id} className="mt-0.5 block max-w-[9rem] text-[10px] leading-tight text-[var(--ent-soft)]" data-plan-note={s.kind}>
+              {planNote(s)}
+            </span>
+          ))}
+        </span>
+      ),
+    },
     { key: "backup", header: "Backup Marketer", render: (r) => <PersonChip person={r.backup} none="No backup" /> },
     { key: "status", header: "Status", sortable: true, render: (r) => <AssignmentStatusPill status={r.status} /> },
     { key: "priority", header: "Priority", sortable: true, render: (r) => <PriorityPill priority={r.priority} /> },
