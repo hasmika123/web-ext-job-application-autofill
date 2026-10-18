@@ -38,6 +38,9 @@ public final class AdminSettingKeys {
     public static final String INBOX_RETENTION_DAYS = "inbox.retention_days";
     /** Lowest confidence (0-100) at which an interview invitation read from a mail creates an interview; below it only the status moves and a note says the schedule was not read. */
     public static final String INBOX_INTERVIEW_MIN_CONFIDENCE = "inbox.interview_min_confidence";
+    /** Inbox accuracy: a mail whose reading and match are at least this sure (0-100) is applied; between the two it is held for a person; below the second it is ignored. */
+    public static final String INBOX_APPLY_MIN_CONFIDENCE = "inbox.apply_min_confidence";
+    public static final String INBOX_SUGGEST_MIN_CONFIDENCE = "inbox.suggest_min_confidence";
     /** Change audit (docs/change-audit/README.md section 4.4): months of {@code application_event} history kept; 0 = for the life of the application. */
     public static final String TRACKER_HISTORY_RETENTION_MONTHS = "tracker.history.retention_months";
     /** Privacy and retention (T1.3, T1.4, T0.2): the windows the retention sweep honours, the undo window for account deletion, the data-export limits and the current legal versions. */
@@ -101,6 +104,8 @@ public final class AdminSettingKeys {
         integer(k, INBOX_POLL_MINUTES, 15, 5, 120, Risk.MEDIUM, "How often connected inboxes are read, in minutes." + NOT_ENFORCED);
         integer(k, INBOX_RETENTION_DAYS, 365, 30, 730, Risk.HIGH, "Stored mail is deleted this many days after it was sent." + NOT_ENFORCED);
         integer(k, INBOX_INTERVIEW_MIN_CONFIDENCE, 60, 0, 100, Risk.MEDIUM, "Lowest confidence (0-100) at which an interview time read from an email is saved as an interview; below it the application still moves to Interview and a note says the time was not read.");
+        integer(k, INBOX_APPLY_MIN_CONFIDENCE, 80, 50, 100, Risk.HIGH, "Confidence (0-100) at which a read email changes an application on its own.");
+        integer(k, INBOX_SUGGEST_MIN_CONFIDENCE, 50, 20, 90, Risk.HIGH, "Confidence (0-100) below which a read email is ignored; between this and the apply level it is held for review.");
 
         // Tracker history (change audit, U6.15): read by TrackerHistoryRetentionJob. 0 = for the life of the application (decision D5).
         integer(k, TRACKER_HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW, "Months of application history kept; 0 keeps it as long as the application exists.");
