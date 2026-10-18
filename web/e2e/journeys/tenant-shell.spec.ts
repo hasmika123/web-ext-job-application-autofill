@@ -21,6 +21,12 @@ test.describe("desktop 1440", () => {
     await signIn(page, "owner@acme.com");
     await page.goto(`${base}/w/admin/jobs`);
     await page.waitForSelector("[data-enterprise-shell]");
+    // React must have hydrated <main> before the test edits it: a node added to server HTML that React is still hydrating is a
+    // hydration mismatch, React then rebuilds the tree and the spacer disappears (the page stops scrolling). Hydrated nodes carry a __reactFiber$ key.
+    await page.waitForFunction(() => {
+      const main = document.querySelector("[data-shell-main]");
+      return !!main && Object.keys(main).some((k) => k.startsWith("__reactFiber$"));
+    });
     // make the page and the menu both scrollable
     await page.evaluate(() => {
       const spacer = document.createElement("div");
