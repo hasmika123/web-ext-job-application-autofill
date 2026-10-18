@@ -18,7 +18,7 @@ test.beforeEach(async ({ page }) => {
   await signInAdmin(page);
 });
 
-const next = (page: Page) => page.getByRole("button", { name: "Next" }).click();
+const next = (page: Page) => page.getByRole("button", { name: "Next", exact: true }).click();
 
 async function walkToReview(page: Page) {
   await page.goto("/admin/pricing/plans/PRO/retire");
@@ -32,7 +32,7 @@ async function walkToReview(page: Page) {
 }
 
 async function startIt(page: Page) {
-  await page.getByLabel("Reason").fill("Pro v1 is replaced by Pro Student for all new buyers");
+  await page.getByLabel("Reason", { exact: true }).fill("Pro v1 is replaced by Pro Student for all new buyers");
   await page.getByLabel("Plan key to confirm").fill("PRO");
   await page.getByRole("button", { name: "Start retirement" }).click();
   await expect(page).toHaveURL(/\/admin\/pricing\/retirements\/\d+$/);
