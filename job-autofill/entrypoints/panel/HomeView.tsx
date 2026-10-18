@@ -43,6 +43,7 @@ import {
 import { SaveJobDialog } from "./SaveJobDialog";
 import { MarketerView } from "./MarketerView";
 import { AssignedChip, AssignedJobsList } from "./AssignedJobs";
+import { PrepareBatch } from "./PrepareBatch";
 import {
   readAccountState,
   refreshAccountState,
@@ -347,6 +348,9 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     <div className={rootCls}>
       {headerEl}
       {accountPanel}
+
+      {/* "Prepare selected openings": the batch overview, only while a batch exists (renders nothing otherwise). */}
+      {mode.kind === "consultant" && mode.org && <PrepareBatch />}
 
       {/* Consultant workspace: Autofill | Jobs */}
       {mode.kind === "consultant" && mode.org && (

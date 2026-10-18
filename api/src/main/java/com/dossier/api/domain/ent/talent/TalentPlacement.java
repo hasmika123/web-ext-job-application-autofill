@@ -119,4 +119,28 @@ public class TalentPlacement implements Serializable {
     public void setRedeploymentDate(LocalDate redeploymentDate) { this.redeploymentDate = redeploymentDate; }
     public Instant getCompletedAt() { return completedAt; }
     public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
+
+    /** How an ENDED placement ended: a normal completion (null counts as this) or a termination with a reason. */
+    public static final String END_COMPLETED = "COMPLETED";
+    public static final String END_TERMINATED = "TERMINATED";
+
+    @Column(name = "end_kind", length = 12)
+    private String endKind;
+    @Column(name = "end_reason", length = 300)
+    private String endReason;
+    /** The day notice was given; set while the placement is ENDING (still working until the end date). */
+    @Column(name = "notice_on")
+    private LocalDate noticeOn;
+    /** The offer this placement came from (cws_offer), when it was created by an accepted offer. */
+    @Column(name = "offer_id")
+    private Long offerId;
+
+    public String getEndKind() { return endKind; }
+    public void setEndKind(String endKind) { this.endKind = endKind; }
+    public String getEndReason() { return endReason; }
+    public void setEndReason(String endReason) { this.endReason = endReason; }
+    public LocalDate getNoticeOn() { return noticeOn; }
+    public void setNoticeOn(LocalDate noticeOn) { this.noticeOn = noticeOn; }
+    public Long getOfferId() { return offerId; }
+    public void setOfferId(Long offerId) { this.offerId = offerId; }
 }

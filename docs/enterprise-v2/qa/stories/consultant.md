@@ -101,6 +101,11 @@ Fixed in the specs, none weakened: **CON-01 and CON-30** (D12: Home and My Marke
 | CON-83 | A sensitive value in an upload never gets in | Anika | (spec pending) | BLOCKED (not run in a browser; clean PDF and DOCX uploads verified in CON-80) |
 | CON-84 | Approve or send back a resume the marketer made | Anika, Sarah | (spec pending) | BLOCKED (cannot run on Acme: no org accounts; needs Gamma + GAMMA_DEMO_PASSWORD) |
 | CON-85 | A marketer edit sends the resume back to waiting for approval | Anika, Sarah | (spec pending) | BLOCKED (cannot run on Acme; needs Gamma + GAMMA_DEMO_PASSWORD) |
+| CON-88 | Prepare selected openings: one tab per job, filled with her own profile, she reviews and submits | Anika | none | STORY-ONLY (extension half built and unit-tested; needs the extension on live ATS pages, the web half on `ent-prepare-batch`, and the `*.kiwiply.com` manifest build) |
+| CON-89 | A prepared tab that needs her (sign-in, CAPTCHA, empty required fields) waits and says why; Stop batch | Anika | none | STORY-ONLY (same preconditions as CON-88) |
+| CON-86 | Prepare selected openings (the page, confirm, progress, no-extension fallback, phone note) | Anika | (spec pending) | BUILT, NOT RUN IN A BROWSER (vitest + API ITs only; the extension half X12.9 is built by another agent; doc 63) |
+| CON-87 | Prepare selected is off, or capped, by the admin settings | Anika, admin | (spec pending) | BUILT, NOT RUN IN A BROWSER (`ConPrepareIT`) |
+| CON-88 | Prepare selected never submits, never marks applied, never reaches another consultant | Anika, Ben | (spec pending) | BUILT, NOT RUN IN A BROWSER (`ConPrepareIT`, `OrgIsolationIT`, `ExtensionRoutesTest`) |
 | CON-60 | Apply on the source site with the extension; application appears in My Applications | Anika | none | BLOCKED: needs the extension loaded on a live ATS page, and tracked-application-to-job matching is not built (`pipeline_application_link`, doc 59 section 5) |
 | CON-61 | Marketer enters the job source link and quick info | Omar | none | NOT-BUILT: no marketer write for `cws_job_source` (Marketing workspace; `consultant-job-source-flow.md` "What the marketer role must later write") |
 | CON-62 | Marketer captures a job with the extension and assigns it | Omar, Anika | none | NOT-BUILT: doc 59/60, stories X9.x |
@@ -370,6 +375,30 @@ Fixed in the specs, none weakened: **CON-01 and CON-30** (D12: Home and My Marke
 ### CON-85 Anika sees a resume Sarah edited: it goes back to "waiting for approval"
 - **Steps:** Sarah edits an approved resume of Anika's in act-for mode (MKT-48); Anika opens My Resumes.
 - **Expected:** that resume is "Made for you, waiting for your approval" again (what a marketer wrote never counts until she approves it); her own edits to her own resumes never change approval. **Status: BLOCKED (cannot run on Acme; needs Gamma + `GAMMA_DEMO_PASSWORD`).**
+
+
+### CON-88 Anika prepares several assigned openings and submits each one herself
+- **Persona:** anika (consultant, extension connected to her Acme enterprise account). **Goal:** open her chosen openings and have the forms ready to review, without giving up control of Submit.
+- **Steps:** 1. On Assigned Openings Anika ticks 3 openings (Greenhouse, Lever, Ashby) and presses **Prepare selected**. 2. The extension answers in under 3 seconds and three background tabs open one after another (not all at once). 3. In each tab the Kiwiply review panel lists her own profile values; she presses **Fill selected**. 4. A bottom-left banner reads "Prepared by Kiwiply: review every field. Nothing is submitted for you." and lists the required fields still empty. 5. She completes them, ticks the "I certify" box herself, and presses the site's own **Submit** in each tab. 6. She opens the Kiwiply drawer.
+- **Expected:** nothing was submitted, ticked or clicked for her; each tab reports OPENED, then PREFILLED (or NEEDS_INPUT while required fields remain), then SUBMIT_DETECTED when she submits; the drawer's batch card counts "3 jobs: waiting / filled / need input / submitted"; the application rows and the opportunities moving to Applied come from the server linker, not from the extension. More than 5 selected openings: only 5 tabs are open at once, the next opens when one is submitted or closed, or on **Open next**.
+- **Pages / APIs:** web Assigned Openings (`ent-prepare-batch`), extension message `KIWIPLY_PREPARE_BATCH` / `KIWIPLY_PREPARE_ACK`, `POST /api/orgs/{orgId}/con/prepare/{sessionId}/events`. **Automation:** extension unit tests `prepare_batch.test.js`, `prepare_batch_page.test.js`, `no_submit.test.js`; no browser suite. **Status: STORY-ONLY** (real ATS pages unverified; see `job-autofill/ARCHITECTURE.md` "Prepare batch").
+
+### CON-89 A prepared tab that needs Anika waits and says why
+- **Persona:** anika. **Goal:** a tab that cannot be prepared automatically never gets worked around.
+- **Steps:** 1. Anika prepares an opening whose site asks her to sign in. 2. Another shows a "verify you are human" page. 3. A third is a company site outside the extension's supported hosts. 4. She presses **Stop batch** while two more are still queued.
+- **Expected:** the first two tabs stay open untouched, the drawer lists them as "Needs input" with "Sign-in required" and "Verification (CAPTCHA) needs you" and what to do; after she signs in and the page reloads the tab goes back to waiting; the third says "Click the Kiwiply icon on this tab to fill it yourself"; the extension never signs in, never solves a CAPTCHA and never retries more than 3 times per tab; Stop batch drops the queued jobs, leaves every open tab as it is, and nothing more is reported.
+- **Pages / APIs:** as CON-88. **Automation:** extension unit tests as CON-88. **Status: STORY-ONLY**
+### CON-86 Anika prepares several assigned openings at once
+- **Steps:** an admin has switched on `enterprise.autopilot.prepare.enabled`. On Assigned Opportunities (desktop browser, extension connected) Anika ticks two openings and presses **Prepare selected (2)**; she reads the confirm text and presses **Prepare**.
+- **Expected:** the dialog says "Kiwiply opens each job in a new tab and fills it from your profile. Nothing is submitted for you: you review, fix anything missing and press Submit yourself." The extension acknowledges within 3 seconds, a progress panel lists each opening as Waiting, Opened, Filled or Needs your input, and Submitted once she presses Submit on the site herself. A row that cannot be ticked (declined, applied, closed, no link yet, job no longer open) says why next to its title. With no acknowledgement the panel shows "Extension not detected" and an Open job link per opening. On a phone or touch tablet the checkboxes are absent and a note says to use a desktop browser. **Status: BUILT, NOT RUN IN A BROWSER (web vitest `OpportunitiesPage.prepare.test.tsx`); needs the extension half (X12.9) for an end-to-end run.**
+
+### CON-87 The admin controls Prepare selected
+- **Steps:** with the switch off Anika opens Assigned Opportunities; the admin turns it on and sets the daily limit to 2; Anika prepares 2 openings, then 1 more.
+- **Expected:** with the switch off there are no checkboxes and the API answers the generic 404; after the 2 the status shows "Today 0 left" and a further request answers 409 `PREPARE_CAP_REACHED` with the numbers, which the dialog shows; nothing is created or opened. Batch size, monthly limit and session length are admin settings too. **Status: BUILT, NOT RUN IN A BROWSER (`ConPrepareIT`).**
+
+### CON-88 Prepare selected never submits and never leaks
+- **Steps:** the extension reports SUBMIT_DETECTED for an opening; Ben tries to read or report on Anika's session; a match that is not Anika's is put in a request.
+- **Expected:** the opening is shown Submitted, but its opportunity stays as it was (only the existing linker, from Anika's own saved application, may mark it applied); Ben and the other tenant get the generic 404; one foreign match makes the whole request a 404 and creates nothing; a note with an SSN-like value is refused. **Status: BUILT, NOT RUN IN A BROWSER (`ConPrepareIT`, `OrgIsolationIT`).**
 
 ---
 

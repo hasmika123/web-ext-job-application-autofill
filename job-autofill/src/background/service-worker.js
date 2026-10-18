@@ -254,7 +254,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // than hardcoded. Chrome already enforces those matches; re-checking here is defence in
 // depth, and deriving it keeps ONE source of truth — a dev-only origin (localhost:3000,
 // added by wxt.config.ts in dev builds) can never outlive the manifest entry that allows it.
-function connectOriginAllowed(origin) {
+function connectOriginAllowed(origin, allowWildcards) {
   if (!origin) return false;
   const target = /^(https?):\/\/(.+)$/.exec(origin);
   if (!target) return false;
@@ -268,6 +268,9 @@ function connectOriginAllowed(origin) {
   return matches.some((pattern) => {
     const m = /^(https?):\/\/(\*\.)?([^/*]+)\//.exec(pattern);
     if (!m || m[1] !== target[1]) return false;
+    // A wildcard entry (the tenant hosts, *.kiwiply.com) exists for the prepare batch ONLY: it must
+    // never let a tenant page hand over a session or fake a sync signal.
+    if (m[2] && !allowWildcards) return false;
     const host = m[3];
     // `*.example.com` covers sub.example.com and example.com itself (Chrome's semantics).
     return m[2] ? target[2] === host || target[2].endsWith("." + host) : target[2] === host;
@@ -468,6 +471,8 @@ function routeWebMessage(msg) {
 
 // Path 1 — Chrome: the web page messages the extension directly (externally_connectable).
 chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
+  // "Prepare selected openings" comes from a tenant host too (*.kiwiply.com); it has its own gate.
+  if (msg && msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender)).then(sendResponse); return true; }
   if (!connectOriginAllowed(senderOrigin(sender))) return;
   const p = routeWebMessage(msg);
   if (!p) return;
@@ -481,14 +486,188 @@ chrome.runtime.onMessageExternal.addListener((msg, sender, sendResponse) => {
 // a content script on an ATS page cannot hand over a session or fake a sync signal, only one
 // running on an origin the accept-list allows.
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (!msg || (msg.type !== "KIWIPLY_CONNECT" && msg.type !== SYNC)) return;
+  if (!msg || (msg.type !== "KIWIPLY_CONNECT" && msg.type !== SYNC && msg.type !== PREPARE_MSG)) return;
   if (!sender || !sender.tab) return;           // must come from a page, not another extension page
+  if (msg.type === PREPARE_MSG) { handlePrepare(msg, senderOrigin(sender)).then(sendResponse); return true; }
   if (!connectOriginAllowed(senderOrigin(sender))) return;
   const p = routeWebMessage(msg);
   if (!p) return;
   p.then(sendResponse);
   return true; // async
 });
+
+// --- Prepare selected openings (roadmap X12.9 / E7.x; contract: ARCHITECTURE.md "Prepare batch") --------
+// A consultant ticks openings on the web and presses "Prepare selected". The web sends ONE message here;
+// we ACK within 3 s, then open one tab per job (paced, at most 5 at once), run the normal review-overlay
+// fill in each with the consultant's own mirrored profile, flag what is still empty, and WAIT. Nothing is
+// ever submitted, no sign-in or CAPTCHA is worked around, and no attestation box is ticked. The logic is
+// JAF.prepareBatch (src/lib/prepare-batch.js, unit-tested); this is only the chrome.* wiring.
+const PREPARE_MSG = "KIWIPLY_PREPARE_BATCH";
+const BATCH_INDEX_KEY = "prepareBatchIndex";
+const CONTENT_FILES = ["content-scripts/content.js"];
+
+function prepareOriginAllowed(origin) {
+  if (!origin) return false;
+  const PB = self.JAF.prepareBatch;
+  return connectOriginAllowed(origin, true) || PB.tenantOriginAllowed(origin);
+}
+
+async function batchSession() { return (await sGet("trackingAuth")) || {}; }
+
+const batchIndex = {
+  async get() {
+    try {
+      if (chrome.storage.session) {
+        const o = await chrome.storage.session.get(BATCH_INDEX_KEY);
+        return (o && o[BATCH_INDEX_KEY]) || null;
+      }
+    } catch (e) { /* fall through to local */ }
+    return (await sGet(BATCH_INDEX_KEY)) || null;
+  },
+  async set(v) {
+    try {
+      if (chrome.storage.session) {
+        if (v) await chrome.storage.session.set({ [BATCH_INDEX_KEY]: v }); else await chrome.storage.session.remove(BATCH_INDEX_KEY);
+        return;
+      }
+    } catch (e) { /* fall through to local */ }
+    if (v) await sSet(BATCH_INDEX_KEY, v); else await new Promise((res) => chrome.storage.local.remove(BATCH_INDEX_KEY, () => res(true)));
+  },
+};
+
+function batchSendTo(tabId, msg, frameId) {
+  return new Promise((resolve, reject) => {
+    const opts = frameId === undefined ? {} : { frameId };
+    chrome.tabs.sendMessage(tabId, msg, opts, (resp) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message)); else resolve(resp);
+    });
+  });
+}
+
+async function batchInject(tabId) {
+  try { const r = await batchSendTo(tabId, { type: "JAF_PING" }, 0); if (r && r.ok) return; } catch (e) { /* not injected yet */ }
+  // Throws on a site the manifest has no host permission for: the caller reports "unsupported".
+  await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: CONTENT_FILES });
+}
+
+async function batchScanFrames(tabId) {
+  let frames = [];
+  try { frames = (await chrome.webNavigation.getAllFrames({ tabId })) || []; } catch (e) { /* top frame only */ }
+  if (!frames.length) frames = [{ frameId: 0 }];
+  const out = [];
+  for (const f of frames) {
+    try {
+      const r = await batchSendTo(tabId, { type: "JAF_PING" }, f.frameId);
+      if (r && r.ok) out.push({ frameId: f.frameId, adapter: r.adapter, fieldCount: r.fieldCount });
+    } catch (e) { /* frame not injectable */ }
+  }
+  return out;
+}
+
+async function blobToBase64(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+let batchMirrorCheckedAt = 0;
+// The consultant's OWN mirrored profile + the resume they last used (else their default, else the first).
+async function loadBatchMirror() {
+  const J = self.JAF;
+  if (Date.now() - batchMirrorCheckedAt > 60 * 1000) {
+    batchMirrorCheckedAt = Date.now();
+    await runVersionCheck("batch"); // never throws; a stale mirror is still usable
+  }
+  const [bio, resumes, settings] = await Promise.all([J.storage.getBio(), J.storage.getResumes(), J.storage.getSettings()]);
+  const live = (resumes || []).filter((r) => !r.archived);
+  const resume = live.find((r) => r.id === settings.lastResumeId) || live.find((r) => r.defaultResume) || live[0] || null;
+  let file = null;
+  if (resume && resume.hasFile) {
+    try {
+      const blob = await J.storage.getResumeFile(resume.id);
+      if (blob) file = { rawName: resume.fileName || "", type: blob.type || "application/pdf", base64: await blobToBase64(blob) };
+    } catch (e) { /* attach is optional */ }
+  }
+  return {
+    bio, resume, file,
+    resumeRef: resume ? { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label } : null,
+  };
+}
+
+let _batch = null;
+function batchController() {
+  if (_batch) return _batch;
+  const PB = self.JAF.prepareBatch;
+  const preparer = PB.createPreparer({
+    inject: batchInject, scanFrames: batchScanFrames, sendTo: batchSendTo, loadMirror: loadBatchMirror,
+  });
+  const controller = PB.createController({
+    tabs: { create: (o) => chrome.tabs.create(o), get: (id) => chrome.tabs.get(id) },
+    storage: {
+      get: (k) => sGet(k),
+      set: (k, v) => sSet(k, v),
+      remove: (k) => new Promise((res) => chrome.storage.local.remove(k, () => res(true))),
+    },
+    index: batchIndex,
+    readSession: batchSession,
+    getProvider: trackingProvider,
+    prepareTab: (tabId, job, batch) => preparer.prepare(tabId, job, batch),
+  });
+  const receiver = PB.createReceiver({
+    originAllowed: prepareOriginAllowed,
+    readSession: batchSession,
+    readSettings: () => self.JAF.storage.getSettings(),
+    saveSettings: (s) => self.JAF.storage.saveSettings(s),
+    getProvider: trackingProvider,
+    controller,
+  });
+  _batch = { controller, receiver };
+  return _batch;
+}
+
+// -> the ACK for the page (always an object for our message type).
+async function handlePrepare(msg, origin) {
+  try {
+    const ackMsg = await batchController().receiver.receive(msg, origin);
+    track("prepare_batch", { accepted: !!(ackMsg && ackMsg.accepted), reason: ackMsg && ackMsg.reason ? ackMsg.reason : "" });
+    return ackMsg || { type: self.JAF.prepareBatch.MSG_ACK, accepted: false, reason: "ignored" };
+  } catch (e) {
+    return { type: self.JAF.prepareBatch.MSG_ACK, sessionId: msg && typeof msg.sessionId === "string" ? msg.sessionId : undefined, accepted: false, reason: "error" };
+  }
+}
+
+// Messages about the batch from OUR OWN code: the content script of a batch tab (progress counts) and the
+// drawer (status / open next / stop / dismiss). A web page can reach neither: it has no runtime id, and the
+// drawer check also requires the sender to be an extension page.
+function fromOurExtensionPage(sender) {
+  try { return !!sender && sender.id === chrome.runtime.id && String(sender.url || "").indexOf(chrome.runtime.getURL("")) === 0; } catch (e) { return false; }
+}
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (!msg || typeof msg.type !== "string" || msg.type.indexOf("JAF_BATCH_") !== 0) return;
+  let ctl;
+  try { ctl = batchController().controller; } catch (e) { return; }
+  if (msg.type === "JAF_BATCH_PROGRESS") {
+    if (!sender || !sender.tab || sender.id !== chrome.runtime.id) return;
+    ctl.onProgress(sender.tab.id, msg).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
+    return true;
+  }
+  if (!fromOurExtensionPage(sender)) return;
+  const act = { JAF_BATCH_STATUS: () => ctl.status(), JAF_BATCH_OPEN_NEXT: () => ctl.openNext(), JAF_BATCH_STOP: () => ctl.stop(), JAF_BATCH_DISMISS: () => ctl.dismiss() }[msg.type];
+  if (!act) return;
+  act().then(sendResponse).catch(() => sendResponse(null));
+  return true;
+});
+
+// Tab lifecycle. Every handler reads the persisted state, so a worker restart loses nothing; a tab event
+// for a tab that is not in the batch costs one cheap session-storage read.
+if (chrome.tabs.onUpdated) {
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (!changeInfo || changeInfo.status !== "complete") return;
+    try { batchController().controller.onTabUpdated(tabId, changeInfo).catch(() => {}); } catch (e) { /* batch module unavailable */ }
+  });
+}
+
 
 // --- Scheduled + focus-driven version checks (Phase 11.3) ----------------------
 // The 11.1 signal only fires while a kiwiply.com tab is open. These two cover everything
@@ -528,10 +707,19 @@ async function runVersionCheck(source) {
 // MV3 tears the worker down when idle, so the alarm is what wakes it; re-create it on both
 // install/update and browser start, since alarms don't survive an extension update.
 chrome.runtime.onInstalled.addListener(ensureSyncAlarm);
-if (chrome.runtime.onStartup) chrome.runtime.onStartup.addListener(ensureSyncAlarm);
+if (chrome.runtime.onStartup) {
+  chrome.runtime.onStartup.addListener(() => {
+    ensureSyncAlarm();
+    // A browser restart closed the batch's tabs: forget them, deliver unsent events, keep opening the queue.
+    try { batchController().controller.reconcile().catch(() => {}); } catch (e) { /* batch module unavailable */ }
+  });
+}
 if (chrome.alarms && chrome.alarms.onAlarm) {
   chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm && alarm.name === SYNC_ALARM) runVersionCheck("alarm");
+    if (alarm && alarm.name === SYNC_ALARM) {
+      runVersionCheck("alarm");
+      try { batchController().controller.flush(); } catch (e) { /* unsent batch events retry on the next one */ }
+    }
   });
 }
 
@@ -773,6 +961,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true; // async
   }
   if (msg.type === "JAF_SUBMIT_DETECTED") {
+    // A prepare-batch tab: report it to the batch (independent of the draft/APPLIED tracking below).
+    if (tabId != null) { try { batchController().controller.onSubmitDetected(tabId).catch(() => {}); } catch (e) {} }
     confirmForTab(tabId).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }));
     return true; // async
   }
@@ -799,6 +989,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // Redirect to a "thank you" / confirmation page on a tracked tab = a submission.
 chrome.webNavigation.onCompleted.addListener(async (d) => {
   if (d.frameId !== 0) return; // top frame only
+  // A prepare-batch tab that lands on a confirmation page counts as submitted, tracked draft or not.
+  if (self.JAF.appTracking.isSuccessUrl(d.url)) {
+    try { batchController().controller.onSuccessNavigation(d.tabId, d.url).catch(() => {}); } catch (e) {}
+  }
   const pend = await pendGet();
   const p = pend[d.tabId];
   if (!p) return;
@@ -810,6 +1004,7 @@ chrome.webNavigation.onCompleted.addListener(async (d) => {
 
 // Forget a tab's pending entry when it closes.
 chrome.tabs.onRemoved.addListener(async (tabId) => {
+  try { batchController().controller.onTabRemoved(tabId).catch(() => {}); } catch (e) {}
   const pend = await pendGet();
   if (pend[tabId]) { delete pend[tabId]; await sSet(PENDING_KEY, pend); }
 });

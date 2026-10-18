@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 Account Manager workspace (branch ent-accounts-ws, X10.2 / X10.5), additive. A client requirement gets the two fields an
+        Account Manager sets at intake (a priority and the date the client needs it filled by); a client contact gets a work phone and a short
+        note (docs/enterprise-v2/34-clients.md section 1). No sensitive PII: the services scan every free-text value. Each change is its own
+        precondition-guarded changeSet (MARK_RAN on a re-run); empty rollbacks on purpose (data inert when the flag is off).
+    -->
+
+    <changeSet id="ent-accounts-1-requirement-intake-columns" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="client_requirement" columnName="priority"/></not></preConditions>
+        <addColumn tableName="client_requirement">
+            <column name="priority" type="varchar(10)" defaultValue="NORMAL"><constraints nullable="false"/></column>
+            <column name="due_on" type="date"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-accounts-2-contact-phone-notes" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="client_contact" columnName="phone"/></not></preConditions>
+        <addColumn tableName="client_contact">
+            <column name="phone" type="varchar(40)"/>
+            <column name="notes" type="varchar(500)"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

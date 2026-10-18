@@ -69,6 +69,21 @@ class RetirementNoticeComposerTest {
     }
 
     @Test
+    void aPlanNameThatAlreadyEndsInPlanIsNeverFollowedByASecondPlan() {
+        Input in = new Input("Sam", "Starter Plan", false, DATE, "FREE", null, "USD", "MONTH", List.of(), null, 30, false, "https://kiwiply.com/settings/plan/changing");
+        Notice n = composer.compose(in, Locale.ENGLISH, k -> k);
+        assertThat(n.subject()).isEqualTo("Your Starter plan is changing on November 15, 2026");
+        assertThat(n.line1()).isEqualTo("Your Starter plan");
+        assertThat(n.intro()).contains("We are retiring Starter Plan.");
+        Notice applied = composer.compose(new Input("Sam", "Starter plan", false, DATE, "FREE", null, "USD", "MONTH", List.of(), null, 0, true, "x"), Locale.ENGLISH, k -> k);
+        assertThat(applied.intro()).contains("Your Starter plan ended on November 15, 2026");
+        // a name without it still gets it, and a name that is only "plan" is left alone
+        assertThat(notice("FREE", null, 30).subject()).isEqualTo("Your Pro plan is changing on November 15, 2026");
+        assertThat(RetirementNoticeComposer.withoutTrailingPlan("Plan")).isEqualTo("Plan");
+        assertThat(RetirementNoticeComposer.withoutTrailingPlan("Business planning")).isEqualTo("Business planning");
+    }
+
+    @Test
     void theDefaultOutcomeIsFreeWithReadOnlyAndNothingDeletedUnlessTheAdminChoseOtherwise() {
         assertThat(notice("FREE", null, 30).defaultOutcome()).contains("moves to Free").contains("read-only").contains("unlock them instantly");
         Notice migrate = notice("MIGRATE_AT_RENEWAL", suggestion("LOWER", -200, List.of()), 30);

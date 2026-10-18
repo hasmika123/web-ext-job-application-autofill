@@ -86,4 +86,43 @@ class OrgAuditEventsIT extends MemberItSupport {
         assertGeneric404(call(login("bowner"), get(url(a))), "another organization owner");
         assertThat(json(call(login("bowner"), get(url(b)))).path("items")).extracting(n -> n.path("action").asText()).doesNotContain("BRANDING_PUBLISH");
     }
+
+    @Test
+    void theCsvExportCarriesTheFilteredRowsAndIsItselfAudited() throws Exception {
+        row(a, login("admin"), "MEMBER_INVITE", "MEMBER", login("plain"), 30, "secret free text");
+        row(a, login("owner"), "BRANDING_PUBLISH", "BRANDING", null, 10, null);
+        row(b, login("bowner"), "ORG_CREATE", "ORG", null, 5, null);
+        em.flush();
+        long exportsBefore = auditCount(a, "EXPORT");
+        var res = call(login("owner"), get(url(a) + "/export?action=MEMBER_INVITE"));
+        assertStatus(res, 200);
+        assertThat(res.getResponse().getContentType()).startsWith("text/csv");
+        assertThat(res.getResponse().getHeader("Content-Disposition")).contains("audit-log.csv");
+        String csv = res.getResponse().getContentAsString();
+        assertThat(csv).startsWith("When (UTC),Action,What happened,Who,Target type,Target");
+        assertThat(csv).contains("MEMBER_INVITE").contains("Adam Admin").contains("Pat Plain");
+        assertThat(csv).doesNotContain("BRANDING_PUBLISH").doesNotContain("ORG_CREATE").doesNotContain("secret free text").doesNotContain(login("admin"));
+        assertThat(auditCount(a, "EXPORT")).isEqualTo(exportsBefore + 1);
+    }
+
+    @Test
+    void aNameThatLooksLikeAFormulaIsNeutralisedInTheExport() throws Exception {
+        var u = users.findOneByLogin(login("admin")).orElseThrow();
+        u.setFirstName("=HYPERLINK(\"http://evil.example\")");
+        u.setLastName("x");
+        users.saveAndFlush(u);
+        row(a, login("admin"), "MEMBER_INVITE", "MEMBER", null, 5, null);
+        em.flush();
+        String csv = call(login("owner"), get(url(a) + "/export")).getResponse().getContentAsString();
+        assertThat(csv).contains("'=HYPERLINK").doesNotContain(",=HYPERLINK").doesNotContain("\"=HYPERLINK");
+    }
+
+    @Test
+    void theExportHasTheSameGateAsTheLog() throws Exception {
+        assertGeneric404(call(login("spec"), get(url(a) + "/export")), "a marketing specialist");
+        assertGeneric404(call(login("plain"), get(url(a) + "/export")), "a plain member");
+        assertGeneric404(call(login("hr"), get(url(a) + "/export")), "HR holds a row-filtered grant");
+        assertGeneric404(call(login("bowner"), get(url(a) + "/export")), "another organization owner");
+        assertCode(call(login("owner"), get(url(a) + "/export?action=drop table")), 400, "VALIDATION");
+    }
 }

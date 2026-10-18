@@ -4,7 +4,7 @@
 > don't have to rediscover the codebase. Conventions live in root `CLAUDE.md`;
 > cross-browser support/porting notes live in `BROWSERS.md` (Chrome + Edge supported;
 > Firefox/Safari planned).
-> Current version: 0.67.0 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
+> Current version: 0.68.0 (`wxt.config.ts` `manifest.version`), bundled ruleset version 4.
 
 ## What it is
 MV3 Chrome extension that autofills job applications across major ATS (Workday,
@@ -116,6 +116,12 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   clears every account-bound cache when the **user id** changes (never email or login), then replaces
   the session. `GET /api/profile/version` -> `account` is cached in `settings.account`; an older server's
   `workspaces[]` is still read for one release (`tracking.js` `dtoToAccount`). No workspace header exists.
+- `src/lib/prepare-batch.js` — `JAF.prepareBatch`, "Prepare selected openings" (X12.9 / E7.x): message
+  validation, the ACK receiver, the batch controller (paced tab opening, per-tab state, event outbox) and the
+  per-tab preparer. Pure of chrome.* and fetch; the service worker (`src/background/service-worker.js`, section
+  "Prepare selected openings") wires it to `chrome.tabs`/storage. `src/content/batch-prepare.js` is the page
+  side (sign-in/CAPTCHA classification, the "Prepared by Kiwiply" banner, `JAF_BATCH_FILL`).
+  `entrypoints/panel/PrepareBatch.tsx` is the drawer's batch overview. See **Prepare batch** below.
 - `src/lib/storage.js` — chrome.storage (profiles) + IndexedDB (resume files).
 - `src/lib/field-cache.js` — `JAF.fieldCache`. Local, per-profile memory of the
   user's field answers. Stored in **`chrome.storage.local` under one `fieldCache`
@@ -354,6 +360,87 @@ resume/bio/board management. The extension's tracking jobs:
   resume-archive guard (block deleting a referenced resume → nudge to archive) is **3.5**.
   All backend traffic stays behind the one `tracking.js` seam. See `ROADMAP.md` → Phase 3
   and `PROGRESS.md` 3.0–3.5.
+
+## Prepare batch (X12.9 / E7.x) — contract v1
+
+A consultant ticks several assigned openings on the web and presses **Prepare selected**. The web hands the
+extension a job list; the extension opens one tab per job, runs the normal review-overlay fill in each with the
+signed-in consultant's own profile, flags what it could not fill, and **waits**. The consultant reviews,
+completes and presses Submit on the real site. The extension never submits, never clicks a submit/apply control,
+never ticks an attestation/consent/legal box, never solves a CAPTCHA and never signs in anywhere (a tab that needs
+sign-in just waits). The existing submit detection reports the submit and the server linker creates the application.
+
+**Web -> extension** (same channel as the connect handoff: `chrome.runtime.sendMessage(EXT_ID, msg)` on Chrome,
+`window.postMessage` + the `connect-relay` content script on Firefox):
+
+```
+{ type: "KIWIPLY_PREPARE_BATCH", version: 1, sessionId, apiBase, orgId,
+  jobs: [{ matchId, url, title, company }] }
+```
+
+**Extension -> web** (the reply to that message, within 3 s; the Firefox relay posts it back to the page):
+
+```
+{ type: "KIWIPLY_PREPARE_ACK", sessionId, accepted: boolean, reason?: string }
+```
+
+**Extension -> API** (through the `TrackingProvider` seam, `reportPrepareEvent`), best effort, in order, retried later:
+
+```
+POST /api/orgs/{orgId}/con/prepare/{sessionId}/events   { matchId, event, detail? }
+event in OPENED | PREFILLED | NEEDS_INPUT | SUBMIT_DETECTED | CLOSED | FAILED     detail <= 200 chars
+```
+
+`detail` is a fixed phrase or a count ("Sign-in required", "2 required fields need your input") - never page
+content, a field label or an answer. The route is on the `ext=1` allow-list for enterprise CONSULTANT tokens only.
+
+**Validation** (all-or-nothing; an invalid batch opens nothing): `version` must be 1; `sessionId` `[A-Za-z0-9_-]{1,80}`;
+`orgId` a positive integer; 1..10 jobs; `matchId` a positive integer or `[A-Za-z0-9_-]{1,64}`; `url` **https only**, no
+credentials, a real public host (no localhost, no IP literal); duplicates (same `matchId`, or the same posting after
+URL normalisation) are dropped, the first wins; `title`/`company` are trimmed to 200 characters; any other field is
+ignored. A message of any other `type` gets no reply.
+
+**ACK reasons** (`accepted:false`): `untrusted-origin`, `unsupported-version`, `bad-session`, `bad-org`,
+`bad-api-base`, `no-jobs`, `too-many-jobs`, `bad-job`, `http-url`, `bad-url`, `not-connected`,
+`wrong-account-kind` (a personal session), `wrong-org`, `marketer-session` (a marketer session never starts a batch),
+`not-a-consultant`, `role-unknown`, `api-mismatch` (`apiBase` names a different API than the extension's own),
+`batch-in-progress`, `timeout`, `extension-unavailable` (Firefox relay only). Acceptance needs an **ENTERPRISE
+session of exactly that `orgId`** whose role flags (`modeOf(account)`, refreshed once from `GET /api/profile/version`
+when the cache says no) make it a **consultant**. The extension talks to its own configured API only; `apiBase` is
+checked, never trusted.
+
+**Who may send it.** Chrome: `externally_connectable` now lists `https://*.kiwiply.com/*` (tenant hosts) next to the
+three exact web origins. The service worker applies the wildcard to this ONE message type; the connect handoff and
+the sync signals still require the exact origins, so a tenant page cannot hand over a session. Firefox: the
+`connect-relay` content script matches the same pattern and forwards the message. **Limit:** a custom tenant domain
+(`jobs.acme.com`) cannot be listed in a manifest, so a batch started there is not delivered. Options for those tenants:
+the web opens the batch from a `kiwiply.com` page (the host the extension already trusts), or the domain is added to the
+manifest in a store release. Until then the tenant page should show the normal "Open posting" per job.
+
+**Per tab.** Tabs open sequentially, 1.5 s apart, in the background, at most **5 active at once** (a tab counts while the
+consultant is on it; a submitted or closed tab frees its slot, and the next queued job opens by itself). **Open next**
+(drawer) opens the next queued job when below the cap. Each loaded tab is prepared at most 3 times (one per page load,
+at least 5 s apart): the content bundle is injected on the manifest's host list only, the page is classified read-only
+(`captcha` / `signin` / `form` / `none`), and the normal fill is requested with `autoAdvance` forced **off**. The usual
+review overlay opens: the consultant presses **Fill selected** (nothing is written to the page before that). States:
+`OPENED` (waiting), `PREFILLED` (filled, no required field left), `NEEDS_INPUT` (a sign-in wall, a CAPTCHA, an
+unsupported site, no form yet, an empty profile, or required fields still empty after the fill), `SUBMIT_DETECTED`,
+`CLOSED`, `FAILED`. A banner on the tab says **"Prepared by Kiwiply: review every field. Nothing is submitted for you."**
+and lists the required fields still empty (Go scrolls and focuses; it never clicks). The drawer shows the overview
+(n jobs: waiting / filled / need input / submitted) with **Open next** and **Stop batch**. Stop leaves every open tab
+exactly as it is, drops the queued jobs and stops reporting.
+
+**State.** One batch per account in `chrome.storage.local` under `ws:<orgId>:prepareBatch` (the account-bound `ws:`
+partition: sign-out or an account switch deletes it), with a pointer in `chrome.storage.session`. Every handler reads
+that state, so a service-worker restart loses nothing; a state that belongs to another user id is dropped on first read.
+Unsent events wait in the same record (max 100, 5 tries each, 4xx other than 401/408/429 dropped) and go out on the next
+event, the 15-minute alarm or browser start.
+
+**Known limits.** Real-browser behaviour on live ATS pages is unverified (see the story notes). The banner lists the
+required fields of its own frame; for an ATS form inside an iframe the filler's own checklist card is the list. A site
+outside the manifest's host list cannot be injected without the user clicking the toolbar icon (`activeTab`), so such a
+tab waits with "Click the Kiwiply icon on this tab". Submit is detected with the existing heuristics (confirmation text
+or URL); the watch after a batch fill is 30 minutes instead of 2.
 
 ## Adding a new site adapter
 Copy `src/content/adapters/lever.js`; implement `matches()`, `plan(values)` (return

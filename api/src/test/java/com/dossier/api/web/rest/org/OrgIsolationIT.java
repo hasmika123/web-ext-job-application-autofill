@@ -129,6 +129,11 @@ class OrgIsolationIT {
             return new Case(null, 200, null, false, null, null, 1, null);
         }
 
+        /** A read that is deliberately audited (an export): it answers 200 and writes exactly one audit row, whose action is {@code action}. */
+        static Case auditedRead(String action) {
+            return new Case(null, 200, action, false, null, null, 1, null);
+        }
+
         /** A consultant-workspace read: the owner is made a consultant first, and no audit row is written. */
         static Case consultantRead() {
             return new Case(null, 200, null, false, null, null, 1, World::makeOwnerAConsultant);
@@ -244,6 +249,9 @@ class OrgIsolationIT {
         Map.entry("DELETE /api/orgs/{orgId}/members/offboarding/{offboardingId}", Case.people(204, "MEMBER_OFFBOARD_CANCELLED", 1, w -> null, null, null)),
         // Enterprise V2 X2.5: branding. Draft edits, discards and removing an absent asset write no audit row (by design).
         // Resume Builder policy (consultant share links, default off): the owner turns it on, one ORG_SETTINGS audit row.
+        Map.entry("GET /api/orgs/{orgId}/org-settings", Case.read()),
+        Map.entry("PUT /api/orgs/{orgId}/org-settings/general", Case.write("{\"timeZone\":\"America/Chicago\"}", 200, OrgAuditService.ORG_SETTINGS)),
+        Map.entry("PUT /api/orgs/{orgId}/org-settings/security", Case.write("{\"passwordMinLength\":10,\"reason\":\"Isolation check\"}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("GET /api/orgs/{orgId}/resume-policy", Case.read()),
         Map.entry("PUT /api/orgs/{orgId}/resume-policy", Case.write("{\"consultantShareLinks\":true}", 200, OrgAuditService.ORG_SETTINGS)),
         Map.entry("GET /api/orgs/{orgId}/branding", Case.read()),
@@ -293,6 +301,11 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/applied", Case.denied("{\"applicationId\":1}")),
         Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/link", Case.denied("{\"applicationId\":1}")),
         Map.entry("POST /api/orgs/{orgId}/con/opportunities/{id}/unlink", Case.denied("{}")),
+        // Prepare selected openings (doc 63): the feature switch is off in this world (and the caller is no consultant), so a legitimate call is the same generic 404. The real gate is in ConPrepareIT.
+        Map.entry("GET /api/orgs/{orgId}/con/prepare/status", Case.denied(null)),
+        Map.entry("POST /api/orgs/{orgId}/con/prepare", Case.denied("{\"matchIds\":[1]}")),
+        Map.entry("POST /api/orgs/{orgId}/con/prepare/{sessionId}/events", Case.denied("{\"matchId\":1,\"event\":\"OPENED\"}")),
+        Map.entry("GET /api/orgs/{orgId}/con/prepare/{sessionId}", Case.denied(null)),
         // Consultant workspace Home: own-scoped. Only a consultant (opportunities.respond + a consultant_profile) may read it, so the legitimate call makes the owner one.
         Map.entry("GET /api/orgs/{orgId}/me-workspace/home", Case.consultantRead()),
         // The other consultant-workspace pages: own-scoped too, same legitimate caller (the owner made a consultant), no org audit row.
@@ -449,6 +462,14 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/jobs/{jobId}", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/jobs", Case.versioned(201, "JOB_CREATE", w -> "{\"title\":\"Hijack job\",\"clientId\":" + w.jobClientId + "}", w -> null)),
         Map.entry("PATCH /api/orgs/{orgId}/jobs/{jobId}", Case.versioned(200, "JOB_UPDATE", w -> "{\"title\":\"Hijacked job\"}", w -> w.jobVersion)),
+        // Enterprise V2 (ent-accounts-ws): the Account Manager's Requirements page. {requirementId} here means the world's job (see uri()).
+        Map.entry("GET /api/orgs/{orgId}/requirements", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/requirements/summary", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/requirements/{requirementId}", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/requirements/{requirementId}/candidates", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/requirements", Case.people(201, "REQUIREMENT_INTAKE", 2, w -> "{\"title\":\"Hijack requirement\",\"clientId\":" + w.jobClientId + ",\"source\":\"MANUAL\"}", null, null)),
+        Map.entry("PATCH /api/orgs/{orgId}/requirements/{requirementId}", Case.versioned(200, "JOB_UPDATE", w -> "{\"priority\":\"URGENT\"}", w -> w.jobVersion)),
+        Map.entry("POST /api/orgs/{orgId}/requirements/{requirementId}/assignments", Case.mkt(200, "REQUIREMENT_ASSIGN", w -> "{\"consultantId\":" + w.consultantProfileId + "}", World::approveResume)),
         Map.entry("POST /api/orgs/{orgId}/jobs/bulk/status", Case.people(200, "JOB_BULK", 2, w -> "{\"ids\":[" + w.jobId + "],\"status\":\"ON_HOLD\"}", null, null)),
         Map.entry("POST /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}/assign", Case.people(200, "JOB_ASSIGN", 1, null, null, null)),
         Map.entry("PATCH /api/orgs/{orgId}/jobs/{jobId}/matches/{matchId}", Case.versioned(200, "JOB_MATCH_DISMISS", w -> "{\"status\":\"DISMISSED\"}", w -> null)),
@@ -520,10 +541,26 @@ class OrgIsolationIT {
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/redeploy", Case.versioned(200, "PLACEMENT_REDEPLOY", w -> "{}", w -> null)),
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/redeploy/cancel", Case.people(200, "PLACEMENT_REDEPLOY_CANCEL", 1, w -> null, w -> null, World::putPlacementInPool)),
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/notes", Case.versioned(201, "PLACEMENT_NOTE", w -> "{\"body\":\"Hijacked note\"}", w -> null)),
+        // Offers to placement (X9.8, X10.4): the Accounts Offers page and the end of a placement. The CONSULTANT answers an offer; there is no accept or decline route here.
+        Map.entry("GET /api/orgs/{orgId}/offers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/offers/counts", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/offers/pickers", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/offers/{offerId}", Case.read()),
+        Map.entry("POST /api/orgs/{orgId}/offers", Case.versioned(201, "OFFER_CREATE", w -> "{\"consultantId\":" + w.plTalent.spareConsultantId() + ",\"clientId\":" + w.plTalent.clientId() + ",\"roleTitle\":\"Hijack\",\"startDate\":\"" + java.time.LocalDate.now().plusDays(20) + "\"}", w -> null)),
+        Map.entry("PUT /api/orgs/{orgId}/offers/{offerId}", Case.versioned(200, "OFFER_UPDATE", w -> "{\"rateMinor\":10500,\"ratePeriod\":\"HOUR\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/offers/{offerId}/extend", Case.people(200, "OFFER_EXTEND", 1, w -> null, w -> null, World::draftTheOffer)),
+        Map.entry("POST /api/orgs/{orgId}/offers/{offerId}/withdraw", Case.versioned(200, "OFFER_WITHDRAW", w -> "{}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/offers/{offerId}/placement", Case.people(200, "OFFER_PLACEMENT", 2, w -> null, w -> null, World::acceptTheOffer)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/terminate", Case.versioned(200, "PLACEMENT_TERMINATE", w -> "{\"reason\":\"Hijacked\"}", w -> null)),
+        Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/notice", Case.versioned(200, "PLACEMENT_NOTICE", w -> "{\"endDate\":\"" + java.time.LocalDate.now().plusDays(10) + "\"}", w -> null)),
+        Map.entry("GET /api/orgs/{orgId}/submissions", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/submissions/counts", Case.read()),
         Map.entry("POST /api/orgs/{orgId}/placements/{placementId}/undo", Case.people(200, "PLACEMENT_UNDO", 1, w -> "{\"eventId\":" + w.plUndoEventId + "}", w -> null, World::preparePlacementUndo)),
         // Enterprise V2 job data audit (docs/enterprise-v2/60 section 11): read only, needs audit.view at ORG scope (the owner has it, every role without it gets the generic 404).
         Map.entry("GET /api/orgs/{orgId}/audit/job-data", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/audit", Case.read()),
+        Map.entry("GET /api/orgs/{orgId}/audit/export", Case.auditedRead(OrgAuditService.EXPORT)),
+        Map.entry("GET /api/orgs/{orgId}/reports/export", Case.auditedRead(OrgAuditService.EXPORT)),
         // Enterprise V2 Marketing workspace (mkt/**, ent-marketer). The legitimate caller is the owner (every marketing permission at ORG scope) in a world whose marketing module is on and whose
         // marketing rows were made through the real API (World.seedMkt). Reads write no audit row; every write records its own MARKETER_* row; the writes below that are documented as audit-free
         // are personal working state of the caller (a saved view, a saved search's "seen" marker, a prep checklist tick), like the dashboard alert dismissal above.
@@ -789,8 +826,24 @@ class OrgIsolationIT {
         Long cwsMatchId, cwsResumeId, cwsRequirementId, cwsApplicationId, cwsConsultantId;
 
         /** The Undo route needs the callers own latest, still undoable change. */
+        Long offerRowId;
+
         void preparePlacementUndo() {
             plUndoEventId = com.dossier.api.web.rest.ent.PlacementItSupport.undoableEvent(em, org.getId(), plTalent.placementId(), owner.getId());
+        }
+
+        /** The extend route needs a draft offer. */
+        void draftTheOffer() {
+            em.createQuery("update CwsOffer o set o.status = 'DRAFT' where o.orgId = :o").setParameter("o", org.getId()).executeUpdate();
+            em.flush();
+            em.clear();
+        }
+
+        /** The create-placement route needs an accepted offer of a consultant with no placement and a linked client. */
+        void acceptTheOffer() {
+            em.createQuery("update CwsOffer o set o.status = 'ACCEPTED', o.respondedAt = :now where o.orgId = :o").setParameter("o", org.getId()).setParameter("now", java.time.Instant.now()).executeUpdate();
+            em.flush();
+            em.clear();
         }
 
         /** The request an extension route needs a placement with no extension waiting. */
@@ -1116,6 +1169,20 @@ class OrgIsolationIT {
             jobVersion = com.dossier.api.service.ent.jobs.JobBoardService.versionOf(jr);
             appTalent = com.dossier.api.web.rest.ent.ApplicationItSupport.seed(em, org.getId(), owner.getId());
             plTalent = com.dossier.api.web.rest.ent.PlacementItSupport.seed(em, org.getId(), owner.getId()); // (a merge had moved this line into interviewState)
+            com.dossier.api.domain.ent.consultantws.CwsOffer offerRow = new com.dossier.api.domain.ent.consultantws.CwsOffer();
+            offerRow.setOrgId(org.getId());
+            offerRow.setConsultantId(plTalent.spareConsultantId());
+            offerRow.setClientId(plTalent.clientId());
+            offerRow.setClientName(prefix + " offer client");
+            offerRow.setRoleTitle("Offer Fixture Engineer");
+            offerRow.setStatus(com.dossier.api.domain.ent.consultantws.CwsOffer.PENDING_REVIEW);
+            offerRow.setStartDate(java.time.LocalDate.now().plusDays(30));
+            offerRow.setOfferDeadline(java.time.LocalDate.now().plusDays(30));
+            offerRow.setCreatedByMemberId(owner.getId());
+            offerRow.setUpdatedByMemberId(owner.getId());
+            em.persist(offerRow);
+            em.flush();
+            offerRowId = offerRow.getId();
             com.dossier.api.domain.ent.talent.TalentInterview iv = new com.dossier.api.domain.ent.talent.TalentInterview();
             iv.setOrgId(org.getId());
             iv.setApplicationId(appTalent.applicationId());
@@ -1466,7 +1533,7 @@ class OrgIsolationIT {
             ids.put("opportunityMatchId", String.valueOf(assignedMatchId)); // {matchId} of the opportunities routes (see uri())
             ids.put("taskId", String.valueOf(taskId)); // {id} of the tasks routes (see uri())
             ids.put("availabilityBlockId", String.valueOf(availabilityBlockId)); // {id} of the availability/blocks routes (see uri())
-            ids.put("offerId", String.valueOf(offerId)); // {id} of the offers routes (see uri())
+            ids.put("cwsOfferId", String.valueOf(offerId)); // {id} of the /me-workspace/offers routes (see uri()); {offerId} below is the Accounts page's row
             ids.put("itemId", String.valueOf(placementChecklistId)); // placements/checklist/{itemId}
             ids.put("notificationId", String.valueOf(notificationId)); // {id} of DELETE notifications/{id} (see uri())
             ids.put("category", "JOB_MATCH"); // a fixed notification category, not a row
@@ -1479,6 +1546,7 @@ class OrgIsolationIT {
             ids.put("applicationId", String.valueOf(appTalent.applicationId()));
             ids.put("interviewId", String.valueOf(interviewId));
             ids.put("placementId", String.valueOf(plTalent.placementId()));
+            ids.put("offerId", String.valueOf(offerRowId)); // {offerId} of the Accounts Offers routes
             ids.put("extensionId", String.valueOf(plTalent.extensionId()));
             // ent-marketer: the Marketing workspace names its rows by variables that mean other rows on other pages, so uri() renames them by route prefix.
             ids.put("mktTaskId", String.valueOf(mktTaskId));
@@ -1534,6 +1602,7 @@ class OrgIsolationIT {
     private static String uri(Route route, Map<String, String> ids) {
         // The same variable name names different rows on different pages: the route prefix decides which fixture row a route means.
         String pattern = route.pattern()
+            .replace("/orgs/{orgId}/requirements/{requirementId}", "/orgs/{orgId}/requirements/{jobId}") // the Account Manager page's requirement is the world's job
             .replace("/mkt/interviews/{interviewId}", "/mkt/interviews/{mktInterviewId}") // before the generic interviews rename below
             .replace("/prep/{itemId}", "/prep/{mktPrepItemId}")
             .replace("/mkt/activity/{id}", "/mkt/activity/{mktActivityId}")
@@ -1551,6 +1620,7 @@ class OrgIsolationIT {
             .replace("/submissions/{id}", "/submissions/{submissionId}")
             .replace("/tasks/{id}", "/tasks/{taskId}")
             .replace("/blocks/{id}", "/blocks/{availabilityBlockId}")
+            .replace("/me-workspace/offers/{id}", "/me-workspace/offers/{cwsOfferId}") // the consultant's own offer, not the Accounts page's offer row (same name, different row)
             .replace("/offers/{id}", "/offers/{offerId}")
             .replace("/notifications/{id}", "/notifications/{notificationId}")
             .replace("/interviews/{interviewId}/feedback", "/interviews/{completedInterviewId}/feedback");
@@ -1579,7 +1649,7 @@ class OrgIsolationIT {
         if (route.key().equals("POST /api/orgs/{orgId}/groups/{groupId}/members") || route.key().equals("POST /api/orgs/{orgId}/resumes") || route.key().equals("POST /api/orgs/{orgId}/resumes/bulk")) req.header("Idempotency-Key", java.util.UUID.randomUUID().toString());
         Case c = COVERAGE.get(route.key());
         String body = c.bodyFor() != null ? c.bodyFor().apply(world) : c.body();
-        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension") || route.pattern().endsWith("/opportunities/job"))) {
+        if (route.method().equals("POST") && (route.pattern().contains("/members/bulk/") || route.pattern().endsWith("/offboard") || route.pattern().contains("/consultants") || route.pattern().endsWith("/jobs") || route.pattern().endsWith("/orgs/{orgId}/requirements") || route.pattern().endsWith("/clients") || route.pattern().endsWith("/jobs/bulk/status") || route.pattern().contains("/marketing-assignments/") || route.pattern().endsWith("/from-extension") || route.pattern().endsWith("/opportunities/job"))) {
             req.header("Idempotency-Key", java.util.UUID.randomUUID().toString()); // the people actions require one (doc 40 section 6)
         }
         if (c.ifMatchFor() != null) {

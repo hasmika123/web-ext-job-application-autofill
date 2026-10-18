@@ -29,6 +29,8 @@ function raw(w) {
     // org workspaces (WP5): another person's assignment of a job to THIS account
     "ws:42:assignedJobs": { ts: 1, items: [{ id: 7, title: "Staff Engineer", assignedBy: "Sarah" }] },
     "ws:43:assignedJobs": { ts: 1, items: [] },
+    // "Prepare selected openings" (X12.9): a batch belongs to the account that started it
+    "ws:42:prepareBatch": { v: 1, sessionId: "sess_abc123", orgId: 42, userId: 9, jobs: [{ matchId: 1, state: "OPENED", tabId: 5 }], outbox: [] },
     // the device
     trackingAuth: { access: "a", refresh: "r", username: "ada" },
     fieldMapCache: { "first name": "firstName" },
@@ -50,6 +52,7 @@ function raw(w) {
   ok("web sign-out still removes the profile and resumes", !("bio" in soft) && !("resumes" in soft));
   ok("web sign-out still removes AI drafts and pending tracking", !("answerCache" in soft) && !("trackingPending" in soft));
   ok("web sign-out removes every org-workspace cache (ws:<orgId>:assignedJobs)", !("ws:42:assignedJobs" in soft) && !("ws:43:assignedJobs" in soft), Object.keys(soft).filter((k) => k.indexOf("ws:") === 0).join(","));
+  ok("web sign-out removes a running prepare batch (ws:<orgId>:prepareBatch)", !("ws:42:prepareBatch" in soft), Object.keys(soft).filter((k) => k.indexOf("ws:") === 0).join(","));
   ok("web sign-out removes the chosen workspace and the org list", !("workspace" in (soft.settings || {})) && !("workspaces" in (soft.settings || {})), JSON.stringify(soft.settings));
   ok("a ws: prefix match does not eat unrelated keys", "trackingAuth" in soft && "fieldMapCache" in soft);
 

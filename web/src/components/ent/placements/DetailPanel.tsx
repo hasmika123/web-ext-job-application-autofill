@@ -289,7 +289,7 @@ export default function DetailPanel(p: DetailPanelProps) {
   const ext = extensionSummary(d);
   const endTone = TONE_TEXT[d.nextAction.tone] ?? "";
   const rate = rateText(d.billRateMinor, d.rateUnit, d.currency);
-  const hasQuick = d.actions.extend || d.actions.complete || d.actions.redeploy;
+  const hasQuick = d.actions.extend || d.actions.complete || d.actions.redeploy || d.actions.terminate || d.actions.giveNotice;
 
   async function submitDialog(date: string, note: string) {
     if (!dialog) return;
@@ -300,7 +300,11 @@ export default function DetailPanel(p: DetailPanelProps) {
         ? await act(d.id, { title: "Placement extended", description: `The end date is now ${formatDay(date)}.` }, () => placementsApi.extend(p.orgId, d.id, date, note))
         : dialog === "request"
           ? await act(d.id, { title: "Extension requested", description: `Waiting for a decision on ${formatDay(date)}.` }, () => placementsApi.requestExtension(p.orgId, d.id, date, note))
-          : await act(d.id, { title: "Redeployment started", description: `${first} is in the pool from ${formatDay(date)}.` }, () => placementsApi.redeploy(p.orgId, d.id, date));
+          : dialog === "notice"
+            ? await act(d.id, { title: "Notice recorded", description: `${first} is on notice until ${formatDay(date)}.` }, () => placementsApi.giveNotice(p.orgId, d.id, date, note))
+            : dialog === "terminate"
+              ? await act(d.id, { title: "Placement terminated", description: `${first}'s placement at ${d.client.name} ended on ${formatDay(date)}.` }, () => placementsApi.terminate(p.orgId, d.id, note, date))
+              : await act(d.id, { title: "Redeployment started", description: `${first} is in the pool from ${formatDay(date)}.` }, () => placementsApi.redeploy(p.orgId, d.id, date));
     setBusy(false);
     if (r) setDialog(null);
     else setDialogErr("That could not be recorded. Check the date and try again.");
@@ -336,7 +340,7 @@ export default function DetailPanel(p: DetailPanelProps) {
 
   const availableText = d.availability.availableFrom ? (
     <>
-      {d.status === "ENDED" && (d.availability.inDays ?? 0) < 0 ? `${first} has been available since ` : `${first} will be available starting `}
+      {(d.status === "ENDED" || d.status === "TERMINATED") && (d.availability.inDays ?? 0) < 0 ? `${first} has been available since ` : `${first} will be available starting `}
       <span className={`font-semibold ${d.nextAction.kind === "ENDS_IN" ? TONE_TEXT[d.nextAction.tone] : "text-[color:var(--pl-amber)]"}`}>
         {formatDay(d.availability.availableFrom)}
         {d.availability.inDays !== null && d.availability.inDays > 0 ? ` (in ${d.availability.inDays} days)` : d.availability.inDays === 0 ? " (today)" : ""}.
@@ -397,9 +401,9 @@ export default function DetailPanel(p: DetailPanelProps) {
             </Row>
             <Row label="End Date" testId="end">
               {d.endDate ? (
-                <span className={`font-medium ${d.status === "ACTIVE" ? endTone : ""}`}>
+                <span className={`font-medium ${d.status === "ACTIVE" || d.status === "ENDING" ? endTone : ""}`}>
                   {formatDay(d.endDate)}
-                  {d.endsInDays !== null && d.status !== "ENDED" && d.endsInDays >= 0 ? ` (${relativeDays(d.endsInDays)})` : ""}
+                  {d.endsInDays !== null && d.status !== "ENDED" && d.status !== "TERMINATED" && d.endsInDays >= 0 ? ` (${relativeDays(d.endsInDays)})` : ""}
                 </span>
               ) : (
                 <span className="text-muted">Open-ended</span>
@@ -516,6 +520,16 @@ export default function DetailPanel(p: DetailPanelProps) {
                 {d.actions.complete && (
                   <button type="button" onClick={() => void complete()} disabled={busy} data-quick="complete" className={`${OUTLINE_BTN} !h-[38px] !gap-1.5 whitespace-nowrap !px-2`}>
                     <CheckIcon size={16} aria-hidden /> Mark Complete
+                  </button>
+                )}
+                {d.actions.giveNotice && (
+                  <button type="button" onClick={() => { setDialogErr(null); setDialog("notice"); }} disabled={busy} data-quick="notice" className={`${OUTLINE_BTN} !h-[38px] !gap-1.5 whitespace-nowrap !px-2`}>
+                    <CalendarIcon size={16} aria-hidden /> Record Notice
+                  </button>
+                )}
+                {d.actions.terminate && (
+                  <button type="button" onClick={() => { setDialogErr(null); setDialog("terminate"); }} disabled={busy} data-quick="terminate" className={`${OUTLINE_BTN} !h-[38px] !gap-1.5 whitespace-nowrap !px-2`}>
+                    Terminate
                   </button>
                 )}
                 {d.actions.redeploy && (

@@ -13,6 +13,8 @@ public interface OrgSettingRepository extends Repository<OrgSetting, Long> {
 
     <S extends OrgSetting> S saveAndFlush(S setting);
 
+    void delete(OrgSetting setting);
+
     @Query("select s from OrgSetting s where s.orgId = :orgId and s.settingKey = :settingKey")
     Optional<OrgSetting> findByOrgIdAndSettingKey(@Param("orgId") Long orgId, @Param("settingKey") String settingKey);
 

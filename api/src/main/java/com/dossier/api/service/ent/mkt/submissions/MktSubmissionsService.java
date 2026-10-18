@@ -82,6 +82,10 @@ public class MktSubmissionsService {
     private final EntChangeActors changeActors;
     private final Clock clock;
 
+    /** Whether a package uses the resume version that was approved (X7.4); absent in hand-wired unit tests (then the field is null). */
+    @Autowired(required = false)
+    private com.dossier.api.service.ent.resumes.OrgResumeApproval approvals;
+
     @Autowired
     public MktSubmissionsService(
         MktScope scope, AuthorizationService authorization, MktSubmissionRepository submissions, MktSubmissionEventRepository events,
@@ -360,7 +364,7 @@ public class MktSubmissionsService {
     }
 
     /** consultants, jobs and clients of a set of rows, read inside the organization. */
-    private record Lookups(Map<Long, ConsultantProfile> consultants, Map<Long, ClientRequirement> jobs, Map<Long, ClientAccount> clients, EntChangeActors.Lookup actors) {}
+    private record Lookups(Map<Long, ConsultantProfile> consultants, Map<Long, ClientRequirement> jobs, Map<Long, ClientAccount> clients, EntChangeActors.Lookup actors, Map<Long, Boolean> approvedVersion) {}
 
     private Lookups lookups(Long orgId, Collection<MktSubmission> rows) {
         Map<Long, ConsultantProfile> c = new HashMap<>();
@@ -383,7 +387,14 @@ public class MktSubmissionsService {
             updaters.add(x.getUpdatedByMemberId());
             subjects.add(new EntChangeActors.Subject(x.getConsultantId(), x.getPreparedByMemberId()));
         }
-        return new Lookups(c, j, a, changeActors.load(orgId, updaters, subjects));
+        Map<Long, Boolean> approvedVersion = new HashMap<>();
+        if (approvals != null) {
+            for (MktSubmission x : rows) {
+                if (x.getResumeId() == null || approvedVersion.containsKey(x.getId())) continue;
+                submissions.findResume(orgId, x.getResumeId()).ifPresent(r -> approvedVersion.put(x.getId(), approvals.usesApprovedVersion(r, x.getResumeVersion())));
+            }
+        }
+        return new Lookups(c, j, a, changeActors.load(orgId, updaters, subjects), approvedVersion);
     }
 
     static String bucketOf(MktSubmission s) {
@@ -409,7 +420,7 @@ public class MktSubmissionsService {
             new Job(s.getRequirementId(), j == null ? "Unknown job" : j.getTitle(), jobCode(s.getRequirementId())),
             new ClientRef(s.getClientId(), a == null ? "Unknown client" : a.getName()),
             s.shownAt(), s.getApprovalState(),
-            version == null ? null : new ResumeRef(s.getResumeId(), version, s.getResumeUpdatedAt()),
+            version == null ? null : new ResumeRef(s.getResumeId(), version, s.getResumeUpdatedAt(), lk.approvedVersion().get(s.getId())),
             s.getStatus(), bucketOf(s), actionsOf(s),
             s.getUpdatedAt(), lk.actors().of(s.getUpdatedByMemberId(), null, new EntChangeActors.Subject(s.getConsultantId(), s.getPreparedByMemberId()))
         );

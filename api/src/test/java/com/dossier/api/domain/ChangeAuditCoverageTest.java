@@ -30,7 +30,9 @@ class ChangeAuditCoverageTest {
     static final Set<String> REQUIRED = Set.of(
         "Application", "ApplicationNote", "Interview", "Resume",
         // Enterprise application records (X9.13): created_by_member_id / updated_by_member_id
-        "TalentApplication", "TalentInterview", "TalentApplicationNote", "MktSubmission", "CwsSubmission"
+        "TalentApplication", "TalentInterview", "TalentApplicationNote", "MktSubmission", "CwsSubmission",
+        // Offers (X9.8): the org records them, the consultant answers; created_by_member_id / updated_by_member_id / updated_by_kind
+        "CwsOffer"
     );
 
     /**
@@ -46,7 +48,7 @@ class ChangeAuditCoverageTest {
         "DataShare", "Organization", "OrgMember", "OrgAssignment", "OrgHostname", "OrgRoleDefinition", "ConsultantLicense", "OrgBillingAccount",
         "OrgContract", "OrgSubscriptionItem", "UsageCounter",
         // Consultant workspace working data: the consultant's own rows.
-        "CwsAvailabilityBlock", "CwsInterviewDetail", "CwsInterviewFeedback", "CwsJobSource", "CwsNotificationPref", "CwsOffer", "CwsOpportunityResponse",
+        "CwsAvailabilityBlock", "CwsInterviewDetail", "CwsInterviewFeedback", "CwsJobSource", "CwsNotificationPref", "CwsOpportunityResponse",
         "CwsPlacementChecklist", "CwsPlacementDetail", "CwsPlacementMeeting", "CwsPlacementMilestone", "CwsProfileDetail", "CwsSetting", "CwsTask",
         "CwsTaskDetail", "CwsWorkPreference",
         // Marketer workspace working data and views.
@@ -55,6 +57,8 @@ class ChangeAuditCoverageTest {
         // HR / finance / reports (record-only; their own audit rows).
         "FinanceForecastInput", "FinancePlacementPeriod", "FinancePlacementTerms", "HrDocumentRequirement", "HrEmployee", "ReportDefinition",
         // Talent directory.
+        // Prepare sessions (prepare-batch): a progress row per opening, written by the consultant's own session (consultant_id is the only actor); PrepareEvent keeps the trail.
+        "PrepareItem",
         "ClientAccount", "ClientRequirement", "ConsultantProfile", "MarketerAssignment", "MarketerCapacity", "OrgResume", "TalentPlacement",
         // Subscription module: a published plan version is changed only through the catalog builder, which writes catalog_change / catalog_publish (actor, before/after, reason);
         // the add-on rows are a mirror written by the Stripe webhook and the confirmed-change service; the usage counter is a system ledger.

@@ -40,6 +40,40 @@ public class CwsOfferEvent implements Serializable {
     @Column(name = "occurred_at", nullable = false)
     private Instant occurredAt = Instant.now();
 
+    public static final String DRAFTED = "DRAFTED";
+    public static final String EXTENDED = "EXTENDED";
+    public static final String WITHDRAWN = "WITHDRAWN";
+    public static final String EXPIRED = "EXPIRED";
+    public static final String HIRED = "HIRED";
+    public static final String EDITED = "EDITED";
+
+    /** Who acted: an org user, the consultant, or a job. */
+    public static final String BY_MEMBER = "MEMBER";
+    public static final String BY_CONSULTANT = "CONSULTANT";
+    public static final String BY_SYSTEM = "SYSTEM";
+
+    @Column(name = "actor_member_id")
+    private Long actorMemberId;
+    @Column(name = "actor_kind", length = 12, nullable = false)
+    private String actorKind = BY_SYSTEM;
+    @Column(name = "detail", length = 300)
+    private String detail;
+
+    public Long getActorMemberId() { return actorMemberId; }
+    public void setActorMemberId(Long actorMemberId) { this.actorMemberId = actorMemberId; }
+    public String getActorKind() { return actorKind; }
+    public void setActorKind(String actorKind) { this.actorKind = actorKind; }
+    public String getDetail() { return detail; }
+    public void setDetail(String detail) { this.detail = detail; }
+
+    /** The same event with who did it. */
+    public CwsOfferEvent by(String kind, Long memberId, String detailLine) {
+        this.actorKind = kind;
+        this.actorMemberId = memberId;
+        this.detail = detailLine == null ? null : detailLine.length() > 300 ? detailLine.substring(0, 300) : detailLine;
+        return this;
+    }
+
     public static CwsOfferEvent of(CwsOffer offer, String kind, String label, Instant at) {
         CwsOfferEvent e = new CwsOfferEvent();
         e.orgId = offer.getOrgId();

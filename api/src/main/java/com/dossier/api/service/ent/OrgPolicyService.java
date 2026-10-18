@@ -1,5 +1,6 @@
 package com.dossier.api.service.ent;
 
+import com.dossier.api.service.privacy.SensitiveContent;
 import com.dossier.api.domain.ent.OrgBranding;
 import com.dossier.api.domain.ent.OrgPolicy;
 import com.dossier.api.domain.ent.OrgPolicyVersion;
@@ -50,6 +51,7 @@ public class OrgPolicyService {
     private final OrgPolicyVersionRepository versions;
     private final OrgAuditService audit;
     private final SettingsService settings;
+    private final com.dossier.api.service.ent.settings.OrgSettingsService orgSettings;
 
     public OrgPolicyService(
         OrganizationRepository orgs,
@@ -57,7 +59,8 @@ public class OrgPolicyService {
         OrgPolicyRepository policies,
         OrgPolicyVersionRepository versions,
         OrgAuditService audit,
-        SettingsService settings
+        SettingsService settings,
+        com.dossier.api.service.ent.settings.OrgSettingsService orgSettings
     ) {
         this.orgs = orgs;
         this.brandings = brandings;
@@ -65,6 +68,7 @@ public class OrgPolicyService {
         this.versions = versions;
         this.audit = audit;
         this.settings = settings;
+        this.orgSettings = orgSettings;
     }
 
     // ---- settings --------------------------------------------------------------------------------------------------
@@ -126,6 +130,7 @@ public class OrgPolicyService {
         String kind = kindOrNotFound(rawKind);
         loadEditableOrg(me);
         String clean = PolicyBodySanitizer.sanitize(body, maxChars());
+        SensitiveContent.check("body", "body", clean); // X11.7: a policy the organization writes never carries a never-collected value
         OrgPolicy p = rowForWrite(me.orgId(), kind);
         requireEditable(p);
         if (ifMatch != null && ifMatch != p.getDraftVersion()) {
@@ -336,6 +341,8 @@ public class OrgPolicyService {
     }
 
     private String supportEmail(Long orgId) {
+        String own = orgSettings.contactEmail(orgId); // the Settings page contact wins; the published branding support e-mail is the fallback
+        if (own != null) return own;
         return brandings.findByOrgId(orgId).filter(b -> b.getPublishedAt() != null).map(OrgBranding::getSupportEmail).orElse(null);
     }
 

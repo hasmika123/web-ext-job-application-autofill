@@ -82,3 +82,14 @@ Numbering gaps (18–19, 45+) are reserved so each session can add a doc without
   names; Sonnet never has to guess. Anything not decided goes to `08-decisions-for-user.md`.
 - Re-opening an ADR requires a new ADR that supersedes it (`adr/ADR-0NN-*.md`, status Superseded on the old one).
 - Keep `progress-tracker.md` and `ent.json` in sync on every story transition.
+
+## Written by the deferred-areas design session (Fable, 2026-10-17, branch `ent-deferred-design`)
+
+| File | Covers | Status |
+|---|---|---|
+| `deferred/README.md` | index of the deferred areas, what is a placeholder today, decisions DD-1…DD-15, the three-wave parallel build plan, competitor benchmark (Bullhorn, Ceipal, JobDiva, Zoho Recruit, Avionté, Vincere) | design |
+| `deferred/marketing-manager.md` | Marketing Manager workspace (8 pages): `TeamScope`, approvals, escalations, workload rebalance, pipeline board, team reports | design (MM-01…17) |
+| `deferred/org-admin-pages.md` | HR, Finance, Reports library, Integrations (webhooks + CSV), Executive — on the built ops/billing data foundations | design (HR/FIN/REP/INT/EXE) |
+| `deferred/custom-domains.md` | E5 build order over doc 10; ask token `t`; the exact edge snippet the user applies | design (DOM-01…10) |
+| `deferred/org-billing-pages.md` | the four org billing pages on the mirror tables + LOCAL quote/confirm applier; K6 untouched | design (OBL-01…09) |
+| `deferred/stories.md` | 70 build-ready stories with files, signatures, tests, deps | design |

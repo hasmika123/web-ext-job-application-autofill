@@ -35,6 +35,7 @@ import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
 import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
 import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
 import JobLinkButton, { QuickInfo } from "./JobLinkButton";
+import { PrepareBar, PrepareCheck, PrepareConfirmDialog, PrepareProgress, PrepareWhy, usePrepareBatch, type PrepareUi } from "./PrepareBatch";
 import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
 import { deltaText, employmentLabel, firstName, initialsOf, placeLabel, shortDate } from "@/lib/ent/consultant-ws/home";
 import {
@@ -221,7 +222,7 @@ function RowMenu({ row, a }: { row: OppRow; a: Actions }) {
   );
 }
 
-function OpportunitiesTable({ view, sort, setSort, selected, a, notice }: { view: OppView; sort: SortKey; setSort: (s: SortKey) => void; selected: number | null; a: Actions; notice: string }) {
+function OpportunitiesTable({ view, sort, setSort, selected, a, notice, prepare }: { view: OppView; sort: SortKey; setSort: (s: SortKey) => void; selected: number | null; a: Actions; notice: string; prepare: PrepareUi }) {
   return (
     <Card
       id="opps-list"
@@ -250,6 +251,7 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice }: { view
       <p role="status" aria-live="polite" data-notice className={cn("mb-2 text-[12.5px] font-medium text-v2-coral-ink", !notice && "sr-only")}>
         {notice}
       </p>
+      <PrepareBar p={prepare} />
       {view.rows.length === 0 ? (
         <Empty>No opportunities are assigned to you yet. When your marketer assigns a job, it shows up here for you to respond to.</Empty>
       ) : (
@@ -257,6 +259,11 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice }: { view
           <table className={cn(TABLE, "min-w-[560px] 2xl:min-w-[760px]")}>
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">
+                {prepare.active ? (
+                  <th scope="col" className="w-8 bg-paper-2/60 px-2 py-2 first:rounded-l-lg">
+                    <span className="sr-only">Select to prepare</span>
+                  </th>
+                ) : null}
                 {["Job Title", "Company", "Location", "Marketer", "Status", "Priority", "Due Date", "Actions"].map((c) => (
                   <th key={c} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", (c === "Marketer" || c === "Location") && "hidden 2xl:table-cell")}>
                     {c}
@@ -267,9 +274,15 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice }: { view
             <tbody className="divide-y divide-line">
               {view.rows.map((r) => (
                 <tr key={r.matchId} data-opp={r.matchId} aria-selected={selected === r.matchId} className={cn(selected === r.matchId && "bg-accent-soft/40")}>
+                  {prepare.active ? (
+                    <td className={cn(TD, "w-8")}>
+                      <PrepareCheck row={r} p={prepare} />
+                    </td>
+                  ) : null}
                   <td className={cn(TD, "max-w-[190px]")}>
                     <span className="block font-semibold text-ink">{r.title}</span>
                     {r.skills.length ? <span className="block truncate text-[12px] text-muted">{r.skills.slice(0, 3).join(" | ")}</span> : null}
+                    {prepare.active ? <PrepareWhy row={r} p={prepare} /> : null}
                   </td>
                   <td className={TD}>
                     <span className="flex items-center gap-1.5">
@@ -647,11 +660,14 @@ export interface OpportunitiesPageProps {
 
 type DetailState = { id: number; result: Fetched<OppDetail> } | null;
 
+const NO_ROWS: readonly OppRow[] = [];
+
 export default function ConsultantOpportunitiesPage({ orgId, firstName: first, initialOpenId = null }: OpportunitiesPageProps) {
   const toast = useToast();
   const [sort, setSort] = useState<SortKey>("due");
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchOpportunities(orgId, sort), [orgId, sort]));
   const loading = status === "loading";
+  const prepare = usePrepareBatch(orgId, view?.rows ?? NO_ROWS, view !== null);
   const [picked, setPicked] = useState<number | null>(null);
   const [sheetId, setSheetId] = useState<number | null>(initialOpenId);
   const [state, setState] = useState<DetailState>(null);
@@ -773,7 +789,10 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first, i
               ))}
             </section>
             {view ? (
-              <OpportunitiesTable view={view} sort={sort} setSort={setSort} selected={target?.matchId ?? null} a={actions} notice={notice} />
+              <>
+                <PrepareProgress p={prepare} />
+                <OpportunitiesTable view={view} sort={sort} setSort={setSort} selected={target?.matchId ?? null} a={actions} notice={notice} prepare={prepare} />
+              </>
             ) : (
               <div className="grid gap-4" aria-busy="true">
                 <Skeleton className="h-72 w-full" />
@@ -798,6 +817,7 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first, i
         </div>
       ) : null}
       <DetailSheet row={sheetRow} detail={detail} loading={detail === null} onClose={() => setSheetId(null)} a={actions} />
+      <PrepareConfirmDialog p={prepare} rows={view?.rows ?? NO_ROWS} />
       <AppliedDialog row={applying} busy={busy} onCancel={() => setApplying(null)} onConfirm={() => void confirmApplied()} />
       <TextDialog key={ask ? `${ask.kind}-${ask.row.matchId}` : "none"} ask={ask} busy={busy} error={error} onCancel={() => setAsk(null)} onSend={(t) => void send(t)} />
     </div>

@@ -147,6 +147,12 @@ public class JobIdentityTx {
         return matches.findByOrgIdAndRequirementIdAndConsultantId(orgId, requirementId, consultantId).map(RequirementMatch::getId);
     }
 
+    /** A match by id in a fresh snapshot: the one a nested transaction inserted a moment ago (the caller's own snapshot does not see it). */
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
+    public Optional<RequirementMatch> readMatch(Long orgId, Long matchId) {
+        return matches.findByOrgIdAndId(orgId, matchId);
+    }
+
     /** A board row in a fresh snapshot: a match another transaction committed after the caller's snapshot began (the one just inserted here) is visible. */
     @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public Optional<MktOpportunityRow> readOpportunityRow(Long orgId, Long matchId) {

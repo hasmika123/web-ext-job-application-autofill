@@ -26,8 +26,8 @@ export function toBody(f: Form): ContactBody {
 }
 
 /**
- * Add Contact: a business contact only (name, title, work e-mail, role). No phone number and no private mailbox: the API refuses a
- * consumer mail domain (an organization setting). One Idempotency-Key per opening, so a double click or a retry adds one contact.
+ * Add Contact: a business contact only (name, title, work e-mail, role). No private mailbox: the API refuses a consumer mail domain (an
+ * organization setting). A work phone and a short note are kept from the Account Manager's Contacts page (`accounts-ws/contacts`). One Idempotency-Key per opening, so a double click or a retry adds one contact.
  */
 export default function ContactDialog({ orgId, clientId, clientName, open, onClose, onAdded }: { orgId: number | string; clientId: number | null; clientName: string; open: boolean; onClose: () => void; onAdded: (d: ClientDetail, contactName: string) => void }) {
   const [form, setForm] = useState<Form>(EMPTY);
@@ -70,7 +70,7 @@ export default function ContactDialog({ orgId, clientId, clientName, open, onClo
       open={open}
       onClose={() => !busy && onClose()}
       title="Add contact"
-      description={`A person at ${clientName} you work with. We keep a name, a title and a work e-mail only.`}
+      description={`A person at ${clientName} you work with. We keep a name, a title and a work e-mail; add a phone and a note from the Contacts page.`}
       footer={
         <>
           <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>

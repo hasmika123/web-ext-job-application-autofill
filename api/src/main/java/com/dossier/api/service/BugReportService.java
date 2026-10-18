@@ -1,6 +1,7 @@
 package com.dossier.api.service;
 
 import com.dossier.api.domain.BugReport;
+import com.dossier.api.service.privacy.SensitivePatterns;
 import com.dossier.api.domain.enumeration.BugCategory;
 import com.dossier.api.domain.enumeration.BugSeverity;
 import com.dossier.api.domain.enumeration.BugStatus;
@@ -57,6 +58,8 @@ public class BugReportService {
         if (msg.length() > MAX_MESSAGE) {
             msg = msg.substring(0, MAX_MESSAGE);
         }
+        // X11.7: a report is never refused (the reporter is often stuck), but a never-collected value pasted into it (an SSN in a log line, a bank number) is scrubbed before it is stored or mailed
+        msg = SensitivePatterns.redact(msg);
 
         BugReport b = new BugReport();
         b.setSource(source == null || source.isBlank() ? "web" : source.trim());
@@ -65,7 +68,7 @@ public class BugReportService {
         b.setMessage(msg);
         b.setCategory(parseCategory(categoryStr));
         b.setStatus(BugStatus.NEW);
-        b.setUrl(trimTo(url, 2048));
+        b.setUrl(url == null ? null : SensitivePatterns.redact(trimTo(url, 2048)));
         b.setAppVersion(trimTo(appVersion, 50));
         b.setUserAgent(trimTo(userAgent, 512));
         b.setCreatedDate(Instant.now());

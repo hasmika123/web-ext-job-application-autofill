@@ -104,8 +104,12 @@ const detailOf = (r: PlacementRow, canWrite = true): PlacementDetail => {
     timeline: [{ id: 1, type: "CREATED", actor: r.accountManager, detail: "Placement recorded", at: "2026-01-15T09:00:00Z" }],
     notes: [],
     notesCount: 0,
-    actions: { extend: canWrite && s.status !== "ENDED", requestExtension: canWrite && s.status !== "ENDED" && !s.pending, complete: canWrite && s.status !== "ENDED", redeploy: canWrite && !s.pool, addNote: canWrite, decideExtension: canWrite && s.pending },
+    actions: { extend: canWrite && s.status !== "ENDED", requestExtension: canWrite && s.status !== "ENDED" && !s.pending, complete: canWrite && s.status !== "ENDED", redeploy: canWrite && !s.pool, addNote: canWrite, decideExtension: canWrite && s.pending, terminate: false, giveNotice: false },
     undo: undoable ? { eventId: undoable.eventId, expiresAt: "2026-10-13T00:10:00Z", kind: undoable.kind } : null,
+    endKind: null,
+    endReason: null,
+    noticeOn: null,
+    offerId: null,
   };
 };
 

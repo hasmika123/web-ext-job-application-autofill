@@ -42,6 +42,13 @@ class ProfileSuggestionServiceTest {
     }
 
     @Test
+    void anAnswerHoldingASensitiveValueIsNeverLearned() {
+        assertThat(ProfileSuggestionService.carriesSensitive("desiredSalary", "SSN 123-45-6789")).isTrue();
+        assertThat(ProfileSuggestionService.carriesSensitive("noticePeriod", "account number 123456789012")).isTrue();
+        assertThat(ProfileSuggestionService.carriesSensitive("noticePeriod", "2 weeks")).isFalse();
+    }
+
+    @Test
     void eeoAndResumeTextAreNeverSuggestible() {
         for (String k : new String[] { "gender", "race", "ethnicity", "veteranStatus", "disabilityStatus", "summary", "skills", "coverLetter" }) {
             assertThat(ProfileSuggestionService.SUGGESTIBLE).doesNotContain(k);

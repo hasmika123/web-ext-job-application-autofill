@@ -53,6 +53,10 @@ public class ResumeBoardWriteService {
     private final OrgResumeExperienceRepository experience;
     private final OrgAuditService audit;
 
+    /** Fingerprint lookup for the approval pin (X7.4); absent in hand-wired unit tests. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private OrgResumeApproval approvals;
+
     public ResumeBoardWriteService(
         ResumeBoardSearchRepository search,
         ResumeAccess access,
@@ -172,6 +176,7 @@ public class ResumeBoardWriteService {
         r.setApprovalStatus(approve ? "APPROVED" : "REJECTED");
         r.setApprovedAt(Instant.now());
         r.setApprovedByMemberId(me.memberId());
+        if (approve) { if (approvals != null) approvals.pin(r); else OrgResumeApproval.pin(r, null); } // X7.4
         resumes.saveAndFlush(r);
         record(me, approve ? A_APPROVE : A_REJECT, r, "PENDING->" + r.getApprovalStatus() + " resume=" + ResumeBoardQueryService.clip(r.getName()) + (note != null ? " note=" + note : ""), hit.consultant());
         return previous;

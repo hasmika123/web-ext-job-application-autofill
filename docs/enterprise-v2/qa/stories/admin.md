@@ -380,6 +380,35 @@ The invitation / Create account now form now also has optional **Team** and **Ma
 - **Pages / APIs:** Policies, Settings (platform admin), `GET /api/public/tenant/policies/TERMS`.
 - **Status: STORY-ONLY (covered by `OrgPolicyResourceIT`)**
 
+### ADM-123 Oscar sets the organization's time zone, display name and support contact
+- **Persona:** Oscar, the Owner of Acme. **Steps:** 1. Open Settings (`/w/admin/settings`). 2. In General, change the display name to "Acme Talent", pick another time zone, choose "en-GB", enter `support@acme.example` as the contact e-mail, press Save changes. 3. Open the public Support page of the organization's host.
+- **Expected:** the legal name is shown but cannot be edited; a toast says the settings were saved; the support page shows the contact e-mail; a made-up time zone or an invalid e-mail is refused with a message naming the field and nothing is saved; History of the organization shows one "changed the organization settings" row naming the fields (not the values).
+- **Pages / APIs:** Settings, `GET /api/orgs/{id}/org-settings`, `PUT /api/orgs/{id}/org-settings/general`.
+- **Status: STORY-ONLY (covered by `OrgSettingsIT`, `GeneralSecuritySettings.test.tsx`); browser walk not verified**
+
+### ADM-124 Oscar tightens the password minimum and the idle timeout, with a reason
+- **Persona:** Oscar. **Steps:** 1. In Settings, Security, enter a minimum password length of 12 and an idle timeout of 120 minutes. 2. Leave the reason empty: the Review and save button stays disabled. 3. Type a reason, press Review and save, read the confirm dialog, confirm. 4. A member then tries to reset their password to 8 characters on the organization's host.
+- **Expected:** values outside the platform bounds shown beside each field are refused; the confirm dialog says what changes; the reset with 8 characters is refused; sessions on the organization's host renew for at most 120 idle minutes; History shows one row with old value, new value and the reason; clearing a field returns to the platform default (this also needs a reason); the extension's long-lived connection is unaffected.
+- **Pages / APIs:** Settings, `PUT /api/orgs/{id}/org-settings/security`, `POST /api/account/reset-password/finish`.
+- **Status: STORY-ONLY (covered by `OrgSettingsIT`); enforcement on the reset path and on token issue is code-only, browser walk not verified**
+
+### ADM-125 Only an organization settings manager can open or change Settings
+- **Persona:** Pat (plain member), Sam (marketing specialist), Hannah (HR), the Owner of another organization. **Steps:** each calls the settings URLs of Acme.
+- **Expected:** every one of them gets the generic "not found", whether reading or writing; nothing changes.
+- **Pages / APIs:** `/api/orgs/{id}/org-settings`, `OrgIsolationIT` rows.
+- **Status: STORY-ONLY (covered by `OrgSettingsIT`, `OrgIsolationIT`)**
+
+### ADM-126 Gina downloads the audit log as a CSV
+- **Persona:** Gina, who holds audit.view. **Steps:** 1. Open Audit Logs, filter to "invited a member" and a date range. 2. Press Download CSV. 3. Open the file in a spreadsheet.
+- **Expected:** the file holds exactly the filtered rows, newest first, with names (never logins or free text); a person whose name starts with `=` shows as plain text, no formula runs; the export is cut at the admin-set row limit with a line saying so; History then shows an "EXPORT" row for the download; HR and Finance (row-filtered audit grants) cannot download it.
+- **Pages / APIs:** Audit Logs, `GET /api/orgs/{id}/audit/export`.
+- **Status: STORY-ONLY (covered by `OrgAuditEventsIT`, `CsvSafeTest`); browser walk not verified**
+
+### ADM-127 A consultant's password-reset and notice e-mails look like their organization
+- **Persona:** Anika, a consultant with an enterprise account. **Steps:** 1. On the organization's host, press Forgot password. 2. Later, an interview is scheduled and Anika has e-mail notices on.
+- **Expected:** both e-mails carry the organization's logo (or its name when there is no logo), its colour and "this workspace" wording; every link, including the footer's Privacy, Terms and Support, points at the organization's own host; no link to kiwiply.com; with no host yet the footer shows no policy links. A personal user's e-mails are unchanged. An invitation to a separate-accounts organization never shows a "pays for: Pro" line.
+- **Pages / APIs:** reset e-mail, notification e-mail, invite e-mail.
+- **Status: STORY-ONLY (covered by `EnterpriseAccountMailTest`, `OrgInvitePaysStripTest`); real e-mail delivery not verified**
 ### ADM-130 The admin sets the duplicate policy, the open-opportunity limit and the handover switch (Sprint 2 / B1)
 - **Personas:** platform admin (Settings page), Org Admin (per-organization override stored in `org_setting`). **Goal:** every switch and limit of the assignment guards is configuration, never code.
 - **Steps:** 1. Open the platform Settings page and find `org.pipeline.duplicate_policy` (WARN or BLOCK, default WARN), `org.pipeline.same_client_window_days` (default 90), `org.pipeline.max_submissions_per_requirement` (default 0 = off), `org.pipeline.open_matches_max` (default 0 = off) and `org.assignments.handover_open_work` (default on). 2. Change one; repeat the matching story (MKT-61, MKT-62, MKT-63).

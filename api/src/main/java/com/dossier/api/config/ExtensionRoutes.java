@@ -50,6 +50,10 @@ public final class ExtensionRoutes {
         rule("GET", "/con/opportunities"),
         rule("GET", "/con/opportunities/[0-9]+"),
         rule("POST", "/con/opportunities/[0-9]+/(viewed|interest|decline|request-info|applied|link|unlink)"),
+        // Prepare selected openings (docs/enterprise-v2/63): the two POSTs of the contract (plan a batch, report progress on one opening). The status and
+        // session reads belong to the web page and are not on this list.
+        rule("POST", "/con/prepare"),
+        rule("POST", "/con/prepare/[0-9]+/events"),
         rule("GET", "/mkt/opportunities/options"),
         rule("POST", "/mkt/opportunities/from-extension")
     );

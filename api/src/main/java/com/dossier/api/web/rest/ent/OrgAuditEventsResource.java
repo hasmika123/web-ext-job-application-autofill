@@ -6,7 +6,12 @@ import com.dossier.api.service.org.OrgMembership;
 import com.dossier.api.web.rest.org.OrgPermissionRequired;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestAttribute;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,5 +46,26 @@ public class OrgAuditEventsResource {
         @RequestParam(required = false) Integer size
     ) {
         return service.list(me, action, from, to, page, size);
+    }
+
+    @Operation(
+        summary = "The same filtered log as a CSV download",
+        description = "Same filters as the list (action, from, to). Newest first, at most the admin setting org.audit.export_max_rows rows (a final line says when cut). Cells that a spreadsheet would read as a formula are neutralised. " +
+            "The export itself is audited (EXPORT). audit.view at ORG scope and not row-filtered; 404 otherwise."
+    )
+    @GetMapping("/export")
+    @OrgPermissionRequired(OrgPermission.AUDIT_VIEW)
+    public ResponseEntity<byte[]> export(
+        @RequestAttribute(OrgPermissionRequired.MEMBERSHIP_ATTRIBUTE) OrgMembership me,
+        @RequestParam(required = false) String action,
+        @RequestParam(required = false) Instant from,
+        @RequestParam(required = false) Instant to
+    ) {
+        String csv = service.exportCsv(me, action, from, to);
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"audit-log.csv\"")
+            .cacheControl(CacheControl.noStore())
+            .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
+            .body(csv.getBytes(StandardCharsets.UTF_8));
     }
 }

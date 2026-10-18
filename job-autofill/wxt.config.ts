@@ -51,7 +51,7 @@ export default defineConfig({
 
     return {
       name: "Kiwiply — Job Application Autofill",
-      version: "0.67.1",
+      version: "0.68.0",
       // ⚠️ Chrome Web Store hard limit: 132 characters. The upload is rejected outright above it,
       // so `.github/scripts/check-manifest-limits.mjs` enforces it at build time. This is the same
       // sentence as the listing's short description in STORE-LISTING.md — keep the two in step.
@@ -142,6 +142,11 @@ export default defineConfig({
           "https://kiwiply.com/*",
           "https://www.kiwiply.com/*",
           "https://app.kiwiply.com/*",
+          // Tenant hosts (acme.kiwiply.com, ...): "Prepare selected openings" (X12.9) is sent from the
+          // consultant's tenant page. The service worker honours this wildcard for that ONE message only
+          // (connect handoff and sync signals still need the exact origins above). Custom tenant domains
+          // cannot be listed in a manifest; see ARCHITECTURE.md "Prepare batch".
+          "https://*.kiwiply.com/*",
           ...(dev ? devConnectOrigins : []),
         ],
       },

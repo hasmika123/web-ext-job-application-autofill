@@ -6,6 +6,10 @@ import com.dossier.api.domain.enumeration.PermissionScope;
 import com.dossier.api.domain.org.OrgAuditEvent;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.ent.OrgRolePermissionRepository;
+import com.dossier.api.service.ResumeBuilderSettings;
+import com.dossier.api.service.ent.export.CsvSafe;
+import com.dossier.api.service.org.OrgAuditService;
+import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import com.dossier.api.service.ent.dashboard.ActivityRecentProvider;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
@@ -43,13 +47,50 @@ public class OrgAuditEventsService {
 
     private final OrgRolePermissionRepository permissions;
     private final UserRepository users;
+    private final OrgAuditService orgAudit;
+    private final ResumeBuilderSettings settings;
 
     @PersistenceContext
     private EntityManager em;
 
-    public OrgAuditEventsService(OrgRolePermissionRepository permissions, UserRepository users) {
+    public OrgAuditEventsService(OrgRolePermissionRepository permissions, UserRepository users, OrgAuditService orgAudit, ResumeBuilderSettings settings) {
         this.permissions = permissions;
         this.users = users;
+        this.orgAudit = orgAudit;
+        this.settings = settings;
+    }
+
+    /** The CSV of the same filtered log (X4.9): newest first, capped by the admin setting, every cell formula-guarded, and the export itself audited. */
+    @Transactional
+    public String exportCsv(OrgMembership me, String action, Instant from, Instant to) {
+        requireAuditor(me);
+        Long orgId = me.orgId();
+        if (from != null && to != null && !from.isBefore(to)) throw OrgException.coded(400, "VALIDATION", "from: must be before to", Map.of("field", "from"));
+        String act = action == null || action.isBlank() ? null : action.trim();
+        if (act != null && !act.matches("[A-Z0-9_]{1,100}")) throw OrgException.coded(400, "VALIDATION", "action: an action key", Map.of("field", "action"));
+        Instant lo = from == null ? Instant.EPOCH : from;
+        Instant hi = to == null ? Instant.parse("9999-01-01T00:00:00Z") : to;
+        int max = settings.getInt(EnterpriseSettingKeys.ORG_AUDIT_EXPORT_MAX_ROWS);
+        String where = "e.orgId = :o and e.createdAt >= :lo and e.createdAt < :hi" + (act == null ? "" : " and e.action = :a");
+        var rows = em.createQuery("select e from OrgAuditEvent e where " + where + " order by e.createdAt desc, e.id desc", OrgAuditEvent.class).setParameter("o", orgId).setParameter("lo", lo).setParameter("hi", hi);
+        if (act != null) rows.setParameter("a", act);
+        List<OrgAuditEvent> found = rows.setMaxResults(max + 1).getResultList();
+        boolean cut = found.size() > max;
+        if (cut) found = found.subList(0, max);
+        Set<String> logins = new HashSet<>();
+        for (OrgAuditEvent e : found) {
+            logins.add(e.getActorLogin());
+            if (e.getTargetLogin() != null) logins.add(e.getTargetLogin());
+        }
+        Map<String, String> names = new HashMap<>();
+        if (!logins.isEmpty()) for (User u : users.findAllByLoginIn(logins)) names.put(u.getLogin(), displayName(u));
+        StringBuilder sb = new StringBuilder(CsvSafe.row("When (UTC)", "Action", "What happened", "Who", "Target type", "Target"));
+        for (OrgAuditEvent e : found) {
+            sb.append(CsvSafe.row(e.getCreatedAt(), e.getAction(), ActivityRecentProvider.label(e), nameOf(names, e.getActorLogin()), e.getTargetType(), e.getTargetLogin() == null ? "" : nameOf(names, e.getTargetLogin())));
+        }
+        if (cut) sb.append(CsvSafe.row("The export stops at " + max + " rows. Narrow the dates or the action to see more."));
+        orgAudit.record(me, OrgAuditService.EXPORT, "AUDIT_LOG", null, orgId.toString(), found.size() + " rows" + (cut ? ", cut at " + max : ""));
+        return sb.toString();
     }
 
     @Transactional(readOnly = true)

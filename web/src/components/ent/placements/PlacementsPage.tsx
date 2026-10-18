@@ -228,7 +228,7 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
           },
         });
       }
-      if (row.status === "ACTIVE") {
+      if (row.status === "ACTIVE" || row.status === "ENDING") {
         items.push({
           label: "Mark complete",
           onSelect: () => void act(row.id, { title: "Marked complete", description: `${row.consultant.name}'s placement at ${row.client.name} is complete.` }, () => placementsApi.complete(orgId, row.id)),

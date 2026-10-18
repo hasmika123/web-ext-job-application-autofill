@@ -10,13 +10,13 @@
 
 /* ── contract types (mirror PlacementDTO) ────────────────────────────────────────── */
 
-export type PlacementStatus = "ACTIVE" | "UPCOMING" | "ENDED";
+export type PlacementStatus = "ACTIVE" | "UPCOMING" | "ENDED" | "ENDING" | "TERMINATED";
 export type NextKind = "NONE" | "ENDS_IN" | "ENDED_AGO" | "STARTS_IN" | "REVIEW" | "POOL";
 export type NextTone = "neutral" | "amber" | "red" | "blue";
 export type PlacementType = "CONTRACT" | "FTE" | "C2C";
 
 export const TYPE_LABEL: Record<string, string> = { CONTRACT: "Contract", FTE: "Full-time", C2C: "Corp-to-corp" };
-export const STATUS_LABEL: Record<PlacementStatus, string> = { ACTIVE: "Active", UPCOMING: "Upcoming", ENDED: "Completed" };
+export const STATUS_LABEL: Record<PlacementStatus, string> = { ACTIVE: "Active", UPCOMING: "Upcoming", ENDED: "Completed", ENDING: "Ending", TERMINATED: "Terminated" };
 
 export interface PersonRef {
   id: number | null;
@@ -181,6 +181,8 @@ export interface Actions {
   redeploy: boolean;
   addNote: boolean;
   decideExtension: boolean;
+  terminate: boolean;
+  giveNotice: boolean;
 }
 
 export interface UndoToken {
@@ -215,6 +217,10 @@ export interface PlacementDetail {
   notesCount: number;
   actions: Actions;
   undo: UndoToken | null;
+  endKind: string | null;
+  endReason: string | null;
+  noticeOn: string | null;
+  offerId: number | null;
 }
 
 /* ── URL state ───────────────────────────────────────────────────────────────────── */
@@ -470,6 +476,12 @@ export function eventTitle(e: EventItem): string {
       return "Extension declined";
     case "COMPLETED":
       return "Marked complete";
+    case "TERMINATED":
+      return "Terminated";
+    case "NOTICE_GIVEN":
+      return "Notice recorded";
+    case "STARTED":
+      return "Started";
     case "REDEPLOY_STARTED":
       return "Redeployment started";
     case "REDEPLOY_CANCELLED":
@@ -489,7 +501,7 @@ export function extensionSummary(d: Pick<PlacementDetail, "extensions" | "status
   if (pending) return { title: "Extension requested", body: `An extension to ${formatDay(pending.requestedEndDate)} is waiting for a decision.` };
   const last = d.extensions.find((x) => x.status === "APPROVED");
   if (last) return { title: "Extended", body: `The end date moved to ${formatDay(last.requestedEndDate)}.` };
-  if (d.status === "ENDED") return { title: "Extension status", body: "This placement is complete. No extension can be requested." };
+  if (d.status === "ENDED" || d.status === "TERMINATED") return { title: "Extension status", body: "This placement is complete. No extension can be requested." };
   return { title: "Extension status", body: "No extension requested yet. You can initiate an extension if the client wants to continue this placement." };
 }
 
@@ -508,6 +520,7 @@ const CODE_TEXT: Record<string, string> = {
   UNDO_NOT_AVAILABLE: "That change can no longer be undone.",
   INVALID_MANAGER: "That person is not a member of this organization.",
   INVALID_CONTACT: "That contact does not belong to this client.",
+  ALREADY_ON_NOTICE: "Notice was already recorded for this placement.",
 };
 
 export function errorSentence(r: { status: number; code?: string; message: string }): string {
@@ -576,6 +589,8 @@ export const placementsApi = {
   decide: (orgId: number | string, id: number, extensionId: number, decision: "APPROVE" | "DECLINE") =>
     call<PlacementDetail>(`${base(orgId)}/${id}/extensions/${extensionId}/decision`, json("POST", { decision }, key())),
   complete: (orgId: number | string, id: number, note?: string) => call<PlacementDetail>(`${base(orgId)}/${id}/complete`, json("POST", { note: note || null }, key())),
+  giveNotice: (orgId: number | string, id: number, endDate: string, note?: string) => call<PlacementDetail>(`${base(orgId)}/${id}/notice`, json("POST", { endDate, note: note || null }, key())),
+  terminate: (orgId: number | string, id: number, reason: string, endDate?: string) => call<PlacementDetail>(`${base(orgId)}/${id}/terminate`, json("POST", { reason, endDate: endDate || null }, key())),
   redeploy: (orgId: number | string, id: number, availableFrom?: string) => call<PlacementDetail>(`${base(orgId)}/${id}/redeploy`, json("POST", { availableFrom: availableFrom || null }, key())),
   cancelRedeploy: (orgId: number | string, id: number) => call<PlacementDetail>(`${base(orgId)}/${id}/redeploy/cancel`, json("POST", undefined, key())),
   addNote: (orgId: number | string, id: number, body: string) => call<PlacementDetail>(`${base(orgId)}/${id}/notes`, json("POST", { body }, key())),

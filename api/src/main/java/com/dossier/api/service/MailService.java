@@ -53,6 +53,37 @@ public class MailService {
         this.templateEngine = templateEngine;
     }
 
+    // X2.10: the organization look for an enterprise account's mail. Field-injected and optional (tests build this class by hand): absent = personal mail.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.EnterpriseMailContext enterpriseMail;
+
+    /** Test seam: the organization-mail context when the class is built by hand. */
+    void setEnterpriseMail(com.dossier.api.service.ent.EnterpriseMailContext enterpriseMail) {
+        this.enterpriseMail = enterpriseMail;
+    }
+
+    private java.util.Optional<com.dossier.api.service.ent.EnterpriseMailContext.Ctx> enterpriseOf(User user) {
+        return enterpriseMail == null ? java.util.Optional.empty() : enterpriseMail.forUser(user);
+    }
+
+    /**
+     * The model of an enterprise account's e-mail (X2.10): the organization's name, colour and logo, the organization host's policy pages in the
+     * footer (none when it has no host yet) and workspace wording. Never a link to kiwiply.com.
+     */
+    private Context enterpriseContext(User user, com.dossier.api.service.ent.EnterpriseMailContext.Ctx ent, String baseUrl) {
+        Context context = new Context(Locale.ENGLISH);
+        context.setVariable(USER, user);
+        context.setVariable("name", user.getFirstName() != null && !user.getFirstName().isBlank() ? user.getFirstName() : user.getLogin());
+        context.setVariable(BASE_URL, baseUrl == null ? ent.origin() : baseUrl);
+        context.setVariable("orgName", ent.orgName());
+        context.setVariable("policyBase", ent.policyBase());
+        context.setVariable("brand", ent.brand().brandHex());
+        context.setVariable("logoUrl", ent.brand().logoUrl());
+        context.setVariable("theme", "enterprise");
+        context.setVariable("assetBase", jHipsterProperties.getMail().getBaseUrl() + "/email"); // the art lives in web/public/email
+        return context;
+    }
+
     @Async
     public void sendEmail(String to, String subject, String content, boolean isMultipart, boolean isHtml) {
         sendEmailSync(to, subject, content, isMultipart, isHtml);
@@ -125,6 +156,18 @@ public class MailService {
     @Async
     public void sendStatusChangeEmail(User user, String company, String role, String stage, String link) {
         if (user.getEmail() == null) return;
+        var ent = enterpriseOf(user);
+        if (ent.isPresent()) {
+            Context context = enterpriseContext(user, ent.get(), null);
+            context.setVariable("company", company);
+            context.setVariable("role", role);
+            context.setVariable("stage", stage);
+            context.setVariable("link", link);
+            String subject = messageSource.getMessage("OFFER".equals(stage) ? "email.status.offer.title" : "email.status.interview.title", new Object[] { company }, Locale.ENGLISH);
+            context.setVariable("subject", subject);
+            sendEmailSync(user.getEmail(), subject, templateEngine.process("mail/statusChangeEnterpriseEmail", context), false, true);
+            return;
+        }
         Locale locale = Locale.forLanguageTag(user.getLangKey() == null ? "en" : user.getLangKey());
         Context context = new Context(locale);
         context.setVariable("name", user.getFirstName() != null && !user.getFirstName().isBlank() ? user.getFirstName() : user.getLogin());
@@ -146,6 +189,16 @@ public class MailService {
     @Async
     public void sendNotificationEmail(User user, String kindTitle, String title, String body, String link) {
         if (user.getEmail() == null) return;
+        var ent = enterpriseOf(user);
+        if (ent.isPresent()) {
+            Context context = enterpriseContext(user, ent.get(), null);
+            context.setVariable("kind", kindTitle);
+            context.setVariable("subject", title);
+            context.setVariable("body", body);
+            context.setVariable("link", link);
+            sendEmailSync(user.getEmail(), title, templateEngine.process("mail/notificationEnterpriseEmail", context), false, true);
+            return;
+        }
         Locale locale = Locale.forLanguageTag(user.getLangKey() == null ? "en" : user.getLangKey());
         Context context = new Context(locale);
         context.setVariable("name", user.getFirstName() != null && !user.getFirstName().isBlank() ? user.getFirstName() : user.getLogin());
@@ -216,13 +269,27 @@ public class MailService {
     @Async
     public void sendPasswordResetMail(User user, String baseUrl) {
         LOG.debug("Sending password reset email to '{}' (organization host)", user.getEmail());
+        if (sendEnterpriseReset(user, baseUrl)) return;
         sendEmailFromTemplateSync(user, "mail/passwordResetEmail", "email.reset.title", baseUrl);
     }
 
     @Async
     public void sendPasswordResetMail(User user) {
         LOG.debug("Sending password reset email to '{}'", user.getEmail());
+        if (sendEnterpriseReset(user, null)) return;
         sendEmailFromTemplateSync(user, "mail/passwordResetEmail", "email.reset.title");
+    }
+
+    /** X2.10: the reset mail of an enterprise account is the organization's, in its theme. False for a personal account (the caller sends the personal one). */
+    private boolean sendEnterpriseReset(User user, String baseUrl) {
+        if (user.getEmail() == null) return true; // nothing to send, either way
+        var ent = enterpriseOf(user);
+        if (ent.isEmpty()) return false;
+        Context context = enterpriseContext(user, ent.get(), baseUrl);
+        String subject = messageSource.getMessage("email.adminreset.title2", new Object[] { ent.get().orgName() }, Locale.ENGLISH);
+        context.setVariable("subject", subject);
+        sendEmailSync(user.getEmail(), subject, templateEngine.process("mail/passwordResetEnterpriseEmail", context), false, true);
+        return true;
     }
 
     /**

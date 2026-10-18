@@ -20,6 +20,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -151,6 +152,10 @@ public class OpportunityAssignmentService {
     private final ClientRequirementRepository requirements;
     private final ConsultantProfileRepository consultants;
     private final OrgResumeRepository resumes;
+
+    /** Pin lookup for the stale check (X7.4); absent in hand-wired unit tests. */
+    @Autowired(required = false)
+    private com.dossier.api.service.ent.resumes.OrgResumeApproval approvals;
     private final JobIdentityTx tx;
     private final OrgAuditService audit;
     private final Clock clock;
@@ -236,6 +241,11 @@ public class OpportunityAssignmentService {
         return tx.readOpportunityRow(orgId, matchId);
     }
 
+    /** The match in a fresh snapshot (same reason as {@link #readRowFresh}): the match this very call inserted in its own transaction. */
+    public java.util.Optional<RequirementMatch> readMatchFresh(Long orgId, Long matchId) {
+        return tx.readMatch(orgId, matchId);
+    }
+
     @Transactional(noRollbackFor = OrgException.class)
     public Result assign(AssignmentScope scope, OrgMembership me, Long jobId, Long consultantId, Options options) {
         Long orgId = orgOf(scope, me);
@@ -258,6 +268,18 @@ public class OpportunityAssignmentService {
         return assignChecked(scope, me, job, consultantId, options);
     }
 
+    /**
+     * An APPROVED resume exists and (X7.4) at least one approved resume is not STALE: its text still matches what the consultant approved. Without the
+     * pin lookup (hand-wired tests) the status alone decides, as before.
+     */
+    private boolean hasUsableApprovedResume(Long orgId, Long consultantId) {
+        if (!resumes.existsByOrgIdAndConsultantIdAndApprovalStatus(orgId, consultantId, "APPROVED")) return false;
+        if (approvals == null) return true;
+        List<com.dossier.api.domain.ent.talent.OrgResume> mine = resumes.findByOrgIdAndConsultantId(orgId, consultantId);
+        if (mine == null || mine.isEmpty()) return true;
+        return mine.stream().anyMatch(approvals::isUsable);
+    }
+
     private Result assignChecked(AssignmentScope scope, OrgMembership me, ClientRequirement job, Long consultantId, Options options) {
         Long orgId = scope.orgId();
         Long jobId = job.getId();
@@ -266,7 +288,7 @@ public class OpportunityAssignmentService {
         if (!OPEN_JOB.contains(job.getStatus())) throw OrgException.coded(409, "JOB_NOT_OPEN", "That job is not open.", Map.of());
         if (!"ACTIVE".equals(consultant.getStatus())) return Result.refused(jobId, consultantId, CONSULTANT_INACTIVE);
         if (!"ACTIVE".equals(consultant.getMarketingStatus())) return Result.refused(jobId, consultantId, CONSULTANT_PAUSED);
-        if (!"EXTENSION".equals(job.getCaptureSource()) && !resumes.existsByOrgIdAndConsultantIdAndApprovalStatus(orgId, consultantId, "APPROVED")) {
+        if (!"EXTENSION".equals(job.getCaptureSource()) && !hasUsableApprovedResume(orgId, consultantId)) {
             throw OrgException.coded(409, "RESUME_NOT_APPROVED", "The consultant needs an approved resume before this can be assigned.", Map.of());
         }
         Instant now = clock.instant();

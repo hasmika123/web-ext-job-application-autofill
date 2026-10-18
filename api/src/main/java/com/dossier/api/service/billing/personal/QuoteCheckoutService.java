@@ -60,6 +60,7 @@ public class QuoteCheckoutService {
     private final SubscriptionRepository subscriptions;
     private final PriceLookupRepository prices;
     private final BillingScopeRouter router;
+    private final com.dossier.api.service.billing.BillingClock clock;
 
     public QuoteCheckoutService(
         PersonalQuoteService quotes,
@@ -69,7 +70,8 @@ public class QuoteCheckoutService {
         UserRepository users,
         SubscriptionRepository subscriptions,
         PriceLookupRepository prices,
-        BillingScopeRouter router
+        BillingScopeRouter router,
+        com.dossier.api.service.billing.BillingClock clock
     ) {
         this.quotes = quotes;
         this.gateway = gateway;
@@ -79,6 +81,7 @@ public class QuoteCheckoutService {
         this.subscriptions = subscriptions;
         this.prices = prices;
         this.router = router;
+        this.clock = clock;
     }
 
     /** Start the hosted checkout of an OPEN, fresh CHECKOUT quote of {@code login}; returns the URL. */
@@ -92,7 +95,7 @@ public class QuoteCheckoutService {
         if (!PersonalQuoteService.STATUS_OPEN.equals(q.getStatus())) throw new BillingException(409, "QUOTE_STALE", "This quote was already used", Map.of("reason", "QUOTE_APPLIED"));
 
         Subscription sub = subscriptions.findOneByUserId(user.getId()).orElseGet(() -> newRow(user));
-        if (EntitlementService.isProFor(sub.getStatus(), sub.getCurrentPeriodEnd(), Instant.now())) {
+        if (EntitlementService.isProFor(sub.getStatus(), sub.getCurrentPeriodEnd(), clock.now())) {
             throw new BillingException(409, BillingException.CODE_ALREADY_SUBSCRIBED, "You're already subscribed");
         }
         String known = sub.getStripeCustomerId();

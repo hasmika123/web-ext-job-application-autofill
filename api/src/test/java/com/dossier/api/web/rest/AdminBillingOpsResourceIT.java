@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +31,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -42,6 +44,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @WithMockUser(username = "admin", authorities = { "ROLE_ADMIN" })
 @Import({ SubFixtures.CatalogPortConfig.class, SubFixtures.FakeGatewayConfig.class })
+@org.springframework.test.context.TestPropertySource(properties = "spring.datasource.hikari.maximum-pool-size=4") // a replay records its row in a REQUIRES_NEW transaction: a second connection beside the test's
 class AdminBillingOpsResourceIT {
 
     @Autowired private MockMvc mockMvc;
@@ -52,11 +55,21 @@ class AdminBillingOpsResourceIT {
     @Autowired private StripeEventRepository stripeEvents;
     @Autowired private FakeStripeGateway fake;
 
+    @Autowired private PlatformTransactionManager txm;
+
     private String salt;
     private Subscription sub;
+    private Instant startedAt;
+
+    @AfterEach
+    void purgeCommittedEvents() {
+        // replay rows are written in a REQUIRES_NEW transaction and outlive the rolled-back test transaction
+        SubFixtures.purgeStripeEventsSince(txm, jdbc, startedAt);
+    }
 
     @BeforeEach
     void data() {
+        startedAt = Instant.now();
         fake.reset();
         salt = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
         User user = users.findOneByLogin("user").orElseThrow();
@@ -132,7 +145,10 @@ class AdminBillingOpsResourceIT {
         em.flush();
         em.clear();
         assertThat(subscriptions.findOneByStripeSubscriptionId(sub.getStripeSubscriptionId()).orElseThrow().getStatus()).isEqualTo("active");
-        StripeEvent row = stripeEvents.findById("replay:" + evt + ":1").orElseThrow();
+        // the replay row was committed by a transaction of its own, after this test's transaction took its snapshot: read it in a new one
+        org.springframework.transaction.support.TransactionTemplate fresh = new org.springframework.transaction.support.TransactionTemplate(txm);
+        fresh.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        StripeEvent row = fresh.execute(t -> stripeEvents.findById("replay:" + evt + ":1").orElseThrow());
         assertThat(row.getReplayedFrom()).isEqualTo(evt);
         assertThat(row.getReplayedBy()).isEqualTo("admin");
         assertThat(row.getType()).isEqualTo("customer.subscription.updated");

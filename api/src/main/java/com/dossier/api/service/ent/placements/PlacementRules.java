@@ -34,6 +34,19 @@ public final class PlacementRules {
         return start != null && start.isAfter(today) ? UPCOMING : ACTIVE;
     }
 
+    public static final String ENDING = "ENDING";
+    public static final String TERMINATED = "TERMINATED";
+
+    /**
+     * What the board SHOWS: the effective status, refined. An ended placement that was terminated reads TERMINATED; one still working whose notice was
+     * given reads ENDING (it is still ACTIVE for every filter and count). Existing rows (no end kind, no notice) read exactly as before.
+     */
+    public static String displayStatus(String effective, String endKind, LocalDate noticeOn) {
+        if (ENDED.equals(effective) && com.dossier.api.domain.ent.talent.TalentPlacement.END_TERMINATED.equals(endKind)) return TERMINATED;
+        if (ACTIVE.equals(effective) && noticeOn != null) return ENDING;
+        return effective;
+    }
+
     public static String typeLabel(String type) {
         return switch (type == null ? "" : type) {
             case "FTE" -> "Full-time";

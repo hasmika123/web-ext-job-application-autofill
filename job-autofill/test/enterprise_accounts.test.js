@@ -266,7 +266,10 @@ const deviceIntact = (store) =>
     ok("drawer: Switch account opens the web connect flow", /Switch account/.test(read("entrypoints/panel/HomeView.tsx")) && /WEB \+ "\/connect"/.test(hv));
     const manifest = read("wxt.config.ts");
     const ec = /externally_connectable:[\s\S]*?\n {6}\},/.exec(manifest)[0];
-    eq("manifest: externally_connectable gains no origin (tenant domains cannot be listed)", ec.match(/"https?:\/\/[^"]+"/g), ['"https://kiwiply.com/*"', '"https://www.kiwiply.com/*"', '"https://app.kiwiply.com/*"']);
+    // X12.9 added ONE entry, the tenant-host wildcard, for "Prepare selected openings" only: the connect
+    // gate in the service worker ignores wildcard entries (connect_handoff.test.js). Custom tenant domains
+    // still cannot be listed.
+    eq("manifest: externally_connectable lists the three exact origins + the tenant wildcard (prepare batch only)", ec.match(/"https?:\/\/[^"]+"/g), ['"https://kiwiply.com/*"', '"https://www.kiwiply.com/*"', '"https://app.kiwiply.com/*"', '"https://*.kiwiply.com/*"']);
     // The version ritual: both places carry the same value.
     const wxtV = /version:\s*"([^"]+)"/.exec(manifest)[1];
     const pkgV = JSON.parse(read("package.json")).version;

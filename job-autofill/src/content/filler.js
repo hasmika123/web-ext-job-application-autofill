@@ -179,7 +179,8 @@
           // `opportunity` ({orgId,id}) is set by the drawer only when the consultant is filling the
           // assigned job this page matched; the service worker links it after the confirmed submit.
           chrome.runtime.sendMessage({ type: "JAF_LOG_FILL", capture, resume: opts.resume || null, opportunity: opts.opportunity || null });
-          if (JAF.submitDetect) JAF.submitDetect.arm();
+          // A prepare batch tab can sit for a long while before the consultant submits, so its watch is longer.
+          if (JAF.submitDetect) JAF.submitDetect.arm(opts.batch ? { windowMs: 30 * 60 * 1000 } : undefined);
         }
       } catch (e) {}
 
@@ -192,6 +193,11 @@
           gaps = JAF.requiredAudit.findRequiredEmpty(document);
         } catch (e) { gaps = []; }
       }
+      // Prepare batch (X12.9): tell the batch how many required fields still need the consultant.
+      // Counts only; the banner on the page lists the field names locally.
+      try {
+        if (opts.batch && JAF.batchPrepare) JAF.batchPrepare.filled(opts.batch, { filled, failed: failedCount, gaps: gaps.length });
+      } catch (e) {}
       if (T && fillId) {
         try {
           send({

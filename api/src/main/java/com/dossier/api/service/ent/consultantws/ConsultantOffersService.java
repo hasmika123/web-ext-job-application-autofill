@@ -10,6 +10,7 @@ import com.dossier.api.service.ent.authz.AuthorizationService;
 import com.dossier.api.service.ent.authz.AuthzOperation;
 import com.dossier.api.service.ent.authz.AuthzRequest;
 import com.dossier.api.service.ent.authz.Beneficiary;
+import com.dossier.api.service.ent.placements.PlacementHireService;
 import com.dossier.api.service.ent.consultantws.ConsultantOffersDTO.Activity;
 import com.dossier.api.service.ent.consultantws.ConsultantOffersDTO.Decision;
 import com.dossier.api.service.ent.consultantws.ConsultantOffersDTO.Detail;
@@ -47,8 +48,8 @@ import org.springframework.transaction.annotation.Transactional;
  * The Consultant workspace Offers page (docs/enterprise-v2/page-consultant-offers.md). The gate is {@link ConsultantHomeService#requireSelf}
  * (Consultant role, own consultant_profile, else the generic 404); accepting, declining and negotiating also need {@code offers.respond}.
  * Every query is organization id first plus the caller's own consultant id, so another consultant's offer (or another tenant's) is the same 404.
- * Money is a record in minor units; nothing here moves money, signs anything or tells a client anything, and accepting does NOT create a
- * placement (that hand-off belongs to the employer / ops side).
+ * Money is a record in minor units; nothing here moves money, signs anything or tells a client anything, and accepting records the hire:
+ * the placement record is created (PlacementHireService), PENDING_START or ACTIVE by the start date. Only the consultant can accept or decline.
  */
 @Service
 public class ConsultantOffersService {
@@ -65,7 +66,7 @@ public class ConsultantOffersService {
     static final int WEEKS = 6;
 
     static final Set<String> STATUSES = new LinkedHashSet<>(
-        List.of(CwsOffer.PENDING_REVIEW, CwsOffer.NEGOTIATION, CwsOffer.ACCEPTED, CwsOffer.DECLINED, CwsOffer.EXPIRED)
+        List.of(CwsOffer.PENDING_REVIEW, CwsOffer.NEGOTIATION, CwsOffer.ACCEPTED, CwsOffer.DECLINED, CwsOffer.EXPIRED, CwsOffer.WITHDRAWN)
     );
     static final Set<String> WORK_MODES = Set.of("REMOTE", "HYBRID", "ONSITE");
     static final Set<String> SORTS = Set.of("recent", "deadline", "company", "start");
@@ -75,18 +76,20 @@ public class ConsultantOffersService {
     private final AuthorizationService authorization;
     private final CwsOfferRepository offers;
     private final CwsOfferEventRepository events;
+    private final PlacementHireService hire;
     private final Clock clock;
 
     @Autowired
-    public ConsultantOffersService(ConsultantHomeService gate, AuthorizationService authorization, CwsOfferRepository offers, CwsOfferEventRepository events) {
-        this(gate, authorization, offers, events, Clock.systemUTC());
+    public ConsultantOffersService(ConsultantHomeService gate, AuthorizationService authorization, CwsOfferRepository offers, CwsOfferEventRepository events, PlacementHireService hire) {
+        this(gate, authorization, offers, events, hire, Clock.systemUTC());
     }
 
-    ConsultantOffersService(ConsultantHomeService gate, AuthorizationService authorization, CwsOfferRepository offers, CwsOfferEventRepository events, Clock clock) {
+    ConsultantOffersService(ConsultantHomeService gate, AuthorizationService authorization, CwsOfferRepository offers, CwsOfferEventRepository events, PlacementHireService hire, Clock clock) {
         this.gate = gate;
         this.authorization = authorization;
         this.offers = offers;
         this.events = events;
+        this.hire = hire;
         this.clock = clock;
     }
 
@@ -243,7 +246,17 @@ public class ConsultantOffersService {
             refuseIfClosed(own(org, c.getId(), id), from, today);
             throw OrgException.coded(409, CODE_NOT_OPEN, "This offer can no longer be changed.", Map.of());
         }
-        events.save(CwsOfferEvent.of(current, kind, label, now));
+        events.save(CwsOfferEvent.of(current, kind, label, now).by(CwsOfferEvent.BY_CONSULTANT, null, stored));
+        if (CwsOffer.ACCEPTED.equals(to)) {
+            // Hire: the consultant's yes creates the placement record (PENDING_START or ACTIVE). If it cannot be made the offer stays accepted and the Account Manager is shown why.
+            CwsOffer accepted = own(org, c.getId(), id);
+            PlacementHireService.Outcome out = hire.hire(accepted);
+            if (out.created()) {
+                accepted.setUpdatedAt(now);
+                offers.saveAndFlush(accepted);
+                events.save(CwsOfferEvent.of(accepted, CwsOfferEvent.HIRED, "Placement created", now).by(CwsOfferEvent.BY_SYSTEM, null, "Recorded from the accepted offer. Nothing was signed or sent by Kiwiply."));
+            }
+        }
         return new Decision(id, to, now);
     }
 

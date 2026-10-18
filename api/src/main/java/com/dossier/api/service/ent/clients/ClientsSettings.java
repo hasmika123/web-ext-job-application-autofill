@@ -35,6 +35,11 @@ public class ClientsSettings {
         return new Thresholds(healthy, atRisk);
     }
 
+    /** Days after which an open requirement counts as aging (Account Manager Home and Requirements page). */
+    public int requirementAgingDays(Long orgId) {
+        return resolve(orgId, EnterpriseSettingKeys.ORG_ACCOUNTS_REQUIREMENT_AGING_DAYS);
+    }
+
     /** Lower-case domains a contact's e-mail may not belong to. */
     @SuppressWarnings("unchecked")
     public List<String> consumerDomains() {

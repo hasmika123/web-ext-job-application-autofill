@@ -43,6 +43,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.test.context.transaction.TestTransaction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -132,13 +133,18 @@ abstract class MemberItSupport {
         place(hr, d2, null);
         assignment(c2, mktSpec, AssignmentKind.PRIMARY);
         flags(true, true);
-        em.flush();
+        flushIfInTransaction();
     }
 
     @AfterEach
     void cleanFlags() {
         for (AppSetting s : settingRows.findAll()) if (WHO.equals(s.getUpdatedBy())) settingRows.delete(s);
         settingsCache.invalidate();
+    }
+
+    /** Flushes the persistence context; a no-op in a test that runs without the class transaction (NOT_SUPPORTED: its fixtures commit as they are written). */
+    protected void flushIfInTransaction() {
+        if (TestTransaction.isActive()) em.flush();
     }
 
     protected void flags(boolean master, boolean roles) {
@@ -300,23 +306,23 @@ abstract class MemberItSupport {
     // ---- reading back ----------------------------------------------------------------------------------------------------
 
     protected OrgMember reload(OrgMember m) {
-        em.flush();
-        em.clear();
+        flushIfInTransaction();
+        if (TestTransaction.isActive()) em.clear();
         return members.findByOrgIdAndId(m.getOrgId(), m.getId()).orElseThrow();
     }
 
     protected long auditCount(Organization o) {
-        em.flush();
+        flushIfInTransaction();
         return audit.countByOrgId(o.getId());
     }
 
     protected long auditCount(Organization o, String action) {
-        em.flush();
+        flushIfInTransaction();
         return OrgAuditAsserts.rows(audit, o.getId()).stream().filter(e -> action.equals(e.getAction())).count();
     }
 
     protected OrgAuditEvent newestAudit(Organization o) {
-        em.flush();
+        flushIfInTransaction();
         return OrgAuditAsserts.rows(audit, o.getId()).get(0);
     }
 

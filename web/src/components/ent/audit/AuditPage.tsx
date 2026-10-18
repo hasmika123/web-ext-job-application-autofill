@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, EmptyState, ErrorState, Input, Select, Skeleton } from "@kiwiply/ui";
+import { Button, DownloadIcon, EmptyState, ErrorState, Input, Select, Skeleton, buttonVariants } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
+import { auditExportHref } from "@/lib/ent/org-settings";
 import { DEFAULT_AUDIT_QUERY, fetchAudit, type AuditPage as Page, type AuditQuery } from "@/lib/ent/audit";
 
 /**
@@ -63,6 +64,10 @@ export default function AuditPage({ orgId }: { orgId: number }) {
             Clear filters
           </Button>
         ) : null}
+        <a href={auditExportHref(orgId, q)} download="audit-log.csv" data-audit-export className={buttonVariants("ghost", "md", "ml-auto")}>
+          <DownloadIcon size={16} />
+          Download CSV
+        </a>
       </div>
 
       {state.status === "loading" && !page ? (

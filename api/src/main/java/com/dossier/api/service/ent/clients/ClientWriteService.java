@@ -60,6 +60,7 @@ public class ClientWriteService {
     static final int ABOUT_MAX = 1000;
     static final int CONTACT_NAME_MAX = 120;
     static final int TITLE_MAX = 80;
+    static final int CONTACT_NOTES_MAX = 500;
     static final int EMAIL_MAX = 254;
     static final int NOTE_MAX = 1000;
 
@@ -232,6 +233,8 @@ public class ClientWriteService {
         x.setName(name);
         x.setTitle(text("title", req.title(), TITLE_MAX, false));
         x.setWorkEmail(email);
+        x.setPhone(com.dossier.api.service.ent.consultants.ConsultantContact.phone(req.phone()));
+        x.setNotes(text("notes", req.notes(), CONTACT_NOTES_MAX, false));
         x.setRoleLabel(oneOf("role", req.role(), CONTACT_ROLES));
         x.setStatus("ACTIVE");
         x.setCreatedAt(Instant.now());
@@ -250,7 +253,7 @@ public class ClientWriteService {
         ClientAccount c = live(orgId, clientId);
         ClientContact x = contacts.findByOrgIdAndId(orgId, contactId).filter(k -> k.getClientId().equals(c.getId())).orElseThrow(OrgNotFoundException::new);
         if (body == null || body.isEmpty()) throw OrgException.invalid("body", "name at least one field to change");
-        for (String key : body.keySet()) if (!Set.of("name", "title", "email", "role", "status").contains(key)) throw OrgException.invalid(key, "cannot be changed here");
+        for (String key : body.keySet()) if (!Set.of("name", "title", "email", "phone", "notes", "role", "status").contains(key)) throw OrgException.invalid(key, "cannot be changed here");
         List<String> changed = new ArrayList<>();
         if (body.containsKey("name")) {
             String v = text("name", body.get("name"), CONTACT_NAME_MAX, true);
@@ -268,6 +271,15 @@ public class ClientWriteService {
                 x.setWorkEmail(v);
                 changed.add("e-mail");
             }
+        }
+        if (body.containsKey("phone")) {
+            Object raw = body.get("phone");
+            String v = com.dossier.api.service.ent.consultants.ConsultantContact.phone(raw);
+            if (!Objects.equals(v, x.getPhone())) { x.setPhone(v); changed.add("phone"); }
+        }
+        if (body.containsKey("notes")) {
+            String v = text("notes", body.get("notes"), CONTACT_NOTES_MAX, false);
+            if (!Objects.equals(v, x.getNotes())) { x.setNotes(v); changed.add("notes"); }
         }
         if (body.containsKey("role")) {
             String v = oneOf("role", body.get("role"), CONTACT_ROLES);
@@ -381,7 +393,7 @@ public class ClientWriteService {
             return null;
         }
         if (t.length() > max) throw OrgException.invalid(field, "at most " + max + " characters");
-        boolean multiline = field.equals("about") || field.equals("body");
+        boolean multiline = field.equals("about") || field.equals("body") || field.equals("notes");
         if (t.chars().anyMatch(ch -> Character.isISOControl(ch) && !(multiline && (ch == '\n' || ch == '\r' || ch == '\t')))) throw OrgException.invalid(field, "contains characters that are not allowed");
         if (t.indexOf('<') >= 0 || t.indexOf('>') >= 0) throw OrgException.invalid(field, "contains characters that are not allowed");
         SensitiveContent.check(field, field, t);

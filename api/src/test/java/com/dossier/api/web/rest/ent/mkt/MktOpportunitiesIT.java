@@ -60,13 +60,17 @@ class MktOpportunitiesIT {
     @Autowired private MktOpportunityRepository opps;
     @Autowired private MktOpportunityEventRepository events;
     @Autowired private JdbcTemplate jdbc;
+    @jakarta.persistence.PersistenceContext private jakarta.persistence.EntityManager em;
     @Autowired private ResumeBuilderSettings settings;
     @Autowired private TenantResolver resolver;
 
     private Long acme;
     private Long beta;
 
+    // The class-level @Timeout(240) does not reach lifecycle methods, so the 15 s default (junit-platform.properties) cut off this seeding. The three demo seeders
+    // insert a few hundred rows one statement at a time, a fresh set per test (the test rolls back): about 20 s on a loaded machine, almost all of it waiting on MySQL.
     @BeforeEach
+    @org.junit.jupiter.api.Timeout(240)
     void seed() {
         assertThat(baseSeeder.seed().ran()).isTrue();
         assertThat(talentSeeder.seed().ran()).isTrue();
@@ -145,6 +149,8 @@ class MktOpportunitiesIT {
         long consultantId = item.path("consultant").path("id").asLong();
         jdbc.update("update client_requirement set status = 'OPEN' where org_id = ? and id = (select requirement_id from requirement_match where id = ?)", acme, oppId);
         jdbc.update("update consultant_profile set marketing_status = 'PAUSED' where org_id = ? and id = ?", acme, consultantId);
+        em.flush();
+        em.clear(); // the native updates bypass the persistence context (shared with the request in this transaction): forget the seeded copies so the picker reads the row
 
         JsonNode options = json(mockMvc.perform(get("/api/orgs/" + acme + "/mkt/opportunities/options").with(user(MARKETER))).andReturn(), 200);
         JsonNode paused = null;
