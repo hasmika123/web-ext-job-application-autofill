@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -35,6 +36,39 @@ public interface MktApprovalRequestRepository extends Repository<MktApprovalRequ
     /** PENDING requests whose expiry has passed (the expiry job closes them). */
     @Query("select r from MktApprovalRequest r where r.orgId = :orgId and r.status = 'PENDING' and r.expiresAt <= :now order by r.id")
     List<MktApprovalRequest> findExpired(@Param("orgId") Long orgId, @Param("now") Instant now);
+
+    /**
+     * The manager's list: requests of the marketers in {@code ids} (every marketer when {@code all}), in these statuses, optionally of one kind or one marketer.
+     * The sort comes from the pageable.
+     */
+    @Query(
+        "select r from MktApprovalRequest r where r.orgId = :orgId and (:all = true or r.requestedByMemberId in :ids) and r.status in :statuses "
+            + "and (:kind is null or r.kind = :kind) and (:marketer is null or r.requestedByMemberId = :marketer)"
+    )
+    Page<MktApprovalRequest> search(
+        @Param("orgId") Long orgId,
+        @Param("all") boolean all,
+        @Param("ids") Collection<Long> ids,
+        @Param("statuses") Collection<String> statuses,
+        @Param("kind") String kind,
+        @Param("marketer") Long marketer,
+        Pageable page
+    );
+
+    /** A marketer's own requests, in these statuses. */
+    @Query("select r from MktApprovalRequest r where r.orgId = :orgId and r.requestedByMemberId = :memberId and r.status in :statuses")
+    Page<MktApprovalRequest> mine(@Param("orgId") Long orgId, @Param("memberId") Long memberId, @Param("statuses") Collection<String> statuses, Pageable page);
+
+    /** PENDING requests of these marketers (every marketer when {@code all}), oldest first: the Home page's "needs you" list takes the first few. */
+    @Query("select r from MktApprovalRequest r where r.orgId = :orgId and r.status = 'PENDING' and (:all = true or r.requestedByMemberId in :ids) order by r.requestedAt asc, r.id asc")
+    List<MktApprovalRequest> pendingFor(@Param("orgId") Long orgId, @Param("all") boolean all, @Param("ids") Collection<Long> ids, Pageable page);
+
+    @Query("select count(r) from MktApprovalRequest r where r.orgId = :orgId and r.status = 'PENDING' and (:all = true or r.requestedByMemberId in :ids)")
+    long countPendingFor(@Param("orgId") Long orgId, @Param("all") boolean all, @Param("ids") Collection<Long> ids);
+
+    /** PENDING requests older than {@code before} (the aging rule of the escalations job). */
+    @Query("select r from MktApprovalRequest r where r.orgId = :orgId and r.status = 'PENDING' and r.requestedAt <= :before order by r.id")
+    List<MktApprovalRequest> findPendingOlderThan(@Param("orgId") Long orgId, @Param("before") Instant before);
 
     /** Retention: decided or closed requests untouched since {@code cutoff} that no opportunity still points at. */
     @Query(

@@ -229,6 +229,82 @@ class DuplicateGuardTest {
         verify(audit, never()).record(any(OrgMembership.class), anyString(), anyString(), any(), any(), any());
     }
 
+    // ---- REQUIRE_APPROVAL (MM-02): the override goes to a manager ------------------------------------------------------------------
+
+    @Test
+    void requireApprovalWithoutAConfirmationIsTheWarningAndNamesThePolicy() {
+        aDuplicate();
+        when(settings.duplicatePolicy(ORG)).thenReturn("REQUIRE_APPROVAL");
+        assertThatThrownBy(() -> guard.enforce(me, CON, theNewJob(), DuplicateGuard.Confirm.NONE, (found, reason) -> OrgException.coded(409, "X", "never asked", java.util.Map.of())))
+            .isInstanceOfSatisfying(OrgException.class, e -> {
+                assertThat(e.getStatus()).isEqualTo(409);
+                assertThat(e.getCode()).isEqualTo("DUPLICATE_WARNING");
+                assertThat(e.getMessage()).contains("manager");
+                assertThat(e.getExtra()).containsEntry("policy", "REQUIRE_APPROVAL").containsKey("findings");
+            });
+    }
+
+    @Test
+    void requireApprovalWithAReasonHandsTheOverrideToTheHoldAndAuditsNothingYet() {
+        aDuplicate();
+        when(settings.duplicatePolicy(ORG)).thenReturn("REQUIRE_APPROVAL");
+        OrgException parked = OrgException.coded(409, "DUPLICATE_APPROVAL_REQUIRED", "Sent to a manager.", java.util.Map.of("requestId", 12L));
+        java.util.List<String> seen = new java.util.ArrayList<>();
+        assertThatThrownBy(() -> guard.enforce(me, CON, theNewJob(), new DuplicateGuard.Confirm(true, "Client asked for two vendors"), (found, reason) -> {
+            seen.add(reason + "/" + found.size());
+            return parked;
+        })).isSameAs(parked);
+        assertThat(seen).containsExactly("Client asked for two vendors/1");
+        verify(audit, never()).record(any(OrgMembership.class), anyString(), anyString(), any(), any(), any());
+    }
+
+    @Test
+    void requireApprovalStillNeedsAScannedReasonOfTheRightLength() {
+        aDuplicate();
+        when(settings.duplicatePolicy(ORG)).thenReturn("REQUIRE_APPROVAL");
+        DuplicateGuard.Hold never = (found, reason) -> {
+            throw new AssertionError("the hold must not be reached");
+        };
+        assertThatThrownBy(() -> guard.enforce(me, CON, theNewJob(), new DuplicateGuard.Confirm(true, " "), never)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getStatus()).isEqualTo(400));
+        assertThatThrownBy(() -> guard.enforce(me, CON, theNewJob(), new DuplicateGuard.Confirm(true, "ssn 123-45-6789"), never)).isInstanceOf(SensitiveContentException.class);
+    }
+
+    @Test
+    void requireApprovalWhereTheWorkCannotBeParkedRefusesLikeBlock() {
+        aDuplicate();
+        when(settings.duplicatePolicy(ORG)).thenReturn("REQUIRE_APPROVAL");
+        assertThatThrownBy(() -> guard.enforce(me, CON, theNewJob(), new DuplicateGuard.Confirm(true, "Client asked for two vendors"))).isInstanceOfSatisfying(OrgException.class, e -> {
+            assertThat(e.getStatus()).isEqualTo(409);
+            assertThat(e.getCode()).isEqualTo("DUPLICATE_BLOCKED");
+        });
+    }
+
+    @Test
+    void aManagersApprovalLetsTheCallThroughAndIsAuditedAtHighNamingBothPeople() {
+        aDuplicate();
+        when(settings.duplicatePolicy(ORG)).thenReturn("REQUIRE_APPROVAL");
+        assertThat(guard.enforce(me, CON, theNewJob(), DuplicateGuard.Confirm.approved("Client asked for two vendors", 90L, 70L), null)).hasSize(1);
+        verify(audit).record(
+            eq(ORG), eq("marketer"), any(), eq("PIPELINE_DUPLICATE_OVERRIDE"), eq("CONSULTANT"), org.mockito.ArgumentMatchers.isNull(), eq("10"),
+            org.mockito.ArgumentMatchers.contains("approved by member 90, requested by member 70"), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.isNull(),
+            org.mockito.ArgumentMatchers.isNull(), eq("HIGH")
+        );
+    }
+
+    @Test
+    void blockStillRefusesAnApprovedCallBecauseThePolicyChangedSinceTheRequest() {
+        aDuplicate();
+        when(settings.duplicatePolicy(ORG)).thenReturn("BLOCK");
+        assertThatThrownBy(() -> guard.enforce(me, CON, theNewJob(), DuplicateGuard.Confirm.approved("Client asked for two vendors", 90L, 70L), null)).isInstanceOfSatisfying(OrgException.class, e -> assertThat(e.getCode()).isEqualTo("DUPLICATE_BLOCKED"));
+    }
+
+    @Test
+    void warnIgnoresTheApprovalMarkAndWorksAsBefore() {
+        aDuplicate();
+        assertThat(guard.enforce(me, CON, theNewJob(), DuplicateGuard.Confirm.approved("Client asked for two vendors", 90L, 70L), null)).hasSize(1);
+        verify(audit).record(eq(me), eq("PIPELINE_DUPLICATE_OVERRIDE"), eq("CONSULTANT"), any(), eq("10"), org.mockito.ArgumentMatchers.contains("Client asked for two vendors"));
+    }
+
     // ---- the cap ----------------------------------------------------------------------------------------------------------------
 
     @Test

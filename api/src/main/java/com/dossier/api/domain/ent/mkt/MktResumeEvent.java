@@ -16,6 +16,10 @@ public class MktResumeEvent implements Serializable {
     public static final String APPROVAL_REQUESTED = "APPROVAL_REQUESTED";
     public static final String APPROVED = "APPROVED";
     public static final String MARKED_FOR_UPDATE = "MARKED_FOR_UPDATE";
+    /** MM-02: with org.resumes.manager_review on, the marketer sent the resume to a Marketing Manager before the consultant is asked; the manager's answer is one of the next two. */
+    public static final String MANAGER_REVIEW_REQUESTED = "MANAGER_REVIEW_REQUESTED";
+    public static final String MANAGER_REVIEWED = "MANAGER_REVIEWED";
+    public static final String MANAGER_DECLINED = "MANAGER_DECLINED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

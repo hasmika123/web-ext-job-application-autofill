@@ -130,6 +130,14 @@ public final class EnterpriseSettingKeys {
     /** Marketing Manager workspace (deferred/marketing-manager.md section 3, MM-01): months approval requests and escalations are kept. Read by {@code EnterpriseHistoryRetentionJob}; an organization may override it in {@code org_setting}. */
     public static final String HISTORY_MKT_MGMT_MONTHS = "enterprise.history.mkt_mgmt_months";
     /**
+     * Marketing Manager approvals (deferred/marketing-manager.md sections 4.1.1 and 7, MM-02): whether assigning an opportunity is held for a manager (NEVER, HIGH_PRIORITY = the consultant's
+     * assignment priority is HIGH, ALWAYS), whether a marketer-made resume is reviewed by a manager before the consultant is asked, and how many days a request waits before it expires.
+     * Every default changes nothing. An organization may override each in {@code org_setting}.
+     */
+    public static final String ORG_PIPELINE_MANAGER_APPROVAL = "org.pipeline.manager_approval";
+    public static final String ORG_RESUMES_MANAGER_REVIEW = "org.resumes.manager_review";
+    public static final String ORG_PIPELINE_APPROVAL_EXPIRY_DAYS = "org.pipeline.approval_expiry_days";
+    /**
      * Release 1, WP2 (docs/enterprise-v2/60 section 10): the most job detail an organization's pages may show, MINIMAL (facts and the link) or FULL.
      * The level actually shown is the lower of this and the job's stored {@code detail_level}; read by {@code JobDetailMapper} / {@code JobDetailCap}.
      * An organization may override it in {@code org_setting}.
@@ -212,6 +220,12 @@ public final class EnterpriseSettingKeys {
             "Months of organization application, interview and submission history kept; 0 keeps it as long as the record exists. Older rows are deleted nightly, but the newest row of every record is always kept. An organization can override it in org_setting.");
         integer(k, HISTORY_MKT_MGMT_MONTHS, 36, 0, 120, Risk.LOW,
             "Months a Marketing Manager approval request or escalation is kept after it was decided or closed; 0 keeps it as long as the organization exists. Older closed rows are deleted nightly (an open one never is). An organization can override it in org_setting.");
+        k.add(new Key(ORG_PIPELINE_MANAGER_APPROVAL, Type.ENUM, "NEVER", null, null, List.of("NEVER", "HIGH_PRIORITY", "ALWAYS"),
+            "Manager approval of an assignment: NEVER (default; nothing is held), HIGH_PRIORITY (assigning an opportunity to a consultant whose assignment priority is HIGH waits for a Marketing Manager) or ALWAYS. "
+                + "The opportunity stays suggested until a manager approves on the Approvals page; the assignment then goes through the same checks as before. Nothing is ever submitted either way. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        k.add(new Key(ORG_RESUMES_MANAGER_REVIEW, Type.BOOL, "false", null, null, null,
+            "Manager review of marketer-made resumes: on = a resume a marketer made for a consultant is reviewed by a Marketing Manager before the consultant is asked to approve it (the consultant's own approval is never replaced). Off (default) = the marketer sends it to the consultant directly. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        integer(k, ORG_PIPELINE_APPROVAL_EXPIRY_DAYS, 7, 1, 30, Risk.LOW, "Manager approvals: days a request waits for a decision before it expires (nothing happens to the held action; the marketer can ask again). An organization can override it in org_setting.");
         integer(d, DOMAINS_SUBDOMAINS_PER_DAY, 20, 1, 500, Risk.MEDIUM, "Most Kiwiply subdomains provisioned per day (keeps certificate issuance under the Let's Encrypt limits)." + NOT_ENFORCED);
         integer(d, DOMAINS_RECHECK_HOURS, 24, 1, 168, Risk.LOW, "Hours between ownership re-checks of a verified custom domain." + NOT_ENFORCED);
         integer(d, DOMAINS_GRACE_HOURS_BEFORE_SUSPEND, 72, 1, 720, Risk.MEDIUM, "Hours a failing custom domain keeps working before it is suspended." + NOT_ENFORCED);
@@ -228,8 +242,8 @@ public final class EnterpriseSettingKeys {
         integer(k, ORG_MARKETING_OVERLOAD_PCT, 90, 50, 100, Risk.LOW, "Marketing Assignments: a marketer counts as overloaded once assigned consultants reach this percent of their capacity. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_BULK_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: most consultants one assign, update, unassign or undo call may name. An organization can override it in org_setting.");
         integer(k, ORG_MARKETING_CAPACITY_MAX, 200, 1, 1000, Risk.LOW, "Marketing Assignments: the highest capacity (consultants at once) a marketer may be given. An organization can override it in org_setting.");
-        k.add(new Key(ORG_PIPELINE_DUPLICATE_POLICY, Type.ENUM, "WARN", null, null, List.of("WARN", "BLOCK"),
-            "Duplicate-submission guard: when assigning or recording would put a consultant in front of the same posting twice (the same link or job, the same role through another vendor, or a posting too many consultants already hold), WARN answers 409 DUPLICATE_WARNING until the marketer confirms with a reason (audited), BLOCK refuses with 409 DUPLICATE_BLOCKED. An organization can override it in org_setting.", null, Risk.MEDIUM));
+        k.add(new Key(ORG_PIPELINE_DUPLICATE_POLICY, Type.ENUM, "WARN", null, null, List.of("WARN", "BLOCK", "REQUIRE_APPROVAL"),
+            "Duplicate-submission guard: when assigning or recording would put a consultant in front of the same posting twice (the same link or job, the same role through another vendor, or a posting too many consultants already hold), WARN answers 409 DUPLICATE_WARNING until the marketer confirms with a reason (audited), BLOCK refuses with 409 DUPLICATE_BLOCKED, REQUIRE_APPROVAL asks the marketer for a reason and sends the override to a Marketing Manager (409 DUPLICATE_APPROVAL_REQUIRED, decided on the Approvals page; where an override cannot be held it refuses like BLOCK). An organization can override it in org_setting.", null, Risk.MEDIUM));
         integer(k, ORG_PIPELINE_SAME_CLIENT_WINDOW_DAYS, 90, 1, 730, Risk.LOW, "Duplicate-submission guard: the same role for the same consultant through another vendor counts as a duplicate when the earlier assignment or application is at most this many days old. An organization can override it in org_setting.");
         integer(k, ORG_PIPELINE_MAX_PER_REQUIREMENT, 0, 0, 50, Risk.LOW, "Duplicate-submission guard: the most consultants that may hold one posting at the same time; the next assignment is a duplicate warning (or a block, per the policy). 0 = off. An organization can override it in org_setting.");
         integer(k, ORG_PIPELINE_OPEN_MATCHES_MAX, 0, 0, 1000, Risk.LOW, "Assignments: the most open opportunities one consultant may hold; the next assignment answers 409 ASSIGNMENT_CAP. 0 = off. An organization can override it in org_setting.");

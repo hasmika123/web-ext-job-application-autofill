@@ -11,6 +11,7 @@ import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.ent.talent.ConsultantProfileRepository;
 import com.dossier.api.repository.ent.talent.OrgResumeRepository;
 import com.dossier.api.repository.ent.talent.RequirementMatchRepository;
+import com.dossier.api.service.ent.mkt.approvals.ApprovalHolds;
 import com.dossier.api.service.ent.pipeline.DuplicateGuard;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
@@ -167,6 +168,14 @@ public class OpportunityAssignmentService {
     @Autowired(required = false)
     public void setGuard(DuplicateGuard guard) {
         this.guard = guard;
+    }
+
+    /** Where a step that org settings hold for a Marketing Manager is parked (MM-02). Absent in unit tests built by hand; with every setting at its default nothing is held. */
+    private ApprovalHolds holds;
+
+    @Autowired(required = false)
+    public void setHolds(ApprovalHolds holds) {
+        this.holds = holds;
     }
 
     @Autowired
@@ -408,7 +417,21 @@ public class OpportunityAssignmentService {
             if (!reopening) return;
         }
         guard.assertOpenCap(orgId, consultantId);
-        guard.enforce(me, consultantId, job, o.duplicate());
+        if (holds == null) {
+            guard.enforce(me, consultantId, job, o.duplicate());
+            return;
+        }
+        ApprovalHolds.Spec spec = heldSpec(me, o);
+        // policy REQUIRE_APPROVAL: a confirmed duplicate goes to a manager (409 DUPLICATE_APPROVAL_REQUIRED); a manager's decision (Confirm.approvedByManager) lifts both holds below
+        guard.enforce(me, consultantId, job, o.duplicate(), (found, reason) -> holds.holdDuplicate(me, job, consultantId, spec, found, reason));
+        // org.pipeline.manager_approval (NEVER by default): the assignment waits for a manager (409 APPROVAL_PENDING); the pair stays SUGGESTED until they decide
+        if (!o.duplicate().approvedByManager() && holds.holdsAssignment(orgId, consultantId)) throw holds.holdAssignment(me, job, consultantId, spec, o.duplicate());
+    }
+
+    /** What a held assignment must remember to be carried out exactly as asked. */
+    private static ApprovalHolds.Spec heldSpec(OrgMembership me, Options o) {
+        Integer score = o.score() == null ? null : o.score().get();
+        return new ApprovalHolds.Spec(o.ownerMemberId() != null ? o.ownerMemberId() : me.memberId(), o.askInterest(), o.marketerNote(), o.priority(), o.dueOn(), score, o.reason(), o.source());
     }
 
     /**
