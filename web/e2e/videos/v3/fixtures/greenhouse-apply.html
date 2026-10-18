@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Platform Engineer at Northwind Labs</title>
+<style>
+  body { margin: 0; background: #f4f6f8; color: #1f2937; font: 16px/1.5 system-ui, "Segoe UI", sans-serif; }
+  #demo-banner { background: #fef3c7; color: #78350f; text-align: center; padding: 8px 12px; font: 600 13px system-ui; letter-spacing: .02em; }
+  #app_body { max-width: 760px; margin: 28px auto 80px; background: #fff; border-radius: 14px; box-shadow: 0 6px 30px rgba(0,0,0,.08); padding: 36px 44px 44px; }
+  .company-name { font: 600 13px system-ui; letter-spacing: .12em; text-transform: uppercase; color: #64748b; }
+  h1.app-title { font-size: 32px; margin: 6px 0 4px; }
+  .location { color: #475569; margin-bottom: 18px; }
+  .desc { color: #475569; border-bottom: 1px solid #e5e7eb; padding-bottom: 20px; margin-bottom: 22px; }
+  h3 { margin: 26px 0 10px; font-size: 18px; }
+  .field { margin-bottom: 16px; display: flex; flex-direction: column; }
+  label { font-weight: 600; margin-bottom: 5px; font-size: 14px; }
+  .asterisk { color: #dc2626; }
+  input[type=text], input[type=email], input[type=tel], select, textarea { border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; font: inherit; background: #fff; }
+  textarea { min-height: 110px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  #submit_app { margin-top: 12px; padding: 14px 28px; font: 700 17px system-ui; border: 0; border-radius: 10px; background: #0f766e; color: #fff; cursor: pointer; }
+  #confirmation { display: none; text-align: center; padding: 40px 10px; }
+  #confirmation h2 { color: #065f46; }
+</style>
+</head>
+<body>
+<div id="demo-banner">Local demo page: this stands in for an employer's application form. Nothing here is sent anywhere.</div>
+<div id="app_body">
+  <div id="header">
+    <div class="company-name">Northwind Labs</div>
+    <h1 class="app-title">Data Platform Engineer</h1>
+    <div class="location">Remote, United States</div>
+  </div>
+  <div class="desc">Build and run the data platform behind Northwind's analytics products: pipelines, warehouses and the tools other teams use every day.</div>
+
+  <div id="application">
+    <form id="application_form" action="#" method="post" novalidate>
+      <h3>Apply for this job</h3>
+      <div class="row">
+        <div class="field"><label for="first_name">First Name <span class="asterisk">*</span></label><input id="first_name" name="job_application[first_name]" type="text" autocomplete="given-name" required></div>
+        <div class="field"><label for="last_name">Last Name <span class="asterisk">*</span></label><input id="last_name" name="job_application[last_name]" type="text" autocomplete="family-name" required></div>
+      </div>
+      <div class="field"><label for="email">Email <span class="asterisk">*</span></label><input id="email" name="job_application[email]" type="email" autocomplete="email" required></div>
+      <div class="field"><label for="phone">Phone</label><input id="phone" name="job_application[phone]" type="tel" autocomplete="tel"></div>
+      <div class="field"><label for="job_application_location">Location (City)</label><input id="job_application_location" name="job_application[location]" type="text"></div>
+      <div class="field"><label for="resume">Resume/CV <span class="asterisk">*</span></label><input id="resume" name="job_application[resume]" type="file" accept=".pdf,.doc,.docx,.txt"></div>
+      <div class="field"><label for="linkedin">LinkedIn Profile</label><input id="linkedin" name="job_application[answers_attributes][0][text_value]" type="text"></div>
+      <div class="field"><label for="website">Website</label><input id="website" name="job_application[answers_attributes][1][text_value]" type="text"></div>
+
+      <h3>Questions</h3>
+      <div class="field"><label for="q_auth">Are you legally authorized to work in the United States? <span class="asterisk">*</span></label>
+        <select id="q_auth" name="job_application[answers_attributes][2][boolean_value]" required><option value="">--</option><option>Yes</option><option>No</option></select></div>
+      <div class="field"><label for="q_sponsor">Will you now or in the future require visa sponsorship? <span class="asterisk">*</span></label>
+        <select id="q_sponsor" name="job_application[answers_attributes][3][boolean_value]" required><option value="">--</option><option>Yes</option><option>No</option></select></div>
+      <div class="field"><label for="q_why">Why would you like to work at Northwind Labs?</label><textarea id="q_why" name="job_application[answers_attributes][4][text_value]"></textarea></div>
+
+      <button id="submit_app" type="submit">Submit Application</button>
+    </form>
+    <div id="confirmation"><h2>Thank you for applying!</h2><p>Your application has been submitted to Northwind Labs. (Demo page: submitted by the candidate pressing the button, never by Kiwiply.)</p></div>
+  </div>
+</div>
+<script>
+  document.getElementById("application_form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    document.getElementById("application_form").style.display = "none";
+    document.getElementById("confirmation").style.display = "block";
+    window.scrollTo(0, 0);
+  });
+</script>
+</body>
+</html>
