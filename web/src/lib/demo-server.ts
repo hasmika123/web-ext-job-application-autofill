@@ -19,7 +19,9 @@ export async function getDemoInfo(): Promise<DemoInfo | null> {
     if (!res.ok) return null;
     const data = (await res.json().catch(() => null)) as Partial<DemoInfo> | null;
     if (!data || typeof data.enabled !== "boolean" || !Array.isArray(data.accounts)) return null;
-    return { enabled: data.enabled, accounts: data.accounts };
+    const t = data.tenantDemo;
+    const tenantDemo = t && typeof t.host === "string" && typeof t.name === "string" ? { host: t.host, name: t.name } : null;
+    return { enabled: data.enabled, accounts: data.accounts, tenantDemo };
   } catch {
     return null;
   }

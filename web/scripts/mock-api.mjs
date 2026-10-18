@@ -95,6 +95,7 @@ const PLATFORM_MOCK_HOSTS = new Set(["", "localhost", "127.0.0.1", "[::1]"]);
 const seenHosts = new Map();
 // Mirrors the real API's DEMO_ENABLED config flag: MOCK_DEMO_ENABLED=false turns the demo off (default on).
 const DEMO_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_DEMO_ENABLED ?? "true");
+const DEMO_ADMIN_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_DEMO_ADMIN ?? "true");
 // Mirrors the real API org feature flag (ORGS_ENABLED): on in the mock by default, MOCK_ORGS_ENABLED=false turns it off.
 const ORGS_ENABLED = !/^(false|0|no|off)$/i.test(process.env.MOCK_ORGS_ENABLED ?? "true");
 
@@ -115,22 +116,26 @@ const DEMO_ACCOUNTS = [
     description: "A ready-made job search: a profile, resumes and an application board.",
     landing: "/dashboard",
   },
-  {
-    id: 102,
-    login: "demo-org",
-    label: "Organization admin",
-    description: "The organization admin: people, boards and reports.",
-    landing: "/org",
-  },
-  {
-    login: "demo-admin",
-    label: "App admin",
-    description: "The platform admin console: users, analytics, system settings and the audit log.",
-    landing: "/admin",
-  },
+  // Mirrors DEMO_ADMIN_ENABLED (the real API's app-admin demo): MOCK_DEMO_ADMIN=false takes the card away (default on, the admin specs need it).
+  // There is no organization demo account here: organization accounts sign in on their own tenant host (decision O4).
+  ...(DEMO_ADMIN_ENABLED
+    ? [
+        {
+          login: "demo-admin",
+          label: "App admin",
+          description: "Kiwiply's own admin console: users, plans and pricing, AI settings, organizations and system settings.",
+          landing: "/admin",
+        },
+      ]
+    : []),
 ];
 
-const DEMO_INFO = { enabled: DEMO_ENABLED, accounts: DEMO_ENABLED ? DEMO_ACCOUNTS : [] };
+// Like the real API: the demo company's host while the enterprise demo is seeded (here: enterprise on), else null.
+const DEMO_INFO = {
+  enabled: DEMO_ENABLED,
+  accounts: DEMO_ENABLED ? DEMO_ACCOUNTS : [],
+  tenantDemo: DEMO_ENABLED && ENTERPRISE_ENABLED ? { host: "acme.localhost", name: MOCK_TENANTS["acme.localhost"]?.displayName ?? "Acme Staffing" } : null,
+};
 
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString("base64url");
 /** Unsigned JWT-shaped token: the web app only decodes `exp` (proxy.ts) and forwards it back to us. */
@@ -1953,6 +1958,8 @@ const server = http.createServer((req, res) => {
         if (memberStatus(host, login) !== "ACTIVE") return json(res, 403, { code: "NOT_A_MEMBER", message: "error.org" });
         return json(res, 200, tenantPair(login, orgKeyOf(host)));
       }
+      // O4: the personal site never signs anyone into an organization account; demo-admin needs its switch (DEMO_ADMIN_ENABLED)
+      if (login === "demo-org" || (login === "demo-admin" && !DEMO_ADMIN_ENABLED)) return json(res, 404, { code: "NOT_FOUND", message: "error.demo" });
       return ACCOUNTS[login] ? json(res, 200, pair(login)) : json(res, 400, { error: "Unknown demo account." });
     });
   }
