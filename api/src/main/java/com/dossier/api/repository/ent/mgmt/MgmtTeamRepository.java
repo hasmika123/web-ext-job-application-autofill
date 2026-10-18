@@ -89,4 +89,13 @@ public interface MgmtTeamRepository extends Repository<MktOpportunity, Long> {
     /** When these consultants' interviews are or were scheduled, since {@code from}, cancelled ones left out. */
     @Query("select i.scheduledAt from TalentInterview i where i.orgId = :orgId and i.consultantId in :ids and i.scheduledAt >= :from and i.status <> 'CANCELLED'")
     List<Instant> interviewsAt(@Param("orgId") Long orgId, @Param("ids") Collection<Long> ids, @Param("from") Instant from);
+
+    // ---- the Workload page ----------------------------------------------------------------------------------------------------------
+
+    /** {@code [fromMarketerMemberId, toMarketerMemberId, occurredAt]} of the assignment history lines since {@code from} that moved a consultant from one marketer to another (or to nobody). */
+    @Query(
+        "select e.fromMarketerMemberId, e.toMarketerMemberId, e.occurredAt from MarketerAssignmentEvent e "
+            + "where e.orgId = :orgId and e.occurredAt >= :from and e.action in ('ASSIGN', 'REASSIGN', 'UNASSIGN', 'RESTORE')"
+    )
+    List<Object[]> assignmentMoves(@Param("orgId") Long orgId, @Param("from") Instant from);
 }

@@ -17,6 +17,7 @@ import com.dossier.api.service.ent.OrgRoleService;
 import com.dossier.api.service.ent.RoleTemplates;
 import com.dossier.api.service.ent.TalentDemoSeeder;
 import com.dossier.api.service.ent.members.MemberAccess;
+import com.dossier.api.service.ent.mgmt.TeamScope;
 import com.dossier.api.service.org.OrgAuditService;
 import com.dossier.api.service.org.OrgException;
 import com.dossier.api.service.org.OrgMembership;
@@ -74,6 +75,7 @@ public class MarketingAssignmentsService {
     public static final String ACTION_UPDATE = "UPDATE";
     public static final String ACTION_UNASSIGN = "UNASSIGN";
     public static final String ACTION_RESTORE = "RESTORE";
+    public static final String ACTION_REBALANCE = "REBALANCE";
 
     public static final String AUDIT_ASSIGN = "MARKETING_ASSIGN";
     public static final String AUDIT_REASSIGN = "MARKETING_REASSIGN";
@@ -183,6 +185,14 @@ public class MarketingAssignmentsService {
         return visible == null || visible.contains(memberId);
     }
 
+    /** The marketers the caller sees, cut down to the team when there is one (an organization-wide team leaves the caller's own scope as it is). */
+    private static Set<Long> narrow(Set<Long> visible, TeamScope.View team) {
+        if (team == null || team.all()) return visible;
+        Set<Long> out = new HashSet<>(team.marketerMemberIds());
+        if (visible != null) out.retainAll(visible);
+        return out;
+    }
+
     // ---- reads: marketers ---------------------------------------------------------------------------------------------------------
 
     @Transactional(readOnly = true)
@@ -206,9 +216,15 @@ public class MarketingAssignmentsService {
 
     @Transactional(readOnly = true)
     public WorkloadReport workload(OrgMembership me) {
+        return workload(me, null);
+    }
+
+    /** The workload report narrowed to a Marketing Manager's team ({@code team} null = the admin board's own scope rule, unchanged). */
+    @Transactional(readOnly = true)
+    public WorkloadReport workload(OrgMembership me, TeamScope.View team) {
         PermissionScope scope = viewScope(me);
         Long orgId = me.orgId();
-        Set<Long> visible = access.visibleIds(me, scope);
+        Set<Long> visible = narrow(access.visibleIds(me, scope), team);
         State s = load(orgId, visible);
         Map<Long, Integer> apps = openApplications(orgId);
         Map<Long, Integer> high = new HashMap<>(), paused = new HashMap<>(), noBackup = new HashMap<>(), backups = new HashMap<>(), openApps = new HashMap<>();
@@ -244,9 +260,15 @@ public class MarketingAssignmentsService {
 
     @Transactional(readOnly = true)
     public Page consultants(OrgMembership me, ConsultantQuery q) {
+        return consultants(me, q, null);
+    }
+
+    /** The consultants table narrowed to a Marketing Manager's team ({@code team} null = the admin board's own scope rule, unchanged). */
+    @Transactional(readOnly = true)
+    public Page consultants(OrgMembership me, ConsultantQuery q, TeamScope.View team) {
         PermissionScope scope = viewScope(me);
         Long orgId = me.orgId();
-        Set<Long> visible = access.visibleIds(me, scope);
+        Set<Long> visible = narrow(access.visibleIds(me, scope), team);
         int page = q.page() == null ? 0 : q.page();
         int size = q.size() == null ? DEFAULT_SIZE : q.size();
         if (page < 0) throw OrgException.invalid("page", "must be 0 or more");
@@ -663,6 +685,97 @@ public class MarketingAssignmentsService {
         return finish(me, ACTION_RESTORE, ids, results, false);
     }
 
+    /**
+     * Moves consultants to other marketers in ONE call (the Marketing Manager's rebalance). Every target must be an ACTIVE marketer of the team (outside it: the generic 404);
+     * a consultant is moved only when somebody of the team carries it now (otherwise skipped NOT_FOUND, or NOT_ASSIGNED when nobody carries it). The capacity rule applies to
+     * the figures after ALL the moves, with no override: 409 {@code OVER_CAPACITY}. Each moved consultant gets its history line and its hand-over of open work through
+     * {@link AssignmentLifecycleService}, one {@code MARKETING_REASSIGN} audit row, and ONE {@code MARKETING_BULK} row for the whole rebalance; each result's {@code previous}
+     * is what Undo sends to /restore.
+     */
+    public BulkResult rebalance(OrgMembership me, List<Move> moves, String rawReason, TeamScope.View team) {
+        gateWrite(me);
+        if (moves == null || moves.isEmpty()) throw OrgException.invalid("moves", "name at least one move");
+        Long orgId = me.orgId();
+        if (moves.size() > limits.bulkMax(orgId)) throw OrgException.invalid("moves", "at most " + limits.bulkMax(orgId) + " moves per call");
+        String reason = reason(rawReason);
+        LinkedHashMap<Long, Long> wanted = new LinkedHashMap<>(); // consultant -> target marketer (the last word on a consultant wins)
+        for (Move m : moves) {
+            if (m == null || m.consultantId() == null || m.consultantId() <= 0) throw OrgException.invalid("moves", "each move names a consultant");
+            if (m.toMarketerMemberId() == null) throw OrgException.invalid("moves", "each move names a marketer");
+            wanted.put(m.consultantId(), m.toMarketerMemberId());
+        }
+        Map<Long, MarketerCapacity> targets = new LinkedHashMap<>();
+        for (Long to : new LinkedHashSet<>(wanted.values())) {
+            MarketerCapacity c = capacities.findByOrgIdAndMemberId(orgId, to).orElse(null);
+            if (c == null || (team != null && !team.all() && !team.hasMarketer(to)) || !access.canAct(me, KEY_MANAGE, to)) throw new OrgNotFoundException();
+            if (!"ACTIVE".equals(c.getStatus())) throw OrgException.coded(422, CODE_MARKETER_INVALID, "This marketer is paused and takes no new consultants", Map.of("marketerMemberId", to));
+            targets.put(to, c);
+        }
+        State s = load(orgId, null);
+        List<RowResult> results = new ArrayList<>();
+        List<Long> ids = new ArrayList<>(wanted.keySet());
+        Map<Long, Long> doable = new LinkedHashMap<>();
+        Map<Long, Long> count = new HashMap<>(s.countByMarketer);
+        for (Long id : ids) {
+            ConsultantProfile c = s.consultantById.get(id);
+            MarketerAssignment a = s.assignmentByConsultant.get(id);
+            if (c == null || !"ACTIVE".equals(c.getStatus())) {
+                results.add(skip(id, REASON_NOT_FOUND));
+                continue;
+            }
+            if (a == null) {
+                results.add(skip(id, REASON_NO_ASSIGNMENT));
+                continue;
+            }
+            if ((team != null && !team.all() && !team.hasMarketer(a.getMarketerMemberId())) || !access.canAct(me, KEY_MANAGE, a.getMarketerMemberId())) {
+                results.add(skip(id, REASON_NOT_FOUND)); // carried outside the team
+                continue;
+            }
+            Long to = wanted.get(id);
+            if (to.equals(a.getMarketerMemberId())) {
+                results.add(new RowResult(id, true, REASON_UNCHANGED, null));
+                continue;
+            }
+            doable.put(id, to);
+            count.merge(a.getMarketerMemberId(), -1L, Long::sum);
+            count.merge(to, 1L, Long::sum);
+        }
+        for (Map.Entry<Long, MarketerCapacity> t : targets.entrySet()) {
+            long gains = doable.values().stream().filter(t.getKey()::equals).count();
+            long projected = count.getOrDefault(t.getKey(), 0L);
+            if (gains > 0 && projected > t.getValue().getCapacity()) {
+                Map<String, Object> extra = new LinkedHashMap<>();
+                extra.put("marketerMemberId", t.getKey());
+                extra.put("capacity", t.getValue().getCapacity());
+                extra.put("current", s.countByMarketer.getOrDefault(t.getKey(), 0L));
+                extra.put("adding", gains);
+                extra.put("projected", projected);
+                throw OrgException.coded(409, CODE_OVER_CAPACITY, "This would put the marketer over capacity", extra);
+            }
+        }
+        Instant now = Instant.now(clock);
+        for (Map.Entry<Long, Long> d : doable.entrySet()) {
+            Long id = d.getKey();
+            MarketerAssignment a = s.assignmentByConsultant.get(id);
+            Map<String, Object> previous = snapshot(a);
+            AssignmentLifecycleService.Snap beforeSnap = AssignmentLifecycleService.snap(a);
+            a.setMarketerMemberId(d.getValue());
+            a.setAssignedAt(now);
+            a.setAssignedByMemberId(me.memberId());
+            if (a.getBackupMemberId() != null && a.getBackupMemberId().equals(d.getValue())) a.setBackupMemberId(null);
+            a.setLastActivityAt(now);
+            assignments.save(a);
+            Map<String, Object> details = new LinkedHashMap<>();
+            details.put("to", d.getValue());
+            details.put("from", previous.get("marketerMemberId"));
+            details.put("rebalance", true);
+            track(me, id, beforeSnap, a, reason, null, details);
+            audit(me, AUDIT_REASSIGN, id, details, "LOW");
+            results.add(new RowResult(id, true, null, previous));
+        }
+        return finish(me, ACTION_REBALANCE, ids, results, false);
+    }
+
     // ---- writes: marketers ---------------------------------------------------------------------------------------------------------
 
     /** Promotes an existing active member who holds a marketing role to a marketer with a capacity. No account is created. */
@@ -931,6 +1044,10 @@ public class MarketingAssignmentsService {
             cleanIds(orgId, r.consultantIds());
         } else if (body instanceof RestoreRequest r) {
             if (r.rows() == null || r.rows().isEmpty()) throw OrgException.invalid("rows", "name at least one assignment");
+        } else if (body instanceof RebalanceRequest r) {
+            reason(r.reason());
+            if (r.moves() == null || r.moves().isEmpty()) throw OrgException.invalid("moves", "name at least one move");
+            if (r.moves().size() > limits.bulkMax(orgId)) throw OrgException.invalid("moves", "at most " + limits.bulkMax(orgId) + " moves per call");
         }
     }
 

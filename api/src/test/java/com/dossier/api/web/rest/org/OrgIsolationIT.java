@@ -525,6 +525,15 @@ class OrgIsolationIT {
         Map.entry("GET /api/orgs/{orgId}/mgmt/team", Case.mktRead()),
         Map.entry("GET /api/orgs/{orgId}/mgmt/team/{memberId}", Case.mkt(200, null, w -> null, World::mktCapacity)),
         Map.entry("PATCH /api/orgs/{orgId}/mgmt/team/{memberId}", Case.mkt(200, "MARKETER_UPDATE", w -> "{\"capacity\":7}", World::mktCapacity)),
+        // MM-07: the Marketing Manager's Consultant Assignments and Workload (the admin board's own writer behind the team wall).
+        Map.entry("GET /api/orgs/{orgId}/mgmt/assignments", Case.mktRead()),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/assignments/consultants/{consultantId}/history", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/assignments/assign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"marketerMemberId\":" + w.member.getId() + "}", null, w -> w.mktCapacity())),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/assignments/update", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "],\"priority\":\"HIGH\"}", null, w -> w.mktAssigned())),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/assignments/unassign", Case.people(200, "MARKETING_BULK", 2, w -> "{\"consultantIds\":[" + w.mktConsultantId + "]}", null, w -> w.mktAssigned())),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/assignments/restore", Case.people(200, "MARKETING_BULK", 2, w -> "{\"rows\":[{\"consultantId\":" + w.mktConsultantId + ",\"marketerMemberId\":null}]}", null, w -> w.mktAssigned())),
+        Map.entry("GET /api/orgs/{orgId}/mgmt/workload", Case.mktRead()),
+        Map.entry("POST /api/orgs/{orgId}/mgmt/workload/rebalance", Case.people(200, "MARKETING_BULK", 2, w -> "{\"moves\":[{\"consultantId\":" + w.mktConsultantId + ",\"toMarketerMemberId\":" + w.mktFreshMarketer() + "}]}", null, World::mgmtRebalanceReady)),
         // Enterprise V2 Applications page (docs/enterprise-v2/page-applications.md): reads write no audit row; every mutation writes one APPLICATION_* row.
         Map.entry("GET /api/orgs/{orgId}/applications", Case.read()),
         Map.entry("GET /api/orgs/{orgId}/applications/counts", Case.read()),
@@ -1276,6 +1285,19 @@ class OrgIsolationIT {
             a.setConsultantId(mktConsultantId);
             a.setMarketerMemberId(member.getId());
             mktAssignments.saveAndFlush(a);
+        }
+
+        /** MM-07: the world's consultant is carried by the world's member and a second marketer with room waits for the rebalance to move it there. */
+        void mgmtRebalanceReady() {
+            mktAssigned();
+            Long to = mktFreshMarketer();
+            if (mktCapacities.findByOrgIdAndMemberId(org.getId(), to).isEmpty()) {
+                com.dossier.api.domain.ent.talent.MarketerCapacity c = new com.dossier.api.domain.ent.talent.MarketerCapacity();
+                c.setOrgId(org.getId());
+                c.setMemberId(to);
+                c.setCapacity(5);
+                mktCapacities.saveAndFlush(c);
+            }
         }
 
         // ---- ent-marketer: the Marketing workspace (mkt/**). Its rows are made through the real API as the owner (who holds every marketing permission at ORG scope),
