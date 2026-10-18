@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { STATE } from "../fixtures/accounts";
 import AxeBuilder from "@axe-core/playwright";
+import { settleAnimations } from "../fixtures/audit";
 
 /**
  * "Your plan is changing" and the read-only lock (subscription module K10.10; docs/subscriptions/11-plan-retirement.md section 12) against the customer mock
@@ -12,6 +13,9 @@ const mockPort = Number(process.env.E2E_MOCK_PORT ?? 8180);
 const scenario = (request: import("@playwright/test").APIRequestContext, name: string) => request.post(`http://localhost:${mockPort}/mock/billing/retire?scenario=${name}`);
 
 async function axeClean(page: import("@playwright/test").Page, label: string) {
+  // after a client-side navigation Next swaps <title> a moment after the new page paints: axe's document-title rule saw it missing
+  await expect(page).toHaveTitle(/\S/);
+  await settleAnimations(page);
   const r = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).exclude("nextjs-portal").analyze();
   expect(r.violations.map((v) => `${v.id}: ${v.help}`), label).toEqual([]);
 }
