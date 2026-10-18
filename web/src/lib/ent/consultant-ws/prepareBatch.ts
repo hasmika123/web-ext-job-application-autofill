@@ -29,6 +29,17 @@ export interface PrepareStatus {
   remainingMonth: number;
   dailyCap: number;
   monthlyCap: number;
+  /** Why it is off for this consultant: PLATFORM_OFF (the feature does not exist yet: show nothing), ORG_OFF, NO_LICENSE; null when on. */
+  reason: string | null;
+}
+
+/** The calm one-liners for a feature that is off for this consultant. PLATFORM_OFF has none: the feature does not exist for anyone yet. */
+export const NOTE_ORG_OFF = "Your organization hasn't turned on preparing applications.";
+export const NOTE_NO_LICENSE = "Your organization's licence doesn't include preparing applications.";
+export function reasonNote(reason: string | null): string | null {
+  if (reason === "ORG_OFF") return NOTE_ORG_OFF;
+  if (reason === "NO_LICENSE") return NOTE_NO_LICENSE;
+  return null;
 }
 
 export interface PrepareJob {
@@ -96,7 +107,7 @@ const str = (v: unknown): string | null => (typeof v === "string" && v !== "" ? 
 
 export function parseStatus(b: unknown): PrepareStatus | null {
   if (!isObj(b) || typeof b.enabled !== "boolean") return null;
-  return { enabled: b.enabled, maxBatch: num(b.maxBatch), remainingToday: num(b.remainingToday), remainingMonth: num(b.remainingMonth), dailyCap: num(b.dailyCap), monthlyCap: num(b.monthlyCap) };
+  return { enabled: b.enabled, maxBatch: num(b.maxBatch), remainingToday: num(b.remainingToday), remainingMonth: num(b.remainingMonth), dailyCap: num(b.dailyCap), monthlyCap: num(b.monthlyCap), reason: str(b.reason) };
 }
 
 function parseJob(o: unknown): PrepareJob | null {

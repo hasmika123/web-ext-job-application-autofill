@@ -47,7 +47,8 @@ describe("which openings can be ticked, and why not", () => {
 
 describe("wire parsers", () => {
   it("status: only a body with a boolean enabled counts", () => {
-    expect(parseStatus({ enabled: true, maxBatch: 10, remainingToday: 28, remainingMonth: 298, dailyCap: 30, monthlyCap: 300 })).toEqual({ enabled: true, maxBatch: 10, remainingToday: 28, remainingMonth: 298, dailyCap: 30, monthlyCap: 300 });
+    expect(parseStatus({ enabled: true, maxBatch: 10, remainingToday: 28, remainingMonth: 298, dailyCap: 30, monthlyCap: 300 })).toEqual({ enabled: true, maxBatch: 10, remainingToday: 28, remainingMonth: 298, dailyCap: 30, monthlyCap: 300, reason: null });
+    expect(parseStatus({ enabled: false, maxBatch: 0, remainingToday: 0, remainingMonth: 0, dailyCap: 0, monthlyCap: 0, reason: "ORG_OFF" })?.reason).toBe("ORG_OFF");
     expect(parseStatus({ rows: [] })).toBeNull();
     expect(parseStatus(null)).toBeNull();
   });

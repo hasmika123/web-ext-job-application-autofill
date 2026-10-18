@@ -114,13 +114,14 @@ public class ConPrepareService {
 
     // ---- status --------------------------------------------------------------------------------------------------------------
 
-    /** The switch and what is left of the caps. With the feature off: {@code enabled=false} and zeros (the page shows nothing). */
+    /** The switch and what is left of the caps. With the feature off for this consultant: {@code enabled=false}, zeros and the reason (the page shows nothing, or one calm line). */
     @Transactional(readOnly = true)
     public ConPrepareDTO.Status status(OrgMembership me) {
         ConScope.View view = scope.read(me);
-        if (!entitlement.check(view.orgId(), view.memberId()).allowed()) return new ConPrepareDTO.Status(false, 0, 0, 0, 0, 0);
+        PrepareBatchEntitlement.Decision decision = entitlement.check(view.orgId(), view.memberId());
+        if (!decision.allowed()) return new ConPrepareDTO.Status(false, 0, 0, 0, 0, 0, decision.reason());
         Remaining rem = remaining(view, clock.instant());
-        return new ConPrepareDTO.Status(true, settings.maxBatch(view.orgId()), rem.today(), rem.month(), settings.dailyCap(view.orgId()), settings.monthlyCap(view.orgId()));
+        return new ConPrepareDTO.Status(true, settings.maxBatch(view.orgId()), rem.today(), rem.month(), settings.dailyCap(view.orgId()), settings.monthlyCap(view.orgId()), null);
     }
 
     // ---- prepare -------------------------------------------------------------------------------------------------------------

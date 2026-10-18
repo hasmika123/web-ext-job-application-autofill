@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, CheckIcon, Dialog, ErrorState, FileTextIcon, Skeleton, Switch, useToast } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
 import GeneralSecuritySettings from "./GeneralSecuritySettings";
+import PrepareSettingsSection from "./PrepareSettingsSection";
 import { fetchResumePolicy, saveConsultantShareLinks, type ResumePolicy } from "@/lib/ent/resume-policy";
 
 /**
@@ -155,6 +156,7 @@ export default function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
         </p>
       </Dialog>
     </section>
+    <PrepareSettingsSection orgId={orgId} />
     </div>
   );
 }
