@@ -3,9 +3,27 @@
 > **START HERE.** Written 2026-10-18 by the session that restyled the enterprise UI and audited the applying flow.
 > Read this whole file, then the repo-root `CLAUDE.md`, then `docs/HANDOFF-NEXT-WEEK.md` (the other session's pause handoff: demo stack, inbox, verification debt).
 >
-> - **Branch:** `ent-demo-prep`, cut from `origin/version2` at `116cef73`. Work here; push this branch; open PRs into `version2`; **never merge** (see Rules).
-> - **First commands:** `git fetch origin && git switch ent-demo-prep && git status`
+> - **Branch:** `ent-demo-prep` was merged into `version2` and deleted. Cut a fresh branch: `git fetch origin && git switch -c ent-demo-p1 origin/version2`. Push it; open PRs into `version2`; **never merge** (see Rules).
+> - **First commands:** `git fetch origin && git switch -c ent-demo-p1 origin/version2 && git status`
 > - **First task:** Phase 1 below - EXPLORATION ONLY. No code changes in Phase 1. Deliver the inventory + workflows + gap list, then stop and show the user.
+> - **Read section 0 first:** `version2` moved after this file was written.
+
+## 0. Updates since this was written (2026-10-18, evening; `version2` at `2d29f311`)
+
+The other session (`hasmika-naari`) is active on `version2` and pushed 24 commits. Coordinate with its work; don't redo it.
+
+- **Prepare switch now has an org level and a licence gate** (`9d60cc13`, `191fc751`). This partly supersedes §3.2:
+  - The platform setting `enterprise.autopilot.prepare.enabled` is still the master switch, and it is still off by default. Turn it on in platform admin settings for the demo.
+  - Each organization now opts in on **Organization Settings** (`GET/PUT /api/orgs/{orgId}/org-settings/prepare`) and can set its own limits.
+  - Prepare also requires the consultant's licence to carry `automation.approved_apply`.
+  - The demo seed opts Acme in and adds that add-on to Anika's and Ben's licences.
+- **§3.1 (the prepare hand-off to the extension) is still NOT fixed.** No `job-autofill/` file changed. `prepareBatch.ts` only gained "why it's off" notes.
+- **Extension connect fixed:** the enterprise connect-code exchange no longer gives a 500 (`f3471c6a`).
+- **The other session is recording demo videos** ("v3 video specs" 01-12, branches `rec-a/b/c`). Read `docs/HANDOFF-ENT-STORY-VIDEOS.md` before planning:
+  - It overlaps the user's Phase 3.
+  - Spec 09 "apply with the extension" is WIP, and spec 10 "email tracking" has not been run yet. Both are must-show flows here.
+  - It adds a **local Greenhouse-style fixture page**, which may solve §3.6 (demo job URLs).
+- **Kiwiply.com demo panel:** it now offers App admin instead of the demo org card (`ba758c59`). The demo company is signed into on its own host, `acme.localhost`.
 
 ---
 
