@@ -1,0 +1,226 @@
+#!/usr/bin/env node
+/**
+ * Enterprise demo rehearsal of the extension flows, in a real Chrome with the DEVELOPMENT build of the extension (development only).
+ *
+ * What it drives, end to end, against the local demo stack (web 3200, API 18183, stand-in employer pages 3399):
+ *   1. sign in as Anika (Demo accounts tab) on acme.localhost;
+ *   2. Account menu -> Connect extension -> the one-time code hands the session to the extension (platform /connect page);
+ *   3. Assigned Opportunities -> tick openings -> Prepare -> confirm -> the extension acknowledges, opens one tab per job and fills it;
+ *   4. on the first opened page the script presses the page's OWN Submit (as the consultant would) and waits for the web to say "Submitted".
+ * Nothing here submits to a real employer: the pages are the local stand-ins (web/scripts/demo-ats-server.mjs). It prints PASS/FAIL per step.
+ *
+ *   cd job-autofill && WXT_DEV_WEB_ORIGINS=http://localhost:3200 WXT_DEV_API_ORIGINS=http://localhost:18183 \
+ *     WXT_DEV_TENANT_ORIGINS=http://*.localhost:3200 WXT_DEV_ATS_ORIGINS=http://jobs.localhost:3399 npx wxt build --mode development
+ *   node web/scripts/demo-ext-check.mjs            # env: DEMO_WEB (http://acme.localhost:3200), DEMO_API (http://localhost:18183),
+ *                                                  #      EXT_DIR (job-autofill/.output/chrome-mv3-dev), HEADED=1 to watch, PW_CHANNEL (chrome)
+ */
+import { chromium } from "@playwright/test";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const WEB = process.env.DEMO_WEB || "http://acme.localhost:3200";
+const API = process.env.DEMO_API || "http://localhost:18183";
+const EXT_DIR = resolve(process.env.EXT_DIR || join(here, "../../job-autofill/.output/chrome-mv3-dev"));
+const PICK = Number(process.env.PICK || 2);
+
+const results = [];
+
+/**
+ * Off camera, as Omar (Anika's demo marketer colleague): three fresh openings on the stand-in pages, saved for Anika through the same API call the
+ * extension's "Save for consultant" makes. The seeded openings mostly carry no link or wait for a marketer answer, so a batch needs these.
+ * The API is called directly from Node (a browser session would do the same through the web); the tenant headers need the stack's host secret
+ * (DOSSIER_TENANT_HOST_SECRET, or read from .claude/ent-demo-api.cmd).
+ */
+async function seedOpenings() {
+  let secret = process.env.DOSSIER_TENANT_HOST_SECRET;
+  if (!secret) {
+    try {
+      const cmd = readFileSync(join(here, "../../.claude/ent-demo-api.cmd"), "utf8");
+      secret = (/DOSSIER_TENANT_HOST_SECRET=([^"\r\n]+)/.exec(cmd) || [])[1];
+    } catch {
+      secret = undefined;
+    }
+  }
+  if (!secret) return { ok: false, note: "no DOSSIER_TENANT_HOST_SECRET" };
+  const host = new URL(WEB).hostname;
+  const h = { "X-Kiwiply-Host": host, "X-Kiwiply-Host-Secret": secret, "content-type": "application/json", accept: "application/json" };
+  const tok = async (login) => (await (await fetch(`${API}/api/authenticate/demo`, { method: "POST", headers: h, body: JSON.stringify({ login }) })).json()).accessToken;
+  const omar = await tok("demo-ent-acme-omar");
+  const ah = { ...h, authorization: `Bearer ${omar}` };
+  const me = await (await fetch(`${API}/api/me/tenant`, { headers: ah })).json();
+  const org = me.org.id;
+  // Omar must be Anika's marketer (an older seed gave her Sarah, whose Marketing Management workspace is not built): Sarah reassigns her once.
+  const sarah = { ...h, authorization: `Bearer ${await tok("demo-ent-acme-sarah")}` };
+  const facts = await (await fetch(`${API}/api/orgs/${org}/marketing-assignments/consultants?q=Anika`, { headers: sarah })).json();
+  const anikaFacts = (facts.items || []).find((i) => i.name === "Anika Rao");
+  const marketers = await (await fetch(`${API}/api/orgs/${org}/marketing-assignments/marketers?size=100`, { headers: sarah })).json();
+  const omarMember = (marketers.items || []).find((m) => m.name === "Omar Haddad");
+  if (anikaFacts && omarMember && anikaFacts.marketer?.memberId !== omarMember.memberId) {
+    const r = await fetch(`${API}/api/orgs/${org}/marketing-assignments/reassign`, {
+      method: "POST",
+      headers: { ...sarah, "idempotency-key": crypto.randomUUID() },
+      body: JSON.stringify({ consultantId: anikaFacts.consultantId, newMarketerMemberId: omarMember.memberId, reason: "Demo: Omar runs the marketing flows" }),
+    });
+    console.log("      Sarah reassigned Anika to Omar:", r.status);
+  }
+  const opts = await (await fetch(`${API}/api/orgs/${org}/mkt/opportunities/options?q=Anika`, { headers: ah })).json();
+  const anika = (opts.consultants || []).find((c) => c.name === "Anika Rao");
+  if (!anika) return { ok: false, note: "Anika is not among Omar's assignable consultants" };
+  const stamp = Date.now();
+  const jobs = [
+    ["Platform Engineer", "Orbit Freight", "$95 - $110 / hr"],
+    ["Data Engineer", "Cedar Analytics", "$85 - $100 / hr"],
+    ["Site Reliability Engineer", "Harbor Cloud", "$100 - $120 / hr"],
+  ];
+  let made = 0;
+  for (const [i, [title, company, pay]] of jobs.entries()) {
+    const slug = company.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const body = {
+      jobUrl: `http://jobs.localhost:3399/greenhouse/${slug}/${stamp + i}?t=${encodeURIComponent(title)}`,
+      title, company, location: "Remote (US)", workMode: "REMOTE", employmentType: "Contract", payLabel: pay, payMin: 85, payMax: 120, payPeriod: "HOUR",
+      externalJobId: `demo-${stamp + i}`, atsPlatform: "greenhouse", postedOn: new Date().toISOString().slice(0, 10), skills: ["AWS", "Kubernetes", "Python"],
+      keyInfo: `${company} needs a ${title.toLowerCase()} soon. Read the posting and apply with your extension if you like it.`, priority: "HIGH",
+      dueOn: new Date(Date.now() + (3 + i) * 86_400_000).toISOString().slice(0, 10), consultantIds: [anika.id], extensionVersion: "demo-check",
+    };
+    const r = await fetch(`${API}/api/orgs/${org}/mkt/opportunities/from-extension`, { method: "POST", headers: { ...ah, "idempotency-key": crypto.randomUUID() }, body: JSON.stringify(body) });
+    if (r.ok || r.status === 409) made++; // 409: the duplicate guard, the same opening from an earlier run is still on her list
+    else console.log("      capture refused:", r.status, (await r.text()).slice(0, 160));
+  }
+  return { ok: made === jobs.length, note: `${made}/${jobs.length} openings saved for Anika by Omar` };
+}
+const step = (name, ok, note = "") => {
+  results.push({ name, ok, note });
+  console.log(`${ok ? "PASS" : "FAIL"}  ${name}${note ? "  (" + note + ")" : ""}`);
+};
+
+async function launch() {
+  const userData = mkdtempSync(join(tmpdir(), "kiwiply-demo-check-"));
+  const channel = process.env.PW_CHANNEL || "chrome";
+  const context = await chromium.launchPersistentContext(userData, {
+    channel,
+    headless: !process.env.HEADED,
+    args: ["--enable-unsafe-extension-debugging"],
+    ignoreDefaultArgs: ["--disable-extensions"],
+    viewport: { width: 1400, height: 900 },
+  });
+  const cdp = await context.browser().newBrowserCDPSession();
+  const { id } = await cdp.send("Extensions.loadUnpacked", { path: EXT_DIR });
+  let [worker] = context.serviceWorkers();
+  if (!worker) worker = await context.waitForEvent("serviceworker", { timeout: 30_000 });
+  return { context, extId: id, worker };
+}
+
+if (!process.env.SKIP_SEED) {
+  const seeded = await seedOpenings().catch((e) => ({ ok: false, note: String(e.message).slice(0, 160) }));
+  step("Omar saves three stand-in openings for Anika", seeded.ok, seeded.note);
+}
+const { context, extId, worker } = await launch();
+try {
+  await worker.evaluate(async (api) => {
+    const cur = (await chrome.storage.local.get("settings")).settings ?? {};
+    await chrome.storage.local.set({ settings: { ...cur, apiBaseUrl: api } });
+  }, API);
+  // "Connect" opens the platform /connect page with window.open; a popup is awkward to follow, so it navigates this tab instead (as the video kit does).
+  await context.addInitScript(() => {
+    window.open = ((url) => {
+      if (url) location.href = String(url);
+      return null;
+    });
+  });
+  const page = context.pages()[0] ?? (await context.newPage());
+  page.on("pageerror", (e) => console.log("[page error]", e.message.slice(0, 200)));
+
+  // 1. sign in
+  await page.goto(`${WEB}/login`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Demo accounts/ }).first().click({ timeout: 30_000 });
+  await page.getByRole("button", { name: "Sign in as Anika Rao" }).click({ timeout: 30_000 });
+  await page.waitForURL((u) => u.pathname.startsWith("/w/"), { timeout: 60_000 });
+  step("sign in as Anika", true, page.url());
+
+  // 2. connect the extension
+  await page.getByRole("button", { name: /Anika Rao/ }).first().click();
+  await page.getByRole("menuitem", { name: "Connect extension" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Connect", exact: true }).click({ noWaitAfter: true });
+  let connected = false;
+  let note = "";
+  try {
+    await page.waitForURL((u) => u.pathname === "/connect", { timeout: 30_000 });
+    await page.getByText(/Extension connected/i).first().waitFor({ timeout: 45_000 });
+    connected = true;
+  } catch (e) {
+    note = (await page.locator("[data-connect-message]").textContent().catch(() => null)) || (await page.locator("main").innerText().catch(() => "")).replace(/s+/g, " ").slice(0, 200);
+  }
+  const auth = await worker.evaluate(async () => (await chrome.storage.local.get("trackingAuth")).trackingAuth ?? null);
+  step("connect extension (one-time code)", connected && !!auth?.access, `${page.url().slice(0, 60)} kind=${auth?.kind} org=${auth?.orgName} ${note}`);
+
+  // 3. prepare a batch
+  await page.goto(`${WEB}/w/consultant/opportunities`, { waitUntil: "domcontentloaded" });
+  await page.locator("[data-consultant-opportunities][data-status=ready]").waitFor({ timeout: 60_000 });
+  const boxes = page.locator("[data-prepare-check]:not([disabled])");
+  const n = Math.min(PICK, await boxes.count());
+  step("prepare switch on (checkboxes present)", n > 0, `${await boxes.count()} tickable openings`);
+  for (let i = 0; i < n; i++) await boxes.nth(i).check();
+  await page.locator("[data-prepare-open]").click();
+  await page.locator("[data-prepare-dialog]").waitFor({ timeout: 15_000 });
+  const opened = [];
+  context.on("page", (p) => opened.push(p));
+  await page.locator("[data-prepare-confirm]").click();
+  let acked = false;
+  try {
+    await page.locator("[data-prepare-acked]").waitFor({ timeout: 10_000 });
+    acked = true;
+  } catch {
+    acked = false;
+  }
+  step("extension acknowledged the batch", acked, acked ? "" : (await page.locator("[data-prepare-no-extension]").count()) ? "web shows 'Extension not detected'" : "no ack element");
+
+  // tabs open and get filled
+  const deadline = Date.now() + 90_000;
+  while (opened.length < n && Date.now() < deadline) await page.waitForTimeout(500);
+  step("one tab per opening", opened.length >= n, `${opened.length} tab(s): ${opened.map((p) => p.url().slice(0, 50)).join(" | ")}`);
+  let filled = 0;
+  for (const p of opened) {
+    try {
+      await p.waitForLoadState("domcontentloaded");
+      await p.waitForFunction(() => document.querySelector("#first_name")?.value, null, { timeout: 60_000 });
+      const v = await p.evaluate(() => ({ first: document.querySelector("#first_name")?.value, email: document.querySelector("#email")?.value, auth: document.querySelector("#q_auth")?.value }));
+      filled++;
+      console.log("      filled:", JSON.stringify(v), p.url().slice(0, 60));
+    } catch (e) {
+      console.log("      not filled:", p.url().slice(0, 60), String(e.message).slice(0, 80));
+    }
+  }
+  step("pages prefilled by the extension", filled === opened.length && filled > 0, `${filled}/${opened.length}`);
+  const states = async () => page.locator("[data-prepare-item]").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
+  await page.waitForTimeout(4000);
+  step("web progress shows filled", (await states()).some((s) => /FILLED|PREFILLED/.test(String(s))), (await states()).join(","));
+
+  // 4. the consultant submits on the first page herself
+  if (opened[0]) {
+    const p = opened[0];
+    await p.bringToFront();
+    await p.getByRole("button", { name: "Submit Application" }).click();
+    await p.getByText("Thank you for applying!").waitFor({ timeout: 15_000 });
+    let submitted = false;
+    const until = Date.now() + 30_000;
+    while (Date.now() < until) {
+      if ((await states()).some((s) => /SUBMIT/.test(String(s)))) {
+        submitted = true;
+        break;
+      }
+      await page.waitForTimeout(2000);
+    }
+    step("submit detected and reported to the web", submitted, (await states()).join(","));
+  }
+} catch (e) {
+  step("script error", false, String(e.message).slice(0, 300));
+} finally {
+  await context.close();
+  const bad = results.filter((r) => !r.ok).length;
+  console.log(`\n${results.length - bad}/${results.length} steps passed`);
+  process.exit(bad ? 1 : 0);
+}
