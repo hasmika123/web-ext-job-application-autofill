@@ -66,7 +66,7 @@ public final class DataMap {
         owned(e, "profile_suggestion", "user_id", "ProfileSuggestionService.deleteAllForUser", "profileSuggestions");
         owned(e, "refresh_token", "user_id", "RefreshTokenService.deleteAllForUser; also the retention sweep for expired rows", null, "session security records, no personal content", "REFRESH_TOKEN");
         owned(e, "resume", "user_id", "AccountDeletionService (files first, then rows)", "resumes");
-        owned(e, "resume_doc", "user_id", "ResumeBuilderDataService.deleteAllForUser (files first)", "resumeDocs");
+        owned(e, "resume_doc", "user_id", "ResumeBuilderDataService.deleteAllForUser (files first: built PDFs, profile photos, originals, thumbnails, by prefix)", "resumeDocs");
         owned(e, "resume_doc_version", "user_id", "ResumeBuilderDataService.deleteAllForUser", null, "version history of resumeDocs, the current version is exported");
         owned(e, "subscription", "user_id", "AccountDeletionService.endBilling (Stripe subscription cancelled first)", null, "billing record; Stripe holds the payment history and the person asks Stripe for that copy");
         // personal subscription module (subscription-merge): what the person bought, the plan grants and usage ledger behind their entitlements, and the notices sent to them

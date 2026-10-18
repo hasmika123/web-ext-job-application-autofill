@@ -28,13 +28,19 @@ const dto = (over: Record<string, unknown> = {}) => ({
 
 let uploads: Array<{ url: string; init: RequestInit }>;
 let recorded: unknown[];
+let photoCalls: string[];
 
 beforeEach(() => {
   uploads = [];
   recorded = [];
+  photoCalls = [];
   exportResumePdf.mockReset().mockResolvedValue({ pdf: Buffer.from("%PDF-1.4 /Type /Page fresh"), pages: 1, step: 0, startStep: 0, target: 1, fits: true });
   serverApiFetch.mockReset().mockImplementation(async (path: string, init?: RequestInit) => {
     if (path.endsWith("/doc")) return Response.json(dto(currentDto));
+    if (path.endsWith("/photo")) {
+      photoCalls.push(path);
+      return new Response(new Uint8Array([0xff, 0xd8, 0xff, 1, 2]), { status: 200, headers: { "content-type": "image/jpeg" } });
+    }
     if (path.endsWith("/file")) return storedFile();
     if (path.endsWith("/export-recorded")) {
       recorded.push(JSON.parse(String(init?.body)));
@@ -93,6 +99,36 @@ describe("GET /api/resumes/:id/export?format=pdf&cached=1", () => {
     expect(recorded).toEqual([{ hash: RENDER }]);
     expect(res.headers.get("x-resume-pdf-stored")).toBe("1");
     expect(res.headers.get("x-resume-render-hash")).toBe(RENDER);
+  });
+
+  describe("the photo (R7.4)", () => {
+    const withPhoto = (templateId: string, theme: unknown) => ({
+      pdf: { status: "NONE", hash: null },
+      templateId,
+      theme,
+      doc: { schema: 2, meta: { title: "T" }, basics: { name: "Jane Doe", photo: { key: "resume-photos/3/7-abc-photo.jpg" } }, sections: [] },
+    });
+
+    it("inlines the photo as a data URI for the render when the template draws it", async () => {
+      currentDto = withPhoto("sidebar", { showPhoto: true });
+      const res = await get();
+      expect(res.status).toBe(200);
+      expect(photoCalls).toEqual(["/api/profile/resumes/7/photo"]);
+      const input = exportResumePdf.mock.calls[0]![0] as { photoSrc?: string };
+      expect(input.photoSrc).toBe(`data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 1, 2]).toString("base64")}`);
+    });
+
+    it.each([
+      ["an ATS template", "modern", { showPhoto: true }],
+      ["a theme that hides it", "sidebar", { showPhoto: false }],
+      ["the default (off)", "sidebar", null],
+    ])("does not fetch it for %s", async (_name, templateId, theme) => {
+      currentDto = withPhoto(templateId, theme);
+      const res = await get();
+      expect(res.status).toBe(200);
+      expect(photoCalls).toEqual([]);
+      expect(exportResumePdf.mock.calls[0]![0]).not.toHaveProperty("photoSrc");
+    });
   });
 
   it("renders when the stored object is gone", async () => {

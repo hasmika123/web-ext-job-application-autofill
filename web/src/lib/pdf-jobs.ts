@@ -8,10 +8,11 @@
  *
  *   POST /api/internal/resume-pdf-jobs/claim {worker, limit}   -> [{resumeId, userId, renderHash, templateId}]
  *   GET  /api/internal/resumes/:id/doc                         -> ResumeDocDTO (by id; no user)
+ *   GET  /api/internal/resumes/:id/photo                       -> the photo bytes (R7.4; only asked for when the template draws one)
  *   POST /api/internal/resumes/:id/pdf (multipart: file, renderHash, pages, fits, thumb?) -> 204 (Spring discards it if the document moved on)
  *   POST /api/internal/resume-pdf-jobs/:id/fail {kind, ...}    -> 204   kind: BUSY | TIMEOUT | ERROR
  *
- * All four carry `X-Internal-Token` (= `DOSSIER_INTERNAL_TOKEN`); they are reachable only on the Compose network.
+ * All of them carry `X-Internal-Token` (= `DOSSIER_INTERNAL_TOKEN`); they are reachable only on the Compose network.
  *
  * Switched on by `RESUME_PDF_WORKER=1` (exactly one web container sets it in Compose; several would be safe,
  * since claims are leased). Without it - or without the token - `startPdfWorker` does nothing at all.
@@ -22,7 +23,7 @@
  */
 import os from "node:os";
 import { apiUrl } from "@/lib/config";
-import { PdfBusyError, PdfTimeoutError, exportResumePdf, readPdfConfig } from "@/lib/pdf";
+import { PdfBusyError, PdfTimeoutError, exportResumePdf, readPdfConfig, resolvePhotoSrc } from "@/lib/pdf";
 import type { ExportResult, RenderInput } from "@/lib/pdf";
 
 /** Mirrors the API's declared default for `resume.pdf.pollMs`; used until Spring has answered once. */
@@ -147,7 +148,17 @@ export async function runPdfJobsOnce(deps: WorkerDeps = {}): Promise<RunResult> 
       }
 
       const thumbWidth = Number.isFinite(job.thumbWidth) && (job.thumbWidth as number) > 0 ? Math.trunc(job.thumbWidth as number) : undefined;
-      const result = await doExport({ doc: dto.doc, theme: dto.theme ?? null, templateId: dto.templateId ?? job.templateId }, { thumbWidth });
+      const templateId = dto.templateId ?? job.templateId;
+      // The photo (R7.4) is inlined as a data URI - the print page has no network - and fetched only when this template would draw it.
+      const photoSrc = await resolvePhotoSrc({ doc: dto.doc, theme: dto.theme ?? null, templateId }, async () => {
+        const photo = await doFetch(apiUrl(`/api/internal/resumes/${job.resumeId}/photo`), {
+          headers: internalHeaders(token, false),
+          cache: "no-store",
+          signal: signal(),
+        });
+        return photo.ok ? { bytes: new Uint8Array(await photo.arrayBuffer()), contentType: photo.headers.get("content-type") } : null;
+      });
+      const result = await doExport({ doc: dto.doc, theme: dto.theme ?? null, templateId, ...(photoSrc ? { photoSrc } : {}) }, { thumbWidth });
 
       // Post what was actually rendered: if the document moved on since the claim, Spring still stores this
       // when it is the current render, and discards it (204) otherwise.

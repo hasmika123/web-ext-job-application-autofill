@@ -55,15 +55,27 @@ export async function editorTitle(id: string, actFor: number | null = null): Pro
   }
 }
 
-/** When the Common Profile last changed (`GET /api/profile` -> `updatedAt`); null when unknown. Never throws. */
-async function getProfileUpdatedAt(): Promise<string | null> {
+/**
+ * The Common Profile's last change (`GET /api/profile` -> `updatedAt`) and the country on it (`payload.country`, upper-case
+ * letters only, for the photo dialog's region note); null when unknown. Never throws.
+ */
+async function getProfileBasics(): Promise<{ updatedAt: string | null; country: string | null }> {
   try {
     const res = await serverApiFetch("/api/profile");
-    if (!res.ok) return null;
-    const bio = (await res.json()) as { updatedAt?: unknown };
-    return typeof bio.updatedAt === "string" ? bio.updatedAt : null;
+    if (!res.ok) return { updatedAt: null, country: null };
+    const bio = (await res.json()) as { updatedAt?: unknown; payload?: unknown };
+    let country: string | null = null;
+    if (typeof bio.payload === "string") {
+      try {
+        const c = (JSON.parse(bio.payload) as { country?: unknown }).country;
+        country = typeof c === "string" && /^[A-Za-z]{2}$/.test(c.trim()) ? c.trim().toUpperCase() : null;
+      } catch {
+        /* a bio payload that is not JSON has no country */
+      }
+    }
+    return { updatedAt: typeof bio.updatedAt === "string" ? bio.updatedAt : null, country };
   } catch {
-    return null;
+    return { updatedAt: null, country: null };
   }
 }
 
@@ -101,6 +113,7 @@ export type EditorData =
       config: ResumeBuilderConfig;
       aiUsageLine: { headline: string; detail: string } | null;
       profileUpdatedAt: string | null;
+      profileCountry: string | null;
       initialMeta: ResumeMeta | null;
       primaryResumeId: number | null;
     };
@@ -112,12 +125,12 @@ export type EditorData =
  */
 export async function loadEditorData(id: string, actFor: number | null = null): Promise<EditorData> {
   if (!/^\d+$/.test(id)) return { kind: "notFound" };
-  const [docRes, plan, config, aiUsage, profileUpdatedAt, meta, primaryResumeId] = await Promise.all([
+  const [docRes, plan, config, aiUsage, profileBasics, meta, primaryResumeId] = await Promise.all([
     loadEditorDoc(id, actFor),
     actFor ? Promise.resolve({ plan: "FREE" as const }) : getPlan(),
     getBuilderConfig(actForInit(actFor)),
     actFor ? Promise.resolve(null) : getAiUsage(),
-    actFor ? Promise.resolve(null) : getProfileUpdatedAt(),
+    actFor ? Promise.resolve({ updatedAt: null, country: null }) : getProfileBasics(),
     getMeta(id, actFor),
     actFor ? Promise.resolve(null) : getPrimaryResumeId(),
   ]);
@@ -134,7 +147,8 @@ export async function loadEditorData(id: string, actFor: number | null = null): 
     plan: plan.plan === "PRO" ? "PRO" : "FREE",
     config,
     aiUsageLine: aiUsageLine ? { headline: aiUsageLine.headline, detail: aiUsageLine.detail } : null,
-    profileUpdatedAt,
+    profileUpdatedAt: profileBasics.updatedAt,
+    profileCountry: profileBasics.country,
     initialMeta: meta,
     primaryResumeId,
   };

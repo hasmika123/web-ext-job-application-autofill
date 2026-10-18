@@ -45,6 +45,10 @@ export const PERSONAL_CAPABILITIES: BuilderCapabilities = {
   approvalNotice: null,
 };
 
+/** The photo settings, with the API's declared defaults for one that predates them. */
+export const photoSettingsOf = (config: { photo?: { maxBytes: number; discouragedRegions: string[] } | null }): { maxBytes: number; discouragedRegions: string[] } =>
+  config.photo ?? { maxBytes: 5242880, discouragedRegions: ["US", "CA", "GB", "AU", "IE", "NZ"] };
+
 export const capabilitiesOf = (config: { capabilities?: BuilderCapabilities | null }): BuilderCapabilities => config.capabilities ?? PERSONAL_CAPABILITIES;
 
 export type ResumeBuilderBand = { min: number; title: string; body: string };
@@ -129,6 +133,11 @@ export type ResumeBuilderConfig = {
   share: { maxLinks: number; maxGrants: number; linkDefaultDays: number; allowDownloadDefault: boolean };
   /** Version history retention (R3.10): automatic versions kept per resume; named ones are kept always. */
   versions: { retentionAuto: number };
+  /**
+   * Profile photo (R7.4): the upload cap in bytes (`resume.photo.maxBytes`) and the country codes where the dialog's primary
+   * button is "Keep photo off" (`resume.photo.discouragedRegions`). Absent on an API that predates it: read through {@link photoSettingsOf}.
+   */
+  photo?: { maxBytes: number; discouragedRegions: string[] };
   /**
    * Onboarding v2 (R1.8, ONBOARDING-V2-DESIGN 9 / 11): the `feature.onboarding_v2.enabled` switch, the "~N min" label,
    * seconds per step (hello, source, review, skills, you, prefs) behind "about N min left", the draft cap in bytes, the
@@ -243,6 +252,7 @@ export const DEFAULT_BUILDER_CONFIG: ResumeBuilderConfig = {
   pdf: { waitMs: 30000, viewAutoRefresh: false },
   share: { maxLinks: 3, maxGrants: 20, linkDefaultDays: 30, allowDownloadDefault: false },
   versions: { retentionAuto: 30 },
+  photo: { maxBytes: 5242880, discouragedRegions: ["US", "CA", "GB", "AU", "IE", "NZ"] },
   onboarding: {
     enabled: true,
     estimateMinutes: 2,

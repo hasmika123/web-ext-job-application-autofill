@@ -1,10 +1,11 @@
 "use client";
 
 import type { ComponentType } from "react";
-import { GlobeIcon, LinkIcon, LinkedInIcon, MailIcon, MapPinIcon, PhoneIcon, PlusIcon, Tooltip, UserIcon, XIcon, cn, iconButtonClass } from "@kiwiply/ui";
+import { GlobeIcon, LinkIcon, LinkedInIcon, MailIcon, MapPinIcon, PhoneIcon, PlusIcon, Tooltip, XIcon, cn, iconButtonClass } from "@kiwiply/ui";
 import type { IconProps, ResumeDocBasics, ResumeDocLink } from "@kiwiply/ui";
 import { useCanvas, useField } from "./canvasContext";
 import { GHOST, PILL_BUTTON } from "./canvasStyles";
+import PhotoSlot from "./photo/PhotoSlot";
 import { BASICS_BLOCK_ID } from "./sectionTitle";
 import { nowMs } from "./state/clock";
 import { BASICS_MAX, MAX_LINKS, MAX_URL_CHARS } from "./state/reducer";
@@ -105,7 +106,7 @@ function LinkField({ link, index }: { link: ResumeDocLink; index: number }) {
 /**
  * The personal-information block (DESIGN 10.5): the name in large type, the headline, a contact row
  * with its icons, the links (at most `MAX_LINKS`), and the photo slot when the template draws a photo
- * (the upload itself arrives with R7.4). Icons are decorative; every input has an accessible label.
+ * (`photo/PhotoSlot`, R7.4). Icons are decorative; every input has an accessible label.
  */
 export default function HeaderBlock({ basics }: { basics: ResumeDocBasics }) {
   const { dispatch, controls } = useCanvas();
@@ -142,22 +143,7 @@ export default function HeaderBlock({ basics }: { basics: ResumeDocBasics }) {
           </div>
         </div>
 
-        {controls.photoSlot && (
-          <div className="flex flex-none flex-col items-center gap-1.5 max-sm:flex-row max-sm:gap-3">
-            <span aria-hidden className="grid h-[120px] w-[120px] place-items-center rounded-full bg-paper-2 text-muted max-sm:h-16 max-sm:w-16">
-              <UserIcon className="h-10 w-10 max-sm:h-7 max-sm:w-7" />
-            </span>
-            <button
-              type="button"
-              disabled
-              aria-disabled="true"
-              title="Coming soon"
-              className="rounded-lg px-2 py-1 text-[12.5px] font-semibold text-ink-soft opacity-70 max-sm:min-h-11"
-            >
-              {basics.photo ? "Change photo" : "Add photo"} <span className="font-normal">(Coming soon)</span>
-            </button>
-          </div>
-        )}
+        {controls.photoSlot && <PhotoSlot basics={basics} />}
       </div>
     </section>
   );

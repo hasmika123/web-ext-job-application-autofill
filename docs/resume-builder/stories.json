@@ -2304,7 +2304,7 @@
       "id": "R7.4",
       "epic": "R7",
       "title": "Profile photo — upload, square crop (no dependency), EXIF-stripped JPEG via `FileStorage`, serve + PDF inline, capability gating, region note, admin switch",
-      "status": "not_started",
+      "status": "done",
       "size": "L",
       "owners": [
         "API",

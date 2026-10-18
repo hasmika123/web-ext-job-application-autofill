@@ -16,6 +16,18 @@ normal subsetted Type 0 / CIDFontType2 font. Do not reintroduce a `*-var.woff2` 
 | `source-serif-4-latin-{400,600,700}.woff2` | Source Serif 4 (optical size pinned to 14.67) | 400, 600, 700 (upright) | Adobe, `OFL-SourceSerif4.txt` |
 | `ibm-plex-sans-latin-{400,600,700}.woff2`, `ibm-plex-sans-italic-latin-{400,700}.woff2` | IBM Plex Sans (wdth 100) | 400, 600, 700 + italic 400, 700 | `google/fonts` `ofl/ibmplexsans`, `OFL-IBMPlexSans.txt` |
 | `eb-garamond-latin-{400,600,700}.woff2`, `eb-garamond-italic-latin-{400,700}.woff2` | EB Garamond | 400, 600, 700 + italic 400, 700 | `google/fonts` `ofl/ebgaramond`, `OFL-EBGaramond.txt` |
+| `gelasio-latin-{400,700}.woff2` | Gelasio (metric-compatible with **Georgia**) | 400, 700 (upright) | `google/fonts` `ofl/gelasio` (`Gelasio[wght].ttf`), `OFL-Gelasio.txt` |
+| `arimo-latin-{400,700}.woff2`, `arimo-italic-latin-400.woff2` | Arimo (metric-compatible with **Arial**) | 400, 700 + italic 400 | `google/fonts` `ofl/arimo` (`Arimo[wght].ttf`, `Arimo-Italic[wght].ttf`), `OFL-Arimo.txt` |
+
+**Gelasio and Arimo are not a font pair of their own.** They are the stand-ins for the system fonts of the "Georgia / Arial" pair
+(Simple and Executive default to it): the stack is `Georgia, Gelasio, ...` and `Arial, Arimo, ...`, so a machine that has Georgia /
+Arial (Windows, macOS) prints them, and one that does not (the Linux Chromium sidecar that prints production PDFs) prints the twin
+with the same advance widths. Measured on that sidecar (browserless Chromium v2.57.0): before, `Georgia` fell back to Liberation Serif
+(Times-width, 1359.7 px for the 40 px sample line against Georgia's 1476.4, about 8.6% narrower, and a different face); Gelasio measures 1476.4 and
+Arimo 1483.1, exactly Georgia and Arial. `Arial` itself is answered by Liberation Sans on that image (same widths as Arial). The Windows and
+Linux PDFs of the sample break onto the same two pages with the same headroom (three extra two-line bullets). Check it with
+`PDF_SMOKE=1 npm run test:unit -w web -- pdf-fonts.browser template-fit.browser`. Arimo and Gelasio carry no Reserved Font Name; do not
+bundle Georgia or Arial (proprietary) or Liberation (reserved name "Liberation").
 
 The weights are the ones the resume CSS uses (400 body, 600 item titles / skill groups / Engineer
 headings, 700 names / headings / bold marks). A weight with no face of its own is matched to the

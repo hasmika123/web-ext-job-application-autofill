@@ -31,6 +31,15 @@ describe("editTheme", () => {
     expect(t.fit).toEqual({ mode: "auto", target: 2, step: 0 });
   });
 
+  it("photo: stores theme.showPhoto (true or false) and marks it touched, leaving the rest alone", () => {
+    const on = editTheme({ accent: "#16a34a" }, { control: "photo", value: true });
+    expect(on).toMatchObject({ showPhoto: true, accent: "#16a34a", _touched: ["showPhoto"] });
+    const off = editTheme(on, { control: "photo", value: false });
+    expect(off.showPhoto).toBe(false);
+    expect(off._touched).toEqual(["showPhoto"]);
+    expect(sanitizeTheme(off).showPhoto).toBe(false); // reads back as an explicit "off", not the template default
+  });
+
   it("page length sets fit.target and keeps the step", () => {
     const t = editTheme({ fit: { mode: "auto", target: 1, step: 2 } }, { control: "pages", value: 2 });
     expect(t.fit).toEqual({ mode: "auto", target: 2, step: 2 });

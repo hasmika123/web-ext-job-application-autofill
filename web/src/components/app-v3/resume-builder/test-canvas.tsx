@@ -3,6 +3,7 @@ import { useReducer } from "react";
 import { ATS_STRICT, ToastProvider } from "@kiwiply/ui";
 import type { ResumeDocument, TemplateCapabilities } from "@kiwiply/ui";
 import { DEFAULT_BUILDER_CONFIG } from "@/lib/resume-builder-config.shared";
+import type { CanvasPhoto } from "./canvasContext";
 import DocumentCanvas from "./DocumentCanvas";
 import { canRedoEdit, canUndoEdit, currentDoc, editorReducer, initEditorState } from "./state/reducer";
 import type { DocLimits } from "./state/types";
@@ -15,6 +16,7 @@ export function CanvasHarness({
   limits = DEFAULT_BUILDER_CONFIG.limits,
   onAddSection = () => {},
   reorder = false,
+  photo,
 }: {
   doc: ResumeDocument;
   caps?: TemplateCapabilities;
@@ -23,6 +25,8 @@ export function CanvasHarness({
   limits?: DocLimits;
   onAddSection?: () => void;
   reorder?: boolean;
+  /** The photo slot's behaviour (R7.4); absent = the slot only shows what the document holds. */
+  photo?: CanvasPhoto;
 }) {
   const [state, dispatch] = useReducer(editorReducer, undefined, () => initEditorState({ doc, templateId: "modern", theme: null, docVersion: 1, limits }));
   return (
@@ -38,6 +42,7 @@ export function CanvasHarness({
         aiAllowed={aiAllowed}
         onAddSection={onAddSection}
         reorder={reorder}
+        photo={photo}
       />
       <output data-testid="doc">{JSON.stringify(currentDoc(state))}</output>
     </ToastProvider>

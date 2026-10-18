@@ -23,7 +23,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import type { createElement as CreateElement } from "react";
 import type { renderToStaticMarkup as RenderToStaticMarkup } from "react-dom/server";
-import { MAX_FIT_STEP, ResumePreview, clampStep, sanitizeTheme } from "@kiwiply/ui";
+import { MAX_FIT_STEP, ResumePreview, clampStep, getTemplate, photoShown, sanitizeTheme } from "@kiwiply/ui";
 import type { PageSize, ResumeDocument, ResumeTheme } from "@kiwiply/ui";
 
 /* ── config ───────────────────────────────────────────────────────────────────────────────── */
@@ -186,6 +186,41 @@ export interface RenderInput {
   doc: ResumeDocument;
   theme?: Partial<ResumeTheme> | null;
   templateId?: string | null;
+  /**
+   * Where the photo is drawn from: a `data:` URI (the print page has networking disabled, so the picture travels inside the
+   * HTML). Absent = no photo. Only templates whose capabilities allow a photo draw it, and only when the theme shows it;
+   * {@link resolvePhotoSrc} answers whether the bytes are worth fetching at all.
+   */
+  photoSrc?: string | null;
+}
+
+/** The picture types the API stores (`ResumePhotoProcessor`): anything else is never inlined. */
+const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+/** `data:<type>;base64,...` for stored photo bytes; null for a type the API never stores. */
+export function photoDataUri(bytes: Uint8Array | ArrayBuffer, contentType: string | null | undefined): string | null {
+  const type = (contentType ?? "").split(";")[0]!.trim().toLowerCase();
+  if (!PHOTO_TYPES.has(type)) return null;
+  return `data:${type};base64,${Buffer.from(bytes instanceof ArrayBuffer ? new Uint8Array(bytes) : bytes).toString("base64")}`;
+}
+
+/**
+ * The `photoSrc` for a render: asks `load` for the photo only when this document, theme and template would draw one
+ * (an ATS template, a hidden photo or a resume without one costs no fetch), and inlines it as a data URI. A photo that
+ * cannot be loaded leaves the resume without it rather than failing the PDF. Never throws.
+ */
+export async function resolvePhotoSrc(
+  input: Pick<RenderInput, "doc" | "theme" | "templateId">,
+  load: () => Promise<{ bytes: Uint8Array | ArrayBuffer; contentType: string | null } | null>,
+): Promise<string | null> {
+  const caps = getTemplate(input.templateId).meta.capabilities;
+  if (!photoShown(input.doc as never, sanitizeTheme(input.theme), caps)) return null;
+  try {
+    const photo = await load();
+    return photo ? photoDataUri(photo.bytes, photo.contentType) : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -256,7 +291,7 @@ export function renderResumeHtml(input: RenderInput, opts: { step?: number } = {
   const base = sanitizeTheme(input.theme);
   const theme = opts.step === undefined ? base : { ...base, fit: { ...base.fit, step: clampStep(opts.step) } };
   const { createElement, renderToStaticMarkup } = react();
-  const markup = renderToStaticMarkup(createElement(ResumePreview, { doc: input.doc, theme, templateId: input.templateId }));
+  const markup = renderToStaticMarkup(createElement(ResumePreview, { doc: input.doc, theme, templateId: input.templateId, photoSrc: input.photoSrc }));
   const title = escapeHtml(input.doc.meta?.title || "Resume");
   const lang = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(input.doc.meta?.language ?? "") ? input.doc.meta?.language : "en";
   return (

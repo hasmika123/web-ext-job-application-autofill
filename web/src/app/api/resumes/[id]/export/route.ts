@@ -4,7 +4,7 @@ import { serverApiFetch } from "@/lib/api";
 import { rateLimit } from "@/lib/rate-limit";
 import { RESUME_ID, badId } from "@/lib/resume-doc-proxy";
 import { downloadFileName, pdfFileName } from "@/lib/pdf-name";
-import { PdfBusyError, PdfTimeoutError, PdfUnavailableError, countPdfPages, exportResumePdf } from "@/lib/pdf";
+import { PdfBusyError, PdfTimeoutError, PdfUnavailableError, countPdfPages, exportResumePdf, resolvePhotoSrc } from "@/lib/pdf";
 import { resumeContentHash, resumeRenderHash, sanitizeTheme } from "@kiwiply/ui";
 import type { ResumeDocument, ResumeTheme } from "@kiwiply/ui";
 
@@ -194,7 +194,12 @@ async function renderAndStore(request: Request, id: string, token: string, prelo
   const started = Date.now();
   let result;
   try {
-    result = await exportResumePdf({ doc: dto.doc, theme: dto.theme, templateId: dto.templateId });
+    // The photo (R7.4) travels inside the HTML as a data URI - the print page has no network - and only when this template would draw it.
+    const photoSrc = await resolvePhotoSrc({ doc: dto.doc, theme: dto.theme, templateId: dto.templateId }, async () => {
+      const photo = await serverApiFetch(`/api/profile/resumes/${id}/photo`);
+      return photo.ok ? { bytes: new Uint8Array(await photo.arrayBuffer()), contentType: photo.headers.get("content-type") } : null;
+    });
+    result = await exportResumePdf({ doc: dto.doc, theme: dto.theme, templateId: dto.templateId, ...(photoSrc ? { photoSrc } : {}) });
   } catch (e) {
     if (e instanceof PdfBusyError) {
       return Response.json({ error: "The PDF service is busy - try again in a few seconds.", code: "PDF_BUSY" }, { status: 503, headers: { "retry-after": "5" } });
