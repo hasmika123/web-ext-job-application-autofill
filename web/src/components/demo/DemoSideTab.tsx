@@ -6,12 +6,14 @@ import { ArrowRightIcon, BuildingIcon, CheckIcon, SparklesIcon, UserIcon, XIcon 
 import { cn } from "@/lib/cn";
 import { track } from "@/lib/analytics";
 import { notifyExtension } from "@/lib/extension-signal";
-import type { DemoAccount, DemoInfo } from "@/lib/demo";
+import { tenantDemoLoginUrl, type DemoAccount, type DemoInfo } from "@/lib/demo";
 
 /**
  * What each demo login is and what you will see inside. The API decides which accounts are on
  * offer (and supplies label/description); a login the API doesn't return is never shown. The
- * "sees" copy is static. `demo-admin` only ever exists in the local mock API.
+ * "sees" copy is static. `demo-admin` is offered only while the API's `DEMO_ADMIN_ENABLED` is on, so the app admin card is
+ * absent otherwise. There is no organization persona: organization accounts sign in on their own tenant host (decision O4), so
+ * the panel only LINKS to the demo company's sign-in (see `tenantDemo`).
  */
 const PERSONAS: Record<string, { icon: typeof UserIcon; fallbackLabel: string; fallbackBlurb: string; sees: string }> = {
   demo: {
@@ -20,17 +22,11 @@ const PERSONAS: Record<string, { icon: typeof UserIcon; fallbackLabel: string; f
     fallbackBlurb: "A ready-made job search: a profile, resumes and an application board.",
     sees: "Dashboard, job matches, applications, saved jobs and profiles",
   },
-  "demo-org": {
-    icon: BuildingIcon,
-    fallbackLabel: "Organization admin",
-    fallbackBlurb: "The organization admin: people, boards and reports.",
-    sees: "Org overview, applications, interviews, resumes and analytics",
-  },
   "demo-admin": {
     icon: SparklesIcon,
     fallbackLabel: "App admin",
-    fallbackBlurb: "The platform admin console for running Kiwiply.",
-    sees: "Admin overview, system settings, the demo-account switch and the audit log",
+    fallbackBlurb: "Kiwiply's own admin console, for running the platform.",
+    sees: "Users, customers, organizations, pricing and plans, AI usage and providers, analytics, system settings and the audit log",
   },
 };
 
@@ -68,6 +64,9 @@ export default function DemoSideTab({ demo: demoProp, current }: { demo?: DemoIn
 
   const demo = demoProp !== undefined ? demoProp : fetched;
   const offered = demo?.enabled ? demo.accounts.filter((a) => a.login in PERSONAS) : [];
+  const tenantDemo = demo?.enabled ? (demo.tenantDemo ?? null) : null;
+  // Built in the browser (it needs the visitor's own port in dev); the drawer is closed on the server render, so this is "" there.
+  const tenantHref = open && tenantDemo ? tenantDemoLoginUrl(tenantDemo, window.location) : "";
 
   const close = useCallback(() => {
     setOpen(false);
@@ -256,6 +255,33 @@ export default function DemoSideTab({ demo: demoProp, current }: { demo?: DemoIn
               </li>
             );
           })}
+          {tenantHref && tenantDemo && (
+            <li className="rounded-xl border border-dashed border-v2-line bg-white p-3.5">
+              <div className="flex items-start gap-3">
+                <span aria-hidden="true" className="grid h-10 w-10 flex-none place-items-center rounded-full bg-v2-lime-soft text-v2-green">
+                  <BuildingIcon size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[14.5px] font-bold text-v2-navy">Organizations: try a demo company</p>
+                  <p className="mt-0.5 text-[13px] leading-snug text-v2-ink-soft">
+                    An organization&apos;s accounts sign in on the company&apos;s own address, not here. Open{" "}
+                    {tenantDemo.name}&apos;s sign-in and pick one of its demo members.
+                  </p>
+                </div>
+              </div>
+              <a
+                href={tenantHref}
+                className={cn(
+                  "mt-3 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-v2-green px-4 py-2.5",
+                  "text-[14.5px] font-bold text-v2-green transition-colors hover:bg-v2-lime-soft",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                )}
+              >
+                Go to {tenantDemo.name}
+                <ArrowRightIcon size={16} />
+              </a>
+            </li>
+          )}
         </ul>
         {error && (
           <p role="alert" className="mt-3 text-[13px] font-medium text-danger-text">

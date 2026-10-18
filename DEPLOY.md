@@ -1374,8 +1374,11 @@ checked (every 15 minutes once the poller, 14.3, is live), so keep the retired k
 
 ### 12.1 Demo accounts (phase demo)
 
-Two public demo accounts, `demo` (a job seeker with a ready-made search) and `demo-org` (the
-organization admin), that anyone can open from the login page without signing up. **Default off.**
+The public demo panel on kiwiply.com offers `demo` (a job seeker with a ready-made search) and, only while
+`DEMO_ADMIN_ENABLED=true` (never in production), `demo-admin` (the app admin console at `/admin`), without signing up.
+Organization accounts are not offered here (decision O4): they sign in on their own tenant host through that host's demo
+tab, and `POST /api/authenticate/demo` answers 404 for `demo-org`. The panel also links to the demo company's sign-in when
+`ENT_DEMO_SEED` is on (`tenantDemo` on `GET /api/public/demo`). **Default off.**
 
 - **They exist** after the first boot with this release: the API creates them at startup (Free plan,
   `ROLE_USER`, never an admin) and seeds the job seeker's data when the demo is enabled (an empty board is

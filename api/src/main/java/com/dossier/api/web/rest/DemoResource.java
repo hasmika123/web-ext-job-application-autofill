@@ -63,6 +63,12 @@ public class DemoResource {
         body.put("enabled", enabled);
         // Hide the list while off: nothing for the login page to draw.
         body.put("accounts", enabled ? demoAccountService.accounts() : List.<DemoAccount>of());
+        // The demo company's address, for the panel's "try a demo company" link (organization accounts sign in on their own host,
+        // never here). Null unless the enterprise demo tenants are seeded (demo on, ENT_DEMO_SEED on, not prod).
+        body.put(
+            "tenantDemo",
+            enabled && enterpriseDemo.enabled() ? Map.of("host", EnterpriseDemoSeeder.ACME_HOST, "name", EnterpriseDemoSeeder.ACME.name()) : null
+        );
         return body;
     }
 
@@ -91,6 +97,9 @@ public class DemoResource {
             HttpHeaders tenantHeaders = new HttpHeaders();
             tenantHeaders.setBearerAuth(tenantPair.accessToken());
             return new ResponseEntity<>(tenantPair, tenantHeaders, HttpStatus.OK);
+        }
+        if (DemoAccountService.LOGIN_ORG.equals(login)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // O4: no organization account opens from the personal site
         }
         if (!demoAccountService.isDemo(login) || TenantContextHolder.current().map(c -> c.isTenant()).orElse(false) || (DemoAccountService.LOGIN_ADMIN.equals(login) && !demoAccountService.isAdminDemoEnabled())) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build(); // the personal demo accounts never sign in on a tenant host
