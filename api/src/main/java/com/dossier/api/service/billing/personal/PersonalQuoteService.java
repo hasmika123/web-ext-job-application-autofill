@@ -113,6 +113,7 @@ public class PersonalQuoteService {
     private final com.dossier.api.service.catalog.CatalogSettings catalogSettings;
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
+    private final com.dossier.api.service.billing.BillingClock clock;
 
     public PersonalQuoteService(
         PlanRepository plans,
@@ -130,7 +131,8 @@ public class PersonalQuoteService {
         SettingsService settings,
         com.dossier.api.service.catalog.CatalogSettings catalogSettings,
         JdbcTemplate jdbc,
-        ObjectMapper json
+        ObjectMapper json,
+        com.dossier.api.service.billing.BillingClock clock
     ) {
         this.plans = plans;
         this.versions = versions;
@@ -148,6 +150,7 @@ public class PersonalQuoteService {
         this.catalogSettings = catalogSettings;
         this.jdbc = jdbc;
         this.json = json;
+        this.clock = clock;
     }
 
     // ---- public API -------------------------------------------------------------------------------------------------------------
@@ -299,6 +302,7 @@ public class PersonalQuoteService {
 
     private Ctx resolve(QuoteRequest req, String login) {
         Ctx ctx = new Ctx();
+        ctx.now = clock.now();
         ctx.anonymous = Boolean.TRUE.equals(req.anonymous());
         ctx.kind = req.kind() == null || req.kind().isBlank() ? KIND_CHECKOUT : req.kind().trim().toUpperCase(Locale.ROOT);
         if (!KIND_CHECKOUT.equals(ctx.kind) && !KIND_CHANGE.equals(ctx.kind)) {
@@ -434,6 +438,7 @@ public class PersonalQuoteService {
     /** Rebuild the context of a stored quote: the same plan version, interval, add-on target and confirmations. */
     private Ctx fromStored(SubscriptionQuote q, Stored stored, User user) {
         Ctx ctx = new Ctx();
+        ctx.now = clock.now();
         ctx.user = user;
         ctx.anonymous = q.getUserId() == null;
         ctx.kind = KIND_ANONYMOUS.equals(q.getKind()) ? KIND_CHECKOUT : q.getKind();
