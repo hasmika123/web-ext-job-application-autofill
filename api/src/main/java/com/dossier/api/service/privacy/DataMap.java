@@ -51,6 +51,7 @@ public final class DataMap {
         owned(e, "field_cache", "user_id", "AccountDeletionService", "fieldCache");
         owned(e, "inbox_connection", "user_id", "InboxService.deleteAllForUser (the stored App Password goes with the row)", "inbox");
         owned(e, "inbox_folder_state", "user_id", "InboxService.deleteAllForUser", null, "polling bookkeeping (a mailbox cursor), no content");
+        owned(e, "inbox_hold", "user_id", "InboxService.deleteAllForUser (the rows go with the mail and the account by cascade)", null, "a status change a mail proposed and the person has not answered yet: a scrubbed snippet, ids and a state, no mail text");
         owned(e, "inbox_message", "user_id", "InboxService.deleteAllForUser; also the nightly inbox retention", "inbox");
         owned(e, "job_feedback", "user_id", "JobSearchDataService.deleteAllForUser", "jobFeedback");
         owned(e, "job_fit", "user_id", "JobFitService.deleteAllForUser", null, "derived AI score, regenerated on demand");

@@ -134,7 +134,7 @@ Vitest: `InboxPage.test.tsx` (10), `inbox.test.ts` (7). Playwright story `web/e2
 | Event types: recruiter outreach, withdrawal | NOT BUILT | none | New categories | Low |
 | Company/role extraction | PARTIAL | `companyFrom/roleFrom` | Heuristic; no requisition id, no ATS parsers | High |
 | Matching (thread, company, role) | PARTIAL | `MailMatcher`, `InboxParser.thread` | No job-link/ATS-id; no "link this mail" suggestion or review queue; no `LINK_SUGGESTED` | Medium |
-| Automatic status update, forward-only, audit "by Inbox", notifications | DONE | `MailMatcher.next`, `ApplicationEventService`, `NotificationService` | No confirm/undo for a wrong REJECTED | High (safety) |
+| Automatic status update, forward-only, audit "by Inbox", notifications | DONE | `MailMatcher.next`, `ApplicationEventService`, `NotificationService` | API half DONE on branch `inbox-safe-api`: rejections, ambiguous matches, weak readings and backwards moves are HELD (`HoldingInboxDecisionPolicy`, `inbox_hold`) until accepted or dismissed; applied changes can be undone inside `inbox.undo_window_days`. The web UI (review list, Undo button) is the other half | Medium (UI pending) |
 | New-job suggestions: API accept/dismiss | DONE | `InboxMailService`, `InboxMailResourceIT` | | Low |
 | New-job suggestions: personal UI | PARTIAL | only POST BFF | List + accept UI missing in v3 | Medium |
 | Interview date/time/zone/link/location parsing | FIXED (e1ab45c7, 9c3ca94f, be7685d0) | `InterviewScheduleExtractor`, `IcsReader`, `MailCalendar`, `InboxInterviewApplier`, `LinkedInterviewMirror*`; 37-mail corpus `InterviewScheduleCorpusTest` | Real-mail accuracy still unmeasured (the corpus is synthetic); no new reminder logic | Medium |
@@ -143,7 +143,7 @@ Vitest: `InboxPage.test.tsx` (10), `inbox.test.ts` (7). Playwright story `web/e2
 | Marketer attribution (D4 / 22.5) | NOT BUILT (deferred) | doc 18 s10 | Entire feature, needs user decision | n/a |
 | Extension use of inbox | NOT BUILT | grep | Surface suggestions or status in the drawer (optional) | Low |
 | Data export / GDPR deletion | DONE | `exportCurrentUser`, `InboxDataIT` | Export includes bodies verbatim (fine, user's own) | Low |
-| Monitoring / admin health | PARTIAL | log lines only (`LOG.info/warn`); `ROADMAP 9.C4` debug panel unchecked | No metrics, no stuck-account alert | Medium |
+| Monitoring / admin health | PARTIAL | `InboxCounters` (Micrometer `inbox.changes` by outcome applied/held/accepted/dismissed/undone/expired + log), `GET /api/admin/inbox/stuck` (ROLE_ADMIN, account ids/status/last poll only); `ROADMAP 9.C4` debug panel unchecked | No push alert on a stuck account, no dashboard | Low |
 
 ### Build next, in priority order
 1. **Real-email accuracy.** Collect a consented corpus (own test Gmail receiving real Greenhouse, Lever, Ashby, Workday, iCIMS, LinkedIn mails), write fixtures, measure precision of REJECTED/INTERVIEW per category, add a stored confidence and a route for medium-confidence mail into a confirm queue instead of auto-moving.
@@ -153,3 +153,14 @@ Vitest: `InboxPage.test.tsx` (10), `inbox.test.ts` (7). Playwright story `web/e2
 5. **Privacy and GDPR for stored mail.** Run `SensitiveContent` over body before save and before the AI excerpt, consider dropping headers of non-job mail after a short window, treat mail body as untrusted in the AI prompt (injection), document the retention in the privacy page (already stated per 14.7).
 6. **Personal suggestions UI** (list + accept/dismiss), then marketer attribution only after the user answers D4.
 7. **Monitoring.** Counters per outcome (OK, NEEDS_RECONNECT, FAILED), classification mix, AI spend for INBOX, surfaced in admin (ROADMAP 9.C4).
+
+## 10. Inbox safety, API half (branch `inbox-safe-api`)
+
+| Item | Status | Evidence | Gap |
+|---|---|---|---|
+| Decision seam | DONE | `InboxDecisionPolicy` (+ `Change`), `HoldingInboxDecisionPolicy` (`@Primary`), `DefaultInboxDecisionPolicy` kept | The parser builds a best-effort `MailEvent` (rule 90 / AI 80, thread 95 / name 85) until the `MailMatcher` confidence work lands |
+| Held changes | DONE | table `inbox_hold` (migration `20261125010000_inbox_safety.xml`), `InboxHold`, `InboxSafetyService`; evidence scrubbed, at most 200 characters; expiry `inbox.review_expiry_days` (30), `InboxHoldExpiryJob` | Ambiguous holds depend on the parser's candidate list |
+| Review routes | DONE | `GET /api/inbox/review`, `POST .../{id}/accept`, `POST .../{id}/dismiss`; consultant twins under `/api/orgs/{orgId}/me-workspace/inbox/review...`; `InboxReviewIT` | |
+| Undo | DONE | `POST /api/applications/{id}/inbox-undo/{eventId}`, `inbox.undo_window_days` (7), 409 `UNDO_EXPIRED` / `CHANGED_SINCE`; timeline rows carry `inboxEventId` + `undoable` | A hand-edit after the change makes undo a 409, by design |
+| Rejection switch | DONE | `GET/PUT /api/inbox/settings` `{applyRejectionsAutomatically}` (default false, on the inbox connection; 409 when none is connected) | |
+| Admin | DONE | `GET /api/admin/inbox/stuck` | |

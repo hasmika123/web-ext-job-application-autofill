@@ -38,7 +38,11 @@ public final class TrackerDTOs {
         ChangeActorDTO actor,
         String actorKind,
         ChangeActorDTO onBehalfOf,
-        List<ChangeDTO> changes
+        List<ChangeDTO> changes,
+        /** The id to hand to the undo route when this row is a status change the inbox made (the row's own id); null for every other row. */
+        Long inboxEventId,
+        /** True while an inbox status change can still be undone: inside the undo window and not undone already. */
+        boolean undoable
     ) {
         public static EventDTO of(ApplicationEvent e, ChangeActorDTO actor, ChangeActorDTO onBehalfOf, List<ChangeDTO> changes) {
             return new EventDTO(
@@ -53,8 +57,19 @@ public final class TrackerDTOs {
                 actor,
                 e.getActorKind(),
                 onBehalfOf,
-                changes
+                changes,
+                isInboxStatus(e) ? e.getId() : null,
+                false
             );
+        }
+
+        /** A status move the inbox made or a person confirmed from mail: source INBOX, kind STATUS. */
+        public static boolean isInboxStatus(ApplicationEvent e) {
+            return ApplicationEvent.SRC_INBOX.equals(e.getSource()) && ApplicationEvent.STATUS.equals(e.getKind()) && e.getToStatus() != null;
+        }
+
+        public EventDTO withUndoable(boolean undoable) {
+            return new EventDTO(id, kind, fromStatus, toStatus, source, refId, summary, createdAt, actor, actorKind, onBehalfOf, changes, inboxEventId, undoable);
         }
     }
 

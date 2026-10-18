@@ -41,6 +41,9 @@ public final class AdminSettingKeys {
     /** Inbox accuracy: a mail whose reading and match are at least this sure (0-100) is applied; between the two it is held for a person; below the second it is ignored. */
     public static final String INBOX_APPLY_MIN_CONFIDENCE = "inbox.apply_min_confidence";
     public static final String INBOX_SUGGEST_MIN_CONFIDENCE = "inbox.suggest_min_confidence";
+    /** Inbox safety: days a held change waits for the person's answer before it expires, and days an applied change can be undone. */
+    public static final String INBOX_REVIEW_EXPIRY_DAYS = "inbox.review_expiry_days";
+    public static final String INBOX_UNDO_WINDOW_DAYS = "inbox.undo_window_days";
     /** Change audit (docs/change-audit/README.md section 4.4): months of {@code application_event} history kept; 0 = for the life of the application. */
     public static final String TRACKER_HISTORY_RETENTION_MONTHS = "tracker.history.retention_months";
     /** Privacy and retention (T1.3, T1.4, T0.2): the windows the retention sweep honours, the undo window for account deletion, the data-export limits and the current legal versions. */
@@ -106,6 +109,8 @@ public final class AdminSettingKeys {
         integer(k, INBOX_INTERVIEW_MIN_CONFIDENCE, 60, 0, 100, Risk.MEDIUM, "Lowest confidence (0-100) at which an interview time read from an email is saved as an interview; below it the application still moves to Interview and a note says the time was not read.");
         integer(k, INBOX_APPLY_MIN_CONFIDENCE, 80, 50, 100, Risk.HIGH, "Confidence (0-100) at which a read email changes an application on its own.");
         integer(k, INBOX_SUGGEST_MIN_CONFIDENCE, 50, 20, 90, Risk.HIGH, "Confidence (0-100) below which a read email is ignored; between this and the apply level it is held for review.");
+        integer(k, INBOX_REVIEW_EXPIRY_DAYS, 30, 1, 365, Risk.MEDIUM, "Days a change the inbox held for review waits for the person's answer; after that it expires and nothing changes.");
+        integer(k, INBOX_UNDO_WINDOW_DAYS, 7, 1, 90, Risk.MEDIUM, "Days after the inbox changed an application's status during which the person can undo it.");
 
         // Tracker history (change audit, U6.15): read by TrackerHistoryRetentionJob. 0 = for the life of the application (decision D5).
         integer(k, TRACKER_HISTORY_RETENTION_MONTHS, 0, 0, 120, Risk.LOW, "Months of application history kept; 0 keeps it as long as the application exists.");

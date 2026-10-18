@@ -64,6 +64,8 @@ class SettingDefinitionsTest {
         assertKey("inbox.interview_min_confidence", "60", 0, 100, Risk.MEDIUM);
         assertKey("inbox.apply_min_confidence", "80", 50, 100, Risk.HIGH);
         assertKey("inbox.suggest_min_confidence", "50", 20, 90, Risk.HIGH);
+        assertKey("inbox.review_expiry_days", "30", 1, 365, Risk.MEDIUM);
+        assertKey("inbox.undo_window_days", "7", 1, 90, Risk.MEDIUM);
         assertKey("tracker.history.retention_months", "0", 0, 120, Risk.LOW); // U6.15: 0 = for the life of the application
         assertKey("enterprise.history.retention_months", "0", 0, 120, Risk.LOW); // X9.15: 0 = for the life of the record
         assertKey("ops.error_digest.interval_min", "15", 5, 120, Risk.LOW);

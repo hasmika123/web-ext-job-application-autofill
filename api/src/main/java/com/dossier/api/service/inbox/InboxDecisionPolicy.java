@@ -10,6 +10,10 @@ public interface InboxDecisionPolicy {
     /** Hold reasons stored on the message. */
     String HOLD_AMBIGUOUS = "AMBIGUOUS";
     String HOLD_LOW_CONFIDENCE = "LOW_CONFIDENCE";
+    /** A rejection, withdrawal or closed posting: destructive, so it waits for the person unless they switched automatic rejections on. */
+    String HOLD_DESTRUCTIVE = "DESTRUCTIVE";
+    /** The change would move the status backwards. */
+    String HOLD_BACKWARDS = "BACKWARDS";
 
     enum Outcome {
         /** Do what the mail says: move the status, write the timeline row, create or change the interview. */
@@ -30,4 +34,14 @@ public interface InboxDecisionPolicy {
     }
 
     Decision decide(MailEvent event);
+
+    /**
+     * What the mail would do to the application it matched: the status now, the status it proposes, and whether the person switched "apply rejections
+     * automatically" on. A policy that cares about the effect (not only the reading) overrides {@link #decide(MailEvent, Change)}.
+     */
+    record Change(com.dossier.api.domain.enumeration.ApplicationStatus current, com.dossier.api.domain.enumeration.ApplicationStatus proposed, boolean autoApplyRejections) {}
+
+    default Decision decide(MailEvent event, Change change) {
+        return decide(event);
+    }
 }
