@@ -15,6 +15,16 @@ import org.mapstruct.*;
 public interface ApplicationMapper extends EntityMapper<ApplicationDTO, Application> {
     @Mapping(target = "user", source = "user", qualifiedByName = "userLogin")
     @Mapping(target = "resume", source = "resume", qualifiedByName = "resumeLabel")
+    // Derived fields: the v2 list / detail / patch services fill them (ApplicationDerivations); the
+    // entity has no such properties, so the plain mapping leaves them null (and out of the JSON).
+    @Mapping(target = "nextStep", ignore = true)
+    @Mapping(target = "ghosted", ignore = true)
+    @Mapping(target = "interviewsCount", ignore = true)
+    @Mapping(target = "notesCount", ignore = true)
+    @Mapping(target = "mailCount", ignore = true)
+    // Change audit: the tracker's reads resolve these through ChangeActors (a name, never a login).
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
     ApplicationDTO toDto(Application s);
 
     @Named("userLogin")

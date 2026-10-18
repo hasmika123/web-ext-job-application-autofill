@@ -98,7 +98,7 @@ class ResumeTailorServiceTest {
         app.setCompany("Acme");
         when(applications.findById(5L)).thenReturn(Optional.of(app));
 
-        service = new ResumeTailorService(provider, budget, metering, resumes, applications, tailors, users, profile, true);
+        service = new ResumeTailorService(provider, budget, metering, resumes, applications, tailors, users, profile, org.mockito.Mockito.mock(ApplicationEventService.class), true);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken("user", "x"));
     }
 
@@ -162,8 +162,9 @@ class ResumeTailorServiceTest {
 
     @Test
     void numbersAreComparedNormalized() {
-        assertThat(ResumeTailorService.numbers("1,200 rps across 3 regions")).containsExactly("1200", "3");
+        // The number rules live in AiTruthChecks (AiTruthChecksTest); tailoring still reaches them through acceptable().
         assertThat(ResumeTailorService.acceptable("Handled 1,200 rps", "Scaled to 1200 rps", "Handled 1,200 rps", "")).isTrue();
+        assertThat(ResumeTailorService.acceptable("Handled 1,200 rps", "Scaled to 1300 rps", "Handled 1,200 rps", "")).isFalse();
     }
 
     // ---- propose -----------------------------------------------------------------------------

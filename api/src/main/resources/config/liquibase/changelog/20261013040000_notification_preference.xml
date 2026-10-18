@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        E2E-U7.0 - notification preferences v0 (docs/design/user/alerts-notifications.md section 1).
+
+        `notification_preference` is one row per user (created on the first save; a user without a row gets the
+        defaults the admin-configured settings `notifications.*` describe). `matrix_json` is the per-kind switches
+        {"APP_STATUS": {"inapp": true, "email": "now"}, ...} (email is off|now); `quiet_start`/`quiet_end` are the
+        user's local quiet hours (both NULL = none) and `tz` the IANA zone they are read in. The digest columns are
+        reserved for the notification engine (U7.1) and not written yet. The row goes with the user (FK cascade) and
+        is erased and exported with the account.
+
+        `notification` gains `dedupe_key` (publish is idempotent on it; unique per user, NULL allowed), `group_key`
+        (the bell collapses a group) and `inapp_muted` (the user switched this kind's in-app notice off: the row is
+        still kept as the dedupe ledger, but the bell neither lists nor counts it). Additive; no data migration.
+    -->
+    <changeSet id="20261013040000-1" author="dossier">
+        <createTable tableName="notification_preference">
+            <column name="user_id" type="bigint">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="matrix_json" type="${clobType}">
+                <constraints nullable="false"/>
+            </column>
+            <column name="quiet_start" type="time"/>
+            <column name="quiet_end" type="time"/>
+            <column name="tz" type="varchar(48)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="digest_hour" type="tinyint" defaultValueNumeric="8">
+                <constraints nullable="false"/>
+            </column>
+            <column name="digest_minute" type="tinyint" defaultValueNumeric="30">
+                <constraints nullable="false"/>
+            </column>
+            <column name="email_digest" type="varchar(8)" defaultValue="DAILY">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="${datetimeType}">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint
+            baseTableName="notification_preference"
+            baseColumnNames="user_id"
+            constraintName="fk_notification_preference_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+    </changeSet>
+
+    <changeSet id="20261013040000-2" author="dossier">
+        <addColumn tableName="notification">
+            <column name="dedupe_key" type="varchar(120)"/>
+            <column name="group_key" type="varchar(80)"/>
+            <column name="inapp_muted" type="boolean" valueBoolean="false" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <createIndex tableName="notification" indexName="uq_notification_dedupe" unique="true">
+            <column name="user_id"/>
+            <column name="dedupe_key"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

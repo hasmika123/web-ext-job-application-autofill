@@ -101,10 +101,35 @@ jhipster:
 
 # application:
 dossier:
+  tenant-host:
+    allow-localhost-tenants: true
+    misses-per-minute: 1000000 # every MockMvc request is 127.0.0.1; the bound itself is unit-tested
   # Disable per-IP rate limiting in tests — the integration suite hammers the auth
   # endpoints and would otherwise trip the 429 limiter.
   rate-limit:
     enabled: false
+  # The integration suite creates demo accounts itself when it needs them.
+  demo:
+    enabled: false
+    password: test-demo-password
+    create-accounts: false
+  # Org features are on in the suite; the flag tests switch it with the admin setting.
+  orgs:
+    enabled: true
+  # The suite has no Stripe key and publishes plans and prices; the PublishGate tests switch the admin setting off.
+  billing:
+    publish-allow-without-stripe: true
+  # The service-to-service secret for /api/internal/** (ResumePdfJobIT sends it).
+  internal:
+    token: test-internal-token
+  # X1.13: the Prometheus scrape token (>= 32 chars) used by ManagementSecurityIT
+  management:
+    scrape-token: test-scrape-token-test-scrape-token-0123
+  # Uploads go through the local-filesystem FileStorage driver (the default) into a throwaway dir.
+  storage:
+    driver: local
+    local:
+      root: ${dossier.test.uploads-root:${java.io.tmpdir}/dossier-test-uploads}
 management:
   health:
     mail:

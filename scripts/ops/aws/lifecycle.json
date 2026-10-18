@@ -15,6 +15,20 @@
       "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
     },
     {
+      "ID": "uploads-30-days",
+      "Filter": { "Prefix": "uploads/" },
+      "Status": "Enabled",
+      "Expiration": { "Days": 30 },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
+    },
+    {
+      "ID": "binlog-32-days",
+      "Filter": { "Prefix": "binlog/" },
+      "Status": "Enabled",
+      "Expiration": { "Days": 32 },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 7 }
+    },
+    {
       "ID": "tidy-delete-markers",
       "Filter": {},
       "Status": "Enabled",

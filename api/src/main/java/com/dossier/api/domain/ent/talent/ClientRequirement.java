@@ -1,0 +1,244 @@
+package com.dossier.api.domain.ent.talent;
+
+import jakarta.persistence.*;
+import java.io.Serializable;
+import java.time.Instant;
+import java.time.LocalDate;
+
+/** A client job (34 section 2); the Jobs board. status adds IN_REVIEW to the doc list. Table {@code client_requirement}; see docs/enterprise-v2/talent-foundation.md. Every query goes through an org-scoped repository method. */
+@Entity
+@Table(name = "client_requirement")
+public class ClientRequirement implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    @Column(name = "org_id", nullable = false)
+    private Long orgId;
+
+    @Column(name = "client_id", nullable = false)
+    private Long clientId;
+
+    @Column(name = "contact_id")
+    private Long contactId;
+
+    @Column(name = "title", length = 300, nullable = false)
+    private String title;
+
+    @Column(name = "description_text", length = 4000)
+    private String descriptionText;
+
+    @Column(name = "location", length = 300)
+    private String location;
+
+    @Column(name = "work_mode", length = 20)
+    private String workMode;
+
+    @Column(name = "employment_label", length = 20)
+    private String employmentLabel;
+
+    @Column(name = "duration_label", length = 40)
+    private String durationLabel;
+
+    @Column(name = "experience_level", length = 20)
+    private String experienceLevel;
+
+    @Column(name = "rate_min_minor")
+    private Long rateMinMinor;
+
+    @Column(name = "rate_max_minor")
+    private Long rateMaxMinor;
+
+    @Column(name = "rate_unit", length = 10)
+    private String rateUnit;
+
+    @Column(name = "currency", length = 3, nullable = false)
+    private String currency = "USD";
+
+    @Column(name = "positions", nullable = false)
+    private Integer positions = 1;
+
+    @Column(name = "filled", nullable = false)
+    private Integer filled = 0;
+
+    @Column(name = "status", length = 20, nullable = false)
+    private String status = "OPEN";
+
+    @Column(name = "posted_at", nullable = false)
+    private Instant postedAt = Instant.now();
+
+    @Column(name = "owner_member_id")
+    private Long ownerMemberId;
+
+    @Column(name = "source", length = 20, nullable = false)
+    private String source = "MANUAL";
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
+    @Column(name = "closed_at")
+    private Instant closedAt;
+
+    @Column(name = "job_url", length = 1000)
+    private String jobUrl;
+
+    @Column(name = "url_key", length = 1000)
+    private String urlKey;
+
+    @Column(name = "url_key_hash", length = 64)
+    private String urlKeyHash;
+
+    @Column(name = "external_job_id", length = 200)
+    private String externalJobId;
+
+    @Column(name = "ats_platform", length = 40)
+    private String atsPlatform;
+
+    @Column(name = "capture_source", length = 20, nullable = false)
+    private String captureSource = "MANUAL";
+
+    @Column(name = "captured_by_member_id")
+    private Long capturedByMemberId;
+
+    @Column(name = "posted_on")
+    private LocalDate postedOn;
+
+    @Column(name = "pay_label", length = 80)
+    private String payLabel;
+
+    /** Provenance (docs/enterprise-v2/61 section 2): when and how this job's data came in, and what we hold of it. */
+    @Column(name = "captured_at")
+    private Instant capturedAt;
+
+    /** USER_CLICK | MANUAL_ENTRY | IMPORT | FEED. */
+    @Column(name = "capture_method", length = 20, nullable = false)
+    private String captureMethod = "MANUAL_ENTRY";
+
+    @Column(name = "extension_version", length = 20)
+    private String extensionVersion;
+
+    /** SHA-256 (hex) of the canonical JSON the extension sent. */
+    @Column(name = "capture_payload_hash", length = 64)
+    private String capturePayloadHash;
+
+    /** MINIMAL | FULL (docs/enterprise-v2/60 section 10). */
+    @Column(name = "detail_level", length = 10, nullable = false)
+    private String detailLevel = "MINIMAL";
+
+    @Column(name = "detail_level_changed_at")
+    private Instant detailLevelChangedAt;
+
+    @Column(name = "detail_level_changed_by")
+    private Long detailLevelChangedBy;
+
+    /** Account Manager intake (ent-accounts): LOW | NORMAL | HIGH | URGENT, and the day the client needs it filled by. */
+    @Column(name = "priority", length = 10, nullable = false)
+    private String priority = "NORMAL";
+
+    @Column(name = "due_on")
+    private LocalDate dueOn;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
+
+    @PreUpdate
+    void touch() {
+        updatedAt = Instant.now();
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getOrgId() { return orgId; }
+    public void setOrgId(Long orgId) { this.orgId = orgId; }
+    public Long getClientId() { return clientId; }
+    public void setClientId(Long clientId) { this.clientId = clientId; }
+    public Long getContactId() { return contactId; }
+    public void setContactId(Long contactId) { this.contactId = contactId; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getDescriptionText() { return descriptionText; }
+    public void setDescriptionText(String descriptionText) { this.descriptionText = descriptionText; }
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
+    public String getWorkMode() { return workMode; }
+    public void setWorkMode(String workMode) { this.workMode = workMode; }
+    public String getEmploymentLabel() { return employmentLabel; }
+    public void setEmploymentLabel(String employmentLabel) { this.employmentLabel = employmentLabel; }
+    public String getDurationLabel() { return durationLabel; }
+    public void setDurationLabel(String durationLabel) { this.durationLabel = durationLabel; }
+    public String getExperienceLevel() { return experienceLevel; }
+    public void setExperienceLevel(String experienceLevel) { this.experienceLevel = experienceLevel; }
+    public Long getRateMinMinor() { return rateMinMinor; }
+    public void setRateMinMinor(Long rateMinMinor) { this.rateMinMinor = rateMinMinor; }
+    public Long getRateMaxMinor() { return rateMaxMinor; }
+    public void setRateMaxMinor(Long rateMaxMinor) { this.rateMaxMinor = rateMaxMinor; }
+    public String getRateUnit() { return rateUnit; }
+    public void setRateUnit(String rateUnit) { this.rateUnit = rateUnit; }
+    public String getCurrency() { return currency; }
+    public void setCurrency(String currency) { this.currency = currency; }
+    public Integer getPositions() { return positions; }
+    public void setPositions(Integer positions) { this.positions = positions; }
+    public Integer getFilled() { return filled; }
+    public void setFilled(Integer filled) { this.filled = filled; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+    public Instant getPostedAt() { return postedAt; }
+    public void setPostedAt(Instant postedAt) { this.postedAt = postedAt; }
+    public Long getOwnerMemberId() { return ownerMemberId; }
+    public void setOwnerMemberId(Long ownerMemberId) { this.ownerMemberId = ownerMemberId; }
+    public String getSource() { return source; }
+    public void setSource(String source) { this.source = source; }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+    public Instant getClosedAt() { return closedAt; }
+    public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
+    public String getJobUrl() { return jobUrl; }
+    public void setJobUrl(String jobUrl) { this.jobUrl = jobUrl; }
+    public String getUrlKey() { return urlKey; }
+    public void setUrlKey(String urlKey) { this.urlKey = urlKey; }
+    public String getUrlKeyHash() { return urlKeyHash; }
+    public void setUrlKeyHash(String urlKeyHash) { this.urlKeyHash = urlKeyHash; }
+    public String getExternalJobId() { return externalJobId; }
+    public void setExternalJobId(String externalJobId) { this.externalJobId = externalJobId; }
+    public String getAtsPlatform() { return atsPlatform; }
+    public void setAtsPlatform(String atsPlatform) { this.atsPlatform = atsPlatform; }
+    public String getCaptureSource() { return captureSource; }
+    public void setCaptureSource(String captureSource) { this.captureSource = captureSource; }
+    public Long getCapturedByMemberId() { return capturedByMemberId; }
+    public void setCapturedByMemberId(Long capturedByMemberId) { this.capturedByMemberId = capturedByMemberId; }
+    public LocalDate getPostedOn() { return postedOn; }
+    public void setPostedOn(LocalDate postedOn) { this.postedOn = postedOn; }
+    public String getPayLabel() { return payLabel; }
+    public void setPayLabel(String payLabel) { this.payLabel = payLabel; }
+    public Instant getCapturedAt() { return capturedAt; }
+    public void setCapturedAt(Instant capturedAt) { this.capturedAt = capturedAt; }
+    public String getCaptureMethod() { return captureMethod; }
+    public void setCaptureMethod(String captureMethod) { this.captureMethod = captureMethod; }
+    public String getExtensionVersion() { return extensionVersion; }
+    public void setExtensionVersion(String extensionVersion) { this.extensionVersion = extensionVersion; }
+    public String getCapturePayloadHash() { return capturePayloadHash; }
+    public void setCapturePayloadHash(String capturePayloadHash) { this.capturePayloadHash = capturePayloadHash; }
+    public String getDetailLevel() { return detailLevel; }
+    public void setDetailLevel(String detailLevel) { this.detailLevel = detailLevel; }
+    public Instant getDetailLevelChangedAt() { return detailLevelChangedAt; }
+    public void setDetailLevelChangedAt(Instant detailLevelChangedAt) { this.detailLevelChangedAt = detailLevelChangedAt; }
+    public Long getDetailLevelChangedBy() { return detailLevelChangedBy; }
+    public void setDetailLevelChangedBy(Long detailLevelChangedBy) { this.detailLevelChangedBy = detailLevelChangedBy; }
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
+    public LocalDate getDueOn() { return dueOn; }
+    public void setDueOn(LocalDate dueOn) { this.dueOn = dueOn; }
+    public long getVersion() { return version; }
+    public void setVersion(long version) { this.version = version; }
+}

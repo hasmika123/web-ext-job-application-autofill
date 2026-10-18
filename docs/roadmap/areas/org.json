@@ -1,0 +1,3362 @@
+{
+  "area": "org",
+  "name": "Organizations — tenant model, org dashboard, billing, consent, consultancy, services",
+  "prefix": "O",
+  "summary": "Consultancies and teams: tenant model, onboarding, catalog and billing, team, consent, dashboard, services, the Consultancy Marketer and settings. Timesheets & Consultancy Ops (formerly the Consultancy Ops epic here) is its own product area H at docs/timesheets/stories.json; the org foundation stories O1.x / O2.x / O6.x / O13.x here are its cross-area dependencies.",
+  "updated": "2026-10-12",
+  "epics": [
+    {
+      "id": "O1",
+      "name": "Organization model & tenancy",
+      "goal": "Real orgs, memberships, roles, 404-style isolation and an audit trail; the /org shell gated on membership instead of any session.",
+      "priority": "P0"
+    },
+    {
+      "id": "O2",
+      "name": "Onboarding & invites",
+      "goal": "A workspace in under two minutes on a phone: three screens to a paid org, then link/QR, email and CSV invites that all end at one consent screen.",
+      "priority": "P0"
+    },
+    {
+      "id": "O3",
+      "name": "Catalog & entitlements for orgs",
+      "goal": "Org products and prices in the catalog, org_assignment rows that own entitlement grants, highest-limit stacking, features on the version endpoint.",
+      "priority": "P0"
+    },
+    {
+      "id": "O4",
+      "name": "Org billing",
+      "goal": "Setup fee, one Stripe subscription per org with one item per price, prorated adds, end-of-period removals, Stripe dunning, invoices mirror — webhook-only writes.",
+      "priority": "P0"
+    },
+    {
+      "id": "O5",
+      "name": "Team & members",
+      "goal": "Members, roles, groups, support owners, pending invites and per-person item assignment, all consent-scoped.",
+      "priority": "P0"
+    },
+    {
+      "id": "O6",
+      "name": "Consent, privacy & member side",
+      "goal": "NONE/SUMMARY/FULL data_share owned by the person, instant revocation, GDPR export/erasure, honest 'what they see' screens.",
+      "priority": "P0"
+    },
+    {
+      "id": "O7",
+      "name": "Dashboard & analytics",
+      "goal": "Defined metrics, nightly rollups, k-anonymity suppression, a live dashboard and analytics with export and scheduled reports.",
+      "priority": "P1"
+    },
+    {
+      "id": "O8",
+      "name": "Applications, opportunities, interviews, resumes (consent-scoped)",
+      "goal": "Rewire the four content pages to real, consent-scoped data and retire sample-data.ts.",
+      "priority": "P1"
+    },
+    {
+      "id": "O9",
+      "name": "Human services marketplace",
+      "goal": "Experts, orders, checkout, expert portal, disputes, record-only payout ledger, org-bought services.",
+      "priority": "P1"
+    },
+    {
+      "id": "O10",
+      "name": "Consultancy Marketer",
+      "goal": "MARKETER role paired to consultants with FULL consent: resumes made on their behalf, job bank and batches, marketer inbox — and a structural no-submit guarantee.",
+      "priority": "P1"
+    },
+    {
+      "id": "O12",
+      "name": "Integrations (honest)",
+      "goal": "Replace the fictional integrations page with what is real (extension, inboxes) and buildable without OAuth: Slack webhook, ICS feed, outbound webhooks, API key.",
+      "priority": "P2"
+    },
+    {
+      "id": "O13",
+      "name": "Settings, notifications, security",
+      "goal": "Org profile, notification rules with digests and quiet hours, audit viewer, honest security tab, close-org flow.",
+      "priority": "P1"
+    },
+    {
+      "id": "O14",
+      "name": "Marketing & sales",
+      "goal": "An honest /organizations page with self-serve start, a price calculator, inquiry-to-org conversion and org terms.",
+      "priority": "P1"
+    },
+    {
+      "id": "O15",
+      "name": "Mobile, accessibility, performance, QA",
+      "goal": "390px-first org surfaces (bottom tabs, cards), skeletons, a11y pass, dark mode, e2e suite in CI.",
+      "priority": "P1"
+    }
+  ],
+  "stories": [
+    {
+      "id": "O1.1",
+      "epic": "O1",
+      "title": "Org core schema — organization, org_member, org_group, org_invite_batch, org_join_code, org_domain, org_audit_event",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "story": "As the API, I want the organization tables so that every org story has a home and the isolation rules have something to enforce.",
+      "genz": "Nothing visible yet — but it is what makes 'your org pays, you keep your account' true instead of a slogan.",
+      "ac": [
+        "Additive Liquibase changelog 20261011010000_org_core.xml creates the seven tables exactly as docs/design/org/tenant-model.md §2 (columns, generated unique keys active_key/active_user_key, indexes).",
+        "JPA entities + repositories under domain.org / repository.org; every repository query method takes orgId except findMine(userId).",
+        "organization.type rejects COACH and org_member.role rejects COACH at the service layer (reserved).",
+        "Liquibase runs clean on an empty DB and on a DB at 20261011010000_app_setting.xml."
+      ],
+      "tests": [
+        "Liquibase migration test (existing pattern) passes.",
+        "OrgRepositoryContractTest (reflection) asserts the orgId-first rule.",
+        "Entity round-trip test for generated keys: two live rows with the same (org, email) fail; INVITED → LEFT then re-invite succeeds."
+      ],
+      "tech": "api/src/main/resources/config/liquibase/changelog/, api/src/main/java/com/dossier/api/domain/org/*, repository/org/*. Mirror Subscription.java style (VARCHAR status, Instant timestamps).",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": true,
+      "relates": [
+        "X1.2"
+      ]
+    },
+    {
+      "id": "O1.2",
+      "epic": "O1",
+      "title": "OrgAccessService — role→permission matrix, require(orgId, permission), 404 for foreign orgs",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.1"
+      ],
+      "story": "As the platform, I want one place that decides what an org actor may do so that no endpoint can forget to check.",
+      "genz": "Privacy you can trust is a boring class with a complete test matrix, not a settings toggle.",
+      "ac": [
+        "OrgRole enum {OWNER, ADMIN, STAFF, MEMBER, MARKETER, FINANCE, COACH} with permissions() per tenant-model.md §4.",
+        "OrgAccessService.require(orgId, OrgPermission) returns OrgMembership or throws OrgNotFoundException → 404 whose body never says 'forbidden'.",
+        "@OrgPermissionRequired annotation + a WebMvc test that fails for any /api/orgs/** handler lacking it.",
+        "Platform ROLE_ADMIN gets no access through /api/orgs/**."
+      ],
+      "tests": [
+        "OrgPermissionMatrixTest table-driven over every (role, permission) cell.",
+        "Handler-annotation reflection test.",
+        "Foreign org → 404 unit test."
+      ],
+      "tech": "api/.../security/org/OrgAccessService.java, OrgPermission.java, OrgRole.java; SecurityUtils.getCurrentUserLogin() for the principal.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": true,
+      "relates": [
+        "X1.6",
+        "X1.7"
+      ]
+    },
+    {
+      "id": "O1.3",
+      "epic": "O1",
+      "title": "Org endpoints — POST /api/orgs (DRAFT), GET /mine, GET/PATCH /{orgId}, POST /close, groups CRUD",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.2"
+      ],
+      "story": "As an organizer, I want to create and configure my org so that the web flows have an API.",
+      "genz": "Create an org from a phone in one request; no sales call required to get a DRAFT.",
+      "ac": [
+        "POST /api/orgs creates DRAFT org + OWNER membership; slug derived/validated; type required; COACH rejected 422.",
+        "GET /api/orgs/mine returns memberships with role, status, memberCount.",
+        "GET /api/orgs/{id} returns org + my role + permissions[]; PATCH validates settings_json via OrgSettings record.",
+        "POST /close (OWNER) → CLOSED, ends grants now (hook for O4.9), audited.",
+        "Groups CRUD with unique (org, name)."
+      ],
+      "tests": [
+        "OrgResourceIT: create, mine, patch validation, close permissions.",
+        "Slug collision → 409 with suggestion."
+      ],
+      "tech": "web/rest/org/OrgResource.java, service/org/OrgService.java, dto OrgSettings.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false
+    },
+    {
+      "id": "O1.4",
+      "epic": "O1",
+      "title": "org_audit_event + OrgAuditService with action constants",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.1"
+      ],
+      "story": "As a member, I want every org action about me recorded so that 'what did my org do' has an answer.",
+      "genz": "Receipts. Gen Z asks 'who looked at my stuff' — this is the table that answers.",
+      "ac": [
+        "OrgAuditService.record(orgId, action, targetType, targetLogin, targetId, details) appends a row keyed by login strings.",
+        "No update/delete methods on the repository (test).",
+        "Action constants listed in tenant-model.md §2.7 exist."
+      ],
+      "tests": [
+        "Append-only repository test.",
+        "Every mutating OrgResource test asserts one audit row (shared helper)."
+      ],
+      "tech": "Mirror AdminAuditEvent/AdminAuditService (api/.../domain/AdminAuditEvent.java).",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": true
+    },
+    {
+      "id": "O1.5",
+      "epic": "O1",
+      "title": "OrgIsolationIT — route-discovered cross-tenant test (ROADMAP 21.0 gate)",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.3",
+        "O1.4",
+        "O6.1"
+      ],
+      "story": "As the business, I want proof one org cannot read another's data so that we can sell to schools and consultancies.",
+      "genz": "Trust is the product. A bootcamp's roster must never leak to another bootcamp — and we prove it on every build.",
+      "ac": [
+        "Testcontainers MySQL IT seeds orgs A and B; enumerates every /api/orgs/{orgId}/** route via RequestMappingHandlerMapping; calls each as B's owner with A's ids → 404.",
+        "Asserts no org_audit_event for org A has actor from B.",
+        "New routes fail until they comply (no hand-written route list).",
+        "Runs in CI integrationTest job."
+      ],
+      "tests": [
+        "The IT itself; a deliberately unscoped test route in the test profile is caught (meta-test)."
+      ],
+      "tech": "api/src/test/java/.../org/OrgIsolationIT.java; Testcontainers (DOCKER_API_VERSION note in HANDOFF-V2).",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": true,
+      "relates": [
+        "X1.9"
+      ]
+    },
+    {
+      "id": "O1.6",
+      "epic": "O1",
+      "title": "Web gate — (org)/layout.tsx uses /api/orgs/mine, role redirects, last-org cookie, feature flag",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O1.3",
+        "E2E-O1.9"
+      ],
+      "story": "As a signed-in user, I want /org to open only when I am an org admin/staff so that the console is real, not a demo any account can see.",
+      "genz": "No dead ends: a member who lands on /org is sent to their dashboard with a one-line explanation, not a 403 wall.",
+      "ac": [
+        "Layout calls /api/orgs/mine after the account probe; none → /org/new; MEMBER-only → /dashboard with toast; several → kiwiply_org cookie picks, switcher available.",
+        "dossier.orgs.enabled=false keeps today's redirect behaviour and noindex.",
+        "Remove the 'any signed-in user' comment and sample ORG constant usage in the layout path."
+      ],
+      "tests": [
+        "Layout unit tests for the four branches (mock serverApiFetch).",
+        "npm test -w web green."
+      ],
+      "tech": "web/src/app/(org)/layout.tsx, web/src/lib/site.ts NON_INDEXABLE_PATHS, new web/src/lib/org.ts (cookie + fetch helpers).",
+      "evidence": [
+        "web/src/app/(org)/layout.tsx (session-only gate, comment says no org model)"
+      ],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": true,
+      "relates": [
+        "X2.1"
+      ]
+    },
+    {
+      "id": "O1.7",
+      "epic": "O1",
+      "title": "OrgChip real + org switcher sheet + role-aware nav in OrgShell",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O1.6"
+      ],
+      "story": "As a staff member in two orgs, I want to switch orgs and see only the nav my role allows.",
+      "genz": "A bottom-sheet switcher with the org logos — one thumb, no page reload confusion.",
+      "ac": [
+        "OrgChip shows real name/type/status chip; tap opens a bottom sheet (mobile) / menu (desktop) listing memberships; selecting sets the cookie and refreshes.",
+        "NAV filtered by permissions[] from GET /api/orgs/{id}; MARKETER/FINANCE see their navs.",
+        "Bell badge reads real unread count (O13.3) or hides; role label shows the real role."
+      ],
+      "tests": [
+        "Shell renders nav per role fixture (OWNER, STAFF, FINANCE, MARKETER).",
+        "Switcher a11y: focus trap, Escape, 44px items."
+      ],
+      "tech": "web/src/components/org-v2/shell/OrgShell.tsx, OrgChip.tsx; delete ORG from sample-data.ts.",
+      "evidence": [
+        "web/src/components/org-v2/shell/OrgChip.tsx reads sample ORG",
+        "OrgShell.tsx hard-codes 'Admin' and '1 unread'"
+      ],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false,
+      "relates": [
+        "X2.2"
+      ]
+    },
+    {
+      "id": "O1.8",
+      "epic": "O1",
+      "title": "Demo org seed for demo accounts (labelled)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.3",
+        "O6.1"
+      ],
+      "story": "As sales, I want the demo login to open a believable, labelled demo org so that demos keep working after sample data is deleted.",
+      "genz": "Honesty badge on demo data — we never pass fake numbers as real.",
+      "ac": [
+        "DemoAccountService seeds org demo-bootcamp (BOOTCAMP, ACTIVE via dev flag) with 12 synthetic members, groups, scopes mixed (SUMMARY/NONE), when demo accounts are enabled.",
+        "Demo org is read-only via DemoGuard; DemoBadge shows in OrgShell.",
+        "Seed is idempotent."
+      ],
+      "tests": [
+        "Seed idempotency test; DemoGuard blocks mutations in the demo org."
+      ],
+      "tech": "api/.../service/DemoAccountService.java, DemoGuard; web/src/components/demo/*.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false
+    },
+    {
+      "id": "O2.1",
+      "epic": "O2",
+      "title": "/org/new — three-screen create flow (name+type → about you → pay) at 390px",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O1.3",
+        "E2E-O4.0"
+      ],
+      "story": "As a bootcamp ops lead on my phone, I want to create our workspace in under two minutes so that I can start inviting a cohort today.",
+      "genz": "Chips not dropdowns, one question per screen, Apple/Google Pay — the whole thing feels like signing up for an app, not procurement.",
+      "ac": [
+        "Three screens per onboarding-invites.md §2 with 44px chips, inline slug, 16+ attestation for Bootcamp/University.",
+        "Screen 3 calls POST /api/orgs then POST .../billing/setup-fee {CARD}; 'Send me an invoice instead' → INVOICE; 'Skip for now' → DRAFT console with pinned pay banner.",
+        "Analytics events org_create_started/step/setup_fee_started emitted."
+      ],
+      "tests": [
+        "Component tests for each screen's validation; e2e create→Checkout redirect with a stubbed API.",
+        "Lighthouse a11y ≥ 95 on /org/new."
+      ],
+      "tech": "web/src/app/(org)/org/new/page.tsx (outside the org gate: needs session only), components/org-v2/onboarding/*.",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false,
+      "relates": [
+        "O4.1",
+        "X1.11"
+      ]
+    },
+    {
+      "id": "O2.2",
+      "epic": "O2",
+      "title": "Email invites — POST /members/invite, invite email, GET /api/join/{token}, POST accept",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.3",
+        "O1.4"
+      ],
+      "story": "As an admin, I want to invite people by email so that they can join with one tap and keep their own account.",
+      "genz": "One email, one button, an honest 'Not you? ignore us' line. No account created for you behind your back.",
+      "ac": [
+        "Invite creates org_member INVITED with hashed token, 14-day expiry; ≤200 emails per call; response lists invited/invalid/alreadyMember.",
+        "Email via MailService contains org name, inviter, what the org pays for, expiry, 'Not you?' line.",
+        "GET /api/join/{token} is public and returns preview only; POST /accept requires auth, activates the membership, writes data_share (O6.2) and assignment grants (O3.2).",
+        "Members blocked while org not ACTIVE (409 SEAT_STATE); admins allowed (≤3) in DRAFT."
+      ],
+      "tests": [
+        "Invite/accept IT incl. expiry, reuse, wrong user email mismatch allowed (any signed-in account may accept — invites bind to the accepting user).",
+        "Email template snapshot."
+      ],
+      "tech": "web/rest/org/OrgMemberResource.java, JoinResource.java, service/org/OrgInviteService.java, MailService templates.",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false,
+      "relates": [
+        "X1.8"
+      ]
+    },
+    {
+      "id": "O2.3",
+      "epic": "O2",
+      "title": "Join pages — /join/{slug}/{code} and /join/t/{token}: preview → sign-in handoff → consent → done",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O2.2",
+        "O6.2"
+      ],
+      "story": "As an invited person, I want to see who invited me and what they will see before I join, then finish in three taps.",
+      "genz": "The consent screen is the hero: plain words, two options, no dark patterns, celebration at the end.",
+      "ac": [
+        "Public preview renders org logo/name/role/payer line; CTA goes through /login or /signup with return URL.",
+        "Consent screen per consent-data-sharing.md §5.1 (SUMMARY default, NONE option, 'What exactly?' sheet).",
+        "Done screen offers extension + resume CTAs; member lands on /dashboard.",
+        "join_preview_viewed/join_accepted/join_abandoned events."
+      ],
+      "tests": [
+        "e2e join as new and existing user; consent choice persisted (GET /api/me/orgs).",
+        "390px: no horizontal scroll, targets ≥44px."
+      ],
+      "tech": "web/src/app/join/**, components/org-join/*; reuse auth return-URL plumbing in web/src/proxy.ts.",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false,
+      "relates": [
+        "X2.6"
+      ]
+    },
+    {
+      "id": "O2.4",
+      "epic": "O2",
+      "title": "Join codes — create/revoke, QR + share sheet, redemption endpoint",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O2.2"
+      ],
+      "story": "As a career-centre staffer in a classroom, I want a QR code students scan to join so that nobody types emails.",
+      "genz": "Scan, sign in with Google, tap Join — done before the lecturer finishes the slide.",
+      "ac": [
+        "POST/GET/DELETE /api/orgs/{id}/join-codes with maxUses/expiry/groupId; MEMBER role only.",
+        "POST /api/join/code/{code} redeems through the consent screen; counts uses; revoked/expired → clear error page.",
+        "Web: full-screen QR view, Copy link, Web Share API on phones, live use counter."
+      ],
+      "tests": [
+        "JoinCodeTest: max uses, expiry, revoke, MEMBER-only.",
+        "QR view has the code as text for screen readers."
+      ],
+      "tech": "OrgJoinCodeResource; web components/org-v2/team/JoinCodeSheet.tsx; QR via a tiny inline generator (no new heavy dep without asking).",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false
+    },
+    {
+      "id": "O2.5",
+      "epic": "O2",
+      "title": "CSV / paste import with validation, invalid-row threshold, pre-assign column, org_invite_batch",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O2.2",
+        "O3.2",
+        "A5.1"
+      ],
+      "relates": [
+        "T1.1",
+        "T2.3"
+      ],
+      "story": "As an admin with a roster, I want to import a CSV and see exactly which rows failed so that onboarding 200 people takes minutes.",
+      "genz": "Drag a file, see a live preview with red rows you can fix inline — no 'upload failed' mystery.",
+      "ac": [
+        "POST /members/import multipart up to setting `org.import.max_rows` (default 2,000); columns email (req), name, group, support_owner_email, plan; 422 with row numbers; more than setting `org.import.invalid_abort_pct` (default 20) invalid aborts unless force=true.",
+        "Creates org_invite_batch; team page shows 'x of y joined' per batch.",
+        "plan column pre-assigns items (PENDING_ACCEPT).",
+        "Import refuses any column whose header or values match the never-collected deny-list (SSN/ITIN, bank/routing, tax IDs, passport/visa/document numbers, DOB/birth date — generalising T2.3's age-column rule): the whole file is rejected with the offending column named and nothing is stored"
+      ],
+      "tests": [
+        "CsvImportTest fixtures (BOM, quotes, duplicates, invalid plan).",
+        "Web: preview table with errors in a live region."
+      ],
+      "tech": "OrgImportService (OpenCSV already available? else Java built-in parsing), web components/org-v2/team/ImportSheet.tsx.",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false
+    },
+    {
+      "id": "O2.6",
+      "epic": "O2",
+      "title": "Domain verification (TXT/email) + auto-join card for verified emails",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O2.2"
+      ],
+      "story": "As a university, I want students with @uni.edu emails offered to join so that we never upload a roster.",
+      "genz": "Students opt in from their own dashboard; the school never gets a list of who didn't.",
+      "ac": [
+        "POST/GET/DELETE /domains; verification by DNS TXT _kiwiply-verify.{domain} or postmaster email; one org per domain.",
+        "With auto_join, activated users whose email matches see a dashboard card → consent screen → MEMBER.",
+        "Admins cannot list non-joined matching users."
+      ],
+      "tests": [
+        "DomainVerifyTest with a stubbed resolver; auto-join card only for activated matching emails."
+      ],
+      "tech": "OrgDomainResource, DnsVerifier (dnsjava or JNDI), web dashboard card in the user app (coordinate with U area layout).",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false,
+      "relates": [
+        "X3.1"
+      ]
+    },
+    {
+      "id": "O2.7",
+      "epic": "O2",
+      "title": "Activation checklist — GET /onboarding + dashboard empty state replacing sample stats",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O1.3",
+        "O2.2"
+      ],
+      "story": "As a new admin, I want a live checklist so that I always know the next step and when the workspace is really working.",
+      "genz": "Progress bars and ticks, live counts ('38 of 60 joined'), deep links — gamified but useful.",
+      "ac": [
+        "GET /api/orgs/{id}/onboarding returns the seven items with done flags and counts per onboarding-invites.md §5.",
+        "Dashboard renders the checklist until complete, then the live dashboard (O7.4).",
+        "No sample stats render for a real org."
+      ],
+      "tests": [
+        "Checklist computation unit tests; web renders both states."
+      ],
+      "tech": "web/src/components/org-v2/dashboard/DashboardPage.tsx; OrgOnboardingService.",
+      "evidence": [
+        "web/src/components/org-v2/dashboard/DashboardPage.tsx ← DASHBOARD_STATS sample"
+      ],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false,
+      "relates": [
+        "X2.4"
+      ]
+    },
+    {
+      "id": "O2.8",
+      "epic": "O2",
+      "title": "/org/welcome — post-checkout polling page (never fake-green)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O4.3"
+      ],
+      "story": "As a payer, I want to see my workspace confirmed only when the payment really landed.",
+      "genz": "A mascot 'confirming…' state for up to 30 s, then confetti — or an honest 'we'll email you'.",
+      "ac": [
+        "Polls GET /api/orgs/{id} every 2 s ≤30 s; ACTIVE → confetti + checklist; else honest fallback copy.",
+        "Return URL never activates anything."
+      ],
+      "tests": [
+        "Component test for the three states."
+      ],
+      "tech": "web/src/app/(org)/org/welcome/page.tsx.",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false
+    },
+    {
+      "id": "O2.9",
+      "epic": "O2",
+      "title": "Member activation nudge (one in-app + one email) and admin 'copy reminder'",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O2.2",
+        "O13.3",
+        "A5.1"
+      ],
+      "story": "As a member who joined but did nothing, I want one gentle nudge — and my org admin gets a message to send themselves, not a spam cannon.",
+      "genz": "Notification etiquette: one nudge, then silence. Pressure comes from a human, not from us.",
+      "ac": [
+        "Job: setting `org.nudge.activation_days` (default 3) after join without activation → one Notification + one email; never repeated.",
+        "Team page 'haven't started' filter with a 'Copy reminder message' button (text only)."
+      ],
+      "tests": [
+        "Nudge job idempotency; copy text snapshot."
+      ],
+      "tech": "OrgNudgeJob (Spring @Scheduled), Notification kind ORG_GET_STARTED.",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false
+    },
+    {
+      "id": "O2.10",
+      "epic": "O2",
+      "title": "Onboarding analytics events (server-side, no PII) + p50 time-to-activate report",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O2.1",
+        "O4.3"
+      ],
+      "story": "As the product team, I want to measure name→paid time so that the two-minute promise is checked, not assumed.",
+      "genz": "We measure speed because the audience abandons slow flows silently.",
+      "ac": [
+        "Events in onboarding-invites.md §7 recorded (hashed org id); admin analytics shows p50/p90 org_create_started→org_activated and join funnel."
+      ],
+      "tests": [
+        "Event emission tests; aggregation query test."
+      ],
+      "tech": "Reuse AdminAnalyticsResource storage; coordinate with A area for the admin chart.",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false
+    },
+    {
+      "id": "O3.1",
+      "epic": "O3",
+      "title": "Org product/price seeds in the catalog (initial values Pro $24.99, Autopilot $49.99, AI Interview $9.99, Marketer $29.99, Setup $499, Ops rows — all re-priced from admin)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "B1.1"
+      ],
+      "relates": [
+        "B1.1",
+        "X5.2"
+      ],
+      "story": "As the catalog, I want the org rows so that assignments and Stripe items have something to point at.",
+      "genz": "Prices live in data so they can change without a release — and the pricing page always tells the truth.",
+      "ac": [
+        "Seeds product/product_price (audience ORG, interval MONTH / ONE_TIME) and product_entitlement rows per ROADMAP tables incl. marketer keys with their initial catalog values, editable in admin (org.marketer, consultants.max=10, assignments.open_max=100, ai.budget_cents_per_period=400).",
+        "Requires Phase 18.1 tables (admin area); if absent, this story blocks and says so."
+      ],
+      "tests": [
+        "Seed test asserting prices and entitlement keys."
+      ],
+      "tech": "Depends on Phase 18.1 schema owned by the admin area (A*); coordinate IDs. Liquibase data changelog.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": false
+    },
+    {
+      "id": "O3.2",
+      "epic": "O3",
+      "title": "org_assignment table + OrgAssignmentService creating/ending entitlement_grant rows",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.3",
+        "O3.1"
+      ],
+      "story": "As an admin, I want to give a person Pro or Autopilot so that their extension unlocks within a minute.",
+      "genz": "Your org taps once; your extension says 'Pro via Acme' before you finish your coffee.",
+      "ac": [
+        "Schema per billing.md §3.1 incl. live_key uniqueness; statuses PENDING_ACCEPT/ACTIVE/ENDING/ENDED.",
+        "Create → grant (source ORG_ASSIGNMENT, org_id) when member ACTIVE; on invite accept PENDING_ACCEPT→ACTIVE + grant.",
+        "End → ends_at = period end (or now for erasure), grant ends_at mirrored; upgrade supersedes.",
+        "Stripe step (O4.4) runs before the grant; failure leaves no row."
+      ],
+      "tests": [
+        "OrgAssignmentServiceTest cases in billing.md §10."
+      ],
+      "tech": "domain/org/OrgAssignment, service/org/OrgAssignmentService; entitlement_grant from Phase 18.1.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": true,
+      "relates": [
+        "X5.4"
+      ]
+    },
+    {
+      "id": "O3.3",
+      "epic": "O3",
+      "title": "EntitlementService.resolve over grants — highest-limit stacking, org budget period, plan label 'via org'",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O3.2"
+      ],
+      "story": "As a user with personal Pro and an org Autopilot seat, I want the best of each limit, never the sum, and the right budget period.",
+      "genz": "No surprise paywalls: whichever plan is better for you wins, automatically.",
+      "ac": [
+        "resolve(login) unions active grants; numeric limits max, booleans OR; AI budget period follows the winning grant (org subscription period for ORG_ASSIGNMENT).",
+        "isPro ≡ has('ai.server'); PRO_REQUIRED kept, PLAN_REQUIRED {feature} added.",
+        "Existing EntitlementServiceTest matrix still green (behaviour identical for personal subs)."
+      ],
+      "tests": [
+        "Extend EntitlementServiceTest: stacking, org period, grant end fallback."
+      ],
+      "tech": "api/.../service/EntitlementService.java (replace subscription-only logic per Phase 18.2, admin area may own the base refactor — coordinate).",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": true,
+      "relates": [
+        "X5.6"
+      ]
+    },
+    {
+      "id": "O3.4",
+      "epic": "O3",
+      "title": "GET /api/profile/version adds via{orgId, orgName}; extension shows 'Pro via Acme'",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "extension"
+      ],
+      "deps": [
+        "O3.3"
+      ],
+      "story": "As a member, I want the extension to tell me my org covers my plan so that I understand why features unlocked.",
+      "genz": "Transparent status in the drawer header, not a mystery upgrade.",
+      "ac": [
+        "Version DTO gains via; extension drawer/options show the label; no extra network call.",
+        "Extension manifest version bumped (wxt.config.ts + package.json)."
+      ],
+      "tests": [
+        "ProfileResource test; extension jsdom test for the label."
+      ],
+      "tech": "api web/rest/ProfileResource.java; job-autofill entrypoints/panel + options; tracking.js DTO.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": false,
+      "relates": [
+        "X9.9"
+      ]
+    },
+    {
+      "id": "O3.5",
+      "epic": "O3",
+      "title": "Personal + org stacking notice (ORG_COVERS_YOUR_PLAN) with portal link — we never cancel for them",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O3.2",
+        "O13.3"
+      ],
+      "story": "As someone already paying for Pro, I want to be told my org now covers it and how to cancel mine if I want.",
+      "genz": "Saving people money unprompted is the fastest trust win there is.",
+      "ac": [
+        "One-time Notification + email when an org grant covers an existing personal grant; link to the existing Stripe portal session.",
+        "Never cancels or modifies the personal subscription."
+      ],
+      "tests": [
+        "Fires once per (user, org); not for Free users."
+      ],
+      "tech": "OrgAssignmentService hook; BillingResource portal endpoint exists.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": false,
+      "relates": [
+        "X5.6"
+      ]
+    },
+    {
+      "id": "O3.6",
+      "epic": "O3",
+      "title": "Margin guard rules for org/service prices — per-invoice Stripe allocation, org-premium warning, payout ceiling computed by the guard (e.g. coaching $78 at the initial price)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O3.1",
+        "A5.1"
+      ],
+      "relates": [
+        "B2.1",
+        "B2.2",
+        "X5.3"
+      ],
+      "story": "As the admin publishing a price, I want the guard to compute org and service margins the way we actually get charged.",
+      "genz": "Fair prices that keep the lights on — the guard is why we can promise no sudden hikes.",
+      "ac": [
+        "MarginGuard implements billing.md §7 and services-marketplace.md §7 tables; refuses below the floors from settings `catalog.margin_floor_subscription_pct` (default 80, hard minimum 80) / `catalog.margin_floor_service_pct` (default 20, hard minimum 20) without override reason; the org/individual price relation below setting `catalog.org_price_premium_warn_pct` (default 25) is a warning."
+      ],
+      "tests": [
+        "MarginGuardTest table-driven incl. AI Interview $9.99 pass and $9.98 fail; coaching payout $80 fails, $78 passes."
+      ],
+      "tech": "Guard class lives with Phase 18.4 (admin area); this story contributes the rule-set + tests.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": true
+    },
+    {
+      "id": "O4.1",
+      "epic": "O4",
+      "title": "Org Stripe customer + setup-fee Checkout (payment mode, Stripe Tax, no tax-ID collection) via StripeGateway",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.3",
+        "O3.1"
+      ],
+      "relates": [
+        "T1.1"
+      ],
+      "story": "As an OWNER, I want to pay the $499 with a card or Apple Pay so that the workspace activates without a sales cycle.",
+      "genz": "Apple Pay in 20 seconds; a receipt in the inbox; the org is live.",
+      "ac": [
+        "POST /api/orgs/{id}/billing/setup-fee {CARD} creates the org customer (metadata kiwiply_scope=org, org_id) if missing, then a Checkout session mode=payment with client_reference_id org:{id}; org → PENDING_SETUP_FEE.",
+        "New StripeGateway methods: createOrgCustomer, createOneTimeCheckout; only StripeGatewayImpl imports com.stripe.",
+        "Billing off → 503 BILLING_DISABLED unless dossier.orgs.dev-activate.",
+        "tax_id_collection disabled and no custom_fields asking for an identifier on the session; Stripe Tax computes from the billing address only; card details exist only on Stripe-hosted pages — Kiwiply never collects tax, bank or identity numbers (user rule, RECONCILIATION.md §0.5)"
+      ],
+      "tests": [
+        "Gateway stub tests; state transition test; disabled-billing path."
+      ],
+      "tech": "service/billing/StripeGateway.java (+Impl), service/org/OrgBillingService.java.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": true
+    },
+    {
+      "id": "O4.2",
+      "epic": "O4",
+      "title": "Setup fee via Stripe Invoice (send_invoice, bank transfer) + abandonment job",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O4.1",
+        "A5.1"
+      ],
+      "story": "As a university finance office, I want an invoice I can pay by bank transfer.",
+      "genz": "Institutions pay by invoice; students never see this — but it unblocks the school deal.",
+      "ac": [
+        "{INVOICE} creates a Stripe invoice with the setup price, days_until_due from setting `org.billing.setup_fee_due_days` (default 15), hosted URL returned and emailed to billing_email.",
+        "Nightly job: PENDING_SETUP_FEE older than setting `org.billing.setup_fee_abandon_days` (default 14) with no payment → DRAFT, invoice voided."
+      ],
+      "tests": [
+        "Gateway stub; job test."
+      ],
+      "tech": "StripeGateway.createInvoice/voidInvoice; OrgBillingJobs.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": false
+    },
+    {
+      "id": "O4.3",
+      "epic": "O4",
+      "title": "OrgBillingWebhookHandler — routing by customer scope, setup paid → ACTIVE, mirrors for subscription/items/invoices",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O4.1"
+      ],
+      "story": "As the system, I want Stripe events to be the only writer of org billing state so that money and entitlements never disagree.",
+      "genz": "Boring and bulletproof: the same idempotent pipeline that already runs personal billing.",
+      "ac": [
+        "BillingWebhookService.applyInTx routes org-scoped events (customer metadata or organization.stripe_customer_id) to the handler; per-user path unchanged.",
+        "Handles the table in billing.md §5; idempotency/ordering/record-then-apply reused; stripe_event.org_id set.",
+        "Creates the empty org subscription on activation."
+      ],
+      "tests": [
+        "OrgBillingWebhookHandlerTest cases in billing.md §10; existing BillingWebhookService tests unchanged and green."
+      ],
+      "tech": "service/billing/BillingWebhookService.java, new OrgBillingWebhookHandler; domain OrgSubscription, OrgSubscriptionItem, OrgInvoice; changelog 20261011020000_org_billing.xml.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": true,
+      "relates": [
+        "X6.6"
+      ]
+    },
+    {
+      "id": "O4.4",
+      "epic": "O4",
+      "title": "Subscription item quantities — assign (+1, create_prorations) / unassign (−1, none, grant to period end)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O4.3",
+        "O3.2"
+      ],
+      "story": "As an org, I want adding a person mid-month to cost the remaining days and removing one to simply stop next month.",
+      "genz": "No refunds, no gotchas, clearly explained in the UI before you tap.",
+      "ac": [
+        "StripeGateway.setItemQuantity(subscriptionId, priceId, delta, proration) creates the item if missing.",
+        "Assign runs Stripe before writing the grant; Stripe failure → 502 and no row.",
+        "Unassign: ends_at = current_period_end, quantity −1 with proration none; nightly ENDING→ENDED."
+      ],
+      "tests": [
+        "Sequence tests incl. failure rollback; period-end job."
+      ],
+      "tech": "OrgAssignmentService + StripeGatewayImpl (SubscriptionItem API).",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": true,
+      "relates": [
+        "X6.7"
+      ]
+    },
+    {
+      "id": "O4.5",
+      "epic": "O4",
+      "title": "Dunning — PAST_DUE on payment_failed, SUSPENDED on unpaid/canceled (grants end), re-activate on invoice.paid, notifications",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O4.3",
+        "O13.3"
+      ],
+      "story": "As a member, I want to keep working while my org sorts out a card problem, and to be told clearly if the plan pauses.",
+      "genz": "Nobody loses access on the first failed charge; messages say what happens and when.",
+      "ac": [
+        "State moves per tenant-model.md §3 and billing.md §5; grants ends_at=now on SUSPENDED; re-open as new grants on payment.",
+        "Emails to billing contacts; Notifications to OWNER/ADMIN/FINANCE and ORG_PAUSED to members."
+      ],
+      "tests": [
+        "Handler tests for each transition; member notification once per event."
+      ],
+      "tech": "OrgBillingWebhookHandler, OrgNotificationService.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": true
+    },
+    {
+      "id": "O4.6",
+      "epic": "O4",
+      "title": "Billing page real — GET /billing (upcoming invoice, items, invoices mirror) replacing the Enterprise sample",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O4.3",
+        "O4.4"
+      ],
+      "story": "As an admin, I want to see what next month costs and download past invoices from the page.",
+      "genz": "One card: next invoice amount + breakdown; invoices as a tappable list; no 'Enterprise plan' fiction.",
+      "ac": [
+        "GET /api/orgs/{id}/billing per billing.md §9; upcoming from gateway.upcomingInvoice.",
+        "Page layout per §9 wireframe at 390px; Download opens invoice_pdf_url; 'Enterprise/Annual contract/Visa 4242' sample removed."
+      ],
+      "tests": [
+        "DTO test; web renders with fixture; empty state for DRAFT org."
+      ],
+      "tech": "web/src/components/org-v2/billing/BillingPage.tsx; OrgBillingResource.",
+      "evidence": [
+        "web/src/components/org-v2/billing/BillingPage.tsx ← INVOICES/USAGE/SUBSCRIPTION_DETAILS sample"
+      ],
+      "design": "docs/design/org/billing.md",
+      "critical": false,
+      "relates": [
+        "X6.4"
+      ]
+    },
+    {
+      "id": "O4.7",
+      "epic": "O4",
+      "title": "Payment method via Stripe Portal (invoice-customer config, tax-ID collection disabled) + billing contacts",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O4.6"
+      ],
+      "relates": [
+        "T1.1"
+      ],
+      "story": "As a FINANCE user, I want to update the card, tax ID and who gets invoices without emailing support.",
+      "genz": "Stripe's portal does the secure bits; we never see or store card numbers.",
+      "ac": [
+        "POST /billing/portal returns a portal session for the org customer (cancel disabled in the portal config).",
+        "Billing contacts CRUD (members or plain emails) stored on the org; invoice emails cc them.",
+        "Portal configuration: customer_update.allowed_updates excludes tax_id; the invoice-customer config does not enable tax-ID collection; Kiwiply stores no tax identifiers of any kind. Nuance for the user: whatever a customer types into Stripe-hosted pages is held by Stripe under its own terms, never by us"
+      ],
+      "tests": [
+        "Portal permission test (OWNER/ADMIN/FINANCE only)."
+      ],
+      "tech": "StripeGateway.createPortalSession reused with the org customer; org_billing_contact table (small, in org_billing changelog).",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": false
+    },
+    {
+      "id": "O4.8",
+      "epic": "O4",
+      "title": "OrgSeatReconciler nightly — assignment counts vs Stripe quantities, alert on drift (never auto-fix money)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O4.4"
+      ],
+      "story": "As ops, I want to know the day billing and grants disagree.",
+      "genz": "Quiet when right, loud when wrong — the way billing should be.",
+      "ac": [
+        "Job compares per price; writes an admin-queue alert with both numbers; the Timesheets add-on quantity (H7.1, product area H) is the one derived quantity it sets."
+      ],
+      "tests": [
+        "Drift fixture → alert; no drift → nothing."
+      ],
+      "tech": "OrgSeatReconciler @Scheduled; admin alert via the A-area queue table (or SalesInquiry-style row until it exists).",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": false,
+      "relates": [
+        "X6.8"
+      ]
+    },
+    {
+      "id": "O4.9",
+      "epic": "O4",
+      "title": "Leave / remove / erase end assignments correctly (period end vs now) and anonymise membership on erasure",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O4.4",
+        "O6.5"
+      ],
+      "story": "As a person who deletes my account, I want my org seat to vanish with me and my org to stop paying for it.",
+      "genz": "Delete means delete — for the org record about you too.",
+      "ac": [
+        "AccountDeletionService ends assignments now, sets org_member ERASED (user_id NULL, email NULL), deletes data_share, writes MEMBER_ERASED.",
+        "Leave/remove → period end with end_reason; sole-OWNER erasure → org SUSPENDED + admin alert."
+      ],
+      "tests": [
+        "ErasureAnonymisesMembershipTest; leave vs remove reasons."
+      ],
+      "tech": "api/.../service/AccountDeletionService.java hook; OrgMembershipService.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": true
+    },
+    {
+      "id": "O4.10",
+      "epic": "O4",
+      "title": "Dev/CI billing-off path (dossier.orgs.dev-activate) + Stripe test-clock runbook",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O4.3",
+        "E2E-O4.0"
+      ],
+      "story": "As a developer, I want to run the whole org flow without Stripe keys and a documented manual test with a Stripe test clock.",
+      "genz": "Fast local loops mean more polish shipped.",
+      "ac": [
+        "Flag activates DRAFT→ACTIVE locally; never set in prod compose.",
+        "api/README section: create org → setup → assign → advance clock → invoice.paid, with expected states."
+      ],
+      "tests": [
+        "Flag behaviour test; CI runs org ITs with billing off."
+      ],
+      "tech": "application-dev.yml, api/README.md.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": false
+    },
+    {
+      "id": "O5.1",
+      "epic": "O5",
+      "title": "Members API (consent-scoped MemberRowDTO) + Team page real with tabs/filters/search",
+      "status": "partial",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O1.3",
+        "O6.1"
+      ],
+      "story": "As an admin, I want the real team list with status, group, support owner, items and a progress summary where people share it.",
+      "genz": "Blanks are explained ('Aarav shares only that he joined'), never hidden — honesty in the table itself.",
+      "ac": [
+        "GET /members with paging/filters per tenant-model.md §5 and consent §4; summary fields null when scope < SUMMARY plus shareScope.",
+        "TeamTable shows real rows; tabs All/Active/Invited/Needs attention/Not sharing; 'Not sharing' chip explainer; cards at 390px.",
+        "Sample EMPLOYEES/TEAM_TABS/SUPPORT_OWNERS/DEPARTMENTS removed."
+      ],
+      "tests": [
+        "MemberSummaryScopeTest; web table renders fixtures for every status/scope."
+      ],
+      "tech": "OrgMemberResource, MemberRowDTO; web/src/components/org-v2/team/*.",
+      "evidence": [
+        "web/src/components/org-v2/team/TeamTable.tsx ← EMPLOYEES sample"
+      ],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false,
+      "relates": [
+        "X4.3"
+      ]
+    },
+    {
+      "id": "O5.2",
+      "epic": "O5",
+      "title": "Role changes, suspend/unsuspend, remove, transfer ownership (guards: last ADMIN, OWNER leave)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O5.1"
+      ],
+      "story": "As an OWNER, I want to manage who administers the org safely.",
+      "genz": "Confirmation sheets state the consequence in one sentence ('Rahul loses admin; keeps his seat').",
+      "ac": [
+        "PATCH /members/{id} role/status with matrix rules; transfer-ownership endpoint; last ADMIN cannot be demoted; OWNER must transfer before leaving.",
+        "All audited; web action sheet per row."
+      ],
+      "tests": [
+        "Guard tests; audit rows."
+      ],
+      "tech": "OrgMembershipService; team row KebabMenu actions.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false,
+      "relates": [
+        "X4.4"
+      ]
+    },
+    {
+      "id": "O5.3",
+      "epic": "O5",
+      "title": "Groups (departments/cohorts) UI — create, assign members, filter",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O1.3",
+        "O5.1"
+      ],
+      "story": "As a bootcamp, I want cohorts so that reports and invites are organised the way we think.",
+      "genz": "Cohort chips everywhere; invite a whole cohort with one code.",
+      "ac": [
+        "Groups CRUD UI, bulk assign members to a group, group filter on Team/Analytics; donut shows real group sizes."
+      ],
+      "tests": [
+        "Group bulk-assign test; UI filter test."
+      ],
+      "tech": "OrgGroupResource (O1.3) + web team components.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false,
+      "relates": [
+        "X4.5"
+      ]
+    },
+    {
+      "id": "O5.4",
+      "epic": "O5",
+      "title": "Support owners — STAFF role, assign owner per member, STAFF sees only their members",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O5.1",
+        "O1.2"
+      ],
+      "story": "As a career coach on staff, I want to see only the students I support.",
+      "genz": "Smaller lists, personal follow-ups — the coach sees 14 people, not 800.",
+      "ac": [
+        "support_owner_member_id set via PATCH; STAFF-scoped queries across members/metrics; 'Support owners' rail with real counts.",
+        "Bulk 'Assign owner' for a filtered list."
+      ],
+      "tests": [
+        "STAFF scope IT (sees own, 404 others); bulk assign."
+      ],
+      "tech": "OrgAccessService 'own members' resolution; MemberRowDTO.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": true
+    },
+    {
+      "id": "O5.5",
+      "epic": "O5",
+      "title": "Assign / unassign items per person and in bulk — with proration copy and seat waiting-on-invite state",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O4.4",
+        "O5.1"
+      ],
+      "story": "As an admin, I want to give Autopilot to five people in one sheet and see exactly what next invoice changes.",
+      "genz": "Pick people → pick item → see '$12.40 prorated for the rest of October' → confirm. No surprise bill.",
+      "ac": [
+        "Row and bulk actions call POST/DELETE assignments; preview from gateway.upcomingInvoice delta shown before confirm.",
+        "States: Active, Ending Nov 1, Waiting on invite; optimistic UI with rollback on 502."
+      ],
+      "tests": [
+        "Sheet component tests; failure toast path."
+      ],
+      "tech": "web/src/components/org-v2/team/AssignSheet.tsx; OrgAssignmentResource preview endpoint.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": false,
+      "relates": [
+        "X6.2"
+      ]
+    },
+    {
+      "id": "O5.6",
+      "epic": "O5",
+      "title": "Pending invites — resend (rotate), revoke, bounced flag, expiring soon",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O2.2",
+        "O5.1",
+        "A5.1"
+      ],
+      "story": "As an admin, I want to resend or cancel invites and see which emails bounced.",
+      "genz": "Fix a typo'd email in two taps instead of a support ticket.",
+      "ac": [
+        "Resend rotates token (at most setting `org.invite.resend_per_week`, default 3), revoke → REMOVED, bounce webhook from Brevo marks BOUNCED, 'expiring soon' badge from setting `org.invite.expiring_badge_days` (default 3)."
+      ],
+      "tests": [
+        "Resend limit; bounce handling."
+      ],
+      "tech": "OrgInviteService; MailService bounce hook (Brevo).",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false
+    },
+    {
+      "id": "O5.7",
+      "epic": "O5",
+      "title": "Team CSV export (seat fields + SUMMARY fields only), audited",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O5.1",
+        "O1.4"
+      ],
+      "story": "As an admin, I want a CSV of my team for our own records.",
+      "genz": "Export what you may see; nothing else — with a log line that you did.",
+      "ac": [
+        "POST /members/export → CSV respecting scope; EXPORT audit row; OWNER/ADMIN/FINANCE only."
+      ],
+      "tests": [
+        "Scope filtering in export; audit."
+      ],
+      "tech": "OrgMemberResource.",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false
+    },
+    {
+      "id": "O5.8",
+      "epic": "O5",
+      "title": "Member detail sheet — seat, items, consent scope, summary, audit of org actions on them",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O5.1",
+        "O5.5"
+      ],
+      "story": "As an admin, I want one sheet per person with everything I'm allowed to see and do.",
+      "genz": "A bottom sheet, not a page: swipe up for details, swipe down to get back to the list.",
+      "ac": [
+        "Bottom sheet (mobile) / side panel (desktop) with seat info, items, scope explainer, summary tiles (if shared), recent audit lines."
+      ],
+      "tests": [
+        "Renders for NONE/SUMMARY/FULL fixtures."
+      ],
+      "tech": "web/src/components/org-v2/team/MemberSheet.tsx.",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false,
+      "relates": [
+        "X4.6"
+      ]
+    },
+    {
+      "id": "O6.1",
+      "epic": "O6",
+      "title": "data_share + data_share_event tables, ShareField enum, ShareMatrixTest (doc ↔ code)",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.1"
+      ],
+      "story": "As the platform, I want the visibility matrix to be code so that no DTO can leak a field by accident.",
+      "genz": "Privacy promises enforced by a failing build, not a policy PDF.",
+      "ac": [
+        "Changelog 20261011030000_org_data_share.xml per consent doc §2.",
+        "ShareField enum annotated with minimum scope; MemberSummaryDTO generated from it.",
+        "ShareMatrixTest renders the enum and diffs consent-data-sharing.md §3."
+      ],
+      "tests": [
+        "ShareMatrixTest; entity tests."
+      ],
+      "tech": "domain/org/DataShare, DataShareEvent; service/org/ShareScopeService.",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": true,
+      "relates": [
+        "X7.6"
+      ]
+    },
+    {
+      "id": "O6.2",
+      "epic": "O6",
+      "title": "Consent screen on join + PUT /api/me/orgs/{id}/share (consent text versions stored)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O6.1",
+        "O2.2"
+      ],
+      "story": "As a joining member, I want to choose what my org sees with one tap and be able to change it later.",
+      "genz": "Default is the fair option, the alternative is one tap away, and the words are human.",
+      "ac": [
+        "Screen per consent doc §5.1; writes data_share + event with consent_version, ip/UA hashes.",
+        "Consent texts versioned under api/src/main/resources/consent/.",
+        "FULL not offered here."
+      ],
+      "tests": [
+        "Persisted scope; version stored; 390px targets ≥44px."
+      ],
+      "tech": "web/src/app/join/**/consent.tsx; MeOrgsResource.",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": true,
+      "relates": [
+        "X1.8",
+        "X2.6"
+      ]
+    },
+    {
+      "id": "O6.3",
+      "epic": "O6",
+      "title": "User app /settings/organizations — memberships, what they see, change scope, leave",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "O6.2"
+      ],
+      "story": "As a member, I want one page that shows who pays for what and what each org can see about me.",
+      "genz": "'They see: progress summary ▸' — tap to read the exact list. Control in your pocket.",
+      "ac": [
+        "GET /api/me/orgs renders cards per consent doc §5.2; Change opens scope sheet; Leave with consequence copy; 'Stop sharing' for FULL."
+      ],
+      "tests": [
+        "Component tests; leave flow e2e."
+      ],
+      "tech": "web/src/app/(app)/settings/organizations/page.tsx (coordinate with U-area settings layout).",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false
+    },
+    {
+      "id": "O6.4",
+      "epic": "O6",
+      "title": "Revocation is immediate — per-request scope checks, SHARE_REVOKED admin notification, SHARE_DENIED audit",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O6.1",
+        "O13.3"
+      ],
+      "story": "As a member, I want stopping sharing to work right now, and my org admin to know I stopped (not why).",
+      "genz": "No 'changes may take up to 24 hours'. Now means now.",
+      "ac": [
+        "No caching of scope; FULL endpoints re-check pairing + scope every call.",
+        "Revocation → Notification to ADMINs; denied summary reads audited SHARE_DENIED."
+      ],
+      "tests": [
+        "RevocationIsImmediateTest; denial audit."
+      ],
+      "tech": "ShareScopeService; OrgMemberDataService.",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": true
+    },
+    {
+      "id": "O6.5",
+      "epic": "O6",
+      "title": "GDPR hooks — account export adds organizations[]; erasure anonymises membership and keeps only login strings in audit",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O6.1",
+        "O1.4"
+      ],
+      "story": "As a user, I want my export to include my org memberships and consent history, and deletion to remove me from orgs.",
+      "genz": "Download everything, delete everything — including the org side.",
+      "ac": [
+        "AccountExportResource output gains organizations[] with memberships, scopes, assignments, data_share_event history.",
+        "AccountDeletionService performs tenant-model.md §6 steps."
+      ],
+      "tests": [
+        "AccountExportIncludesOrgsTest; ErasureAnonymisesMembershipTest."
+      ],
+      "tech": "api/.../web/rest/AccountExportResource.java, service/AccountDeletionService.java.",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": true
+    },
+    {
+      "id": "O6.6",
+      "epic": "O6",
+      "title": "Placement declaration — 'Did you accept? 🎉' on OFFER, application.outcome/accepted_at, share card",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O6.1"
+      ],
+      "relates": [
+        "M6.5"
+      ],
+      "story": "As a member who got the job, I want to mark it and celebrate — and my org sees 'placed' only because I said so.",
+      "genz": "The share card is the social moment; the org metric is a side effect of the user's joy, not surveillance.",
+      "ac": [
+        "Additive columns on application (outcome, accepted_at, applied_at, status_changed_at); PATCH endpoint; user-app prompt on OFFER; share-card image endpoint.",
+        "Org sees placed + date at SUMMARY; employer only at FULL."
+      ],
+      "tests": [
+        "Outcome persistence; scope on org side; card renders."
+      ],
+      "tech": "api ApplicationResource (user-area table, additive); web user app applications page (coordinate with U area).",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false
+    },
+    {
+      "id": "O6.7",
+      "epic": "O6",
+      "title": "Privacy page + org terms copy: orgs as recipients, controller roles, 16+ rule",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O6.2"
+      ],
+      "story": "As anyone, I want the privacy page to say plainly how orgs fit.",
+      "genz": "Plain-language privacy with the matrix table, readable on a phone.",
+      "ac": [
+        "Privacy page section 'Organizations' renders the visibility matrix; terms gain the org clauses (lawyer to confirm, flagged)."
+      ],
+      "tests": [
+        "Content present; links from consent screen 'What exactly?' resolve."
+      ],
+      "tech": "web/src/app/(marketing)/privacy, terms pages.",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false
+    },
+    {
+      "id": "O6.8",
+      "epic": "O6",
+      "title": "Invite abuse controls — per-org daily cap (setting), complaint kill-switch, 'Not you?' handling",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O2.2",
+        "A5.1"
+      ],
+      "story": "As a non-member who got an invite by mistake, I want one line to make it stop — and the platform to stop orgs that spam.",
+      "genz": "Your inbox is not an org's growth channel.",
+      "ac": [
+        "Per-org daily invite cap from setting `org.invite.daily_cap` (default 1,000); Brevo complaint webhook → complaints above setting `org.invite.complaint_suspend_pct` (default 5) suspend inviting + admin alert; 'Not you?' link suppresses further invites to that email from that org."
+      ],
+      "tests": [
+        "Cap, kill-switch, suppression list."
+      ],
+      "tech": "OrgInviteService; MailService webhooks; org_invite_suppression table (tiny).",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": true
+    },
+    {
+      "id": "O7.1",
+      "epic": "O7",
+      "title": "OrgMetricDefinitions — every metric as code with javadoc, doc-sync test",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O6.1"
+      ],
+      "story": "As the team, I want metric definitions that cannot drift from the docs.",
+      "genz": "Numbers that mean the same thing every time, so admins trust the dashboard.",
+      "ac": [
+        "Enum/class implementing analytics.md §2; OrgMetricDefinitionsDocTest renders and diffs the table."
+      ],
+      "tests": [
+        "Doc-sync test; unit tests for cohort rules (14-day response)."
+      ],
+      "tech": "service/org/metrics/OrgMetricDefinitions.java.",
+      "evidence": [],
+      "design": "docs/design/org/analytics.md",
+      "critical": false
+    },
+    {
+      "id": "O7.2",
+      "epic": "O7",
+      "title": "org_metric_daily + nightly rollup job (org-local 03:00) with contributors",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O7.1"
+      ],
+      "story": "As the dashboard, I want precomputed numbers so pages are instant.",
+      "genz": "Speed is a feature: the dashboard paints from rollups, not from scanning tables.",
+      "ac": [
+        "Changelog 20261011040000_org_metrics.xml; job computes per org/group/owner/day with contributors; excludes NONE scope; idempotent re-run."
+      ],
+      "tests": [
+        "RollupJobTest fixtures (cohorts, suppression inputs, NONE exclusion, placement once)."
+      ],
+      "tech": "OrgMetricRollupJob @Scheduled per timezone bucket.",
+      "evidence": [],
+      "design": "docs/design/org/analytics.md",
+      "critical": false
+    },
+    {
+      "id": "O7.3",
+      "epic": "O7",
+      "title": "Metrics read API with k-anonymity (<5 suppressed), denominators ≥10, 'of N sharing'",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O7.2"
+      ],
+      "story": "As a member in a cohort of three, I want my org's charts not to be about me.",
+      "genz": "Small groups are suppressed — privacy by math.",
+      "ac": [
+        "Endpoints per analytics.md §4 with suppression rules §5; STAFF scoped to own members."
+      ],
+      "tests": [
+        "Suppression tests; STAFF scoping."
+      ],
+      "tech": "OrgMetricReadService, OrgMetricsResource.",
+      "evidence": [],
+      "design": "docs/design/org/analytics.md",
+      "critical": true
+    },
+    {
+      "id": "O7.4",
+      "epic": "O7",
+      "title": "Dashboard real — tiles, this-week spark, needs attention, consented recent activity",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O7.3",
+        "O2.7"
+      ],
+      "story": "As an admin opening the app on my phone, I want the state of my team in one screen.",
+      "genz": "Four tiles, one spark, a short 'needs attention' list — glanceable like a fitness app.",
+      "ac": [
+        "Layout per analytics.md §6 left; reads summary + needs-attention; no employer names unless FULL; sample DASHBOARD_STATS/PLACEMENT_PIPELINE/TIMELINE removed."
+      ],
+      "tests": [
+        "Renders fixtures incl. suppressed and 'of N sharing'."
+      ],
+      "tech": "web/src/components/org-v2/dashboard/DashboardPage.tsx.",
+      "evidence": [
+        "web/src/components/org-v2/dashboard/DashboardPage.tsx (sample)"
+      ],
+      "design": "docs/design/org/analytics.md",
+      "critical": false,
+      "relates": [
+        "X2.4"
+      ]
+    },
+    {
+      "id": "O7.5",
+      "epic": "O7",
+      "title": "Analytics page real — cohort funnel, weekly trends, group/owner breakdown, response rate, time-to-place; drop ROI/satisfaction tiles",
+      "status": "partial",
+      "size": "L",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O7.3"
+      ],
+      "story": "As a programme director, I want honest outcome analytics I can take to my board.",
+      "genz": "Charts that admit their sample size beat charts that look impressive.",
+      "ac": [
+        "Layout per analytics.md §6 right; filters period/group/owner; suppressed cells show '<5'; ROI_TILES/SUPPORT_OWNER_PERFORMANCE sample removed; 390px stacked layout."
+      ],
+      "tests": [
+        "Component tests per chart with fixtures; no horizontal overflow at 390px."
+      ],
+      "tech": "web/src/components/org-v2/analytics/AnalyticsPage.tsx; dataviz palette via app-v2/common.",
+      "evidence": [
+        "web/src/components/org-v2/analytics/AnalyticsPage.tsx (sample series)"
+      ],
+      "design": "docs/design/org/analytics.md",
+      "critical": false,
+      "relates": [
+        "X12.1"
+      ]
+    },
+    {
+      "id": "O7.6",
+      "epic": "O7",
+      "title": "Export CSV (audited) + scheduled weekly/monthly report email to members",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O7.3",
+        "O13.3"
+      ],
+      "story": "As a director, I want the monthly numbers in my inbox without logging in.",
+      "genz": "Digest culture: one email a month with the tiles, not daily noise.",
+      "ac": [
+        "POST /metrics/export (CSV of rollups, EXPORT audit); POST /reports/schedule; job renders digest email with suppression applied."
+      ],
+      "tests": [
+        "Export scope; schedule job; email snapshot."
+      ],
+      "tech": "OrgReportJob, MailService template.",
+      "evidence": [],
+      "design": "docs/design/org/analytics.md",
+      "critical": false
+    },
+    {
+      "id": "O7.7",
+      "epic": "O7",
+      "title": "Needs-attention feed — no resume, invites expiring, unassigned seats, inactive for setting `org.attention.inactive_days` (default 14) (consent-scoped)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O7.3",
+        "A5.1"
+      ],
+      "story": "As staff, I want a short list of who needs a nudge, with deep links to act.",
+      "genz": "Actionable, short, dismissible.",
+      "ac": [
+        "GET /attention returns items with counts and links; dashboard renders ≤5 with 'see all'."
+      ],
+      "tests": [
+        "Rules unit tests; NONE-scope members only appear in seat-type items."
+      ],
+      "tech": "OrgAttentionService.",
+      "evidence": [],
+      "design": "docs/design/org/analytics.md",
+      "critical": false
+    },
+    {
+      "id": "O8.1",
+      "epic": "O8",
+      "title": "Applications page consent-scoped — stage counts per member (SUMMARY), detail only for FULL-paired viewers",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O6.1",
+        "O5.1"
+      ],
+      "story": "As an admin, I want to see how applications are going per person without seeing where they applied unless they chose to share that.",
+      "genz": "Your employer list is yours; the org sees the shape of your effort, not the names.",
+      "ac": [
+        "GET /applications/summary (per member stage counts, last change) and /members/{m}/board (FULL, audited).",
+        "Page rewritten: per-member rows with stage chips and counts; sample APPLICATIONS/RECENT_RESPONSES/FOLLOW_UP_TASKS removed; 'Add Application/Bulk Update/Send Reminder' removed."
+      ],
+      "tests": [
+        "Scope tests; audit on FULL; web fixtures."
+      ],
+      "tech": "web/src/components/org-v2/applications/*; OrgMemberDataService.",
+      "evidence": [
+        "web/src/components/org-v2/applications/ApplicationsTable.tsx (sample employer rows)"
+      ],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": true,
+      "relates": [
+        "X9.4"
+      ]
+    },
+    {
+      "id": "O8.2",
+      "epic": "O8",
+      "title": "Shared jobs — org curates job links for members/groups; members see 'From your org' in Jobs (org_job_share)",
+      "status": "partial",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O5.3",
+        "O6.1"
+      ],
+      "relates": [
+        "O8.6"
+      ],
+      "story": "As a career centre, I want to share employer partner roles with a cohort so that students see them in their own job list.",
+      "genz": "Jobs arrive where students already look, tagged 'From your school', dismissible — never auto-applied.",
+      "ac": [
+        "org_job_share table (org, group?, job_url/hash, captured JobCapture fields, note, shared_by, created_at); POST from pasted links; members' jobs list shows them with a tag (U-area jobs page hook).",
+        "Opportunities page becomes 'Shared jobs' with saves/applies counts (SUMMARY-level counts only); sample OPPORTUNITIES/TOP_HIRING/PIPELINE_DONUT removed."
+      ],
+      "tests": [
+        "Share → appears for group members only; counts respect scope."
+      ],
+      "tech": "web/src/components/org-v2/opportunities/*; reuse JobCapture/JSON-LD extraction (api job posting services).",
+      "evidence": [
+        "web/src/components/org-v2/opportunities/OpportunitiesTable.tsx (sample)"
+      ],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false
+    },
+    {
+      "id": "O8.3",
+      "epic": "O8",
+      "title": "Interviews page — upcoming counts (SUMMARY), calendar of FULL-shared interviews, ICS link, mock-interview services CTA",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O8.1",
+        "O12.3"
+      ],
+      "story": "As staff, I want to know interview load this week and offer prep help, without a calendar of other people's private events.",
+      "genz": "Counts, not surveillance; a one-tap 'offer a mock interview' that the member accepts.",
+      "ac": [
+        "Week view shows per-day counts; FULL-paired viewers see entries; 'Schedule Interview' removed; CTA to org-bought mock interview (O9.8); sample CALENDAR_EVENTS/PREP_* removed.",
+        "Depends on an interview date field on applications (U area); until then uses status INTERVIEW + status_changed_at."
+      ],
+      "tests": [
+        "Scope tests; web week grid at 390px as a list."
+      ],
+      "tech": "web/src/components/org-v2/interviews/*.",
+      "evidence": [
+        "web/src/components/org-v2/interviews/InterviewCalendar.tsx (sample)"
+      ],
+      "design": "docs/design/org/analytics.md",
+      "critical": false,
+      "relates": [
+        "X9.6"
+      ]
+    },
+    {
+      "id": "O8.4",
+      "epic": "O8",
+      "title": "Resumes page — readiness overview (has resume, ATS band, updated) + services CTA; no admin-triggered AI on members",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O7.3",
+        "O9.8"
+      ],
+      "story": "As staff, I want to see who has no resume or a weak ATS band and offer help — not edit their resume.",
+      "genz": "Nobody rewrites your resume without you; the org can only offer help you accept.",
+      "ac": [
+        "Per-member readiness from SUMMARY fields; 'No resume' / 'Needs work' filters; buttons: Offer expert review (O9.8), Copy nudge; 'Bulk Tailor', 'Generate Suggestions', 'Upload Resume' for others removed; sample EMPLOYEE_RESUMES/RESUME_SUGGESTIONS removed.",
+        "Readiness overview adds an ATS-score band histogram for the cohort vs all users, k ≥ 5 suppression via O7.3; bands only — never per-member scores to non-FULL viewers (G42)"
+      ],
+      "tests": [
+        "Scope tests; web fixtures."
+      ],
+      "tech": "web/src/components/org-v2/resumes/ResumesPage.tsx.",
+      "evidence": [
+        "web/src/components/org-v2/resumes/ResumesPage.tsx (sample + bulk AI tools)"
+      ],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false,
+      "benchmark": "G42 — VMock template scoring, Handshake advisor summaries; ours is tied to real applications",
+      "relates": [
+        "X7.3"
+      ]
+    },
+    {
+      "id": "O8.5",
+      "epic": "O8",
+      "title": "Delete sample-data.ts and the exact-board copy that no longer applies; update APP-V2-SPEC §5–6 pointer",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O7.5",
+        "O8.1",
+        "O8.2",
+        "O8.3",
+        "O8.4",
+        "O4.6",
+        "O12.1",
+        "O13.1"
+      ],
+      "story": "As the codebase, I want no sample numbers left that could be mistaken for real.",
+      "genz": "Honesty cleanup — the last fake number leaves the building.",
+      "ac": [
+        "web/src/components/org-v2/sample-data.ts deleted; tsc green; APP-V2-SPEC.md §5–6 header notes that the org pages now follow docs/design/org/*."
+      ],
+      "tests": [
+        "npm test -w web; grep for 'SAMPLE' in org-v2 returns nothing."
+      ],
+      "tech": "web/src/components/org-v2/, web/APP-V2-SPEC.md.",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "O9.1",
+      "epic": "O9",
+      "title": "Services schema — expert, service_order, service_order_event, service_message, expert_payout",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O3.1"
+      ],
+      "story": "As the API, I want the service tables so that orders, experts and payouts have a home.",
+      "genz": "Foundation for the human help Gen Z actually wants: a real person, fast, fairly paid.",
+      "ac": [
+        "Changelog 20261011050000_services.xml per services-marketplace.md §2; payout_account_ref validator rejects digit strings >8."
+      ],
+      "tests": [
+        "Migration + entity tests; validator test."
+      ],
+      "tech": "domain/services/*, repository/services/*.",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": false
+    },
+    {
+      "id": "O9.2",
+      "epic": "O9",
+      "title": "Client checkout — POST /api/services/orders → Stripe Checkout (payment), Pro discount from the catalog (initial value 10 %), webhook svc: routing → PAID",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O9.1",
+        "O4.3",
+        "B1.1"
+      ],
+      "story": "As a Pro user, I want to buy a resume review in one sheet and have it start immediately.",
+      "genz": "Apple Pay, price shows the Pro discount live, consent sentence right above the button.",
+      "ac": [
+        "Discount from catalog when has('ai.server') and no org; consent_version stored; client_reference_id svc:{id}; webhook → PAID (idempotent pipeline).",
+        "Buy sheet in the user app per §6."
+      ],
+      "tests": [
+        "DiscountTest; webhook routing; abandoned checkout → CANCELLED after 24h."
+      ],
+      "tech": "ServiceOrderResource, ServiceOrderService; StripeGateway.createOneTimeCheckout (O4.1) reused.",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": true,
+      "benchmark": "G28 — Rezi monthly expert review on Pro / $8 à la carte; publish the turnaround (O9.3 SLAs) on the services page"
+    },
+    {
+      "id": "O9.3",
+      "epic": "O9",
+      "title": "Order state machine, SLAs, timers from settings `services.accept_hours` (default 12), `services.auto_complete_days` (default 5), `services.dispute_days` (default 7), `services.close_after_days` (default 14)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O9.1",
+        "A5.1"
+      ],
+      "story": "As a client, I want clear timelines and an automatic nudge when an expert is late.",
+      "genz": "Status like a food-delivery tracker: matched → in progress → delivered.",
+      "ac": [
+        "Transitions per §3 enforced; SYSTEM events on breaches; admin queue items; order timeline API."
+      ],
+      "tests": [
+        "ServiceOrderStateMachineTest (legal/illegal); timer job tests."
+      ],
+      "tech": "ServiceOrderStateMachine, ServiceOrderJobs.",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": false
+    },
+    {
+      "id": "O9.4",
+      "epic": "O9",
+      "title": "Expert portal /expert — orders, accept/decline, schedule via booking link, deliver (file or resume doc), messages, limited resume/job view",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "O9.3"
+      ],
+      "story": "As a vetted expert, I want a focused workspace that shows one resume and one job per order and nothing else.",
+      "genz": "Experts are often Gen Z freelancers too: mobile-friendly, chat-first, clear deadlines.",
+      "ac": [
+        "Routes/API per §5 expert section; resume stream watermarked and audited; access ends at CLOSED; first names only."
+      ],
+      "tests": [
+        "ExpertAccessTest; deliver flow e2e; watermark present."
+      ],
+      "tech": "web/src/app/(expert)/**; ExpertResource; S3 presign helpers reused.",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": true
+    },
+    {
+      "id": "O9.5",
+      "epic": "O9",
+      "title": "Admin services console — expert vetting, ranked matching suggestions, assign/auto-assign flag, disputes, refunds via StripeGateway.refund",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O9.3"
+      ],
+      "supersedes": [
+        "A13.1",
+        "A13.2"
+      ],
+      "story": "As the ops admin, I want to match orders in one tap and resolve disputes with a recorded reason.",
+      "genz": "Fast matching keeps the 48-hour promise real.",
+      "ac": [
+        "ExpertMatcher.rank per §4; admin endpoints; refund requires reason, audited, cancels payout; auto-assign per product flag."
+      ],
+      "tests": [
+        "Matcher ranking tests; refund path with stubbed gateway; audit rows."
+      ],
+      "tech": "Admin area console (coordinate A*); StripeGateway.refund added to the seam.",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": true
+    },
+    {
+      "id": "O9.6",
+      "epic": "O9",
+      "title": "Payout ledger — monthly expert_payout rows, APPROVED/PAID with external reference; record only",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O9.3"
+      ],
+      "relates": [
+        "B9.3"
+      ],
+      "supersedes": [
+        "A13.3"
+      ],
+      "story": "As finance, I want to see what we owe each expert and record when we paid them.",
+      "genz": "Experts see their earnings and payout status in-app — no chasing.",
+      "ac": [
+        "Ledger per §2; expert sees own; admin marks PAID with reference; refunds adjust."
+      ],
+      "tests": [
+        "PayoutLedgerTest incl. partial refund."
+      ],
+      "tech": "ExpertPayoutService; admin page.",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": false
+    },
+    {
+      "id": "O9.7",
+      "epic": "O9",
+      "title": "Ratings & quality — 5-tap rating sheet, public reviews, nightly quality stats, auto-pause below setting `services.auto_pause_rating` (default 4.2) or at setting `services.auto_pause_no_shows` (default 2)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O9.3",
+        "A5.1"
+      ],
+      "story": "As a client, I want to rate my expert quickly and see honest reviews before buying.",
+      "genz": "Ratings culture, but with teeth: bad experts get paused automatically.",
+      "ac": [
+        "Rate endpoint; public review display on service cards (first name, service); nightly recompute; auto-pause rule."
+      ],
+      "tests": [
+        "Auto-pause thresholds; review visibility flag."
+      ],
+      "tech": "ExpertQualityJob; services catalog UI.",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": false
+    },
+    {
+      "id": "O9.8",
+      "epic": "O9",
+      "title": "Org-bought services — admin orders for a member; member accepts (consent) → invoice item; org sees status only",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O9.2",
+        "O4.4"
+      ],
+      "story": "As an admin, I want to gift a resume rewrite to a student, who decides whether to take it.",
+      "genz": "Help you can decline. The expert sees nothing until you say yes.",
+      "ac": [
+        "POST /api/orgs/{id}/services/orders → PENDING_MEMBER_ACCEPT; member offer sheet accept/decline; accept creates the invoice item and PAID order; org list shows status only."
+      ],
+      "tests": [
+        "OrgOrderAcceptTest; decline creates no invoice item."
+      ],
+      "tech": "OrgServicesResource; MeServicesResource; billing invoice items (O4.3 handler mirrors).",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": false,
+      "relates": [
+        "X6.3"
+      ]
+    },
+    {
+      "id": "O9.9",
+      "epic": "O9",
+      "title": "Rewrite deliverable becomes a new resume (kind EXPERT_MADE) the client approves once",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O9.4",
+        "R0.1",
+        "R0.3"
+      ],
+      "story": "As a client, I want the rewritten resume to appear in my resumes, labelled, for me to approve and use.",
+      "genz": "Straight into your resume list — no download/upload dance.",
+      "ac": [
+        "Expert delivers as a resume document (R* contract) → resume row kind=EXPERT_MADE, made_by_label, approval_required; client approves; usable by extension only after approval."
+      ],
+      "tests": [
+        "Approval gate; label render."
+      ],
+      "tech": "Resume kind columns shared with O10.4; resume builder document endpoints R0.3.",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": false
+    },
+    {
+      "id": "O9.10",
+      "epic": "O9",
+      "title": "Services terms (reschedule window setting `services.reschedule_hours` default 24, no-show, one revision, dispute window `services.dispute_days` default 7) + user-app services page",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O9.2",
+        "A5.1"
+      ],
+      "story": "As a user, I want to browse services, read the rules in plain words and buy in a sheet.",
+      "genz": "Cards with price, Pro discount and a 3-line 'what you get'; terms in a sheet, not a PDF.",
+      "ac": [
+        "/services page in the user app from catalog SERVICE products; terms sheet; contact form fallback removed for sold services (catalog.ts EXPERT_SERVICES topic → checkout)."
+      ],
+      "tests": [
+        "Renders products; buy opens O9.2 sheet."
+      ],
+      "tech": "web/src/app/(app)/services/page.tsx; web/src/lib/catalog.ts.",
+      "evidence": [],
+      "design": "docs/design/org/services-marketplace.md",
+      "critical": false
+    },
+    {
+      "id": "O10.1",
+      "epic": "O10",
+      "title": "MARKETER role + marketer_assignment pairing (cap from entitlement `consultants.max`, catalog default 10; seat checks) + admin pairing UI",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O5.1",
+        "O3.2"
+      ],
+      "story": "As a consultancy admin, I want to pair a marketer with their consultants so that the marketer can start preparing.",
+      "genz": "Pairing is explicit and visible to the consultant — nobody is 'assigned' in secret.",
+      "ac": [
+        "Changelog 20261011060000_marketer.xml; pairing requires Marketer-seat grant and consultant Pro/Autopilot grant; cap from catalog; ENDED on unpair/leave.",
+        "Team page: 'Marketer' column and pairing sheet; consultant notified."
+      ],
+      "tests": [
+        "MarketerScopeTest (pairing-only, no consent → seat view only); cap test."
+      ],
+      "tech": "domain/org/MarketerAssignment; OrgMarketerResource.",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": true,
+      "relates": [
+        "X4.7"
+      ]
+    },
+    {
+      "id": "O10.2",
+      "epic": "O10",
+      "title": "FULL consent screen naming the marketer (can / can never lists) + instant revoke",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "O10.1",
+        "O6.2"
+      ],
+      "story": "As a consultant, I want to allow exactly one named person to see everything, and to stop it any time.",
+      "genz": "The 'can never' list is the trust move: submit, sign in as you, read your inbox — never.",
+      "ac": [
+        "Screen per marketer-workspace.md §3; PUT share {FULL, fullTo}; revoke drops to SUMMARY, notifies admin; marketer loses access immediately."
+      ],
+      "tests": [
+        "RevocationIsImmediateTest for FULL; copy snapshot."
+      ],
+      "tech": "web join/settings consent components; ShareScopeService.",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": true,
+      "relates": [
+        "X7.6"
+      ]
+    },
+    {
+      "id": "O10.3",
+      "epic": "O10",
+      "title": "Marketer workspace shell — consultant switcher, board read view, notes",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "O10.2"
+      ],
+      "relates": [
+        "O10.12",
+        "X8.1"
+      ],
+      "story": "As a marketer, I want to flip between my five consultants and see each one's board.",
+      "genz": "A segmented control and a switcher sheet — fast on a phone between recruiter calls.",
+      "ac": [
+        "/org/marketer routes with nav for MARKETER; GET board (FULL, audited); shared notes on applications/assignments."
+      ],
+      "tests": [
+        "Scope + audit; switcher a11y."
+      ],
+      "tech": "web/src/components/org-v2/marketer/*; OrgMarketerResource.",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": false
+    },
+    {
+      "id": "O10.4",
+      "epic": "O10",
+      "title": "Marketer-made resumes — resume.kind/made_by/approved_at, builder act-for mode, AI tailoring on marketer budget, consultant approval",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O10.3",
+        "R0.1",
+        "R0.3"
+      ],
+      "story": "As a marketer, I want to build and tailor a consultant's resume, which they approve once before it can be used.",
+      "genz": "You attest your own resume; the badge 'made by Rahul · approved by you' says who did what.",
+      "ac": [
+        "Additive resume columns; builder opens in act-for mode writing to the consultant's account; AI charged to the marketer grant; approve endpoint; unapproved resumes excluded from extension/Autopilot/assignment selection (ResumeResource flag)."
+      ],
+      "tests": [
+        "ApprovalGateTest; budget owner test; cap counts toward consultant."
+      ],
+      "tech": "Resume builder (R*) act-for context; ResumeResource; AI budget accounting (AiCall.login → grant owner).",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": true,
+      "relates": [
+        "X7.5"
+      ]
+    },
+    {
+      "id": "O10.5",
+      "epic": "O10",
+      "title": "Job bank — paste links/matches → job_assignment batch with default/override resume, caps, one notification",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O10.4"
+      ],
+      "relates": [
+        "O10.11",
+        "X8.4"
+      ],
+      "story": "As a marketer, I want to line up 40 jobs for a consultant with the right resume on each, in one batch.",
+      "genz": "A checklist with resume pickers, assigned in one tap, one notification — not 40 pings.",
+      "ac": [
+        "Tables per marketer-workspace.md §2; JobCapture on paste; open cap from entitlement `assignments.open_max` (catalog default 100) → 409; batch creates ASSIGNED rows; consultant gets one Notification per batch."
+      ],
+      "tests": [
+        "AssignmentCapTest; BatchNotificationTest; duplicate job links to existing application."
+      ],
+      "tech": "JobAssignmentService; web bank UI.",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": false
+    },
+    {
+      "id": "O10.6",
+      "epic": "O10",
+      "title": "Consultant side — Assigned jobs list (Pro) and Autopilot source (autopilot_item.assignment_id/resume_id)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "O10.5"
+      ],
+      "story": "As a consultant, I want assigned jobs on my board with the chosen resume preselected, and in my Autopilot queue if I have it.",
+      "genz": "Open link → extension already has the right resume → you review and submit. Your click, always.",
+      "ac": [
+        "Board shows 'Assigned' lane with resume and note; extension preselects resume via version/profile hints; Autopilot items created from assignments (IN_QUEUE) counting toward 300/30; unapproved resume → NEEDS_YOU."
+      ],
+      "tests": [
+        "Queue source test; extension jsdom preselect test."
+      ],
+      "tech": "Depends on Phase 19 Autopilot tables (U area); job-autofill panel resume picker.",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": false,
+      "relates": [
+        "X9.2"
+      ]
+    },
+    {
+      "id": "O10.7",
+      "epic": "O10",
+      "title": "Extension 'Save for consultant…' drawer action for MARKETER sessions",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "O10.5"
+      ],
+      "story": "As a marketer browsing a job page, I want to drop it straight into a consultant's bank.",
+      "genz": "Browsing is the workflow; saving is one tap in the drawer.",
+      "ac": [
+        "Drawer shows the action only when /api/profile/version says role MARKETER; posts JobCapture to job-assignment create (source EXTENSION); autofill still uses the marketer's own profile; version bump."
+      ],
+      "tests": [
+        "jsdom: action gated by role; autofill profile unchanged."
+      ],
+      "tech": "job-autofill entrypoints/panel, src/lib/tracking.js (TrackingProvider seam).",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": false,
+      "relates": [
+        "X9.9"
+      ]
+    },
+    {
+      "id": "O10.8",
+      "epic": "O10",
+      "title": "Submit-detect marks job_assignment APPLIED; marketer sees it live",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "extension"
+      ],
+      "deps": [
+        "O10.6"
+      ],
+      "story": "As a marketer, I want to see 'applied' the moment the consultant submits.",
+      "genz": "Real-time progress without anyone reporting back manually.",
+      "ac": [
+        "ApplicationSyncResource links the detected submission to the assignment (by url hash + consultant) → APPLIED with application_id; only this path can set APPLIED."
+      ],
+      "tests": [
+        "NoSubmitSurfaceTest extension: no marketer route writes APPLIED."
+      ],
+      "tech": "ApplicationSyncResource; JobAssignmentService.",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": true,
+      "relates": [
+        "X9.2"
+      ]
+    },
+    {
+      "id": "O10.9",
+      "epic": "O10",
+      "title": "Marketer inbox — own Gmail IMAP connection, rule-based attribution, AI only when ambiguous (marketer budget), Needs-review list, undo",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O10.3"
+      ],
+      "story": "As a marketer, I want recruiter mail about my consultants to update their boards and notify us both.",
+      "genz": "No forwarding, no OAuth, no attachments stored — your mail model stays the same as everyone's.",
+      "ac": [
+        "InboxConnection owner_kind MARKETER; attribution order per marketer-workspace.md §5; status updates reuse Phase 14 parser; Needs-review one-tap assign; consultant undo reverts and flags."
+      ],
+      "tests": [
+        "InboxAttributionTest; budget charged to marketer; undo path."
+      ],
+      "tech": "InboxConnection/InboxMessage additive columns; inbox poller; web Mail tab.",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": false,
+      "relates": [
+        "X8.6"
+      ]
+    },
+    {
+      "id": "O10.10",
+      "epic": "O10",
+      "title": "Marketer seat catalog row + NoSubmitSurfaceTest + consultant-visible 'what Rahul did' timeline",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O10.5",
+        "O10.8",
+        "B1.1"
+      ],
+      "story": "As the business, I want the marketer seat sellable and the no-submit guarantee proven by tests the consultant can also see as a timeline.",
+      "genz": "Receipts for delegated access — every action by your marketer is listed for you.",
+      "ac": [
+        "Catalog row (initial price $29.99, re-priced from admin) with entitlements; reflection test: no route under /api/orgs/**/marketer writes application.status, no JWT claim act_as; /settings/organizations shows the marketer action timeline from org_audit_event."
+      ],
+      "tests": [
+        "NoSubmitSurfaceTest; timeline scope (only the consultant's own rows)."
+      ],
+      "tech": "Catalog seed; security test; MeOrgsResource timeline.",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": true,
+      "relates": [
+        "X8.9"
+      ]
+    },
+    {
+      "id": "O12.1",
+      "epic": "O12",
+      "title": "Honest integrations page — Connected (extension, inbox counts) / Available / Not planned; remove fictional apps",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O5.1"
+      ],
+      "story": "As an admin, I want to know what Kiwiply actually connects to.",
+      "genz": "No fake 'Connected' badges — credibility is the brand.",
+      "ac": [
+        "GET /integrations returns counts; page per integrations.md §6; sample INTEGRATIONS/AUTOMATION_FLOWS/API_ACCESS_ROWS/NOTIFICATION_ROUTES removed."
+      ],
+      "tests": [
+        "Counts computed from fill_event/inbox_connection; page fixture."
+      ],
+      "tech": "web/src/components/org-v2/integrations/IntegrationsPage.tsx; OrgIntegrationsResource.",
+      "evidence": [
+        "web/src/components/org-v2/integrations/IntegrationsPage.tsx (9 fake connected apps)"
+      ],
+      "design": "docs/design/org/integrations.md",
+      "critical": false
+    },
+    {
+      "id": "O12.2",
+      "epic": "O12",
+      "title": "Slack incoming webhook — paste URL, pick events, test message, digests",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O12.1",
+        "O13.3"
+      ],
+      "story": "As a bootcamp team living in Slack, I want joins, placements and billing alerts in our channel.",
+      "genz": "Where the team already is; no bot install, just a URL.",
+      "ac": [
+        "Encrypted URL (SecretBox), SSRF guard, events per §4, weekly digest; failures surfaced."
+      ],
+      "tests": [
+        "SlackWebhookSendTest; SSRF rejection."
+      ],
+      "tech": "OrgSlackService; org_slack_webhook.",
+      "evidence": [],
+      "design": "docs/design/org/integrations.md",
+      "critical": false,
+      "relates": [
+        "X12.3"
+      ]
+    },
+    {
+      "id": "O12.3",
+      "epic": "O12",
+      "title": "Calendar ICS feed — admin feed (counts) and member own feed; revoke",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O12.1"
+      ],
+      "story": "As staff, I want interview load in my calendar; as a member, my own interviews in mine.",
+      "genz": "Subscribe once, works in Apple/Google/Outlook, no permissions granted to us.",
+      "ac": [
+        "/ics/{token}.ics per §3; admin feed all-day counts; member feed real events (user area data); revoke → 404."
+      ],
+      "tests": [
+        "IcsFeedTest."
+      ],
+      "tech": "IcsFeedResource (public, token auth); ical generation inline.",
+      "evidence": [],
+      "design": "docs/design/org/integrations.md",
+      "critical": false,
+      "relates": [
+        "X12.3"
+      ]
+    },
+    {
+      "id": "O12.4",
+      "epic": "O12",
+      "title": "Outbound webhooks — HMAC signature, retries, deliveries log, auto-disable",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O12.1"
+      ],
+      "story": "As a consultancy with its own tools, I want events pushed to my endpoint.",
+      "genz": "Developer-friendly: signed JSON, replayable deliveries list.",
+      "ac": [
+        "Per §3–4; payloads ids+display names only; consent-scoped."
+      ],
+      "tests": [
+        "WebhookSignatureTest; retry schedule; disable after 50 failures."
+      ],
+      "tech": "OrgWebhookService + delivery job.",
+      "evidence": [],
+      "design": "docs/design/org/integrations.md",
+      "critical": false,
+      "relates": [
+        "X12.3"
+      ]
+    },
+    {
+      "id": "O12.5",
+      "epic": "O12",
+      "title": "Org API key + public read API (/api/v1/org/*) with identical suppression and scopes",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O7.3",
+        "O12.1"
+      ],
+      "story": "As a university data team, I want to pull our summary metrics into our own dashboards.",
+      "genz": "Data portability for institutions without a sales engineer.",
+      "ac": [
+        "Hashed keys shown once; scopes; 60/min rate limit; DTOs reuse UI services so consent/suppression is identical."
+      ],
+      "tests": [
+        "ApiKeyAuthTest; DTO parity test."
+      ],
+      "tech": "ApiKeyAuthFilter; OrgPublicApiResource.",
+      "evidence": [],
+      "design": "docs/design/org/integrations.md",
+      "critical": true
+    },
+    {
+      "id": "O13.1",
+      "epic": "O13",
+      "title": "Org profile settings real — name, type, logo upload (S3, ≤2MB), website, timezone, billing email, defaults",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O1.3"
+      ],
+      "story": "As an admin, I want to set our logo and defaults so invites and pages look like us.",
+      "genz": "Logo shows on the join screen — students recognise their school instantly.",
+      "ac": [
+        "PATCH /api/orgs/{id} + logo upload endpoint (sanitised, presigned read); settings form at 390px; sample ABOUT_COMPANY/INDUSTRIES removed; 'Coming soon' tabs removed in favour of real tabs (Profile, Roles, Notifications, Domains, Security, Audit)."
+      ],
+      "tests": [
+        "Upload validation; settings persistence."
+      ],
+      "tech": "web/src/components/org-v2/settings/SettingsPage.tsx; S3 helpers.",
+      "evidence": [
+        "web/src/components/org-v2/settings/SettingsPage.tsx (sample; 5 of 7 tabs 'Coming soon')"
+      ],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false,
+      "relates": [
+        "X2.5"
+      ]
+    },
+    {
+      "id": "O13.2",
+      "epic": "O13",
+      "title": "Notification rules — per-event channel (in-app / email digest / Slack), digest day/time, quiet hours",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O13.3",
+        "A5.1"
+      ],
+      "story": "As an admin, I want to choose what reaches me and when.",
+      "genz": "Quiet hours by default; digests over drips.",
+      "ac": [
+        "settings_json rules validated; UI toggles per event; defaults from settings `org.notify.digest_default` (default weekly) and `org.notify.quiet_hours_default` (default 21:00–08:00 org-local)."
+      ],
+      "tests": [
+        "Rule evaluation tests; quiet hours delay."
+      ],
+      "tech": "OrgNotificationService; settings UI.",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false
+    },
+    {
+      "id": "O13.3",
+      "epic": "O13",
+      "title": "Org notification kinds + delivery (Notification rows for members/admins, batched daily digest email job)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.3",
+        "E2E-U7.0"
+      ],
+      "relates": [
+        "U7.1",
+        "A5.1"
+      ],
+      "story": "As a member, I want to hear from my org through Kiwiply at most once a day unless it is urgent.",
+      "genz": "Notification etiquette as a system rule, not per-feature goodwill.",
+      "ac": [
+        "Kinds ORG_ACTIVE, INVITE_ACCEPTED (batched), INVITES_EXPIRING, SHARE_REVOKED, BILLING_*, ORG_ITEM_GRANTED, ORG_COVERS_YOUR_PLAN, ORG_PAUSED, ORG_GET_STARTED; digest job; at most setting `org.notify.email_per_member_per_day` (default 1) org email per member per day."
+      ],
+      "tests": [
+        "Batching; daily cap; kinds registered with the existing NotificationResource."
+      ],
+      "tech": "domain/Notification (kind VARCHAR(30) fits), OrgNotificationService, OrgDigestJob.",
+      "evidence": [],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false
+    },
+    {
+      "id": "O13.4",
+      "epic": "O13",
+      "title": "Audit log viewer (OWNER/ADMIN/FINANCE) with filters and CSV",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "O1.4"
+      ],
+      "story": "As an owner, I want to see who did what in our workspace.",
+      "genz": "Transparency inside the org too — staff actions are visible to owners.",
+      "ac": [
+        "GET /audit paged + filters; Settings → Audit tab; export CSV (audited)."
+      ],
+      "tests": [
+        "Permission; filter query."
+      ],
+      "tech": "OrgAuditResource; settings tab.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false,
+      "relates": [
+        "X4.9"
+      ]
+    },
+    {
+      "id": "O13.5",
+      "epic": "O13",
+      "title": "Security tab honest — real status (admins with 2FA/passkey, sessions), optional 'require 2FA for admins' once user 2FA exists",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O13.1"
+      ],
+      "story": "As an owner, I want the security page to say what is true about our workspace.",
+      "genz": "No 'AES-256 / SSO enabled' theatre; a real checklist with the honest 'not yet' items.",
+      "ac": [
+        "Remove SECURITY_CHECKS sample; show: admins count, admins with 2FA (depends on U-area 2FA story; shows 'not available yet' until then), domains verified, SSO 'on request'; 'Require 2FA for admins' toggle gated behind the dependency."
+      ],
+      "tests": [
+        "Renders honest states."
+      ],
+      "tech": "Settings security tab; AdminMfaChallenge is platform-only (not reused).",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": true
+    },
+    {
+      "id": "O13.6",
+      "epic": "O13",
+      "title": "Close organization flow — consequence list, typed confirmation, grants end now, billing history kept",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O1.3",
+        "O4.9"
+      ],
+      "story": "As an owner shutting down, I want to close cleanly and know members keep their accounts.",
+      "genz": "Leaving is as easy as joining; nobody's data is held hostage.",
+      "ac": [
+        "POST /close; UI lists who loses which item and when; members notified; invoices remain downloadable."
+      ],
+      "tests": [
+        "Close ends grants; members retain accounts; CLOSED read-only."
+      ],
+      "tech": "OrgService.close; settings danger zone.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false,
+      "relates": [
+        "X4.4"
+      ]
+    },
+    {
+      "id": "O14.1",
+      "epic": "O14",
+      "title": "Sales inquiry intake for org topics (contact form → admin queue → email)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "story": "As a prospective org buyer, I want to contact sales and get a follow-up.",
+      "genz": "Still useful for institutions that must talk to a human before paying.",
+      "ac": [
+        "Public POST with topics organization/consultancy/consultancy-ops; admin queue with audited status; sales email."
+      ],
+      "tests": [
+        "Existing SalesInquiry tests."
+      ],
+      "tech": "api/.../service/SalesInquiryService.java, web /contact.",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/SalesInquiryService.java",
+        "api/src/main/resources/config/liquibase/changelog/20261005010000_sales_inquiry.xml",
+        "web/src/lib/catalog.ts TOPIC_LABELS"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "O14.2",
+      "epic": "O14",
+      "title": "/organizations honest rewrite — 'Start your workspace' CTA, per-buyer sections (bootcamps, universities, staffing), features that exist, consent story",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O2.1"
+      ],
+      "story": "As a buyer, I want to understand what my team gets and start now.",
+      "genz": "Lead with 'your people keep their accounts and choose what you see' — that is the differentiator buyers' students will thank them for.",
+      "ac": [
+        "Feature cards match shipped/P0 scope (remove 'Application automation', 'Email & response tracking' org claims, 'Approval rules'); add consent/visibility section; CTA to /org/new and demo; PLACEHOLDER numbers removed or sourced.",
+        "Contrast line with bench-sales norms: 'your consultants see everything the marketer does; nobody submits for them', linking to the consent-screen preview (G44)"
+      ],
+      "tests": [
+        "Content/links tests; Lighthouse ≥95."
+      ],
+      "tech": "web/src/components/marketing/organizations/*, placeholder-data.ts.",
+      "evidence": [
+        "web/src/components/marketing/organizations/OrgFeatures.tsx (12 cards, several not planned)",
+        "placeholder-data.ts (PLACEHOLDER)"
+      ],
+      "design": "docs/design/org/onboarding-invites.md",
+      "critical": false,
+      "benchmark": "G44 — bench-sales CRMs (Conrep, StaffSync360) are vendor-side with no consultant consent"
+    },
+    {
+      "id": "O14.3",
+      "epic": "O14",
+      "title": "Price calculator — people × items + setup fee, monthly total, on /organizations and /pricing",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O3.1"
+      ],
+      "story": "As a buyer, I want to see what 40 Pro + 5 Autopilot costs before talking to anyone.",
+      "genz": "Sliders and instant totals; no 'contact us for pricing'.",
+      "ac": [
+        "Reads catalog prices (API when Phase 18 exists; catalog.ts until then); shows setup + monthly; shares a link with the config."
+      ],
+      "tests": [
+        "Math tests; a11y of sliders."
+      ],
+      "tech": "web/src/components/marketing/organizations/Calculator.tsx; lib/catalog.ts PER_PERSON.",
+      "evidence": [],
+      "design": "docs/design/org/billing.md",
+      "critical": false,
+      "relates": [
+        "X6.9"
+      ]
+    },
+    {
+      "id": "O14.4",
+      "epic": "O14",
+      "title": "Admin: orgs list/status + inquiry → 'create org for them' link (audited)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O1.3"
+      ],
+      "relates": [
+        "A14.1",
+        "X1.11"
+      ],
+      "story": "As the platform admin, I want to see orgs and convert an inquiry into a DRAFT org invite for the buyer.",
+      "genz": "Shorter path from 'interested' to 'live'.",
+      "ac": [
+        "Admin console orgs page (coordinate with A area); inquiry action creates DRAFT org + OWNER invite email; audited."
+      ],
+      "tests": [
+        "Permission ROLE_ADMIN; audit."
+      ],
+      "tech": "AdminOrgResource; admin console pages (A area).",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false
+    },
+    {
+      "id": "O14.5",
+      "epic": "O14",
+      "title": "Org terms + DPA page (controller roles, consent, no-submit, no refunds/period-end, 16+)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O6.7"
+      ],
+      "story": "As a buyer, I want to read the org terms and a DPA before paying.",
+      "genz": "Plain-language summary on top, legal text below.",
+      "ac": [
+        "/legal/organizations page linked from Screen 3 and invoices; lawyer review flagged."
+      ],
+      "tests": [
+        "Links; content present."
+      ],
+      "tech": "web/src/app/(marketing)/legal/organizations/page.tsx.",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false
+    },
+    {
+      "id": "O15.1",
+      "epic": "O15",
+      "title": "Mobile org shell — bottom tab bar (5), collapsed hero, DataTable → card list under md",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [
+        "O1.7"
+      ],
+      "story": "As an admin on a phone, I want the console to feel like an app, not a shrunken desktop.",
+      "genz": "Thumb-zone tabs, swipeable cards, 44px everything.",
+      "ac": [
+        "BottomTabs primitive in @kiwiply/ui; OrgShell uses it <lg; OrgPageHero compact variant; DataTable gets a cards renderer prop used by all org tables; no horizontal scroll at 390px on any org route."
+      ],
+      "tests": [
+        "Visual checks at 390/768/1280; e2e no-overflow assertion per route."
+      ],
+      "tech": "packages/ui (new primitive), web/src/components/org-v2/shell/*, app-v2/common DataTable.",
+      "evidence": [],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": false
+    },
+    {
+      "id": "O15.2",
+      "epic": "O15",
+      "title": "Skeletons + optimistic UI for invite/assign/scope changes with rollback toasts",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "O5.5",
+        "O5.6"
+      ],
+      "story": "As an admin, I want actions to feel instant and failures to be clear.",
+      "genz": "Perceived speed = trust; a rollback toast beats a spinner.",
+      "ac": [
+        "loading.tsx skeletons for all org routes; optimistic updates with server reconciliation; 502 → toast + revert."
+      ],
+      "tests": [
+        "Component tests for optimistic paths."
+      ],
+      "tech": "web/src/app/(org)/org/**/loading.tsx; shared mutate hooks.",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "O15.3",
+      "epic": "O15",
+      "title": "Accessibility pass — keyboard, screen reader labels, contrast, focus order, live regions, reduced motion",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [
+        "O15.1"
+      ],
+      "story": "As a screen-reader user on staff, I want the console fully usable.",
+      "genz": "Accessibility is table stakes for the audience and for university procurement.",
+      "ac": [
+        "axe clean on every org route and /join; all sheets focus-trapped; charts have text alternatives (tables); prefers-reduced-motion respected for confetti."
+      ],
+      "tests": [
+        "axe in e2e; manual SR script documented."
+      ],
+      "tech": "web org-v2 components; packages/ui primitives.",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "O15.4",
+      "epic": "O15",
+      "title": "Dark mode for org surfaces and join flow (theme-v2 tokens)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [
+        "O15.1"
+      ],
+      "story": "As a night-owl admin, I want dark mode like the rest of the app.",
+      "genz": "Dark mode is expected, not premium.",
+      "ac": [
+        "All org routes and /join render with the dark token set; charts adapt; no hard-coded hex (lint)."
+      ],
+      "tests": [
+        "Visual snapshots light/dark; lint rule for hex in org-v2."
+      ],
+      "tech": "web/src/app/globals.css theme-v2 tokens; org-v2 components replace literal colours (e.g. #F1F4FA in OrgShell).",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "O15.5",
+      "epic": "O15",
+      "title": "E2E suite (Playwright) — create org → pay (stub) → invite → join+consent → assign → revoke → leave; CI job",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "O2.3",
+        "O5.5",
+        "O6.3"
+      ],
+      "story": "As the team, I want the walking skeleton protected end to end on every PR.",
+      "genz": "Ship fast without breaking the promise.",
+      "ac": [
+        "Playwright added to web (dev dep, approved); mock-api extended (scripts/mock-api.mjs) or real API with billing off; runs in ci.yml on PRs to develop; 390px and 1280px projects."
+      ],
+      "tests": [
+        "The suite itself; flake budget documented."
+      ],
+      "tech": "web/e2e/org.spec.ts; .github/workflows/ci.yml; scripts/mock-api.mjs.",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "O15.6",
+      "epic": "O15",
+      "title": "Performance budget — org pages LCP <2.5s on 4G, rollup-backed reads, 60s in-process cache for 'today' tiles",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "O7.4"
+      ],
+      "story": "As an admin on mobile data, I want pages that open fast.",
+      "genz": "Speed is retention.",
+      "ac": [
+        "Lighthouse mobile perf ≥85 on /org, /org/team, /org/analytics with 500-member fixture; server timing headers; cache per analytics.md §7."
+      ],
+      "tests": [
+        "Lighthouse CI step; cache unit test."
+      ],
+      "tech": "Next server components + streaming; OrgMetricReadService cache.",
+      "evidence": [],
+      "design": "docs/design/org/analytics.md",
+      "critical": false
+    },
+    {
+      "id": "O10.11",
+      "epic": "O10",
+      "title": "Duplicate-submission guard across consultants and vendors — same posting assigned twice in one org, or the same consultant submitted to the same employer within N days (G39)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O10.5",
+        "O10.8"
+      ],
+      "relates": [
+        "E11.2",
+        "O10.10",
+        "X8.8"
+      ],
+      "supersedes": [],
+      "story": "As a marketer I want a warning when a job I am assigning is already assigned or applied in my org, with who and when, so that two consultants never collide on one posting.",
+      "genz": "The thing bench-sales CRMs sell — done with the consultant able to see it too.",
+      "ac": [
+        "JobAssignmentService.checkDuplicate(orgId, normalized_url, consultantId) → {assignedTo, assignedAt, appliedAt} from job_assignment + consented APPLIED rows (FULL scope only; SUMMARY members contribute counts, never names)",
+        "Bank UI shows 'Already assigned to Priya on 3 Oct' / 'Rahul applied here 12 days ago' with Continue anyway (reason required) or Skip; employer-level rule uses org setting duplicate_window_days (default 30)",
+        "Every override writes org_audit_event DUPLICATE_OVERRIDE; the consultant sees the warning on their Assigned list too"
+      ],
+      "tests": [
+        "DuplicateGuardTest (same posting, same employer, window edges, SUMMARY suppression)",
+        "web bank warning render test"
+      ],
+      "tech": "api service/org/JobAssignmentService; normalized_url from N1.2 resolver; web org bank components",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": false,
+      "benchmark": "G39 — Conrep / StaffSync360 'track every submission to prevent duplicates'"
+    },
+    {
+      "id": "O10.12",
+      "epic": "O10",
+      "title": "Bench availability + aging — consultant-declared available-from date; marketer sees days-on-bench for FULL-paired consultants; reminders go to the consultant (G40)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O10.3",
+        "O6.2",
+        "A5.1"
+      ],
+      "relates": [
+        "H0.3",
+        "O7.7",
+        "X7.2"
+      ],
+      "supersedes": [],
+      "story": "As a consultant I want to set when I am available; as a marketer I want to see who has been waiting longest, so that the bench is worked in the right order without anyone being tracked behind their back.",
+      "genz": "You say when you are free; nobody infers it from your inbox.",
+      "ac": [
+        "consultant_availability (available_from, status AVAILABLE|PLACED|UNAVAILABLE, updated_at) owned by the person in /settings/organizations; ShareField AVAILABILITY added to the consent matrix (O6.1) — FULL only",
+        "Marketer workspace: Bench view sorted by days-on-bench (today − available_from), aging bands 0–14 / 15–30 / 31+; placements (H0.3, Timesheets product) set PLACED automatically",
+        "Reminders (O13.3) to the consultant at setting `org.bench.reminder_days` (default 30 and 60) on bench — never to the org admin; k-anonymity rules (O7.3) apply to any aggregate"
+      ],
+      "tests": [
+        "ShareMatrixTest extended",
+        "AvailabilityAgingTest (bands, PLACED auto-set)",
+        "Playwright consultant sets availability → marketer sees it; revoke hides it"
+      ],
+      "tech": "api domain/org/ConsultantAvailability; web org/marketer/BenchView.tsx + user settings organizations panel",
+      "evidence": [],
+      "design": "docs/design/org/marketer-workspace.md",
+      "critical": false,
+      "benchmark": "G40 — bench-sales aging dashboards (vendor-side, no consent); ours is consultant-declared"
+    },
+    {
+      "id": "O10.13",
+      "epic": "O10",
+      "title": "Work-authorisation status on the consultant profile (self-declared categories only, consent-gated, expiry reminder to the consultant) — P2, pending decision (G41)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "T3.9",
+        "O10.3",
+        "A5.1"
+      ],
+      "relates": [
+        "O6.1",
+        "T3.3",
+        "O10.12"
+      ],
+      "supersedes": [],
+      "story": "As a consultant I can optionally declare my work-authorisation category and its expiry so that my marketer only pitches me for jobs I can take — without Kiwiply ever holding a document number.",
+      "genz": "A category, not a document; yours to delete; the reminder comes to you.",
+      "ac": [
+        "Field work_auth {category enum per T3.9, expires_on optional}; never a document number, never a free-text field; stored on the person, shown to the marketer only under FULL (ShareField WORK_AUTH)",
+        "Expiry reminder at setting `org.work_auth.expiry_reminder_days` (default 90 and 30) before, to the consultant only; the org never receives it; the sensitive-field firewall test (T3.3) extended so the category never reaches AI inputs, telemetry or org exports",
+        "Stays not_started until the user confirms (RECONCILIATION.md D29)"
+      ],
+      "tests": [
+        "ShareMatrixTest + SensitiveFieldFirewallTest extended",
+        "reminder scheduling test"
+      ],
+      "tech": "api domain/org/ConsultantProfile; web settings panel + marketer consultant header chip",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false,
+      "benchmark": "G41 — bench-sales visa filters / expiry alerts; T3.9 sets the rules"
+    },
+    {
+      "id": "O8.6",
+      "epic": "O8",
+      "title": "Org-curated practice sets — an org publishes its own interview questions/guides; members see them in Interview Prep tagged 'From your org'; no member data flows back (G43)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O8.2",
+        "U9.1"
+      ],
+      "relates": [
+        "U9.1",
+        "I9.11",
+        "O8.2"
+      ],
+      "supersedes": [],
+      "story": "As a bootcamp admin I want to publish our interview question set to members so that they practise what we teach, without seeing how any member did.",
+      "genz": "Your school's questions inside the practice you already use — and your answers stay yours.",
+      "ac": [
+        "org_practice_set (title, questions[], tags, published_at, group_id?) CRUD for OWNER/ADMIN/STAFF; markdown questions with optional model answers",
+        "Members see sets in U9 Questions tab under 'From your org' (same pattern as O8.2 shared jobs); practice sessions on them are user-private — the org sees only 'published / N members can see it'",
+        "Unpublish removes the set from members immediately; leaving the org removes access"
+      ],
+      "tests": [
+        "PracticeSetResourceIT (roles, visibility, no results leak)",
+        "Playwright publish → member sees → unpublish"
+      ],
+      "tech": "api domain/org/OrgPracticeSet; web org/practice page + U9 integration",
+      "evidence": [],
+      "design": "docs/design/org/consent-data-sharing.md",
+      "critical": false,
+      "benchmark": "G43 — Big Interview / Yoodli team assignments, Handshake content; ours never reports member results back"
+    },
+    {
+      "status": "done",
+      "relates": [
+        "X1.1"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/src/app/(org)/layout.tsx (session-only gate)"
+      ],
+      "design": "docs/design/org/tenant-model.md",
+      "critical": true,
+      "id": "E2E-O1.9",
+      "epic": "O1",
+      "title": "Org feature flag (dossier.orgs.enabled) + public config endpoint + 404 filter",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "O1.3"
+      ],
+      "story": "As the product owner I want orgs behind one switch (off in prod until the Wave 4 demo passes) so that the console can be built and demoed without exposing it.",
+      "genz": "Ship dark, flip when it's real.",
+      "ac": [
+        "dossier.orgs.enabled (env ORGS_ENABLED, default false; dev/CI true); GET /api/config/public → {orgs, demo} permitAll, Cache-Control public max-age=300, schema test forbids per-user data",
+        "OrgsEnabledFilter returns 404 for /api/orgs/**, /api/join/**, /api/me/orgs/** when off",
+        "When A5.3 ships the key becomes flag.orgs with the same default"
+      ],
+      "tests": [
+        "PublicConfigResourceIT",
+        "OrgsEnabledFilterTest"
+      ],
+      "tech": "api config/application.yml, web/rest/PublicConfigResource.java, config/OrgsEnabledFilter.java, SecurityConfiguration"
+    },
+    {
+      "status": "not_started",
+      "relates": [
+        "X5.9"
+      ],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/org-v2/billing/BillingPage.tsx (all literals)"
+      ],
+      "design": "docs/design/org/billing.md",
+      "critical": false,
+      "id": "E2E-O4.0",
+      "epic": "O4",
+      "title": "Billing-off activation path (dev/CI) + /org/billing 'not connected' state",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "O1.3"
+      ],
+      "story": "As a developer I want an org to reach ACTIVE without Stripe so that every org page can be built and demoed before org billing (Wave 5) exists.",
+      "genz": "The console works end to end in dev on day one; money comes later, honestly labelled.",
+      "ac": [
+        "POST /api/orgs/{id}/activate (OWNER) only when dossier.orgs.dev-activate=true AND StripeGateway.isEnabled()==false, else 404; DRAFT→ACTIVE + audit BILLING_DEV_ACTIVATED",
+        "GET /api/orgs/{id}/billing skeleton → {status, billingEnabled:false, subscription:null, items:[], invoices:[]} (O4.6 fills it)",
+        "BillingPage shows the real org status card + EmptyState 'Billing isn't connected in this environment' / 'Set up billing' CTA; every sample constant and page literal (Enterprise, 72/100, Visa 4242) deleted",
+        "O4.10's test-clock runbook builds on this flag"
+      ],
+      "tests": [
+        "OrgActivationServiceTest (flag matrix)",
+        "vitest BillingPage.test.tsx (three states)"
+      ],
+      "tech": "web/rest/org/OrgBillingResource.java, service/org/OrgActivationService.java, web components/org-v2/billing/BillingPage.tsx, app/api/orgs/[orgId]/billing/route.ts"
+    }
+  ]
+}

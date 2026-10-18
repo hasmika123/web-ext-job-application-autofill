@@ -200,6 +200,18 @@ function mockFetch(handler) {
   try { await p402.profileVersion(); } catch (e) { err402 = e; }
   ok("402 raises an ApiError carrying the status", err402 && err402.status === 402, String(err402));
   ok("402 lifts `code` out of the ProblemDetail", err402 && err402.code === "PRO_REQUIRED", err402 && err402.code);
+  ok("402 without an upgrade block has upgrade null", err402 && err402.upgrade === null);
+  const up402 = { planKey: "PRO", planName: "Pro", interval: "MONTH", amountMinor: 1999, path: "/pricing?plan=PRO" };
+  const fetchUp = mockFetch(() => ({ status: 402, json: { status: 402, code: "PRO_REQUIRED", upgrade: up402 } }));
+  const pUp = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchUp, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let errUp = null;
+  try { await pUp.profileVersion(); } catch (e) { errUp = e; }
+  ok("K7.6: 402 lifts the server-chosen upgrade path", errUp && errUp.upgrade && errUp.upgrade.path === "/pricing?plan=PRO", JSON.stringify(errUp && errUp.upgrade));
+  const fetchEvil = mockFetch(() => ({ status: 402, json: { status: 402, code: "PRO_REQUIRED", upgrade: { path: "https://evil.example/x" } } }));
+  const pEvil = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchEvil, tokenStore: T.memoryTokenStore({ access: "A" }) });
+  let errEvil = null;
+  try { await pEvil.profileVersion(); } catch (e) { errEvil = e; }
+  ok("K7.6: an off-site upgrade path is dropped", errEvil && errEvil.upgrade === null);
 
   /* ---- the gates (Phase 12.4) — the two shapes the upload surfaces read off the error ---- */
   const fetchCap = mockFetch(() => ({
@@ -311,6 +323,16 @@ function mockFetch(handler) {
   const pBugAnon = T.createKiwiplyProvider({ baseUrl: "https://api.test", fetch: fetchBugAnon, tokenStore: T.memoryTokenStore({}) });
   await pBugAnon.submitBugReport({ message: "hi", category: "IDEA" });
   ok("submitBugReport works without a token (no auth header)", fetchBugAnon.calls[0].headers.Authorization === undefined);
+
+  /* ---- APP-E2E U6.1: the server gained statuses (IN_REVIEW, WITHDRAWN) and tracker fields ---- */
+  // The mirror is read-only and the extension only ever writes DRAFT/APPLIED, so a status it does not know
+  // must pass through untouched (never throw, never rewritten) and server-owned fields must never be sent back.
+  for (const st of ["IN_REVIEW", "WITHDRAWN", "SOME_FUTURE_STATUS"]) {
+    const mapped = T.dtoToApplication({ id: 7, company: "Acme", roleTitle: "Eng", status: st, lastEventAt: "2026-10-01T00:00:00Z", ghosted: true, nextStep: { label: "Review offer" }, interviewsCount: 2 });
+    ok("dtoToApplication keeps unknown status " + st, mapped.status === st && mapped.serverId === 7);
+  }
+  const outbound = T.applicationToDto({ serverId: 7, company: "Acme", roleTitle: "Eng", status: "IN_REVIEW", lastEventAt: "x", ghosted: true, nextStep: {}, notesCount: 3 });
+  ok("applicationToDto never sends server-owned tracker fields", outbound.status === "IN_REVIEW" && !("lastEventAt" in outbound) && !("ghosted" in outbound) && !("nextStep" in outbound) && !("notesCount" in outbound));
 
   /* ---- base contract still rejects newly-declared, unimplemented methods ---- */
   let aiThrew = false; try { await base.aiDraft({}); } catch (e) { aiThrew = e.name === "NotSupportedError"; }

@@ -48,6 +48,45 @@ public class AdminAuditService {
     public static final String TARGET_JOB_SOURCE = "JOB_SOURCE";
     public static final String JOB_SOURCE_ADD = "JOB_SOURCE_ADD";
     public static final String JOB_SOURCE_TOGGLE = "JOB_SOURCE_TOGGLE";
+    public static final String TARGET_DEMO = "DEMO";
+    /** Legacy: written while the demo switch lived in the database. Kept so old audit rows still render. */
+    public static final String DEMO_ENABLE = "DEMO_ENABLE";
+    public static final String DEMO_DISABLE = "DEMO_DISABLE";
+    public static final String DEMO_RESET = "DEMO_RESET";
+
+    // Admin AI config (I1.9 / I1.11): one row per runtime AI setting write, one per provider test.
+    public static final String TARGET_AI_SETTING = "AI_SETTING";
+    public static final String AI_CONFIG_CHANGE = "AI_CONFIG_CHANGE";
+    // Generic runtime settings (A5.1): one row per setting write through /api/admin/settings (set, reset or revert).
+    // The AI page keeps AI_CONFIG_CHANGE; both write the same app_setting rows.
+    public static final String TARGET_SETTING = "SETTING";
+    public static final String SETTING_CHANGE = "SETTING_CHANGE";
+    // Platform admin: organizations and hostnames (X1.11). The tenant's own trail gets a matching ADMIN_* row.
+    public static final String TARGET_ORG = "ORG";
+    public static final String ORG_CREATE = "ORG_CREATE";
+    public static final String ORG_SUBDOMAIN_PROVISION = "ORG_SUBDOMAIN_PROVISION";
+    public static final String ORG_OWNER_PASSWORD_RESET = "ORG_OWNER_PASSWORD_RESET";
+    public static final String ORG_ENTERPRISE_SET = "ORG_ENTERPRISE_SET";
+    public static final String ORG_MODULE_SET = "ORG_MODULE_SET";
+    public static final String ORG_HOSTNAME_SUSPEND = "ORG_HOSTNAME_SUSPEND";
+    public static final String ORG_HOSTNAME_RESUME = "ORG_HOSTNAME_RESUME";
+    /** Decision O4, S10: seats of a SHARED organization moved from personal accounts to new enterprise accounts. */
+    public static final String ORG_ACCOUNT_MIGRATE = "ORG_ACCOUNT_MIGRATE";
+    public static final String TARGET_AI_PROVIDER = "AI_PROVIDER";
+    public static final String AI_PROVIDER_TEST = "AI_PROVIDER_TEST";
+    // Subscription module catalog writes (docs/subscriptions, K1.x). HIGH actions carry "risk=HIGH" in the details and a reason.
+    public static final String TARGET_CATALOG = "CATALOG";
+    public static final String CATALOG_SERVICE_CREATE = "CATALOG_SERVICE_CREATE";
+    public static final String CATALOG_SERVICE_UPDATE = "CATALOG_SERVICE_UPDATE";
+    public static final String CATALOG_SERVICE_RETIRE = "CATALOG_SERVICE_RETIRE";
+    public static final String CATALOG_DEPENDENCIES_SET = "CATALOG_DEPENDENCIES_SET";
+    public static final String CATALOG_PRICE_CREATE = "CATALOG_PRICE_CREATE";
+    public static final String CATALOG_PRICE_PUBLISH = "CATALOG_PRICE_PUBLISH";
+    public static final String CATALOG_PRICE_RETIRE = "CATALOG_PRICE_RETIRE";
+    // Billing operations (K8.5): replaying a Stripe event and resolving a reconciler drift row are HIGH and carry a reason.
+    public static final String TARGET_BILLING = "BILLING";
+    public static final String BILLING_EVENT_REPLAY = "BILLING_EVENT_REPLAY";
+    public static final String BILLING_DRIFT_RESOLVE = "BILLING_DRIFT_RESOLVE";
 
     private static final Logger LOG = LoggerFactory.getLogger(AdminAuditService.class);
 

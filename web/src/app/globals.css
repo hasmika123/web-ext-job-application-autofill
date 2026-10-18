@@ -6,6 +6,14 @@
    values → zero visual change). Dark is opt-in via `.dark`/`[data-theme="dark"]`; web does
    not set it yet, so the light palette is unchanged. */
 @import "@kiwiply/ui/styles/tokens.css";
+/* "Kiwiply Bright" - scoped to .theme-v2 (the (marketing) layout wrapper). Landing v2. */
+@import "@kiwiply/ui/styles/theme-v2.css";
+/* Enterprise tenant theme: scoped to .theme-tenant (the (tenant) tree root only). */
+@import "@kiwiply/ui/styles/theme-tenant.css";
+/* The onboarding delight layer's shared motion (SpeechBubble, CardStack, SwipeCard, AnimatedNumber): reduced-motion safe. */
+@import "@kiwiply/ui/styles/delight.css";
+/* ...and the web-only companion motion (the mascot's poses). */
+@import "./onboarding-delight.css";
 
 /* Scan the shared UI package so Tailwind generates the classes used inside @kiwiply/ui
    (e.g. the ResumeUpload form + primitives), which live outside web/src. */
@@ -35,14 +43,172 @@ h3 {
   font-weight: 600;
 }
 
-/* ATS logo marquee — two identical tracks; -50% advances exactly one track for a seamless loop */
-@keyframes marquee {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+/* Landing v2 hero art stage (V2.2y). The art is composed on a fixed 820x700 px design canvas and
+   scaled to FILL whatever width its grid column has: the cell is a size container, the stage's height
+   follows the scale, and the canvas is scaled from its top-left corner with `100cqw / 820px` (typed
+   arithmetic). Browsers without typed arithmetic get a viewport-width ladder of the same scales. */
+/* The art column bleeds past the slide container's right padding (and, on wide screens, up to the
+   viewport edge, capped so the canvas is never scaled above 1x). */
+.hero-art-col { margin-right: -1.5rem; }
+@media (min-width: 1024px) { .hero-art-col { margin-right: -1rem; } }
+@media (min-width: 1360px) {
+  .hero-art-col { margin-right: calc(-1 * min(142px, max(1rem, (100vw - 1320px) / 2 + 2rem))); }
 }
-.animate-marquee {
-  animation: marquee 24s linear infinite;
+/* One "design pixel" of a 1088px-wide marketing band (the content box of a tone band at xl+).
+   Resolved at the use site against the nearest size container (`Section`'s inner column), so
+   absolutely placed art (cutouts, mascots, doodles) scales with its band from md upward. */
+html { --u: calc(100cqw / 1088); }
+/* Generic fixed-composition scaler (same technique as the hero art). `.sc-cell` is a size
+   container; its `.sc-canvas` is laid out at `--cw` x `--ch` design pixels and scaled by
+   `100cqw / --cw`, with `.sc-stage` reserving the scaled height. Usage: ScaledCanvas.tsx. */
+.sc-cell { container-type: inline-size; }
+.sc-stage { position: relative; width: 100%; height: calc(100cqw * var(--ch) / var(--cw)); }
+.sc-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(var(--cw) * 1px);
+  height: calc(var(--ch) * 1px);
+  transform: scale(calc(100cqw / (var(--cw) * 1px)));
+  transform-origin: 0 0;
 }
-@media (prefers-reduced-motion: reduce) {
-  .animate-marquee { animation: none; }
+@supports not (transform: scale(calc(100px / 1px))) {
+  .sc-stage { height: calc(var(--ch) * 0.7px); }
+  .sc-canvas { transform: scale(0.7); }
+}
+.hero-art-cell {
+  container-type: inline-size;
+  max-width: 820px;
+  margin-left: auto;
+}
+.hero-art-stage {
+  --hs: 1;
+  position: relative;
+  width: 100%;
+  height: calc(100cqw * 700 / 820);
+}
+.hero-art-stage > .hero-art-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 820px;
+  height: 700px;
+  transform: scale(calc(100cqw / 820px));
+  transform-origin: top left;
+}
+@supports not (transform: scale(calc(100px / 1px))) {
+  .hero-art-stage { height: calc(700px * var(--hs)); }
+  .hero-art-stage > .hero-art-canvas { transform: scale(var(--hs)); }
+  .hero-art-stage { --hs: 0.5; }
+}
+@media (max-width: 1099.98px) { @supports not (transform: scale(calc(100px / 1px))) { .hero-art-stage { --hs: 0.6; } } }
+@media (min-width: 1100px) { @supports not (transform: scale(calc(100px / 1px))) { .hero-art-stage { --hs: 0.78; } } }
+@media (min-width: 1280px) { @supports not (transform: scale(calc(100px / 1px))) { .hero-art-stage { --hs: 0.86; } } }
+@media (min-width: 1440px) { @supports not (transform: scale(calc(100px / 1px))) { .hero-art-stage { --hs: 0.94; } } }
+
+
+
+
+
+/* Tailwind v4 preflight makes buttons cursor:default; restore the pointer on everything clickable. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="menuitem"],
+  [role="tab"],
+  summary,
+  select:not(:disabled),
+  label[for] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+/* Resume Builder: the green flash on an item or section that was just moved (Swap Section, DECISIONS #31).
+ * ~1.2 s; `FLASH_MS` in app-v3/resume-builder/moveLink.ts clears the attribute at the same moment. Under
+ * prefers-reduced-motion there is no fade: the outline just stays for the same time. */
+@keyframes rb-flash {
+  from {
+    background-color: color-mix(in srgb, var(--color-v2-green) 28%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-v2-green) 70%, transparent);
+  }
+  to {
+    background-color: transparent;
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+[data-flash="true"] {
+  outline: 2px solid var(--color-v2-green);
+  outline-offset: 2px;
+  border-radius: 0.75rem;
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-flash="true"] {
+    outline: none;
+    animation: rb-flash 1.2s ease-out both;
+  }
+}
+/* The canvas item whose Swap Section row is hovered or focused. */
+[data-link="true"] {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-v2-green) 45%, transparent);
+  border-radius: 0.75rem;
+}
+
+/* Onboarding v2 (R1.10, DESIGN 13): a screen change slides 16 px in the direction of travel and fades, 180 ms ease-out;
+ * with reduced motion it is a 120 ms crossfade and the bar jumps (the bar's own transition is `motion-reduce:transition-none`).
+ * The payoff mascot pops once (400 ms); nothing else on these screens moves. */
+@keyframes ob-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes ob-in-forward {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ob-in-back {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes ob-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.ob-screen {
+  animation: ob-fade 120ms ease-out both;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ob-screen[data-dir="forward"] {
+    animation: ob-in-forward 180ms ease-out both;
+  }
+  .ob-screen[data-dir="back"] {
+    animation: ob-in-back 180ms ease-out both;
+  }
+  .ob-pop-in {
+    animation: ob-pop-in 400ms cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+  }
 }

@@ -3,10 +3,13 @@ package com.dossier.api.service;
 import static com.dossier.api.security.SecurityUtils.ACCESS_TOKEN_TYPE;
 import static com.dossier.api.security.SecurityUtils.AUTHORITIES_CLAIM;
 import static com.dossier.api.security.SecurityUtils.JWT_ALGORITHM;
+import static com.dossier.api.security.SecurityUtils.HOSTNAME_CLAIM;
 import static com.dossier.api.security.SecurityUtils.REFRESH_TOKEN_TYPE;
+import static com.dossier.api.security.SecurityUtils.TENANT_CLAIM;
 import static com.dossier.api.security.SecurityUtils.TOKEN_TYPE_CLAIM;
 import static com.dossier.api.security.SecurityUtils.USER_ID_CLAIM;
 
+import com.dossier.api.service.ent.TenantBinding;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
@@ -42,15 +45,20 @@ public class TokenIssuer {
 
     /** Issue an access + refresh pair for the user, recording the refresh jti for rotation. */
     public TokenPair issue(String subject, String authorities, Long userId) {
-        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null);
+        return issue(subject, authorities, userId, null);
+    }
+
+    /** As above, bound to a tenant when {@code binding} is non-null (X1.5): both tokens carry {@code tid} (and {@code hid}). */
+    public TokenPair issue(String subject, String authorities, Long userId, TenantBinding binding) {
+        String accessToken = buildToken(subject, authorities, userId, ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding);
         String family = UUID.randomUUID().toString();
         String refreshJti = UUID.randomUUID().toString();
         refreshTokenService.record(refreshJti, family, userId, Instant.now().plusSeconds(refreshTokenValidityInSeconds));
-        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti);
+        String refreshToken = buildToken(subject, authorities, userId, REFRESH_TOKEN_TYPE, refreshTokenValidityInSeconds, refreshJti, binding);
         return new TokenPair(accessToken, refreshToken);
     }
 
-    private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti) {
+    private String buildToken(String subject, String authorities, Long userId, String tokenType, long validityInSeconds, String jti, TenantBinding binding) {
         Instant now = Instant.now();
         Instant validity = now.plus(validityInSeconds, ChronoUnit.SECONDS);
         JwtClaimsSet.Builder builder = JwtClaimsSet.builder()
@@ -61,6 +69,10 @@ public class TokenIssuer {
             .claim(TOKEN_TYPE_CLAIM, tokenType);
         if (userId != null) {
             builder.claim(USER_ID_CLAIM, userId);
+        }
+        if (binding != null && binding.orgId() != null) {
+            builder.claim(TENANT_CLAIM, binding.orgId());
+            if (binding.hostnameId() != null) builder.claim(HOSTNAME_CLAIM, binding.hostnameId());
         }
         if (jti != null) {
             builder.id(jti);

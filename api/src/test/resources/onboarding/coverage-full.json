@@ -1,0 +1,39 @@
+{
+  "name": "full",
+  "note": "Every direct key but the cover letter and the bio-side skills text, five experiences (capped at 3 x 5), three educations (capped at 2 x 4) and skills (1). contact 12 = 11 keys + fullName; work 16 = summary 1 + 3 x 5; preferences 8; eeo 5 (answered).",
+  "bio": {
+    "firstName": "Priya",
+    "lastName": "Sharma",
+    "preferredName": "Pri",
+    "email": "priya@example.com",
+    "phone": "+1 512 555 0100",
+    "addressLine1": "100 Congress Ave",
+    "addressLine2": "Apt 4",
+    "city": "Austin",
+    "state": "TX",
+    "postalCode": "78701",
+    "country": "United States",
+    "linkedin": "https://linkedin.com/in/priya",
+    "github": "https://github.com/priya",
+    "website": "https://priya.example.com",
+    "authorizedToWork": "Yes",
+    "requireSponsorship": "No",
+    "desiredSalary": "$120,000",
+    "noticePeriod": "2 weeks",
+    "earliestStartDate": "2026-11-01",
+    "workPreference": "Hybrid",
+    "willingToRelocate": "No",
+    "referralSource": "LinkedIn",
+    "summary": "Product designer with eight years of experience.",
+    "gender": "Woman",
+    "race": "Asian",
+    "ethnicity": "No",
+    "veteranStatus": "No",
+    "disabilityStatus": "Prefer not to say"
+  },
+  "counts": { "experience": 5, "education": 3, "skills": 12 },
+  "expected": {
+    "fields": 53,
+    "groups": { "contact": 12, "links": 3, "work": 16, "education": 8, "skills": 1, "preferences": 8, "eeo": 5 }
+  }
+}

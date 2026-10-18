@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge, Field, Input, Switch, useToast } from "@/components/ui";
@@ -22,7 +22,7 @@ export interface InboxView {
   available: boolean;
   connected: boolean;
   address: string | null;
-  status: "CONNECTED" | "NEEDS_RECONNECT" | "ERROR" | null;
+  status: "CONNECTED" | "NEEDS_RECONNECT" | "ERROR" | "NO_ENTITLEMENT" | null;
   connectedAt: string | null;
   lastCheckedAt: string | null;
   lastError: string | null;
@@ -30,7 +30,35 @@ export interface InboxView {
   messages: number;
   /** Email me about interviews and offers (14.6). */
   notifyEmail: boolean;
+  /** Consultant workspace only: why a stopped connection is not being read ("Your organization no longer includes inbox tracking."). */
+  stoppedNote?: string | null;
+  /** Demo stack only: the mailbox is a built-in sample; `sandboxAddress` is the one address it accepts (a test value). */
+  sandbox?: boolean;
+  sandboxAddress?: string | null;
 }
+
+/** Where the component talks to. The personal Settings page uses the defaults; the consultant workspace passes its tenant-bound routes. */
+export interface InboxEndpoints {
+  connect: string;
+  notify: string;
+}
+
+/** The in-app links of this component. The personal Settings page uses the defaults; a tenant workspace passes tenant-relative ones. */
+export interface InboxLinks {
+  privacy: string;
+  profile: string;
+  pricing: string;
+  /** What the text calls the product: "Kiwiply" on the personal pages, the organization's own wording in a workspace. */
+  appName: string;
+  /** "Kiwiply account" on the personal pages, "account" in a workspace (as in "Sent to your account's email"). */
+  accountName: string;
+  /** The name suggested for the Google app password. */
+  passwordLabel: string;
+}
+
+const PERSONAL_LINKS: InboxLinks = { privacy: "/privacy", profile: "/profile", pricing: "/pricing", appName: "Kiwiply", accountName: "Kiwiply account", passwordLabel: "Kiwiply" };
+
+const PERSONAL_ENDPOINTS: InboxEndpoints = { connect: "/api/inbox", notify: "/api/inbox/notify" };
 
 const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } as const;
 
@@ -46,9 +74,29 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
   );
 }
 
+const sentenceCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 const external = "font-semibold text-accent-deep underline-offset-2 hover:underline";
 
-export default function InboxConnect({ isPro, view }: { isPro: boolean; view: InboxView | null }) {
+export default function InboxConnect({
+  isPro,
+  view,
+  endpoints = PERSONAL_ENDPOINTS,
+  locked,
+  onChanged,
+  links = PERSONAL_LINKS,
+}: {
+  /** Whether inbox tracking is included for this person (their Pro plan, or in a workspace their organization's license). */
+  isPro: boolean;
+  view: InboxView | null;
+  endpoints?: InboxEndpoints;
+  /** What to show instead of the Pro offer when it is not included (the workspace says so in its own words). */
+  locked?: ReactNode;
+  /** Called after a connect or disconnect; the default refreshes the server-rendered page. */
+  onChanged?: () => void;
+  /** Where the in-text links go. A workspace of an organization passes its OWN host's pages (privacy policy, profile), never the Kiwiply site's. */
+  links?: InboxLinks;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [address, setAddress] = useState(view?.address ?? "");
@@ -60,7 +108,7 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
 
   async function toggleNotify(on: boolean) {
     setNotifyEmail(on);
-    const res = await fetch("/api/inbox/notify", {
+    const res = await fetch(endpoints.notify, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ email: on }),
@@ -71,15 +119,18 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
     }
   }
 
+  const changed = () => (onChanged ? onChanged() : router.refresh());
+
+  if (!isPro && locked) return <>{locked}</>;
   if (!isPro) {
     return (
       <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-6 shadow-[var(--shadow)]">
         <h2 className="font-display text-lg font-semibold text-ink">Let your inbox update your board</h2>
         <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-          Connect the Gmail you apply from and Kiwiply reads replies from employers — confirmations, interview invites,
+          Connect the Gmail you apply from and {links.appName}{" "}reads replies from employers — confirmations, interview invites,
           rejections, offers — and moves each application along for you. It only ever reads.
         </p>
-        <Link href="/#pricing" className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
+        <Link href={links.pricing} className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
           Part of Pro →
         </Link>
       </div>
@@ -92,25 +143,25 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/inbox", {
+    const res = await fetch(endpoints.connect, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ address, appPassword: password }),
     });
-    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
     setBusy(false);
     if (!res.ok) {
-      setError(body.message ?? "Connecting didn't work. Please try again.");
+      setError(body.message ?? body.error ?? "Connecting didn't work. Please try again.");
       return;
     }
     setPassword("");
     toast({ variant: "success", title: "Inbox connected." });
-    router.refresh();
+    changed();
   }
 
   async function disconnect() {
     setBusy(true);
-    const res = await fetch("/api/inbox", { method: "DELETE" });
+    const res = await fetch(endpoints.connect, { method: "DELETE" });
     setBusy(false);
     setConfirming(false);
     if (!res.ok) {
@@ -119,14 +170,14 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
     }
     setAddress("");
     toast({ variant: "success", title: "Inbox disconnected." });
-    router.refresh();
+    changed();
   }
 
   const readOnly = (
     <p className="text-[12.5px] leading-relaxed text-muted">
-      Kiwiply only reads. We never send, move or delete mail — and you can cut us off at any time by deleting the app
+      {sentenceCase(links.appName)} only reads. We never send, move or delete mail — and you can cut us off at any time by deleting the app
       password in your Google account. Mail we read is kept for 12 months after it was sent, then deleted. See the{" "}
-      <Link href="/privacy" className="underline">
+      <Link href={links.privacy} className="underline">
         Privacy Policy
       </Link>
       .
@@ -140,7 +191,13 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
         <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[15px] font-bold text-ink">{view.address}</span>
-            {view.status === "ERROR" ? <Badge variant="review">Having trouble</Badge> : <Badge>Connected</Badge>}
+            {view.status === "ERROR" ? (
+              <Badge variant="review">Having trouble</Badge>
+            ) : view.status === "NO_ENTITLEMENT" ? (
+              <Badge variant="review">Stopped</Badge>
+            ) : (
+              <Badge>Connected</Badge>
+            )}
           </div>
           <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-[13px]">
             {view.connectedAt && (
@@ -161,12 +218,19 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
               {view.lastError} We&apos;ll keep trying.
             </p>
           )}
-          <p className="mt-3 text-[13px] text-ink-soft">We check it every 15 minutes, the inbox and the sent mail.</p>
+          {view.status === "NO_ENTITLEMENT" ? (
+            <p role="status" data-inbox-stopped className="mt-3 text-[13px] text-ink-soft">
+              {view.stoppedNote ?? "Inbox tracking is no longer included, so nothing is being read."} Nothing is being read from this Gmail. You can disconnect it below; if it is included again, reading
+              starts again by itself.
+            </p>
+          ) : (
+            <p className="mt-3 text-[13px] text-ink-soft">We check it every 15 minutes, the inbox and the sent mail.</p>
+          )}
 
           <div className="mt-4 border-t border-line pt-4">
             <Switch
               label="Email me about interviews and offers"
-              description="Sent to your Kiwiply account's email, not this Gmail. Every other update shows under Notifications."
+              description={`Sent to your ${links.accountName}'s email, not this Gmail. Every other update shows under Notifications.`}
               checked={notifyEmail}
               onCheckedChange={(v) => void toggleNotify(v)}
             />
@@ -176,7 +240,7 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
             {confirming ? (
               <div className="flex flex-col gap-3">
                 <p className="text-[13px] text-ink">
-                  Disconnecting deletes the saved app password and any mail Kiwiply has read from this inbox. To be sure we
+                  Disconnecting deletes the saved app password and any mail {links.appName}{" "}has read from this inbox. To be sure we
                   can&apos;t sign in again, also delete the app password in{" "}
                   <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className={external}>
                     your Google account
@@ -193,7 +257,7 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
                 </div>
               </div>
             ) : (
-              <button type="button" onClick={() => setConfirming(true)} className="text-[13px] font-semibold text-danger hover:underline">
+              <button type="button" onClick={() => setConfirming(true)} className="text-[13px] font-semibold text-danger-text hover:underline">
                 Disconnect this inbox
               </button>
             )}
@@ -228,7 +292,7 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
             create a new Gmail
           </a>{" "}
           and apply from it. Put it as the email on your{" "}
-          <Link href="/profile" className={external}>
+          <Link href={links.profile} className={external}>
             profile
           </Link>{" "}
           so autofill uses it.
@@ -245,12 +309,18 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
           <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className={external}>
             App passwords
           </a>
-          , name it &ldquo;Kiwiply&rdquo;, and copy the 16 letters Google shows. It&apos;s shown once.
+          , name it &ldquo;{links.passwordLabel}&rdquo;, and copy the 16 letters Google shows. It&apos;s shown once.
         </Step>
       </ol>
 
       <form onSubmit={(e) => void connect(e)} className="flex flex-col gap-4 rounded-[var(--radius-lg)] border border-line bg-paper p-5 shadow-[var(--shadow)]">
         <div className="text-[14px] font-semibold text-ink">4. Connect it</div>
+        {view.sandbox && view.sandboxAddress ? (
+          <p data-inbox-sandbox className="rounded-[var(--radius)] border border-line bg-paper-2 px-3 py-2 text-[12.5px] text-ink-soft">
+            This is a demo workspace, so it has a sample mailbox instead of a real Gmail. Use the address <b className="font-semibold text-ink">{view.sandboxAddress}</b> and any 16 letters as the app
+            password.
+          </p>
+        ) : null}
         <Field label="Gmail address" htmlFor="inbox-address">
           <Input
             id="inbox-address"
@@ -275,7 +345,7 @@ export default function InboxConnect({ isPro, view }: { isPro: boolean; view: In
           />
         </Field>
         {error && (
-          <p role="alert" className="text-[13px] font-medium text-danger">
+          <p role="alert" className="text-[13px] font-medium text-danger-text">
             {error}
           </p>
         )}

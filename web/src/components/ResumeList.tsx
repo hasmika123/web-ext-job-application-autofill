@@ -32,6 +32,32 @@ export interface Resume {
   starred?: boolean | null;
   defaultResume?: boolean | null;
   parsedJson?: string | null;
+  /** `BUILT` = authored in the Resume Builder (has a document); `UPLOADED` = a file. Absent on older APIs. */
+  kind?: "BUILT" | "UPLOADED" | null;
+  templateId?: string | null;
+  /** BUILT only (R0.6): the document's content hash, and the hash of the last exported PDF. */
+  contentHash?: string | null;
+  exportedHash?: string | null;
+  exportedAt?: string | null;
+  /** Resume metadata (R3.9). All optional: an older API sends none of them. */
+  /** Last modified (the resume row's `updated_at`); null on rows that predate it. */
+  updatedAt?: string | null;
+  /** The web's word for `defaultResume` (same value). */
+  primary?: boolean | null;
+  target?: string | null;
+  tags?: string[] | null;
+  role?: "MASTER" | "TAILORED" | null;
+  /** Derived server-side: `ARCHIVED` | `DRAFT` | `ACTIVE`. */
+  lifecycle?: "ARCHIVED" | "DRAFT" | "ACTIVE" | null;
+  createdBy?: { login: string; label: string } | null;
+  updatedBy?: { login: string; label: string } | null;
+  shareWithOrg?: boolean | null;
+  /** BUILT only (R3.7): the stored PDF's job state. Absent on an older API. */
+  pdf?: { status: "NONE" | "PENDING" | "RUNNING" | "READY" | "FAILED" | "STALE"; hash?: string | null; error?: string | null } | null;
+  /** BUILT only (R2.5): the last Resume Score (0-100) the editor's save stored; null/absent until the first scored save. */
+  score?: number | null;
+  /** BUILT only (R3.13): the render hash the card thumbnail shows; null/absent until the first PDF job made one. */
+  thumbHash?: string | null;
 }
 
 function statusBadge(status?: string | null) {
@@ -142,7 +168,7 @@ function Row({
     <li
       {...cardClick}
       className={cn(
-        "group flex flex-wrap items-center gap-4 rounded-[var(--radius-lg)] border bg-paper p-4 shadow-[var(--shadow)] transition-[border-color,box-shadow]",
+        "group flex items-center gap-3 rounded-[var(--radius-lg)] border bg-paper p-3.5 shadow-[var(--shadow)] transition-[border-color,box-shadow] sm:flex-wrap sm:gap-4 sm:p-4",
         selected ? "border-accent ring-1 ring-accent" : "border-line",
         archived && "opacity-60", // greyed out — de-emphasized vs. active resumes
         onEdit && "cursor-pointer hover:border-accent hover:shadow-[var(--shadow-lg)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
@@ -159,7 +185,7 @@ function Row({
           onKeyDown={(e) => e.stopPropagation()}
           aria-label={`Select ${resume.label}`}
           className={cn(
-            "peer absolute inset-0 z-[1] m-auto h-4 w-4 accent-[var(--color-accent)] transition-opacity",
+            "peer absolute inset-0 z-[1] m-auto h-5 w-5 accent-[var(--color-accent)] transition-opacity",
             selected || anySelected
               ? "opacity-100"
               : "pointer-events-none opacity-0 focus-visible:opacity-100 group-hover/pick:pointer-events-auto group-hover/pick:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:opacity-100",
@@ -175,12 +201,18 @@ function Row({
           <FileIcon />
         </span>
       </span>
-      <div className="min-w-[160px] flex-1">
+      <div className="min-w-0 flex-1 sm:min-w-[160px]">
         <div className="flex items-center gap-2 text-[15px] font-bold text-ink">
           <span className="min-w-0 flex-1 truncate" title={resume.label}>{resume.label}</span>
           {!archived && badge && <Badge variant={badge.variant}>{badge.label}</Badge>}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted">
+          {isDefault && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-deep sm:hidden">
+              <CheckIcon className="h-3 w-3" strokeWidth={3} />
+              Default
+            </span>
+          )}
           {formatDate(resume.createdAt, display) && <span>Added {formatDate(resume.createdAt, display)}</span>}
           {/* Usage as a distinct pill so it isn't missed (it also gates deletion). */}
           <span
@@ -202,7 +234,7 @@ function Row({
         )}
       </div>
       {isDefault && (
-        <span className="inline-flex shrink-0 self-center items-center gap-1 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-bold text-accent-deep">
+        <span className="hidden shrink-0 self-center items-center gap-1 rounded-full bg-accent-soft sm:inline-flex px-2 py-0.5 text-[11px] font-bold text-accent-deep">
           <CheckIcon className="h-3 w-3" strokeWidth={3} />
           Default
         </span>
@@ -224,7 +256,7 @@ function Row({
           aria-label={resume.starred ? "Unstar" : "Star"}
           title={resume.starred ? "Unstar" : "Star"}
           className={cn(
-            "grid h-8 w-8 place-items-center rounded-full transition-colors hover:bg-paper-2 disabled:opacity-50",
+            "grid h-10 w-10 place-items-center rounded-full transition-colors hover:bg-paper-2 disabled:opacity-50 sm:h-8 sm:w-8",
             resume.starred ? "text-[color:var(--color-accent-deep)]" : "text-muted hover:text-ink",
           )}
         >
@@ -237,7 +269,7 @@ function Row({
             <span
               aria-label="More actions"
               title="More actions"
-              className="grid h-8 w-8 place-items-center rounded-full text-lg leading-none text-muted transition-colors hover:bg-paper-2 hover:text-ink"
+              className="grid h-10 w-10 place-items-center rounded-full text-lg leading-none text-muted transition-colors hover:bg-paper-2 hover:text-ink sm:h-8 sm:w-8"
             >
               ⋯
             </span>
@@ -526,7 +558,7 @@ export default function ResumeList({
                 Restore
               </button>
             )}
-            <button onClick={bulkDelete} className="rounded-lg border border-line bg-paper px-3 py-1.5 text-[12.5px] font-semibold text-danger hover:bg-paper-2">
+            <button onClick={bulkDelete} className="rounded-lg border border-line bg-paper px-3 py-1.5 text-[12.5px] font-semibold text-danger-text hover:bg-paper-2">
               Delete
             </button>
             <button onClick={() => setSelected(new Set())} className="rounded-lg px-3 py-1.5 text-[12.5px] font-semibold text-muted hover:text-ink">

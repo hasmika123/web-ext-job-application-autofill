@@ -1,0 +1,35 @@
+{
+  "_comment": "The demo organization, as DemoOrgSeeder (api) seeds it. Shared on purpose: DemoOrgSeederIT diffs this file against the seed, and scripts/mock-api.mjs serves it under /api/orgs/** so `npm run dev:demo` shows the same org as the real stack. Change both together.",
+  "org": {
+    "id": 1,
+    "slug": "demo-bootcamp",
+    "name": "Demo Bootcamp",
+    "type": "BOOTCAMP",
+    "status": "ACTIVE",
+    "timezone": "America/Chicago",
+    "sizeBand": "51_200",
+    "country": "US"
+  },
+  "owner": "demo-org",
+  "jobSeeker": { "login": "demo", "name": "Priya Sharma", "group": "Cohort 26-A", "scope": "SUMMARY" },
+  "groups": [
+    { "id": 1, "name": "Cohort 26-A", "kind": "COHORT", "sortOrder": 0 },
+    { "id": 2, "name": "Cohort 26-B", "kind": "COHORT", "sortOrder": 1 }
+  ],
+  "people": [
+    { "login": "demo-bc-marcus", "first": "Marcus", "last": "Webb", "role": "STAFF", "group": "Cohort 26-A", "status": "ACTIVE", "scope": "NONE" },
+    { "login": "demo-bc-elena", "first": "Elena", "last": "Rossi", "role": "STAFF", "group": "Cohort 26-B", "status": "ACTIVE", "scope": "NONE" },
+    { "login": "demo-bc-aarav", "first": "Aarav", "last": "Mehta", "role": "MEMBER", "group": "Cohort 26-A", "status": "ACTIVE", "scope": "SUMMARY" },
+    { "login": "demo-bc-bela", "first": "Bela", "last": "Kovacs", "role": "MEMBER", "group": "Cohort 26-A", "status": "ACTIVE", "scope": "SUMMARY" },
+    { "login": "demo-bc-chen", "first": "Chen", "last": "Wei", "role": "MEMBER", "group": "Cohort 26-A", "status": "ACTIVE", "scope": "SUMMARY" },
+    { "login": "demo-bc-dana", "first": "Dana", "last": "Okafor", "role": "MEMBER", "group": "Cohort 26-A", "status": "ACTIVE", "scope": "SUMMARY" },
+    { "login": "demo-bc-emil", "first": "Emil", "last": "Novak", "role": "MEMBER", "group": "Cohort 26-A", "status": "ACTIVE", "scope": "SUMMARY" },
+    { "login": "demo-bc-fatima", "first": "Fatima", "last": "Zahra", "role": "MEMBER", "group": "Cohort 26-A", "status": "ACTIVE", "scope": "NONE" },
+    { "login": "demo-bc-gabriel", "first": "Gabriel", "last": "Santos", "role": "MEMBER", "group": "Cohort 26-B", "status": "ACTIVE", "scope": "SUMMARY" },
+    { "login": "demo-bc-hana", "first": "Hana", "last": "Suzuki", "role": "MEMBER", "group": "Cohort 26-B", "status": "ACTIVE", "scope": "SUMMARY" },
+    { "login": "demo-bc-ivan", "first": "Ivan", "last": "Petrov", "role": "MEMBER", "group": "Cohort 26-B", "status": "ACTIVE", "scope": "SUMMARY" },
+    { "login": "demo-bc-jada", "first": "Jada", "last": "Brooks", "role": "MEMBER", "group": "Cohort 26-B", "status": "ACTIVE", "scope": "SUMMARY" },
+    { "login": "demo-bc-kofi", "first": "Kofi", "last": "Mensah", "role": "MEMBER", "group": "Cohort 26-B", "status": "ACTIVE", "scope": "NONE" },
+    { "login": "demo-bc-lena", "first": "Lena", "last": "Fischer", "role": "MEMBER", "group": "Cohort 26-B", "status": "INVITED", "scope": "NONE" }
+  ]
+}

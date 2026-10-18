@@ -1,34 +1,11 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { serverApiFetch } from "@/lib/api";
+import OverviewPage, { type OverviewKpis } from "@/components/admin-v3/overview/OverviewPage";
 
 export const metadata: Metadata = {
-  title: "Admin · Kiwiply",
+  title: "Admin",
   robots: { index: false, follow: false },
 };
-
-interface OverviewKpis {
-  totalUsers: number;
-  activationRatePct: number;
-  signups7d: number;
-  activeUsers7d: number;
-}
-
-type Section = { title: string; desc: string; status: "Live" | "Soon"; href?: string };
-
-// The admin console build-out (Phase 9). Each lights up as its phase lands; this Overview
-// will gain real KPIs in A3 (business analytics).
-const SECTIONS: Section[] = [
-  { title: "Users", desc: "Browse accounts; activate, reset, roles, force-logout, delete.", status: "Live", href: "/admin/users" },
-  { title: "AI usage", desc: "Per-user drafting usage by month. Quota overrides next.", status: "Live", href: "/admin/ai" },
-  { title: "Job sources", desc: "Job boards daily job matches read; last read, add, switch off.", status: "Live", href: "/admin/job-sources" },
-  { title: "Security & sessions", desc: "Active refresh-token families; revoke / force logout.", status: "Soon" },
-  { title: "Analytics", desc: "Signups, activation rate, active users, funnel.", status: "Live", href: "/admin/analytics" },
-  { title: "Email", desc: "Newsletter subscribers, consent, CSV export.", status: "Live", href: "/admin/subscribers" },
-  { title: "Bug reports", desc: "Triage queue for reports from web + extension.", status: "Live", href: "/admin/bug-reports" },
-  { title: "System", desc: "Health, metrics, log levels, build info (read-only).", status: "Live", href: "/admin/system" },
-  { title: "Audit log", desc: "Every admin action and reason-gated PII access.", status: "Live", href: "/admin/audit" },
-];
 
 export default async function AdminOverviewPage() {
   let kpis: OverviewKpis | null = null;
@@ -36,73 +13,5 @@ export default async function AdminOverviewPage() {
   if (res.ok) {
     kpis = (await res.json().catch(() => null)) as OverviewKpis | null;
   }
-
-  return (
-    <div className="mx-auto max-w-5xl">
-      <header className="mb-6">
-        <h1 className="font-display text-[26px] font-bold tracking-tight text-ink">Admin overview</h1>
-        <p className="mt-1 text-sm text-ink-soft">Operate Kiwiply — accounts, AI usage, security, comms, and the audit trail.</p>
-      </header>
-
-      {kpis && (
-        <div className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Kpi label="Total users" value={String(kpis.totalUsers)} />
-          <Kpi label="Activation rate" value={`${kpis.activationRatePct}%`} />
-          <Kpi label="Signups (7d)" value={String(kpis.signups7d)} />
-          <Kpi label="Active (7d)" value={String(kpis.activeUsers7d)} />
-        </div>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {SECTIONS.map((s) => {
-          const inner = (
-            <>
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="text-[15px] font-semibold text-ink">{s.title}</h2>
-                <StatusPill status={s.status} />
-              </div>
-              <p className="mt-2 text-[13px] leading-relaxed text-ink-soft">{s.desc}</p>
-            </>
-          );
-          return s.href ? (
-            <Link
-              key={s.title}
-              href={s.href}
-              className="rounded-[var(--radius)] border border-line bg-paper p-5 transition-colors hover:border-ink"
-            >
-              {inner}
-            </Link>
-          ) : (
-            <div key={s.title} className="rounded-[var(--radius)] border border-line bg-paper p-5">
-              {inner}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function Kpi({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[var(--radius)] border border-line bg-paper p-5">
-      <div className="text-[11px] uppercase tracking-wide text-ink-soft">{label}</div>
-      <div className="mt-1 font-display text-2xl font-bold text-ink">{value}</div>
-    </div>
-  );
-}
-
-function StatusPill({ status }: { status: Section["status"] }) {
-  const live = status === "Live";
-  return (
-    <span
-      className={
-        live
-          ? "rounded-full bg-accent px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-on-accent"
-          : "rounded-full bg-paper-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink-soft"
-      }
-    >
-      {status}
-    </span>
-  );
+  return <OverviewPage kpis={kpis} />;
 }

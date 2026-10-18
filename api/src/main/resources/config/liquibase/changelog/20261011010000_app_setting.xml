@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Phase demo - a tiny key/value table for switches an admin flips at runtime.
+
+        First (and so far only) key: `demo.enabled` - whether the public demo accounts can be opened
+        from the login page. Seeded `false`: the feature is OFF until someone turns it on, either
+        from the admin System page or with
+            UPDATE app_setting SET setting_value = 'true' WHERE setting_key = 'demo.enabled';
+        (the API re-reads the table every few seconds, so a SQL change needs no restart).
+        Additive; no data migration.
+    -->
+    <changeSet id="20261011010000-1" author="dossier">
+        <createTable tableName="app_setting">
+            <column name="setting_key" type="varchar(100)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="setting_value" type="varchar(1000)"/>
+            <column name="updated_by" type="varchar(50)"/>
+            <column name="updated_date" type="${datetimeType}"/>
+        </createTable>
+        <insert tableName="app_setting">
+            <column name="setting_key" value="demo.enabled"/>
+            <column name="setting_value" value="false"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>

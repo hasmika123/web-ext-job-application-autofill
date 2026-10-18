@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Job Matches page (branch ent-talent-consultant). Two tables, both the consultant's OWN rows (nobody else reads or writes them):
+          cws_match_view     the matches the consultant opened with "View Match" (first view time; drives the "Viewed Matches" tile)
+          cws_match_interest the matches the consultant pressed "Express Interest" on (does NOT create an application; the marketer reacts later)
+        A "match" is requirement_match, whose tenant-safe unique key is (org_id, requirement_id, consultant_id), so the composite FK points at that key.
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FKs, every secondary index starts with org_id, DATETIME(6) UTC,
+        additive, empty rollback, no JSON columns, no sensitive columns (the interest note is scanned by the PII guard before it is stored).
+    -->
+    <changeSet id="ent-cws-6-cws_match_view" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_match_view"/></not></preConditions>
+        <createTable tableName="cws_match_view">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="viewed_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_match_view" baseColumnNames="org_id" constraintName="fk_cws_match_view_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_match_view" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_match_view_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_match_view" baseColumnNames="org_id, requirement_id, consultant_id" constraintName="fk_cws_match_view_match" referencedTableName="requirement_match" referencedColumnNames="org_id, requirement_id, consultant_id"/>
+        <addUniqueConstraint tableName="cws_match_view" columnNames="org_id, consultant_id, requirement_id" constraintName="uk_cws_match_view"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-6-cws_match_interest" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_match_interest"/></not></preConditions>
+        <createTable tableName="cws_match_interest">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(500)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_match_interest" baseColumnNames="org_id" constraintName="fk_cws_match_interest_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_match_interest" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_match_interest_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_match_interest" baseColumnNames="org_id, requirement_id, consultant_id" constraintName="fk_cws_match_interest_match" referencedTableName="requirement_match" referencedColumnNames="org_id, requirement_id, consultant_id"/>
+        <addUniqueConstraint tableName="cws_match_interest" columnNames="org_id, consultant_id, requirement_id" constraintName="uk_cws_match_interest"/>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

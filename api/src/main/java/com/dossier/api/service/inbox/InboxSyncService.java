@@ -252,7 +252,15 @@ public class InboxSyncService {
         row.setJobMail(job);
         if (job) {
             String text = MailText.of(m);
-            row.setBodyText(text.isBlank() ? null : text);
+            // Never store a sensitive value: on a hit the headers stay, the value is replaced in subject and body, and the calendar fields are not kept.
+            MailTextGuard.Stored kept = MailTextGuard.forStorage(row.getSubject(), text);
+            if (kept.redacted()) row.setSubject(cap(kept.subject(), 500));
+            row.setBodyText(kept.body().isBlank() ? null : kept.body());
+            if (InboxMessage.IN.equals(direction) && !kept.redacted()) {
+                // For interview invitations: the zone the sender was in, and the few fields of a calendar part (the calendar file itself is not kept).
+                row.setSentZone(MailCalendar.offsetOf(header(m, "Date")));
+                row.setCalendarEvent(MailCalendar.eventJson(m));
+            }
         }
         messages.save(row);
     }

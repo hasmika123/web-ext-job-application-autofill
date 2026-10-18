@@ -1,5 +1,6 @@
 import { apiUrl } from "@/lib/config";
 import { getAccessToken } from "@/lib/auth";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * Per-application resume attachment (the one-off PDF actually submitted, kept out of the resume
@@ -48,6 +49,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   if (res.status === 401) {
     return Response.json({ error: "Your session expired — please sign in again." }, { status: 401 });
   }
+  const demo = await demoReadOnly(res);
+  if (demo) return demo;
   if (res.status === 404) {
     return Response.json({ error: "Application not found." }, { status: 404 });
   }

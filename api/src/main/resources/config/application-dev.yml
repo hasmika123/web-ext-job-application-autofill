@@ -116,6 +116,12 @@ jhipster:
 # ===================================================================
 
 dossier:
+  # acme.localhost names a tenant in local development only (production: false, application.yml).
+  tenant-host:
+    allow-localhost-tenants: true
+  # Organization features are ON for local development (production leaves ORGS_ENABLED unset = off).
+  orgs:
+    enabled: ${ORGS_ENABLED:true}
   # Billing (Phase 12). Blank secret key = billing disabled, which is the normal local state:
   # the API starts, /api/billing/me reports FREE + billingEnabled:false, and checkout/portal
   # return 503 BILLING_DISABLED. To work on billing locally, export these from your Stripe
@@ -138,7 +144,8 @@ dossier:
     # which is how "unset" is expressed here.
     managed-payments: ${STRIPE_MANAGED_PAYMENTS:}
     automatic-tax: ${STRIPE_AUTOMATIC_TAX:false}
-  # Local dev points at MinIO (docker compose -f src/main/docker/minio.yml up -d).
+  # Local dev stores files on disk (~/.dossier/uploads) by default. To exercise the S3 driver
+  # against MinIO: docker compose -f src/main/docker/minio.yml up -d, then DOSSIER_STORAGE_DRIVER=s3.
   storage:
     endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
     region: ${STORAGE_REGION:auto}

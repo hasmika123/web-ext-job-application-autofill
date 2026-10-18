@@ -8,7 +8,7 @@ import { cn } from "./cn";
  * Tailwind classes resolve against the shared tokens (see styles/tokens.css).
  */
 export const inputClass =
-  "w-full border border-line bg-paper rounded-[var(--radius)] px-[13px] py-[11px] " +
+  "min-h-11 sm:min-h-0 w-full border border-line bg-paper rounded-[var(--radius)] px-[13px] py-[11px] " +
   "text-[16px] sm:text-sm font-body text-ink outline-none placeholder:text-muted " +
   "focus:border-accent focus:shadow-[0_0_0_3px_var(--color-accent-soft)] " +
   "aria-[invalid=true]:border-danger aria-[invalid=true]:focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-danger)_22%,transparent)] " +

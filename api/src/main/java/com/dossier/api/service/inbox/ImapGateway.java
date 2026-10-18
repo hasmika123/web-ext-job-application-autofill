@@ -42,4 +42,17 @@ public interface ImapGateway {
 
     /** The account's Sent folder, by its {@code \Sent} flag, else a known Gmail name; null if none. */
     String sentFolder(Store store) throws MessagingException;
+
+    /**
+     * True only for the built-in sample mailbox of the demo stack ({@code DemoImapGateway}): no real mailbox can be reached through it, so shared
+     * demo accounts may "connect" in it. Always false for a gateway that talks to a real server.
+     */
+    default boolean isDemoSandbox() {
+        return false;
+    }
+
+    /** The one address the demo sandbox accepts (a test value from the demo fixture), shown on the demo stack's page; null for a real gateway. */
+    default String sandboxAddress() {
+        return null;
+    }
 }

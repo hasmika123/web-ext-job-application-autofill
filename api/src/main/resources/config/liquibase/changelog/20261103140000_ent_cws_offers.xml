@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Offers page (branch ent-talent-consultant). Two tables:
+          cws_offer        a job offer made to one consultant: the package as the consultant sees it (package_summary text, base salary and total
+                           compensation in MINOR UNITS, work mode, start date, deadline) and the consultant's own response (status, responded_at,
+                           response_note). Offers originate on the employer / marketer side, which is not built yet: the demo seeder writes
+                           stand-in rows (sample_data = true) until the role branches merge; the consultant's accept / decline / negotiate
+                           actions on them are real. RECORD-ONLY money: nothing here moves money, there is no bank, tax or payment column.
+                           Accepting does not create a placement: that hand-off belongs to the employer / ops side (documented gap).
+          cws_offer_event  the timeline of one offer (received, updated, negotiating, accepted, declined) for Recent Offer Activity.
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FKs to the parents (consultant_profile,
+        client_requirement, talent_application, cws_offer), every secondary index starts with org_id, DATETIME(6) UTC, additive, empty rollback,
+        no JSON, no sensitive columns (response_note is scanned by the PII guard before it is stored).
+    -->
+    <changeSet id="ent-cws-offers-offer" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_offer"/></not></preConditions>
+        <createTable tableName="cws_offer">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"/>
+            <column name="application_id" type="bigint"/>
+            <column name="client_name" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="role_title" type="varchar(200)"><constraints nullable="false"/></column>
+            <column name="package_summary" type="varchar(300)"/>
+            <column name="benefits_summary" type="varchar(500)"/>
+            <column name="base_salary_minor" type="bigint"/>
+            <column name="total_comp_minor" type="bigint"/>
+            <column name="currency" type="varchar(3)" defaultValue="USD"><constraints nullable="false"/></column>
+            <column name="work_mode" type="varchar(10)"/>
+            <column name="start_date" type="date"/>
+            <column name="offer_deadline" type="date"/>
+            <column name="status" type="varchar(20)" defaultValue="PENDING_REVIEW"><constraints nullable="false"/></column>
+            <column name="responded_at" type="${datetimeType}"/>
+            <column name="response_note" type="varchar(300)"/>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_offer" baseColumnNames="org_id" constraintName="fk_cws_offer_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_offer" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_offer_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_offer" baseColumnNames="org_id, requirement_id" constraintName="fk_cws_offer_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_offer" baseColumnNames="org_id, application_id" constraintName="fk_cws_offer_application" referencedTableName="talent_application" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_offer" columnNames="org_id, id" constraintName="uk_cws_offer_org_id"/>
+        <createIndex tableName="cws_offer" indexName="ix_cws_offer_consultant"><column name="org_id"/><column name="consultant_id"/><column name="status"/><column name="offer_deadline"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-offers-event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_offer_event"/></not></preConditions>
+        <createTable tableName="cws_offer_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="offer_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(16)"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_offer_event" baseColumnNames="org_id" constraintName="fk_cws_offer_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_offer_event" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_offer_event_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_offer_event" baseColumnNames="org_id, offer_id" constraintName="fk_cws_offer_event_offer" referencedTableName="cws_offer" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_offer_event" indexName="ix_cws_offer_event_offer"><column name="org_id"/><column name="offer_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="cws_offer_event" indexName="ix_cws_offer_event_consultant"><column name="org_id"/><column name="consultant_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

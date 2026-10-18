@@ -84,7 +84,8 @@ function fileToBase64(blob: Blob): Promise<string> {
   });
 }
 
-export type Account = { connected: boolean; who: string };
+/** `title` / `subtitle` = JAF.workspace.accountChip: `Personal` or `<Org> · Enterprise`, with the email beneath. Never the login. */
+export type Account = { connected: boolean; kind: "PERSONAL" | "ENTERPRISE"; title: string; subtitle: string };
 
 /**
  * Read the live connected-account status straight from the session token (not the cached store),
@@ -95,7 +96,8 @@ export async function readAccount(): Promise<Account> {
   const tok: any = await new Promise((res) =>
     chrome.storage.local.get("trackingAuth", (o) => res((o && o.trackingAuth) || {})),
   );
-  return { connected: !!(tok && tok.access), who: tok.username || "your account" };
+  const chip = JAF().workspace.accountChip(tok);
+  return { connected: !!(tok && tok.access), kind: chip.kind, title: chip.title, subtitle: chip.subtitle };
 }
 
 /**
@@ -166,7 +168,12 @@ export async function loadData(): Promise<HomeData> {
 
 export type FillResult = { ok: true; adapter: string } | { ok: false; error: string };
 
-export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Promise<FillResult> {
+export async function fillPage(
+  resume: any,
+  bio: any,
+  autoAdvance: boolean,
+  opportunity?: { orgId: number; id: number } | null,
+): Promise<FillResult> {
   const S = JAF().storage;
   const SCH = JAF().schema;
   const settings = await S.getSettings();
@@ -201,7 +208,7 @@ export async function fillPage(resume: any, bio: any, autoAdvance: boolean): Pro
   const resumeRef = { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label };
   const resp = await sendTo(
     tab.id,
-    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef, salary } },
+    { type: "JAF_FILL", values, file, options: { autoAdvance: settings.autoAdvance, autoAddRows: settings.autoAddRows !== false, resume: resumeRef, salary, opportunity: opportunity || null } },
     frameId,
   );
   if (resp && resp.ok) return { ok: true, adapter: resp.adapter };

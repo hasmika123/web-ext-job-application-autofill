@@ -1,6 +1,7 @@
 package com.dossier.api.service;
 
 import com.dossier.api.domain.Application;
+import com.dossier.api.domain.ApplicationEvent;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.ResumeTailor;
 import com.dossier.api.domain.User;
@@ -14,7 +15,10 @@ import com.dossier.api.service.ai.AiProvider;
 import com.dossier.api.service.ai.AiProviderException;
 import com.dossier.api.service.ai.AiResult;
 import com.dossier.api.service.ai.AiTask;
+import com.dossier.api.service.ai.guard.AiTruthChecks;
 import com.dossier.api.service.dto.ResumeDTO;
+import com.dossier.api.service.tracker.ChangeActor;
+import com.dossier.api.service.tracker.ChangeRecorder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -76,7 +80,6 @@ public class ResumeTailorService {
     static final String SKILLS_REF = "skills";
 
     private static final Pattern REF = Pattern.compile("^e(\\d+)b(\\d+)$");
-    private static final Pattern NUMBER = Pattern.compile("\\d+(?:[.,]\\d+)*");
 
     public enum Status {
         OK,
@@ -106,6 +109,7 @@ public class ResumeTailorService {
     private final ProfileService profileService;
     private final boolean enabled;
     private final ObjectMapper om = new ObjectMapper();
+    private final ApplicationEventService eventService;
 
     public ResumeTailorService(
         AiProvider provider,
@@ -116,8 +120,10 @@ public class ResumeTailorService {
         ResumeTailorRepository tailorRepository,
         UserRepository userRepository,
         ProfileService profileService,
+        ApplicationEventService eventService,
         @Value("${dossier.ai.enabled:false}") boolean enabled
     ) {
+        this.eventService = eventService;
         this.provider = provider;
         this.budget = budget;
         this.metering = metering;
@@ -264,9 +270,13 @@ public class ResumeTailorService {
         ResumeDTO created = profileService.createResume(dto);
 
         if (app != null) {
+            Long resumeBefore = app.getResume() == null ? null : app.getResume().getId();
             resumeRepository.findById(created.getId()).ifPresent(app::setResume);
-            app.setUpdatedAt(Instant.now());
             applicationRepository.save(app);
+            // Linking the tailored resume is a change to the application: one history row, by the person who confirmed the changes.
+            new ChangeRecorder(eventService, app, ApplicationEvent.SRC_WEB, ChangeActor.forOwner(user))
+                .resume(resumeBefore, created.getId(), created.getLabel() == null ? "Resume changed" : "Resume: " + created.getLabel())
+                .flush();
         }
         return created;
     }
@@ -377,23 +387,15 @@ public class ResumeTailorService {
         return out;
     }
 
-    /** A rewrite is kept only if it says something different, stays short, adds no number and doesn't name the company. */
+    /**
+     * A rewrite is kept only if it says something different, stays short, adds no number and doesn't name the
+     * company. The rules live in {@link AiTruthChecks} (profile {@code TAILOR}); this is the tailor's way in.
+     */
     static boolean acceptable(String before, String after, String numberSource, String companyLc) {
-        if (after == null || after.isBlank() || after.trim().equalsIgnoreCase(before.trim())) return false;
-        if (after.length() > Math.max(before.length() * 2 + 60, 160)) return false;
-        String afterLc = after.toLowerCase(Locale.ROOT);
-        if (!companyLc.isBlank() && afterLc.contains(companyLc) && !before.toLowerCase(Locale.ROOT).contains(companyLc)) return false;
-        Set<String> allowed = numbers(numberSource);
-        for (String n : numbers(after)) if (!allowed.contains(n)) return false;
-        return true;
-    }
-
-    /** Numbers in a text, normalized ("1,200" and "1200" are the same number). */
-    static Set<String> numbers(String text) {
-        Set<String> out = new LinkedHashSet<>();
-        Matcher m = NUMBER.matcher(text == null ? "" : text);
-        while (m.find()) out.add(m.group().replace(",", ""));
-        return out;
+        AiTruthChecks.Sources sources = new AiTruthChecks.Sources(numberSource, Set.of(), AiTruthChecks.numbers(numberSource), Set.of())
+            .withBefore(before)
+            .withHiringCompany(companyLc);
+        return AiTruthChecks.check(after, sources, AiTruthChecks.Profile.TAILOR).isEmpty();
     }
 
     /** The resume's own skills in the model's order, then any it left out — never a skill it added. */

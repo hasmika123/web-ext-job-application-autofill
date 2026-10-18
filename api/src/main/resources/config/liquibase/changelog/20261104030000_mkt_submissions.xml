@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Marketing workspace, Submissions page. Owned by that page ONLY.
+        Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL + FK organization, every index starts with org_id, composite tenant FKs,
+        varchar enum names, DATETIME(6) UTC, one precondition-guarded changeSet per table, additive, empty rollbacks, no sensitive PII).
+
+        E1: a row here is a RECORD of a profile package a marketer prepared for a job, with an approval state. Nothing in these tables is, or causes,
+        a submission to a client; the consultant submits and the marketer records the fact.
+    -->
+
+    <!-- One prepared package (consultant + job + resume version) and where it stands. approval_state: DRAFT / AWAITING_APPROVAL / APPROVED / REJECTED.
+         status: DRAFT / SUBMITTED / CLIENT_REVIEW / INTERVIEW_REQUESTED / REJECTED. archived_at is a withdrawn draft (kept for the activity trail). -->
+    <changeSet id="mkt-submissions-1-mkt_submission" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_submission"/></not></preConditions>
+        <createTable tableName="mkt_submission">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="code" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="requirement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="client_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="resume_id" type="bigint"/>
+            <column name="resume_version" type="int"/>
+            <column name="resume_minor" type="int"/>
+            <column name="resume_updated_at" type="${datetimeType}"/>
+            <column name="approval_state" type="varchar(20)" defaultValue="DRAFT"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(24)" defaultValue="DRAFT"><constraints nullable="false"/></column>
+            <column name="submitted_on" type="${datetimeType}"/>
+            <column name="prepared_by_member_id" type="bigint"/>
+            <column name="note" type="varchar(300)"/>
+            <column name="archived_at" type="${datetimeType}"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_submission" baseColumnNames="org_id" constraintName="fk_mkt_submission_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_submission" baseColumnNames="org_id, consultant_id" constraintName="fk_mkt_submission_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_submission" baseColumnNames="org_id, requirement_id" constraintName="fk_mkt_submission_requirement" referencedTableName="client_requirement" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_submission" baseColumnNames="org_id, client_id" constraintName="fk_mkt_submission_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_submission" baseColumnNames="org_id, resume_id" constraintName="fk_mkt_submission_resume" referencedTableName="org_resume" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_submission" baseColumnNames="org_id, prepared_by_member_id" constraintName="fk_mkt_submission_prepared_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_submission" columnNames="org_id, id" constraintName="uk_mkt_submission_org_id"/>
+        <addUniqueConstraint tableName="mkt_submission" columnNames="org_id, code" constraintName="uk_mkt_submission_code"/>
+        <createIndex tableName="mkt_submission" indexName="ix_mkt_submission_status"><column name="org_id"/><column name="status"/><column name="approval_state"/></createIndex>
+        <createIndex tableName="mkt_submission" indexName="ix_mkt_submission_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <createIndex tableName="mkt_submission" indexName="ix_mkt_submission_requirement"><column name="org_id"/><column name="requirement_id"/></createIndex>
+        <createIndex tableName="mkt_submission" indexName="ix_mkt_submission_created"><column name="org_id"/><column name="created_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_submission" constraintName="fk_mkt_submission_prepared_by"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Append-only history of a submission record: the Recent Submission Activity feed and the "state at a past time" the KPI deltas are computed from.
+         field is APPROVAL or STATUS (null for CREATED / WITHDRAWN); from_value / to_value are the enum names. -->
+    <changeSet id="mkt-submissions-2-mkt_submission_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_submission_event"/></not></preConditions>
+        <createTable tableName="mkt_submission_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="submission_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(24)"><constraints nullable="false"/></column>
+            <column name="field" type="varchar(12)"/>
+            <column name="from_value" type="varchar(24)"/>
+            <column name="to_value" type="varchar(24)"/>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="detail" type="varchar(300)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_submission_event" baseColumnNames="org_id" constraintName="fk_mkt_submission_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_submission_event" baseColumnNames="org_id, submission_id" constraintName="fk_mkt_submission_event_submission" referencedTableName="mkt_submission" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_submission_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_mkt_submission_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="mkt_submission_event" indexName="ix_mkt_submission_event_sub"><column name="org_id"/><column name="submission_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="mkt_submission_event" indexName="ix_mkt_submission_event_time"><column name="org_id"/><column name="occurred_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_submission_event" constraintName="fk_mkt_submission_event_actor"/>
+        </rollback>
+    </changeSet>
+
+    <!-- "Save View": a marketer's named filter set on the Submissions board (their own, never shared). Plain columns, no JSON. -->
+    <changeSet id="mkt-submissions-3-mkt_submission_view" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_submission_view"/></not></preConditions>
+        <createTable tableName="mkt_submission_view">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="q" type="varchar(120)"/>
+            <column name="status_filter" type="varchar(24)"/>
+            <column name="approval_filter" type="varchar(20)"/>
+            <column name="client_id" type="bigint"/>
+            <column name="job_title" type="varchar(200)"/>
+            <column name="period" type="varchar(8)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_submission_view" baseColumnNames="org_id" constraintName="fk_mkt_submission_view_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_submission_view" baseColumnNames="org_id, member_id" constraintName="fk_mkt_submission_view_member" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_submission_view" baseColumnNames="org_id, client_id" constraintName="fk_mkt_submission_view_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_submission_view" columnNames="org_id, id" constraintName="uk_mkt_submission_view_org_id"/>
+        <addUniqueConstraint tableName="mkt_submission_view" columnNames="org_id, member_id, name" constraintName="uk_mkt_submission_view_name"/>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_submission_view" constraintName="fk_mkt_submission_view_member"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

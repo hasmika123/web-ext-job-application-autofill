@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Change audit, tracker half (docs/change-audit/README.md section 2.2; story U6.12) - "who changed it, and when".
+
+        application_event gains the ACTOR of every history row: actor_kind (PERSON | EXTENSION | MAIL | ASSISTANT | SYSTEM),
+        actor_user_id + actor_login (the signed-in person; null for the four non-person kinds), on_behalf_of_user_id (act-for: the
+        record's owner when the actor is somebody else) and `changes` (a JSON array of {f, from, to}; field names, and enum / date
+        values only - never free text). `source` stays what it was: the CHANNEL.
+
+        application, application_note and interview gain created_by_* / updated_by_* (user id + login). Names mirror the resume's
+        created_by_login / updated_by_login (D3), so one web helper reads both. created_at / updated_at already exist and are the
+        created / last-modified times.
+
+        No foreign keys: a row must survive the erasure of whoever wrote it (the resolver renders "a former member" / "a deleted
+        account"; no name is ever stored).
+
+        Backfill (D1): before this design only the owner could write a personal application, so WEB and EXTENSION events are the
+        owner's; INBOX is MAIL; ASSISTANT is ASSISTANT; SYSTEM stays SYSTEM. Head records: created_by and updated_by are the owner.
+        Every UPDATE is guarded by its own "not yet done" condition, so a re-run changes zero rows.
+    -->
+    <changeSet id="20261110010000-1" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="application_event" columnName="actor_kind"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="application_event">
+            <column name="actor_kind" type="varchar(12)" defaultValue="SYSTEM">
+                <constraints nullable="false"/>
+            </column>
+            <column name="actor_user_id" type="bigint"/>
+            <column name="actor_login" type="varchar(50)"/>
+            <column name="on_behalf_of_user_id" type="bigint"/>
+            <column name="changes" type="varchar(1000)"/>
+        </addColumn>
+        <createIndex tableName="application_event" indexName="ix_application_event_actor_user">
+            <column name="actor_user_id"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261110010000-2" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="application" columnName="updated_by_user_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="application">
+            <column name="created_by_user_id" type="bigint"/>
+            <column name="created_by_login" type="varchar(50)"/>
+            <column name="updated_by_user_id" type="bigint"/>
+            <column name="updated_by_login" type="varchar(50)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261110010000-3" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="application_note" columnName="updated_by_user_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="application_note">
+            <column name="created_by_user_id" type="bigint"/>
+            <column name="created_by_login" type="varchar(50)"/>
+            <column name="updated_by_user_id" type="bigint"/>
+            <column name="updated_by_login" type="varchar(50)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261110010000-4" author="dossier">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="interview" columnName="updated_by_user_id"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="interview">
+            <column name="created_by_user_id" type="bigint"/>
+            <column name="created_by_login" type="varchar(50)"/>
+            <column name="updated_by_user_id" type="bigint"/>
+            <column name="updated_by_login" type="varchar(50)"/>
+        </addColumn>
+    </changeSet>
+
+    <!-- Backfill, events (D1): the owner did every WEB / EXTENSION write; INBOX is mail, ASSISTANT is the assistant; SYSTEM stays SYSTEM. -->
+    <changeSet id="20261110010000-5" author="dossier">
+        <sql>
+            UPDATE application_event
+            SET actor_kind = 'PERSON',
+                actor_user_id = (SELECT a.user_id FROM application a WHERE a.id = application_event.application_id),
+                actor_login = (SELECT u.login FROM application a JOIN jhi_user u ON u.id = a.user_id WHERE a.id = application_event.application_id)
+            WHERE actor_kind = 'SYSTEM' AND actor_user_id IS NULL AND source IN ('WEB', 'EXTENSION')
+              AND EXISTS (SELECT 1 FROM application a WHERE a.id = application_event.application_id AND a.user_id IS NOT NULL)
+        </sql>
+        <sql>
+            UPDATE application_event SET actor_kind = 'MAIL' WHERE actor_kind = 'SYSTEM' AND actor_user_id IS NULL AND source = 'INBOX'
+        </sql>
+        <sql>
+            UPDATE application_event SET actor_kind = 'ASSISTANT' WHERE actor_kind = 'SYSTEM' AND actor_user_id IS NULL AND source = 'ASSISTANT'
+        </sql>
+        <!-- Rollback: nothing to undo. This only fills columns that changeset -1 added, and undoing -1 drops them (and the data) anyway. -->
+        <rollback/>
+    </changeSet>
+
+    <!-- Backfill, head records: the owner created and last wrote every existing application, note and interview. -->
+    <changeSet id="20261110010000-6" author="dossier">
+        <sql>
+            UPDATE application
+            SET created_by_user_id = user_id,
+                created_by_login = (SELECT u.login FROM jhi_user u WHERE u.id = application.user_id),
+                updated_by_user_id = user_id,
+                updated_by_login = (SELECT u.login FROM jhi_user u WHERE u.id = application.user_id)
+            WHERE user_id IS NOT NULL AND updated_by_user_id IS NULL AND updated_at IS NOT NULL
+        </sql>
+        <sql>
+            UPDATE application_note
+            SET created_by_user_id = (SELECT a.user_id FROM application a WHERE a.id = application_note.application_id),
+                created_by_login = (SELECT u.login FROM application a JOIN jhi_user u ON u.id = a.user_id WHERE a.id = application_note.application_id),
+                updated_by_user_id = (SELECT a.user_id FROM application a WHERE a.id = application_note.application_id),
+                updated_by_login = (SELECT u.login FROM application a JOIN jhi_user u ON u.id = a.user_id WHERE a.id = application_note.application_id)
+            WHERE updated_by_user_id IS NULL AND updated_at IS NOT NULL
+              AND EXISTS (SELECT 1 FROM application a WHERE a.id = application_note.application_id AND a.user_id IS NOT NULL)
+        </sql>
+        <sql>
+            UPDATE interview
+            SET created_by_user_id = user_id,
+                created_by_login = (SELECT u.login FROM jhi_user u WHERE u.id = interview.user_id),
+                updated_by_user_id = user_id,
+                updated_by_login = (SELECT u.login FROM jhi_user u WHERE u.id = interview.user_id)
+            WHERE user_id IS NOT NULL AND updated_by_user_id IS NULL AND updated_at IS NOT NULL
+        </sql>
+        <!-- Rollback: nothing to undo. This only fills the created_by_* / updated_by_* columns that changesets -2 to -4 added, and undoing those drops them (and the data) anyway. -->
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

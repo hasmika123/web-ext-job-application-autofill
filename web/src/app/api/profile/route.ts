@@ -1,4 +1,5 @@
 import { serverApiFetch } from "@/lib/api";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * PUT /api/profile — save the current user's bio.
@@ -32,6 +33,8 @@ export async function PUT(request: Request) {
   if (res.status === 401) {
     return Response.json({ error: "Your session expired — please sign in again." }, { status: 401 });
   }
+  const demo = await demoReadOnly(res);
+  if (demo) return demo;
   if (!res.ok) {
     return Response.json({ error: "Couldn't save your profile." }, { status: 502 });
   }

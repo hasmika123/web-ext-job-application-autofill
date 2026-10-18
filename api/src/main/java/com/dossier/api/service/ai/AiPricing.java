@@ -2,6 +2,7 @@ package com.dossier.api.service.ai;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -68,6 +69,11 @@ public class AiPricing {
         }
     }
 
+    /** The model names priced by default, in declaration order - the starting model list of the Gemini provider. */
+    public static java.util.List<String> defaultModelIds() {
+        return java.util.List.copyOf(defaults().keySet());
+    }
+
     private static Map<String, Rate> defaults() {
         Map<String, Rate> m = new LinkedHashMap<>();
         m.put("gemini-2.5-flash-lite", new Rate(0.10, 0.01, 0.40));
@@ -81,24 +87,53 @@ public class AiPricing {
         return m;
     }
 
-    /** The configured model name this one is priced as, or null when none matches. */
-    private String keyFor(String model) {
+    /**
+     * Admin-set prices (I1.10): the {@code ai.price.<model>.*} runtime rows, read through
+     * {@link AiRuntimeSettings}. They are merged with the configured names: the LONGEST name a served model
+     * starts with wins, and on an equal name the admin's row wins. Null in unit tests that build this alone.
+     */
+    private transient Supplier<Map<String, Rate>> overrides;
+
+    /** Wire the runtime price rows in (called by {@link AiRuntimeSettings}); not a bean property. */
+    public void attachOverrides(Supplier<Map<String, Rate>> overrides) {
+        this.overrides = overrides;
+    }
+
+    private Map<String, Rate> overlay() {
+        Map<String, Rate> o = overrides == null ? null : overrides.get();
+        return o == null ? Map.of() : o;
+    }
+
+    /** The name this model is priced as (an admin row or a configured one), or null when none matches. */
+    private String keyFor(String model, Map<String, Rate> overlay) {
         String name = model == null ? "" : model.trim();
         String best = null;
         for (String key : models.keySet()) {
             if (name.startsWith(key) && (best == null || key.length() > best.length())) best = key;
         }
+        for (String key : overlay.keySet()) {
+            if (name.startsWith(key) && (best == null || key.length() >= best.length())) best = key;
+        }
         return best;
     }
 
-    /** The rate for a model: the longest configured name it starts with, else the fallback. */
+    /** The rate for a model: the longest configured name it starts with (admin rows win ties), else the fallback. */
     public Rate rateFor(String model) {
-        String key = keyFor(model);
+        Map<String, Rate> overlay = overlay();
+        String key = keyFor(model, overlay);
+        if (key == null) return fallback;
+        Rate fromAdmin = overlay.get(key);
+        return fromAdmin != null ? fromAdmin : models.get(key);
+    }
+
+    /** The rate WITHOUT the admin rows - what a model costs when no runtime price is set (the "Reset" target). */
+    public Rate defaultRateFor(String model) {
+        String key = keyFor(model, Map.of());
         return key == null ? fallback : models.get(key);
     }
 
     public boolean isPriced(String model) {
-        return keyFor(model) != null;
+        return keyFor(model, overlay()) != null;
     }
 
     /**

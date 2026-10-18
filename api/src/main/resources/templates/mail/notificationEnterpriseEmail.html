@@ -1,0 +1,25 @@
+<!doctype html>
+<!--
+  Notification e-mail of an ENTERPRISE account (X2.10): the organization's look and "this workspace" wording; the footer links only to the
+  organization's own policy pages. Personal accounts keep notificationEmail.html.
+  Model: kind, name, subject (the notice title), body (nullable), link, orgName, theme, brand, logoUrl, assetBase, policyBase (nullable).
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+  <head>
+    <title th:text="${subject}">Notification</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+  </head>
+  <body style="margin: 0; padding: 0">
+    <div th:replace="~{mail/fragments :: preheader(${subject})}"></div>
+    <th:block th:with="accent=${brand} ?: '#0d63e8', btnText='#ffffff', heroBg='#eaf3fd', hello=(${body != null} ? #{email.ent.notify.hello(${name}, ${body})} : #{email.ent.notify.hello.nobody(${name})})">
+      <th:block th:replace="~{mail/fragments :: shell('enterprise', ${brand}, ${logoUrl}, ${orgName}, ${assetBase}, ~{::section})}">
+        <section>
+          <table th:replace="~{mail/fragments :: heroCentered(${heroBg}, ${assetBase} + '/ent-hero-welcome.png', ${subject}, '#0b2a52', ${hello}, ${link}, #{email.ent.notify.link}, ${accent}, ${btnText})}"></table>
+          <p style="margin: 0; padding: 16px 28px 18px 28px; font-size: 12px; line-height: 1.5; color: #6b726e" th:text="#{email.ent.notify.footer}">Footer</p>
+        </section>
+      </th:block>
+    </th:block>
+  </body>
+</html>

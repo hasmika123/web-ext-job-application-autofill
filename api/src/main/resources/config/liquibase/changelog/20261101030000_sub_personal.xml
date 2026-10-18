@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        The personal subscription mirror, widened for plans (docs/subscriptions/08-data-model.md section 4.1; story K2.1 adds the widening, the later
+        personal stories K5.2, K8.3 and K10.5 start using the columns). The subscription row stays a mirror of Stripe: only the webhook writes the Stripe
+        columns, and the derived label "plan" (FREE or PRO) keeps being written exactly as before. Every new column is nullable (or has a default), so no
+        existing row, query or entity changes behaviour. Additive; guarded; empty rollback.
+    -->
+    <changeSet id="sub-subscription-widen" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="subscription" columnName="plan_version_id"/></not></preConditions>
+        <addColumn tableName="subscription">
+            <column name="plan_version_id" type="bigint"/>
+            <column name="billing_interval" type="varchar(10)"/>
+            <column name="currency" type="char(3)"/>
+            <column name="current_period_start" type="${datetimeType}"/>
+            <column name="paid_through_at" type="${datetimeType}"/>
+            <column name="base_stripe_item_id" type="varchar(255)"/>
+            <column name="schedule_id" type="varchar(255)"/>
+            <column name="scheduled_plan_version_id" type="bigint"/>
+            <column name="scheduled_interval" type="varchar(10)"/>
+            <column name="scheduled_at" type="${datetimeType}"/>
+            <column name="promo_code_id" type="bigint"/>
+            <column name="first_paid_at" type="${datetimeType}"/>
+            <column name="lapsed_at" type="${datetimeType}"/>
+            <column name="lapse_notice_pending" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="cancel_requested_at" type="${datetimeType}"/>
+            <column name="cancel_reason" type="varchar(40)"/>
+            <column name="cancellation_number" type="varchar(20)"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-subscription-plan-version-fk" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><foreignKeyConstraintExists foreignKeyTableName="subscription" foreignKeyName="fk_subscription_plan_version"/></not></preConditions>
+        <addForeignKeyConstraint baseTableName="subscription" baseColumnNames="plan_version_id" constraintName="fk_subscription_plan_version"
+                                 referencedTableName="plan_version" referencedColumnNames="id"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-subscription-plan-version-index" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="subscription" indexName="ix_subscription_plan_version"/></not></preConditions>
+        <createIndex tableName="subscription" indexName="ix_subscription_plan_version">
+            <column name="plan_version_id"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

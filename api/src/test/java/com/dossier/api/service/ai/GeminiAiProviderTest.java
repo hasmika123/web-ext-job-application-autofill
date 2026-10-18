@@ -74,4 +74,25 @@ class GeminiAiProviderTest {
         assertThat(AiTask.fromWire(" PICK ")).isEqualTo(AiTask.PICK);
         assertThat(AiTask.fromWire("parse")).as("parse has its own endpoint").isEqualTo(AiTask.DRAFT);
     }
+
+    @Test
+    void theResumeBuilderTasksAreNotReachableFromTheWire() {
+        for (String wire : new String[] { "rewrite", "summary", "suggest", "cover", "translate" }) {
+            assertThat(AiTask.fromWire(wire)).as(wire + " has its own endpoints").isEqualTo(AiTask.DRAFT);
+        }
+        assertThat(AiTask.REWRITE.wire()).isEqualTo("rewrite");
+        assertThat(AiTask.TRANSLATE.isResumeBuilder()).isTrue();
+        assertThat(AiTask.TAILOR.isResumeBuilder()).isFalse();
+    }
+
+    @Test
+    void builderTasksAskForJsonAndTakeTheCallersTokenCeiling() {
+        ObjectNode body = gemini.generateBody(AiTask.REWRITE, "Rewrite these", "", 2500);
+        assertThat(body.path("generationConfig").path("responseMimeType").asText()).isEqualTo("application/json");
+        assertThat(body.path("generationConfig").path("maxOutputTokens").asInt()).isEqualTo(2500);
+        assertThat(userText(body)).isEqualTo("Rewrite these");
+        // no ceiling asked for: the provider's own default stands; other tasks never get a JSON mime type from this path
+        assertThat(gemini.generateBody(AiTask.SUMMARY, "x", "").path("generationConfig").path("maxOutputTokens").asInt()).isPositive();
+        assertThat(gemini.generateBody(AiTask.PICK, "x", "", 2500).path("generationConfig").has("responseMimeType")).isFalse();
+    }
 }

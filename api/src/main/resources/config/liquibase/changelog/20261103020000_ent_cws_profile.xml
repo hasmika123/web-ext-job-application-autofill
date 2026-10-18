@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, My Career Profile (branch ent-talent-consultant): the consultant's OWN certifications, career preferences
+        (preferred roles, locations, employment types) and a one-row-per-consultant detail record (work-authorization CHOICE, career
+        goals, a summary used only while the consultant has no resume). Isolated to the consultant role. No PII columns: the
+        work-authorization column holds a status choice, never a document or visa number; no photo, no date of birth.
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FK (org_id, consultant_id) to
+        consultant_profile, every secondary index starts with org_id, varchar enum names, DATETIME(6) UTC, additive, empty rollback.
+    -->
+    <changeSet id="ent-cws-2-cws_certification" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_certification"/></not></preConditions>
+        <createTable tableName="cws_certification">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="issuer" type="varchar(120)"/>
+            <column name="issued_on" type="date"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_certification" baseColumnNames="org_id" constraintName="fk_cws_cert_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_certification" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_cert_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_certification" columnNames="org_id, id" constraintName="uk_cws_cert_org_id"/>
+        <createIndex tableName="cws_certification" indexName="ix_cws_cert_consultant"><column name="org_id"/><column name="consultant_id"/><column name="issued_on"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-2-cws_profile_pref" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_profile_pref"/></not></preConditions>
+        <createTable tableName="cws_profile_pref">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="pref_value" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="sort_order" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_profile_pref" baseColumnNames="org_id" constraintName="fk_cws_pref_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_profile_pref" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_pref_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_profile_pref" columnNames="org_id, id" constraintName="uk_cws_pref_org_id"/>
+        <addUniqueConstraint tableName="cws_profile_pref" columnNames="org_id, consultant_id, kind, pref_value" constraintName="uk_cws_pref_value"/>
+        <createIndex tableName="cws_profile_pref" indexName="ix_cws_pref_consultant"><column name="org_id"/><column name="consultant_id"/><column name="kind"/><column name="sort_order"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-2-cws_profile_detail" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_profile_detail"/></not></preConditions>
+        <createTable tableName="cws_profile_detail">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="work_authorization" type="varchar(40)"/>
+            <column name="career_goals" type="varchar(1000)"/>
+            <column name="summary_text" type="varchar(2000)"/>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_profile_detail" baseColumnNames="org_id" constraintName="fk_cws_detail_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_profile_detail" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_detail_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_profile_detail" columnNames="org_id, id" constraintName="uk_cws_detail_org_id"/>
+        <addUniqueConstraint tableName="cws_profile_detail" columnNames="org_id, consultant_id" constraintName="uk_cws_detail_consultant"/>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

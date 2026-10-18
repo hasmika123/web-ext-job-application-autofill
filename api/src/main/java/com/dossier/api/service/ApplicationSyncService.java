@@ -1,6 +1,7 @@
 package com.dossier.api.service;
 
 import com.dossier.api.domain.Application;
+import com.dossier.api.domain.ApplicationEvent;
 import com.dossier.api.domain.Bio;
 import com.dossier.api.domain.Resume;
 import com.dossier.api.domain.User;
@@ -12,10 +13,14 @@ import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.dto.ApplicationDTO;
 import com.dossier.api.service.mapper.ApplicationMapper;
+import com.dossier.api.service.tracker.ApplicationSnapshot;
+import com.dossier.api.service.tracker.ChangeActor;
+import com.dossier.api.service.tracker.ChangeRecorder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +54,7 @@ public class ApplicationSyncService {
     private final BioRepository bioRepository;
     private final ApplicationMapper applicationMapper;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventService eventService;
 
     public ApplicationSyncService(
         ApplicationRepository applicationRepository,
@@ -56,7 +62,8 @@ public class ApplicationSyncService {
         UserRepository userRepository,
         BioRepository bioRepository,
         ApplicationMapper applicationMapper,
-        ObjectMapper objectMapper
+        ObjectMapper objectMapper,
+        ApplicationEventService eventService
     ) {
         this.applicationRepository = applicationRepository;
         this.resumeRepository = resumeRepository;
@@ -64,11 +71,27 @@ public class ApplicationSyncService {
         this.bioRepository = bioRepository;
         this.applicationMapper = applicationMapper;
         this.objectMapper = objectMapper;
+        this.eventService = eventService;
     }
 
+    /**
+     * The old, unpaged contract the extension and the data export read: every application, newest update
+     * first (it used to come back in whatever order the database chose). The tracker's own list is
+     * {@link ApplicationListService#list}.
+     */
     @Transactional(readOnly = true)
     public List<ApplicationDTO> listApplications() {
-        return applicationRepository.findByUserIsCurrentUser().stream().map(applicationMapper::toDto).toList();
+        return applicationRepository
+            .findByUserIsCurrentUser()
+            .stream()
+            .sorted(
+                Comparator.comparing(Application::getUpdatedAt, Comparator.nullsLast(Comparator.<Instant>reverseOrder())).thenComparing(
+                    Application::getId,
+                    Comparator.nullsLast(Comparator.<Long>reverseOrder())
+                )
+            )
+            .map(applicationMapper::toDto)
+            .toList();
     }
 
     /**
@@ -86,10 +109,12 @@ public class ApplicationSyncService {
         boolean sameJobElsewhere = match != null && match.byCompanyAndTitle();
         Application app = existing != null ? existing : new Application();
         Instant now = Instant.now();
+        ApplicationSnapshot before = existing == null ? null : ApplicationSnapshot.of(existing);
 
         if (existing == null) {
             app.setUser(user);
             app.setCreatedAt(now);
+            app.setUpdatedAt(now);
             app.setStatus(dto.getStatus() != null ? dto.getStatus() : ApplicationStatus.DRAFT);
         } else if (dto.getStatus() != null && !isDraftDowngrade(dto.getStatus(), existing.getStatus())) {
             // Honor an explicit status on a re-fill, but don't revert e.g. APPLIED -> DRAFT.
@@ -127,8 +152,30 @@ public class ApplicationSyncService {
         if (isBlank(app.getCompany()) || isBlank(app.getRoleTitle())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "company and roleTitle are required");
         }
-        app.setUpdatedAt(now);
-        return applicationMapper.toDto(applicationRepository.save(app));
+        if (dto.getPostingId() != null) app.setPostingId(dto.getPostingId());
+        Application saved = applicationRepository.save(app);
+
+        // The tracker's memory: a new application is CREATED; a re-fill that changed something is ONE row that lists what changed (a re-fill that
+        // changed nothing writes nothing and leaves updated_at alone). The actor is the person, or the channel's non-person (inbox, assistant, system).
+        String source = ApplicationEventService.sourceOf(dto.getSource());
+        ChangeActor.Actor actor = ChangeActor.forSource(source, user);
+        if (existing == null) {
+            eventService.recordCreated(saved, source, actor);
+        } else {
+            ChangeRecorder rec = new ChangeRecorder(eventService, saved, source, actor);
+            before.report(ApplicationSnapshot.of(saved), rec);
+            rec.flush();
+        }
+        return applicationMapper.toDto(saved);
+    }
+
+    /**
+     * Whether the current user already has an entry for the job this payload names (the same match {@link #upsertApplication} uses). The marketer's
+     * "Save for consultant" asks it first so that saving a job the consultant already moved along never pulls its status back to SAVED (X9.15).
+     */
+    @Transactional(readOnly = true)
+    public boolean hasEntryFor(ApplicationDTO dto) {
+        return findDedupMatch(dto) != null;
     }
 
     /**
@@ -138,6 +185,18 @@ public class ApplicationSyncService {
      */
     public ApplicationDTO updateApplication(Long id, ApplicationDTO dto) {
         Application app = ownedApplication(id);
+        ApplicationSnapshot before = ApplicationSnapshot.of(app);
+        // Who is writing: a payload that names its source says so; the extension's "confirm submission"
+        // (PUT {status: APPLIED, submissionConfirmed: true, appliedAt}) names none, but only ever touches an
+        // entry the extension created, so that shape on such an entry is the extension.
+        boolean submitDetect =
+            dto.getSource() == null &&
+            "extension".equalsIgnoreCase(app.getSource()) &&
+            dto.getStatus() == ApplicationStatus.APPLIED &&
+            Boolean.TRUE.equals(dto.getSubmissionConfirmed());
+        String source = dto.getSource() != null ? ApplicationEventService.sourceOf(dto.getSource()) : submitDetect ? ApplicationEvent.SRC_EXTENSION : ApplicationEvent.SRC_WEB;
+        // The submit-detect update is the extension itself (no person clicked); every other write, an explicit extension save included, is the person.
+        ChangeActor.Actor actor = submitDetect ? ChangeActor.extension() : ChangeActor.forSource(source, app.getUser());
         if (dto.getStatus() != null) app.setStatus(dto.getStatus());
         if (dto.getSubmissionConfirmed() != null) app.setSubmissionConfirmed(dto.getSubmissionConfirmed());
         if (dto.getAppliedAt() != null) app.setAppliedAt(dto.getAppliedAt());
@@ -156,8 +215,12 @@ public class ApplicationSyncService {
         if (dto.getResume() != null && dto.getResume().getId() != null) {
             app.setResume(ownedResume(dto.getResume().getId()));
         }
-        app.setUpdatedAt(Instant.now());
-        return applicationMapper.toDto(applicationRepository.save(app));
+        Application saved = applicationRepository.save(app);
+        // One history row listing what changed; nothing written (and updated_at untouched) when nothing did.
+        ChangeRecorder rec = new ChangeRecorder(eventService, saved, source, actor);
+        before.report(ApplicationSnapshot.of(saved), rec);
+        rec.flush();
+        return applicationMapper.toDto(saved);
     }
 
     /** Delete one of the current user's applications (dismiss an abandoned draft). */

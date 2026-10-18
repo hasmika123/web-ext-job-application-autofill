@@ -1,0 +1,63 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "-w", "web"],
+      "port": 3000
+    },
+    {
+      "name": "api-local",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev/api-local.mjs"],
+      "port": 8080
+    },
+    {
+      "name": "api-local-stub",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev/api-local.mjs", "--stub"],
+      "port": 8080
+    },
+    {
+      "_comment": "X1.12 real enterprise stack (docs/enterprise-v2/real-stack-runbook.md). Put these in your own .claude/launch.json and set the two secrets there; set SPRING_DATASOURCE_PASSWORD to the MySQL container's root password. Dev only. The seeder refuses under the prod profile. Do not commit the secrets.",
+      "name": "ent-api",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "SERVER_PORT=18183",
+        "SPRING_DATASOURCE_URL=jdbc:mysql://localhost:33511/dossier_ent_demo?useSSL=false&createDatabaseIfNotExist=true",
+        "SPRING_DATASOURCE_USERNAME=root",
+        "SPRING_DATASOURCE_PASSWORD=CHANGE_ME_MYSQL_ROOT_PASSWORD",
+        "DEMO_ENABLED=true",
+        "ENT_DEMO_SEED=true",
+        "DOSSIER_TENANT_HOST_SECRET=CHANGE_ME_SHARED_RANDOM",
+        "APPLICATION_LIQUIBASE_ASYNC_START=false",
+        "DOSSIER_STORAGE_DRIVER=local",
+        "DOSSIER_STORAGE_LOCAL_ROOT=./build/ent-demo-uploads",
+        "./api/gradlew",
+        "-p",
+        "api",
+        "bootRun",
+        "--console=plain"
+      ],
+      "port": 18183
+    },
+    {
+      "_comment": "Run `npm run build -w web` first: Next dev mode does not work in worktrees. Same DOSSIER_TENANT_HOST_SECRET as ent-api. Open http://acme.localhost:3200/login",
+      "name": "ent-web",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "DOSSIER_API_URL=http://localhost:18183",
+        "DOSSIER_TENANT_HOST_SECRET=CHANGE_ME_SHARED_RANDOM",
+        "TRUST_PROXY_HOST=false",
+        "npx",
+        "next",
+        "start",
+        "web",
+        "-p",
+        "3200"
+      ],
+      "port": 3200
+    }
+  ]
+}

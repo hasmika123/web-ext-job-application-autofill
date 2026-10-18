@@ -39,6 +39,8 @@ class AccountExportResourceIT {
             .andExpect(jsonPath("$.profileSuggestions").isArray())
             // 14.7 — the inbox section is always there (empty without a connection), and notifications.
             .andExpect(jsonPath("$.inbox.messages").isArray())
-            .andExpect(jsonPath("$.notifications").isArray());
+            .andExpect(jsonPath("$.notifications").isArray())
+            // O1.3 - the person's own organization memberships (empty for someone in no org).
+            .andExpect(jsonPath("$.organizations").isArray());
     }
 }

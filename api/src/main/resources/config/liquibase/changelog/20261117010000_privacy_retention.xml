@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Sprint 2, B2 (REAL-GAPS-C T0.2, T1.1 to T1.4): privacy and retention completeness. Purely additive: six new tables, nothing existing is altered.
+          job_lease                  one row per background job, so two API instances never run the same sweep at once (a lease with an expiry, taken by one UPDATE).
+          retention_run              one row per retention sweep (also a dry run): job, window, counts. No personal data, counts only.
+          account_deletion_request   a pending erasure with its undo window (the account stays whole until purge_after).
+          account_deletion_report    the purge report written when an erasure ran: counts per kind of data, no login, no email, no name.
+          data_export_job            an asynchronous data export (a ZIP in file storage) with its expiry; erased with the account.
+          terms_acceptance           which version of the terms and the privacy notice an account accepted, and when; erased with the account.
+    -->
+    <changeSet id="privacy-retention-1" author="sprint2-b">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="job_lease"/></not></preConditions>
+        <createTable tableName="job_lease">
+            <column name="name" type="varchar(100)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="locked_until" type="${datetimeType}"/>
+            <column name="locked_by" type="varchar(100)"/>
+            <column name="last_run_at" type="${datetimeType}"/>
+            <column name="last_summary" type="varchar(500)"/>
+        </createTable>
+        <rollback><dropTable tableName="job_lease"/></rollback>
+    </changeSet>
+
+    <changeSet id="privacy-retention-2" author="sprint2-b">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="retention_run"/></not></preConditions>
+        <createTable tableName="retention_run">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="job" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="trigger_kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="actor" type="varchar(50)"/>
+            <column name="dry_run" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="window_value" type="int"/>
+            <column name="window_unit" type="varchar(10)"/>
+            <column name="cutoff_at" type="${datetimeType}"/>
+            <column name="candidates" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="deleted" type="bigint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(300)"/>
+            <column name="started_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="finished_at" type="${datetimeType}"/>
+        </createTable>
+        <createIndex tableName="retention_run" indexName="ix_retention_run_job_started">
+            <column name="job"/>
+            <column name="started_at"/>
+        </createIndex>
+        <rollback><dropTable tableName="retention_run"/></rollback>
+    </changeSet>
+
+    <changeSet id="privacy-retention-3" author="sprint2-b">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="account_deletion_request"/></not></preConditions>
+        <createTable tableName="account_deletion_request">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false" unique="true" uniqueConstraintName="ux_account_deletion_request_user"/>
+            </column>
+            <column name="status" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="source" type="varchar(10)"><constraints nullable="false"/></column>
+            <column name="requested_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="purge_after" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="cancelled_at" type="${datetimeType}"/>
+            <column name="lease_until" type="${datetimeType}"/>
+            <column name="attempts" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="last_error" type="varchar(200)"/>
+        </createTable>
+        <createIndex tableName="account_deletion_request" indexName="ix_account_deletion_request_due">
+            <column name="status"/>
+            <column name="purge_after"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="account_deletion_request" baseColumnNames="user_id" constraintName="fk_account_deletion_request_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <rollback><dropTable tableName="account_deletion_request"/></rollback>
+    </changeSet>
+
+    <changeSet id="privacy-retention-4" author="sprint2-b">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="account_deletion_report"/></not></preConditions>
+        <createTable tableName="account_deletion_report">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="subject_ref" type="bigint"><constraints nullable="false"/></column>
+            <column name="account_kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="org_id" type="bigint"/>
+            <column name="source" type="varchar(10)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(24)"><constraints nullable="false"/></column>
+            <column name="requested_at" type="${datetimeType}"/>
+            <column name="executed_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="residue_count" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="steps" type="varchar(4000)"/>
+        </createTable>
+        <createIndex tableName="account_deletion_report" indexName="ix_account_deletion_report_executed">
+            <column name="executed_at"/>
+        </createIndex>
+        <rollback><dropTable tableName="account_deletion_report"/></rollback>
+    </changeSet>
+
+    <changeSet id="privacy-retention-5" author="sprint2-b">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="data_export_job"/></not></preConditions>
+        <createTable tableName="data_export_job">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(10)"><constraints nullable="false"/></column>
+            <column name="requested_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="started_at" type="${datetimeType}"/>
+            <column name="finished_at" type="${datetimeType}"/>
+            <column name="expires_at" type="${datetimeType}"/>
+            <column name="size_bytes" type="bigint"/>
+            <column name="storage_key" type="varchar(300)"/>
+            <column name="file_count" type="int"/>
+            <column name="skipped_count" type="int"/>
+            <column name="error" type="varchar(200)"/>
+            <column name="worker" type="varchar(64)"/>
+            <column name="lease_until" type="${datetimeType}"/>
+            <column name="attempts" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <createIndex tableName="data_export_job" indexName="ix_data_export_job_user">
+            <column name="user_id"/>
+            <column name="requested_at"/>
+        </createIndex>
+        <createIndex tableName="data_export_job" indexName="ix_data_export_job_status">
+            <column name="status"/>
+            <column name="requested_at"/>
+        </createIndex>
+        <addForeignKeyConstraint baseTableName="data_export_job" baseColumnNames="user_id" constraintName="fk_data_export_job_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <rollback><dropTable tableName="data_export_job"/></rollback>
+    </changeSet>
+
+    <changeSet id="privacy-retention-6" author="sprint2-b">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="terms_acceptance"/></not></preConditions>
+        <createTable tableName="terms_acceptance">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="document" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="version" type="varchar(30)"><constraints nullable="false"/></column>
+            <column name="source" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="accepted_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addUniqueConstraint tableName="terms_acceptance" columnNames="user_id,document,version" constraintName="ux_terms_acceptance_user_doc_version"/>
+        <addForeignKeyConstraint baseTableName="terms_acceptance" baseColumnNames="user_id" constraintName="fk_terms_acceptance_user"
+                                 referencedTableName="jhi_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <rollback><dropTable tableName="terms_acceptance"/></rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -3,6 +3,7 @@ import { Fraunces, Inter } from "next/font/google";
 import "./globals.css";
 import CookieConsent from "@/components/CookieConsent";
 import BugReportWidget from "@/components/BugReportWidget";
+import PlatformChrome from "@/components/PlatformChrome";
 import { ToastProvider } from "@/components/ui";
 import { SITE_URL } from "@/lib/site";
 
@@ -19,19 +20,19 @@ const fraunces = Fraunces({
   display: "swap",
 });
 
-const TITLE = "Kiwiply — one profile, every application";
+const TITLE = "Kiwiply | Find jobs. Apply faster. Get hired.";
 const DESCRIPTION =
-  "Build one job-application profile, manage your resumes, and track every application in one place. The Kiwiply browser extension fills applications for you on the page.";
+  "Kiwiply matches you with roles, fills job applications for you to review, and tracks replies in your Gmail — one profile, one board, no auto-submit.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
     default: TITLE,
-    template: "%s · Kiwiply",
+    template: "Kiwiply | %s",
   },
   description: DESCRIPTION,
   applicationName: "Kiwiply",
-  // Favicon resolves from the App Router convention file `app/icon.svg`.
+  // Favicons resolve from the App Router convention files `app/favicon.ico`, `app/icon.png` and `app/apple-icon.png`.
   openGraph: {
     title: TITLE,
     description: DESCRIPTION,
@@ -58,9 +59,13 @@ export default function RootLayout({
       className={`${inter.variable} ${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <CookieConsent />
+        <PlatformChrome>
+          <CookieConsent />
+        </PlatformChrome>
         <ToastProvider>{children}</ToastProvider>
-        <BugReportWidget />
+        <PlatformChrome>
+          <BugReportWidget />
+        </PlatformChrome>
       </body>
     </html>
   );

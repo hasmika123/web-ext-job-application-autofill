@@ -1,0 +1,20 @@
+{
+  "name": "student-fresh",
+  "note": "A student who started fresh: name and email (+ fullName), four answers, one school, some skills, no jobs and no EEO. Blank phone and LinkedIn count for nothing.",
+  "bio": {
+    "firstName": "Sam",
+    "lastName": "Lee",
+    "email": "sam@example.edu",
+    "phone": "",
+    "linkedin": " ",
+    "authorizedToWork": "Yes",
+    "requireSponsorship": "No",
+    "noticePeriod": "After I graduate",
+    "earliestStartDate": "2027-06"
+  },
+  "counts": { "experience": 0, "education": 1, "skills": 6 },
+  "expected": {
+    "fields": 13,
+    "groups": { "contact": 4, "links": 0, "work": 0, "education": 4, "skills": 1, "preferences": 4, "eeo": 0 }
+  }
+}

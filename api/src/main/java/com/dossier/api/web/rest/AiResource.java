@@ -5,6 +5,7 @@ import com.dossier.api.security.SecurityUtils;
 import com.dossier.api.service.AiBudgetService;
 import com.dossier.api.service.AiDraftService;
 import com.dossier.api.service.AiResumeParseService;
+import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.ProRequiredException;
 import com.dossier.api.service.ai.AiTask;
 import com.dossier.api.web.rest.vm.AiDraftVM;
@@ -43,10 +44,18 @@ public class AiResource {
     private final AiResumeParseService aiResumeParseService;
     private final AiBudgetService aiBudgetService;
 
-    public AiResource(AiDraftService aiDraftService, AiResumeParseService aiResumeParseService, AiBudgetService aiBudgetService) {
+    private final DemoGuard demoGuard;
+
+    public AiResource(
+        AiDraftService aiDraftService,
+        AiResumeParseService aiResumeParseService,
+        AiBudgetService aiBudgetService,
+        DemoGuard demoGuard
+    ) {
         this.aiDraftService = aiDraftService;
         this.aiResumeParseService = aiResumeParseService;
         this.aiBudgetService = aiBudgetService;
+        this.demoGuard = demoGuard;
     }
 
     /**
@@ -131,6 +140,8 @@ public class AiResource {
     @Operation(summary = "Parse a resume", description = "Metered, opt-in server-side AI resume parsing for the current user.")
     @PostMapping("/parse-resume")
     public ResponseEntity<Map<String, Object>> parseResume(@Valid @RequestBody AiParseResumeVM vm) {
+        // A shared demo account must not spend the AI parse allowance (and has no resume to parse).
+        demoGuard.assertNotDemo();
         boolean hasText = vm.getText() != null && !vm.getText().isBlank();
         boolean hasFile = vm.getFileBase64() != null && !vm.getFileBase64().isBlank();
         if (hasText == hasFile) { // neither, or both

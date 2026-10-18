@@ -4,12 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BellIcon } from "@kiwiply/ui";
 import LocalDate from "@/components/LocalDate";
-import { cn } from "@/lib/cn";
 
 /**
- * The notifications bell in the sidebar (Phase 14.6): an unread count, and on click the latest
- * notices — each one opens the application it's about. Opening the list marks everything read.
- * Checks on load, when the tab comes back into focus, and every few minutes.
+ * The notifications bell in the top bar (Phase 14.6, moved from the sidebar for app v2): a red dot, and on click a popover with the latest notices — each one opens the application it's about.
+ * Opening the list marks everything read. Checks on load, when the tab comes back into focus, and
+ * every few minutes.
  */
 
 interface Item {
@@ -24,7 +23,7 @@ interface Item {
 const WHEN = { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" } as const;
 const EVERY_MS = 3 * 60 * 1000;
 
-export default function NotificationBell({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+export default function NotificationBell({ onNavigate }: { onNavigate?: () => void }) {
   const [unread, setUnread] = useState(0);
   const [items, setItems] = useState<Item[]>([]);
   const [open, setOpen] = useState(false);
@@ -85,31 +84,23 @@ export default function NotificationBell({ collapsed, onNavigate }: { collapsed:
         type="button"
         onClick={toggle}
         aria-expanded={open}
+        aria-haspopup="dialog"
         aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
-        title={collapsed ? "Notifications" : undefined}
-        className={cn(
-          "flex w-full items-center gap-[11px] rounded-[var(--radius)] px-3 py-2.5 text-sm font-medium text-ink-soft hover:bg-paper-2",
-          collapsed && "lg:justify-center lg:gap-0 lg:px-0",
-        )}
+        className="relative grid h-10 w-10 place-items-center rounded-full text-ink-soft transition-colors hover:bg-paper-2 hover:text-ink"
       >
-        <span className="relative flex-none">
-          <BellIcon className="h-[18px] w-[18px]" />
-          {unread > 0 && (
-            <span className="absolute -right-1.5 -top-1.5 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold leading-none text-on-accent">
-              {unread > 9 ? "9+" : unread}
-            </span>
-          )}
-        </span>
-        <span className={cn("truncate", collapsed && "lg:hidden")}>Notifications</span>
+        <BellIcon size={21} />
+        {unread > 0 && (
+          <span aria-hidden className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-v2-coral ring-2 ring-paper" />
+        )}
       </button>
 
       {open && (
         <div
           role="dialog"
           aria-label="Notifications"
-          className="absolute bottom-full left-0 z-[130] mb-2 w-[300px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper shadow-[var(--shadow-lg)]"
+          className="absolute right-0 top-full z-[130] mt-2 w-[320px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-line bg-paper shadow-[var(--shadow-lg)]"
         >
-          <div className="border-b border-line px-4 py-2.5 text-[13px] font-semibold text-ink">Notifications</div>
+          <div className="border-b border-line px-4 py-3 text-[14px] font-bold text-ink">Notifications</div>
           {items.length === 0 ? (
             <p className="px-4 py-6 text-center text-[13px] text-muted">
               Nothing yet. When an email moves one of your applications, you&apos;ll see it here.
@@ -118,18 +109,16 @@ export default function NotificationBell({ collapsed, onNavigate }: { collapsed:
             <ul className="max-h-[360px] overflow-y-auto">
               {items.map((n) => {
                 const inner = (
-                  <>
-                    <div className="flex items-start gap-2">
-                      {!n.read && <span aria-label="Unread" className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-accent" />}
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13px] font-semibold text-ink">{n.title}</div>
-                        {n.body && <div className="text-[12.5px] leading-snug text-ink-soft">{n.body}</div>}
-                        <div className="mt-0.5 text-[11.5px] text-muted">
-                          <LocalDate iso={n.createdAt} options={WHEN} />
-                        </div>
+                  <div className="flex items-start gap-2">
+                    {!n.read && <span aria-label="Unread" className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-v2-coral" />}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-semibold text-ink">{n.title}</div>
+                      {n.body && <div className="text-[12.5px] leading-snug text-ink-soft">{n.body}</div>}
+                      <div className="mt-0.5 text-[11.5px] text-muted">
+                        <LocalDate iso={n.createdAt} options={WHEN} />
                       </div>
                     </div>
-                  </>
+                  </div>
                 );
                 return (
                   <li key={n.id} className="border-b border-line last:border-0">

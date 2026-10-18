@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Plans (docs/subscriptions/08-data-model.md section 3; story K2.1): a plan is a published, versioned composition of catalog services. A version
+        is immutable once published (a change is a new version) and subscriptions point at the version they bought. plan_version.live_key is a
+        generated column that is non-NULL only for a PUBLISHED version, so a UNIQUE index allows exactly one live version per plan. Additive only;
+        every changeSet is guarded; rollbacks are empty on purpose.
+    -->
+
+    <changeSet id="sub-plans-plan" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="plan"/></not></preConditions>
+        <createTable tableName="plan">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="plan_key" type="varchar(40)"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(80)"><constraints nullable="false"/></column>
+            <column name="audience" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="DRAFT"><constraints nullable="false"/></column>
+            <column name="public" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="description" type="varchar(1000)"/>
+            <column name="badge" type="varchar(40)"/>
+            <column name="sort_order" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="eligibility_json" type="json"/>
+            <column name="successor_plan_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="created_by" type="varchar(50)"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"/>
+            <column name="updated_by" type="varchar(50)"/>
+        </createTable>
+        <addUniqueConstraint tableName="plan" columnNames="plan_key" constraintName="ux_plan_key"/>
+        <addForeignKeyConstraint baseTableName="plan" baseColumnNames="successor_plan_id" constraintName="fk_plan_successor"
+                                 referencedTableName="plan" referencedColumnNames="id"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-plans-plan-version" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="plan_version"/></not></preConditions>
+        <createTable tableName="plan_version">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="plan_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="version" type="int"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(12)" defaultValue="DRAFT"><constraints nullable="false"/></column>
+            <column name="effective_from" type="${datetimeType}"/>
+            <column name="effective_until" type="${datetimeType}"/>
+            <column name="catalog_version" type="int"/>
+            <column name="base_product_id" type="bigint"/>
+            <column name="intervals_json" type="json"><constraints nullable="false"/></column>
+            <column name="annual_discount_bp" type="int"/>
+            <column name="ai_budget_cap_cents" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="seat_rules_json" type="json"/>
+            <column name="presets_json" type="json"/>
+            <column name="snapshot_json" type="json"/>
+            <column name="snapshot_hash" type="char(64)"/>
+            <column name="summary" type="varchar(2000)"/>
+            <column name="published_at" type="${datetimeType}"/>
+            <column name="published_by" type="varchar(50)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="created_by" type="varchar(50)"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="plan_version" baseColumnNames="plan_id" constraintName="fk_plan_version_plan"
+                                 referencedTableName="plan" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="plan_version" baseColumnNames="base_product_id" constraintName="fk_plan_version_base"
+                                 referencedTableName="product" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="plan_version" columnNames="plan_id, version" constraintName="ux_plan_version"/>
+        <createIndex tableName="plan_version" indexName="ix_plan_version_effective">
+            <column name="plan_id"/>
+            <column name="effective_from"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-plans-plan-version-live-key" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="plan_version" columnName="live_key"/></not></preConditions>
+        <!-- One PUBLISHED version per plan: live_key is plan_id only while the version is PUBLISHED, and UNIQUE. -->
+        <sql dbms="mysql">ALTER TABLE plan_version ADD COLUMN live_key BIGINT GENERATED ALWAYS AS (IF(status = 'PUBLISHED', plan_id, NULL)) STORED</sql>
+        <sql dbms="mysql">CREATE UNIQUE INDEX ux_plan_version_live ON plan_version (live_key)</sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-plans-plan-component" author="subscription" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="plan_component"/></not></preConditions>
+        <createTable tableName="plan_component">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="plan_version_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="feature_key" type="varchar(60)"><constraints nullable="false"/></column>
+            <column name="role" type="varchar(16)"><constraints nullable="false"/></column>
+            <column name="product_id" type="bigint"/>
+            <column name="allowance_override" type="bigint"/>
+            <column name="limit_overrides_json" type="json"/>
+            <column name="default_quantity" type="int" defaultValueNumeric="1"><constraints nullable="false"/></column>
+            <column name="max_quantity" type="int"/>
+            <column name="component_discount_bp" type="int"/>
+            <column name="sort_order" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="marketing_label" type="varchar(120)"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="plan_component" baseColumnNames="plan_version_id" constraintName="fk_plan_component_version"
+                                 referencedTableName="plan_version" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="plan_component" baseColumnNames="feature_key" constraintName="fk_plan_component_feature"
+                                 referencedTableName="feature_definition" referencedColumnNames="feature_key"/>
+        <addForeignKeyConstraint baseTableName="plan_component" baseColumnNames="product_id" constraintName="fk_plan_component_product"
+                                 referencedTableName="product" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="plan_component" columnNames="plan_version_id, feature_key" constraintName="ux_plan_component"/>
+        <createIndex tableName="plan_component" indexName="ix_plan_component_role">
+            <column name="plan_version_id"/>
+            <column name="role"/>
+            <column name="sort_order"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

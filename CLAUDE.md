@@ -10,7 +10,7 @@ drawer, `options/`, and the Firefox-only `connect-relay`), importing the engine 
 There is **no popup and no native side panel**: the toolbar icon injects the drawer over the page. Being productized into extension + Spring Boot API +
 Next.js web app. Spec: `ROADMAP.md`. Task trackers: `PROGRESS.md` (product phases) +
 `EXT-UI-PLATFORM-PLAN.md` (the active extension UI-platform build-out, phases W0–W6).
-Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `HANDOFF.md` first.
+Admin-side plan: `ADMIN-PLAN.md`. Starting a new chat? Read `docs/HANDOFF.md` first.
 
 ## The loop (do this every session)
 1. Read `PROGRESS.md` → find **Current focus**.
@@ -35,7 +35,16 @@ promote a batch.
 - Delete a topic branch once it's merged; don't leave stale branches around.
 
 ## Hard rules
+- **Handoff documents live in the root `docs/` folder** (shared by every sub-project: web,
+  api, extension, mobile). `docs/HANDOFF.md` is the general orientation; branch/initiative
+  handoffs are `docs/HANDOFF-<name>.md` with a **START HERE** section giving the exact
+  continuation point (last commit, first commands, first task). Never leave a handoff in a
+  sub-project folder.
 - **No auto-submit, ever.** No CAPTCHA bypass. Legitimate use only.
+- **We never collect sensitive PII** (user decision 2026-10-11, product-wide): no SSN/ITIN, bank
+  account or routing numbers, tax IDs, passport/visa/I-9/document numbers, or date of birth — not
+  asked for, accepted, extracted from uploads, learned by the extension, sent to AI, or stored.
+  Cards go to Stripe directly and never touch us; Stripe tax-ID collection stays off.
 - **One design system: `@kiwiply/ui` (`packages/ui`).** All shared visuals — icons,
   primitives (Button/Badge/Card/…), tokens — live there; web + extension import them
   (web's `@/components/ui` files are thin re-exports). Never inline an `<svg>` icon or
@@ -69,7 +78,7 @@ the ROOT — `job-autofill` joined in W3 and the publish workflow's `npm ci` dep
 source by web + extension) · `/job-autofill` extension (workspace member) ·
 `/api` Spring Boot · `/web` Next.js (workspace member) · `/brand` source logo/ATS
 art (originals only — served copies live in `web/public` + `job-autofill/icons`; see
-`brand/README.md`) · root: ROADMAP/PROGRESS/ADMIN-PLAN/HANDOFF/CLAUDE.
+`brand/README.md`) · root: ROADMAP/PROGRESS/ADMIN-PLAN/CLAUDE (handoffs live in `docs/`).
 When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the file map.
 
 ## Locked decisions (persist across sessions — don't re-litigate)
@@ -79,7 +88,13 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   `TrackingProvider` seam (`job-autofill/src/lib/tracking.js`); canonical DTOs only.
 - **Client split:** web app = primary product (account, resumes, bio, board);
   extension = on-page agent (autofill, capture, submit-detect, save-a-job).
-- **One account, web-connect auth:** the extension has **no separate login or
+- **Two kinds of account, never connected (user decision 2026-10-14, O4; see
+  `docs/enterprise-v2/19-separate-enterprise-accounts.md`):** a *personal* account (kiwiply.com) and an
+  *enterprise* account per organization (its tenant host). The same email may have both; creating an
+  enterprise account never touches, attaches or reveals a personal one; resumes, inbox, billing and settings
+  never cross. The extension connects with **one account at a time**. Wherever this file or the enterprise docs
+  still say "one account" / "one account, two workspaces", this decision wins.
+- **Web-connect auth:** the extension has **no separate login or
   profile/resume management** — those live on kiwiply.com. Sign-in is a single web
   sign-in; the web `/connect` page mints a separate extension token pair
   (`POST /api/extension/session` ← `web /api/extension/token`) and hands it over via
@@ -123,7 +138,7 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
 - **Go-to-market (locked 2026-09-21, ROADMAP Phases 11–17; extended 2026-10-05).** Tiers
   **Free + Pro + Autopilot**. Pro = **$19.99/mo · $49.99 / 3 months** at Launch 1 → **$24.99 /
   $54.99** at Launch 2. Autopilot = **$39.99/mo · $99.99 / 3 months**.
-  **No annual plan.** Stripe Checkout + Portal; `EntitlementService` in the API is the only
+  **Annual billing is allowed (user decision 2026-10-15, S-01):** monthly and yearly prices per plan/add-on, yearly discount admin-set under the ≥ 80 % margin guard; design docs/subscriptions/. Stripe Checkout + Portal; `EntitlementService` in the API is the only
   entitlement source of truth (`isPro()` wraps it; Phase 18 moves plans onto a DB catalog). **Core autofill stays free and identical in both tiers.** Free has **no
   server AI** (BYO key only) with exactly one exception: **AI resume parsing** (one call per
   resume, it's how the profile builds itself). Resume caps: Free 3 · Pro 25 · Autopilot 50;
@@ -144,7 +159,8 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   Daily job matches source jobs from the ATS' public job-board APIs, plus one licensed
   aggregator API. **Never scraping.** Strong matches (16.1) are the first build after Launch 1.
   Free = 3 rule-ranked matches a day (no AI); Pro/Autopilot = 10–20 AI-scored + email + 👍/👎;
-  consultancies included in the Pro seat.
+  consultancies: a consultant's matching rides on their org **base license + add-ons** (Enterprise V2
+  bullet below), not on a "Pro seat".
 
 - **Expansion (locked 2026-10-05, ROADMAP *Expansion build*, Phases 18–23).**
   - **Floors:** **nothing is unlimited**. Every subscription keeps **≥ 80 % gross margin in the
@@ -155,10 +171,19 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
     and stops before submit. **No cloud auto-apply**, and it never ticks attestation boxes.
   - **Services:** human resume review, resume rewrite, mock interview and coaching, delivered by
     paid freelance experts; plus AI Interview Practice (text). **AI voice interviews dropped for now.**
-  - **Organizations:** a **one-time setup fee** (always charged) + **per-person items, mixed
-    freely** (Pro, Autopilot, AI Interview Practice, services), priced **above** individual prices.
+  - **Organizations (E3, user decision 2026-10-12 — replaces "per-person items"):** a **one-time
+    setup fee** (always charged, catalog item `ORG_SETUP_FEE`) + per consultant a **mandatory base
+    license** + **individually priced feature add-ons** (matching, tailoring, inbox, interview prep,
+    Autopilot prepare, …). **Presets are shortcuts** that pick add-ons, never a price. The old items
+    become presets / features / org modules (marketer seat = `module.talent_marketing`). Base and
+    feature prices are **admin inputs** under the **≥ 80 % margin guard** and the "above individual"
+    check; the **catalog ships without prices** — nothing is sellable until admin publishes.
   - **No packages yet:** prices, limits and future bundles live in the catalog and change from
     admin, not code.
+  - **Everything is admin-configured (user decision 2026-10-11):** every feature's on/off switch,
+    price, limit, cap and default is driven by config from the app admin settings page (catalog,
+    settings registry, feature flags) — never hard-coded. Code ships safe defaults; admin decides.
+    Example: Consultancy Ops/timesheets pricing is set later in admin, not in a story.
   - **Consultancy Marketer (Phase 22):** prepares everything for 4–5 consultants (resumes, job
     banks with a resume per job, recruiter mail matched to each consultant's board) but **never
     submits and never signs in as a consultant**. The consultant consents, approves
@@ -166,6 +191,22 @@ When working in `job-autofill/`, read `job-autofill/ARCHITECTURE.md` for the fil
   - **Consultancy Ops add-on (Phase 23):** optional timesheets + finances. **Record money, never
     move it**; no bank numbers, SSNs or tax IDs. The scope waits on the 23.0 brainstorm.
   - **No Coach tier.** The org model keeps a hook for it; don't build it unless asked.
+
+- **Enterprise V2 (locked 2026-10-12; design `docs/enterprise-v2/`, roadmap area `ent`/`X`).**
+  Supersedes the old org plan (prior art only). Shared schema + `org_id` + explicit `TenantContext`;
+  the **API resolves the tenant from the host alone** (clients never name a tenant; unknown hosts 404);
+  host-only sessions with a `tid` claim (a tenant host authenticates that organization's enterprise accounts
+  only; kiwiply.com authenticates personal accounts only); tenant pages live under `web/src/app/(tenant)/_t/**` behind a
+  `proxy.ts` rewrite; custom domains via on-demand TLS on the shared edge (**the user applies the
+  Caddy change**, E5). Roles are data (N roles per member, five scopes, ceiling rule); one
+  `EntitlementService.check` with the 11-step order is the only gate. **E1:** marketers prepare,
+  request and record — **the consultant submits; Kiwiply never submits**, no auto-submit. **E2:** HR &
+  Finance are **record-only** — no identity documents, no SSN/tax/bank/DOB, never move money, PII
+  scanner on every path. **E3:** pricing per the Organizations bullet above; one Stripe subscription
+  per org, add now / remove at period end, backend quotes with expiry; an enterprise account never has
+  a personal plan, and personal subscriptions are untouched. Everything admin-configured; additive Liquibase + per-phase flags.
+  Design by Fable, code by Sonnet; `CLAUDE.md` wins on conflict and conflicts go to
+  `docs/enterprise-v2/08-decisions-for-user.md`.
 
 ## Definition of done (every task)
 Acceptance criteria met · tests added & green · PROGRESS.md updated · versions

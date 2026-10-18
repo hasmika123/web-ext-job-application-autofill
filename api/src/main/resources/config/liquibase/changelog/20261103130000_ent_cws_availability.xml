@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Availability page (branch ent-talent-consultant). Three consultant-isolated tables; the availability status,
+        available-from date and "since" date stay on consultant_profile (written the same way the Profile page writes them), and preferred
+        locations / employment types / work authorization stay in cws_profile_pref / cws_profile_detail (read only here).
+          cws_availability_block    time the consultant marked on their calendar: VACATION | PERSONAL | HOLIDAY | AVAILABLE. APPROVED or PENDING:
+                                    approving is the marketer's step, which is not built yet, so seeded rows are flagged sample_data = true.
+          cws_availability_history  one row per availability change made through this page (effective date, status / date, work mode, ACTIVE or EXPIRED).
+          cws_work_preference       the preferences that have no home yet: work mode, notice period, hourly rate range (RECORD ONLY, minor units),
+                                    travel willingness. One row per consultant.
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FK to consultant_profile, every secondary index starts with
+        org_id, DATETIME(6) UTC, additive, empty rollback, no JSON, no sensitive columns (the free-text reason / rate note are PII-scanned before storing).
+    -->
+    <changeSet id="ent-cws-13-cws_availability_block" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_availability_block"/></not></preConditions>
+        <createTable tableName="cws_availability_block">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="start_date" type="date"><constraints nullable="false"/></column>
+            <column name="end_date" type="date"><constraints nullable="false"/></column>
+            <column name="reason" type="varchar(200)"/>
+            <column name="status" type="varchar(10)" defaultValue="PENDING"><constraints nullable="false"/></column>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_availability_block" baseColumnNames="org_id" constraintName="fk_cws_avail_block_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_availability_block" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_avail_block_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_availability_block" indexName="ix_cws_avail_block_consultant"><column name="org_id"/><column name="consultant_id"/><column name="start_date"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-13-cws_availability_history" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_availability_history"/></not></preConditions>
+        <createTable tableName="cws_availability_history">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="effective_date" type="date"><constraints nullable="false"/></column>
+            <column name="availability_status" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="available_from" type="date"/>
+            <column name="work_mode" type="varchar(10)"/>
+            <column name="status" type="varchar(10)" defaultValue="ACTIVE"><constraints nullable="false"/></column>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_availability_history" baseColumnNames="org_id" constraintName="fk_cws_avail_hist_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_availability_history" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_avail_hist_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_availability_history" indexName="ix_cws_avail_hist_consultant"><column name="org_id"/><column name="consultant_id"/><column name="effective_date"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-13-cws_work_preference" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_work_preference"/></not></preConditions>
+        <createTable tableName="cws_work_preference">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="preferred_work_mode" type="varchar(10)"/>
+            <column name="notice_weeks" type="int"/>
+            <column name="rate_min_minor" type="bigint"/>
+            <column name="rate_max_minor" type="bigint"/>
+            <column name="rate_note" type="varchar(120)"/>
+            <column name="travel_label" type="varchar(12)"/>
+            <column name="travel_percent" type="int"/>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_work_preference" baseColumnNames="org_id" constraintName="fk_cws_work_pref_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_work_preference" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_work_pref_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_work_preference" columnNames="org_id, consultant_id" constraintName="uk_cws_work_pref_consultant"/>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

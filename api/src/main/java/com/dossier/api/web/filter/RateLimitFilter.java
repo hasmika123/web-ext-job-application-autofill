@@ -95,12 +95,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
         return null;
     }
 
-    /** Trust the proxy's first X-Forwarded-For hop (Caddy sets it); fall back to the socket. */
-    private static String clientIp(HttpServletRequest request) {
+    /**
+     * The client address behind the edge: the LAST X-Forwarded-For hop (the one our own proxy appended, so a client-supplied
+     * prefix can not choose its bucket), the same rule as the web app's {@code rate-limit.ts}; the socket address when there
+     * is no header.
+     */
+    public static String clientIp(HttpServletRequest request) {
         String xff = request.getHeader("X-Forwarded-For");
         if (xff != null && !xff.isBlank()) {
-            int comma = xff.indexOf(',');
-            return (comma >= 0 ? xff.substring(0, comma) : xff).trim();
+            String[] parts = xff.split(",");
+            for (int i = parts.length - 1; i >= 0; i--) {
+                String hop = parts[i].trim();
+                if (!hop.isEmpty()) return hop;
+            }
         }
         return request.getRemoteAddr();
     }

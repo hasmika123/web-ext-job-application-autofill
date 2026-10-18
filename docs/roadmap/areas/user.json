@@ -1,0 +1,3956 @@
+{
+  "area": "user",
+  "name": "Job-seeker dashboard, auth, account, web↔extension",
+  "prefix": "U",
+  "updated": "2026-10-16",
+  "epics": [
+    {
+      "id": "U0",
+      "name": "Mobile shell & app foundation",
+      "goal": "Bottom tab bar, bottom sheets, thumb-zone actions, dark mode, skeletons and the shared primitives every other epic renders into — the app feels native on a 390px phone.",
+      "priority": "P0"
+    },
+    {
+      "id": "U1",
+      "name": "Auth & account security",
+      "goal": "Passkeys first, Google/Apple, step-up for sensitive actions, devices & sessions, email change, abuse limits, CSRF — low-friction sign-in that is also the most secure account the user has.",
+      "priority": "P0"
+    },
+    {
+      "id": "U2",
+      "name": "Onboarding & activation",
+      "goal": "Five one-question screens on a phone that end in three real jobs and an alert; instant email verification; the extension offered at the right moment; a measured activation funnel.",
+      "priority": "P0"
+    },
+    {
+      "id": "U3",
+      "name": "Dashboard",
+      "goal": "Real numbers, one next-best action, upcoming interviews, today's matches, streak and goals — the first screen answers 'what should I do now?' in five seconds.",
+      "priority": "P0"
+    },
+    {
+      "id": "U4",
+      "name": "Job search & matching",
+      "goal": "Six ATS public APIs + one licensed aggregator into one store; MySQL full-text search with explainable ranking, preferences, feedback, Free daily matches and Pro match %.",
+      "priority": "P0"
+    },
+    {
+      "id": "U5",
+      "name": "Saved jobs",
+      "goal": "Saved jobs are real SAVED applications with states (to apply / applied / not interested), reminders and one-tap apply hand-off.",
+      "priority": "P1"
+    },
+    {
+      "id": "U6",
+      "name": "Applications tracker",
+      "goal": "Status history, notes, interviews, bulk actions, swipeable phone cards, inbox linkage and calendar export — the tracker that fills itself and never loses context.",
+      "priority": "P0"
+    },
+    {
+      "id": "U7",
+      "name": "Job alerts & notification engine",
+      "goal": "Alerts as saved searches; one engine with per-kind channel matrix, quiet hours, daily digest, dedupe, web push and per-kind unsubscribe.",
+      "priority": "P0"
+    },
+    {
+      "id": "U8",
+      "name": "AI Assistant (Ask Kiwiply)",
+      "goal": "A grounded, tool-using, budgeted chat over the user's own data with confirm-to-act, visible memory, 90-day retention and a Free path that never dead-ends.",
+      "priority": "P1"
+    },
+    {
+      "id": "U9",
+      "name": "Interview Prep",
+      "goal": "Question bank, AI text practice (Pro, Phase 20.1), session history and the hand-off from a real upcoming interview.",
+      "priority": "P1"
+    },
+    {
+      "id": "U10",
+      "name": "Messages",
+      "goal": "Recruiter threads from the user's own Gmail inbox, grouped per application, read-only with 'Reply in Gmail' — no Kiwiply mailbox, no in-app sending.",
+      "priority": "P1"
+    },
+    {
+      "id": "U11",
+      "name": "Explore",
+      "goal": "Companies (from the posting store), roles, career paths and guides — real counts, real links, content from the catalog not sample data.",
+      "priority": "P2"
+    },
+    {
+      "id": "U12",
+      "name": "Analytics",
+      "goal": "A real funnel: response and interview rates by resume, ATS, company and week, powered by events, the inbox and fill telemetry — honest empty states.",
+      "priority": "P1"
+    },
+    {
+      "id": "U13",
+      "name": "My Profiles integration",
+      "goal": "The hub the Resume Builder's Common Profile (R1) fills: visibility, links, completeness → dashboard, and the removal of 'multiple profiles' in favour of targeted resumes.",
+      "priority": "P1"
+    },
+    {
+      "id": "U14",
+      "name": "Settings, privacy & data",
+      "goal": "Notifications, privacy ('what we store, who sees it'), job preferences, AI data, support access, export/delete — every promise in plain language, every switch real.",
+      "priority": "P0"
+    },
+    {
+      "id": "U15",
+      "name": "Billing & plan flows (in-app)",
+      "goal": "Upgrade sheet on 402 without leaving the page, usage meters, cancel/renew states, receipts — honest money UX per the locked billing rules.",
+      "priority": "P0"
+    },
+    {
+      "id": "U16",
+      "name": "Engagement: streaks, goals, recap, referrals",
+      "goal": "Tasteful momentum: weekly goals, a streak that forgives, a Sunday recap, shareable milestones and a referral link — never dark patterns.",
+      "priority": "P1"
+    },
+    {
+      "id": "U17",
+      "name": "PWA, push, offline, performance",
+      "goal": "Installable app, service worker with offline fallback, web push plumbing, Lighthouse budgets in CI, skeletons and optimistic UI everywhere.",
+      "priority": "P1"
+    },
+    {
+      "id": "U18",
+      "name": "Product analytics & experiments",
+      "goal": "First-party, schema-validated events with privacy by design, rollups, funnel definitions and flag-based experiments.",
+      "priority": "P0"
+    },
+    {
+      "id": "U19",
+      "name": "Accessibility, i18n readiness, QA & CI",
+      "goal": "AA accessibility, 44px targets, reduced motion, string extraction, Playwright + vitest in CI, visual smoke at 390/768/1440.",
+      "priority": "P0"
+    },
+    {
+      "id": "U20",
+      "name": "Extension ↔ web hand-off",
+      "goal": "Connect, sync, save-a-job from the drawer, install prompts and the phone→laptop path — the two surfaces feel like one product.",
+      "priority": "P0"
+    }
+  ],
+  "stories": [
+    {
+      "id": "U0.1",
+      "epic": "U0",
+      "title": "Bottom tab bar + 'More' sheet on phones",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [],
+      "story": "As a phone user I want a bottom tab bar (Home · Jobs · Applications · Ask AI · More) so that the main destinations are one thumb-tap away.",
+      "genz": "Thumb-zone navigation is the native-app expectation; the sidebar drawer hides everything behind a hamburger.",
+      "ac": [
+        "Below 1024px a 5-tab bar is fixed at the bottom with 44px+ targets and safe-area padding; 'More' opens a bottom sheet listing the remaining 8 routes",
+        "Active tab reflects the route; badges show unread notifications (Home) and new matches (Jobs)",
+        "The drawer/hamburger is removed on phones; desktop sidebar unchanged",
+        "Keyboard-open state hides the bar (visualViewport)"
+      ],
+      "tests": [
+        "Playwright 390px: tabs navigate, More sheet opens/closes, bar hidden while an input is focused"
+      ],
+      "tech": "web/src/components/app-shell/AppShell.tsx (new BottomTabs.tsx, MoreSheet.tsx); packages/ui Sheet primitive if missing",
+      "evidence": [
+        "web/src/components/app-shell/AppShell.tsx:146 (off-canvas drawer only)"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U0.2",
+      "epic": "U0",
+      "title": "Bottom sheet + swipe primitives in @kiwiply/ui",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ui"
+      ],
+      "deps": [],
+      "story": "As a builder I want a shared BottomSheet (snap points, drag handle, focus trap) and a SwipeRow (left/right actions with undo) so that every page uses the same phone interactions.",
+      "genz": "Sheets and swipes are the grammar of every app they already use.",
+      "ac": [
+        "BottomSheet: snap 50/90%, drag to dismiss, Esc closes, focus trapped, scroll-lock, reduced-motion safe; renders as a side panel ≥1024px",
+        "SwipeRow: thresholds, haptic-like bounce, accessible fallback (overflow menu) for keyboard/SR",
+        "Storybook-free docs in packages/ui/README.md"
+      ],
+      "tests": [
+        "vitest + jsdom for snap logic and a11y attributes"
+      ],
+      "tech": "packages/ui/src/primitives/{BottomSheet,SwipeRow}.tsx; web SidePanel keeps working",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "E2E-U0.0"
+      ]
+    },
+    {
+      "id": "U0.3",
+      "epic": "U0",
+      "title": "Dark mode for the signed-in app",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "ui",
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I want a dark theme (auto by system, overridable in Settings) so that the app is comfortable at night.",
+      "genz": "Dark mode is a baseline expectation, not a feature.",
+      "ac": [
+        "theme-v2 tokens get dark values under `.theme-v2.dark` / prefers-color-scheme; every app-v2/common and app-v3 component passes AA contrast in both",
+        "Setting (System / Light / Dark) stored in user preference + localStorage for first paint without flash",
+        "Mascot art and hero bands have dark-safe backgrounds"
+      ],
+      "tests": [
+        "Playwright screenshot smoke of 13 routes in dark at 390/1440; axe contrast checks"
+      ],
+      "tech": "packages/ui/styles/theme-v2.css, web/src/app/(app)/layout.tsx (class on wrapper), settings panel",
+      "evidence": [
+        "web/src/app/globals.css:6"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U0.4",
+      "epic": "U0",
+      "title": "Skeletons, empty states and error boundaries for every route",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I want every page to paint instantly with a board-shaped skeleton, show a helpful empty state with one action, and recover from errors so that nothing ever looks broken.",
+      "genz": "Perceived speed and no dead ends.",
+      "ac": [
+        "loading.tsx for all 13 routes matching the board layout",
+        "EmptyState with mascot + one CTA for: no applications, no saved jobs, no alerts, no matches yet, no inbox",
+        "error.tsx per route group with retry; API 401 still redirects"
+      ],
+      "tests": [
+        "Playwright: each route with an empty mock account shows its empty state"
+      ],
+      "tech": "web/src/app/(app)/*/loading.tsx, components/ui/EmptyState.tsx",
+      "evidence": [
+        "web/src/app/(app)/dashboard/loading.tsx",
+        "web/src/app/(app)/jobs/loading.tsx",
+        "web/src/app/(app)/settings/loading.tsx"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U0.5",
+      "epic": "U0",
+      "title": "Remove sample-data fallbacks behind a single flag",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "E2E-U0.0"
+      ],
+      "story": "As the product owner I want every SAMPLE fallback gated by one `showBoardSamples` flag (default off outside demo) so that real users never see fake rows.",
+      "genz": "Trust: fake numbers on a real account read as a lie.",
+      "ac": [
+        "`app-v3/sample-data.ts` imports only flow through `samples()` which returns [] unless the demo account or NEXT_PUBLIC_BOARD_SAMPLES=1",
+        "Pages render their U0.4 empty states instead",
+        "Demo accounts keep the board look"
+      ],
+      "tests": [
+        "tsc; Playwright: a fresh non-demo account sees empty states on dashboard/jobs/applications/saved"
+      ],
+      "tech": "web/src/components/app-v3/sample-data.ts, web/src/lib/demo.ts",
+      "evidence": [
+        "web/src/components/app-v3/sample-data.ts:2"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U0.6",
+      "epic": "U0",
+      "title": "Hero band compaction + page header pattern on phones",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a phone user I want the hero band to collapse to a one-line title with the mascot as a small badge so that content starts above the fold.",
+      "genz": "Content first; decoration shrinks on small screens.",
+      "ac": [
+        "HeroBand has a `compact` mode under 768px (≤ 72px tall), note hidden, art 40px",
+        "Sticky page title on scroll with the primary action"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/components/app-v2/common/HeroBand.tsx",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U1.1",
+      "epic": "U1",
+      "title": "CSRF origin check, per-account backoff and login_attempt",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "story": "As the platform I want state-changing Next route handlers to verify Origin, and login/OTP/passkey to back off per account, so that cookie-auth cannot be abused cross-site or brute-forced.",
+      "genz": "Invisible safety; no CAPTCHA friction.",
+      "ac": [
+        "`web/src/lib/csrf.ts` rejects POST/PUT/PATCH/DELETE with a foreign Origin/Referer (403) on every route handler; the extension token path is unaffected",
+        "`login_attempt` table (hashed IP, no raw IP); thresholds 5→1 min, 10→15 min, 20→24 h + email; messages never reveal account existence",
+        "Admin security tile reads failed-login counts (A-area consumes)"
+      ],
+      "tests": [
+        "LoginBackoffIT thresholds + reset on success",
+        "Playwright cross-origin POST → 403"
+      ],
+      "tech": "web/src/lib/csrf.ts, web/src/app/api/**/route.ts, api AuthenticateController + new LoginAttemptService, Liquibase login_attempt",
+      "evidence": [
+        "web/src/lib/rate-limit.ts (per-IP only)"
+      ],
+      "design": "docs/design/user/auth-account-security.md",
+      "critical": true
+    },
+    {
+      "id": "U1.2",
+      "epic": "U1",
+      "title": "Passkeys — WebAuthn API (register, discoverable login, credentials)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U1.1"
+      ],
+      "story": "As a user I want to sign in with Face ID / Touch ID / Windows Hello so that I never type a password on my phone.",
+      "genz": "Passkeys are the fastest, most familiar sign-in for a phone-first audience.",
+      "ac": [
+        "Tables webauthn_credential, webauthn_challenge (additive Liquibase)",
+        "POST /api/webauthn/register/options|register (auth), /login/options|login (public, discoverable) issuing the normal token pair via TokenIssuer",
+        "GET/DELETE /api/webauthn/credentials; RP ID/origin from config; challenge single-use, 5 min",
+        "No user enumeration on login options"
+      ],
+      "tests": [
+        "WebAuthnServiceTest with library vectors",
+        "WebAuthnResourceIT register→login→delete"
+      ],
+      "tech": "api service/auth/WebAuthnService + resource; dep Yubico webauthn-server-core (confirm)",
+      "evidence": [],
+      "design": "docs/design/user/auth-account-security.md",
+      "critical": true
+    },
+    {
+      "id": "U1.3",
+      "epic": "U1",
+      "title": "Passkeys on /login, /signup and Settings › Security; drop LinkedIn",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U1.2"
+      ],
+      "story": "As a user I want 'Continue with passkey' first on login and signup, conditional autofill on the email field, and a list of my passkeys in Settings so that passkeys are the default path.",
+      "genz": "One tap to sign up; no password to forget.",
+      "ac": [
+        "Buttons feature-detected (hidden without WebAuthn); conditional mediation when available",
+        "Passkey sign-up collects email, creates the account usable immediately, sends verification in the background",
+        "Settings › Security lists passkeys (name, created, last used) with add/rename/delete (delete needs step-up U1.5)",
+        "LinkedIn button removed; Apple stays as 'coming soon' until U1.8"
+      ],
+      "tests": [
+        "Playwright with a virtual authenticator: sign up, sign out, sign in at 390px"
+      ],
+      "tech": "web/src/components/auth/*, web/src/app/api/webauthn/*, app-v3/settings",
+      "evidence": [
+        "web/src/components/auth/SocialRow.tsx:30"
+      ],
+      "design": "docs/design/user/auth-account-security.md",
+      "critical": false
+    },
+    {
+      "id": "U1.4",
+      "epic": "U1",
+      "title": "Devices & sessions page + new-device sign-in alert",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U7.1"
+      ],
+      "story": "As a user I want to see where I'm signed in and sign out other devices, and get told when a new device signs in, so that I stay in control of my account.",
+      "genz": "Trust cue they recognise from every big app.",
+      "ac": [
+        "refresh_token family metadata (UA, country, first/last seen, label)",
+        "GET /api/account/sessions, DELETE one, POST revoke-others (step-up)",
+        "/settings/security 'Devices' list with 'This device'",
+        "SECURITY notification (email+push) on a new UA+country family; first sign-in exempt"
+      ],
+      "tests": [
+        "SessionsResourceIT; notification published once"
+      ],
+      "tech": "api RefreshTokenService, AdminSessionService (reuse), NotificationService; web settings",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/AdminSessionService.java"
+      ],
+      "design": "docs/design/user/auth-account-security.md",
+      "critical": false
+    },
+    {
+      "id": "U1.5",
+      "epic": "U1",
+      "title": "Step-up authentication for sensitive actions",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U1.2"
+      ],
+      "story": "As a user I want to confirm it's me (passkey, password or emailed code) before changing email/password, deleting the account, managing passkeys, revoking sessions or connecting the inbox.",
+      "genz": "Face ID instead of re-typing a password.",
+      "ac": [
+        "user_step_up row, 5-minute validity, cleared on credential change",
+        "POST /api/account/step-up {method…} and /step-up/otp (reuses the admin OTP mailer)",
+        "Listed endpoints return 401 STEP_UP_REQUIRED without it; the web shows one 'Confirm it's you' sheet and retries"
+      ],
+      "tests": [
+        "StepUpIT per endpoint; OTP attempts/expiry"
+      ],
+      "tech": "api AdminMfaService generalised → StepUpService; web components/auth/StepUpSheet.tsx",
+      "evidence": [],
+      "design": "docs/design/user/auth-account-security.md",
+      "critical": true
+    },
+    {
+      "id": "U1.6",
+      "epic": "U1",
+      "title": "Email change with verification + revert; magic sign-in link",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U1.5",
+        "A5.1"
+      ],
+      "story": "As a user I want to change my email safely and to sign in by emailed link when I lost my passkey so that I'm never locked out.",
+      "genz": "Recovery without support tickets.",
+      "ac": [
+        "email_change_request with hashed confirm/revert tokens; old address gets a 7-day revert link; change applies on confirm",
+        "One-time magic sign-in link (15 min) from /login 'Email me a link'; rate setting `ratelimit.magic_link.per_hour` (default 3)",
+        "Both flows emit SECURITY notifications"
+      ],
+      "tests": [
+        "EmailChangeIT confirm/revert/expiry; MagicLinkIT single use"
+      ],
+      "tech": "api AccountResource + MailService templates; web settings + login",
+      "evidence": [],
+      "design": "docs/design/user/auth-account-security.md",
+      "critical": false
+    },
+    {
+      "id": "U1.7",
+      "epic": "U1",
+      "title": "Password hygiene: HIBP k-anonymity, strength meter, disposable-email block, __Host- cookies",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "story": "As a user I want weak or breached passwords refused with a clear meter and throwaway emails blocked at signup so that accounts start secure.",
+      "genz": "Guidance, not scolding: the meter explains what makes it strong.",
+      "ac": [
+        "Signup/reset call HIBP range API (fail-open); zxcvbn-style meter (no dep: a small heuristic)",
+        "Disposable-domain list (shared with admin 9.B8) refuses signup with a kind message",
+        "Access cookie uses the __Host- prefix when the host allows"
+      ],
+      "tests": [
+        "unit for the meter; AccountResourceIT breached password → 400"
+      ],
+      "tech": "web/src/components/auth/PasswordInput, api UserService.registerUser, web/src/lib/cookies.ts",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U1.8",
+      "epic": "U1",
+      "title": "Sign in with Apple",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U1.2"
+      ],
+      "story": "As an iPhone user I want to sign in with Apple so that sign-up is one tap with my relay email.",
+      "genz": "Apple is the second-most-expected button on iOS.",
+      "ac": [
+        "external_identity table; Google mapping migrated to it (email link first time, sub thereafter)",
+        "Next route handles Apple's form_post callback; POST /api/auth/apple verifies id_token against Apple JWKS",
+        "Relay emails accepted; account usable without verification"
+      ],
+      "tests": [
+        "AppleAuthIT with stubbed JWKS; GoogleAuth regression"
+      ],
+      "tech": "api GoogleAuthController → OAuthIdentityService; web/src/app/api/auth/apple/route.ts",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/web/rest/GoogleAuthController.java"
+      ],
+      "design": "docs/design/user/auth-account-security.md",
+      "critical": false
+    },
+    {
+      "id": "U1.9",
+      "epic": "U1",
+      "title": "Optional TOTP for users (P2)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U1.5"
+      ],
+      "story": "As a security-minded user I want an authenticator-app second factor so that password sign-in needs a code.",
+      "genz": "Optional; passkeys already cover most of the audience.",
+      "ac": [
+        "TOTP secret enrol with QR + recovery codes; required on password login only; step-up accepts TOTP",
+        "Recovery codes single-use"
+      ],
+      "tests": [
+        "TotpIT enrol/verify/recovery"
+      ],
+      "tech": "api AdminMfaService pattern; web settings",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U1.10",
+      "epic": "U1",
+      "title": "Existing auth baseline (password, Google, reset, activation, MFA for admins)",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "story": "As a user I can sign up with email or Google, verify by email, sign in, reset my password; admins get OTP MFA.",
+      "genz": "Baseline.",
+      "ac": [
+        "Exists and is live"
+      ],
+      "tests": [
+        "AuthenticateController tests, web gate"
+      ],
+      "tech": "AuthenticateController, GoogleAuthController, AccountResource, web/src/app/{login,signup,forgot-password,reset-password}",
+      "evidence": [
+        "web/src/app/api/auth/login/route.ts",
+        "web/src/components/auth/GoogleSignIn.tsx",
+        "PROGRESS.md Phase 1"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U2.1",
+      "epic": "U2",
+      "title": "Instant verification: activate-and-sign-in link, 'Open Gmail' buttons, resend",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "story": "As a new user I want tapping the verification link to sign me in on this device so that verification costs seconds, not a second login.",
+      "genz": "Every extra screen loses a third of a phone cohort.",
+      "ac": [
+        "POST /api/account/activate/session {key} activates and returns a token pair once; the web /account/activate uses it, falls back to the sign-in link",
+        "'Almost there' shows Open Gmail / Open Outlook deep links, resend after 30 s, change email",
+        "Events email_verified{auto_session}"
+      ],
+      "tests": [
+        "ActivateSessionIT single use + expiry; Playwright 'Almost there' buttons"
+      ],
+      "tech": "api AccountResource, web/src/app/account/activate, components/auth/ActivateSignInLink.tsx",
+      "evidence": [
+        "web/src/components/auth/ActivateSignInLink.tsx"
+      ],
+      "design": "docs/design/user/onboarding-activation.md",
+      "critical": false
+    },
+    {
+      "id": "U2.2",
+      "epic": "U2",
+      "title": "Onboarding state API (user_onboarding) + layout gate",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "story": "As the app I want to know which onboarding step a user is on so that it resumes exactly there and never repeats.",
+      "genz": "Autosave per tap; closing the app loses nothing.",
+      "ac": [
+        "user_onboarding table; GET/PUT /api/profile/onboarding (step, skipped, completed_at, source)",
+        "(app) layout redirects to /welcome when incomplete and step < 4; 'Skip all' completes",
+        "Demo accounts seeded completed"
+      ],
+      "tests": [
+        "OnboardingResourceIT idempotent PUT + gate"
+      ],
+      "tech": "api new OnboardingResource; web/src/app/(app)/layout.tsx",
+      "evidence": [],
+      "design": "docs/design/user/onboarding-activation.md",
+      "critical": false
+    },
+    {
+      "id": "U2.3",
+      "epic": "U2",
+      "title": "Steps 1–2: 'What are you looking for' + 'Where' (writes job_preference)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U2.2",
+        "U4.5"
+      ],
+      "story": "As a new user I want to pick a few titles, level, type and places from chips so that Kiwiply knows what to show me without a form.",
+      "genz": "Chips over typing; one question per screen; Skip everywhere but Q1.",
+      "ac": [
+        "Chips come from the top 40 title clusters in job_posting (GET /api/jobs/title-clusters) + free text",
+        "Location: Remote toggle, 'Use my location' (reverse-geocode via the gazetteer), typeahead",
+        "Writes job_preference (source ONBOARDING); back/forward keeps answers; 4-dot progress"
+      ],
+      "tests": [
+        "Playwright 390px steps 1–2; JobPreference saved"
+      ],
+      "tech": "web/src/components/onboarding/* (new flow), api JobPreferenceResource (U4.5)",
+      "evidence": [],
+      "design": "docs/design/user/onboarding-activation.md",
+      "critical": true,
+      "benchmark": "No competitor onboarding ends in 3 real jobs in 5 screens; Simplify starts with a long profile, the builders with a form"
+    },
+    {
+      "id": "U2.4",
+      "epic": "U2",
+      "title": "Step 3: resume paths (upload / paste / later) into the R1.4 card review",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U2.3",
+        "R1.4"
+      ],
+      "story": "As a new user I want to add a resume by upload or paste, or skip, and confirm what was read card by card.",
+      "genz": "'We did this for you — check it' beats 'fill this in'.",
+      "ac": [
+        "Three options; upload uses the existing parse (AI with consent); paste and fresh reuse R1.4/R1.5",
+        "'Later' sets a dashboard checklist item; nothing blocks on a resume"
+      ],
+      "tests": [
+        "Playwright upload path on the mock API"
+      ],
+      "tech": "web/src/components/onboarding, R1.4 review component",
+      "evidence": [],
+      "design": "docs/design/user/onboarding-activation.md",
+      "critical": false
+    },
+    {
+      "id": "U2.5",
+      "epic": "U2",
+      "title": "Step 4: instant matches (3 real jobs, no AI)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U2.3",
+        "U4.2",
+        "A5.1"
+      ],
+      "story": "As a new user I want to see three real jobs for my picks before I finish onboarding so that I know Kiwiply works.",
+      "genz": "The 'aha' inside the first minute.",
+      "ac": [
+        "GET /api/jobs/instant → the best setting `jobs.instant_matches` (default 3) postings no older than setting `jobs.instant_max_age_hours` (default 72) honouring job_preference (JobSearchService, rules only)",
+        "Cards with Save; fewer than 3 shows what exists + reassurance",
+        "Event activated{path:jobs} on first render; user.activated_at set"
+      ],
+      "tests": [
+        "JobInstantIT deterministic; Playwright step 4"
+      ],
+      "tech": "api JobSearchService (U4.2), web onboarding",
+      "evidence": [],
+      "design": "docs/design/user/onboarding-activation.md",
+      "critical": true
+    },
+    {
+      "id": "U2.6",
+      "epic": "U2",
+      "title": "Step 5: create the alert + push pre-prompt + 'You're set' celebration",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U2.5",
+        "U7.2"
+      ],
+      "story": "As a new user I want one tap to get a daily ping for my search and a short celebration so that I leave with something running.",
+      "genz": "Instant feedback and a tasteful mascot moment, once.",
+      "ac": [
+        "Creates a job_alert from steps 1–2 (daily or instant); then the push pre-prompt sheet (U7.4) if supported",
+        "Done screen lists what's set and the remaining checklist; confetti once, reduced-motion safe"
+      ],
+      "tests": [
+        "Playwright step 5 with push mocked"
+      ],
+      "tech": "web onboarding; U7.2 API",
+      "evidence": [],
+      "design": "docs/design/user/onboarding-activation.md",
+      "critical": false
+    },
+    {
+      "id": "U2.7",
+      "epic": "U2",
+      "title": "Dashboard setup checklist + 'send install link to my laptop'",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U2.2",
+        "A5.1"
+      ],
+      "story": "As a phone user I want a checklist that remembers what I skipped and an email with the Chrome link so that autofill is waiting on my laptop.",
+      "genz": "Phone-first users still get the full product later without hunting.",
+      "ac": [
+        "Checklist card: resume, Tier-A answers (/welcome), extension, inbox (Pro) — each one tap, disappears when done",
+        "POST /api/account/send-extension-link (setting `ratelimit.install_link.per_day`, default 3) + Brevo template",
+        "Desktop shows 'Add to Chrome' when no extension is detected (extension-signal ping)"
+      ],
+      "tests": [
+        "SendExtensionLinkIT rate limit; Playwright checklist"
+      ],
+      "tech": "app-v3/home, api AccountResource, web/src/lib/extension-signal.ts",
+      "evidence": [],
+      "design": "docs/design/user/onboarding-activation.md",
+      "critical": false,
+      "relates": [
+        "E12.4",
+        "M1.8",
+        "N2.5"
+      ],
+      "benchmark": "G9 — Simplify's test autofill; first value < 60 s after install"
+    },
+    {
+      "id": "U2.8",
+      "epic": "U2",
+      "title": "Tier-A questions (/welcome) — existing",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I answer six one-tap questions (work auth, sponsorship, salary, notice, work style, EEO) once so that forms fill themselves.",
+      "genz": "Six taps, all optional.",
+      "ac": [
+        "Exists (10.3b); U2.3–U2.6 run before it and it becomes a checklist item"
+      ],
+      "tests": [
+        "existing"
+      ],
+      "tech": "web/src/app/(app)/welcome/page.tsx, components/onboarding/Onboarding.tsx",
+      "evidence": [
+        "web/src/app/(app)/welcome/page.tsx",
+        "PROGRESS.md 10.3b"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U2.9",
+      "epic": "U2",
+      "title": "Activation funnel events + admin funnel tile",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U18.1",
+        "U2.6"
+      ],
+      "story": "As the product owner I want signup → verified → activated → day-7 return measured so that onboarding changes are judged by data.",
+      "genz": "We measure whether the phone path actually works.",
+      "ac": [
+        "Events onboarding_step, onboarding_completed, activated fired per spec; user.activated_at",
+        "FunnelDefinition 'activation' evaluable by admin analytics (A-area renders)"
+      ],
+      "tests": [
+        "event assertions in the onboarding Playwright run"
+      ],
+      "tech": "web/src/lib/events.ts, api AdminAnalyticsService",
+      "evidence": [],
+      "design": "docs/design/user/analytics-events.md",
+      "critical": false
+    },
+    {
+      "id": "U3.1",
+      "epic": "U3",
+      "title": "Real stat tiles, activity chart and status donut (no sample)",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U6.2",
+        "U6.4",
+        "U0.5"
+      ],
+      "story": "As a user I want the dashboard numbers to be mine so that I trust the page.",
+      "genz": "Honest numbers, instant.",
+      "ac": [
+        "Tiles/charts from /api/profile/applications summary (U6.2) incl. IN_REVIEW; deltas vs previous period computed server-side",
+        "Empty account shows the U0.4 empty state, not board numbers",
+        "Period selector 7/30/90 real"
+      ],
+      "tests": [
+        "compute.ts unit tests with fixtures"
+      ],
+      "tech": "web/src/components/app-v3/home/{compute,DashboardPage,ActivityCard}.tsx",
+      "evidence": [
+        "web/src/components/app-v3/home/compute.ts:13",
+        "web/src/app/(app)/dashboard/page.tsx:22"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U3.2",
+      "epic": "U3",
+      "title": "Upcoming interviews + 'How did it go?' from real interview rows",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U6.4"
+      ],
+      "story": "As a user I want my next interviews on the dashboard with Prep and calendar actions, and a one-tap outcome question after each.",
+      "genz": "The next thing that matters, first.",
+      "ac": [
+        "Reads GET /api/profile/interviews?from=now; Prep → /interview-prep?application=; Add to calendar → ics",
+        "Past PENDING interview shows the outcome chips"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "app-v3/home, U6.4 API",
+      "evidence": [
+        "web/src/components/app-v3/home/DashboardPage.tsx:82 (sample)"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U3.3",
+      "epic": "U3",
+      "title": "Today's matches + alerts widget from real data",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U4.6",
+        "U7.2"
+      ],
+      "story": "As a user I want today's matches (3 on Free, 10–20 on Pro) and my alerts' new counts on the dashboard.",
+      "genz": "Fresh every morning; the reason to come back.",
+      "ac": [
+        "Recommended = /api/profile/job-matches (Free rules-ranked rows included); Alerts widget = /api/profile/alerts with unseen hits",
+        "Free sees the Pro match % teaser once, dismissible"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "app-v3/home",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U3.4",
+      "epic": "U3",
+      "title": "Next-best-action card (one thing to do now)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U6.1",
+        "U13.1",
+        "A5.1"
+      ],
+      "story": "As a user I want one clear suggestion (prep for Thursday, follow up with Microsoft, finish your resume, 2 jobs expire today) so that I never wonder what to do.",
+      "genz": "Decision fatigue is the enemy; one card, one button.",
+      "ac": [
+        "Rules ranked: interview within 48 h > inbox suggestion pending > ghosted follow-up > profile completeness below setting `user.next_action.completeness_pct` (default 60) > matches unseen > goal behind",
+        "Deterministic, server-side GET /api/profile/next-action; dismiss for setting `user.next_action.dismiss_hours` (default 24)",
+        "Pro: the AI Insights card can ask the assistant for a one-liner (U8), otherwise hidden"
+      ],
+      "tests": [
+        "NextActionServiceTest ranking matrix"
+      ],
+      "tech": "api ProfileResource next-action; app-v3/home",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U3.5",
+      "epic": "U3",
+      "title": "Profile strength card from the Common Profile completeness",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "R1.1"
+      ],
+      "story": "As a user I want the profile ring to reflect my real profile items and link to the exact missing item.",
+      "genz": "Progress bars that mean something.",
+      "ac": [
+        "Uses R1.1 completeness API; each missing item deep-links into /profiles tab",
+        "Celebration once at 100%"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "app-v3/home, R1.1 API",
+      "evidence": [
+        "web/src/components/app-v3/home/compute.ts:139"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U3.6",
+      "epic": "U3",
+      "title": "Streak, weekly goal and recap entry on the dashboard",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U16.1",
+        "U16.2"
+      ],
+      "story": "As a user I want to see my weekly goal progress and streak at a glance.",
+      "genz": "Momentum, tastefully.",
+      "ac": [
+        "Reads U16.1/U16.2; hidden until the user sets a goal or has a 2-day streak"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "app-v3/home",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U4.1",
+      "epic": "U4",
+      "title": "Posting store v2: schema, enrichment, quality gates, 30-day retention",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "story": "As the platform I want every posting normalised, enriched (seniority, skills, salary, location parts, apply ATS) and gated (agency, duplicate, repost, no description) so that search and matching are good.",
+      "genz": "Quality in = fewer junk results to swipe past.",
+      "ac": [
+        "Liquibase: job_posting columns + FULLTEXT index + expired_at; job_source kind/platform/agency",
+        "JobIngestService enrichment + gates per design §4; expiry/return semantics; 30-day purge",
+        "Ingest 4×/day (cron setting); AlertEvaluator hook point",
+        "Admin job-sources page shows kind/agency (A-area)"
+      ],
+      "tests": [
+        "JobIngestServiceTest gates + expiry; migration test on existing rows"
+      ],
+      "tech": "api service/jobs/{JobIngestService,JobIngestScheduler}, domain JobPosting/JobSource, Liquibase 2026xxxx_job_posting_v2.xml",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/jobs/JobIngestService.java",
+        "api/src/main/resources/config/liquibase/changelog/20260922070000_job_sources.xml"
+      ],
+      "design": "docs/design/user/job-search-matching.md",
+      "critical": true
+    },
+    {
+      "id": "U4.2",
+      "epic": "U4",
+      "title": "Search endpoint + deterministic ranker (MySQL FULLTEXT)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U4.1",
+        "A5.1"
+      ],
+      "story": "As a user I want to search jobs by text and filters and get a ranked, explainable list in under 200 ms so that finding jobs feels instant.",
+      "genz": "Speed and relevance beat a bigger index.",
+      "ac": [
+        "GET /api/jobs/search per design §5 (params, facets, relaxations, result cap from setting `jobs.search_result_cap`, default 1 000), GET /api/jobs/{id} (410 when purged), POST /api/jobs/{id}/save (one path with JobMatchService.save)",
+        "Ranker per §6 with ?explain=1 for admins; short-token fallback; p95 < 200 ms at 100 k rows (measured in the IT)",
+        "Web BFF routes"
+      ],
+      "tests": [
+        "JobSearchServiceIT (Testcontainers) query/facets/relax/cap; JobRankerTest per term"
+      ],
+      "tech": "api service/jobs/{JobSearchService,JobRanker}, web/src/app/api/jobs/**",
+      "evidence": [],
+      "design": "docs/design/user/job-search-matching.md",
+      "critical": true
+    },
+    {
+      "id": "U4.3",
+      "epic": "U4",
+      "title": "Job Search page on real search (390px first)",
+      "status": "partial",
+      "size": "L",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "E2E-U4.0",
+        "E2E-U0.0"
+      ],
+      "story": "As a user I want the Job Search page to search the real store with chips, a filter sheet, swipe save/hide, a detail sheet and shareable URLs.",
+      "genz": "Chips over a 12-field rail; swipes; empty states that suggest what to loosen.",
+      "ac": [
+        "Server-rendered first page from ?q&filters; client fetch on change; URL kept in sync",
+        "Phone: chips row, Filters bottom sheet with counts, SwipeRow save/hide with undo, detail BottomSheet with Apply/Save/Score",
+        "Desktop: rail + list + right panel as drawn",
+        "Relaxation suggestions and 'Create an alert' on empty; 'via <aggregator>' attribution",
+        "Events search, job_opened, job_saved, job_hidden",
+        "Cards render the S3.5 'Check this one' shield chip with reasons when ≥ 2 scam rules fire (G15)"
+      ],
+      "tests": [
+        "Playwright 390/1440 on the mock API (mock gains /api/jobs/search)"
+      ],
+      "tech": "web/src/components/app-v3/jobs/*, web/src/app/(app)/jobs/page.tsx, scripts/mock-api.mjs",
+      "evidence": [
+        "web/src/components/app-v3/jobs/JobsPage.tsx:25",
+        "web/src/components/app-v2/jobs/data.ts"
+      ],
+      "design": "docs/design/user/job-search-matching.md",
+      "critical": true,
+      "relates": [
+        "S3.5",
+        "U4.2"
+      ],
+      "benchmark": "G15 — nobody in the matrix flags job scams on cards; 69 % of Gen Z apply without checking (Barclays)"
+    },
+    {
+      "id": "U4.4",
+      "epic": "U4",
+      "title": "Sources: Workable, SmartRecruiters, Recruitee parsers + one licensed aggregator client",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U4.1"
+      ],
+      "story": "As a user I want far more real postings so that any search has results.",
+      "genz": "Coverage without scraping.",
+      "ac": [
+        "Parsers from captured real responses (fixtures committed); JobBoardUrls per platform; seed CSV extended",
+        "AggregatorClient behind JobBoardClient with per-day call cap (runtime setting), title-cluster queries, attribution text, licence retention days",
+        "The pick + cost recorded in ROADMAP 16.1 before merge (user)"
+      ],
+      "tests": [
+        "parser fixture tests per platform; AggregatorClientTest quota + dedupe precedence"
+      ],
+      "tech": "api service/jobs/{JobBoardParsers,JobBoardUrls,AggregatorClient}, config/job-sources.csv",
+      "evidence": [],
+      "design": "docs/design/user/job-search-matching.md",
+      "critical": true
+    },
+    {
+      "id": "U4.5",
+      "epic": "U4",
+      "title": "Explicit job preferences (API + /settings/job-preferences + 'what Kiwiply learned')",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "E2E-U4.0"
+      ],
+      "story": "As a user I want to set titles, places, remote, salary floor, level, must/never keywords and excluded companies, and to see and reset what Kiwiply learned from my feedback.",
+      "genz": "Control in chips; nothing hidden.",
+      "ac": [
+        "job_preference table + GET/PUT /api/profile/job-preferences with limits; MatchPreferences.from(bio, resume, explicit) override",
+        "Settings panel (replaces 'Coming soon') with chips; 'Reset learned' clears learned_json",
+        "Nightly prefilter uses it",
+        "Preferences include work authorisation / sponsorship need (needs sponsorship · no · unknown); the search filter applies the I9.8 posting tag and cards show it (G13)"
+      ],
+      "tests": [
+        "JobPreferenceResourceIT; MatchPreferencesTest override"
+      ],
+      "tech": "api service/jobs/MatchPreferences, new JobPreferenceResource; web app-v3/settings/panels.tsx",
+      "evidence": [
+        "web/src/components/app-v3/settings/panels.tsx:34"
+      ],
+      "design": "docs/design/user/job-search-matching.md",
+      "critical": false,
+      "relates": [
+        "I9.8",
+        "U4.1"
+      ],
+      "benchmark": "G13 — Jobright's H1B/sponsorship filter is its wedge with international students"
+    },
+    {
+      "id": "U4.6",
+      "epic": "U4",
+      "title": "Feedback loop (👍/👎/hide/hide company) + Free daily matches (rules) + Pro matches — counts from the catalog",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U4.2",
+        "U7.1",
+        "B1.2",
+        "A5.1"
+      ],
+      "story": "As a user I want my reactions to improve what I see, and a daily set of matches on every plan (3 on Free, 10–20 scored on Pro).",
+      "genz": "Swipe to teach it; it gets better fast.",
+      "ac": [
+        "job_feedback table + endpoints; nightly learned_json rollup; hard exclusions in ranker and prefilter",
+        "JobMatchScheduler: Free users get the top entitlement `matches.per_day` rules-ranked (catalog default Free 3, model='rules'); Pro target entitlement `matches.per_day` (catalog default 10–20) with up to setting `jobs.candidates_per_user` (default 50) candidates",
+        "Daily matches notification kind DAILY_MATCHES (Pro email at digest time via U7)"
+      ],
+      "tests": [
+        "JobFeedbackIT; JobMatchSchedulerIT Free vs Pro counts"
+      ],
+      "tech": "api JobMatchService/JobMatchScheduler/JobPrefilter; web JobRow feedback buttons",
+      "evidence": [],
+      "design": "docs/design/user/job-search-matching.md",
+      "critical": true
+    },
+    {
+      "id": "U4.7",
+      "epic": "U4",
+      "title": "On-demand 'Score this job' (Pro, metered, cached) + match overlay on cards",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U4.2",
+        "A5.1"
+      ],
+      "story": "As a Pro user I want to tap Score on any job and get match % + missing keywords so that I apply where I fit.",
+      "genz": "A ring, a reason, one tap.",
+      "ac": [
+        "POST /api/jobs/{id}/score via JobFitService, cached in job_fit by hash, daily cap setting `ai.cap.fit.daily` (default 30), 402 AI_BUDGET surfaces 'resets <date>'",
+        "Cards show match from job_match or job_fit; never on Free",
+        "Free: every search/match card shows the deterministic 0–100 rules score with its top 3 reasons from the I5.3 explainability contract — no AI call, no credit; Pro layers the AI score on top (G12; decision D18)"
+      ],
+      "tests": [
+        "JobScoreIT cache hit no second call; cap"
+      ],
+      "tech": "api JobFitService, JobResource; web JobDetail",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/JobFitService.java"
+      ],
+      "design": "docs/design/user/job-search-matching.md",
+      "critical": false,
+      "relates": [
+        "I4.3",
+        "I5.3"
+      ],
+      "benchmark": "G12 — Jobright free matching score, Teal 10 free credits, LinkedIn Job Match free summary"
+    },
+    {
+      "id": "U4.8",
+      "epic": "U4",
+      "title": "Top-bar search → real results, recent searches, title typeahead",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "E2E-U4.0"
+      ],
+      "story": "As a user I want the top search to suggest titles/companies as I type and remember my recent searches.",
+      "genz": "Autocomplete is table stakes.",
+      "ac": [
+        "GET /api/jobs/suggest?q= (titles + companies prefix, ≤ 8, 50 ms)",
+        "Recent searches in localStorage (5), clearable"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "AppShell search, api JobResource",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U4.9",
+      "epic": "U4",
+      "title": "Light daily matches — existing (13.6)",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "story": "As a Pro user I opt in to nightly matches from Greenhouse/Lever/Ashby boards with a score and reason, save or dismiss.",
+      "genz": "Baseline.",
+      "ac": [
+        "Exists; U4.6 extends"
+      ],
+      "tests": [
+        "existing ITs"
+      ],
+      "tech": "service/jobs/*, JobMatchResource, app-v2/jobs/data.ts",
+      "evidence": [
+        "PROGRESS.md 13.6a–c",
+        "api/src/main/java/com/dossier/api/web/rest/JobMatchResource.java"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U5.1",
+      "epic": "U5",
+      "title": "Saved Jobs page on real SAVED applications with states",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U6.2",
+        "U0.5"
+      ],
+      "story": "As a user I want my saved jobs to be real, with To apply / Applied / Not interested states, so that saving on my phone shows up on my laptop drawer.",
+      "genz": "Save now, apply on the laptop later — it just syncs.",
+      "ac": [
+        "List = applications status SAVED (+ archived = Not interested) from U6.2 with posting freshness (expired badge)",
+        "Tabs real; remove = archive with undo; 'Apply' opens the posting (desktop: drawer autofills)",
+        "Grid/list toggle kept; sample removed"
+      ],
+      "tests": [
+        "Playwright 390px tabs + undo"
+      ],
+      "tech": "web/src/components/app-v3/saved/SavedV3Page.tsx",
+      "evidence": [
+        "web/src/components/app-v3/saved/SavedV3Page.tsx:8"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U5.2",
+      "epic": "U5",
+      "title": "Saved-job reminders and expiry nudges",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U7.1",
+        "U4.1",
+        "A5.1"
+      ],
+      "story": "As a user I want a nudge when a saved job is about to expire or has sat for 7 days so that I don't miss it.",
+      "genz": "Gentle, batched into the digest.",
+      "ac": [
+        "Nightly job emits STALE_NUDGE (digest-only) for SAVED older than setting `notify.saved_stale_days` (default 7) and 'expires soon' when the posting expired_at is set",
+        "Max one nudge per application"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api scheduled job + NotificationService",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U5.3",
+      "epic": "U5",
+      "title": "Collections (P2): group saved jobs",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U5.1"
+      ],
+      "story": "As a user I want to group saved jobs into collections (e.g. 'Dream', 'Backup') so that I can plan.",
+      "genz": "Lists like playlists.",
+      "ac": [
+        "saved_collection + membership; chips on the Saved page; '+' on job detail",
+        "≤ 20 collections"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api + app-v3/saved",
+      "evidence": [
+        "web/src/components/app-v3/jobs/JobDetail.tsx:116 (toast)"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U6.1",
+      "epic": "U6",
+      "title": "Schema: application_event, application_note, interview; IN_REVIEW/WITHDRAWN statuses; backfill",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "story": "As the platform I want every change to an application recorded with its source, plus notes and interviews, so that the tracker has memory.",
+      "genz": "Context survives: who said what, when, from where.",
+      "ac": [
+        "Liquibase additive tables + application columns; enum values added; backfill CREATED/STATUS events",
+        "ApplicationService writes an event on every create/PATCH/sync/inbox change (source tagged); inbox forward-only rule unchanged",
+        "Extension payloads unchanged (sync tests green)",
+        "application gains resume_id (resume used at fill) and a job description snapshot (text, captured_at, source URL) written by E4.6 / N1.3 (G4); statuses add GHOSTED (G16)"
+      ],
+      "tests": [
+        "ApplicationEventIT; ApplicationSyncResourceIT regression; MailClassifier IN_REVIEW mapping"
+      ],
+      "tech": "api domain Application/ApplicationEvent/ApplicationNote/Interview, ApplicationService, service/inbox/InboxParser",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/domain/Application.java",
+        "api/src/main/java/com/dossier/api/domain/enumeration/ApplicationStatus.java"
+      ],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": true,
+      "relates": [
+        "E4.6",
+        "N1.2",
+        "I9.10"
+      ],
+      "benchmark": "G4 — Teal, Simplify, Huntr store the JD at save/apply time"
+    },
+    {
+      "id": "U6.2",
+      "epic": "U6",
+      "title": "Applications list API v2: filters, cursor paging, per-status summary, bulk actions",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.1"
+      ],
+      "story": "As a user I want fast filtered lists and counts so that tabs and dashboards are real on any size of tracker.",
+      "genz": "Instant tabs.",
+      "ac": [
+        "GET /api/profile/applications with status/q/company/sort/cursor/size + summary counts (incl. ghosted)",
+        "GET /{id} returns events/notes/interviews/mailCount/suggestions",
+        "POST /bulk (archive/status/star, ≤ 50) with per-id results"
+      ],
+      "tests": [
+        "ApplicationQueryServiceIT filters + cursor; bulk partial failure"
+      ],
+      "tech": "api ApplicationQueryService, ApplicationResource; web BFF",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false
+    },
+    {
+      "id": "U6.3",
+      "epic": "U6",
+      "title": "Detail sheet/panel: timeline, notes, next action",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U6.2",
+        "E2E-U0.0"
+      ],
+      "story": "As a user I want to open an application and see its timeline, add notes and set a next action, on phone and desktop.",
+      "genz": "One sheet with everything; no page loads.",
+      "ac": [
+        "BottomSheet (phone) / right panel (desktop) with tabs Timeline · Notes · Emails · Resume · Interview",
+        "Timeline from application_event with source icons; notes CRUD (pinned); next action + date",
+        "Status picker sheet (not a blind advance); undo toasts",
+        "Resume tab shows the resume version used and the JD snapshot captured at save/fill, readable without re-fetching (G4); 'Packet' link to U6.11 (G22)"
+      ],
+      "tests": [
+        "Playwright 390/1440 open, note, status"
+      ],
+      "tech": "web/src/components/app-v3/applications/*, reuse board/ResumeFit, TailorDialog, AtsScoreDialog",
+      "evidence": [
+        "web/src/components/app-v3/applications/ApplicationsV3Page.tsx",
+        "web/src/components/board/ResumeFit.tsx"
+      ],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "relates": [
+        "E4.6",
+        "U6.11"
+      ],
+      "benchmark": "G4/G22 — Huntr application packets; Teal JD snapshot"
+    },
+    {
+      "id": "U6.4",
+      "epic": "U6",
+      "title": "Interviews: CRUD, .ics / Google Calendar, reminders at setting `notify.interview_reminder_hours` (default 24 h + 1 h), outcome",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U6.1",
+        "U6.3"
+      ],
+      "story": "As a user I want to log an interview (or accept one parsed from mail), export it to my calendar and get reminded, then record how it went.",
+      "genz": "Reminders where they live (push + calendar), not another inbox.",
+      "ac": [
+        "interview endpoints per design; GET …/ics with VTIMEZONE; Google Calendar URL client-side",
+        "INTERVIEW_REMINDER via the U7 engine at setting `notify.interview_reminder_hours` (default 24 h email, 1 h push), idempotent",
+        "Inbox interview mail proposes an interview row (date parsed when confident) — accept in the Emails tab",
+        "Proposed interview rows from I9.9 (date/time parsed from inbox mail) appear as 'Confirm interview?' cards; confirm creates the row + .ics, decline discards (G19)"
+      ],
+      "tests": [
+        "InterviewResourceIT CRUD/ics/reminders; parser date extraction fixtures"
+      ],
+      "tech": "api InterviewResource/Service, InboxParser; web detail sheet Interview tab",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "relates": [
+        "I9.9",
+        "U7.1"
+      ],
+      "benchmark": "G19 — no competitor has the inbox; interview extraction from mail is unique"
+    },
+    {
+      "id": "U6.5",
+      "epic": "U6",
+      "title": "Phone cards with swipe status/archive, bulk select, '+ Add application' with URL paste",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U6.3",
+        "E2E-U0.0"
+      ],
+      "story": "As a phone user I want to triage my applications with swipes and add one by pasting a link.",
+      "genz": "Tinder-speed triage.",
+      "ac": [
+        "SwipeRow right = status sheet, left = archive + undo",
+        "Desktop bulk select bar; Add form pre-fills from an ATS URL via the existing job-meta extractor",
+        "Ghosted chip 'No reply · 3 w' with a Nudge action (opens the thread or a follow-up note)"
+      ],
+      "tests": [
+        "Playwright swipes + add by URL"
+      ],
+      "tech": "app-v3/applications, parser-core job meta",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "benchmark": "Teal and Huntr set the kanban / phone-card bar; swipe status + bulk select is parity"
+    },
+    {
+      "id": "U6.6",
+      "epic": "U6",
+      "title": "Mount inbox components on v3 + manual email linking",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U6.3"
+      ],
+      "story": "As a Pro user I want 'From your inbox' suggestions and each application's emails on the new page, and to link a mail thread by hand when the matcher is unsure.",
+      "genz": "The board updates itself; when it can't, one tap fixes it.",
+      "ac": [
+        "SuggestionsCard above the list; ApplicationEmails in the Emails tab",
+        "POST /applications/{id}/mail/link writes a MAIL event and a matcher hint; 409 if linked elsewhere"
+      ],
+      "tests": [
+        "MailLinkIT; Playwright Emails tab"
+      ],
+      "tech": "web components/board/{ApplicationEmails,SuggestionsCard}, api InboxMailResource/MailMatcher",
+      "evidence": [
+        "web/src/components/board/ApplicationEmails.tsx",
+        "web/src/components/SuggestionsCard.tsx"
+      ],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false
+    },
+    {
+      "id": "U6.7",
+      "epic": "U6",
+      "title": "Inbox connect flow — phone pass",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U1.5"
+      ],
+      "story": "As a phone user I want the Gmail app-password steps to be followable on a phone (copy buttons, app deep links).",
+      "genz": "Phone-first setup for a phone-first user.",
+      "ac": [
+        "Steps as a stepper with 'Open Google Account' links; paste field with show/hide; errors mapped as today",
+        "Step-up before connect (U1.5)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/components/settings/InboxConnect.tsx",
+      "evidence": [
+        "web/src/app/(app)/settings/inbox/page.tsx"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U6.8",
+      "epic": "U6",
+      "title": "Stale nudges + follow-up dates (16.3)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.1",
+        "U7.1",
+        "A5.1"
+      ],
+      "story": "As a user I want a nudge when an application has had no reply for 14 days with a follow-up suggestion.",
+      "genz": "Momentum reminders, in the digest.",
+      "ac": [
+        "Nightly STALE_NUDGE per ghosted application (once; again after setting `notify.stale_nudge_repeat_days`, default 14); next_action_at due → in-app",
+        "Settings kind toggle",
+        "GHOSTED suggestion after N days without any event, N = per-ATS/company median from I9.10, else setting `tracker.ghosted_default_days` (default 14); one tap sets GHOSTED or schedules a follow-up; the card says 'most companies on <ATS> replied within N days' (G16)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api scheduled job; NotificationService",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "I9.10"
+      ],
+      "benchmark": "G16 — 48–53 % of applications go unanswered (Criteria); Teal/Huntr only have manual reminders"
+    },
+    {
+      "id": "U6.9",
+      "epic": "U6",
+      "title": "Tracker baseline — existing (Phase 3, 14.4–14.6)",
+      "status": "done",
+      "size": "L",
+      "owners": [
+        "API",
+        "web",
+        "extension"
+      ],
+      "deps": [],
+      "story": "As a user my applications appear as I apply, dedupe across boards, and move with my inbox.",
+      "genz": "Baseline.",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "existing"
+      ],
+      "tech": "ApplicationResource, ApplicationSyncResource, service/inbox/*",
+      "evidence": [
+        "PROGRESS.md Phase 3, 14.4, 14.5, 14.6"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U7.1",
+      "epic": "U7",
+      "title": "Notification engine: publish → policy → fan-out, dedupe, schema",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "A5.1"
+      ],
+      "story": "As the platform I want one engine every feature calls so that channels, quiet hours, dedupe and plan rules are applied consistently.",
+      "genz": "Notification etiquette by construction.",
+      "ac": [
+        "notification alter (dedupe_key UNIQUE, payload, channel states, scheduled_for, group_key); notification_preference; digest_run",
+        "NotificationKind enum with defaults/locked kinds; PreferenceResolver; DeferredSender; DigestScheduler (local-time); per-user daily caps from setting `notify.daily_cap` (default per channel, engine default)",
+        "14.6 behaviour preserved (interview/offer email) — tests unchanged"
+      ],
+      "tests": [
+        "NotificationPolicyTest matrix × quiet hours × DST; NotificationServiceIT dedupe + grouping; DigestSchedulerIT"
+      ],
+      "tech": "api service/NotificationService (refactor), new notify/ package, Liquibase",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/NotificationService.java",
+        "api/src/main/resources/config/liquibase/changelog/20260923030000_notifications.xml"
+      ],
+      "design": "docs/design/user/alerts-notifications.md",
+      "critical": true
+    },
+    {
+      "id": "U7.2",
+      "epic": "U7",
+      "title": "Job alerts: CRUD, plan caps, preview, evaluator after ingest",
+      "status": "partial",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U7.1",
+        "E2E-U4.0"
+      ],
+      "story": "As a user I want to save a search as an alert (instant/daily/weekly, app/email/push) and be told about new matches.",
+      "genz": "Set it and get pinged — the main reason to come back.",
+      "ac": [
+        "job_alert + job_alert_hit; endpoints incl. preview counts and 402 ALERT_LIMIT from entitlement `alerts.max` (catalog default Free 2 · Pro 15)",
+        "AlertEvaluator after each ingest run: hits once per posting; IMMEDIATE publishes grouped ALERT_HITS; DAILY/WEEKLY roll into the digest",
+        "Alerts page wired (create from search, pause, edit, hits list); no-hits nudge after setting `notify.alert_no_hits_days` (default 30)"
+      ],
+      "tests": [
+        "AlertEvaluatorIT; AlertResourceIT caps; Playwright create from an empty search"
+      ],
+      "tech": "api service/alerts/*, web/src/components/app-v3/alerts/AlertsPage.tsx",
+      "evidence": [
+        "web/src/components/app-v3/alerts/AlertsPage.tsx:49"
+      ],
+      "design": "docs/design/user/alerts-notifications.md",
+      "critical": true,
+      "relates": [
+        "B1.2",
+        "A5.1"
+      ]
+    },
+    {
+      "id": "U7.3",
+      "epic": "U7",
+      "title": "Settings › Notifications: channel matrix, quiet hours, digest time, test send",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U7.1",
+        "E2E-U7.0"
+      ],
+      "story": "As a user I want to choose per kind where I'm notified, set quiet hours and my digest time, and send myself a test.",
+      "genz": "Etiquette they control; defaults already quiet.",
+      "ac": [
+        "GET/PUT notification-preferences; locked kinds shown disabled with 'why'",
+        "Timezone auto-detected and editable; POST /api/notifications/test",
+        "Replaces the 'Coming soon' panel"
+      ],
+      "tests": [
+        "Playwright save matrix; PreferenceResolver uses it"
+      ],
+      "tech": "app-v3/settings/panels.tsx, api NotificationPreferenceResource",
+      "evidence": [],
+      "design": "docs/design/user/alerts-notifications.md",
+      "critical": false,
+      "relates": [
+        "N4.5"
+      ],
+      "supersedes": [
+        "A7.7"
+      ]
+    },
+    {
+      "id": "U7.4",
+      "epic": "U7",
+      "title": "Web push: VAPID, subscriptions, pre-prompt sheet, device toggle",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U7.1",
+        "U17.1",
+        "A5.1"
+      ],
+      "story": "As a user I want push notifications for alerts and interviews on my phone without an app store app.",
+      "genz": "Free-tier real-time channel; iOS via the installed PWA.",
+      "ac": [
+        "push_subscription table; POST/DELETE subscriptions; GET vapid; PushSender with 410/404 disable",
+        "Pre-prompt sheet after creating an alert / second save; 'Not now' snoozes setting `notify.push_prompt_snooze_days` (default 14); never on load",
+        "Settings 'This device: push on/off'; iOS guidance"
+      ],
+      "tests": [
+        "PushSenderTest fake transport; Playwright fake push in SW"
+      ],
+      "tech": "api dep web-push (confirm), web/src/lib/pwa.ts, public/sw.js",
+      "evidence": [],
+      "design": "docs/design/user/alerts-notifications.md",
+      "critical": true
+    },
+    {
+      "id": "U7.5",
+      "epic": "U7",
+      "title": "Email templates: alert hits, daily digest, daily matches, interview reminder, weekly recap + per-kind unsubscribe",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U7.1"
+      ],
+      "story": "As a user I want useful, short emails with one-click per-kind unsubscribe.",
+      "genz": "Short, scannable, no walls of text; unsubscribe without login.",
+      "ac": [
+        "Thymeleaf templates with postal footer; tokenised unsubscribe-this-kind (no login) → preference update",
+        "Brevo send count watched by 9.B5 (A-area)"
+      ],
+      "tests": [
+        "template render tests; unsubscribe token IT"
+      ],
+      "tech": "api MailService + templates/mail/*",
+      "evidence": [],
+      "design": "docs/design/user/alerts-notifications.md",
+      "critical": false
+    },
+    {
+      "id": "U7.6",
+      "epic": "U7",
+      "title": "Bell v2: grouped notifications, cursor paging, deep links, read on open",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U7.1"
+      ],
+      "story": "As a user I want the bell to group '3 new for UX intern' and open the right screen.",
+      "genz": "No notification spam in the bell either.",
+      "ac": [
+        "GET /api/notifications?group=1&cursor; groups collapse by group_key; tap marks read + navigates",
+        "Unread badge on the Home tab (U0.1)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/components/app-shell/NotificationBell.tsx, api NotificationResource",
+      "evidence": [
+        "web/src/components/app-shell/NotificationBell.tsx"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U8.1",
+      "epic": "U8",
+      "title": "Assistant service: threads, tool registry, Gemini function calling, metering",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "A5.1"
+      ],
+      "story": "As the platform I want a bounded server-side agent loop over typed tools so that the assistant is grounded, safe and metered.",
+      "genz": "The chat must be fast, true and cheap.",
+      "ac": [
+        "Tables assistant_thread/message/memory/daily; AiTask ASSISTANT + ASSISTANT_SUMMARY in the ledger",
+        "GeminiAiProvider.generateWithTools; loop ≤ 4 rounds; read tools per design §2.1; untrusted wrapper; output ≤ 700 tokens",
+        "AiBudgetService + daily cap setting `ai.cap.assistant.daily` (default 40) + kill switch `ai.feature.chat.enabled`; SSE endpoint"
+      ],
+      "tests": [
+        "AssistantServiceTest with a fake provider; ToolRegistryIT foreign ids 404; AssistantResourceIT 402/429/503 + frame order"
+      ],
+      "tech": "api service/assistant/*, service/ai/GeminiAiProvider, web/src/app/api/assistant/**",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/ai/GeminiAiProvider.java",
+        "api/src/main/java/com/dossier/api/service/AiBudgetService.java"
+      ],
+      "design": "docs/design/user/ai-assistant.md",
+      "critical": true,
+      "relates": [
+        "I9.1",
+        "I0.3",
+        "I9.6"
+      ]
+    },
+    {
+      "id": "U8.2",
+      "epic": "U8",
+      "title": "Assistant page: streaming chat, chips, cards, recent threads, Free sheet",
+      "status": "partial",
+      "size": "L",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U8.1",
+        "E2E-U0.0"
+      ],
+      "story": "As a Pro user I want a fast chat with suggestion chips and tappable job/application cards; as a Free user I want to see what it does and where to go instead.",
+      "genz": "DM-speed answers with buttons, not essays.",
+      "ac": [
+        "SSE client renders deltas, tool status, cards (job → detail sheet, application → sheet), chips; composer pinned above the keyboard",
+        "Threads list (rename/delete); 'Delete all chats' in Privacy",
+        "Free: upsell sheet + deterministic chips (search, lint, questions); errors per design §7"
+      ],
+      "tests": [
+        "Playwright 390px send/chips/card/Free sheet on the mock API with a scripted SSE"
+      ],
+      "tech": "web/src/components/app-v3/assistant/*",
+      "evidence": [
+        "web/src/components/app-v3/assistant/AssistantPage.tsx",
+        "web/src/components/app-v3/sample-data.ts:403"
+      ],
+      "design": "docs/design/user/ai-assistant.md",
+      "critical": true
+    },
+    {
+      "id": "U8.3",
+      "epic": "U8",
+      "title": "Write tools with confirm chips (save job, create alert, set status, add note)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U8.2",
+        "U7.2",
+        "U6.2"
+      ],
+      "story": "As a user I want the assistant to do small things for me after I tap Confirm so that chat leads to action without risk.",
+      "genz": "Act from the chat; always my tap.",
+      "ac": [
+        "POST …/confirm executes a pending tool call once; injection cannot trigger writes; DemoGuard blocks",
+        "Confirm chips render inline with the exact action text"
+      ],
+      "tests": [
+        "confirm IT: unapproved never executes; replay rejected"
+      ],
+      "tech": "api service/assistant/tools/*; web chat",
+      "evidence": [],
+      "design": "docs/design/user/ai-assistant.md",
+      "critical": true
+    },
+    {
+      "id": "U8.4",
+      "epic": "U8",
+      "title": "Memory + privacy surface + retention jobs",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U8.3",
+        "A5.1"
+      ],
+      "story": "As a user I want to see, edit and delete what the assistant remembers and know what it sends, with chats purged after 90 days.",
+      "genz": "Honest privacy in one screen.",
+      "ac": [
+        "remember() tool (confirm) → assistant_memory; Settings › Privacy › AI assistant lists/edits/deletes; purge job after setting `ai.assistant_memory_retention_days` (default 90); DSAR + delete cascade",
+        "Privacy policy paragraph (U14.5)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api, web settings",
+      "evidence": [],
+      "design": "docs/design/user/ai-assistant.md",
+      "critical": false
+    },
+    {
+      "id": "U8.5",
+      "epic": "U8",
+      "title": "Assistant hand-offs: tailor, cover letter, interview practice deep links",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U8.2",
+        "R5.1",
+        "U9.3"
+      ],
+      "story": "As a user I want 'tailor my resume for this' to open the real diff flow instead of inline rewrites.",
+      "genz": "The assistant opens doors, it doesn't fake work.",
+      "ac": [
+        "open_feature cards for R5.1 tailor, R5.3 cover letter, U9.3 practice with context pre-filled"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web chat cards",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U9.1",
+      "epic": "U9",
+      "title": "Question bank (content + API) and the Questions tab",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I want real question sets by role and kind (behavioral, technical, system design, company-specific) with tips.",
+      "genz": "Browse fast, practice one.",
+      "ac": [
+        "interview_question table seeded from a reviewed YAML (≥ 300 questions, tags role/kind/level/company, tip, STAR hint); GET /api/interview/questions?role&kind&q",
+        "Questions tab + filters; 'Practice' opens U9.3 or a self-timer on Free"
+      ],
+      "tests": [
+        "seed validation test; resource IT"
+      ],
+      "tech": "api new interview package; web app-v3/interview-prep",
+      "evidence": [
+        "web/src/components/app-v3/interview-prep/InterviewPrepPage.tsx:56"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U9.2",
+      "epic": "U9",
+      "title": "Sessions: start/finish, self-rating, history, progress ring",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U9.1"
+      ],
+      "story": "As a user I want my practice sessions recorded with a self-rating so that progress is visible.",
+      "genz": "Progress rings that reflect real reps.",
+      "ac": [
+        "interview_session + session_answer (question, answer text optional, rating 1–5, duration)",
+        "My Sessions tab real; ring = sessions/questions/areas improved; events"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api, web",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U9.3",
+      "epic": "U9",
+      "title": "AI text mock interview (Pro; ROADMAP 20.1)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U9.2",
+        "U8.1"
+      ],
+      "story": "As a Pro user I want a text mock interview for a role/company with feedback per answer so that I walk in prepared.",
+      "genz": "Chat-shaped practice; feedback in bullets, not lectures.",
+      "ac": [
+        "AiTask INTERVIEW_PRACTICE metered; grounded on the question bank + the user's profile card + the linked application's posting; ≤ 10 turns; feedback rubric (structure, specificity, impact)",
+        "Starts from an upcoming interview (U6.4) with company pre-filled; Free sees the upsell + self-timer",
+        "Budget/cap errors like the assistant"
+      ],
+      "tests": [
+        "service test with fake provider; IT 402 on Free"
+      ],
+      "tech": "api service/interview/*, reuse assistant loop pieces; web Practice tab",
+      "evidence": [],
+      "design": null,
+      "critical": true,
+      "relates": [
+        "I9.2"
+      ]
+    },
+    {
+      "id": "U9.4",
+      "epic": "U9",
+      "title": "Prep hand-off from the tracker and dashboard",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U9.1",
+        "U6.4"
+      ],
+      "story": "As a user I want 'Prep for Google · Thursday' to open prep with the company, role and posting context.",
+      "genz": "Zero setup.",
+      "ac": [
+        "/interview-prep?application= pre-selects role/company and shows the posting's requirement bullets",
+        "'Prep for this' from an application opens the I9.11 JD-driven set tagged by the posting's skills — Free gets the bank subset, Pro the generated role-specific questions (G26)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "I9.11"
+      ],
+      "benchmark": "G26 — Big Interview bank by role, Final Round mock"
+    },
+    {
+      "id": "U10.1",
+      "epic": "U10",
+      "title": "Inbox threads: thread_key, messages API, direction",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.1"
+      ],
+      "story": "As the platform I want inbox mail grouped into threads with direction so that Messages can show conversations.",
+      "genz": "Threads, not a mail dump.",
+      "ac": [
+        "inbox_message.thread_key + index; GET /api/profile/messages (threads) and /{threadKey}; attachments listed by name only",
+        "Mail bodies pass through SensitivePatterns redaction before persistence (recruiter mail sometimes asks for SSN/DOB/bank details — the values, if present, are replaced by [removed]); headers unchanged; attachments still never stored"
+      ],
+      "tests": [
+        "MailThreadIT grouping + Sent direction"
+      ],
+      "tech": "api service/inbox/InboxMailService, InboxSyncService",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "relates": [
+        "T1.1"
+      ]
+    },
+    {
+      "id": "U10.2",
+      "epic": "U10",
+      "title": "Messages page: threads list, thread view, Reply in Gmail, link to application",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U10.1",
+        "U0.5"
+      ],
+      "story": "As a Pro user I want recruiter conversations in one place with a one-tap jump to Gmail to reply.",
+      "genz": "Read here, reply there — honest about what we never do (send).",
+      "ac": [
+        "Two-pane desktop / list→thread phone; 'Reply in Gmail ↗' (mailto + Gmail web deep link); 'Link to application' for unmatched threads",
+        "Empty states: Free upsell; Pro not connected → connect CTA; connected but empty",
+        "The 'messaging launches with Inbox v2' sample removed"
+      ],
+      "tests": [
+        "Playwright 390px list→thread→link"
+      ],
+      "tech": "web/src/components/app-v3/messages/MessagesPage.tsx",
+      "evidence": [
+        "web/src/components/app-v3/messages/MessagesPage.tsx:12"
+      ],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false
+    },
+    {
+      "id": "U11.1",
+      "epic": "U11",
+      "title": "Companies from the posting store (counts, open roles, follow)",
+      "status": "partial",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "E2E-U4.0",
+        "U7.2"
+      ],
+      "story": "As a user I want to browse companies that are actually hiring, see their open roles and follow them.",
+      "genz": "Real numbers; follow = alert on that company.",
+      "ac": [
+        "GET /api/companies?q&sort (aggregated from job_posting by company_key, with ATS platform, locations, count); GET /api/companies/{key}/jobs",
+        "Follow = create a job_alert {company}",
+        "Tiles from initials (no logos scraped)",
+        "Company card shows the ATS used, open roles from the posting store and our median reply time (I9.10) — never Glassdoor-style reviews (G18)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api JobCompanyService; web app-v3/explore",
+      "evidence": [
+        "web/src/components/app-v3/explore/ExplorePage.tsx:12"
+      ],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "I9.10",
+        "M5.6",
+        "U6.10"
+      ],
+      "benchmark": "G18 — Teal / Jobright company insights"
+    },
+    {
+      "id": "U11.2",
+      "epic": "U11",
+      "title": "Roles & career paths content (catalog-driven)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U4.1"
+      ],
+      "story": "As a user I want trending roles (from real posting counts) and curated career paths with the skills each step needs.",
+      "genz": "Visual paths, tappable skills that become search chips.",
+      "ac": [
+        "Trending roles = title clusters by 7-day count; career paths from a reviewed YAML in the API (admin-editable later)",
+        "Skill chips → /jobs?q="
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api content package; web",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U11.3",
+      "epic": "U11",
+      "title": "Guides & resources (markdown content, no CMS)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I want short guides (resume, interview, salary, networking) readable on a phone.",
+      "genz": "Scannable, 3-minute reads with a 'do it' button into the product.",
+      "ac": [
+        "MDX files under web/content/guides with frontmatter; list + reader; each guide ends with a product CTA"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/content, (app)/explore",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U12.1",
+      "epic": "U12",
+      "title": "Analytics page on real data: funnel, rates by resume/ATS/company/week, honest empty state",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U6.1"
+      ],
+      "story": "As a user I want to see where my applications go (applied → reply → interview → offer) and which resume/ATS/company responds best.",
+      "genz": "Insight, not vanity charts; empty state says what will unlock it.",
+      "ac": [
+        "GET /api/profile/analytics?period= computed from application_event + interview + resume links (server); response rate = any inbox-derived or manual status beyond APPLIED",
+        "Sample removed; < 3 applications → 'apply to 3 jobs to unlock' state",
+        "'Skills in demand' from the posting store for the user's titles (real)"
+      ],
+      "tests": [
+        "AnalyticsServiceTest with fixtures; Playwright empty vs populated"
+      ],
+      "tech": "api new ProfileAnalyticsService; web app-v3/analytics",
+      "evidence": [
+        "web/src/components/app-v3/analytics/compute.ts:17"
+      ],
+      "design": null,
+      "critical": false,
+      "benchmark": "Huntr Pro analytics, Simplify/Teal partial; response rate by resume/ATS is parity — the inbox-fed version is unique",
+      "relates": [
+        "U4.1"
+      ]
+    },
+    {
+      "id": "U12.2",
+      "epic": "U12",
+      "title": "Benchmarks (anonymous cohort medians) — P2",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U12.1",
+        "U18.3"
+      ],
+      "story": "As a user I want to compare my response rate to people with similar targets.",
+      "genz": "Context for the numbers without doom-scrolling.",
+      "ac": [
+        "Nightly cohort medians by title cluster with k ≥ 50; shown as a band, never individuals"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api rollup",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U13.1",
+      "epic": "U13",
+      "title": "Profiles hub integration: completeness → dashboard, visibility toggle, links, remove 'multiple profiles'",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "R1.1",
+        "R1.2"
+      ],
+      "story": "As a user I want the Profiles page to be the real hub the Resume Builder fills, with my links and an 'open to opportunities' flag that is honest about what it does.",
+      "genz": "One profile; targeted resumes do the variants.",
+      "ac": [
+        "Overview reads R1.1 completeness; tabs are R1.2's editors; 'Multiple profiles' row replaced by 'Targeted resumes' (links to the builder)",
+        "Visibility toggle stores bio.openToWork and feeds the Tier-A 'how did you hear' nothing else — copy says 'used by Kiwiply only' until a public profile exists",
+        "LinkedIn/GitHub/Portfolio = URL fields in bio.payload (already autofilled by the extension)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/components/app-v3/profiles/*",
+      "evidence": [
+        "web/src/components/app-v3/profiles/OverviewTab.tsx:46"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U13.2",
+      "epic": "U13",
+      "title": "Learned-answer suggestions on the profile (keep/discard) — existing",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I review what Kiwiply learned while I applied and keep or discard it.",
+      "genz": "Baseline.",
+      "ac": [
+        "Exists (10.3c/e)"
+      ],
+      "tests": [
+        "existing"
+      ],
+      "tech": "ProfileSuggestionResource, dashboard card",
+      "evidence": [
+        "PROGRESS.md 10.3e",
+        "api/src/main/java/com/dossier/api/web/rest/ProfileSuggestionResource.java"
+      ],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "U13.4",
+        "E6.5"
+      ]
+    },
+    {
+      "id": "U13.3",
+      "epic": "U13",
+      "title": "Public profile page (P2, opt-in)",
+      "status": "not_started",
+      "size": "L",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "R7.2",
+        "U13.1"
+      ],
+      "story": "As a user I want an optional public page (kiwiply.com/u/handle) with my headline, skills and a resume PDF so that I can share one link.",
+      "genz": "Link in bio.",
+      "ac": [
+        "Opt-in, handle, robots noindex by default, revocable; reuses R7.2 share tokens for the PDF"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api + web public route",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U14.1",
+      "epic": "U14",
+      "title": "Settings IA on phone: sections as a list → one panel per screen",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a phone user I want settings as a list of sections that open one at a time with a back button.",
+      "genz": "Native settings feel.",
+      "ac": [
+        "Sub-nav becomes a list under 768px; each panel is its own route segment (/settings/[section]) for deep links",
+        "Account/Billing/Inbox/AI/Autofill/Delete keep working"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/(app)/settings/*, app-v3/settings/SettingsV3Page.tsx",
+      "evidence": [
+        "web/src/components/app-v3/settings/SettingsV3Page.tsx"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U14.2",
+      "epic": "U14",
+      "title": "Privacy panel: 'what we store, who sees it', per-feature switches, data tools",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U1.5",
+        "U18.4"
+      ],
+      "story": "As a user I want a plain-language page listing what Kiwiply stores (profile, resumes, applications, inbox text, chats, events), who can see it (you; support only with your 24-h grant; AI provider under consent) and switches/buttons for each.",
+      "genz": "Honest privacy builds the trust that makes them share a resume.",
+      "ac": [
+        "Panel sections: Data we store (counts + links), AI (parse consent, assistant memory, 'what is sent'), Product analytics switch (U18.4), Support access grant (9.C3; A-area endpoint), Export (exists), Delete (exists, step-up)",
+        "Every switch is backed by an API; no decorative toggles",
+        "Panel opens with the T7.2 nutrition label and states the three defaults — never used to train models (T1.6), never sold, never shown to employers — each linked to its policy clause (G31)"
+      ],
+      "tests": [
+        "Playwright panel; API switches persisted"
+      ],
+      "tech": "app-v3/settings/panels.tsx, api AccountResource prefs",
+      "evidence": [
+        "web/src/app/(app)/settings/page.tsx:154"
+      ],
+      "design": null,
+      "critical": true,
+      "relates": [
+        "T7.2",
+        "T1.6",
+        "I5.4",
+        "E10.4"
+      ],
+      "benchmark": "G31 — Yoodli charges for training exclusion; Simplify states it; we state and enforce it by default"
+    },
+    {
+      "id": "U14.3",
+      "epic": "U14",
+      "title": "Account panel: avatar upload, display name, timezone/locale, theme",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U0.3",
+        "A5.1"
+      ],
+      "story": "As a user I want to set an avatar, how I'm addressed, my timezone and theme.",
+      "genz": "Identity and comfort.",
+      "ac": [
+        "Avatar to S3 (max setting `uploads.avatar_max_bytes`, default 2 MB; cropped client-side) via a Next-proxied upload; preferredName; tz + locale saved to user; theme (U0.3)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api AccountResource + S3 storage; web account panel",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U14.4",
+      "epic": "U14",
+      "title": "Help & support panel: bug report, contact, status, keyboard shortcuts",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I want help in-app: report a bug (exists API), contact, system status, FAQ links.",
+      "genz": "Help that doesn't bounce to email.",
+      "ac": [
+        "Bug report sheet with consented context (exists POST /api/bug-reports); contact → /contact; FAQ links; version"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web settings; BugReportResource",
+      "evidence": [
+        "api/src/main/java/com/dossier/api/web/rest/BugReportResource.java"
+      ],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "S1.6"
+      ]
+    },
+    {
+      "id": "U14.5",
+      "epic": "U14",
+      "title": "Privacy policy + ToS updates for the new features (events, assistant, push, passkeys, aggregator)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As the company I want the policy to describe product analytics, assistant chats/memory, push tokens, passkeys and licensed job data before each ships.",
+      "genz": "Say it plainly.",
+      "ac": [
+        "Sections added with effective dates; ADMIN 9.B6 versioning hook noted",
+        "Lawyer review item added to 15.2"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/(marketing)/privacy, terms",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U14.6",
+      "epic": "U14",
+      "title": "Settings baseline — existing (account, billing card, AI meter, inbox, autofill prefs, delete, export)",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "story": "As a user I manage my account, plan, AI usage, inbox and data today.",
+      "genz": "Baseline.",
+      "ac": [
+        "Exists"
+      ],
+      "tests": [
+        "existing"
+      ],
+      "tech": "(app)/settings/page.tsx, components/settings/*, components/billing/*",
+      "evidence": [
+        "web/src/app/(app)/settings/page.tsx",
+        "web/src/components/settings/AiUsageMeter.tsx"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U15.1",
+      "epic": "U15",
+      "title": "In-app upgrade sheet on every 402 (PRO_REQUIRED, RESUME_LIMIT, ALERT_LIMIT, AI_BUDGET)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a Free user I want a clear sheet explaining what Pro unlocks right where I hit the limit, with checkout in one tap, so that upgrading never means leaving the page.",
+      "genz": "Convert at the moment of intent, honestly (price, renewal, cancel anytime).",
+      "ac": [
+        "One UpgradeSheet component fed by the error code + context; shows price, 'auto-renews, cancel anytime, no refunds' plainly; monthly/3-month toggle; checkout via existing /api/billing/checkout; returns to the same screen after success (SuccessPoller)",
+        "AI_BUDGET shows 'resets <date>' not an upgrade; events upgrade_sheet_shown/checkout_started"
+      ],
+      "tests": [
+        "Playwright 402 fixtures → sheet → checkout stub"
+      ],
+      "tech": "web/src/components/billing/UpgradeSheet.tsx, lib/billing.ts, SuccessPoller.tsx",
+      "evidence": [
+        "web/src/components/billing/UpgradeButton.tsx",
+        "web/src/components/billing/SuccessPoller.tsx"
+      ],
+      "design": null,
+      "critical": true
+    },
+    {
+      "id": "U15.2",
+      "epic": "U15",
+      "title": "Plan & usage panel: meters (AI %, resumes, alerts), renewal/cancel states, receipts link",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "B5.1"
+      ],
+      "story": "As a subscriber I want to see my limits and where I stand, when I renew or lapse, and get to receipts.",
+      "genz": "No surprises on money.",
+      "ac": [
+        "GET /api/billing/me extended with limits {resumes, alerts} + usage; past_due banner with 'update card' (portal); cancels-on date; receipts via portal",
+        "Free: what's included + compare",
+        "Cancel completes in-app in ≤ 2 taps via B5.1 (no portal detour) with undo until period end (B5.2); the panel shows the money block (monthly/quarterly only, no trial, no refunds, keep what you paid for) (G29)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api BillingResource/EntitlementService; web billing panel",
+      "evidence": [
+        "web/src/components/billing/BillingCard.tsx",
+        "api/src/main/java/com/dossier/api/service/EntitlementService.java"
+      ],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "B5.2",
+        "B8.4",
+        "M2.2"
+      ],
+      "benchmark": "G29 — billing/cancellation is the #1 one-star theme at Teal, Simplify, Jobright, Resume.io, Final Round"
+    },
+    {
+      "id": "U15.3",
+      "epic": "U15",
+      "title": "Billing notifications (renewal reminder 3 d, payment failed, cancelled) via the engine",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U7.1"
+      ],
+      "story": "As a subscriber I want to be told before renewal and when a card fails, by email (locked) and in-app.",
+      "genz": "Notice before money moves.",
+      "ac": [
+        "BILLING kind (email locked on) from webhook events + a daily renewal-reminder job (3 days before current_period_end)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api BillingWebhookResource → NotificationService",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "B4.2",
+        "B11.3"
+      ]
+    },
+    {
+      "id": "U15.4",
+      "epic": "U15",
+      "title": "Billing baseline — existing (checkout, portal, webhook, gates, pricing)",
+      "status": "done",
+      "size": "L",
+      "owners": [
+        "API",
+        "web",
+        "extension"
+      ],
+      "deps": [],
+      "story": "As a user I can buy Pro, manage it in the portal, and hit 402 gates.",
+      "genz": "Baseline.",
+      "ac": [
+        "Exists (Phase 12)"
+      ],
+      "tests": [
+        "BillingResourceIT, BillingWebhookIT"
+      ],
+      "tech": "service/billing/*, BillingResource",
+      "evidence": [
+        "PROGRESS.md Phase 12"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U16.1",
+      "epic": "U16",
+      "title": "Weekly goal (applications / practice / outreach) with progress",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U6.1",
+        "U18.1"
+      ],
+      "story": "As a user I want to set a small weekly goal and see progress so that the search feels like a plan.",
+      "genz": "Goals they pick, sized small; celebrate completion, never shame.",
+      "ac": [
+        "user_goal (kind, target, week_start) + progress computed from events/applications; GET/PUT",
+        "Dashboard card; goal met → one celebration + WEEKLY_RECAP mention; behind → next-action suggestion, no red"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api engagement package; web home",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U16.2",
+      "epic": "U16",
+      "title": "Streak that forgives (activity days, setting `engage.streak_freezes_per_week`, default 1)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U18.1",
+        "A5.1"
+      ],
+      "story": "As a user I want a streak for days I did anything useful, with one free miss a week, so that momentum is encouraged without anxiety.",
+      "genz": "Duolingo-style but kind: freezes, no guilt pushes.",
+      "ac": [
+        "Derived nightly from product_event (any 'useful' event); freeze auto-applied; shown only from setting `engage.streak_min_days_shown` (default 2); no push for a streak at risk (decision)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api rollup; web home",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U16.3",
+      "epic": "U16",
+      "title": "Sunday weekly recap (in-app + email) with a shareable card",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U7.5",
+        "U16.1"
+      ],
+      "story": "As a user I want a Sunday recap (applied, replies, interviews, matches, goal) and an optional shareable image so that progress feels real.",
+      "genz": "Shareable moments; no PII on the card (counts only).",
+      "ac": [
+        "WEEKLY_RECAP via the engine at the user's local Sunday 17:00; email template; /recap/[week] page",
+        "Share card rendered server-side (next/og) with counts only; share sheet (Web Share API)",
+        "Share card renders in the M6.5 formats (1080×1920 + square), counts only by default — no company names unless opted in (G35)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api WeeklyRecapJob; web recap route + opengraph image",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "M6.5",
+        "N1.6"
+      ],
+      "benchmark": "G35 — Gen Z discovery is TikTok/Instagram-first; Handshake badges"
+    },
+    {
+      "id": "U16.4",
+      "epic": "U16",
+      "title": "Referral link + reward (reward and qualifying window from referral settings — defaults one month of Pro for both after 7 active days)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U18.1",
+        "U2.9",
+        "B7.5",
+        "M6.1",
+        "A5.1"
+      ],
+      "story": "As a user I want to invite friends with a link and both get a month of Pro when they activate.",
+      "genz": "Social growth loop; reward that costs us only AI budget margin.",
+      "ac": [
+        "referral table (code, inviter, invitee, status, rewarded_at); /r/<code> landing sets a cookie; attribution at signup; reward = ADMIN_COMP-style grant (18.1) after the invitee has been active for setting `referral.qualify_active_days` (default 7); fraud rules (same device/IP hash, disposable email)",
+        "Margin: comp months count against the margin-floor report (A-area; floor from setting `catalog.margin_floor_subscription_pct`, default 80, hard minimum 80)",
+        "Share sheet + copy link; events"
+      ],
+      "tests": [
+        "ReferralServiceIT attribution/reward/fraud"
+      ],
+      "tech": "api referral package + EntitlementService grants; web settings/dashboard",
+      "evidence": [],
+      "design": null,
+      "critical": true,
+      "relates": [
+        "B7.5",
+        "M6.1"
+      ],
+      "benchmark": "G37 — Kickresume vouchers; reward mechanics owned by B7.5 (grant + budget cap), codes/landing by M6.1"
+    },
+    {
+      "id": "U17.1",
+      "epic": "U17",
+      "title": "Manifest, service worker, offline page, registration",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a phone user I want to add Kiwiply to my home screen and get a real offline page instead of a browser error.",
+      "genz": "App-like without an app store.",
+      "ac": [
+        "manifest.webmanifest + icons; public/sw.js per design (static cache-first, HTML network-only with /offline fallback, no API caching); versioned caches; /sw.js served no-cache",
+        "Registered only in production builds; push handlers present (used by U7.4)"
+      ],
+      "tests": [
+        "Playwright: SW registered on /dashboard; offline → /offline"
+      ],
+      "tech": "web/public/{manifest.webmanifest,sw.js}, web/src/app/{offline,sw.js}/..., web/src/lib/pwa.ts",
+      "evidence": [],
+      "design": "docs/design/user/pwa-push.md",
+      "critical": true,
+      "relates": [
+        "N1.1",
+        "N0.2"
+      ],
+      "benchmark": "G14 — Simplify iOS, Jobright app, Kickresume app; PWA + share target (N1) is our parity path"
+    },
+    {
+      "id": "U17.2",
+      "epic": "U17",
+      "title": "Install card (Android/desktop), iOS add-to-home sheet, update pill",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U17.1"
+      ],
+      "story": "As a user I want a well-timed install nudge and a gentle 'update available' pill.",
+      "genz": "Prompt etiquette: after value, dismissible, snoozed.",
+      "ac": [
+        "beforeinstallprompt captured; card after 2nd visit or first save; 30-day snooze; iOS 2-step sheet once",
+        "UpdatePill on SW waiting → reload on tap"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/components/app-shell/{InstallCard,UpdatePill}.tsx",
+      "evidence": [],
+      "design": "docs/design/user/pwa-push.md",
+      "critical": false
+    },
+    {
+      "id": "U17.3",
+      "epic": "U17",
+      "title": "Lighthouse CI budgets + optimistic UI/skeleton pass",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U17.1",
+        "U18.1"
+      ],
+      "story": "As the team I want performance budgets enforced in CI so that the app stays fast on a mid-range phone.",
+      "genz": "Speed is the feature.",
+      "ac": [
+        "lighthouserc.json budgets (LCP ≤ 2.5 s, INP ≤ 200 ms, CLS ≤ 0.1, route JS ≤ 220 KB gz) on 4 routes at the mobile preset against the mock API; CI job fails on budget",
+        "Optimistic save/hide/status/alert toggles with undo; web_vital events"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": ".github/workflows/ci.yml, web/lighthouserc.json, app-v3 pages",
+      "evidence": [],
+      "design": "docs/design/user/pwa-push.md",
+      "critical": false
+    },
+    {
+      "id": "U17.4",
+      "epic": "U17",
+      "title": "Offline snapshots for Applications and Saved (IndexedDB) — P2",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U17.1",
+        "U6.2"
+      ],
+      "story": "As a commuter I want to read my applications and saved jobs without signal.",
+      "genz": "Subway-proof.",
+      "ac": [
+        "Per-user snapshot ≤ 500 KB; offline banner with timestamp; writes disabled; cleared on sign-out"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/lib/snapshot.ts",
+      "evidence": [],
+      "design": "docs/design/user/pwa-push.md",
+      "critical": false
+    },
+    {
+      "id": "U18.1",
+      "epic": "U18",
+      "title": "Event pipeline: schema, POST /api/events, client lib, first events",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "story": "As the product owner I want first-party, schema-validated events so that every epic can be measured without third parties.",
+      "genz": "Measure without surveilling: no PII by schema.",
+      "ac": [
+        "product_event (+ anon stitching), ProductEventSchema enum with per-event key allow-lists; endpoint batched ≤ 50, rate-limited, unknown → 400",
+        "web/src/lib/events.ts queue/flush/sendBeacon; CI test that the TS list equals the Java enum",
+        "login, search, job_saved wired"
+      ],
+      "tests": [
+        "ProductEventResourceIT; schema drift test; vitest for the client"
+      ],
+      "tech": "api analytics package, web/src/lib/events.ts, web/src/app/api/events/route.ts",
+      "evidence": [
+        "web/src/lib/analytics.ts (GA4 only)"
+      ],
+      "design": "docs/design/user/analytics-events.md",
+      "critical": true,
+      "relates": [
+        "M1.6",
+        "E8.1"
+      ],
+      "supersedes": [
+        "A11.2"
+      ]
+    },
+    {
+      "id": "U18.2",
+      "epic": "U18",
+      "title": "Full taxonomy wired across pages (as each epic lands)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "U18.1"
+      ],
+      "story": "As the product owner I want every key action in the taxonomy fired with the right props.",
+      "genz": "Know what the phone cohort actually does.",
+      "ac": [
+        "All v1 events in design §1 emitted; extension fill telemetry envelope unified through TrackingProvider (U20.4)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "all app-v3 pages",
+      "evidence": [],
+      "design": "docs/design/user/analytics-events.md",
+      "critical": false
+    },
+    {
+      "id": "U18.3",
+      "epic": "U18",
+      "title": "Nightly rollups, funnel definitions, purge after setting `analytics.event_retention_days` (default 180)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U18.1",
+        "A5.1"
+      ],
+      "story": "As the admin I want daily aggregates and funnels computed so that dashboards are fast and raw data is short-lived.",
+      "genz": "Short retention by default.",
+      "ac": [
+        "event_daily, search_term_daily (k ≥ 5), FunnelDefinition evaluation, purge job; admin tiles are A-area"
+      ],
+      "tests": [
+        "EventRollupJobIT"
+      ],
+      "tech": "api analytics/RollupJob",
+      "evidence": [],
+      "design": "docs/design/user/analytics-events.md",
+      "critical": false,
+      "relates": [
+        "A11.3"
+      ],
+      "supersedes": [
+        "M8.2"
+      ]
+    },
+    {
+      "id": "U18.4",
+      "epic": "U18",
+      "title": "User analytics opt-out + DSAR export + policy copy",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U18.1"
+      ],
+      "story": "As a user I want to turn product analytics off and see my events in my export.",
+      "genz": "Control, visibly.",
+      "ac": [
+        "user_analytics_opt; client stops sending; server drops; export includes events CSV; delete cascades"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api AccountExportService, AccountDeletionService; web privacy panel",
+      "evidence": [],
+      "design": "docs/design/user/analytics-events.md",
+      "critical": false
+    },
+    {
+      "id": "U18.5",
+      "epic": "U18",
+      "title": "Experiments via feature flags (bucketing + variant props)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U18.3"
+      ],
+      "story": "As the product owner I want to A/B an onboarding variant by flag and read the funnel per variant.",
+      "genz": "Test the phone flow for real.",
+      "ac": [
+        "Flag rollout_percent bucketing by hash(user_id+key); variant attached to tracked events; depends on admin flags (A-area 9.B2)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "api FeatureFlagService; web events",
+      "evidence": [],
+      "design": "docs/design/user/analytics-events.md",
+      "critical": false
+    },
+    {
+      "id": "U19.1",
+      "epic": "U19",
+      "title": "Accessibility pass: focus order, labels, 44px targets, reduced motion, axe in CI",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "ui"
+      ],
+      "deps": [
+        "U19.3"
+      ],
+      "story": "As a keyboard or screen-reader user I want every page operable and announced.",
+      "genz": "Accessibility is part of 'fast and clean', and a legal baseline.",
+      "ac": [
+        "axe-core run in Playwright on all 13 routes (390/1440), zero serious violations",
+        "All icon buttons labelled; tap targets ≥ 44px; prefers-reduced-motion respected by every animation; skip link; live regions for toasts"
+      ],
+      "tests": [
+        "Playwright + axe"
+      ],
+      "tech": "packages/ui primitives, app-shell, app-v3",
+      "evidence": [],
+      "design": null,
+      "critical": true
+    },
+    {
+      "id": "U19.2",
+      "epic": "U19",
+      "title": "Visual smoke at 390/768/1440 light+dark in CI",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U19.3"
+      ],
+      "story": "As the team I want screenshot smoke of every route so that layout regressions are caught.",
+      "genz": "Phone layout never silently breaks.",
+      "ac": [
+        "Playwright screenshots on the demo mock; horizontal-overflow assertion; stored as CI artifacts (no pixel diff gate yet)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": ".github/workflows/ci.yml, web/e2e",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U19.3",
+      "epic": "U19",
+      "title": "Test infrastructure: vitest + Playwright for web, mock API fixtures, CI jobs",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As the team I want unit and e2e tests for the web app so that stories can claim 'tests green' honestly.",
+      "genz": "Quality at the speed we ship.",
+      "ac": [
+        "vitest (jsdom) for lib/components; Playwright with scripts/mock-api.mjs extended per epic (fixtures for Free/Pro/empty)",
+        "CI jobs web-unit, web-e2e; npm test -w web includes vitest"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/package.json, web/vitest.config.ts, web/e2e/*, scripts/mock-api.mjs",
+      "evidence": [
+        "web/package.json scripts (tsc + eslint only)"
+      ],
+      "design": null,
+      "critical": true,
+      "relates": [
+        "A15.1",
+        "T4.2"
+      ]
+    },
+    {
+      "id": "U19.4",
+      "epic": "U19",
+      "title": "i18n readiness: string extraction, locale/tz formatting, RTL-safe layout",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As the product I want UI strings centralised and dates/numbers formatted by locale so that a second language is a translation task, not a rewrite.",
+      "genz": "Gen Z is global.",
+      "ac": [
+        "Messages in web/src/messages/en.json via a tiny t() (no dep) with ICU-plural subset; LocalDate uses user tz/locale; logical CSS properties",
+        "ESLint rule flags new hard-coded JSX strings in app-v3"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/lib/i18n.ts, components",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U19.5",
+      "epic": "U19",
+      "title": "Error monitoring for the web (client errors → API digest)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "U18.1"
+      ],
+      "story": "As the team I want client errors counted (no PII) in the existing error digest.",
+      "genz": "Fix what phones actually hit.",
+      "ac": [
+        "client_error events + a sampled POST to /api/client-errors (route, code, ua_class) → ErrorDigestService"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web error.tsx, api ops/ErrorDigestService",
+      "evidence": [],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U20.1",
+      "epic": "U20",
+      "title": "Connect page v2: states (no extension, wrong browser, phone), success handoff, retry",
+      "status": "partial",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I want /connect to tell me exactly what to do on this device and finish in one tap when the extension is there.",
+      "genz": "No confusing dead page.",
+      "ac": [
+        "Detect extension (ping with timeout); states: install CTA (Chrome/Edge/Firefox links), 'open this on your laptop' (phone, with the email link U2.7), success with 'open the drawer'",
+        "Store ID env fallback warning in dev only"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/app/connect/page.tsx, lib/extension-signal.ts",
+      "evidence": [
+        "web/src/app/connect/page.tsx"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U20.2",
+      "epic": "U20",
+      "title": "Save-a-job from the drawer → appears in Saved/Applications instantly",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [],
+      "story": "As a user I save a job from the extension and see it on the web.",
+      "genz": "Baseline.",
+      "ac": [
+        "Exists (Phase 3 + 11 sync)"
+      ],
+      "tests": [
+        "existing"
+      ],
+      "tech": "job-autofill/src/lib/tracking.js, ApplicationSyncResource",
+      "evidence": [
+        "PROGRESS.md Phase 3, Phase 11"
+      ],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "N1.3",
+        "E4.6"
+      ]
+    },
+    {
+      "id": "U20.3",
+      "epic": "U20",
+      "title": "Extension-aware web: 'Apply with Kiwiply' on job cards when installed; otherwise install card",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "web",
+        "extension"
+      ],
+      "deps": [
+        "U4.3"
+      ],
+      "story": "As a desktop user with the extension I want job cards to say 'Apply with Kiwiply' and open the posting with the drawer ready.",
+      "genz": "The two surfaces feel like one.",
+      "ac": [
+        "Web asks the extension (runtime message) whether it's connected; cards switch label; opening passes a hint message so the drawer opens on load (extension change: small)",
+        "No extension → the install card once"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "web/src/lib/extension-signal.ts, job-autofill background message",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "relates": [
+        "E5.7",
+        "E12.2"
+      ],
+      "benchmark": "G5 — Simplify / Jobright 'already applied' badges"
+    },
+    {
+      "id": "U20.4",
+      "epic": "U20",
+      "title": "Unified event envelope through TrackingProvider (fill telemetry + product events)",
+      "status": "not_started",
+      "size": "S",
+      "owners": [
+        "extension",
+        "API"
+      ],
+      "deps": [
+        "U18.1"
+      ],
+      "story": "As the product owner I want extension events (drawer opened, fill started/finished, save) in the same pipeline as web events.",
+      "genz": "One funnel across surfaces.",
+      "ac": [
+        "TrackingProvider.track(name, props) → POST /api/events with surface=ext; count-only telemetry rule kept (no answers, no PII)"
+      ],
+      "tests": [
+        "unit tests for the new logic",
+        "npm test -w web green (tsc + eslint)"
+      ],
+      "tech": "job-autofill/src/lib/tracking.js, api ProductEventResource",
+      "evidence": [],
+      "design": "docs/design/user/analytics-events.md",
+      "critical": false
+    },
+    {
+      "id": "U20.5",
+      "epic": "U20",
+      "title": "Sync baseline — existing (signal + version check)",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "extension",
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "story": "As a user my extension mirror updates within seconds of a web change.",
+      "genz": "Baseline.",
+      "ac": [
+        "Exists (Phase 11)"
+      ],
+      "tests": [
+        "existing"
+      ],
+      "tech": "web/src/lib/extension-signal.ts, GET /api/profile/version",
+      "evidence": [
+        "PROGRESS.md Phase 11"
+      ],
+      "design": null,
+      "critical": false
+    },
+    {
+      "id": "U13.4",
+      "epic": "U13",
+      "title": "My Answers bank: /settings/answers lists every learned answer with provenance; edit, delete, 'use everywhere' (G7)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U13.2"
+      ],
+      "relates": [
+        "E6.5",
+        "N3.1",
+        "E7.4",
+        "U13.2",
+        "E10.7"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to see every answer Kiwiply learned while I applied — the question, my answer and where it was learned — and fix or delete any of them, so that the long tail of application questions is mine to control.",
+      "genz": "Your answers, in one list, editable — not a black box that fills things you forgot you typed.",
+      "ac": [
+        "GET/PATCH/DELETE /api/me/answers over the field-cache twin + learned answers: question label, canonical field (if resolved), answer, learned_at, source host (ATS family only, never the full URL)",
+        "/settings/answers (390px first): search, grouped by canonical field vs free-text; inline edit with undo; delete is immediate and propagates to the extension mirror on the next pull (U20.5 signal)",
+        "'Use everywhere' promotes a free-text answer into a profile suggestion (U13.2 path) with the keep/discard confirmation on the web",
+        "Answers learned by Autopilot ask-and-remember (E7.4) carry source=AUTOPILOT; minors default (T2.4) unaffected — answers are user data, never shared with orgs",
+        "Answers matching the never-collected classes can never appear here: filtered at capture by E10.7 and again at read by the shared SensitivePatterns check; a stray hit is deleted server-side and counted"
+      ],
+      "tests": [
+        "AnswerBankResourceIT (list/edit/delete, propagation flag)",
+        "Playwright 390/1440: edit, delete, use-everywhere",
+        "extension sync test: deleted answer absent after pull"
+      ],
+      "tech": "api FieldCacheSyncResource + a read model over field_cache/learned answers; web/src/app/(app)/settings/answers; extension src/lib/field-cache.js honours server deletes (tombstones)",
+      "evidence": [
+        "job-autofill/src/lib/field-cache.js",
+        "job-autofill/src/content/profile-learn.js"
+      ],
+      "design": null,
+      "critical": false,
+      "benchmark": "G7 — Simplify 'pre-written responses', Huntr packets; our provenance (where it was learned) is the differentiator"
+    },
+    {
+      "id": "U13.5",
+      "epic": "U13",
+      "title": "LinkedIn profile checklist from the pasted import (paste-only, never the LinkedIn DOM) — P2, pending decision (G23)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "web",
+        "API"
+      ],
+      "deps": [
+        "R1.4"
+      ],
+      "relates": [
+        "I9.4",
+        "R1.4"
+      ],
+      "supersedes": [],
+      "story": "As a user I want a checklist score of my LinkedIn headline, About and experience built from the profile text I pasted, so that I can fix the obvious gaps without Kiwiply ever reading my LinkedIn page.",
+      "genz": "Careerflow's free wedge, done the honest way: you paste, we score, nothing touches linkedin.com.",
+      "ac": [
+        "Deterministic checklist (headline length and keywords, About present and ≥ 3 sentences, each role has ≥ 1 outcome bullet with a number, skills ≥ 10, photo/banner self-reported) scored 0–100 with per-item fix hints — Free, no AI call",
+        "Input is only the R1.4 paste import or the profile items; no linkedin.com host permission, no DOM read (decision §G.2 of COMPETITIVE-GAPS.md, recommended paste-only)",
+        "Pro: \"Rewrite this section\" uses the REWRITE task (I9.4) with provenance chips; output is copy-to-clipboard, never posted",
+        "Story stays not_started until the user confirms the paste-only decision (RECONCILIATION.md D19)"
+      ],
+      "tests": [
+        "vitest checklist scorer on 10 fixture profiles",
+        "component test for hints + Pro gate"
+      ],
+      "tech": "packages/ui or web lib linkedin-checklist.ts (pure function); reuse R1.4 paste parser output",
+      "evidence": [],
+      "design": null,
+      "critical": false,
+      "benchmark": "G23 — Careerflow free LinkedIn optimizer (reads the live page: LinkedIn-ToS grey zone); Big Interview Accelerator adds LinkedIn optimisation"
+    },
+    {
+      "id": "U6.10",
+      "epic": "U6",
+      "title": "Contacts attached to applications and companies (manual CRM: name, role, how we met, last touch) — no scraping, no enrichment (G17)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U6.3"
+      ],
+      "relates": [
+        "U11.1",
+        "T1.2",
+        "U6.5"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to note the recruiter or referrer on an application or company and when I last spoke to them, so that follow-ups are not lost in a notes field.",
+      "genz": "A people list that is yours — typed by you, never scraped from LinkedIn.",
+      "ac": [
+        "contact table (user-owned: name, role, company_id?, email/phone optional, how_met, last_touch_at, notes) + application_contact link; CRUD endpoints; included in the DSAR export and erased with the account (T1.2/T1.3)",
+        "Detail sheet (U6.3) gains a People tab; company page (U11.1) lists contacts; 'Log a touch' sets last_touch_at and writes an application_event",
+        "No import from LinkedIn, no email enrichment, no auto-creation from inbox mail (a 'Add from this email' button pre-fills name only, user confirms)",
+        "Phone: add/edit in a bottom sheet; 44px targets"
+      ],
+      "tests": [
+        "ContactResourceIT (ownership, DSAR inclusion, erase)",
+        "Playwright add contact + log touch"
+      ],
+      "tech": "api domain/Contact + ApplicationContact; web/src/components/app-v3/applications/PeopleTab.tsx",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "benchmark": "G17 — Huntr unlimited contacts, Careerflow networking tracker (both P2 parity; ours stays manual by the no-scraping rule)"
+    },
+    {
+      "id": "U6.11",
+      "epic": "U6",
+      "title": "Application packet view: resume version + cover letter + answers used per application, 'Download packet' (PDF + TXT) (G22)",
+      "status": "not_started",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [
+        "U6.3",
+        "E4.6",
+        "R5.3",
+        "U13.4"
+      ],
+      "relates": [
+        "R5.5",
+        "E5.9",
+        "U6.3"
+      ],
+      "supersedes": [],
+      "story": "As a user I want to open an application and see exactly what I sent — which resume version, which cover letter and which answers — and download it as one packet, so that interview prep and follow-ups start from the truth.",
+      "genz": "Receipts for every application; 'what did I even send them?' answered in one tap.",
+      "ac": [
+        "Packet tab on the detail sheet: resume version (resume_id from U6.1 → R3.1 version), cover letter (R5.3 link), answers used on this fill (fill_event meta + learned answers, from U13.4), JD snapshot (E4.6)",
+        "'Download packet' streams a ZIP via the FileStorage seam (P5.3): resume PDF, cover-letter PDF/TXT, answers.txt, posting.txt; audited as an export",
+        "Missing parts shown honestly (\"no cover letter was attached\"); never reconstructs what was not captured"
+      ],
+      "tests": [
+        "PacketResourceIT (zip contents, ownership)",
+        "Playwright packet tab + download"
+      ],
+      "tech": "api ApplicationPacketService; web PacketTab.tsx; reuse R0.6 pdf and P5.3 streaming",
+      "evidence": [],
+      "design": "docs/design/user/applications-inbox.md",
+      "critical": false,
+      "benchmark": "G22 — Huntr application packets (Pro); ours is free because the parts already exist"
+    },
+    {
+      "id": "U6.12",
+      "epic": "U6",
+      "title": "Change-audit schema on the tracker: actor_kind, actor, on-behalf-of and changes on application_event; created_by / updated_by on application, note and interview; backfill; ChangeAuditCoverageTest",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.1"
+      ],
+      "relates": [
+        "X9.13",
+        "R3.9",
+        "T1.1"
+      ],
+      "persona": "Job seeker (owner); consultant in an org (owner whose record others may touch)",
+      "objective": "Every tracker record and every history row can name who changed it, for whom, through which channel, and what changed — additively, with the past backfilled.",
+      "story": "As a job seeker I want every application, note and interview to remember who last changed it and when, and every history row to remember who did it, so that when someone else (a marketer, the extension, an email) touches my tracker I can see it.",
+      "genz": "Receipts on every change. Who, when, what.",
+      "functional": [
+        "application_event gains actor_kind (PERSON | EXTENSION | MAIL | ASSISTANT | SYSTEM, NOT NULL DEFAULT SYSTEM), actor_user_id, actor_login, on_behalf_of_user_id, changes (VARCHAR 1000 JSON) — docs/change-audit/README.md §2.2.",
+        "application, application_note, interview gain created_by_user_id, created_by_login, updated_by_user_id, updated_by_login (nullable; created_at / updated_at already exist and are the created / last-modified times).",
+        "Backfill (D1): events with source WEB or EXTENSION → PERSON with the owner as actor; INBOX → MAIL; ASSISTANT → ASSISTANT; SYSTEM → SYSTEM. Head records: updated_by = owner where updated_at is set. Idempotent (WHERE actor_kind = SYSTEM AND actor_user_id IS NULL …).",
+        "ChangeAuditCoverageTest: a JPA-metamodel test listing the entities that must carry updated_by_* (Application, ApplicationNote, Interview, Resume, and the ent ones once X9.13 lands); any entity with an updated_at column and no updated_by column fails the test with its name.",
+        "No entity extends AbstractAuditingEntity for this (only User does today); the columns are explicit so the auditor is the ChangeActor of U6.13, not SpringSecurityAuditorAware."
+      ],
+      "ui": [
+        "None (schema story)."
+      ],
+      "backend": [
+        "Entity fields + getters on ApplicationEvent, Application, ApplicationNote, Interview; ApplicationEvent constants ACTOR_PERSON … ACTOR_SYSTEM; repositories unchanged."
+      ],
+      "db": [
+        "Liquibase 2026111001_change_audit_tracker.xml: addColumn on application_event (actor_kind, actor_user_id, actor_login, on_behalf_of_user_id, changes), application / application_note / interview (created_by_*, updated_by_*); index application_event(actor_user_id); no FKs (rows must survive erasure).",
+        "Second changeSet: the backfill UPDATEs above, runOnChange=false, with preconditions so a re-run is a no-op."
+      ],
+      "apis": [
+        "None exposed yet (U6.13 adds the DTO fields). OpenApiContractIT unchanged."
+      ],
+      "permissions": [
+        "None new."
+      ],
+      "entitlements": [],
+      "ac": [
+        "Fresh DB and an upgraded DB both end with the same columns (Liquibase validate + an IT asserting the metadata).",
+        "After the backfill every pre-existing WEB/EXTENSION event has actor_kind PERSON and actor_user_id = its application's user_id; INBOX rows are MAIL; no row has actor_login starting with ent# unless it was written by X9.15.",
+        "Re-running the migration changes zero rows.",
+        "ChangeAuditCoverageTest is green and fails when a fixture entity with updated_at and no updated_by is added."
+      ],
+      "tests": [
+        "ChangeAuditMigrationIT (Testcontainers MySQL): columns exist, defaults hold, backfill attribution per source, idempotency.",
+        "ChangeAuditCoverageTest (unit, JPA metamodel).",
+        "ApplicationEventTest: constants and default actor_kind."
+      ],
+      "tech": "Additive only; VARCHAR(50) for logins to match resume.updated_by_login and org_audit_event.actor_login; changes is VARCHAR(1000) not JSON type (MySQL 8 JSON would do, but the ledgers in this codebase use VARCHAR). Nothing reads the new columns yet, so the deploy is safe alone.",
+      "complexity": "M",
+      "dod": "Migration + entities + tests green; openapi.json unchanged; PROGRESS.md log line; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "U6.13",
+      "epic": "U6",
+      "title": "Every tracker change writes an attributed history row: ChangeActor + TrackerActAs, silent edits covered, changes summaries, ChangeActors resolver (never ent#, \"a former member\"), updatedBy / actor DTOs, paged GET …/events",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.12"
+      ],
+      "relates": [
+        "X9.15",
+        "U6.3",
+        "R3.9"
+      ],
+      "persona": "Job seeker; consultant whose tracker a marketer may act on; the extension and the inbox parser as non-person actors",
+      "objective": "One writer stamps actor, on-behalf-of, channel and a field-level summary on every change; one resolver turns ids into display names with the privacy rules built in.",
+      "story": "As a job seeker I want every change — mine, the extension's, an email's, a marketer's — recorded with who did it and what changed, so that the timeline is the truth and nothing moves silently.",
+      "genz": "Nothing changes silently anymore. Not even a star.",
+      "functional": [
+        "ChangeActor (request-scoped component): resolves the current actor once — SecurityUtils login → User (id, login); TrackerActAs.current() → on-behalf-of (owner) when a marketer acts for a consultant; actor_kind PERSON by default. Non-person writers pass their kind explicitly: ApplicationSyncService submit-detect branch → EXTENSION; InboxParser listeners (status, interview) → MAIL; assistant writes → ASSISTANT; seeds/migrations/linker → SYSTEM (docs/change-audit/README.md §2.3).",
+        "TrackerActAs: the tracker twin of ResumeActAs (same thread-local Scope(orgId, actorLogin, actorUserId), open/run/close, nesting refused). Used by nobody in this story except tests; X9.15 is its first caller.",
+        "ApplicationEventService.record/recordAt take an Actor (kind, userId, login, onBehalfOfUserId) and a Changes list; they stamp the event and set the application's updated_by_* + updated_at in the same call. recordStatus/recordCreated pass through.",
+        "Silent edits now record: starred, nextActionAt, email/salary/location/jobType/jobMode (sync), attachment set/removed, note edit/pin/delete (NOTE events with changes [{\"f\":\"body\"}] / pinned from→to / \"Note deleted\"), interview reschedule/edit with the real source (interview.source) and kind.",
+        "One event per request: ApplicationPatchService.apply collects the changes of one PATCH into a single event (kind STATUS when status changed, else FIELD) whose changes[] lists every field; summary stays the headline (D4: from/to for enum/date fields, name only for free text — SensitiveContent never needs to run on changes because no free text enters it).",
+        "ChangeActors resolver (tracker twin of ResumeActors): batch by user id and login; label = first+last name → org seat display_label → login for personal logins → \"a member\" for an ent# login (never the login) → \"a former member\" (org context) / \"a deleted account\" (personal) when no user row or ERASED seat; kind passthrough; relation null in the personal context.",
+        "DTOs: ChangeActorDTO { userId, memberId?, label, relation?, kind }; ApplicationDTO (tracker) gains createdBy, updatedBy; list rows gain updatedBy (one batch resolve per page in ApplicationListService.enrich); EventDTO gains actor, actorKind, onBehalfOf, changes (parsed list).",
+        "GET /api/profile/applications/{id}/events?page=&size= (size 1–100, default 50): the full history newest first, owner only, 404 otherwise; recent() keeps tracker.detail.eventsMax for the detail payload."
+      ],
+      "ui": [
+        "None (U6.14 renders it). The existing web keeps working: source is still sent."
+      ],
+      "backend": [
+        "ChangeActor, TrackerActAs, ChangeActors, ChangeActorDTO, ApplicationEventService signature change (all callers updated: Patch, Note, Interview, Sync, Attachment, Inbox listener, demo seed, TrackerDataService export), ApplicationListService.enrich, new events endpoint on the tracker resource."
+      ],
+      "db": [
+        "None (U6.12)."
+      ],
+      "apis": [
+        "GET /api/profile/applications (rows.updatedBy) · GET /api/profile/applications/{id} (createdBy, updatedBy, events[].actor/actorKind/onBehalfOf/changes) · GET /api/profile/applications/{id}/events (new, paged). openapi.json regenerated."
+      ],
+      "permissions": [
+        "Owner only, as every tracker route (TrackerUsers.application → 404). No new key."
+      ],
+      "entitlements": [],
+      "ac": [
+        "A PATCH {status, nextAction, starred} by the owner writes exactly one event: kind STATUS, actor_kind PERSON, actor = owner, on_behalf_of null, source WEB, changes with status from→to, {\"f\":\"nextAction\"} and starred from→to; application.updated_by = owner.",
+        "The extension's submit-detect update (source extension, status APPLIED, submissionConfirmed true) writes an event with actor_kind EXTENSION and actor null; an explicit extension save (source extension, no submissionConfirmed) writes PERSON with the owner as actor.",
+        "An InboxParser.StatusChanged writes MAIL with actor null and source INBOX; an inbox-created interview records kind INTERVIEW with source INBOX (not WEB).",
+        "Note edit / pin / delete and a star toggle each produce a history row; no write path leaves updated_at newer than the newest event.",
+        "Under TrackerActAs.run(owner, scope(marketer)) a status change records actor = marketer, on_behalf_of = owner, and the owner's detail shows updatedBy.label = the marketer's name; the stored actor_login may be ent#… but no DTO ever contains a string starting with ent# (contract test over the JSON).",
+        "ChangeActors renders a deleted actor as \"a former member\" in org context and \"a deleted account\" in personal context; an ent# login with no name and no display_label renders \"a member\".",
+        "GET …/events on another user's application is 404; paging is stable (newest first, id tiebreak)."
+      ],
+      "tests": [
+        "ApplicationEventActorTest (unit): attribution table of README §2.3, one-event-per-request, changes serialisation caps at 1000 chars with the headline field kept.",
+        "TrackerActAsTest: mirrors ResumeActAsTest (open/close restores the context, nesting refused, authorOr).",
+        "ChangeActorsTest: name → display_label → login → \"a member\" (ent#) → \"a former member\" / \"a deleted account\"; batch resolve is one query.",
+        "ActForOnBehalfIT: marketer scope on a consultant's application; owner sees the marketer's label; no ent# in any response body.",
+        "SystemSourceAttributionIT: submit-detect, inbox status, inbox interview, demo seed.",
+        "TrackerEventsPagingIT: 404 for a foreign id, paging order.",
+        "OpenApiContractIT regenerated."
+      ],
+      "tech": "Keep ApplicationEventService the ONE writer (its javadoc already says so); the new Actor argument is a small record, not a thread-local read inside the service, so unit tests stay simple. changes is built by a tiny Changes builder (field, from, to) that refuses free text by construction (only enum names, booleans, numbers, ISO instants). Resolver lookups: UserRepository.findAllById + findAllByLoginIn + OrgMemberDirectoryRepository for display_label.",
+      "complexity": "M",
+      "dod": "All callers migrated; tests green; openapi.json committed; PROGRESS.md; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "U6.14",
+      "epic": "U6",
+      "title": "\"Updated … by …\" on the application header, list rows and timeline entries (390 / 1440); shared actorText helper; system and act-for wording",
+      "status": "done",
+      "size": "M",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "U6.13",
+        "U6.3"
+      ],
+      "relates": [
+        "X9.14",
+        "R3.9"
+      ],
+      "persona": "Job seeker on phone and desktop; consultant looking at their own tracker through the org lens",
+      "objective": "The person can see at a glance who last touched an application and when, and who did each thing in its history — in the same words the resume uses.",
+      "story": "As a job seeker I want to see \"Updated 2h ago by Sarah Chen (marketer)\" on an application and on each timeline entry, so that I always know who changed what on my tracker.",
+      "genz": "Who touched it, when. Same line as the resume. No surprises.",
+      "functional": [
+        "Shared helper web/src/lib/actors.ts: actorText(actor: ChangeActorDTO | ResumeActor | null, me: { id, login }) → \"you\" | label; actorLine(actor, kind, source) → \"by you\", \"by you via the extension\", \"by the extension\", \"by Kiwiply from your email\", \"by Kiwiply AI\", \"by Kiwiply\", \"by Sarah Chen\" (+ relation tag). resume-builder/headerBar.ts re-exports actorText so the resume branch keeps working unchanged.",
+        "Application detail header (ApplicationDetail.tsx): one meta line under the status chips — ClockIcon + \"Updated <timeAgo> by <actor>\" with title = absolute time + actor (desktop); on phone the line is a button that opens the Timeline tab; \"Updated just now by you\" after the user's own save without a refetch (savedIsNewer pattern from ResumeHeaderBar). \"Added <date>\" in the ⋮ menu on phone, like the resume's About block.",
+        "List (ApplicationsV3Page.tsx): new \"Updated\" column (w-[14%]) with timeAgo on line one and the actor on line two only when the actor is not the viewer (D2) — system actors always show; the column sorts by updatedAt,desc; phone cards / list meta line: \"Applied Oct 2 · Updated 2h ago by Sarah Chen\" (name truncates, time never).",
+        "Timeline (TimelineTab.tsx): the SOURCE map no longer decides \"who\"; the muted line is actorLine(...) + \" · \" + timeAgo (title absolute on desktop; absolute inline on phone); a person in org context gets MemberAvatar 18px; the relation tag renders with the small uppercase chip TimelineFeed uses; changes with more than the headline field render as a collapsed \"Details\" chip row (field names, from → to for enums); \"Show all history\" loads GET …/events pages.",
+        "@kiwiply/ui only: ClockIcon, Tooltip, StatusChip, MemberAvatar; no inline svg; no new primitive."
+      ],
+      "ui": [
+        "Wireframes 390 / 1440 in docs/change-audit/README.md §3.1–3.3."
+      ],
+      "backend": [
+        "None."
+      ],
+      "db": [
+        "None."
+      ],
+      "apis": [
+        "Consumes U6.13 fields through the existing BFF routes; the Application type in web/src/lib/applications.ts gains updatedBy, createdBy; TimelineEvent gains actor, actorKind, onBehalfOf, changes."
+      ],
+      "permissions": [
+        "None new."
+      ],
+      "entitlements": [],
+      "ac": [
+        "Detail header shows \"Updated 2h ago by you\" (title \"Oct 15, 2026, 9:42 AM by you\") for the owner's own change; \"by Sarah Chen MARKETER\" for an act-for change; \"by the extension\" for submit-detect; \"by Kiwiply from your email\" for a mail move.",
+        "After changing the status in the sheet the line reads \"Updated just now by you\" before the refetch resolves.",
+        "List rows show the Updated column; \"by you\" never appears in a row; \"by the extension\" does.",
+        "Timeline entries render actor + channel + time; the ent# login never appears in the DOM (test over rendered text).",
+        "390 and 1440 Playwright screenshots match the wireframes; no horizontal scroll at 390; the header line wraps to two lines on phone.",
+        "Keyboard: the phone header line is a button with an accessible name \"Open timeline\"; tooltips are not the only carrier of the absolute time on touch."
+      ],
+      "tests": [
+        "actors.test.ts: every row of README §2.3 → the expected string.",
+        "ApplicationDetail.test.tsx: header line per actor kind; savedIsNewer; phone button opens Timeline.",
+        "ApplicationsV3Page.test.tsx: Updated column, D2 rule, sort.",
+        "TimelineTab.test.tsx: actor line, relation chip, changes details, show-all paging.",
+        "Playwright 390 / 1440: open an application, change status, see the header and timeline update."
+      ],
+      "tech": "Viewer identity from the existing session/me hook (user id + login). timeAgo from @/lib/applications; absolute via the resume's formatDate with the viewer's display locale. Keep suppressHydrationWarning on relative times, as ResumeHeaderBar does.",
+      "complexity": "M",
+      "dod": "Web tests + Playwright green; no eslint svg violations; PROGRESS.md; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "id": "U6.15",
+      "epic": "U6",
+      "title": "History privacy: export carries resolved labels, erasure renders \"a former member\" / \"a deleted account\", tracker.history.retention_months + TrackerHistoryRetentionJob",
+      "status": "done",
+      "size": "S",
+      "owners": [
+        "API"
+      ],
+      "deps": [
+        "U6.13",
+        "A5.1"
+      ],
+      "relates": [
+        "T1.2",
+        "T1.3",
+        "T1.4",
+        "X9.15"
+      ],
+      "persona": "Job seeker exercising export / erasure; app admin setting retention",
+      "objective": "History behaves correctly at the edges of an account's life, and how long it is kept is an admin setting, never code.",
+      "story": "As a job seeker I want my export to include who changed my applications, and when someone's account is gone I want their name gone too — while the admin decides how long history is kept.",
+      "genz": "Your data, your export. Gone accounts stay gone. Admin picks the clock.",
+      "functional": [
+        "TrackerDataService export: application events include actorKind, actor label (resolved at export time by ChangeActors), onBehalfOf label, changes; never actor_login of an enterprise account, never another person's user id.",
+        "Erasure: AccountDeletionService leaves other people's history rows untouched (no FK, no cascade); ChangeActors renders the gone actor as \"a former member\" (org context) / \"a deleted account\" (personal). The erased person's own applications and events go with the account, as today.",
+        "Setting tracker.history.retention_months (A5.1 registry, integer, default 0 = life of the record, range 0–120, Risk.LOW, description \"Months of application history kept; 0 keeps it as long as the application exists.\").",
+        "TrackerHistoryRetentionJob (nightly, ShedLock, see X12.5): when the setting is > 0, deletes application_event rows older than N months except the newest row of each application; never touches application.updated_by_*; logs a count. The repository gains exactly one bulk delete, used only by this job."
+      ],
+      "ui": [
+        "The admin settings page lists the key through the registry (A5.8); the user Privacy panel (U14.2) copy: \"History of your applications is kept as long as the application exists\" (or \"for N months\" from the setting)."
+      ],
+      "backend": [
+        "TrackerDataService, ChangeActors fallback branches, ApplicationEventRepository.deleteOlderThanKeepingNewest, TrackerHistoryRetentionJob, AdminSettingKeys entry."
+      ],
+      "db": [
+        "None."
+      ],
+      "apis": [
+        "Export payload (existing GET /api/profile/export or the T1.2 ZIP) gains the fields; settings API exposes the new key."
+      ],
+      "permissions": [
+        "Export: owner. Setting: app admin (existing settings write path)."
+      ],
+      "entitlements": [],
+      "ac": [
+        "Export JSON for an application touched by a marketer contains \"Sarah Chen\" as updatedBy label and no ent# string; a deleted actor exports as \"a former member\".",
+        "Deleting user A does not delete or alter events on user B's applications where A was the actor; B's timeline shows \"a former member\".",
+        "With retention 0 the job deletes nothing; with 12 it deletes rows older than 12 months but keeps each application's newest event; re-running is a no-op.",
+        "The setting is bounded (0–120) and readable from the registry with its description."
+      ],
+      "tests": [
+        "TrackerExportActorIT: labels resolved, no ent#, former member.",
+        "ErasureKeepsOthersHistoryIT: delete A, B's events intact and labelled.",
+        "TrackerHistoryRetentionJobTest: 0 / 12 months, newest row kept, idempotent, ShedLock name.",
+        "AdminSettingKeysTest: key present with bounds."
+      ],
+      "tech": "The job is the ONLY deleter beside erasure; keep the repository's delete method package-private to the job. Follow ResumeViewEventPurgeJob for shape.",
+      "complexity": "S",
+      "dod": "Tests green; setting documented in the registry; PROGRESS.md; one commit.",
+      "design": "docs/change-audit/README.md",
+      "evidence": [],
+      "critical": false
+    },
+    {
+      "status": "done",
+      "relates": [],
+      "supersedes": [
+        "U0.2"
+      ],
+      "evidence": [
+        "web/src/components/app-v3/resume-builder/SaveStatusChip.tsx",
+        "web/src/components/app-v3/resume-builder/state/autosave.ts",
+        "packages/ui/src/index.ts (EmptyState, SideSheet, SwipeCard, SavedTick exist)"
+      ],
+      "design": "docs/APP-E2E-PLAN.md",
+      "critical": true,
+      "id": "E2E-U0.0",
+      "epic": "U0",
+      "title": "Page kit: autosave/undo/empty/list contract shared by every page story",
+      "size": "M",
+      "owners": [
+        "ui",
+        "web",
+        "API"
+      ],
+      "deps": [],
+      "story": "As a page implementer I want one kit (SaveStatusChip, BottomSheet, ListSkeleton/ErrorState, EmptyState variants, useAutosave, undoToast, useListQuery, ListPage/ListQuery) so that every page behaves the same and nobody re-implements a sheet.",
+      "genz": "Autosave with a quiet ✓, undo instead of confirm, honest empty states — the Notion feel on every screen, not just the resume editor.",
+      "ac": [
+        "SaveStatusChip + BottomSheet (SideSheet side=bottom, snap 70%/full) + ListSkeleton/TileSkeleton/TableSkeleton + ErrorState exported from @kiwiply/ui; EmptyState gains variant page|inline and mascot slot",
+        "web/src/lib/autosave.ts (createAutosave moved, old path re-exports) + useAutosave hook; undo-toast.ts helper (6 s, one action); list-query.ts useListQuery URL-synced, keeps previous page while loading",
+        "API ListPage<T> + ListQuery (page/size≤50/sort whitelist → 400 SORT_INVALID/q≤120) in service/dto",
+        "ESLint rule kiwiply/icon-button-needs-label on in web; resume builder passes unchanged"
+      ],
+      "tests": [
+        "vitest autosave.test.ts, list-query.test.tsx, BottomSheet.test.tsx, EmptyState.test.tsx",
+        "ListQueryTest (Java)",
+        "packages/ui vitest green"
+      ],
+      "tech": "packages/ui/src/primitives/{SaveStatusChip,BottomSheet,ListSkeleton,ErrorState}.tsx; web/src/lib/{autosave,undo-toast,list-query}.ts; api service/dto/{ListPage,ListQuery}.java. Spec: docs/APP-E2E-PLAN.md §2.3–§2.4."
+    },
+    {
+      "status": "done",
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/domain/JobPosting.java (no search column)",
+        "web/src/components/app-v3/jobs/JobsPage.tsx:39 (V3_JOBS fallback)"
+      ],
+      "design": "docs/design/user/job-search-matching.md",
+      "critical": true,
+      "id": "E2E-U4.0",
+      "epic": "U4",
+      "title": "Job search v0 over the existing posting store (FULLTEXT, filters, save, hide) — no aggregator",
+      "size": "M",
+      "owners": [
+        "API"
+      ],
+      "deps": [],
+      "story": "As a job seeker on any tier I want GET /api/jobs/search over the postings the nightly ATS ingest already stores so that /jobs is real before the posting-store v2 and the aggregator exist.",
+      "genz": "Type 'ux intern remote', get real jobs in under a second, swipe to save — on day one, no licence needed.",
+      "ac": [
+        "Changelog adds job_posting.search_text + FULLTEXT ft_job_posting_search(title,company,search_text) + ix_job_posting_pub + job_source.platform; backfill; ingest fills search_text",
+        "GET /api/jobs/search (q, loc, remote, type, posted, company, sort best|newest, page, size≤30) → JobSearchPage {total,page,size,took_ms,items,facets{remote,type,postedBuckets},suggestions} per job-search-matching.md §5; match filled from job_match for Pro only",
+        "GET /api/jobs/{id} (410 when purged); POST /api/jobs/{id}/save = JobMatchService.save code path; POST/DELETE /api/jobs/{id}/feedback {HIDE|HIDE_COMPANY} with job_feedback table",
+        "Ranking per §6 (text × recency × preference fit from MatchPreferences × hard exclusions), short-token LIKE fallback, 1000 cap, ?explain=1 for ROLE_ADMIN",
+        "Mock API serves the same shape over a 60-row fixture"
+      ],
+      "tests": [
+        "JobRankerTest, JobQueryParserTest",
+        "JobSearchServiceIT (Testcontainers: boolean exclude, fallback, facets, relaxations, cap)",
+        "JobFeedbackIT"
+      ],
+      "tech": "web/rest/JobSearchResource.java, service/jobs/{JobSearchService,JobRanker,JobQueryParser}.java, repository/JobPostingSearchRepository.java. U4.2 extends this endpoint (ranker v2), never replaces it."
+    },
+    {
+      "status": "done",
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "api/src/main/java/com/dossier/api/service/NotificationService.java (no publish; kind STATUS_FROM_MAIL only)",
+        "web/src/components/app-v3/settings/panels.tsx:29 (SoonRow)"
+      ],
+      "design": "docs/design/user/alerts-notifications.md",
+      "critical": false,
+      "id": "E2E-U7.0",
+      "epic": "U7",
+      "title": "Notification preferences v0 — per-kind in-app/email, quiet hours, NotificationService.publish",
+      "size": "M",
+      "owners": [
+        "API",
+        "web"
+      ],
+      "deps": [],
+      "story": "As a user I want Settings › Notifications to be real (which kinds email me, quiet hours, time zone) before the full engine exists, so that no switch on the settings page is decorative.",
+      "genz": "Quiet by default; you decide what pings you.",
+      "ac": [
+        "notification_preference table (matrix_json, quiet_start/end, tz, digest fields) + notification.dedupe_key/group_key + unique (user_id, dedupe_key)",
+        "NotificationKind enum (APP_STATUS alias of STATUS_FROM_MAIL, INTERVIEW_REMINDER, PROFILE_SUGGESTION, BILLING, SECURITY, SYSTEM; org kinds reserved); NotificationService.publish(kind,userId,{title,body,link,applicationId?,groupKey?,dedupeKey?}) idempotent; onStatusChanged calls publish; BILLING/SECURITY email locked on",
+        "GET/PUT /api/profile/notification-preferences; NotificationsPanel in Settings with autosaved toggles + SavedTick; SoonRows removed",
+        "U7.1 keeps this table and endpoint (engine refactor is additive)"
+      ],
+      "tests": [
+        "NotificationPolicyTest (matrix × locked kinds × quiet hours incl. DST)",
+        "NotificationServiceIT (dedupe replay)",
+        "vitest NotificationsPanel.test.tsx"
+      ],
+      "tech": "service/NotificationService.java, service/NotificationPreferenceService.java, web/rest/NotificationPreferenceResource.java, web app/api/notification-preferences/route.ts, components/app-v3/settings/NotificationsPanel.tsx"
+    },
+    {
+      "status": "done",
+      "relates": [],
+      "supersedes": [],
+      "evidence": [
+        "web/src/components/app-v3/settings/panels.tsx"
+      ],
+      "design": null,
+      "critical": false,
+      "id": "E2E-U14.0",
+      "epic": "U14",
+      "title": "Settings panels v0: Notifications, Privacy ('what we store'), Help — no inert rows",
+      "size": "S",
+      "owners": [
+        "web"
+      ],
+      "deps": [
+        "E2E-U7.0"
+      ],
+      "story": "As a user I want every row on /settings to do something real so that the page is honest.",
+      "genz": "No 'Coming soon' badges on a shipped settings page.",
+      "ac": [
+        "Notifications panel = NotificationsPanel (E2E-U7.0); Privacy panel renders lib/data-map.ts (table → purpose → who sees → retention) + export/delete links; Help panel = bug report, contact, keyboard shortcuts",
+        "SoonRow ×3 deleted; 'Time zone: Automatic' becomes a real tz select stored in notification_preference.tz",
+        "U14.2 later adds per-feature AI switches on top of the Privacy panel"
+      ],
+      "tests": [
+        "vitest panels.test.tsx"
+      ],
+      "tech": "web/src/components/app-v3/settings/{SettingsV3Page,panels,PrivacyPanel,HelpPanel}.tsx, web/src/lib/data-map.ts"
+    }
+  ]
+}

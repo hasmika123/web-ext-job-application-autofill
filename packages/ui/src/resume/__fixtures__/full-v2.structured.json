@@ -1,0 +1,57 @@
+{
+  "summary": "Results-driven backend engineer with 6 years of experience.\nBuilt payment systems used by 2M people.\nLoves clean APIs.",
+  "skills": [
+    "Java",
+    "Go",
+    "Python",
+    "AWS",
+    "Kubernetes"
+  ],
+  "experience": [
+    {
+      "company": "Google",
+      "title": "Software Engineer",
+      "location": "Mountain View, CA",
+      "startDate": "2022-06",
+      "endDate": "",
+      "current": true,
+      "bullets": [
+        "Led migration of the billing service to Kubernetes, cutting p99 latency by 40%.",
+        "Built an internal tool\nused by 300 engineers.",
+        "Wrote the runbook (and the postmortem template) the whole team now uses."
+      ]
+    },
+    {
+      "company": "Acme Corp",
+      "title": "Backend Developer",
+      "location": "Zürich, Switzerland",
+      "startDate": "2019",
+      "endDate": "2022-05",
+      "current": false,
+      "bullets": [
+        "Designed a ledger service handling 2M transactions a day.",
+        "Mentored three junior engineers – two were promoted."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "school": "Stanford University",
+      "degree": "B.S.",
+      "field": "Computer Science",
+      "location": "Stanford, CA",
+      "startDate": "2014-09",
+      "endDate": "2018-06",
+      "gpa": "3.8"
+    }
+  ],
+  "languages": [],
+  "projects": [
+    {
+      "name": "Open-source CLI",
+      "bullets": [
+        "Reached 2k GitHub stars."
+      ]
+    }
+  ]
+}

@@ -20,10 +20,37 @@ Concretely:
   `className` (`h-4 w-4`) or the `size` prop. A web ESLint rule **fails the build on inline
   `<svg>`** outside this package (the one exception: `web/src/app/opengraph-image.tsx`,
   which `next/og` requires to be self-contained).
-- **Primitives** → `src/primitives/`. Button, IconButton, Input, Select, Field, Card, Badge
-  (+ Pill/Tag), Switch, ChoiceGroup, Meter, Tabs, Toast (`ToastProvider`/`useToast`), Skeleton, Spinner,
-  EmptyState, Dialog, SidePanel, Tooltip, Menu, Brand marks. Export new ones from
+- **Primitives** → `src/primitives/`. Button (variants primary / accent / accent-soft / ghost / danger), IconButton, Input, Select, Field, Card, Badge
+  (+ Pill/Tag), Switch, ChoiceGroup (`size="lg"` = the 56 px onboarding tiles), ChipInput (strings as chips: skills), SourceChip (provenance label: "From your resume" ...), Meter, ProgressBar (one thin task-progress bar, 4 px, `role="progressbar"`), useReducedMotion (the one hook for `prefers-reduced-motion`), useBottomBar (a sticky or fixed bottom bar calls it so it publishes `--kiwi-bottom-inset` on `<html>`: toasts and the bug-report button stay above it, never over its primary action), Tabs, Toast (`ToastProvider`/`useToast`, optional `action` button such as Undo; a toast waits while hovered or focused), Skeleton, Spinner,
+  EmptyState, Dialog, SidePanel, SideSheet (left/right slide-in: push / overlay / fullscreen; the Resume Builder's two side-navs), Tooltip, DragHandle (the grip button of a sortable row), Menu (a button trigger IS the menu button, no nested button), Popover (a floating panel for switches / links / rows: the Menu's sibling), Brand marks. Export new ones from
   `src/index.ts`.
+- **The page kit** (E2E-U0.0, `docs/APP-E2E-PLAN.md` section 2.3): the pieces every page story imports instead of
+  hand-rolling: `SaveStatusChip` (+ `SaveStatus`), `BottomSheet` (SideSheet's phone sibling: 70 % / full snap,
+  drag the grip down to close, Esc, focus trap, body scroll lock), `ListSkeleton` / `TileSkeleton` /
+  `TableSkeleton`, `ErrorState` ("Couldn't load X" + Retry + request id) and `EmptyState`
+  (`variant="page" | "inline"`, `mascot`). Their web-side partners are `useAutosave` (`web/src/lib/autosave.ts`),
+  `undoToast` (`undo-toast.ts`) and `useListQuery` (`list-query.ts`); the lint rule
+  `kiwiply/icon-button-needs-label` keeps every icon-only control named.
+- **The admin kit's shared bits** (E2E-A15.0, `docs/ADMIN-E2E-PLAN.md` section 3.6): `deltaOf(value, previous)` +
+  `DeltaChip` (the "↑ 12%" chip is *computed* from a real previous value and is `null` when there is none, so no tile
+  ever shows an invented trend), `Textarea` (`Input`'s multi-line sibling) and `useMediaQuery` (a media query that
+  follows live, for the one decision CSS cannot make: Dialog on a desktop, BottomSheet on a phone). The admin
+  composites built on them (`AdminTable`, `AdminFilterBar`, `ReasonSheet`, ...) live in `web/src/components/admin-v3/common`.
+- **The enterprise kit** (X2.15, `src/enterprise/`; `docs/enterprise-v2/16` s7 / `28` s0 / `38` s7): the shared primitives of the
+  enterprise (tenant) pages. Props-driven (no web imports), so the tenant admin, the platform admin and the extension use one
+  copy. `FilterBar` + `DataTable` (controlled by the page's list query; cards below `md`), `ReasonSheet` / `ConfirmTypedSheet`
+  (`run(reason) -> {ok}`; Dialog from `md`, BottomSheet below), `HistoryDrawer`, `PersonCell` + `MemberAvatar`, `StatusDot`,
+  `StatePill` (`registerStateMap(domain, map)`; the billing map is built in; unknown state = neutral + dev warning; a second
+  map for one domain throws), `QuickActionTiles`, `MoneyText` (integer minor units; `band` shows the label only) +
+  `PriceDelta` + `FeatureChip` + `AllowanceMeter`, `ConsentChip`, `ReadinessRing`, `KanbanBoard` (no cross-column drag),
+  `WorkloadColumn`, `TimelineFeed` (+ `mergeTimeline`), `SensitiveTextField` (the TS sensitive-patterns pre-check).
+  A doc-sync test (`kit.test.ts`) fails if 16 s7's kit row names something this barrel does not export.
+- **MascotPose** (X2.8, `primitives/MascotPose.tsx`): the ENTERPRISE bee only, never the regular Kiwiply mascot. `MASCOT_POSES` maps
+  a meaning (`welcome`, `greet`, `empty`, `encourage`, `celebrate`, `warn`, `error`, `peek`, `thinking`, `secure`, ...) to a file,
+  its native size and a motion class; sizes sm 48 / md 80 / lg 120 px tall; decorative; motion only without `prefers-reduced-motion`.
+  The HOST says where the art lives (`MascotProvider base` or the `base` prop; default `/ent/bee`). `EmptyState mascotPose` and
+  `ErrorState mascotPose` use it; `celebrate(eventId)` dedupes a celebration per session. Web wrapper + copy deck:
+  `web/src/lib/ent/mascot.tsx`, `mascot-copy.ts`; one per viewport, never in tables, never in `(marketing)/(app)/(org)/(admin)`.
 - **Feature components** → `src/`: `ResumeUpload` (the portable resume form) and `JobFitReport`
   (13.3 — one resume against one job, shown the same in the drawer and on the board) and
   `AtsReport` (13.5 — a resume's ATS score, what to fix first, and keyword coverage for a job).
@@ -49,6 +76,51 @@ this package (plus the few genuinely web-only pieces: `Logo` (next/image), `Beta
 5. Both consumers tree-shake — an unused primitive costs nothing, so err on adding here
    rather than locally.
 
+## Resume templates (`src/resume/`)
+
+The Resume Builder's render layer. **A template is `(ResumeDocument, Theme, Capabilities) -> markup` plus a
+declaration of what it can show** (DESIGN 6), so the editor preview and the Chromium-printed PDF are the
+same string (`renderToStaticMarkup(<ResumePreview doc theme templateId caps />)`).
+
+| File | Job |
+|---|---|
+| `types.ts` | `ResumeDocument` v2, `Theme` v2 (spacing preset, `showPhoto`), `TemplateCapabilities`, `TemplateMeta` (mirrors the Java contract in `api/.../service/resume/`) |
+| `capabilities.ts` | `ATS_STRICT` / `DESIGN_FREE`, `isAtLeastAsStrictAs`, `tightenCapabilities` (admin overrides, tighten-only), `planSections`, `hiddenContent` (what a template switch hides), `controlStates` (what each editor control does), `allowedMarks`. Pure; no registry import. |
+| `registry.ts` | `TEMPLATES`, `getTemplate(id)` (unknown id falls back to `modern`), `listTemplates()`, `resolveCapabilities(id, overrides)` (registry profile + `resume.templates.overrides`) |
+| `project.ts` / `text.ts` / `json.ts` | doc -> `StructuredResume` (`parsed_json`), doc -> ATS text, byte-exact JSON writer + canonical hash. **Ports of the Java classes; tested byte-for-byte against `__fixtures__/` (copied from `api/src/test/resources/resume-doc/`).** Change a rule in Java first, regenerate the fixtures, then here. They never depend on the template. |
+| `fit.ts` | Spacing presets, the 7-step page-fit ladder as deltas on the preset, `resolveTheme(theme, step)`, `pageCount`, `fitToPages` |
+| `theme.ts` | defaults, sanitising (hostile values never reach CSS; v1 sliders map to a preset), `applyCapabilities`, the scoped CSS-variable block |
+| `templates/shared.tsx` | the renderer: data rules AND capability rules every template reuses (hidden items, dates, links, marks, lists, standard headings, skill-group collapse, photo) |
+| `styles/resume.css` | ALL template CSS, `.rz-*` classes; fonts in `fonts/` (Inter + Source Serif 4, Latin variable subsets, SIL OFL licences alongside) |
+
+**The capability contract.** Every template declares `meta.capabilities` (a `TemplateCapabilities`). A template with
+`ats: true` must satisfy `isAtLeastAsStrictAs(caps, ATS_STRICT)` (one column, standard headings, bold only, no photo,
+no lists, plain colours...); one with `ats: false` stays inside `DESIGN_FREE`; `registry.test.ts` enforces both. The
+renderer, not the template, applies the capabilities, and the editor reads the resolved object
+(`resolveCapabilities(templateId, config.templates.overrides)`) instead of testing for "ATS". Admin overrides may only
+tighten. Content a template does not draw is kept in the document and listed by `hiddenContent` - switching never
+deletes anything.
+
+**Rules for a template** (a test enforces the first three on rendered HTML):
+
+1. Only `.rz-*` classes from `styles/resume.css` and the theme variables (`--rz-accent`, `--rz-font-body`,
+   `--rz-font-display`, `--rz-size`, `--rz-density`, `--rz-margin`, `--rz-page-w/h`). **No Tailwind, no
+   `style=""`, no `<table>`/`<svg>`** for layout; the photo is the one `<img>` (`Photo` from `shared.tsx`).
+2. **No hooks, no effects, no `next/*` imports** - the template must survive `renderToStaticMarkup`.
+3. Render sections only through `renderSections(doc, theme, caps, only?)` (hidden sections/items, empty ones and
+   everything the capabilities forbid are dropped there). The template decides placement (columns, where `Photo`
+   goes), never data.
+4. ATS-friendly means one reading order in the DOM (sidebar after main), real text, standard section titles,
+   contact info in the body.
+
+**Ten templates ship** (modern, classic, compact, simple, engineer, consultant, scholar, executive, statement, sidebar; categories ATS / Employer format / Styled). The design, the per-template specs and the page budgets are in `docs/resume-builder/templates/` (`TEMPLATES-DESIGN.md`, `stories.md`).
+
+**Adding a template** (the template checklist, `docs/resume-builder/templates/stories.md`): (1) `templates/<id>.tsx` exporting a `TemplateDefinition` (`meta` with `id`, `name`, `description`, `category`, `atsNote`, `capabilities`, `thumb`, `defaults`, plus a pure `Render`); (2) its rules in ONE block of `styles/resume.css` between `/* == tpl:<id> == */` and `/* == /tpl:<id> == */`, every rule scoped `.rz-tpl-<id>` (the compliance test reads the block by these markers); (3) import + entry in `registry.ts`, in gallery order; (4) the id with its `defaults` in `__fixtures__/template-defaults.json` AND `api/src/test/resources/resume-doc/template-defaults.json` (byte-identical); (5) the same defaults in `TemplateThemeDefaults.BUILT_IN` and the id in `ResumeDocService.KNOWN_TEMPLATE_IDS` (API); (6) `web/.../resume-builder/list/templateThumbs.ts` import + map entry; (7) `src/resume/thumbs/<id>.png`, generated by `npm run thumbs:templates -w web -- --only <id>` and committed; (8) `templates/<id>.test.tsx` calling `describeTemplate` from `templates/__test__/suite.tsx` (snapshots, class/style/table rules, profile declaration, ATS compliance) plus the template's own assertions; (9) the id in `PRODUCTION_IDS` of `registry.test.ts`; (10) the id appended to the enabled default (`ResumeBuilderSettingKeys` and `DEFAULT_BUILDER_CONFIG`). Then check the page budget with `PDF_SMOKE=1 npm run test:unit -w web -- template-fit.browser`. `templates/__test__/designFree.tsx` is the test-only two-column example; it is registered only inside tests (`registerTemplateForTests`).
+
+`PageFrame` (`src/primitives/PageFrame.tsx`) is the editor's page box: children are laid out at the page's natural width (816 px Letter) and scaled with a CSS transform to fit the container (`fitScale`), reserving the scaled height; `onMeasure` reports `{scale, contentHeight}`. Use it to show a `ResumePreview` anywhere (editor pane, template picker thumbnails).
+
+Tests: `npm test -w packages/ui` (vitest + jsdom, this package only; web runs its own unit tests via `npm run test:unit -w web`, which `npm test -w web` includes).
+
 ## Consumption wiring (for reference)
 
 ```css
@@ -63,6 +135,18 @@ this package (plus the few genuinely web-only pieces: `Logo` (next/image), `Beta
 - **extension**: workspace member; `@tailwindcss/vite` in `wxt.config.ts`.
 - Gates: `web` — `npm test` (tsc + eslint, incl. the no-inline-svg rule); `job-autofill` —
   `npm run typecheck`. Both compile this package as source, so breakage here fails both.
+
+## Enterprise look tokens (`styles/theme-tenant.css`, `.theme-tenant` only)
+
+The boards' look is a token set the tenant pages share (the regular app never sets `.theme-tenant`, so it cannot change):
+
+- **Shell**: `--ent-sidebar-w` (15.4 % of the width, 216-258 px), `--ent-shell-px`, `--ent-page-bg`, `--ent-nav-text`, `--ent-title`, `--ent-soft`.
+- **Cards**: `.ent-card` (`--ent-card-radius / -border / -shadow`). **Tables / filter bars**: `--ent-table-head-bg`, `--ent-control-h / -radius / -border`, `--ent-field-bg`.
+- **KPI tiles**: `<KpiTile tone="violet|green|blue|orange|indigo|pink">` or, for a page's own markup, `<span className="ent-kpi-chip" data-tone="green">` +
+  `kpiLine("green")` as the sparkline colour. Fixed palette: `--ent-kpi-<tone>-bg|fg|line`; `--ent-kpi-good|bad` for deltas.
+- **Pills**: `<span className="ent-pill" data-tone="green|amber|red|purple|blue|pink|grey">` (add `data-shape="round"` for a capsule) and `StatePill`
+  (tones green, amber, red, purple, blue, grey). Tokens `--ent-pill-<tone>-bg|fg`.
+- **Sparkline**: smooth gradient curve by default inside a tenant page (`SparklineDefaultsProvider` in the tenant root); `smooth={false}` forces the straight line.
 
 ## Workspace
 

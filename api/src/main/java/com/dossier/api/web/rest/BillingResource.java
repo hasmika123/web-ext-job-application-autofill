@@ -2,7 +2,8 @@ package com.dossier.api.web.rest;
 
 import com.dossier.api.config.OpenApiConfiguration;
 import com.dossier.api.service.BillingService;
-import com.dossier.api.service.EntitlementService;
+import com.dossier.api.service.DemoGuard;
+import com.dossier.api.service.billing.personal.PlanViewService;
 import com.dossier.api.service.dto.PlanDTO;
 import java.util.Map;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,12 +33,15 @@ public class BillingResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(BillingResource.class);
 
-    private final EntitlementService entitlementService;
+    private final PlanViewService planView;
     private final BillingService billingService;
 
-    public BillingResource(EntitlementService entitlementService, BillingService billingService) {
-        this.entitlementService = entitlementService;
+    private final DemoGuard demoGuard;
+
+    public BillingResource(PlanViewService planView, BillingService billingService, DemoGuard demoGuard) {
+        this.planView = planView;
         this.billingService = billingService;
+        this.demoGuard = demoGuard;
     }
 
     /**
@@ -51,7 +55,7 @@ public class BillingResource {
     @GetMapping("/me")
     public ResponseEntity<PlanDTO> myPlan() {
         LOG.debug("REST request to get the current user's plan");
-        return ResponseEntity.ok(entitlementService.currentUserPlan());
+        return ResponseEntity.ok(planView.currentUserPlan());
     }
 
     /**
@@ -64,6 +68,7 @@ public class BillingResource {
     @Operation(summary = "Start checkout", description = "Creates a Stripe Checkout Session for the chosen plan and returns its URL.")
     @PostMapping("/checkout")
     public ResponseEntity<Map<String, String>> checkout(@RequestBody CheckoutRequest body) {
+        demoGuard.assertNotDemo();
         LOG.debug("REST request to start checkout for plan {}", body == null ? null : body.plan());
         String url = billingService.startCheckout(body == null ? null : body.plan());
         return ResponseEntity.ok(Map.of("url", url));
@@ -76,6 +81,7 @@ public class BillingResource {
     @Operation(summary = "Open the billing portal", description = "Creates a Stripe Billing Portal session and returns its URL.")
     @PostMapping("/portal")
     public ResponseEntity<Map<String, String>> portal() {
+        demoGuard.assertNotDemo();
         LOG.debug("REST request to open the billing portal");
         return ResponseEntity.ok(Map.of("url", billingService.openPortal()));
     }

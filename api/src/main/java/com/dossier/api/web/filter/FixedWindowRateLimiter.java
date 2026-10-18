@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * flakiness. Thread-safe: each key's window is mutated under its own monitor. Used by
  * {@link RateLimitFilter}; see that class for why per-instance state is sufficient here.
  */
-class FixedWindowRateLimiter {
+public class FixedWindowRateLimiter {
 
     private static final class Window {
 
@@ -34,7 +34,7 @@ class FixedWindowRateLimiter {
      * @param maxWindowMs the largest window any caller will use — counters idle longer than
      *     this are safe to drop (keys with different windows share one map)
      */
-    FixedWindowRateLimiter(long sweepIntervalMs, long maxWindowMs) {
+    public FixedWindowRateLimiter(long sweepIntervalMs, long maxWindowMs) {
         this.sweepIntervalMs = sweepIntervalMs;
         this.maxWindowMs = maxWindowMs;
     }
@@ -44,7 +44,7 @@ class FixedWindowRateLimiter {
      *
      * @return 0 if allowed; otherwise the number of seconds the caller should wait (>= 1).
      */
-    long retryAfterSeconds(String key, int limit, long windowMs, long now) {
+    public long retryAfterSeconds(String key, int limit, long windowMs, long now) {
         maybeSweep(now);
         Window w = windows.computeIfAbsent(key, k -> new Window(now));
         synchronized (w) {
@@ -58,6 +58,16 @@ class FixedWindowRateLimiter {
             }
             return 0;
         }
+    }
+
+    /** Forget the counter of {@code key} (a successful sign-in clears its own failure count). */
+    public void reset(String key) {
+        windows.remove(key);
+    }
+
+    /** Forget every counter (tests). */
+    public void resetAll() {
+        windows.clear();
     }
 
     /** Drop counters whose window has fully elapsed so the map can't grow unbounded. */

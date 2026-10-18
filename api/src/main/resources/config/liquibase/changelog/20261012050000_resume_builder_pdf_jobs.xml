@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Resume Builder R3.7 (docs/RESUME-BUILDER-DESIGN.md sections 8.5 and 8.10) - the async PDF pipeline.
+
+        The resume_doc row IS the job: a save that changes the render hash sets pdf_status = PENDING and
+        pdf_next_attempt_at (= now + the settle delay); the web worker claims the row under a lease
+        (pdf_lease_until / pdf_worker), renders, and Spring stores the file through FileStorage and flips the
+        row to READY. pdf_attempts / pdf_error carry the retry state. exported_at / exported_hash (R0.6) keep
+        their columns; exported_hash now holds the RENDER hash of the stored PDF. STALE is derived (READY with a
+        mismatched hash), never stored. ix_resume_doc_pdf_queue serves the claim query.
+
+        thumb_key / thumb_hash are the card thumbnail's storage key and the render hash it was made from
+        (DESIGN 8.10); the thumbnail itself is written by R3.13, the columns ship here so the PDF job
+        changelog is the only schema change of the pipeline. Additive.
+
+        Backfill: a resume that already has a stored PDF (exported_hash set) starts READY; its stored hash was
+        a content hash, so it reads as STALE until the next save regenerates it - nothing is queued in bulk.
+    -->
+    <changeSet id="20261012050000-1" author="dossier">
+        <addColumn tableName="resume_doc">
+            <column name="pdf_status" type="varchar(10)" defaultValue="NONE">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pdf_requested_at" type="${datetimeType}"/>
+            <column name="pdf_lease_until" type="${datetimeType}"/>
+            <column name="pdf_worker" type="varchar(64)"/>
+            <column name="pdf_attempts" type="smallint" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="pdf_next_attempt_at" type="${datetimeType}"/>
+            <column name="pdf_error" type="varchar(200)"/>
+            <column name="thumb_key" type="varchar(255)"/>
+            <column name="thumb_hash" type="varchar(64)"/>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20261012050000-2" author="dossier">
+        <createIndex tableName="resume_doc" indexName="ix_resume_doc_pdf_queue">
+            <column name="pdf_status"/>
+            <column name="pdf_next_attempt_at"/>
+            <column name="pdf_requested_at"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20261012050000-3" author="dossier">
+        <sql>UPDATE resume_doc SET pdf_status = 'READY' WHERE exported_hash IS NOT NULL AND pdf_status = 'NONE'</sql>
+    </changeSet>
+</databaseChangeLog>

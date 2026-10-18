@@ -41,6 +41,17 @@ import {
   type JobFitOutcome,
 } from "./home-actions";
 import { SaveJobDialog } from "./SaveJobDialog";
+import { MarketerView } from "./MarketerView";
+import { AssignedChip, AssignedJobsList } from "./AssignedJobs";
+import { PrepareBatch } from "./PrepareBatch";
+import {
+  readAccountState,
+  refreshAccountState,
+  loadAssigned,
+  matchAssigned,
+  type AccountState,
+  type AssignedJob,
+} from "./workspace-actions";
 import type { Handoff } from "./services";
 
 const WEB = "https://kiwiply.com";
@@ -61,7 +72,9 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
   const [status, setStatus] = useState<Status>(NEUTRAL);
   const [pending, setPending] = useState<File | null>(null); // chosen file → save/attach choice
   const [busy, setBusy] = useState(false);
-  const [account, setAccount] = useState<Account>({ connected: false, who: "" });
+  const [account, setAccount] = useState<Account>({ connected: false, kind: "PERSONAL", title: "Personal", subtitle: "" });
+  // The account chip's disclosure: who is connected + "Switch account".
+  const [acctOpen, setAcctOpen] = useState(false);
   // Save-a-job confirmation modal (captured details, editable before saving to the board).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [saveModal, setSaveModal] = useState<{ capture: any; signal: boolean } | null>(null);
@@ -76,9 +89,71 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     setJobFit(null);
   }, [selectedId]);
 
+  // The connected account decides the drawer (one account at a time, docs/enterprise-v2/19 §6):
+  // personal/consultant = today's fill drawer (consultant adds the Jobs tab and the "Assigned by"
+  // chip); marketer-only = ONLY "Save for consultant…" (no resumes, no fill, and no profile/mirror
+  // read at all — see loadHome's guard). `known` is false for an enterprise session whose role
+  // flags are not cached yet: nothing is read until the server has said which it is.
+  const [acct, setAcct] = useState<AccountState>(() => ({ account: window.JAF.workspace.personalAccount(), known: false }));
+  const [tab, setTab] = useState<"fill" | "jobs">("fill");
+  const [match, setMatch] = useState<{ job: AssignedJob; by: string } | null>(null);
+  const mode = window.JAF.workspace.modeOf(acct.account) as {
+    kind: "personal" | "marketer" | "consultant" | "org";
+    org: { orgId: number; name: string } | null;
+  };
+  const modeKind = useRef(mode.kind);
+  modeKind.current = mode.kind;
+  const homeLoaded = useRef(false);
+
   const toast = useToast();
   const activeTab = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // The personal data path: refresh the mirror of the signed-in user's OWN profile, then read it.
+  // Never runs in a marketer-only workspace (the caller checks `modeKind`), and only once.
+  async function loadHome() {
+    if (homeLoaded.current) return;
+    homeLoaded.current = true;
+    await refreshMirror();
+    const d = await loadData();
+    setData(d);
+    setAutoAdv(!!d.settings.autoAdvance);
+    const pickable = d.resumes;
+    // Preselect: the last-used resume if still available, else the user's default/base resume,
+    // else the first one.
+    if (d.settings.lastResumeId && pickable.some((r) => r.id === d.settings.lastResumeId)) {
+      setSelectedId(d.settings.lastResumeId);
+    } else {
+      const preferred = pickable.find((r) => r.defaultResume) ?? pickable[0];
+      if (preferred) setSelectedId(preferred.id);
+    }
+    // After the picker is ready, so a slow score never delays filling. Never auto-selects:
+    // it suggests, and the user decides.
+    matchResumesForPage(pickable).then(setFit);
+  }
+
+  // Consultant workspace: is THIS page one of my assigned jobs? (Identity, then normalised URL.)
+  useEffect(() => {
+    setMatch(null);
+    if (mode.kind !== "consultant" || !mode.org) return;
+    const orgId = mode.org.orgId;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await loadAssigned(orgId);
+        if (!r || !alive) return;
+        const cap = await capturePage();
+        if (!cap.ok || !alive) return;
+        const m = await matchAssigned(r.items, cap.capture);
+        if (alive) setMatch(m);
+      } catch {
+        /* the chip is a convenience; the Jobs tab still lists everything */
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [mode.kind, mode.org?.orgId]);
 
   useEffect(() => {
     // Orphaned drawer (extension reloaded/updated while open) → chrome.* is dead; bow out.
@@ -99,26 +174,19 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     // The background re-pulled the mirror because the web app signalled a change (11.1) —
     // repaint from the fresh store so a resume saved on kiwiply.com appears here at once.
     const onMirror = (msg: { type?: string }) => {
-      if (msg && msg.type === "KIWIPLY_MIRROR_UPDATED") loadData().then(setData);
+      if (msg && msg.type === "KIWIPLY_MIRROR_UPDATED" && modeKind.current !== "marketer") loadData().then(setData);
     };
     chrome.runtime.onMessage.addListener(onMirror);
     (async () => {
-      await refreshMirror();
-      const d = await loadData();
-      setData(d);
-      setAutoAdv(!!d.settings.autoAdvance);
-      const pickable = d.resumes;
-      // Preselect: the last-used resume if still available, else the user's default/base resume,
-      // else the first one.
-      if (d.settings.lastResumeId && pickable.some((r) => r.id === d.settings.lastResumeId)) {
-        setSelectedId(d.settings.lastResumeId);
-      } else {
-        const preferred = pickable.find((r) => r.defaultResume) ?? pickable[0];
-        if (preferred) setSelectedId(preferred.id);
-      }
-      // After the picker is ready, so a slow score never delays filling. Never auto-selects:
-      // it suggests, and the user decides.
-      matchResumesForPage(pickable).then(setFit);
+      // Local read first (instant, offline-safe): decides whether the personal data path may run.
+      const local = await readAccountState();
+      setAcct(local);
+      if (local.known && window.JAF.workspace.modeOf(local.account).kind !== "marketer") void loadHome();
+      // Then the server's view of this account; a role change flips the drawer without a reopen.
+      const fresh = await refreshAccountState();
+      setAcct(fresh);
+      if (fresh.known && window.JAF.workspace.modeOf(fresh.account).kind !== "marketer") void loadHome();
+      else if (!fresh.known) setStatus({ msg: "Couldn’t check your workspace. Check your connection, then reopen this drawer.", kind: "err" });
     })();
     return () => {
       chrome.storage.onChanged.removeListener(onChange);
@@ -151,7 +219,10 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
       // cap not ok → let fillPage surface the real error below.
     }
     setStatus({ msg: "Scanning page…", kind: "neutral" });
-    const res = await fillPage(selectedResume, data.bio, autoAdv);
+    // A consultant filling an assigned job: the fill carries {orgId,id} so the confirmed submit can
+    // be reported. Still their OWN profile and resume — nothing about the marketer's side changes it.
+    const opportunity = mode.kind === "consultant" && mode.org && match ? { orgId: mode.org.orgId, id: match.job.id } : null;
+    const res = await fillPage(selectedResume, data.bio, autoAdv, opportunity);
     if (res.ok) {
       // Close the drawer so the on-page fill-review overlay (the field list) is unobstructed.
       closePanel();
@@ -197,23 +268,27 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
     }
   }
 
-  const statusColor = status.kind === "err" ? "text-danger" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
+  const statusColor = status.kind === "err" ? "text-danger-text" : status.kind === "ok" ? "text-accent-deep" : "text-muted";
 
-  return (
-    <div className="kiwi-fade-in flex min-h-screen w-full flex-col gap-4 bg-app-bg px-4 pb-4 pt-4 font-body text-ink">
-      {/* Header — logo (left) + account chip · settings · close (right), all on one row */}
+  // Header — logo (left) + account chip · settings · close (right), all on one row
+  const headerEl = (
       <header className="flex items-center justify-between gap-2">
         <BrandLogo height={24} />
         <div className="flex min-w-0 items-center gap-1">
           {account.connected && (
             <button
-              onClick={() => chrome.tabs.create({ url: WEB + "/dashboard" })}
-              title="Open your kiwiply dashboard"
-              aria-label={`Open dashboard — signed in as ${account.who}`}
-              className="flex min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-2.5 transition-colors hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              onClick={() => setAcctOpen((o) => !o)}
+              title="Connected account"
+              aria-expanded={acctOpen}
+              aria-controls="account-panel"
+              aria-label={`Connected account: ${account.title}${account.subtitle ? ", " + account.subtitle : ""}`}
+              className="flex min-w-0 items-center gap-2 rounded-full py-1 pl-1 pr-2.5 text-left transition-colors hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
-              <Avatar name={account.who} />
-              <span className="max-w-[96px] truncate text-[12.5px] font-semibold text-ink">{account.who}</span>
+              <Avatar name={account.kind === "ENTERPRISE" ? account.title : account.subtitle} />
+              <span className="flex min-w-0 flex-col leading-tight">
+                <span className="max-w-[132px] truncate text-[12.5px] font-semibold text-ink">{account.title}</span>
+                {account.subtitle && <span className="max-w-[132px] truncate text-[11px] text-muted">{account.subtitle}</span>}
+              </span>
             </button>
           )}
           <IconButton title="Extension settings" aria-label="Extension settings" onClick={openSettings}>
@@ -224,6 +299,90 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
           </IconButton>
         </div>
       </header>
+  );
+
+  // The account chip's disclosure. One account is connected at a time; "Switch account" opens the
+  // web connect flow (personal). An enterprise account is connected from its own workspace on the
+  // web ("Connect extension"), so that is spelled out rather than linked: the host varies per org.
+  const accountPanel =
+    account.connected && acctOpen ? (
+      <div id="account-panel" className="flex flex-col gap-2.5 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
+        <div>
+          <div className="text-[13px] font-semibold text-ink">{account.title}</div>
+          {account.subtitle && <div className="text-[12px] text-muted">{account.subtitle}</div>}
+        </div>
+        <p className="text-[12px] leading-snug text-ink-soft">
+          The extension is connected to one account at a time. Connecting another account signs this one out of this browser.
+          To connect an enterprise account, use <b>Connect extension</b> in your organization&apos;s workspace.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => chrome.tabs.create({ url: WEB + "/connect" })}>
+            Switch account
+          </Button>
+          {account.kind === "PERSONAL" && (
+            <Button size="sm" variant="ghost" onClick={() => chrome.tabs.create({ url: WEB + "/dashboard" })}>
+              Open dashboard
+            </Button>
+          )}
+        </div>
+      </div>
+    ) : null;
+
+  const rootCls = "kiwi-fade-in flex min-h-screen w-full flex-col gap-4 bg-app-bg px-4 pb-4 pt-4 font-body text-ink";
+
+  // Marketer-only workspace: ONLY "Save for consultant…". No resumes, no fill, no profile read.
+  if (mode.kind === "marketer" && mode.org) {
+    return (
+      <div className={rootCls}>
+        {headerEl}
+        {accountPanel}
+        <MarketerView key={mode.org.orgId} orgId={mode.org.orgId} orgName={mode.org.name} />
+        <footer className="mt-auto border-t border-line px-1 pt-3 text-[11px] text-muted">
+          Saving hands a job to your consultant · they apply themselves
+        </footer>
+      </div>
+    );
+  }
+
+  return (
+    <div className={rootCls}>
+      {headerEl}
+      {accountPanel}
+
+      {/* "Prepare selected openings": the batch overview, only while a batch exists (renders nothing otherwise). */}
+      {mode.kind === "consultant" && mode.org && <PrepareBatch />}
+
+      {/* Consultant workspace: Autofill | Jobs */}
+      {mode.kind === "consultant" && mode.org && (
+        <div role="tablist" aria-label="Drawer sections" className="flex gap-1 rounded-full bg-paper-2 p-1">
+          {(["fill", "jobs"] as const).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={`min-h-[36px] flex-1 rounded-full text-[12.5px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-accent ${
+                tab === t ? "bg-paper text-ink shadow-sm" : "text-muted hover:text-ink"
+              }`}
+            >
+              {t === "fill" ? "Autofill" : "Jobs"}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {mode.kind === "consultant" && mode.org && tab === "jobs" && <AssignedJobsList orgId={mode.org.orgId} orgName={mode.org.name} />}
+
+      {mode.kind === "consultant" && mode.org && tab === "fill" && match && (
+        <AssignedChip
+          orgId={mode.org.orgId}
+          job={match.job}
+          manualApplied={window.JAF.workspace.needsManualApplied(match.job.atsPlatform)}
+          onApplied={() => setMatch(null)}
+        />
+      )}
+
+      {!(mode.kind === "consultant" && tab === "jobs") && (<>
 
       {/* Connect prompt — the sign-in path (no in-extension login); also where an expired session
           lands once its tokens are cleared. Only until an account is connected. */}
@@ -440,6 +599,8 @@ export function HomeView({ onReview }: { onReview: (handoff: Handoff) => void })
           Report a bug
         </button>
       </footer>
+
+      </>)}
 
       {/* Save-a-job confirmation modal */}
       {saveModal && (

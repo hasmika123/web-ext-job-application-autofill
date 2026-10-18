@@ -1,0 +1,198 @@
+<!doctype html>
+<!--
+  Shared pieces of every Kiwiply transactional e-mail (Thymeleaf fragments), laid out like the supplied designs: header
+  (logo, tagline), hero (live text left, artwork right), info strip, content rows (artwork, live text, button), support
+  band, dark footer. E-mail clients ignore <style> and most CSS, so everything is a 600px table with inline styles; the
+  art is plain <img>, the words are real text (names, organization, language and links stay live).
+
+  Common model keys (all optional unless noted):
+    theme     "kiwiply" (green, the personal product) or "enterprise" (blue, organization mail). Default kiwiply.
+    brand     #rrggbb accent for buttons. A tenant e-mail passes the organization's primary colour (white text on it
+              already passes 4.5:1 via the BrandingColors gate). Without it the theme colour is used.
+    assetBase absolute https base of the art, e.g. https://kiwiply.com/email (files live in web/public/email).
+    logoUrl   organization logo (enterprise mail); otherwise the Kiwiply logo is used.
+    orgName   header/footer name and "sent on behalf of".
+  The temporary password is never part of any model: e-mails carry no secret.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+  <body>
+    <div th:fragment="preheader(text)" style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: transparent; font-size: 1px; line-height: 1px" th:text="${text}">Preview text</div>
+
+    <!-- Whole frame. Body slot = the caller's ~{::section}. -->
+    <div th:fragment="shell(theme, brand, logoUrl, orgName, assetBase, content)"
+         th:with="ent=${theme == 'enterprise'}, dark=${theme == 'enterprise'} ? '#0b2a52' : '#0f3a26', pageBg=${theme == 'enterprise'} ? '#edf3fb' : '#eef6ea'">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" th:style="'background: ' + ${pageBg} + '; padding: 20px 10px'">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 600px; background: #ffffff; border-radius: 18px; overflow: hidden">
+              <tr>
+                <td style="padding: 18px 28px 12px 28px; background: #ffffff">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td align="left" valign="middle">
+                        <img th:if="${logoUrl != null}" th:src="${logoUrl}" th:alt="${orgName} ?: 'Kiwiply'" height="36" style="display: block; height: 36px; max-height: 36px; border: 0" />
+                        <img th:if="${logoUrl == null and !ent}" th:src="${assetBase} + '/logo.png'" alt="Kiwiply" height="36" style="display: block; height: 36px; max-height: 36px; border: 0" />
+                        <span th:if="${logoUrl == null and ent}" th:text="${orgName} ?: 'Kiwiply'" style="font: 800 24px/1.2 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif; color: #0b2a52">Kiwiply</span>
+                      </td>
+                      <td align="right" valign="middle" style="font: 12px/1.3 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #55615a" th:text="${ent} ? #{email.header.tagline.ent} : #{email.header.tagline}">Find Jobs. Apply Smarter.</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 16px; line-height: 1.55; color: #232826">
+                  <div th:replace="${content}">body</div>
+                </td>
+              </tr>
+              <tr>
+                <td th:style="'padding: 0; background: ' + ${dark}">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">
+                    <tr>
+                      <td style="padding: 24px 28px 6px 28px" align="left">
+                        <img th:if="${logoUrl != null}" th:src="${logoUrl}" th:alt="${orgName} ?: 'Kiwiply'" height="30" style="display: inline-block; height: 30px; border: 0; vertical-align: middle" />
+                        <img th:if="${logoUrl == null and !ent}" th:src="${assetBase} + '/logo-dark-mode.png'" alt="Kiwiply" height="30" style="display: inline-block; height: 30px; border: 0; vertical-align: middle" />
+                        <span th:if="${logoUrl == null and ent}" th:text="${orgName} ?: 'Kiwiply'" style="font: 800 22px/1.2 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif; color: #ffffff">Kiwiply</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 4px 28px 0 28px; font-size: 14px; font-weight: 700; color: #ffffff" th:text="${ent} ? #{email.footer.slogan.ent} : #{email.footer.slogan}">More opportunities for a brighter you.</td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 10px 28px 4px 28px; font-size: 13px; color: #cfe0f2"
+                          th:with="helpHref=${helpUrl} ?: (${ent} ? (${policyBase} != null ? ${policyBase} + '/support' : null) : 'https://kiwiply.com/help'),
+                                   privacyHref=${privacyUrl} ?: (${ent} ? (${policyBase} != null ? ${policyBase} + '/privacy' : null) : 'https://kiwiply.com/privacy'),
+                                   termsHref=${termsUrl} ?: (${ent} ? (${policyBase} != null ? ${policyBase} + '/terms' : null) : 'https://kiwiply.com/terms')">
+                        <!-- Organization mail (ent) links ONLY to the organization's own policy pages on its host (policyBase = the tenant origin); with no tenant origin it shows no links rather than Kiwiply's. -->
+                        <th:block th:if="${helpHref != null}"><a th:href="${helpHref}" style="color: #cfe0f2; text-decoration: none" th:text="#{email.footer.help}">Help</a></th:block>
+                        <th:block th:if="${privacyHref != null}"><span th:if="${helpHref != null}">&nbsp;&nbsp;|&nbsp;&nbsp;</span><a th:href="${privacyHref}" style="color: #cfe0f2; text-decoration: none" th:text="#{email.footer.privacy}">Privacy</a></th:block>
+                        <th:block th:if="${termsHref != null}"><span th:if="${helpHref != null or privacyHref != null}">&nbsp;&nbsp;|&nbsp;&nbsp;</span><a th:href="${termsHref}" style="color: #cfe0f2; text-decoration: none" th:text="#{email.footer.terms}">Terms</a></th:block>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding: 10px 28px 24px 28px; font-size: 11px; line-height: 1.6; color: #9db4cc">
+                        <span th:if="${orgName != null}" th:text="#{email.footer.onbehalf(${orgName})}">Sent on behalf of Acme Staffing.</span>
+                        <span th:text="${ent} ? #{email.footer.transactional.ent} : #{email.footer.transactional}">You are receiving this because of activity on your Kiwiply account.</span>
+                        <th:block th:unless="${ent}"><br /><span th:text="#{email.footer.brand}">Kiwiply</span></th:block>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Hero: live text on the left, art on the right (the art's left edge fades into the band colour). -->
+    <table th:fragment="hero(bg, art, artWidth, kicker, line1, line2, accentText, intro, href, label, brand, btnText)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" th:style="'background: ' + ${bg}">
+      <tr>
+        <td valign="top" style="padding: 22px 0 22px 28px">
+          <p th:if="${kicker != null}" th:text="${kicker}" th:style="'margin: 0 0 8px 0; font: 700 11px/1.3 -apple-system, Segoe UI, Roboto, Arial, sans-serif; letter-spacing: 1.2px; text-transform: uppercase; color: ' + ${brand}">KICKER</p>
+          <h1 style="margin: 0 0 12px 0; font: 800 30px/1.1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #0b1b33"><span th:text="${line1}">Welcome to</span><br th:if="${line2 != null}" /><span th:if="${line2 != null}" th:text="${line2}" th:style="'color: ' + ${accentText}">Kiwiply</span></h1>
+          <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #4a5568" th:text="${intro}">Intro text</p>
+          <div th:replace="~{:: button(${href}, ${label}, ${brand}, ${btnText})}"></div>
+        </td>
+        <td valign="bottom" align="right" th:width="${artWidth}" style="padding: 0; line-height: 0">
+          <img th:src="${art}" alt="" th:width="${artWidth}" style="display: block; width: 100%; height: auto; border: 0" />
+        </td>
+      </tr>
+    </table>
+
+
+    <!-- Centred hero: art on top (full width), then title, text and button. Used by the reset e-mails. -->
+    <table th:fragment="heroCentered(bg, art, title, accentText, intro, href, label, brand, btnText)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" th:style="'background: ' + ${bg}">
+      <tr>
+        <td align="center" style="padding: 0; line-height: 0"><img th:src="${art}" alt="" width="600" style="display: block; width: 100%; max-width: 600px; height: auto; border: 0" /></td>
+      </tr>
+      <tr>
+        <td align="center" style="padding: 10px 28px 26px 28px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">
+          <h1 th:style="'margin: 0 0 10px 0; font: 800 28px/1.15 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif; color: ' + ${accentText}" th:text="${title}">Title</h1>
+          <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.5; color: #4a5568" th:text="${intro}">Intro</p>
+          <div th:replace="~{:: button(${href}, ${label}, ${brand}, ${btnText})}"></div>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Details card ("Your login details"): up to three label/value pairs, never a secret. -->
+    <table th:fragment="details(title, l1, v1, l2, v2, l3, v3)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="padding: 12px 20px 4px 20px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #f1f6fd; border-radius: 12px">
+            <tr>
+              <td style="padding: 14px 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">
+                <p style="margin: 0 0 8px 0; font-size: 15px; font-weight: 800; color: #0b2a52" th:text="${title}">Your login details</p>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size: 14px; line-height: 1.4; color: #232826">
+                  <tr th:if="${v1 != null}"><td width="90" style="padding: 6px 0; border-top: 1px solid #dce6f5; color: #55615a" th:text="${l1}">Email</td><td style="padding: 6px 0; border-top: 1px solid #dce6f5" th:text="${v1}">a@b.c</td></tr>
+                  <tr th:if="${v2 != null}"><td width="90" style="padding: 6px 0; border-top: 1px solid #dce6f5; color: #55615a" th:text="${l2}">Role</td><td style="padding: 6px 0; border-top: 1px solid #dce6f5" th:text="${v2}">Role</td></tr>
+                  <tr th:if="${v3 != null}"><td width="90" style="padding: 6px 0; border-top: 1px solid #dce6f5; color: #55615a" th:text="${l3}">Access</td><td style="padding: 6px 0; border-top: 1px solid #dce6f5" th:text="${v3}">Workspace</td></tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Bulletproof button (table cell, so Outlook keeps colour and padding). -->
+    <table th:fragment="button(href, label, brand, btnText)" role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 4px 0">
+      <tr>
+        <td th:style="'border-radius: 10px; background: ' + ${brand}" align="center">
+          <a th:href="${href}" th:text="${label}" th:style="'display: inline-block; padding: 13px 26px; font: 700 16px/1 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif; color: ' + ${btnText} + '; text-decoration: none; border-radius: 10px; background: ' + ${brand}">Open</a>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Info strip: a tinted bar with a bold line and a calmer one. -->
+    <table th:fragment="strip(bg, title, text)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="padding: 12px 20px 4px 20px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" th:style="'background: ' + ${bg} + '; border-radius: 12px'">
+            <tr>
+              <td style="padding: 14px 18px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">
+                <p style="margin: 0 0 2px 0; font-size: 15px; font-weight: 700; color: #0b1b33" th:text="${title}">Title</p>
+                <p style="margin: 0; font-size: 13px; line-height: 1.5; color: #55615a" th:text="${text}">Text</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Content row: art left, live title/text, tinted pill button. -->
+    <table th:fragment="row(art, title, text, href, label, pillBg, pillText)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="padding: 6px 20px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #ffffff; border: 1px solid #e6ebf2; border-radius: 12px">
+            <tr>
+              <td width="110" valign="middle" style="padding: 0; line-height: 0"><img th:src="${art}" alt="" width="110" style="display: block; width: 110px; height: auto; border: 0; border-radius: 12px 0 0 12px" /></td>
+              <td valign="middle" style="padding: 12px 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">
+                <p style="margin: 0 0 3px 0; font-size: 15px; font-weight: 700; color: #0b1b33" th:text="${title}">Title</p>
+                <p style="margin: 0 0 8px 0; font-size: 13px; line-height: 1.45; color: #5b6573" th:text="${text}">Text</p>
+                <a th:href="${href}" th:text="${label}" th:style="'display: inline-block; padding: 8px 14px; border-radius: 8px; background: ' + ${pillBg} + '; color: ' + ${pillText} + '; font: 700 13px/1 -apple-system, Segoe UI, Roboto, Arial, sans-serif; text-decoration: none'">Open</a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Support band: mascot left, call to help right. -->
+    <table th:fragment="support(bg, art, title, text, href, label, brand, btnText)" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td style="padding: 8px 20px 20px 20px">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" th:style="'background: ' + ${bg} + '; border-radius: 12px'">
+            <tr>
+              <td width="120" valign="bottom" style="padding: 0; line-height: 0"><img th:src="${art}" alt="" width="120" style="display: block; width: 120px; height: auto; border: 0" /></td>
+              <td valign="middle" style="padding: 14px 16px 14px 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif">
+                <p style="margin: 0 0 3px 0; font-size: 16px; font-weight: 800; color: #0b1b33" th:text="${title}">Need help?</p>
+                <p style="margin: 0 0 10px 0; font-size: 13px; line-height: 1.45; color: #55615a" th:text="${text}">Text</p>
+                <div th:replace="~{:: button(${href}, ${label}, ${brand}, ${btnText})}"></div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

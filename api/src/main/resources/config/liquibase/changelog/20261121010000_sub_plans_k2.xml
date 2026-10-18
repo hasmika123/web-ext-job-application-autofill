@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        K1.5 / K2.2 (docs/subscriptions/07 s3, 08 s3): the plan builder's server side. Additive only; every changeSet is guarded.
+        - plan_version.ai_window_json: explicit whole-period AI budgets per interval (Pro: 800 for a quarter, not 3 x 300; decision E-2).
+        - plan_version.publish_key: the Idempotency-Key a version was published with, so a replay answers 200 with the same body.
+        - billing_drift: what the nightly reconcilers found (catalog vs Stripe, snapshot hash). Shared shape with docs/enterprise-v2/26 s9; created here only
+          when no earlier story created it. Nothing ever auto-fixes money.
+    -->
+    <changeSet id="sub-plans-k2-ai-window" author="subscriptions">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="plan_version" columnName="ai_window_json"/></not></preConditions>
+        <addColumn tableName="plan_version">
+            <column name="ai_window_json" type="json"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-plans-k2-publish-key" author="subscriptions">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="plan_version" columnName="publish_key"/></not></preConditions>
+        <addColumn tableName="plan_version">
+            <column name="publish_key" type="varchar(64)"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <!-- The locked quarterly AI budgets (CLAUDE.md: Pro 8 dollars, Autopilot 16 dollars per quarter) on the DRAFT seeds; allowances, not prices. -->
+    <changeSet id="sub-plans-k2-seed-ai-window" author="subscriptions">
+        <preConditions onFail="MARK_RAN"><columnExists tableName="plan_version" columnName="ai_window_json"/></preConditions>
+        <sql>
+            UPDATE plan_version v JOIN plan p ON p.id = v.plan_id
+               SET v.ai_window_json = '{"QUARTER": 800}'
+             WHERE p.plan_key = 'PRO' AND v.version = 1 AND v.status = 'DRAFT' AND v.ai_window_json IS NULL;
+            UPDATE plan_version v JOIN plan p ON p.id = v.plan_id
+               SET v.ai_window_json = '{"QUARTER": 1600}'
+             WHERE p.plan_key = 'AUTOPILOT' AND v.version = 1 AND v.status = 'DRAFT' AND v.ai_window_json IS NULL;
+        </sql>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="sub-plans-k2-billing-drift" author="subscriptions" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="billing_drift"/></not></preConditions>
+        <createTable tableName="billing_drift">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"/>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="code" type="varchar(40)"/>
+            <column name="subject" type="varchar(160)"/>
+            <column name="expected_json" type="json"/>
+            <column name="actual_json" type="json"/>
+            <column name="detected_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="resolved_at" type="${datetimeType}"/>
+            <column name="resolved_by" type="varchar(50)"/>
+            <column name="note" type="varchar(500)"/>
+        </createTable>
+        <createIndex tableName="billing_drift" indexName="ix_billing_drift_open">
+            <column name="kind"/>
+            <column name="resolved_at"/>
+        </createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

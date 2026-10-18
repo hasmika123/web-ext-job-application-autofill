@@ -1,5 +1,6 @@
 package com.dossier.api.service.inbox;
 
+import com.dossier.api.service.privacy.SensitiveContent;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.InboxMessage;
 import com.dossier.api.domain.User;
@@ -12,6 +13,8 @@ import com.dossier.api.service.ApplicationKeys;
 import com.dossier.api.service.ApplicationSyncService;
 import com.dossier.api.service.dto.ApplicationDTO;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -25,7 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
  * <p>Accepting a suggestion creates the application through the board's own upsert (so its dedup
  * applies), at the stage the mail showed — confirmed for a confirmation, Interview for an invite,
  * Offer for an offer — dated by the mail. Other open suggestions from the same company are folded in
- * with it. Dismissing hides the suggestion and the company's other open ones.
+ * with it, and an interview time read from an invitation among them is put on the new application. Dismissing hides the suggestion and the company's other open ones.
  */
 @Service
 public class InboxMailService {
@@ -51,17 +54,20 @@ public class InboxMailService {
     private final ApplicationRepository applications;
     private final ApplicationSyncService applicationSync;
     private final UserRepository users;
+    private final InboxInterviewApplier interviewApplier;
 
     public InboxMailService(
         InboxMessageRepository messages,
         ApplicationRepository applications,
         ApplicationSyncService applicationSync,
-        UserRepository users
+        UserRepository users,
+        InboxInterviewApplier interviewApplier
     ) {
         this.messages = messages;
         this.applications = applications;
         this.applicationSync = applicationSync;
         this.users = users;
+        this.interviewApplier = interviewApplier;
     }
 
     @Transactional(readOnly = true)
@@ -84,6 +90,9 @@ public class InboxMailService {
     public Long accept(Long messageId, String company, String role) {
         User u = currentUser();
         InboxMessage m = suggestion(u, messageId);
+        // X11.7: what the person typed over the mail's guess is refused (422) if it holds a never-collected value
+        if (!blank(company)) SensitiveContent.check("company", "company", company);
+        if (!blank(role)) SensitiveContent.check("roleTitle", "roleTitle", role);
         String c = blank(company) ? m.getCompanyGuess() : company.trim();
         String r = blank(role) ? m.getRoleGuess() : role.trim();
         if (blank(c)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Give the company's name");
@@ -100,13 +109,20 @@ public class InboxMailService {
         Long appId = applicationSync.upsertApplication(dto).getId();
 
         String key = ApplicationKeys.company(m.getCompanyGuess());
+        List<InboxMessage> folded = new ArrayList<>();
         for (InboxMessage other : messages.findByUserIdAndSuggestionOrderBySentAtDesc(u.getId(), "NEW")) {
             if (other.getId().equals(m.getId()) || (!key.isEmpty() && key.equals(ApplicationKeys.company(other.getCompanyGuess())))) {
                 other.setSuggestion("ACCEPTED");
                 other.setApplicationId(appId);
+                folded.add(other);
             }
         }
         m.setStatusChange(status.name());
+        // An invitation among them carries the interview time: read it now that there is an application to put it on, oldest first.
+        folded.sort(Comparator.comparing(InboxMessage::getSentAt, Comparator.nullsFirst(Comparator.naturalOrder())));
+        for (InboxMessage f : folded) {
+            if (MailClassifier.Category.INTERVIEW.name().equals(f.getCategory())) interviewApplier.apply(u.getId(), appId, f, interviewApplier.read(f));
+        }
         return appId;
     }
 

@@ -43,6 +43,10 @@ management:
           - caches
           - liquibase
   endpoint:
+    env:
+      # Belt and braces: the AI provider keys are env-only and must never appear in /management/env,
+      # whatever show-values says. (The defaults are listed too, because setting this replaces them.)
+      keys-to-sanitize: password,secret,key,token,.*credentials.*,vcap_services,sun.java.command,DOSSIER_AI_API_KEY,DOSSIER_AI_OPENAI_COMPAT_API_KEY
     health:
       show-details: when_authorized
       roles: 'ROLE_ADMIN'
@@ -249,9 +253,63 @@ dossier:
   # stays only for any endpoints hit DIRECTLY (non-proxied); enable with RATE_LIMIT_ENABLED=true.
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:false}
-  # S3-compatible resume blob store. In prod these come from env (Cloudflare R2);
-  # dev/tests override the endpoint + credentials (MinIO). Never commit real keys.
+  # Public demo accounts ("Try the demo" on the login page). The on/off switch is SERVER CONFIG ONLY:
+  # DEMO_ENABLED (default false) + an API restart. There is no admin or database switch. When it is
+  # off at startup, existing demo sessions are revoked.
+  # DEMO_PASSWORD only sets the accounts' stored hash: the one-click login needs no password, and the
+  # password path is refused while the switch is off. Production leaves it blank (docker-compose), which
+  # means a random password per boot, so nobody can type their way in.
+  demo:
+    enabled: ${DEMO_ENABLED:false}
+    password: ${DEMO_PASSWORD:kiwiply-demo}
+    create-accounts: ${DEMO_CREATE_ACCOUNTS:true}
+    # Sandbox: demo accounts may use the Resume Builder and profile (see DemoGuard). Account, billing, inbox and orgs stay read-only.
+    # DEMO_ALLOW_WRITES=true lifts even that (global dev override; never in production).
+    allow-writes: ${DEMO_ALLOW_WRITES:false}
+    # Offers a real ROLE_ADMIN `demo-admin` account on the login page so the app admin console can be tested. Never in production.
+    admin-enabled: ${DEMO_ADMIN_ENABLED:false}
+    # Nightly UTC reset of the demo accounts to the seed (cron; blank = off).
+    reset-cron: ${DEMO_RESET_CRON:0 0 4 * * *}
+    # Cap on AI calls per demo account per UTC day, on top of the plan/budget (0 = no AI for demo).
+    ai-calls-per-day: ${DEMO_AI_CALLS_PER_DAY:10}
+    # Enterprise V2 demo tenants (X1.12): Acme Staffing + Beta Talent with demo members, seeded at startup. Needs DEMO_ENABLED too;
+    # dev and CI only, never under the prod profile (the seeder refuses). Off by default.
+    enterprise-seed: ${ENT_DEMO_SEED:false}
+  # Organization features (E2E-O1.9). OFF unless ORGS_ENABLED=true (the dev profile turns it on). This is only the
+  # environment default: an admin-stored `feature.orgs.enabled` setting, when present, wins (OrgFeatureFlag). While off,
+  # /api/orgs/**, /api/join/** and /api/me/orgs/** answer 404 and the web hides the org navigation.
+  orgs:
+    enabled: ${ORGS_ENABLED:false}
+  # Service-to-service secret for /api/internal/** (the web's resume-PDF worker, Resume Builder R3.7).
+  # Sent as X-Internal-Token; the same value is the web container's DOSSIER_INTERNAL_TOKEN. Blank (the
+  # default) = the internal routes refuse every request. Never exposed by the edge proxy.
+  internal:
+    token: ${DOSSIER_INTERNAL_TOKEN:}
+    # X1.13 (E12): /api/internal/** and every /management/** path but health answer a generic 404 to a request that carries
+    # X-Forwarded-Host (it came through the edge) or whose Host is not on this list. Master switch; leave on.
+    refuse-public-host: true
+    hosts: localhost,127.0.0.1,[::1],api,dossier-api,web,dossier-web
+  # X1.13: bearer token a Prometheus scraper uses on /management/prometheus (admin JWT also works). >= 32 chars; blank = admin only.
+  management:
+    scrape-token: ${DOSSIER_SCRAPE_TOKEN:}
+  # Enterprise V2 tenant hosts (X1.3). The web server forwards the visitor's host in X-Kiwiply-Host and proves it is the
+  # web server with X-Kiwiply-Host-Secret (the same value as the web container's DOSSIER_TENANT_HOST_SECRET); a request
+  # without the right secret is treated as having no host. Blank + require-secret=false (dev, tests) = believe the header
+  # and log one WARN. The prod profile sets require-secret=true: blank then means NO host is believed.
+  # allow-localhost-tenants: only dev and tests (acme.localhost); never in production.
+  tenant-host:
+    secret: ${DOSSIER_TENANT_HOST_SECRET:}
+    require-secret: false
+    allow-localhost-tenants: false
+  # File storage seam (FileStorage): every uploaded / built file goes through it.
+  #   driver=local (default) -> files under local.root, no cloud account or credentials needed.
+  #   driver=s3              -> an S3-compatible bucket, configured by the keys below. Switching is
+  #                             config-only (DOSSIER_STORAGE_DRIVER=s3). Never commit real keys.
   storage:
+    driver: ${DOSSIER_STORAGE_DRIVER:local}
+    local:
+      # Dev default: ~/.dossier/uploads (created 0700). Prod sets /srv/uploads (a Docker volume).
+      root: ${DOSSIER_STORAGE_LOCAL_ROOT:${user.home}/.dossier/uploads}
     endpoint: ${STORAGE_ENDPOINT:}
     region: ${STORAGE_REGION:auto}
     bucket: ${STORAGE_BUCKET:dossier-resumes}

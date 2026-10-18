@@ -105,18 +105,70 @@ public class ExceptionTranslator extends ResponseEntityExceptionHandler {
         if (ex instanceof com.dossier.api.service.BillingException billingEx) return (ProblemDetailWithCause) new BillingProblemException(
             billingEx
         ).getBody();
+        // Resume Builder R0.3 — a refused document operation (422/413/428/409); status + code + extras from the service.
+        if (ex instanceof com.dossier.api.service.ResumeDocException docEx) return (ProblemDetailWithCause) new ResumeDocProblemException(
+            docEx
+        ).getBody();
+        // Admin AI config (I1.9) — a refused AI setting/provider operation; status + code + extras from the service.
+        if (ex instanceof com.dossier.api.service.AiConfigException aiEx) return (ProblemDetailWithCause) new AiConfigProblemException(
+            aiEx
+        ).getBody();
+        // Generic admin settings (A5.1) — a refused setting write/revert; status + code + extras from the service.
+        if (ex instanceof com.dossier.api.service.settings.SettingsException settingEx) return (ProblemDetailWithCause) new SettingsProblemException(
+            settingEx
+        ).getBody();
+        // Org tenant model (O1.x) — a refused organization operation, incl. the generic 404 for a foreign org.
+        if (ex instanceof com.dossier.api.service.org.OrgException orgEx) return (ProblemDetailWithCause) new OrgProblemException(
+            orgEx
+        ).getBody();
+        // Phase demo — a demo account hit the read-only guard, or demo logins are switched off. 403 + code.
+        if (ex instanceof com.dossier.api.service.DemoException demoEx) return (ProblemDetailWithCause) new DemoProblemException(
+            demoEx
+        ).getBody();
         // Phase 12 — a Pro-only feature refused for a Free user. 402, not 403: they are not
         // forbidden, they just haven't paid. Clients branch on the `code` property.
         if (ex instanceof com.dossier.api.service.ProRequiredException proEx) return (ProblemDetailWithCause) new ProRequiredException(
             proEx.getCode(),
             proEx.getMessage(),
-            proEx.getExtra()
+            withUpgrade(proEx)
         ).getBody();
 
         if (
             ex instanceof ErrorResponseException exp && exp.getBody() instanceof ProblemDetailWithCause problemDetailWithCause
         ) return problemDetailWithCause;
         return ProblemDetailWithCauseBuilder.instance().withStatus(toStatus(ex).value()).build();
+    }
+
+    private com.dossier.api.service.entitlement.UpgradeAdvisor upgradeAdvisor;
+
+    /** Optional (K7.6): without it a 402 body is exactly what it always was. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setUpgradeAdvisor(com.dossier.api.service.entitlement.UpgradeAdvisor upgradeAdvisor) {
+        this.upgradeAdvisor = upgradeAdvisor;
+    }
+
+    /** K7.6: the refusal's extras plus the server-chosen upgrade (cheapest published plan that unlocks the feature), when there is one. */
+    private java.util.Map<String, Object> withUpgrade(com.dossier.api.service.ProRequiredException ex) {
+        java.util.Map<String, Object> extra = new java.util.LinkedHashMap<>(ex.getExtra());
+        if (upgradeAdvisor == null || extra.containsKey("upgrade")) return extra;
+        try {
+            String user = com.dossier.api.security.SecurityUtils.getCurrentUserLogin().orElse(null);
+            if (user != null && com.dossier.api.config.Constants.isEnterpriseLogin(user)) return extra;
+            String feature = ex.getFeatureKey() != null ? ex.getFeatureKey() : (ex.getExtra().get("feature") instanceof String s ? s : null);
+            upgradeAdvisor.advise(user, feature).ifPresent(u -> {
+                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("planKey", u.planKey());
+                m.put("planName", u.planName());
+                m.put("interval", u.interval());
+                m.put("amountMinor", u.amountMinor());
+                m.put("currency", u.currency());
+                m.put("path", u.path());
+                extra.put("upgrade", m);
+            });
+        } catch (RuntimeException e) {
+            LOG.debug("could not add the upgrade block: {}", e.toString());
+        }
+        return extra;
     }
 
     protected ProblemDetailWithCause customizeProblem(ProblemDetailWithCause problem, Throwable err, NativeWebRequest request) {

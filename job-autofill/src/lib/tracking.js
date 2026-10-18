@@ -26,6 +26,10 @@
       // branch without digging through the body: PRO_REQUIRED / RESUME_LIMIT (402),
       // BILLING_DISABLED (503), ALREADY_SUBSCRIBED (409). Null when the error carries none.
       this.code = (body && typeof body === "object" && typeof body.code === "string") ? body.code : null;
+      // K7.6: on a 402 the server names the plan that unlocks the feature: { planKey, planName, interval, amountMinor, currency, path }.
+      // Only a same-site path is kept, so the panel can send the person straight to that plan.
+      const up = body && typeof body === "object" ? body.upgrade : null;
+      this.upgrade = up && typeof up === "object" && typeof up.path === "string" && up.path.charAt(0) === "/" ? up : null;
     }
   }
   class NotSupportedError extends Error {
@@ -82,6 +86,17 @@
     async recordLearnedAnswers(/* [{fieldKey, value, context}] */) { throw new NotSupportedError("recordLearnedAnswers"); }
     // Phase 9.A5 — user bug report (auth optional). Implemented by createKiwiplyProvider.
     async submitBugReport(/* { message, category, url, appVersion, userAgent } */) { throw new NotSupportedError("submitBugReport (Phase 9)"); }
+    // Release 1 / WP5 (docs/enterprise-v2/60 §6) — org workspaces. Every org call is the user's own
+    // token + the orgId in the PATH; there is no workspace header and no tenant claim.
+    async getAccount() { throw new NotSupportedError("getAccount"); }
+    async assignedJobs(/* orgId */) { throw new NotSupportedError("assignedJobs"); }
+    async listMarketerConsultants(/* orgId, q */) { throw new NotSupportedError("listMarketerConsultants"); }
+    async saveForConsultant(/* orgId, body, idempotencyKey */) { throw new NotSupportedError("saveForConsultant"); }
+    async linkOpportunity(/* orgId, opportunityId, { applicationId } */) { throw new NotSupportedError("linkOpportunity"); }
+    async respondOpportunity(/* orgId, opportunityId, action, body */) { throw new NotSupportedError("respondOpportunity"); }
+    // E7 / X12.9 "Prepare selected openings": one status event per job tab (OPENED, PREFILLED, NEEDS_INPUT,
+    // SUBMIT_DETECTED, CLOSED, FAILED). Consultant tokens only; never page content or answers.
+    async reportPrepareEvent(/* orgId, sessionId, { matchId, event, detail } */) { throw new NotSupportedError("reportPrepareEvent"); }
   }
 
   // ---- canonical DTO mapping (extension shapes <-> server wire format) ----
@@ -202,6 +217,89 @@
     };
   }
 
+  // ---- org workspaces (WP5; contract doc 60 §4/§6) -----------------------------
+  // GET /api/profile/version -> workspaces:[{orgId,name,consultant,marketer}]. Tolerates absence
+  // (older server), junk rows and non-boolean flags: a row without a usable orgId is dropped.
+  function dtoToWorkspace(dto) {
+    if (!dto || typeof dto !== "object") return null;
+    const orgId = Number(dto.orgId);
+    if (!Number.isFinite(orgId) || orgId <= 0) return null;
+    return { orgId, name: typeof dto.name === "string" && dto.name ? dto.name : "Organization", consultant: dto.consultant === true, marketer: dto.marketer === true };
+  }
+  function dtoToWorkspaces(list) {
+    return Array.isArray(list) ? list.map(dtoToWorkspace).filter(Boolean) : [];
+  }
+  // GET /api/profile/version -> account:{kind,orgId,name,consultant,marketer} (separate enterprise
+  // accounts, doc 19 §6.2). One account per session: personal, or one enterprise.
+  // Tolerates an OLDER server for one release: with no usable `account`, derive it from the
+  // legacy workspaces[] — the entry the session is for (hint.orgId), else the first one — unless
+  // the session says it is personal. No account and no workspaces -> personal.
+  // `hint` = the stored session record ({kind, orgId}); the server's own answer always wins.
+  function dtoToAccount(raw, hint) {
+    raw = raw || {};
+    const a = raw.account;
+    if (a && typeof a === "object" && (a.kind === "PERSONAL" || a.kind === "ENTERPRISE")) {
+      if (a.kind === "PERSONAL") return { kind: "PERSONAL", orgId: null, name: null, consultant: false, marketer: false };
+      const orgId = Number(a.orgId);
+      if (Number.isFinite(orgId) && orgId > 0) {
+        return { kind: "ENTERPRISE", orgId, name: typeof a.name === "string" && a.name ? a.name : "Organization", consultant: a.consultant === true, marketer: a.marketer === true };
+      }
+    }
+    hint = hint || {};
+    const list = dtoToWorkspaces(raw.workspaces);
+    if (hint.kind !== "PERSONAL" && list.length) {
+      const w = list.find((x) => hint.orgId != null && x.orgId === Number(hint.orgId)) || list[0];
+      return { kind: "ENTERPRISE", orgId: w.orgId, name: w.name, consultant: w.consultant, marketer: w.marketer };
+    }
+    return { kind: "PERSONAL", orgId: null, name: null, consultant: false, marketer: false };
+  }
+  // ConOpportunityDTO -> the extension's canonical assigned-job shape (flat; only what the drawer shows).
+  function dtoToAssignedJob(dto) {
+    dto = dto || {};
+    const job = dto.job || {};
+    const by = dto.assignedBy || {};
+    return {
+      id: dto.id,
+      state: dto.state,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      workMode: job.workMode,
+      employmentType: job.employmentType,
+      payLabel: job.payLabel,
+      jobUrl: job.jobUrl,
+      atsPlatform: job.atsPlatform,
+      externalJobId: job.externalJobId,
+      postedOn: job.postedOn,
+      skills: Array.isArray(job.skills) ? job.skills : [],
+      marketerNote: dto.marketerNote,
+      assignedBy: by.name || "",
+      assignedByMemberId: by.memberId,
+      assignedAt: dto.assignedAt,
+      priority: dto.priority,
+      dueOn: dto.dueOn,
+      infoRequest: dto.infoRequest,
+      infoAnswer: dto.infoAnswer,
+      appliedAt: dto.appliedAt,
+      linkedApplicationId: dto.linkedApplicationId,
+      allowedActions: Array.isArray(dto.allowedActions) ? dto.allowedActions : [],
+      version: dto.version,
+    };
+  }
+  // The consultant's lifecycle verbs -> the route segment under con/opportunities/{id}/.
+  const RESPOND_ACTIONS = { viewed: "viewed", interest: "interest", decline: "decline", "request-info": "request-info" };
+  const ASSIGNED_STATES = "ASSIGNED,VIEWED,INTERESTED,NEEDS_INFO";
+  // saveForConsultant body: only the whitelisted keys the server accepts (it rejects unknown fields,
+  // 400), and NEVER a description, state or appliedAt.
+  const SAVE_KEYS = ["jobUrl", "title", "company", "location", "workMode", "employmentType", "payLabel", "payMin", "payMax", "payPeriod",
+    "externalJobId", "atsPlatform", "postedOn", "skills", "keyInfo", "priority", "dueOn", "consultantIds"];
+  function saveForConsultantToDto(body) {
+    const out = {};
+    body = body || {};
+    for (const k of SAVE_KEYS) if (body[k] !== undefined && body[k] !== null && body[k] !== "") out[k] = body[k];
+    return out;
+  }
+
   // ---- token stores ------------------------------------------------------
   // In-memory store (default; also used by tests). Tokens: { access, refresh }.
   function memoryTokenStore(initial) {
@@ -240,12 +338,19 @@
     const doFetch = opts.fetch || ((...a) => fetch(...a));
     const store = opts.tokenStore || memoryTokenStore();
 
+    // Path segments must be plain positive integers — never interpolate anything else into a URL.
+    function idPath(v) {
+      const n = Number(v);
+      if (!Number.isInteger(n) || n <= 0) throw new ApiError(400, "Invalid id", { code: "VALIDATION" });
+      return String(n);
+    }
+
     const tokens = () => Promise.resolve(store.get());
     const setTokens = (t) => Promise.resolve(store.set(t));
 
-    async function rawRequest(method, path, { body, accessToken } = {}) {
+    async function rawRequest(method, path, { body, accessToken, headers: extra } = {}) {
       if (!baseUrl) throw new ApiError(0, "No backend baseUrl configured");
-      const headers = {};
+      const headers = Object.assign({}, extra || {});
       if (body !== undefined) headers["Content-Type"] = "application/json";
       if (accessToken) headers["Authorization"] = "Bearer " + accessToken;
       const res = await doFetch(baseUrl + path, {
@@ -266,14 +371,14 @@
     }
 
     // Authenticated request with a single 401 -> refresh -> retry.
-    async function request(method, path, { body } = {}) {
+    async function request(method, path, { body, headers } = {}) {
       const t = await tokens();
-      let res = await rawRequest(method, path, { body, accessToken: t.access });
+      let res = await rawRequest(method, path, { body, headers, accessToken: t.access });
       if (res.status === 401 && t.refresh) {
         const ok = await tryRefresh();
         if (ok) {
           const t2 = await tokens();
-          res = await rawRequest(method, path, { body, accessToken: t2.access });
+          res = await rawRequest(method, path, { body, headers, accessToken: t2.access });
         }
       }
       return parse(res);
@@ -391,7 +496,80 @@
         return {
           version: typeof r.version === "string" && r.version ? r.version : null,
           plan: typeof r.plan === "string" && r.plan ? r.plan : null,
+          // The connected account (doc 19 §6.2); derived from the legacy workspaces[] on an older server.
+          account: dtoToAccount(r, await tokens()),
         };
+      },
+
+      // ---- the connected account ------------------------------------------------
+      // The ONLY extension-side read of what the account is and may do (its role flags).
+      async getAccount() {
+        return (await this.profileVersion()).account;
+      },
+
+      // Consultant: the jobs a marketer assigned to ME (the server resolves "me" from the token; the
+      // consultant id is never sent). -> [assigned job]. Tolerates a bare array as well as {items,total}.
+      async assignedJobs(orgId) {
+        const r = await request("GET", "/api/orgs/" + idPath(orgId) + "/con/opportunities?state=" + ASSIGNED_STATES);
+        const items = Array.isArray(r) ? r : (r && Array.isArray(r.items) ? r.items : []);
+        return items.map(dtoToAssignedJob);
+      },
+
+      // Marketer: the consultants this marketer may assign to (id + name only — never a profile).
+      // GET mkt/opportunities/options -> { consultants:[{id,name}], jobs:[…] } (jobs ignored).
+      async listMarketerConsultants(orgId, q) {
+        const qs = q ? "?q=" + encodeURIComponent(String(q)) : "";
+        const r = (await request("GET", "/api/orgs/" + idPath(orgId) + "/mkt/opportunities/options" + qs)) || {};
+        return (Array.isArray(r.consultants) ? r.consultants : [])
+          .map((c) => ({ id: Number(c && c.id), name: String((c && c.name) || "") }))
+          .filter((c) => Number.isFinite(c.id));
+      },
+
+      // Marketer: save a trimmed capture for 1..20 consultants. `idempotencyKey` (a UUID) is REQUIRED —
+      // a retry of the same save must not duplicate. -> { jobId, existingJob, results:[{consultantId,
+      // opportunityId, existing, reason?}] }.
+      async saveForConsultant(orgId, body, idempotencyKey) {
+        if (!idempotencyKey) throw new ApiError(400, "Idempotency-Key is required", { code: "IDEMPOTENCY_KEY_MISSING" });
+        const r = (await request("POST", "/api/orgs/" + idPath(orgId) + "/mkt/opportunities/from-extension", {
+          body: saveForConsultantToDto(body),
+          headers: { "Idempotency-Key": String(idempotencyKey) },
+        })) || {};
+        return {
+          jobId: r.jobId,
+          existingJob: r.existingJob === true,
+          results: (Array.isArray(r.results) ? r.results : []).map((x) => ({
+            consultantId: x.consultantId, opportunityId: x.opportunityId, existing: x.existing === true, reason: x.reason || undefined,
+          })),
+        };
+      },
+
+      // Consultant: "I applied" / the submit link. The consultant is the only actor that can do this.
+      // { applicationId } is optional — without one the server records the single fact "applied".
+      async linkOpportunity(orgId, opportunityId, { applicationId } = {}) {
+        const body = applicationId != null ? { applicationId: Number(applicationId) } : {};
+        const r = await request("POST", "/api/orgs/" + idPath(orgId) + "/con/opportunities/" + idPath(opportunityId) + "/applied", { body });
+        return r ? dtoToAssignedJob(r) : null;
+      },
+
+      // Consultant: viewed | interest | decline {reason,note?} | request-info {question}.
+      async respondOpportunity(orgId, opportunityId, action, body) {
+        const seg = RESPOND_ACTIONS[action];
+        if (!seg) throw new ApiError(400, "Unknown opportunity action: " + action, { code: "VALIDATION" });
+        const r = await request("POST", "/api/orgs/" + idPath(orgId) + "/con/opportunities/" + idPath(opportunityId) + "/" + seg, { body: body || {} });
+        return r ? dtoToAssignedJob(r) : null;
+      },
+
+      // Consultant: one status event of a "Prepare selected" batch. POST
+      // /api/orgs/{orgId}/con/prepare/{sessionId}/events {matchId, event, detail?}. The caller has
+      // already validated the shapes (JAF.prepareBatch); the session id is still encoded as a path
+      // segment, and detail is cut to 200 characters here as the last line of defence.
+      async reportPrepareEvent(orgId, sessionId, { matchId, event, detail } = {}) {
+        const sid = String(sessionId == null ? "" : sessionId);
+        if (!/^[A-Za-z0-9_-]{1,80}$/.test(sid)) throw new ApiError(400, "Invalid session id", { code: "VALIDATION" });
+        const body = { matchId, event };
+        if (detail) body.detail = String(detail).slice(0, 200);
+        await request("POST", "/api/orgs/" + idPath(orgId) + "/con/prepare/" + encodeURIComponent(sid) + "/events", { body });
+        return true;
       },
 
       async listResumes() {
@@ -560,5 +738,6 @@
     // exposed for tests
     bioToPayload, payloadToBio, resumeToDto, dtoToResume, applicationToDto, dtoToApplication,
     fieldCacheToDto, dtoToFieldCache,
+    dtoToWorkspace, dtoToWorkspaces, dtoToAccount, dtoToAssignedJob, saveForConsultantToDto, ASSIGNED_STATES,
   };
 })();

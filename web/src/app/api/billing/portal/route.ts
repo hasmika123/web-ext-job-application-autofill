@@ -1,4 +1,5 @@
 import { serverApiFetch } from "@/lib/api";
+import { demoReadOnly } from "@/lib/demo-server";
 
 /**
  * POST /api/billing/portal — open the Stripe Billing Portal and return `{url}`.
@@ -11,6 +12,8 @@ import { serverApiFetch } from "@/lib/api";
 export async function POST() {
   try {
     const res = await serverApiFetch("/api/billing/portal", { method: "POST" });
+    const demo = await demoReadOnly(res);
+    if (demo) return demo;
     const text = await res.text();
     return new Response(text, { status: res.status, headers: { "content-type": "application/json" } });
   } catch {

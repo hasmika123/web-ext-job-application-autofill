@@ -1,0 +1,131 @@
+{
+  "$comment": "External monitors for Kiwiply production (REAL-GAPS-C P1.1). The exact definitions to create by hand in UptimeRobot and Healthchecks.io: docs/ops/monitors.md has the click-by-click steps and the alert routes. PLACEHOLDERS ONLY: ping URLs are secrets-by-obscurity and live in the box's .env, never here. A test (scripts/ops/test/workflows.test.sh) checks that every env name below is read by the script named next to it.",
+  "version": 1,
+  "contacts": {
+    "email-primary": { "type": "email", "address": "OPS_ALERT_EMAIL (placeholder: the owner's address)" },
+    "email-second": { "type": "email", "address": "OPS_SECOND_EMAIL (placeholder: a second human, so one person on holiday is not a single point of failure)" },
+    "push": { "type": "push", "address": "UptimeRobot mobile app, Telegram, Pushover or ntfy: any one that makes a phone ring; Healthchecks.io has the same integrations" }
+  },
+  "routes": {
+    "sev1": { "meaning": "production is down or unreachable (incident-runbook.md section 2)", "notify": ["email-primary", "email-second", "push"], "response": "start now, any hour: docs/ops/incident-runbook.md section 3 and 4H" },
+    "sev2": { "meaning": "degraded or at risk: a backup, drill, binlog, upload archive or deploy did not report, or the host is short of disk or memory", "notify": ["email-primary", "push"], "response": "within the hour: DEPLOY.md section 5.2, the check's own runbook line below" },
+    "sev3": { "meaning": "nuisance", "notify": ["email-primary"], "response": "next working day" }
+  },
+  "uptimerobot": {
+    "plan": "free is enough: 50 monitors, 5-minute interval, email + mobile push + Telegram/Slack integrations",
+    "defaults": { "intervalMinutes": 5, "timeoutSeconds": 30, "followRedirects": true, "httpMethod": "GET", "confirmFailuresBeforeAlert": 2, "sslExpiryReminders": true },
+    "monitors": [
+      {
+        "name": "kiwiply-apex",
+        "type": "http",
+        "url": "https://kiwiply.com/",
+        "expectStatus": 200,
+        "severity": "sev1",
+        "detects": "the web container, the shared edge Caddy, DNS or TLS for the apex domain",
+        "ifDown": "incident-runbook.md section 4H, then DEPLOY.md section 5.4 (deploy.sh --rollback) if the last deploy was the cause"
+      },
+      {
+        "name": "kiwiply-www-redirect",
+        "type": "http",
+        "url": "https://www.kiwiply.com/",
+        "expectStatus": 200,
+        "note": "www 301s to the apex (CLAUDE.md); the monitor follows the redirect and passes on the apex's 200, so it proves both the redirect and the target",
+        "severity": "sev3"
+      },
+      {
+        "name": "kiwiply-api-health",
+        "type": "keyword",
+        "url": "https://api.kiwiply.com/management/health",
+        "keyword": "\"status\":\"UP\"",
+        "alertWhen": "keyword-not-found",
+        "expectStatus": 200,
+        "severity": "sev1",
+        "detects": "the API container AND its database (the health endpoint is only UP when MySQL answers), plus api.kiwiply.com's route on the shared edge",
+        "ifDown": "incident-runbook.md section 4H; the extension calls this host directly, so every signed-in extension user is affected"
+      }
+    ]
+  },
+  "healthchecks": {
+    "plan": "free is enough: 20 checks, email + Telegram/Pushover/ntfy/Slack integrations. Create each check, copy its ping URL into the box's .env under the variable named here, then reinstall nothing: the scripts read .env on every run.",
+    "checks": [
+      {
+        "name": "kiwiply-backup",
+        "env": "HC_BACKUP_URL",
+        "script": "scripts/ops/backup-db.sh",
+        "cron": "15 3 * * * (UTC)",
+        "periodDays": 1,
+        "graceHours": 2,
+        "severity": "sev2",
+        "detects": "the nightly database dump did not run, failed, or was cut short (a crash, a cut dump, a missing key and a night cron did not run all alert)",
+        "ifLate": "DEPLOY.md section 5.1; run scripts/ops/backup-db.sh by hand and read /var/log/kiwiply-backup.log. Nothing else matters more: the 2026-09-17 loss started with no backup"
+      },
+      {
+        "name": "kiwiply-uploads",
+        "env": "HC_UPLOADS_URL",
+        "script": "scripts/ops/backup-uploads.sh",
+        "cron": "40 3 * * * (UTC)",
+        "periodDays": 1,
+        "graceHours": 2,
+        "severity": "sev2",
+        "detects": "the uploads-volume archive (resumes, attachments, PDFs) did not reach the bucket",
+        "ifLate": "DEPLOY.md section 5.7"
+      },
+      {
+        "name": "kiwiply-binlog",
+        "env": "HC_BINLOG_URL",
+        "script": "scripts/ops/ship-binlogs.sh",
+        "cron": "*/15 * * * * (UTC)",
+        "periodMinutes": 15,
+        "graceMinutes": 15,
+        "severity": "sev2",
+        "detects": "binary logs stopped reaching S3, which silently turns point-in-time recovery back into 'up to 24 hours lost'",
+        "ifLate": "DEPLOY.md section 5.9; tail /var/log/kiwiply-binlog.log"
+      },
+      {
+        "name": "kiwiply-host",
+        "env": "HC_HOST_URL",
+        "script": "scripts/ops/host-guard.sh",
+        "cron": "*/5 * * * * (UTC)",
+        "periodMinutes": 10,
+        "graceMinutes": 10,
+        "severity": "sev2",
+        "detects": "DISK (85 percent used fails, 90 CRITICAL), memory and swap, container crash loops, TLS certificates under 14 days. It also detects the BOX being down or cron stopped: no ping at all arrives, so this check is the dead-man switch that UptimeRobot cannot be",
+        "ifLate": "a /fail ping carries the reasons in its body, so the alert email says what is wrong; incident-runbook.md section 2. A check that is late with NO fail ping means the box or cron is down: treat as sev1 if kiwiply-apex is also down",
+        "alsoFollow": "the body of a /fail is the disk report: 'disk / 91% (CRITICAL)'"
+      },
+      {
+        "name": "kiwiply-restore-drill-weekly",
+        "env": "HC_RESTORE_URL",
+        "script": "scripts/ops/verify-restore.sh",
+        "cron": "45 4 * * 0 (UTC)",
+        "periodDays": 7,
+        "graceHours": 6,
+        "severity": "sev2",
+        "detects": "the newest backup is older than 2 days, does not match its sha256, or does not restore",
+        "ifLate": "DEPLOY.md sections 5.1 and 5.3"
+      },
+      {
+        "name": "kiwiply-restore-drill-monthly",
+        "env": "HC_DRILL_URL",
+        "script": "scripts/ops/restore-drill.sh",
+        "cron": "30 5 1 * * (UTC)",
+        "periodDays": 31,
+        "graceDays": 2,
+        "severity": "sev2",
+        "detects": "the full drill failed: dump plus binlogs do not restore, a hole in the binlog numbering, or an empty user or Liquibase table",
+        "ifLate": "DEPLOY.md section 5.10; run scripts/ops/restore-drill.sh by hand"
+      },
+      {
+        "name": "kiwiply-deploy",
+        "env": "HC_DEPLOY_URL",
+        "script": "scripts/ops/deploy.sh",
+        "cron": "none: pinged by each deploy (start, success, fail)",
+        "periodDays": 365,
+        "graceDays": 365,
+        "severity": "sev2",
+        "detects": "a deploy that failed or was rolled back. Alert on /fail only; the period is long on purpose because deploys are not scheduled",
+        "ifLate": "n/a: the fail ping says 'deploy <sha> failed: rolled back to ...'; DEPLOY.md section 5.4"
+      }
+    ]
+  }
+}

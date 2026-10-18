@@ -22,11 +22,31 @@ public final class SecurityUtils {
     public static final String AUTHORITIES_CLAIM = "auth";
 
     public static final String USER_ID_CLAIM = "userId";
+    /** Present (true) on the tokens of an account that must change an administrator-issued temporary password before doing anything else. */
+    public static final String PASSWORD_CHANGE_CLAIM = "pcr";
 
     // Distinguishes a short-lived access token from a long-lived refresh token.
     // A refresh token must never be accepted as an access token (enforced by the
     // strict resource-server decoder in SecurityJwtConfiguration).
     public static final String TOKEN_TYPE_CLAIM = "token_type";
+
+    // Enterprise V2 (X1.5): a session minted on a tenant host is bound to that tenant. tid = organization id, hid = the
+    // hostname row it was minted on. Absent on every personal / extension token (the extension never carries tid).
+    public static final String TENANT_CLAIM = "tid";
+
+    public static final String HOSTNAME_CLAIM = "hid";
+
+    /**
+     * Decision O4 (docs/enterprise-v2/19 sections 6.2 and 6.3): {@code ext=1} marks an ENTERPRISE account's token minted for the browser extension.
+     * It carries {@code tid} too, is accepted on the platform host (the extension calls api.kiwiply.com) and only reaches {@code ExtensionRoutes}.
+     * A personal extension token has no such claim and keeps today's route set.
+     */
+    public static final String EXTENSION_CLAIM = "ext";
+
+    /** Whether an {@code ext} claim value marks an extension token. */
+    public static boolean isExtension(Object claim) {
+        return claim instanceof Number n ? n.intValue() == 1 : Boolean.TRUE.equals(claim);
+    }
 
     public static final String ACCESS_TOKEN_TYPE = "access";
 

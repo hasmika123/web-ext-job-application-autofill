@@ -24,9 +24,9 @@ const UPDATED = "October 2026";
 const CONTACT = "support@kiwiply.com";
 const ENTITY = "AutomoraLab LLC";
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, id, children }: { title: string; id?: string; children: ReactNode }) {
   return (
-    <section className="flex flex-col gap-2">
+    <section id={id} className="flex scroll-mt-24 flex-col gap-2">
       <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>
       <div className="flex flex-col gap-2 text-sm leading-relaxed text-ink-soft">{children}</div>
     </section>
@@ -205,6 +205,14 @@ export default function PrivacyPage() {
           service; they process data only on our behalf, or, in the payment processor&apos;s case,
           as an independent processor of the payment itself (see <strong>Payments</strong> below).
         </p>
+        <p>
+          The companies that process personal data for us, what each does, which data it can reach
+          and where, are listed on our{" "}
+          <Link href="/legal/subprocessors" className="font-medium text-accent-deep hover:underline">
+            subprocessors page
+          </Link>
+          .
+        </p>
       </Section>
 
       <Section title="Payments">
@@ -321,7 +329,7 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section title="Cookies">
+      <Section title="Cookies" id="cookies">
         <p>
           We use first-party http-only cookies strictly to keep you signed in — these are essential
           and always on. Our analytics (above) also sets first-party cookies to count visits and

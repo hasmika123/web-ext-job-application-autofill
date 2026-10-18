@@ -46,7 +46,7 @@ export interface SelectProps {
 export const selectClass = cn(inputClass, "flex items-center gap-2 pr-9 text-left font-medium cursor-pointer");
 
 const PILL_TRIGGER =
-  "flex items-center gap-1.5 rounded-full border border-line bg-paper py-2 pl-3 pr-2.5 text-[13px] " +
+  "flex min-h-11 items-center gap-1.5 rounded-full border border-line bg-paper py-2 sm:min-h-0 pl-3 pr-2.5 text-[13px] " +
   "font-medium text-ink-soft transition-colors hover:border-accent disabled:cursor-not-allowed disabled:opacity-60";
 
 function optionsFromChildren(children: ReactNode): SelectOption[] {
@@ -101,7 +101,11 @@ export default function Select({
   useEffect(() => {
     if (!open) return;
     place();
-    const close = () => setOpen(false);
+    // a scroll INSIDE the open list (a long list) is the user reaching an option, not the page moving away
+    const close = (e?: Event) => {
+      if (e?.target instanceof Node && menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
@@ -160,7 +164,7 @@ export default function Select({
             aria-label={ariaLabel}
             style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
             className={cn(
-              "scroll-slim z-[200] max-h-64 overflow-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
+              "scroll-slim z-[1100] max-h-64 overflow-auto rounded-[var(--radius)] border border-line bg-paper p-1 shadow-[var(--shadow-lg)]",
               menuClassName,
             )}
           >

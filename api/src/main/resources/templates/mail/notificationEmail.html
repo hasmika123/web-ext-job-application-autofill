@@ -1,0 +1,24 @@
+<!doctype html>
+<!--
+  Notification e-mail (personal Kiwiply, green theme): a notice the user switched e-mail on for.
+  Model (unchanged): kind, name, subject (the notice title), body (nullable), link. Optional: assetBase (art folder, default https://kiwiply.com/email).
+-->
+<html xmlns:th="http://www.thymeleaf.org" th:lang="${#locale.language}" lang="en">
+  <head>
+    <title th:text="${subject}">Notification</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+  </head>
+  <body style="margin: 0; padding: 0">
+    <div th:replace="~{mail/fragments :: preheader(${subject})}"></div>
+    <th:block th:with="art=${assetBase} ?: 'https://kiwiply.com/email', accent='#5cc21f', btnText='#0b2a12', accentText='#2f7d12', heroBg='#eaf6e3', hello=(${body != null} ? #{email.kw.notify.hello(${name}, ${body})} : #{email.kw.notify.hello.nobody(${name})})">
+      <th:block th:replace="~{mail/fragments :: shell('kiwiply', null, null, null, ${art}, ~{::section})}">
+        <section>
+          <table th:replace="~{mail/fragments :: hero(${heroBg}, ${art} + '/kiwi-hero-active.png', 230, ${kind}, ${subject}, null, ${accentText}, ${hello}, ${link}, #{email.notification.link}, ${accent}, ${btnText})}"></table>
+          <p style="margin: 0; padding: 16px 28px 18px 28px; font-size: 12px; line-height: 1.5; color: #6b726e" th:text="#{email.notification.footer}">Footer</p>
+        </section>
+      </th:block>
+    </th:block>
+  </body>
+</html>

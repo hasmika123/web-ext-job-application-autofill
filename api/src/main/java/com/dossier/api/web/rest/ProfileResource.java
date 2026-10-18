@@ -5,6 +5,7 @@ import com.dossier.api.service.EntitlementService;
 import com.dossier.api.service.ProfileService;
 import com.dossier.api.service.dto.BioDTO;
 import com.dossier.api.service.dto.ResumeDTO;
+import com.dossier.api.service.ent.consultant.ProfileWorkspaces;
 import com.dossier.api.web.rest.vm.ProfileVM;
 import com.dossier.api.web.rest.vm.ProfileVersionVM;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,10 +35,12 @@ public class ProfileResource {
 
     private final ProfileService profileService;
     private final EntitlementService entitlementService;
+    private final ProfileWorkspaces workspaces;
 
-    public ProfileResource(ProfileService profileService, EntitlementService entitlementService) {
+    public ProfileResource(ProfileService profileService, EntitlementService entitlementService, ProfileWorkspaces workspaces) {
         this.profileService = profileService;
         this.entitlementService = entitlementService;
+        this.workspaces = workspaces;
     }
 
     /** {@code GET /api/profile} : the current user's bio, or 404 if none yet. */
@@ -66,7 +69,54 @@ public class ProfileResource {
     @GetMapping("/version")
     public ResponseEntity<ProfileVersionVM> getProfileVersion() {
         LOG.debug("REST request to get the current user's profile version");
-        return ResponseEntity.ok(new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan()));
+        ProfileWorkspaces.Account account;
+        try {
+            account = workspaces.accountOfCurrentUser();
+        } catch (RuntimeException e) {
+            LOG.warn("Could not resolve the account kind of the current user: {}", e.toString());
+            account = ProfileWorkspaces.Account.PERSONAL;
+        }
+        List<ProfileWorkspaces.Workspace> mine;
+        try {
+            mine = workspaces.ofCurrentUser();
+        } catch (RuntimeException e) {
+            // the poll that keeps the extension in sync must never fail because the workspace list could not be built
+            LOG.warn("Could not list the workspaces of the current user: {}", e.toString());
+            mine = List.of();
+        }
+        ProfileVersionVM vm = new ProfileVersionVM(profileService.profileVersion(), entitlementService.currentUserPlan().plan(), mine, account);
+        try {
+            addEntitlements(vm);
+        } catch (RuntimeException e) {
+            // like the lists above: the poll that keeps the extension in sync must never fail because the entitlement detail could not be built
+            LOG.warn("Could not add the entitlement detail to the profile version: {}", e.toString());
+        }
+        return ResponseEntity.ok(vm);
+    }
+
+    private com.dossier.api.service.AiBudgetService aiBudget;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setAiBudgetService(com.dossier.api.service.AiBudgetService aiBudget) {
+        this.aiBudget = aiBudget;
+    }
+
+    /** K7.4: features[], limits{}, aiPct and periodEnd, from the resolved entitlement set (empty when the resolver is not wired or cannot answer). */
+    private void addEntitlements(ProfileVersionVM vm) {
+        String login = com.dossier.api.security.SecurityUtils.getCurrentUserLogin().orElse(null);
+        if (login == null) return;
+        entitlementService
+            .entitlementsOf(login)
+            .ifPresent(set -> {
+                vm.setLimits(set.limits());
+                vm.setPeriodEnd(set.periodEnd());
+            });
+        // R-1: features[] follows the legacy rule while billing.catalog.shadow is on; the resolver is only compared
+        entitlementService.featuresOf(login).ifPresent(keys -> vm.setFeatures(List.copyOf(keys)));
+        if (aiBudget != null) {
+            var usage = aiBudget.usage(login);
+            if ("budget".equals(usage.metered())) vm.setAiPct(usage.used());
+        }
     }
 
     /** {@code PUT /api/profile} : create or overwrite the current user's bio. */

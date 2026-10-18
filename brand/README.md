@@ -8,9 +8,8 @@ actually serve live elsewhere and are derived from these:
 |---|---|---|
 | `logo.{svg,png}`, `logo-dark-mode.{svg,png}`, `logo-icon.{svg,png}` | `web/public/logo*.png`, `web/public/mark.svg`, `web/public/icon.png` + `web/src/app/icon.png` | web app (favicon, headers, auth, OG) |
 | same logos | `job-autofill/icons/icon{16,48,128}.png`, `job-autofill/icons/logo*.png` | extension |
-| `{ashby,greenhouse,lever,workable,workday}-dark-mode.svg` | `web/public/ats/*.png` (rasterized ~88px) | marketing hero marquee |
+| `{ashby,greenhouse,lever,workable,workday}-dark-mode.svg` | none: the v2 landing renders text wordmarks, so `web/public/ats/` was removed in V2.6 | (unused) |
 
 If you change a logo: edit the source here, then regenerate the served copies (the web ones
-were produced with `sharp` — `fit: contain`, transparent bg; the ATS marks rasterized to
-small transparent PNGs). Keep the extension icon set + the `manifest.version` in
+were produced with `sharp` — `fit: contain`, transparent bg). Keep the extension icon set + the `manifest.version` in
 `job-autofill/wxt.config.ts` in sync per the version-bump ritual in `CLAUDE.md`.

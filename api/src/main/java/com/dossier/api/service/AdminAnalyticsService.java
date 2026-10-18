@@ -81,7 +81,9 @@ public class AdminAnalyticsService {
         BigDecimal mrr,
         long newThisMonth,
         long churnedThisMonth,
-        long pastDue
+        long pastDue,
+        /** Where the MRR amounts came from (K1.6): CONFIG (the legacy amounts), CATALOG (published price rows) or MIXED. */
+        String mrrSource
     ) {}
 
     public record AnalyticsOverview(
@@ -134,8 +136,8 @@ public class AdminAnalyticsService {
         Instant d7 = now.minus(7, ChronoUnit.DAYS);
         Instant d30 = now.minus(30, ChronoUnit.DAYS);
 
-        long total = userRepository.count();
-        long activated = userRepository.countByActivatedIsTrue();
+        long total = userRepository.countByOrgIdIsNull();
+        long activated = userRepository.countByOrgIdIsNullAndActivatedIsTrue();
         int activationRate = total == 0 ? 0 : (int) Math.round((activated * 100.0) / total);
 
         long withProfile = bioRepository.count(); // unique user_id ⇒ one bio per user
@@ -151,8 +153,8 @@ public class AdminAnalyticsService {
             total,
             activated,
             activationRate,
-            userRepository.countByCreatedDateAfter(d7),
-            userRepository.countByCreatedDateAfter(d30),
+            userRepository.countByOrgIdIsNullAndCreatedDateAfter(d7),
+            userRepository.countByOrgIdIsNullAndCreatedDateAfter(d30),
             refreshTokenRepository.countDistinctActiveUsersSince(d7),
             refreshTokenRepository.countDistinctActiveUsersSince(d30),
             resumeRepository.count(),
@@ -228,12 +230,30 @@ public class AdminAnalyticsService {
         long churnedThisMonth = 0;
         long pastDue = 0;
 
+        BigDecimal catalogMrr = BigDecimal.ZERO;
+        long fromConfig = 0;
+        long fromCatalog = 0;
         for (Subscription sub : all) {
             boolean pro = EntitlementService.isProFor(sub.getStatus(), sub.getCurrentPeriodEnd(), now);
             if (pro) {
                 activePro++;
-                if (matches(sub.getPriceId(), monthlyPrice)) monthly++;
-                else if (matches(sub.getPriceId(), threeMonthPrice)) threeMonth++;
+                if (matches(sub.getPriceId(), monthlyPrice)) {
+                    monthly++;
+                    fromConfig++;
+                } else if (matches(sub.getPriceId(), threeMonthPrice)) {
+                    threeMonth++;
+                    fromConfig++;
+                } else if (catalogDefaults != null) {
+                    // K1.6: a price the legacy settings do not name is read from its published catalog row
+                    var row = catalogDefaults.priceByStripeId(sub.getPriceId()).orElse(null);
+                    if (row != null && row.getAmountMinor() != null) {
+                        int months = "QUARTER".equals(row.getBillingInterval()) ? 3 : "YEAR".equals(row.getBillingInterval()) ? 12 : 1;
+                        if (months == 1) monthly++;
+                        else if (months == 3) threeMonth++;
+                        catalogMrr = catalogMrr.add(BigDecimal.valueOf(row.getAmountMinor()).movePointLeft(2).divide(BigDecimal.valueOf(months), 2, RoundingMode.HALF_UP));
+                        fromCatalog++;
+                    }
+                }
             } else if (endedThisMonth(sub.getCurrentPeriodEnd(), monthStart, now)) {
                 // Churn = the paid-for period ran out this month and they are Free now. Cancelling
                 // in March for a period that ends in May is not a March loss, and counting it as one
@@ -250,9 +270,19 @@ public class AdminAnalyticsService {
             // A 3-month plan is a third of its price per month. HALF_UP at 2dp because this is
             // money on a dashboard, not an accounting ledger.
             .add(stripeProperties.getAmount3mo().multiply(BigDecimal.valueOf(threeMonth)).divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP))
+            .add(catalogMrr)
             .setScale(2, RoundingMode.HALF_UP);
+        String source = fromCatalog == 0 ? "CONFIG" : fromConfig == 0 ? "CATALOG" : "MIXED";
 
-        return new Billing(activePro, monthly, threeMonth, mrr, newThisMonth, churnedThisMonth, pastDue);
+        return new Billing(activePro, monthly, threeMonth, mrr, newThisMonth, churnedThisMonth, pastDue, source);
+    }
+
+    private com.dossier.api.service.catalog.CatalogDefaults catalogDefaults;
+
+    /** Optional (K1.6): published price rows for prices the legacy settings do not name. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setCatalogDefaults(com.dossier.api.service.catalog.CatalogDefaults catalogDefaults) {
+        this.catalogDefaults = catalogDefaults;
     }
 
     /** A configured price id matches only if it is actually configured — blank matches nothing. */

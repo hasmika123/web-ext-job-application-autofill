@@ -1,11 +1,16 @@
 package com.dossier.api.web.rest;
 
+import com.dossier.api.security.LoginWorld;
 import com.dossier.api.domain.User;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.security.SecurityUtils;
+import com.dossier.api.service.AccountScopes;
+import com.dossier.api.service.DemoGuard;
 import com.dossier.api.service.MailService;
 import com.dossier.api.service.UserService;
 import com.dossier.api.service.dto.AdminUserDTO;
+import com.dossier.api.service.ent.TenantUrls;
+import com.dossier.api.service.org.OrgNotFoundException;
 import com.dossier.api.service.dto.PasswordChangeDTO;
 import com.dossier.api.web.rest.errors.*;
 import com.dossier.api.web.rest.vm.KeyAndPasswordVM;
@@ -40,10 +45,34 @@ public class AccountResource {
 
     private final MailService mailService;
 
-    public AccountResource(UserRepository userRepository, UserService userService, MailService mailService) {
+    private final DemoGuard demoGuard;
+
+    private final AccountScopes accountScopes;
+
+    private final TenantUrls tenantUrls;
+
+    // X2.9: an organization's own password minimum. Field-injected and optional so the constructor stays as it is.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.ent.settings.OrgSecurityPolicy orgSecurity;
+
+    // T0.2: the record that the person accepted the terms and the privacy notice when they created the account. Field-injected and optional so the constructor stays as it is.
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.dossier.api.service.privacy.TermsAcceptanceService termsAcceptance;
+
+    public AccountResource(
+        UserRepository userRepository,
+        UserService userService,
+        MailService mailService,
+        DemoGuard demoGuard,
+        AccountScopes accountScopes,
+        TenantUrls tenantUrls
+    ) {
+        this.accountScopes = accountScopes;
+        this.tenantUrls = tenantUrls;
         this.userRepository = userRepository;
         this.userService = userService;
         this.mailService = mailService;
+        this.demoGuard = demoGuard;
     }
 
     /**
@@ -57,11 +86,26 @@ public class AccountResource {
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
     public void registerAccount(@Valid @RequestBody ManagedUserVM managedUserVM) {
+        // O4: an organization's host never offers sign-up (its accounts come from an administrator or an invitation): the same 404 as no such route.
+        if (accountScopes.loginWorld().enterprise()) {
+            throw new OrgNotFoundException();
+        }
         if (isPasswordLengthInvalid(managedUserVM.getPassword())) {
             throw new InvalidPasswordException();
         }
         User user = userService.registerUser(managedUserVM, managedUserVM.getPassword());
+        recordTermsAcceptance(user);
         mailService.sendActivationEmail(user);
+    }
+
+    /** One call, never in the way of the sign-up: if it fails the account still exists and the next sign-in shows the accept banner (the status is then "not up to date"). */
+    private void recordTermsAcceptance(User user) {
+        if (termsAcceptance == null || user == null || user.getId() == null) return;
+        try {
+            termsAcceptance.recordSignup(user.getId(), java.time.Instant.now());
+        } catch (RuntimeException e) {
+            LOG.warn("Terms acceptance could not be recorded at sign-up ({})", e.getClass().getSimpleName());
+        }
     }
 
     /**
@@ -101,15 +145,17 @@ public class AccountResource {
      */
     @PostMapping("/account")
     public void saveAccount(@Valid @RequestBody AdminUserDTO userDTO) {
+        demoGuard.assertNotDemo();
         String userLogin = SecurityUtils.getCurrentUserLogin()
             .orElseThrow(() -> new AccountResourceException("Current user login not found"));
-        Optional<User> existingUser = userRepository.findOneByEmailIgnoreCase(userDTO.getEmail());
-        if (existingUser.isPresent() && (!existingUser.orElseThrow().getLogin().equalsIgnoreCase(userLogin))) {
-            throw new EmailAlreadyUsedException();
-        }
         Optional<User> user = userRepository.findOneByLogin(userLogin);
         if (!user.isPresent()) {
             throw new AccountResourceException("User could not be found");
+        }
+        // An address is "used" only inside the caller's own account scope (personal, or the caller's organization): decision O4.
+        Optional<User> existingUser = userRepository.findOneByScopeAndEmail(user.orElseThrow().getOrgId(), userDTO.getEmail());
+        if (existingUser.isPresent() && (!existingUser.orElseThrow().getLogin().equalsIgnoreCase(userLogin))) {
+            throw new EmailAlreadyUsedException();
         }
         userService.updateUser(
             userDTO.getFirstName(),
@@ -128,7 +174,8 @@ public class AccountResource {
      */
     @PostMapping(path = "/account/change-password")
     public void changePassword(@RequestBody PasswordChangeDTO passwordChangeDto) {
-        if (isPasswordLengthInvalid(passwordChangeDto.getNewPassword())) {
+        demoGuard.assertNotDemo();
+        if (isPasswordLengthInvalid(passwordChangeDto.getNewPassword()) || belowOrganizationMinimum(passwordChangeDto.getNewPassword())) {
             throw new InvalidPasswordException();
         }
         userService.changePassword(passwordChangeDto.getCurrentPassword(), passwordChangeDto.getNewPassword());
@@ -141,9 +188,16 @@ public class AccountResource {
      */
     @PostMapping(path = "/account/reset-password/init")
     public void requestPasswordReset(@RequestBody String mail) {
-        Optional<User> user = userService.requestPasswordReset(mail);
+        // O4: the reset is looked up inside the host's own world only; an address that exists only in the other world gets the same silent 200.
+        LoginWorld world = accountScopes.loginWorld();
+        Optional<User> user = userService.requestPasswordReset(world.orgId(), mail);
         if (user.isPresent()) {
-            mailService.sendPasswordResetMail(user.orElseThrow());
+            if (world.enterprise()) {
+                // the link must lead back to the organization's own host (the only place this account can sign in or finish the reset)
+                mailService.sendPasswordResetMail(user.orElseThrow(), tenantUrls.base(world.orgId()));
+            } else {
+                mailService.sendPasswordResetMail(user.orElseThrow());
+            }
         } else {
             // Pretend the request has been successful to prevent checking which emails really exist
             // but log that an invalid attempt has been made
@@ -160,14 +214,21 @@ public class AccountResource {
      */
     @PostMapping(path = "/account/reset-password/finish")
     public void finishPasswordReset(@RequestBody KeyAndPasswordVM keyAndPassword) {
-        if (isPasswordLengthInvalid(keyAndPassword.getNewPassword())) {
+        if (isPasswordLengthInvalid(keyAndPassword.getNewPassword()) || belowOrganizationMinimum(keyAndPassword.getNewPassword())) {
             throw new InvalidPasswordException();
         }
-        Optional<User> user = userService.completePasswordReset(keyAndPassword.getNewPassword(), keyAndPassword.getKey());
+        Optional<User> user = userService.completePasswordReset(keyAndPassword.getNewPassword(), keyAndPassword.getKey(), accountScopes.loginWorld());
 
         if (!user.isPresent()) {
             throw new AccountResourceException("No user was found for this reset key");
         }
+    }
+
+    /** X2.9: on an organization's own host the organization's password minimum applies on top of the platform's. Personal hosts: never. */
+    private boolean belowOrganizationMinimum(String password) {
+        if (orgSecurity == null || password == null) return false;
+        LoginWorld world = accountScopes.loginWorld();
+        return world.enterprise() && password.length() < orgSecurity.passwordMinLength(world.orgId());
     }
 
     private static boolean isPasswordLengthInvalid(String password) {

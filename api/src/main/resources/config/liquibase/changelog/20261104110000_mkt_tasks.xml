@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Marketing workspace (tasks) tables. Owned by the tasks page ONLY; empty until that page adds its own changeSets.
+        Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
+        table names prefixed mkt_). Never edit another page's changelog.
+    -->
+
+    <!-- Tasks of the Marketing workspace (the Tasks board). Overdue is DERIVED (not COMPLETED and due_at < now). A task may point at a consultant and/or a client, or at neither (related_label, e.g. "All Consultants"). -->
+    <changeSet id="mkt-tasks-1-mkt_task" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_task"/></not></preConditions>
+        <createTable tableName="mkt_task">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"/>
+            <column name="client_account_id" type="bigint"/>
+            <column name="related_label" type="varchar(120)"/>
+            <column name="title" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="detail" type="varchar(200)"/>
+            <column name="category" type="varchar(20)" defaultValue="FOLLOW_UP"><constraints nullable="false"/></column>
+            <column name="priority" type="varchar(10)" defaultValue="MEDIUM"><constraints nullable="false"/></column>
+            <column name="status" type="varchar(15)" defaultValue="NOT_STARTED"><constraints nullable="false"/></column>
+            <column name="due_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="completed_at" type="${datetimeType}"/>
+            <column name="owner_member_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="created_by_member_id" type="bigint"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_task" baseColumnNames="org_id" constraintName="fk_mkt_task_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_task" baseColumnNames="org_id, consultant_id" constraintName="fk_mkt_task_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_task" baseColumnNames="org_id, client_account_id" constraintName="fk_mkt_task_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_task" baseColumnNames="org_id, owner_member_id" constraintName="fk_mkt_task_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_task" baseColumnNames="org_id, created_by_member_id" constraintName="fk_mkt_task_creator" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_task" columnNames="org_id, id" constraintName="uk_mkt_task_org_id"/>
+        <createIndex tableName="mkt_task" indexName="ix_mkt_task_status_due"><column name="org_id"/><column name="status"/><column name="due_at"/></createIndex>
+        <createIndex tableName="mkt_task" indexName="ix_mkt_task_owner"><column name="org_id"/><column name="owner_member_id"/><column name="status"/><column name="due_at"/></createIndex>
+        <createIndex tableName="mkt_task" indexName="ix_mkt_task_consultant"><column name="org_id"/><column name="consultant_id"/><column name="due_at"/></createIndex>
+        <createIndex tableName="mkt_task" indexName="ix_mkt_task_completed"><column name="org_id"/><column name="completed_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign keys onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_task" constraintName="fk_mkt_task_owner"/>
+            <dropForeignKeyConstraint baseTableName="mkt_task" constraintName="fk_mkt_task_creator"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Append-only log of what happened to a task: created, edited, completed, reopened, reassigned. Record only; nothing is mailed. -->
+    <changeSet id="mkt-tasks-2-mkt_task_event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_task_event"/></not></preConditions>
+        <createTable tableName="mkt_task_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="task_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="kind" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(500)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="by_member_id" type="bigint"/>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_task_event" baseColumnNames="org_id" constraintName="fk_mkt_task_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_task_event" baseColumnNames="org_id, task_id" constraintName="fk_mkt_task_event_task" referencedTableName="mkt_task" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="mkt_task_event" baseColumnNames="org_id, by_member_id" constraintName="fk_mkt_task_event_by" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="mkt_task_event" indexName="ix_mkt_task_event_task"><column name="org_id"/><column name="task_id"/><column name="occurred_at"/></createIndex>
+        <createIndex tableName="mkt_task_event" indexName="ix_mkt_task_event_kind"><column name="org_id"/><column name="kind"/><column name="occurred_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_task_event" constraintName="fk_mkt_task_event_by"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

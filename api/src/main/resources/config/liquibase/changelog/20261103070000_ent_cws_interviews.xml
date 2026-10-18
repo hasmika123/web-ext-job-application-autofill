@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, Interviews page (branch ent-talent-consultant). Two tables, both the consultant's OWN rows (nobody else reads or writes them):
+          cws_interview_detail    how the consultant joins one of their interviews: mode (VIDEO / ONSITE / PHONE), meeting link (https only),
+                                  the interviewer's title if they know it, and their own preparation note
+          cws_interview_feedback  what the consultant heard after a completed interview: outcome (POSITIVE / NEUTRAL / NEGATIVE) and a short summary
+        Neither table creates or moves an interview: talent_interview stays the marketer's and the client's record.
+        talent_interview had only its primary key, so the composite tenant FKs below need the tenant-safe unique key (org_id, id) that every other
+        talent parent already has; adding it is additive (id is already unique) and guarded.
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FKs, every secondary index starts with org_id, DATETIME(6) UTC,
+        additive, empty rollback, no JSON columns, no sensitive columns (the meeting link, notes and summaries are scanned by the PII guard before they are stored).
+    -->
+    <changeSet id="ent-cws-7-uk_talent_interview_org_id" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="talent_interview" indexName="uk_talent_interview_org_id"/></not></preConditions>
+        <addUniqueConstraint tableName="talent_interview" columnNames="org_id, id" constraintName="uk_talent_interview_org_id"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-7-cws_interview_detail" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_interview_detail"/></not></preConditions>
+        <createTable tableName="cws_interview_detail">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="mode" type="varchar(10)"/>
+            <column name="meeting_url" type="varchar(500)"/>
+            <column name="interviewer_title" type="varchar(120)"/>
+            <column name="prep_note" type="varchar(2000)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_interview_detail" baseColumnNames="org_id" constraintName="fk_cws_interview_detail_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_interview_detail" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_interview_detail_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_interview_detail" baseColumnNames="org_id, interview_id" constraintName="fk_cws_interview_detail_interview" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_interview_detail" columnNames="org_id, interview_id" constraintName="uk_cws_interview_detail"/>
+        <createIndex tableName="cws_interview_detail" indexName="ix_cws_interview_detail_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-7-cws_interview_feedback" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_interview_feedback"/></not></preConditions>
+        <createTable tableName="cws_interview_feedback">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="consultant_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="outcome" type="varchar(10)"><constraints nullable="false"/></column>
+            <column name="summary" type="varchar(1000)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_interview_feedback" baseColumnNames="org_id" constraintName="fk_cws_interview_feedback_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_interview_feedback" baseColumnNames="org_id, consultant_id" constraintName="fk_cws_interview_feedback_consultant" referencedTableName="consultant_profile" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="cws_interview_feedback" baseColumnNames="org_id, interview_id" constraintName="fk_cws_interview_feedback_interview" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_interview_feedback" columnNames="org_id, interview_id" constraintName="uk_cws_interview_feedback"/>
+        <createIndex tableName="cws_interview_feedback" indexName="ix_cws_interview_feedback_consultant"><column name="org_id"/><column name="consultant_id"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

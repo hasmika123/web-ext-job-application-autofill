@@ -1,0 +1,6 @@
+{
+  "schema": 3,
+  "meta": {"title": "Invalid fixture"},
+  "basics": {"name": "Test Person"},
+  "sections": []
+}

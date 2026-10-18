@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 Interviews page (branch ent-interviews; docs/enterprise-v2/page-interviews.md). Additive only: the foundation's
+        talent_interview keeps every column and gains the ones the board needs (round number, mode, meeting link, location, notes,
+        next step, the time a reminder was last requested), plus three org-scoped child tables: the interviewers on the client side,
+        an append-only history, and the feedback people recorded. Everything is a RECORD of what happened: Kiwiply never attends or
+        runs an interview. No sensitive PII (no phone numbers, no documents).
+    -->
+
+    <changeSet id="ent-interviews-1-columns" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="talent_interview" columnName="mode"/></not></preConditions>
+        <addColumn tableName="talent_interview">
+            <column name="round_no" type="smallint"/>
+            <column name="mode" type="varchar(12)" defaultValue="VIDEO"><constraints nullable="false"/></column>
+            <column name="meeting_link" type="varchar(300)"/>
+            <column name="location" type="varchar(200)"/>
+            <column name="notes" type="varchar(1000)"/>
+            <column name="next_step" type="varchar(120)"/>
+            <column name="reminder_requested_at" type="${datetimeType}"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-interviews-2-unique-key" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="talent_interview" indexName="uk_talent_interview_org_id"/></not></preConditions>
+        <addUniqueConstraint tableName="talent_interview" columnNames="org_id, id" constraintName="uk_talent_interview_org_id"/>
+        <createIndex tableName="talent_interview" indexName="ix_talent_interview_application"><column name="org_id"/><column name="application_id"/><column name="scheduled_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-interviews-3-interviewer" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="talent_interview_interviewer"/></not></preConditions>
+        <createTable tableName="talent_interview_interviewer">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="name" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="title" type="varchar(80)"/>
+            <column name="primary_flag" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="sort_order" type="smallint" defaultValueNumeric="0"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="talent_interview_interviewer" baseColumnNames="org_id" constraintName="fk_talent_iv_interviewer_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="talent_interview_interviewer" baseColumnNames="org_id, interview_id" constraintName="fk_talent_iv_interviewer_iv" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="talent_interview_interviewer" indexName="ix_talent_iv_interviewer_iv"><column name="org_id"/><column name="interview_id"/><column name="sort_order"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-interviews-4-event" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="talent_interview_event"/></not></preConditions>
+        <createTable tableName="talent_interview_event">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="event_type" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="from_status" type="varchar(20)"/>
+            <column name="to_status" type="varchar(20)"/>
+            <column name="actor_member_id" type="bigint"/>
+            <column name="detail" type="varchar(300)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="talent_interview_event" baseColumnNames="org_id" constraintName="fk_talent_iv_event_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="talent_interview_event" baseColumnNames="org_id, interview_id" constraintName="fk_talent_iv_event_iv" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_interview_event" baseColumnNames="org_id, actor_member_id" constraintName="fk_talent_iv_event_actor" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="talent_interview_event" indexName="ix_talent_iv_event_iv"><column name="org_id"/><column name="interview_id"/><column name="occurred_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_interview_event" constraintName="fk_talent_iv_event_actor"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="ent-interviews-5-feedback" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="talent_interview_feedback"/></not></preConditions>
+        <createTable tableName="talent_interview_feedback">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="interview_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="author_member_id" type="bigint"/>
+            <column name="rating" type="smallint"><constraints nullable="false"/></column>
+            <column name="recommendation" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="note" type="varchar(1000)"/>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="talent_interview_feedback" baseColumnNames="org_id" constraintName="fk_talent_iv_feedback_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="talent_interview_feedback" baseColumnNames="org_id, interview_id" constraintName="fk_talent_iv_feedback_iv" referencedTableName="talent_interview" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="talent_interview_feedback" baseColumnNames="org_id, author_member_id" constraintName="fk_talent_iv_feedback_author" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="talent_interview_feedback" indexName="ix_talent_iv_feedback_iv"><column name="org_id"/><column name="interview_id"/><column name="created_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="talent_interview_feedback" constraintName="fk_talent_iv_feedback_author"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

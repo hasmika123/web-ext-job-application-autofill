@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Consultant workspace, My Placement page (branch ent-talent-consultant). Five tables hanging off one talent_placement row; the placement itself
+        (client, role, status, dates) stays in talent_placement and its bill rate is never read by this page (a consultant does not see it):
+          cws_placement_detail     the facts the board shows that talent_placement lacks: end client, project, manager (a display name and title, no email or
+                                   phone), location, work mode, hours, schedule, engagement status and its note, next check-in
+          cws_placement_checklist  the onboarding checklist; the consultant ticks and unticks items (completed_at)
+          cws_placement_milestone  the key milestones timeline
+          cws_placement_meeting    upcoming meetings (join link https only, nullable)
+          cws_placement_activity   the activity log (MILESTONE / DOCUMENT / UPDATE); the consultant adds UPDATE rows with a short status note
+        Everything except the consultant's own ticks and status notes is written by the employer / ops / marketer side, which is not built yet: the demo seeder
+        writes stand-in rows (sample_data = true). talent_placement had only its primary key, so the composite tenant FKs need the tenant-safe unique key
+        (org_id, id) every other talent parent has; adding it is additive and guarded.
+        41-database-design.md R1-R10: org_id NOT NULL, FK to organization, composite tenant FKs, every secondary index starts with org_id, DATETIME(6) UTC,
+        additive, empty rollback, no JSON columns, no sensitive columns (names are display labels only; free text is scanned by the PII guard before it is stored).
+    -->
+    <changeSet id="ent-cws-15-uk_talent_placement_org_id" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><indexExists tableName="talent_placement" indexName="uk_talent_placement_org_id"/></not></preConditions>
+        <addUniqueConstraint tableName="talent_placement" columnNames="org_id, id" constraintName="uk_talent_placement_org_id"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-15-cws_placement_detail" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_placement_detail"/></not></preConditions>
+        <createTable tableName="cws_placement_detail">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="end_client_name" type="varchar(160)"/>
+            <column name="project_name" type="varchar(160)"/>
+            <column name="manager_name" type="varchar(120)"/>
+            <column name="manager_title" type="varchar(120)"/>
+            <column name="location_label" type="varchar(160)"/>
+            <column name="work_mode" type="varchar(60)"/>
+            <column name="hours_per_week" type="int"/>
+            <column name="schedule_label" type="varchar(160)"/>
+            <column name="engagement_status" type="varchar(20)" defaultValue="ON_TRACK"><constraints nullable="false"/></column>
+            <column name="status_note" type="varchar(300)"/>
+            <column name="next_check_in" type="date"/>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_placement_detail" baseColumnNames="org_id" constraintName="fk_cws_placement_detail_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_placement_detail" baseColumnNames="org_id, placement_id" constraintName="fk_cws_placement_detail_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="cws_placement_detail" columnNames="org_id, placement_id" constraintName="uk_cws_placement_detail"/>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-15-cws_placement_checklist" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_placement_checklist"/></not></preConditions>
+        <createTable tableName="cws_placement_checklist">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(160)"><constraints nullable="false"/></column>
+            <column name="due_on" type="date"/>
+            <column name="completed_at" type="${datetimeType}"/>
+            <column name="sort_no" type="int" defaultValueNumeric="0"><constraints nullable="false"/></column>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_placement_checklist" baseColumnNames="org_id" constraintName="fk_cws_placement_checklist_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_placement_checklist" baseColumnNames="org_id, placement_id" constraintName="fk_cws_placement_checklist_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_placement_checklist" indexName="ix_cws_placement_checklist"><column name="org_id"/><column name="placement_id"/><column name="sort_no"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-15-cws_placement_milestone" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_placement_milestone"/></not></preConditions>
+        <createTable tableName="cws_placement_milestone">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="description" type="varchar(200)"/>
+            <column name="on_date" type="date"><constraints nullable="false"/></column>
+            <column name="completed" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_placement_milestone" baseColumnNames="org_id" constraintName="fk_cws_placement_milestone_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_placement_milestone" baseColumnNames="org_id, placement_id" constraintName="fk_cws_placement_milestone_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_placement_milestone" indexName="ix_cws_placement_milestone"><column name="org_id"/><column name="placement_id"/><column name="on_date"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-15-cws_placement_meeting" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_placement_meeting"/></not></preConditions>
+        <createTable tableName="cws_placement_meeting">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="label" type="varchar(120)"><constraints nullable="false"/></column>
+            <column name="starts_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="duration_minutes" type="int" defaultValueNumeric="60"><constraints nullable="false"/></column>
+            <column name="with_label" type="varchar(120)"/>
+            <column name="join_url" type="varchar(500)"/>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_placement_meeting" baseColumnNames="org_id" constraintName="fk_cws_placement_meeting_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_placement_meeting" baseColumnNames="org_id, placement_id" constraintName="fk_cws_placement_meeting_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_placement_meeting" indexName="ix_cws_placement_meeting"><column name="org_id"/><column name="placement_id"/><column name="starts_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+
+    <changeSet id="ent-cws-15-cws_placement_activity" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="cws_placement_activity"/></not></preConditions>
+        <createTable tableName="cws_placement_activity">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="placement_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="activity_type" type="varchar(12)"><constraints nullable="false"/></column>
+            <column name="description" type="varchar(300)"><constraints nullable="false"/></column>
+            <column name="actor_label" type="varchar(120)"/>
+            <column name="occurred_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="sample_data" type="boolean" defaultValueBoolean="false"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="cws_placement_activity" baseColumnNames="org_id" constraintName="fk_cws_placement_activity_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="cws_placement_activity" baseColumnNames="org_id, placement_id" constraintName="fk_cws_placement_activity_placement" referencedTableName="talent_placement" referencedColumnNames="org_id, id"/>
+        <createIndex tableName="cws_placement_activity" indexName="ix_cws_placement_activity"><column name="org_id"/><column name="placement_id"/><column name="occurred_at"/></createIndex>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

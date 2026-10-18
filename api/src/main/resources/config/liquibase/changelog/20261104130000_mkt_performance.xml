@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Marketing workspace (performance) tables. Owned by the performance page ONLY; empty until that page adds its own changeSets.
+        Rules: docs/enterprise-v2/41-database-design.md R1-R10 (org_id NOT NULL, composite tenant FKs, additive, precondition-guarded,
+        table names prefixed mkt_). Never edit another page's changelog.
+    -->
+
+    <!-- A monthly target for one metric. owner_member_id NULL = the organization's default; a marketer's own row (owner = them) overrides it for them only. Records targets, never moves anything. -->
+    <changeSet id="mkt-performance-1-mkt_goal" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_goal"/></not></preConditions>
+        <createTable tableName="mkt_goal">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="owner_member_id" type="bigint"/>
+            <column name="metric" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="period" type="varchar(10)" defaultValue="MONTH"><constraints nullable="false"/></column>
+            <column name="target" type="int"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_goal" baseColumnNames="org_id" constraintName="fk_mkt_goal_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="mkt_goal" baseColumnNames="org_id, owner_member_id" constraintName="fk_mkt_goal_owner" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="mkt_goal" columnNames="org_id, id" constraintName="uk_mkt_goal_org_id"/>
+        <addUniqueConstraint tableName="mkt_goal" columnNames="org_id, owner_member_id, metric, period" constraintName="uk_mkt_goal_owner_metric"/>
+        <createIndex tableName="mkt_goal" indexName="ix_mkt_goal_owner"><column name="org_id"/><column name="owner_member_id"/><column name="metric"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="mkt_goal" constraintName="fk_mkt_goal_owner"/>
+        </rollback>
+    </changeSet>
+
+    <!-- The industry figure a rate is compared with on the Performance board (Interview Rate, Offer Rate, Placement Rate). One row per organization and metric; percent with two decimals. -->
+    <changeSet id="mkt-performance-2-mkt_benchmark" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="mkt_benchmark"/></not></preConditions>
+        <createTable tableName="mkt_benchmark">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="metric" type="varchar(20)"><constraints nullable="false"/></column>
+            <column name="industry_value" type="decimal(5,2)"><constraints nullable="false"/></column>
+            <column name="updated_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="mkt_benchmark" baseColumnNames="org_id" constraintName="fk_mkt_benchmark_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addUniqueConstraint tableName="mkt_benchmark" columnNames="org_id, id" constraintName="uk_mkt_benchmark_org_id"/>
+        <addUniqueConstraint tableName="mkt_benchmark" columnNames="org_id, metric" constraintName="uk_mkt_benchmark_metric"/>
+        <rollback/>
+    </changeSet>
+</databaseChangeLog>

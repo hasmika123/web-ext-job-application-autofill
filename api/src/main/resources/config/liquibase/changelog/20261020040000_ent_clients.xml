@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Enterprise V2 Clients page (branch ent-clients), additive on the talent foundation. The foundation's client_account has no
+        location, size band, "client since" date or about text, and there is nowhere to keep relationship notes, so this adds four
+        nullable columns and one org-owned table (client_note). Rules as in 41-database-design.md: org_id NOT NULL, composite tenant
+        FKs, DATETIME(6) UTC, no sensitive PII (a note is free text that the PII scanner checks on write). Each change is its own
+        precondition-guarded changeSet (MARK_RAN on a re-run); empty rollbacks on purpose.
+    -->
+
+    <changeSet id="ent-clients-1-account-columns" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><columnExists tableName="client_account" columnName="size_band"/></not></preConditions>
+        <addColumn tableName="client_account">
+            <column name="size_band" type="varchar(20)"/>
+            <column name="location" type="varchar(120)"/>
+            <column name="client_since" type="date"/>
+            <column name="about" type="varchar(1000)"/>
+        </addColumn>
+        <rollback/>
+    </changeSet>
+
+    <!-- Relationship notes of a client: who wrote what and when (the board's "Relationship Notes"). -->
+    <changeSet id="ent-clients-2-client_note" author="enterprise" runInTransaction="false">
+        <preConditions onFail="MARK_RAN"><not><tableExists tableName="client_note"/></not></preConditions>
+        <createTable tableName="client_note">
+            <column name="id" type="bigint" autoIncrement="true"><constraints primaryKey="true" nullable="false"/></column>
+            <column name="org_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="client_id" type="bigint"><constraints nullable="false"/></column>
+            <column name="author_member_id" type="bigint"/>
+            <column name="body" type="varchar(1000)"><constraints nullable="false"/></column>
+            <column name="created_at" type="${datetimeType}"><constraints nullable="false"/></column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="client_note" baseColumnNames="org_id" constraintName="fk_client_note_org" referencedTableName="organization" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="client_note" baseColumnNames="org_id, client_id" constraintName="fk_client_note_client" referencedTableName="client_account" referencedColumnNames="org_id, id"/>
+        <addForeignKeyConstraint baseTableName="client_note" baseColumnNames="org_id, author_member_id" constraintName="fk_client_note_author" referencedTableName="org_member" referencedColumnNames="org_id, id"/>
+        <addUniqueConstraint tableName="client_note" columnNames="org_id, id" constraintName="uk_client_note_org_id"/>
+        <createIndex tableName="client_note" indexName="ix_client_note_client"><column name="org_id"/><column name="client_id"/><column name="created_at"/></createIndex>
+        <!-- Rollback: drop only the tenant foreign key onto org_member(org_id, id), so that uk_member_org_id (20261018010000-20) can be undone. The table and its data stay: the empty rollback was deliberate (flag off, data inert). -->
+        <rollback>
+            <dropForeignKeyConstraint baseTableName="client_note" constraintName="fk_client_note_author"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
