@@ -165,13 +165,44 @@ migration_lint() {
 
 # dump_database — writes a gzip'd, consistent mysqldump of the live database to stdout.
 # Needs a compose() function from the caller (each script builds its own from COMPOSE_FILES).
+#
+# When binary logging is on (MySQL's default) the dump also records the binlog file and position it
+# is consistent with, as a comment (`--source-data=2`). That is the starting point for a
+# point-in-time recovery (P0.2, DEPLOY.md section 5.9); it costs a global read lock for a moment.
 dump_database() {
+  local extra=()
+  # shellcheck disable=SC2016 # $MYSQL_ROOT_PASSWORD is the container's own, expanded in there.
+  if [ "$(compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot -N -B -e "SELECT @@log_bin"' 2>/dev/null | tr -d '\r')" = 1 ]; then
+    extra=(--source-data=2)
+  fi
   # --single-transaction: a consistent snapshot without locking. --set-gtid-purged=OFF: restores
   # into a fresh server. The password stays inside the container (MYSQL_PWD), off the command line.
-  # shellcheck disable=SC2016 # $MYSQL_ROOT_PASSWORD is the container's own, expanded in there.
+  # shellcheck disable=SC2016
   compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysqldump -uroot \
-      --single-transaction --routines --triggers --events --set-gtid-purged=OFF \
-      --databases dossierApi' | gzip -9
+      --single-transaction --routines --triggers --events --set-gtid-purged=OFF "$@" \
+      --databases dossierApi' dump ${extra[@]+"${extra[@]}"} | gzip -9
+}
+
+# ---------------------------------------------------------------------------------------------
+# Binary logs (P0.2, P0.4) — point-in-time recovery between the nightly dumps.
+
+# binlog_file_ok NAME — a closed MySQL binlog's file name: <base>.<6 digits> (binlog.000012).
+binlog_file_ok() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9_-]+\.[0-9]{6}$'; }
+
+# binlog_number NAME — the sequence number of a binlog file (binlog.000012 -> 12, no octal surprises).
+binlog_number() { printf '%s' "$((10#${1##*.}))"; }
+
+# dump_binlog_position FILE.sql.gz — "binlog.000012 157": where in the binary log the dump is
+# consistent with (the commented CHANGE REPLICATION SOURCE TO line that --source-data=2 writes).
+# Prints nothing for a dump taken without it (before this existed, or with binary logging off).
+dump_binlog_position() {
+  local line
+  # head closes the pipe early; the subshell swallows gunzip's SIGPIPE so `pipefail` callers survive.
+  line="$( (gunzip -c "$1" 2>/dev/null || true) | head -n 80 | grep -E "SOURCE_LOG_FILE=|MASTER_LOG_FILE=" | head -n 1 || true)"
+  [ -n "$line" ] || return 0
+  printf '%s %s' \
+    "$(printf '%s' "$line" | sed -nE "s/.*(SOURCE|MASTER)_LOG_FILE='([^']+)'.*/\2/p")" \
+    "$(printf '%s' "$line" | sed -nE "s/.*(SOURCE|MASTER)_LOG_POS=([0-9]+).*/\2/p")"
 }
 
 # ---------------------------------------------------------------------------------------------
