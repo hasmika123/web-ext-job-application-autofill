@@ -72,8 +72,8 @@ class RetirementNoticeComposerTest {
     void aPlanNameThatAlreadyEndsInPlanIsNeverFollowedByASecondPlan() {
         Input in = new Input("Sam", "Starter Plan", false, DATE, "FREE", null, "USD", "MONTH", List.of(), null, 30, false, "https://kiwiply.com/settings/plan/changing");
         Notice n = composer.compose(in, Locale.ENGLISH, k -> k);
-        assertThat(n.subject()).isEqualTo("Your Starter Plan is changing on November 15, 2026");
-        assertThat(n.line1()).isEqualTo("Your Starter Plan");
+        assertThat(n.subject()).isEqualTo("Your Starter plan is changing on November 15, 2026");
+        assertThat(n.line1()).isEqualTo("Your Starter plan");
         assertThat(n.intro()).contains("We are retiring Starter Plan.");
         Notice applied = composer.compose(new Input("Sam", "Starter plan", false, DATE, "FREE", null, "USD", "MONTH", List.of(), null, 0, true, "x"), Locale.ENGLISH, k -> k);
         assertThat(applied.intro()).contains("Your Starter plan ended on November 15, 2026");
