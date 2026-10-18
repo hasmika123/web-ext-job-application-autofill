@@ -19908,6 +19908,25 @@
         }
       }
     },
+    "/api/public/legal/subprocessors" : {
+      "get" : {
+        "tags" : [ "subprocessor-resource" ],
+        "operationId" : "publicList",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/public/demo" : {
       "get" : {
         "tags" : [ "demo" ],
@@ -27703,6 +27722,25 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/Stats"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/privacy/subprocessors" : {
+      "get" : {
+        "tags" : [ "subprocessor-resource" ],
+        "operationId" : "adminList",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : { }
                 }
               }
             }
