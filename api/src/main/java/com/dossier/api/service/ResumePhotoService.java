@@ -8,6 +8,7 @@ import com.dossier.api.service.storage.StorageObjectNotFoundException;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -63,7 +64,7 @@ public class ResumePhotoService {
         storage.store(key, photo.bytes(), photo.contentType());
         ResumeDocService.PhotoChange change;
         try {
-            change = docs.setPhoto(resumeId, key);
+            change = setPhotoRetrying(resumeId, key);
         } catch (RuntimeException e) {
             deleteQuietly(key);
             throw e;
@@ -75,9 +76,35 @@ public class ResumePhotoService {
     /** Remove the photo: the file goes and {@code basics.photo} becomes null. Idempotent (a resume without a photo is answered as it is). */
     public ResumeDocDTO remove(Long resumeId) {
         if (docs.photoKeyFor(resumeId) == null) return docs.get(resumeId);
-        ResumeDocService.PhotoChange change = docs.setPhoto(resumeId, null);
+        ResumeDocService.PhotoChange change = setPhotoRetrying(resumeId, null);
         deleteQuietly(change.previousKey());
         return change.dto();
+    }
+
+    /** How many times a photo write is tried when the row changed under it (see {@link #setPhotoRetrying}). */
+    static final int WRITE_ATTEMPTS = 3;
+
+    /**
+     * {@link ResumeDocService#setPhoto} is a read-modify-write of the document row, and the background PDF job writes that same row when it
+     * stores a finished file. A photo write that loses that race failed with a raw {@code error.concurrencyFailure} although nothing the person
+     * did conflicted (the photo is server-owned content, not a merge of client state). Each attempt reloads the row in its own transaction,
+     * so trying again is safe; a row that keeps changing still ends in the original error after {@link #WRITE_ATTEMPTS} tries.
+     */
+    private ResumeDocService.PhotoChange setPhotoRetrying(Long resumeId, String key) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return docs.setPhoto(resumeId, key);
+            } catch (ObjectOptimisticLockingFailureException e) {
+                if (attempt >= WRITE_ATTEMPTS) throw e;
+                LOG.debug("resume {} photo write lost a race with another write, trying again ({}/{})", resumeId, attempt, WRITE_ATTEMPTS);
+                try {
+                    Thread.sleep(60L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
     }
 
     /** The photo for the owner's editor; 404 when the resume is not theirs, has no photo, or the file is gone. */
