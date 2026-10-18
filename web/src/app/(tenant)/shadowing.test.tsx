@@ -7,6 +7,15 @@ import { meTenantFor as untyped } from "../../../scripts/mock-me-tenant.mjs";
 import { parseMeTenant } from "@/lib/ent/tenant-session-core";
 import { ComingSoon } from "@/components/ent/shell/ShellStates";
 import JobDiscoveryPage from "@/components/ent/marketer-ws/jobs/JobDiscoveryPage";
+import MktApplicationsPage from "@/components/ent/marketer-ws/applications/ApplicationsPage";
+import MktInterviewsPage from "@/components/ent/marketer-ws/interviews/InterviewsPage";
+import MktResumesPage from "@/components/ent/marketer-ws/resumes/ResumesPage";
+import MktSubmissionsPage from "@/components/ent/marketer-ws/submissions/SubmissionsPage";
+import AdminApplicationsPage from "@/components/ent/applications/ApplicationsPage";
+import AdminInterviewsPage from "@/components/ent/interviews/InterviewsPage";
+import AdminResumesPage from "@/components/ent/resumes/ResumesPage";
+import AdminJobsPage from "@/components/ent/jobs/JobsPage";
+import SubmissionsRecordsPage from "@/components/ent/accounts-submissions/SubmissionsRecordsPage";
 
 /**
  * D5 (2026-10-16 audit): `/w/marketing/jobs` answered "This page is on the way" because the explicit `[workspace]/jobs/page.tsx` shadows the catch-all and
@@ -66,6 +75,40 @@ describe("an explicit [workspace]/<page> folder does not hide a Marketing page b
     const tree = await resolvePage("marketing", "jobs");
     expect(contains(tree, ComingSoon)).toBe(false);
     expect(contains(tree, JobDiscoveryPage)).toBe(true);
+  });
+
+  // The first fix (D5) only asserted "not on the way": /w/marketing/{applications,interviews,resumes} rendered the ADMINISTRATION pages instead of the marketer ones.
+  // Each explicit folder must hand the Marketing workspace ITS component and keep serving its own to the workspace it was written for.
+  const shadowed: [string, unknown, unknown][] = [
+    ["jobs", JobDiscoveryPage, AdminJobsPage],
+    ["applications", MktApplicationsPage, AdminApplicationsPage],
+    ["interviews", MktInterviewsPage, AdminInterviewsPage],
+    ["resumes", MktResumesPage, AdminResumesPage],
+    ["submissions", MktSubmissionsPage, SubmissionsRecordsPage],
+  ];
+
+  it.each(shadowed)("/w/marketing/%s mounts the marketer page and not the Administration one", async (segment, marketerPage, adminPage) => {
+    expect(explicit).toContain(segment); // the folder really shadows the catch-all, so this test is about the folder's own route
+    const tree = await resolvePage("marketing", segment);
+    expect(contains(tree, ComingSoon)).toBe(false);
+    expect(contains(tree, marketerPage)).toBe(true);
+    expect(contains(tree, adminPage)).toBe(false);
+  });
+
+  it.each(shadowed)("/w/admin/%s still mounts the Administration page (the folder keeps serving its own workspace)", async (segment, marketerPage, adminPage) => {
+    state.session = ok("owner@acme.com");
+    const tree = await resolvePage("admin", segment);
+    expect(contains(tree, adminPage)).toBe(true);
+    expect(contains(tree, marketerPage)).toBe(false);
+  });
+
+  it("a marketer asking for a Marketing page their menu does not list gets 'not part of your role', never the Administration page", async () => {
+    // the consultant has no Marketing workspace at all: catchAllPage is "denied" for it
+    state.session = ok("consultant@acme.com");
+    for (const [segment, , adminPage] of shadowed) {
+      const tree = await resolvePage("marketing", segment);
+      expect(contains(tree, adminPage)).toBe(false);
+    }
   });
 
   it("every item of the Marketing menu renders a real page, whichever route owns it", async () => {

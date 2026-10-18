@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { marketingPageFor } from "@/components/ent/marketer-ws/registry";
 import InterviewsPage from "@/components/ent/interviews/InterviewsPage";
-import { NotYourRole } from "@/components/ent/shell/ShellStates";
+import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
 import { ErrorState } from "@kiwiply/ui";
 import { getTenantSession } from "@/lib/ent/tenant-session";
+import { catchAllPage } from "@/lib/ent/shell";
 import { can } from "@/lib/ent/workspaces";
 
 /**
@@ -19,6 +21,11 @@ export default async function WorkspaceInterviewsRoute({ params }: { params: Pro
   const session = await getTenantSession();
   if (session.kind !== "OK") return null; // the workspace layout already showed the matching panel
   const { me } = session;
+  if (workspace === "marketing") {
+    // This folder shadows the catch-all for `/w/marketing/interviews`, so it hands the Marketing workspace its own page (the D5 rule of the 2026-10-16 audit); without this a marketer saw the Administration page.
+    if (catchAllPage(me, "marketing", ["interviews"]).kind !== "page") return <NotYourRole />; // the menu lists it for the marketing roles; the API is the real gate
+    return marketingPageFor(me, ["interviews"]) ?? <ComingSoon title="Interviews" />;
+  }
   const ws = me.workspaces.find((w) => w.key === workspace);
   const listed = !!ws && ws.nav.some((n) => n.href.split("?")[0] === `/w/${workspace}/interviews`);
   if (!listed && !can(me, "pipeline.view")) return <NotYourRole />;
