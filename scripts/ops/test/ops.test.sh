@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Tests for the ops scripts (Phase 15.1a). Run in CI (the "Ops scripts" job) and by hand:
 #   scripts/ops/test/ops.test.sh            # helpers + backup-db.sh against a fake docker
-#   REAL_DOCKER=1 scripts/ops/test/ops.test.sh   # also a real dump → verify-restore.sh round trip
+#   REAL_DOCKER=1 scripts/ops/test/ops.test.sh   # also a real dump → verify-restore.sh round trip, and a real
+#                                                # point-in-time recovery (binlogs replayed by restore-drill.sh)
 set -uo pipefail
 
 OPS="$(cd "$(dirname "$0")/.." && pwd)"
@@ -169,9 +170,10 @@ SQL
   no "a cut-short backup fails the drill" test "$?" = 0
 fi
 
-# The deploy, host-guard, encryption and uploads-backup tests (sprint 2 B3) run as part of this
-# one so the CI job needs no change. Each prints its own tally.
-for extra in deploy guard; do
+# The deploy, host-guard, encryption and uploads-backup tests (sprint 2 B3), the binlog shipping +
+# restore-drill tests (P0.2/P0.4) and the workflow/monitor/cron-installer checks (P2.1/P2.5/P2.6) run
+# as part of this one so the CI job needs no change. Each prints its own tally.
+for extra in deploy guard binlog workflows; do
   echo
   echo "$extra.test.sh"
   if ! "$OPS/test/$extra.test.sh"; then FAIL=$((FAIL + 1)); fi

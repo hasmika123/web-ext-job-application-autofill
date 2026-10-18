@@ -74,6 +74,7 @@ class EnterpriseAccountCreationIT {
     @Autowired private UserRepository users;
     @Autowired private AuthorityRepository authorities;
     @Autowired private OrganizationRepository orgs;
+    @Autowired private com.dossier.api.service.ent.OrgRoleService roleService;
     @Autowired private OrgMemberRepository members;
     @Autowired private AppSettingRepository rows;
     @Autowired private ResumeBuilderSettings settings;
@@ -88,7 +89,7 @@ class EnterpriseAccountCreationIT {
 
     @BeforeEach
     void seed() {
-        fx = new OrgFixtures(users, orgs, members);
+        fx = new OrgFixtures(users, orgs, members).withRoles(roleService);
         sfx = UUID.randomUUID().toString().substring(0, 8);
         setting(EnterpriseSettingKeys.FLAG_ENTERPRISE, "{\"on\":true}");
         setting(EnterpriseSettingKeys.FLAG_DOMAINS, "{\"on\":true}");

@@ -1,0 +1,17 @@
+# Keeps the full-sha action pins in .github/workflows/*.yml current (REAL-GAPS-C P2.6). Dependabot
+# understands "uses: owner/action@<sha> # v7" and rewrites both the sha and the version comment, so
+# pinning by commit does not mean pinning forever. GitHub Actions ONLY: npm and Gradle updates are a
+# separate decision (T5.3). Updates arrive as pull requests into the default branch; merge them the
+# way any other change is merged.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns: ["*"]

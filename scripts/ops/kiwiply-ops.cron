@@ -20,3 +20,13 @@ REPO=/root/web-ext-job-application-autofill
 # Every 5 minutes: disk, memory, container restarts and certificate expiry on the box. Silent when
 # all is well; pings Healthchecks.io "host" (HC_HOST_URL in .env), with the reasons on a failure.
 */5 * * * * root "$REPO/scripts/ops/host-guard.sh" >> /var/log/kiwiply-host-guard.log 2>&1
+
+# Every 15 minutes: rotate the MySQL binary log and copy every closed file off the box (point-in-time
+# recovery between the nightly dumps; RPO about 15 minutes). A no-op until BACKUP_S3_BUCKET and the
+# backup keys are in .env; pings Healthchecks.io "binlog" (HC_BINLOG_URL, period 15 min). DEPLOY.md §5.9.
+*/15 * * * * root "$REPO/scripts/ops/ship-binlogs.sh" >> /var/log/kiwiply-binlog.log 2>&1
+
+# Monthly, the 1st at 05:30 UTC: restore the newest dump AND replay the binlogs written after it into a
+# throwaway container, sanity-check, report (HC_DRILL_URL, period 31 days). Never touches the live DB.
+# The weekly Sunday check above only proves the dump restores; this proves point-in-time recovery too.
+30 5 1 * * root "$REPO/scripts/ops/restore-drill.sh" >> /var/log/kiwiply-restore-drill-monthly.log 2>&1

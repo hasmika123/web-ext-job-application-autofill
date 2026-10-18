@@ -122,6 +122,26 @@ class MailClassifierTest {
     }
 
     @Test
+    void aRescheduleOrACancellationOfAnInterviewIsStillAnInterviewMailAndNotUnsure() {
+        MailClassifier.Reading moved = read("Rescheduled: your interview with Acme", "Your interview has been rescheduled to Thursday, October 29 at 3:30 PM PT.", null);
+        assertThat(moved.category()).isEqualTo(Category.INTERVIEW);
+        assertThat(moved.ambiguous()).isFalse();
+
+        // "Unfortunately" in a cancellation is regret, not a rejection.
+        MailClassifier.Reading cancelled = read("Interview with Acme", "Unfortunately we need to cancel our interview scheduled for Tuesday.", null);
+        assertThat(cancelled.category()).isEqualTo(Category.INTERVIEW);
+        assertThat(cancelled.ambiguous()).isFalse();
+
+        assertThat(read("Canceled event: Interview with Acme @ Tue Nov 3, 2026 9am (CST)", "This event has been canceled.", null).category()).isEqualTo(Category.INTERVIEW);
+        assertThat(read("Updated invitation: Phone screen with Acme", "The time has changed.", null).category()).isEqualTo(Category.INTERVIEW);
+
+        // A reschedule of something that is not an interview is not one: a bare "reschedule" word needs an interview, call or meeting beside it.
+        assertThat(read("Maintenance notice", "Our service window has been rescheduled.", null).category()).isEqualTo(Category.OTHER);
+        // A real rejection that mentions the interview process being cancelled is still a rejection.
+        assertThat(read("Update", "We will not be moving forward and have cancelled the interview process.", null).category()).isEqualTo(Category.REJECTED);
+    }
+
+    @Test
     void theCompanyCanComeFromTheSendersName() {
         assertThat(MailClassifier.companyFrom("Quick question", "Hello", "Globex Recruiting via Greenhouse")).isEqualTo("Globex");
         assertThat(MailClassifier.companyFrom("Quick question", "Hello", "Jane")).isNull();

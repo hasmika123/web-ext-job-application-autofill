@@ -8,11 +8,13 @@ import com.dossier.api.IntegrationTest;
 import com.dossier.api.TestInboxKey;
 import com.dossier.api.domain.Application;
 import com.dossier.api.domain.InboxMessage;
+import com.dossier.api.domain.Interview;
 import com.dossier.api.domain.enumeration.ApplicationStatus;
 import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.ApplicationRepository;
 import com.dossier.api.repository.InboxConnectionRepository;
 import com.dossier.api.repository.InboxMessageRepository;
+import com.dossier.api.repository.InterviewRepository;
 import com.dossier.api.repository.UserRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.ResumeBuilderSettings;
@@ -22,10 +24,17 @@ import com.dossier.api.service.ent.TalentDemoSeeder;
 import com.dossier.api.service.ent.consultantws.ConsultantInboxDemoSeeder;
 import com.dossier.api.service.inbox.DemoImapGateway;
 import com.dossier.api.service.inbox.ImapGateway;
+import com.dossier.api.service.inbox.ExtractedSchedule;
+import com.dossier.api.service.inbox.InboxInterviewApplier;
+import com.dossier.api.service.inbox.InboxMailService;
 import com.dossier.api.service.inbox.InboxService;
 import com.dossier.api.service.inbox.InboxSyncService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,6 +83,9 @@ class ConsultantInboxDemoIT {
     @Autowired private ApplicationRepository applications;
     @Autowired private InboxConnectionRepository connections;
     @Autowired private InboxMessageRepository messages;
+    @Autowired private InterviewRepository interviews;
+    @Autowired private InboxMailService mail;
+    @Autowired private InboxInterviewApplier applier;
     @Autowired private ResumeBuilderSettings settings;
 
     private Long acme;
@@ -92,6 +104,7 @@ class ConsultantInboxDemoIT {
             aSecondSeedAddsNothing();
             aWrongCodeIsRefusedCalmly();
             anikaConnectsAndTheRealSyncMovesHerApplications();
+            theInterviewMailsSetTheInterviewsAndAcceptingHarborAddsItsInterview();
             benSeesNoneOfIt();
             disconnectForgetsEverything();
         } finally {
@@ -154,17 +167,54 @@ class ConsultantInboxDemoIT {
         assertThat(apps).filteredOn(a -> a.getCompany().equals("Cedar Analytics")).first().satisfies(a -> assertThat(a.getStatus()).as("the rejection").isEqualTo(ApplicationStatus.REJECTED));
 
         List<InboxMessage> all = messages.findByUserIdOrderBySentAtDesc(id(ANIKA));
-        assertThat(all).hasSize(7);
+        assertThat(all).as("the original seven mails plus three interview mails (a phone screen, its reschedule and a calendar invitation)").hasSize(10);
         assertThat(all).filteredOn(m -> "Ten long articles for the weekend".equals(m.getSubject())).first().satisfies(m -> assertThat(m.getBodyText()).as("not job mail: headers only").isNull());
-        assertThat(all).filteredOn(m -> "NEW".equals(m.getSuggestion())).extracting(InboxMessage::getCompanyGuess).containsExactlyInAnyOrder("Lumen Health", "Harbor Cloud");
+        assertThat(all).filteredOn(m -> "NEW".equals(m.getSuggestion())).extracting(InboxMessage::getCompanyGuess).as("Harbor Cloud has two mails now: the availability request and the confirmed invitation").containsExactlyInAnyOrder("Lumen Health", "Harbor Cloud", "Harbor Cloud");
 
         JsonNode p = page(ANIKA);
         assertThat(p.path("inbox").path("connected").asBoolean()).isTrue();
         assertThat(p.path("inbox").path("sandbox").asBoolean()).isTrue();
-        assertThat(p.path("suggestions")).hasSize(2);
+        assertThat(p.path("suggestions")).as("one row per company, the newest mail").hasSize(2);
         assertThat(p.path("updates")).extracting(n -> n.path("company").asText() + ":" + n.path("stage").asText()).contains("Orbit Freight:INTERVIEW", "Cedar Analytics:REJECTED");
         assertThat(p.path("updates")).allSatisfy(n -> assertThat(n.path("source").asText()).isEqualTo("INBOX"));
         assertThat(p.toString()).doesNotContain(CODE).doesNotContain("passwordEnc");
+    }
+
+    private void theInterviewMailsSetTheInterviewsAndAcceptingHarborAddsItsInterview() {
+        ZoneId la = ZoneId.of("America/Los_Angeles");
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+        // Orbit Freight: the phone screen was read from the text, then moved by the reschedule mail (same row, earlier time kept)
+        Application orbit = applications.findByUserId(id(ANIKA)).stream().filter(a -> a.getCompany().equals("Orbit Freight")).findFirst().orElseThrow();
+        List<Interview> orbitInterviews = interviews.findByApplicationIdAndUserIdOrderByStartsAtDescIdDesc(orbit.getId(), id(ANIKA));
+        assertThat(orbitInterviews).as("one interview, moved, not two").hasSize(1);
+        Interview phone = orbitInterviews.get(0);
+        assertThat(phone.getSource()).isEqualTo(Interview.SRC_INBOX);
+        assertThat(phone.getKind()).isEqualTo("PHONE");
+        assertThat(phone.getTz()).isEqualTo("America/Los_Angeles");
+        assertThat(phone.getStartsAt()).isEqualTo(LocalDateTime.of(today.plusDays(11), java.time.LocalTime.of(15, 30)).atZone(la).toInstant());
+        assertThat(phone.getScheduleHistory()).isEqualTo(LocalDateTime.of(today.plusDays(9), java.time.LocalTime.of(14, 0)).atZone(la).toInstant().toString());
+        assertThat(phone.getEndsAt()).isEqualTo(phone.getStartsAt().plusSeconds(30 * 60));
+        assertThat(phone.getOutcome()).isEqualTo(Interview.PENDING);
+
+        // Harbor Cloud is not tracked yet: accepting the suggestion puts the calendar invitation's time on the new application
+        as(ANIKA);
+        InboxMessage invite = messages.findByUserIdOrderBySentAtDesc(id(ANIKA)).stream().filter(m -> "NEW".equals(m.getSuggestion()) && "Harbor Cloud".equals(m.getCompanyGuess())).findFirst().orElseThrow();
+        Long harborMail = invite.getId();
+        assertThat(invite.getSubject()).as("the newest Harbor Cloud mail is the calendar invitation").startsWith("Interview confirmed");
+        assertThat(invite.getCategory()).isEqualTo("INTERVIEW");
+        assertThat(invite.getCalendarEvent()).as("the calendar part was reduced to a few fields at sync, never kept whole").isNotBlank().doesNotContain("BEGIN:VCALENDAR");
+        ExtractedSchedule read = applier.read(invite);
+        assertThat(read.scheduled()).as("read: %s", read).isTrue();
+        Long harborId = mail.accept(harborMail, null, "Site Reliability Engineer");
+        List<Interview> harbor = interviews.findByApplicationIdAndUserIdOrderByStartsAtDescIdDesc(harborId, id(ANIKA));
+        assertThat(harbor).hasSize(1);
+        Interview ics = harbor.get(0);
+        assertThat(ics.getStartsAt()).isEqualTo(LocalDateTime.of(today.plusDays(7), java.time.LocalTime.of(10, 0)).atZone(la).toInstant());
+        assertThat(ics.getEndsAt()).isEqualTo(ics.getStartsAt().plusSeconds(45 * 60));
+        assertThat(ics.getExternalUid()).isEqualTo("harbor-sre-0001@harborcloud.example");
+        assertThat(ics.getNotes()).isEqualTo("Meeting link: https://harborcloud.zoom.us/j/84217650931");
+        assertThat(applications.findById(harborId).orElseThrow().getStatus()).isEqualTo(ApplicationStatus.INTERVIEW);
     }
 
     private void benSeesNoneOfIt() throws Exception {

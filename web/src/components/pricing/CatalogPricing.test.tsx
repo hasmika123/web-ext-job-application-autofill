@@ -22,6 +22,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+// Waiting is on conditions, never on the clock: a loaded machine (or CI next to a build) can take several seconds to render a sheet, so every
+// async wait gets a generous ceiling and returns the moment its condition holds.
+const WAIT = { timeout: 10_000 };
+
+const bodyOf = (call: unknown[]) => JSON.parse((call[1] as RequestInit).body as string);
+/** The fetch calls made to one URL, in order. A basket's anonymous total quote is debounced 300 ms, so on a slow run it lands after the checkout: never read "the last call". */
+const callsTo = (url: string) => fetchMock.mock.calls.filter((c) => String(c[0]) === url);
+
 const proCard = () => screen.getByRole("heading", { name: "Pro" }).closest("div[class*='row-span-7']") as HTMLElement;
 
 describe("CatalogPricing", () => {
@@ -62,7 +70,7 @@ describe("CatalogPricing", () => {
     render(<CatalogPricing catalog={CATALOG} {...viewer} />);
     fireEvent.click(within(proCard()).getByRole("checkbox", { name: /Extra AI credits/ }));
     for (let i = 0; i < 3; i++) fireEvent.click(within(proCard()).getByLabelText("More Extra AI credits"));
-    await waitFor(() => expect(screen.getByTestId("total-PRO").textContent).toContain("$34.96"));
+    await waitFor(() => expect(screen.getByTestId("total-PRO").textContent).toContain("$34.96"), WAIT);
     const body = JSON.parse((fetchMock.mock.calls.at(-1)![1] as RequestInit).body as string);
     expect(body).toMatchObject({ anonymous: true, planKey: "PRO", interval: "MONTH", addons: [{ featureKey: "ai.credits_extra", quantity: 4 }] });
   });
@@ -89,41 +97,45 @@ describe("CatalogPricing", () => {
     render(<CatalogPricing catalog={CATALOG} {...viewer} />);
     fireEvent.click(within(proCard()).getByRole("checkbox", { name: /Extra AI credits/ }));
     fireEvent.click(within(proCard()).getByRole("button", { name: /Go Pro/ }));
-    const sheet = await screen.findByTestId("review-sheet");
-    await waitFor(() => expect(within(sheet).getByTestId("quote-total")).toBeTruthy());
+    const sheet = await screen.findByTestId("review-sheet", undefined, WAIT);
+    await waitFor(() => expect(within(sheet).getByTestId("quote-total")).toBeTruthy(), WAIT);
     expect(within(sheet).getByText(/Extra AI credits/)).toBeTruthy();
     const sentence = within(sheet).getByTestId("charge-sentence").textContent ?? "";
     expect(sentence).toContain("$29.97 today, then $29.97 every month from");
     expect(sentence).toContain("No refunds for partial periods");
     expect(within(sheet).getByText("By continuing you agree to the Terms.")).toBeTruthy();
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
-    expect(body).toMatchObject({ kind: "CHECKOUT", planKey: "PRO", interval: "MONTH", addons: [{ featureKey: "ai.credits_extra", quantity: 1 }] });
+    // the review sheet's own quote is the one that is not anonymous (a debounced basket-total quote may be in flight too)
+    const reviewQuote = callsTo("/api/billing/quotes").map(bodyOf).find((b) => !b.anonymous);
+    expect(reviewQuote).toMatchObject({ kind: "CHECKOUT", planKey: "PRO", interval: "MONTH", addons: [{ featureKey: "ai.credits_extra", quantity: 1 }] });
     fireEvent.click(screen.getByRole("button", { name: /Continue to payment/ }));
-    await waitFor(() => expect(loc.href).toBe("https://checkout.stripe.test/s"));
-    expect(String(fetchMock.mock.calls.at(-1)![0])).toBe("/api/billing/quotes/901/checkout");
+    await waitFor(() => expect(loc.href).toBe("https://checkout.stripe.test/s"), WAIT);
+    expect(callsTo("/api/billing/quotes/901/checkout")).toHaveLength(1);
   });
 
   it("re-quotes on QUOTE_STALE and says the prices changed", async () => {
     let quotes = 0;
-    fetchMock.mockImplementation((url: string) => {
+    fetchMock.mockImplementation((url: string, init?: RequestInit) => {
       if (String(url).endsWith("/checkout")) return reply({ code: "QUOTE_STALE", reason: "PRICES_CHANGED" }, 409);
+      // count the review sheet's quotes only: the card's own debounced anonymous total quote is a different request and its timing is the machine's
+      if (JSON.parse(String(init?.body ?? "{}")).anonymous) return reply(CHECKOUT_QUOTE);
       quotes += 1;
       return reply({ ...CHECKOUT_QUOTE, quoteId: 900 + quotes });
     });
     render(<CatalogPricing catalog={CATALOG} {...viewer} />);
     fireEvent.click(within(proCard()).getByRole("button", { name: /Go Pro/ }));
-    await screen.findByTestId("quote-total");
+    await screen.findByTestId("quote-total", undefined, WAIT);
     fireEvent.click(screen.getByRole("button", { name: /Continue to payment/ }));
-    await waitFor(() => expect(screen.getByText(/Prices changed/)).toBeTruthy());
-    await waitFor(() => expect(quotes).toBe(2));
-    expect((screen.getByRole("button", { name: /Continue to payment/ }) as HTMLButtonElement).disabled).toBe(false);
+    await waitFor(() => expect(screen.getByText(/Prices changed/)).toBeTruthy(), WAIT);
+    await waitFor(() => expect(quotes).toBe(2), WAIT);
+    // the second quote's response is applied a tick after the request is made: wait for the button to come back rather than reading it at once
+    await waitFor(() => expect((screen.getByRole("button", { name: /Continue to payment/ }) as HTMLButtonElement).disabled).toBe(false), WAIT);
   });
 
   it("points ALREADY_SUBSCRIBED to My plan", async () => {
     fetchMock.mockImplementation(() => reply({ code: "ALREADY_SUBSCRIBED" }, 409));
     render(<CatalogPricing catalog={CATALOG} {...viewer} />);
     fireEvent.click(within(proCard()).getByRole("button", { name: /Go Pro/ }));
-    expect(await screen.findByText(/already have a plan/)).toBeTruthy();
+    expect(await screen.findByText(/already have a plan/, undefined, WAIT)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open My plan" }).getAttribute("href")).toBe("/settings/plan");
   });
 });

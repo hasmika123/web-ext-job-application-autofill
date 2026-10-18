@@ -31,11 +31,13 @@ for (const [name, width, height] of [
       await banner.getByRole("link", { name: "See your options" }).click();
       await expect(page).toHaveURL(/\/settings\/plan\/changing$/);
       await expect(page.getByTestId("changing-title")).toContainText("Pro v1 is changing on");
-      await expect(page.getByRole("button", { name: "Switch at renewal — free" })).toBeVisible();
+      // one primary action in the suggestion card; on a phone the sticky bar repeats it so it stays in reach (the same choice, not a second one)
+      const choice = page.getByTestId("suggestion").getByRole("button", { name: "Switch at renewal — free" });
+      await expect(choice).toBeVisible();
       await expect(page.getByRole("button", { name: /Switch now/ })).toHaveCount(0);
       await expect(page.getByTestId("do-nothing")).toContainText("your account moves to Free");
       await axeClean(page, `plan changing equal ${name}`);
-      await page.getByRole("button", { name: "Switch at renewal — free" }).click();
+      await choice.click();
       await expect(page.getByTestId("decision-line")).toContainText("It starts on");
     });
 

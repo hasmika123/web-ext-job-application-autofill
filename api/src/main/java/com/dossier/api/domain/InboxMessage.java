@@ -67,6 +67,15 @@ public class InboxMessage implements Serializable {
     @Column(name = "body_text")
     private String bodyText;
 
+    /** The zone of the mail's Date header (e.g. "-07:00"): the zone a time written without one is read in. */
+    @Column(name = "sent_zone", length = 40)
+    private String sentZone;
+
+    /** A few extracted fields of the mail's calendar part (JSON, see {@code IcsEvent}); the calendar file itself is never kept. */
+    @Lob
+    @Column(name = "calendar_event")
+    private String calendarEvent;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
@@ -207,6 +216,22 @@ public class InboxMessage implements Serializable {
 
     public void setJobMail(boolean jobMail) {
         this.jobMail = jobMail;
+    }
+
+    public String getSentZone() {
+        return sentZone;
+    }
+
+    public void setSentZone(String sentZone) {
+        this.sentZone = sentZone;
+    }
+
+    public String getCalendarEvent() {
+        return calendarEvent;
+    }
+
+    public void setCalendarEvent(String calendarEvent) {
+        this.calendarEvent = calendarEvent;
     }
 
     public String getBodyText() {

@@ -127,7 +127,7 @@ export default function InboxConnect({
       <div className="rounded-[var(--radius-lg)] border border-line bg-paper p-6 shadow-[var(--shadow)]">
         <h2 className="font-display text-lg font-semibold text-ink">Let your inbox update your board</h2>
         <p className="mt-2 text-[14px] leading-relaxed text-ink-soft">
-          Connect the Gmail you apply from and {links.appName} reads replies from employers — confirmations, interview invites,
+          Connect the Gmail you apply from and {links.appName}{" "}reads replies from employers — confirmations, interview invites,
           rejections, offers — and moves each application along for you. It only ever reads.
         </p>
         <Link href={links.pricing} className={cn(buttonVariants("primary", "sm"), "mt-4 inline-flex")}>
@@ -240,7 +240,7 @@ export default function InboxConnect({
             {confirming ? (
               <div className="flex flex-col gap-3">
                 <p className="text-[13px] text-ink">
-                  Disconnecting deletes the saved app password and any mail {links.appName} has read from this inbox. To be sure we
+                  Disconnecting deletes the saved app password and any mail {links.appName}{" "}has read from this inbox. To be sure we
                   can&apos;t sign in again, also delete the app password in{" "}
                   <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className={external}>
                     your Google account
