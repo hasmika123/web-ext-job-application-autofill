@@ -49,6 +49,8 @@ const NOT_OURS = ["nextjs-portal"];
  * ours to get right, not a marketing page). `label` names the screen in the failure.
  */
 export async function expectAccessible(page: Page, label = "page", scope?: string): Promise<void> {
+  // a pane that is recalculating dims itself (opacity-70, aria-busy): audit it once it has the answer, not while it is grey
+  await page.waitForFunction(() => !document.querySelector('[aria-busy="true"]'), undefined, { timeout: 15_000 }).catch(() => undefined);
   await settleAnimations(page); // axe reads half-faded colours mid-transition (a saving panel dims to 60 %): wait for them to finish
   let builder = new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]);
   if (scope) builder = builder.include(scope);
