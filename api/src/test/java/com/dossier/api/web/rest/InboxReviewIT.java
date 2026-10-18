@@ -143,7 +143,7 @@ class InboxReviewIT {
 
         // Held, not applied.
         assertThat(applications.findById(a.getId()).orElseThrow().getStatus()).isEqualTo(ApplicationStatus.APPLIED);
-        JsonNode review = json(fetch("/api/inbox/review"));
+        JsonNode review = json(fetch("/api/profile/inbox/review"));
         assertThat(review.path("count").asInt()).isEqualTo(1);
         JsonNode item = review.path("items").get(0);
         assertThat(item.path("kind").asText()).isEqualTo("REJECTION");
@@ -156,18 +156,18 @@ class InboxReviewIT {
         long id = item.path("id").asLong();
 
         // Someone else sees nothing and can do nothing with it (the generic 404).
-        mockMvc.perform(get("/api/inbox/review").with(user("admin"))).andExpect(status().isOk()).andExpect(jsonPath("$.count").value(0));
-        mockMvc.perform(post("/api/inbox/review/" + id + "/accept").with(user("admin")).contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isNotFound());
-        mockMvc.perform(post("/api/inbox/review/" + id + "/dismiss").with(user("admin"))).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/profile/inbox/review").with(user("admin"))).andExpect(status().isOk()).andExpect(jsonPath("$.count").value(0));
+        mockMvc.perform(post("/api/profile/inbox/review/" + id + "/accept").with(user("admin")).contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/profile/inbox/review/" + id + "/dismiss").with(user("admin"))).andExpect(status().isNotFound());
 
         // The person says yes: the status moves, once.
         mockMvc
-            .perform(post("/api/inbox/review/" + id + "/accept").contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .perform(post("/api/profile/inbox/review/" + id + "/accept").contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.application.id").value(a.getId()))
             .andExpect(jsonPath("$.application.status").value("REJECTED"));
-        mockMvc.perform(post("/api/inbox/review/" + id + "/accept")).andExpect(status().isOk()).andExpect(jsonPath("$.application.status").value("REJECTED"));
-        assertThat(fetch("/api/inbox/review")).contains("\"count\":0");
+        mockMvc.perform(post("/api/profile/inbox/review/" + id + "/accept")).andExpect(status().isOk()).andExpect(jsonPath("$.application.status").value("REJECTED"));
+        assertThat(fetch("/api/profile/inbox/review")).contains("\"count\":0");
 
         // The timeline names the person and offers Undo.
         List<EventDTO> timeline = eventService.recent(a.getId());
@@ -181,13 +181,13 @@ class InboxReviewIT {
         Application a = app(me, "Hooli", "PM", ApplicationStatus.INTERVIEW);
         rejectionFor(me, "Hooli");
         parser.parse(me.getId(), "me@gmail.com");
-        long id = json(fetch("/api/inbox/review")).path("items").get(0).path("id").asLong();
+        long id = json(fetch("/api/profile/inbox/review")).path("items").get(0).path("id").asLong();
 
-        mockMvc.perform(post("/api/inbox/review/" + id + "/dismiss")).andExpect(status().isNoContent());
-        mockMvc.perform(post("/api/inbox/review/" + id + "/dismiss")).andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/profile/inbox/review/" + id + "/dismiss")).andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/profile/inbox/review/" + id + "/dismiss")).andExpect(status().isNoContent());
 
         assertThat(applications.findById(a.getId()).orElseThrow().getStatus()).isEqualTo(ApplicationStatus.INTERVIEW);
-        assertThat(fetch("/api/inbox/review")).contains("\"count\":0");
+        assertThat(fetch("/api/profile/inbox/review")).contains("\"count\":0");
         // The same mail never asks again: a second pass over it changes nothing and re-holds nothing.
         assertThat(holds.findByUserIdAndStateAndExpiresAtAfterOrderByCreatedAtDesc(me.getId(), InboxHold.PENDING, Instant.now())).isEmpty();
     }
@@ -198,9 +198,9 @@ class InboxReviewIT {
         c.setAddress("me@gmail.com");
         c.setPasswordEnc("x");
         connections.saveAndFlush(c);
-        mockMvc.perform(get("/api/inbox/settings")).andExpect(status().isOk()).andExpect(jsonPath("$.applyRejectionsAutomatically").value(false));
+        mockMvc.perform(get("/api/profile/inbox/settings")).andExpect(status().isOk()).andExpect(jsonPath("$.applyRejectionsAutomatically").value(false));
         mockMvc
-            .perform(put("/api/inbox/settings").contentType(MediaType.APPLICATION_JSON).content("{\"applyRejectionsAutomatically\":true}"))
+            .perform(put("/api/profile/inbox/settings").contentType(MediaType.APPLICATION_JSON).content("{\"applyRejectionsAutomatically\":true}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.applyRejectionsAutomatically").value(true));
 
@@ -214,14 +214,14 @@ class InboxReviewIT {
         assertThat(row.actorKind()).isEqualTo(ApplicationEvent.ACTOR_MAIL);
 
         // Another person cannot undo it.
-        mockMvc.perform(post("/api/applications/" + a.getId() + "/inbox-undo/" + row.inboxEventId()).with(user("admin"))).andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/profile/applications/" + a.getId() + "/inbox-undo/" + row.inboxEventId()).with(user("admin"))).andExpect(status().isNotFound());
 
         // Undo puts the old status back, writes "Undone by you", and is idempotent.
         mockMvc
-            .perform(post("/api/applications/" + a.getId() + "/inbox-undo/" + row.inboxEventId()))
+            .perform(post("/api/profile/applications/" + a.getId() + "/inbox-undo/" + row.inboxEventId()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.application.status").value("INTERVIEW"));
-        mockMvc.perform(post("/api/applications/" + a.getId() + "/inbox-undo/" + row.inboxEventId())).andExpect(status().isOk()).andExpect(jsonPath("$.application.status").value("INTERVIEW"));
+        mockMvc.perform(post("/api/profile/applications/" + a.getId() + "/inbox-undo/" + row.inboxEventId())).andExpect(status().isOk()).andExpect(jsonPath("$.application.status").value("INTERVIEW"));
         List<EventDTO> after = eventService.recent(a.getId());
         assertThat(after.get(0).summary()).isEqualTo("Undone by you");
         assertThat(after.stream().filter(e -> e.inboxEventId() != null).allMatch(e -> !e.undoable())).isTrue();
@@ -243,7 +243,7 @@ class InboxReviewIT {
         b.setStatus(ApplicationStatus.INTERVIEW);
         applications.saveAndFlush(b);
         mockMvc
-            .perform(post("/api/applications/" + b.getId() + "/inbox-undo/" + old.getId()))
+            .perform(post("/api/profile/applications/" + b.getId() + "/inbox-undo/" + old.getId()))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("UNDO_EXPIRED"));
     }
@@ -267,15 +267,15 @@ class InboxReviewIT {
         );
         safety.holdAmbiguous(me.getId(), m, e);
 
-        JsonNode item = json(fetch("/api/inbox/review")).path("items").get(0);
+        JsonNode item = json(fetch("/api/profile/inbox/review")).path("items").get(0);
         assertThat(item.path("kind").asText()).isEqualTo("AMBIGUOUS");
         assertThat(item.path("applicationId").isNull()).isTrue();
         assertThat(item.path("candidates").size()).isEqualTo(2);
         long id = item.path("id").asLong();
 
-        mockMvc.perform(post("/api/inbox/review/" + id + "/accept").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isBadRequest());
+        mockMvc.perform(post("/api/profile/inbox/review/" + id + "/accept").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isBadRequest());
         mockMvc
-            .perform(post("/api/inbox/review/" + id + "/accept").contentType(MediaType.APPLICATION_JSON).content("{\"applicationId\":" + two.getId() + "}"))
+            .perform(post("/api/profile/inbox/review/" + id + "/accept").contentType(MediaType.APPLICATION_JSON).content("{\"applicationId\":" + two.getId() + "}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.application.id").value(two.getId()))
             .andExpect(jsonPath("$.application.status").value("INTERVIEW"));
@@ -291,17 +291,17 @@ class InboxReviewIT {
         h.setExpiresAt(Instant.now().minusSeconds(60));
         holds.saveAndFlush(h);
 
-        assertThat(fetch("/api/inbox/review")).contains("\"count\":0");
+        assertThat(fetch("/api/profile/inbox/review")).contains("\"count\":0");
         assertThat(expiry.expire(Instant.now())).isGreaterThanOrEqualTo(1);
-        mockMvc.perform(post("/api/inbox/review/" + h.getId() + "/accept").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isConflict());
+        mockMvc.perform(post("/api/profile/inbox/review/" + h.getId() + "/accept").contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isConflict());
         assertThat(applications.findById(a.getId()).orElseThrow().getStatus()).isEqualTo(ApplicationStatus.APPLIED);
     }
 
     @Test
     void theRejectionSwitchNeedsAConnectedInbox() throws Exception {
-        mockMvc.perform(get("/api/inbox/settings")).andExpect(status().isOk()).andExpect(jsonPath("$.applyRejectionsAutomatically").value(false));
+        mockMvc.perform(get("/api/profile/inbox/settings")).andExpect(status().isOk()).andExpect(jsonPath("$.applyRejectionsAutomatically").value(false));
         mockMvc
-            .perform(put("/api/inbox/settings").contentType(MediaType.APPLICATION_JSON).content("{\"applyRejectionsAutomatically\":true}"))
+            .perform(put("/api/profile/inbox/settings").contentType(MediaType.APPLICATION_JSON).content("{\"applyRejectionsAutomatically\":true}"))
             .andExpect(status().isConflict());
     }
 

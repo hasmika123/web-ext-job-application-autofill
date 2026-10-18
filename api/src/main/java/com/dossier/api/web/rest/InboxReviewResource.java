@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
  * </ul>
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/profile")
 @Tag(name = "inbox-review", description = "What the inbox held for review, and undo for what it applied.")
 @SecurityRequirement(name = OpenApiConfiguration.BEARER_JWT_SCHEME)
 public class InboxReviewResource {
