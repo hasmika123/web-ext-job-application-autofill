@@ -85,7 +85,7 @@ public class OrgSettingsResource {
     @Operation(
         summary = "Change the Prepare selected openings settings",
         description = "Partial body {enabled?, dailyCap?, monthlyCap?, maxBatch?}: an absent field is left alone, a null number goes back to the platform value. A number above the platform maximum is kept at the maximum (the reply shows it); " +
-            "below the minimum or not a whole number is 422 ORG_INVALID. 409 PREPARE_PLATFORM_OFF while Kiwiply has the feature off. One ORG_SETTINGS audit row with old and new values. Kiwiply never submits an application: the consultant always reviews and submits."
+            "below the minimum or not a whole number is 422 ORG_INVALID. 409 PREPARE_PLATFORM_OFF while Kiwiply has the feature off. One ORG_SETTINGS audit row with old and new values. The consultant always reviews each prepared application and finishes it themselves on the employer site."
     )
     @PutMapping("/prepare")
     @OrgPermissionRequired(OrgPermission.ORG_SETTINGS_MANAGE)

@@ -32,3 +32,4 @@ OrgInterviewResource#reminder | the body must be empty (anything else is refused
 ConsultantProfileResource#workAuthorization | value must be one of AUTHORIZED_NO_SPONSORSHIP, AUTHORIZED_NEEDS_SPONSORSHIP, NOT_AUTHORIZED
 ConsultantProfileResource#availability | status is one of the closed AVAILABILITY set
 ConsultantProfileResource#employmentTypes | values must be a subset of CONTRACT, CONTRACT_TO_HIRE, FULL_TIME, PART_TIME
+OrgSettingsResource#putPrepare | body carries only enabled (boolean) and dailyCap, monthlyCap, maxBatch (whole numbers, range-checked); no text is stored
