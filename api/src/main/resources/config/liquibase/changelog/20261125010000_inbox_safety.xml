@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        inbox-safety - nothing the inbox does to an application may be wrong without a way for the person to see and reverse it.
+
+        `inbox_hold` is a status change a mail PROPOSED but the inbox did not apply: a rejection (or a withdrawal by the company), a reading below the
+        admin's apply threshold, an ambiguous match (two close candidate applications) or a move backwards. It carries the category, the proposed status,
+        the confidence (0..100), a short evidence snippet (at most 200 characters, scrubbed of addresses, links and long numbers), the candidate
+        applications and an expiry. One hold per mail (unique user_id + message_id), so a dismissed mail never asks again. It belongs to the person whose
+        mailbox it is and is deleted with the mailbox (cascade) and with the account.
+
+        `inbox_message.undone_at` - the person undid the status change this mail made (the mail is then dismissed for that application).
+        `inbox_connection.auto_apply_rejections` - the person's switch "Apply rejections automatically"; default OFF.
+
+        Additive only; no data is rewritten.
+    -->
+    <changeSet id="20261125010000-1" author="dossier">
+        <createTable tableName="inbox_hold">
+            <column name="id" type="bigint" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="message_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="reason" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category" type="varchar(20)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="proposed_status" type="varchar(20)"/>
+            <column name="confidence" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="evidence" type="varchar(200)"/>
+            <column name="company" type="varchar(200)"/>
+            <column name="role" type="varchar(300)"/>
+            <column name="application_id" type="bigint"/>
+            <column name="candidate_ids" type="varchar(200)"/>
+            <column name="state" type="varchar(10)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expires_at" type="timestamp">
+                <constraints nullable="false"/>
+            </column>
+            <column name="resolved_at" type="timestamp"/>
+            <column name="resolved_application_id" type="bigint"/>
+        </createTable>
+        <addUniqueConstraint tableName="inbox_hold" columnNames="user_id, message_id" constraintName="ux_inbox_hold_message"/>
+        <createIndex tableName="inbox_hold" indexName="idx_inbox_hold_user_state">
+            <column name="user_id"/>
+            <column name="state"/>
+        </createIndex>
+        <addForeignKeyConstraint
+            baseTableName="inbox_hold"
+            baseColumnNames="user_id"
+            constraintName="fk_inbox_hold_user_id"
+            referencedTableName="jhi_user"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+        <addForeignKeyConstraint
+            baseTableName="inbox_hold"
+            baseColumnNames="message_id"
+            constraintName="fk_inbox_hold_message_id"
+            referencedTableName="inbox_message"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <addColumn tableName="inbox_message">
+            <column name="undone_at" type="timestamp"/>
+        </addColumn>
+        <addColumn tableName="inbox_connection">
+            <column name="auto_apply_rejections" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+</databaseChangeLog>
