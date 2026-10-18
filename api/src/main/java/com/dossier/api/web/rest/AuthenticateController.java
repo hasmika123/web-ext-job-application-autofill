@@ -482,7 +482,10 @@ public class AuthenticateController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         String subject = account.getLogin();
-        String authorities = account.getAuthorities().stream().map(com.dossier.api.domain.Authority::getName).collect(Collectors.joining(" "));
+        // The authorities are lazy and this method runs outside a transaction (open-in-view is off), so read them with their own fetch-join query:
+        // account.getAuthorities() here failed with a LazyInitializationException (a 500 on every enterprise extension connect).
+        com.dossier.api.domain.User withAuthorities = userRepository.findOneWithAuthoritiesByLogin(subject).orElse(account);
+        String authorities = withAuthorities.getAuthorities().stream().map(com.dossier.api.domain.Authority::getName).collect(Collectors.joining(" "));
         TenantBinding binding = new TenantBinding(orgId, null); // no hostname id: the platform host is not a tenant host
         String accessToken = buildToken(subject, authorities, account.getId(), ACCESS_TOKEN_TYPE, accessTokenValidityInSeconds, null, binding, false, true);
         String family = UUID.randomUUID().toString();
