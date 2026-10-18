@@ -92,6 +92,7 @@ class ScenarioHarnessIT {
         return Arrays.stream(found).map(Resource::getFilename).sorted();
     }
 
+    @org.junit.jupiter.api.Timeout(120) // a scenario is a dozen routes, webhooks and reconciler laps: on a loaded machine it needs more than the 15 s default
     @ParameterizedTest(name = "{0}")
     @MethodSource("scenarios")
     void scenario(String file) throws Exception {
