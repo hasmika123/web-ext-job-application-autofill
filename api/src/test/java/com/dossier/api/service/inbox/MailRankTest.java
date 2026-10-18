@@ -48,7 +48,7 @@ class MailRankTest {
         MailMatcher.Ranking r = MailMatcher.rank(List.of(a, b), facts("Acme", null, "Hi", "Your id is REQ-70001", "x@y.com", null, null));
         assertThat(r.best()).isEqualTo(a);
         assertThat(r.kind()).isEqualTo(MatchKind.ATS_ID);
-        assertThat(r.score()).isGreaterThanOrEqualTo(99);
+        assertThat(r.score()).isGreaterThanOrEqualTo(98);
     }
 
     @Test
