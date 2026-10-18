@@ -46,6 +46,15 @@ export default function Dialog({
     if (dismissable) onClose();
   }, [dismissable, onClose]);
 
+  // The effect below must run when the dialog opens or closes, and ONLY then: it moves focus into the panel and, when it cleans up, back to the
+  // trigger. Callers usually pass a fresh `onClose` on every render (an inline arrow, or a function declared in the component body), so the effect
+  // reads the latest one through a ref instead of listing it as a dependency. Otherwise every keystroke that re-renders the caller re-runs the
+  // effect and the focus jumps from the field being typed in to the close button.
+  const closeRef = useRef(requestClose);
+  useEffect(() => {
+    closeRef.current = requestClose;
+  }, [requestClose]);
+
   useEffect(() => {
     if (!open) return;
     restoreRef.current = document.activeElement as HTMLElement | null;
@@ -61,7 +70,7 @@ export default function Dialog({
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        requestClose();
+        closeRef.current();
         return;
       }
       if (e.key !== "Tab" || !panel) return;
@@ -91,7 +100,7 @@ export default function Dialog({
       document.body.style.overflow = prevOverflow;
       restoreRef.current?.focus?.();
     };
-  }, [open, requestClose]);
+  }, [open]);
 
   if (!open) return null;
 
