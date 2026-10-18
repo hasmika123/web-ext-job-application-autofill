@@ -113,14 +113,12 @@ export default function NeedsReviewCard({ endpoints, workspace = false, statusLa
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const alive = useRef(true);
-  const ep = useRef(endpoints);
-  ep.current = endpoints;
 
   const reload = useCallback(async () => {
-    const r = await fetchReview(ep.current);
+    const r = await fetchReview(endpoints);
     if (!alive.current) return;
     setLoad(r.kind === "ok" ? { kind: "ok", items: r.data.items } : { kind: r.kind });
-  }, []);
+  }, [endpoints]);
 
   useEffect(() => {
     alive.current = true;
@@ -133,7 +131,7 @@ export default function NeedsReviewCard({ endpoints, workspace = false, statusLa
   async function accept(item: ReviewItem, applicationId?: number | string) {
     setBusy(true);
     setNote(null);
-    const r = await acceptReview(ep.current, item.id, applicationId);
+    const r = await acceptReview(endpoints, item.id, applicationId);
     if (!alive.current) return;
     setBusy(false);
     if (r.ok) {
@@ -148,7 +146,7 @@ export default function NeedsReviewCard({ endpoints, workspace = false, statusLa
   async function dismiss(item: ReviewItem) {
     setBusy(true);
     setNote(null);
-    const r = await dismissReview(ep.current, item.id);
+    const r = await dismissReview(endpoints, item.id);
     if (!alive.current) return;
     setBusy(false);
     if (r.ok) {

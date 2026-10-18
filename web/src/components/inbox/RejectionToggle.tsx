@@ -13,12 +13,10 @@ export default function RejectionToggle({ endpoints, workspace = false }: { endp
   const [failed, setFailed] = useState<"load" | "save" | null>(null);
   const [saving, setSaving] = useState(false);
   const alive = useRef(true);
-  const ep = useRef(endpoints);
-  ep.current = endpoints;
 
   useEffect(() => {
     alive.current = true;
-    void fetchRejectionSetting(ep.current).then((r) => {
+    void fetchRejectionSetting(endpoints).then((r) => {
       if (!alive.current) return;
       if (r.kind === "ok") setValue(r.applyRejectionsAutomatically);
       else setFailed("load");
@@ -26,14 +24,14 @@ export default function RejectionToggle({ endpoints, workspace = false }: { endp
     return () => {
       alive.current = false;
     };
-  }, []);
+  }, [endpoints]);
 
   async function change(next: boolean) {
     const before = value;
     setValue(next);
     setSaving(true);
     setFailed(null);
-    const r = await saveRejectionSetting(ep.current, next);
+    const r = await saveRejectionSetting(endpoints, next);
     if (!alive.current) return;
     setSaving(false);
     if (r.kind === "ok") setValue(r.applyRejectionsAutomatically);

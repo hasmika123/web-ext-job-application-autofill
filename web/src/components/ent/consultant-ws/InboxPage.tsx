@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { ErrorState, LockIcon, MailIcon, ShieldIcon, Skeleton, cn } from "@kiwiply/ui";
 import InboxConnect, { type InboxLinks } from "@/components/settings/InboxConnect";
 import PageHeader from "@/components/ent/shell/ShellContext";
@@ -112,6 +112,7 @@ function UpdateRow({ u }: { u: InboxUpdate }) {
 
 export default function InboxPage({ orgId }: { orgId: number; firstName?: string }) {
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchConsultantInbox(orgId), [orgId]));
+  const review = useMemo(() => reviewEndpoints(orgId), [orgId]);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -157,8 +158,8 @@ export default function InboxPage({ orgId }: { orgId: number; firstName?: string
                   {note}
                 </p>
               ) : null}
-              <NeedsReviewCard endpoints={reviewEndpoints(orgId)} workspace onChanged={() => void reload()} />
-              <RejectionToggle endpoints={reviewEndpoints(orgId)} workspace />
+              <NeedsReviewCard endpoints={review} workspace onChanged={() => void reload()} />
+              <RejectionToggle endpoints={review} workspace />
               <Card id="inbox-suggestions" title="Found in your mail" icon={MailIcon} tone="accent">
                 {v.suggestions.length === 0 ? (
                   <Empty>Nothing new. Jobs your mail shows that your board doesn&apos;t track yet will appear here.</Empty>
