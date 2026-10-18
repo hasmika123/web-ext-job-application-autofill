@@ -442,7 +442,7 @@ public class AuthenticateController {
         com.dossier.api.domain.User account = userId == null ? null : userRepository.findById(userId).orElse(null);
         TenantSessionService sessions = tenantSessions.getIfAvailable();
         if (
-            account == null || account.getOrgId() == null || tid == null || !tid.equals(account.getOrgId()) || !account.isActivated() ||
+            account == null || tid == null || !connectsTo(account, tid) || !account.isActivated() ||
             com.dossier.api.security.SecurityUtils.isExtension(jwtAuth.getToken().getClaim(EXTENSION_CLAIM)) || // an extension token can not mint another
             sessions == null || !sessions.refreshAllowed(tid, userId)
         ) {
@@ -476,7 +476,7 @@ public class AuthenticateController {
         TenantSessionService sessions = tenantSessions.getIfAvailable();
         Long orgId = spent.get().orgId();
         if (
-            account == null || !account.isActivated() || account.isPasswordChangeRequired() || account.getOrgId() == null || !account.getOrgId().equals(orgId) ||
+            account == null || !account.isActivated() || account.isPasswordChangeRequired() || orgId == null || !connectsTo(account, orgId) ||
             sessions == null || !sessions.refreshAllowed(orgId, account.getId())
         ) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -498,6 +498,17 @@ public class AuthenticateController {
         // The synthetic ent# login is never sent: the extension identifies an enterprise account by user id and shows email + organization.
         TokenResponse out = new TokenResponse(accessToken, refreshToken).account("ENTERPRISE", account.getId(), account.getEmail(), null, orgId, orgName);
         return new ResponseEntity<>(out, httpHeaders, HttpStatus.OK);
+    }
+
+    /**
+     * Whether {@code account} may connect the extension to organization {@code orgId}: a SEPARATE-accounts member's own account (its {@code org_id} is the
+     * organization), or, in a SHARED-accounts organization, an ordinary account (no {@code org_id}) that holds a seat there. The seat itself
+     * (active, not a reserved role) is checked by the caller through {@code TenantSessionService.refreshAllowed}. An ordinary account is never accepted
+     * for a SEPARATE organization (its members have their own accounts) nor for one whose mode cannot be read.
+     */
+    private boolean connectsTo(com.dossier.api.domain.User account, Long orgId) {
+        if (account.getOrgId() != null) return account.getOrgId().equals(orgId);
+        return accountScopes != null && accountScopes.tokenFitsAccount(orgId, null);
     }
 
     /** X2.9: a session on an organization's host lives no longer than that organization's idle timeout (a refresh renews it). Extension tokens and personal sessions keep the platform lifetime. */
