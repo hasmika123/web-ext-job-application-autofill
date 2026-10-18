@@ -21,6 +21,7 @@ import com.dossier.api.service.ent.EnterpriseDemoSeeder;
 import com.dossier.api.service.ent.consultant.PrepareBatchEntitlement;
 import com.dossier.api.service.settings.EnterpriseSettingKeys;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,7 +155,8 @@ public class ConsultantPrepareDemoSeeder {
             .filter(l -> "ACTIVE".equals(l.getStatus()))
             .findFirst()
             .orElse(null);
-        if (live == null) return 0; // no live license to put it on: the billing seed decides that, never this one
+        if (live == null) live = demoActivate(orgId, consultantId); // the billing shuffle may have left them without one
+        if (live == null) return 0;
         boolean has = features.findByOrgIdAndLicenseIdOrderByIdAsc(orgId, live.getId()).stream().anyMatch(f -> PrepareBatchEntitlement.FEATURE.equals(f.getFeatureKey()));
         if (has) return 0;
         LicenseFeature f = new LicenseFeature();
@@ -169,5 +171,30 @@ public class ConsultantPrepareDemoSeeder {
         f.setCreatedAt(Instant.now());
         features.save(f);
         return 1;
+    }
+
+    /**
+     * Demo only: the walkthrough consultants (Anika Rao, Ben Okafor) must hold a live licence whatever status the billing shuffle gave them, or
+     * the add-on has nothing to sit on and the demo shows "not included". Their newest licence becomes ACTIVE (an ended, suspended or pending one is
+     * revived); when they have none at all nothing is invented and a warning says so. Real licences of real organizations are never touched.
+     */
+    private ConsultantLicense demoActivate(Long orgId, Long consultantId) {
+        List<ConsultantLicense> all = licenses.findByOrgIdAndConsultantIdOrderByStartsAtDesc(orgId, consultantId);
+        if (all.isEmpty()) {
+            LOG.warn("Demo consultant {} of org {} has no licence at all; the add-on is not seeded", consultantId, orgId);
+            return null;
+        }
+        ConsultantLicense l = all.get(0);
+        Instant now = Instant.now();
+        l.setStatus("ACTIVE");
+        if (l.getStartsAt() == null || l.getStartsAt().isAfter(now)) l.setStartsAt(now.minus(1, java.time.temporal.ChronoUnit.DAYS));
+        if (l.getRenewsAt() == null || l.getRenewsAt().isBefore(now)) l.setRenewsAt(l.getStartsAt().plus(365, java.time.temporal.ChronoUnit.DAYS));
+        l.setEndsAt(null);
+        l.setEndReason(null);
+        l.setPaidThroughAt(null);
+        l.setSuspendedAt(null);
+        l.setSuspendReason(null);
+        l.setUpdatedAt(now);
+        return licenses.save(l);
     }
 }
