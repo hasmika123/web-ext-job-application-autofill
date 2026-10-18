@@ -297,7 +297,9 @@ class BillingSchemaIT {
         assertThat(counts(acme)).isEqualTo(before);
         assertThat(counts(beta)).isEqualTo(betaBefore);
         assertThat(jdbc.queryForObject("select count(*) from product", Long.class)).isEqualTo(products);
-        assertThat(jdbc.queryForObject("select count(*) from product where demo_data = false", Long.class)).isZero(); // the demo owns the whole catalog here
+        // The subscription module seeds the real catalog (PRO, AUTOPILOT, FEAT_*, ...) into the same table: the demo marks only its own DEMO_ products, never touches the real ones.
+        assertThat(jdbc.queryForObject("select count(*) from product where code like 'DEMO\\_%' and demo_data = false", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from product where code not like 'DEMO\\_%' and demo_data = true", Long.class)).isZero();
     }
 
     private void betaIsSmallerAndNeverMixesWithAcme() {
