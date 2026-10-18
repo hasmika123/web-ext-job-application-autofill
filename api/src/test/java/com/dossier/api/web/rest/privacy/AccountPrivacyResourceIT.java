@@ -171,6 +171,10 @@ class AccountPrivacyResourceIT {
         String small = "resumes/" + uid + "/9001-it-cv.pdf";
         storage.store(small, "%PDF-small".getBytes(), "application/pdf");
         filesToClean.add(small);
+        // a profile photo (R7.4) is the person's own content: it travels in the export like the PDFs do
+        String photo = "resume-photos/" + uid + "/9001-it-photo.jpg";
+        storage.store(photo, "jpeg-bytes".getBytes(), "image/jpeg");
+        filesToClean.add(photo);
 
         MvcResult started = mvc.perform(post("/api/account/exports").with(user("user"))).andExpect(status().isAccepted()).andExpect(jsonPath("$.status").value("QUEUED")).andReturn();
         long jobId = json(started).get("id").asLong();
@@ -187,7 +191,8 @@ class AccountPrivacyResourceIT {
 
         byte[] zip = mvc.perform(get(path).with(user("user"))).andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
         Map<String, byte[]> entries = unzip(zip);
-        assertThat(entries).containsKeys("export.json", "manifest.json", "files/" + small);
+        assertThat(entries).containsKeys("export.json", "manifest.json", "files/" + small, "files/" + photo);
+        assertThat(new String(entries.get("files/" + photo))).isEqualTo("jpeg-bytes");
         assertThat(new String(entries.get("files/" + small))).isEqualTo("%PDF-small");
         JsonNode export = mapper.readTree(entries.get("export.json"));
         assertThat(export.has("termsAcceptance")).isTrue();
