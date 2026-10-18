@@ -13,7 +13,9 @@ import jakarta.mail.Store;
 import jakarta.mail.UIDFolder;
 import jakarta.mail.URLName;
 import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.internet.MimeMessage;
+import jakarta.mail.internet.MimeMultipart;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -144,13 +146,44 @@ public class DemoImapGateway implements ImapGateway {
             DemoMessage msg = new DemoMessage(session, Date.from(at));
             msg.setFrom(new InternetAddress(m.path("fromAddress").asText(), m.path("fromName").asText()));
             msg.setRecipient(Message.RecipientType.TO, new InternetAddress(sent ? m.path("to").asText() : demoAddress()));
-            msg.setSubject(m.path("subject").asText());
+            msg.setSubject(dates(m.path("subject").asText(), now));
             msg.setSentDate(Date.from(at));
-            msg.setText(m.path("body").asText());
+            if (m.hasNonNull("ics")) {
+                // A mail with a calendar invitation: text and text/calendar as alternatives, like Google Calendar and Outlook send them.
+                MimeMultipart alternatives = new MimeMultipart("alternative");
+                MimeBodyPart text = new MimeBodyPart();
+                text.setText(dates(m.path("body").asText(), now), "UTF-8");
+                MimeBodyPart cal = new MimeBodyPart();
+                cal.setContent(dates(m.path("ics").asText(), now), "text/calendar; charset=UTF-8; method=REQUEST");
+                cal.setHeader("Content-Type", "text/calendar; charset=UTF-8; method=REQUEST");
+                alternatives.addBodyPart(text);
+                alternatives.addBodyPart(cal);
+                msg.setContent(alternatives);
+            } else {
+                msg.setText(dates(m.path("body").asText(), now));
+            }
             msg.setHeader("Message-ID", id);
+            msg.saveChanges();
             out.add(new Sample(sent ? sentFolderName() : INBOX, sent ? sentUid++ : inboxUid++, msg));
         }
         return out;
+    }
+
+    private static final java.util.regex.Pattern TOKEN = java.util.regex.Pattern.compile("\\{(date|ymd)\\+(\\d{1,3})}");
+
+    /** {date+N} becomes "Tuesday, October 27" and {ymd+N} "20261027", N days from {@code now} (UTC), so the sample's interviews are always ahead with the right weekday. */
+    static String dates(String text, Instant now) {
+        java.util.regex.Matcher m = TOKEN.matcher(text);
+        StringBuilder out = new StringBuilder();
+        while (m.find()) {
+            java.time.LocalDate d = now.atZone(java.time.ZoneOffset.UTC).toLocalDate().plusDays(Long.parseLong(m.group(2)));
+            String v = "date".equals(m.group(1))
+                ? d.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.ENGLISH))
+                : d.format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+            m.appendReplacement(out, java.util.regex.Matcher.quoteReplacement(v));
+        }
+        m.appendTail(out);
+        return out.toString();
     }
 
     /** A MimeMessage that reports the date it "arrived" (the real server does; the first read searches by it). */
