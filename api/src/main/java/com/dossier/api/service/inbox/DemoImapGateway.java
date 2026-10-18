@@ -26,7 +26,7 @@ import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
@@ -39,7 +39,9 @@ import org.springframework.stereotype.Component;
  * and the recorded stories can "connect a Gmail" without a real mailbox.
  *
  * <p><b>It can never be live.</b> It exists only when {@code dossier.demo.enabled} is true AND the {@code prod} profile is not active
- * ({@code @ConditionalOnProperty} + {@code @Profile("!prod")}), and its constructor refuses to start under prod anyway (belt and braces). It opens no
+ * ({@code @ConditionalOnExpression} + {@code @Profile("!prod")}), and its constructor refuses to start under prod anyway (belt and braces). A demo
+ * stack that wants to read a REAL dedicated Gmail (a live demo of the parser) sets {@code dossier.demo.inbox-sandbox=false}
+ * ({@code DOSSIER_DEMO_INBOX_SANDBOX=false}): the sample mailbox is then not created and the real {@code JakartaImapGateway} serves. It opens no
  * socket and contacts no server. The fixed demo address and the code rules are test values read from {@code demo/inbox-demo.json}: ANY 16-letter code
  * connects the demo address; a code beginning with the file's wrong-code prefix is refused as a wrong password; every other address is refused.
  *
@@ -49,7 +51,7 @@ import org.springframework.stereotype.Component;
 @Component
 @Primary
 @Profile("!prod")
-@ConditionalOnProperty(prefix = "dossier.demo", name = "enabled", havingValue = "true")
+@ConditionalOnExpression("'${dossier.demo.enabled:false}' == 'true' and '${dossier.demo.inbox-sandbox:true}' == 'true'")
 public class DemoImapGateway implements ImapGateway {
 
     private static final Logger LOG = LoggerFactory.getLogger(DemoImapGateway.class);
