@@ -167,9 +167,9 @@ test("V3-03 Employees and roles: departments and teams, roles as data, single an
   await narrate(page, "Next, the Employees page, which is the people list for the whole organization.");
   await page.locator('[data-shell-sidebar] [data-nav-item="employees"]').click();
   await page.waitForURL(/\/w\/admin\/employees/, { timeout: 30_000 });
-  await expect(page.getByRole("row", { name: /Daniel Okoye/ }).first()).toBeVisible({ timeout: 45_000 });
-  await narrate(page, "Everyone is here with their role, department, team and status. Invited people show as pending, until they accept.", undefined, page.getByRole("table").first());
-  const row = page.getByRole("row", { name: /Daniel Okoye/ }).first();
+  await expect(page.getByRole("row", { name: /daniel\.okoye/i }).first()).toBeVisible({ timeout: 45_000 });
+  await narrate(page, "Everyone is here with their role, department, team and status. The people who were invited show as Invited, until they accept.", undefined, page.getByRole("table").first());
+  const row = page.getByRole("row", { name: /daniel\.okoye/i }).first();
   const kebab = row.getByRole("button", { name: "Row actions" });
   await expect(async () => {
     await kebab.scrollIntoViewIfNeeded();
