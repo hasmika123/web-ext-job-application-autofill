@@ -157,7 +157,7 @@ const settle = async (ms = 50) => {
 async function mount() {
   const out = render(
     <ToastProvider>
-      <ClientsPage orgId={2} orgName="Acme" hrefs={{ jobs: "/w/admin/jobs", applications: "/w/admin/applications", placements: "/w/admin/placements" }} supportEmail={null} />
+      <ClientsPage orgId={2} hrefs={{ jobs: "/w/admin/jobs", applications: "/w/admin/applications", placements: "/w/admin/placements" }} />
     </ToastProvider>,
   );
   await settle(0);
@@ -195,13 +195,12 @@ afterEach(() => {
 });
 
 describe("Clients: the directory and the tiles", () => {
-  it("shows the four tiles with their deltas only where the API gave one, the rows, and the count", async () => {
+  it("shows the two plain tiles (Clients, Active requirements), the rows, and the count", async () => {
     await mount();
-    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["totalClients", "activeRequirements", "newThisMonth", "placementsViaClients"]);
+    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["totalClients", "activeRequirements"]);
     expect(document.querySelector("[data-kpi=totalClients] [data-kpi-value]")?.textContent).toBe("3");
-    expect(document.querySelector("[data-kpi=activeRequirements] [data-kpi-delta]")?.textContent).toContain("+24%");
-    expect(document.querySelector("[data-kpi=activeRequirements] [data-kpi-delta]")?.textContent).toContain("vs last month");
-    expect(document.querySelector("[data-kpi=newThisMonth] [data-kpi-delta]")).toBeNull();
+    expect(document.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(document.querySelector("[data-kpi] [data-sparkline]")).toBeNull();
     expect(rows().map((r) => r.getAttribute("data-row-id"))).toEqual(["1", "2", "3"]);
     expect(screen.getAllByText("1-3 of 3 clients").length).toBeGreaterThan(0);
     const first = listCalls()[0];
@@ -223,7 +222,8 @@ describe("Clients: the directory and the tiles", () => {
     expect(rows()[2].querySelector("[data-health]")?.textContent).toBe("Neutral");
     expect(rows()[2].textContent).toContain("—"); // no account manager
     expect(r1.querySelector("[data-last-activity]")?.textContent).toBe("Apr 18, 2024");
-    expect(within(document.querySelector("[data-help-bee]") as HTMLElement).getByText("Need help with client management?")).toBeTruthy();
+    expect(document.querySelector("[data-help-bee]")).toBeNull();
+    expect(screen.queryByText(/Need help with client management/)).toBeNull();
   });
 
   it("searches after the typing rests, filters by health and industry, and keeps the address in step", async () => {
