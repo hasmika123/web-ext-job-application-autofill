@@ -1,70 +1,73 @@
-# Demo walkthrough: Acme Staffing (2026-10-19)
+# Demo walkthrough: Aaruna Technologies
 
-Click-by-click for the three characters. Everything here was rehearsed on the local demo stack (DEMO-PLAN.md sections 7 and 8).
+One story, three people: the **admin** sets the company up, the **marketer** finds work, the **consultant** applies with Autopilot and
+her email keeps the board current, then the marketer and the admin see the results. About 30 minutes; the (quick) steps can be skipped.
+
+| Person | Role | Sign in as |
+|---|---|---|
+| **Priya Sharma** | Org Admin (runs the consultancy) | Demo accounts → Priya Sharma |
+| **Rahul Mehta** | Marketing Specialist (finds jobs for consultants) | Demo accounts → Rahul Mehta |
+| **Anika Rao** | Consultant (Pro + Autopilot add-ons) | Demo accounts → Anika Rao |
 
 ## Addresses
 
 | What | Address |
 |---|---|
-| The app (sign in) | `http://acme.localhost:3200/login`, then the **Demo accounts** tab on the left edge |
-| The demo Gmail (presenter's window) | `http://mail.localhost:3399` |
-| Stand-in job postings | `http://jobs.localhost:3399/greenhouse/<company>/<number>?t=<job title>&c=<Company>` (the assigned jobs link here already) |
+| The app | `http://aaruna.localhost:3200/login` → **Demo accounts** tab on the left edge |
+| Anika's Gmail (presenter's window) | `http://mail.localhost:3399` |
+| A job posting for Rahul to save | `http://jobs.localhost:3399/greenhouse/brightwave-systems/101?t=Cloud%20Platform%20Engineer&c=Brightwave%20Systems` |
 
-## One-time setup in your Chrome (about 10 minutes)
+## One-time setup in your Chrome (10 minutes)
+1. Two Chrome profiles: **Anika** and **Rahul**.
+2. In each: `chrome://extensions` → **Developer mode** → **Load unpacked** → `job-autofill/.output/chrome-mv3-dev-aaruna-technologies` → pin it.
+3. In each: sign in as that person → account menu (top right) → **Connect extension** → **Connect** → "Extension connected".
+4. Anika only: extension gear → Settings → turn on **Use Kiwiply AI** and the **I consent** switch.
+5. Anika only (recommended): in the extension drawer press **Upload** and pick `Anika-Rao-Resume.pdf` (Desktop). From then on the
+   resume field of every form fills itself.
 
-1. Make two Chrome profiles: **Anika** and **Omar** (each extension connects one account).
-2. In each profile: open `chrome://extensions`, turn on **Developer mode**, **Load unpacked**, pick
-   `job-autofill/.output/chrome-mv3-dev-acme-staffing`. Pin the **Acme Staffing** icon.
-3. In each profile: sign in as that person, open the account menu (top right) → **Connect extension** → **Connect**.
-   A tab says "Extension connected".
-4. Anika only: in the extension, the gear → Settings → turn on **Use Kiwiply AI…** and the **I consent…** switch below it.
-5. Anika only, optional: in the drawer press **Upload** and pick her resume PDF once. Then the resume field on job forms fills itself;
-   without it, she attaches the file by hand (one click).
+## Act 1. Priya sets the company up (5 min)
+1. **Dashboard**: consultants, placements, applications at a glance.
+2. **Consultants** → open **Anika Rao** → **License**: her paid add-ons (Autopilot prepare, Inbox tracking).
+3. **Marketing Assignments**: Anika and Vikram are looked after by **Rahul Mehta**; show assigning two people and Undo.
+4. **Settings** → *Prepare selected openings*: the company switched Autopilot on and set the daily/monthly limits.
+5. (quick) **Branding**: Aaruna's logo and colours on every page.
 
-## W1. Sarah, Org Admin (5 min)
-1. Dashboard: the numbers and the activation checklist.
-2. **Consultants**: open a consultant → change **Availability** (it saves itself, with Undo) → **License** shows their add-ons.
-3. **Marketing Assignments**: assign two consultants to a marketer → Undo.
-4. **Settings** → *Prepare selected openings*: the organization's switch and its daily/monthly limits.
-5. **Branding** (quick) and **Audit Logs** (quick).
-- Don't click the 8 menu items marked **Soon**.
+## Act 2. Rahul finds work for Anika (5 min)
+1. **Job Discovery**: open a job → **Assign** → Anika Rao.
+2. In his Chrome: open the job posting address above → click the Aaruna icon → **Save for consultant** → note
+   ("Strong fit for your cloud work") → tick **Anika Rao** → **Save** → "Sent to Anika Rao".
+3. **Opportunities**: both jobs on his board, waiting for Anika's answer.
 
-## W2. Omar, Marketing Specialist (5 min)
-1. **Job Discovery**: open a job → **Assign** → Anika.
-2. **Opportunities**: the board with every consultant's answers.
-3. Extension: open any stand-in posting, for example
-   `http://jobs.localhost:3399/greenhouse/brightwave-systems/101?t=Cloud%20Platform%20Engineer&c=Brightwave%20Systems`
-   → click the Acme icon → **Save for consultant** → write a note → tick **Anika Rao** → **Save for consultant** → "Sent to Anika Rao".
-4. Back in the app: the job is on **Opportunities**.
+## Act 3. Anika applies with Pro and Autopilot (8 min)
+1. **Assigned Opportunities**: Rahul's jobs with his notes. **Express Interest** on one; **Need More Info** on another (a question to Rahul).
+2. **Pro, before applying**: open the job link of one job → click the Aaruna icon → **Best match for this job · 88%** (which of her
+   resumes fits) → **Check fit** (match %, what's missing, what's covered).
+3. **Autopilot**: back on Assigned Opportunities → tick 2-3 jobs → **Prepare selected** → confirm ("nothing is submitted for you").
+4. Each job opens in its own tab with the review panel: name, contact, links, work authorization, and an **AI-written answer** to
+   "Why would you like to work at …?". **Fill selected**.
+5. She reads the form and presses the employer's own **Submit Application**. Back on Kiwiply the progress panel says **Submitted**.
 
-## W3. Anika, Autopilot (6 min)
-1. **Assigned Opportunities**: Omar's jobs with his notes. **Express Interest** on one, **Need More Info** on another.
-2. Tick 2-3 openings → **Prepare selected** → read the confirmation ("nothing is submitted for you") → confirm.
-3. Each job opens in its own tab with the Acme review panel listing every answer, including an **AI draft** for "Why would you like to work at …?".
-4. On one tab: **Fill selected** → the form fills. Attach the resume if asked → press the page's own **Submit Application**.
-5. Back on the app tab: the progress panel shows **Submitted** for that job, **Needs input** for any field only she can do.
+## Act 4. Anika's email keeps the board current (5 min)
+1. **Inbox** → `anika.rao.jobs@gmail.com`, app password: any 16 letters → **Check and connect**. A few seconds later Northwind Labs
+   reads **Offer** "from your inbox", and two jobs she never tracked are offered under *Found in your mail*.
+2. Switch to the Gmail window → **Demo: send email** (bottom right, or press **N**) → *Orbit Freight invites Anika to a phone screen*.
+3. Back on Inbox → **Check now** → Orbit Freight moves to **Interview** with the day and time.
+4. A minute later: send *Cedar Analytics turns the application down* → **Check now** → it waits under **Needs your review** →
+   **Accept** → Rejected → **Undo** (nothing risky happens on its own).
 
-## W4. Anika, Pro tools (3 min)
-1. On a posting tab, click the Acme icon. Under *Choose a resume*: **Best match for this job · 88%**.
-2. **Check fit** → match %, what's missing from the resume (e.g. GraphQL), what's already covered.
-3. The AI draft from W3 (it reads the question and names the company).
-- In the web app, "fit" is the skill-match breakdown on **Job Matches** (rule-based).
+## Act 5. Rahul and Priya see the results (3 min)
+1. Rahul → **Opportunities**: "is interested", "asked a question", "says they applied" → answer her question.
+2. Rahul → (quick) **Interviews**, **Follow-ups**.
+3. Priya → **Applications** and **Audit Logs**: who did what, when. (quick) **Reports**.
 
-## W5. Anika, email (5 min)
-1. **Inbox** → Gmail address `kiwiply.demo.anika@gmail.com`, app password: any 16 letters → **Check and connect**.
-   A few seconds later: Northwind Labs at **Offer** "from your inbox"; Harbor Cloud and Lumen Health offered under *Found in your mail*.
-2. Switch to the demo Gmail window → **Demo: send email** (bottom right, or press **N**) → *Orbit Freight invites Anika to a phone screen*.
-   Two emails arrive at the top.
-3. Back in the app → **Check now** → Orbit Freight moves to **Interview**, with the phone screen's day and time.
-4. Wait a minute (Check now works once a minute) → send *Cedar Analytics turns the application down* → **Check now** →
-   it waits under **Needs your review** → **Accept** → Rejected → **Undo** puts it back.
-- The Inbox page has a small note that this is a sample mailbox (it shows the address to type).
-- The email changes show on the Inbox page; Omar and Sarah never see mail.
+## (quick) More to show if there is time
+Anika: **Interview Prep**, **Offers** (compare, negotiate), **My Resumes** (builder). Priya: **Roles & Permissions**, **Employees**.
 
-## W6. Omar sees the results (2 min)
-1. **Opportunities**: Anika's answers ("is interested", "asked a question", "says they applied").
-2. **Applications** and **Interviews** (quick).
+## Don'ts
+- Don't click the 8 admin menu items marked **Soon** (Billing, HR, …).
+- Don't press **Submit** on any real employer's site.
+- **Check now** works once a minute.
 
 ## Before the demo: clean data
-Stop the API, run a fresh database and the setup (DEMO-PLAN.md section 7), then in each Chrome profile connect the extension again.
-`node web/scripts/demo-setup.mjs` must print `0 failed`.
+Stop the API → fresh database → start it → `node web/scripts/demo-setup.mjs` must say `0 failed` (DEMO-PLAN.md section 7).
+Then reconnect the extension in both Chrome profiles.

@@ -270,3 +270,10 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 **Known limits to say out loud:** the extension does not download resume files created on the web, so the resume field is one click (or upload once in the drawer); Check now works once a minute; the Inbox page notes it is a sample mailbox.
 
 Click-by-click: `docs/enterprise-v2/demo/DEMO-WALKTHROUGH.md`.
+
+## 10. Realistic names (2026-10-19)
+`DOSSIER_DEMO_ROSTER=india` (set in the demo start script) seeds the demo tenant as **Aaruna Technologies** on `aaruna.localhost`
+(e-mail domain `aarunatech.com`): Priya Sharma (Org Admin), Rahul Mehta (Marketing Specialist), Anika Rao and Vikram Iyer (consultants),
+the other members and the 150-person bench under Indian names. Same logins, roles and data shape; without the switch the old roster
+(Acme Staffing, Sarah Chen, ...) is seeded, so the stories and tests are unaffected. Needs a fresh database. The branded extension is
+`job-autofill/.output/chrome-mv3-dev-aaruna-technologies`. The story order is in DEMO-WALKTHROUGH.md.
