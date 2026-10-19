@@ -20,6 +20,53 @@ export interface AuditPage {
   actions: { action: string; label: string }[];
 }
 
+/** What a target type is called in a sentence. Anything not listed is turned into words with an article ("an assignment"): never a bare key. */
+const TARGET_WORDS: Record<string, string> = {
+  ORG: "the organization",
+  ORGANIZATION: "the organization",
+  ORG_SETTINGS: "the organization settings",
+  SETTINGS: "the organization settings",
+  BRANDING: "the branding",
+  MEMBER: "an employee",
+  CONSULTANT: "a consultant",
+  REQUIREMENT: "a requirement",
+  JOB: "a job",
+  CLIENT: "a client",
+  APPLICATION: "an application",
+  INTERVIEW: "an interview",
+  PLACEMENT: "a placement",
+  RESUME: "a resume",
+  ROLE: "a role",
+  GROUP: "a team",
+  TEAM: "a team",
+  DEPARTMENT: "a department",
+  INVITATION: "an invitation",
+  ASSIGNMENT: "an assignment",
+  POLICY: "a policy",
+};
+
+/** The words for what an event touched, when it carries no name: "a consultant", "the organization". Null when it carries no type either. */
+export function targetWords(type: string | null): string | null {
+  if (!type) return null;
+  const key = type.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (TARGET_WORDS[key]) return TARGET_WORDS[key];
+  const words = key.toLowerCase().replace(/_/g, " ");
+  return `${/^[aeiou]/.test(words) ? "an" : "a"} ${words}`;
+}
+
+/** The "To whom" cell: the subject's name when the event carries one, otherwise the type in words. */
+export const toWhom = (r: Pick<AuditItem, "targetName" | "targetType">): string => r.targetName ?? targetWords(r.targetType) ?? "";
+
+/** An event key written in lower-case words ("marketing bulk"), for the rare row whose label is empty or is the key itself. */
+const keyWords = (key: string): string => key.toLowerCase().replace(/_/g, " ").trim();
+
+/** The "What" cell: the API's sentence; if it is missing or is only the raw key, the key in words (never the key as it is stored). */
+export function whatLabel(r: Pick<AuditItem, "action" | "label">): string {
+  const label = r.label.trim();
+  if (label && label !== r.action && !/^[A-Z][A-Z0-9_]+$/.test(label)) return label;
+  return keyWords(r.action || label) || "did something";
+}
+
 export type AuditResult = { kind: "OK"; page: AuditPage } | { kind: "DENIED" } | { kind: "FAILED" };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);

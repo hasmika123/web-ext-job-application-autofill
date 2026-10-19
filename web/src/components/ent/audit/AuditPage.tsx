@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { Button, DownloadIcon, EmptyState, ErrorState, Input, Select, Skeleton, buttonVariants } from "@kiwiply/ui";
 import { CARD } from "@/components/ent/dashboard/parts";
 import { auditExportHref } from "@/lib/ent/org-settings";
-import { DEFAULT_AUDIT_QUERY, fetchAudit, type AuditPage as Page, type AuditQuery } from "@/lib/ent/audit";
+import { DEFAULT_AUDIT_QUERY, fetchAudit, toWhom, whatLabel, type AuditPage as Page, type AuditQuery } from "@/lib/ent/audit";
 
 /**
- * Audit Logs (admin workspace, `/w/admin/audit`, needs audit.view at ORG scope): who did what, to whom and when, newest first, filtered by kind and by date
+ * Audit Log (admin workspace, `/w/admin/audit`, needs audit.view at ORG scope): who did what, to whom and when, newest first, filtered by kind and by date
  * and paged. Read only. Free text, logins and IP addresses are never part of what the API sends, so nothing here can show them.
  */
 export default function AuditPage({ orgId }: { orgId: number }) {
@@ -48,7 +48,10 @@ export default function AuditPage({ orgId }: { orgId: number }) {
             aria-label="What happened"
             value={q.action}
             onChange={(v) => change({ action: v })}
-            options={[{ value: "", label: "Everything" }, ...(page?.actions ?? []).map((a) => ({ value: a.action, label: a.label.charAt(0).toUpperCase() + a.label.slice(1) }))]}
+            options={[{ value: "", label: "Everything" }, ...(page?.actions ?? []).map((a) => {
+              const w = whatLabel({ action: a.action, label: a.label });
+              return { value: a.action, label: w.charAt(0).toUpperCase() + w.slice(1) };
+            })]}
           />
         </label>
         <label className="flex flex-col gap-1 text-[12.5px] font-semibold text-ink-soft">
@@ -99,8 +102,8 @@ export default function AuditPage({ orgId }: { orgId: number }) {
                       </time>
                     </td>
                     <td className="px-2 py-2.5 font-medium text-ink">{r.actorName}</td>
-                    <td className="px-2 py-2.5 text-ink">{r.label}</td>
-                    <td className="px-2 py-2.5 text-ink-soft">{r.targetName ?? (r.targetType ? r.targetType.toLowerCase().replace(/_/g, " ") : "")}</td>
+                    <td className="px-2 py-2.5 text-ink">{whatLabel(r)}</td>
+                    <td className="px-2 py-2.5 text-ink-soft">{toWhom(r)}</td>
                   </tr>
                 ))}
               </tbody>
