@@ -181,31 +181,106 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
         return full.isEmpty() ? null : full;
     }
 
-    /** A short human label for an audit action key (no free text from the row). */
+    /**
+     * A short human label for an audit action key (no free text from the row), read after the actor's name: "Priya Sharma reassigned
+     * consultants". The dashboard's Recent activity and the Audit Log (its rows, its action filter and its CSV) all use this one map.
+     */
     public static String label(OrgAuditEvent e) {
-        return switch (e.getAction()) {
+        return label(e.getAction());
+    }
+
+    /** {@link #label(OrgAuditEvent)} for a bare action key. Every key gets a sentence; an unmapped key is worded from its parts, never shown raw. */
+    public static String label(String action) {
+        if (action == null || action.isBlank()) return "made a change";
+        return switch (action) {
             case OrgAuditService.ORG_CREATE -> "created the organization";
             case OrgAuditService.ORG_SETTINGS -> "changed the organization settings";
+            case OrgAuditService.ORG_CLOSE -> "closed the organization";
+            case OrgAuditService.ORG_SUBDOMAIN_SET -> "set the organization's web address";
             case OrgAuditService.MEMBER_INVITE -> "invited a member";
             case OrgAuditService.MEMBER_INVITE_RESEND -> "resent an invitation";
+            case OrgAuditService.MEMBER_INVITE_REVOKE -> "revoked an invitation";
+            case OrgAuditService.MEMBER_INVITE_EXPIRED -> "marked an invitation expired";
+            case OrgAuditService.INVITE_ROLES_TRIMMED -> "trimmed the roles on an invitation";
+            case OrgAuditService.MEMBER_ACCOUNT_CREATE -> "created a member's account";
+            case OrgAuditService.MEMBER_PASSWORD_RESET -> "reset a member's password";
+            case OrgAuditService.MEMBER_JOIN -> "joined the organization";
             case OrgAuditService.MEMBER_ROLE -> "changed a member's role";
             case OrgAuditService.MEMBER_SUSPEND -> "suspended or reinstated a member";
             case OrgAuditService.MEMBER_REMOVE -> "removed a member";
             case OrgAuditService.MEMBER_LEFT -> "left the organization";
+            case OrgAuditService.MEMBER_ERASED -> "erased a member's personal data";
             case OrgAuditService.ASSIGNMENT_CREATE -> "assigned a consultant";
             case OrgAuditService.ASSIGNMENT_END -> "ended an assignment";
+            case OrgAuditService.SHARE_READ_FULL -> "opened a consultant's full shared record";
+            case OrgAuditService.SHARE_SCOPE_CHANGED -> "changed what they share with the organization";
+            case OrgAuditService.EXPORT -> "exported a report";
+            case OrgAuditService.HISTORY_PURGED -> "purged old history";
+            case OrgAuditService.MARKETER_SAVE_FOR_CONSULTANT, "MARKETER_JOB_CAPTURE" -> "saved a job for a consultant";
+            case "MARKETING_BULK" -> "reassigned consultants";
+            case "MARKETING_REASSIGN" -> "reassigned a consultant";
+            case "MARKETING_HANDOVER" -> "handed a consultant over";
+            case "MARKETING_ASSIGN" -> "assigned a consultant to a marketer";
+            case "MARKETING_UNASSIGN" -> "unassigned a consultant";
+            case "BILLING_PLAN_VIEW" -> "viewed the plan";
+            case "BILLING_VIEW" -> "viewed billing";
             case OrgAuditService.GROUP_CREATE -> "created a department or team";
             case OrgAuditService.GROUP_UPDATE -> "changed a department or team";
             case OrgAuditService.GROUP_DELETE -> "deleted a department or team";
+            case OrgAuditService.GROUP_MOVE -> "moved a team to another department";
+            case OrgAuditService.GROUP_LEAD -> "changed a department or team lead";
+            case OrgAuditService.LOGIN_DENIED_NOT_MEMBER -> "was refused sign-in (not a member)";
+            case OrgAuditService.LOGIN_FOR_INVITE -> "signed in to accept an invitation";
             case OrgAuditService.BRANDING_PUBLISH -> "published the branding";
             case OrgAuditService.BRANDING_RESTORE -> "restored an earlier branding";
             case OrgAuditService.BRANDING_ASSET -> "changed a branding image";
+            case OrgAuditService.POLICY_DRAFT_SAVE -> "saved a policy draft";
+            case OrgAuditService.POLICY_TEMPLATE -> "started a policy from a template";
+            case OrgAuditService.POLICY_SUBMIT -> "submitted a policy for review";
+            case OrgAuditService.POLICY_WITHDRAW -> "withdrew a policy from review";
+            case OrgAuditService.POLICY_APPROVE -> "approved a policy";
+            case OrgAuditService.POLICY_REQUEST_CHANGES -> "asked for changes to a policy";
+            case OrgAuditService.ADMIN_ORG_CREATE -> "set up the organization";
+            case OrgAuditService.ADMIN_OWNER_PASSWORD_RESET -> "reset the owner's password";
+            case OrgAuditService.ADMIN_SUBDOMAIN_PROVISION -> "set up the organization's web address";
+            case OrgAuditService.ADMIN_ENTERPRISE_ON -> "turned enterprise features on";
+            case OrgAuditService.ADMIN_ENTERPRISE_OFF -> "turned enterprise features off";
+            case OrgAuditService.ADMIN_MODULE_ON -> "turned a module on";
+            case OrgAuditService.ADMIN_MODULE_OFF -> "turned a module off";
+            case OrgAuditService.ADMIN_HOSTNAME_SUSPEND -> "suspended a web address";
+            case OrgAuditService.ADMIN_HOSTNAME_RESUME -> "resumed a web address";
+            case OrgAuditService.ADMIN_ACCOUNT_MIGRATE -> "migrated an account";
             case "ROLE_CREATE" -> "created a role";
             case "ROLE_UPDATE" -> "changed a role";
             case "ROLE_DELETE" -> "deleted a role";
             case "ROLE_ASSIGN" -> "assigned a role";
             case "ROLE_REVOKE" -> "removed a role";
-            default -> e.getAction().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
+            default -> worded(action);
         };
+    }
+
+    private static final Map<String, String> PAST = Map.ofEntries(
+        Map.entry("CREATE", "created"), Map.entry("ADD", "added"), Map.entry("UPDATE", "changed"), Map.entry("EDIT", "edited"),
+        Map.entry("DELETE", "deleted"), Map.entry("REMOVE", "removed"), Map.entry("ASSIGN", "assigned"), Map.entry("UNASSIGN", "unassigned"),
+        Map.entry("REASSIGN", "reassigned"), Map.entry("APPROVE", "approved"), Map.entry("REJECT", "rejected"), Map.entry("SUBMIT", "submitted"),
+        Map.entry("WITHDRAW", "withdrew"), Map.entry("COMPLETE", "completed"), Map.entry("REOPEN", "reopened"), Map.entry("PAUSE", "paused"),
+        Map.entry("START", "started"), Map.entry("END", "ended"), Map.entry("CLOSE", "closed"), Map.entry("VIEW", "viewed"),
+        Map.entry("EXPORT", "exported"), Map.entry("RESTORE", "restored"), Map.entry("CANCEL", "canceled"), Map.entry("SCHEDULE", "scheduled"),
+        Map.entry("RESCHEDULE", "rescheduled"), Map.entry("CONFIRM", "confirmed"), Map.entry("PUBLISH", "published"), Map.entry("REQUEST", "requested"),
+        Map.entry("EXTEND", "extended"), Map.entry("TERMINATE", "terminated"), Map.entry("HIRE", "recorded a hire on"), Map.entry("DISMISS", "dismissed"),
+        Map.entry("FLAG", "flagged"), Map.entry("NOTIFY", "sent a notice about"), Map.entry("REMIND", "sent a reminder about"), Map.entry("CAPTURE", "saved"),
+        Map.entry("UNDO", "undid a change to"), Map.entry("STATUS", "changed the status of"), Map.entry("NOTE", "added a note to"),
+        Map.entry("RATE", "changed the rate of"), Map.entry("BULK", "changed several"), Map.entry("OFFBOARD", "offboarded")
+    );
+
+    /** A sentence from an unmapped key's parts: MARKETER_OPPORTUNITY_ASSIGN -> "assigned an opportunity"; a key with no verb -> its words. */
+    static String worded(String action) {
+        List<String> parts = new ArrayList<>(List.of(action.toUpperCase(java.util.Locale.ROOT).split("_+")));
+        while (parts.size() > 1 && Set.of("MKT", "MARKETER", "MARKETING", "OPS", "ADMIN", "ORG").contains(parts.get(0))) parts.remove(0);
+        String verb = parts.size() > 1 ? PAST.get(parts.get(parts.size() - 1)) : null;
+        if (verb == null) return String.join(" ", parts).toLowerCase(java.util.Locale.ROOT);
+        String thing = String.join(" ", parts.subList(0, parts.size() - 1)).toLowerCase(java.util.Locale.ROOT);
+        String article = "aeiou".indexOf(thing.charAt(0)) >= 0 ? "an " : "a ";
+        return verb + " " + article + thing;
     }
 }
