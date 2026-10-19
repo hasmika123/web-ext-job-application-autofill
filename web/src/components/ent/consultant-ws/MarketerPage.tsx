@@ -314,7 +314,7 @@ function MarketerFocus({ view }: { view: MarketerView }) {
 
 export interface MarketerPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
 }
 
 export default function MarketerPage({ orgId }: MarketerPageProps) {

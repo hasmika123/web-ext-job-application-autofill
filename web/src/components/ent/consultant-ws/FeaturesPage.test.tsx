@@ -55,7 +55,7 @@ afterEach(() => {
 async function mount() {
   render(
     <ToastProvider>
-      <FeaturesPage orgId={2} firstName="Anika Rao" />
+      <FeaturesPage orgId={2} />
     </ToastProvider>,
   );
   await act(async () => {

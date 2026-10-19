@@ -718,7 +718,7 @@ type DetailState = { id: number; result: Fetched<OfferDetail> } | null;
 
 export interface OffersPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
 }
 
 export default function ConsultantOffersPage({ orgId }: OffersPageProps) {

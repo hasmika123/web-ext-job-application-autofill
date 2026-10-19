@@ -305,7 +305,7 @@ function DetailSheet({ orgId, row, state, onClose, onRetry, go, me }: { orgId: n
 
 export interface ApplicationsPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
   /** The consultant's own seat: "by you" in the timeline is decided by it. */
   selfMemberId?: number | null;
 }

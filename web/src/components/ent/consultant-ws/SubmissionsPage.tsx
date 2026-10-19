@@ -653,7 +653,7 @@ function DeclineDialog({ row, busy, error, onCancel, onConfirm }: { row: SubRow 
 
 export interface SubmissionsPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
   /** The consultant's own seat: "by you" in the Updated line is decided by it. */
   selfMemberId?: number | null;
 }

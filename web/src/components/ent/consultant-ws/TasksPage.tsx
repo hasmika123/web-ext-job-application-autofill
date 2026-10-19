@@ -485,7 +485,7 @@ function TaskDialogBody({ editing, jobs, busy, error, onCancel, onSave }: { edit
 
 export interface TasksPageProps {
   orgId: number;
-  firstName: string;
+  firstName?: string;
 }
 
 export default function ConsultantTasksPage({ orgId }: TasksPageProps) {
