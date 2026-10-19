@@ -111,7 +111,7 @@ export default function ConsultantsPanel({
     },
     {
       key: "marketer",
-      header: "Assigned Marketer",
+      header: "Assigned marketer",
       render: (r) => (
         <span className="block min-w-0">
           <PersonChip person={r.marketer} />
@@ -123,17 +123,16 @@ export default function ConsultantsPanel({
         </span>
       ),
     },
-    { key: "backup", header: "Backup Marketer", render: (r) => <PersonChip person={r.backup} none="No backup" /> },
+    { key: "backup", header: "Backup marketer", render: (r) => <PersonChip person={r.backup} none="No backup" /> },
     { key: "status", header: "Status", sortable: true, render: (r) => <AssignmentStatusPill status={r.status} /> },
     { key: "priority", header: "Priority", sortable: true, render: (r) => <PriorityPill priority={r.priority} /> },
-    { key: "activeApps", header: <span className="inline-block text-center leading-tight">Active Apps</span>, headerLabel: "Active Apps", sortable: true, className: "text-center tabular-nums", render: (r) => <span className="tabular-nums">{r.activeApps}</span> },
-    { key: "lastActivity", header: "Last Activity", sortable: true, render: (r) => <span className="whitespace-nowrap text-[11px] text-[var(--ent-soft)]">{formatDay(r.lastActivityAt) || "—"}</span> },
+    { key: "activeApps", header: <span className="inline-block text-center leading-tight">Active apps</span>, headerLabel: "Active apps", sortable: true, className: "text-center tabular-nums", render: (r) => <span className="tabular-nums">{r.activeApps}</span> },
   ];
 
   const filterDefs = [
-    { name: "status", label: "Status", allLabel: "All Statuses", options: (filters?.statuses ?? ["ACTIVE", "PAUSED"]).map((s) => ({ value: s, label: s === "ACTIVE" ? "Active" : "Paused" })) },
-    { name: "priority", label: "Priority", allLabel: "All Priorities", options: (filters?.priorities ?? ["HIGH", "MEDIUM", "LOW"]).map((p) => ({ value: p, label: p[0] + p.slice(1).toLowerCase() })) },
-    ...(clients.length > 0 ? [{ name: "client", label: "Client", allLabel: "All Clients", options: clients.map((c) => ({ value: String(c.id), label: c.name })) }] : []),
+    { name: "status", label: "Status", allLabel: "All statuses", options: (filters?.statuses ?? ["ACTIVE", "PAUSED"]).map((s) => ({ value: s, label: s === "ACTIVE" ? "Active" : "Paused" })) },
+    { name: "priority", label: "Priority", allLabel: "All priorities", options: (filters?.priorities ?? ["HIGH", "MEDIUM", "LOW"]).map((p) => ({ value: p, label: p[0] + p.slice(1).toLowerCase() })) },
+    ...(clients.length > 0 ? [{ name: "client", label: "Client", allLabel: "All clients", options: clients.map((c) => ({ value: String(c.id), label: c.name })) }] : []),
   ];
   const values = { status: query.status, priority: query.priority, client: query.clientId };
   const onFilter = (name: string, v: string) => onChange(name === "client" ? { clientId: v } : ({ [name]: v } as Partial<BoardQuery>));
@@ -145,7 +144,7 @@ export default function ConsultantsPanel({
           <HandshakeIcon size={26} />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 className="text-[14.5px] font-extrabold leading-tight text-[var(--ent-title)]">Assigned Consultants</h2>
+          <h2 className="text-[14.5px] font-extrabold leading-tight text-[var(--ent-title)]">Assigned consultants</h2>
           <p className="mt-0.5 text-[11px] leading-snug text-[var(--ent-soft)]" data-consultants-subtitle>
             {marketer ? `Consultants assigned to ${marketer.name} (${marketer.assigned} total)` : "Pick a marketer to see their consultants."}
           </p>
@@ -155,13 +154,13 @@ export default function ConsultantsPanel({
             <Menu
               trigger={
                 <Button type="button" variant="ghost" size="sm" className="ent-ctl-btn !min-w-[124px] justify-between" data-bulk-actions>
-                  Bulk Actions <ChevronDownIcon size={14} aria-hidden />
+                  Bulk actions <ChevronDownIcon size={14} aria-hidden />
                 </Button>
               }
               items={bulkMenu}
             />
             <Button type="button" size="sm" className="ent-btn !h-[32px]" onClick={onAssign} disabled={!marketer || marketer.status === "PAUSED"} data-assign-consultants>
-              Assign Consultants
+              Assign consultants
             </Button>
           </div>
         )}
@@ -180,7 +179,7 @@ export default function ConsultantsPanel({
           onClear={() => onChange({ q: "", status: "", priority: "", clientId: "", availability: "", noBackup: false })}
           actions={
             <Button type="button" variant="ghost" size="sm" className="ent-ctl-btn flex-none" aria-expanded={moreOpen} onClick={onMore} data-more-filters>
-              <FilterIcon size={14} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
+              <FilterIcon size={14} aria-hidden /> More filters{moreCount > 0 ? ` (${moreCount})` : ""}
             </Button>
           }
         />
@@ -225,7 +224,7 @@ export default function ConsultantsPanel({
               mascot
               mascotPose="peek"
               title={applied ? "No consultants match" : marketer ? `${marketer.name} has no consultants yet` : "No marketer selected"}
-              description={applied ? "Try a different search, or clear the filters." : canManage && marketer ? "Use Assign Consultants to give them some." : undefined}
+              description={applied ? "Try a different search, or clear the filters." : canManage && marketer ? "Use Assign consultants to give them some." : undefined}
               action={
                 applied ? (
                   <Button type="button" onClick={() => onChange({ q: "", status: "", priority: "", clientId: "", availability: "", noBackup: false })}>
@@ -233,7 +232,7 @@ export default function ConsultantsPanel({
                   </Button>
                 ) : canManage && marketer && marketer.status !== "PAUSED" ? (
                   <Button type="button" onClick={onAssign}>
-                    Assign Consultants
+                    Assign consultants
                   </Button>
                 ) : undefined
               }

@@ -222,7 +222,7 @@ const PERMS_ALL = { "assignments.manage": "ORG", "workload.view": "ORG", "consul
 async function mount(over: { permissions?: Record<string, string>; initialSearch?: Record<string, string> } = {}) {
   const out = render(
     <ToastProvider>
-      <MarketingAssignmentsPage orgId={2} orgName="Acme" workspace="admin" permissions={over.permissions ?? PERMS_ALL} initialSearch={over.initialSearch} />
+      <MarketingAssignmentsPage orgId={2} workspace="admin" permissions={over.permissions ?? PERMS_ALL} initialSearch={over.initialSearch} />
     </ToastProvider>,
   );
   await settle(0);
@@ -270,16 +270,12 @@ afterEach(() => {
 });
 
 describe("Marketing Assignments: the board", () => {
-  it("shows the four tiles, the marketers by load, and the first marketer's consultants", async () => {
+  it("shows the two attention tiles without trend, the marketers by load, and the first marketer's consultants", async () => {
     await mount();
-    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["assigned", "marketers", "unassigned", "overloaded"]);
-    expect(document.querySelector("[data-kpi=assigned] [data-kpi-value]")?.textContent).toBe("4");
-    expect(document.querySelector("[data-kpi=assigned] [data-kpi-delta]")?.textContent).toContain("33.3%");
-    expect(document.querySelector("[data-kpi=assigned] [data-delta]")?.getAttribute("data-delta")).toBe("up");
-    expect(document.querySelector("[data-kpi=assigned] [data-kpi-delta]")?.textContent).toContain("vs last month");
-    // a tile the API gave no previous figure for draws no delta
-    expect(document.querySelector("[data-kpi=marketers] [data-kpi-delta]")).toBeNull();
-    expect(document.querySelectorAll("[data-kpi] [data-sparkline]").length).toBe(4);
+    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["unassigned", "overloaded"]);
+    expect(document.querySelector("[data-kpi=overloaded] [data-kpi-value]")?.textContent).toBe("1");
+    expect(document.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(document.querySelectorAll("[data-kpi] [data-sparkline]").length).toBe(0);
     const cards = Array.from(document.querySelectorAll("[data-marketer]"));
     expect(cards.map((c) => c.getAttribute("data-marketer"))).toEqual(["12", "11", "13"]); // Michael is full (100%), Jessica 67%, Ava 0
     expect(cards[0].querySelector("[data-load]")?.textContent).toBe("2 / 2");
@@ -287,10 +283,12 @@ describe("Marketing Assignments: the board", () => {
     // the most loaded marketer is selected first
     expect(document.querySelector("[data-consultants-subtitle]")?.textContent).toBe("Consultants assigned to Michael Park (2 total)");
     expect(tableRows().map((r) => r.textContent)).toHaveLength(2);
-    expect(screen.getByText("2 Marketing Specialists".replace("2", "3"))).toBeTruthy();
-    expect(document.querySelector("[data-summary=total]")?.textContent).toBe("4");
-    expect(document.querySelector("[data-summary=overloaded]")?.textContent).toBe("1");
-    expect(document.querySelector("[data-help-bee]")?.textContent).toContain("Need help with marketing assignments?");
+    expect(document.querySelector("[data-marketers-count]")?.textContent).toBe("3 marketers · 4 assigned");
+    expect(document.querySelector("[data-summary]")).toBeNull(); // the footer trio is gone
+    expect(screen.getByRole("button", { name: /View workload report/ })).toBeTruthy();
+    expect(document.querySelector("[data-help-bee]")).toBeNull();
+    expect(screen.queryByText(/Need help with marketing assignments/)).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: /Last activity/i })).toBeNull();
   });
 
   it("puts the selected marketer in the URL and selects another on a click", async () => {
@@ -339,7 +337,7 @@ describe("Marketing Assignments: the board", () => {
   it("shows an empty table with a way forward for a marketer with no consultants", async () => {
     await mount({ initialSearch: { m: "13" } });
     expect(screen.getByText("Ava Reed has no consultants yet")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Assign Consultants" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: "Assign consultants" }).length).toBeGreaterThan(0);
   });
 
   it("shows an error with a retry when the marketers cannot load", async () => {
@@ -354,16 +352,16 @@ describe("Marketing Assignments: the board", () => {
     world.assignments = new Map();
     await mount();
     expect(screen.getByText("No marketers yet")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /Add Marketer/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Add marketer/ }).length).toBeGreaterThan(0);
   });
 });
 
 describe("Marketing Assignments: read only", () => {
   it("draws no change controls without assignments.manage", async () => {
     await mount({ permissions: { "workload.view": "ORG" } });
-    expect(screen.queryByRole("button", { name: /Add Marketer/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Assign Consultants" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Bulk Actions/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add marketer/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Assign consultants" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Bulk actions/ })).toBeNull();
     expect(screen.queryByRole("checkbox", { name: /Select Daniel/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Row actions" })).toBeNull();
     expect(tableRows().length).toBeGreaterThan(0);
@@ -393,7 +391,7 @@ describe("Marketing Assignments: changes with Undo", () => {
     await mount({ initialSearch: { m: "11" } });
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Daniel Clark" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Select Sophia Patel" }));
-    fireEvent.click(screen.getByRole("button", { name: /Bulk Actions/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Bulk actions/ }));
     expect(screen.getByRole("menuitem", { name: "Pause" })).toBeTruthy();
     fireEvent.click(screen.getByRole("menuitem", { name: "Pause" }));
     await settle();
@@ -408,7 +406,7 @@ describe("Marketing Assignments: changes with Undo", () => {
 
   it("offers nothing to do in Bulk Actions until rows are ticked", async () => {
     await mount({ initialSearch: { m: "11" } });
-    fireEvent.click(screen.getByRole("button", { name: /Bulk Actions/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Bulk actions/ }));
     expect(screen.getByRole("menuitem", { name: "Select consultants in the table first" }).getAttribute("aria-disabled")).toBe("true");
     expect(screen.queryByRole("menuitem", { name: "Pause" })).toBeNull();
   });
@@ -544,7 +542,7 @@ describe("Marketing Assignments: changes with Undo", () => {
 
   it("assigns unassigned consultants to the selected marketer from the dialog", async () => {
     await mount({ initialSearch: { m: "13" } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Assign Consultants" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Assign consultants" })[0]);
     await settle(300);
     const dialog = screen.getByRole("dialog", { name: /Assign consultants to Ava Reed/ });
     expect(within(dialog).getByText("Zoe Unassigned")).toBeTruthy();
@@ -563,7 +561,7 @@ describe("Marketing Assignments: changes with Undo", () => {
 
   it("warns before the call when the pick would go past capacity", async () => {
     await mount({ initialSearch: { m: "11" } });
-    fireEvent.click(screen.getAllByRole("button", { name: "Assign Consultants" })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: "Assign consultants" })[0]);
     await settle(300);
     const dialog = screen.getByRole("dialog", { name: /Assign consultants to Jessica Davis/ });
     fireEvent.change(within(dialog).getByLabelText("Pick from"), { target: { value: "others" } });
@@ -616,7 +614,7 @@ describe("Marketing Assignments: changes with Undo", () => {
 
   it("adds a marketer from the members who hold a marketing role", async () => {
     await mount();
-    fireEvent.click(screen.getAllByRole("button", { name: /Add Marketer/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Add marketer/ })[0]);
     await settle();
     const dialog = screen.getByRole("dialog", { name: "Add a marketer" });
     fireEvent.click(within(dialog).getByLabelText("Nia Brooks"));
@@ -630,7 +628,7 @@ describe("Marketing Assignments: changes with Undo", () => {
 
   it("opens the workload report", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: /View Workload Report/ }));
+    fireEvent.click(screen.getByRole("button", { name: /View workload report/ }));
     await settle();
     const dialog = screen.getByRole("dialog", { name: "Workload report" });
     expect(within(dialog).getByRole("table", { name: "Workload by marketer" })).toBeTruthy();
