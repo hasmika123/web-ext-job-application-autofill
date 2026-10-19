@@ -76,7 +76,6 @@ const row = (label: string) =>
     expect(el).not.toBeNull();
     return el as HTMLElement;
   });
-const tile = (key: string) => document.querySelector(`[data-stat-tile="${key}"]`) as HTMLElement;
 
 describe("JobStreamsPage", () => {
   it("has no tiles; one status line says how many sources, the last sync and the warnings", async () => {
@@ -135,7 +134,7 @@ describe("JobStreamsPage", () => {
     expect(within(recent).getByLabelText("Sync failed")).toBeTruthy();
     expect(recent.querySelector('[data-severity="ERROR"]')).not.toBeNull();
     const rules = document.querySelector('[data-streams-card="rules"]') as HTMLElement;
-    for (const t of ["Default Keywords", "Client Mapping Rules", "Duplicate Detection", "Auto-Publish"]) expect(within(rules).getByText(t)).toBeTruthy();
+    for (const t of ["Default keywords", "Client mapping rules", "Duplicate detection", "Auto-publish"]) expect(within(rules).getByText(t)).toBeTruthy();
     expect(within(rules).getByText("Off")).toBeTruthy(); // only the disabled rule
   });
 

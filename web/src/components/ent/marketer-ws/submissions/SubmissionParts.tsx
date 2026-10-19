@@ -26,7 +26,7 @@ const APPROVAL_CHIP: Record<ApprovalState, { icon: ComponentType<IconProps>; ton
   APPROVED: { icon: CheckCircleIcon, tone: "green", label: APPROVAL_LABELS.APPROVED },
   AWAITING_APPROVAL: { icon: ClockIcon, tone: "amber", label: APPROVAL_LABELS.AWAITING_APPROVAL },
   REJECTED: { icon: XCircleIcon, tone: "pink", label: APPROVAL_LABELS.REJECTED },
-  DRAFT: { icon: FileTextIcon, tone: "grey", label: "Not Requested" },
+  DRAFT: { icon: FileTextIcon, tone: "grey", label: "Not requested" },
 };
 const STATUS_CHIP: Record<SubStatus, { icon: ComponentType<IconProps>; tone: keyof typeof TONE }> = {
   SUBMITTED: { icon: SendIcon, tone: "blue" },
@@ -70,7 +70,6 @@ export function ClientLogo({ name }: { name: string }) {
   );
 }
 
-/** The bee help card of the board ("Need help with submissions?"): banner cropped from the board, copy, "Ask a question" opens the shared help panel. */
 const PAGE_BTN = "grid h-8 min-w-8 place-items-center rounded-md border border-line bg-paper px-2 text-[13px] font-semibold text-ink-soft hover:bg-paper-2 disabled:pointer-events-none disabled:opacity-50";
 
 export function Pager({ page, size, total, onPage, onSize }: { page: number; size: number; total: number; onPage: (p: number) => void; onSize: (n: number) => void }) {

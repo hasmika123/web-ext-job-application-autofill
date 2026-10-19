@@ -162,10 +162,10 @@ export interface BoardQuery {
 }
 export const DEFAULT_QUERY: BoardQuery = { q: "", status: "", approval: "", clientId: "", jobTitle: "", period: "30d", donutPeriod: "30d", sort: "date", dir: "desc", page: 0, size: 10 };
 export const PERIODS: { value: string; label: string }[] = [
-  { value: "7d", label: "Last 7 Days" },
-  { value: "30d", label: "Last 30 Days" },
-  { value: "90d", label: "Last 90 Days" },
-  { value: "all", label: "All Time" },
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "90d", label: "Last 90 days" },
+  { value: "all", label: "All time" },
 ];
 export const PAGE_SIZES = [10, 25, 50];
 

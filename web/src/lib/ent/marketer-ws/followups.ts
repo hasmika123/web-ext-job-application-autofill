@@ -17,7 +17,7 @@ export const CHANNEL_LABEL: Record<Channel, string> = { PHONE: "Phone", EMAIL: "
 export const PRIORITY_LABEL: Record<Priority, string> = { HIGH: "High", MEDIUM: "Medium", LOW: "Low" };
 export const STATUS_LABEL: Record<FollowupStatus, string> = { PENDING: "Pending", IN_PROGRESS: "In progress", SCHEDULED: "Scheduled", NOT_STARTED: "Not started", WAITING: "Waiting", COMPLETED: "Completed" };
 export const STATUS_ORDER: FollowupStatus[] = ["PENDING", "IN_PROGRESS", "SCHEDULED", "NOT_STARTED", "WAITING", "COMPLETED"];
-export const WINDOW_LABEL: Record<InsightWindow, string> = { THIS_WEEK: "This Week", LAST_WEEK: "Last Week", THIS_MONTH: "This Month" };
+export const WINDOW_LABEL: Record<InsightWindow, string> = { THIS_WEEK: "This week", LAST_WEEK: "Last week", THIS_MONTH: "This month" };
 
 export interface FollowupKpi { key: FollowupKpiKey; value: number; deltaPct: number | null; sparkline: number[] }
 export interface FollowupRow {

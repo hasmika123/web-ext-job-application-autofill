@@ -62,7 +62,7 @@ export interface PerformanceQuery { weeks: string; trend: string; funnel: string
 export const DEFAULT_QUERY: PerformanceQuery = { weeks: "8w", trend: "3m", funnel: "3m", streams: "3m", benchmarks: "month", goals: "month" };
 export const WEEK_PERIODS = [{ value: "4w", label: "Last 4 weeks" }, { value: "8w", label: "Last 8 weeks" }, { value: "12w", label: "Last 12 weeks" }];
 export const MONTH_PERIODS = [{ value: "1m", label: "Last month" }, { value: "3m", label: "Last 3 months" }, { value: "6m", label: "Last 6 months" }];
-export const THIS_MONTH_PERIODS = [{ value: "month", label: "This Month" }, { value: "lastMonth", label: "Last Month" }];
+export const THIS_MONTH_PERIODS = [{ value: "month", label: "This month" }, { value: "lastMonth", label: "Last month" }];
 
 export function queryString(q: PerformanceQuery): string {
   const p = new URLSearchParams();

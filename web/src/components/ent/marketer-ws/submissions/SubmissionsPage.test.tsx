@@ -101,7 +101,7 @@ describe("SubmissionsPage", () => {
     mount();
     await screen.findByText("Alex Morgan");
     expect(screen.getByPlaceholderText("Search submissions by consultant, job, or client...")).toBeTruthy();
-    for (const t of ["All statuses", "All clients", "All openings", "Last 30 Days"]) expect(screen.getAllByText(t).length).toBeGreaterThan(0);
+    for (const t of ["All statuses", "All clients", "All openings", "Last 30 days"]) expect(screen.getAllByText(t).length).toBeGreaterThan(0);
     expect(screen.getByText("More filters")).toBeTruthy();
     expect(screen.getByText("Save view")).toBeTruthy();
     expect(screen.getByRole("button", { name: /New submission/ })).toBeTruthy();
