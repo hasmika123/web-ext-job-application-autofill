@@ -449,7 +449,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
       const r = await interviewsApi.remind(orgId, t.id);
       if (r.ok) ok++;
     }
-    toast({ title: `${ok} reminder${ok === 1 ? "" : "s"} recorded`, description: "Kiwiply doesn't send the messages itself.", variant: ok > 0 ? "success" : "error" });
+    toast({ title: `${ok} reminder${ok === 1 ? "" : "s"} recorded`, description: "The messages themselves are not sent from here.", variant: ok > 0 ? "success" : "error" });
     setPicked(new Set());
     refresh();
   };

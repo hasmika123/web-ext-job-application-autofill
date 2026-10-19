@@ -131,7 +131,7 @@ describe("Assigned Opportunities from real data", () => {
     expect(within(d).getByText("Quick note from the marketer.")).toBeTruthy();
     expect(d.querySelector("[data-sample]")).not.toBeNull();
     expect(within(d).getByText("Marketer's job notes")).toBeTruthy();
-    expect(d.textContent).toMatch(/Apply on the source site with the Kiwiply extension/);
+    expect(d.textContent).toMatch(/Apply on the source site with the browser extension/);
     expect(within(d).getByRole("link", { name: /Open job link/ }).getAttribute("href")).toBe("https://jobs.example.com/acme/1");
   });
 
@@ -257,7 +257,7 @@ describe("one answer shared with the marketer", () => {
     fireEvent.click(screen.getByRole("menuitem", { name: "I applied" }));
     await flush();
     expect(writes()).toEqual([]);
-    expect(document.querySelector("[data-applied-confirm]")!.textContent).toMatch(/Kiwiply never applies or submits for you/);
+    expect(document.querySelector("[data-applied-confirm]")!.textContent).toMatch(/No one applies or submits for you/);
     fireEvent.click(screen.getByRole("button", { name: "Not yet" }));
     await flush();
     expect(writes()).toEqual([]);

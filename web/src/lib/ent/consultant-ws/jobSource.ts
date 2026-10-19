@@ -1,6 +1,6 @@
 /**
  * The marketer's source link and quick info for a job (table `cws_job_source`). Kiwiply does not hold full job details: the marketer enters a
- * few details, the posting link and a short note; the consultant opens the link and applies on the source site with the Kiwiply extension, and
+ * few details, the posting link and a short note; the consultant opens the link and applies on the source site with the browser extension, and
  * the application then shows up in My Applications (extension tracking). Shared by Job Discovery, Job Matches and Assigned Opportunities.
  */
 
@@ -15,7 +15,7 @@ export interface JobSource {
 }
 
 export const NO_LINK_TOOLTIP = "Your marketer hasn't added the link yet";
-export const APPLY_HELPER = "Apply on the source site with the Kiwiply extension — your application shows up in My Applications automatically.";
+export const APPLY_HELPER = "Apply on the source site with the browser extension — your application shows up in My Applications automatically.";
 export const QUICK_INFO_LABEL = "Marketer's quick info";
 
 /**

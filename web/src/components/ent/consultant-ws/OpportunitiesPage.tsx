@@ -468,7 +468,7 @@ function DetailSheet({ row, detail, loading, onClose, a }: { row: OppRow | null;
               {d.appliedAt ? (
                 <section data-applied-note>
                   <h4 className={head}>You applied</h4>
-                  <p className="mt-1 text-ink-soft">You told your marketer you applied on {shortDate(d.appliedAt)}. Kiwiply never applies for you: you submit on the source site yourself.</p>
+                  <p className="mt-1 text-ink-soft">You told your marketer you applied on {shortDate(d.appliedAt)}. Nothing is applied for you: you submit on the source site yourself.</p>
                 </section>
               ) : null}
               {d.resumeUpdateNote ? (
@@ -566,7 +566,7 @@ function AppliedDialog({ row, busy, onCancel, onConfirm }: { row: OppRow | null;
       }
     >
       <p data-applied-confirm className="text-[13.5px] text-ink-soft">
-        Did you submit this application yourself on the source site? This only tells your marketer. Kiwiply never applies or submits for you.
+        Did you submit this application yourself on the source site? This only tells your marketer. No one applies or submits for you.
       </p>
     </Dialog>
   );
@@ -774,7 +774,7 @@ export default function ConsultantOpportunitiesPage({ orgId, firstName: first, i
 
   return (
     <div data-consultant-opportunities data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Assigned Opportunities" subtitle="Opportunities your marketer assigned to you. Open the job link, apply on the source site with the Kiwiply extension, and keep your marketer updated." />
+      <PageHeader title="Assigned Opportunities" subtitle="Opportunities your marketer assigned to you. Open the job link, apply on the source site with the browser extension, and keep your marketer updated." />
       <ClaimsMascot />
       <ClaimsHelpCard />
 

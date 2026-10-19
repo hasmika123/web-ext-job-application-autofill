@@ -2,7 +2,8 @@
 /**
  * Enterprise demo page crawl (development only): signs in as each demo persona through the "Demo accounts" tab, opens every page of that role's
  * menu at desktop width, and reports what a viewer would trip over: a console error, a failed API call (4xx/5xx), a "on the way" placeholder, a
- * page that never settles, or a horizontal overflow. Screenshots go to CRAWL_OUT (default C:/work_bench_claude/crawl).
+ * page that never settles, a horizontal overflow, or the word "Kiwiply" anywhere a person can see it (the organization's site is white-label:
+ * page text, tab title, image and button labels, meta tags). The signed-out pages (sign-in, policies, support) are checked first. Screenshots go to CRAWL_OUT (default C:/work_bench_claude/crawl).
  *
  *   node web/scripts/demo-crawl.mjs                 # all three personas
  *   PERSONAS=anika node web/scripts/demo-crawl.mjs  # one
@@ -21,6 +22,43 @@ mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || "chrome", headless: !process.env.HEADED });
 const problems = [];
 let pages = 0;
+
+/** Where "Kiwiply" shows on this page: visible text, the tab title, labels and meta tags. */
+async function brandLeaks(page) {
+  return page.evaluate(() => {
+    const out = [];
+    const hit = (where, v) => {
+      const m = String(v || "").match(/.{0,40}kiwiply.{0,40}/i);
+      if (m) out.push(`${where}: ${m[0]}`);
+    };
+    hit("text", document.body ? document.body.innerText : "");
+    hit("title", document.title);
+    for (const el of document.querySelectorAll("[alt],[title],[aria-label],[placeholder]"))
+      for (const a of ["alt", "title", "aria-label", "placeholder"]) if (el.hasAttribute(a)) hit(a, el.getAttribute(a));
+    for (const el of document.querySelectorAll("meta[content]")) hit(`meta ${el.getAttribute("name") || el.getAttribute("property")}`, el.getAttribute("content"));
+    for (const el of document.querySelectorAll("a[href]")) if (/kiwiply/i.test(el.getAttribute("href"))) out.push(`link: ${el.getAttribute("href")}`);
+    return [...new Set(out)];
+  });
+}
+
+{
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  console.log("\n== signed out");
+  for (const route of ["/login", "/forgot-password", "/privacy", "/terms", "/support", "/acceptable-use"]) {
+    const before = problems.length;
+    try {
+      await page.goto(`${WEB}${route}`, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
+      for (const l of await brandLeaks(page)) problems.push({ who: "signed out", path: route, kind: "Kiwiply", detail: l.slice(0, 220) });
+    } catch (e) {
+      problems.push({ who: "signed out", path: route, kind: "load", detail: e.message.split("\n")[0] });
+    }
+    pages++;
+    console.log(`${problems.length === before ? "ok  " : "FAIL"}  ${route}`);
+  }
+  await context.close();
+}
 
 for (const who of PERSONAS) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -58,6 +96,7 @@ for (const who of PERSONAS) {
       if (/couldn't load|something went wrong|try again/i.test(text)) note("error text", (text.match(/.{0,40}(couldn't load|something went wrong|try again).{0,40}/i) || [""])[0]);
       const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (over > 4) note("overflow", `${over}px wider than the window`);
+      for (const l of await brandLeaks(page)) note("Kiwiply", l);
       await page.screenshot({ path: join(OUT, `${who}${route.replace(/[^a-z0-9]+/gi, "_")}.png`) });
     } catch (e) {
       note("load", e.message.split("\n")[0]);

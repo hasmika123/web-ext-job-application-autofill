@@ -1,6 +1,6 @@
 /**
  * Prepare selected openings, the web half (docs/enterprise-v2/63-prepare-batch.md). The consultant ticks assigned openings; the API plans a batch and
- * charges the admin-set caps; this page hands the plan to the Kiwiply browser extension, which opens each job in a tab of the consultant's own browser and
+ * charges the admin-set caps; this page hands the plan to the browser extension, which opens each job in a tab of the consultant's own browser and
  * fills it from their profile. Nothing is submitted for anyone: the consultant reviews, completes what is missing and presses the final button on the real
  * site. Pure helpers, wire parsers, the BFF calls and the page-to-extension message live here; nothing touches React.
  */
@@ -18,9 +18,9 @@ export const POLL_MS = 3000;
 
 /** Shown in the confirm dialog. The wording is part of the contract: it says plainly that nothing is submitted for the consultant. */
 export const CONFIRM_TEXT =
-  "Kiwiply opens each job in a new tab and fills it from your profile. Nothing is submitted for you: you review, fix anything missing and press Submit yourself.";
+  "The browser extension opens each job in a new tab and fills it from your profile. Nothing is submitted for you: you review, fix anything missing and press Submit yourself.";
 
-export const PHONE_NOTE = "Preparing several openings at once works on a desktop browser with the Kiwiply extension. On this device, open the links one by one.";
+export const PHONE_NOTE = "Preparing several openings at once works on a desktop browser with the browser extension. On this device, open the links one by one.";
 
 export interface PrepareStatus {
   enabled: boolean;

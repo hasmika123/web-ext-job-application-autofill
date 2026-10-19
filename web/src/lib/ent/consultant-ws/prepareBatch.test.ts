@@ -81,7 +81,7 @@ describe("wire parsers", () => {
     expect(skippedText("NO_URL")).toMatch(/no job link/);
     expect(skippedText("JOB_NOT_OPEN")).toMatch(/no longer open/);
     expect(skippedText("NOT_ELIGIBLE")).toMatch(/not available/);
-    expect(CONFIRM_TEXT).toBe("Kiwiply opens each job in a new tab and fills it from your profile. Nothing is submitted for you: you review, fix anything missing and press Submit yourself.");
+    expect(CONFIRM_TEXT).toBe("The browser extension opens each job in a new tab and fills it from your profile. Nothing is submitted for you: you review, fix anything missing and press Submit yourself.");
   });
 });
 

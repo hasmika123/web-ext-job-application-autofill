@@ -318,7 +318,7 @@ export default function BrandedLogin({ name, logoUrl, welcomeTitle, welcomeMessa
                   {busy ? "Signing in..." : <>Sign In <ArrowRightIcon size={20} /></>}
                 </button>
                 <p data-account-note className="mt-3 text-center text-[13px] leading-snug text-[var(--brand-800)]">
-                  Your {name} account belongs to {name}. It is separate from any personal Kiwiply account.
+                  Your {name} account belongs to {name}. It is separate from any personal job-search account.
                 </p>
 
                 {social && (

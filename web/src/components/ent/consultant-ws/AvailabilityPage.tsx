@@ -449,7 +449,7 @@ function PreferencesCard({ view, onEdit }: { view: AvailabilityView; onEdit: () 
           <PrefRow key={r.key} spec={r} onEdit={onEdit} />
         ))}
       </ul>
-      <p className="mt-2 text-[12px] text-muted">Rates are only recorded for your marketer. Nothing is charged or paid through Kiwiply.</p>
+      <p className="mt-2 text-[12px] text-muted">Rates are only recorded for your marketer. Nothing is charged or paid here.</p>
     </Card>
   );
 }

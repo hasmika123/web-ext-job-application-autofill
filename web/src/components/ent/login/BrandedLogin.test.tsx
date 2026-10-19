@@ -59,7 +59,7 @@ describe("BrandedLogin: everything comes from the host's published branding", ()
     expect(screen.getByText(`Sign in to your ${acme.displayName} account.`)).toBeTruthy();
     const note = document.querySelector("[data-account-note]")!.textContent!;
     expect(note).toContain(`Your ${acme.displayName} account belongs to ${acme.displayName}`);
-    expect(note).toContain("separate from any personal Kiwiply account");
+    expect(note).toContain("separate from any personal job-search account");
   });
 
   it("beta: a wordmark in the slot, its own heading and subtitle, Google only, plain-text help line", () => {

@@ -15,5 +15,9 @@ export function tenantMetadata(tenant: { displayName: string; branding?: { favic
     applicationName: tenant.displayName,
     robots: { index: false, follow: false },
     icons: icon ? { icon, apple: icon } : { icon: BLANK_ICON },
+    // Metadata merges shallowly, so without these the root layout's Kiwiply description and link-preview tags reach every tenant page.
+    description: null,
+    openGraph: null,
+    twitter: null,
   };
 }

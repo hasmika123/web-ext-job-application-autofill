@@ -317,7 +317,7 @@ describe("Applications: the drawer", () => {
     await mount();
     fireEvent.click(rows()[0]);
     await settle();
-    expect(screen.getByText(/never submits an application/i)).toBeTruthy();
+    expect(screen.getByText(/Applications are never submitted from here/i)).toBeTruthy();
     fireEvent.click(document.querySelector("[data-move-trigger]")!);
     fireEvent.click(screen.getByRole("menuitem", { name: "Record as Submitted" }));
     await settle();

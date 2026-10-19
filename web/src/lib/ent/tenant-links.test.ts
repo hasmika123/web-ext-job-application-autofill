@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
  * (the portal shows the organization's branding). It scans the code that renders on a tenant host and fails on
  *   - a hard-coded `kiwiply.com` address, and
  *   - a link, push, redirect or fetch literal that names a route that exists only on the platform site (`/pricing`, `/billing`, `/dashboard`,
- *     `/settings`, `/profile`, `/resume-builder`, `/connect`, ...).
+ *     `/settings`, `/profile`, `/resume-builder`, ...; `/connect` is now the tenant's own page).
  * `/privacy`, `/terms`, `/support` and `/acceptable-use` are NOT platform-only: on a tenant host the proxy serves the organization's own policy pages there.
  * Anything intentionally platform-side must be listed in ALLOWED with the reason; the list is short on purpose.
  */
@@ -28,7 +28,7 @@ const ROOTS = [
 ];
 
 /** Platform-only routes (marketing, the personal app, admin). */
-const PLATFORM_ROUTE = /["'`]\/(pricing|help|contact|billing|dashboard|settings|profile|resume-builder|org|admin|board|connect|signup|register|account|resumes|profiles|jobs|applications|dossier)(["'`/?#])/;
+const PLATFORM_ROUTE = /["'`]\/(pricing|help|contact|billing|dashboard|settings|profile|resume-builder|org|admin|board|signup|register|account|resumes|profiles|jobs|applications|dossier)(["'`/?#])/;
 const KIWIPLY_URL = /kiwiply\.com/i;
 
 /** file (relative to src) + the exact text that is allowed there, with the reason. */

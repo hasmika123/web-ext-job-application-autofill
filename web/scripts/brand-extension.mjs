@@ -11,8 +11,14 @@
  * Everything else (the engine, the extension ID, the connection to the API) is the same build, so connecting from the organization's own
  * web pages keeps working. Nothing in the source tree changes.
  *
- *   node web/scripts/brand-extension.mjs --name "Acme Staffing" --logo C:/work_bench_claude/brand/acme-logo.png --primary "#1d5bd8"
- *   options: --src <built folder> --out <new folder> (default <src>-<slug>)
+ *   - with --web: white-label. No "Kiwiply" anywhere a person can see it (names, links, messages, tab titles, Chrome's permission list);
+ *     sign-in and every link go to the organization's own site, which may hand the session to this build directly (its /connect page).
+ *     The build stops with a list if any visible "Kiwiply" is left.
+ *
+ *   node web/scripts/brand-extension.mjs --name "Aaruna Technologies" --logo C:/work_bench_claude/brand/acme-logo.png --primary "#1d5bd8" \
+ *     --web http://aaruna.localhost:3200 --api http://localhost:18183
+ *   options: --src <built folder> --out <new folder> (default <src>-<slug>) --short <name in "<short> AI", default the first word>
+ *   (--web: the organization's site, --api: the API the build calls)
  */
 import { chromium } from "@playwright/test";
 import { cpSync, existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -24,6 +30,11 @@ const args = Object.fromEntries(
   process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith("--") ? [...acc, [a.slice(2), all[i + 1]]] : acc), []),
 );
 const NAME = args.name || "Acme Staffing";
+// White-label: the organization's own site (where the extension signs in), the API it calls, and the short name used in "<Short> AI".
+const WEB = (args.web || "").replace(/\/+$/, "");
+const API = (args.api || "").replace(/\/+$/, "");
+const SHORT = args.short || NAME.split(/\s+/)[0];
+const SITE = `the ${NAME} site`;
 const LOGO = resolve(args.logo || "");
 const PRIMARY = (args.primary || "#1d5bd8").toLowerCase();
 const SRC = resolve(args.src || join(here, "../../job-autofill/.output/chrome-mv3-dev"));
@@ -54,20 +65,66 @@ const m = JSON.parse(readFileSync(manifestPath, "utf8"));
 m.name = `${NAME} - Job Autofill`;
 m.description = `Fill job applications for ${NAME} consultants from your profile and resume. Review every field. Never submits for you.`.slice(0, 132);
 if (m.action) m.action.default_title = `${NAME} - open the autofill drawer`;
+if (WEB) {
+  // The spin-off names no Kiwiply host: Chrome would show them in its permission prompt ("Read and change your data on kiwiply.com").
+  // The organization's own site is listed exactly, so it may hand the session to the extension (the connect page on that site).
+  const kiwi = (p) => /kiwiply\.com/i.test(String(p));
+  const add = (list, v) => (list.includes(v) ? list : [...list, v]);
+  if (m.host_permissions) m.host_permissions = m.host_permissions.filter((p) => !kiwi(p));
+  if (API) m.host_permissions = add(m.host_permissions || [], `${API}/*`);
+  if (m.externally_connectable) m.externally_connectable.matches = add(m.externally_connectable.matches.filter((p) => !kiwi(p)), `${WEB}/*`);
+  for (const cs of m.content_scripts || []) {
+    const kept = cs.matches.filter((p) => !kiwi(p));
+    cs.matches = kept.length === cs.matches.length ? kept : add(kept, `${WEB}/*`);
+  }
+  for (const war of m.web_accessible_resources || []) if (war.matches) war.matches = war.matches.filter((p) => !kiwi(p));
+}
 writeFileSync(manifestPath, JSON.stringify(m, null, 2));
+
+// White-label text: every Kiwiply name and link a person can meet (drawer, options page, review panel, messages, links, tab titles) becomes
+// the organization's. Internal names nobody sees (message types such as KIWIPLY_CONNECT, which the web pages also send, element ids, function
+// names) are kept as they are, so the engine and the web hand-off keep working.
+const KEEP = /KIWIPLY_[A-Z_]+|createKiwiplyProvider|__kiwiply\w*|kiwiply-(?:sync|panel)\b/g;
+function whiteLabel(src) {
+  const kept = [];
+  let s = src.replace(KEEP, (k) => `\u0000${kept.push(k) - 1}\u0000`);
+  s = s
+    .replace(/https:\/\/(?:www\.|app\.)?kiwiply\.com\/connect/g, `${WEB}/connect`)
+    .replace(/https:\/\/(?:www\.|app\.)?kiwiply\.com\/(?:dashboard|pricing)/g, `${WEB}/`)
+    .replace(/https:\/\/api\.kiwiply\.com/g, API || WEB)
+    .replace(/https:\/\/\*\.kiwiply\.com\/\*/g, `${WEB}/*`)
+    .replace(/https:\/\/(?:www\.|app\.)?kiwiply\.com/g, WEB)
+    .replace(/\.kiwiply\.com/g, `.${new URL(WEB).hostname}`)
+    .replace(/kiwiply\.com(?:\/[a-z][a-z/-]*)?/gi, SITE)
+    .replace(/Kiwiply AI/g, `${SHORT} AI`)
+    .replace(/Kiwiply/g, NAME);
+  return s.replace(/\u0000(\d+)\u0000/g, (_, i) => kept[Number(i)]);
+}
+/** What would still show "Kiwiply" after the pass (internal names excluded): the build fails on any. */
+function leftovers(src) {
+  return [...src.replace(KEEP, "").matchAll(/.{0,50}kiwiply.{0,40}/gi)].map((x) => x[0]);
+}
 
 let cssFiles = 0;
 const walk = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(dir, e.name)) : [join(dir, e.name)]));
+const left = [];
 for (const f of walk(OUT)) {
   if (f.endsWith(".css")) {
     writeFileSync(f, readFileSync(f, "utf8") + css);
     cssFiles++;
   }
-  if (f.endsWith(".js")) {
+  if (/\.(js|html|json)$/.test(f)) {
     const before = readFileSync(f, "utf8");
-    const after = before.replaceAll("Prepared by Kiwiply", `Prepared by ${NAME}`);
+    let after = before.replaceAll("Prepared by Kiwiply", `Prepared by ${NAME}`);
+    if (WEB) after = whiteLabel(after);
     if (after !== before) writeFileSync(f, after);
+    if (WEB) for (const l of leftovers(after)) left.push(`${f.slice(OUT.length + 1)}: ${l}`);
   }
+  if (WEB && /kiwiply/i.test(basename(f))) left.push(`file name: ${f.slice(OUT.length + 1)}`);
+}
+if (WEB && left.length) {
+  console.error(`"Kiwiply" is still visible in ${left.length} place(s):\n  ${left.slice(0, 40).join("\n  ")}`);
+  process.exit(1);
 }
 
 // ---- icons and logos, drawn from the organization's mark in a headless browser ----------------------------------------------------------

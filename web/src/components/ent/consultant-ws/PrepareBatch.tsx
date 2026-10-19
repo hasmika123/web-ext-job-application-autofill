@@ -309,7 +309,7 @@ export function PrepareProgress({ p }: { p: PrepareUi }) {
         <>
           {run.acked === null ? (
             <p role="status" data-prepare-waiting className="mt-2 text-[13px] text-ink-soft">
-              Asking the Kiwiply extension to open your jobs...
+              Asking the browser extension to open your jobs...
             </p>
           ) : run.acked ? (
             <p role="status" data-prepare-acked className="mt-2 text-[13px] text-ink-soft">
@@ -319,7 +319,7 @@ export function PrepareProgress({ p }: { p: PrepareUi }) {
             <div role="alert" data-prepare-no-extension className="mt-2 rounded-lg border border-line bg-paper-2/60 p-3 text-[13px] text-ink">
               <p className="font-semibold">Extension not detected</p>
               <p className="mt-1 text-ink-soft">
-                Open this page in the browser where the Kiwiply extension is installed and connected to your organization, then try again. Or open the links one by one and use the extension on each job as usual.
+                Open this page in the browser where the browser extension is installed and connected to your organization, then try again. Or open the links one by one and use the extension on each job as usual.
               </p>
             </div>
           )}

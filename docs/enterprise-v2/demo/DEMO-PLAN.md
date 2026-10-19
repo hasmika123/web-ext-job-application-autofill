@@ -290,3 +290,18 @@ the other members and the 150-person bench under Indian names. Same logins, role
   with `--no-daemon`, because a reused Gradle daemon kept its old environment.
 - Limit: Greenhouse, Lever and SmartRecruiters pages do not give the extension the full job text, so the best-resume line shows on
   Workday and Ashby only. A product fix (read the description from those pages) is a follow-up, not a demo change.
+
+## 12. No "Kiwiply" on the organization's extension or site (2026-10-19, user decision)
+
+The Aaruna-branded extension and the Aaruna site (tenant host) name only Aaruna. The regular extension and kiwiply.com keep Kiwiply.
+- **Extension:** build it with the white-label switches. The script fails, with a list, if any visible "Kiwiply" is left; internal names
+  such as the `KIWIPLY_CONNECT` message type stay. Chrome's permission list names no kiwiply.com host.
+  `node web/scripts/brand-extension.mjs --name "Aaruna Technologies" --logo C:/work_bench_claude/brand/acme-logo.png --primary "#1d5bd8" --web http://aaruna.localhost:3200 --api http://localhost:18183`
+- **Sign-in:** the extension's sign-in and the account menu's Connect extension open the organization's own `/connect` page. It hands the
+  session straight to a build that lists that host, and passes the one-time code on to the platform page for the standard extension.
+- **Site:** the tenant pages drop the platform's link-preview tags and every "Kiwiply" sentence ("Nothing is signed or sent from here",
+  "the browser extension").
+- **Checks:** `node web/scripts/demo-whitelabel-check.mjs` (10/10) and `node web/scripts/demo-crawl.mjs` (67 pages, no Kiwiply; it now
+  also checks the signed-out pages).
+- **Left as is:** the cartoon bee on the sign-in backdrop is Kiwiply's mascot art, and "Get the extension" links to the public store
+  listing. Both are open questions for the user.

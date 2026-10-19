@@ -106,8 +106,8 @@ export default function OfferDetailPanel({
         {o.state === "DRAFT"
           ? "Only you can see this draft. Record it as extended when the client has made the offer; then " + first + " can answer it."
           : o.state === "EXTENDED" || o.state === "NEGOTIATING"
-            ? `Only ${first} can accept or decline this offer. Nothing is signed or sent by Kiwiply.`
-            : "This records the offer and the answer. Nothing was signed or sent by Kiwiply."}
+            ? `Only ${first} can accept or decline this offer. Nothing is signed or sent from here.`
+            : "This records the offer and the answer. Nothing was signed or sent from here."}
       </p>
 
       <section aria-label="Offer details">

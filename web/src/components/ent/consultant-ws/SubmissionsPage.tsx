@@ -608,7 +608,7 @@ function ReviewSheet({ row, detail, busy, onClose, a, me }: { row: SubRow | null
               <Checklist className="mt-2" />
             </section>
           )}
-          <p className="text-[12px] text-muted">Approving only records that you agree. Kiwiply never submits anything for you.</p>
+          <p className="text-[12px] text-muted">Approving only records that you agree. Nothing is ever submitted for you.</p>
         </div>
       )}
     </SideSheet>
@@ -813,7 +813,7 @@ export default function ConsultantSubmissionsPage({ orgId, firstName: first, sel
       const res = await approveSubmission(orgId, r.id);
       setApproving(null);
       if (res.ok) {
-        toast({ title: "Submission approved", description: "Your marketer can take it from here. Nothing was sent to the client by Kiwiply.", variant: "success" });
+        toast({ title: "Submission approved", description: "Your marketer can take it from here. Nothing was sent to the client from here.", variant: "success" });
       } else if (res.status === 409) {
         setNotice(res.message ?? "This submission was already decided.");
       } else setNotice(res.message ?? "We couldn't record your approval. Nothing has changed.");

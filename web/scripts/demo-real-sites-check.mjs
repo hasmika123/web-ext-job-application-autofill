@@ -33,7 +33,7 @@ let [worker] = context.serviceWorkers();
 if (!worker) worker = await context.waitForEvent("serviceworker", { timeout: 30_000 });
 await context.addInitScript(() => {
   window.open = (url) => {
-    if (url && /\/connect\?/.test(String(url))) location.href = String(url);
+    if (url && /\/connect(\?|$)/.test(String(url))) location.href = String(url);
     return null;
   };
 });
