@@ -199,3 +199,40 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 2. **G6:** build the "Check now" button (1.5 h, real code) or accept the devtools re-connect trick on stage?
 3. **G1:** may the non-demo API on 8080 be stopped, or run the demo stack on 18183/3200 beside it?
 4. **G4:** include one real Greenhouse/Lever posting (fill only) in addition to the local fixture pages?
+
+---
+
+## 7. Phase 2 status (2026-10-18, evening; branch `ent-demo-p1`)
+
+| Gap | Done | How | Commit |
+|---|---|---|---|
+| G1 stack | yes | Demo API on 18183 from a detached worktree outside OneDrive (`C:\work_bench_claude\ent-demo-wt`), web 3200 from a production build there, stand-in employer pages on 3399; MySQL = the existing `dossierapi-mysql-1` container, database `dossier_ent_demo` | start scripts in `.claude/` (git-ignored, hold the local secrets) |
+| G7 extension connect | yes, rehearsed | dev builds take `WXT_DEV_WEB_ORIGINS` / `WXT_DEV_API_ORIGINS` and default their API base to the local API; the API's connect link uses `JHIPSTER_MAIL_BASE_URL=http://localhost:3200`; **seeded demo members may now mint/exchange a connect code and are reported as the enterprise account of their tenant** (their user row has no `org_id`, which both paths refused: that is why video 09 used Gamma) | `f4cea9ff`, `e7b35c1a`, `3bb40dba`, `37787496` |
+| G3 switches | verified | `GET con/prepare/status` as Anika and Ben → `enabled:true`, 10 per batch, 30/day; Anika's inbox `entitled:true`; seeders now revive the licence if the billing shuffle left it off | `6dfbf5d4` |
+| G4 job pages | yes | every seeded opening links to `http://jobs.localhost:3399/greenhouse/<org>/<id>?t=<title>` (62 rows); `web/scripts/demo-ats-server.mjs` serves the Greenhouse-style form; http `*.localhost` links are allowed by the API only with `DOSSIER_ALLOW_LOCALHOST_JOB_LINKS=true` (job source reader and the marketer's link rule) and kept by the consultant pages | `52b1fcd4`, `19864eb0`, `f8b9b6c2` |
+| G2 prepare hand-off | yes (code) | Chrome relay on tenant hosts (prepare only), string session id, `accepted` read by the web, dev tenant/ATS origins read from the manifest; 183 extension unit tests + web tests green | `030f4131` |
+| G5a AI in the extension | yes | admin override `PUT /api/admin/users/demo-ent-acme-{anika,ben}/ai-quota {"budgetCents":600}` (in the DB; redo after a DB reset). **Still needs the Anthropic key** on the API (`DOSSIER_AI_API_KEY`, file `.claude/ent-demo-ai-key.cmd`) | — |
+| G5b | option 1 | AI shown in the extension only; web shows the rule-based fit | — |
+| G6 Check now | yes | `POST me-workspace/inbox/check-now` (202, 409 when nothing connected, 429 within a minute) + "Check now" on the consultant Inbox page; verified against the sample mailbox | `00c0d4be`, `6e491715` |
+| Demo seed | changed | Omar is now the primary marketer of **both** Anika and Ben (Sarah's Marketing Management workspace is a placeholder); the rehearsal reassigns on an older database | `8ca10e0c` |
+| Rehearsal | **9/9 steps pass** | `node web/scripts/demo-ext-check.mjs` loads the dev extension into Chrome, has Omar save three openings for Anika, signs in as Anika, connects the extension with the one-time code, runs a batch of two openings, sees both tabs open with the review panel, presses "Fill selected" on each (name, email, phone, city, work authorization land), presses the page's own Submit on one, and sees the web board turn that opening to Submitted | `bfef478c` + fixes below |
+| Walkthrough consultants' profile | yes | Anika and Ben had no personal profile (bio), so the extension had nothing to fill; a demo seeder builds one from their contact details | `64e11b53` |
+| Fill on an unknown site | fixed | the fill's job capture threw on the stand-in page and silently skipped the fill log and the submit watch; the three steps are now independent. Hidden "thank you" blocks no longer count as a submit (visible text only) | see §7 commits |
+
+**What the audience will see in W3, honestly:** each opening opens in its own tab with the Kiwiply review panel already listing every answer; one click on **Fill selected** per tab writes them (the extension never writes without that look); the page then shows "Needs your input" for the fields only a person can do (here the resume upload), and after the consultant presses the site's own Submit the board turns to **Submitted** by itself.
+
+### Findings on the way (not fixed, for the user)
+1. **A fresh database cannot be migrated on MySQL 8.4+/9.** `20261101010000_ent_ops_data.xml` adds foreign keys onto `hr_employee(org_id, id)`, which has no unique key; MySQL 9's `restrict_fk_on_non_standard_key` refuses them (changesets `ent-ops-2-hr_employee_note`, `ent-ops-3-hr_onboarding_item`). The demo start script sets `SET GLOBAL restrict_fk_on_non_standard_key = OFF` every start (the variable cannot be persisted). The real fix is an additive unique key on `hr_employee(org_id, id)` before those changesets, and a check of what MySQL version production runs.
+2. A migration killed half-way leaves the Liquibase lock and half-applied changesets: drop and recreate the demo database rather than retrying.
+3. `npm run build` must run the `prebuild` (`scripts/sync-parser-core.mjs`); a bare `next build` fails on the missing generated parser.
+4. This checkout's old `web/.next` (Sep 22) makes `tsc --noEmit` fail on `.next/types/validator.ts`; a fresh build fixes it.
+5. `next start` warns that `output: standalone` wants `node .next/standalone/server.js`; it serves fine for the demo.
+6. Turbopack refuses a `node_modules` junction that points outside the project; the worktree build uses `next build --webpack`.
+
+### How to bring the stack up (this laptop)
+1. MySQL: the `dossierapi-mysql-1` container (port 3306). Fresh demo data: `DROP DATABASE dossier_ent_demo; CREATE DATABASE dossier_ent_demo CHARACTER SET utf8mb4;` then start the API (about 12 minutes of migrations + seeders), then re-apply the AI override (G5a).
+2. API: `.claude/ent-demo-api.cmd` (worktree, port 18183, all demo flags, inbox key, sandbox switch, job-link base, FK variable). Log: `C:\work_bench_claude\ent-demo-api.log`. For the live Gmail set `DOSSIER_DEMO_INBOX_SANDBOX=false` in it and restart.
+3. Web: in the worktree `web/`: `node scripts/sync-parser-core.mjs && npx next build --webpack`, then `.claude/ent-demo-web.cmd` (port 3200). Stop the web before rebuilding in the same folder.
+4. Stand-in employer pages: `node web/scripts/demo-ats-server.mjs` (port 3399).
+5. Extension: `cd job-autofill && WXT_DEV_WEB_ORIGINS=http://localhost:3200,http://localhost:3000 WXT_DEV_API_ORIGINS=http://localhost:18183,http://localhost:8080 WXT_DEV_TENANT_ORIGINS=http://*.localhost:3200 WXT_DEV_ATS_ORIGINS=http://jobs.localhost:3399 npx wxt build --mode development` → load `job-autofill/.output/chrome-mv3-dev` unpacked in Chrome (one profile per person: Anika, Omar). In the drawer's settings the API base must be `http://localhost:18183` (the rehearsal script sets it in storage).
+6. Demo tenant: `http://acme.localhost:3200/login` → Demo accounts tab (left edge).
