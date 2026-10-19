@@ -216,10 +216,10 @@ function Overview({ d, save, contacts, editing }: { d: JobDetail; save: ReturnTy
   return (
     <div className="space-y-4" data-overview>
       <dl className="grid grid-cols-2 gap-x-5 gap-y-3.5">
-        <Fact icon={<BriefcaseIcon size={16} />} label="Job Type">
+        <Fact icon={<BriefcaseIcon size={16} />} label="Job type">
           {employmentLabel(d.employment) || "Not set"}
         </Fact>
-        <Fact icon={<GraduationCapIcon size={16} />} label="Experience Level">
+        <Fact icon={<GraduationCapIcon size={16} />} label="Experience level">
           {experienceLabel(d.experienceLevel) || "Not set"}
         </Fact>
         <Fact icon={<CalendarIcon size={16} />} label="Duration">
@@ -229,7 +229,7 @@ function Overview({ d, save, contacts, editing }: { d: JobDetail; save: ReturnTy
           {rate || "Not stated"}
         </Fact>
         <div data-client-contact>
-          <Fact icon={<UserIcon size={16} />} label="Client Contact">
+          <Fact icon={<UserIcon size={16} />} label="Client contact">
             {d.contact ? (
               <span className="mt-1 flex items-center gap-2">
                 <MemberAvatar name={d.contact.name} size={26} />

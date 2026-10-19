@@ -318,7 +318,7 @@ function SheetBody({ onClose, orgId, consultant, marketers, initialMode, onDone 
               {chosen && preview.data.toAssigned != null && preview.data.toCapacity != null && (
                 <p className={`mt-2 text-[12.5px] ${preview.data.overCapacity ? "font-semibold text-danger-text" : "text-muted"}`}>
                   {chosen.name} would carry {preview.data.toAssigned + 1} of {preview.data.toCapacity} consultants
-                  {preview.data.licenceMax ? ` (the licence allows ${preview.data.licenceMax})` : ""}.
+                  {preview.data.licenceMax ? ` (the license allows ${preview.data.licenceMax})` : ""}.
                 </p>
               )}
             </>
@@ -328,7 +328,7 @@ function SheetBody({ onClose, orgId, consultant, marketers, initialMode, onDone 
         {over && chosen && <OverCapacityNotice name={chosen.name} over={over} busy={busy} onForce={() => void submit(true)} />}
         {licence && chosen && (
           <p role="alert" data-licence-limit className="rounded-xl border border-[var(--color-v2-amber)] bg-v2-amber-soft p-3 text-[13px] text-ink">
-            <span className="font-semibold">The licence stops this.</span> It allows {licence.max} consultants per marketer and {chosen.name} already has {licence.current}. Pick another marketer, or ask your administrator to raise the allowance.
+            <span className="font-semibold">The license stops this.</span> It allows {licence.max} consultants per marketer and {chosen.name} already has {licence.current}. Pick another marketer, or ask your administrator to raise the allowance.
           </p>
         )}
         {error && (

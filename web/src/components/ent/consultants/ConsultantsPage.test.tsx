@@ -477,7 +477,7 @@ describe("Consultants: actions", () => {
     await mount();
     fireEvent.click(screen.getAllByRole("button", { name: /Add consultant/ })[0]);
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Add Consultant" });
+    const dialog = screen.getByRole("dialog", { name: "Add consultant" });
     expect((within(dialog).getByRole("button", { name: "Add consultant" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(within(dialog).getByLabelText("Full name"), { target: { value: "Fay Fox" } });
     fireEvent.change(within(dialog).getByLabelText("Work email"), { target: { value: "fay@acme.test" } });
@@ -494,7 +494,7 @@ describe("Consultants: actions", () => {
     await mount();
     fireEvent.click(screen.getAllByRole("button", { name: /Add consultant/ })[0]);
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Add Consultant" });
+    const dialog = screen.getByRole("dialog", { name: "Add consultant" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Existing person" }));
     fireEvent.click(screen.getByRole("option", { name: "Dana Moreau (dana@acme.test)" }));
     expect((within(dialog).getByLabelText("Full name") as HTMLInputElement).value).toBe("Dana Moreau");
@@ -522,7 +522,7 @@ describe("Consultants: actions", () => {
     overrides.push((c) => (c.method === "POST" && c.path === "/" ? { status: 409, body: { error: "dup", code: "CONSULTANT_EXISTS" } } : undefined));
     await mount();
     fireEvent.click(screen.getAllByRole("button", { name: /Add consultant/ })[0]);
-    const dialog = screen.getByRole("dialog", { name: "Add Consultant" });
+    const dialog = screen.getByRole("dialog", { name: "Add consultant" });
     fireEvent.change(within(dialog).getByLabelText("Full name"), { target: { value: "Fay Fox" } });
     fireEvent.change(within(dialog).getByLabelText("Work email"), { target: { value: "fay@acme.test" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Add consultant" }));
@@ -576,7 +576,7 @@ describe("Consultants: actions", () => {
     fireEvent.click(screen.getByLabelText("Actions for Emily Lawson"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Assign marketer" }));
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Assign Marketer" });
+    const dialog = screen.getByRole("dialog", { name: "Assign marketer" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Marketer" }));
     fireEvent.click(screen.getByRole("option", { name: "Sarah Chen · 9 / 20" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Assign" }));
@@ -590,7 +590,7 @@ describe("Consultants: actions", () => {
     await settle();
     fireEvent.click(drawer().querySelector("[data-quick-action=application]")!);
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Create Job Application" });
+    const dialog = screen.getByRole("dialog", { name: "Create job application" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Job" }));
     fireEvent.click(screen.getByRole("option", { name: "Platform Engineer · FinTech" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Create application" }));

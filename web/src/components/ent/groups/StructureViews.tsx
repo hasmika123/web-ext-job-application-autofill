@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { BuildingIcon, ChevronDownIcon, ChevronRightIcon, cn } from "@kiwiply/ui";
-import { plural, TONE_TILE, toneOf, type Group, type Structure } from "@/lib/ent/groups";
-import { GROUP_ICON, GroupTile } from "./GroupVisuals";
+import { plural, type Group, type Structure } from "@/lib/ent/groups";
+import { GroupTile } from "./GroupVisuals";
 
 export function StructureTree({ structure, onOpen, withCohorts = true }: { structure: Structure; onOpen: (g: Group) => void; withCohorts?: boolean }) {
   const [closed, setClosed] = useState<Set<number>>(new Set());

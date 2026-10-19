@@ -82,7 +82,7 @@ type PipelineState = { status: "loading" } | { status: "error"; message: string 
 type AnalyticsState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; data: Analytics };
 
 const SORT_MENU: { key: SortKey; label: string }[] = [
-  { key: "scheduled", label: "Scheduled Date" },
+  { key: "scheduled", label: "Scheduled date" },
   { key: "role", label: "Role" },
   { key: "consultant", label: "Consultant" },
   { key: "client", label: "Client" },
@@ -314,7 +314,7 @@ export default function InterviewsPage({ orgId, permissions, selfMemberId }: Int
   const noInterviewsAtAll = list.status === "ok" && total === 0 && !active && view.tab === "all";
   const lines = (
     <span className="inline-flex items-center gap-1.5">
-      <FunnelIcon size={15} aria-hidden /> More Filters
+      <FunnelIcon size={15} aria-hidden /> More filters
       {moreCount > 0 && <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-accent px-1 text-[11px] font-bold text-on-accent" data-more-count>{moreCount}</span>}
     </span>
   );
@@ -353,10 +353,10 @@ export default function InterviewsPage({ orgId, permissions, selfMemberId }: Int
         )}
       </Popover>
       <div className="w-[7.6rem]">
-        <Select aria-label="Client" value={view.client} onChange={(v) => setView({ client: v })} options={[{ value: "", label: "All Clients" }, ...(options?.clients ?? [])]} />
+        <Select aria-label="Client" value={view.client} onChange={(v) => setView({ client: v })} options={[{ value: "", label: "All clients" }, ...(options?.clients ?? [])]} />
       </div>
       <div className="w-[8.4rem]">
-        <Select aria-label="Status" value={view.status} onChange={(v) => setView({ status: v })} options={[{ value: "", label: "All Statuses" }, ...(options?.statuses ?? [])]} />
+        <Select aria-label="Status" value={view.status} onChange={(v) => setView({ status: v })} options={[{ value: "", label: "All statuses" }, ...(options?.statuses ?? [])]} />
       </div>
       <Popover
         label="More filters"
@@ -395,7 +395,7 @@ export default function InterviewsPage({ orgId, permissions, selfMemberId }: Int
     </div>
   );
 
-  const sortLabel = SORT_MENU.find((s) => s.key === view.sort.key)?.label ?? "Scheduled Date";
+  const sortLabel = SORT_MENU.find((s) => s.key === view.sort.key)?.label ?? "Scheduled date";
   const pages = Math.max(1, Math.ceil(total / view.size));
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-2" data-list-toolbar>

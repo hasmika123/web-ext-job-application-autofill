@@ -7,7 +7,6 @@ import { AssignmentStatusPill, Check, CompactFilters, PersonChip, PriorityPill }
 import {
   AVAILABILITY_LABEL,
   filtersApplied,
-  formatDay,
   nextSort,
   PAGE_SIZES,
   showingText,

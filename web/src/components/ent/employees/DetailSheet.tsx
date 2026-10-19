@@ -281,13 +281,13 @@ function QuickActions({ detail, selfId, onEdit, onRoles, onFlow, onReset }: { de
   const a = detail.actions;
   const left = detail.status === "LEFT" || detail.status === "REMOVED" || detail.status === "ERASED";
   const rows: { key: string; label: string; icon: ReactNode; run?: () => void; danger?: boolean; soon?: boolean }[] = [];
-  if (a.edit && !left) rows.push({ key: "edit", label: "Edit Employee", icon: <PencilIcon size={18} />, run: onEdit });
-  if (a.manageRoles && !left) rows.push({ key: "roles", label: "Manage Roles & Permissions", icon: <ShieldIcon size={18} />, run: onRoles });
+  if (a.edit && !left) rows.push({ key: "edit", label: "Edit employee", icon: <PencilIcon size={18} />, run: onEdit });
+  if (a.manageRoles && !left) rows.push({ key: "roles", label: "Manage roles & permissions", icon: <ShieldIcon size={18} />, run: onRoles });
   // A new temporary password, only for a person who has not chosen their own yet (the API answers 409 otherwise) and never for yourself.
-  if (a.edit && !left && detail.status === "ACTIVE" && detail.id !== selfId) rows.push({ key: "reset", label: "Reset Password", icon: <KeyIcon size={18} />, run: () => onReset(detail) });
-  if (a.suspend && detail.status === "ACTIVE") rows.push({ key: "suspend", label: "Suspend Employee", icon: <MinusCircleIcon size={18} />, run: () => onFlow("suspend", detail), danger: true });
-  if (a.reinstate && detail.status === "SUSPENDED") rows.push({ key: "reinstate", label: "Reinstate Employee", icon: <RestoreIcon size={18} />, run: () => onFlow("reinstate", detail) });
-  if (a.offboard && (detail.status === "ACTIVE" || detail.status === "SUSPENDED")) rows.push({ key: "offboard", label: "Delete Employee", icon: <TrashIcon size={18} />, run: () => onFlow("offboard", detail), danger: true });
+  if (a.edit && !left && detail.status === "ACTIVE" && detail.id !== selfId) rows.push({ key: "reset", label: "Reset password", icon: <KeyIcon size={18} />, run: () => onReset(detail) });
+  if (a.suspend && detail.status === "ACTIVE") rows.push({ key: "suspend", label: "Suspend employee", icon: <MinusCircleIcon size={18} />, run: () => onFlow("suspend", detail), danger: true });
+  if (a.reinstate && detail.status === "SUSPENDED") rows.push({ key: "reinstate", label: "Reinstate employee", icon: <RestoreIcon size={18} />, run: () => onFlow("reinstate", detail) });
+  if (a.offboard && (detail.status === "ACTIVE" || detail.status === "SUSPENDED")) rows.push({ key: "offboard", label: "Delete employee", icon: <TrashIcon size={18} />, run: () => onFlow("offboard", detail), danger: true });
   if (rows.length === 0) return null;
   return (
     <section aria-label="Actions" className="mt-4 border-t border-line/60 pt-3.5" data-quick-actions>

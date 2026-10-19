@@ -1,7 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import type { ComponentType, ReactNode } from "react";
+import type { ComponentType } from "react";
 import {
   BriefcaseIcon,
   BuildingIcon,
@@ -14,15 +13,10 @@ import {
   MemberAvatar,
   RocketIcon,
   ShieldIcon,
-  ChevronRightIcon,
-  SparklesIcon,
   UsersIcon,
-  XIcon,
   DollarIcon,
 } from "@kiwiply/ui";
 import { cn } from "@kiwiply/ui";
-import { openHelpPanel } from "@/components/ent/shell/ShellContext";
-import { EnterpriseMascot } from "@/lib/ent/mascot";
 import { TONE_TILE, toneOf, type GroupPerson } from "@/lib/ent/groups";
 
 /** Icon name (the API's closed list) -> the `@kiwiply/ui` glyph. */

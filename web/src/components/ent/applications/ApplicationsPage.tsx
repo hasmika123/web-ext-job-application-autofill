@@ -69,7 +69,7 @@ export interface ApplicationsPageProps {
   workspace: string;
   /** `me.permissions` of the tenant session: decides which controls are drawn (the API is the gate). */
   permissions: Record<string, string>;
-  /** Menu hrefs of the pages "View Job" / "View Profile" lead to; null when the member's menu does not list them. */
+  /** Menu hrefs of the pages "View job" / "View profile" lead to; null when the member's menu does not list them. */
   jobsHref: string | null;
   consultantsHref: string | null;
   /** The viewer's own seat (`me.member.id`): "you" in the Updated lines is decided by it. */
@@ -234,10 +234,10 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
 
   /** The pipeline has a column per stage, so it offers no stage filter. */
   const filters = [
-    { name: "job", label: "Job Title", allLabel: "All Job Titles", options: options?.jobTitles ?? [] },
-    { name: "client", label: "Client", allLabel: "All Clients", options: options?.clients ?? [] },
-    ...(view.tab === "pipeline" ? [] : [{ name: "stage", label: "Stage", allLabel: "All Stages", options: options?.stages ?? [] }]),
-    { name: "marketer", label: "Marketer", allLabel: "All Marketers", options: options?.marketers ?? [] },
+    { name: "job", label: "Job title", allLabel: "All job titles", options: options?.jobTitles ?? [] },
+    { name: "client", label: "Client", allLabel: "All clients", options: options?.clients ?? [] },
+    ...(view.tab === "pipeline" ? [] : [{ name: "stage", label: "Stage", allLabel: "All stages", options: options?.stages ?? [] }]),
+    { name: "marketer", label: "Marketer", allLabel: "All marketers", options: options?.marketers ?? [] },
   ];
 
   /* ── rows ────────────────────────────────────────────────────────────────────── */
@@ -419,7 +419,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
                       </Button>
                     ) : canAdd ? (
                       <Button type="button" onClick={() => setAdding(true)}>
-                        <PlusIcon size={16} aria-hidden /> Add Application
+                        <PlusIcon size={16} aria-hidden /> Add application
                       </Button>
                     ) : undefined
                   }

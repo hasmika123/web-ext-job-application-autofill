@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({
 
 import { ToastProvider } from "@kiwiply/ui";
 import TeamsDepartmentsPage from "./TeamsDepartmentsPage";
-import { BENCH, STRUCTURE, stubGroupsFetch } from "./groups.fixtures";
+import { BENCH, stubGroupsFetch } from "./groups.fixtures";
 
 beforeEach(() => {
   nav.search = "";

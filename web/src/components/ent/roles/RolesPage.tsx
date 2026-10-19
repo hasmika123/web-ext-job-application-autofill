@@ -273,7 +273,7 @@ export default function RolesPage({ orgId, workspace, canManage }: RolesPageProp
   );
 }
 
-/** The "Permission Sets" tab: the registry grouped by category and family (read only: doc 05 has no stored permission-set concept). */
+/** The "Permission sets" tab: the registry grouped by category and family (read only: doc 05 has no stored permission-set concept). */
 function PermissionSets({ catalog }: { catalog: Catalog | null }) {
   if (!catalog) return <p className="py-6 text-center text-[13.5px] text-muted">Loading permission sets…</p>;
   return (

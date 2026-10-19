@@ -4,7 +4,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Button, EmptyState, ErrorState, FilterBar, FilterIcon, PlusIcon, ReasonSheet, Select, TableSkeleton, UsersIcon, useMediaQuery, useNarrow, useToast } from "@kiwiply/ui";
+import { Button, EmptyState, ErrorState, FilterBar, FilterIcon, PlusIcon, ReasonSheet, Select, TableSkeleton, useMediaQuery, useNarrow, useToast } from "@kiwiply/ui";
 import type { MenuEntry, ReasonSpec } from "@kiwiply/ui";
 import PageHeader from "@/components/ent/shell/ShellContext";
 import {

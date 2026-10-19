@@ -66,7 +66,7 @@ export interface DetailDrawerProps {
   onChanged: (d: ApplicationDetail) => void;
   /** Bumped by the page when something outside the drawer changed this application. */
   reloadToken: number;
-  /** Where "View Job" and "View Profile" lead (the workspace pages), or null when the menu does not list them. */
+  /** Where "View job" and "View profile" lead (the workspace pages), or null when the menu does not list them. */
   jobsHref: string | null;
   consultantsHref: string | null;
   /** The viewer's own seat: "you" in "Updated 2h ago by you" and the feed is decided by comparing it with the actor. */
@@ -74,7 +74,7 @@ export interface DetailDrawerProps {
   returnFocusTo?: RefObject<HTMLElement | null>;
 }
 
-/* ── Application Progress: the six stages with the date each was recorded ──────────── */
+/* ── Application progress: the six stages with the date each was recorded ──────────── */
 
 export function ProgressSteps({ steps }: { steps: Step[] }) {
   return (
@@ -386,7 +386,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
           <TabPanel value="overview" className="pt-3">
             <section aria-labelledby="progress-h">
               <div className="mb-2 flex items-center justify-between">
-                <h4 id="progress-h" className="text-[12px] font-bold text-[var(--ent-title)]">Application Progress</h4>
+                <h4 id="progress-h" className="text-[12px] font-bold text-[var(--ent-title)]">Application progress</h4>
                 <IconButton aria-label={progressOpen ? "Hide progress" : "Show progress"} aria-expanded={progressOpen} onClick={() => setProgressOpen((o) => !o)} className="!h-6 !w-6">
                   {progressOpen ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
                 </IconButton>
@@ -409,7 +409,7 @@ export default function DetailDrawer(p: DetailDrawerProps) {
 
             <section aria-labelledby="details-h" className="mt-3">
               <div className="mb-1 flex items-center justify-between">
-                <h4 id="details-h" className="text-[12px] font-bold text-[var(--ent-title)]">Application Details</h4>
+                <h4 id="details-h" className="text-[12px] font-bold text-[var(--ent-title)]">Application details</h4>
                 {d.actions.edit && (
                   <button type="button" onClick={() => setEditFor(editing ? null : d.id)} aria-pressed={editing} className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline" data-edit-toggle>
                     <PencilIcon size={12} aria-hidden /> {editing ? "Done" : "Edit"}
@@ -430,11 +430,11 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                     )}
                   </span>
                 </Row>
-                <Row label="Job Title" testId="job">{d.jobTitle}</Row>
+                <Row label="Job title" testId="job">{d.jobTitle}</Row>
                 <Row label="Client / Company" testId="client">{d.client.name} ({p.orgName})</Row>
-                <Row label="Applied Date" testId="applied">{appliedText(d.appliedOn)}</Row>
-                <Row label="Current Stage" testId="stage"><StagePill stage={d.stage} reason={d.closedReason} /></Row>
-                <Row label="Assigned Marketer" testId="marketer">
+                <Row label="Applied date" testId="applied">{appliedText(d.appliedOn)}</Row>
+                <Row label="Current stage" testId="stage"><StagePill stage={d.stage} reason={d.closedReason} /></Row>
+                <Row label="Assigned marketer" testId="marketer">
                   {editing && d.actions.reassign ? (
                     <MarketerField orgId={p.orgId} detail={d} save={saveAndNote} />
                   ) : d.marketer ? (
@@ -446,10 +446,10 @@ export default function DetailDrawer(p: DetailDrawerProps) {
                     <span className="text-muted">Unassigned</span>
                   )}
                 </Row>
-                <Row label="Next Action" testId="next-action">
+                <Row label="Next action" testId="next-action">
                   {editing && d.stage !== "CLOSED" ? <AutosaveField label="Next action" value={d.nextAction ?? ""} type="text" maxLength={120} save={saveAndNote} field="nextAction" /> : d.stage === "CLOSED" ? <span className="text-muted">N/A</span> : d.nextAction ?? <span className="text-muted">None set</span>}
                 </Row>
-                <Row label="Due Date" testId="due">
+                <Row label="Due date" testId="due">
                   {editing && d.stage !== "CLOSED" ? (
                     <AutosaveField label="Due date" value={d.nextActionDue ?? ""} type="date" save={saveAndNote} field="nextActionDue" />
                   ) : d.stage === "CLOSED" || !d.nextActionDue ? (

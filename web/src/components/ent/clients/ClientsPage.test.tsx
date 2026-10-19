@@ -306,9 +306,9 @@ describe("Clients: the drawer", () => {
     expect(within(body).getByText("San Francisco, CA")).toBeTruthy();
     expect(within(body).getByText("1,000 - 5,000 employees")).toBeTruthy();
     expect(within(body).getByText("Client since Jan 2022")).toBeTruthy();
-    expect(within(body).getByText("Key Contacts")).toBeTruthy();
+    expect(within(body).getByText("Key contacts")).toBeTruthy();
     expect(within(body).getByText("Jennifer Wilson")).toBeTruthy();
-    expect(within(body).getByText("Recent Requirements")).toBeTruthy();
+    expect(within(body).getByText("Recent requirements")).toBeTruthy();
     expect(within(body).getAllByText("Senior Frontend Engineer")).toHaveLength(2); // the requirement and the submission's job
     expect(within(body).getByText("Alex Turner")).toBeTruthy();
     expect(within(body).getByText("Interview")).toBeTruthy();

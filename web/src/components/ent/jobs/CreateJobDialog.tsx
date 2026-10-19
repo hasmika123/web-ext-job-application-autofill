@@ -66,7 +66,7 @@ export interface CreateJobDialogProps {
   onClose: () => void;
   clients: ClientOption[];
   onCreated: (job: JobDetail) => void;
-  /** Opens with this client already chosen (the Clients page's "Create Requirement"). */
+  /** Opens with this client already chosen (the Clients page's "Create requirement"). */
   presetClientId?: number | null;
 }
 

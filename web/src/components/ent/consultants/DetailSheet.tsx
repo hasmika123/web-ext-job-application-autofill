@@ -114,15 +114,15 @@ function Overview({ detail, canEdit, save, onSaved, onTab, onFlow }: { detail: C
 
   const a = detail.actions;
   const quick: { key: string; label: string; icon: ReactNode; run: () => void; danger?: boolean }[] = [
-    { key: "applications", label: "View Applications", icon: <FileTextIcon size={16} />, run: () => onTab("applications") },
+    { key: "applications", label: "View applications", icon: <FileTextIcon size={16} />, run: () => onTab("applications") },
   ];
-  if (a.assignMarketer) quick.push({ key: "marketer", label: "Assign Marketer", icon: <UserIcon size={16} />, run: () => onFlow("marketer", detail) });
-  if (a.edit) quick.push({ key: "license", label: "Manage License", icon: <GearIcon size={16} />, run: () => onFlow("license", detail) });
+  if (a.assignMarketer) quick.push({ key: "marketer", label: "Assign marketer", icon: <UserIcon size={16} />, run: () => onFlow("marketer", detail) });
+  if (a.edit) quick.push({ key: "license", label: "Manage license", icon: <GearIcon size={16} />, run: () => onFlow("license", detail) });
   if (a.edit && detail.memberId === null) quick.push({ key: "link", label: "Link a sign-in", icon: <UserIcon size={16} />, run: () => onFlow("link", detail) });
   if (a.edit) quick.push({ key: "department", label: "Add to Department", icon: <UsersIcon size={16} />, run: () => onFlow("department", detail) });
-  if (a.createApplication) quick.push({ key: "application", label: "Create Job Application", icon: <BriefcaseIcon size={16} />, run: () => onFlow("application", detail) });
-  if (a.deactivate) quick.push({ key: "deactivate", label: "Deactivate Consultant", icon: <TrashIcon size={16} />, run: () => onFlow("deactivate", detail), danger: true });
-  if (a.reactivate) quick.push({ key: "reactivate", label: "Reactivate Consultant", icon: <RestoreIcon size={16} />, run: () => onFlow("reactivate", detail) });
+  if (a.createApplication) quick.push({ key: "application", label: "Create job application", icon: <BriefcaseIcon size={16} />, run: () => onFlow("application", detail) });
+  if (a.deactivate) quick.push({ key: "deactivate", label: "Deactivate consultant", icon: <TrashIcon size={16} />, run: () => onFlow("deactivate", detail), danger: true });
+  if (a.reactivate) quick.push({ key: "reactivate", label: "Reactivate consultant", icon: <RestoreIcon size={16} />, run: () => onFlow("reactivate", detail) });
 
   return (
     <div data-tab-panel="overview" className="space-y-3">
@@ -178,7 +178,7 @@ function Overview({ detail, canEdit, save, onSaved, onTab, onFlow }: { detail: C
             View Interviews
           </button>
         </Card>
-        <Card icon={<GearIcon size={16} />} title="License Status">
+        <Card icon={<GearIcon size={16} />} title="License status">
           {canEdit ? (
             <Select
               aria-label="License status"
@@ -196,13 +196,13 @@ function Overview({ detail, canEdit, save, onSaved, onTab, onFlow }: { detail: C
           </p>
           {canEdit ? (
             <button type="button" onClick={() => onFlow("license", detail)} className="mt-2 inline-flex min-h-10 w-full items-center justify-center rounded-lg border border-line px-3 text-[12.5px] font-semibold text-ink hover:bg-paper-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
-              Manage License
+              Manage license
             </button>
           ) : null}
         </Card>
       </div>
 
-      <Card icon={<CheckIcon size={16} />} title="Profile Completeness">
+      <Card icon={<CheckIcon size={16} />} title="Profile completeness">
         <div className="flex items-center gap-4">
           <ProfileRing value={c.profileCompleteness} size={84} large />
           <ul className="min-w-0 flex-1 space-y-1 text-[12.5px]" aria-label="Profile checklist" data-checklist>

@@ -257,9 +257,9 @@ export default function ResumesPage({ orgId, workspace, permissions }: ResumesPa
   const moreCount = [state.primary, state.owner, state.updated].filter(Boolean).length;
 
   const filters = [
-    { name: "department", label: "Department", allLabel: "All Departments", options: filterOptions.departments },
-    { name: "visibility", label: "Visibility", allLabel: "All Visibility", options: VISIBILITY_OPTIONS.map((o) => ({ value: o.value, label: o.label })) },
-    { name: "status", label: "Status", allLabel: "All Statuses", options: [{ value: "APPROVED", label: "Approved" }, { value: "PENDING", label: "Pending" }, { value: "REJECTED", label: "Rejected" }] },
+    { name: "department", label: "Department", allLabel: "All departments", options: filterOptions.departments },
+    { name: "visibility", label: "Visibility", allLabel: "All visibility", options: VISIBILITY_OPTIONS.map((o) => ({ value: o.value, label: o.label })) },
+    { name: "status", label: "Status", allLabel: "All statuses", options: [{ value: "APPROVED", label: "Approved" }, { value: "PENDING", label: "Pending" }, { value: "REJECTED", label: "Rejected" }] },
   ];
   const filterValues = { department: state.department, visibility: state.visibility, status: state.status };
   const onFilter = (name: string, value: string) => apply(name === "department" ? { department: value } : name === "visibility" ? { visibility: value } : { status: value });

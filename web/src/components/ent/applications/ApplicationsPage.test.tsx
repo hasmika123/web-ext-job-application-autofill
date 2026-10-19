@@ -271,7 +271,7 @@ describe("Applications: the list", () => {
     fireEvent.click(screen.getByTitle("Sort by job title"));
     await settle();
     expect(listCalls().at(-1)!.params.get("sort")).toBe("job,asc");
-    expect(document.querySelector("th[aria-sort=ascending]")?.textContent).toContain("Job Title");
+    expect(document.querySelector("th[aria-sort=ascending]")?.textContent).toContain("Job title");
     expect(url.get().get("sort")).toBe("job,asc");
   });
 
@@ -398,7 +398,7 @@ describe("Applications: adding", () => {
     await mount();
     fireEvent.click(document.querySelector("[data-add-application]")!);
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Add Application" });
+    const dialog = screen.getByRole("dialog", { name: "Add application" });
     expect(dialog.textContent).toContain("doesn't apply anywhere");
     const submit = dialog.querySelector<HTMLButtonElement>("[data-add-submit]")!;
     expect(submit.disabled).toBe(true);
@@ -427,7 +427,7 @@ describe("Applications: the duplicate and cap guards (Sprint 2 / B1)", () => {
     await mount();
     fireEvent.click(document.querySelector("[data-add-application]")!);
     await settle();
-    const dialog = screen.getByRole("dialog", { name: "Add Application" });
+    const dialog = screen.getByRole("dialog", { name: "Add application" });
     fireEvent.focus(screen.getByLabelText("Consultant"));
     await settle(400);
     fireEvent.click(within(dialog).getByRole("button", { name: /Sky Spare/ }));

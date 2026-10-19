@@ -278,7 +278,7 @@ describe("Jobs: the drawer", () => {
     fireEvent.click(rows()[0]);
     await settle();
     const body = document.querySelector("[data-detail-body]") as HTMLElement;
-    expect(within(body).getByText("Job Type")).toBeTruthy();
+    expect(within(body).getByText("Job type")).toBeTruthy();
     expect(within(body).getByText("Contract")).toBeTruthy();
     expect(within(body).getByText("$120 - $160 / hour")).toBeTruthy();
     expect(within(body).getByText("michael.park@example.com")).toBeTruthy();

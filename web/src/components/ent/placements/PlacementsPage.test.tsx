@@ -276,7 +276,7 @@ describe("Placements: the list", () => {
 
   it("hides the bill rate column and the add button from someone who may only read", async () => {
     await mount({ permissions: { "placements.view": "ORG" } });
-    expect(screen.queryByText("Bill Rate")).toBeNull();
+    expect(screen.queryByText("Bill rate")).toBeNull();
     expect(document.querySelector("[data-add-placement]")).toBeNull();
     expect(rows()).toHaveLength(3);
   });
@@ -375,7 +375,7 @@ describe("Placements: the drawer", () => {
     expect(url.get().get("pl")).toBe("1");
     const body = document.querySelector("[data-detail-body]") as HTMLElement;
     expect(body).toBeTruthy();
-    expect(within(body).getByText("Placement Details")).toBeTruthy();
+    expect(within(body).getByText("Placement details")).toBeTruthy();
     expect(body.querySelector("[data-field=client]")?.textContent).toContain("Acme Corp");
     expect(body.querySelector("[data-field=type]")?.textContent).toContain("Contract");
     expect(body.querySelector("[data-field=rate]")?.textContent).toContain("$125/hr");

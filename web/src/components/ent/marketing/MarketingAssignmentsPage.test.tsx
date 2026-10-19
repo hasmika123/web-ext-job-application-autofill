@@ -347,7 +347,7 @@ describe("Marketing Assignments: the board", () => {
     expect(screen.getAllByRole("button", { name: /Try again|Retry/ }).length).toBeGreaterThan(0);
   });
 
-  it("says there are no marketers yet and offers Add Marketer", async () => {
+  it("says there are no marketers yet and offers Add marketer", async () => {
     world.marketers = [];
     world.assignments = new Map();
     await mount();

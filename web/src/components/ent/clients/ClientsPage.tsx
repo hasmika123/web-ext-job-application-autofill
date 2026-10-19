@@ -46,7 +46,7 @@ export interface ClientsPageProps {
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: ClientRow[]; total: number };
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
-  { value: "activity,desc", label: "Last Activity" },
+  { value: "activity,desc", label: "Last activity" },
   { value: "activity,asc", label: "Last Activity (oldest)" },
   { value: "name,asc", label: "Company A to Z" },
   { value: "industry,asc", label: "Industry A to Z" },
@@ -319,7 +319,7 @@ export default function ClientsPage({ orgId, hrefs }: ClientsPageProps) {
   const filterSelects = useMemo(
     () => [
       { name: "industry" as FilterKey, label: "Industry", all: "All industries", options: (f?.industries ?? []).map(withCount) },
-      { name: "health" as FilterKey, label: "Health", all: "All Health Statuses", options: (f?.health ?? []).map((x) => labelled(x, { HEALTHY: "Healthy", AT_RISK: "At Risk", NEUTRAL: "Neutral" })) },
+      { name: "health" as FilterKey, label: "Health", all: "All health statuses", options: (f?.health ?? []).map((x) => labelled(x, { HEALTHY: "Healthy", AT_RISK: "At Risk", NEUTRAL: "Neutral" })) },
     ],
     [f],
   );

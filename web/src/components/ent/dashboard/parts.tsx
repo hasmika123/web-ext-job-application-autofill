@@ -19,7 +19,7 @@ export const CARD = "ent-card";
 
 /**
  * A card's header: the board's tinted 40 px icon tile + the 20 px bold title (`tile`), or a bare coloured glyph for the cards the
- * board draws without a tile (Quick Actions, Activity & Alerts, Recent Activity). `children` is the control on the right.
+ * board draws without a tile (Activity & alerts, Recent activity). `children` is the control on the right.
  */
 export function CardHead({ icon: Icon, title, tone = "accent", children, id, tile = true }: { icon: ComponentType<IconProps>; title: string; tone?: IconTone; children?: ReactNode; id: string; tile?: boolean }) {
   return (

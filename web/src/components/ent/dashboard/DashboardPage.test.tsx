@@ -29,7 +29,7 @@ const fixture = (over: Record<string, W | null> = {}): { orgId: number; generate
       data: {
         items: [
           { key: "invite-employee", label: "Invite Employee", description: "Add a new team member", href: "/w/admin/employees?invite=1", permission: "members.invite", available: true, soonModule: null },
-          { key: "assign-marketer", label: "Assign Marketer", description: "Connect a marketer", href: "/w/admin/assignments", permission: "assignments.manage", available: false, soonModule: "marketing" },
+          { key: "assign-marketer", label: "Assign marketer", description: "Connect a marketer", href: "/w/admin/assignments", permission: "assignments.manage", available: false, soonModule: "marketing" },
         ],
       },
     },

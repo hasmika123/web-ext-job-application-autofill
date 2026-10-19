@@ -319,13 +319,13 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
             <div className="mt-2.5 flex flex-wrap items-center gap-3">
               <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search placements" placeholder="Search placements by consultant, client, role, or skills…" />
               <div className="w-[108px] flex-none">
-                <Select aria-label="Client" value={view.client} onChange={(v) => setView({ client: v })} options={[{ value: "", label: "All Clients" }, ...(options?.clients ?? [])]} className={FIELD} />
+                <Select aria-label="Client" value={view.client} onChange={(v) => setView({ client: v })} options={[{ value: "", label: "All clients" }, ...(options?.clients ?? [])]} className={FIELD} />
               </div>
               <div className="w-[108px] flex-none">
-                <Select aria-label="Role" value={view.role} onChange={(v) => setView({ role: v })} options={[{ value: "", label: "All Roles" }, ...(options?.roles ?? [])]} className={FIELD} />
+                <Select aria-label="Role" value={view.role} onChange={(v) => setView({ role: v })} options={[{ value: "", label: "All roles" }, ...(options?.roles ?? [])]} className={FIELD} />
               </div>
               <div className="w-[108px] flex-none">
-                <Select aria-label="Status" value={view.status} onChange={(v) => setView({ status: v })} options={[{ value: "", label: "All Statuses" }, ...(options?.statuses ?? [])]} className={FIELD} />
+                <Select aria-label="Status" value={view.status} onChange={(v) => setView({ status: v })} options={[{ value: "", label: "All statuses" }, ...(options?.statuses ?? [])]} className={FIELD} />
               </div>
               <Popover
                 label="More filters"
