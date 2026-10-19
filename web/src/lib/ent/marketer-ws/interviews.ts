@@ -11,21 +11,21 @@ export type KpiKey = "interviewsThisWeek" | "confirmedInterviews" | "pendingFeed
 
 export const KPI_KEYS: KpiKey[] = ["interviewsThisWeek", "confirmedInterviews", "pendingFeedback", "reschedules"];
 export const KPI_TITLES: Record<KpiKey, string> = {
-  interviewsThisWeek: "Interviews This Week",
-  confirmedInterviews: "Confirmed Interviews",
-  pendingFeedback: "Pending Feedback",
+  interviewsThisWeek: "Interviews this week",
+  confirmedInterviews: "Confirmed interviews",
+  pendingFeedback: "Pending feedback",
   reschedules: "Reschedules",
 };
 export const TYPE_LABEL: Record<InterviewType, string> = { VIDEO: "Video", ONSITE: "Onsite", TECHNICAL: "Technical", PANEL: "Panel", CLIENT: "Client" };
 export const STATUS_LABEL: Record<InterviewStatus, string> = {
   CONFIRMED: "Confirmed",
   SCHEDULED: "Scheduled",
-  PENDING_FEEDBACK: "Pending Feedback",
+  PENDING_FEEDBACK: "Pending feedback",
   RESCHEDULED: "Rescheduled",
-  AWAITING_CONFIRMATION: "Awaiting Confirmation",
+  AWAITING_CONFIRMATION: "Awaiting confirmation",
   COMPLETED: "Completed",
 };
-/** The "All Statuses" dropdown, in the board's order. */
+/** The "All statuses" dropdown, in the board's order. */
 export const STATUS_OPTIONS: InterviewStatus[] = ["CONFIRMED", "SCHEDULED", "PENDING_FEEDBACK", "RESCHEDULED", "AWAITING_CONFIRMATION", "COMPLETED"];
 export const OUTCOMES = [
   { value: "PASSED", label: "Passed" },
