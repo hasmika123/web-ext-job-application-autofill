@@ -1,46 +1,34 @@
 "use client";
 
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertIcon,
   BarChartIcon,
-  BellIcon,
   BookmarkIcon,
   BookmarkOutlineIcon,
   CheckCircleIcon,
   ChevronDownIcon,
-  ChevronRightIcon,
   ErrorState,
-  EyeIcon,
   FunnelIcon,
   LightbulbIcon,
   MapPinIcon,
   ShieldCheckIcon,
   Skeleton,
-  Sparkline,
   StarIcon,
   SwapIcon,
-  TargetIcon,
-  TrophyIcon,
   UsersIcon,
   XIcon,
-  chartColor,
   cn,
 } from "@kiwiply/ui";
-import type { IconProps } from "@kiwiply/ui";
-import { TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
+import { Card, CompanyMark, Empty, Pill, TABLE, TD, useWorkspaceData } from "./parts";
 import JobLinkButton, { QuickInfo } from "./JobLinkButton";
 import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
-import { deltaText, employmentLabel, firstName, initialsOf, matchTone, placeLabel } from "@/lib/ent/consultant-ws/home";
+import { employmentLabel, initialsOf, matchTone, placeLabel, scoreText } from "@/lib/ent/consultant-ws/home";
 import {
   MAX_COMPARE,
   NO_FILTERS,
   SORT_OPTIONS,
   activeFilterCount,
-  alertAgo,
   distinct,
   expressInterest,
   fetchDetail,
@@ -53,12 +41,10 @@ import {
   setSaved,
   sortMatches,
   toggleCompare,
-  type AlertKind,
   type Fetched,
   type Filters,
   type MatchDetail,
   type MatchRow,
-  type MatchTile,
   type MatchesView,
   type SortKey,
 } from "@/lib/ent/consultant-ws/matches";
@@ -71,66 +57,6 @@ import {
  */
 
 const BAR: Record<"green" | "amber" | "red", string> = { green: "bg-v2-green-ink", amber: "bg-v2-amber-ink", red: "bg-v2-coral-ink" };
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: keyof MatchesView["tiles"];
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "total", title: "Total Job Matches", icon: TargetIcon, tone: "accent" },
-  { key: "high", title: "High Match (80%+)", icon: TrophyIcon, tone: "amber" },
-  { key: "fresh", title: "New Matches", icon: UsersIcon, tone: "violet" },
-  { key: "saved", title: "Saved Jobs", icon: BookmarkIcon, tone: "amber" },
-  { key: "viewed", title: "Viewed Matches", icon: EyeIcon, tone: "accent" },
-];
-
-function Tile({ spec, tile, index }: { spec: TileSpec; tile: MatchTile | null; index: number }) {
-  const Icon = spec.icon;
-  const d = tile ? deltaText(tile.deltaPct) : null;
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-11 w-11 flex-none place-items-center rounded-[12px]", TONES[spec.tone])}>
-        <Icon size={22} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[13px] font-semibold leading-tight text-ink-soft">{spec.title}</h3>
-        {tile ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[28px] font-extrabold leading-none tabular-nums text-ink">
-                {tile.value}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 w-[42%] max-w-[72px] flex-none">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              {d ? (
-                <>
-                  <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                    {d.dir === "up" ? "↑" : d.dir === "down" ? "↓" : "→"} {d.text}
-                  </span>
-                  <span>vs last week</span>
-                </>
-              ) : null}
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── small pieces ───────────────────────────────────────────────────────────────────── */
 
@@ -214,7 +140,7 @@ function MatchedJobs({ view, selected, compare, busy, a, notice }: { view: Match
   return (
     <Card
       id="matches-list"
-      title="Your Matched Jobs"
+      title="Your matched jobs"
       icon={StarIcon}
       extra={
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
@@ -297,9 +223,9 @@ function MatchedJobs({ view, selected, compare, busy, a, notice }: { view: Match
             {/* Type and Posted only from 2xl: below it the card is too narrow and would clip the actions */}
             <thead>
               <tr className="text-left text-[12px] font-semibold text-muted">
-                {["#", "Job Title", "Company", "Location", "Match", "Skill Fit", "Type", "Posted", "Actions"].map((c) => (
-                  <th key={c} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", (c === "Type" || c === "Posted") && "hidden 2xl:table-cell")}>
-                    {c}
+                {["#", "Job title", "Company", "Location", "Match", "Skill fit", "Type", "Posted", ""].map((c, i) => (
+                  <th key={`${c}-${i}`} scope="col" className={cn("whitespace-nowrap bg-paper-2/60 px-2 py-2 font-semibold first:rounded-l-lg last:rounded-r-lg", (c === "Type" || c === "Posted") && "hidden 2xl:table-cell")}>
+                    {c || <span className="sr-only">Actions</span>}
                   </th>
                 ))}
               </tr>
@@ -324,7 +250,7 @@ function MatchedJobs({ view, selected, compare, busy, a, notice }: { view: Match
                     </span>
                   </td>
                   <td className={TD}>
-                    <Pill tone={matchTone(m.score)}>{m.score}%</Pill>
+                    <Pill tone={matchTone(m.score)}>{scoreText(m.score)}</Pill>
                   </td>
                   <td className={TD}>
                     <FitBar pct={m.skillFit} />
@@ -358,14 +284,14 @@ function CompareSheet({ rows, onRemove, onClear }: { rows: MatchRow[]; onRemove:
   const lines: { label: string; value: (m: MatchRow) => ReactNode }[] = [
     { label: "Company", value: (m) => m.company ?? "-" },
     { label: "Location", value: (m) => placeLabel(m.location, m.workMode) },
-    { label: "Match", value: (m) => <Pill tone={matchTone(m.score)}>{m.score}%</Pill> },
+    { label: "Match", value: (m) => <Pill tone={matchTone(m.score)}>{scoreText(m.score)}</Pill> },
     { label: "Skill fit", value: (m) => (m.skillFit === null ? "Not listed" : `${m.skillFit}%`) },
     { label: "Type", value: (m) => employmentLabel(m.employment) ?? "-" },
     { label: "Rate", value: (m) => rateText(m) ?? "Not listed" },
     { label: "Posted", value: (m) => postedAgo(m.postedAt) || "-" },
   ];
   return (
-    <Card id="matches-compare" title="Compare Jobs" icon={SwapIcon} extra={<button type="button" onClick={onClear} className="ml-auto text-[13px] font-semibold text-accent-deep hover:underline">Clear all</button>}>
+    <Card id="matches-compare" title="Compare jobs" icon={SwapIcon} extra={<button type="button" onClick={onClear} className="ml-auto text-[13px] font-semibold text-accent-deep hover:underline">Clear all</button>}>
       {rows.length < 2 ? <p className="mb-2 text-[13px] text-muted">Choose at least one more job to compare side by side (up to {MAX_COMPARE}).</p> : null}
       <div className="relative overflow-x-auto">
         <table className={cn(TABLE, "min-w-[520px]")} data-compare-sheet>
@@ -412,8 +338,7 @@ type DetailState = { id: number; result: Fetched<MatchDetail> } | null;
 
 function Details({ row, detail, loading, comparing, full, busy, a }: { row: MatchRow | null; detail: Fetched<MatchDetail> | null; loading: boolean; comparing: boolean; full: boolean; busy: boolean; a: Actions }) {
   return (
-    <Card id="matches-detail" title="Match Details & Insights" icon={BarChartIcon}>
-      <p className="-mt-1 mb-3 text-[12.5px] text-muted">See why you&apos;re a great fit and how to make your match even stronger.</p>
+    <Card id="matches-detail" title="Match details" icon={BarChartIcon}>
       {!row ? (
         <Empty>Pick a match above to see how your profile lines up with it.</Empty>
       ) : (
@@ -436,7 +361,7 @@ function Details({ row, detail, loading, comparing, full, busy, a }: { row: Matc
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
               <span data-detail-score className="inline-flex min-h-10 items-center rounded-full bg-v2-green-soft px-4 text-[15px] font-extrabold text-v2-green-ink">
-                {row.score}% Match
+                {row.score > 0 ? `${row.score}% match` : "Not scored"}
               </span>
               <InterestButton row={row} busy={busy} onSend={a.interest} className="min-h-10 px-4 text-[14px]" />
               <JobLinkButton title={row.title} source={row} variant="ghost" />
@@ -473,6 +398,29 @@ function Details({ row, detail, loading, comparing, full, busy, a }: { row: Matc
   );
 }
 
+/** "You have React. Missing: TypeScript, Next.js, Node.js." as chips, from the skills the detail call already carries. */
+function SkillChips({ skills }: { skills: MatchDetail["skills"] }) {
+  const have = skills.filter((s) => s.present);
+  const missing = skills.filter((s) => !s.present);
+  const chip = (s: { skill: string; present: boolean }) => (
+    <li key={s.skill} data-skill={s.skill} data-present={s.present} className={cn("rounded-md px-2 py-0.5 text-[12.5px] font-medium", s.present ? "bg-v2-green-soft text-v2-green-ink" : "bg-v2-amber-soft text-v2-amber-ink")}>
+      {s.skill}
+    </li>
+  );
+  return (
+    <div data-skill-chips className="mt-3 space-y-3 text-[13px] text-ink">
+      <div>
+        <p className="font-semibold text-ink-soft">You have</p>
+        {have.length === 0 ? <p className="mt-1 text-muted">None of this job&apos;s skills are on your profile yet.</p> : <ul className="mt-1.5 flex flex-wrap gap-1.5">{have.map(chip)}</ul>}
+      </div>
+      <div>
+        <p className="font-semibold text-ink-soft">Missing</p>
+        {missing.length === 0 ? <p className="mt-1 text-muted">Nothing missing. Your profile covers every skill listed.</p> : <ul className="mt-1.5 flex flex-wrap gap-1.5">{missing.map(chip)}</ul>}
+      </div>
+    </div>
+  );
+}
+
 function DetailBody({ d }: { d: MatchDetail }) {
   const head = "flex items-center gap-2 text-[15px] font-bold text-ink";
   return (
@@ -480,32 +428,19 @@ function DetailBody({ d }: { d: MatchDetail }) {
       <section aria-labelledby="skill-align" data-block="skills" className="min-w-0">
         <h4 id="skill-align" className={head}>
           <UsersIcon size={17} className="text-v2-green-ink" />
-          Skill Alignment
+          Skill alignment
         </h4>
         {d.skills.length === 0 ? (
           <p className="mt-3 text-[13px] text-muted">This job doesn&apos;t list skills yet, so there is nothing to compare.</p>
         ) : (
-          <>
-            <ul className="mt-3 space-y-2.5">
-              {d.skills.map((s) => (
-                <li key={s.skill} data-skill={s.skill} data-present={s.present} className="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_2.6rem] items-center gap-2 text-[13px]">
-                  <span className="truncate font-medium text-ink">{s.skill}</span>
-                  <span role="img" aria-label={s.present ? `${s.skill}: on your profile` : `${s.skill}: missing from your profile`} className="h-2 overflow-hidden rounded-full bg-paper-2">
-                    <span className={cn("block h-full rounded-full", s.present ? BAR.green : BAR.red)} style={{ width: `${s.present ? 100 : 4}%` }} />
-                  </span>
-                  <span className="text-right font-semibold tabular-nums text-ink-soft">{s.percent}%</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-[11.5px] text-muted">Shows whether a skill is on your profile; levels are not tracked.</p>
-          </>
+          <SkillChips skills={d.skills} />
         )}
       </section>
 
       <section aria-labelledby="match-expl" data-block="explanation" className="min-w-0">
         <h4 id="match-expl" className={head}>
           <ShieldCheckIcon size={17} className="text-accent-deep" />
-          Match Explanation
+          Match explanation
         </h4>
         {d.reason ? <p className="mt-3 text-[13px] leading-snug text-ink-soft">{d.reason}</p> : null}
         {d.explanation.length === 0 && !d.reason ? <p className="mt-3 text-[13px] text-muted">No further detail is available for this match.</p> : null}
@@ -522,7 +457,7 @@ function DetailBody({ d }: { d: MatchDetail }) {
       <section aria-labelledby="improve" data-block="improve" className="min-w-0">
         <h4 id="improve" className={head}>
           <LightbulbIcon size={17} className="text-v2-amber-ink" />
-          Areas to Improve
+          Areas to improve
         </h4>
         {d.improvements.length === 0 ? (
           <p className="mt-3 text-[13px] text-muted">Nothing to improve for this match. You have what it asks for.</p>
@@ -546,71 +481,14 @@ function DetailBody({ d }: { d: MatchDetail }) {
   );
 }
 
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-function MatchQuality({ view }: { view: MatchesView }) {
-  return (
-    <Card id="matches-quality" title="Improve Your Match Quality" icon={BarChartIcon}>
-      <p className="-mt-1 mb-3 text-[12.5px] text-muted">Complete these steps to get better, more relevant job matches.</p>
-      <ul className="space-y-2.5" aria-label="Match quality checklist">
-        {view.quality.checks.map((c) => (
-          <li key={c.key} data-check={c.key} data-done={c.done} className="flex items-center gap-2.5 text-[13.5px] text-ink">
-            {c.done ? <CheckCircleIcon size={20} className="flex-none text-v2-green-ink" /> : <span aria-hidden className="h-5 w-5 flex-none rounded-full border-2 border-line" />}
-            <span className="min-w-0 flex-1">{c.label}</span>
-            <span className="sr-only">{c.done ? "done" : "to do"}</span>
-          </li>
-        ))}
-      </ul>
-      <Link href={`${BASE}/profile`} className="mt-4 flex min-h-11 items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-[14px] font-semibold text-accent-deep hover:bg-accent-soft/70">
-        <ShieldCheckIcon size={17} className="flex-none" />
-        <span className="min-w-0 flex-1 truncate">Improve My Profile</span>
-        <ChevronRightIcon size={16} className="flex-none" />
-      </Link>
-    </Card>
-  );
-}
-
-const ALERT_TONE: Record<AlertKind, string> = {
-  NEW_MATCHES: "bg-v2-green-soft text-v2-green-ink",
-  ROLE_UPDATED: "bg-v2-amber-soft text-v2-amber-ink",
-  APPLICATION_UPDATE: "bg-v2-violet-soft text-v2-violet-ink",
-};
-
-function Alerts({ view }: { view: MatchesView }) {
-  return (
-    <Card id="matches-alerts" title="Personalized Alerts" icon={BellIcon} viewAll={`${BASE}/notifications`}>
-      {view.alerts.length === 0 ? (
-        <Empty>No alerts right now. New matches and updates to your roles will show up here.</Empty>
-      ) : (
-        <ul className="space-y-3">
-          {view.alerts.map((x) => (
-            <li key={x.key} data-alert={x.kind} className="flex items-start gap-2.5">
-              <span aria-hidden className={cn("grid h-8 w-8 flex-none place-items-center rounded-full text-[12px] font-bold", ALERT_TONE[x.kind])}>
-                {initialsOf(x.title).charAt(0)}
-              </span>
-              <span className="min-w-0 flex-1 text-[13px] leading-snug">
-                <span className="block font-semibold text-ink">{x.title}</span>
-                <span className="block text-muted">{x.detail}</span>
-              </span>
-              <span className="flex-none whitespace-nowrap text-[11.5px] text-muted">{alertAgo(x.at)}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
-
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
 
 export interface MatchesPageProps {
   orgId: number;
-  firstName: string;
 }
 
-export default function ConsultantMatchesPage({ orgId, firstName: first }: MatchesPageProps) {
+export default function ConsultantMatchesPage({ orgId }: MatchesPageProps) {
   const { view, status, reload, setView } = useWorkspaceData(useCallback(() => fetchMatches(orgId), [orgId]));
-  const loading = status === "loading";
   const [picked, setPicked] = useState<number | null>(null);
   const [compare, setCompare] = useState<number[]>([]);
   const [busy, setBusy] = useState<Set<number>>(() => new Set());
@@ -692,20 +570,12 @@ export default function ConsultantMatchesPage({ orgId, firstName: first }: Match
 
   return (
     <div data-consultant-matches data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Job Matches" subtitle="Roles your marketer matched to your skills, experience and career goals. Open the job link to read the posting and apply on the source site with the browser extension." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
 
       {status === "failed" ? (
         <ErrorState what="your job matches" description="Your matches didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
-        <div className="grid items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.36fr)]">
+        <div className="grid items-start gap-4 sm:gap-5">
           <div className="grid min-w-0 content-start gap-4 sm:gap-5">
-            <section aria-label="Key numbers" data-matches-tiles className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 2xl:grid-cols-5">
-              {TILE_SPECS.map((s, i) => (
-                <Tile key={s.key} spec={s} tile={loading || !view ? null : view.tiles[s.key]} index={i} />
-              ))}
-            </section>
             {view ? (
               <>
                 <MatchedJobs view={view} selected={selectedId} compare={compare} busy={busy} a={actions} notice={notice} />
@@ -721,18 +591,6 @@ export default function ConsultantMatchesPage({ orgId, firstName: first }: Match
                 ))}
               </div>
             )}
-          </div>
-          <div className="grid min-w-0 content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-1">
-            <BeeCard
-              name={firstName(first)}
-              body="Get personalized job matches, improve your skills, track your applications and more. I'm here whenever you need support on your journey."
-            />
-            {view ? (
-              <>
-                <MatchQuality view={view} />
-                <Alerts view={view} />
-              </>
-            ) : null}
           </div>
         </div>
       )}
