@@ -313,3 +313,19 @@ most of the first layout. The demo resumes now use a layout it reads fully: plai
 wrap, one "Group: a, b, c" line per skill group, the school above the degree. `node web/scripts/demo-resume-parse-check.mjs anika` (10/10)
 and `ben` (9/9); `PDF=<file>` checks a saved PDF. `REFRESH_RESUMES=1 node web/scripts/demo-setup.mjs` re-creates them and the Desktop PDF.
 The parser itself is fixed separately (its own session and PR).
+
+## 14. Autopilot fills the real postings almost completely (2026-10-19)
+
+Measured with `node web/scripts/demo-fill-gaps.mjs <urls>` (Anika, branded extension, resume uploaded in the drawer, FILL ONLY):
+
+| Posting | Before | Now | Left for the person |
+|---|---|---|---|
+| Figma (Greenhouse) | 8 fields, 4 required dropdowns left | 13 offered, 0 required left | nothing |
+| Ramp (Ashby) | 4 fields | 4 fields + résumé | "Where do you plan to work from?" |
+| Rover (Lever) | 5 fields, 6 required left | 11 fields + résumé | "Who referred you?" and the certify box (never ticked by design) |
+
+What changed: Anika's profile is complete (setup: salary, notice, start, relocation, work preference, GitHub, Chicago contact); the extension
+reads react-select dropdowns correctly (Greenhouse picks were landing but counted as failures), reads Lever's custom questions (text and
+radios), answers "City, ST" questions, tells a work-permit question from "authorized to work", fills both salary and total compensation,
+and lets the AI pick required yes/no dropdowns and custom-styled radios (extension 0.69.3, ruleset 7). The demo API's fake AI no longer
+"reads" resumes (`DOSSIER_AI_STUB_PARSE_RESUME=false`), so an upload shows the real resume, and its pick reads only the option list.

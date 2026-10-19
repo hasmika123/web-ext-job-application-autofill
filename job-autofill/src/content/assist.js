@@ -73,6 +73,8 @@
     return String(radio.value || "").trim();
   }
   function isScreener(label) {
+    // a trailing required marker ("…before? *", "…from?✱") must not hide the question mark
+    label = String(label || "").replace(/(\s*[*✱]|\s*\(required\))+\s*$/i, "").trim();
     return !!label && label.length <= 240 && !EEO_RE.test(label) &&
       (SCREEN_RE.test(label) || QUESTION_RE.test(label) || /\?\s*$/.test(label));
   }
@@ -91,7 +93,10 @@
     // radio groups (grouped by name)
     const groups = {};
     for (const r of B().deepQueryAll(document, 'input[type="radio"]')) {
-      if (taken.has(r) || !B().isFillable(r) || !r.name) continue;
+      // custom-styled radios (Ashby) hide the real input (0×0) behind a visible label: the label is what a person clicks
+      const lbl = (r.closest && r.closest("label")) || (r.id ? document.querySelector('label[for="' + B().cssEscape(r.id) + '"]') : null);
+      const shown = B().isFillable(r) || (!r.disabled && lbl && B().isVisible(lbl));
+      if (taken.has(r) || !shown || !r.name) continue;
       (groups[r.name] = groups[r.name] || []).push(r);
     }
     for (const name of Object.keys(groups)) {
@@ -103,6 +108,47 @@
       const opts = radios.map((r) => ({ el: r, text: optionLabel(r) })).filter((o) => o.text && o.text.length <= 80);
       if (opts.length < 2) continue;
       out.push({ kind: "radio", question, options: opts.map((o) => o.text), radios: opts });
+    }
+    return out;
+  }
+
+  // react-select comboboxes (new Greenhouse boards, e.g. "Have you ever worked for Figma before? *"): the options exist only while the
+  // menu is open, so each REQUIRED, still-empty screener combobox is opened once (ArrowDown), its OWN listbox read, and closed again.
+  // Captured on job-boards.greenhouse.io/figma (2026-10-19): input#question_… role=combobox aria-required=true; the open menu is
+  // #react-select-<input id>-listbox holding [role=option]s (the phone-country list stays in the DOM, so never read options page-wide).
+  async function readComboOptions(el) {
+    const listbox = () => document.getElementById(el.getAttribute("aria-controls") || (el.id ? "react-select-" + el.id + "-listbox" : ""));
+    try {
+      B().realClick(el); // focus + pointer events (what opens the menu on a real page), then the key that opens it everywhere else
+      el.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", code: "ArrowDown", keyCode: 40, bubbles: true }));
+      await B().waitFor(() => { const lb = listbox(); return !!(lb && lb.querySelector('[role="option"]')); }, 1500);
+      const lb = listbox();
+      return lb ? Array.from(lb.querySelectorAll('[role="option"]')).map((o) => String(o.textContent || "").replace(/\s+/g, " ").trim()).filter((t) => t && t.length <= 80) : [];
+    } catch (e) {
+      return [];
+    } finally {
+      try { el.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", keyCode: 27, bubbles: true })); el.blur(); } catch (e) {}
+    }
+  }
+  async function collectComboQuestions(plannedEls) {
+    const taken = new Set(plannedEls);
+    const out = [];
+    for (const el of B().deepQueryAll(document, 'input[role="combobox"]')) {
+      if (taken.has(el) || !B().isFillable(el) || el.getAttribute("aria-required") !== "true") continue;
+      const ctl = el.closest && el.closest('[class*="__control"]');
+      if (!ctl || ctl.querySelector('[class*="single-value"],[class*="singleValue"],[class*="multi-value"]')) continue; // not react-select, or answered
+      // the question from its own label element (labelText repeats it and appends id words, so it would no longer end in "?")
+      const by = (el.getAttribute("aria-labelledby") || "").split(/\s+/).filter(Boolean);
+      const own = by.map((id) => { const n = document.getElementById(id); return n ? n.textContent : ""; }).join(" ").replace(/\s+/g, " ").trim();
+      const label = own || (B().labelText(el) || "").trim();
+      if (!isScreener(label)) continue;
+      let options = await readComboOptions(el);
+      // Some menus don't open for a script (the live Greenhouse board ignores a synthetic ArrowDown). A plain yes/no question still gets
+      // Yes and No: the fill then types the AI's pick and selects it only if the menu really offers it (selectCustom).
+      if (options.length < 2 && /^(are|do|did|have|has|will|would|is|was|were|can|could)\b/i.test(label) && /\?\s*([*✱]\s*)?$/.test(label)) options = ["Yes", "No"];
+      if (options.length < 2 || options.length > 12) continue;
+      out.push({ el, kind: "combo", question: label, options });
+      if (out.length >= 4) break;
     }
     return out;
   }
@@ -126,6 +172,7 @@
     let qs = [], cqs = [];
     try { qs = collectOpenQuestions(plannedEls); } catch (e) {}
     try { cqs = collectChoiceQuestions(plannedEls); } catch (e) {}
+    try { cqs = cqs.concat(await collectComboQuestions(plannedEls)); } catch (e) {}
     if (!qs.length && !cqs.length) return [];
     const ctx = buildContext(values);
     const items = [];
@@ -148,8 +195,8 @@
       if (r && r.disabled) { disabled = true; continue; }
       if (!r || !r.answer) continue;
       const common = { field: "AI: " + truncate(q.question, 40), label: "AI pick · " + truncate(q.question, 38), assisted: true, question: q.question, options: q.options, context: ctx };
-      if (q.kind === "select") {
-        items.push(Object.assign({ el: q.el, kind: "select", value: r.answer }, common));
+      if (q.kind === "select" || q.kind === "combo") {
+        items.push(Object.assign({ el: q.el, kind: q.kind, value: r.answer }, common));
       } else {
         const hit = q.radios.find((o) => o.text === r.answer);
         // keep the option→element list so a regenerated pick can re-point `el`
@@ -167,5 +214,5 @@
   }
 
   // `draft`/`pick` are exposed so the review overlay can regenerate one answer on demand.
-  JAF.assist = { run, draft: draftViaSW, pick: pickViaSW, collectOpenQuestions, collectChoiceQuestions, buildContext };
+  JAF.assist = { run, draft: draftViaSW, pick: pickViaSW, collectOpenQuestions, collectChoiceQuestions, collectComboQuestions, buildContext };
 })();

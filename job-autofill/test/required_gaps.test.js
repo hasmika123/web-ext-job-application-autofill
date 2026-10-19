@@ -26,6 +26,20 @@ function page(html, url) {
   return w;
 }
 
+/* ------------------------------------------------ react-select (new Greenhouse boards) */
+(function reactSelect() {
+  // Captured from job-boards.greenhouse.io (Figma, 2026-10-19): the input stays empty; the choice shows in the control beside it.
+  const combo = (id, label, shown) => `<label id="${id}-label">${label}*</label><div class="select__control"><div class="select__value-container">` +
+    (shown ? `<div class="select__single-value">${shown}</div>` : `<div class="select__placeholder">Select...</div>`) +
+    `<div class="select__input-container"><input class="select__input" id="${id}" role="combobox" aria-required="true" aria-labelledby="${id}-label" value=""></div></div></div>`;
+  const w = page(`<body><form>${combo("country", "Country", "United States +1")}${combo("q1", "Have you ever worked for Figma before?", "")}</form></body>`);
+  const ids = w.JAF.requiredAudit.findRequiredEmpty(w.document).map((el) => el.id);
+  ok("react-select: a combobox showing a chosen option is not a gap", !ids.includes("country"), ids.join(","));
+  ok("react-select: an untouched combobox still is", ids.includes("q1"), ids.join(","));
+  ok("react-select: the field cache reads the chosen option", w.JAF.fieldCache.committedValueOf(w.document.getElementById("country")) === "United States +1",
+    JSON.stringify(w.JAF.fieldCache.committedValueOf(w.document.getElementById("country"))));
+})();
+
 /* ------------------------------------------------ what counts as required */
 (function asterisks() {
   const w = page(`<body><form>

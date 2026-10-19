@@ -69,6 +69,12 @@
     if (type === "radio") return !radioGroup(el).some((r) => r.checked);
     if (type === "checkbox") return !el.checked;
     if (type === "file") return !el.files || !el.files.length;
+    // A react-select combobox keeps its input empty and shows the chosen option in the control next to it (new Greenhouse boards).
+    if (el.getAttribute && el.getAttribute("role") === "combobox" && el.closest) {
+      const ctl = el.closest('[class*="__control"]');
+      const shown = ctl && ctl.querySelector('[class*="single-value"],[class*="singleValue"],[class*="multi-value"],[class*="multiValue"]');
+      if (shown && String(shown.textContent || "").trim()) return false;
+    }
     return String(el.value || "").trim() === ""; // text-like, textarea, select on its placeholder
   }
 

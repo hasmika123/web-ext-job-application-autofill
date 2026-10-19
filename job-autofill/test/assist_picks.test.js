@@ -131,6 +131,60 @@ function makeAssistWindow(html) {
   const off = await w4.JAF.assist.run([], {});
   ok("run: AI merely off still gets the settings nudge", off.length === 1 && /Turn on AI drafting/.test(off[0].value));
 
+  /* react-select comboboxes (new Greenhouse, captured on Figma 2026-10-19): read the menu once, then pick from its own options */
+  const w5 = makeAssistWindow(`<body><form>
+      <label id="q1-label">Have you ever worked for Figma before, as an employee or a contractor/consultant? *</label>
+      <div class="select__control"><div class="select__value-container"><div class="select__placeholder">Select...</div>
+        <div class="select__input-container"><input class="select__input" id="q1" role="combobox" aria-required="true" aria-labelledby="q1-label" value=""></div></div></div>
+      <label id="q2-label">Pronouns</label>
+      <div class="select__control"><div class="select__input-container"><input id="q2" role="combobox" aria-required="false" aria-labelledby="q2-label" value=""></div></div>
+      <label id="q3-label">Are you authorized to work here? *</label>
+      <div class="select__control"><div class="select__single-value">Yes</div><div class="select__input-container"><input id="q3" role="combobox" aria-required="true" aria-labelledby="q3-label" value=""></div></div>
+      <div role="listbox" id="phone-countries"><div role="option">United States+1</div><div role="option">Canada+1</div></div>
+    </form></body>`);
+  const d5 = w5.document;
+  let opened = 0;
+  d5.getElementById("q1").addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown" && !d5.getElementById("react-select-q1-listbox")) {
+      opened++;
+      const lb = d5.createElement("div");
+      lb.id = "react-select-q1-listbox";
+      lb.setAttribute("role", "listbox");
+      lb.innerHTML = '<div role="option">Yes</div><div role="option">No</div>';
+      d5.body.appendChild(lb);
+    }
+    if (e.key === "Escape") d5.getElementById("react-select-q1-listbox")?.remove();
+  });
+  const combos = await w5.JAF.assist.collectComboQuestions([]);
+  ok("combo: only the required, unanswered screener combobox is read", combos.length === 1 && combos[0].el.id === "q1", JSON.stringify(combos.map((c) => c.el.id)));
+  ok("combo: its options come from its OWN menu, not the phone-country list", combos[0] && JSON.stringify(combos[0].options) === '["Yes","No"]', JSON.stringify(combos[0] && combos[0].options));
+  ok("combo: the menu is opened once and closed again", opened === 1 && !d5.getElementById("react-select-q1-listbox"));
+  ok("combo: a trailing '*' still reads as a question", /before?/.test(combos[0] && combos[0].question));
+  w5.chrome.runtime.sendMessage = (msg, cb) => (msg.type === "JAF_PICK" ? cb({ answer: msg.options.includes("No") ? "No" : null }) : cb({ disabled: true }));
+  const picked = await w5.JAF.assist.run([], {});
+  const combo = picked.find((it) => it.kind === "combo");
+  ok("combo: the AI's pick becomes a combo fill item with one of the page's own options", combo && combo.el.id === "q1" && combo.value === "No" && combo.assisted, JSON.stringify(picked.map((it) => [it.kind, it.value])));
+
+  /* a menu that never opens for a script (live Greenhouse): a yes/no question still gets Yes and No */
+  const w6 = makeAssistWindow(`<body><form>
+      <label id="h-label">Have you ever worked for Robinhood as an employee, intern or contractor? *</label>
+      <div class="select__control"><div class="select__input-container"><input id="h" role="combobox" aria-required="true" aria-labelledby="h-label" value=""></div></div>
+      <label id="o-label">Which office would you prefer? *</label>
+      <div class="select__control"><div class="select__input-container"><input id="o" role="combobox" aria-required="true" aria-labelledby="o-label" value=""></div></div>
+    </form></body>`);
+  const c6 = await w6.JAF.assist.collectComboQuestions([]);
+  ok("combo: a yes/no question whose menu can't be read is offered Yes and No", c6.length === 1 && c6[0].el.id === "h" && JSON.stringify(c6[0].options) === '["Yes","No"]', JSON.stringify(c6.map((c) => [c.el.id, c.options])));
+
+  /* Ashby: custom radios hide the real input (0x0) behind a visible label */
+  const w7 = makeAssistWindow(`<body><form><fieldset><legend>Where do you plan to work from? *</legend>
+      <label id="l1"><input type="radio" name="wf" value="NYC" />NYC</label>
+      <label id="l2"><input type="radio" name="wf" value="Remote" />Remote</label>
+      <span><input type="radio" id="wf-2" name="wf" value="Open to relocating" /></span><label for="wf-2">Open to relocating</label></fieldset></form></body>`);
+  for (const r of w7.document.querySelectorAll("input")) r.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0 });
+  for (const l of w7.document.querySelectorAll("label")) l.getBoundingClientRect = () => ({ width: 80, height: 20, top: 0, left: 0, right: 80, bottom: 20 });
+  const q7 = w7.JAF.assist.collectChoiceQuestions([]);
+  ok("radio: a hidden input behind a visible label is still a question", q7.length === 1 && q7[0].options.join("|") === "NYC|Remote|Open to relocating", JSON.stringify(q7.map((q) => q.options)));
+
   report();
 })().catch((e) => { fail++; fails.push("async run threw -> " + (e && e.message)); report(); });
 

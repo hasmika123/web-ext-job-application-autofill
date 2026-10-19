@@ -153,4 +153,17 @@ class StubAiProviderTest {
         assertThat(stub.isConfigured()).isTrue();
         assertThat(stub.defaultModel()).isEqualTo("gemini-2.5-flash-lite");
     }
+
+    @Test
+    void aStubThatDoesNotReadResumesAnswersUnavailableSoTheClientUsesItsOwnParser() {
+        StubAiProvider demo = new StubAiProvider("gemini-2.5-flash-lite", false);
+        assertThatThrownBy(() -> demo.parseResume(null, "Anika Rao, anika@example.test", null, null)).isInstanceOf(AiProviderException.class);
+        assertThatThrownBy(() -> demo.generate(AiTask.PARSE, null, "Parse this resume", "Anika Rao")).isInstanceOf(AiProviderException.class);
+        assertThat(demo.generate(AiTask.DRAFT, null, "Why do you want to work at Figma?", "Anika Rao").text()).isNotBlank();
+        // a pick reads only the option list, never the background's "- " bullets that follow it
+        String pick = "Screening question from a job application:\nWhere do you plan to work from?\n\nOptions (choose ONE):\n- NYC\n- Remote\n- Open to relocating to NYC"
+            + "\n\nCandidate background:\nExperience:\n- Built Python and SQL ingestion\n\nReply with EXACTLY one option";
+        assertThat(demo.generate(AiTask.PICK, null, pick, "").text()).isEqualTo("Open to relocating to NYC");
+        assertThat(stub.parseResume(null, "x@example.test", null, null).text()).contains("Acme Corp");
+    }
 }

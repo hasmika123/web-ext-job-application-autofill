@@ -59,7 +59,15 @@ async function ensureResume(who) {
   const name = `${bio.firstName || who} ${bio.lastName || ""}`.trim();
   const label = `${name} - ${r.title}`;
   const have = await (await fetch(`${API}/api/profile/resumes`, { headers: h })).json();
-  const list = Array.isArray(have) ? have.filter((x) => !x.archived) : [];
+  // A copy the extension saved from an earlier rehearsal's upload of the same PDF ("Anika-Rao-Resume"): gone, so the upload on stage is fresh.
+  const uploaded = `${name.replace(/\s+/g, "-")}-Resume`;
+  for (const x of Array.isArray(have) ? have.filter((x) => x.label === uploaded && !x.archived) : []) {
+    const del = await fetch(`${API}/api/profile/resumes/${x.id}`, { method: "DELETE", headers: h });
+    // a resume a rehearsal fill attached to tracked applications can't be deleted: archived instead (it leaves the pick list either way)
+    const arch = del.ok ? null : await fetch(`${API}/api/profile/resumes/${x.id}`, { method: "PUT", headers: { ...h, "content-type": "application/json" }, body: JSON.stringify({ ...x, archived: true }) });
+    console.log(`      ${del.ok ? "removed" : arch && arch.ok ? "archived" : `could not remove (${del.status}/${arch && arch.status})`} the rehearsal upload "${uploaded}"`);
+  }
+  const list = Array.isArray(have) ? have.filter((x) => !x.archived && x.label !== uploaded) : [];
   if (list.some((x) => x.label === label) && !process.env.REFRESH_RESUMES) return line(true, `${who} already has "${label}"`);
   for (const old of list.filter((x) => x.label === label || (x.label || "").startsWith(`${name} - `))) {
     await fetch(`${API}/api/profile/resumes/${old.id}`, { method: "DELETE", headers: h });
@@ -91,6 +99,32 @@ async function ensureResume(who) {
   }
   line(up.ok, `${who}: resume "${label}" with a PDF, set as default (${up.status})`);
 }
+// 2b. Anika's profile, complete and consistent (Chicago), so the extension answers the questions real applications ask: contact, links,
+//     work authorization, salary, notice, start, work preference, relocation. No sensitive data (no date of birth, IDs, or demographics).
+{
+  const PROFILE = {
+    anika: {
+      phone: "(312) 555-0142", city: "Chicago", state: "IL", postalCode: "60601", country: "United States",
+      preferredName: "Anika", github: "https://github.com/anikarao-dev", linkedin: "https://www.linkedin.com/in/anika-rao-example",
+      authorizedToWork: "Yes", requireSponsorship: "No",
+      desiredSalary: "185000", noticePeriod: "2 weeks", earliestStartDate: "2 weeks after an offer",
+      workPreference: "Hybrid", willingToRelocate: "Yes", referralSource: "LinkedIn",
+    },
+  };
+  for (const [who, extra] of Object.entries(PROFILE)) {
+    const t = await token(`demo-ent-acme-${who}`, acme);
+    const h = { ...acme, authorization: `Bearer ${t}`, accept: "application/json", "content-type": "application/json" };
+    let cur = {};
+    try {
+      cur = JSON.parse((await (await fetch(`${API}/api/profile`, { headers: h })).json()).payload || "{}");
+    } catch {
+      cur = {};
+    }
+    const r = await fetch(`${API}/api/profile`, { method: "PUT", headers: h, body: JSON.stringify({ payload: JSON.stringify({ ...cur, ...extra }) }) });
+    line(r.ok, `${who}: profile filled in (salary, notice, start, relocation, links) (${r.status})`);
+  }
+}
+
 for (const who of ["anika", "ben"]) {
   try {
     await ensureResume(who);

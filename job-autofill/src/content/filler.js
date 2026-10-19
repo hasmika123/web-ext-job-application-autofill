@@ -23,7 +23,9 @@
       const usedEls = new Set(items.map((i) => i.el));
       const extra = safe(() => JAF.genericAdapter.plan(values)) || [];
       for (const e of extra) {
-        if (!covered.has(e.field) && !usedEls.has(e.el)) { items.push(e); covered.add(e.field); usedEls.add(e.el); }
+        // desired pay may be asked twice (base AND total compensation): the generic scan returns both, and both take the answer
+        const again = e.field === "desiredSalary" && e.confidence === "high";
+        if ((!covered.has(e.field) || again) && !usedEls.has(e.el)) { items.push(e); covered.add(e.field); usedEls.add(e.el); }
       }
     }
     // de-dupe: one item per element
