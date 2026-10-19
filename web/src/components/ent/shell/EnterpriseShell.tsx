@@ -29,7 +29,7 @@ import { activeKey, bannersFor, defaultTitle, navSections, primaryRoleName, swit
 import { readCollapsed, readDismissed, readLandingPref, writeCollapsed, writeDismissed, writeLandingPref } from "@/lib/ent/shell-prefs";
 import { bottomBar, showSwitcher, type MeTenant, type Workspace } from "@/lib/ent/workspaces";
 import AccountMenu, { signOut } from "./AccountMenu";
-import HelpCard from "./HelpCard";
+import HelpPanelHost from "./HelpCard";
 import { NavIcon } from "./nav-icons";
 import { ShellSlotContext, type PageHeaderValue } from "./ShellContext";
 import ShellBell from "./ShellBell";
@@ -375,8 +375,8 @@ export default function EnterpriseShell({
           <DemoRefusalNotice />
         </div>
 
-        {/* the help panel the pages' own "Ask a question..." cards open (the sidebar card is gone; this is only the panel) */}
-        <HelpCard firstName={firstName} orgName={tenant.displayName} supportEmail={tenant.supportEmail} cardHidden />
+        {/* "Help & support": opened from the account menu and the footer's Support link */}
+        <HelpPanelHost orgName={tenant.displayName} supportEmail={tenant.supportEmail} />
         {/* the workspace switcher (desktop): opened from the profile menu, or Ctrl+Shift+W */}
         {multi ? switcher("panel") : null}
 

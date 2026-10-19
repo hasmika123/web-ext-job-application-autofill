@@ -111,7 +111,7 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
   it("the global search is honest: board placeholder, results only from pages the member can open, and it says so", () => {
     const { container } = mount("owner@acme.com");
     const box = container.querySelector<HTMLInputElement>("[data-shell-search] input")!;
-    expect(box.placeholder).toBe("Search pages");
+    expect(box.placeholder).toBe("Jump to a page (Ctrl+K)");
     fireEvent.focus(box);
     fireEvent.change(box, { target: { value: "empl" } });
     const opts = screen.getAllByRole("option");
@@ -131,10 +131,11 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     expect(side.querySelector("[data-shell-scroll] nav")).toBeTruthy();
   });
 
-  it("a page's own help card still opens the shared help panel that says there is no assistant yet", () => {
+  it("Help & support opens the shared help panel, which only lists people and pages", () => {
     mount("owner@acme.com");
     act(() => openHelpPanel());
-    expect(screen.getByRole("dialog").textContent).toContain("isn't switched on yet");
+    expect(screen.getByRole("dialog").textContent).toContain("These reach a person.");
+    expect(screen.getByRole("dialog").textContent).not.toContain("assistant");
     expect(screen.getByRole("dialog").querySelector('a[href="mailto:it@acme.com"]')).toBeTruthy();
   });
 
