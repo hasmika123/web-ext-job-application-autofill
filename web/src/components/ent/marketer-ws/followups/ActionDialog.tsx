@@ -9,9 +9,9 @@ import { STATUS_LABEL, STATUS_ORDER, type FollowupAction, type FollowupStatus } 
 export type DialogKind = "reminder" | "call" | "status";
 
 const COPY: Record<DialogKind, { title: string; submit: string; note: string }> = {
-  reminder: { title: "Send Reminder", submit: "Record reminder", note: "This records a reminder request on the follow-up. Nothing is emailed or sent to the client, recruiter or consultant." },
-  call: { title: "Log Call", submit: "Save call", note: "Record the call notes and outcome. Nothing is sent to anyone." },
-  status: { title: "Update Status", submit: "Update status", note: "Mark the follow-up complete or move it to another status." },
+  reminder: { title: "Send reminder", submit: "Record reminder", note: "This records a reminder request on the follow-up. Nothing is emailed or sent to the client, recruiter or consultant." },
+  call: { title: "Log call", submit: "Save call", note: "Record the call notes and outcome. Nothing is sent to anyone." },
+  status: { title: "Update status", submit: "Update status", note: "Mark the follow-up complete or move it to another status." },
 };
 
 export default function ActionDialog({

@@ -18,7 +18,7 @@ const CHANNEL_ICON: Record<Channel, { icon: ComponentType<IconProps>; tint: stri
 };
 const PRIORITY_CHIP: Record<Priority, string> = { HIGH: TINTS.pink, MEDIUM: TINTS.blue, LOW: TINTS.green };
 const STATUS_CHIP: Record<string, string> = {
-  Pending: TINTS.amber, "In Progress": TINTS.blue, Scheduled: TINTS.violet, Overdue: TINTS.pink, "Not Started": "bg-paper-2 text-muted", Waiting: TINTS.teal, Completed: TINTS.green,
+  Pending: TINTS.amber, "In progress": TINTS.blue, Scheduled: TINTS.violet, Overdue: TINTS.pink, "Not started": "bg-paper-2 text-muted", Waiting: TINTS.teal, Completed: TINTS.green,
 };
 
 export type RowAction = "reminder" | "call" | "status" | "complete";
@@ -98,17 +98,17 @@ export default function FollowupTable({ name, rows, withDate, dueTone, sortable,
             <th className="w-9 rounded-l-lg px-2 py-2">
               <input type="checkbox" aria-label={`Select all ${name} follow-ups`} checked={all} onChange={(e) => onToggleAll(ids, e.target.checked)} className="h-4 w-4 accent-[var(--color-accent)]" />
             </th>
-            <th className={TH}>Follow-up Item</th>
+            <th className={TH}>Follow-up</th>
             <th className={TH}>Consultant</th>
-            <th className={TH}>Client / Recruiter</th>
+            <th className={TH}>Client / recruiter</th>
             <th className={TH}>Channel</th>
             <th className={TH} aria-sort={sortable ? (sortDir === "asc" ? "ascending" : "descending") : undefined}>
               {sortable ? (
                 <button type="button" onClick={onSort} className="inline-flex items-center gap-1 font-semibold">
-                  Due Time {sortDir === "asc" ? <ChevronDownIcon size={13} /> : <ChevronUpIcon size={13} />}
+                  Due time {sortDir === "asc" ? <ChevronDownIcon size={13} /> : <ChevronUpIcon size={13} />}
                 </button>
               ) : (
-                "Due Time"
+                "Due time"
               )}
             </th>
             <th className={TH}>Priority</th>

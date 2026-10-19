@@ -6,7 +6,7 @@
 
 export type FollowupKpiKey = "dueToday" | "overdue" | "completedToday" | "waiting";
 export const FOLLOWUP_KPI_KEYS: FollowupKpiKey[] = ["dueToday", "overdue", "completedToday", "waiting"];
-export const FOLLOWUP_KPI_TITLES: Record<FollowupKpiKey, string> = { dueToday: "Due Today", overdue: "Overdue", completedToday: "Completed Today", waiting: "Waiting on Response" };
+export const FOLLOWUP_KPI_TITLES: Record<FollowupKpiKey, string> = { dueToday: "Due today", overdue: "Overdue", completedToday: "Completed today", waiting: "Waiting on response" };
 
 export type Channel = "PHONE" | "EMAIL" | "TEAMS" | "CHAT" | "NOTE";
 export type Priority = "HIGH" | "MEDIUM" | "LOW";
@@ -15,7 +15,7 @@ export type InsightWindow = "THIS_WEEK" | "LAST_WEEK" | "THIS_MONTH";
 
 export const CHANNEL_LABEL: Record<Channel, string> = { PHONE: "Phone", EMAIL: "Email", TEAMS: "Teams", CHAT: "Chat", NOTE: "Note" };
 export const PRIORITY_LABEL: Record<Priority, string> = { HIGH: "High", MEDIUM: "Medium", LOW: "Low" };
-export const STATUS_LABEL: Record<FollowupStatus, string> = { PENDING: "Pending", IN_PROGRESS: "In Progress", SCHEDULED: "Scheduled", NOT_STARTED: "Not Started", WAITING: "Waiting", COMPLETED: "Completed" };
+export const STATUS_LABEL: Record<FollowupStatus, string> = { PENDING: "Pending", IN_PROGRESS: "In progress", SCHEDULED: "Scheduled", NOT_STARTED: "Not started", WAITING: "Waiting", COMPLETED: "Completed" };
 export const STATUS_ORDER: FollowupStatus[] = ["PENDING", "IN_PROGRESS", "SCHEDULED", "NOT_STARTED", "WAITING", "COMPLETED"];
 export const WINDOW_LABEL: Record<InsightWindow, string> = { THIS_WEEK: "This Week", LAST_WEEK: "Last Week", THIS_MONTH: "This Month" };
 

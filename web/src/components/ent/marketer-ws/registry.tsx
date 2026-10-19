@@ -7,8 +7,7 @@ import OpportunitiesPage from "./opportunities/OpportunitiesPage";
 import SubmissionsPage from "./submissions/SubmissionsPage";
 import ApplicationsPage from "./applications/ApplicationsPage";
 import InterviewsPage from "./interviews/InterviewsPage";
-import FollowupsPage from "./followups/FollowupsPage";
-import TasksPage from "./tasks/TasksPage";
+import TaskTabsPage from "./tasks/TaskTabsPage";
 import ActivitiesPage from "./activity/ActivitiesPage";
 import PerformancePage from "./performance/PerformancePage";
 import type { MktPageProps } from "./parts";
@@ -38,10 +37,8 @@ export function marketingPage(slug: string[], props: MktPageProps): ReactNode | 
       return <ApplicationsPage {...props} />;
     case "interviews":
       return <InterviewsPage {...props} />;
-    case "followups":
-      return <FollowupsPage {...props} />;
     case "tasks":
-      return <TasksPage {...props} />;
+      return <TaskTabsPage {...props} />;
     case "activity":
       return <ActivitiesPage {...props} />;
     case "performance":

@@ -37,8 +37,8 @@ describe("helpers", () => {
 
   it("an overdue row reads Overdue whatever its stored status", () => {
     expect(statusText({ status: "PENDING", overdue: true })).toBe("Overdue");
-    expect(statusText({ status: "IN_PROGRESS", overdue: false })).toBe("In Progress");
-    expect(statusText({ status: "NOT_STARTED", overdue: false })).toBe("Not Started");
+    expect(statusText({ status: "IN_PROGRESS", overdue: false })).toBe("In progress");
+    expect(statusText({ status: "NOT_STARTED", overdue: false })).toBe("Not started");
   });
 
   it("response time reads in days from a day up, hours below, a dash when empty", () => {
