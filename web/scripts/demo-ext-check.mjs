@@ -302,12 +302,13 @@ try {
   let fitText = "";
   try {
     await drawer.getByRole("button", { name: "Check fit" }).click({ timeout: 20_000 });
-    await drawer.getByText(/missing|keyword|match/i).first().waitFor({ timeout: 30_000 });
+    await drawer.getByText(/Missing from this resume|Red flags/i).first().waitFor({ timeout: 45_000 });
     fitText = (await drawer.locator("body").innerText()).replace(/\s+/g, " ");
   } catch {
     fitText = "";
   }
-  step("Pro: Check fit shows the fit report", /\d+\s*%/.test(fitText), fitText.slice(fitText.indexOf("Best") >= 0 ? fitText.indexOf("Best") : 0).slice(0, 220));
+  const at = fitText.indexOf("Best");
+  step("Pro: Check fit shows the fit report (score, missing keywords)", /Missing from this resume|Red flags/i.test(fitText), fitText.slice(at >= 0 ? at : 0).slice(0, 240));
   await posting.screenshot({ path: process.env.SHOT || "C:/work_bench_claude/shots/drawer-pro.png" }).catch(() => {});
 } catch (e) {
   step("script error", false, String(e.message).slice(0, 300));
