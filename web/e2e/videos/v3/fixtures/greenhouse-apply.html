@@ -57,14 +57,19 @@
 
       <button id="submit_app" type="submit">Submit Application</button>
     </form>
-    <div id="confirmation"><h2>Thank you for applying!</h2><p>Your application has been submitted to Northwind Labs. (Demo page: submitted by the candidate pressing the button, never by Kiwiply.)</p></div>
   </div>
 </div>
 <script>
+  // Like a real ATS, the confirmation is rendered only after the submit (a new block in the page): nothing
+  // on the page says "thank you" before the candidate has pressed the button.
   document.getElementById("application_form").addEventListener("submit", function (e) {
     e.preventDefault();
-    document.getElementById("application_form").style.display = "none";
-    document.getElementById("confirmation").style.display = "block";
+    var form = document.getElementById("application_form");
+    var done = document.createElement("div");
+    done.id = "confirmation";
+    done.style.display = "block";
+    done.innerHTML = "<h2>Thank you for applying!</h2><p>Your application has been submitted to Northwind Labs. (Demo page: submitted by the candidate pressing the button, never by Kiwiply.)</p>";
+    form.parentNode.replaceChild(done, form);
     window.scrollTo(0, 0);
   });
 </script>

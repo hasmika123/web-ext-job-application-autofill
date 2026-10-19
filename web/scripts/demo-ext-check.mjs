@@ -118,6 +118,8 @@ if (!process.env.SKIP_SEED) {
   step("Omar saves three stand-in openings for Anika", seeded.ok, seeded.note);
 }
 const { context, extId, worker } = await launch();
+const swLog = [];
+worker.on("console", (m) => swLog.push(m.type() + ": " + m.text().slice(0, 200)));
 try {
   await worker.evaluate(async (api) => {
     const cur = (await chrome.storage.local.get("settings")).settings ?? {};
@@ -161,6 +163,8 @@ try {
   await page.goto(`${WEB}/w/consultant/opportunities`, { waitUntil: "domcontentloaded" });
   await page.locator("[data-consultant-opportunities][data-status=ready]").waitFor({ timeout: 60_000 });
   const boxes = page.locator("[data-prepare-check]:not([disabled])");
+  await page.locator("[data-prepare-bar]").waitFor({ timeout: 30_000 }).catch(() => {});
+  await boxes.first().waitFor({ timeout: 30_000 }).catch(() => {}); // the boxes stay disabled until the prepare status has loaded
   const n = Math.min(PICK, await boxes.count());
   step("prepare switch on (checkboxes present)", n > 0, `${await boxes.count()} tickable openings`);
   for (let i = 0; i < n; i++) await boxes.nth(i).check();
@@ -177,15 +181,41 @@ try {
     acked = false;
   }
   step("extension acknowledged the batch", acked, acked ? "" : (await page.locator("[data-prepare-no-extension]").count()) ? "web shows 'Extension not detected'" : "no ack element");
+  if (!acked) {
+    // Diagnose the hand-off: is the relay content script on this page, and what does the service worker answer to a probe batch?
+    const scripts = await worker.evaluate(() => (chrome.runtime.getManifest().content_scripts || []).map((c) => c.js.join(",") + " @ " + c.matches.join(" ")));
+    console.log("      content scripts:", scripts.join(" | "));
+    const probe = await page.evaluate(
+      () =>
+        new Promise((res) => {
+          const t = setTimeout(() => res("no ack within 3 s"), 3000);
+          window.addEventListener("message", (e) => {
+            if (e.source === window && e.data && e.data.type === "KIWIPLY_PREPARE_ACK") {
+              clearTimeout(t);
+              res(JSON.stringify(e.data));
+            }
+          });
+          window.postMessage({ type: "KIWIPLY_PREPARE_BATCH", version: 1, sessionId: "probe1", orgId: 1, jobs: [{ matchId: 1, url: "http://jobs.localhost:3399/greenhouse/x/1", title: "t", company: "c" }] }, location.origin);
+        }),
+    );
+    console.log("      probe ack:", probe, "on", page.url());
+  }
 
   // tabs open and get filled
   const deadline = Date.now() + 90_000;
   while (opened.length < n && Date.now() < deadline) await page.waitForTimeout(500);
   step("one tab per opening", opened.length >= n, `${opened.length} tab(s): ${opened.map((p) => p.url().slice(0, 50)).join(" | ")}`);
   let filled = 0;
+  let reviewed = 0;
   for (const p of opened) {
     try {
       await p.waitForLoadState("domcontentloaded");
+      // By design nothing is written until the consultant has looked at the review panel and pressed "Fill selected" (one click per tab).
+      const fillSelected = p.getByRole("button", { name: "Fill selected" });
+      await fillSelected.waitFor({ timeout: 60_000 });
+      reviewed++;
+      await p.bringToFront();
+      await fillSelected.click();
       await p.waitForFunction(() => document.querySelector("#first_name")?.value, null, { timeout: 60_000 });
       const v = await p.evaluate(() => ({ first: document.querySelector("#first_name")?.value, email: document.querySelector("#email")?.value, auth: document.querySelector("#q_auth")?.value }));
       filled++;
@@ -194,10 +224,12 @@ try {
       console.log("      not filled:", p.url().slice(0, 60), String(e.message).slice(0, 80));
     }
   }
-  step("pages prefilled by the extension", filled === opened.length && filled > 0, `${filled}/${opened.length}`);
+  step("review panel opened on each page", reviewed === opened.length && reviewed > 0, `${reviewed}/${opened.length}`);
+  step("pages filled after 'Fill selected'", filled === opened.length && filled > 0, `${filled}/${opened.length}`);
   const states = async () => page.locator("[data-prepare-item]").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
   await page.waitForTimeout(4000);
-  step("web progress shows filled", (await states()).some((s) => /FILLED|PREFILLED/.test(String(s))), (await states()).join(","));
+  // PREFILLED = filled; NEEDS_INPUT = filled, with required fields the person must do (here the resume upload of the stand-in page).
+  step("web progress shows the pages were prepared", (await states()).some((s) => /FILLED|PREFILLED|NEEDS_INPUT/.test(String(s))), (await states()).join(","));
 
   // 4. the consultant submits on the first page herself
   if (opened[0]) {
@@ -215,6 +247,22 @@ try {
       await page.waitForTimeout(2000);
     }
     step("submit detected and reported to the web", submitted, (await states()).join(","));
+    if (!submitted) {
+      const st = await worker.evaluate(async () => {
+        const all = await chrome.storage.local.get(null);
+        const key = Object.keys(all).find((k) => /prepareBatch$/.test(k));
+        const s = key ? all[key] : null;
+        return s ? { jobs: (s.jobs || []).map((j) => [j.matchId, j.state, j.reason, j.tabId]), outbox: (s.outbox || []).length, stopped: s.stopped } : "no batch state";
+      });
+      console.log("      extension batch state:", JSON.stringify(st));
+      const pending = await worker.evaluate(async () => Object.keys((await chrome.storage.local.get("trackingPending")).trackingPending || {}));
+      console.log("      trackingPending tabs:", JSON.stringify(pending));
+      console.log("      service worker console:", swLog.slice(-15).join(" || ") || "(nothing)");
+      for (const p of opened.slice(0, 1)) {
+        const body = await p.evaluate(() => document.body.innerText.replace(/s+/g, " ").slice(0, 160));
+        console.log("      page 1 text now:", body);
+      }
+    }
   }
 } catch (e) {
   step("script error", false, String(e.message).slice(0, 300));
