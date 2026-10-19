@@ -282,7 +282,7 @@ the other members and the 150-person bench under Indian names. Same logins, role
 
 - Anika's resume is a full two-page resume (`web/scripts/demo-resumes.mjs`); the setup saves it with its PDF and puts the PDF on the Desktop.
 - Six live postings on five hiring systems (`web/scripts/demo-real-jobs.mjs`); the setup saves five for Anika, Rahul saves Adobe (Workday) live.
-- Rehearsed: Autopilot on Figma (Greenhouse), Ramp (Ashby), Rover (Lever) plus a practice page, 12/12 (`demo-ext-check.mjs` with
+- Rehearsed: Autopilot on Figma (Greenhouse), Ramp (Ashby), Rover (Lever) plus a practice page (TechCorp), 12/12 (`demo-ext-check.mjs` with
   `PICK_MATCH="Figma|Ramp|Rover"` and `PRO_URL=<Adobe link>`); Rahul's extension reads the Adobe Workday page. Submit only ever on `jobs.localhost`.
 - Fixed on the way: the demo link seeder gave real postings a stand-in link on restart (now it leaves a job's own link alone); a prepare
   batch reviewed Ashby before its form had drawn (now waits for the fields, extension 0.69.2).

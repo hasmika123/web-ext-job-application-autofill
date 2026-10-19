@@ -29,7 +29,7 @@ Real, live employers on five different hiring systems. The setup saves five of t
 | Robinhood · Staff Software Engineer, Backend Platform | Greenhouse | Spare: fills 6 fields |
 | ServiceNow · Senior Staff Platform Engineer | SmartRecruiters | On the list for variety (the form needs their sign-in) |
 
-**Never press Submit on these pages: they are real employers.** The practice posting for the Submit moment is **Orbit Freight**
+**Never press Submit on these pages: they are real employers.** The practice posting for the Submit moment is **Cloud Engineer at TechCorp**
 (a local page that looks like Greenhouse). Postings close: run the setup the morning of the demo, it flags any link that stopped answering.
 
 ## One-time setup in your Chrome (10 minutes)
@@ -44,7 +44,7 @@ Real, live employers on five different hiring systems. The setup saves five of t
 ## Act 1. Priya sets the company up (5 min)
 1. **Dashboard**: consultants, placements, applications at a glance.
 2. **Consultants** → open **Anika Rao** → **License**: her paid add-ons (Autopilot prepare, Inbox tracking).
-3. **Marketing Assignments**: Anika and Vikram are looked after by **Rahul Mehta**; show assigning two people and Undo.
+3. **Marketing Assignments**: Anika and Vikram are looked after by **Rahul Mehta** (the setup puts Anika with him); show assigning two people and Undo.
 4. **Settings** → *Prepare selected openings*: the company switched Autopilot on and set the daily/monthly limits.
 5. (quick) **Branding**: Aaruna's logo and colours on every page.
 
@@ -59,19 +59,19 @@ Real, live employers on five different hiring systems. The setup saves five of t
 1. **Assigned Opportunities**: Rahul's jobs with his notes. **Express Interest** on one; **Need More Info** on another (a question to Rahul).
 2. **Pro, before applying**: open the **Adobe** job link (Workday) → click the Aaruna icon → **Best match for this job · 88%** (which
    of her two resumes fits) → **Check fit** (match %, what's missing, what's covered). Ramp works the same way.
-3. **Autopilot**: back on Assigned Opportunities → tick **Figma**, **Ramp**, **Rover** and **Orbit Freight** → **Prepare selected** →
+3. **Autopilot**: back on Assigned Opportunities → tick **Figma**, **Ramp**, **Rover** and **TechCorp · Cloud Engineer** → **Prepare selected** →
    confirm ("nothing is submitted for you").
 4. Each job opens in its own tab with the review panel: three real hiring systems (Greenhouse, Ashby, Lever) plus the practice page.
    Name, contact, links, work authorization, and on Figma an **AI-written answer** to its open question.
    **Fill selected** on each. Figma leaves 3 dropdowns (Country, City, Authorization) for her to pick: say so, it's honest.
-5. On **Orbit Freight** only (practice page) she presses **Submit Application**; back on Kiwiply the progress panel says **Submitted**.
+5. On **TechCorp** only (practice page) she presses **Submit Application**; back on Kiwiply the progress panel says **Submitted**.
    Close the Figma, Ramp and Rover tabs without submitting.
 
 ## Act 4. Anika's email keeps the board current (5 min)
 1. **Inbox** → `anika.rao.jobs@gmail.com`, app password: any 16 letters → **Check and connect**. A few seconds later Northwind Labs
    reads **Offer** "from your inbox", and two jobs she never tracked are offered under *Found in your mail*.
 2. Switch to the Gmail window → **Demo: send email** (bottom right, or press **N**) → *Orbit Freight invites Anika to a phone screen*.
-3. Back on Inbox → **Check now** → Orbit Freight (the job she just applied to) moves to **Interview** with the day and time.
+3. Back on Inbox → **Check now** → Orbit Freight moves to **Interview** with the day and time.
 4. A minute later: send *Cedar Analytics turns the application down* → **Check now** → it waits under **Needs your review** →
    **Accept** → Rejected → **Undo** (nothing risky happens on its own).
 
@@ -85,7 +85,7 @@ Anika: **Interview Prep**, **Offers** (compare, negotiate), **My Resumes** (buil
 
 ## Don'ts
 - Don't click the 8 admin menu items marked **Soon** (Billing, HR, …).
-- Don't press **Submit** on any real employer's site (Figma, Ramp, Rover, Robinhood, Adobe, ServiceNow). Submit only on Orbit Freight.
+- Don't press **Submit** on any real employer's site (Figma, Ramp, Rover, Robinhood, Adobe, ServiceNow). Submit only on the TechCorp practice page.
 - **Check now** works once a minute.
 
 ## Before the demo: clean data

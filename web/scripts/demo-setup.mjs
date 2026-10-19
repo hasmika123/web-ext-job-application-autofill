@@ -104,6 +104,20 @@ for (const who of ["anika", "ben"]) {
 {
   const rahul = { ...acme, authorization: `Bearer ${await token("demo-ent-acme-omar", acme)}`, accept: "application/json" };
   const orgId = (await (await fetch(`${API}/api/me/tenant`, { headers: rahul })).json()).org.id;
+  // The walkthrough has Rahul as Anika's (and Vikram's) marketer; the seed gives Anika to Priya, so Priya assigns her to Rahul, as on her
+  // Marketing Assignments page. Already his: nothing changes.
+  const rahulMember = (await (await fetch(`${API}/api/me/tenant`, { headers: rahul })).json()).member?.id;
+  const priya = { ...acme, authorization: `Bearer ${await token("demo-ent-acme-sarah", acme)}`, accept: "application/json", "content-type": "application/json" };
+  const all = await (await fetch(`${API}/api/orgs/${orgId}/mkt/opportunities/options?q=Anika`, { headers: priya })).json();
+  const anika = (all.consultants || []).find((c) => c.name === "Anika Rao");
+  if (anika && rahulMember) {
+    const r = await fetch(`${API}/api/orgs/${orgId}/marketing-assignments/assign`, {
+      method: "POST",
+      headers: { ...priya, "idempotency-key": `demo-setup-anika-rahul-${Date.now()}` },
+      body: JSON.stringify({ consultantIds: [anika.id], marketerMemberId: rahulMember, allowOverCapacity: true, reason: "Demo setup: Rahul markets Anika" }),
+    });
+    line(r.ok, `Anika's marketer is Rahul Mehta (${r.status})`);
+  }
   const opts = await (await fetch(`${API}/api/orgs/${orgId}/mkt/opportunities/options?q=Anika`, { headers: rahul })).json();
   const anikaId = (opts.consultants || []).find((c) => c.name === "Anika Rao")?.id;
   if (!anikaId) line(false, "real postings: Anika is not one of Rahul's consultants");
