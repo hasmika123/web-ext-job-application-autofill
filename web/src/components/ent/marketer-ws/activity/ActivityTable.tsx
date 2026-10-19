@@ -4,11 +4,10 @@ import { Menu, MoreVerticalIcon } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
 import { STATUS_LABEL, dayText, timeText, type ActivityRow, type ActivityStatus } from "@/lib/ent/marketer-ws/activity";
 import { HEAD_ROW, TH, TINTS } from "../parts";
-import { Chip, ClientCell, IconTile, PersonCell, STATUS_CHIP, tagTone, typeIcon } from "./bits";
+import { Chip, ClientCell, IconTile, PersonCell, STATUS_CHIP, typeIcon } from "./bits";
 
 /**
- * The "Recent Activities" table. Columns exactly as the board: Date & Time, Activity, Actor, Consultant, Related To (the client with its logo), Client (the type
- * chip), Tags (the second chip), Status and a kebab. The kebab opens the details; only a manual (logged) row can change status, and only for a caller who may log.
+ * The activity table. Columns: Date and time, Activity, Actor, Consultant, Related to (the client with its logo), Type (the type chip), Status and a kebab. The kebab opens the details; only a manual (logged) row can change status, and only for a caller who may log.
  */
 
 export type RowAction = { kind: "details" } | { kind: "status"; status: ActivityStatus };
@@ -16,16 +15,15 @@ export type RowAction = { kind: "details" } | { kind: "status"; status: Activity
 export default function ActivityTable({ rows, canLog, onAction }: { rows: ActivityRow[]; canLog: boolean; onAction: (row: ActivityRow, action: RowAction) => void }) {
   return (
     <div className="overflow-x-auto" data-activity-table>
-      <table className="w-full min-w-[1020px] text-left text-[13px]">
+      <table className="w-full min-w-[900px] text-left text-[13px]">
         <thead>
           <tr className={HEAD_ROW}>
-            <th className={`${TH} rounded-l-lg pl-3`}>Date &amp; Time</th>
+            <th className={`${TH} rounded-l-lg pl-3`}>Date and time</th>
             <th className={TH}>Activity</th>
             <th className={TH}>Actor</th>
             <th className={TH}>Consultant</th>
-            <th className={TH}>Related To</th>
-            <th className={TH}>Client</th>
-            <th className={TH}>Tags</th>
+            <th className={TH}>Related to</th>
+            <th className={TH}>Type</th>
             <th className={TH}>Status</th>
             <th className="w-9 rounded-r-lg" aria-label="Actions" />
           </tr>
@@ -67,7 +65,6 @@ export default function ActivityTable({ rows, canLog, onAction }: { rows: Activi
                 <td className="px-2">
                   <Chip className={TINTS.blue}>{r.groupLabel}</Chip>
                 </td>
-                <td className="px-2">{r.tag ? <Chip className={tagTone(r.tag)}>{r.tag}</Chip> : null}</td>
                 <td className="px-2">
                   <span className={`inline-block min-w-[84px] rounded-md px-2.5 py-1 text-center text-[12px] font-semibold ${STATUS_CHIP[r.status]}`}>{STATUS_LABEL[r.status]}</span>
                 </td>

@@ -2,15 +2,13 @@
 
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
-import { DeltaChip, MoreVerticalIcon, Skeleton, Sparkline, SparklesIcon, ChevronRightIcon, chartColor, cn } from "@kiwiply/ui";
+import { DeltaChip, MoreVerticalIcon, Skeleton, Sparkline, chartColor, cn } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import { openHelpPanel } from "@/components/ent/shell/ShellContext";
 import { deltaFromPct } from "@/lib/ent/dashboard";
-import { HELP_BANNER } from "@/lib/ent/marketer-ws/home";
 
 /**
  * Shared building blocks of the Marketing workspace boards (every page under `/w/marketing/**`). A page imports these instead of
- * re-drawing a KPI tile, a card header or the bee help card, so all eleven boards stay one design. Colours come only from the
+ * re-drawing a KPI tile or a card header, so all the boards stay one design. Colours come only from the
  * tenant tokens (`bg-accent-soft`, `text-accent-deep`, `bg-v2-*-soft`); never a hex literal (ESLint enforces it).
  */
 
@@ -143,25 +141,6 @@ export function KpiTile({
           {number}
         </>
       )}
-    </section>
-  );
-}
-
-/** The bee help card (photo banner on top, headline, copy, "Ask a question" button that opens the shared help panel). */
-export function HelpBannerCard({ title, body, ask = "Ask a question", className }: { title: string; body: string; ask?: string; className?: string }) {
-  return (
-    <section aria-label="Help" data-home-card="help" className={cn("flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper", className)}>
-      {/* eslint-disable-next-line @next/next/no-img-element -- the approved board art, served as is */}
-      <img src={HELP_BANNER} alt="" className="block w-full object-cover" />
-      <div className="p-4">
-        <h2 className="text-[19px] font-extrabold leading-tight text-ink">{title}</h2>
-        <p className="mt-1.5 text-[13.5px] leading-snug text-muted">{body}</p>
-        <button type="button" onClick={openHelpPanel} className="mt-4 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft/70">
-          <SparklesIcon size={17} className="flex-none" />
-          <span className="min-w-0 flex-1 truncate">{ask}</span>
-          <ChevronRightIcon size={16} className="flex-none" />
-        </button>
-      </div>
     </section>
   );
 }
