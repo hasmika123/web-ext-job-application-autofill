@@ -255,3 +255,18 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 - Dropdowns opened downward even at the bottom of the window, and scrolling closes them (Sarah's consultant drawer, Availability). The shared Select now opens upward when there is no room below and caps its height to the room it has (user approved the shared change). 970 design-system tests green; the story that failed every time (ADM-41) passes; screenshot checked. `3be889c2`
 
 **Demo data note:** the run-through added test jobs, batches, tasks and notes to the demo database. Rebuild it fresh before the demo (DEMO-PLAN section 7, step 1), then re-apply the AI override.
+
+## 9. Day-of changes (2026-10-19)
+
+| Item | Done | How |
+|---|---|---|
+| Pro tools without an AI key | yes | The server's AI is Google Gemini (not Anthropic); the demo API runs its built-in fake AI (`ai-stub` profile, added with `SPRING_PROFILES_INCLUDE`). No key, no cost. Drafts now read the question (company by name). An enterprise account with an AI budget reads PRO, so the extension shows best resume and Check fit. Rehearsed: AI draft in the review panel 2/2, best resume 88%, fit report |
+| Email without a real Gmail | yes | Sample mailbox "live-arrival" mode (`DOSSIER_DEMO_INBOX_STAGED=true`): the Orbit Freight interview and the Cedar Analytics rejection arrive when the presenter sends them from the Gmail-style page `http://mail.localhost:3399`. Rehearsed 8/8 (`web/scripts/demo-mail-check.mjs`) |
+| Acme-branded extension | yes | `node web/scripts/brand-extension.mjs --name "Acme Staffing" --logo <acme logo png> --primary "#1d5bd8"` makes `job-autofill/.output/chrome-mv3-dev-acme-staffing` (name, icons, logo, blue accent, "Prepared by Acme Staffing"). Same extension ID. Both rehearsals pass on it |
+| Resumes the extension can use | yes | `web/scripts/demo-setup.mjs` gives Anika and Ben a real resume with a PDF |
+| Stand-in job pages | improved | carry structured job data (title, company, description) like real Greenhouse pages; seeded links name the real client |
+| Fresh data + setup | yes | after a fresh database run `node web/scripts/demo-setup.mjs` (AI budgets, emails held back, resumes, readiness checks) |
+
+**Known limits to say out loud:** the extension does not download resume files created on the web, so the resume field is one click (or upload once in the drawer); Check now works once a minute; the Inbox page notes it is a sample mailbox.
+
+Click-by-click: `docs/enterprise-v2/demo/DEMO-WALKTHROUGH.md`.
