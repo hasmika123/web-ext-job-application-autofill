@@ -4,6 +4,7 @@ import com.dossier.api.domain.ent.consultantws.CwsJobSource;
 import com.dossier.api.domain.ent.talent.ClientRequirement;
 import com.dossier.api.domain.org.Organization;
 import com.dossier.api.repository.ent.consultantws.CwsJobSourceRepository;
+import com.dossier.api.repository.ent.talent.ClientAccountRepository;
 import com.dossier.api.repository.ent.talent.ClientRequirementRepository;
 import com.dossier.api.repository.org.OrganizationRepository;
 import com.dossier.api.service.ent.EnterpriseDemoSeeder;
@@ -47,25 +48,33 @@ public class ConsultantWsJobSourceDemoSeeder {
     private final OrganizationRepository orgs;
     private final ClientRequirementRepository requirements;
     private final CwsJobSourceRepository sources;
+    private final ClientAccountRepository clients;
     private final String base;
 
     public ConsultantWsJobSourceDemoSeeder(
         OrganizationRepository orgs,
         ClientRequirementRepository requirements,
         CwsJobSourceRepository sources,
+        ClientAccountRepository clients,
         @Value("${dossier.demo.job-link-base:" + DEFAULT_BASE + "}") String base
     ) {
         this.orgs = orgs;
         this.requirements = requirements;
         this.sources = sources;
+        this.clients = clients;
         String b = base == null || base.isBlank() ? DEFAULT_BASE : base.trim();
         this.base = b.endsWith("/") ? b.substring(0, b.length() - 1) : b;
     }
 
-    /** The sample link of one opening: {@code <base>/<org-slug>/<requirementId>?t=<title>} (the stand-in page shows the title). */
-    String linkFor(String slug, ClientRequirement r) {
+    /**
+     * The sample link of one opening: {@code <base>/<client-slug>/<requirementId>?t=<title>&c=<client>} (the stand-in page shows the title and the
+     * client as the employer); the organization's slug stands in when the opening has no client.
+     */
+    String linkFor(String slug, ClientRequirement r, String client) {
         String title = r.getTitle() == null ? "" : r.getTitle();
-        return base + "/" + slug + "/" + r.getId() + "?t=" + URLEncoder.encode(title, StandardCharsets.UTF_8);
+        String who = client == null || client.isBlank() ? null : client.trim();
+        String path = who == null ? slug : who.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("^-|-$", "");
+        return base + "/" + path + "/" + r.getId() + "?t=" + URLEncoder.encode(title, StandardCharsets.UTF_8) + (who == null ? "" : "&c=" + URLEncoder.encode(who, StandardCharsets.UTF_8));
     }
 
     @Transactional
@@ -80,11 +89,15 @@ public class ConsultantWsJobSourceDemoSeeder {
             List<CwsJobSource> existing = sources.findByOrgIdAndRequirementIdIn(org.getId(), open.stream().map(ClientRequirement::getId).toList());
             Set<Long> have = existing.stream().map(CwsJobSource::getRequirementId).collect(Collectors.toSet());
             Map<Long, ClientRequirement> byId = open.stream().collect(Collectors.toMap(ClientRequirement::getId, r -> r, (a, b) -> a));
+            Set<Long> clientIds = open.stream().map(ClientRequirement::getClientId).filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+            Map<Long, String> clientName = clientIds.isEmpty() ? Map.of() : clients.findByOrgIdAndIdIn(org.getId(), clientIds).stream().collect(Collectors.toMap(c -> c.getId(), c -> c.getName(), (a, b) -> a));
             // A sample row seeded under another base (a different demo stack setting) follows the current one; real rows are never touched.
             for (CwsJobSource s : existing) {
                 ClientRequirement r = byId.get(s.getRequirementId());
-                if (r == null || !s.isSampleData() || s.getSourceUrl() == null || s.getSourceUrl().startsWith(base + "/")) continue;
-                s.setSourceUrl(linkFor(slug, r));
+                if (r == null || !s.isSampleData() || s.getSourceUrl() == null) continue;
+                String want = linkFor(slug, r, clientName.get(r.getClientId()));
+                if (want.equals(s.getSourceUrl())) continue;
+                s.setSourceUrl(want);
                 s.setUpdatedAt(now);
                 sources.save(s);
                 made++;
@@ -95,7 +108,7 @@ public class ConsultantWsJobSourceDemoSeeder {
                 CwsJobSource s = new CwsJobSource();
                 s.setOrgId(org.getId());
                 s.setRequirementId(r.getId());
-                s.setSourceUrl(linkFor(slug, r));
+                s.setSourceUrl(linkFor(slug, r, clientName.get(r.getClientId())));
                 s.setSourceName(SOURCE_NAMES[k % SOURCE_NAMES.length]);
                 s.setQuickInfo(NOTES[k % NOTES.length]);
                 s.setSampleData(true);

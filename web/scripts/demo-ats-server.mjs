@@ -33,7 +33,7 @@ const titleCase = (slug) =>
 
 function page(url) {
   const parts = url.pathname.split("/").filter(Boolean); // [ats, company-slug, id]
-  const company = parts.length >= 2 ? titleCase(parts[1]) : "Northwind Labs";
+  const company = (url.searchParams.get("c") || "").trim() || (parts.length >= 2 ? titleCase(parts[1]) : "Northwind Labs");
   const title = (url.searchParams.get("t") || "").trim() || "Data Platform Engineer";
   const location = (url.searchParams.get("l") || "").trim() || "Remote, United States";
   return TEMPLATE.replaceAll("Northwind Labs", esc(company)).replaceAll("Data Platform Engineer", esc(title)).replaceAll("Remote, United States", esc(location));
