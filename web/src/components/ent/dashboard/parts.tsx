@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ComponentType, ReactNode } from "react";
-import { Button, LockIcon, RefreshIcon, Skeleton, Sparkline, Tooltip, IconButton, cn, kpiLine } from "@kiwiply/ui";
+import { Button, LockIcon, RefreshIcon, Skeleton, Tooltip, IconButton, cn } from "@kiwiply/ui";
 import type { IconProps, KpiTone } from "@kiwiply/ui";
 import { comparedToText, deltaFromPct, statTileOf, tileValueText, unavailableText, type DashboardWidget } from "@/lib/ent/dashboard";
 
@@ -191,9 +191,6 @@ export function StatTile({ spec, widget, loading, onRetry, index }: { spec: Tile
         <p data-tile-value className="ent-kpi-value">
           {tileValueText(tile)}
         </p>
-        <div className="mb-0.5 w-[38%] max-w-[84px] flex-none">
-          <Sparkline values={tile.sparkline} smooth color={tile.deltaPct !== null && tile.deltaPct < 0 ? "var(--ent-kpi-bad)" : kpiLine(spec.tone)} className="!h-[34px]" />
-        </div>
       </div>
       <p className="mt-auto flex min-h-5 flex-wrap items-center gap-x-2 pt-2.5 text-[12.5px] text-ink-soft">
         {delta ? (

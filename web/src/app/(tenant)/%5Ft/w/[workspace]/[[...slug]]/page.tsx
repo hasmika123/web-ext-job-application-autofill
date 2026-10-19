@@ -5,7 +5,6 @@ import ReportsPage from "@/components/ent/reports/ReportsPage";
 import { accountsPageFor } from "@/components/ent/accounts-ws/registry";
 import { marketingPageFor, marketingRedirect } from "@/components/ent/marketer-ws/registry";
 import { ComingSoon, NotYourRole } from "@/components/ent/shell/ShellStates";
-import { firstNameOf } from "@/lib/ent/dashboard";
 import { getTenantSession } from "@/lib/ent/tenant-session";
 import { catchAllPage } from "@/lib/ent/shell";
 import { can } from "@/lib/ent/workspaces";
@@ -43,7 +42,6 @@ export default async function WorkspaceCatchAll({ params }: { params: Promise<{ 
       <DashboardPage
         orgId={me.org.id}
         orgName={me.org.displayName}
-        firstName={firstNameOf(me.person.name)}
         auditHref={hrefOf("audit")}
         applicationsHref={hrefOf("applications")}
         employeesHref={hrefOf("employees")}
