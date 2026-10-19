@@ -5,15 +5,13 @@
  * E1: every action here prepares or records; nothing submits for a consultant.
  */
 
-export type KpiKey = "assigned" | "profilesReady" | "newMatches" | "pendingSubmissions" | "upcomingInterviews" | "overdueFollowups";
-export const KPI_KEYS: KpiKey[] = ["assigned", "profilesReady", "newMatches", "pendingSubmissions", "upcomingInterviews", "overdueFollowups"];
+export type KpiKey = "assigned" | "newMatches" | "pendingSubmissions" | "overdueFollowups";
+export const KPI_KEYS: KpiKey[] = ["assigned", "newMatches", "pendingSubmissions", "overdueFollowups"];
 export const KPI_TITLES: Record<KpiKey, string> = {
-  assigned: "Assigned Consultants",
-  profilesReady: "Profiles Ready",
-  newMatches: "New Job Matches",
-  pendingSubmissions: "Pending Submissions",
-  upcomingInterviews: "Upcoming Interviews",
-  overdueFollowups: "Overdue Follow-ups",
+  assigned: "Assigned consultants",
+  newMatches: "New job matches",
+  pendingSubmissions: "Pending submissions",
+  overdueFollowups: "Overdue follow-ups",
 };
 
 export interface Kpi {
@@ -107,6 +105,14 @@ export async function fetchMarketingHome(orgId: number | string, signal?: AbortS
 export function clockText(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+/** Whole days from today's date to `iso`'s date in the viewer's clock (0 = today, 1 = tomorrow, negative = past); null for a bad date. */
+export function dayOffset(iso: string, now: number = Date.now()): number | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const a = new Date(now);
+  const start = (x: Date) => Date.UTC(x.getFullYear(), x.getMonth(), x.getDate());
+  return Math.round((start(d) - start(a)) / 86_400_000);
 }
 export function matchTone(pct: number): "green" | "amber" {
   return pct >= 80 ? "green" : "amber";
