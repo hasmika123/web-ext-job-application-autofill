@@ -103,9 +103,9 @@ export default function TeamsPage({ orgId, canManage, creating, onCreatingChange
         />
       ) : (
         <>
-          <p data-group-counts className="text-[14px] text-ink-soft">
+          <div data-group-counts className="text-[14px] text-ink-soft">
             {!s ? <Skeleton className="h-5 w-72" /> : `${s.teams} ${s.teams === 1 ? "team" : "teams"} · ${s.teamMembers} ${s.teamMembers === 1 ? "member" : "members"} · ${notInATeam} ${notInATeam === 1 ? "person" : "people"} not in a team`}
-          </p>
+          </div>
           <section aria-label="Team directory" className="ent-card p-4 sm:p-5">
             <FilterBar
               compact

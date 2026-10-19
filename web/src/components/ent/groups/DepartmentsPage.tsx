@@ -91,9 +91,9 @@ export default function DepartmentsPage({ orgId, canManage, creating, onCreating
         />
       ) : (
         <>
-          <p data-group-counts className="text-[14px] text-ink-soft">
+          <div data-group-counts className="text-[14px] text-ink-soft">
             {!s ? <Skeleton className="h-5 w-56" /> : `${s.departments} ${s.departments === 1 ? "department" : "departments"} · ${s.employees} ${s.employees === 1 ? "person" : "people"}`}
-          </p>
+          </div>
           <section aria-label="Department directory" className="ent-card p-4 sm:p-5">
             <FilterBar
               compact
