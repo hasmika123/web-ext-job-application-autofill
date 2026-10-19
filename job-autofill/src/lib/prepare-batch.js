@@ -682,19 +682,25 @@
         .filter((f) => f.adapter !== "generic" || f.fieldCount >= 2)
         .sort((a, b) => (b.adapter !== "generic" ? 1000 : 0) + b.fieldCount - ((a.adapter !== "generic" ? 1000 : 0) + a.fieldCount));
     }
+    // A form that has actually rendered: a known site with at least one field, or two fields anywhere. Ashby and other single-page
+    // apps match their adapter by URL before React has drawn the form, so the adapter alone does not mean the fields are there yet.
+    function rendered(frames) {
+      return frames.some((f) => f.fieldCount >= (f.adapter !== "generic" ? 1 : 2));
+    }
     async function prepare(tabId, job, batch) {
       const info = { sessionId: batch.sessionId, matchId: job.matchId };
       try { await deps.inject(tabId); }
       catch (e) { return { outcome: "NEEDS_INPUT", reason: REASON.unsupported }; }
 
-      // One look, and one more after a pause when nothing is there yet (single-page apps render late).
+      // Up to three looks, 3 s apart, until the form's fields are on the page (single-page apps render late). If a known site still
+      // shows no fields after that, it is filled anyway, as before (its fields may be ones the scan does not count).
       let top = null;
       let frames = [];
-      for (let i = 0; i < 2; i++) {
+      for (let i = 0; i < 3; i++) {
         top = await deps.sendTo(tabId, { type: "JAF_BATCH_CHECK", batch: info }, 0).catch(() => null);
         frames = await deps.scanFrames(tabId).catch(() => []);
-        if ((top && (top.kind === "captcha" || top.kind === "signin")) || formFrames(frames).length) break;
-        if (i === 0) await wait(4000);
+        if ((top && (top.kind === "captcha" || top.kind === "signin")) || rendered(frames)) break;
+        if (i < 2) await wait(3000);
       }
       const kind = top && top.kind;
       if (kind === "captcha") return { outcome: "NEEDS_INPUT", reason: REASON.captcha };

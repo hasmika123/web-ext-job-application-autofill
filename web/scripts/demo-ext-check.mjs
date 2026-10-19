@@ -168,10 +168,13 @@ try {
   // 3. prepare a batch
   await page.goto(`${WEB}/w/consultant/opportunities`, { waitUntil: "domcontentloaded" });
   await page.locator("[data-consultant-opportunities][data-status=ready]").waitFor({ timeout: 60_000 });
-  const boxes = page.locator("[data-prepare-check]:not([disabled])");
+  // PICK_MATCH (e.g. "Figma|Ramp|Rover", case-sensitive so a note saying "ramp up" is not picked) ticks the rows whose text matches; otherwise the first PICK tickable rows.
+  const PICK_MATCH = process.env.PICK_MATCH ? new RegExp(process.env.PICK_MATCH) : null;
+  const rowsWithBox = page.locator("[data-consultant-opportunities] [data-opp]").filter({ has: page.locator("[data-prepare-check]:not([disabled])") });
+  const boxes = PICK_MATCH ? rowsWithBox.filter({ hasText: PICK_MATCH }).locator("[data-prepare-check]") : page.locator("[data-prepare-check]:not([disabled])");
   await page.locator("[data-prepare-bar]").waitFor({ timeout: 30_000 }).catch(() => {});
-  await boxes.first().waitFor({ timeout: 30_000 }).catch(() => {}); // the boxes stay disabled until the prepare status has loaded
-  const n = Math.min(PICK, await boxes.count());
+  await page.locator("[data-prepare-check]:not([disabled])").first().waitFor({ timeout: 30_000 }).catch(() => {}); // the boxes stay disabled until the prepare status has loaded
+  const n = Math.min(PICK_MATCH ? 10 : PICK, await boxes.count());
   step("prepare switch on (checkboxes present)", n > 0, `${await boxes.count()} tickable openings`);
   for (let i = 0; i < n; i++) await boxes.nth(i).check();
   await page.locator("[data-prepare-open]").click();
@@ -223,26 +226,41 @@ try {
       reviewed++;
       if (await p.getByText(/AI draft/).count()) aiDrafts++;
       await p.bringToFront();
-      await fillSelected.click();
-      await p.waitForFunction(() => document.querySelector("#first_name")?.value, null, { timeout: 60_000 });
-      const v = await p.evaluate(() => ({ first: document.querySelector("#first_name")?.value, email: document.querySelector("#email")?.value, auth: document.querySelector("#q_auth")?.value }));
+      await fillSelected.click({ timeout: 10_000 }).catch(async (e) => {
+        console.log("      click blocked:", new URL(p.url()).hostname, (String(e.message).match(/<[^\n]{0,200}intercepts pointer events/) || [String(e.message).split("\n").pop()])[0].slice(0, 200));
+        await fillSelected.evaluate((b) => b.click()); // what a person clicking the visible button does
+      });
+      // The extension's own summary, on any site. "attached", not "visible": on Ashby the card is on screen, yet Playwright's visibility
+      // test reports it hidden (its host box measures zero), so waiting for "visible" never ends there.
+      const summary = p.getByText(/Filled \d+ field/).first();
+      await summary.waitFor({ state: "attached", timeout: 60_000 });
+      const v = { site: new URL(p.url()).hostname, summary: (await summary.textContent()).replace(/\s+/g, " ").slice(0, 70) };
       filled++;
       console.log("      filled:", JSON.stringify(v), p.url().slice(0, 60));
     } catch (e) {
       console.log("      not filled:", p.url().slice(0, 60), String(e.message).slice(0, 80));
+      await p.screenshot({ path: `C:/work_bench_claude/shots/notfilled-${new URL(p.url()).hostname}.png` }).catch(() => {});
+      const all = p.getByText(/Filled \d+ field|still needs you/);
+      const seen = [];
+      for (let i = 0; i < (await all.count()); i++) seen.push(`${await all.nth(i).isVisible()}:${(await all.nth(i).innerText().catch(() => "?")).slice(0, 40)}`);
+      console.log("      summary candidates:", JSON.stringify(seen), "frames:", p.frames().length);
     }
   }
   step("review panel opened on each page", reviewed === opened.length && reviewed > 0, `${reviewed}/${opened.length}`);
   step("pages filled after 'Fill selected'", filled === opened.length && filled > 0, `${filled}/${opened.length}`);
-  step("Pro: the review panel offers an AI draft for the open question", aiDrafts === opened.length && aiDrafts > 0, `${aiDrafts}/${opened.length}`);
+  step("Pro: the review panel offers an AI draft for the open question", aiDrafts > 0, `${aiDrafts}/${opened.length} (only pages with an open question get one)`);
   const states = async () => page.locator("[data-prepare-item]").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
   await page.waitForTimeout(4000);
   // PREFILLED = filled; NEEDS_INPUT = filled, with required fields the person must do (here the resume upload of the stand-in page).
   step("web progress shows the pages were prepared", (await states()).some((s) => /FILLED|PREFILLED|NEEDS_INPUT/.test(String(s))), (await states()).join(","));
 
   // 4. the consultant submits on the first page herself
-  if (opened[0]) {
-    const p = opened[0];
+  // SAFETY: only ever press submit on the LOCAL stand-in pages. A real employer's page (Greenhouse's button also reads "Submit application")
+  // is never submitted, whatever the selection.
+  const standIn = opened.find((p) => new URL(p.url()).hostname === "jobs.localhost");
+  if (!standIn && opened.length) console.log("      (real employer pages: the submit step is skipped on purpose)");
+  if (standIn) {
+    const p = standIn;
     await p.bringToFront();
     await p.getByRole("button", { name: "Submit Application" }).click();
     await p.getByText("Thank you for applying!").waitFor({ timeout: 15_000 });
@@ -275,8 +293,10 @@ try {
   }
 
   // 5. Pro in the drawer: best resume for this posting, then Check fit (open the drawer as the toolbar icon does, on the active tab)
-  const posting = opened[1] || (await context.newPage());
-  if (!opened[1]) await posting.goto("http://jobs.localhost:3399/greenhouse/northwind-labs/7?t=Data%20Platform%20Engineer&c=Northwind%20Labs");
+  // PRO_URL: the posting to check (the demo uses the Adobe Workday posting); a fresh tab, so the batch panel is not in the way.
+  const posting = await context.newPage();
+  await posting.goto(process.env.PRO_URL || "http://jobs.localhost:3399/greenhouse/northwind-labs/7?t=Data%20Platform%20Engineer&c=Northwind%20Labs", { waitUntil: "domcontentloaded", timeout: 60_000 });
+  await posting.waitForTimeout(5000);
   await posting.bringToFront();
   await posting.evaluate((id) => {
     if (document.getElementById("__kiwiply_drawer_host")) return;

@@ -74,13 +74,39 @@ for (const url of URLS) {
       document.body.appendChild(host);
     }, extId);
     const drawer = tab.frameLocator('iframe[title="Kiwiply"]');
+    // Pro on this page: which resume fits best, then the fit report
+    try {
+      await drawer.getByText(/Best match/).first().waitFor({ timeout: 30_000 });
+      row.bestMatch = (await drawer.getByText(/Best match/).first().innerText()).replace(/\s+/g, " ").slice(0, 50);
+      await drawer.getByRole("button", { name: "Check fit" }).click({ timeout: 10_000 });
+      await drawer.getByText(/Missing from this resume|Red flags|Already covered/i).first().waitFor({ timeout: 40_000 });
+      row.fit = "report shown";
+    } catch {
+      row.bestMatch = row.bestMatch || "not shown";
+      if (process.env.DEBUG_FIT) {
+        row.drawer = (await drawer.locator("body").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 400);
+        row.capture = await worker.evaluate(async (u) => {
+          const [t] = await chrome.tabs.query({ url: u.split("#")[0] + "*" });
+          if (!t) return "tab not found";
+          const r = await chrome.tabs.sendMessage(t.id, { type: "JAF_CAPTURE_JOB" }).catch((e) => ({ err: String(e) }));
+          const c = (r && r.capture) || {};
+          return r && r.err ? r.err : `jd=${String(c.jobDescription || "").length} src=${JSON.stringify(c.sources || {})} role=${c.role} company=${c.company}`;
+        }, tab.url());
+        row.plan = await worker.evaluate(async () => { const s = (await chrome.storage.local.get("settings")).settings || {}; return [s.plan, s.serverAiEnabled, s.serverAiConsent].join(","); });
+      }
+    }
     await drawer.getByRole("button", { name: /Scan & fill/ }).click({ timeout: 45_000 });
     const fill = tab.getByRole("button", { name: "Fill selected" });
     try {
       await fill.waitFor({ timeout: 30_000 });
       row.offered = await tab.locator('[type="checkbox"][data-i]').count().catch(() => -1);
       row.aiDraft = (await tab.getByText(/AI draft/).count()) > 0;
-      await fill.click();
+      try {
+        await fill.click({ timeout: 10_000 });
+      } catch (e) {
+        row.clickBlockedBy = String(e.message).match(/<[^>]{0,160}>[^\n]{0,40}intercepts pointer events/)?.[0]?.slice(0, 160) || String(e.message).split("\n").slice(-3).join(" ").slice(0, 160);
+        await fill.click({ force: true, timeout: 10_000 });
+      }
       await tab.waitForTimeout(5000);
       row.filledText = (await tab.getByText(/Filled \d+ field/).first().innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 60);
       row.result = "FILLED (not submitted)";

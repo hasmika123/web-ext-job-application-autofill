@@ -28,6 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
  * ({@code web/scripts/demo-ats-server.mjs}) so every seeded opening really opens and can be filled by the extension. In the real product the
  * MARKETER role writes these (no marketer-side write exists yet: "mock data now, fix cross-role data when all role branches merge"). Call it after the
  * other consultant seeders. Idempotent: a job that already has a row is skipped (a sample row that still carries another base is moved to the current one).
+ * A job with its OWN link (a real posting a marketer saved from the extension) gets no sample row, and a sample row it was given earlier is removed,
+ * so the consultant opens the real posting and never a stand-in copy of it.
  */
 @Service
 public class ConsultantWsJobSourceDemoSeeder {
@@ -77,6 +79,11 @@ public class ConsultantWsJobSourceDemoSeeder {
         return base + "/" + path + "/" + r.getId() + "?t=" + URLEncoder.encode(title, StandardCharsets.UTF_8) + (who == null ? "" : "&c=" + URLEncoder.encode(who, StandardCharsets.UTF_8));
     }
 
+    /** A job saved with its own posting link (from the extension): the consultant opens that link, not a sample one. */
+    static boolean hasOwnLink(ClientRequirement r) {
+        return r.getJobUrl() != null && !r.getJobUrl().isBlank();
+    }
+
     @Transactional
     public int seed() {
         int made = 0;
@@ -94,8 +101,14 @@ public class ConsultantWsJobSourceDemoSeeder {
             // A sample row seeded under another base (a different demo stack setting) follows the current one; real rows are never touched.
             for (CwsJobSource s : existing) {
                 ClientRequirement r = byId.get(s.getRequirementId());
-                if (r == null || !s.isSampleData() || s.getSourceUrl() == null) continue;
-                String want = linkFor(slug, r, clientName.get(r.getClientId()));
+                if (r == null || !s.isSampleData()) continue;
+                if (hasOwnLink(r)) {
+                    sources.delete(s);
+                    made++;
+                    continue;
+                }
+                if (s.getSourceUrl() == null) continue;
+                String want = linkFor(slug, r, (r.getClientId() == null ? null : clientName.get(r.getClientId())));
                 if (want.equals(s.getSourceUrl())) continue;
                 s.setSourceUrl(want);
                 s.setUpdatedAt(now);
@@ -103,12 +116,12 @@ public class ConsultantWsJobSourceDemoSeeder {
                 made++;
             }
             for (ClientRequirement r : open) {
-                if (have.contains(r.getId())) continue;
+                if (have.contains(r.getId()) || hasOwnLink(r)) continue;
                 int k = (int) (r.getId() % 1000);
                 CwsJobSource s = new CwsJobSource();
                 s.setOrgId(org.getId());
                 s.setRequirementId(r.getId());
-                s.setSourceUrl(linkFor(slug, r, clientName.get(r.getClientId())));
+                s.setSourceUrl(linkFor(slug, r, (r.getClientId() == null ? null : clientName.get(r.getClientId()))));
                 s.setSourceName(SOURCE_NAMES[k % SOURCE_NAMES.length]);
                 s.setQuickInfo(NOTES[k % NOTES.length]);
                 s.setSampleData(true);

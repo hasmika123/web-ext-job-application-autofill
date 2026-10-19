@@ -572,7 +572,23 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     slow.d.wait = async () => { waited++; };
     const pr = PB.createPreparer(slow.d);
     await pr.prepare(1, { matchId: 1 }, BATCH);
-    eq("prepare: a page with no form yet is looked at twice (single-page apps), not in a loop", [waited, slow.sent.filter((s) => s.m.type === "JAF_BATCH_CHECK").length], [1, 2]);
+    eq("prepare: a page with no form yet is looked at three times (single-page apps), not in a loop", [waited, slow.sent.filter((s) => s.m.type === "JAF_BATCH_CHECK").length], [2, 3]);
+
+    // Ashby: the adapter matches by URL before the form is drawn. The fill waits for the fields instead of reviewing an empty page.
+    let looks = 0;
+    const late = prepRig();
+    late.d.scanFrames = async () => (++looks < 3 ? [{ frameId: 0, adapter: "ashby", fieldCount: 0 }] : [{ frameId: 0, adapter: "ashby", fieldCount: 6 }]);
+    let lateWaits = 0;
+    late.d.wait = async () => { lateWaits++; };
+    const lateRes = await PB.createPreparer(late.d).prepare(1, { matchId: 1 }, BATCH);
+    eq("prepare: a known site whose form renders late is filled once its fields appear", [lateRes, looks, lateWaits, late.sent.filter((s) => s.m.type === "JAF_BATCH_FILL").length], [{ outcome: "READY" }, 3, 2, 1]);
+    const never = prepRig({ frames: [{ frameId: 0, adapter: "ashby", fieldCount: 0 }] });
+    eq("prepare: a known site that never shows countable fields is still filled after the last look (as before)", await never.prep.prepare(1, { matchId: 1 }, BATCH), { outcome: "READY" });
+    let quick = 0;
+    const ready = prepRig();
+    ready.d.wait = async () => { quick++; };
+    await PB.createPreparer(ready.d).prepare(1, { matchId: 1 }, BATCH);
+    eq("prepare: a form that is already there is filled without waiting", quick, 0);
   }
 
   console.log(`${tag} ${pass} passed, ${fail} failed`);
