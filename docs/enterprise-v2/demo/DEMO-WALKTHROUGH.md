@@ -44,22 +44,22 @@ Real, live employers on five different hiring systems. The setup saves five of t
 ## Act 1. Priya sets the company up (5 min)
 1. **Dashboard**: consultants, placements, applications at a glance.
 2. **Consultants** → open **Anika Rao** → **License**: her paid add-ons (Autopilot prepare, Inbox tracking).
-3. **Marketing Assignments**: Anika and Vikram are looked after by **Rahul Mehta** (the setup puts Anika with him); show assigning two people and Undo.
-4. **Settings** → *Prepare selected openings*: the company switched Autopilot on and set the daily/monthly limits.
-5. (quick) **Branding**: Aaruna's logo and colours on every page.
+3. **Assignments**: Anika and Vikram are looked after by **Rahul Mehta** (the setup puts Anika with him); show assigning two people and Undo.
+4. **Settings** → **Autopilot** tab: the company switched Autopilot on and set the daily/monthly limits.
+5. (quick) **Branding**: Aaruna's logo and colors on every page.
 
 ## Act 2. Rahul finds work for Anika (5 min)
-1. **Job Discovery**: open a job → **Assign** → Anika Rao.
+1. **Jobs** (Openings tab): open a job → **Assign** → Anika Rao.
 2. In his Chrome: open the **Adobe** posting (Workday, address above) → click the Aaruna icon → **Save for consultant**. The title is
    read from the page; shorten the employer from "ADUS-Adobe Inc." to **Adobe** → note ("Strong fit for your cloud platform work")
    → tick **Anika Rao** → **Save** → "Sent to Anika Rao".
 3. **Opportunities**: the jobs on his board (Figma, Ramp, Rover, Adobe, …), waiting for Anika's answer.
 
 ## Act 3. Anika applies with Pro and Autopilot (8 min)
-1. **Assigned Opportunities**: Rahul's jobs with his notes. **Express Interest** on one; **Need More Info** on another (a question to Rahul).
+1. **Opportunities › Assigned**: Rahul's jobs with his notes. **Express Interest** on one; **Need More Info** on another (a question to Rahul).
 2. **Pro, before applying**: open the **Adobe** job link (Workday) → click the Aaruna icon → **Best match for this job · 88%** (which
    of her two resumes fits) → **Check fit** (match %, what's missing, what's covered). Ramp works the same way.
-3. **Autopilot**: back on Assigned Opportunities → tick **Figma**, **Ramp**, **Rover** and **TechCorp · Cloud Engineer** → **Prepare selected** →
+3. **Autopilot**: back on Opportunities › Assigned → tick **Figma**, **Ramp**, **Rover** and **TechCorp · Cloud Engineer** → **Prepare selected** →
    confirm ("nothing is submitted for you").
 4. Each job opens in its own tab with the review panel: three real hiring systems (Greenhouse, Ashby, Lever) plus the practice page.
    Name, contact, links, work authorization, and on Figma an **AI-written answer** to its open question.
@@ -68,23 +68,23 @@ Real, live employers on five different hiring systems. The setup saves five of t
    Close the Figma, Ramp and Rover tabs without submitting.
 
 ## Act 4. Anika's email keeps the board current (5 min)
-1. **Inbox** → `anika.rao.jobs@gmail.com`, app password: any 16 letters → **Check and connect**. A few seconds later Northwind Labs
+1. **Email Tracking** → `anika.rao.jobs@gmail.com`, app password: any 16 letters → **Check and connect**. A few seconds later Northwind Labs
    reads **Offer** "from your inbox", and two jobs she never tracked are offered under *Found in your mail*.
 2. Switch to the Gmail window → **Demo: send email** (bottom right, or press **N**) → *Orbit Freight invites Anika to a phone screen*.
-3. Back on Inbox → **Check now** → Orbit Freight moves to **Interview** with the day and time.
+3. Back on Email Tracking → **Check now** → Orbit Freight moves to **Interview** with the day and time.
 4. A minute later: send *Cedar Analytics turns the application down* → **Check now** → it waits under **Needs your review** →
    **Accept** → Rejected → **Undo** (nothing risky happens on its own).
 
 ## Act 5. Rahul and Priya see the results (3 min)
 1. Rahul → **Opportunities**: "is interested", "asked a question", "says they applied" → answer her question.
-2. Rahul → (quick) **Interviews**, **Follow-ups**.
-3. Priya → **Applications** and **Audit Logs**: who did what, when. (quick) **Reports**.
+2. Rahul → (quick) **Interviews**, **Tasks › Follow-ups**.
+3. Priya → **Applications** and **Audit Log**: who did what, when. (quick) **Reports**.
 
 ## (quick) More to show if there is time
-Anika: **Interview Prep**, **Offers** (compare, negotiate), **My Resumes** (builder). Priya: **Roles & Permissions**, **Employees**.
+Anika: **Interviews › Prepare**, **Offers** (compare, negotiate), **My Resumes** (builder). Priya: **Roles**, **Employees**.
 
 ## Don'ts
-- Don't click the 8 admin menu items marked **Soon** (Billing, HR, …).
+- Don't click **Plan & Billing**, the one admin menu item marked **Soon**.
 - Don't press **Submit** on any real employer's site (Figma, Ramp, Rover, Robinhood, Adobe, ServiceNow). Submit only on the TechCorp practice page.
 - **Check now** works once a minute.
 
