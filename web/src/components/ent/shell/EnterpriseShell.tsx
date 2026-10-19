@@ -180,10 +180,10 @@ export default function EnterpriseShell({
   };
   const firstName = me.person.name.trim().split(/\s+/)[0] ?? me.person.name;
   const { tabs } = bottomBar(workspace);
-  // a workspace's home page opens with a welcome message; the page's own title becomes the small label above it
+  // a workspace's home page opens with a welcome message and the page's one-line subtitle (no eyebrow, no handwritten note: D7)
   const isHome = pathname.replace(/\/+$/, "") === workspace.home.replace(/\/+$/, "");
   const look = heroLook(pathname, isHome);
-  const homeSubtitle =subtitle ?? `Here's what's happening at ${tenant.displayName} today.`;
+  const homeSubtitle = subtitle ?? `Here's what's happening at ${tenant.displayName} today.`;
 
   const choose = (row: SwitcherRow) => {
     setSwitcherOpen(false);
@@ -251,26 +251,29 @@ export default function EnterpriseShell({
                   </>
                 )}
               </Link>
-              {collapsed || wide ? null : (
-                <Tooltip content="Collapse sidebar" side="right">
-                  <IconButton aria-label="Collapse sidebar" onClick={toggleCollapsed} className="h-8 w-8 flex-none">
-                    <ChevronLeftIcon size={16} />
-                  </IconButton>
-                </Tooltip>
-              )}
             </div>
-            {collapsed ? (
-              <div className="flex justify-center pb-2">
-                <Tooltip content="Expand sidebar" side="right">
-                  <IconButton aria-label="Expand sidebar" onClick={toggleCollapsed} className="h-8 w-8">
-                    <ChevronLeftIcon size={16} className="rotate-180" />
-                  </IconButton>
-                </Tooltip>
-              </div>
-            ) : null}
             {/* the menu scrolls by itself; the logo above stays put (16 s2.1) */}
             <div data-shell-scroll className="ent-scroll min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
               <ShellNav sections={sections} active={active} collapsed={collapsed} />
+            </div>
+            {/* one collapse control at every width from md up, pinned at the foot of the sidebar; the choice is remembered per browser */}
+            <div data-shell-collapse className={cn("flex flex-none border-t border-line py-2", collapsed ? "justify-center" : "px-3")}>
+              {collapsed ? (
+                <Tooltip content="Expand" side="right">
+                  <IconButton aria-label="Expand sidebar" onClick={toggleCollapsed} className="h-9 w-9">
+                    <ChevronLeftIcon size={16} className="rotate-180" />
+                  </IconButton>
+                </Tooltip>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Collapse sidebar"
+                  onClick={toggleCollapsed}
+                  className="flex min-h-9 items-center gap-2 rounded-lg px-2 text-[13px] font-semibold text-[color:var(--ent-soft)] hover:bg-paper-2"
+                >
+                  <ChevronLeftIcon size={16} /> Collapse
+                </button>
+              )}
             </div>
           </div>
         </aside>
@@ -350,7 +353,6 @@ export default function EnterpriseShell({
             {/* the page title band every Kiwiply page opens with: brand-tinted wash, bold title, one-line subtitle, the bee on the right (every size; it shrinks on a phone) */}
             <section className={cn("ent-hero mb-4 flex", focus && "!hidden")} data-page-header data-home={isHome ? "true" : undefined} data-variant={look.variant}>
               <div className="min-w-0 flex-1">
-                {isHome ? <p className="ent-hero-eyebrow">{title}</p> : null}
                 <h1 className="ent-hero-title" title={isHome ? undefined : title}>
                   {isHome ? <Welcome name={firstName} /> : title}
                 </h1>
@@ -360,11 +362,6 @@ export default function EnterpriseShell({
                   <p className="ent-hero-subtitle" title={subtitle}>{subtitle}</p>
                 ) : null}
               </div>
-              {isHome ? (
-                <p aria-hidden className="ent-hero-note">
-                  Let&apos;s make today count!
-                </p>
-              ) : null}
               {/* decoration only */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={`${ENT_MASCOT_BASE}/${look.pose}.png`} alt="" aria-hidden draggable={false} className="ent-hero-art" />

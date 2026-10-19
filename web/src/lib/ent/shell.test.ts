@@ -12,20 +12,35 @@ const ws = (m: MeTenant, key: string) => m.workspaces.find((w) => w.key === key)
 const keys = (m: MeTenant, key: string) => navSections(ws(m, key)).flatMap((s) => s.items.map((i) => i.key));
 
 describe("nav filtering per role (16 s5: the API filtered it, the shell only groups it)", () => {
-  it("owner sees the Administration menu the board shows, in the board's three groups", () => {
+  it("owner sees the Administration menu in its labelled groups (Dashboard stands alone)", () => {
     const owner = me("acme.localhost", "owner@acme.com");
     const sections = navSections(ws(owner, "admin"));
-    expect(sections.map((s) => s.id)).toEqual(["people", "plan", "organization"]);
-    expect(sections[0].items.map((i) => i.text)).toEqual([
-      "Dashboard", "Employees", "Invitations", "Teams", "Departments", "Roles & Permissions", "Consultants", "Resumes", "Marketing Assignments", "Jobs", "Applications", "Interviews", "Clients", "Placements",
+    expect(sections.map((s) => [s.id, s.label])).toEqual([["main", null], ["people", "People"], ["talent", "Talent"], ["pipeline", "Pipeline"], ["organization", "Organization"]]);
+    expect(sections[0].items.map((i) => i.text)).toEqual(["Dashboard"]);
+    expect(sections[1].items.map((i) => i.text)).toEqual(["Employees", "Invitations", "Teams", "Departments", "Roles & Permissions"]);
+    expect(sections[2].items.map((i) => i.text)).toEqual(["Consultants", "Resumes", "Marketing Assignments"]);
+    expect(sections[3].items.map((i) => i.text)).toEqual(["Jobs", "Applications", "Interviews", "Clients", "Placements"]);
+    // the whole menu is shown; what the member's modules do not open yet is flagged "soon", never hidden
+    expect(sections[4].items.map((i) => i.text)).toEqual([
+      "Subscription Overview", "Consultant Licenses", "Billing", "Feature Usage", "HR", "Finance", "Reports", "Organization Branding", "Domains", "Integrations", "Audit Logs", "Settings", "Policies",
     ]);
-    // the whole menu is shown (the board's order); what the member's modules do not open yet is flagged "soon", never hidden
-    expect(sections[1].items.map((i) => i.text)).toEqual(["Subscription Overview", "Consultant Licenses", "Billing", "Feature Usage", "HR", "Finance", "Reports"]);
-    expect(sections[2].items.map((i) => i.text)).toEqual(["Organization Branding", "Domains", "Integrations", "Audit Logs", "Settings", "Policies"]);
     const soon = sections.flatMap((s) => s.items).filter((i) => i.soon).map((i) => i.key);
     expect(soon).toEqual(expect.arrayContaining(["hr", "finance", "integrations"]));
     expect(sections.flatMap((s) => s.items).find((i) => i.key === "employees")?.soon).toBeUndefined();
-    expect(sections.flatMap((s) => s.items).find((i) => i.key === "hr")?.children).toBeUndefined();
+  });
+
+  it("the Marketing and Consultant menus are grouped by the data's group labels", () => {
+    const mkt = navSections(ws(me("acme.localhost", "marketer@acme.com"), "marketing"));
+    expect(mkt[0]).toMatchObject({ id: "main", label: null });
+    expect(mkt.filter((s) => s.label).map((s) => s.label)).toEqual(expect.arrayContaining(["Talent", "Pipeline", "My work"]));
+    const cons = navSections(ws(me("acme.localhost", "consultant@acme.com"), "consultant"));
+    expect(cons.filter((s) => s.label).map((s) => s.label)).toEqual(expect.arrayContaining(["Me", "Work", "Keep up"]));
+  });
+
+  it("an API that sends no groups gets one ungrouped list", () => {
+    const m = me("acme.localhost", "marketer@acme.com");
+    const bare = { ...ws(m, "marketing"), groups: undefined, nav: ws(m, "marketing").nav.map((n) => ({ ...n, group: undefined })) };
+    expect(navSections(bare).map((s) => s.id)).toEqual(["main"]);
   });
 
   it("a marketer has no Administration workspace and no admin pages anywhere in the menu", () => {
@@ -52,13 +67,12 @@ describe("nav filtering per role (16 s5: the API filtered it, the shell only gro
     expect(navSections(ws(beta, "admin")).flatMap((s) => s.items).find((i) => i.key === "consultants")?.soon).toBe(true);
   });
 
-  it("HR and Finance read 'Soon' with no sub-menu, even when the API lists the page (D9: their pages are placeholders)", () => {
+  it("HR and Finance read 'Soon', even when the API lists the page (D9: their pages are placeholders)", () => {
     const owner = me("acme.localhost", "owner@acme.com");
     const withHr = { ...owner, workspaces: owner.workspaces.map((w) => (w.key === "admin" ? { ...w, nav: [...w.nav, { key: "hr", label: "HR", icon: "Heart", href: "/w/admin/hr" }] } : w)) };
     for (const m of [owner, withHr]) {
       const hr = navSections(ws(m, "admin")).flatMap((s) => s.items).find((i) => i.key === "hr")!;
       expect(hr.soon).toBe(true);
-      expect(hr.children).toBeUndefined();
     }
   });
 

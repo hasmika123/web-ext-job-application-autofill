@@ -10,13 +10,23 @@
 export const MODULE_KEYS = ["domains", "roles", "billing", "marketing", "hrFinance", "extensionWorkspaces", "integrations", "analytics"] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
-/** `badge: "attention"` shows a dot (invitations waiting, approvals waiting). `icon` names an `@kiwiply/ui` icon without the `Icon` suffix. */
+/**
+ * `badge: "attention"` shows a dot (invitations waiting, approvals waiting). `icon` names an `@kiwiply/ui` icon without the `Icon` suffix.
+ * `group` is the key of one of the workspace's `groups` the menu draws the item under (none: drawn without a label).
+ */
 export interface NavItem {
   key: string;
   label: string;
   icon: string;
   href: string;
   badge?: "attention" | null;
+  group?: string | null;
+}
+
+/** A labelled group of menu rows ("People", "Pipeline"): display only. */
+export interface NavGroup {
+  key: string;
+  label: string;
 }
 
 export interface Workspace {
@@ -33,6 +43,8 @@ export interface Workspace {
   nav: NavItem[];
   /** Nav keys for the phone's bottom bar (first four; the rest sit under More). */
   bottomTabs: string[];
+  /** The menu's group labels in order (an older API sends none: the menu is then one ungrouped list). */
+  groups?: NavGroup[];
 }
 
 export interface MeRole {

@@ -139,18 +139,30 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     expect(screen.getByRole("dialog").querySelector('a[href="mailto:it@acme.com"]')).toBeTruthy();
   });
 
-  it("the menu is separated into the board's three groups by rules", () => {
+  it("the menu is drawn in labelled groups, each a named group for assistive tech", () => {
     const { container } = mount("owner@acme.com");
-    const nav = container.querySelector("[data-shell-sidebar] nav")!;
-    const sections = nav.querySelectorAll("[data-nav-section]");
-    expect(sections.length).toBeGreaterThanOrEqual(3);
-    expect(nav.querySelectorAll("hr.ent-nav-sep").length).toBe(sections.length - 1);
-    expect(sections[0].textContent).toContain("Dashboard");
-    expect(sections[0].textContent).toContain("Placements");
-    expect(sections[1].textContent).toContain("Subscription Overview");
-    expect(sections[1].textContent).toContain("Reports");
-    expect(sections[2].textContent).toContain("Organization Branding");
-    expect(sections[2].textContent).toContain("Settings");
+    const menu = container.querySelector("[data-shell-sidebar] nav") as HTMLElement;
+    const labels = [...menu.querySelectorAll("[data-nav-group-label]")].map((l) => l.textContent);
+    expect(labels).toEqual(["People", "Talent", "Pipeline", "Organization"]);
+    expect(within(menu).getByRole("group", { name: "People" }).textContent).toContain("Employees");
+    expect(within(menu).getByRole("group", { name: "Pipeline" }).textContent).toContain("Placements");
+    expect(menu.querySelector("[data-nav-section=main]")!.textContent).toContain("Dashboard");
+  });
+
+  it("the sidebar can be collapsed from its foot at desktop width, and expanded again", () => {
+    const { container } = mount("owner@acme.com");
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(container.querySelector("[data-shell-sidebar]")!.getAttribute("data-rail")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    expect(container.querySelector("[data-shell-sidebar]")!.getAttribute("data-rail")).toBe("false");
+  });
+
+  it("a home page has no eyebrow and no handwritten note (D7)", () => {
+    nav.pathname = "/w/admin";
+    const { container } = mount("owner@acme.com");
+    expect(container.querySelector(".ent-hero-eyebrow")).toBeNull();
+    expect(container.querySelector(".ent-hero-note")).toBeNull();
+    expect(container.textContent).not.toContain("make today count");
   });
 
   it("the profile chip names the member and a short role (Org Admin, from the role's own name)", () => {
@@ -168,6 +180,7 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     const items = screen.getAllByRole("menuitem").map((i) => i.textContent);
     expect(items[0]).toContain("My profile");
     expect(items[items.length - 1]).toContain("Sign out");
+    expect(items.join("|")).toContain("Help & support");
     expect(items.join("|")).not.toContain("Switch workspace"); // owner holds one workspace
   });
 
