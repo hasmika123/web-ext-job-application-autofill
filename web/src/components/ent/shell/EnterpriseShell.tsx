@@ -106,9 +106,8 @@ export default function EnterpriseShell({
 
   const [collapsedPref, setCollapsedPref] = useState<boolean | null>(null);
   const [header, setHeader] = useState<PageHeaderValue | null>(null);
-  // pages that draw their own bee / help card claim them (ClaimsMascot / ClaimsHelpCard); the shell draws neither any more
+  // a page that draws its own bee claims it (ClaimsMascot); the shell draws none
   const [, setMascotClaimed] = useState(false);
-  const [, setHelpClaimed] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -119,7 +118,7 @@ export default function EnterpriseShell({
   const firstPath = useRef(pathname);
   useBottomBar(tabsRef);
 
-  const slot = useMemo(() => ({ setHeader, claimMascot: setMascotClaimed, claimHelp: setHelpClaimed }), []);
+  const slot = useMemo(() => ({ setHeader, claimMascot: setMascotClaimed }), []);
   const changed = useAccessChanged(etag);
 
   // Per-browser conveniences live in storage (an external store the server cannot see): read them once after hydration.
