@@ -279,6 +279,14 @@ export function postedText(iso: string | null | undefined): string {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
+/**
+ * A match score as the page writes it: "92% match", or "Not scored" when the posting was never scored against the consultant (the
+ * stored score stays 0 or null; only the words change, so a real 0 and "never computed" are not told apart as a number).
+ */
+export function matchScoreText(score: number | null | undefined): string {
+  return typeof score === "number" && score > 0 ? `${Math.round(score)}% match` : "Not scored";
+}
+
 /** Initials of a consultant for the avatar circle (no photos exist). */
 export function initialsOf(name: string): string {
   const w = name.trim().split(/\s+/).filter(Boolean);

@@ -32,6 +32,7 @@ import {
   employmentLabel,
   experienceLabel,
   jobsApi,
+  matchScoreText,
   errorSentence,
   postedText,
   rateText,
@@ -45,7 +46,6 @@ import {
   type TopMatch,
 } from "@/lib/ent/jobs";
 import EditForm from "./EditForm";
-import BeeBanner from "@/components/ent/shell/BeeBanner";
 import { Kebab, SkillChips, StatusPill } from "./parts";
 import { useJobDetail } from "./useJobDetail";
 
@@ -55,7 +55,6 @@ export const UNDO_MS = 9000; // config-literal-ok: how long an Undo stays offere
 
 export interface JobDrawerProps {
   orgId: number | string;
-  orgName: string;
   jobId: number | null;
   mode: SheetMode;
   clientOptions: ClientOption[];
@@ -67,7 +66,6 @@ export interface JobDrawerProps {
   /** Bumped by the page when something outside the drawer changed this job. */
   reloadToken: number;
   returnFocusTo?: RefObject<HTMLElement | null>;
-  supportEmail?: string | null;
 }
 
 const OPEN_STATES = new Set(["OPEN", "IN_REVIEW"]);
@@ -108,7 +106,7 @@ function MatchRow({ m, job, canAssign, busy, onAssign, onDismiss, onRestore }: {
         <p className="truncate text-[10px] text-[var(--ent-soft)]" title={[m.reason, m.availability ? AVAILABILITY_LABEL[m.availability] ?? m.availability : null].filter(Boolean).join(" \u00b7 ")}>{m.title ?? ""}</p>
       </div>
       <span className="flex-none text-[11px] font-semibold text-[var(--ent-x-17995c)] tabular-nums" data-match-score>
-        {m.score}% match
+        {matchScoreText(m.score)}
       </span>
       {m.status === "ASSIGNED" ? (
         <span data-match-assigned className="ent-pill" data-tone="purple" data-shape="round">
@@ -410,7 +408,7 @@ export default function JobDrawer(p: JobDrawerProps) {
           <Tabs value={p.tab} onValueChange={(v) => p.onTab(v as DrawerTab)} variant="underline" className="ent-tabs ent-tabs-sm mt-3">
             <TabList aria-label="Job details">
               <Tab value="overview">Overview</Tab>
-              <Tab value="matches">Top Matches ({d.topMatches.filter((m) => m.status !== "DISMISSED").length})</Tab>
+              <Tab value="matches">Top matches ({d.topMatches.filter((m) => m.status !== "DISMISSED").length})</Tab>
               <Tab value="submissions">Submissions ({d.submissionCount})</Tab>
               <Tab value="activity">Activity</Tab>
             </TabList>
@@ -429,26 +427,18 @@ export default function JobDrawer(p: JobDrawerProps) {
           </Tabs>
         </div>
 
-        <section aria-label="Top Consultant Matches" data-top-matches className="ent-card p-3.5">
+        <section aria-label="Top consultant matches" data-top-matches className="ent-card p-3.5">
           <div className="mb-1 flex items-center justify-between">
-            <h3 className="text-[12.5px] font-bold text-[var(--ent-title)]">Top Consultant Matches</h3>
+            <h3 className="text-[12.5px] font-bold text-[var(--ent-title)]">Top consultant matches</h3>
             {d.topMatches.length > 3 && (
               <button type="button" onClick={() => p.onTab("matches")} className="text-[10.5px] font-semibold text-[var(--ent-x-2b5fd6)] hover:underline">
-                View All Matches ›
+                View all matches ›
               </button>
             )}
           </div>
           <MatchList orgId={p.orgId} job={d} limit={3} onChanged={p.onChanged} replace={replaceAndNotify} />
         </section>
 
-        <BeeBanner
-          layout="row"
-          title="Need help finding the right consultants for this job?"
-          body="I can help you find top matches, review submissions, or suggest skills to improve your reach."
-          topic="this job"
-          orgName={p.orgName}
-          supportEmail={p.supportEmail}
-        />
       </div>
     );
   })();

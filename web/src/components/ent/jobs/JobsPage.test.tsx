@@ -150,7 +150,7 @@ const settle = async (ms = 50) => {
 async function mount() {
   const out = render(
     <ToastProvider>
-      <JobsPage orgId={2} orgName="Acme" supportEmail={null} />
+      <JobsPage orgId={2} />
     </ToastProvider>,
   );
   await settle(0);
@@ -180,14 +180,13 @@ afterEach(() => {
 });
 
 describe("Jobs: the list and the tiles", () => {
-  it("shows the four tiles with their deltas only where the API gave one, the rows, and the count", async () => {
+  it("shows the two plain tiles (Open, New this week), the rows, and the count", async () => {
     await mount();
-    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["openJobs", "newThisWeek", "assignedOpportunities", "highMatchJobs"]);
+    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["openJobs", "newThisWeek"]);
     expect(document.querySelector("[data-kpi=openJobs] [data-kpi-value]")?.textContent).toBe("2");
-    expect(document.querySelector("[data-kpi=openJobs] [data-kpi-delta]")?.textContent).toContain("+1");
-    expect(document.querySelector("[data-kpi=openJobs] [data-kpi-delta]")?.textContent).toContain("vs last month");
-    expect(document.querySelector("[data-kpi=newThisWeek] [data-kpi-delta]")?.textContent).toContain("vs last week");
-    expect(document.querySelector("[data-kpi=assignedOpportunities] [data-kpi-delta]")).toBeNull();
+    expect(document.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(document.querySelector("[data-kpi] [data-sparkline]")).toBeNull();
+    expect(screen.queryByText(/Need help with your jobs/)).toBeNull();
     expect(rows().map((r) => r.getAttribute("data-row-id"))).toEqual(["1", "2", "3"]);
     expect(screen.getAllByText("1–3 of 3 jobs").length).toBeGreaterThan(0);
     const first = listCalls()[0];
@@ -203,6 +202,28 @@ describe("Jobs: the list and the tiles", () => {
     expect(r1.querySelectorAll("[data-member-avatar]").length).toBe(3);
     expect(within(r1.querySelector("[data-match-stack]") as HTMLElement).getByText("+1")).toBeTruthy(); // 4 matches, 3 shown
     expect(within(rows()[2]).getByText("No matches yet")).toBeTruthy();
+  });
+
+  it("says 'Not scored' for a posting that was never scored, and 'No submissions' for none", async () => {
+    jobs = [mk(4, "Cloud Engineer", "TechCorp", 1, "OPEN", [0, 0])];
+    await mount();
+    const r = rows()[0];
+    expect(within(r).getByText("Not scored")).toBeTruthy();
+    expect(r.textContent).not.toContain("0% match");
+    expect(within(r).getByText("No submissions")).toBeTruthy();
+    expect(r.textContent).not.toMatch(/0\s*Submissions/);
+  });
+
+  it("keeps Status, Client and Location visible; Work mode and Skill are under More filters", async () => {
+    await mount();
+    const names = Array.from(document.querySelectorAll("[data-filters] button[aria-haspopup]")).map((b) => b.getAttribute("aria-label"));
+    expect(names).toEqual(["Status", "Client", "Location"]);
+    expect(screen.queryByRole("button", { name: "Work mode" })).toBeNull();
+    fireEvent.click(document.querySelector("[data-more-filters]")!);
+    const row = document.querySelector("[data-more-filters-row]") as HTMLElement;
+    expect(within(row).getByRole("button", { name: "Work mode" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Skill" })).toBeTruthy();
+    expect(within(row).getByRole("button", { name: "Job type" })).toBeTruthy();
   });
 
   it("searches after the typing rests and filters by status", async () => {
@@ -225,7 +246,7 @@ describe("Jobs: the list and the tiles", () => {
     await mount();
     expect(listCalls()[0].params.get("status")).toBe("OPEN");
     expect(document.querySelector("[data-detail-body][data-job-id='1']")).toBeTruthy();
-    expect(screen.getByRole("tab", { name: /Top Matches/ }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: /Top matches/ }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(screen.getByRole("tab", { name: "Overview" }));
     expect(window.location.search).toContain("job=1");
     expect(window.location.search).not.toContain("tab=");
@@ -330,7 +351,7 @@ describe("Jobs: the drawer", () => {
   it("hides every write control from a viewer", async () => {
     access = { canCreate: false, canEdit: false, canAssign: false };
     await mount();
-    expect(screen.queryByRole("button", { name: /Create Job/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Create job/ })).toBeNull();
     fireEvent.click(rows()[0]);
     await settle();
     expect(screen.queryByRole("button", { name: /Edit job/ })).toBeNull();
@@ -343,7 +364,7 @@ describe("Jobs: the drawer", () => {
 describe("Jobs: create and bulk", () => {
   it("creates a job with one idempotency key and opens it", async () => {
     await mount();
-    fireEvent.click(screen.getByRole("button", { name: /Create Job/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Create job/ }));
     await settle();
     fireEvent.click(document.querySelector("[data-create-submit]")!);
     await settle();
