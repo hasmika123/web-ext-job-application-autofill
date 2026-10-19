@@ -151,11 +151,11 @@ export function yearsText(years: number | null): string | null {
   return years >= 8 ? `${years}+ years` : `${years} years`;
 }
 
-/** The ring's verdict line. */
-export function strengthVerdict(percent: number): string {
-  if (percent >= 75) return "Your profile is looking good!";
-  if (percent >= 50) return "Your profile is getting there.";
-  return "Your profile needs attention.";
+/** The one line under the name: "Profile complete", or "Profile 83% complete: add a summary statement" (the first thing the API says is missing). */
+export function completenessLine(percent: number, missing: { label: string }[]): string {
+  if (missing.length === 0) return "Profile complete";
+  const first = missing[0].label.trim();
+  return `Profile ${percent}% complete: ${first.charAt(0).toLowerCase()}${first.slice(1)}`;
 }
 
 /** "Mar 2023" from a date (UTC, so the month never moves with the viewer's zone). */
