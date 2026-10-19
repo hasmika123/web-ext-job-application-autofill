@@ -252,7 +252,6 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 - Extension: job capture threw on every page in a development build, which silently killed the marketer's Save for consultant and the fill's application log. Production builds were not affected (the minifier hid it). `3954088c`
 - Extension: the marketer drawer spun forever on a page it could not read; it now says so. A dev build may save from the stand-in pages. `a7c87a25`
 
-**Still open (not fixed: shared design system, needs the user's OK)**
-- Dropdowns open downward even at the bottom of the window, and scrolling closes them. Seen on Sarah's consultant drawer (Availability). Demo-safe: open the consultant drawer with the window scrolled so the dropdown has room, or use a taller window. Real fix: flip the menu upward when there is no room below, in `packages/ui` Select.
+- Dropdowns opened downward even at the bottom of the window, and scrolling closes them (Sarah's consultant drawer, Availability). The shared Select now opens upward when there is no room below and caps its height to the room it has (user approved the shared change). 970 design-system tests green; the story that failed every time (ADM-41) passes; screenshot checked. `3be889c2`
 
 **Demo data note:** the run-through added test jobs, batches, tasks and notes to the demo database. Rebuild it fresh before the demo (DEMO-PLAN section 7, step 1), then re-apply the AI override.
