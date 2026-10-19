@@ -8,7 +8,7 @@ import { getTenantSession } from "@/lib/ent/tenant-session";
  * Consultant Submissions & Approvals at `/w/consultant/submissions` (design/enterprise-consultant/submissions.webp), inside the EnterpriseShell (the sibling
  * layout draws the frame). The API is the gate (404 for anyone who is not a consultant of this organization).
  */
-export const metadata: Metadata = { title: "Submissions & Approvals", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Submissions", robots: { index: false, follow: false } };
 
 export default async function ConsultantSubmissionsRoute() {
   const session = await getTenantSession();

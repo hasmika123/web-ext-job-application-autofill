@@ -41,7 +41,7 @@ export interface PrepareUi {
   active: boolean;
   /** The feature is on but this screen is a phone / touch tablet: show the note instead. */
   phoneOnly: boolean;
-  /** One calm line when the feature is off for this consultant because the organization has not turned it on or the licence lacks it; null otherwise. */
+  /** One calm line when the feature is off for this consultant because the organization has not turned it on or the license lacks it; null otherwise. */
   note: string | null;
   status: PrepareStatus | null;
   selected: ReadonlySet<number>;

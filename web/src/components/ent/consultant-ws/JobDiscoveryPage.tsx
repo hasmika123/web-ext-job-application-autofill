@@ -71,7 +71,7 @@ import {
  * jobs (paged, never filtered here); one overview call draws the filter options, the recommended chips, trending skills and the saved
  * and recent searches. Saving a job and a search are the consultant's own rows. Kiwiply holds no full job posting: each card shows the
  * marketer's quick info and an "Open job link" to the source site, where the consultant applies with the extension (the application
- * is tracked in My Applications). A full in-app job search is a later phase.
+ * is tracked in My Applications).
  */
 
 const PAGE_SIZE = 10;
