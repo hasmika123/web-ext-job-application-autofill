@@ -158,7 +158,7 @@ function Applications({ view, query, onQuery, a, busy }: { view: ApplicationsVie
                           items={[
                             { label: "View details", icon: <FileTextIcon size={15} />, onSelect: () => a.open(r) },
                             { label: "Ask my marketer", icon: <ChatIcon size={15} />, onSelect: () => a.go(`${BASE}/marketer`) },
-                            { label: "Prepare for interview", icon: <VideoIcon size={15} />, disabled: r.stage !== "INTERVIEWING", onSelect: () => a.go(`${BASE}/interview-prep`) },
+                            { label: "Prepare for interview", icon: <VideoIcon size={15} />, disabled: r.stage !== "INTERVIEWING", onSelect: () => a.go(`${BASE}/interviews?tab=prepare`) },
                           ]}
                         />
                       </span>
@@ -230,7 +230,7 @@ function DetailSheet({ orgId, row, state, onClose, onRetry, go, me }: { orgId: n
               Ask my marketer
             </Button>
             {r.stage === "INTERVIEWING" ? (
-              <Button size="sm" onClick={() => go(`${BASE}/interview-prep`)}>
+              <Button size="sm" onClick={() => go(`${BASE}/interviews?tab=prepare`)}>
                 Prepare for interview
               </Button>
             ) : null}

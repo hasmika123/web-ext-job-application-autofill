@@ -2,7 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/interview-prep" }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/consultant/interviews", useSearchParams: () => new URLSearchParams("tab=prepare") }));
 
 import InterviewPrepPage from "./InterviewPrepPage";
 
@@ -70,17 +70,19 @@ afterEach(() => {
 });
 
 const mount = async () => {
-  render(<InterviewPrepPage orgId={2} firstName="Anika Rao" />);
+  render(<InterviewPrepPage orgId={2} />);
   await act(async () => {
     await new Promise((r) => setTimeout(r, 5));
   });
 };
 
 describe("InterviewPrepPage", () => {
-  it("draws the tiles, modules, history and checklist from the API's numbers", async () => {
+  it("draws one practice-score line, the modules, history and checklist, with no tiles, Quick Actions or help card", async () => {
     await mount();
-    expect(within(document.querySelector("[data-stat-tile='score']") as HTMLElement).getByText("78%")).toBeTruthy();
-    expect(within(document.querySelector("[data-stat-tile='score']") as HTMLElement).getByText("+12 pts")).toBeTruthy();
+    expect(document.querySelector("[data-practice-score]")!.textContent).toBe("Practice score 78%");
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(document.querySelector("[data-quick]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question/)).toBeNull();
     expect(document.querySelectorAll("[data-module]")).toHaveLength(4);
     expect(document.querySelector("[data-chips='profile']")?.textContent).toContain("Java");
     expect(screen.getByText("Senior Java Developer - Tech Questions")).toBeTruthy();
@@ -92,9 +94,7 @@ describe("InterviewPrepPage", () => {
   it("shows honest empty values when there is nothing yet", async () => {
     current = page({ tiles: { upcoming: tile(0), score: tile(null, { unit: "POINTS" }), sets: tile(1), weak: tile(0) }, history: [], weakKinds: [], next: null });
     await mount();
-    expect(within(document.querySelector("[data-stat-tile='score']") as HTMLElement).getByText("-")).toBeTruthy();
-    expect(screen.getByText(/No practice sessions yet/)).toBeTruthy();
-    expect(screen.getByText("Practice to find weak areas")).toBeTruthy();
+    expect(document.querySelector("[data-practice-score]")!.textContent).toBe("No practice sessions yet");
   });
 
   it("Start Practice opens the self-score sheet, says there is no AI scoring yet and saves a real session", async () => {
@@ -172,9 +172,4 @@ describe("InterviewPrepPage", () => {
     expect(document.querySelector("[data-check-notice]")?.textContent).toMatch(/didn't save/);
   });
 
-  it("Quick Actions link to the marketer page", async () => {
-    await mount();
-    expect(document.querySelector("[data-quick='schedule']")?.getAttribute("href")).toBe("/w/consultant/marketer");
-    expect(document.querySelector("[data-quick='ask']")?.getAttribute("href")).toBe("/w/consultant/marketer");
-  });
 });
