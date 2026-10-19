@@ -173,15 +173,19 @@
       // Auto-log this fill as a DRAFT application (best-effort; never blocks the fill)
       // and arm submission detection so a confirmation flips the entry to APPLIED. The
       // service worker owns the network and survives the post-submit navigation.
+      // Three independent best-effort steps: a page the capture cannot read (an unknown site) must still
+      // be logged (the log falls back to the page's host) and must still have its submit watched.
+      const canMessage = typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage;
+      let capture = null;
+      try { capture = JAF.jobCapture ? JAF.jobCapture.captureJob() : null; } catch (e) { capture = null; }
       try {
-        if (JAF.jobCapture && typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
-          const capture = JAF.jobCapture.captureJob();
-          // `opportunity` ({orgId,id}) is set by the drawer only when the consultant is filling the
-          // assigned job this page matched; the service worker links it after the confirmed submit.
-          chrome.runtime.sendMessage({ type: "JAF_LOG_FILL", capture, resume: opts.resume || null, opportunity: opts.opportunity || null });
-          // A prepare batch tab can sit for a long while before the consultant submits, so its watch is longer.
-          if (JAF.submitDetect) JAF.submitDetect.arm(opts.batch ? { windowMs: 30 * 60 * 1000 } : undefined);
-        }
+        // `opportunity` ({orgId,id}) is set by the drawer only when the consultant is filling the
+        // assigned job this page matched; the service worker links it after the confirmed submit.
+        if (canMessage) chrome.runtime.sendMessage({ type: "JAF_LOG_FILL", capture, resume: opts.resume || null, opportunity: opts.opportunity || null });
+      } catch (e) {}
+      try {
+        // A prepare batch tab can sit for a long while before the consultant submits, so its watch is longer.
+        if (canMessage && JAF.submitDetect) JAF.submitDetect.arm(opts.batch ? { windowMs: 30 * 60 * 1000 } : undefined);
       } catch (e) {}
 
       // What did the fill leave undone? (10.1 counts it; 10.2 shows it.) A beat first so the page's
