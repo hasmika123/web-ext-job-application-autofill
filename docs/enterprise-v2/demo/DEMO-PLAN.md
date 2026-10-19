@@ -236,3 +236,23 @@ Gotchas: wait for the seeders; delete `web/.next/dev/cache/fetch-cache` on a col
 4. Stand-in employer pages: `node web/scripts/demo-ats-server.mjs` (port 3399).
 5. Extension: `cd job-autofill && WXT_DEV_WEB_ORIGINS=http://localhost:3200,http://localhost:3000 WXT_DEV_API_ORIGINS=http://localhost:18183,http://localhost:8080 WXT_DEV_TENANT_ORIGINS=http://*.localhost:3200 WXT_DEV_ATS_ORIGINS=http://jobs.localhost:3399 npx wxt build --mode development` → load `job-autofill/.output/chrome-mv3-dev` unpacked in Chrome (one profile per person: Anika, Omar). In the drawer's settings the API base must be `http://localhost:18183` (the rehearsal script sets it in storage).
 6. Demo tenant: `http://acme.localhost:3200/login` → Demo accounts tab (left edge).
+
+## 8. Workflow run-through (2026-10-18, late night; everything except live email and Pro AI)
+
+| Check | Result |
+|---|---|
+| Page crawl, 61 pages of Sarah, Omar, Anika (`web/scripts/demo-crawl.mjs`) | All load with no console or API errors. Only the 8 admin "Soon" pages (known) and two small "Coming soon" resource links on Anika's placement page |
+| Story suites, marketer + consultant + admin, email left out (`STORY_VIDEO=off`) | **101 passed, 19 failed, 2 skipped.** After triage none of the 19 is a broken demo workflow: 13 expect the old setup (fake job links, Sarah as Anika's marketer, Reports as a placeholder, old page titles and markers, consultant contact now shown to the marketer); 2 were slow under load and pass alone; 1 is a test locator clash (two "Job" buttons); 1 is real (below) |
+| Extension, consultant: connect, prepare 2 openings, review panel, Fill selected, submit, web shows Submitted (`demo-ext-check.mjs`) | **9/9** |
+| Extension, marketer: connect, open a posting, Save for consultant to Anika, Omar's board lists it (`demo-ext-marketer-check.mjs`) | **5/5** |
+
+**Fixed during the run-through**
+- Marketing home answered 500 on the first view of a new interview (two pages creating the same prep checklist at once). `5d7167e6`
+- Marketing Applications page scrolled 3,000 px sideways (filter dropdowns took the full toolbar width). `01134325`
+- Extension: job capture threw on every page in a development build, which silently killed the marketer's Save for consultant and the fill's application log. Production builds were not affected (the minifier hid it). `3954088c`
+- Extension: the marketer drawer spun forever on a page it could not read; it now says so. A dev build may save from the stand-in pages. `a7c87a25`
+
+**Still open (not fixed: shared design system, needs the user's OK)**
+- Dropdowns open downward even at the bottom of the window, and scrolling closes them. Seen on Sarah's consultant drawer (Availability). Demo-safe: open the consultant drawer with the window scrolled so the dropdown has room, or use a taller window. Real fix: flip the menu upward when there is no room below, in `packages/ui` Select.
+
+**Demo data note:** the run-through added test jobs, batches, tasks and notes to the demo database. Rebuild it fresh before the demo (DEMO-PLAN section 7, step 1), then re-apply the AI override.
