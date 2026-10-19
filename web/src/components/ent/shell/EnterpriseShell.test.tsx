@@ -189,6 +189,16 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     for (const name of ["Search", "Open menu"]) expect(screen.getAllByLabelText(name, { exact: false }).length, name).toBeGreaterThan(0);
     expect(container.querySelector("[data-shell-bell] button")!.getAttribute("aria-label")).toContain("Notifications");
   });
+
+  it("the bell panel ends with a See all link to the Consultant Activity page, only for a member who has that workspace", () => {
+    const { container } = mount("consultant@acme.com");
+    fireEvent.click(container.querySelector("[data-shell-bell] button")!);
+    expect(container.querySelector("[data-bell-see-all]")!.getAttribute("href")).toBe("/w/consultant/activity");
+    cleanup();
+    const other = mount("marketer@acme.com");
+    fireEvent.click(other.container.querySelector("[data-shell-bell] button")!);
+    expect(other.container.querySelector("[data-bell-see-all]")).toBeNull();
+  });
 });
 
 describe("workspace switcher (16 s4)", () => {

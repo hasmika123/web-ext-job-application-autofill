@@ -141,6 +141,8 @@ export default function EnterpriseShell({
   }, [pathname]);
 
   const multi = showSwitcher(me);
+  // the bell panel links to the Consultant workspace's Activity page, for members who have that workspace (nothing for the others)
+  const bellSeeAll = me.workspaces.some((w) => w.key === "consultant") ? "/w/consultant/activity" : undefined;
   const openSwitcher = () => {
     if (multi) setSwitcherOpen(true);
   };
@@ -290,7 +292,7 @@ export default function EnterpriseShell({
                 <SearchIcon size={20} />
               </IconButton>
             </Tooltip>
-            <ShellBell />
+            <ShellBell seeAllHref={bellSeeAll} />
             <AccountMenu me={me} onSwitchWorkspace={openSwitcher} />
           </header>
 
@@ -311,7 +313,7 @@ export default function EnterpriseShell({
                 <SearchIcon size={20} />
               </IconButton>
             </Tooltip>
-            <ShellBell />
+            <ShellBell seeAllHref={bellSeeAll} />
             <Tooltip content="Menu" side="bottom">
               <IconButton aria-label="Open menu" aria-haspopup="dialog" aria-expanded={navOpen} onClick={() => setNavOpen(true)} className="h-11 w-11">
                 <MenuIcon size={22} />
