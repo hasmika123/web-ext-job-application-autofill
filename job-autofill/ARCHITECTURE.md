@@ -92,6 +92,13 @@ The extension is **built with WXT (Vite)** — `wxt.config.ts` generates the man
   (`#location-fields-*-input`); the "Continue" button's testid is randomized so the
   shared filler matches it by text. Screening questions fall through to the generic
   scanner. Selectors captured from a real session (see `test/indeed.test.js`).
+- `src/content/adapters/smartrecruiters.js` — **capture-only job reader** for
+  `jobs.smartrecruiters.com` postings. Registers on `JAF.jobReaders`, NOT `JAF.adapters`, so
+  Fill there stays on the generic scanner; `job-capture.js` consults readers only when no fill
+  adapter matches. Reads the page's schema.org JobPosting microdata (title, hiringOrganization,
+  address, description). The Greenhouse and Lever adapters' `captureJob({doc,loc})` likewise
+  read role/company/location/description from the page (those pages carry no usable JSON-LD);
+  fixtures are trimmed real pages in `test/fixtures/job-capture/` (`test/job_capture_ats.test.js`).
 - `src/content/adapters/workday.js` — main adapter. `promptText/questionContext`,
   `addQuestion`, `addButtonFor` (heading-association before container),
   country/state fill, exp/edu blocks, `ensureRows`, **Self-Identify (CC-305) block**

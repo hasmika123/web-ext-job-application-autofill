@@ -48,12 +48,30 @@
         document.querySelector('input[type="file"]');
     },
     // boards/job-boards.greenhouse.io/<company>/jobs/<id>, or embedded ?gh_jid=<id>.
-    captureJob({ loc } = {}) {
+    // The new job-boards pages publish no JSON-LD and their meta description is just the
+    // location, so the posting is read from the page (markup captured from a real Figma
+    // posting): .job__title h1, .job__location, .job__description (pay ranges included),
+    // company from "<title>Job Application for <role> at <company>" or the logo's alt.
+    captureJob({ doc, loc } = {}) {
       const path = (loc && loc.pathname) || "";
       const m = path.match(/\/jobs\/(\d+)/);
       let gh = null;
       try { gh = new URLSearchParams((loc && loc.search) || "").get("gh_jid"); } catch (e) {}
-      return { atsPlatform: "greenhouse", externalJobId: (m && m[1]) || gh || null };
+      const out = { atsPlatform: "greenhouse", externalJobId: (m && m[1]) || gh || null };
+      const d = doc || (typeof document !== "undefined" ? document : null);
+      if (!d || !d.querySelector) return out;
+      const text = (sel) => B.blockText(d.querySelector(sel));
+      const role = text(".job__title h1");
+      if (role) out.role = role;
+      const where = text(".job__location");
+      if (where) out.location = where;
+      const desc = text(".job__description");
+      if (desc) out.jobDescription = desc;
+      const t = (d.title || "").match(/^Job Application for .+ at (.+)$/);
+      const logo = d.querySelector(".job-post-container .image-container img[alt]");
+      const company = (t && t[1].trim()) || (logo && logo.getAttribute("alt").replace(/\s*logo\s*$/i, "").trim());
+      if (company) out.company = company;
+      return out;
     },
   };
 
