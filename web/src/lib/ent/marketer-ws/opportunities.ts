@@ -1,31 +1,29 @@
 /**
  * The Opportunities board's data (Marketing workspace, design: Opportunities). One call to `GET /api/orgs/{orgId}/mkt/opportunities`
  * (through the BFF) draws the whole page; every card has an honest empty state. E1: nothing here answers for a consultant or submits
- * for one: "Assign", "Follow Up" and the quick actions only prepare or REQUEST (the consultant answers on their own workspace).
+ * for one: "Assign", "Follow up" and the header actions only prepare or REQUEST (the consultant answers on their own workspace).
  */
 
 import { confirmFields, findingsOf, ASSIGNMENT_CAP, DUPLICATE_BLOCKED, DUPLICATE_WARNING, type DuplicateConfirm, type DuplicateFinding } from "./duplicate";
 
-export type KpiKey = "open" | "ready" | "awaiting" | "stale";
-export const KPI_KEYS: KpiKey[] = ["open", "ready", "awaiting", "stale"];
+export type KpiKey = "awaiting" | "stale";
+export const KPI_KEYS: KpiKey[] = ["awaiting", "stale"];
 export const KPI_TITLES: Record<KpiKey, string> = {
-  open: "Open Opportunities",
-  ready: "Ready to Assign",
-  awaiting: "Awaiting Consultant Review",
-  stale: "Stale Opportunities",
+  awaiting: "Awaiting consultant review",
+  stale: "Stale",
 };
 
 export type Interest = "VERY_INTERESTED" | "INTERESTED" | "OPEN" | "NOT_INTERESTED" | "NO_RESPONSE";
 export const INTERESTS: Interest[] = ["VERY_INTERESTED", "INTERESTED", "OPEN", "NOT_INTERESTED", "NO_RESPONSE"];
 export const INTEREST_LABELS: Record<Interest, string> = {
-  VERY_INTERESTED: "Very Interested",
+  VERY_INTERESTED: "Very interested",
   INTERESTED: "Interested",
   OPEN: "Open",
-  NOT_INTERESTED: "Not Interested",
-  NO_RESPONSE: "No Response",
+  NOT_INTERESTED: "Not interested",
+  NO_RESPONSE: "No response",
 };
 export type ActionKey = "REVIEW" | "ASSIGN" | "FOLLOW_UP" | "COMPARE";
-export const ACTION_LABELS: Record<ActionKey, string> = { REVIEW: "Review", ASSIGN: "Assign", FOLLOW_UP: "Follow Up", COMPARE: "Compare" };
+export const ACTION_LABELS: Record<ActionKey, string> = { REVIEW: "Review", ASSIGN: "Assign", FOLLOW_UP: "Follow up", COMPARE: "Compare" };
 
 export interface Kpi { key: KpiKey; value: number; deltaPct: number | null; sparkline: number[] }
 export interface Person { id: number; name: string; avatarUrl: string | null }
