@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import TeamsDepartmentsPage from "@/components/ent/groups/TeamsDepartmentsPage";
 import { NotYourRole } from "@/components/ent/shell/ShellStates";
 import { ErrorState } from "@kiwiply/ui";
@@ -16,5 +17,9 @@ export default async function WorkspaceTeamsRoute() {
   const { me } = session;
   if (!READ_KEYS.some((k) => can(me, k))) return <NotYourRole />;
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
-  return <TeamsDepartmentsPage orgId={me.org.id} orgName={me.org.displayName} canManage={can(me, "groups.manage")} />;
+  return (
+    <Suspense fallback={null}>
+      <TeamsDepartmentsPage orgId={me.org.id} orgName={me.org.displayName} canManage={can(me, "groups.manage")} />
+    </Suspense>
+  );
 }

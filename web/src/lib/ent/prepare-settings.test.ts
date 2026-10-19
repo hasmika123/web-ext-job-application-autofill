@@ -56,8 +56,8 @@ describe("prepare settings client", () => {
   });
 
   it("says plainly that the consultant always reviews and submits and nothing is submitted for them", () => {
-    expect(PREPARE_EXPLAINER).toContain("opens each job in its own tab");
-    expect(PREPARE_EXPLAINER).toContain("always reviews");
+    expect(PREPARE_EXPLAINER).toContain("opens each one in its own tab");
+    expect(PREPARE_EXPLAINER).toContain("review and press Submit themselves");
     expect(PREPARE_EXPLAINER).toContain("Nothing is ever submitted for them");
     expect(PREPARE_EXPLAINER).not.toMatch(/kiwiply/i);
   });

@@ -71,9 +71,11 @@ describe("Organization Settings: Prepare selected openings", () => {
     await mount();
     expect(calls[0]).toMatchObject({ method: "GET", url: "/api/orgs/7/org-settings/prepare" });
     const text = document.querySelector("[data-prepare-explainer]")!.textContent!;
-    expect(text).toContain("opens each job in its own tab");
-    expect(text).toContain("always reviews");
+    expect(text).toContain("opens each one in its own tab");
+    expect(text).toContain("review and press Submit themselves");
     expect(text).toContain("Nothing is ever submitted for them");
+    expect(screen.getByRole("heading", { name: "Autopilot" })).toBeTruthy();
+    expect(screen.getByText("Only consultants whose license includes the add-on.")).toBeTruthy();
     expect(toggle().getAttribute("aria-checked")).toBe("false");
     expect(screen.queryByRole("button", { name: /^Save/ })).toBeNull();
   });
@@ -157,17 +159,17 @@ describe("Organization Settings: Prepare selected openings", () => {
     expect(puts()).toEqual([]);
   });
 
-  it("says how many consultants have the add-on and links to Consultants and Licenses", async () => {
+  it("says how many consultants have the add-on and links to Consultants only (the Licenses page is gone)", async () => {
     await mount();
-    expect(document.querySelector("[data-prepare-licensed]")!.textContent).toContain("2 of 5 active consultants have Autopilot prepare on their licence.");
-    expect(document.querySelector("[data-prepare-licenses-link]")!.getAttribute("href")).toBe("/w/admin/licenses");
+    expect(document.querySelector("[data-prepare-licensed]")!.textContent).toContain("2 of 5 active consultants have Autopilot prepare on their license.");
+    expect(document.querySelector("[data-prepare-licenses-link]")).toBeNull();
     expect(document.querySelector("[data-prepare-consultants-link]")!.getAttribute("href")).toBe("/w/admin/consultants");
   });
 
-  it("tells the admin when no licence includes it yet", async () => {
+  it("tells the admin when no license includes it yet", async () => {
     current = { ...fresh(), licensed: { consultants: 0, total: 3, featureName: "Autopilot prepare" } };
     await mount();
-    expect(document.querySelector("[data-prepare-licensed]")!.textContent).toContain("No consultant's licence includes Autopilot prepare yet");
+    expect(document.querySelector("[data-prepare-licensed]")!.textContent).toContain("No consultant's license includes Autopilot prepare yet");
   });
 
   it("draws nothing for someone without the settings permission", async () => {

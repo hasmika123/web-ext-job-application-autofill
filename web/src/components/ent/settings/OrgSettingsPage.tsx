@@ -1,162 +1,53 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, CheckIcon, Dialog, ErrorState, FileTextIcon, Skeleton, Switch, useToast } from "@kiwiply/ui";
-import { CARD } from "@/components/ent/dashboard/parts";
+import { Tab, TabList, TabPanel, Tabs } from "@kiwiply/ui";
+import PoliciesPage from "@/components/ent/policy/PoliciesPage";
+import { useTabParam } from "@/components/ent/shared/useTabParam";
 import GeneralSecuritySettings from "./GeneralSecuritySettings";
 import PrepareSettingsSection from "./PrepareSettingsSection";
-import { fetchResumePolicy, saveConsultantShareLinks, type ResumePolicy } from "@/lib/ent/resume-policy";
+import ResumeSettingsSection from "./ResumeSettingsSection";
 
 /**
- * Organization Settings (admin workspace, `/w/admin/settings`, needs org.settings.manage). Today it holds the Resume Builder policy: one switch
- * that lets consultants create share links for their organization resumes (default off; a marketer acting for a consultant can never, whatever it
- * says). It autosaves: the switch moves at once, a quiet check shows when the API has it, and an Undo toast gives the old value back. A failed save
- * puts the switch back and says why. The API is the gate; this page only draws what it answers.
+ * Settings (admin workspace, `/w/admin/settings`, needs org.settings.manage): five tabs, kept in the address (`?tab=autopilot`).
+ * General and Security are the organization's identity and sign-in rules; Autopilot is the "prepare selected openings" switch and its
+ * limits; Resumes is the share-link policy; Policies is the organization's privacy policy, terms and support page. The API is the gate
+ * for every one of them; this page only draws what it answers.
  */
 export interface OrgSettingsPageProps {
   orgId: number;
 }
 
-/** "3 active share links will stop working" (`stop`), or "3 share links are" (the toast: "3 share links are paused"). */
-function linksText(n: number, stop = false): string {
-  const noun = n === 1 ? "share link" : "share links";
-  if (stop) return `${n} active ${noun} will stop working`;
-  return `${n} ${noun} ${n === 1 ? "is" : "are"}`;
-}
+const TABS = ["general", "security", "autopilot", "resumes", "policies"] as const;
+type TabKey = (typeof TABS)[number];
 
 export default function OrgSettingsPage({ orgId }: OrgSettingsPageProps) {
-  const toast = useToast();
-  const [policy, setPolicy] = useState<ResumePolicy | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "failed" | "denied">("loading");
-  const [saved, setSaved] = useState(false);
-  const [confirmOff, setConfirmOff] = useState(false);
-  const policyRef = useRef<ResumePolicy | null>(null);
-  const tick = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    policyRef.current = policy;
-  }, [policy]);
-  useEffect(
-    () => () => {
-      if (tick.current) clearTimeout(tick.current);
-    },
-    [],
-  );
-
-  const load = useCallback(async () => {
-    setStatus("loading");
-    const r = await fetchResumePolicy(orgId);
-    if (r.kind === "OK") {
-      setPolicy(r.policy);
-      setStatus("ready");
-    } else {
-      setStatus(r.kind === "DENIED" ? "denied" : "failed");
-    }
-  }, [orgId]);
-
-  useEffect(() => {
-    const t = setTimeout(() => void load(), 0);
-    return () => clearTimeout(t);
-  }, [load]);
-
-  const flashTick = () => {
-    setSaved(true);
-    if (tick.current) clearTimeout(tick.current);
-    tick.current = setTimeout(() => setSaved(false), 2000);
-  };
-
-  /** Optimistic write of the share-link switch; `undoable` is false for the write an Undo itself makes (no Undo of an Undo). */
-  const change = async (value: boolean, undoable = true) => {
-    const before = policyRef.current;
-    if (!before) return;
-    setSaved(false);
-    setPolicy({ ...before, consultantShareLinks: value });
-    const r = await saveConsultantShareLinks(orgId, value);
-    if (r.kind === "OK") {
-      setPolicy(r.policy);
-      flashTick();
-      toast({
-        title: value ? "Consultants can now create share links" : "Consultants can no longer create share links",
-        // Turning it off paused the existing links (kept, not deleted); Undo, like turning it on again, brings them back.
-        description: !value && before.activeConsultantLinks > 0 ? `${linksText(before.activeConsultantLinks)} paused. Turn this back on to restore ${before.activeConsultantLinks === 1 ? "it" : "them"}.` : undefined,
-        variant: "success",
-        action: undoable ? { label: "Undo", onClick: () => void change(before.consultantShareLinks, false) } : undefined,
-      });
-      return;
-    }
-    setPolicy(before);
-    if (r.kind === "DEMO") return; // the shell's one demo notice ("This is a demo account — changes aren't saved") already says it
-    if (r.kind === "DENIED") void load();
-    toast({ title: "Not saved", description: r.kind === "INVALID" ? r.message : "That change wasn't saved. Nothing changed.", variant: "error" });
-  };
-
-  if (status === "loading") return <Skeleton className="h-40 w-full rounded-2xl" />;
-  if (status === "denied") return <ErrorState what="these settings" description="You don't have access to the organization settings." />;
-  if (status === "failed" || !policy) return <ErrorState what="the organization settings" description="Please refresh in a moment." onRetry={() => void load()} />;
-
+  const [tab, setTab] = useTabParam(TABS, "general");
   return (
-    <div className="flex flex-col gap-4">
-    <GeneralSecuritySettings orgId={orgId} />
-    <section aria-labelledby="org-set-resumes" className={`${CARD} p-5`} data-org-settings>
-      <div className="flex items-center gap-2">
-        <FileTextIcon size={18} className="text-muted" />
-        <h2 id="org-set-resumes" className="text-[16px] font-bold text-ink">
-          Resumes
-        </h2>
-      </div>
-      <div className="mt-4 flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <Switch
-            label="Share links"
-            description="Let consultants create share links for their organization resumes"
-            checked={policy.consultantShareLinks}
-            // Turning it ON just saves (autosave, check, Undo). Turning it OFF pauses every existing link, so it asks first.
-            onCheckedChange={(v) => (v ? void change(true) : setConfirmOff(true))}
-          />
-        </div>
-        <span aria-live="polite" title={saved ? "Saved" : undefined} data-saved-tick={saved ? "" : undefined} className="inline-flex h-5 w-5 flex-none items-center justify-center text-green-600">
-          {saved ? (
-            <>
-              <CheckIcon size={16} />
-              <span className="sr-only">Saved</span>
-            </>
-          ) : null}
-        </span>
-      </div>
-      <p className="mt-3 text-[12.5px] leading-snug text-muted">
-        Off by default. A marketer preparing a resume for a consultant can never create share links, whatever this says.
-      </p>
-      <Dialog
-        open={confirmOff}
-        onClose={() => setConfirmOff(false)}
-        title="Turn off share links?"
-        footer={
-          <>
-            <Button variant="ghost" onClick={() => setConfirmOff(false)} className="max-sm:min-h-11" data-confirm-cancel>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              className="max-sm:min-h-11"
-              data-confirm-off
-              onClick={() => {
-                setConfirmOff(false);
-                void change(false);
-              }}
-            >
-              Turn off
-            </Button>
-          </>
-        }
-      >
-        <p className="text-sm text-ink-soft" data-confirm-copy>
-          {policy.activeConsultantLinks > 0
-            ? `${linksText(policy.activeConsultantLinks, true)} right away. You can turn sharing back on later to restore ${policy.activeConsultantLinks === 1 ? "it" : "them"}.`
-            : "No share links are active right now. Consultants will no longer be able to create them. You can turn sharing back on later."}
-        </p>
-      </Dialog>
-    </section>
-    <PrepareSettingsSection orgId={orgId} />
+    <div data-org-settings-page className="ent-page flex flex-col gap-4">
+      <Tabs value={tab} onValueChange={(t) => setTab(t as TabKey)} variant="underline" className="ent-tabs">
+        <TabList aria-label="Settings sections">
+          <Tab value="general">General</Tab>
+          <Tab value="security">Security</Tab>
+          <Tab value="autopilot">Autopilot</Tab>
+          <Tab value="resumes">Resumes</Tab>
+          <Tab value="policies">Policies</Tab>
+        </TabList>
+        <TabPanel value="general" className="pt-4">
+          <GeneralSecuritySettings orgId={orgId} section="general" />
+        </TabPanel>
+        <TabPanel value="security" className="pt-4">
+          <GeneralSecuritySettings orgId={orgId} section="security" />
+        </TabPanel>
+        <TabPanel value="autopilot" className="pt-4">
+          <PrepareSettingsSection orgId={orgId} />
+        </TabPanel>
+        <TabPanel value="resumes" className="pt-4">
+          <ResumeSettingsSection orgId={orgId} />
+        </TabPanel>
+        <TabPanel value="policies" className="pt-4">
+          <PoliciesPage orgId={orgId} />
+        </TabPanel>
+      </Tabs>
     </div>
   );
 }
