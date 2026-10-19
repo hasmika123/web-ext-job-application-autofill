@@ -36,7 +36,13 @@ function page(url) {
   const company = (url.searchParams.get("c") || "").trim() || (parts.length >= 2 ? titleCase(parts[1]) : "Northwind Labs");
   const title = (url.searchParams.get("t") || "").trim() || "Data Platform Engineer";
   const location = (url.searchParams.get("l") || "").trim() || "Remote, United States";
-  return TEMPLATE.replaceAll("Northwind Labs", esc(company)).replaceAll("Data Platform Engineer", esc(title)).replaceAll("Remote, United States", esc(location));
+  let html = TEMPLATE.replaceAll("Northwind Labs", esc(company)).replaceAll("Data Platform Engineer", esc(title)).replaceAll("Remote, United States", esc(location));
+  // On stage the page should read like an employer's own form: the "local demo page" banner and the note after submitting are left out
+  // (DEMO_ATS_BANNER=on keeps them, as the recorded videos show them).
+  if (process.env.DEMO_ATS_BANNER !== "on") {
+    html = html.replace(/<div id="demo-banner">[\s\S]*?<\/div>/, "").replace(/ \(Demo page:[^)]*\)/, "");
+  }
+  return html;
 }
 
 // ---- the demo mailbox (http://mail.localhost:<port>/): a Gmail-style view of the API's SAMPLE mailbox ----------------------------------
