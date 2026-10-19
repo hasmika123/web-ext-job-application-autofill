@@ -66,15 +66,16 @@ async function mount() {
 const rowsOf = () => [...document.querySelectorAll("[data-feature-row]")].map((e) => e.getAttribute("data-feature-row"));
 
 describe("My Features from real data", () => {
-  it("asks the BFF once and draws tiles, table rows and usage cards", async () => {
+  it("asks the BFF once and draws the feature table, with no tiles, usage overview, recommended tools, tips, Quick Actions or help card", async () => {
     await mount();
     expect(calls).toEqual(["/api/orgs/2/me-workspace/features"]);
     expect(document.querySelector("[data-consultant-features]")!.getAttribute("data-status")).toBe("ready");
     expect(rowsOf()).toEqual(["job-matching", "resume-tailoring", "interview-prep", "application-tracking"]);
-    const tiles = [...document.querySelectorAll("[data-tile-value]")].map((e) => e.textContent);
-    expect(tiles).toEqual(["5", "50", "6", "3", "1"]);
-    expect(screen.getByText("+20% vs last month")).toBeTruthy();
-    expect(screen.getByText("Renews Oct 31, 2026")).toBeTruthy();
+    expect(document.querySelector("[data-tile-value]")).toBeNull();
+    expect(document.querySelector("[data-usage-card]")).toBeNull();
+    expect(document.querySelector("[data-recommended]")).toBeNull();
+    expect(document.querySelector("[data-features-quick]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question|Usage Overview|Recommended Tools|Tips to Get More Value|vs last month/)).toBeNull();
     expect(document.querySelectorAll("[data-sample]").length).toBeGreaterThan(0);
   });
 
@@ -85,11 +86,10 @@ describe("My Features from real data", () => {
     expect(within(row("job-matching")).getByText("2 viewed this month")).toBeTruthy();
     expect(within(row("interview-prep")).getByText("18 / 20 sessions")).toBeTruthy();
     expect(within(row("interview-prep")).getByText("Resets Nov 1, 2026")).toBeTruthy();
-    expect(within(row("resume-tailoring")).getByText("Usage tracking arrives with this tool")).toBeTruthy();
+    expect(row("resume-tailoring").textContent).not.toMatch(/arrives with this tool|not tracked yet/);
     expect(within(row("resume-tailoring")).queryByRole("progressbar")).toBeNull();
     expect(within(row("interview-prep")).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("90");
     expect(document.body.textContent).not.toMatch(/\$|price|billing|margin/i);
-    expect(within(document.querySelector('[data-usage-card="interview-prep"]') as HTMLElement).getByText("90% used")).toBeTruthy();
   });
 
   it("filters to what needs attention and to premium tools", async () => {
@@ -103,21 +103,16 @@ describe("My Features from real data", () => {
     expect(rowsOf()).toHaveLength(4);
   });
 
-  it("links each action, the recommended tools and the quick actions to the right page", async () => {
+  it("links each action to the right page, pointing at the tab a moved page became", async () => {
     await mount();
     const use = screen.getByLabelText("Use Interview Prep") as HTMLAnchorElement;
-    expect(use.getAttribute("href")).toBe("/w/consultant/interview-prep");
-    const rec = [...document.querySelectorAll("[data-recommended] a")].map((a) => a.getAttribute("href"));
-    expect(rec).toEqual(["/w/consultant/resumes", "/w/consultant/interview-prep", "/w/consultant/matches"]);
-    const quick = [...document.querySelectorAll("[data-features-quick]")].map((a) => a.getAttribute("href"));
-    expect(quick).toEqual(["/w/consultant/resumes", "/w/consultant/interview-prep", "/w/consultant/matches", "/w/consultant/marketer"]);
+    expect(use.getAttribute("href")).toBe("/w/consultant/interviews?tab=prepare");
   });
 
   it("has an honest empty state when there are no features", async () => {
     reply = () => ({ status: 200, body: empty() });
     await mount();
     expect(screen.getByText("No features match this filter.")).toBeTruthy();
-    expect(screen.getByText("No metered features are enabled for you.")).toBeTruthy();
   });
 
   it("shows the role panel on 404 and a retry on a failure", async () => {
