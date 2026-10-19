@@ -7,8 +7,10 @@
  * Extractor chain (the ROADMAP order):
  *   1. schema.org/JobPosting JSON-LD  — standardized across most ATS/boards, so it
  *      wins for the descriptive fields (title/company/location/description).
- *   2. adapter.captureJob({loc})      — per-site, AUTHORITATIVE for externalJobId +
- *      atsPlatform (both derived from the public URL shape, not tenant DOM).
+ *   2. adapter.captureJob({doc,loc})  — per-site, AUTHORITATIVE for externalJobId +
+ *      atsPlatform (both derived from the public URL shape, not tenant DOM). Adapters
+ *      for pages without JSON-LD (Greenhouse, Lever, the capture-only SmartRecruiters
+ *      reader in JAF.jobReaders) also read the posting itself from captured page markup.
  *   3. generic <meta>/heuristics      — og:* + <title> + canonical, the final fallback.
  *
  * Every captured field is provenance-tagged in `sources` (field → "jsonld" | "adapter"
@@ -469,6 +471,16 @@
     return null;
   }
 
+  // Capture-only per-site readers (JAF.jobReaders, e.g. SmartRecruiters): ATS pages we
+  // read a posting from but don't fill with a dedicated adapter. Consulted only when no
+  // fill adapter matches; their fields merge exactly like an adapter's (source "adapter").
+  function detectReader(doc, loc) {
+    for (const r of JAF.jobReaders || []) {
+      try { if (r && r.matches({ doc, loc })) return r; } catch (e) { /* same as adapters */ }
+    }
+    return null;
+  }
+
   // ---- job-page signal (soft validation) ---------------------------------
   // Does this page carry a STRONG signal that it's a job posting / application, as opposed
   // to just any site? Used to warn (never hard-block) before Save/Fill. A signal is any of:
@@ -491,7 +503,7 @@
     opts = opts || {};
     const doc = opts.doc || (typeof document !== "undefined" ? document : null);
     const loc = opts.loc || (typeof location !== "undefined" ? location : {});
-    const adapter = opts.adapter !== undefined ? opts.adapter : detectAdapter();
+    const adapter = opts.adapter !== undefined ? opts.adapter : detectAdapter() || detectReader(doc, loc);
     if (adapter) return true;
     if (hasJsonLdJobPosting(doc)) return true;
     if (boardCapture(loc).atsPlatform) return true;
@@ -518,7 +530,8 @@
     opts = opts || {};
     const doc = opts.doc || (typeof document !== "undefined" ? document : null);
     const loc = opts.loc || (typeof location !== "undefined" ? location : {});
-    const adapter = opts.adapter !== undefined ? opts.adapter : detectAdapter();
+    // A capture-only reader stands in for the adapter when no fill adapter matches.
+    const adapter = opts.adapter !== undefined ? opts.adapter : detectAdapter() || detectReader(doc, loc);
 
     const jsonld = fromJsonLd(doc);
     let acap = {};
@@ -554,7 +567,10 @@
     if (!salaryParsed && salary) salaryParsed = parseSalaryText(salary);
     if (salaryParsed && !sources.salaryParsed) sources.salaryParsed = sources.salary;
 
-    const location = take("location", [J, A, G]);
+    // NOT named `location`: a block-scoped `location` here shadows the browser's global for the whole function, so the
+    // `typeof location` at the top of captureJob threw (temporal dead zone) on every page whenever no `opts.loc` was
+    // passed. A minified build renamed it and hid the bug; an unminified development build broke every capture.
+    const jobLocation = take("location", [J, A, G]);
     const jobDescription = take("jobDescription", [J, A, G]);
 
     // Job metadata → strict enum names (JobType/JobMode); still omitted when there is
@@ -572,7 +588,7 @@
       if (jobMode) sources.jobMode = "jsonld";
     }
     if (!jobMode) {
-      jobMode = jobModeFrom(undefined, location) || jobModeFromText(jobDescription);
+      jobMode = jobModeFrom(undefined, jobLocation) || jobModeFromText(jobDescription);
       if (jobMode) sources.jobMode = "text";
     }
 
@@ -580,7 +596,7 @@
       // Descriptive fields: JSON-LD first, then adapter, then generic.
       company: take("company", [J, A, G]),
       role: take("role", [J, A, G]),
-      location: location,
+      location: jobLocation,
       jobType: jobType,
       jobMode: jobMode,
       jobDescription: jobDescription,
@@ -599,6 +615,7 @@
   JAF.jobCapture = {
     captureJob,
     detectAdapter,
+    detectReader,
     hasJobSignal,
     // exposed for tests
     fromJsonLd,
