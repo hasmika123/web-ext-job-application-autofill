@@ -69,7 +69,7 @@ export function NewSubmissionDialog({ orgId, open, onClose, onCreated }: { orgId
     <Dialog
       open={open}
       onClose={onClose}
-      title="New Submission"
+      title="New submission"
       description="Prepare a profile package for a job. This creates a draft record; nothing is sent to the client. Ask the consultant to approve it, then record what happens."
       footer={
         <>

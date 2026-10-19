@@ -3,32 +3,32 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ArrowsUpDownIcon, Button, ErrorState, FileTextIcon, FilterIcon, Input, MemberAvatar, Menu, MoreVerticalIcon, PlusIcon, Popover, SearchIcon, Select, SendIcon, Skeleton, UsersIcon, XCircleIcon, XIcon, cn,
+  ArrowsUpDownIcon, Button, ErrorState, FilterIcon, Input, MemberAvatar, Menu, MoreVerticalIcon, PlusIcon, Popover, SearchIcon, Select, Skeleton, XIcon, cn,
 } from "@kiwiply/ui";
 import type { MenuEntry } from "@kiwiply/ui";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
+import PageHeader from "@/components/ent/shell/ShellContext";
 import { relativeTime } from "@/lib/ent/dashboard";
 import {
-  APPROVAL_LABELS, BUCKET_KEYS, BUCKET_LABELS, DEFAULT_QUERY, KPI_KEYS, KPI_TITLES, KPI_VERSUS, PERIODS, STATUS_LABELS,
+  APPROVAL_LABELS, BUCKET_KEYS, BUCKET_LABELS, DEFAULT_QUERY, PERIODS, STATUS_LABELS,
   dateText, deleteView, fetchSubmissions, photoFor, recordApproval, recordStatus, requestApproval, saveView, shortDate, withdrawSubmission,
-  type ApprovalState, type BoardQuery, type KpiKey, type SavedView, type SubmissionRow, type SubmissionsBoard, type SubStatus, type WriteResult,
+  type ApprovalState, type BoardQuery, type SavedView, type SubmissionRow, type SubmissionsBoard, type SubStatus, type WriteResult,
 } from "@/lib/ent/marketer-ws/submissions";
-import { CARD, KpiTile, TH, HEAD_ROW, type MktPageProps, type TintName } from "../parts";
+import { CARD, TH, HEAD_ROW, type MktPageProps } from "../parts";
 import { NewSubmissionDialog, SubmissionDetailDialog, WithdrawDialog } from "./SubmissionDialogs";
-import { ActivityCard, ApprovalChip, ClientLogo, Pager, SectionNote, StatusChip, StatusDonutCard, SubmissionsHelpCard } from "./SubmissionParts";
+import { ApprovalChip, ClientLogo, Pager, SectionNote, StatusChip } from "./SubmissionParts";
 
 /**
- * Submissions (Marketing workspace; design: Submissions). One call draws the KPI tiles, the table page, the donut and the activity feed.
- * E1: a submission is a RECORD of a package prepared for a job. "New Submission" creates a draft, "Send for approval" asks the consultant/approver,
+ * Submissions (Marketing workspace). One call draws the status chips and the table page.
+ * E1: a submission is a RECORD of a package prepared for a job. "New submission" creates a draft, "Send for approval" asks the consultant/approver,
  * and the "Record: ..." actions note facts reported by the consultant or the client. Nothing here submits for a consultant or sends anything to a client.
  */
 
-const KPI_VIEW: Record<KpiKey, { icon: typeof SendIcon; tint: TintName; spark: number }> = {
-  pendingApprovals: { icon: SendIcon, tint: "violet", spark: 4 },
-  submittedToday: { icon: FileTextIcon, tint: "green", spark: 3 },
-  underClientReview: { icon: UsersIcon, tint: "amber", spark: 2 },
-  rejected: { icon: XCircleIcon, tint: "pink", spark: 5 },
-};
+/** The status chips above the table: the status each one filters to, and the board number that counts it. */
+const STATUS_CHIPS = [
+  { value: "AWAITING_APPROVAL", count: "pendingApprovals" },
+  { value: "CLIENT_REVIEW", count: "underClientReview" },
+  { value: "REJECTED", count: "rejected" },
+] as const;
 
 /** Which statuses may be recorded next (mirrors the API's rules; the API enforces them). */
 const NEXT: Record<SubStatus, ("SUBMITTED" | "CLIENT_REVIEW" | "INTERVIEW_REQUESTED" | "REJECTED")[]> = {
@@ -42,12 +42,12 @@ const RECORD_LABEL = { SUBMITTED: "Record: consultant submitted", CLIENT_REVIEW:
 
 const SORT_COLUMNS: { key: string; label: string }[] = [
   { key: "consultant", label: "Consultant" },
-  { key: "jobTitle", label: "Job Title" },
+  { key: "jobTitle", label: "Opening" },
   { key: "client", label: "Client" },
-  { key: "date", label: "Submission Date" },
-  { key: "approval", label: "Approval State" },
-  { key: "resume", label: "Resume Version" },
-  { key: "status", label: "Current Status" },
+  { key: "date", label: "Submission date" },
+  { key: "approval", label: "Approval state" },
+  { key: "resume", label: "Resume version" },
+  { key: "status", label: "Current status" },
 ];
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -143,13 +143,7 @@ export default function SubmissionsPage({ orgId, hrefs }: MktPageProps) {
     return items;
   };
 
-  const header = (
-    <>
-      <PageHeader title="Submissions" subtitle="Send consultant profiles to jobs and clients, track approval status, and manage the entire submission process." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-    </>
-  );
+  const header = <PageHeader title="Submissions" subtitle="Packages you've put forward, and the consultant's approval on each." />;
 
   if (status === "denied") return <ErrorState what="Submissions" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
   if (status === "failed")
@@ -188,36 +182,36 @@ export default function SubmissionsPage({ orgId, hrefs }: MktPageProps) {
     } else setViewError(r.error);
   };
 
-  const clientOptions = [{ value: "", label: "All Clients" }, ...(b?.filters.clients ?? []).map((c) => ({ value: String(c.id), label: c.name }))];
-  const titleOptions = [{ value: "", label: "All Job Titles" }, ...(b?.filters.jobTitles ?? []).map((t) => ({ value: t, label: t }))];
-  const statusOptions = [{ value: "", label: "All Statuses" }, ...BUCKET_KEYS.map((k) => ({ value: k, label: BUCKET_LABELS[k] }))];
+  const clientOptions = [{ value: "", label: "All clients" }, ...(b?.filters.clients ?? []).map((c) => ({ value: String(c.id), label: c.name }))];
+  const titleOptions = [{ value: "", label: "All openings" }, ...(b?.filters.jobTitles ?? []).map((t) => ({ value: t, label: t }))];
+  const statusOptions = [{ value: "", label: "All statuses" }, ...BUCKET_KEYS.map((k) => ({ value: k, label: BUCKET_LABELS[k] }))];
 
   return (
-    <div data-submissions-page data-status={status} className="grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div data-submissions-page data-status={status} className="flex flex-col gap-4 sm:gap-5">
       {header}
 
       <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
-        <section aria-label="Key numbers" data-submissions-tiles className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-          {KPI_KEYS.map((key) => {
-            const k = b?.kpis[key];
-            const v = KPI_VIEW[key];
+        <div data-submissions-chips role="group" aria-label="Status" className="flex flex-wrap items-center gap-2">
+          {STATUS_CHIPS.map((c) => {
+            const active = query.status === c.value;
+            const count = b?.kpis[c.count]?.value;
             return (
-              <KpiTile
-                key={key}
-                id={key}
-                title={KPI_TITLES[key]}
-                icon={v.icon}
-                tint={v.tint}
-                value={k ? k.value : null}
-                deltaPct={k?.deltaPct ?? null}
-                versus={KPI_VERSUS[key]}
-                sparkline={k?.sparkline}
-                sparkIndex={v.spark}
-                loading={loading}
-              />
+              <button
+                key={c.value}
+                type="button"
+                aria-pressed={active}
+                data-submissions-chip={c.value}
+                onClick={() => patch({ status: active ? "" : c.value })}
+                className={cn(
+                  "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[12.5px] font-semibold",
+                  active ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink-soft hover:border-accent",
+                )}
+              >
+                {BUCKET_LABELS[c.value]} ({loading ? "..." : (count ?? 0)})
+              </button>
             );
           })}
-        </section>
+        </div>
 
         <section data-submissions-card="table" className={cn(CARD, "p-0")}>
           <div data-submissions-toolbar className="flex flex-wrap items-center gap-2 p-3 sm:p-4">
@@ -228,7 +222,7 @@ export default function SubmissionsPage({ orgId, hrefs }: MktPageProps) {
             </label>
             <Select variant="pill" aria-label="Status" value={query.status} onChange={(v) => patch({ status: v })} options={statusOptions} />
             <Select variant="pill" aria-label="Client" value={query.clientId} onChange={(v) => patch({ clientId: v })} options={clientOptions} />
-            <Select variant="pill" aria-label="Job title" value={query.jobTitle} onChange={(v) => patch({ jobTitle: v })} options={titleOptions} />
+            <Select variant="pill" aria-label="Opening" value={query.jobTitle} onChange={(v) => patch({ jobTitle: v })} options={titleOptions} />
             <Select variant="pill" aria-label="Period" value={query.period} onChange={(v) => patch({ period: v })} options={PERIODS} />
             <Popover
               label="More filters"
@@ -236,7 +230,7 @@ export default function SubmissionsPage({ orgId, hrefs }: MktPageProps) {
               trigger={(t) => (
                 <button {...t.props} ref={t.ref} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-line bg-paper px-3 text-[13px] font-semibold text-ink-soft hover:border-accent sm:min-h-0 sm:py-2">
                   <FilterIcon size={15} aria-hidden />
-                  More Filters
+                  More filters
                   {moreActive ? <span aria-label="1 active" className="h-1.5 w-1.5 rounded-full bg-accent" /> : null}
                 </button>
               )}
@@ -263,7 +257,7 @@ export default function SubmissionsPage({ orgId, hrefs }: MktPageProps) {
               align="end"
               trigger={(t) => (
                 <button {...t.props} ref={t.ref} className="inline-flex min-h-11 items-center rounded-lg border border-line bg-paper px-3.5 text-[13px] font-semibold text-accent-deep hover:bg-accent-soft sm:min-h-0 sm:py-2">
-                  Save View
+                  Save view
                 </button>
               )}
             >
@@ -300,7 +294,7 @@ export default function SubmissionsPage({ orgId, hrefs }: MktPageProps) {
             </Popover>
             <Button variant="accent" size="sm" onClick={() => setNewOpen(true)} className="min-h-11 sm:min-h-0">
               <PlusIcon size={15} aria-hidden />
-              New Submission
+              New submission
             </Button>
           </div>
 
@@ -317,7 +311,7 @@ export default function SubmissionsPage({ orgId, hrefs }: MktPageProps) {
               ))}
             </div>
           ) : items.length === 0 ? (
-            <SectionNote>{filtersActive ? "No submissions match these filters." : "Nothing recorded yet. Use New Submission to prepare a package for one of your consultants."}</SectionNote>
+            <SectionNote>{filtersActive ? "No submissions match these filters." : "Nothing recorded yet. Use New submission to prepare a package for one of your consultants."}</SectionNote>
           ) : (
             <div className={cn("overflow-x-auto", fetching && "opacity-70")}>
               <table className="w-full min-w-[960px] text-left text-[13px]">
@@ -390,7 +384,7 @@ export default function SubmissionsPage({ orgId, hrefs }: MktPageProps) {
                             {r.resume.updatedOn ? <span className="block text-[12px] text-muted">Updated {shortDate(r.resume.updatedOn)}</span> : null}
                           </>
                         ) : (
-                          <span className="text-muted">No resume</span>
+                          <span className="text-muted">—</span>
                         )}
                       </td>
                       <td className="px-2"><StatusChip status={r.status} /></td>
@@ -424,12 +418,6 @@ export default function SubmissionsPage({ orgId, hrefs }: MktPageProps) {
           ) : null}
         </section>
       </div>
-
-      <aside className="flex min-w-0 flex-col gap-4 sm:gap-5" aria-label="Help and activity">
-        <SubmissionsHelpCard />
-        <ActivityCard rows={b?.activity ?? []} viewAll={hrefs.applications ?? hrefs.activity ?? null} loading={loading} now={now} />
-        <StatusDonutCard breakdown={b?.breakdown ?? null} loading={loading} period={query.donutPeriod} onPeriod={(p) => setQuery((q) => ({ ...q, donutPeriod: p }))} />
-      </aside>
 
       <NewSubmissionDialog
         orgId={orgId}

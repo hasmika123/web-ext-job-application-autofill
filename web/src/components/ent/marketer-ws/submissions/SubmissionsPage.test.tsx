@@ -83,35 +83,34 @@ afterEach(() => {
 });
 
 describe("SubmissionsPage", () => {
-  it("draws the four KPI tiles with their numbers, deltas and comparison text", async () => {
+  it("has no tiles; the chips carry the counts (Awaiting approval, Under client review, Rejected) and filter the list", async () => {
+    const { calls } = stubFetch();
     mount();
-    await waitFor(() => expect(within(document.querySelector('[data-stat-tile="pendingApprovals"]') as HTMLElement).getByText("12")).toBeTruthy());
-    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(4);
-    const tile = (k: string) => (document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement).textContent ?? "";
-    expect(tile("pendingApprovals")).toContain("Pending Approvals");
-    expect(tile("pendingApprovals")).toContain("20%");
-    expect(tile("pendingApprovals")).toContain("vs last week");
-    expect(tile("submittedToday")).toContain("18");
-    expect(tile("submittedToday")).toContain("vs yesterday");
-    expect(tile("underClientReview")).toContain("Under Client Review");
-    expect(tile("underClientReview")).toContain("24");
-    expect(tile("rejected")).toContain("25%");
+    await screen.findByText("Alex Morgan");
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
+    const chips = document.querySelector("[data-submissions-chips]") as HTMLElement;
+    expect(within(chips).getByRole("button", { name: "Awaiting approval (12)" })).toBeTruthy();
+    expect(within(chips).getByRole("button", { name: "Client review (24)" })).toBeTruthy();
+    expect(within(chips).getByRole("button", { name: "Rejected (6)" })).toBeTruthy();
+    fireEvent.click(within(chips).getByRole("button", { name: "Client review (24)" }));
+    await waitFor(() => expect(calls.some((c) => c.url.includes("status=CLIENT_REVIEW"))).toBe(true));
+    expect(within(chips).getByRole("button", { name: "Client review (24)" }).getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("has the board's title controls: search, filters, More Filters, Save View and New Submission", async () => {
+  it("has the board's title controls: search, filters, More filters, Save view and New submission", async () => {
     mount();
     await screen.findByText("Alex Morgan");
     expect(screen.getByPlaceholderText("Search submissions by consultant, job, or client...")).toBeTruthy();
-    for (const t of ["All Statuses", "All Clients", "All Job Titles", "Last 30 Days"]) expect(screen.getAllByText(t).length).toBeGreaterThan(0);
-    expect(screen.getByText("More Filters")).toBeTruthy();
-    expect(screen.getByText("Save View")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /New Submission/ })).toBeTruthy();
+    for (const t of ["All statuses", "All clients", "All openings", "Last 30 Days"]) expect(screen.getAllByText(t).length).toBeGreaterThan(0);
+    expect(screen.getByText("More filters")).toBeTruthy();
+    expect(screen.getByText("Save view")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /New submission/ })).toBeTruthy();
   });
 
   it("draws the table with every column, chip and the View button on a rejected row", async () => {
     mount();
     await screen.findByText("Alex Morgan");
-    for (const h of ["Consultant", "Job Title", "Client", "Submission Date", "Approval State", "Resume Version", "Current Status", "Actions"]) {
+    for (const h of ["Consultant", "Opening", "Client", "Submission date", "Approval state", "Resume version", "Current status", "Actions"]) {
       expect(screen.getAllByText(h).length).toBeGreaterThan(0);
     }
     const r1 = document.querySelector('[data-submission-row="1"]') as HTMLElement;
@@ -125,10 +124,10 @@ describe("SubmissionsPage", () => {
     expect(within(r1).getByText("v3.2")).toBeTruthy();
     expect(within(r1).getByText(/Updated /)).toBeTruthy();
     expect(r1.querySelector('[data-status-chip="SUBMITTED"]')?.textContent).toBe("Submitted");
-    expect((document.querySelector('[data-submission-row="2"] [data-approval-chip]') as HTMLElement).textContent).toBe("Awaiting Approval");
+    expect((document.querySelector('[data-submission-row="2"] [data-approval-chip]') as HTMLElement).textContent).toBe("Awaiting approval");
     expect((document.querySelector('[data-submission-row="2"] [data-status-chip]') as HTMLElement).textContent).toBe("Draft");
-    expect((document.querySelector('[data-submission-row="3"] [data-status-chip]') as HTMLElement).textContent).toBe("Client Review");
-    expect((document.querySelector('[data-submission-row="4"] [data-status-chip]') as HTMLElement).textContent).toBe("Interview Requested");
+    expect((document.querySelector('[data-submission-row="3"] [data-status-chip]') as HTMLElement).textContent).toBe("Client review");
+    expect((document.querySelector('[data-submission-row="4"] [data-status-chip]') as HTMLElement).textContent).toBe("Interview requested");
     expect((document.querySelector('[data-submission-row="5"] [data-approval-chip]') as HTMLElement).textContent).toBe("Rejected");
     expect((document.querySelector('[data-submission-row="5"] [data-status-chip]') as HTMLElement).textContent).toBe("Rejected");
     expect(within(document.querySelector('[data-submission-row="5"]') as HTMLElement).getByRole("button", { name: "View" })).toBeTruthy();
@@ -146,31 +145,20 @@ describe("SubmissionsPage", () => {
     expect(screen.getByText("Rows per page")).toBeTruthy();
   });
 
-  it("draws the right column: help card, recent activity with View all, and the status donut", async () => {
+  it("has no help card, activity feed or status donut (activity lives on Activity, the funnel on Performance)", async () => {
     mount();
     await screen.findByText("Alex Morgan");
-    expect(screen.getByText("Need help with submissions?")).toBeTruthy();
-    expect(screen.getByText("Ask a question")).toBeTruthy();
-    const activity = document.querySelector('[data-submissions-card="activity"]') as HTMLElement;
-    expect(within(activity).getByText("Recent Submission Activity")).toBeTruthy();
-    expect(within(activity).getByRole("link", { name: "View all" }).getAttribute("href")).toBe("/w/marketing/applications");
-    expect(within(activity).getByText("Alex Morgan submitted to TechCorp")).toBeTruthy();
-    expect(within(activity).getByText("Cloud Engineer at CloudScale")).toBeTruthy();
-    const status = document.querySelector('[data-submissions-card="status"]') as HTMLElement;
-    expect(within(status).getByText("Submissions by Status")).toBeTruthy();
-    expect(status.querySelector("[data-donut-chart]")).toBeTruthy();
-    expect(within(status).getByText("86")).toBeTruthy();
-    expect(within(status).getByText("Total")).toBeTruthy();
-    for (const l of ["Draft", "Awaiting Approval", "Submitted", "Client Review", "Interview Requested", "Rejected"]) expect(within(status).getAllByText(l).length).toBeGreaterThan(0);
-    expect(within(status).getByText("27%")).toBeTruthy(); // the legend shares come from the counts (24 of 90 in this fixture)
+    for (const c of ["activity", "status", "help"]) expect(document.querySelector(`[data-submissions-card="${c}"]`), c).toBeNull();
+    expect(screen.queryByText("Need help with submissions?")).toBeNull();
+    expect(screen.queryByText("Ask a question")).toBeNull();
+    expect(screen.queryByText("Recent Submission Activity")).toBeNull();
+    expect(screen.queryByText("Submissions by Status")).toBeNull();
   });
 
   it("says so, with no rows and no number, when there is nothing", async () => {
     stubFetch({}, board({ items: [], total: 0, kpis: {}, breakdown: { period: "30d", total: 0, buckets: [] }, activity: [] }));
     mount();
-    await screen.findByText(/Nothing recorded yet\. Use New Submission/);
-    expect(screen.getAllByText("Nothing yet")).toHaveLength(4);
-    expect(screen.getAllByText("Nothing recorded yet.").length).toBe(2);
+    await screen.findByText(/Nothing recorded yet\. Use New submission/);
     expect(document.querySelector("[data-showing]")).toBeNull();
   });
 
@@ -241,11 +229,11 @@ describe("SubmissionsPage", () => {
     expect(calls.filter((c) => c.method === "DELETE")).toHaveLength(1);
   });
 
-  it("New Submission creates a draft through the BFF and says nothing is sent", async () => {
+  it("New submission creates a draft through the BFF and says nothing is sent", async () => {
     const { calls } = stubFetch({ "POST /api/orgs/2/mkt/submissions": () => json(201, row(SPECS[5])) });
     mount();
     await screen.findByText("Alex Morgan");
-    fireEvent.click(screen.getByRole("button", { name: /New Submission/ }));
+    fireEvent.click(screen.getByRole("button", { name: /New submission/ }));
     await screen.findByText(/nothing is sent to the client/i);
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(await within(dialog).findByRole("button", { name: "Consultant" }));
@@ -265,7 +253,7 @@ describe("SubmissionsPage", () => {
     async function fill() {
       mount();
       await screen.findByText("Alex Morgan");
-      fireEvent.click(screen.getByRole("button", { name: /New Submission/ }));
+      fireEvent.click(screen.getByRole("button", { name: /New submission/ }));
       const dialog = await screen.findByRole("dialog");
       fireEvent.click(await within(dialog).findByRole("button", { name: "Consultant" }));
       fireEvent.click(await screen.findByRole("option", { name: /Alex Morgan/ }));
@@ -331,9 +319,9 @@ describe("SubmissionsPage", () => {
     const { calls } = stubFetch({ "POST /api/orgs/2/mkt/submissions/views": () => json(201, { id: 1, name: "Java reviews", q: null, status: null, approval: null, clientId: null, jobTitle: null, period: "30d" }) });
     mount();
     await screen.findByText("Alex Morgan");
-    fireEvent.click(screen.getByText("Save View"));
+    fireEvent.click(screen.getByText("Save view"));
     fireEvent.change(await screen.findByLabelText("View name"), { target: { value: "Java reviews" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save view" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Save view" }).at(-1)!); // the trigger and the form button share the label
     await screen.findByText(/Saved the view "Java reviews"/);
     expect(JSON.parse(calls.find((c) => c.url.endsWith("/views"))?.body ?? "{}")).toMatchObject({ name: "Java reviews", period: "30d" });
   });

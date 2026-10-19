@@ -19,21 +19,21 @@ export type RowAction = "REQUEST_APPROVAL" | "WITHDRAW" | "RECORD_APPROVAL" | "R
 export const BUCKET_KEYS: BucketKey[] = ["DRAFT", "AWAITING_APPROVAL", "SUBMITTED", "CLIENT_REVIEW", "INTERVIEW_REQUESTED", "REJECTED"];
 export const BUCKET_LABELS: Record<BucketKey, string> = {
   DRAFT: "Draft",
-  AWAITING_APPROVAL: "Awaiting Approval",
+  AWAITING_APPROVAL: "Awaiting approval",
   SUBMITTED: "Submitted",
-  CLIENT_REVIEW: "Client Review",
-  INTERVIEW_REQUESTED: "Interview Requested",
+  CLIENT_REVIEW: "Client review",
+  INTERVIEW_REQUESTED: "Interview requested",
   REJECTED: "Rejected",
 };
-export const APPROVAL_LABELS: Record<ApprovalState, string> = { DRAFT: "Draft", AWAITING_APPROVAL: "Awaiting Approval", APPROVED: "Approved", REJECTED: "Rejected" };
-export const STATUS_LABELS: Record<SubStatus, string> = { DRAFT: "Draft", SUBMITTED: "Submitted", CLIENT_REVIEW: "Client Review", INTERVIEW_REQUESTED: "Interview Requested", REJECTED: "Rejected" };
+export const APPROVAL_LABELS: Record<ApprovalState, string> = { DRAFT: "Draft", AWAITING_APPROVAL: "Awaiting approval", APPROVED: "Approved", REJECTED: "Rejected" };
+export const STATUS_LABELS: Record<SubStatus, string> = { DRAFT: "Draft", SUBMITTED: "Submitted", CLIENT_REVIEW: "Client review", INTERVIEW_REQUESTED: "Interview requested", REJECTED: "Rejected" };
 
 export type KpiKey = "pendingApprovals" | "submittedToday" | "underClientReview" | "rejected";
 export const KPI_KEYS: KpiKey[] = ["pendingApprovals", "submittedToday", "underClientReview", "rejected"];
 export const KPI_TITLES: Record<KpiKey, string> = {
-  pendingApprovals: "Pending Approvals",
-  submittedToday: "Submitted Today",
-  underClientReview: "Under Client Review",
+  pendingApprovals: "Pending approvals",
+  submittedToday: "Submitted today",
+  underClientReview: "Under client review",
   rejected: "Rejected",
 };
 /** The comparison text under each tile's delta (the board says "vs yesterday" for Submitted Today only). */
@@ -282,7 +282,6 @@ export const deleteView = (orgId: number | string, viewId: number) => write<null
 
 /** Board art served from `public/ent/marketer/submissions` (cropped from the approved board). A real `avatarUrl` from the API always wins. */
 export const SUBMISSIONS_ART_BASE = "/ent/marketer/submissions";
-export const HELP_BANNER = `${SUBMISSIONS_ART_BASE}/help-banner.png`;
 const PEOPLE: Record<string, string> = {
   "alex morgan": "alex-morgan", "priya sharma": "priya-sharma", "michael park": "michael-park", "emily lawson": "emily-lawson", "david kim": "david-kim",
   "sophia patel": "sophia-patel", "daniel brooks": "daniel-brooks", "olivia martinez": "olivia-martinez", "james wilson": "james-wilson", "chloe nguyen": "chloe-nguyen",
