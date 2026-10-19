@@ -290,9 +290,9 @@ function QuickActions({ detail, selfId, onEdit, onRoles, onFlow, onReset }: { de
   if (a.offboard && (detail.status === "ACTIVE" || detail.status === "SUSPENDED")) rows.push({ key: "offboard", label: "Delete Employee", icon: <TrashIcon size={18} />, run: () => onFlow("offboard", detail), danger: true });
   if (rows.length === 0) return null;
   return (
-    <section aria-label="Quick actions" className="mt-4 border-t border-line/60 pt-3.5" data-quick-actions>
+    <section aria-label="Actions" className="mt-4 border-t border-line/60 pt-3.5" data-quick-actions>
       <h3 className="mb-2.5 flex items-center gap-2 text-[14.5px] font-bold text-ink">
-        <ZapIcon aria-hidden size={17} className="text-accent" /> Quick Actions
+        <ZapIcon aria-hidden size={17} className="text-accent" /> Actions
       </h3>
       <ul className="space-y-1.5">
         {rows.map((r) => (

@@ -22,5 +22,5 @@ export default async function WorkspaceEmployeesRoute({ params }: { params: Prom
   const listed = !!ws && ws.nav.some((n) => n.href.split("?")[0] === `/w/${workspace}/employees`);
   if (!listed && !can(me, "member.view_summary") && !can(me, "members.invite") && !can(me, "hr.view")) return <NotYourRole />;
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
-  return <EmployeesPage orgId={me.org.id} orgName={me.org.displayName} workspace={workspace} selfMemberId={me.member.id} permissions={me.permissions} supportEmail={null} />;
+  return <EmployeesPage orgId={me.org.id} orgName={me.org.displayName} selfMemberId={me.member.id} permissions={me.permissions} />;
 }

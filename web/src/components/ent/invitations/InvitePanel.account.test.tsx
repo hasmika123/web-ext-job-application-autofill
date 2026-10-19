@@ -34,7 +34,7 @@ afterEach(() => {
 });
 
 async function fillValid(email = "sam@example.test") {
-  fireEvent.change(screen.getByLabelText(/Email Address/), { target: { value: email } });
+  fireEvent.change(screen.getByLabelText(/Email address/), { target: { value: email } });
   fireEvent.click(screen.getByRole("button", { name: /^Role/ }));
   fireEvent.click(await screen.findByRole("checkbox", { name: /Member/ }));
 }
@@ -44,8 +44,8 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     render(<InvitePanel orgId={7} options={OPTIONS} onSent={() => undefined} />);
     expect((screen.getByRole("radio", { name: /Create account now/ }) as HTMLInputElement).checked).toBe(true);
     await waitFor(() => expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toBe(GENERATED));
-    expect(screen.queryByLabelText(/Personal Message/)).toBeNull();
-    expect(screen.getByRole("button", { name: "Create Account" })).toBeTruthy();
+    expect(screen.queryByLabelText(/Personal message/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Create account" })).toBeTruthy();
   });
 
   it("creates the account with the password the form showed (or the admin's own) and shows it once in a copy dialog", async () => {
@@ -54,7 +54,7 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     await waitFor(() => expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toBe(GENERATED));
     await fillValid();
     fireEvent.change(screen.getByLabelText(/Temporary password/), { target: { value: "My-own-typed-1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     const dialog = await screen.findByRole("dialog", { name: "Account created" });
     expect((within(dialog).getByTestId("temp-password") as HTMLInputElement).value).toBe("My-own-typed-1");
     expect(within(dialog).getByRole("alert").textContent).toMatch(/Shown once/);
@@ -65,7 +65,7 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     fireEvent.click(within(dialog).getByRole("button", { name: "I have copied it" }));
     await waitFor(() => expect(screen.queryByTestId("temp-password")).toBeNull());
     expect(document.body.textContent).not.toContain("My-own-typed-1");
-    expect((screen.getByLabelText(/Email Address/) as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText(/Email address/) as HTMLInputElement).value).toBe("");
   });
 
   it("shows the server-generated password when the server returns one", async () => {
@@ -73,7 +73,7 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     render(<InvitePanel orgId={7} options={OPTIONS} onSent={() => undefined} />);
     await waitFor(() => expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toBe(GENERATED));
     await fillValid();
-    fireEvent.click(screen.getByRole("button", { name: "Create Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect(((await screen.findByTestId("temp-password")) as HTMLInputElement).value).toBe("Server-made-9!"); // the server returns it only when the form sent none
   });
 
@@ -82,7 +82,7 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     await waitFor(() => expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toBe(GENERATED));
     await fillValid();
     fireEvent.change(screen.getByLabelText(/Temporary password/), { target: { value: "ab" } });
-    fireEvent.click(screen.getByRole("button", { name: "Create Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect(await screen.findByText("At least 4 characters.")).toBeTruthy();
     expect(calls.some((c) => c.url.endsWith("/members/account"))).toBe(false);
   });
@@ -93,7 +93,7 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     render(<InvitePanel orgId={7} options={OPTIONS} onSent={onSent} />);
     await waitFor(() => expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toBe(GENERATED));
     await fillValid();
-    fireEvent.click(screen.getByRole("button", { name: "Create Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect(await screen.findByText(/An invitation was sent to sam@example.test instead of a new account/)).toBeTruthy();
     expect(screen.queryByTestId("temp-password")).toBeNull();
     expect(onSent).toHaveBeenCalledTimes(1);
@@ -104,7 +104,7 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     render(<InvitePanel orgId={7} options={OPTIONS} onSent={() => undefined} />);
     await waitFor(() => expect((screen.getByLabelText(/Temporary password/) as HTMLInputElement).value).toBe(GENERATED));
     await fillValid();
-    fireEvent.click(screen.getByRole("button", { name: "Create Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     expect(await screen.findByText("Already a member of this organization.")).toBeTruthy();
     expect(screen.queryByTestId("temp-password")).toBeNull();
   });
@@ -113,9 +113,9 @@ describe("InvitePanel: create account now (the default) and send invitation", ()
     render(<InvitePanel orgId={7} options={OPTIONS} onSent={() => undefined} />);
     fireEvent.click(screen.getByRole("radio", { name: /Send invitation/ }));
     expect(screen.queryByLabelText(/Temporary password/)).toBeNull();
-    expect(screen.getByLabelText(/Personal Message/)).toBeTruthy();
+    expect(screen.getByLabelText(/Personal message/)).toBeTruthy();
     await fillValid();
-    fireEvent.click(screen.getByRole("button", { name: /Send Invitation/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Send invitation/ }));
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/invitations") && c.method === "POST")).toBe(true));
     expect(calls.some((c) => c.url.endsWith("/members/account"))).toBe(false);
   });
@@ -137,7 +137,7 @@ describe("InvitePanel: optional Team and Manager (ADM-19)", () => {
     fireEvent.click(screen.getByRole("option", { name: "Platform" }));
     fireEvent.click(screen.getByRole("button", { name: "Manager" }));
     fireEvent.click(screen.getByRole("option", { name: "Mira Manager" }));
-    fireEvent.click(screen.getByRole("button", { name: "Create Account" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
     await screen.findByRole("dialog", { name: "Account created" });
     expect(calls.find((c) => c.url.endsWith("/members/account"))!.body).toMatchObject({ teamGroupId: 31, managerMemberId: 5 });
   });
@@ -146,7 +146,7 @@ describe("InvitePanel: optional Team and Manager (ADM-19)", () => {
     render(<InvitePanel orgId={7} options={WITH_PLACEMENT} onSent={() => undefined} />);
     fireEvent.click(screen.getByRole("radio", { name: /Send invitation/ }));
     await fillValid("lee@example.test");
-    fireEvent.click(screen.getByRole("button", { name: /Send Invitation/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Send invitation/ }));
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/invitations") && c.method === "POST")).toBe(true));
     const sent = calls.find((c) => c.url.endsWith("/invitations") && c.method === "POST")!.body!;
     expect(sent).not.toHaveProperty("teamGroupId");

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import { Button, Field, IconButton, Input, MailIcon, SendIcon, Select, Textarea, Tooltip, XIcon } from "@kiwiply/ui";
+import { Button, Field, Input, SendIcon, Select, Textarea } from "@kiwiply/ui";
 import { accountsApi, invitationsApi, isEmail, passwordIssue, problemText, rowProblem, type AccountBody, type FormOptions, type InviteBody } from "@/lib/ent/invitations";
 import TempPasswordDialog from "@/components/ent/shared/TempPasswordDialog";
 import RoleSelect from "./RoleSelect";
@@ -18,7 +18,7 @@ export interface Sent {
 }
 
 /**
- * The "Invite Employee" panel, which is also the create form (no Save button: Send Invitation is the one deliberate step). One
+ * The "Add employee" form (it lives in the dialog the Employees page opens), which is also the create form (no Save button: Send invitation is the one deliberate step). One
  * address, an optional name, one or more roles, a department (required only when the organization has departments) and an
  * optional note. A refused entry says why under the field it belongs to; a sent one clears the form for the next person and
  * tells the page (which offers Undo, a revoke, in a toast).
@@ -27,18 +27,18 @@ export default function InvitePanel({
   orgId,
   options,
   onSent,
-  onClose,
-  focusSignal = 0,
-  headingId,
+  onCreated,
+  onBulk,
+  orgName,
 }: {
   orgId: number | string;
   options: FormOptions | null;
   onSent: (sent: Sent) => void;
-  /** Shown as the X when the panel is closable. */
-  onClose?: () => void;
-  /** Bump this number to move focus to the address field ("Invite your first teammate"). */
-  focusSignal?: number;
-  headingId?: string;
+  /** An account was created (the temporary-password dialog is showing): the page reloads its lists. */
+  onCreated?: () => void;
+  /** Opens the bulk-invite sheet; drawn as a link at the foot of the form. */
+  onBulk?: () => void;
+  orgName?: string;
 }) {
   const uid = useId();
   const emailRef = useRef<HTMLInputElement>(null);
@@ -57,10 +57,6 @@ export default function InvitePanel({
   const [showPassword, setShowPassword] = useState(false);
   const [creds, setCreds] = useState<{ who: string; password: string | null; expiresAt: string | null } | null>(null);
   const [createdNote, setCreatedNote] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (focusSignal > 0) emailRef.current?.focus();
-  }, [focusSignal]);
 
   /** A fresh generated password for the field (nothing is stored on the server for it). */
   async function suggest() {
@@ -133,6 +129,7 @@ export default function InvitePanel({
       if (made.data.mode === "ACCOUNT_CREATED") {
         setCreds({ who, password: made.data.tempPassword ?? account.password ?? null, expiresAt: made.data.tempPasswordExpiresAt });
         setCreatedNote(`Account created for ${who}.`);
+        onCreated?.();
         void suggest();
       } else {
         // Legacy (shared-account) organizations only: the API sends INVITED when it could not create a new account, and the normal invitation went out instead.
@@ -178,25 +175,8 @@ export default function InvitePanel({
   }
 
   return (
-    <form onSubmit={submit} noValidate data-invite-panel aria-labelledby={headingId ?? `${uid}-h`} className="flex flex-col gap-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h2 id={headingId ?? `${uid}-h`} className="flex items-center gap-3 text-[20px] font-bold text-ink">
-            <span aria-hidden className="grid h-[34px] w-[34px] flex-none place-items-center rounded-lg bg-accent-soft text-accent">
-              <MailIcon aria-hidden size={20} />
-            </span>
-            Invite Employee
-          </h2>
-          <p className="mt-1.5 text-[13px] text-muted">{mode === "account" ? "Create their account in your organization now with a temporary password. It is a separate account: it never touches or links to any personal account they have." : "Send an invitation to join your organization."}</p>
-        </div>
-        {onClose && (
-          <Tooltip content="Close">
-            <IconButton aria-label="Close the invite panel" onClick={onClose} className="!h-[34px] !w-[34px] flex-none rounded-full border border-line bg-paper text-accent shadow-sm">
-              <XIcon size={16} />
-            </IconButton>
-          </Tooltip>
-        )}
-      </div>
+    <form onSubmit={submit} noValidate data-invite-panel aria-label="Add employee" className="flex flex-col gap-2.5">
+      <p className="text-[13px] text-muted">{mode === "account" ? `Creates a separate account at ${orgName ?? "your organization"}. It never links to any personal account they have.` : `Sends an invitation to join ${orgName ?? "your organization"}.`}</p>
 
       <fieldset className="m-0 min-w-0 border-0 p-0" data-invite-mode-group>
         <legend className="sr-only">How to add this person</legend>
@@ -216,7 +196,7 @@ export default function InvitePanel({
         </div>
       </fieldset>
 
-      <Field className="!mb-0" label="Email Address" required error={errors.email} htmlFor={`${uid}-email`}>
+      <Field className="!mb-0" label="Email address" required error={errors.email} htmlFor={`${uid}-email`}>
         <Input
           id={`${uid}-email`}
           ref={emailRef}
@@ -232,7 +212,7 @@ export default function InvitePanel({
         />
       </Field>
 
-      <Field className="!mb-0" label={<>Full Name <span className="font-normal text-muted">(Optional)</span></>} htmlFor={`${uid}-name`}>
+      <Field className="!mb-0" label={<>Full name <span className="font-normal text-muted">(optional)</span></>} htmlFor={`${uid}-name`}>
         <Input id={`${uid}-name`} autoComplete="off" placeholder="Enter full name" value={fullName} onChange={(e) => setFullName(e.target.value)} maxLength={120} />
       </Field>
 
@@ -276,10 +256,10 @@ export default function InvitePanel({
 
       {(teams.length > 0 || managers.length > 0) && (
         <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2" data-invite-placement>
-          <Field className="!mb-0" label={<>Team <span className="font-normal text-muted">(Optional)</span></>} htmlFor={`${uid}-team`}>
+          <Field className="!mb-0" label={<>Team <span className="font-normal text-muted">(optional)</span></>} htmlFor={`${uid}-team`}>
             <Select id={`${uid}-team`} aria-label="Team" value={team || NONE} onChange={(v) => setTeam(v === NONE ? "" : v)} disabled={teams.length === 0} options={[{ value: NONE, label: "No team" }, ...teams.map((t) => ({ value: String(t.id), label: t.name }))]} />
           </Field>
-          <Field className="!mb-0" label={<>Manager <span className="font-normal text-muted">(Optional)</span></>} htmlFor={`${uid}-manager`} hint="Who they report to.">
+          <Field className="!mb-0" label={<>Manager <span className="font-normal text-muted">(optional)</span></>} htmlFor={`${uid}-manager`}>
             <Select id={`${uid}-manager`} aria-label="Manager" value={manager || NONE} onChange={(v) => setManager(v === NONE ? "" : v)} disabled={managers.length === 0} options={[{ value: NONE, label: "No manager" }, ...managers.map((m) => ({ value: String(m.memberId), label: m.name }))]} />
           </Field>
         </div>
@@ -317,7 +297,7 @@ export default function InvitePanel({
       {mode === "invite" && (
       <Field
         className="!mb-0"
-        label={<>Personal Message <span className="font-normal text-muted">(Optional)</span></>}
+        label={<>Personal message <span className="font-normal text-muted">(optional)</span></>}
         htmlFor={`${uid}-msg`}
         render={({ id }) => (
           <div className="relative">
@@ -347,8 +327,16 @@ export default function InvitePanel({
       )}
       <Button type="submit" variant="accent" size="lg" disabled={busy} className="w-full">
         <SendIcon aria-hidden size={18} />
-        {mode === "account" ? (busy ? "Creating…" : "Create Account") : busy ? "Sending…" : "Send Invitation"}
+        {mode === "account" ? (busy ? "Creating…" : "Create account") : busy ? "Sending…" : "Send invitation"}
       </Button>
+      {onBulk && (
+        <p className="text-center text-[13px] text-muted">
+          Adding a list of people?{" "}
+          <button type="button" onClick={onBulk} data-bulk-invite className="font-semibold text-accent-deep underline">
+            Bulk invite
+          </button>
+        </p>
+      )}
       <p role="status" aria-live="polite" className="min-h-4 text-center text-[12.5px] text-accent-deep">
         {mode === "invite" && sentTo ? `Invitation sent to ${sentTo}.` : mode === "account" ? (createdNote ?? "") : ""}
       </p>
