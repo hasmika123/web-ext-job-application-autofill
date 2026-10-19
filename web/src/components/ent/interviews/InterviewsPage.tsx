@@ -59,7 +59,6 @@ import {
 } from "@/lib/ent/interviews";
 import { FeedbackDialog, RescheduleDialog, ScheduleDialog } from "./Dialogs";
 import DetailDrawer from "./DetailDrawer";
-import HelpBeeCard from "./HelpBeeCard";
 import { useReminder, useStatusMove } from "./hooks";
 import { InterviewsGrid, InterviewsTable, Pagination } from "./InterviewsTable";
 import KpiTiles from "./KpiTiles";
@@ -71,13 +70,11 @@ const DOCK_QUERY = "(min-width: 1680px)"; // config-literal-ok: the width at whi
 
 export interface InterviewsPageProps {
   orgId: number;
-  orgName: string;
   workspace: string;
   /** `me.permissions` of the tenant session: decides which controls are drawn (the API is the gate). */
   permissions: Record<string, string>;
   /** The viewer's own seat (`me.member.id`): "you" in the drawer's Updated line is decided by it. */
   selfMemberId?: number | null;
-  supportEmail?: string | null;
 }
 
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: InterviewRow[]; total: number };
@@ -95,7 +92,7 @@ const SORT_MENU: { key: SortKey; label: string }[] = [
 /** The board's field-like control for the date range and More Filters. */
 const FIELD_BTN = "inline-flex h-10 items-center gap-2 rounded-[10px] border border-[var(--ent-control-border,var(--color-line))] bg-paper px-3 text-[13px] font-medium text-ink-soft hover:border-accent";
 
-export default function InterviewsPage({ orgId, orgName, permissions, selfMemberId, supportEmail }: InterviewsPageProps) {
+export default function InterviewsPage({ orgId, permissions, selfMemberId }: InterviewsPageProps) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -461,15 +458,15 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
       <div className="flex flex-wrap items-center justify-between gap-2.5">
         <Tabs value={view.tab} onValueChange={(t) => setView({ tab: t as MainTab, page: 0 }, false)} variant="underline" className="min-w-0 flex-1">
           <TabList aria-label="Interviews views">
-            <Tab value="all"><span className="inline-flex items-center gap-2"><CalendarCheckIcon size={16} aria-hidden /> All Interviews</span></Tab>
-            <Tab value="calendar"><span className="inline-flex items-center gap-2"><CalendarIcon size={16} aria-hidden /> Calendar View</span></Tab>
+            <Tab value="all"><span className="inline-flex items-center gap-2"><CalendarCheckIcon size={16} aria-hidden /> All interviews</span></Tab>
+            <Tab value="calendar"><span className="inline-flex items-center gap-2"><CalendarIcon size={16} aria-hidden /> Calendar</span></Tab>
             <Tab value="pipeline"><span className="inline-flex items-center gap-2"><RouteIcon size={16} aria-hidden /> Pipeline</span></Tab>
             <Tab value="analytics"><span className="inline-flex items-center gap-2"><BarChartIcon size={16} aria-hidden /> Analytics</span></Tab>
           </TabList>
         </Tabs>
         {canCoordinate && (
           <Button type="button" variant="accent" onClick={() => setScheduling(true)} data-schedule-interview className="flex-none">
-            <PlusIcon size={16} aria-hidden /> Schedule Interview
+            <PlusIcon size={16} aria-hidden /> Schedule interview
           </Button>
         )}
       </div>
@@ -530,7 +527,7 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
                   </Button>
                 ) : canCoordinate ? (
                   <Button type="button" onClick={() => setScheduling(true)}>
-                    <PlusIcon size={16} aria-hidden /> Schedule Interview
+                    <PlusIcon size={16} aria-hidden /> Schedule interview
                   </Button>
                 ) : undefined
               }
@@ -597,12 +594,11 @@ export default function InterviewsPage({ orgId, orgName, permissions, selfMember
 
   return (
     <div ref={root} data-interviews-page>
-      <PageHeader title="Interviews" subtitle="Coordinate and track all consultant interviews across clients, roles, and teams." />
+      <PageHeader title="Interviews" subtitle="Interviews across all consultants and clients." />
       {columnOn ? (
         <div className="grid grid-cols-[minmax(0,1fr)_17.6rem] items-start gap-4">
           {main}
           <div className="sticky top-3 flex h-[calc(100dvh-7.2rem)] min-h-[34rem] flex-col gap-3" data-right-column>
-            <HelpBeeCard orgName={orgName} supportEmail={supportEmail} />
             {drawer}
           </div>
         </div>

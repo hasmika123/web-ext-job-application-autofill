@@ -179,7 +179,7 @@ function answer(c: Call): { status: number; body?: unknown } {
 function mount(permissions: Record<string, string> = { "pipeline.view": "ORG", "interviews.coordinate": "ORG" }) {
   return render(
     <ToastProvider>
-      <InterviewsPage orgId={2} orgName="Acme Staffing" workspace="admin" permissions={permissions} />
+      <InterviewsPage orgId={2} workspace="admin" permissions={permissions} />
     </ToastProvider>,
   );
 }
@@ -195,17 +195,17 @@ afterEach(() => {
 });
 
 describe("the Interviews page", () => {
-  it("draws the four tiles with their figures and honest deltas", async () => {
+  it("draws the four plain tiles with their figures: no delta, no trend line, no help card", async () => {
     mount();
     await screen.findByText("Senior Frontend Developer");
     const tiles = document.querySelector("[data-kpi-tiles]") as HTMLElement;
-    expect(within(tiles).getByText("Total Interviews")).toBeTruthy();
+    expect(within(tiles).getByText("Total interviews")).toBeTruthy();
     expect(tiles.querySelector('[data-kpi="total"] [data-kpi-value]')?.textContent).toBe("124");
-    expect(tiles.querySelector('[data-kpi="total"] [data-kpi-delta]')?.textContent).toContain("+18%");
-    expect(tiles.querySelector('[data-kpi="scheduledThisWeek"] [data-kpi-delta]')?.textContent).toContain("vs last week");
-    // no history 30 days ago: the figure stands alone, no invented delta
     expect(tiles.querySelector('[data-kpi="inProgress"] [data-kpi-value]')?.textContent).toBe("16");
-    expect(tiles.querySelector('[data-kpi="inProgress"] [data-kpi-delta]')).toBeNull();
+    expect(tiles.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(tiles.querySelector("[data-sparkline]")).toBeNull();
+    expect(document.querySelector("[data-help-bee]")).toBeNull();
+    expect(screen.queryByText(/Ask a question/)).toBeNull();
   });
 
   it("lists the interviews with role, code, consultant, status pill and a +N for extra interviewers", async () => {
