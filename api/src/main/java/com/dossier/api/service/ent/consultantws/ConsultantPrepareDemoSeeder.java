@@ -44,7 +44,7 @@ public class ConsultantPrepareDemoSeeder {
 
     private static final Logger LOG = LoggerFactory.getLogger(ConsultantPrepareDemoSeeder.class);
     static final String PRODUCT_CODE = "DEMO_FEAT_AUTOMATION_APPROVED_APPLY";
-    static final Set<String> CONSULTANTS = Set.of("Anika Rao", "Ben Okafor");
+    static final Set<String> CONSULTANTS = Set.of(com.dossier.api.service.ent.DemoRoster.anika(), com.dossier.api.service.ent.DemoRoster.ben());
     private static final String WHO = "enterprise-demo-seed";
 
     private final OrganizationRepository orgs;

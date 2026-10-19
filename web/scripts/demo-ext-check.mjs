@@ -3,7 +3,7 @@
  * Enterprise demo rehearsal of the extension flows, in a real Chrome with the DEVELOPMENT build of the extension (development only).
  *
  * What it drives, end to end, against the local demo stack (web 3200, API 18183, stand-in employer pages 3399):
- *   1. sign in as Anika (Demo accounts tab) on acme.localhost;
+ *   1. sign in as Anika (Demo accounts tab) on aaruna.localhost;
  *   2. Account menu -> Connect extension -> the one-time code hands the session to the extension (platform /connect page);
  *   3. Assigned Opportunities -> tick openings -> Prepare -> confirm -> the extension acknowledges, opens one tab per job and fills it;
  *   4. on the first opened page the script presses the page's OWN Submit (as the consultant would) and waits for the web to say "Submitted".
@@ -11,7 +11,7 @@
  *
  *   cd job-autofill && WXT_DEV_WEB_ORIGINS=http://localhost:3200 WXT_DEV_API_ORIGINS=http://localhost:18183 \
  *     WXT_DEV_TENANT_ORIGINS=http://*.localhost:3200 WXT_DEV_ATS_ORIGINS=http://jobs.localhost:3399 npx wxt build --mode development
- *   node web/scripts/demo-ext-check.mjs            # env: DEMO_WEB (http://acme.localhost:3200), DEMO_API (http://localhost:18183),
+ *   node web/scripts/demo-ext-check.mjs            # env: DEMO_WEB (http://aaruna.localhost:3200), DEMO_API (http://localhost:18183),
  *                                                  #      EXT_DIR (job-autofill/.output/chrome-mv3-dev), HEADED=1 to watch, PW_CHANNEL (chrome)
  */
 import { chromium } from "@playwright/test";
@@ -21,7 +21,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const WEB = process.env.DEMO_WEB || "http://acme.localhost:3200";
+const WEB = process.env.DEMO_WEB || "http://aaruna.localhost:3200";
 const API = process.env.DEMO_API || "http://localhost:18183";
 const EXT_DIR = resolve(process.env.EXT_DIR || join(here, "../../job-autofill/.output/chrome-mv3-dev"));
 const PICK = Number(process.env.PICK || 2);
@@ -57,7 +57,7 @@ async function seedOpenings() {
   const facts = await (await fetch(`${API}/api/orgs/${org}/marketing-assignments/consultants?q=Anika`, { headers: sarah })).json();
   const anikaFacts = (facts.items || []).find((i) => i.name === "Anika Rao");
   const marketers = await (await fetch(`${API}/api/orgs/${org}/marketing-assignments/marketers?size=100`, { headers: sarah })).json();
-  const omarMember = (marketers.items || []).find((m) => m.name === "Omar Haddad");
+  const omarMember = (marketers.items || []).find((m) => m.name === "Rahul Mehta");
   if (anikaFacts && omarMember && anikaFacts.marketer?.memberId !== omarMember.memberId) {
     const r = await fetch(`${API}/api/orgs/${org}/marketing-assignments/reassign`, {
       method: "POST",

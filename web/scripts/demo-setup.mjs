@@ -22,7 +22,7 @@ if (!secret) {
     secret = undefined;
   }
 }
-const acme = { "X-Kiwiply-Host": "acme.localhost", ...(secret ? { "X-Kiwiply-Host-Secret": secret } : {}) };
+const acme = { "X-Kiwiply-Host": "aaruna.localhost", ...(secret ? { "X-Kiwiply-Host-Secret": secret } : {}) };
 const ok = [];
 const bad = [];
 const line = (good, text) => (good ? ok : bad).push(text) && console.log(`${good ? "OK  " : "FAIL"}  ${text}`);

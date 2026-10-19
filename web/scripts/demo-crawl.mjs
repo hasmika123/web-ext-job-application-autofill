@@ -6,16 +6,16 @@
  *
  *   node web/scripts/demo-crawl.mjs                 # all three personas
  *   PERSONAS=anika node web/scripts/demo-crawl.mjs  # one
- * env: DEMO_WEB (http://acme.localhost:3200), PW_CHANNEL (chrome), HEADED=1
+ * env: DEMO_WEB (http://aaruna.localhost:3200), PW_CHANNEL (chrome), HEADED=1
  */
 import { chromium } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-const WEB = process.env.DEMO_WEB || "http://acme.localhost:3200";
+const WEB = process.env.DEMO_WEB || "http://aaruna.localhost:3200";
 const OUT = process.env.CRAWL_OUT || "C:/work_bench_claude/crawl";
 const PERSONAS = (process.env.PERSONAS || "sarah,omar,anika").split(",");
-const NAMES = { sarah: "Sarah Chen", omar: "Omar Haddad", anika: "Anika Rao", ben: "Ben Okafor" };
+const NAMES = { sarah: "Priya Sharma", omar: "Rahul Mehta", anika: "Anika Rao", ben: "Vikram Iyer" };
 mkdirSync(OUT, { recursive: true });
 
 const browser = await chromium.launch({ channel: process.env.PW_CHANNEL || "chrome", headless: !process.env.HEADED });

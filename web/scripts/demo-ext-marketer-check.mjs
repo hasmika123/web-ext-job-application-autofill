@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Enterprise demo rehearsal of the MARKETER's extension flow (development only), in a real Chrome with the dev build of the extension:
- *   1. sign in as Omar (Demo accounts) on acme.localhost and connect the extension with the one-time code;
+ *   1. sign in as Omar (Demo accounts) on aaruna.localhost and connect the extension with the one-time code;
  *   2. open a stand-in job posting (web/scripts/demo-ats-server.mjs) and open the Kiwiply drawer the way the toolbar icon does;
  *   3. the drawer shows "Save for consultant" (a marketer has no fill); write a note, tick Anika, press Save;
  *   4. the job is on Omar's Opportunities board and on Anika's Assigned Opportunities.
@@ -14,7 +14,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const WEB = process.env.DEMO_WEB || "http://acme.localhost:3200";
+const WEB = process.env.DEMO_WEB || "http://aaruna.localhost:3200";
 const EXT_DIR = resolve(process.env.EXT_DIR || join(here, "../../job-autofill/.output/chrome-mv3-dev"));
 const STAMP = Date.now();
 const TITLE = `Cloud Platform Engineer ${String(STAMP).slice(-5)}`;
@@ -64,11 +64,11 @@ try {
   const page = context.pages()[0] ?? (await context.newPage());
   await page.goto(`${WEB}/login`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: /Demo accounts/ }).first().click({ timeout: 30_000 });
-  await page.getByRole("button", { name: "Sign in as Omar Haddad" }).click();
+  await page.getByRole("button", { name: "Sign in as Rahul Mehta" }).click();
   await page.waitForURL((u) => u.pathname.startsWith("/w/"), { timeout: 60_000 });
   step("sign in as Omar", true);
 
-  await page.getByRole("button", { name: /Omar Haddad/ }).first().click();
+  await page.getByRole("button", { name: /Rahul Mehta/ }).first().click();
   await page.getByRole("menuitem", { name: "Connect extension" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Connect", exact: true }).click({ noWaitAfter: true });
   await page.waitForURL((u) => u.pathname === "/connect", { timeout: 30_000 });
@@ -163,7 +163,7 @@ try {
     step("drawer confirms the save", confirmed, drawerText.slice(-220));
 
     const board = await page.evaluate(async (t) => {
-      const org = (await (await fetch(`${location.origin.replace("jobs.localhost:3399", "acme.localhost:3200")}/api/me/tenant`)).json()).org?.id;
+      const org = (await (await fetch(`${location.origin.replace("jobs.localhost:3399", "aaruna.localhost:3200")}/api/me/tenant`)).json()).org?.id;
       return org;
     }, savedTitle).catch(() => null);
     void board;

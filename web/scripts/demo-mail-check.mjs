@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const API = process.env.DEMO_API || "http://localhost:18183";
 const secret = process.env.DOSSIER_TENANT_HOST_SECRET || (/DOSSIER_TENANT_HOST_SECRET=([^"\r\n]+)/.exec(readFileSync(join(here, "../../.claude/ent-demo-api.cmd"), "utf8")) || [])[1];
-const acme = { "X-Kiwiply-Host": "acme.localhost", "X-Kiwiply-Host-Secret": secret };
+const acme = { "X-Kiwiply-Host": "aaruna.localhost", "X-Kiwiply-Host-Secret": secret };
 const fixture = JSON.parse(readFileSync(join(here, "../../api/src/main/resources/demo/inbox-demo.json"), "utf8"));
 const results = [];
 const step = (name, ok, note = "") => results.push(ok) && console.log(`${ok ? "PASS" : "FAIL"}  ${name}${note ? "  (" + note + ")" : ""}`);

@@ -33,7 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConsultantBioDemoSeeder {
 
     private static final Logger LOG = LoggerFactory.getLogger(ConsultantBioDemoSeeder.class);
-    static final Set<String> CONSULTANTS = Set.of("Anika Rao", "Ben Okafor");
+    static final Set<String> CONSULTANTS = Set.of(com.dossier.api.service.ent.DemoRoster.anika(), com.dossier.api.service.ent.DemoRoster.ben());
 
     private final OrganizationRepository orgs;
     private final ConsultantProfileRepository consultants;

@@ -1,6 +1,6 @@
 {
   "doc": "Sample mailbox of the DEMO STACK only (DemoImapGateway, active only when DEMO_ENABLED is on and the prod profile is not). Every value here is a test value: the address is the one demo address the sandbox accepts, any 16-letter code connects to it, a code that starts with 'zzzz' is refused as a wrong password and one that starts with 'yyyy' as 'Gmail wants an app password'. Nothing in this file ever reaches a real Gmail. Dates are days before the moment of reading. In a subject, body or ics, {date+N} becomes the weekday and date N days from the moment of reading (Tuesday, October 27) and {ymd+N} that date as yyyyMMdd, so the interview times in the sample are always in the near future with the right weekday.",
-  "address": "kiwiply.demo.anika@gmail.com",
+  "address": "anika.rao.jobs@gmail.com",
   "wrongCodePrefix": "zzzz",
   "appPasswordRequiredPrefix": "yyyy",
   "sentFolder": "[Gmail]/Sent Mail",
@@ -11,7 +11,7 @@
   ],
   "stagedGroups": { "orbit-interview": "Orbit Freight invites Anika to a phone screen", "cedar-rejection": "Cedar Analytics turns the application down", "orbit-reschedule": "Orbit Freight moves the phone screen" },
   "mails": [
-    { "folder": "Sent", "daysAgo": 11, "fromName": "Anika Rao", "fromAddress": "kiwiply.demo.anika@gmail.com", "to": "careers@orbitfreight.example", "subject": "Application: Platform Engineer", "body": "Hello, please find my application attached. Best, Anika" },
+    { "folder": "Sent", "daysAgo": 11, "fromName": "Anika Rao", "fromAddress": "anika.rao.jobs@gmail.com", "to": "careers@orbitfreight.example", "subject": "Application: Platform Engineer", "body": "Hello, please find my application attached. Best, Anika" },
     { "folder": "INBOX", "daysAgo": 10, "fromName": "Orbit Freight Careers", "fromAddress": "no-reply@orbitfreight.example", "subject": "Thank you for applying to Orbit Freight", "body": "Thank you for applying to Orbit Freight. We have received your application for the Platform Engineer position and will be in touch." },
     { "staged": "cedar-rejection", "folder": "INBOX", "daysAgo": 6, "fromName": "Cedar Analytics Recruiting", "fromAddress": "recruiting@cedaranalytics.example", "subject": "Update on your application to Cedar Analytics", "body": "Thank you for your interest in the Backend Developer role at Cedar Analytics. After careful consideration we have decided to pursue other candidates. We wish you every success." },
     { "staged": "orbit-interview", "folder": "INBOX", "daysAgo": 4, "fromName": "Orbit Freight Careers", "fromAddress": "recruiting@orbitfreight.example", "subject": "Interview invitation: Platform Engineer at Orbit Freight", "body": "We would like to schedule an interview with you for the Platform Engineer role. Please share your availability for next week." },
