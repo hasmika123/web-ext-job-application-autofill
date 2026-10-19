@@ -39,7 +39,7 @@ export interface RoleEditorProps {
   onClose: () => void;
   /** A write succeeded (or the role was restored): the page reloads its table and counts. */
   onChanged: () => void;
-  /** "Duplicate to customise" (a system role, or any role the viewer cannot change). */
+  /** "Duplicate to customize" (a system role, or any role the viewer cannot change). */
   onDuplicate: (role: RoleDetail) => void;
 }
 
@@ -335,7 +335,7 @@ export default function RoleEditor({ orgId, roleId, catalog, canManage, onClose,
                   </p>
                   {canManage && detail.key !== "OWNER" && (
                     <Button size="sm" onClick={() => onDuplicate(detail)} data-duplicate-to-customise>
-                      <CopyIcon size={14} aria-hidden /> Duplicate to customise
+                      <CopyIcon size={14} aria-hidden /> Duplicate to customize
                     </Button>
                   )}
                 </div>
