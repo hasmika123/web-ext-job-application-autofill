@@ -223,6 +223,16 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
             case "MARKETING_ASSIGN" -> "assigned a consultant to a marketer";
             case "MARKETING_UNASSIGN" -> "unassigned a consultant";
             case "BILLING_PLAN_VIEW" -> "viewed the plan";
+            case "CONSULTANT_PREPARE_BATCH" -> "prepared applications with Autopilot";
+            case "CONSULTANT_PREPARE_SUBMIT_DETECTED" -> "submitted a prepared application";
+            case "CONSULTANT_OPPORTUNITY_INTERESTED" -> "said they are interested in an opportunity";
+            case "CONSULTANT_OPPORTUNITY_DECLINED" -> "declined an opportunity";
+            case "CONSULTANT_OPPORTUNITY_INFO_REQUESTED" -> "asked for more information on an opportunity";
+            case "CONSULTANT_OPPORTUNITY_APPLIED" -> "said they applied to an opportunity";
+            case "CONSULTANT_OPPORTUNITY_VIEWED" -> "viewed an opportunity";
+            case "CONSULTANT_OPPORTUNITY_REOPENED" -> "reopened an opportunity";
+            case "CONSULTANT_OPPORTUNITY_LINKED" -> "linked an application to an opportunity";
+            case "CONSULTANT_OPPORTUNITY_UNLINKED" -> "unlinked an application from an opportunity";
             case "BILLING_VIEW" -> "viewed billing";
             case OrgAuditService.GROUP_CREATE -> "created a department or team";
             case OrgAuditService.GROUP_UPDATE -> "changed a department or team";
@@ -276,7 +286,7 @@ public class ActivityRecentProvider implements DashboardWidgetProvider {
     /** A sentence from an unmapped key's parts: MARKETER_OPPORTUNITY_ASSIGN -> "assigned an opportunity"; a key with no verb -> its words. */
     static String worded(String action) {
         List<String> parts = new ArrayList<>(List.of(action.toUpperCase(java.util.Locale.ROOT).split("_+")));
-        while (parts.size() > 1 && Set.of("MKT", "MARKETER", "MARKETING", "OPS", "ADMIN", "ORG").contains(parts.get(0))) parts.remove(0);
+        while (parts.size() > 1 && Set.of("MKT", "MARKETER", "MARKETING", "CONSULTANT", "OPS", "ADMIN", "ORG").contains(parts.get(0))) parts.remove(0);
         String verb = parts.size() > 1 ? PAST.get(parts.get(parts.size() - 1)) : null;
         if (verb == null) return String.join(" ", parts).toLowerCase(java.util.Locale.ROOT);
         String thing = String.join(" ", parts.subList(0, parts.size() - 1)).toLowerCase(java.util.Locale.ROOT);

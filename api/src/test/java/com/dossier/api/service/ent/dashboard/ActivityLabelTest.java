@@ -20,6 +20,8 @@ class ActivityLabelTest {
         assertThat(ActivityRecentProvider.label("BILLING_PLAN_VIEW")).isEqualTo("viewed the plan");
         assertThat(ActivityRecentProvider.label("HISTORY_PURGED")).isEqualTo("purged old history");
         assertThat(ActivityRecentProvider.label("SHARE_SCOPE_CHANGED")).isEqualTo("changed what they share with the organization");
+        assertThat(ActivityRecentProvider.label("CONSULTANT_PREPARE_BATCH")).isEqualTo("prepared applications with Autopilot");
+        assertThat(ActivityRecentProvider.label("CONSULTANT_PREPARE_SUBMIT_DETECTED")).isEqualTo("submitted a prepared application");
     }
 
     @Test
