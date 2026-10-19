@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bodyFromForm, formFromView, saveNotificationPreferences, timeZoneOptions, type NotificationPrefsView } from "./notification-preferences";
+import { bodyFromForm, formFromView, saveNotificationPreferences, tenantPrefsView, timeZoneOptions, type NotificationPrefsView } from "./notification-preferences";
 
 const view = (over: Partial<NotificationPrefsView> = {}): NotificationPrefsView => ({
   matrix: { APP_STATUS: { inapp: true, email: "now" }, SYSTEM: { inapp: true, email: "off" } },
@@ -15,6 +15,17 @@ const view = (over: Partial<NotificationPrefsView> = {}): NotificationPrefsView 
 });
 
 afterEach(() => vi.unstubAllGlobals());
+
+describe("a tenant host's My profile (white label)", () => {
+  it("words the platform's news kind without the platform's name and hides personal billing, keeping the saved matrix as sent", () => {
+    const kind = (k: string, title: string) => ({ kind: k, title, description: "", locked: k === "BILLING", lockedWhy: null });
+    const v = view({ kinds: [kind("APP_STATUS", "Application updates"), kind("BILLING", "Billing"), kind("SYSTEM", "Kiwiply news")] });
+    const t = tenantPrefsView(v);
+    expect(t.kinds.map((k) => [k.kind, k.title])).toEqual([["APP_STATUS", "Application updates"], ["SYSTEM", "Product news"]]);
+    expect(JSON.stringify(t.kinds)).not.toContain("Kiwiply");
+    expect(t.matrix).toEqual(v.matrix);
+  });
+});
 
 describe("the preferences form", () => {
   it("starts quiet hours off at the server's offered window", () => {

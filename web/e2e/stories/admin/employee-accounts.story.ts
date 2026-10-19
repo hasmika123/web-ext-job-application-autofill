@@ -76,9 +76,9 @@ test("ADM-19b The new employee signs in on the tenant host, must choose a passwo
   const page = await ctx.newPage();
   await page.goto(`${ACME}/login`);
   await narrate(page, "The employee signs in with the e-mail and the temporary password");
-  await page.getByLabel("User Name").fill(person.email);
+  await page.getByLabel("Email", { exact: true }).fill(person.email);
   await page.getByLabel("Password", { exact: true }).fill(person.temp);
-  await page.getByRole("button", { name: /^Sign In/ }).click();
+  await page.getByRole("button", { name: /^Sign in/ }).click();
   await page.waitForURL(/\/change-password$/, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: "Choose your password", level: 1 })).toBeVisible();
 
@@ -105,12 +105,12 @@ test("ADM-19b The new employee signs in on the tenant host, must choose a passwo
   const p2 = await again.newPage();
   await p2.goto(`${ACME}/login`);
   await narrate(p2, "The temporary password no longer works; the new one does");
-  await p2.getByLabel("User Name").fill(person.email);
+  await p2.getByLabel("Email", { exact: true }).fill(person.email);
   await p2.getByLabel("Password", { exact: true }).fill(person.temp);
-  await p2.getByRole("button", { name: /^Sign In/ }).click();
+  await p2.getByRole("button", { name: /^Sign in/ }).click();
   await expect(p2.getByText("Incorrect email or password.")).toBeVisible();
   await p2.getByLabel("Password", { exact: true }).fill(person.chosen);
-  await p2.getByRole("button", { name: /^Sign In/ }).click();
+  await p2.getByRole("button", { name: /^Sign in/ }).click();
   await p2.waitForURL((u) => u.pathname.startsWith("/w/hr"), { timeout: 30_000 });
   await again.close();
 

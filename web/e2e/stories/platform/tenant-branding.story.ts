@@ -21,9 +21,9 @@ test("PLT-01 A visitor reaches Acme Staffing's branded sign-in", async ({ page }
   await expect(page.locator("[data-tenant-logo]").first()).toBeVisible();
   await expect(page.locator('a[href="mailto:support@acme.example.com"]')).toBeVisible();
   await narrate(page, "Nothing here says Kiwiply, and the form asks for a user name and password");
-  await expect(page.getByLabel("User Name")).toBeVisible();
+  await expect(page.getByLabel("Email", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Sign In/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Sign in/ })).toBeVisible();
 });
 
 test("PLT-02 Beta Talent gets its own colours and copy from the same code", async ({ page }) => {

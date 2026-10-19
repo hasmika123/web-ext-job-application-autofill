@@ -89,12 +89,12 @@ test("V3-01 Enterprise onboarding: the platform admin creates an organization an
 
   // ---- the owner signs in for the first time on the organization's own address
   await narrate(page, "That's the platform admin's part done. Now I become Maya, the owner, and open Brightline's own address.");
-  await openPage(page, `${host}/login`, () => expect(page.getByLabel("User Name")).toBeVisible({ timeout: 45_000 }));
+  await openPage(page, `${host}/login`, () => expect(page.getByLabel("Email", { exact: true })).toBeVisible({ timeout: 45_000 }));
   await narrate(page, "This is Brightline's own sign-in page. It carries their name already, and in the next video the owner will add their logo and colours.");
   await narrateDo(page, "Maya types her work email and the temporary password I gave her.", async () => {
-    await page.getByLabel("User Name").fill(OWNER_EMAIL);
+    await page.getByLabel("Email", { exact: true }).fill(OWNER_EMAIL);
     await page.getByLabel("Password", { exact: true }).fill(tempPassword);
-    await page.getByRole("button", { name: /^Sign In/ }).click();
+    await page.getByRole("button", { name: /^Sign in/ }).click();
     await page.waitForURL(/\/change-password$/, { timeout: 45_000 });
   });
   await expect(page.getByRole("heading", { name: "Choose your password", level: 1 })).toBeVisible();

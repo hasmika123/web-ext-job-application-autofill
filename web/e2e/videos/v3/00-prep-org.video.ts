@@ -50,9 +50,9 @@ test("V3-00 prep: a fresh organization in the state video 01 leaves it", async (
   const p = await owner.newPage();
   const host = tenantHost(LABEL);
   await p.goto(`${host}/login`);
-  await p.getByLabel("User Name").fill(OWNER_EMAIL);
+  await p.getByLabel("Email", { exact: true }).fill(OWNER_EMAIL);
   await p.getByLabel("Password", { exact: true }).fill(temp);
-  await p.getByRole("button", { name: /^Sign In/ }).click();
+  await p.getByRole("button", { name: /^Sign in/ }).click();
   await p.waitForURL(/\/change-password$/, { timeout: 45_000 });
   const fresh = randomPassword();
   await p.getByLabel("Temporary password").fill(temp);

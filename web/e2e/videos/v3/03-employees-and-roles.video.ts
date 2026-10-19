@@ -22,7 +22,7 @@ test("V3-03 Employees and roles: departments and teams, roles as data, single an
   });
 
   // ---- sign in
-  await openPage(page, `${host}/login`, () => expect(page.getByLabel("User Name")).toBeVisible({ timeout: 45_000 }));
+  await openPage(page, `${host}/login`, () => expect(page.getByLabel("Email", { exact: true })).toBeVisible({ timeout: 45_000 }));
   await narrate(page, "Maya, the owner of Brightline, signs in again.");
   await tenantSignIn(page, host, org.ownerEmail, org.ownerPassword);
   await shellReady(page);

@@ -42,7 +42,7 @@ test("V3-02 Enterprise setup: settings, branding, policies, modules and licences
   });
 
   // ---- sign in as the owner
-  await openPage(page, `${host}/login`, () => expect(page.getByLabel("User Name")).toBeVisible({ timeout: 45_000 }));
+  await openPage(page, `${host}/login`, () => expect(page.getByLabel("Email", { exact: true })).toBeVisible({ timeout: 45_000 }));
   await narrate(page, "We're back at Brightline's own address. Maya, the owner, signs in with the password she chose in the last video.");
   await tenantSignIn(page, host, org.ownerEmail, org.ownerPassword);
   await shellReady(page);
