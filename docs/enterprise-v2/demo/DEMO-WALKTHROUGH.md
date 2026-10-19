@@ -22,9 +22,9 @@ Real, live employers on five different hiring systems. The setup saves five of t
 
 | Employer · job | Hiring system | What it shows |
 |---|---|---|
-| Figma · Data Platform Engineer | Greenhouse | Autopilot fill: 8 fields + an AI-written answer |
-| Ramp · Software Engineer, Data Platform | Ashby | Autopilot fill: 4 fields; best resume + Check fit |
-| Rover · Staff Engineer, Commerce Platform | Lever | Autopilot fill: 5 fields |
+| Figma · Data Platform Engineer | Greenhouse | Autopilot fills every required question (13 fields, AI-written answers, the AI picks "worked for Figma before? No") |
+| Ramp · Software Engineer, Data Platform | Ashby | Autopilot fills all but one ("Where do you plan to work from?"); best resume + Check fit |
+| Rover · Staff Engineer, Commerce Platform | Lever | Autopilot fills 11 incl. salary, sponsorship, relocation; left: "Who referred you?" and the certify box |
 | Adobe · Senior Backend Engineer - Cloud Platform | Workday | Rahul's live save; best resume + Check fit (the form itself needs a Workday sign-in) |
 | Robinhood · Staff Software Engineer, Backend Platform | Greenhouse | Spare: fills 6 fields |
 | ServiceNow · Senior Staff Platform Engineer | SmartRecruiters | On the list for variety (the form needs their sign-in) |
@@ -35,11 +35,11 @@ Real, live employers on five different hiring systems. The setup saves five of t
 ## One-time setup in your Chrome (10 minutes)
 1. Two Chrome profiles: **Anika** and **Rahul**.
 2. In each: `chrome://extensions` → **Developer mode** → **Load unpacked** → `job-autofill/.output/chrome-mv3-dev-aaruna-technologies` → pin it.
-   Loaded it before 2026-10-19? Press **Reload** on its card (version 0.69.2 waits for Ashby's form).
+   Loaded it before? Press **Reload** on its card (it must say version **0.69.3**).
 3. In each: sign in as that person → account menu (top right) → **Connect extension** → **Connect** → "Extension connected".
-4. Anika only: extension gear → Settings → turn on **Use Kiwiply AI** and the **I consent** switch.
-5. Anika only (recommended): in the extension drawer press **Upload** and pick `Anika-Rao-Resume.pdf` (Desktop: her full two-page
-   resume). From then on the resume field of every form fills itself.
+4. Anika only: extension gear → Settings → turn on **Use Aaruna AI** and the **I consent** switch.
+5. Anika only: in the extension drawer press **Upload** → pick `Anika-Rao-Resume.pdf` (Desktop) → **Save to my resumes** → the review
+   shows 32 skills, 3 roles, 2 schools → **Save**. Pick it in **Choose a resume**. From then on the resume field of every form fills itself.
 
 ## Act 1. Priya sets the company up (5 min)
 1. **Dashboard**: consultants, placements, applications at a glance.
@@ -63,8 +63,9 @@ Real, live employers on five different hiring systems. The setup saves five of t
    confirm ("nothing is submitted for you").
 4. Each job opens in its own tab with the review panel: three real hiring systems (Greenhouse, Ashby, Lever) plus the practice page.
    Name, contact, links, work authorization, and on Figma an **AI-written answer** to its open question.
-   **Fill selected** on each. Figma leaves 3 dropdowns (Country, City, Authorization) for her to pick: say so, it's honest.
-5. On **TechCorp** only (practice page) she presses **Submit Application**; back on Kiwiply the progress panel says **Submitted**.
+   **Fill selected** on each. Figma is complete; Ramp asks one question (where she plans to work from); Rover asks who referred her and
+   leaves the certify box: say plainly that the extension never ticks an attestation for her: she does.
+5. On **TechCorp** only (practice page) she presses **Submit Application**; back on the Aaruna site the progress panel says **Submitted**.
    Close the Figma, Ramp and Rover tabs without submitting.
 
 ## Act 4. Anika's email keeps the board current (5 min)
