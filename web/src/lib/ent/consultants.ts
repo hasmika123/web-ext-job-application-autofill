@@ -265,7 +265,7 @@ export interface PatchBody {
 
 /* ── labels ───────────────────────────────────────────────────────────────────────── */
 
-export const AVAILABILITY_LABEL: Record<string, string> = { AVAILABLE: "Available", ON_PROJECT: "On Project", NOTICE: "On Notice", UNAVAILABLE: "Unavailable" };
+export const AVAILABILITY_LABEL: Record<string, string> = { AVAILABLE: "Available", ON_PROJECT: "On project", NOTICE: "On notice", UNAVAILABLE: "Unavailable" };
 export const LICENSE_LABEL: Record<string, string> = { ACTIVE: "Active", EXPIRING: "Expiring", PENDING: "Pending", NEEDS_REVIEW: "Needs Review" };
 export const WORK_MODE_LABEL: Record<string, string> = { REMOTE: "Remote", HYBRID: "Hybrid", ONSITE: "On-site" };
 export const STAGE_LABEL: Record<string, string> = {

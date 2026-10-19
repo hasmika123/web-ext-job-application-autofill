@@ -68,7 +68,6 @@ export interface DetailSheetProps {
   onTab: (t: DetailTab) => void;
   returnFocusTo?: RefObject<HTMLElement | null>;
   /** The help card, shown at the foot of the drawer (the board puts it there). */
-  footer?: ReactNode;
 }
 
 function Card({ icon, title, children, className = "" }: { icon: ReactNode; title: string; children: ReactNode; className?: string }) {
@@ -220,9 +219,9 @@ function Overview({ detail, canEdit, save, onSaved, onTab, onFlow }: { detail: C
         </div>
       </Card>
 
-      <section aria-label="Quick actions" data-quick-actions>
+      <section aria-label="Actions" data-quick-actions>
         <h3 className="mb-1.5 flex items-center gap-1.5 text-[13.5px] font-bold text-ink">
-          <ZapIcon aria-hidden size={15} className="text-accent" /> Quick Actions
+          <ZapIcon aria-hidden size={15} className="text-accent" /> Actions
         </h3>
         <ul className="divide-y divide-line/60 rounded-xl border border-line bg-paper">
           {quick.map((r) => (
@@ -323,7 +322,6 @@ export default function DetailSheet(p: DetailSheetProps) {
             <ActivityTab orgId={p.orgId} id={c.id} version={d.version} />
           </TabPanel>
         </Tabs>
-        {p.footer && <div className="mt-4">{p.footer}</div>}
       </div>
     );
   })();

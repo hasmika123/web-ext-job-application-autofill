@@ -222,7 +222,7 @@ async function mount(over: { permissions?: Record<string, string>; search?: stri
   nav.search = over.search ?? "";
   const out = render(
     <ToastProvider>
-      <ConsultantsPage orgId={2} orgName="Acme" permissions={over.permissions ?? PERMS} supportEmail={null} />
+      <ConsultantsPage orgId={2} permissions={over.permissions ?? PERMS} />
     </ToastProvider>,
   );
   await settle(0);
@@ -273,25 +273,24 @@ describe("Consultants: the directory", () => {
     expect(rowFor("Jessica Davis").textContent).toContain("Sarah Chen");
     expect(rowFor("Jessica Davis").querySelector("[data-next-interview]")?.textContent).toContain("Oct 22, 2026");
     expect(rowFor("Michael Park").querySelector("[data-next-interview]")).toBeNull();
-    expect(Array.from(document.querySelectorAll("th")).map((h) => h.textContent?.trim())).toEqual(
-      expect.arrayContaining(["Consultant", "Primary Skills", "Experience", "Location", "Marketer", "Availability", "License", "Profile", "Apps", "Next Interview"]),
-    );
+    const heads = Array.from(document.querySelectorAll("th")).map((h) => h.textContent?.trim());
+    expect(heads).toEqual(expect.arrayContaining(["Consultant", "Primary skills", "Experience", "Location", "Marketer", "Availability", "License", "Next interview"]));
+    expect(heads).not.toContain("Profile");
+    expect(heads).not.toContain("Apps");
     expect(screen.getByText("1-3 of 3 consultants")).toBeTruthy();
     const first = listCalls()[0];
     expect(first.params.get("sort")).toBe("name,asc");
     expect(first.params.get("size")).toBe("10");
   });
 
-  it("draws four tiles with a sparkline, and a delta only where the API gave one", async () => {
+  it("draws three plain tiles (no total, no trend line, no delta) and the count in the list header", async () => {
     await mount();
-    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["total", "available", "onProject", "needsReview"]);
-    const total = document.querySelector("[data-kpi=total]")!;
-    expect(total.querySelector("[data-kpi-value]")?.textContent).toBe("3");
-    expect(total.querySelector("[data-sparkline]")).not.toBeNull();
-    expect(total.querySelector("[data-kpi-delta]")?.textContent).toContain("50%");
-    expect(total.querySelector("[data-kpi-delta]")?.textContent).toContain("vs last month");
-    expect(document.querySelector("[data-kpi=available] [data-kpi-delta]")?.textContent).toContain("0%");
-    for (const k of ["onProject", "needsReview"]) expect(document.querySelector(`[data-kpi=${k}] [data-kpi-delta]`), k).toBeNull();
+    expect(Array.from(document.querySelectorAll("[data-kpi]")).map((e) => e.getAttribute("data-kpi"))).toEqual(["available", "onProject", "needsReview"]);
+    expect(document.querySelector("[data-kpi=available] [data-kpi-value]")?.textContent).toBeTruthy();
+    expect(document.querySelector("[data-kpi] [data-sparkline]")).toBeNull();
+    expect(document.querySelector("[data-kpi-delta]")).toBeNull();
+    expect(screen.getByText("On project", { selector: "[data-kpi=onProject] *" })).toBeTruthy();
+    expect(document.querySelector("[data-consultant-count]")?.textContent).toBe("3 consultants");
   });
 
   it("searches after typing rests and puts the search in the address", async () => {
@@ -336,7 +335,7 @@ describe("Consultants: the directory", () => {
   it("filters by availability through the dropdown", async () => {
     await mount();
     fireEvent.click(document.querySelector('[role=search] button[aria-label="Availability"]')!);
-    fireEvent.click(screen.getByRole("option", { name: "On Project" }));
+    fireEvent.click(screen.getByRole("option", { name: "On project" }));
     await settle();
     expect(listCalls().at(-1)!.params.get("availability")).toBe("ON_PROJECT");
     expect(rows()).toHaveLength(1);
@@ -367,12 +366,12 @@ describe("Consultants: empty, error and phone", () => {
     people = [];
     await mount();
     expect(screen.getByText("No consultants yet")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: /Add Consultant/ }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /Add consultant/ }).length).toBeGreaterThan(0);
     cleanup();
     stubApi();
     await mount({ permissions: { "consultants.view": "ORG" } });
     expect(screen.getByText("No consultants yet")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Add Consultant/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add consultant/ })).toBeNull();
   });
 
   it("shows a retry when the list fails", async () => {
@@ -405,7 +404,8 @@ describe("Consultants: the drawer", () => {
     expect(d.querySelectorAll("[data-checklist] li")).toHaveLength(5);
     expect(d.querySelectorAll("[data-checklist] [data-done=true]")).toHaveLength(3);
     expect(Array.from(d.querySelectorAll("[data-quick-action]")).map((b) => b.getAttribute("data-quick-action"))).toEqual(["applications", "marketer", "license", "link", "department", "application", "deactivate"]);
-    expect(within(d).getByText("Need help managing consultants?")).toBeTruthy();
+    expect(within(d).queryByText(/Need help managing consultants/)).toBeNull();
+    expect(within(d).getByRole("heading", { name: "Actions" })).toBeTruthy();
   });
 
   it("switches tabs, loading each one lazily and putting the tab in the address", async () => {
@@ -426,13 +426,13 @@ describe("Consultants: the drawer", () => {
     await mount({ search: "c=1" });
     await settle();
     fireEvent.click(within(drawer()).getByRole("button", { name: "Availability" }));
-    fireEvent.click(screen.getByRole("option", { name: "On Project" }));
+    fireEvent.click(screen.getByRole("option", { name: "On project" }));
     await settle();
     const patch = calls.find((c) => c.method === "PATCH")!;
     expect(patch.path).toBe("/1");
     expect(patch.body).toEqual({ availabilityStatus: "ON_PROJECT" });
     expect(patch.headers["if-match"]).toBe('W/"1-0"');
-    expect(screen.getByText("Availability set to On Project")).toBeTruthy();
+    expect(screen.getByText("Availability set to On project")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     await settle();
     const patches = calls.filter((c) => c.method === "PATCH");
@@ -475,7 +475,7 @@ describe("Consultants: the drawer", () => {
 describe("Consultants: actions", () => {
   it("adds a consultant with an idempotency key, opens the drawer on them and offers Undo", async () => {
     await mount();
-    fireEvent.click(screen.getAllByRole("button", { name: /Add Consultant/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Add consultant/ })[0]);
     await settle();
     const dialog = screen.getByRole("dialog", { name: "Add Consultant" });
     expect((within(dialog).getByRole("button", { name: "Add consultant" }) as HTMLButtonElement).disabled).toBe(true);
@@ -492,7 +492,7 @@ describe("Consultants: actions", () => {
 
   it("offers the people who hold the Consultant role and links the one picked (D2/D3)", async () => {
     await mount();
-    fireEvent.click(screen.getAllByRole("button", { name: /Add Consultant/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Add consultant/ })[0]);
     await settle();
     const dialog = screen.getByRole("dialog", { name: "Add Consultant" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Existing person" }));
@@ -521,7 +521,7 @@ describe("Consultants: actions", () => {
   it("shows the server's sentence when a duplicate email is refused, and keeps the form", async () => {
     overrides.push((c) => (c.method === "POST" && c.path === "/" ? { status: 409, body: { error: "dup", code: "CONSULTANT_EXISTS" } } : undefined));
     await mount();
-    fireEvent.click(screen.getAllByRole("button", { name: /Add Consultant/ })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /Add consultant/ })[0]);
     const dialog = screen.getByRole("dialog", { name: "Add Consultant" });
     fireEvent.change(within(dialog).getByLabelText("Full name"), { target: { value: "Fay Fox" } });
     fireEvent.change(within(dialog).getByLabelText("Work email"), { target: { value: "fay@acme.test" } });
@@ -539,7 +539,7 @@ describe("Consultants: actions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Set availability" }));
     const dialog = screen.getByRole("dialog", { name: "Set availability" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Availability" }));
-    fireEvent.click(screen.getByRole("option", { name: "On Project" }));
+    fireEvent.click(screen.getByRole("option", { name: "On project" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Apply" }));
     await settle();
     const bulk = calls.find((c) => c.path === "/bulk/availability")!;
@@ -603,7 +603,7 @@ describe("Consultants: actions", () => {
 
   it("offers no add, bulk or row actions to someone who may only view", async () => {
     await mount({ permissions: { "consultants.view": "ORG" } });
-    expect(screen.queryByRole("button", { name: /Add Consultant/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add consultant/ })).toBeNull();
     fireEvent.click(screen.getByLabelText("Select Jessica Davis"));
     expect(screen.queryByRole("button", { name: "Set availability" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Assign marketer" })).toBeNull();

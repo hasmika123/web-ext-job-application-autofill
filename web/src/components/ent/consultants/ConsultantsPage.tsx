@@ -36,7 +36,6 @@ import {
 import { AddConsultantDialog, ApplicationDialog, BulkAvailabilityDialog, DepartmentDialog, LicenseDialog, LinkMemberDialog, MarketerDialog, type Outcome } from "./Dialogs";
 import DetailSheet, { type FlowKind } from "./DetailSheet";
 import { ConsultantsTable, Pagination } from "./ConsultantsTable";
-import HelpBeeCard from "./HelpBeeCard";
 import KpiTiles from "./KpiTiles";
 
 const WIDE_QUERY = "(min-width: 1400px)"; // config-literal-ok: the width at which the drawer docks beside the table instead of floating over it
@@ -45,10 +44,8 @@ const UNDO_DEACTIVATE_REASON = "Undo: deactivated by mistake";
 
 export interface ConsultantsPageProps {
   orgId: number;
-  orgName: string;
   /** `me.permissions` of the tenant session: decides which buttons are drawn (the API is the gate). */
   permissions: Record<string, string>;
-  supportEmail?: string | null;
 }
 
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: ConsultantRow[]; total: number };
@@ -56,7 +53,7 @@ type ListState = { status: "loading" } | { status: "error"; message: string } | 
 /** The flow a dialog is open for: a row (name and current marketer known) or the open drawer (the whole detail known). */
 type Flow = { kind: FlowKind; id: number; name: string; marketerId: number | null; detail: ConsultantDetail | null } | null;
 
-export default function ConsultantsPage({ orgId, orgName, permissions, supportEmail }: ConsultantsPageProps) {
+export default function ConsultantsPage({ orgId, permissions }: ConsultantsPageProps) {
   const toast = useToast();
   const narrow = useNarrow();
   const wide = useMediaQuery(WIDE_QUERY, false);
@@ -412,38 +409,30 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
     { value: "name,desc", label: "Name Z to A" },
     { value: "joined,desc", label: "Newest first" },
     { value: "experience,desc", label: "Most experience" },
-    { value: "profile,desc", label: "Profile, most complete" },
   ];
   const filterDefs = [
-    { name: "availability", label: "Availability", allLabel: "All Availability", options: AVAILABILITY_OPTIONS },
-    { name: "skill", label: "Skills", allLabel: "All Skills", options: filters.skills.map((s) => ({ value: s, label: s })) },
-    { name: "license", label: "License Status", allLabel: "All License Status", options: LICENSE_OPTIONS },
-    { name: "marketer", label: "Marketers", allLabel: "All Marketers", options: [{ value: "none", label: "Unassigned" }, ...filters.marketers.map((m) => ({ value: String(m.memberId), label: m.name }))] },
+    { name: "availability", label: "Availability", allLabel: "All availability", options: AVAILABILITY_OPTIONS },
+    { name: "skill", label: "Skills", allLabel: "All skills", options: filters.skills.map((s) => ({ value: s, label: s })) },
+    { name: "license", label: "License status", allLabel: "All license statuses", options: LICENSE_OPTIONS },
+    { name: "marketer", label: "Marketers", allLabel: "All marketers", options: [{ value: "none", label: "Unassigned" }, ...filters.marketers.map((m) => ({ value: String(m.memberId), label: m.name }))] },
   ];
   const moreCount = (query.workMode ? 1 : 0) + (query.status ? 1 : 0);
-  const helpCard = <HelpBeeCard orgName={orgName} supportEmail={supportEmail} compact={drawerOpen && mode === "push"} />;
 
   return (
     <div ref={root} data-consultants-page data-ent-page="consultants">
-      <PageHeader title="Consultants" subtitle="Manage your consultant network, track availability, assignments, and performance." />
+      <PageHeader title="Consultants" subtitle="Your bench: who's available, who's placed, and who looks after them." />
       <div className="flex items-start">
         <div className="min-w-0 flex-1 space-y-4">
           <KpiTiles compact={drawerOpen && mode === "push"} counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
 
           <section aria-label="Consultant directory" className="ent-card p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <span aria-hidden className="inline-grid h-10 w-10 flex-none place-items-center rounded-xl bg-accent-soft text-accent-deep">
-                  <UsersIcon size={20} />
-                </span>
-                <div className="min-w-0">
-                  <h2 className="text-[17px] font-extrabold leading-tight text-[var(--ent-title)]">Consultant Directory</h2>
-                  <p className="text-[12.5px] text-muted">View and manage all consultants in your organization.</p>
-                </div>
-              </div>
+              <h2 data-consultant-count className="text-[17px] font-extrabold leading-tight text-[var(--ent-title)]">
+                {list.status === "ok" ? `${total.toLocaleString("en-US")} ${total === 1 ? "consultant" : "consultants"}` : "Consultants"}
+              </h2>
               {canEdit && (
                 <Button type="button" variant="accent" onClick={() => setAddOpen(true)} data-add-consultant>
-                  <PlusIcon size={16} aria-hidden /> Add Consultant
+                  <PlusIcon size={16} aria-hidden /> Add consultant
                 </Button>
               )}
             </div>
@@ -459,7 +448,7 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
                 filters={filterDefs}
                 actions={
                   <Button type="button" variant="ghost" size="sm" aria-expanded={moreOpen} onClick={() => setMoreOpen((o) => !o)} data-more-filters>
-                    <FilterIcon size={15} aria-hidden /> More Filters{moreCount > 0 ? ` (${moreCount})` : ""}
+                    <FilterIcon size={15} aria-hidden /> More filters{moreCount > 0 ? ` (${moreCount})` : ""}
                   </Button>
                 }
               />
@@ -562,7 +551,7 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
                       </Button>
                     ) : canEdit ? (
                       <Button type="button" onClick={() => setAddOpen(true)}>
-                        <PlusIcon size={16} aria-hidden /> Add Consultant
+                        <PlusIcon size={16} aria-hidden /> Add consultant
                       </Button>
                     ) : undefined
                   }
@@ -571,7 +560,6 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
             </div>
           </section>
 
-          {list.status === "ok" && rows.length > 0 && !drawerOpen && helpCard}
         </div>
 
         <DetailSheet
@@ -584,7 +572,6 @@ export default function ConsultantsPage({ orgId, orgName, permissions, supportEm
           reloadToken={reloadToken}
           tab={state.tab}
           onTab={(t) => update((s) => ({ ...s, tab: t }))}
-          footer={helpCard}
         />
       </div>
 
