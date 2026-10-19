@@ -1,7 +1,7 @@
 "use client";
 
 import { BarChartIcon, FUNNEL_COLORS, FunnelChart, FunnelIcon, LineChart, SendIcon, WeekBarChart, chartColor } from "@kiwiply/ui";
-import { MONTH_PERIODS, WEEK_PERIODS, monthLabels, weekLines, type Funnel, type Trend, type WeeklyChart } from "@/lib/ent/marketer-ws/performance";
+import { MONTH_PERIODS, WEEK_PERIODS, monthLabels, shortDay, weekLines, type Funnel, type Trend, type WeeklyChart } from "@/lib/ent/marketer-ws/performance";
 import { CARD, CardSkeleton, Empty } from "../parts";
 import { CardHead, INFO, PeriodSelect } from "./bits";
 
@@ -52,6 +52,7 @@ export function TrendCard({ data, period, onPeriod, loading }: { data: Trend | n
           label="Interviews vs offers"
           height={170}
           xLabels={monthLabels(data.points)}
+          rowLabels={data.points.map((p) => shortDay(p.date))}
           series={[
             { key: "submissions", label: "Submissions", values: data.points.map((p) => p.submissions), color: chartColor(1) },
             { key: "interviews", label: "Interviews", values: data.points.map((p) => p.interviews), color: chartColor(4) },
