@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import {
-  AlertIcon,
   Button,
   CheckCircleIcon,
   ChevronDownIcon,
@@ -18,24 +17,19 @@ import {
   Menu,
   MoreVerticalIcon,
   SearchIcon,
-  BriefcaseIcon,
-  CalendarCheckIcon,
   SendIcon,
   SideSheet,
   Skeleton,
-  Sparkline,
   UsersIcon,
   XCircleIcon,
-  ZapIcon,
-  chartColor,
   cn,
   useToast,
 } from "@kiwiply/ui";
 import type { IconProps } from "@kiwiply/ui";
-import { CARD, TONES, type IconTone } from "@/components/ent/dashboard/parts";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
-import { deltaText, employmentLabel, firstName, placeLabel } from "@/lib/ent/consultant-ws/home";
+import { CARD, TONES } from "@/components/ent/dashboard/parts";
+import PageHeader from "@/components/ent/shell/ShellContext";
+import { BASE, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
+import { employmentLabel, placeLabel } from "@/lib/ent/consultant-ws/home";
 import type { Viewer } from "@/lib/actors";
 import { UpdatedMeta, seatViewer } from "@/components/ent/applications/changeAudit";
 import {
@@ -65,7 +59,6 @@ import {
   type SortKey,
   type SubDetail,
   type SubRow,
-  type SubTile,
   type SubmissionsView,
 } from "@/lib/ent/consultant-ws/submissions";
 
@@ -77,65 +70,6 @@ import {
  */
 
 const PAGE_SIZE = 5;
-
-/* ── tiles ──────────────────────────────────────────────────────────────────────────── */
-
-interface TileSpec {
-  key: keyof SubmissionsView["tiles"];
-  title: string;
-  icon: ComponentType<IconProps>;
-  tone: IconTone;
-}
-const TILE_SPECS: TileSpec[] = [
-  { key: "pending", title: "Pending Approvals", icon: FileTextIcon, tone: "accent" },
-  { key: "approved", title: "Approved Submissions", icon: CheckCircleIcon, tone: "green" },
-  { key: "submitted", title: "Submitted to Client", icon: SendIcon, tone: "accent" },
-  { key: "attention", title: "Needs Attention", icon: AlertIcon, tone: "amber" },
-];
-
-function Tile({ spec, tile, index }: { spec: TileSpec; tile: SubTile | null; index: number }) {
-  const Icon = spec.icon;
-  const d = tile ? deltaText(tile.deltaPct) : null;
-  return (
-    <section aria-label={spec.title} data-stat-tile={spec.key} data-tone={spec.tone} data-state={tile ? "ok" : "loading"} className="flex min-h-[112px] min-w-0 gap-3 rounded-[var(--radius-lg)] border border-line bg-paper p-3.5">
-      <span aria-hidden className={cn("grid h-14 w-14 flex-none place-items-center rounded-[14px]", TONES[spec.tone])}>
-        <Icon size={26} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <h3 className="text-[14px] font-bold leading-tight text-ink">{spec.title}</h3>
-        {tile ? (
-          <>
-            <div className="mt-1 flex items-end justify-between gap-2">
-              <p data-tile-value className="text-[30px] font-extrabold leading-none tabular-nums text-ink">
-                {tile.value}
-              </p>
-              {tile.sparkline.length > 1 ? (
-                <div className="mb-0.5 w-[42%] max-w-[84px] flex-none">
-                  <Sparkline values={tile.sparkline} color={chartColor(index)} />
-                </div>
-              ) : null}
-            </div>
-            <p className="mt-2 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12px] text-muted">
-              {d ? (
-                <>
-                  <span className={cn("font-bold", d.dir === "up" ? "text-v2-green-ink" : d.dir === "down" ? "text-v2-coral-ink" : "text-muted")}>
-                    {d.dir === "up" ? "↑" : d.dir === "down" ? "↓" : "→"} {d.text}
-                  </span>
-                  <span>vs last {tile.vs}</span>
-                </>
-              ) : null}
-            </p>
-          </>
-        ) : (
-          <>
-            <Skeleton className="mt-2 h-8 w-16" />
-            <Skeleton className="mt-2 h-4 w-24" />
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 /* ── small pieces ───────────────────────────────────────────────────────────────────── */
 
@@ -327,8 +261,8 @@ function Awaiting({ view, busy, a, notice, now }: { view: SubmissionsView; busy:
   return (
     <Panel
       id="subs-pending"
-      title="Submissions Awaiting Your Approval"
-      subtitle="Review the details below and approve or decline submissions from your marketer."
+      title="Awaiting your approval"
+      subtitle="Review the details and approve or decline each submission."
       extra={<PillSelect label="Sort by" value={sort} onChange={(v) => setSort(v as SortKey)} options={SORT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))} />}
       note={anySample ? <SampleNote /> : null}
     >
@@ -460,8 +394,8 @@ function Past({ orgId, view, a, tick }: { orgId: number; view: SubmissionsView; 
   return (
     <Panel
       id="subs-past"
-      title="Past Submissions"
-      subtitle="Track the status of your previous submissions and what happens next."
+      title="Past submissions"
+      subtitle="Where each earlier submission stands."
       extra={
         <PillSelect
           label="Status"
@@ -603,8 +537,8 @@ function ReviewSheet({ row, detail, busy, onClose, a, me }: { row: SubRow | null
               </ul>
             </section>
           ) : (
-            <section aria-label="Submission checklist">
-              <h3 className="text-[14px] font-bold text-ink">Submission checklist</h3>
+            <section aria-label="Before you approve" data-approve-reminder>
+              <h3 className="text-[14px] font-bold text-ink">Before you approve</h3>
               <Checklist className="mt-2" />
             </section>
           )}
@@ -715,49 +649,6 @@ function DeclineDialog({ row, busy, error, onCancel, onConfirm }: { row: SubRow 
   );
 }
 
-/* ── the right rail ─────────────────────────────────────────────────────────────────── */
-
-const QUICK: { key: string; label: string; hint: string; href: string; icon: ComponentType<IconProps> }[] = [
-  { key: "resumes", label: "View My Resumes", hint: "Check and update", href: `${BASE}/resumes`, icon: FileTextIcon },
-  { key: "marketer", label: "Contact My Marketer", hint: "Send a message", href: `${BASE}/marketer`, icon: MessageIcon },
-  { key: "matches", label: "View Job Matches", hint: "Find more opportunities", href: `${BASE}/matches`, icon: BriefcaseIcon },
-  { key: "availability", label: "Update Availability", hint: "Manage your schedule", href: `${BASE}/availability`, icon: CalendarCheckIcon },
-];
-
-function QuickActions() {
-  return (
-    <Card id="subs-quick" title="Quick Actions" icon={ZapIcon}>
-      <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
-        {QUICK.map((q) => {
-          const Icon = q.icon;
-          return (
-            <li key={q.key} className="min-w-0">
-              <Link href={q.href} data-quick={q.key} className="flex h-full min-h-[64px] items-center gap-2.5 rounded-xl border border-line bg-paper p-2.5 hover:bg-paper-2/60">
-                <span aria-hidden className={cn("grid h-9 w-9 flex-none place-items-center rounded-lg", TONES.accent)}>
-                  <Icon size={18} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-[13px] font-bold leading-tight text-ink">{q.label}</span>
-                  <span className="block text-[11.5px] leading-snug text-muted">{q.hint}</span>
-                </span>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-    </Card>
-  );
-}
-
-function ChecklistCard() {
-  return (
-    <Card id="subs-checklist" title="Submission Checklist" icon={FileTextIcon}>
-      <p className="-mt-1 mb-3 text-[12.5px] text-muted">Make sure your submission is complete and accurate before approving.</p>
-      <Checklist />
-    </Card>
-  );
-}
-
 /* ── the page ───────────────────────────────────────────────────────────────────────── */
 
 export interface SubmissionsPageProps {
@@ -767,11 +658,10 @@ export interface SubmissionsPageProps {
   selfMemberId?: number | null;
 }
 
-export default function ConsultantSubmissionsPage({ orgId, firstName: first, selfMemberId }: SubmissionsPageProps) {
+export default function ConsultantSubmissionsPage({ orgId, selfMemberId }: SubmissionsPageProps) {
   const router = useRouter();
   const toast = useToast();
   const { view, status, reload } = useWorkspaceData(useCallback(() => fetchSubmissions(orgId), [orgId]));
-  const loading = status === "loading";
   const [busy, setBusy] = useState<Set<number>>(() => new Set());
   const [notice, setNotice] = useState("");
   const [reviewId, setReviewId] = useState<number | null>(null);
@@ -858,20 +748,18 @@ export default function ConsultantSubmissionsPage({ orgId, firstName: first, sel
 
   return (
     <div data-consultant-submissions data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      <PageHeader title="Submissions & Approvals" subtitle="Review and approve your submissions, track their status, and stay informed throughout the hiring process." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
+      <PageHeader title="Submissions" subtitle="Packages your marketer wants to send. Approve or decline." />
 
       {status === "failed" ? (
         <ErrorState what="your submissions" description="Your submissions didn't load. Nothing has changed." onRetry={() => void reload()} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       ) : (
         <>
-          <section aria-label="Key numbers" data-subs-tiles className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
-            {TILE_SPECS.map((s, i) => (
-              <Tile key={s.key} spec={s} tile={loading || !view ? null : view.tiles[s.key]} index={i} />
-            ))}
-          </section>
-          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.36fr)]">
+          {view && view.pending.length > 0 ? (
+            <p data-awaiting-chip className="flex">
+              <Pill tone="amber">{view.pending.length} awaiting your approval</Pill>
+            </p>
+          ) : null}
+          <div className="grid grid-cols-[minmax(0,1fr)] items-start gap-4 sm:gap-5">
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5">
               {view ? (
                 <>
@@ -885,14 +773,6 @@ export default function ConsultantSubmissionsPage({ orgId, firstName: first, sel
                   ))}
                 </div>
               )}
-            </div>
-            <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)]">
-              <BeeCard
-                name={firstName(first)}
-                body="Get guidance on submissions, understand the approval process, and make informed decisions. I can explain job details, review feedback, and answer any questions."
-              />
-              <QuickActions />
-              <ChecklistCard />
             </div>
           </div>
         </>
