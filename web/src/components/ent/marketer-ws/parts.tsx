@@ -22,6 +22,13 @@ export interface MktPageProps {
   hrefs: Record<string, string | null>;
   /** The viewer's own seat (`me.member.id`): "you" in an "Updated ... by ..." line is decided by it. */
   selfMemberId?: number | null;
+  /** The page is one tab of a merged page (Jobs, Tasks): the wrapper owns the title and subtitle, so this page draws no `PageHeader` of its own. */
+  embedded?: boolean;
+}
+
+/** `href` with one more query parameter, whether or not it already has a query (a menu alias such as `/jobs?tab=matches` does). */
+export function withQuery(href: string, key: string, value: string | number): string {
+  return `${href}${href.includes("?") ? "&" : "?"}${key}=${encodeURIComponent(String(value))}`;
 }
 
 export const CARD = "min-w-0 rounded-[var(--radius-lg)] border border-line bg-paper p-4";

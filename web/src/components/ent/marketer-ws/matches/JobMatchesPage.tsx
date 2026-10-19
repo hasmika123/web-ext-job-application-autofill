@@ -2,31 +2,23 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  BarChartIcon, BuildingIcon, Button, ChevronRightIcon, ErrorState, FileTextIcon, GearIcon, Menu, MemberAvatar, MoreVerticalIcon, Select, SparklesIcon, StarIcon,
-  UserIcon, UsersIcon, ClockIcon, cn,
+  BarChartIcon, BuildingIcon, Button, ErrorState, GearIcon, Menu, MoreVerticalIcon, Select, UserIcon, UsersIcon, cn,
 } from "@kiwiply/ui";
-import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import { CARD, CardSkeleton, Empty, HEAD_ROW, Head, KpiTile, TH, VIEW_ALL, type MktPageProps, type TintName } from "../parts";
+import { CARD, CardSkeleton, Empty, HEAD_ROW, Head, TH, type MktPageProps } from "../parts";
 import {
-  EMPTY_QUERY, MATCHES_BANNER, MATCH_KPI_KEYS, MATCH_KPI_TITLES, actOnMatch, fetchMatchDetail, fetchMatches, matchPhoto,
-  type MatchDetail, type MatchKpiKey, type MatchQuery, type MatchRow, type MatchesView,
+  EMPTY_QUERY, actOnMatch, fetchMatchDetail, fetchMatches,
+  type MatchDetail, type MatchQuery, type MatchRow, type MatchesView,
 } from "@/lib/ent/marketer-ws/matches";
 import type { DuplicateConfirm, DuplicateFinding } from "@/lib/ent/marketer-ws/duplicate";
 import { DuplicateConfirmDialog } from "../DuplicateConfirm";
-import { AvailabilityDot, CompareDrawer, ExplanationCard, InsightsCard, Person, ResumeCell, ReviewDrawer, ScoreChip } from "./MatchParts";
+import { AvailabilityDot, CompareDrawer, ExplanationCard, Person, ResumeCell, ReviewDrawer, ScoreChip } from "./MatchParts";
 
 /**
- * Job Matches (design: Job Matches). One call draws the board; the explanation of a clicked row is one small call. Every number comes
+ * The Matches tab of Jobs. One call draws the board; the explanation of a clicked row (the right side) is one small call. Every number comes
  * from the API (computed from real rows); a section with nothing in it says so. E1: Assign records that the marketer puts a match
  * forward, it never submits anything for the consultant.
  */
 
-const KPI_ICON: Record<MatchKpiKey, { icon: typeof UsersIcon; tint: TintName; spark: number }> = {
-  matched: { icon: UsersIcon, tint: "violet", spark: 3 },
-  highConfidence: { icon: FileTextIcon, tint: "green", spark: 3 },
-  ready: { icon: StarIcon, tint: "violet", spark: 4 },
-  stale: { icon: ClockIcon, tint: "amber", spark: 2 },
-};
 const ALL = "all";
 const FILTER_LABEL = "text-[12.5px] font-semibold text-ink-soft";
 
@@ -132,19 +124,11 @@ export default function JobMatchesPage({ orgId }: MktPageProps) {
     if (flagged > 0) setNotice((n) => `${n ? `${n} ` : ""}Left out: ${flagged} looked like a duplicate (assign those one by one to confirm).`);
   };
 
-  if (status === "denied") return <ErrorState what="Job Matches" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
-  const header = (
-    <>
-      <PageHeader title="Job Matches" subtitle="Find the best consultant-job matches using AI and manual matching for your assigned consultants." />
-      <ClaimsMascot />
-      <ClaimsHelpCard />
-    </>
-  );
+  if (status === "denied") return <ErrorState what="the matches" title="This page isn't part of your role" description="Ask an organization admin if you should see it." variant="inline" />;
   if (status === "failed")
     return (
       <div data-job-matches data-status="failed">
-        {header}
-        <ErrorState what="Job Matches" description="Your matches didn't load. Nothing has changed." onRetry={() => void load(query)} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
+        <ErrorState what="the matches" description="Your matches didn't load. Nothing has changed." onRetry={() => void load(query)} variant="inline" className="rounded-[var(--radius-lg)] border border-line bg-paper" />
       </div>
     );
 
@@ -160,30 +144,44 @@ export default function JobMatchesPage({ orgId }: MktPageProps) {
 
   return (
     <div data-job-matches data-status={status} className="flex flex-col gap-4 sm:gap-5">
-      {header}
-
-      <section aria-label="Key numbers" data-matches-tiles className="grid grid-cols-2 gap-3 xl:grid-cols-4 xl:gap-4">
-        {MATCH_KPI_KEYS.map((key) => {
-          const k = v?.kpis.find((x) => x.key === key);
-          const { icon, tint, spark } = KPI_ICON[key];
-          return <KpiTile key={key} id={key} title={MATCH_KPI_TITLES[key]} icon={icon} tint={tint} value={k ? k.value : null} deltaPct={k?.deltaPct} sparkline={k?.sparkline} sparkIndex={spark} loading={loading} />;
+      <div data-matches-chips role="group" aria-label="Match filter" className="flex flex-wrap items-center gap-2">
+        {[
+          { value: "", label: "All", count: v?.kpis.find((k) => k.key === "matched")?.value ?? total },
+          { value: "high", label: "High-confidence", count: highCount },
+        ].map((c) => {
+          const active = query.score === c.value;
+          return (
+            <button
+              key={c.label}
+              type="button"
+              aria-pressed={active}
+              data-score-chip-filter={c.value || "all"}
+              onClick={() => change({ score: c.value })}
+              className={cn(
+                "inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-[12.5px] font-semibold",
+                active ? "border-accent bg-accent-soft text-accent-deep" : "border-line bg-paper text-ink-soft hover:border-accent",
+              )}
+            >
+              {c.label} ({c.count})
+            </button>
+          );
         })}
-      </section>
+      </div>
 
       <div className="grid items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-4 sm:gap-5">
           <section aria-label="Filters" data-matches-filters className={cn(CARD, "flex flex-wrap items-end gap-3")}>
-            <FilterSelect label="Consultant" icon={<UserIcon size={16} className="text-accent-deep" />} value={query.consultantId} options={[{ value: ALL, label: "All Consultants" }, ...(v?.filters.consultants ?? []).map((o) => ({ value: o.key, label: o.label }))]} onChange={(val) => change({ consultantId: val })} />
-            <FilterSelect label="Primary Skill" icon={<GearIcon size={16} className="text-accent-deep" />} value={query.skill} options={[{ value: ALL, label: "All Skills" }, ...(v?.filters.skills ?? []).map((s) => ({ value: s, label: s }))]} onChange={(val) => change({ skill: val })} />
-            <FilterSelect label="Client" icon={<BuildingIcon size={16} className="text-accent-deep" />} value={query.clientId} options={[{ value: ALL, label: "All Clients" }, ...(v?.filters.clients ?? []).map((o) => ({ value: o.key, label: o.label }))]} onChange={(val) => change({ clientId: val })} />
-            <FilterSelect label="Match Score" icon={<BarChartIcon size={16} className="text-accent-deep" />} value={query.score} options={[{ value: ALL, label: "All Scores" }, ...(v?.filters.scores ?? []).map((o) => ({ value: o.key, label: o.label }))]} onChange={(val) => change({ score: val })} />
+            <FilterSelect label="Consultant" icon={<UserIcon size={16} className="text-accent-deep" />} value={query.consultantId} options={[{ value: ALL, label: "All consultants" }, ...(v?.filters.consultants ?? []).map((o) => ({ value: o.key, label: o.label }))]} onChange={(val) => change({ consultantId: val })} />
+            <FilterSelect label="Primary skill" icon={<GearIcon size={16} className="text-accent-deep" />} value={query.skill} options={[{ value: ALL, label: "All skills" }, ...(v?.filters.skills ?? []).map((s) => ({ value: s, label: s }))]} onChange={(val) => change({ skill: val })} />
+            <FilterSelect label="Client" icon={<BuildingIcon size={16} className="text-accent-deep" />} value={query.clientId} options={[{ value: ALL, label: "All clients" }, ...(v?.filters.clients ?? []).map((o) => ({ value: o.key, label: o.label }))]} onChange={(val) => change({ clientId: val })} />
+            <FilterSelect label="Match score" icon={<BarChartIcon size={16} className="text-accent-deep" />} value={query.score} options={[{ value: ALL, label: "All scores" }, ...(v?.filters.scores ?? []).map((o) => ({ value: o.key, label: o.label }))]} onChange={(val) => change({ score: val })} />
             <button type="button" disabled={!filtered} onClick={() => change({ consultantId: "", skill: "", clientId: "", score: "" })} className="mb-2 flex-none px-1 text-[13px] font-semibold text-accent-deep hover:underline disabled:opacity-50 disabled:hover:no-underline">
-              Clear Filters
+              Clear filters
             </button>
           </section>
 
-          <section aria-label="Consultant - Job Matches" data-match-card="table" className={CARD}>
-            <Head icon={UsersIcon} title="Consultant - Job Matches" tint="violet">
+          <section aria-label="Matches" data-match-card="table" className={CARD}>
+            <Head icon={UsersIcon} title="Matches" tint="violet">
               <span data-showing className="ml-auto text-[12.5px] text-muted">{loading ? "Loading..." : `Showing ${from}–${to} of ${total.toLocaleString("en-US")} matches`}</span>
             </Head>
             {notice ? <p role="alert" className="mb-2 rounded-lg bg-v2-amber-soft px-3 py-2 text-[12.5px] text-v2-amber-ink">{notice}</p> : null}
@@ -211,7 +209,7 @@ export default function JobMatchesPage({ orgId }: MktPageProps) {
                           className="h-4 w-4 accent-[var(--color-accent-deep)]"
                         />
                       </th>
-                      {["Consultant", "Primary Skill", "Matched Job Title", "Client", "Match Score", "Availability Fit", "Resume Update", "Actions"].map((h) => (
+                      {["Consultant", "Primary skill", "Matched opening", "Client", "Match score", "Availability fit", "Resume update", "Actions"].map((h) => (
                         <th key={h} className={TH}>{h}</th>
                       ))}
                     </tr>
@@ -268,60 +266,13 @@ export default function JobMatchesPage({ orgId }: MktPageProps) {
             ) : null}
           </section>
 
-          <ExplanationCard detail={explanation} loading={loading || explaining} />
         </div>
 
-        <aside className="flex min-w-0 flex-col gap-4 sm:gap-5">
-          <section aria-label="Help" data-match-card="help" className="flex min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-line bg-paper">
-            {/* eslint-disable-next-line @next/next/no-img-element -- the approved board art, served as is */}
-            <img src={MATCHES_BANNER} alt="" className="block w-full object-cover" />
-            <div className="p-4">
-              <h2 className="text-[19px] font-extrabold leading-tight text-ink">Review high-confidence matches for your assigned consultants!</h2>
-              <p className="mt-1.5 text-[13.5px] leading-snug text-muted">
-                {highCount > 0 ? `I've found ${highCount} high-confidence matches` : "I look for high-confidence matches"} based on skills, experience, and availability. Review and assign to move them forward.
-              </p>
-              <button
-                type="button"
-                onClick={() => change({ score: "high" })}
-                className="mt-4 flex min-h-11 w-full items-center gap-2 rounded-xl border border-[var(--brand-border,var(--color-line))] bg-accent-soft px-3 text-left text-[14px] font-semibold text-accent-deep hover:bg-accent-soft/70"
-              >
-                <SparklesIcon size={17} className="flex-none" />
-                <span className="min-w-0 flex-1 truncate">Show high-confidence matches</span>
-                <ChevronRightIcon size={16} className="flex-none" />
-              </button>
-            </div>
-          </section>
-
-          <section aria-label="Top Matches Today" data-match-card="top" className={CARD}>
-            <Head icon={StarIcon} title="Top Matches Today" tint="violet">
-              <button type="button" className={VIEW_ALL} onClick={() => change({ consultantId: "", skill: "", clientId: "", score: "" })}>View all</button>
-            </Head>
-            {loading ? (
-              <CardSkeleton rows={4} />
-            ) : (v?.topToday ?? []).length === 0 ? (
-              <Empty>No suggested matches yet.</Empty>
-            ) : (
-              <ul className="flex flex-col gap-2.5">
-                {(v?.topToday ?? []).map((r) => (
-                  <li key={r.id} data-top-match={r.id}>
-                    <button type="button" onClick={() => void select(r)} className="grid w-full grid-cols-[32px_minmax(0,1fr)_auto_auto] items-center gap-2 rounded-lg p-1 text-left hover:bg-paper-2/60">
-                      <MemberAvatar name={r.consultantName} src={matchPhoto(r.consultantName, r.avatarUrl)} size={32} />
-                      <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-bold text-ink">{r.consultantName}</span>
-                        <span className="block truncate text-[12px] text-muted">{r.jobTitle}</span>
-                      </span>
-                      <span className="max-w-[84px] truncate text-[12.5px] text-muted">{r.client}</span>
-                      <ScoreChip score={r.score} size="sm" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <InsightsCard detail={explanation} loading={loading || explaining} />
+        <aside className="min-w-0 xl:sticky xl:top-4" aria-label="Match explanation">
+          <ExplanationCard detail={explanation} loading={loading || explaining} stacked />
         </aside>
       </div>
+
 
       <ReviewDrawer orgId={orgId} matchId={reviewId} onClose={() => setReviewId(null)} onAssign={(row) => void act(row, "assign")} busy={reviewId !== null && busy.has(reviewId)} />
       <CompareDrawer orgId={orgId} aId={compareId} candidates={items} onClose={() => setCompareId(null)} />

@@ -79,29 +79,22 @@ const row = (label: string) =>
 const tile = (key: string) => document.querySelector(`[data-stat-tile="${key}"]`) as HTMLElement;
 
 describe("JobStreamsPage", () => {
-  it("draws the four KPI tiles with value, title and delta", async () => {
+  it("has no tiles; one status line says how many sources, the last sync and the warnings", async () => {
     mount();
-    await waitFor(() => expect(within(tile("activeStreams")).getByText("6")).toBeTruthy());
-    expect(within(tile("activeStreams")).getByText("Active Job Streams")).toBeTruthy();
-    expect(within(tile("activeStreams")).getByText("20%")).toBeTruthy();
-    expect(within(tile("syncHealth")).getByText("Sync Health")).toBeTruthy();
-    expect(within(tile("syncHealth")).getByText("100%", { selector: "[data-tile-value]" })).toBeTruthy();
-    expect(within(tile("newOpenings")).getByText("362")).toBeTruthy();
-    expect(within(tile("newOpenings")).getByText("New Openings Captured")).toBeTruthy();
-    expect(within(tile("streamErrors")).getByText("Stream Errors")).toBeTruthy();
-    expect(within(tile("streamErrors")).getByText("3")).toBeTruthy();
+    await row("LinkedIn Jobs");
+    expect(document.querySelectorAll("[data-stat-tile]")).toHaveLength(0);
+    expect((document.querySelector("[data-sources-status]") as HTMLElement).textContent).toBe("6 sources · last sync 10 mins ago · 4 warnings");
   });
 
-  it("draws the Job Source Streams card: title, subtitle, add button, filters, columns and the six rows", async () => {
+  it("draws the Sources card: title, add button, filters, columns and the six rows", async () => {
     mount();
-    await screen.findByText("Job Source Streams");
+    await screen.findByText("Sources");
     await row("LinkedIn Jobs");
-    expect(screen.getByText("Manage your job-source integrations, sync schedules, and keyword filters.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Add Job Stream/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Add source/ })).toBeTruthy();
     expect(screen.getByPlaceholderText("Search job sources...")).toBeTruthy();
-    for (const label of ["All Sources", "All Statuses", "All Clients"]) expect(screen.getByText(label)).toBeTruthy();
-    expect(screen.getByText("Show Inactive")).toBeTruthy();
-    for (const col of ["Source", "Status", "Sync Schedule", "Keywords / Filters", "Last Sync", "Openings", "Actions"]) expect(screen.getAllByText(col).length).toBeGreaterThan(0);
+    for (const label of ["All sources", "All statuses", "All clients"]) expect(screen.getByText(label)).toBeTruthy();
+    expect(screen.getByText("Show inactive")).toBeTruthy();
+    for (const col of ["Source", "Status", "Sync schedule", "Keywords / filters", "Last sync", "Openings", "Actions"]) expect(screen.getAllByText(col).length).toBeGreaterThan(0);
     const rows = document.querySelectorAll("[data-stream-row]");
     expect(rows).toHaveLength(6);
     const li = document.querySelector('[data-stream-row="LinkedIn Jobs"]') as HTMLElement;
@@ -115,43 +108,33 @@ describe("JobStreamsPage", () => {
     expect(within(li).getByText(/\+12%/)).toBeTruthy();
     expect(within(li).getByRole("button", { name: "Configure" })).toBeTruthy();
     expect(within(li).getByRole("button", { name: "Pause" })).toBeTruthy();
-    expect(within(li).getByRole("link", { name: "View Jobs" }).getAttribute("href")).toBe("/w/marketing/jobs");
+    expect(within(li).getByRole("link", { name: "View openings" }).getAttribute("href")).toBe("/w/marketing/jobs");
     expect(within(document.querySelector('[data-stream-row="Dice"]') as HTMLElement).getByText("Every 2 hours")).toBeTruthy();
     expect(within(document.querySelector('[data-stream-row="Indeed"]') as HTMLElement).getByText("Every 1 hour")).toBeTruthy();
     // a stream without a delta draws none
     expect((document.querySelector('[data-stream-row="Vendor Feed"]') as HTMLElement).textContent).not.toMatch(/[↑↓]/);
   });
 
-  it("draws Sync Activity, Openings Captured, Alerts, the Stream Assistant and Stream Rules", async () => {
+  it("merges sync activity and warnings into one list, newest first; no chart and no assistant card", async () => {
     mount();
     await screen.findByText("Vendor Feed sync failed");
-    const activity = document.querySelector('[data-streams-card="activity"]') as HTMLElement;
-    for (const h of ["Time", "Source", "Status", "Openings", "Message"]) expect(within(activity).getByText(h)).toBeTruthy();
-    expect(within(activity).getAllByText("Sync completed")).toHaveLength(2);
-    expect(within(activity).getByText("Connection timeout")).toBeTruthy();
-    expect(within(activity).getByLabelText("Sync failed")).toBeTruthy();
-
-    const chart = document.querySelector('[data-streams-card="openings"]') as HTMLElement;
-    expect(within(chart).getByText("Openings Captured")).toBeTruthy();
-    expect(within(chart).getByText("Last 7 Days")).toBeTruthy();
-    expect(chart.querySelectorAll("[data-stack]")).toHaveLength(7);
-    expect(within(chart).getAllByText("Apr 21").length).toBeGreaterThan(0);
-    expect(within(chart).getAllByText("LinkedIn Jobs").length).toBeGreaterThan(0); // legend
-
-    const alerts = document.querySelector('[data-streams-card="alerts"]') as HTMLElement;
-    expect(within(alerts).getByText("Stream Alerts & Warnings")).toBeTruthy();
-    expect(within(alerts).getByText("Vendor Feed sync failed")).toBeTruthy();
-    expect(within(alerts).getByText("2 hours ago")).toBeTruthy();
-    expect(within(alerts).getAllByText("1 day ago")).toHaveLength(2);
-    expect(alerts.querySelector('[data-severity="ERROR"]')).not.toBeNull();
-
-    const assistant = document.querySelector('[data-streams-card="assistant"]') as HTMLElement;
-    expect(within(assistant).getByText("Stream Assistant")).toBeTruthy();
-    expect(within(assistant).getByText("Keep your job streams running smoothly")).toBeTruthy();
-    expect(within(assistant).getByRole("button", { name: /Ask a question/ })).toBeTruthy();
+    expect(document.querySelector('[data-streams-card="activity"]')).toBeNull();
+    expect(document.querySelector('[data-streams-card="alerts"]')).toBeNull();
+    expect(document.querySelector('[data-streams-card="openings"]')).toBeNull();
+    expect(document.querySelector('[data-streams-card="assistant"]')).toBeNull();
+    expect(screen.queryByText("Openings Captured")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ask a question/ })).toBeNull();
+    const recent = document.querySelector('[data-streams-card="recent"]') as HTMLElement;
+    expect(within(recent).getByText("Recent syncs and warnings")).toBeTruthy();
+    expect(recent.querySelectorAll("[data-sync-row]")).toHaveLength(3);
+    expect(recent.querySelectorAll("[data-alert-row]")).toHaveLength(4);
+    // newest first: a sync 10 min ago, a sync 30 min ago, then the alert 2 hours ago, the sync 3 hours ago ...
+    const order = Array.from(recent.querySelectorAll("li")).map((li) => li.getAttribute("data-sync-row") ? "s" + li.getAttribute("data-sync-row") : "a" + li.getAttribute("data-alert-row"));
+    expect(order.slice(0, 4)).toEqual(["s1", "s2", "a1", "s3"]);
+    expect(within(recent).getByText("Connection timeout")).toBeTruthy();
+    expect(within(recent).getByLabelText("Sync failed")).toBeTruthy();
+    expect(recent.querySelector('[data-severity="ERROR"]')).not.toBeNull();
     const rules = document.querySelector('[data-streams-card="rules"]') as HTMLElement;
-    expect(within(rules).getByText("Stream Rules")).toBeTruthy();
-    expect(within(rules).getByText("Manage how incoming jobs are filtered and routed.")).toBeTruthy();
     for (const t of ["Default Keywords", "Client Mapping Rules", "Duplicate Detection", "Auto-Publish"]) expect(within(rules).getByText(t)).toBeTruthy();
     expect(within(rules).getByText("Off")).toBeTruthy(); // only the disabled rule
   });
@@ -164,11 +147,9 @@ describe("JobStreamsPage", () => {
       })),
     );
     mount();
-    expect(await screen.findByText("No job streams yet. Add one to start capturing openings.")).toBeTruthy();
-    expect(screen.getByText("No syncs have run yet.")).toBeTruthy();
-    expect(screen.getByText("No openings captured in this period.")).toBeTruthy();
-    expect(screen.getByText("No alerts. Your streams are running smoothly.")).toBeTruthy();
-    expect(within(tile("syncHealth")).getByText("Nothing yet")).toBeTruthy();
+    expect(await screen.findByText("No sources yet. Add one to start capturing openings.")).toBeTruthy();
+    expect(screen.getByText("No syncs have run yet, and no warnings.")).toBeTruthy();
+    expect((document.querySelector("[data-sources-status]") as HTMLElement).textContent).toBe("0 sources · last sync never · 0 warnings");
     expect(document.querySelectorAll("[data-stream-row]")).toHaveLength(0);
     expect(document.querySelectorAll("[data-rule-row]")).toHaveLength(4); // the four rules are always listed, off by default
   });
@@ -180,7 +161,7 @@ describe("JobStreamsPage", () => {
     const retry = await screen.findByRole("button", { name: /retry/i });
     ok = true;
     fireEvent.click(retry);
-    await screen.findByText("Job Source Streams");
+    await screen.findByText("Sources");
   });
 
   it("a 404 (not your role) shows the role message", async () => {
@@ -192,10 +173,10 @@ describe("JobStreamsPage", () => {
   it("typing in the filters re-queries the API with them", async () => {
     const f = stubFetch(() => json(200, fixture()));
     mount();
-    await screen.findByText("Job Source Streams");
+    await screen.findByText("Sources");
     fireEvent.change(screen.getByPlaceholderText("Search job sources..."), { target: { value: "dice" } });
     await waitFor(() => expect(f.mock.calls.some((c) => String(c[0]).includes("q=dice"))).toBe(true));
-    fireEvent.click(screen.getByRole("switch", { name: "Show Inactive" }));
+    fireEvent.click(screen.getByRole("switch", { name: "Show inactive" }));
     await waitFor(() => expect(f.mock.calls.some((c) => String(c[0]).includes("showInactive=true"))).toBe(true));
   });
 
@@ -219,13 +200,13 @@ describe("JobStreamsPage", () => {
     expect(within(li).getByText("Paused")).toBeTruthy();
   });
 
-  it("Add Job Stream posts the form to the BFF and shows the API's error inline", async () => {
+  it("Add source posts the form to the BFF and shows the API's error inline", async () => {
     const f = stubFetch((url, init) => (init?.method === "POST" ? json(400, { error: "a stream with this name already exists" }) : json(200, fixture())));
     mount();
-    fireEvent.click(await screen.findByRole("button", { name: /Add Job Stream/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Add source/ }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByPlaceholderText("LinkedIn Jobs"), { target: { value: "Dice" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Add Job Stream" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Add source" }));
     expect(await within(dialog).findByText("a stream with this name already exists")).toBeTruthy();
     const post = f.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === "POST")!;
     expect(post[0]).toBe("/api/orgs/2/mkt/streams");

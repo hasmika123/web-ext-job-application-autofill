@@ -2,10 +2,8 @@ import type { ReactNode } from "react";
 import MarketingHomePage from "./MarketingHomePage";
 import TalentPage from "./talent/TalentPage";
 import ResumesPage from "./resumes/ResumesPage";
-import JobDiscoveryPage from "./jobs/JobDiscoveryPage";
-import JobMatchesPage from "./matches/JobMatchesPage";
+import JobsPage from "./jobs/JobsPage";
 import OpportunitiesPage from "./opportunities/OpportunitiesPage";
-import JobStreamsPage from "./streams/JobStreamsPage";
 import SubmissionsPage from "./submissions/SubmissionsPage";
 import ApplicationsPage from "./applications/ApplicationsPage";
 import InterviewsPage from "./interviews/InterviewsPage";
@@ -31,13 +29,9 @@ export function marketingPage(slug: string[], props: MktPageProps): ReactNode | 
     case "resumes":
       return <ResumesPage {...props} />;
     case "jobs":
-      return <JobDiscoveryPage {...props} />;
-    case "matches":
-      return <JobMatchesPage {...props} />;
+      return <JobsPage {...props} />;
     case "opportunities":
       return <OpportunitiesPage {...props} />;
-    case "streams":
-      return <JobStreamsPage {...props} />;
     case "submissions":
       return <SubmissionsPage {...props} />;
     case "applications":
