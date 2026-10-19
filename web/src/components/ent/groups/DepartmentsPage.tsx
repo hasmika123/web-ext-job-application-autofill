@@ -1,25 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowLeftIcon, ArrowRightIcon, BarChartIcon, BuildingIcon, Button, DataTable, Dialog, EmptyState, ErrorState, FilterBar, KpiTile, MemberAvatar, PersonCell, PlusIcon, Select, Skeleton, UserIcon, UsersIcon, ChevronRightIcon, NetworkIcon, useToast, type DataTableColumn, type MenuEntry, PencilIcon, ArchiveIcon, RestoreIcon, TrashIcon, SwapIcon } from "@kiwiply/ui";
-import { ClaimsMascot } from "@/components/ent/shell/ShellContext";
-import HelpBanner from "@/components/ent/shared/HelpBanner";
-import { createdTrend, plural, shortDate, TONE_BAR, toneOf, type Group } from "@/lib/ent/groups";
+import { ArrowLeftIcon, ArrowRightIcon, BuildingIcon, Button, DataTable, Dialog, EmptyState, ErrorState, FilterBar, PersonCell, Skeleton, useToast, type DataTableColumn, type MenuEntry, PencilIcon, ArchiveIcon, RestoreIcon, TrashIcon, SwapIcon } from "@kiwiply/ui";
+import { plural, shortDate, type Group } from "@/lib/ent/groups";
 import CreateGroupSheet from "./CreateGroupSheet";
 import GroupDetailSheet from "./GroupDetailSheet";
 import PersonSearch from "./PersonSearch";
-import { GroupStatus, GroupTile, SectionHead } from "./GroupVisuals";
-import { OrgChart, StructureTree } from "./StructureViews";
+import { GroupStatus, GroupTile } from "./GroupVisuals";
+import { StructureTree } from "./StructureViews";
 import { useGroupActions, useGroupsData } from "./useGroups";
 
 const PAGE_SIZE = 5;
 
 /**
- * Departments (X4.5): the board `design/enterprise-admin/departments.png` on real data. KPI tiles (only the ones the API can count),
- * a card per department with its lead, the organization as a small chart, employees per department as bars, and the directory
- * (search, status filter, sort, pages) with a row menu. Everything saves as it is changed; there is no Save button.
+ * The Departments tab of Teams & Departments (X4.5): one line of counts, the directory (search, status filter, sort, pages) with a row
+ * menu, and the structure tree once, under it. Creating a department is the page's header button (`creating`). Everything saves as
+ * it is changed; there is no Save button.
  */
-export default function DepartmentsPage({ orgId, canManage }: { orgId: number | string; canManage: boolean }) {
+export default function DepartmentsPage({ orgId, canManage, creating, onCreatingChange }: { orgId: number | string; canManage: boolean; creating: boolean; onCreatingChange: (open: boolean) => void }) {
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
@@ -29,15 +27,12 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
   const actions = useGroupActions(orgId, reload);
   const toast = useToast();
 
-  const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<number | null>(null);
-  const [fullTree, setFullTree] = useState(false);
   const [leadFor, setLeadFor] = useState<Group | null>(null);
   const [deleting, setDeleting] = useState<Group | null>(null);
 
   const departments = useMemo(() => structure?.departments.map((d) => d.group) ?? [], [structure]);
   const s = directory?.summary;
-  const trend = useMemo(() => createdTrend(departments.map((d) => d.createdAt)), [departments]);
   const hasFilters = q !== "" || status !== "";
 
   const columns: DataTableColumn<Group>[] = [
@@ -85,209 +80,88 @@ export default function DepartmentsPage({ orgId, canManage }: { orgId: number | 
   if (state === "error" && !directory) return <ErrorState what="the departments" description={error ?? undefined} onRetry={() => void reload()} />;
 
   const nothingAtAll = state === "ready" && directory != null && directory.total === 0 && !hasFilters && (structure?.departments.length ?? 0) === 0;
-  const maxEmployees = Math.max(1, ...departments.map((d) => d.activeCount));
-  const performance = [...departments].sort((a, b) => b.activeCount - a.activeCount);
-
   return (
     <div className="grp-page flex flex-col gap-[14px]" data-page="departments" data-ent-page="departments">
-      <section aria-label="Department numbers" className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5 xl:gap-[14px]">
-        {!s ? (
-          [0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[124px] w-full rounded-2xl" />)
-        ) : (
-          <>
-            <KpiTile id="Total Departments" tone="violet" label="Total Departments" icon={<BuildingIcon size={22} />} value={s.departments} delta={trend.delta} series={trend.series} />
-            <KpiTile id="Total Employees" tone="green" label="Total Employees" icon={<UsersIcon size={22} />} value={s.employees} />
-            <KpiTile id="Department Leads" tone="blue" label="Department Leads" icon={<UserIcon size={22} />} value={s.departmentLeads} />
-            <KpiTile id="Avg. Team Size" tone="orange" label="Avg. Team Size" icon={<NetworkIcon size={22} />} value={s.averageTeamSize == null ? "–" : s.averageTeamSize} />
-            <KpiTile id="Total Teams" tone="indigo" label="Total Teams" icon={<UsersIcon size={22} />} value={s.teams} />
-          </>
-        )}
-      </section>
-
       {nothingAtAll ? (
-        <>
-          <ClaimsMascot />
-          <EmptyState
-            mascotPose="greet"
-            title="Group people into departments and teams"
-            description="Departments hold teams and the people who run them. Leads and scopes follow from this structure."
-            action={canManage ? <Button onClick={() => setCreating(true)}>Create Department</Button> : undefined}
-          />
-        </>
+        <EmptyState
+          mascotPose="greet"
+          title="Group people into departments and teams"
+          description="Departments hold teams and the people who run them. Leads and scopes follow from this structure."
+          action={canManage ? <Button onClick={() => onCreatingChange(true)}>Create department</Button> : undefined}
+        />
       ) : (
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_clamp(320px,26.4vw,442px)] xl:gap-[14px]">
-          <div className="flex min-w-0 flex-col gap-5">
-            <section aria-label="Departments overview" className="ent-card p-4 sm:p-5">
-              <SectionHead icon={<BuildingIcon size={26} />} title="Departments" subtitle="Manage departments, view details, and explore team structure.">
-                {canManage && (
-                  <Button variant="accent" onClick={() => setCreating(true)} className="min-h-11 rounded-[10px] px-5 text-[15px] font-bold">
-                    <PlusIcon size={18} /> Create Department
-                  </Button>
-                )}
-              </SectionHead>
-              {!structure ? (
-                <Skeleton className="mt-4 h-44 w-full" />
-              ) : (
-                <ul aria-label="Departments" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
-                  {departments.map((d) => (
-                    <li key={d.id}>
-                      <button
-                        type="button"
-                        onClick={() => setOpenId(d.id)}
-                        data-department-card={d.name}
-                        className="ent-card flex h-full w-full flex-col gap-2.5 !rounded-[14px] p-3.5 text-left hover:bg-paper-2/50 focus-visible:outline-2 focus-visible:outline-accent"
-                      >
-                        <GroupTile icon={d.icon} color={d.color} size={52} />
-                        <div className="min-w-0">
-                          <div className="truncate text-[16px] font-extrabold leading-tight text-ink">{d.name}</div>
-                          <div className="mt-0.5 text-[13.5px] text-ink-soft">
-                            <span className="text-[15px] font-bold tabular-nums text-ink">{d.activeCount}</span> {d.activeCount === 1 ? "employee" : "employees"}
-                          </div>
-                        </div>
-                        <div className="mt-auto pt-1.5">
-                          <div className="text-[12px] text-ink-soft">Department Lead</div>
-                          {d.lead ? (
-                            <div className="mt-1 flex items-center gap-2">
-                              <MemberAvatar name={d.lead.name} size={34} />
-                              <div className="min-w-0 flex-1 leading-tight">
-                                <div className="line-clamp-2 break-words text-[12.5px] font-bold leading-tight text-ink">{d.lead.name}</div>
-                                {d.lead.roleName && <div className="truncate text-[11.5px] text-muted">{d.lead.roleName}</div>}
-                              </div>
-                              <ChevronRightIcon aria-hidden size={14} className="flex-none text-accent" />
-                            </div>
-                          ) : (
-                            <div className="mt-1 text-[12.5px] text-muted">No lead yet</div>
-                          )}
-                        </div>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            <section aria-label="Department directory" className="ent-card p-4 sm:p-5">
-              <SectionHead icon={<BuildingIcon size={26} />} title="Department Directory" subtitle="View and manage all departments in your organization.">
-              <FilterBar
-                compact
-                query={q}
-                onQueryChange={(v) => {
-                  setQ(v);
-                  setPage(0);
-                }}
-                values={{ status }}
-                onFilterChange={(_n, v) => {
-                  setStatus(v);
-                  setPage(0);
-                }}
-                search={{ placeholder: "Search departments…", label: "Search departments" }}
-                filters={[{ name: "status", label: "Status", allLabel: "All Departments", options: [{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Archived" }] }]}
-                className="xl:flex-nowrap"
-              />
-              </SectionHead>
-              <div className="mt-4" />
-              <DataTable
-                variant="board"
-                renderPager={({ page: pg, pageCount: pc, onPage }) => (
-                  <nav aria-label="Pagination" className="flex flex-wrap items-center justify-between gap-2 px-1 pt-3 text-[12.5px] text-ink-soft">
-                    <span aria-live="polite">{directory && directory.total > 0 ? `Showing ${directory.page * PAGE_SIZE + 1}-${Math.min(directory.total, (directory.page + 1) * PAGE_SIZE)} of ${plural(directory.total, "department")}` : ""}</span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <button type="button" aria-label="Previous page" disabled={pg <= 1} onClick={() => onPage(pg - 1)} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-paper-2 disabled:opacity-40">
-                        <ArrowLeftIcon size={15} />
-                      </button>
-                      <span aria-current="page" aria-label={`Page ${pg} of ${pc}`} className="grid h-8 min-w-8 place-items-center rounded-lg bg-accent px-2 text-[13px] font-bold text-on-accent">
-                        {pg}
-                      </span>
-                      <button type="button" aria-label="Next page" disabled={pg >= pc} onClick={() => onPage(pg + 1)} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-paper-2 disabled:opacity-40">
-                        <ArrowRightIcon size={15} />
-                      </button>
+        <>
+          <p data-group-counts className="text-[14px] text-ink-soft">
+            {!s ? <Skeleton className="h-5 w-56" /> : `${s.departments} ${s.departments === 1 ? "department" : "departments"} · ${s.employees} ${s.employees === 1 ? "person" : "people"}`}
+          </p>
+          <section aria-label="Department directory" className="ent-card p-4 sm:p-5">
+            <FilterBar
+              compact
+              query={q}
+              onQueryChange={(v) => {
+                setQ(v);
+                setPage(0);
+              }}
+              values={{ status }}
+              onFilterChange={(_n, v) => {
+                setStatus(v);
+                setPage(0);
+              }}
+              search={{ placeholder: "Search departments…", label: "Search departments" }}
+              filters={[{ name: "status", label: "Status", allLabel: "All departments", options: [{ value: "ACTIVE", label: "Active" }, { value: "INACTIVE", label: "Archived" }] }]}
+              className="xl:flex-nowrap"
+            />
+            <div className="mt-4" />
+            <DataTable
+              variant="board"
+              renderPager={({ page: pg, pageCount: pc, onPage }) => (
+                <nav aria-label="Pagination" className="flex flex-wrap items-center justify-between gap-2 px-1 pt-3 text-[12.5px] text-ink-soft">
+                  <span aria-live="polite">{directory && directory.total > 0 ? `Showing ${directory.page * PAGE_SIZE + 1}-${Math.min(directory.total, (directory.page + 1) * PAGE_SIZE)} of ${plural(directory.total, "department")}` : ""}</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <button type="button" aria-label="Previous page" disabled={pg <= 1} onClick={() => onPage(pg - 1)} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-paper-2 disabled:opacity-40">
+                      <ArrowLeftIcon size={15} />
+                    </button>
+                    <span aria-current="page" aria-label={`Page ${pg} of ${pc}`} className="grid h-8 min-w-8 place-items-center rounded-lg bg-accent px-2 text-[13px] font-bold text-on-accent">
+                      {pg}
                     </span>
-                  </nav>
-                )}
-                label="Departments"
-                what="the departments"
-                columns={columns}
-                rows={directory?.items ?? []}
-                rowKey={(g) => String(g.id)}
-                loading={state === "loading" && !directory}
-                error={state === "error" ? error : null}
-                onRetry={() => void reload()}
-                hasFilters={hasFilters}
-                onRowClick={(g) => setOpenId(g.id)}
-                rowActions={rowActions}
-                sort={sort}
-                onSort={(key) => {
-                  setSort((cur) => ({ key, dir: cur.key === key && cur.dir === "asc" ? "desc" : "asc" }));
-                  setPage(0);
-                }}
-                page={page + 1}
-                pageCount={directory ? Math.max(1, Math.ceil(directory.total / PAGE_SIZE)) : 1}
-                onPage={(p) => setPage(p - 1)}
-                empty={<EmptyState variant="inline" title={hasFilters ? "No departments match" : "No departments yet"} description={hasFilters ? "Try a different search or clear the filters." : undefined} />}
-              />
-            </section>
-          </div>
-
-          <div className="flex min-w-0 flex-col gap-5">
-            <section aria-label="Organization structure" className="ent-card p-4 sm:p-5">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-                <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
-                  <NetworkIcon size={22} className="flex-none text-accent" /> Organization Structure
-                </h2>
-                <Button variant="ghost" size="sm" className="whitespace-nowrap text-[13px] font-semibold text-accent" onClick={() => setFullTree(true)} disabled={!structure}>
-                  View Full Structure <ArrowRightIcon size={14} />
-                </Button>
-              </div>
-              {structure ? <OrgChart structure={structure} onOpen={(g) => setOpenId(g.id)} /> : <Skeleton className="h-40 w-full" />}
-            </section>
-
-            <section aria-label="Department performance" className="ent-card p-4 sm:p-5">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="flex items-center gap-2.5 whitespace-nowrap text-[17px] font-extrabold text-ink">
-                  <BarChartIcon size={22} className="text-accent" /> Department Performance
-                </h2>
-                <div className="w-40 flex-none" title="Trends are on the way">
-                  <Select aria-label="Period" disabled value="6" options={[{ value: "6", label: "Last 6 Months" }]} />
-                </div>
-              </div>
-              {!structure ? (
-                <Skeleton className="h-32 w-full" />
-              ) : performance.length === 0 ? (
-                <p className="text-[13px] text-muted">No departments to compare yet.</p>
-              ) : (
-                <ul aria-label="Employees per department" className="flex flex-col gap-3">
-                  {performance.map((d) => (
-                    <li key={d.id} className="grid grid-cols-[88px_1fr_28px] items-center gap-3 text-[13px]">
-                      <span className="truncate text-ink-soft">{d.name}</span>
-                      <span className="h-3 overflow-hidden rounded-full bg-paper-2" role="img" aria-label={`${d.name}: ${plural(d.activeCount, "employee")}`}>
-                        <span className={`block h-full rounded-full ${TONE_BAR[toneOf(d.color)]}`} style={{ width: `${Math.max(2, Math.round((d.activeCount / maxEmployees) * 100))}%` }} />
-                      </span>
-                      <span className="text-right font-bold tabular-nums text-ink">{d.activeCount}</span>
-                    </li>
-                  ))}
-                </ul>
+                    <button type="button" aria-label="Next page" disabled={pg >= pc} onClick={() => onPage(pg + 1)} className="grid h-8 w-8 place-items-center rounded-lg hover:bg-paper-2 disabled:opacity-40">
+                      <ArrowRightIcon size={15} />
+                    </button>
+                  </span>
+                </nav>
               )}
-            </section>
+              label="Departments"
+              what="the departments"
+              columns={columns}
+              rows={directory?.items ?? []}
+              rowKey={(g) => String(g.id)}
+              loading={state === "loading" && !directory}
+              error={state === "error" ? error : null}
+              onRetry={() => void reload()}
+              hasFilters={hasFilters}
+              onRowClick={(g) => setOpenId(g.id)}
+              rowActions={rowActions}
+              sort={sort}
+              onSort={(key) => {
+                setSort((cur) => ({ key, dir: cur.key === key && cur.dir === "asc" ? "desc" : "asc" }));
+                setPage(0);
+              }}
+              page={page + 1}
+              pageCount={directory ? Math.max(1, Math.ceil(directory.total / PAGE_SIZE)) : 1}
+              onPage={(p) => setPage(p - 1)}
+              empty={<EmptyState variant="inline" title={hasFilters ? "No departments match" : "No departments yet"} description={hasFilters ? "Try a different search or clear the filters." : undefined} />}
+            />
+          </section>
 
-            <HelpBanner layout="side" topic="departments" text="I can help you set up departments, manage team structure, or answer any questions about organization management." />
-          </div>
-        </div>
+          <section aria-label="Structure" className="ent-card p-4 sm:p-5">
+            <h2 className="mb-3 text-[17px] font-extrabold text-ink">Structure</h2>
+            {structure ? <StructureTree structure={structure} onOpen={(g) => setOpenId(g.id)} /> : <Skeleton className="h-40 w-full" />}
+          </section>
+        </>
       )}
 
-      {canManage && <CreateGroupSheet orgId={orgId} kind="DEPARTMENT" open={creating} onClose={() => setCreating(false)} departments={departments} onCreate={actions.create} />}
+      {canManage && <CreateGroupSheet orgId={orgId} kind="DEPARTMENT" open={creating} onClose={() => onCreatingChange(false)} departments={departments} onCreate={actions.create} />}
       <GroupDetailSheet orgId={orgId} groupId={openId} onClose={() => setOpenId(null)} canManage={canManage} groups={departments} departments={departments} actions={actions} />
-
-      <Dialog open={fullTree} onClose={() => setFullTree(false)} title="Full structure" description="Departments, their teams and how many people are in each.">
-        {structure && (
-          <StructureTree
-            structure={structure}
-            onOpen={(g) => {
-              setFullTree(false);
-              setOpenId(g.id);
-            }}
-          />
-        )}
-      </Dialog>
 
       <Dialog
         open={leadFor != null}
