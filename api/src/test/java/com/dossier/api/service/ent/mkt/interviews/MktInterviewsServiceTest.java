@@ -161,7 +161,7 @@ class MktInterviewsServiceTest {
             return p;
         });
 
-        service = new MktInterviewsService(scope, interviews, metas, prep, feedback, events, audit, Clock.fixed(NOW, ZoneOffset.UTC));
+        service = new MktInterviewsService(scope, interviews, metas, prep, feedback, events, audit, new MktInterviewPrepTx(prep), Clock.fixed(NOW, ZoneOffset.UTC));
     }
 
     private java.util.stream.Stream<TalentInterview> live() {
@@ -431,6 +431,27 @@ class MktInterviewsServiceTest {
         assertThat(o.checklist().items()).hasSize(7).allSatisfy(i -> assertThat(i.done()).isFalse());
         service.overview(me, query(null, null, null, null, null)); // a second read does not create more
         assertThat(prepRows).hasSize(7);
+    }
+
+    @Test
+    void aRequestThatLosesTheFirstTouchRaceReadsWhatTheWinnerCommittedInsteadOfFailing() {
+        story();
+        // another page (home / interviews) created the checklist a moment ago: our create hits the unique key, the fresh read sees the winner's rows
+        MktInterviewPrepTx racing = mock(MktInterviewPrepTx.class);
+        List<MktInterviewPrepItem> winners = new java.util.ArrayList<>();
+        for (int p = 0; p < MktInterviewsService.DEFAULT_PREP.size(); p++) {
+            MktInterviewPrepItem it = new MktInterviewPrepItem();
+            it.setId(900L + p);
+            it.setOrgId(ORG);
+            it.setInterviewId(2L);
+            it.setLabel(MktInterviewsService.DEFAULT_PREP.get(p));
+            it.setPosition(p + 1);
+            winners.add(it);
+        }
+        when(racing.create(eq(ORG), eq(2L), anyList(), any())).thenThrow(new org.springframework.dao.DataIntegrityViolationException("uk_mkt_interview_prep_position"));
+        when(racing.read(ORG, 2L)).thenReturn(winners);
+        MktInterviewsService s = new MktInterviewsService(scope, interviews, metas, prep, feedback, events, audit, racing, Clock.fixed(NOW, ZoneOffset.UTC));
+        assertThat(s.checklist(me, 2L).items()).extracting(i -> i.id()).containsExactly(900L, 901L, 902L, 903L, 904L, 905L, 906L);
     }
 
     @Test
