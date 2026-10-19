@@ -108,7 +108,7 @@ describe("changeText", () => {
 describe("labels", () => {
   it("has a label for every activity kind and a verdict per strength band", () => {
     expect(Object.keys(ACTIVITY_LABELS)).toEqual(["VIEWED", "DOWNLOADED", "SHARED", "UPDATED"]);
-    expect(verdictOf(78)).toMatch(/looking good/);
+    expect(verdictOf(78)).toMatch(/good shape/);
     expect(verdictOf(55)).toMatch(/getting there/);
     expect(verdictOf(10)).toMatch(/needs attention/);
   });

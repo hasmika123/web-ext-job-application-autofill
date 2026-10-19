@@ -75,15 +75,14 @@ const mount = (builder?: ComponentProps<typeof ConsultantResumesPage>["builder"]
 const BUILDER = { profile: { itemCount: 0, roles: 0, schools: 0, skills: 0, score: null, headline: null }, defaultTemplateId: "modern", cap: { count: 2, max: 25 }, targetSuggestions: [] };
 
 describe("ConsultantResumesPage", () => {
-  it("draws the tiles, the resumes, strength, improvements and activity from the API", async () => {
+  it("draws the resumes and one compact strength card from the API, with no tiles, improvements, activity or Quick Actions", async () => {
     mount();
     expect(await screen.findByText("Data Engineer Resume")).toBeTruthy();
-    const views = document.querySelector("[data-stat-tile=totalViews]")!;
-    expect(within(views as HTMLElement).getByText("24")).toBeTruthy();
-    expect(within(views as HTMLElement).getByText("+33%")).toBeTruthy();
-    const total = document.querySelector("[data-stat-tile=totalResumes]")!;
-    expect(within(total as HTMLElement).getByText("+1")).toBeTruthy();
-    expect(within(document.querySelector("[data-stat-tile=primary]") as HTMLElement).getByText("Actively used in applications")).toBeTruthy();
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
+    expect(document.querySelector("[data-improvement]")).toBeNull();
+    expect(document.querySelector("[data-activity]")).toBeNull();
+    expect(document.querySelector("[data-quick]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question|Suggested Improvements|Recent Activity/)).toBeNull();
 
     const row = document.querySelector("[data-resume='11']") as HTMLElement;
     expect(within(row).getByText("Primary")).toBeTruthy();
@@ -95,30 +94,14 @@ describe("ConsultantResumesPage", () => {
 
     expect(document.querySelector("[data-check=certifications]")!.getAttribute("data-done")).toBe("false");
     expect(screen.getByText("78%")).toBeTruthy();
-    expect(document.querySelector("[data-improvement=primary]")).toBeTruthy();
-    expect(screen.getByText("Resume viewed")).toBeTruthy();
-    expect(screen.getByText("Technical Consultant Resume (v3)")).toBeTruthy();
+    expect(screen.getByText("Your resume is in good shape.")).toBeTruthy();
     expect(document.querySelector("[data-sample]")).toBeNull();
   });
 
-  it("says so when there is nothing yet and draws no change chip without a comparison", async () => {
-    handler = (_u, m) =>
-      m === "GET"
-        ? { status: 200, json: fixture({ resumes: [], improvements: [], recentActivity: [], tiles: { totalResumes: tile(0, { delta: null, deltaPct: null, previous: null, sparkline: [] }), primary: { value: 0, title: null }, totalViews: tile(0, { deltaPct: null }), totalDownloads: tile(0, { deltaPct: null }), timesShared: tile(0, { deltaPct: null }) } }) }
-        : undefined;
+  it("says so when there is nothing yet", async () => {
+    handler = (_u, m) => (m === "GET" ? { status: 200, json: fixture({ resumes: [] }) } : undefined);
     mount();
     expect(await screen.findByText(/don.t have a resume yet/)).toBeTruthy();
-    expect(screen.getByText(/Nothing to suggest right now/)).toBeTruthy();
-    expect(screen.getByText(/No activity yet/)).toBeTruthy();
-    expect(screen.getByText("No primary resume yet")).toBeTruthy();
-    expect(screen.queryByText("vs last month")).toBeNull();
-  });
-
-  it("Apply on the primary suggestion calls the set-primary endpoint and reloads", async () => {
-    mount();
-    fireEvent.click(await screen.findByRole("button", { name: "Apply: Choose a primary resume" }));
-    await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/resumes/12/primary"))).toBe(true));
-    await waitFor(() => expect(calls.filter((c) => c.method === "GET" && c.url.endsWith("/resumes")).length).toBeGreaterThan(1));
   });
 
   it("View opens the paper preview and records a VIEWED activity", async () => {
@@ -147,10 +130,10 @@ describe("ConsultantResumesPage", () => {
     expect(patch.body).toBe(JSON.stringify({ name: "123-45-6789" }));
   });
 
-  it("Create New Resume opens the SAME chooser as the personal app, creates through the tenant-aware route and opens the editor inside the workspace", async () => {
+  it("Create new resume opens the SAME chooser as the personal app, creates through the tenant-aware route and opens the editor inside the workspace", async () => {
     handler = (u, m) => (m === "POST" && u.endsWith("/me-workspace/resumes/built") ? { status: 201, json: { orgResumeId: 5, resumeId: 77, row: {} } } : undefined);
     mount(BUILDER);
-    fireEvent.click(await screen.findByRole("button", { name: "Create New Resume" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create new resume" }));
     expect(await screen.findByText("Start your resume from")).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: /Start from scratch/ }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
@@ -161,17 +144,17 @@ describe("ConsultantResumesPage", () => {
     expect(JSON.parse(post.body ?? "{}")).toMatchObject({ source: { kind: "scratch" }, label: "My resume" });
   });
 
-  it("the quick actions open the same chooser on the right card (Import = upload)", async () => {
+  it("the chooser offers the four ways to start (scratch, template, upload, tailor)", async () => {
     mount(BUILDER);
-    await screen.findByText("Data Engineer Resume");
-    fireEvent.click(document.querySelector("[data-quick=import]") as HTMLElement);
+    fireEvent.click(await screen.findByRole("button", { name: "Create new resume" }));
     expect(await screen.findByText("Start your resume from")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: /Upload a resume/ }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("radio", { name: /Start from scratch/ })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /Upload a resume/ })).toBeTruthy();
   });
 
   it("at the organization license's cap the chooser does not open and the dialog says who to ask (no plans link)", async () => {
     mount({ ...BUILDER, cap: { count: 25, max: 25 } });
-    fireEvent.click(await screen.findByRole("button", { name: "Create New Resume" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Create new resume" }));
     expect(await screen.findByText("You've used 25 of 25 resumes")).toBeTruthy();
     expect(screen.getByText(/organization admin/)).toBeTruthy();
     expect(screen.queryByText("Start your resume from")).toBeNull();
@@ -203,6 +186,7 @@ describe("ConsultantResumesPage", () => {
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/resumes/12/approve"))).toBe(true));
     // the decision names the version she was shown (versionNo and contentHash of her row), never "whatever is current"
     expect(calls.find((c) => c.method === "POST" && c.url.endsWith("/resumes/12/approve"))?.body).toBe(JSON.stringify({ versionNo: 1, contentHash: "h-12" }));
+    await waitFor(() => expect((screen.getByRole("button", { name: "Send back Made by Sarah" }) as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Send back Made by Sarah" }));
     fireEvent.change(await screen.findByLabelText("What should change"), { target: { value: "Please add my 2019 role" } });
     fireEvent.click(screen.getByRole("button", { name: "Send back" }));
