@@ -29,7 +29,7 @@ export default async function WorkspaceResumesRoute({ params }: { params: Promis
   if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
   return (
     <Suspense fallback={null}>
-      <ResumesPage orgId={me.org.id} orgName={me.org.displayName} workspace={workspace} selfMemberId={me.member.id} permissions={me.permissions} supportEmail={null} />
+      <ResumesPage orgId={me.org.id} workspace={workspace} selfMemberId={me.member.id} permissions={me.permissions} />
     </Suspense>
   );
 }
