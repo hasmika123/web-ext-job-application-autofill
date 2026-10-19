@@ -44,7 +44,6 @@ import {
   type PickerItem,
   type Step,
 } from "@/lib/ent/applications";
-import BeeBanner from "@/components/ent/shell/BeeBanner";
 import type { Viewer } from "@/lib/actors";
 import { useApplicationDetail, useStageMove, type SaveResult } from "./hooks";
 import { UpdatedMeta, changesDetail, feedActor, seatViewer } from "./changeAudit";
@@ -72,7 +71,6 @@ export interface DetailDrawerProps {
   consultantsHref: string | null;
   /** The viewer's own seat: "you" in "Updated 2h ago by you" and the feed is decided by comparing it with the actor. */
   selfMemberId?: number | null;
-  supportEmail?: string | null;
   returnFocusTo?: RefObject<HTMLElement | null>;
 }
 
@@ -484,14 +482,6 @@ export default function DetailDrawer(p: DetailDrawerProps) {
           </TabPanel>
         </Tabs>
         </div>
-        <BeeBanner
-          layout="row"
-          title="Need help with this application?"
-          body="I can help you understand the application status, suggest next steps, or find similar candidates."
-          topic="this application"
-          orgName={p.orgName}
-          supportEmail={p.supportEmail}
-        />
       </div>
     );
   })();

@@ -56,7 +56,6 @@ import AddApplicationDialog from "./AddApplicationDialog";
 import AnalyticsTab from "./AnalyticsTab";
 import { ApplicationsTable, Pagination } from "./ApplicationsTable";
 import DetailDrawer from "./DetailDrawer";
-import BeeBanner from "@/components/ent/shell/BeeBanner";
 import { useStageMove } from "./hooks";
 import KpiTiles from "./KpiTiles";
 import PipelineBoard from "./PipelineBoard";
@@ -75,14 +74,13 @@ export interface ApplicationsPageProps {
   consultantsHref: string | null;
   /** The viewer's own seat (`me.member.id`): "you" in the Updated lines is decided by it. */
   selfMemberId?: number | null;
-  supportEmail?: string | null;
 }
 
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: ApplicationRow[]; total: number };
 type PipelineState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; columns: Column[] };
 type AnalyticsState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; data: Analytics };
 
-export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref, consultantsHref, selfMemberId, supportEmail }: ApplicationsPageProps) {
+export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref, consultantsHref, selfMemberId }: ApplicationsPageProps) {
   const toast = useToast();
   const router = useRouter();
   const pathname = usePathname();
@@ -272,7 +270,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
   const drawerOpen = view.selected !== null;
   /** The drawer sits beside the table (wide screens): the tiles and the promo card stack in the narrower column. */
   const docked = drawerOpen && mode === "push";
-  const dateLabel = view.from || view.to ? `${view.from ? formatDay(view.from) : "Any"} – ${view.to ? formatDay(view.to) : "Any"}` : "Date Range";
+  const dateLabel = view.from || view.to ? `${view.from ? formatDay(view.from) : "Any"} – ${view.to ? formatDay(view.to) : "Any"}` : "Date range";
 
   const dateControls = (
     <Button type="button" variant="ghost" size="sm" className="ent-ctl-btn" aria-expanded={dateOpen} onClick={() => setDateOpen((o) => !o)} data-date-range>
@@ -323,26 +321,15 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
 
   return (
     <div ref={root} data-applications-page className="ent-fit">
-      <PageHeader title="Applications" subtitle="Track and manage consultant applications across all your job opportunities." />
-      <div className="grid items-start gap-[15px] xl:grid-cols-[minmax(0,3.43fr)_minmax(0,1fr)]">
-        <KpiTiles counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
-        <div className="hidden md:block">
-          <BeeBanner
-            title="Streamline your hiring pipeline"
-            body="Track applications, manage candidate progress, and collaborate with your team to fill open positions."
-            topic="applications"
-            orgName={orgName}
-            supportEmail={supportEmail}
-          />
-        </div>
-      </div>
+      <PageHeader title="Applications" subtitle="Every application your consultants have in flight." />
+      <KpiTiles counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
 
       <div className="mt-[16px] flex items-start">
         <div className="min-w-0 flex-1 space-y-3">
           <Tabs value={view.tab} onValueChange={(t) => setView({ tab: t as MainTab, page: 0 }, false)} variant="underline" className="ent-tabs ent-card !inline-flex !w-auto max-w-full px-2">
             <TabList aria-label="Applications views">
-              <Tab value="all"><span className="inline-flex items-center gap-2"><FileTextIcon size={16} aria-hidden /> All Applications</span></Tab>
-              <Tab value="pipeline"><span className="inline-flex items-center gap-2"><LayoutGridIcon size={16} aria-hidden /> Pipeline View</span></Tab>
+              <Tab value="all"><span className="inline-flex items-center gap-2"><FileTextIcon size={16} aria-hidden /> All applications</span></Tab>
+              <Tab value="pipeline"><span className="inline-flex items-center gap-2"><LayoutGridIcon size={16} aria-hidden /> Pipeline</span></Tab>
               <Tab value="analytics"><span className="inline-flex items-center gap-2"><BarChartIcon size={16} aria-hidden /> Analytics</span></Tab>
             </TabList>
           </Tabs>
@@ -354,7 +341,7 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
                 <SearchBox value={view.q} onChange={(q) => setView({ q })} label="Search applications" placeholder="Search applications by consultant name, job title, client, or status..." />
                 {canAdd && (
                   <Button type="button" variant="accent" onClick={() => setAdding(true)} data-add-application className="ent-btn ent-btn-lg flex-none">
-                    <PlusIcon size={15} aria-hidden /> Add Application
+                    <PlusIcon size={15} aria-hidden /> Add application
                   </Button>
                 )}
               </div>
@@ -474,7 +461,6 @@ export default function ApplicationsPage({ orgId, orgName, permissions, jobsHref
           jobsHref={jobsHref}
           consultantsHref={consultantsHref}
           selfMemberId={selfMemberId}
-          supportEmail={supportEmail}
         />
       </div>
 
