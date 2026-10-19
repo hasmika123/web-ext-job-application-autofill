@@ -107,7 +107,8 @@ for (const who of ["anika", "ben"]) {
   const opts = await (await fetch(`${API}/api/orgs/${orgId}/mkt/opportunities/options?q=Anika`, { headers: rahul })).json();
   const anikaId = (opts.consultants || []).find((c) => c.name === "Anika Rao")?.id;
   if (!anikaId) line(false, "real postings: Anika is not one of Rahul's consultants");
-  for (const j of anikaId ? REAL_JOBS : []) {
+  // A liveSave posting (Adobe, Workday) is left for Rahul to save from the extension during the demo.
+  for (const j of anikaId ? REAL_JOBS.filter((x) => !x.liveSave) : []) {
     let live = false;
     try {
       const r = await fetch(j.jobUrl, { redirect: "follow", headers: { "user-agent": "Mozilla/5.0" } });

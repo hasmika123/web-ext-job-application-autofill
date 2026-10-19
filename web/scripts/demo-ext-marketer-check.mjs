@@ -18,7 +18,9 @@ const WEB = process.env.DEMO_WEB || "http://aaruna.localhost:3200";
 const EXT_DIR = resolve(process.env.EXT_DIR || join(here, "../../job-autofill/.output/chrome-mv3-dev"));
 const STAMP = Date.now();
 const TITLE = `Cloud Platform Engineer ${String(STAMP).slice(-5)}`;
-const POSTING = `http://jobs.localhost:3399/greenhouse/brightwave-systems/${STAMP}?t=${encodeURIComponent(TITLE)}`;
+// POSTING_URL: save a real posting instead of a fresh stand-in page (e.g. the Adobe Workday posting of the walkthrough); CONSULTANT: who to tick.
+const POSTING = process.env.POSTING_URL || `http://jobs.localhost:3399/greenhouse/brightwave-systems/${STAMP}?t=${encodeURIComponent(TITLE)}`;
+const CONSULTANT = process.env.CONSULTANT || "Anika Rao";
 
 const results = [];
 const step = (name, ok, note = "") => {
@@ -148,9 +150,11 @@ try {
     if (!(await titleBox.inputValue()).trim()) await titleBox.fill(TITLE);
     const savedTitle = (await titleBox.inputValue()).trim();
     const company = drawer.getByPlaceholder("Employer name");
-    if ((await company.count()) && !(await company.inputValue()).trim()) await company.fill("Brightwave Systems");
+    const capturedCompany = (await company.count()) ? (await company.inputValue()).trim() : "";
+    if (process.env.POSTING_URL) console.log("      read from the page:", JSON.stringify({ title: savedTitle, company: capturedCompany }));
+    if ((await company.count()) && !capturedCompany) await company.fill("Brightwave Systems");
     await drawer.locator("textarea").first().fill("Strong fit for your cloud work. Read the posting and apply with your extension if you like it.");
-    await drawer.getByRole("checkbox", { name: "Anika Rao" }).check({ timeout: 20_000 });
+    await drawer.getByRole("checkbox", { name: CONSULTANT }).check({ timeout: 20_000 });
     await drawer.getByRole("button", { name: "Save for consultant" }).click();
     let confirmed = false;
     try {

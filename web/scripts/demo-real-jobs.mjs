@@ -3,10 +3,12 @@
  * (platform, cloud and data engineering). demo-setup.mjs has Rahul save them for Anika, as the extension's "Save for consultant" does,
  * and checks each still answers. Postings close: re-check the morning of a demo and swap any that are gone.
  *
- * Rehearsed with the extension (web/scripts/demo-real-sites-check.mjs, FILL ONLY, never submitted):
- *   Greenhouse (Figma 8 fields + an AI-written answer, Robinhood 6), Ashby (Ramp 4), Lever (Rover 5).
- *   Workday and SmartRecruiters show the job page; their application sits behind the site's own sign-in, so on those the demo shows the
- *   job being saved and the fit check, not the fill.
+ * Rehearsed with the extension on 2026-10-19 (demo-real-sites-check.mjs and demo-ext-check.mjs, FILL ONLY, never submitted):
+ *   Autopilot fill: Greenhouse (Figma 8 fields + an AI-written answer, Robinhood 6), Ashby (Ramp 4), Lever (Rover 5).
+ *   Best resume + Check fit in the drawer: Workday (Adobe) and Ashby (Ramp). Greenhouse, Lever and SmartRecruiters pages do not give the
+ *   extension the full job text, so the drawer shows no best-resume line there.
+ *   Workday and SmartRecruiters: the application sits behind the site's own sign-in, so those show saving the job and the fit check.
+ * liveSave: left out of the setup so Rahul saves it from the extension on stage (Act 2 of DEMO-WALKTHROUGH.md).
  * NEVER press Submit on these pages: they are real employers.
  */
 export const REAL_JOBS = [
@@ -39,7 +41,7 @@ export const REAL_JOBS = [
     priority: "MEDIUM", dueInDays: 5,
   },
   {
-    ats: "workday", fills: false,
+    ats: "workday", fills: false, liveSave: true,
     title: "Senior Backend Engineer - Cloud Platform", company: "Adobe", location: "San Jose, CA", workMode: "HYBRID",
     jobUrl: "https://adobe.wd5.myworkdayjobs.com/external_experienced/job/San-Jose/Senior-Backend-Engineer---Cloud-Platform_R168509", externalJobId: "R168509",
     note: "Adobe's cloud platform group. Workday asks you to sign in to their careers site before the form; check the fit first.",

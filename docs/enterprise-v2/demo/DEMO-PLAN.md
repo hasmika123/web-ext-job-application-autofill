@@ -277,3 +277,16 @@ Click-by-click: `docs/enterprise-v2/demo/DEMO-WALKTHROUGH.md`.
 the other members and the 150-person bench under Indian names. Same logins, roles and data shape; without the switch the old roster
 (Acme Staffing, Sarah Chen, ...) is seeded, so the stories and tests are unaffected. Needs a fresh database. The branded extension is
 `job-autofill/.output/chrome-mv3-dev-aaruna-technologies`. The story order is in DEMO-WALKTHROUGH.md.
+
+## 11. Real postings and the real resume (2026-10-19)
+
+- Anika's resume is a full two-page resume (`web/scripts/demo-resumes.mjs`); the setup saves it with its PDF and puts the PDF on the Desktop.
+- Six live postings on five hiring systems (`web/scripts/demo-real-jobs.mjs`); the setup saves five for Anika, Rahul saves Adobe (Workday) live.
+- Rehearsed: Autopilot on Figma (Greenhouse), Ramp (Ashby), Rover (Lever) plus a practice page, 12/12 (`demo-ext-check.mjs` with
+  `PICK_MATCH="Figma|Ramp|Rover"` and `PRO_URL=<Adobe link>`); Rahul's extension reads the Adobe Workday page. Submit only ever on `jobs.localhost`.
+- Fixed on the way: the demo link seeder gave real postings a stand-in link on restart (now it leaves a job's own link alone); a prepare
+  batch reviewed Ashby before its form had drawn (now waits for the fields, extension 0.69.2).
+- Demo accounts have a 10 AI calls a day cap; the demo start script sets `DEMO_AI_CALLS_PER_DAY=500` (fake AI, no cost) and runs Gradle
+  with `--no-daemon`, because a reused Gradle daemon kept its old environment.
+- Limit: Greenhouse, Lever and SmartRecruiters pages do not give the extension the full job text, so the best-resume line shows on
+  Workday and Ashby only. A product fix (read the description from those pages) is a follow-up, not a demo change.

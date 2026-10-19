@@ -15,15 +15,31 @@ her email keeps the board current, then the marketer and the admin see the resul
 |---|---|
 | The app | `http://aaruna.localhost:3200/login` → **Demo accounts** tab on the left edge |
 | Anika's Gmail (presenter's window) | `http://mail.localhost:3399` |
-| A job posting for Rahul to save | `http://jobs.localhost:3399/greenhouse/brightwave-systems/101?t=Cloud%20Platform%20Engineer&c=Brightwave%20Systems` |
+| The job Rahul saves live (Adobe, on Workday) | `https://adobe.wd5.myworkdayjobs.com/external_experienced/job/San-Jose/Senior-Backend-Engineer---Cloud-Platform_R168509` |
+
+## Real job postings in the demo
+Real, live employers on five different hiring systems. The setup saves five of them for Anika; Rahul saves Adobe live in Act 2.
+
+| Employer · job | Hiring system | What it shows |
+|---|---|---|
+| Figma · Data Platform Engineer | Greenhouse | Autopilot fill: 8 fields + an AI-written answer |
+| Ramp · Software Engineer, Data Platform | Ashby | Autopilot fill: 4 fields; best resume + Check fit |
+| Rover · Staff Engineer, Commerce Platform | Lever | Autopilot fill: 5 fields |
+| Adobe · Senior Backend Engineer - Cloud Platform | Workday | Rahul's live save; best resume + Check fit (the form itself needs a Workday sign-in) |
+| Robinhood · Staff Software Engineer, Backend Platform | Greenhouse | Spare: fills 6 fields |
+| ServiceNow · Senior Staff Platform Engineer | SmartRecruiters | On the list for variety (the form needs their sign-in) |
+
+**Never press Submit on these pages: they are real employers.** The practice posting for the Submit moment is **Orbit Freight**
+(a local page that looks like Greenhouse). Postings close: run the setup the morning of the demo, it flags any link that stopped answering.
 
 ## One-time setup in your Chrome (10 minutes)
 1. Two Chrome profiles: **Anika** and **Rahul**.
 2. In each: `chrome://extensions` → **Developer mode** → **Load unpacked** → `job-autofill/.output/chrome-mv3-dev-aaruna-technologies` → pin it.
+   Loaded it before 2026-10-19? Press **Reload** on its card (version 0.69.2 waits for Ashby's form).
 3. In each: sign in as that person → account menu (top right) → **Connect extension** → **Connect** → "Extension connected".
 4. Anika only: extension gear → Settings → turn on **Use Kiwiply AI** and the **I consent** switch.
-5. Anika only (recommended): in the extension drawer press **Upload** and pick `Anika-Rao-Resume.pdf` (Desktop). From then on the
-   resume field of every form fills itself.
+5. Anika only (recommended): in the extension drawer press **Upload** and pick `Anika-Rao-Resume.pdf` (Desktop: her full two-page
+   resume). From then on the resume field of every form fills itself.
 
 ## Act 1. Priya sets the company up (5 min)
 1. **Dashboard**: consultants, placements, applications at a glance.
@@ -34,24 +50,28 @@ her email keeps the board current, then the marketer and the admin see the resul
 
 ## Act 2. Rahul finds work for Anika (5 min)
 1. **Job Discovery**: open a job → **Assign** → Anika Rao.
-2. In his Chrome: open the job posting address above → click the Aaruna icon → **Save for consultant** → note
-   ("Strong fit for your cloud work") → tick **Anika Rao** → **Save** → "Sent to Anika Rao".
-3. **Opportunities**: both jobs on his board, waiting for Anika's answer.
+2. In his Chrome: open the **Adobe** posting (Workday, address above) → click the Aaruna icon → **Save for consultant**. The title is
+   read from the page; shorten the employer from "ADUS-Adobe Inc." to **Adobe** → note ("Strong fit for your cloud platform work")
+   → tick **Anika Rao** → **Save** → "Sent to Anika Rao".
+3. **Opportunities**: the jobs on his board (Figma, Ramp, Rover, Adobe, …), waiting for Anika's answer.
 
 ## Act 3. Anika applies with Pro and Autopilot (8 min)
 1. **Assigned Opportunities**: Rahul's jobs with his notes. **Express Interest** on one; **Need More Info** on another (a question to Rahul).
-2. **Pro, before applying**: open the job link of one job → click the Aaruna icon → **Best match for this job · 88%** (which of her
-   resumes fits) → **Check fit** (match %, what's missing, what's covered).
-3. **Autopilot**: back on Assigned Opportunities → tick 2-3 jobs → **Prepare selected** → confirm ("nothing is submitted for you").
-4. Each job opens in its own tab with the review panel: name, contact, links, work authorization, and an **AI-written answer** to
-   "Why would you like to work at …?". **Fill selected**.
-5. She reads the form and presses the employer's own **Submit Application**. Back on Kiwiply the progress panel says **Submitted**.
+2. **Pro, before applying**: open the **Adobe** job link (Workday) → click the Aaruna icon → **Best match for this job · 88%** (which
+   of her two resumes fits) → **Check fit** (match %, what's missing, what's covered). Ramp works the same way.
+3. **Autopilot**: back on Assigned Opportunities → tick **Figma**, **Ramp**, **Rover** and **Orbit Freight** → **Prepare selected** →
+   confirm ("nothing is submitted for you").
+4. Each job opens in its own tab with the review panel: three real hiring systems (Greenhouse, Ashby, Lever) plus the practice page.
+   Name, contact, links, work authorization, and on Figma an **AI-written answer** to its open question.
+   **Fill selected** on each. Figma leaves 3 dropdowns (Country, City, Authorization) for her to pick: say so, it's honest.
+5. On **Orbit Freight** only (practice page) she presses **Submit Application**; back on Kiwiply the progress panel says **Submitted**.
+   Close the Figma, Ramp and Rover tabs without submitting.
 
 ## Act 4. Anika's email keeps the board current (5 min)
 1. **Inbox** → `anika.rao.jobs@gmail.com`, app password: any 16 letters → **Check and connect**. A few seconds later Northwind Labs
    reads **Offer** "from your inbox", and two jobs she never tracked are offered under *Found in your mail*.
 2. Switch to the Gmail window → **Demo: send email** (bottom right, or press **N**) → *Orbit Freight invites Anika to a phone screen*.
-3. Back on Inbox → **Check now** → Orbit Freight moves to **Interview** with the day and time.
+3. Back on Inbox → **Check now** → Orbit Freight (the job she just applied to) moves to **Interview** with the day and time.
 4. A minute later: send *Cedar Analytics turns the application down* → **Check now** → it waits under **Needs your review** →
    **Accept** → Rejected → **Undo** (nothing risky happens on its own).
 
@@ -65,9 +85,10 @@ Anika: **Interview Prep**, **Offers** (compare, negotiate), **My Resumes** (buil
 
 ## Don'ts
 - Don't click the 8 admin menu items marked **Soon** (Billing, HR, …).
-- Don't press **Submit** on any real employer's site.
+- Don't press **Submit** on any real employer's site (Figma, Ramp, Rover, Robinhood, Adobe, ServiceNow). Submit only on Orbit Freight.
 - **Check now** works once a minute.
 
 ## Before the demo: clean data
 Stop the API → fresh database → start it → `node web/scripts/demo-setup.mjs` must say `0 failed` (DEMO-PLAN.md section 7).
-Then reconnect the extension in both Chrome profiles.
+A "LINK DID NOT ANSWER" line means that posting closed: swap it in `web/scripts/demo-real-jobs.mjs`. Then reconnect the extension
+in both Chrome profiles.
