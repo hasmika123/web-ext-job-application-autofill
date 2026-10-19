@@ -66,23 +66,20 @@ const flush = () => act(async () => void (await new Promise((res) => setTimeout(
 async function mount() {
   render(
     <ToastProvider>
-      <TasksPage orgId={2} firstName="Anika Rao" />
+      <TasksPage orgId={2} />
     </ToastProvider>,
   );
   await flush();
 }
-const tileOf = (k: string) => document.querySelector(`[data-stat-tile="${k}"]`) as HTMLElement;
 const rowOf = (id: number) => document.querySelector(`tr[data-task="${id}"]`) as HTMLElement;
 const gets = () => calls.filter((c) => c.method === "GET").map((c) => new URLSearchParams(c.url.split("?")[1] ?? ""));
 
 describe("Tasks and Follow-ups from real data", () => {
-  it("draws the tiles, tabs, rows, bottom cards and rail from the API's answer", async () => {
+  it("draws the tabs and rows from the API's answer, with no tiles, bottom cards, rail, Quick Actions or help card", async () => {
     await mount();
     expect(document.querySelector("[data-consultant-tasks]")!.getAttribute("data-status")).toBe("ready");
     expect(calls[0].url).toMatch(/^\/api\/orgs\/2\/me-workspace\/tasks\?/);
-    expect(within(tileOf("total")).getByText("12")).toBeTruthy();
-    expect(within(tileOf("total")).getByText(/20%/)).toBeTruthy();
-    expect(within(tileOf("upcoming")).queryByText(/vs last week/)).toBeNull(); // no delta from the API, none drawn
+    expect(document.querySelector("[data-stat-tile]")).toBeNull();
     expect(screen.getByRole("tab", { name: "All Tasks (12)" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Completed (8)" })).toBeTruthy();
     expect(within(rowOf(1)).getByText("Resume & Profile")).toBeTruthy();
@@ -94,24 +91,9 @@ describe("Tasks and Follow-ups from real data", () => {
     expect(rowOf(3).querySelector('[data-due="none"]')).toBeTruthy();
     expect(screen.getAllByText("Sample").length).toBeGreaterThan(0);
     expect(screen.getByText("Showing 1-3 of 20")).toBeTruthy();
-    // bottom cards
-    expect(within(document.querySelector('[data-home-card="tasks-focus"]') as HTMLElement).getByLabelText("Reopen Send the form")).toBeTruthy();
-    expect(within(document.querySelector('[data-home-card="tasks-deadlines"]') as HTMLElement).getByText("OCT")).toBeTruthy();
-    expect(document.querySelector('[data-home-card="tasks-insights"]')!.textContent).toContain("67");
-    expect(document.querySelector("[data-insight-note]")!.textContent).toContain("14% more tasks");
-    // rail
-    expect(document.querySelector('[data-quick="resume"]')!.getAttribute("href")).toBe("/w/consultant/resumes");
-    expect(document.querySelector('[data-quick="matches"]')!.getAttribute("href")).toBe("/w/consultant/matches");
-    expect(document.querySelector('[data-quick="prep"]')!.getAttribute("href")).toBe("/w/consultant/interview-prep");
-    expect(document.querySelector('[data-quick="availability"]')!.getAttribute("href")).toBe("/w/consultant/availability");
-    expect(document.querySelector('[data-reminder="INTERVIEW"]')!.getAttribute("href")).toBe("/w/consultant/interviews");
-  });
-
-  it("claims no progress when the API gave no note", async () => {
-    const v = view();
-    current = { ...v, insights: { ...v.insights, note: null } };
-    await mount();
+    for (const id of ["tasks-focus", "tasks-deadlines", "tasks-insights", "tasks-quick", "tasks-reminders", "help"]) expect(document.querySelector(`[data-home-card="${id}"]`)).toBeNull();
     expect(document.querySelector("[data-insight-note]")).toBeNull();
+    expect(screen.queryByText(/Quick Actions|Ask a question|Task Insights|more tasks than/)).toBeNull();
   });
 
   it("says so when there are no tasks", async () => {
@@ -119,10 +101,6 @@ describe("Tasks and Follow-ups from real data", () => {
     current = { ...v, tasks: { items: [], page: 0, size: 8, total: 0, totalPages: 0, counts: { all: 0, today: 0, week: 0, overdue: 0, completed: 0 } }, focus: [], deadlines: [], reminders: [], insights: { ...v.insights, total: 0, note: null } };
     await mount();
     expect(screen.getByText(/You have no tasks yet/)).toBeTruthy();
-    expect(screen.getByText(/Nothing is due today/)).toBeTruthy();
-    expect(screen.getByText(/No upcoming deadlines/)).toBeTruthy();
-    expect(screen.getByText(/Add a task to see your progress/)).toBeTruthy();
-    expect(screen.getByText(/No reminders right now/)).toBeTruthy();
   });
 
   it("tabs, filters, sort and the pager are asked of the API", async () => {
