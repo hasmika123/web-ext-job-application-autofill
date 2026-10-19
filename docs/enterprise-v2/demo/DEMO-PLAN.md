@@ -305,3 +305,11 @@ The Aaruna-branded extension and the Aaruna site (tenant host) name only Aaruna.
   also checks the signed-out pages).
 - **Left as is:** the cartoon bee on the sign-in backdrop is Kiwiply's mascot art, and "Get the extension" links to the public store
   listing. Both are open questions for the user.
+
+## 13. Demo resumes read fully by the extension (2026-10-19)
+
+The drawer's Upload uses the extension's local parser (no AI unless switched on; the demo API's AI is a fake anyway), and that parser missed
+most of the first layout. The demo resumes now use a layout it reads fully: plain headings, one header line per job, text bullets that never
+wrap, one "Group: a, b, c" line per skill group, the school above the degree. `node web/scripts/demo-resume-parse-check.mjs anika` (10/10)
+and `ben` (9/9); `PDF=<file>` checks a saved PDF. `REFRESH_RESUMES=1 node web/scripts/demo-setup.mjs` re-creates them and the Desktop PDF.
+The parser itself is fixed separately (its own session and PR).
