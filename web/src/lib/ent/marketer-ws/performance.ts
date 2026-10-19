@@ -4,24 +4,20 @@
  * empty state, never a made-up row. E1: the page is read-only except the marketer's own monthly targets (numbers recorded, nothing submitted).
  */
 
-export type KpiKey = "assignedConsultants" | "activeSubmissions" | "interviewRate" | "offerRate" | "placements" | "followupCompletion";
-export const KPI_KEYS: KpiKey[] = ["assignedConsultants", "activeSubmissions", "interviewRate", "offerRate", "placements", "followupCompletion"];
+export type KpiKey = "activeSubmissions" | "interviewRate" | "offerRate" | "placements";
+export const KPI_KEYS: KpiKey[] = ["activeSubmissions", "interviewRate", "offerRate", "placements"];
 export const KPI_TITLES: Record<KpiKey, string> = {
-  assignedConsultants: "Assigned Consultants",
-  activeSubmissions: "Active Submissions",
-  interviewRate: "Interview Rate",
-  offerRate: "Offer Rate",
-  placements: "Placements This Month",
-  followupCompletion: "Follow-up Completion",
+  activeSubmissions: "Active submissions",
+  interviewRate: "Interview rate",
+  offerRate: "Offer rate",
+  placements: "Placements this month",
 };
 /** The exact formula behind each tile (shown by its info icon). */
 export const KPI_INFO: Record<KpiKey, string> = {
-  assignedConsultants: "Active consultants assigned to you as marketer or backup. Change vs the same count 30 days ago.",
   activeSubmissions: "Submissions of your consultants that are not closed yet (stage is not Hired or Not Selected). Change vs 30 days ago.",
   interviewRate: "Interviews divided by submissions over the last 30 days. A submission counts as an interview once it reached the Interviewing stage. Change vs the 30 days before.",
   offerRate: "Offers divided by submissions over the last 30 days. A submission counts as an offer once it reached the Offer stage. Change vs the 30 days before.",
   placements: "Placements that started in the last 30 days. Change vs the 30 days before.",
-  followupCompletion: "Of the follow-ups that fell due in the last 30 days, the share that is completed. Change vs the 30 days before.",
 };
 
 export interface Kpi { key: KpiKey; value: number | null; deltaPct: number | null; sparkline: number[] }
@@ -64,8 +60,8 @@ export interface PerformanceView {
 /** What the page asks for: one period per card that has a select. */
 export interface PerformanceQuery { weeks: string; trend: string; funnel: string; streams: string; benchmarks: string; goals: string }
 export const DEFAULT_QUERY: PerformanceQuery = { weeks: "8w", trend: "3m", funnel: "3m", streams: "3m", benchmarks: "month", goals: "month" };
-export const WEEK_PERIODS = [{ value: "4w", label: "Last 4 Weeks" }, { value: "8w", label: "Last 8 Weeks" }, { value: "12w", label: "Last 12 Weeks" }];
-export const MONTH_PERIODS = [{ value: "1m", label: "Last Month" }, { value: "3m", label: "Last 3 Months" }, { value: "6m", label: "Last 6 Months" }];
+export const WEEK_PERIODS = [{ value: "4w", label: "Last 4 weeks" }, { value: "8w", label: "Last 8 weeks" }, { value: "12w", label: "Last 12 weeks" }];
+export const MONTH_PERIODS = [{ value: "1m", label: "Last month" }, { value: "3m", label: "Last 3 months" }, { value: "6m", label: "Last 6 months" }];
 export const THIS_MONTH_PERIODS = [{ value: "month", label: "This Month" }, { value: "lastMonth", label: "Last Month" }];
 
 export function queryString(q: PerformanceQuery): string {
@@ -207,8 +203,8 @@ export function monthLabels(points: TrendPoint[]): string[] {
   });
 }
 
-export const percentText = (v: number | null): string => (v === null ? "-" : `${Math.round(v * 10) / 10}%`);
-export const rateText = (v: number | null): string => (v === null ? "-" : `${Math.round(v)}%`);
+export const percentText = (v: number | null): string => (v === null ? "—" : `${Math.round(v * 10) / 10}%`);
+export const rateText = (v: number | null): string => (v === null ? "—" : `${Math.round(v)}%`);
 
 /** Match Rate chip colour: green from 80%, amber below. */
 export const matchTone = (pct: number | null): "green" | "amber" | "none" => (pct === null ? "none" : pct >= 80 ? "green" : "amber");

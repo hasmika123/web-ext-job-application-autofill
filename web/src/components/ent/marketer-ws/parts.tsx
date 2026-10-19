@@ -85,10 +85,12 @@ export function CardSkeleton({ rows = 3 }: { rows?: number }) {
  * (`value === null`) is "Nothing yet", never a made-up zero; a missing delta draws no chip.
  */
 export function KpiTile({
-  id, title, icon: Icon, tint, value, deltaPct, versus = "vs last month", sparkline, sparkIndex = 1, loading, layout = "stacked", lowerIsBetter,
+  id, title, icon: Icon, tint, value, deltaPct, versus = "vs last month", sparkline, sparkIndex = 1, loading, layout = "stacked", lowerIsBetter, plainDelta,
 }: {
   id: string; title: string; icon: ComponentType<IconProps>; tint: TintName; value: number | string | null; deltaPct?: number | null; versus?: string;
   sparkline?: number[]; sparkIndex?: number; loading?: boolean;
+  /** Write the delta as text, "+9% vs last month", with no arrow glyph and no "Up" (the sign carries the direction for a screen reader too). */
+  plainDelta?: boolean;
   /** `stacked`: icon, title, number (Home, Talent, Resumes...). `inline`: icon left of title+number (Follow-ups, Applications). */
   layout?: "stacked" | "inline"; lowerIsBetter?: boolean;
 }) {
@@ -115,7 +117,12 @@ export function KpiTile({
         ) : null}
       </div>
       <p className="mt-2.5 flex min-h-5 flex-wrap items-center gap-x-1.5 text-[12.5px] text-muted">
-        {delta ? (
+        {delta && plainDelta ? (
+          <span data-delta className={cn("font-semibold", delta.dir === "flat" ? "text-muted" : (delta.dir === "up") !== Boolean(lowerIsBetter) ? "text-v2-green-ink" : "text-v2-pink-ink")}>
+            {delta.dir === "up" ? "+" : delta.dir === "down" ? "-" : ""}
+            {delta.text} <span className="font-normal text-muted">{versus}</span>
+          </span>
+        ) : delta ? (
           <>
             <DeltaChip delta={delta} lowerIsBetter={lowerIsBetter} />
             <span>{versus}</span>

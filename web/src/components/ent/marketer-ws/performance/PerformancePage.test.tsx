@@ -3,6 +3,15 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }), usePathname: () => "/w/marketing/performance" }));
+// the shell draws the header from what the page declares; here it is drawn in place so the subtitle can be asserted
+vi.mock("@/components/ent/shell/ShellContext", () => ({
+  default: ({ title, subtitle }: { title: string; subtitle?: string }) => (
+    <header>
+      <h1>{title}</h1>
+      <p>{subtitle}</p>
+    </header>
+  ),
+}));
 
 import PerformancePage from "./PerformancePage";
 
@@ -85,42 +94,46 @@ afterEach(() => {
 });
 
 describe("PerformancePage", () => {
-  it("draws the six KPI tiles with value, delta and the board's titles (rates as percent)", async () => {
+  it("draws the plan's subtitle and four tiles with value and a plain-text delta (no arrow glyph, no 'Up')", async () => {
     mount();
     await ready();
+    expect(screen.getByText("How your pipeline is converting.")).toBeTruthy();
     for (const [key, title, value, delta] of [
-      ["assignedConsultants", "Assigned Consultants", "28", "12%"],
-      ["activeSubmissions", "Active Submissions", "142", "18%"],
-      ["interviewRate", "Interview Rate", "32%", "5%"],
-      ["offerRate", "Offer Rate", "18%", "6%"],
-      ["placements", "Placements This Month", "8", "33%"],
-      ["followupCompletion", "Follow-up Completion", "86%", "11%"],
+      ["activeSubmissions", "Active submissions", "142", "+18%"],
+      ["interviewRate", "Interview rate", "32%", "+5%"],
+      ["offerRate", "Offer rate", "18%", "+6%"],
+      ["placements", "Placements this month", "8", "+33%"],
     ]) {
       await waitFor(() => expect(tile(key)).toBeTruthy());
       expect(within(tile(key)).getByText(title)).toBeTruthy();
       expect(within(tile(key)).getByText(value)).toBeTruthy();
-      expect(within(tile(key)).getByText(delta)).toBeTruthy();
-      expect(within(tile(key)).getByText("vs last month")).toBeTruthy();
+      const d = tile(key).querySelector("[data-delta]") as HTMLElement;
+      expect(d.textContent).toBe(`${delta} vs last month`);
+      expect(tile(key).querySelector("[data-delta-chip]")).toBeNull();
+      expect(tile(key).textContent).not.toMatch(/\bUp\b|[↑↓▲▼]/);
     }
-    expect(document.querySelectorAll("[data-stat-tile]").length).toBe(6);
+    expect(document.querySelectorAll("[data-stat-tile]").length).toBe(4);
+    expect(tile("assignedConsultants")).toBeNull();
+    expect(tile("followupCompletion")).toBeNull();
   });
 
-  it("the Follow-up Completion tile has an info icon whose tooltip says the exact formula", async () => {
+  it("writes a fall as a minus sign", async () => {
+    vi.stubGlobal("fetch", reply(200, fixture({ kpis: [kpi("activeSubmissions", 10, -7), kpi("interviewRate", 32, 0), kpi("offerRate", 18, null), kpi("placements", 8, 33)] })));
     mount();
     await ready();
-    const info = within(tile("followupCompletion").parentElement as HTMLElement).getByRole("button", { name: /About Follow-up Completion/ });
-    expect(info.getAttribute("aria-label")).toContain("share that is completed");
-    expect(info.getAttribute("aria-label")).toContain("last 30 days");
+    expect((tile("activeSubmissions").querySelector("[data-delta]") as HTMLElement).textContent).toBe("-7% vs last month");
+    expect((tile("interviewRate").querySelector("[data-delta]") as HTMLElement).textContent).toBe("0% vs last month");
+    expect(tile("offerRate").querySelector("[data-delta]")).toBeNull();
   });
 
   it("draws Submissions by Week: info, the period select, the legend, three bars per week and two-line week labels", async () => {
     mount();
     await ready();
     const c = card("weekly");
-    expect(within(c).getByText("Submissions by Week")).toBeTruthy();
-    expect(within(c).getByRole("button", { name: /About Submissions by Week/ })).toBeTruthy();
+    expect(within(c).getByRole("heading", { name: "Submissions by week" })).toBeTruthy();
+    expect(within(c).getByRole("button", { name: /About Submissions by week/ })).toBeTruthy();
     expect(within(c).getByRole("button", { name: "Weeks period" })).toBeTruthy();
-    for (const s of ["Total Submissions", "Interviews", "Offers"]) expect(within(c).getAllByText(s).length).toBeGreaterThan(0);
+    for (const s of ["Total submissions", "Interviews", "Offers"]) expect(within(c).getAllByText(s).length).toBeGreaterThan(0);
     expect(c.querySelectorAll("[data-bar]").length).toBe(24);
     const first = c.querySelector('[data-week-label="0"]') as HTMLElement;
     expect(first.children[0].textContent).toBe("Aug 26");
@@ -131,19 +144,19 @@ describe("PerformancePage", () => {
     mount();
     await ready();
     const c = card("trend");
-    expect(within(c).getByText("Interviews vs Offers")).toBeTruthy();
+    expect(within(c).getByRole("heading", { name: "Interviews vs offers" })).toBeTruthy();
     expect(c.querySelector('[data-end-bubble="submissions"]')?.textContent).toBe("142");
     expect(c.querySelector('[data-end-bubble="interviews"]')?.textContent).toBe("46");
     expect(c.querySelector('[data-end-bubble="offers"]')?.textContent).toBe("26");
     for (const m of ["Aug", "Sep", "Oct"]) expect(within(c).getAllByText(m).length).toBeGreaterThan(0);
-    expect(within(c).getByText("Last 3 Months")).toBeTruthy();
+    expect(within(c).getByText("Last 3 months")).toBeTruthy();
   });
 
-  it("draws the Placement Funnel 142/46/26/12 with the legend percents", async () => {
+  it("draws the Placement funnel 142/46/26/12 with the legend percents", async () => {
     mount();
     await ready();
     const c = card("funnel");
-    expect(within(c).getByText("Placement Funnel")).toBeTruthy();
+    expect(within(c).getByText("Placement funnel")).toBeTruthy();
     expect(c.querySelectorAll("[data-funnel-stage]").length).toBe(4);
     const text = c.textContent ?? "";
     for (const n of ["142", "46", "26", "12"]) expect(text).toContain(n);
@@ -152,40 +165,26 @@ describe("PerformancePage", () => {
     expect((c.querySelector('[data-funnel-row="submissions"]') as HTMLElement).textContent).toContain("100%");
   });
 
-  it("draws Consultant Readiness: 28 Consultants in the centre and the four buckets with count and percent", async () => {
-    mount();
-    await ready();
-    const c = card("readiness");
-    expect(within(c).getByText("Consultant Readiness")).toBeTruthy();
-    expect(within(c).getByText("28")).toBeTruthy();
-    expect(within(c).getByText("Consultants")).toBeTruthy();
-    const row = c.querySelector('[data-readiness-row="ready"]') as HTMLElement;
-    expect(row.textContent).toContain("Ready to Submit");
-    expect(row.textContent).toContain("15");
-    expect(row.textContent).toContain("(54%)");
-    expect((c.querySelector('[data-readiness-row="inactive"]') as HTMLElement).textContent).toContain("(7%)");
-    expect(c.querySelectorAll("[data-readiness-row]").length).toBe(4);
-  });
-
-  it("draws Job Stream Effectiveness: the columns, a row per client and green / red Offer Rate chips", async () => {
+  it("draws By client (was Job stream effectiveness): the columns, a row per client and green / red Offer rate chips", async () => {
     mount();
     await ready();
     const c = card("streams");
-    expect(within(c).getByText("Job Stream Effectiveness")).toBeTruthy();
-    for (const col of ["Job Stream", "Submissions", "Interviews", "Offers", "Placements", "Offer Rate"]) expect(within(c).getAllByText(col).length).toBeGreaterThan(0);
+    expect(within(c).getByText("By client")).toBeTruthy();
+    expect(within(c).queryByText("Job Stream Effectiveness")).toBeNull();
+    for (const col of ["Client", "Submissions", "Interviews", "Offers", "Placements", "Offer rate"]) expect(within(c).getAllByText(col).length).toBeGreaterThan(0);
     const tech = c.querySelector('[data-stream-row="TechCorp"]') as HTMLElement;
     expect(tech.textContent).toContain("48");
     expect(within(tech).getByText("21%").className).toContain("v2-green");
     expect(within(c.querySelector('[data-stream-row="HealthPlus"]') as HTMLElement).getByText("14%").className).toContain("v2-pink");
     expect(within(c.querySelector('[data-stream-row="CloudScale"]') as HTMLElement).getByText("15%").getAttribute("data-offer-rate")).toBe("low");
-    expect(within(c).getByText("Last 3 Months")).toBeTruthy();
+    expect(within(c).getByText("Last 3 months")).toBeTruthy();
   });
 
-  it("draws Top Performing Consultants: rank, name, numbers, Match Rate chip, last activity, trend, kebab and View all", async () => {
+  it("draws Top performing consultants: rank, name, numbers, Match rate chip, last activity, trend, kebab and View all", async () => {
     mount();
     await ready();
     const c = card("top");
-    for (const col of ["#", "Consultant", "Submissions", "Interviews", "Offers", "Placements", "Match Rate", "Last Activity", "Trend"]) expect(within(c).getAllByText(col).length).toBeGreaterThan(0);
+    for (const col of ["#", "Consultant", "Submissions", "Interviews", "Offers", "Placements", "Match rate", "Last activity", "Trend"]) expect(within(c).getAllByText(col).length).toBeGreaterThan(0);
     const first = c.querySelector('[data-top-row="1"]') as HTMLElement;
     expect(within(first).getByText("Alex Morgan")).toBeTruthy();
     expect(first.textContent).toContain("28");
@@ -199,46 +198,19 @@ describe("PerformancePage", () => {
     expect(within(c).getByRole("link", { name: "View all" }).getAttribute("href")).toBe("/w/marketing/talent");
   });
 
-  it("draws the right column: the bee card, Performance Benchmarks, Goals Progress and Recommended Actions", async () => {
+  it("has no right column and no Consultant readiness: bee card, Performance benchmarks, Goals progress and Recommended actions are gone (D5)", async () => {
     mount();
     await ready();
-    const bee = card("help");
-    expect(within(bee).getByText("Turn consultant potential into real opportunities")).toBeTruthy();
-    expect(within(bee).getByText(/Keep tracking submissions, engage your consultants/)).toBeTruthy();
-    expect(within(bee).getByRole("button", { name: "Ask a question" })).toBeTruthy();
-
-    const bench = card("benchmarks");
-    expect(within(bench).getByText("Performance Benchmarks")).toBeTruthy();
-    const ir = bench.querySelector('[data-benchmark-row="interviewRate"]') as HTMLElement;
-    expect(ir.textContent).toContain("Interview Rate");
-    expect(ir.textContent).toContain("32%");
-    expect(ir.textContent).toContain("5%");
-    expect(ir.textContent).toContain("Industry");
-    expect(ir.textContent).toContain("25%");
-    expect((bench.querySelector('[data-benchmark-row="placementRate"]') as HTMLElement).textContent).toContain("5%");
-    expect(within(bench).getByText("This Month")).toBeTruthy();
-
-    const goals = card("goals");
-    expect(within(goals).getByText("Goals Progress")).toBeTruthy();
-    const sub = goals.querySelector('[data-goal-row="submissions"]') as HTMLElement;
-    expect(sub.textContent).toContain("142 / 200");
-    expect(sub.textContent).toContain("71%");
-    expect((goals.querySelector('[data-goal-row="placements"]') as HTMLElement).textContent).toContain("8 / 15");
-    expect(within(sub).getByRole("progressbar").getAttribute("aria-valuenow")).toBe("71");
-
-    const actions = card("actions");
-    expect(within(actions).getByText("Recommended Actions")).toBeTruthy();
-    expect(actions.querySelectorAll("[data-action-row]").length).toBe(4);
-    expect(within(actions).getByRole("link", { name: /Follow up with 12 consultants/ }).getAttribute("href")).toBe("/w/marketing/followups");
-    expect(within(actions).getByRole("link", { name: /Focus on 8 high-potential candidates/ }).getAttribute("href")).toBe("/w/marketing/interviews");
-    expect(within(actions).getByRole("link", { name: /Explore 15 new job matches/ }).getAttribute("href")).toBe("/w/marketing/matches");
-    expect(within(actions).getByRole("link", { name: /Improve offer rate for TechCorp opportunities/ }).getAttribute("href")).toBe("/w/marketing/submissions");
+    for (const c of ["help", "benchmarks", "goals", "actions", "readiness"]) expect(document.querySelector(`[data-perf-card="${c}"]`), c).toBeNull();
+    for (const t of ["Performance Benchmarks", "Goals Progress", "Recommended Actions", "Consultant Readiness", "Industry"]) expect(screen.queryByText(t)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Ask a question/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Set your monthly targets" })).toBeNull();
   });
 
   it("every card with a formula carries an info icon", async () => {
     mount();
     await ready();
-    for (const what of ["Submissions by Week", "Interviews vs Offers", "Placement Funnel", "Consultant Readiness", "Job Stream Effectiveness", "Top Performing Consultants"]) {
+    for (const what of ["Submissions by week", "Interviews vs offers", "Placement funnel", "By client", "Top performing consultants"]) {
       expect(screen.getByRole("button", { name: new RegExp(`About ${what}`) }).getAttribute("aria-label")?.length).toBeGreaterThan(40);
     }
   });
@@ -249,7 +221,7 @@ describe("PerformancePage", () => {
     mount();
     await ready();
     fireEvent.click(within(card("weekly")).getByRole("button", { name: "Weeks period" }));
-    fireEvent.click(await screen.findByRole("option", { name: "Last 12 Weeks" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Last 12 weeks" }));
     await waitFor(() => expect(f.mock.calls.some((c) => String(c[0]).includes("weeks=12w"))).toBe(true));
     expect(String(f.mock.calls[0][0])).toBe("/api/orgs/2/mkt/performance");
   });
@@ -257,11 +229,8 @@ describe("PerformancePage", () => {
   it("with no numbers yet every card shows its empty state, never a made-up number", async () => {
     vi.stubGlobal("fetch", reply(200, empty()));
     mount();
-    await waitFor(() => expect(screen.getAllByText("Numbers appear after your first week.").length).toBeGreaterThanOrEqual(5));
+    await waitFor(() => expect(screen.getAllByText("Numbers appear after your first week.").length).toBeGreaterThanOrEqual(4));
     expect(within(tile("interviewRate")).getByText("Nothing yet")).toBeTruthy();
-    expect(within(card("readiness")).getByText("No consultants are assigned to you yet.")).toBeTruthy();
-    expect(within(card("actions")).getByText("You're all caught up.")).toBeTruthy();
-    expect(within(card("goals")).getByText("No targets yet.")).toBeTruthy();
   });
 
   it("shows a retry when the board fails to load, and loads on retry", async () => {
@@ -280,40 +249,7 @@ describe("PerformancePage", () => {
     expect(await screen.findByText("This page isn't part of your role")).toBeTruthy();
   });
 
-  it("the targets dialog saves only the numbers the marketer typed, through the BFF, and reloads", async () => {
-    const f = vi.fn(async (url: string, init?: RequestInit) => {
-      if (init?.method === "PUT") return new Response(JSON.stringify(fixture().goals), { status: 200 });
-      return new Response(JSON.stringify(fixture()), { status: 200 });
-    });
-    vi.stubGlobal("fetch", f);
-    mount();
-    await ready();
-    fireEvent.click(screen.getByRole("button", { name: "Set your monthly targets" }));
-    const input = await screen.findByLabelText("Submissions target");
-    expect((input as HTMLInputElement).value).toBe("200");
-    fireEvent.change(input, { target: { value: "250" } });
-    fireEvent.change(screen.getByLabelText("Interviews target"), { target: { value: "" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save targets" }));
-    await waitFor(() => expect(f.mock.calls.some((c) => c[1]?.method === "PUT")).toBe(true));
-    const put = f.mock.calls.find((c) => c[1]?.method === "PUT")!;
-    expect(put[0]).toBe("/api/orgs/2/mkt/performance/goals");
-    expect(JSON.parse(String(put[1]?.body))).toEqual({ submissions: 250, offers: 40, placements: 15 });
-    await waitFor(() => expect(f.mock.calls.filter((c) => !c[1]?.method).length).toBeGreaterThanOrEqual(2)); // the board reloaded
-  });
-
-  it("an invalid target is refused in the dialog and nothing is sent", async () => {
-    const f = reply(200, fixture());
-    vi.stubGlobal("fetch", f);
-    mount();
-    await ready();
-    fireEvent.click(screen.getByRole("button", { name: "Set your monthly targets" }));
-    fireEvent.change(await screen.findByLabelText("Offers target"), { target: { value: "-3" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save targets" }));
-    expect(await screen.findByRole("alert")).toBeTruthy();
-    expect(f.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === "PUT")).toBe(false);
-  });
-
-  it("nothing on the page can submit for a consultant: the only write is the PUT of the marketer's own targets", async () => {
+  it("nothing on the page can submit for a consultant: the page only reads", async () => {
     const f = reply(200, fixture());
     vi.stubGlobal("fetch", f);
     mount();
