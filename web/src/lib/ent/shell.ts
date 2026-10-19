@@ -15,7 +15,7 @@ const ADMIN_GROUP_LABELS: Record<string, string> = { people: "People", talent: "
  * Administration pages whose route is still the "on the way" placeholder, whether or not the API lists them for this member. Take a key out of this
  * set in the same change that builds its page (the sidebar test fails if one is both built and listed here).
  */
-export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set(["subscription", "licenses", "billing", "usage", "hr", "finance", "domains", "integrations"]);
+export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set(["billing"]);
 
 /**
  * The whole Administration menu in order, with its groups. The API sends only the items a member may open with their modules on; the others
@@ -25,31 +25,21 @@ export const ADMIN_NOT_BUILT: ReadonlySet<string> = new Set(["subscription", "li
 const ADMIN_FULL: { key: string; label: string; icon: string; href: string; group?: string }[] = [
   { key: "home", label: "Dashboard", icon: "Home", href: "/w/admin" },
   { key: "employees", label: "Employees", icon: "Users", href: "/w/admin/employees", group: "people" },
-  { key: "invitations", label: "Invitations", icon: "Mail", href: "/w/admin/invitations", group: "people" },
-  { key: "teams", label: "Teams", icon: "Network", href: "/w/admin/teams", group: "people" },
-  { key: "departments", label: "Departments", icon: "Building", href: "/w/admin/departments", group: "people" },
-  { key: "roles", label: "Roles & Permissions", icon: "Key", href: "/w/admin/roles", group: "people" },
+  { key: "teams", label: "Teams & Departments", icon: "Network", href: "/w/admin/teams", group: "people" },
+  { key: "roles", label: "Roles", icon: "Key", href: "/w/admin/roles", group: "people" },
   { key: "consultants", label: "Consultants", icon: "Briefcase", href: "/w/admin/consultants", group: "talent" },
+  { key: "assignments", label: "Assignments", icon: "Handshake", href: "/w/admin/marketing-assignments", group: "talent" },
   { key: "resumes", label: "Resumes", icon: "FileText", href: "/w/admin/resumes", group: "talent" },
-  { key: "assignments", label: "Marketing Assignments", icon: "Handshake", href: "/w/admin/marketing-assignments", group: "talent" },
   { key: "jobs", label: "Jobs", icon: "Target", href: "/w/admin/jobs", group: "pipeline" },
   { key: "applications", label: "Applications", icon: "Board", href: "/w/admin/applications", group: "pipeline" },
   { key: "interviews", label: "Interviews", icon: "CalendarCheck", href: "/w/admin/interviews", group: "pipeline" },
   { key: "clients", label: "Clients", icon: "Building", href: "/w/admin/clients", group: "pipeline" },
   { key: "placements", label: "Placements", icon: "Trophy", href: "/w/admin/placements", group: "pipeline" },
-  { key: "subscription", label: "Subscription Overview", icon: "Layers", href: "/w/admin/subscription", group: "organization" },
-  { key: "licenses", label: "Consultant Licenses", icon: "ShieldCheck", href: "/w/admin/licenses", group: "organization" },
-  { key: "billing", label: "Billing", icon: "CreditCard", href: "/w/admin/billing", group: "organization" },
-  { key: "usage", label: "Feature Usage", icon: "BarChart", href: "/w/admin/usage", group: "organization" },
-  { key: "hr", label: "HR", icon: "Heart", href: "/w/admin/hr", group: "organization" },
-  { key: "finance", label: "Finance", icon: "Dollar", href: "/w/admin/finance", group: "organization" },
   { key: "reports", label: "Reports", icon: "Chart", href: "/w/admin/reports", group: "organization" },
-  { key: "branding", label: "Organization Branding", icon: "Sparkles", href: "/w/admin/branding", group: "organization" },
-  { key: "domains", label: "Domains", icon: "Globe", href: "/w/admin/domains", group: "organization" },
-  { key: "integrations", label: "Integrations", icon: "Webhook", href: "/w/admin/integrations", group: "organization" },
-  { key: "audit", label: "Audit Logs", icon: "Shield", href: "/w/admin/audit", group: "organization" },
+  { key: "audit", label: "Audit Log", icon: "Shield", href: "/w/admin/audit", group: "organization" },
+  { key: "branding", label: "Branding", icon: "Sparkles", href: "/w/admin/branding", group: "organization" },
   { key: "settings", label: "Settings", icon: "Gear", href: "/w/admin/settings", group: "organization" },
-  { key: "policies", label: "Policies", icon: "FileText", href: "/w/admin/policies", group: "organization" },
+  { key: "billing", label: "Plan & Billing", icon: "CreditCard", href: "/w/admin/billing", group: "organization" },
 ];
 
 export interface ShellNavItem extends NavItem {

@@ -57,6 +57,18 @@ export function marketingPage(slug: string[], props: MktPageProps): ReactNode | 
   }
 }
 
+/** Marketing pages merged into another page's tab in the UI refresh (Phase 1, plan s5): old slug -> the tab's address. */
+const MERGED: Record<string, string> = {
+  matches: "/w/marketing/jobs?tab=matches",
+  streams: "/w/marketing/jobs?tab=sources",
+  followups: "/w/marketing/tasks?tab=followups",
+};
+
+/** Where an old Marketing address now lives (`/w/marketing/matches` -> Jobs › Matches), or null. */
+export function marketingRedirect(slug: string[]): string | null {
+  return slug.length === 1 ? (MERGED[slug[0]] ?? null) : null;
+}
+
 /**
  * The Marketing workspace page for `slug`, with the props every one of them takes, from the signed-in member. ONE place builds them: the catch-all route and every
  * explicit `[workspace]/<page>` route that must hand the Marketing workspace its own page (D5 of the 2026-10-16 audit: `[workspace]/jobs/page.tsx` shadowed the
@@ -65,6 +77,12 @@ export function marketingPage(slug: string[], props: MktPageProps): ReactNode | 
 export function marketingPageFor(me: MeTenant, slug: string[]): ReactNode | null {
   if (!me.org.id) return null;
   const nav = me.workspaces.find((w) => w.key === "marketing")?.nav ?? [];
-  const hrefs = Object.fromEntries(nav.map((n) => [n.key, n.href]));
+  const hrefs: Record<string, string> = Object.fromEntries(nav.map((n) => [n.key, n.href]));
+  // the tabs that replaced menu rows (Jobs › Matches / Sources, Tasks › Follow-ups) keep their old keys, so "View all" links still land there
+  if (hrefs.jobs) {
+    hrefs.matches ??= `${hrefs.jobs}?tab=matches`;
+    hrefs.streams ??= `${hrefs.jobs}?tab=sources`;
+  }
+  if (hrefs.tasks) hrefs.followups ??= `${hrefs.tasks}?tab=followups`;
   return marketingPage(slug, { orgId: me.org.id, orgName: me.org.displayName, firstName: firstNameOf(me.person.name), hrefs, selfMemberId: me.member.id });
 }

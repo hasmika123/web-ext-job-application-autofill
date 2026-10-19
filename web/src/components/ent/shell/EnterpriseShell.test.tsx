@@ -78,8 +78,8 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     expect(container.querySelector("[data-shell-scroll]")!.className).toContain("overflow-y-auto");
     expect(container.querySelector("[data-shell-sidebar] [data-tenant-logo=\"image\"] img")?.getAttribute("src")).toContain("/tenant-assets/logo");
     const labels = Array.from(aside.querySelectorAll("[data-nav-item]")).map((a) => a.textContent?.trim());
-    expect(labels.slice(0, 6)).toEqual(["Dashboard", "Employees", "Invitations", "Teams", "Departments", "Roles & Permissions"]);
-    expect(labels).toContain("Organization Branding");
+    expect(labels.slice(0, 4)).toEqual(["Dashboard", "Employees", "Teams & Departments", "Roles"]);
+    expect(labels).toContain("Branding");
   });
 
   it("highlights the active item with aria-current and leaves the others plain", () => {
@@ -87,7 +87,7 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
     const { container } = mount("owner@acme.com");
     const current = container.querySelectorAll("[data-shell-sidebar] [aria-current=\"page\"]");
     expect(current).toHaveLength(1);
-    expect(current[0].textContent).toContain("Roles & Permissions");
+    expect(current[0].textContent).toContain("Roles");
   });
 
   it("landmarks and the skip link: header, nav, main, a skip link to #main-content", () => {
@@ -101,7 +101,7 @@ describe("EnterpriseShell: the frame (16 s2.1)", () => {
   it("shows the page's own title and subtitle in the top bar, the menu label until it mounts", () => {
     nav.pathname = "/w/admin/teams";
     const { container } = mount("owner@acme.com");
-    expect(container.querySelector("[data-page-header] h1")!.textContent).toBe("Teams");
+    expect(container.querySelector("[data-page-header] h1")!.textContent).toBe("Teams & Departments");
     cleanup();
     mount("owner@acme.com", { children: <PageHeader title="Organization Dashboard" subtitle="Welcome back! Here's what's happening at Acme today." /> });
     expect(screen.getAllByText("Organization Dashboard").length).toBeGreaterThan(0);
@@ -272,7 +272,7 @@ describe("phone: top bar, menu sheet, bottom tabs (< md)", () => {
   it("bottom bar = the first four tabs of the workspace + More", () => {
     const { container } = mount("owner@acme.com");
     const tabs = container.querySelector("[data-shell-tabs]")!;
-    expect(Array.from(tabs.querySelectorAll("a")).map((a) => a.textContent)).toEqual(["Dashboard", "Employees", "Consultants", "Billing"]);
+    expect(Array.from(tabs.querySelectorAll("a")).map((a) => a.textContent)).toEqual(["Dashboard", "Employees", "Consultants", "Applications"]);
     expect(tabs.textContent).toContain("More");
   });
 
@@ -280,10 +280,10 @@ describe("phone: top bar, menu sheet, bottom tabs (< md)", () => {
     mount("owner@acme.com");
     fireEvent.click(screen.getByLabelText("Open menu"));
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByText("Organization Branding")).toBeTruthy();
+    expect(within(sheet).getByText("Branding")).toBeTruthy();
     expect(within(sheet).getByText("My profile")).toBeTruthy();
     expect(within(sheet).getByText("Sign out")).toBeTruthy();
-    fireEvent.click(within(sheet).getByText("Billing"));
+    fireEvent.click(within(sheet).getByText("Reports"));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 

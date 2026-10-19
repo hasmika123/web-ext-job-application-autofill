@@ -1,21 +1,9 @@
-import type { Metadata } from "next";
-import JobDiscoveryPage from "@/components/ent/consultant-ws/JobDiscoveryPage";
-import { NotYourRole } from "@/components/ent/shell/ShellStates";
-import { ErrorState } from "@kiwiply/ui";
-import { getTenantSession } from "@/lib/ent/tenant-session";
+import { redirect } from "next/navigation";
 
 /**
- * Consultant Job Discovery at `/w/consultant/job-discovery` (design/enterprise-consultant/job-discovery.webp), inside the
- * EnterpriseShell: the sibling layout draws the frame, this page takes the organization and the member from the tenant session. The API is
- * the gate (404 for anyone who is not a consultant of this organization).
+ * `/w/consultant/job-discovery` (Job Discovery) became the Browse tab of Opportunities in the UI refresh (Phase 1,
+ * docs/enterprise-v2/ui-refresh/PHASE1-STRUCTURE-AND-CONTENT.md s6): the old address keeps working and opens that tab.
  */
-export const metadata: Metadata = { title: "Job Discovery", robots: { index: false, follow: false } };
-
-export default async function ConsultantJobDiscoveryRoute() {
-  const session = await getTenantSession();
-  if (session.kind !== "OK") return null; // the workspace layout already showed the matching panel
-  const { me } = session;
-  if (!me.workspaces.some((w) => w.key === "consultant")) return <NotYourRole />;
-  if (!me.org.id) return <ErrorState what="your organization" description="Please refresh in a moment." />;
-  return <JobDiscoveryPage orgId={me.org.id} firstName={me.person.name} />;
+export default function ConsultantJobDiscoveryRedirect(): never {
+  redirect("/w/consultant/opportunities?tab=browse");
 }

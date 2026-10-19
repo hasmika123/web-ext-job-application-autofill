@@ -16,7 +16,7 @@
         "home",
         "employees",
         "consultants",
-        "billing"
+        "applications"
       ],
       "groups": [
         {
@@ -55,22 +55,12 @@
             "member.view_summary",
             "members.invite"
           ],
-          "group": "people"
-        },
-        {
-          "key": "invitations",
-          "label": "Invitations",
-          "icon": "Mail",
-          "href": "/w/admin/invitations",
-          "needs": [
-            "members.invite"
-          ],
           "badge": "attention",
           "group": "people"
         },
         {
           "key": "teams",
-          "label": "Teams",
+          "label": "Teams & Departments",
           "icon": "Network",
           "href": "/w/admin/teams",
           "needs": [
@@ -79,18 +69,8 @@
           "group": "people"
         },
         {
-          "key": "departments",
-          "label": "Departments",
-          "icon": "Building",
-          "href": "/w/admin/departments",
-          "needs": [
-            "groups.manage"
-          ],
-          "group": "people"
-        },
-        {
           "key": "roles",
-          "label": "Roles & Permissions",
+          "label": "Roles",
           "icon": "Key",
           "href": "/w/admin/roles",
           "needs": [
@@ -111,6 +91,17 @@
           "group": "talent"
         },
         {
+          "key": "assignments",
+          "label": "Assignments",
+          "icon": "Handshake",
+          "href": "/w/admin/marketing-assignments",
+          "needs": [
+            "assignments.manage",
+            "workload.view"
+          ],
+          "group": "talent"
+        },
+        {
           "key": "resumes",
           "label": "Resumes",
           "icon": "FileText",
@@ -119,17 +110,6 @@
             "resumes.view_for"
           ],
           "module": "marketing",
-          "group": "talent"
-        },
-        {
-          "key": "assignments",
-          "label": "Marketing Assignments",
-          "icon": "Handshake",
-          "href": "/w/admin/marketing-assignments",
-          "needs": [
-            "assignments.manage",
-            "workload.view"
-          ],
           "group": "talent"
         },
         {
@@ -186,72 +166,6 @@
           "group": "pipeline"
         },
         {
-          "key": "subscription",
-          "label": "Subscription Overview",
-          "icon": "Layers",
-          "href": "/w/admin/subscription",
-          "needs": [
-            "billing.view"
-          ],
-          "module": "billing",
-          "group": "organization"
-        },
-        {
-          "key": "licenses",
-          "label": "Consultant Licenses",
-          "icon": "ShieldCheck",
-          "href": "/w/admin/licenses",
-          "needs": [
-            "licenses.view"
-          ],
-          "module": "billing",
-          "group": "organization"
-        },
-        {
-          "key": "billing",
-          "label": "Billing",
-          "icon": "CreditCard",
-          "href": "/w/admin/billing",
-          "needs": [
-            "billing.view"
-          ],
-          "module": "billing",
-          "group": "organization"
-        },
-        {
-          "key": "usage",
-          "label": "Feature Usage",
-          "icon": "BarChart",
-          "href": "/w/admin/usage",
-          "needs": [
-            "usage.view"
-          ],
-          "module": "billing",
-          "group": "organization"
-        },
-        {
-          "key": "hr",
-          "label": "HR",
-          "icon": "Heart",
-          "href": "/w/admin/hr",
-          "needs": [
-            "hr.view"
-          ],
-          "module": "hrFinance",
-          "group": "organization"
-        },
-        {
-          "key": "finance",
-          "label": "Finance",
-          "icon": "Dollar",
-          "href": "/w/admin/finance",
-          "needs": [
-            "finance.view"
-          ],
-          "module": "hrFinance",
-          "group": "organization"
-        },
-        {
           "key": "reports",
           "label": "Reports",
           "icon": "Chart",
@@ -262,44 +176,22 @@
           "group": "organization"
         },
         {
-          "key": "branding",
-          "label": "Organization Branding",
-          "icon": "Sparkles",
-          "href": "/w/admin/branding",
-          "needs": [
-            "branding.manage"
-          ],
-          "group": "organization"
-        },
-        {
-          "key": "domains",
-          "label": "Domains",
-          "icon": "Globe",
-          "href": "/w/admin/domains",
-          "needs": [
-            "domains.manage"
-          ],
-          "module": "domains",
-          "group": "organization"
-        },
-        {
-          "key": "integrations",
-          "label": "Integrations",
-          "icon": "Webhook",
-          "href": "/w/admin/integrations",
-          "needs": [
-            "integrations.manage"
-          ],
-          "module": "integrations",
-          "group": "organization"
-        },
-        {
           "key": "audit",
-          "label": "Audit Logs",
+          "label": "Audit Log",
           "icon": "Shield",
           "href": "/w/admin/audit",
           "needs": [
             "audit.view"
+          ],
+          "group": "organization"
+        },
+        {
+          "key": "branding",
+          "label": "Branding",
+          "icon": "Sparkles",
+          "href": "/w/admin/branding",
+          "needs": [
+            "branding.manage"
           ],
           "group": "organization"
         },
@@ -310,16 +202,18 @@
           "href": "/w/admin/settings",
           "needs": [
             "org.settings.manage"
-          ]
+          ],
+          "group": "organization"
         },
         {
-          "key": "policies",
-          "label": "Policies",
-          "icon": "FileText",
-          "href": "/w/admin/policies",
+          "key": "billing",
+          "label": "Plan & Billing",
+          "icon": "CreditCard",
+          "href": "/w/admin/billing",
           "needs": [
-            "org.settings.manage"
+            "billing.view"
           ],
+          "module": "billing",
           "group": "organization"
         }
       ]
@@ -366,7 +260,7 @@
         },
         {
           "key": "talent",
-          "label": "My Assigned Talent",
+          "label": "My Talent",
           "icon": "Users",
           "href": "/w/marketing/talent",
           "needs": [
@@ -388,20 +282,9 @@
         },
         {
           "key": "jobs",
-          "label": "Job Discovery",
+          "label": "Jobs",
           "icon": "Search",
           "href": "/w/marketing/jobs",
-          "needs": [
-            "matches.run"
-          ],
-          "module": "marketing",
-          "group": "pipeline"
-        },
-        {
-          "key": "matches",
-          "label": "Job Matches",
-          "icon": "Target",
-          "href": "/w/marketing/matches",
           "needs": [
             "matches.run"
           ],
@@ -415,17 +298,6 @@
           "href": "/w/marketing/opportunities",
           "needs": [
             "opportunities.manage"
-          ],
-          "module": "marketing",
-          "group": "pipeline"
-        },
-        {
-          "key": "streams",
-          "label": "Job Streams",
-          "icon": "Layers",
-          "href": "/w/marketing/streams",
-          "needs": [
-            "matches.run"
           ],
           "module": "marketing",
           "group": "pipeline"
@@ -463,17 +335,6 @@
           "group": "pipeline"
         },
         {
-          "key": "followups",
-          "label": "Follow-ups",
-          "icon": "Clock",
-          "href": "/w/marketing/followups",
-          "needs": [
-            "followups.manage"
-          ],
-          "module": "marketing",
-          "group": "mywork"
-        },
-        {
           "key": "tasks",
           "label": "Tasks",
           "icon": "ClipboardCheck",
@@ -486,7 +347,7 @@
         },
         {
           "key": "activity",
-          "label": "Activities",
+          "label": "Activity",
           "icon": "Route",
           "href": "/w/marketing/activity",
           "needs": [
@@ -616,7 +477,7 @@
       ],
       "bottomTabs": [
         "home",
-        "matches",
+        "opportunities",
         "applications",
         "interviews"
       ],
@@ -646,7 +507,7 @@
         },
         {
           "key": "profile",
-          "label": "My Career Profile",
+          "label": "My Profile",
           "icon": "User",
           "href": "/w/consultant/profile",
           "needs": [
@@ -665,42 +526,32 @@
           "group": "me"
         },
         {
-          "key": "marketer",
-          "label": "My Marketer",
-          "icon": "Users",
-          "href": "/w/consultant/marketer",
+          "key": "availability",
+          "label": "Availability",
+          "icon": "Clock",
+          "href": "/w/consultant/availability",
           "needs": [
-            "opportunities.respond"
+            "self.share_scope.set"
           ],
-          "group": "keepup"
-        },
-        {
-          "key": "job-discovery",
-          "label": "Job Discovery",
-          "icon": "Search",
-          "href": "/w/consultant/job-discovery",
-          "needs": [
-            "opportunities.respond"
-          ],
-          "group": "work"
-        },
-        {
-          "key": "matches",
-          "label": "Job Matches",
-          "icon": "Target",
-          "href": "/w/consultant/matches",
-          "needs": [
-            "opportunities.respond"
-          ],
-          "group": "work"
+          "group": "me"
         },
         {
           "key": "opportunities",
-          "label": "Assigned Opportunities",
+          "label": "Opportunities",
           "icon": "Briefcase",
           "href": "/w/consultant/opportunities",
           "needs": [
             "opportunities.respond",
+            "submissions.authorize"
+          ],
+          "group": "work"
+        },
+        {
+          "key": "submissions",
+          "label": "Submissions",
+          "icon": "ClipboardCheck",
+          "href": "/w/consultant/submissions",
+          "needs": [
             "submissions.authorize"
           ],
           "group": "work"
@@ -716,32 +567,12 @@
           "group": "work"
         },
         {
-          "key": "submissions",
-          "label": "Submissions & Approvals",
-          "icon": "ClipboardCheck",
-          "href": "/w/consultant/submissions",
-          "needs": [
-            "submissions.authorize"
-          ],
-          "group": "work"
-        },
-        {
           "key": "interviews",
           "label": "Interviews",
           "icon": "CalendarCheck",
           "href": "/w/consultant/interviews",
           "needs": [
             "interviews.manage"
-          ],
-          "group": "work"
-        },
-        {
-          "key": "interview-prep",
-          "label": "Interview Prep",
-          "icon": "Sparkles",
-          "href": "/w/consultant/interview-prep",
-          "needs": [
-            "self.share_scope.set"
           ],
           "group": "work"
         },
@@ -766,18 +597,8 @@
           "group": "work"
         },
         {
-          "key": "availability",
-          "label": "Availability",
-          "icon": "Clock",
-          "href": "/w/consultant/availability",
-          "needs": [
-            "self.share_scope.set"
-          ],
-          "group": "me"
-        },
-        {
           "key": "tasks",
-          "label": "Tasks & Follow-ups",
+          "label": "Tasks",
           "icon": "CheckCircle",
           "href": "/w/consultant/tasks",
           "needs": [
@@ -786,18 +607,16 @@
           "group": "keepup"
         },
         {
-          "key": "activity-timeline",
-          "label": "Activity Timeline",
+          "key": "activity",
+          "label": "Activity",
           "icon": "Route",
-          "href": "/w/consultant/activity-timeline",
-          "needs": [
-            "self.share_scope.set"
-          ],
+          "href": "/w/consultant/activity",
+          "needs": [],
           "group": "keepup"
         },
         {
           "key": "inbox",
-          "label": "Inbox",
+          "label": "Email Tracking",
           "icon": "Mail",
           "href": "/w/consultant/inbox",
           "needs": [
@@ -806,20 +625,13 @@
           "group": "keepup"
         },
         {
-          "key": "features",
-          "label": "My Features",
-          "icon": "Layers",
-          "href": "/w/consultant/features",
+          "key": "marketer",
+          "label": "My Marketer",
+          "icon": "Users",
+          "href": "/w/consultant/marketer",
           "needs": [
-            "features.view"
-          ]
-        },
-        {
-          "key": "notifications",
-          "label": "Notifications",
-          "icon": "Bell",
-          "href": "/w/consultant/notifications",
-          "needs": [],
+            "opportunities.respond"
+          ],
           "group": "keepup"
         },
         {

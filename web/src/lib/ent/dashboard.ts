@@ -300,7 +300,7 @@ export function activityText(a: ActivityItem): { who: string; what: string; targ
 /** Where an activity row leads, by what it touched (never a guess: unknown kinds have no link). */
 export function activityHref(a: ActivityItem): string | null {
   if (a.source === "application") return "/w/admin/applications";
-  if (/^MEMBER_INVITE/.test(a.action)) return "/w/admin/invitations";
+  if (/^MEMBER_INVITE/.test(a.action)) return "/w/admin/employees?tab=invitations";
   if (/^(MEMBER|ASSIGNMENT|ROLE)_/.test(a.action)) return "/w/admin/employees";
   if (/^BRANDING_/.test(a.action)) return "/w/admin/branding";
   return null;
