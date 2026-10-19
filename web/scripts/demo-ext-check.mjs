@@ -79,7 +79,7 @@ async function seedOpenings() {
   for (const [i, [title, company, pay]] of jobs.entries()) {
     const slug = company.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const body = {
-      jobUrl: `http://jobs.localhost:3399/greenhouse/${slug}/${stamp + i}?t=${encodeURIComponent(title)}`,
+      jobUrl: `http://jobs.localhost:3399/greenhouse/${slug}/${stamp + i}?t=${encodeURIComponent(title)}&c=${encodeURIComponent(company)}`,
       title, company, location: "Remote (US)", workMode: "REMOTE", employmentType: "Contract", payLabel: pay, payMin: 85, payMax: 120, payPeriod: "HOUR",
       externalJobId: `demo-${stamp + i}`, atsPlatform: "greenhouse", postedOn: new Date().toISOString().slice(0, 10), skills: ["AWS", "Kubernetes", "Python"],
       keyInfo: `${company} needs a ${title.toLowerCase()} soon. Read the posting and apply with your extension if you like it.`, priority: "HIGH",
@@ -159,6 +159,12 @@ try {
   const auth = await worker.evaluate(async () => (await chrome.storage.local.get("trackingAuth")).trackingAuth ?? null);
   step("connect extension (one-time code)", connected && !!auth?.access, `${page.url().slice(0, 60)} kind=${auth?.kind} org=${auth?.orgName} ${note}`);
 
+  // The two switches Anika turns on once in the extension's settings: "Use Kiwiply AI" and the consent below it.
+  await worker.evaluate(async () => {
+    const cur = (await chrome.storage.local.get("settings")).settings ?? {};
+    await chrome.storage.local.set({ settings: { ...cur, serverAiEnabled: true, serverAiConsent: true } });
+  });
+
   // 3. prepare a batch
   await page.goto(`${WEB}/w/consultant/opportunities`, { waitUntil: "domcontentloaded" });
   await page.locator("[data-consultant-opportunities][data-status=ready]").waitFor({ timeout: 60_000 });
@@ -207,6 +213,7 @@ try {
   step("one tab per opening", opened.length >= n, `${opened.length} tab(s): ${opened.map((p) => p.url().slice(0, 50)).join(" | ")}`);
   let filled = 0;
   let reviewed = 0;
+  let aiDrafts = 0;
   for (const p of opened) {
     try {
       await p.waitForLoadState("domcontentloaded");
@@ -214,6 +221,7 @@ try {
       const fillSelected = p.getByRole("button", { name: "Fill selected" });
       await fillSelected.waitFor({ timeout: 60_000 });
       reviewed++;
+      if (await p.getByText(/AI draft/).count()) aiDrafts++;
       await p.bringToFront();
       await fillSelected.click();
       await p.waitForFunction(() => document.querySelector("#first_name")?.value, null, { timeout: 60_000 });
@@ -226,6 +234,7 @@ try {
   }
   step("review panel opened on each page", reviewed === opened.length && reviewed > 0, `${reviewed}/${opened.length}`);
   step("pages filled after 'Fill selected'", filled === opened.length && filled > 0, `${filled}/${opened.length}`);
+  step("Pro: the review panel offers an AI draft for the open question", aiDrafts === opened.length && aiDrafts > 0, `${aiDrafts}/${opened.length}`);
   const states = async () => page.locator("[data-prepare-item]").evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
   await page.waitForTimeout(4000);
   // PREFILLED = filled; NEEDS_INPUT = filled, with required fields the person must do (here the resume upload of the stand-in page).
@@ -259,11 +268,47 @@ try {
       console.log("      trackingPending tabs:", JSON.stringify(pending));
       console.log("      service worker console:", swLog.slice(-15).join(" || ") || "(nothing)");
       for (const p of opened.slice(0, 1)) {
-        const body = await p.evaluate(() => document.body.innerText.replace(/s+/g, " ").slice(0, 160));
+        const body = await p.evaluate(() => document.body.innerText.replace(/\s+/g, " ").slice(0, 160));
         console.log("      page 1 text now:", body);
       }
     }
   }
+
+  // 5. Pro in the drawer: best resume for this posting, then Check fit (open the drawer as the toolbar icon does, on the active tab)
+  const posting = opened[1] || (await context.newPage());
+  if (!opened[1]) await posting.goto("http://jobs.localhost:3399/greenhouse/northwind-labs/7?t=Data%20Platform%20Engineer&c=Northwind%20Labs");
+  await posting.bringToFront();
+  await posting.evaluate((id) => {
+    if (document.getElementById("__kiwiply_drawer_host")) return;
+    const host = document.createElement("div");
+    host.id = "__kiwiply_drawer_host";
+    host.style.cssText = "position:fixed;top:0;right:0;width:400px;height:100vh;z-index:2147483647;";
+    const frame = document.createElement("iframe");
+    frame.src = `chrome-extension://${id}/panel.html`;
+    frame.title = "Kiwiply";
+    frame.style.cssText = "width:100%;height:100%;border:0;";
+    host.appendChild(frame);
+    document.body.appendChild(host);
+  }, extId);
+  const drawer = posting.frameLocator('iframe[title="Kiwiply"]');
+  let best = "";
+  try {
+    await drawer.getByText(/Best match/).first().waitFor({ timeout: 45_000 });
+    best = (await drawer.getByText(/Best match/).first().innerText()).replace(/\s+/g, " ");
+  } catch {
+    best = "";
+  }
+  step("Pro: the drawer names the best resume for this posting", !!best, best || (await drawer.locator("body").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 200));
+  let fitText = "";
+  try {
+    await drawer.getByRole("button", { name: "Check fit" }).click({ timeout: 20_000 });
+    await drawer.getByText(/missing|keyword|match/i).first().waitFor({ timeout: 30_000 });
+    fitText = (await drawer.locator("body").innerText()).replace(/\s+/g, " ");
+  } catch {
+    fitText = "";
+  }
+  step("Pro: Check fit shows the fit report", /\d+\s*%/.test(fitText), fitText.slice(fitText.indexOf("Best") >= 0 ? fitText.indexOf("Best") : 0).slice(0, 220));
+  await posting.screenshot({ path: process.env.SHOT || "C:/work_bench_claude/shots/drawer-pro.png" }).catch(() => {});
 } catch (e) {
   step("script error", false, String(e.message).slice(0, 300));
 } finally {
