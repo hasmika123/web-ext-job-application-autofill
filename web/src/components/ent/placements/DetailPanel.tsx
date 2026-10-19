@@ -500,7 +500,7 @@ export default function DetailPanel(p: DetailPanelProps) {
           {hasQuick && (
             <section aria-labelledby="quick-h" className="mt-3.5" data-quick-actions>
               <h4 id="quick-h" className="text-[12.5px] font-bold text-[color:var(--ent-title)]">
-                Quick Actions
+                Actions
               </h4>
               <div className="mt-2 grid grid-cols-[1.14fr_1fr] gap-2">
                 {d.actions.extend && (
@@ -514,17 +514,17 @@ export default function DetailPanel(p: DetailPanelProps) {
                     data-quick="extend"
                     className="inline-flex h-[38px] items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-2 text-[11px] font-semibold text-on-accent transition hover:brightness-95 disabled:opacity-50"
                   >
-                    <CalendarIcon size={16} aria-hidden /> Extend Placement
+                    <CalendarIcon size={16} aria-hidden /> Extend placement
                   </button>
                 )}
                 {d.actions.complete && (
                   <button type="button" onClick={() => void complete()} disabled={busy} data-quick="complete" className={`${OUTLINE_BTN} !h-[38px] !gap-1.5 whitespace-nowrap !px-2`}>
-                    <CheckIcon size={16} aria-hidden /> Mark Complete
+                    <CheckIcon size={16} aria-hidden /> Mark complete
                   </button>
                 )}
                 {d.actions.giveNotice && (
                   <button type="button" onClick={() => { setDialogErr(null); setDialog("notice"); }} disabled={busy} data-quick="notice" className={`${OUTLINE_BTN} !h-[38px] !gap-1.5 whitespace-nowrap !px-2`}>
-                    <CalendarIcon size={16} aria-hidden /> Record Notice
+                    <CalendarIcon size={16} aria-hidden /> Record notice
                   </button>
                 )}
                 {d.actions.terminate && (
@@ -534,7 +534,7 @@ export default function DetailPanel(p: DetailPanelProps) {
                 )}
                 {d.actions.redeploy && (
                   <button type="button" onClick={() => void redeploy()} disabled={busy} data-quick="redeploy" className={`${OUTLINE_BTN} !h-[38px] col-span-2`}>
-                    <UsersIcon size={16} aria-hidden /> Start Redeployment
+                    <UsersIcon size={16} aria-hidden /> Start redeployment
                   </button>
                 )}
               </div>

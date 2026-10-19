@@ -58,7 +58,6 @@ import {
 import AddPlacementDialog from "./AddPlacementDialog";
 import DetailPanel from "./DetailPanel";
 import type { ExtensionMode } from "./ExtensionDialog";
-import HelpCard from "./HelpCard";
 import { usePlacementAction } from "./hooks";
 import KpiTiles from "./KpiTiles";
 import { SearchBox } from "./parts";
@@ -68,14 +67,12 @@ const WIDE_QUERY = "(min-width: 1280px)"; // config-literal-ok: the width at whi
 
 export interface PlacementsPageProps {
   orgId: number;
-  orgName: string;
   workspace: string;
   /** `me.permissions` of the tenant session: decides which controls are drawn (the API is the gate). */
   permissions: Record<string, string>;
   /** Menu hrefs of the pages a consultant / client link leads to; null when the member's menu does not list them. */
   consultantsHref: string | null;
   clientsHref: string | null;
-  supportEmail?: string | null;
 }
 
 type ListState = { status: "loading" } | { status: "error"; message: string } | { status: "ok"; items: PlacementRow[]; total: number };
@@ -297,7 +294,7 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
 
   return (
     <div ref={root} data-placements-page>
-      <PageHeader title="Placements" subtitle="Track consultant placements, assignments, and redeployment readiness across your organization." />
+      <PageHeader title="Placements" subtitle="Who is placed where, and what ends soon." />
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_296px]">
         <div className="min-w-0 space-y-4">
           <KpiTiles counts={counts.data} loading={counts.status === "loading"} error={counts.status === "error"} />
@@ -314,7 +311,7 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
               </Tabs>
               {canManage && (
                 <Button type="button" variant="accent" onClick={() => setAdding(true)} data-add-placement className="!h-[33px] flex-none !rounded-lg !px-4 !py-0 !text-[11.5px]">
-                  <PlusIcon size={15} aria-hidden /> Add Placement
+                  <PlusIcon size={15} aria-hidden /> Add placement
                 </Button>
               )}
             </div>
@@ -464,7 +461,7 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
                       </Button>
                     ) : canManage ? (
                       <Button type="button" onClick={() => setAdding(true)}>
-                        <PlusIcon size={16} aria-hidden /> Add Placement
+                        <PlusIcon size={16} aria-hidden /> Add placement
                       </Button>
                     ) : undefined
                   }
@@ -474,10 +471,7 @@ export default function PlacementsPage({ orgId, permissions, consultantsHref, cl
           </section>
         </div>
 
-        <aside className="space-y-3 xl:sticky xl:top-3" aria-label="Help and details">
-          <div className="hidden md:block">
-            <HelpCard />
-          </div>
+        <aside className="space-y-3 xl:sticky xl:top-3" aria-label="Details">
           {mode === "docked" && drawerOpen && (
             <section aria-label="Placement details" className="ent-card max-h-[calc(100dvh-1.5rem)] overflow-y-auto p-3.5" data-docked-drawer>
               {panel(true)}
