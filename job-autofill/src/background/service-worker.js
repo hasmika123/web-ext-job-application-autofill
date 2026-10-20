@@ -573,13 +573,18 @@ async function blobToBase64(blob) {
 
 let batchMirrorCheckedAt = 0;
 // The consultant's OWN mirrored profile + the resume they last used (else their default, else the first).
-async function loadBatchMirror() {
+async function loadBatchMirror(job) {
   const J = self.JAF;
   if (Date.now() - batchMirrorCheckedAt > 60 * 1000) {
     batchMirrorCheckedAt = Date.now();
     await runVersionCheck("batch"); // never throws; a stale mirror is still usable
   }
   const [bio, resumes, settings] = await Promise.all([J.storage.getBio(), J.storage.getResumes(), J.storage.getSettings()]);
+  // A job that names its resume (the one the consultant's marketer tailored for it, approved by this Prepare) gets exactly that resume, never another.
+  if (job && job.resumeId) {
+    const pinned = await loadPinnedResume(J, resumes, job.resumeId);
+    if (pinned) return { bio, ...pinned };
+  }
   let resume = J.sync.chooseResume(resumes, settings.lastResumeId);
   // A resume created on the web has its PDF on the server only: fetch it once so the form gets it too.
   if (resume && !resume.hasFile) {
@@ -604,6 +609,33 @@ async function loadBatchMirror() {
     bio, resume, file,
     resumeRef: resume ? { serverId: resume.serverId != null ? resume.serverId : null, label: resume.label } : null,
   };
+}
+
+// The consultant's resume with this server id, with its PDF: from the mirror (fetching the file once), else straight from the server (their own
+// resume only: GET /api/resumes/{id}/file is owner-only). Null when it cannot be had: the caller then falls back to the usual pick.
+async function loadPinnedResume(J, resumes, resumeId) {
+  let resume = (resumes || []).find((r) => r && r.serverId != null && String(r.serverId) === String(resumeId)) || null;
+  let provider = null;
+  try { provider = await trackingProvider(); } catch (e) { provider = null; }
+  if (resume && !resume.hasFile && provider) {
+    try { resume = await J.sync.ensureResumeFile(provider, J.storage, resume); } catch (e) { /* tried */ }
+  }
+  if (resume && resume.hasFile) {
+    try {
+      const blob = await J.storage.getResumeFile(resume.id);
+      if (blob) {
+        const file = { rawName: resume.fileName || "", type: blob.type || "application/pdf", base64: await blobToBase64(blob) };
+        return { resume, file, resumeRef: { serverId: resume.serverId, label: resume.label } };
+      }
+    } catch (e) { /* try the server */ }
+  }
+  if (!provider || typeof provider.downloadResumeFile !== "function") return null;
+  try {
+    const got = await provider.downloadResumeFile(resumeId);
+    if (!got || !got.blob || !got.blob.size) return null;
+    const file = { rawName: got.fileName || "", type: got.type || got.blob.type || "application/pdf", base64: await blobToBase64(got.blob) };
+    return { resume: resume || null, file, resumeRef: { serverId: Number(resumeId), label: (resume && resume.label) || got.fileName || "" } };
+  } catch (e) { return null; }
 }
 
 let _batch = null;

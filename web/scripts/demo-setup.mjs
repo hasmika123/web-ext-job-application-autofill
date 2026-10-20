@@ -11,6 +11,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { RESUMES, parsedResume, resumeHtml } from "./demo-resumes.mjs";
+import { setupTailorStory } from "./demo-tailor-setup.mjs";
 import { REAL_JOBS } from "./demo-real-jobs.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -177,6 +178,13 @@ for (const who of ["anika", "ben"]) {
     const saved = r.ok || r.status === 409;
     line(saved && live, `real posting (${j.ats}): ${j.company}, ${j.title} ${saved ? "saved for Anika" : `not saved (${r.status})`}${live ? "" : " - LINK DID NOT ANSWER: the posting may have closed"}`);
   }
+}
+
+// 5. The "tailor a resume, then assign" story (DEMO-PLAN section 16): its job on Job Discovery and Anika's tailored resume (demo-tailor-setup.mjs).
+try {
+  await setupTailorStory({ API, acme, token, line });
+} catch (e) {
+  line(false, `tailor story failed (${String(e.message).slice(0, 120)})`);
 }
 
 const anika = await token("demo-ent-acme-anika", acme);

@@ -36,6 +36,7 @@ import PageHeader, { ClaimsHelpCard, ClaimsMascot } from "@/components/ent/shell
 import { BASE, BeeCard, Card, CompanyMark, Empty, Pill, SampleMark, TABLE, TD, useWorkspaceData } from "./parts";
 import JobLinkButton, { QuickInfo } from "./JobLinkButton";
 import { PrepareBar, PrepareCheck, PrepareConfirmDialog, PrepareProgress, PrepareWhy, usePrepareBatch, type PrepareUi } from "./PrepareBatch";
+import TailoredRowNote from "../demo/TailoredRowNote";
 import { APPLY_HELPER } from "@/lib/ent/consultant-ws/jobSource";
 import { deltaText, employmentLabel, firstName, initialsOf, placeLabel, shortDate } from "@/lib/ent/consultant-ws/home";
 import {
@@ -282,6 +283,7 @@ function OpportunitiesTable({ view, sort, setSort, selected, a, notice, prepare 
                   <td className={cn(TD, "max-w-[190px]")}>
                     <span className="block font-semibold text-ink">{r.title}</span>
                     {r.skills.length ? <span className="block truncate text-[12px] text-muted">{r.skills.slice(0, 3).join(" | ")}</span> : null}
+                    <TailoredRowNote title={r.title} company={r.company} />
                     {prepare.active ? <PrepareWhy row={r} p={prepare} /> : null}
                   </td>
                   <td className={TD}>

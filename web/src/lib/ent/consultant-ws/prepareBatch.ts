@@ -47,6 +47,8 @@ export interface PrepareJob {
   url: string;
   title: string;
   company: string | null;
+  /** The resume to attach on this job (the consultant's own resume id); absent = the extension's usual pick. Demo: the tailored resume (DEMO-PLAN 16). */
+  resumeId?: number;
 }
 
 export interface PrepareSkipped {
@@ -197,7 +199,7 @@ export function buildPrepareMessage(sessionId: number, orgId: number, jobs: Prep
     sessionId: String(sessionId),
     apiBase,
     orgId,
-    jobs: jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company })),
+    jobs: jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company, ...(j.resumeId ? { resumeId: j.resumeId } : {}) })),
   };
 }
 

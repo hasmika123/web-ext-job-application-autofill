@@ -85,6 +85,31 @@ export const RESUMES = {
   },
 };
 
+/**
+ * The resume after the marketer's tailoring (DEMO-PLAN section 16): `r` with the preset's changes applied (web/src/lib/ent/demo/tailor-preset.json, the same
+ * text the web's "Tailor resume" sheet shows) and the confirmed skills added. Every preset "before" must match `r` exactly, or this throws, so the sheet and
+ * the PDF can never drift apart.
+ */
+export function tailoredResume(r, preset) {
+  const out = { ...r, jobs: r.jobs.map(([t, c, w, d, b]) => [t, c, w, d, [...b]]) };
+  for (const ch of preset.changes) {
+    if (ch.id === "skills") continue;
+    if (ch.id === "headline") {
+      if (out.title !== ch.before) throw new Error(`tailor preset: headline "${ch.before}" is not the resume's title`);
+      out.title = preset.resume.title;
+    } else if (ch.id === "summary") {
+      if (out.summary !== ch.before) throw new Error("tailor preset: the summary's before text is not the resume's summary");
+      out.summary = ch.after;
+    } else {
+      const job = out.jobs.find((j) => j[4].includes(ch.before));
+      if (!job) throw new Error(`tailor preset: bullet "${ch.before.slice(0, 40)}..." is not on the resume`);
+      job[4][job[4].indexOf(ch.before)] = ch.after;
+    }
+  }
+  out.skills = preset.tailoredSkills;
+  return out;
+}
+
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
 /** The structured copy the server keeps (parsedJson): what job fit and best-resume read. */

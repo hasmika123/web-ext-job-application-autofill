@@ -161,7 +161,9 @@
       if (seenMatch.has(mk) || seenUrl.has(uk)) continue; // dedupe: the first one wins
       seenMatch.add(mk);
       seenUrl.add(uk);
-      jobs.push({ matchId: m, url: c.url, title: text(j.title, 200), company: text(j.company, 200) });
+      // resumeId (optional): the consultant's own resume to attach on THIS job (one their marketer tailored for it); else the usual pick.
+      const resumeId = posInt(j.resumeId);
+      jobs.push({ matchId: m, url: c.url, title: text(j.title, 200), company: text(j.company, 200), ...(resumeId ? { resumeId } : {}) });
     }
     return { ok: true, batch: { sessionId, orgId, apiOrigin, jobs } };
   }
@@ -404,7 +406,7 @@
         const st = {
           v: 1, sessionId: batch.sessionId, orgId: batch.orgId, userId: (who && who.userId) || null,
           createdAt: now(), stopped: false, lastOpenAt: 0, seq: 0, outbox: [],
-          jobs: batch.jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company, state: "QUEUED", tabId: null, attempts: 0, reason: "" })),
+          jobs: batch.jobs.map((j) => ({ matchId: j.matchId, url: j.url, title: j.title, company: j.company, ...(j.resumeId ? { resumeId: j.resumeId } : {}), state: "QUEUED", tabId: null, attempts: 0, reason: "" })),
         };
         await save(st);
         await deps.index.set({ orgId: st.orgId });
@@ -430,7 +432,7 @@
         job.attempts = (job.attempts || 0) + 1;
         job.lastAttemptAt = now();
         await save(st);
-        todo = { job: { matchId: job.matchId, url: job.url }, batch: { sessionId: st.sessionId, orgId: st.orgId } };
+        todo = { job: { matchId: job.matchId, url: job.url, ...(job.resumeId ? { resumeId: job.resumeId } : {}) }, batch: { sessionId: st.sessionId, orgId: st.orgId } };
       });
       if (!todo) return;
       let res;
@@ -673,7 +675,8 @@
   //   inject(tabId)                      make sure the content script runs (throws if the site is not allowed)
   //   scanFrames(tabId) -> [{frameId, adapter, fieldCount}]
   //   sendTo(tabId, msg, frameId) -> response
-  //   loadMirror() -> { bio, resume, file }   the consultant's own mirrored profile (file = {name,type,base64}|null)
+  //   loadMirror(job) -> { bio, resume, file }   the consultant's own mirrored profile (file = {name,type,base64}|null);
+  //                                              job.resumeId, when set, names the consultant's resume to attach on this job
   //   wait(ms)
   // }
   function createPreparer(deps) {
@@ -709,7 +712,7 @@
       const forms = formFrames(frames);
       if (!forms.length) return { outcome: "NEEDS_INPUT", reason: REASON.noForm };
 
-      const m = (await deps.loadMirror()) || {};
+      const m = (await deps.loadMirror(job)) || {}; // job.resumeId: the resume to attach on this job
       const bio = m.bio || null;
       if (!bio || !(bio.firstName || bio.lastName || bio.email)) return { outcome: "NEEDS_INPUT", reason: REASON.profileEmpty };
       const resp = await deps.sendTo(tabId, {

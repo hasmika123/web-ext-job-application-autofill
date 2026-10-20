@@ -346,3 +346,32 @@ The user ran a batch and saw forms left empty and no resume on them. Two causes,
 Measured before the change with `demo-fill-gaps.mjs` (drawer path): Figma 13 offered / 0 required left · Ramp 5 / 0 · Rover 11 + résumé /
 2 (referral, certify box) · TechCorp 9 / 0. So the answers themselves were complete; the batch path was the gap. Rehearsal
 `demo-ext-check.mjs` now waits for the review instead of pressing a button.
+
+## 16. Tailor a resume, then assign (2026-10-19, demo mock)
+
+The marketer tailors a consultant's resume for a job her resume doesn't fit yet, assigns the job, and her Prepare attaches that resume.
+**The tailoring is a preset, not AI:** one job (*ML Platform Engineer · Northbeam Media*, a local stand-in page) and one consultant (Anika), with fixed
+changes and scores in `web/src/lib/ent/demo/tailor-preset.json`. Everything around it is real: the job on Job Discovery, the assignment,
+a real tailored resume with its PDF in Anika's account, the per-job resume in the Prepare batch, the extension attaching that PDF, the Submit.
+
+| Piece | Where | Real or preset |
+|---|---|---|
+| Job + archived tailored resume | `web/scripts/demo-tailor-setup.mjs` (also step 5 of `demo-setup.mjs`); the PDF is built from the preset's text, and the script fails if the preset's "before" text is not on her resume | real data |
+| Rahul: Job Discovery → job sheet card "Anika Rao · 58%" → **Tailor** sheet (AI steps, before/after per change, keep/skip, "Add only if true", score 58 → 87, keywords) → **Save & assign** | `components/ent/demo/TailorJobCard.tsx`, `TailorResumeSheet.tsx`; `JobsParts.tsx`, `JobDiscoveryPage.tsx` | sheet preset; Save = the real Assign call |
+| Anika: row note "Resume tailored by Rahul · 58% → 87% · View changes" (read-only sheet + PDF link) | `components/ent/demo/TailoredRowNote.tsx`; `OpportunitiesPage.tsx` | preset text, real resume |
+| Prepare: the dialog names the tailored resume; confirming **approves** it (restores it to her list) and pins it to that job | `PrepareBatch.tsx`; `app/api/demo/tailored-resume/route.ts` (her own session, demo only) | real |
+| Extension: a job with `resumeId` gets exactly that resume (mirror, else `GET /api/resumes/{id}/file`), never another; other jobs keep the usual pick | `prepare-batch.js` (validate, stored job, `loadMirror(job)`), `service-worker.js` `loadPinnedResume` | real (unit test in `prepare_batch.test.js`) |
+
+Shown only when `GET /api/demo` says the demo is on **and** the job's title + company match the preset, so no real organization sees it.
+The rule "the consultant approves marketer-made resumes" holds: her Prepare click is the approval, said in the dialog.
+
+**Not built (product follow-up):** marketer tailoring for any job (a marketer endpoint over `ResumeTailorService` acting for the consultant),
+a computed before/after score, a resume pinned on the opportunity in the database (`mkt_opportunity.resume_id`), and act-for on shared-account
+organizations (Aaruna's consultants have no organization account, so "New resume for…" is greyed there).
+
+**Rehearsal:** `node web/scripts/demo-tailor-check.mjs` (Rahul tailors and assigns; Anika connects, sees the note, prepares, the stand-in page
+gets the tailored PDF, byte for byte, and the review names it, she submits, the web says Submitted): **12/12 on the 3200 stack with the
+branded extension** (2026-10-19). A rehearsal leaves Anika assigned to the job. To undo only that without a fresh database, run
+`C:\work_bench_claude\tailor-reset.sql` against `dossier_ent_demo`. It removes Anika's Northbeam assignment, its prepare rows and her Northbeam
+application, and it is written for this database's ids. Then run `node web/scripts/demo-tailor-setup.mjs`, which archives the tailored resume again.
+The extension renames every upload `first_last_resume.pdf`, so the review panel's "Résumé file" row also names the resume used.

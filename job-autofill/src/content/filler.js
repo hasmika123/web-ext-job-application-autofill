@@ -393,7 +393,10 @@
     const mark = (s) => s === "ok" ? '<span class="mark ok" aria-label="filled">✓</span>'
       : s === "failed" ? '<span class="mark bad" aria-label="could not fill">✗</span>'
       : '<span class="mark skip" aria-label="left for you">–</span>';
-    const fileLine = !r.file ? "" : r.fileStatus === "ok" ? `<div class="row done">${mark("ok")}<span class="field">Résumé file</span><span class="val" title="${esc(r.file.name)}">${esc(r.file.name)}</span></div>`
+    const fileShown = r.file ? r.file.name + (r.file.label ? " · " + r.file.label : "") : "";
+    // the resume's own name on a line of its own (it wraps): which resume went in, e.g. one tailored for this job
+    const fileLabel = r.file && r.file.label ? `<span style="display:block;white-space:normal;overflow-wrap:anywhere;font-size:11.5px;opacity:.8">${esc(r.file.label)}</span>` : "";
+    const fileLine = !r.file ? "" : r.fileStatus === "ok" ? `<div class="row done">${mark("ok")}<span class="field">Résumé file</span><span class="val" data-resume-file title="${esc(fileShown)}">${esc(r.file.name)}${fileLabel}</span></div>`
       : r.fileStatus === "nofield" ? `<div class="row done">${mark("skipped")}<span class="field">Résumé file</span><span class="val">no upload field on this step</span></div>`
       : `<div class="row done">${mark("failed")}<span class="field">Résumé file</span><span class="val">attach it yourself</span></div>`;
     const sub = root.querySelector("header .sub");

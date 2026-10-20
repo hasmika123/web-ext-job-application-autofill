@@ -35,7 +35,7 @@ Real, live employers on five different hiring systems. The setup saves five of t
 ## One-time setup in your Chrome (10 minutes)
 1. Two Chrome profiles: **Anika** and **Rahul**.
 2. In each: `chrome://extensions` → **Developer mode** → **Load unpacked** → `job-autofill/.output/chrome-mv3-dev-aaruna-technologies` → pin it.
-   Loaded it before? Press **Reload** on its card (it must say version **0.70.0**).
+   Loaded it before? Press **Reload** on its card (it must say version **0.70.1**).
 3. In each: sign in as that person → account menu (top right) → **Connect extension** → **Connect** → "Extension connected".
 4. Anika only: extension gear → Settings → turn on **Use Aaruna AI** and the **I consent** switch.
 5. Anika only: open the drawer once on any page so it pulls her profile; **Choose a resume** should list "Anika Rao - Senior
@@ -55,21 +55,32 @@ Real, live employers on five different hiring systems. The setup saves five of t
 2. In his Chrome: open the **Adobe** posting (Workday, address above) → click the Aaruna icon → **Save for consultant**. The title is
    read from the page; shorten the employer from "ADUS-Adobe Inc." to **Adobe** → note ("Strong fit for your cloud platform work")
    → tick **Anika Rao** → **Save** → "Sent to Anika Rao".
-3. **Opportunities**: the jobs on his board (Figma, Ramp, Rover, Adobe, …), waiting for Anika's answer.
+3. **Tailor, then assign** (the job her resume doesn't fit yet): **Job Discovery** → search **Northbeam** → **View** on *ML Platform Engineer ·
+   Northbeam Media*. The sheet shows **Anika Rao · 58%**, "missing: ML pipelines, Model serving, MLflow, Feature store" → **Tailor Anika's
+   resume for this job**. The AI reads the posting and her resume, then lists its suggestions: headline, summary and three bullets reworded
+   (old text struck through, new text below, and why), skills reordered, and **Add only if true**: MLflow and Feast are ticked ("Anika
+   confirmed on Monday's call"), **Kubeflow** is not ("not on her profile, ask her first"). The score reads **58% → 87%** and the job's
+   keywords turn green as changes are kept. Show the honesty beat: tick Kubeflow (90%), then untick it: nothing goes on her resume she
+   hasn't done. → **Save as new resume & assign to Anika**. Her original resume is untouched; the new one is hers to approve.
+4. **Opportunities**: the jobs on his board (Figma, Ramp, Rover, Adobe, Northbeam, …), waiting for Anika's answer.
 
 ## Act 3. Anika applies with Pro and Autopilot (8 min)
 1. **Assigned Opportunities**: Rahul's jobs with his notes. **Express Interest** on one; **Need More Info** on another (a question to Rahul).
 2. **Pro, before applying**: open the **Adobe** job link (Workday) → click the Aaruna icon → **Best match for this job · 88%** (which
    of her two resumes fits) → **Check fit** (match %, what's missing, what's covered). Ramp works the same way.
-3. **Autopilot**: back on Assigned Opportunities → tick **Figma**, **Ramp**, **Rover** and **TechCorp · Cloud Engineer** → **Prepare selected** →
-   confirm ("nothing is submitted for you").
+3. **Autopilot**: back on Assigned Opportunities. The **Northbeam** row reads "Resume tailored by Rahul · 58% → 87% · **View changes**":
+   open it to show what Rahul changed (read-only, with a link to the PDF). Tick **Figma**, **Ramp**, **Rover** and **Northbeam · ML Platform
+   Engineer** → **Prepare selected**. The dialog says Northbeam uses the resume Rahul tailored for it and that **preparing approves it**; the
+   other jobs keep her usual resume → **Prepare**.
 4. Each job opens in its own tab **already filled**, with the review panel beside the page: three real hiring systems (Greenhouse,
    Ashby, Lever) plus the practice page. The panel reads "Filled N of M fields · résumé attached", lists every answer (name, contact,
    links, work authorization, salary; on Figma an **AI-written answer** to its open question) and, under **Still needs you**, the
    fields only she can do. Figma and Ramp are complete; Rover asks who referred her and leaves the certify box: say plainly that the
    extension never ticks an attestation for her: she does. Press **Done** to close the panel; the small card bottom-left keeps the list.
-5. On **TechCorp** only (practice page) she presses **Submit Application**; back on the Aaruna site the progress panel says **Submitted**.
-   Close the Figma, Ramp and Rover tabs without submitting.
+5. On **Northbeam** (a practice page, so Submit is safe): the review panel's **Résumé file** row reads "anika_rao_resume.pdf" and, under it,
+   **Anika Rao - ML Platform Engineer (Northbeam Media)**: the tailored resume. Every upload is renamed first_last_resume.pdf for the employer.
+   She presses **Submit Application**; back on the Aaruna site the progress panel says **Submitted**, and **My Resumes** now lists the
+   tailored resume. Close the Figma, Ramp and Rover tabs without submitting. (TechCorp · Cloud Engineer still works as the practice page.)
 
 ## Act 4. Anika's email keeps the board current (5 min)
 1. **Inbox** → `anika.rao.jobs@gmail.com`, app password: any 16 letters → **Check and connect**. A few seconds later Northwind Labs
@@ -94,5 +105,7 @@ Anika: **Interview Prep**, **Offers** (compare, negotiate), **My Resumes** (buil
 
 ## Before the demo: clean data
 Stop the API → fresh database → start it → `node web/scripts/demo-setup.mjs` must say `0 failed` (DEMO-PLAN.md section 7).
+The tailor story alone (its job and Anika's tailored resume, archived until she prepares): `node web/scripts/demo-tailor-setup.mjs`. A rehearsal
+leaves Anika assigned to Northbeam; only a fresh database removes that.
 A "LINK DID NOT ANSWER" line means that posting closed: swap it in `web/scripts/demo-real-jobs.mjs`. Then reconnect the extension
 in both Chrome profiles.

@@ -558,6 +558,17 @@ const SESSION = { access: "a", refresh: "r", kind: "ENTERPRISE", orgId: 7, orgNa
     ok("prepare: it never asks for anything but a check and a fill", r.sent.every((s) => s.m.type === "JAF_BATCH_CHECK" || s.m.type === "JAF_BATCH_FILL"));
   }
   {
+    // A job that names its resume (the one the marketer tailored for it): the id survives validation and reaches the mirror loader for that tab only.
+    const v = PB.validate(msg({ jobs: [job(1, { resumeId: 12 }), job(2, { resumeId: "x" }), job(3)] }));
+    eq("resumeId: a positive id is kept on its job", v.batch.jobs.map((j) => j.resumeId), [12, undefined, undefined]);
+    const r = prepRig();
+    const seen = [];
+    r.d.loadMirror = async (j) => { seen.push(j && j.resumeId); return { bio: { firstName: "Cora" }, resume: null, file: null, resumeRef: null }; };
+    await r.prep.prepare(1, { matchId: 1, resumeId: 12 }, BATCH);
+    await r.prep.prepare(2, { matchId: 2 }, BATCH);
+    eq("resumeId: the mirror loader is asked for that job's resume, and for the usual pick otherwise", seen, [12, undefined]);
+  }
+  {
     eq("prepare: sign-in wall -> NEEDS_INPUT, no fill sent", (await (async () => { const r = prepRig({ kind: "signin" }); const x = await r.prep.prepare(1, { matchId: 1 }, BATCH); return [x, r.sent.some((s) => s.m.type === "JAF_BATCH_FILL")]; })()), [{ outcome: "NEEDS_INPUT", reason: PB.REASON.signin }, false]);
     eq("prepare: CAPTCHA page -> NEEDS_INPUT, no fill sent", (await (async () => { const r = prepRig({ kind: "captcha" }); const x = await r.prep.prepare(1, { matchId: 1 }, BATCH); return [x, r.sent.some((s) => s.m.type === "JAF_BATCH_FILL")]; })()), [{ outcome: "NEEDS_INPUT", reason: PB.REASON.captcha }, false]);
     eq("prepare: unsupported site (cannot inject) -> NEEDS_INPUT", await prepRig({ injectFails: true }).prep.prepare(1, { matchId: 1 }, BATCH), { outcome: "NEEDS_INPUT", reason: PB.REASON.unsupported });

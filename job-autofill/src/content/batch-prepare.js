@@ -193,6 +193,8 @@
     const values = S.buildFillValues(msg.bio, msg.resume || S.emptyResume(), { includeEEO: true });
     // The service worker sends the stored file name; the upload name ("first_last_resume.pdf") is built here.
     const f = msg.file && msg.file.base64 ? { name: S.uploadResumeName(msg.bio, msg.file.rawName), type: msg.file.type, base64: msg.file.base64 } : null;
+    // label: which of the consultant's resumes this file is (the review names it: a job may carry a resume tailored for it)
+    if (f && msg.options && msg.options.resume && msg.options.resume.label) f.label = String(msg.options.resume.label).slice(0, 120);
     showBanner({ kind: "form" });
     // Whatever the sender asked for, a batch tab never presses Next/Continue on its own.
     const r = await JAF.filler.start(values, f, Object.assign({}, msg.options || {}, { autoAdvance: false }));
